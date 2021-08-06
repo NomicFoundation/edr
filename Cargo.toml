@@ -1,0 +1,25 @@
+# Copyright 2021 The Rethnet Authors.
+# Licensed under the Apache License, Version 2.0.
+
+[package]
+name = "rethnet"
+version = "0.1.0"
+edition = "2018"
+license = "Apache-2.0"
+authors = ["Karim Agha <karim.dev@gmail.com>"]
+
+[lib]
+name = "rethnet"
+path = "src/lib.rs"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+napi = "1.7.5"
+napi-derive = "1.1.0"
+evmodin = { git = "https://github.com/nomiclabs/evmodin.git" }
+
+[dev-dependencies]
+hex-literal = "0.3.3"
+
+[build-dependencies]
+napi-build = "1.1.0"
