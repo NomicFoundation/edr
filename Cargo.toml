@@ -14,12 +14,18 @@ path = "src/lib.rs"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-napi = "1.7.5"
-napi-derive = "1.1.0"
-evmodin = { git = "https://github.com/nomiclabs/evmodin.git" }
+napi = { version = "1.7.5", optional = true }
+napi-derive = { version = "1.1.0", optional = true }
+evmodin = { git = "https://github.com/nomiclabs/evmodin.git?branch=master" }
 
 [dev-dependencies]
 hex-literal = "0.3.3"
 
 [build-dependencies]
 napi-build = "1.1.0"
+
+[features]
+nodejs = ["napi", "napi-derive"]
+
+# TODO: consider disabling nodejs by default unless requested.
+default = ["nodejs"]
