@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 tab_spaces = 2
-edition = "2018"
+edition = "2021"
 fn_single_line = false
 format_code_in_doc_comments = true
 format_strings = true
