@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright 2021 contributors to the Rethnet project.
+
+[package]
+name = "rethnet-nodejs"
+version = "0.1.0"
+edition = "2018"
+license = "MIT"
+authors = ["Karim Agha <karim.dev@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rethnet = { path = "../" }
+napi = { version = "1.7.5" }
+napi-derive = { version = "1.1.0" }
+
+[build-dependencies]
+napi-build = "1.1.0"
+
+[dev-dependencies]
+hex-literal = "0.3.3"

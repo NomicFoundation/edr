@@ -1,4 +1,4 @@
-// Copyright 2021 The Rethnet Authors.
-// Licensed under the Apache License, Version 2.0.
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: Copyright 2021 contributors to the Rethnet project.
 
 pub use evmodin::Revision as Hardfork;

@@ -2,21 +2,21 @@
 # SPDX-FileCopyrightText: Copyright 2021 contributors to the Rethnet project.
 
 [package]
-name = "rethnet"
+name = "rethnet-jsonrpc"
 version = "0.1.0"
 edition = "2018"
 license = "MIT"
 authors = ["Karim Agha <karim.dev@gmail.com>"]
 
 [dependencies]
-evmodin = { git = "https://github.com/nomiclabs/evmodin.git?branch=master" }
+rethnet = { path = "../" }
 
 [dev-dependencies]
 hex-literal = "0.3.3"
 
 [lib]
-crate-type = ["cdylib", "staticlib", "rlib"]
+path = "src/lib.rs"
 
-[workspace]
-members = ["jsonrpc", "nodejs"]
-default-members = ["jsonrpc", "nodejs"]
+[[bin]]
+name = "jsonrpc-host"
+path = "src/main.rs"

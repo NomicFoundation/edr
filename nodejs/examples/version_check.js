@@ -1,5 +1,5 @@
-// Copyright 2021 The Rethnet Authors.
-// Licensed under the Apache License, Version 2.0.
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: Copyright 2021 contributors to the Rethnet project.
 
 //! Loads the rethnet node module and returns the version string.
 //! Before running this example, you mut first build the node module by running
