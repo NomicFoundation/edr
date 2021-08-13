@@ -225,3 +225,6 @@ $RECYCLE.BIN/
 
 # node build artificats
 *.node
+
+# wasm compile output
+pkg/

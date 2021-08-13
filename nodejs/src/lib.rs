@@ -15,8 +15,8 @@ fn init(mut exports: JsObject, env: Env) -> Result<()> {
   )?;
 
   // export SDK classes to NodeJS
-  exports.set_named_property("VirtualMachine", 
-    vm::define_virtual_machine_class(&env)?)?;
+  // exports.set_named_property("VirtualMachine", 
+  //   vm::define_virtual_machine_class(&env)?)?;
 
   Ok(())
 }

@@ -9,14 +9,17 @@ license = "MIT"
 authors = ["Karim Agha <karim.dev@gmail.com>"]
 
 [dependencies]
+bytes = "1.0.1"
+ethereum-types = { version = "0.12" }
 evmodin = { git = "https://github.com/nomiclabs/evmodin.git?branch=master" }
 
 [dev-dependencies]
+anyhow = "1.0.42"
 hex-literal = "0.3.3"
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [workspace]
-members = ["jsonrpc", "nodejs"]
-default-members = ["jsonrpc", "nodejs"]
+members = [".", "jsonrpc", "nodejs"]
+default-members = ["."]

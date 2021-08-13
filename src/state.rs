@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: Copyright 2021 contributors to the Rethnet project.
 
-mod vm;
+use crate::fork::Hardfork;
 
-pub use vm::{VMError, VirtualMachine};
+struct State;
+struct StateDiff;
