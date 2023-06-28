@@ -1,10 +1,10 @@
 # Rethnet
 
-**Rethnet** is an Ethereum development runtime library - written in Rust - with bindings for the Node API (Typescript).
-Its goal is to provide a performant API for developers tooling, such as an EVM debugger or state inspector.
+**Rethnet** is an Ethereum development runtime library - written in Rust - with bindings for the Node API (TypeScript).
+Its goal is to provide a performant API for developer tooling, such as an EVM debugger or state inspector.
 
-Rethnet finds its origins in Hardhat, but is a complete rewrite of our Hardhat Node Typescript code to Rust, incorporating all of the lessons we have learned over the years, and much more to come.
-As such, it exists within - an experimental branch of - the [Hardhat monorepo](https://github.com/NomicFoundation/hardhat/tree/rethnet/main/).
+Rethnet finds its origins in Hardhat but will be a complete rewrite of our Hardhat Node TypeScript code to Rust, incorporating all of the lessons we have learned over the years, and much more to come.
+Currently, it exists within an experimental branch of the [Hardhat monorepo](https://github.com/NomicFoundation/hardhat/tree/rethnet/main/), where we have started to incrementally embed Rethnet's runtime components into Hardhat.
 
 > **⚠️ Beware**
 > 
