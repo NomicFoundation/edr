@@ -257,6 +257,10 @@ pub fn handle_send_transaction_request<LoggerErrorT: Debug>(
     let transaction_request = resolve_transaction_request(data, transaction_request)?;
     let signed_transaction = data.sign_transaction_request(transaction_request)?;
 
+    if signed_transaction.is_eip4844() {
+        return Err(ProviderError::Eip4844TransactionUnsupported);
+    }
+
     send_raw_transaction_and_log(data, signed_transaction)
 }
 
@@ -273,10 +277,6 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug>(
             }
             err => ProviderError::InvalidArgument(err.to_string()),
         })?;
-
-    if matches!(signed_transaction, SignedTransaction::Eip4844(_)) {
-        return Err(ProviderError::Eip4844TransactionUnsupported);
-    }
 
     validate_send_raw_transaction_request(data, &signed_transaction)?;
 

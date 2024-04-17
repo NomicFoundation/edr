@@ -12,6 +12,7 @@ use crate::ProviderError;
 
 /// Data used for validating a transaction complies with a [`SpecId`].
 pub struct SpecValidationData<'data> {
+    pub to: Option<&'data Address>,
     pub gas_price: Option<&'data U256>,
     pub max_fee_per_gas: Option<&'data U256>,
     pub max_priority_fee_per_gas: Option<&'data U256>,
@@ -23,6 +24,7 @@ pub struct SpecValidationData<'data> {
 impl<'data> From<&'data EthTransactionRequest> for SpecValidationData<'data> {
     fn from(value: &'data EthTransactionRequest) -> Self {
         Self {
+            to: value.to.as_ref(),
             gas_price: value.gas_price.as_ref(),
             max_fee_per_gas: value.max_fee_per_gas.as_ref(),
             max_priority_fee_per_gas: value.max_priority_fee_per_gas.as_ref(),
@@ -36,6 +38,7 @@ impl<'data> From<&'data EthTransactionRequest> for SpecValidationData<'data> {
 impl<'data> From<&'data CallRequest> for SpecValidationData<'data> {
     fn from(value: &'data CallRequest) -> Self {
         Self {
+            to: value.to.as_ref(),
             gas_price: value.gas_price.as_ref(),
             max_fee_per_gas: value.max_fee_per_gas.as_ref(),
             max_priority_fee_per_gas: value.max_priority_fee_per_gas.as_ref(),
@@ -50,6 +53,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
     fn from(value: &'data SignedTransaction) -> Self {
         match value {
             SignedTransaction::PreEip155Legacy(tx) => Self {
+                to: tx.kind.as_call(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -58,6 +62,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::PostEip155Legacy(tx) => Self {
+                to: tx.kind.as_call(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -66,6 +71,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::Eip2930(tx) => Self {
+                to: tx.kind.as_call(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -74,6 +80,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::Eip1559(tx) => Self {
+                to: tx.kind.as_call(),
                 gas_price: None,
                 max_fee_per_gas: Some(&tx.max_fee_per_gas),
                 max_priority_fee_per_gas: Some(&tx.max_priority_fee_per_gas),
@@ -82,6 +89,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::Eip4844(tx) => Self {
+                to: Some(&tx.to),
                 gas_price: None,
                 max_fee_per_gas: Some(&tx.max_fee_per_gas),
                 max_priority_fee_per_gas: Some(&tx.max_priority_fee_per_gas),
@@ -98,6 +106,7 @@ fn validate_transaction_spec<LoggerErrorT: Debug>(
     data: SpecValidationData<'_>,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     let SpecValidationData {
+        to,
         gas_price,
         max_fee_per_gas,
         max_priority_fee_per_gas,
@@ -164,6 +173,10 @@ fn validate_transaction_spec<LoggerErrorT: Debug>(
         }
     }
 
+    if (blobs.is_some() || blob_hashes.is_some()) && to.is_none() {
+        return Err(ProviderError::Eip4844TransactionMissingReceiver);
+    }
+
     Ok(())
 }
 
@@ -176,7 +189,7 @@ pub fn validate_call_request<LoggerErrorT: Debug>(
 
     validate_transaction_and_call_request(
         spec_id,
-        <&CallRequest as Into<SpecValidationData<'_>>>::into(call_request),
+        call_request
     ).map_err(|err| match err {
         ProviderError::UnsupportedEIP1559Parameters {
             minimum_hardfork, ..
@@ -433,10 +446,11 @@ mod tests {
     }
 
     #[test]
-    fn validate_transaction_spec_eip_4884_invalid_inputs() {
+    fn validate_transaction_spec_eip_4844_invalid_inputs() {
         let eip4844_spec = SpecId::CANCUN;
         let valid_request = EthTransactionRequest {
             from: Address::ZERO,
+            to: Some(Address::ZERO),
             max_fee_per_gas: Some(U256::ZERO),
             max_priority_fee_per_gas: Some(U256::ZERO),
             access_list: Some(Vec::new()),
@@ -470,6 +484,28 @@ mod tests {
         assert!(matches!(
             validate_transaction_spec::<()>(eip4844_spec, (&mixed_request).into()),
             Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let missing_receiver_request = EthTransactionRequest {
+            from: Address::ZERO,
+            blobs: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip4844_spec, (&missing_receiver_request).into()),
+            Err(ProviderError::Eip4844TransactionMissingReceiver)
+        ));
+
+        let missing_receiver_request = EthTransactionRequest {
+            from: Address::ZERO,
+            blob_hashes: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip4844_spec, (&missing_receiver_request).into()),
+            Err(ProviderError::Eip4844TransactionMissingReceiver)
         ));
     }
 }

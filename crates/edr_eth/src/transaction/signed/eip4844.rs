@@ -132,7 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn eip4884_signed_transaction_encoding() {
+    fn eip4844_signed_transaction_encoding() {
         // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L86
         let expected =
             hex::decode("f89b84028757b38085012a05f20085012a05f2008303345094ffb38a7a99e3e2335be83fc74b7faa19d553124383bc614e80c084b2d05e00e1a001b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded2880a08a83833ec07806485a4ded33f24f5cea4b8d4d24dc8f357e6d446bcdae5e58a7a068a2ba422a50cf84c0b5fcbda32ee142196910c97198ffd99035d920c2b557f8")
@@ -144,7 +144,7 @@ mod tests {
     }
 
     #[test]
-    fn eip4884_signed_transaction_hash() {
+    fn eip4844_signed_transaction_hash() {
         // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L86
         let expected =
             B256::from_str("0xe5e02be0667b6d31895d1b5a8b916a6761cbc9865225c6144a3e2c50936d173e")

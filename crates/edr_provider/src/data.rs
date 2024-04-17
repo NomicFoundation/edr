@@ -13,7 +13,10 @@ use std::{
 };
 
 use edr_eth::{
-    block::{calculate_next_base_fee, miner_reward, BlobGas, BlockOptions},
+    block::{
+        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
+        BlobGas, BlockOptions,
+    },
     log::FilterLog,
     receipt::BlockReceipt,
     remote::{
@@ -32,19 +35,19 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
-    calc_blob_gasprice,
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
-    register_eip_3155_tracer_handles,
+    mine_block_with_single_transaction, register_eip_3155_tracer_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
     },
     trace::Trace,
-    Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockEnv, Bytecode, CfgEnv,
-    CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig, DebugTraceResult, ExecutableTransaction,
-    ExecutionResult, HashMap, HashSet, MemPool, OrderedTransaction, RandomHashGenerator,
-    StorageSlot, SyncBlock, TracerEip3155, TxEnv, KECCAK_EMPTY,
+    Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockAndTotalDifficulty, BlockEnv,
+    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig, DebugTraceResult,
+    ExecutableTransaction, ExecutionResult, HashMap, HashSet, MemPool, MineBlockResultAndState,
+    OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock, TracerEip3155, TxEnv,
+    KECCAK_EMPTY,
 };
 use ethers_core::types::transaction::eip712::{Eip712, TypedData};
 use gas::gas_used_ratio;
@@ -906,7 +909,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
                 let block = pending_block.as_ref().expect("We mined the pending block");
                 result
                     .base_fee_per_gas
-                    .push(calculate_next_base_fee(block.header()));
+                    .push(calculate_next_base_fee_per_gas(block.header()));
             }
         }
 
@@ -1068,18 +1071,30 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         id
     }
 
+    /// Mines a block with the provided options, using transactions in the
+    /// mempool, and commits it to the blockchain.
     pub fn mine_and_commit_block(
         &mut self,
+        options: BlockOptions,
+    ) -> Result<DebugMineBlockResult<BlockchainError>, ProviderError<LoggerErrorT>> {
+        self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
+    }
+
+    fn mine_and_commit_block_impl(
+        &mut self,
+        mine_fn: impl FnOnce(
+            &mut ProviderData<LoggerErrorT>,
+            &CfgEnvWithHandlerCfg,
+            BlockOptions,
+            &mut Debugger,
+        )
+            -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>>,
         mut options: BlockOptions,
     ) -> Result<DebugMineBlockResult<BlockchainError>, ProviderError<LoggerErrorT>> {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
         options.timestamp = Some(block_timestamp);
 
-        if options.mix_hash.is_none() && self.blockchain.spec_id() >= SpecId::MERGE {
-            options.mix_hash = Some(self.prev_randao_generator.next_value());
-        }
-
-        let result = self.mine_block(options)?;
+        let result = self.mine_block(mine_fn, options)?;
 
         let block_and_total_difficulty = self
             .blockchain
@@ -1103,46 +1118,12 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         self.parent_beacon_block_root_generator.generate_next();
         self.prev_randao_generator.generate_next();
 
-        let block = &block_and_total_difficulty.block;
-        for (filter_id, filter) in self.filters.iter_mut() {
-            match &mut filter.data {
-                FilterData::Logs { criteria, logs } => {
-                    let bloom = &block.header().logs_bloom;
-                    if bloom_contains_log_filter(bloom, criteria) {
-                        let receipts = block.transaction_receipts()?;
-                        let new_logs = receipts.iter().flat_map(|receipt| receipt.logs());
+        self.notify_subscribers_about_mined_block(&block_and_total_difficulty)?;
 
-                        let mut filtered_logs = filter_logs(new_logs, criteria);
-                        if filter.is_subscription {
-                            (self.subscriber_callback)(SubscriptionEvent {
-                                filter_id: *filter_id,
-                                result: SubscriptionEventData::Logs(filtered_logs.clone()),
-                            });
-                        } else {
-                            logs.append(&mut filtered_logs);
-                        }
-                    }
-                }
-                FilterData::NewHeads(block_hashes) => {
-                    if filter.is_subscription {
-                        (self.subscriber_callback)(SubscriptionEvent {
-                            filter_id: *filter_id,
-                            result: SubscriptionEventData::NewHeads(
-                                block_and_total_difficulty.clone(),
-                            ),
-                        });
-                    } else {
-                        block_hashes.push(*block.hash());
-                    }
-                }
-                FilterData::NewPendingTransactions(_) => (),
-            }
-        }
-
-        // Remove outdated filters
-        self.filters.retain(|_, filter| !filter.has_expired());
-
-        self.add_state_to_cache(result.state, block.header().number);
+        self.add_state_to_cache(
+            result.state,
+            block_and_total_difficulty.block.header().number,
+        );
 
         Ok(DebugMineBlockResult {
             block: block_and_total_difficulty.block,
@@ -1263,7 +1244,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
                 || {
                     let last_block = self.last_block()?;
 
-                    let base_fee = calculate_next_base_fee(last_block.header());
+                    let base_fee = calculate_next_base_fee_per_gas(last_block.header());
 
                     Ok(base_fee)
                 },
@@ -1279,13 +1260,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         }
 
         let last_block = self.last_block()?;
-        let base_fee = last_block
-            .header()
-            .blob_gas
-            .as_ref()
-            .map_or(0, |BlobGas { excess_gas, .. }| {
-                calc_blob_gasprice(*excess_gas)
-            });
+        let base_fee = calculate_next_base_fee_per_blob_gas(last_block.header());
 
         Ok(Some(U256::from(base_fee)))
     }
@@ -1466,6 +1441,35 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         &mut self,
         signed_transaction: ExecutableTransaction,
     ) -> Result<SendTransactionResult, ProviderError<LoggerErrorT>> {
+        if signed_transaction.is_eip4844() {
+            if !self.is_auto_mining || mempool::has_transactions(&self.mem_pool) {
+                return Err(ProviderError::BlobMemPoolUnsupported);
+            }
+
+            let transaction_hash = *signed_transaction.hash();
+
+            // Despite not adding the transaction to the mempool, we still notify
+            // subscribers
+            self.notify_subscribers_about_pending_transaction(&transaction_hash);
+
+            let result = self.mine_and_commit_block_impl(
+                move |provider, config, options, debugger| {
+                    provider.mine_block_with_single_transaction(
+                        config,
+                        options,
+                        signed_transaction,
+                        debugger,
+                    )
+                },
+                BlockOptions::default(),
+            )?;
+
+            return Ok(SendTransactionResult {
+                transaction_hash,
+                mining_results: vec![result],
+            });
+        }
+
         let snapshot_id = if self.is_auto_mining {
             self.validate_auto_mine_transaction(&signed_transaction)?;
 
@@ -1843,18 +1847,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         // Handles validation
         self.mem_pool.add_transaction(&*state, transaction)?;
 
-        for (filter_id, filter) in self.filters.iter_mut() {
-            if let FilterData::NewPendingTransactions(events) = &mut filter.data {
-                if filter.is_subscription {
-                    (self.subscriber_callback)(SubscriptionEvent {
-                        filter_id: *filter_id,
-                        result: SubscriptionEventData::NewPendingTransactions(transaction_hash),
-                    });
-                } else {
-                    events.push(transaction_hash);
-                }
-            }
-        }
+        self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
         Ok(transaction_hash)
     }
@@ -1930,6 +1923,13 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
     /// specified, it will be set using the provider's configuration values.
     fn mine_block(
         &mut self,
+        mine_fn: impl FnOnce(
+            &mut ProviderData<LoggerErrorT>,
+            &CfgEnvWithHandlerCfg,
+            BlockOptions,
+            &mut Debugger,
+        )
+            -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>>,
         mut options: BlockOptions,
     ) -> Result<DebugMineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
@@ -1937,6 +1937,10 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
         let evm_config = self.create_evm_config(None)?;
+
+        if options.mix_hash.is_none() && evm_config.handler_cfg.spec_id >= SpecId::MERGE {
+            options.mix_hash = Some(self.prev_randao_generator.next_value());
+        }
 
         if evm_config.handler_cfg.spec_id >= SpecId::CANCUN {
             options.parent_beacon_block_root = options
@@ -1946,23 +1950,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
 
         let mut debugger = Debugger::with_mocker(Mocker::new(self.call_override.clone()));
 
-        let state_to_be_modified = (*self.current_state()?).clone();
-
-        let result = mine_block(
-            self.blockchain.as_ref(),
-            state_to_be_modified,
-            &self.mem_pool,
-            &evm_config,
-            options,
-            self.min_gas_price,
-            self.initial_config.mining.mem_pool.order,
-            miner_reward(evm_config.handler_cfg.spec_id).unwrap_or(U256::ZERO),
-            self.dao_activation_block,
-            Some(DebugContext {
-                data: &mut debugger,
-                register_handles_fn: register_debugger_handles,
-            }),
-        )?;
+        let result = mine_fn(self, &evm_config, options, &mut debugger)?;
 
         let Debugger {
             console_logger,
@@ -1979,6 +1967,58 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         ))
     }
 
+    fn mine_block_with_mem_pool(
+        &mut self,
+        config: &CfgEnvWithHandlerCfg,
+        options: BlockOptions,
+        debugger: &mut Debugger,
+    ) -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
+        let state_to_be_modified = (*self.current_state()?).clone();
+        let result = mine_block(
+            self.blockchain.as_ref(),
+            state_to_be_modified,
+            &self.mem_pool,
+            config,
+            options,
+            self.min_gas_price,
+            self.initial_config.mining.mem_pool.order,
+            miner_reward(config.handler_cfg.spec_id).unwrap_or(U256::ZERO),
+            self.dao_activation_block,
+            Some(DebugContext {
+                data: debugger,
+                register_handles_fn: register_debugger_handles,
+            }),
+        )?;
+
+        Ok(result)
+    }
+
+    fn mine_block_with_single_transaction(
+        &mut self,
+        config: &CfgEnvWithHandlerCfg,
+        options: BlockOptions,
+        transaction: ExecutableTransaction,
+        debugger: &mut Debugger,
+    ) -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
+        let state_to_be_modified = (*self.current_state()?).clone();
+        let result = mine_block_with_single_transaction(
+            self.blockchain.as_ref(),
+            state_to_be_modified,
+            transaction,
+            config,
+            options,
+            self.min_gas_price,
+            miner_reward(config.handler_cfg.spec_id).unwrap_or(U256::ZERO),
+            self.dao_activation_block,
+            Some(DebugContext {
+                data: debugger,
+                register_handles_fn: register_debugger_handles,
+            }),
+        )?;
+
+        Ok(result)
+    }
+
     /// Mines a pending block, without modifying any values.
     pub fn mine_pending_block(
         &mut self,
@@ -1986,10 +2026,13 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         let (block_timestamp, _new_offset) = self.next_block_timestamp(None)?;
 
         // Mining a pending block shouldn't affect the mix hash.
-        self.mine_block(BlockOptions {
-            timestamp: Some(block_timestamp),
-            ..BlockOptions::default()
-        })
+        self.mine_block(
+            Self::mine_block_with_mem_pool,
+            BlockOptions {
+                timestamp: Some(block_timestamp),
+                ..BlockOptions::default()
+            },
+        )
     }
 
     pub fn mining_config(&self) -> &MiningConfig {
@@ -2051,6 +2094,71 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         self.last_filter_id
     }
 
+    /// Notifies subscribers to `FilterData::NewPendingTransactions` about the
+    /// pending transaction with the provided hash.
+    fn notify_subscribers_about_pending_transaction(&mut self, transaction_hash: &B256) {
+        for (filter_id, filter) in self.filters.iter_mut() {
+            if let FilterData::NewPendingTransactions(events) = &mut filter.data {
+                if filter.is_subscription {
+                    (self.subscriber_callback)(SubscriptionEvent {
+                        filter_id: *filter_id,
+                        result: SubscriptionEventData::NewPendingTransactions(*transaction_hash),
+                    });
+                } else {
+                    events.push(*transaction_hash);
+                }
+            }
+        }
+    }
+
+    /// Notifies subscribers to `FilterData::Logs` and `FilterData::NewHeads`
+    /// about the mined block.
+    fn notify_subscribers_about_mined_block(
+        &mut self,
+        block_and_total_difficulty: &BlockAndTotalDifficulty<BlockchainError>,
+    ) -> Result<(), BlockchainError> {
+        let block = &block_and_total_difficulty.block;
+        for (filter_id, filter) in self.filters.iter_mut() {
+            match &mut filter.data {
+                FilterData::Logs { criteria, logs } => {
+                    let bloom = &block.header().logs_bloom;
+                    if bloom_contains_log_filter(bloom, criteria) {
+                        let receipts = block.transaction_receipts()?;
+                        let new_logs = receipts.iter().flat_map(|receipt| receipt.logs());
+
+                        let mut filtered_logs = filter_logs(new_logs, criteria);
+                        if filter.is_subscription {
+                            (self.subscriber_callback)(SubscriptionEvent {
+                                filter_id: *filter_id,
+                                result: SubscriptionEventData::Logs(filtered_logs.clone()),
+                            });
+                        } else {
+                            logs.append(&mut filtered_logs);
+                        }
+                    }
+                }
+                FilterData::NewHeads(block_hashes) => {
+                    if filter.is_subscription {
+                        (self.subscriber_callback)(SubscriptionEvent {
+                            filter_id: *filter_id,
+                            result: SubscriptionEventData::NewHeads(
+                                block_and_total_difficulty.clone(),
+                            ),
+                        });
+                    } else {
+                        block_hashes.push(*block.hash());
+                    }
+                }
+                FilterData::NewPendingTransactions(_) => (),
+            }
+        }
+
+        // Remove outdated filters
+        self.filters.retain(|_, filter| !filter.has_expired());
+
+        Ok(())
+    }
+
     fn remove_filter_impl<const IS_SUBSCRIPTION: bool>(&mut self, filter_id: &U256) -> bool {
         if let Some(filter) = self.filters.get(filter_id) {
             filter.is_subscription == IS_SUBSCRIPTION && self.filters.remove(filter_id).is_some()
@@ -2110,7 +2218,6 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
             }
         }
 
-        // Question: Why do we use the max priority fee per gas as gas price?
         let max_priority_fee_per_gas = transaction
             .max_priority_fee_per_gas()
             .unwrap_or_else(|| transaction.gas_price());
@@ -2125,7 +2232,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         if let Some(next_block_base_fee) = self.next_block_base_fee_per_gas()? {
             if let Some(max_fee_per_gas) = transaction.max_fee_per_gas() {
                 if max_fee_per_gas < next_block_base_fee {
-                    return Err(ProviderError::AutoMineMaxFeeTooLow {
+                    return Err(ProviderError::AutoMineMaxFeePerGasTooLow {
                         expected: next_block_base_fee,
                         actual: max_fee_per_gas,
                     });
@@ -2848,11 +2955,14 @@ mod tests {
         fixture.provider_data.send_transaction(signed_transaction)?;
         let (block_timestamp, _) = fixture.provider_data.next_block_timestamp(None)?;
         let prevrandao = fixture.provider_data.prev_randao_generator.next_value();
-        let result = fixture.provider_data.mine_block(BlockOptions {
-            timestamp: Some(block_timestamp),
-            mix_hash: Some(prevrandao),
-            ..BlockOptions::default()
-        })?;
+        let result = fixture.provider_data.mine_block(
+            ProviderData::mine_block_with_mem_pool,
+            BlockOptions {
+                timestamp: Some(block_timestamp),
+                mix_hash: Some(prevrandao),
+                ..BlockOptions::default()
+            },
+        )?;
 
         let console_log_inputs = result.console_log_inputs;
         assert_eq!(console_log_inputs.len(), 1);

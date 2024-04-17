@@ -204,6 +204,11 @@ impl SignedTransaction {
         matches!(self, SignedTransaction::Eip1559(_))
     }
 
+    /// Returns whether this is an EIP-4844 transaction
+    pub fn is_eip4844(&self) -> bool {
+        matches!(self, SignedTransaction::Eip4844(_))
+    }
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> &B256 {
         match self {

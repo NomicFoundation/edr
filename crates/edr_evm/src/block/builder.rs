@@ -227,7 +227,7 @@ impl BlockBuilder {
         StateT: StateRef<Error = StateErrorT> + DatabaseCommit + StateDebug<Error = StateErrorT>,
         StateErrorT: Debug + Send,
     {
-        //  transaction's gas limit cannot be greater than the remaining gas in the
+        // The transaction's gas limit cannot be greater than the remaining gas in the
         // block
         if transaction.gas_limit() > self.gas_remaining() {
             return ExecutionResultWithContext {
