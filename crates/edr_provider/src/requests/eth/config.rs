@@ -4,6 +4,14 @@ use edr_eth::{Address, U256, U64};
 
 use crate::{data::ProviderData, ProviderError};
 
+pub fn handle_blob_base_fee<LoggerErrorT: Debug>(
+    data: &ProviderData<LoggerErrorT>,
+) -> Result<U256, ProviderError<LoggerErrorT>> {
+    let base_fee = data.next_block_base_fee_per_blob_gas()?.unwrap_or_default();
+
+    Ok(base_fee)
+}
+
 pub fn handle_gas_price<LoggerErrorT: Debug>(
     data: &ProviderData<LoggerErrorT>,
 ) -> Result<U256, ProviderError<LoggerErrorT>> {

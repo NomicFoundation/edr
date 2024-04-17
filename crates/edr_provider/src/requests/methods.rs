@@ -35,6 +35,9 @@ pub enum MethodInvocation {
     /// eth_accounts
     #[serde(rename = "eth_accounts", with = "edr_eth::serde::empty_params")]
     Accounts(()),
+    /// eth_blobBaseFee
+    #[serde(rename = "eth_blobBaseFee", with = "edr_eth::serde::empty_params")]
+    BlobBaseFee(()),
     /// eth_blockNumber
     #[serde(rename = "eth_blockNumber", with = "edr_eth::serde::empty_params")]
     BlockNumber(()),
@@ -401,6 +404,7 @@ impl MethodInvocation {
     pub fn method_name(&self) -> &'static str {
         match self {
             MethodInvocation::Accounts(_) => "eth_accounts",
+            MethodInvocation::BlobBaseFee(_) => "eth_blobBaseFee",
             MethodInvocation::BlockNumber(_) => "eth_blockNumber",
             MethodInvocation::Call(_, _, _) => "eth_call",
             MethodInvocation::ChainId(_) => "eth_chainId",

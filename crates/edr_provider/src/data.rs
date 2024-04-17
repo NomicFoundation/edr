@@ -32,6 +32,7 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
+    calc_blob_gasprice,
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     register_eip_3155_tracer_handles,
@@ -1269,6 +1270,24 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
                 Ok,
             )
             .map(Some)
+    }
+
+    /// Calculates the next block's base fee per blob gas.
+    pub fn next_block_base_fee_per_blob_gas(&self) -> Result<Option<U256>, BlockchainError> {
+        if self.spec_id() < SpecId::CANCUN {
+            return Ok(None);
+        }
+
+        let last_block = self.last_block()?;
+        let base_fee = last_block
+            .header()
+            .blob_gas
+            .as_ref()
+            .map_or(0, |BlobGas { excess_gas, .. }| {
+                calc_blob_gasprice(*excess_gas)
+            });
+
+        Ok(Some(U256::from(base_fee)))
     }
 
     /// Calculates the gas price for the next block.
