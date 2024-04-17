@@ -287,6 +287,44 @@ pub fn validate_post_merge_block_tags<'a, LoggerErrorT: Debug>(
 mod tests {
     use super::*;
 
+    fn assert_mixed_eip_1559_parameters(spec: SpecId) {
+        let mixed_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            max_fee_per_gas: Some(U256::ZERO),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&mixed_request).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let mixed_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            max_priority_fee_per_gas: Some(U256::ZERO),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&mixed_request).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let request_with_too_low_max_fee = EthTransactionRequest {
+            from: Address::ZERO,
+            max_fee_per_gas: Some(U256::ZERO),
+            max_priority_fee_per_gas: Some(U256::from(1u64)),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&request_with_too_low_max_fee).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+    }
+
     fn assert_unsupported_eip_1559_parameters(spec: SpecId) {
         let eip_1559_request = EthTransactionRequest {
             from: Address::ZERO,
@@ -391,40 +429,46 @@ mod tests {
         assert!(validate_transaction_spec::<()>(eip1559_spec, (&valid_request).into()).is_ok());
 
         assert_unsupported_eip_4844_parameters(eip1559_spec);
+        assert_mixed_eip_1559_parameters(eip1559_spec);
+    }
 
-        let mixed_request = EthTransactionRequest {
+    #[test]
+    fn validate_transaction_spec_eip_4884_invalid_inputs() {
+        let eip4844_spec = SpecId::CANCUN;
+        let valid_request = EthTransactionRequest {
             from: Address::ZERO,
-            gas_price: Some(U256::ZERO),
             max_fee_per_gas: Some(U256::ZERO),
-            ..EthTransactionRequest::default()
-        };
-
-        assert!(matches!(
-            validate_transaction_spec::<()>(eip1559_spec, (&mixed_request).into()),
-            Err(ProviderError::InvalidTransactionInput(_))
-        ));
-
-        let mixed_request = EthTransactionRequest {
-            from: Address::ZERO,
-            gas_price: Some(U256::ZERO),
             max_priority_fee_per_gas: Some(U256::ZERO),
+            access_list: Some(Vec::new()),
+            blobs: Some(Vec::new()),
+            blob_hashes: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(validate_transaction_spec::<()>(eip4844_spec, (&valid_request).into()).is_ok());
+        assert_mixed_eip_1559_parameters(eip4844_spec);
+
+        let mixed_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            blobs: Some(Vec::new()),
             ..EthTransactionRequest::default()
         };
 
         assert!(matches!(
-            validate_transaction_spec::<()>(eip1559_spec, (&mixed_request).into()),
+            validate_transaction_spec::<()>(eip4844_spec, (&mixed_request).into()),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
-        let request_with_too_low_max_fee = EthTransactionRequest {
+        let mixed_request = EthTransactionRequest {
             from: Address::ZERO,
-            max_fee_per_gas: Some(U256::ZERO),
-            max_priority_fee_per_gas: Some(U256::from(1u64)),
+            gas_price: Some(U256::ZERO),
+            blob_hashes: Some(Vec::new()),
             ..EthTransactionRequest::default()
         };
 
         assert!(matches!(
-            validate_transaction_spec::<()>(eip1559_spec, (&request_with_too_low_max_fee).into()),
+            validate_transaction_spec::<()>(eip4844_spec, (&mixed_request).into()),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
     }
