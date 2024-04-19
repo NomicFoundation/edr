@@ -4,8 +4,10 @@
   "author": "Nomic Foundation",
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
   "private": true,
-  "dependencies": {},
-  "devDependencies": {},
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1",
+    "prettier": "^3.2.5"
+  },
   "scripts": {
     "build": "cd crates/edr_napi && pnpm build",
     "prettier": "prettier *.md \"{.github}/**/*.{md,yml,ts,js}\""
