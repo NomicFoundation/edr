@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "crates/*",
+]
+resolver = "2"
+
+[profile.dev]
+rpath = true
+
+[profile.release]
+rpath = true
+
+[profile.test]
+opt-level = 2

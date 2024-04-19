@@ -1,0 +1,13 @@
+{
+  "name": "root",
+  "version": "0.0.0",
+  "author": "Nomic Foundation",
+  "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
+  "private": true,
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "build": "cd crates/edr_napi && pnpm build",
+    "prettier": "prettier *.md \"{.github}/**/*.{md,yml,ts,js}\""
+  }
+}
