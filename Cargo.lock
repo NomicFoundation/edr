@@ -995,11 +995,11 @@ dependencies = [
 
 [[package]]
 name = "edr_defaults"
-version = "0.2.0-dev"
+version = "0.3.5"
 
 [[package]]
 name = "edr_eth"
-version = "0.2.0-dev"
+version = "0.3.5"
 dependencies = [
  "alloy-rlp",
  "anyhow",
@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "edr_evm"
-version = "0.2.0-dev"
+version = "0.3.5"
 dependencies = [
  "alloy-rlp",
  "anyhow",
@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "edr_napi"
-version = "0.2.0-dev"
+version = "0.3.5"
 dependencies = [
  "ansi_term",
  "crossbeam-channel",
@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "edr_provider"
-version = "0.2.0-dev"
+version = "0.3.5"
 dependencies = [
  "alloy-sol-types",
  "anyhow",
@@ -1136,7 +1136,7 @@ dependencies = [
 
 [[package]]
 name = "edr_solidity"
-version = "0.2.0-dev"
+version = "0.3.5"
 dependencies = [
  "edr_eth",
  "edr_evm",
@@ -1144,7 +1144,7 @@ dependencies = [
 
 [[package]]
 name = "edr_test_utils"
-version = "0.2.0-dev"
+version = "0.3.5"
 dependencies = [
  "serde",
  "serde_json",

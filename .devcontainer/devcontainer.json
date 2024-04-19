@@ -1,5 +1,5 @@
 {
-  "name": "Hardhat + EDR",
+  "name": "EDR",
   "image": "mcr.microsoft.com/devcontainers/base:bullseye",
   "features": {
     "ghcr.io/devcontainers/features/node:1": {

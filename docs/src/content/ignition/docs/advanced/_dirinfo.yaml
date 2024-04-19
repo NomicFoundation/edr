@@ -1,7 +1,0 @@
-section-type: group
-section-title: Advanced
-order:
-  - /execution
-  - /deployment-artifacts
-  - /reconciliation
-  - /versioning
