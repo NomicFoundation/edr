@@ -16,7 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "argparse": "^2.0.1",
-    "hardhat": "workspace:^",
+    "hardhat": "^2.22.3",
     "lodash": "^4.17.11",
     "tsx": "^4.7.1"
   }
