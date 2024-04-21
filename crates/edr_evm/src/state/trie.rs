@@ -264,16 +264,20 @@ mod tests {
         let code_2_hash = code_2.hash_slow();
 
         let address1 = Address::random();
-        let mut account1 = AccountInfo::default();
-        account1.code_hash = code_1_hash;
-        account1.code = Some(code_1);
+        let account1 = AccountInfo {
+            code_hash: code_1_hash,
+            code: Some(code_1),
+            ..AccountInfo::default()
+        };
         state1.insert_account(address1, account1)?;
         state1.set_account_storage_slot(address1, U256::from(100), U256::from(100))?;
 
         let address2 = Address::random();
-        let mut account2 = AccountInfo::default();
-        account2.code_hash = code_2_hash;
-        account2.code = Some(code_2);
+        let account2 = AccountInfo {
+            code_hash: code_2_hash,
+            code: Some(code_2),
+            ..AccountInfo::default()
+        };
         let mut state2 = state1.clone();
         state2.insert_account(address2, account2)?;
         state2.set_account_storage_slot(address2, U256::from(200), U256::from(200))?;
