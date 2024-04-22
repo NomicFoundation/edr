@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-fix: avoid cloning transaction traces for improved performance
+Improved performance by avoiding clones of transaction traces

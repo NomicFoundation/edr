@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-fix: avoid ecrecover for known sender
+Improved performance by avoiding call to ecrecover for known sender

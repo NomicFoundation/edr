@@ -9,10 +9,3 @@ updates:
       interval: "daily"
     commit-message:
       prefix: "bump"
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    allow:
-      - dependency-name: "@solidity-parser/parser"
-    versioning-strategy: increase
