@@ -484,13 +484,6 @@ impl RpcClient {
             .map_err(|err| RpcClientError::CorruptedResponse(err.into()))
     }
 
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
-    fn get_ids(&self, count: u64) -> Vec<Id> {
-        let start = self.next_id.fetch_add(count, Ordering::Relaxed);
-        let end = start + count;
-        (start..end).map(Id::Num).collect()
-    }
-
     fn serialize_request(
         &self,
         input: &RequestMethod,
@@ -997,21 +990,6 @@ mod tests {
         fn deref(&self) -> &Self::Target {
             &self.client
         }
-    }
-
-    #[test]
-    fn get_ids_zero() {
-        let client = RpcClient::new("http://localhost:8545", PathBuf::new(), None).expect("url ok");
-        let ids = client.get_ids(0);
-        assert!(ids.is_empty());
-    }
-
-    #[test]
-    fn get_ids_more() {
-        let client = RpcClient::new("http://localhost:8545", PathBuf::new(), None).expect("url ok");
-        let count = 11;
-        let ids = client.get_ids(count);
-        assert_eq!(ids.len(), 11);
     }
 
     #[tokio::test]
