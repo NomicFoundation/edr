@@ -25,7 +25,7 @@ serde = { version = "1.0.147", default-features = false, features = ["derive"], 
 serde_json = { version = "1.0.89", optional = true }
 sha3 = { version = "0.10.8", default-features = false }
 thiserror = { version = "1.0.37", default-features = false }
-tokio = { version = "1.21.2", default-features = false, features = ["fs", "sync"] }
+tokio = { version = "1.21.2", default-features = false, features = ["fs", "macros", "sync"] }
 tracing = { version = "0.1.37", features = ["attributes", "std"], optional = true }
 triehash = { version = "0.8.4", default-features = false }
 uuid = { version = "1.4.1", default-features = false, features = ["v4"] }
