@@ -1,19 +1,16 @@
 mod reqwest_error;
 
 use std::{
-    collections::{HashMap, VecDeque},
     fmt::Debug,
     io,
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
-    thread::available_parallelism,
     time::{Duration, Instant},
 };
 
 use futures::stream::StreamExt;
 use hyper::header::HeaderValue;
 pub use hyper::{header, http::Error as HttpError, HeaderMap};
-use itertools::{izip, Itertools};
 use reqwest::Client as HttpClient;
 use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
@@ -102,17 +99,6 @@ pub enum RpcClientError {
     /// Invalid URL format
     #[error(transparent)]
     InvalidUrl(#[from] url::ParseError),
-
-    /// A response is missing from a batch request.
-    #[error("Missing response for method: '{method:?}' for request id: '{id:?}' in batch request")]
-    MissingResponse {
-        /// The method invocation for which the response is missing.
-        method: Box<RequestMethod>,
-        /// The id of the request iwth the missing response
-        id: Id,
-        /// The response text
-        response: String,
-    },
 
     /// The JSON-RPC returned an error.
     #[error("{error}. Request: {request}")]
@@ -287,7 +273,7 @@ impl RpcClient {
         let path = self.make_cache_path(cache_key.as_ref()).await?;
         match tokio::fs::read_to_string(&path).await {
             Ok(contents) => match serde_json::from_str(&contents) {
-                Ok(value) => Ok(Some(ResponseValue::Cached { value, path })),
+                Ok(value) => Ok(Some(ResponseValue { value, path })),
                 Err(error) => {
                     log_cache_error(
                         cache_key.as_ref(),
@@ -595,101 +581,6 @@ impl RpcClient {
             .and_then(|response| Self::extract_result(request, response))
     }
 
-    /// Returns the results of the given method invocations.
-    async fn batch_call(
-        &self,
-        methods: &[RequestMethod],
-    ) -> Result<VecDeque<ResponseValue>, RpcClientError> {
-        self.batch_call_with_resolver(methods, |_| None).await
-    }
-
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
-    async fn batch_call_with_resolver(
-        &self,
-        methods: &[RequestMethod],
-        resolve_block_number: impl Fn(&serde_json::Value) -> Option<u64>,
-    ) -> Result<VecDeque<ResponseValue>, RpcClientError> {
-        let ids = self.get_ids(methods.len() as u64);
-
-        let cache_keys = methods.iter().map(try_read_cache_key).collect::<Vec<_>>();
-
-        let mut results: Vec<Option<ResponseValue>> = Vec::with_capacity(cache_keys.len());
-
-        for cache_key in &cache_keys {
-            results.push(self.try_from_cache(cache_key.as_ref()).await?);
-        }
-
-        let mut requests: Vec<SerializedRequest> = Vec::new();
-        let mut id_to_index = HashMap::<&Id, usize>::new();
-        for (index, (id, method, cache_response)) in izip!(&ids, methods, &results).enumerate() {
-            if cache_response.is_none() {
-                #[cfg(feature = "tracing")]
-                tracing::trace!("Cache miss: {}", method.name());
-
-                let request = Self::serialize_request_with_id(method, id.clone())?;
-                requests.push(request);
-                id_to_index.insert(id, index);
-            } else {
-                #[cfg(feature = "tracing")]
-                tracing::trace!("Cache hit: {}", method.name());
-            }
-        }
-
-        // Don't send empty request
-        if requests.is_empty() {
-            Ok(results
-                .into_iter()
-                .enumerate()
-                .map(|(_index, result)| {
-                    result.expect("If there are no requests to send, there must be a cached response for each method invocation")
-                })
-                .collect())
-        } else {
-            let request_body = SerializedRequest(
-                serde_json::to_value(&requests).map_err(RpcClientError::InvalidJsonRequest)?,
-            );
-            let remote_response = self.send_request_body(&request_body).await?;
-            let remote_responses: Vec<jsonrpc::Response<serde_json::Value>> =
-                Self::parse_response_str(&remote_response)?;
-
-            for response in remote_responses {
-                let index = id_to_index
-                    // Remove to make sure no duplicate ids in response
-                    .remove(&response.id)
-                    .ok_or_else(|| RpcClientError::InvalidId {
-                        response: remote_response.clone(),
-                        id: response.id,
-                    })?;
-
-                let result =
-                    response
-                        .data
-                        .into_result()
-                        .map_err(|error| RpcClientError::JsonRpcError {
-                            error,
-                            request: request_body.to_json_string(),
-                        })?;
-
-                self.try_write_response_to_cache(&methods[index], &result, &resolve_block_number)
-                    .await?;
-
-                results[index] = Some(ResponseValue::Remote(result));
-            }
-
-            results
-                .into_iter()
-                .enumerate()
-                .map(|(index, result)| {
-                    result.ok_or_else(|| RpcClientError::MissingResponse {
-                        method: Box::new(methods[index].clone()),
-                        id: ids[index].clone(),
-                        response: remote_response.clone(),
-                    })
-                })
-                .collect()
-        }
-    }
-
     /// Calls `eth_blockNumber` and returns the block number.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
     pub async fn block_number(&self) -> Result<u64, RpcClientError> {
@@ -755,74 +646,24 @@ impl RpcClient {
         .await
     }
 
-    /// Fetch the latest block number, chain id and network id in a batch call.
+    /// Fetch the latest block number, chain id and network id concurrently.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
     pub async fn fetch_fork_metadata(&self) -> Result<ForkMetadata, RpcClientError> {
-        let mut inputs = vec![RequestMethod::NetVersion(())];
+        let network_id = self.network_id();
+        let block_number = self.block_number();
+        let chain_id = self.chain_id();
 
-        let maybe_block_number = self.maybe_cached_block_number().await?;
-        if maybe_block_number.is_none() {
-            inputs.push(RequestMethod::BlockNumber(()));
-        }
-
-        // Only request the chain id if we don't have it yet.
-        let mut maybe_chain_id_from_url = None;
-        if !self.chain_id.initialized() {
-            maybe_chain_id_from_url = chain_id_from_url(&self.url);
-            if maybe_chain_id_from_url.is_none() {
-                inputs.push(RequestMethod::ChainId(()));
-            }
-        };
-
-        let mut results = self.batch_call(inputs.as_slice()).await?.into_iter();
-        let expect = "batch call returns results for all calls on success";
-
-        let network_id = results.next().expect(expect).parse::<U64>().await?;
-
-        let block_number = if let Some(block_number) = maybe_block_number {
-            block_number
-        } else {
-            let block_number = results
-                .next()
-                .expect(expect)
-                .parse::<U64>()
-                .await?
-                .as_limbs()[0];
-            {
-                let mut write_guard = self.cached_block_number.write().await;
-                *write_guard = Some(CachedBlockNumber::new(block_number));
-            }
-            block_number
-        };
-
-        let chain_id = *self
-            .chain_id
-            .get_or_try_init(|| async {
-                if let Some(chain_id) = maybe_chain_id_from_url {
-                    Ok(chain_id)
-                } else {
-                    // It's possible that the chain id was initialized in-between, but it's not
-                    // possible that the chain id was initialized prior to our
-                    // call, and it isn't initialized now, therefore we must've requested
-                    // the chain id as well.
-                    results
-                        .next()
-                        .expect(expect)
-                        .parse::<U64>()
-                        .await
-                        .map(|chain_id| chain_id.as_limbs()[0])
-                }
-            })
-            .await?;
+        let (network_id, block_number, chain_id) =
+            tokio::try_join!(network_id, block_number, chain_id)?;
 
         Ok(ForkMetadata {
             chain_id,
-            network_id: network_id.as_limbs()[0],
+            network_id,
             latest_block_number: block_number,
         })
     }
 
-    /// Submit a consolidated batch of RPC method invocations in order to obtain
+    /// Submits three concurrent RPC method invocations in order to obtain
     /// the set of data contained in [`AccountInfo`].
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
     pub async fn get_account_info(
@@ -830,21 +671,12 @@ impl RpcClient {
         address: &Address,
         block: Option<BlockSpec>,
     ) -> Result<AccountInfo, RpcClientError> {
-        let inputs = &[
-            RequestMethod::GetBalance(*address, block.clone()),
-            RequestMethod::GetTransactionCount(*address, block.clone()),
-            RequestMethod::GetCode(*address, block.clone()),
-        ];
+        let balance = self.get_balance(address, block.clone());
+        let nonce = self.get_transaction_count(address, block.clone());
+        let code = self.get_code(address, block.clone());
 
-        let responses = self.batch_call(inputs).await?;
-        let (balance, nonce, code) = responses
-            .into_iter()
-            .collect_tuple()
-            .expect("batch call checks responses");
+        let (balance, nonce, code) = tokio::try_join!(balance, nonce, code)?;
 
-        let balance = balance.parse::<U256>().await?;
-        let nonce: u64 = nonce.parse::<U256>().await?.to();
-        let code = code.parse::<Bytes>().await?;
         let code = if code.is_empty() {
             None
         } else {
@@ -855,11 +687,11 @@ impl RpcClient {
             balance,
             code_hash: code.as_ref().map_or(KECCAK_EMPTY, Bytecode::hash_slow),
             code,
-            nonce,
+            nonce: nonce.to(),
         })
     }
 
-    /// Fetch account infos for multiple addresses in a batch call.
+    /// Fetch account infos for multiple addresses using concurrent requests.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
     pub async fn get_account_infos(
         &self,
@@ -868,7 +700,7 @@ impl RpcClient {
     ) -> Result<Vec<AccountInfo>, RpcClientError> {
         futures::stream::iter(addresses.iter())
             .map(|address| self.get_account_info(address, block.clone()))
-            .buffered(MAX_PARALLEL_REQUESTS)
+            .buffered(MAX_PARALLEL_REQUESTS / 3 + 1)
             .collect::<Vec<Result<AccountInfo, RpcClientError>>>()
             .await
             .into_iter()
@@ -882,6 +714,16 @@ impl RpcClient {
         hash: &B256,
     ) -> Result<Option<eth::Block<B256>>, RpcClientError> {
         self.call(RequestMethod::GetBlockByHash(*hash, false)).await
+    }
+
+    /// Calls `eth_getBalance`.
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
+    pub async fn get_balance(
+        &self,
+        address: &Address,
+        block: Option<BlockSpec>,
+    ) -> Result<U256, RpcClientError> {
+        self.call(RequestMethod::GetBalance(*address, block)).await
     }
 
     /// Calls `eth_getBlockByHash` and returns the transaction's data.
@@ -917,6 +759,16 @@ impl RpcClient {
             |block: &eth::Block<eth::Transaction>| block.number,
         )
         .await
+    }
+
+    /// Calls `eth_getCode`.
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
+    pub async fn get_code(
+        &self,
+        address: &Address,
+        block: Option<BlockSpec>,
+    ) -> Result<Bytes, RpcClientError> {
+        self.call(RequestMethod::GetCode(*address, block)).await
     }
 
     /// Calls `eth_getLogs` using a starting and ending block (inclusive).
@@ -969,23 +821,19 @@ impl RpcClient {
             .await
     }
 
-    /// Methods for retrieving multiple transaction receipts in one batch
+    /// Methods for retrieving multiple transaction receipts using concurrent
+    /// requests.
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
     pub async fn get_transaction_receipts(
         &self,
         hashes: impl IntoIterator<Item = &B256> + Debug,
     ) -> Result<Option<Vec<BlockReceipt>>, RpcClientError> {
-        let requests: Vec<RequestMethod> = hashes
+        let requests = hashes
             .into_iter()
-            .map(|transaction_hash| RequestMethod::GetTransactionReceipt(*transaction_hash))
-            .collect();
+            .map(|transaction_hash| self.get_transaction_receipt(transaction_hash));
 
-        let responses = self.batch_call(&requests).await?;
-
-        futures::stream::iter(responses)
-            .map(ResponseValue::parse)
-            // Primarily CPU heavy work, only does i/o on error.
-            .buffered(available_parallelism().map(usize::from).unwrap_or(1))
+        futures::stream::iter(requests)
+            .buffered(MAX_PARALLEL_REQUESTS)
             .collect::<Vec<Result<Option<BlockReceipt>, RpcClientError>>>()
             .await
             .into_iter()
@@ -1028,39 +876,25 @@ async fn remove_from_cache(path: &Path) -> Result<(), RpcClientError> {
 }
 
 #[derive(Debug, Clone)]
-enum ResponseValue {
-    Remote(serde_json::Value),
-    Cached {
-        value: serde_json::Value,
-        path: PathBuf,
-    },
+struct ResponseValue {
+    value: serde_json::Value,
+    path: PathBuf,
 }
 
 impl ResponseValue {
     async fn parse<T: DeserializeOwned>(self) -> Result<T, RpcClientError> {
-        match self {
-            ResponseValue::Remote(value) => {
-                serde_json::from_value(value.clone()).map_err(|error| {
-                    RpcClientError::InvalidResponse {
-                        response: value.to_string(),
-                        expected_type: std::any::type_name::<T>(),
-                        error,
-                    }
+        match serde_json::from_value(self.value.clone()) {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                // Remove the file from cache if the contents don't match the expected type.
+                // This can happen for example if a new field is added to a type.
+                remove_from_cache(&self.path).await?;
+                Err(RpcClientError::InvalidResponse {
+                    response: self.value.to_string(),
+                    expected_type: std::any::type_name::<T>(),
+                    error,
                 })
             }
-            ResponseValue::Cached { value, path } => match serde_json::from_value(value.clone()) {
-                Ok(result) => Ok(result),
-                Err(error) => {
-                    // Remove the file from cache if the contents don't match the expected type.
-                    // This can happen for example if a new field is added to a type.
-                    remove_from_cache(&path).await?;
-                    Err(RpcClientError::InvalidResponse {
-                        response: value.to_string(),
-                        expected_type: std::any::type_name::<T>(),
-                        error,
-                    })
-                }
-            },
         }
     }
 }
