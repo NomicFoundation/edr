@@ -105,6 +105,16 @@ impl Eip4844PooledTransaction {
             proofs,
         })
     }
+
+    /// Converts the pooled transaction into its payload.
+    pub fn into_payload(self) -> Eip4844SignedTransaction {
+        self.payload
+    }
+
+    /// Returns the payload of the pooled transaction.
+    pub fn payload(&self) -> &Eip4844SignedTransaction {
+        &self.payload
+    }
 }
 
 #[repr(transparent)]

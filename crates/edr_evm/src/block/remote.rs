@@ -4,6 +4,7 @@ use edr_eth::{
     block::{BlobGas, Header},
     receipt::BlockReceipt,
     remote::{eth, RpcClient},
+    transaction::Transaction,
     withdrawal::Withdrawal,
     B256,
 };
@@ -146,7 +147,7 @@ impl Block for RemoteBlock {
                 self.rpc_client.get_transaction_receipts(
                     self.transactions
                         .iter()
-                        .map(|transaction| transaction.hash()),
+                        .map(|transaction| transaction.transaction_hash()),
                 ),
             )
         })

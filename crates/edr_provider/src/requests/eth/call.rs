@@ -165,6 +165,8 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug>(
 
 #[cfg(test)]
 mod tests {
+    use edr_eth::transaction::Transaction;
+
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};
 

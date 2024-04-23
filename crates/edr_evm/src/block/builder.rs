@@ -7,7 +7,7 @@ use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     log::{add_log_to_bloom, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::SignedTransaction,
+    transaction::{Transaction, TransactionType},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
@@ -400,9 +400,8 @@ impl BlockBuilder {
                 cumulative_gas_used: self.header.gas_used,
                 logs_bloom,
                 logs,
-                data: match &*transaction {
-                    SignedTransaction::PreEip155Legacy(_)
-                    | SignedTransaction::PostEip155Legacy(_) => {
+                data: match transaction.transaction_type() {
+                    TransactionType::Legacy => {
                         if spec_id < SpecId::BYZANTIUM {
                             TypedReceiptData::PreEip658Legacy {
                                 state_root: state
@@ -413,13 +412,13 @@ impl BlockBuilder {
                             TypedReceiptData::PostEip658Legacy { status }
                         }
                     }
-                    SignedTransaction::Eip2930(_) => TypedReceiptData::Eip2930 { status },
-                    SignedTransaction::Eip1559(_) => TypedReceiptData::Eip1559 { status },
-                    SignedTransaction::Eip4844(_) => TypedReceiptData::Eip4844 { status },
+                    TransactionType::Eip2930 => TypedReceiptData::Eip2930 { status },
+                    TransactionType::Eip1559 => TypedReceiptData::Eip1559 { status },
+                    TransactionType::Eip4844 => TypedReceiptData::Eip4844 { status },
                 },
                 spec_id,
             },
-            transaction_hash: *transaction.hash(),
+            transaction_hash: *transaction.transaction_hash(),
             transaction_index: self.transactions.len() as u64,
             from: *transaction.caller(),
             to: transaction.to(),

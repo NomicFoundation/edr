@@ -27,7 +27,7 @@ use edr_eth::{
     },
     reward_percentile::RewardPercentile,
     signature::{RecoveryMessage, Signature},
-    transaction::TransactionRequestAndSender,
+    transaction::{Transaction, TransactionRequestAndSender, TransactionType},
     Address, Bytes, SpecId, B256, U256,
 };
 use edr_evm::{
@@ -109,7 +109,7 @@ impl SendTransactionResult {
                 result.transaction_traces.iter()
             )
             .find_map(|(transaction, result, trace)| {
-                if *transaction.hash() == self.transaction_hash {
+                if *transaction.transaction_hash() == self.transaction_hash {
                     Some((result, trace))
                 } else {
                     None
@@ -1439,14 +1439,14 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
 
     pub fn send_transaction(
         &mut self,
-        signed_transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction,
     ) -> Result<SendTransactionResult, ProviderError<LoggerErrorT>> {
-        if signed_transaction.is_eip4844() {
+        if transaction.transaction_type() == TransactionType::Eip4844 {
             if !self.is_auto_mining || mempool::has_transactions(&self.mem_pool) {
                 return Err(ProviderError::BlobMemPoolUnsupported);
             }
 
-            let transaction_hash = *signed_transaction.hash();
+            let transaction_hash = *transaction.transaction_hash();
 
             // Despite not adding the transaction to the mempool, we still notify
             // subscribers
@@ -1457,7 +1457,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
                     provider.mine_block_with_single_transaction(
                         config,
                         options,
-                        signed_transaction,
+                        transaction,
                         debugger,
                     )
                 },
@@ -1471,22 +1471,20 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         }
 
         let snapshot_id = if self.is_auto_mining {
-            self.validate_auto_mine_transaction(&signed_transaction)?;
+            self.validate_auto_mine_transaction(&transaction)?;
 
             Some(self.make_snapshot())
         } else {
             None
         };
 
-        let transaction_hash =
-            self.add_pending_transaction(signed_transaction)
-                .map_err(|error| {
-                    if let Some(snapshot_id) = snapshot_id {
-                        self.revert_to_snapshot(snapshot_id);
-                    }
+        let transaction_hash = self.add_pending_transaction(transaction).map_err(|error| {
+            if let Some(snapshot_id) = snapshot_id {
+                self.revert_to_snapshot(snapshot_id);
+            }
 
-                    error
-                })?;
+            error
+        })?;
 
         let mut mining_results = Vec::new();
         snapshot_id
@@ -1841,7 +1839,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         &mut self,
         transaction: ExecutableTransaction,
     ) -> Result<B256, ProviderError<LoggerErrorT>> {
-        let transaction_hash = *transaction.hash();
+        let transaction_hash = *transaction.transaction_hash();
 
         let state = self.current_state()?;
         // Handles validation
@@ -2760,7 +2758,7 @@ mod tests {
         let fixture = ProviderTestFixture::new_local()?;
 
         let transaction = fixture.signed_dummy_transaction(0, None)?;
-        let recovered_address = transaction.recover()?;
+        let recovered_address = transaction.as_inner().recover()?;
 
         assert!(fixture
             .provider_data
@@ -3215,11 +3213,11 @@ mod tests {
         assert_eq!(result.block.transactions().len(), 2);
         assert!(fixture
             .provider_data
-            .transaction_receipt(transaction1.hash())?
+            .transaction_receipt(transaction1.transaction_hash())?
             .is_some());
         assert!(fixture
             .provider_data
-            .transaction_receipt(transaction3.hash())?
+            .transaction_receipt(transaction3.transaction_hash())?
             .is_some());
 
         // Check that the second transaction is still pending
@@ -3273,14 +3271,14 @@ mod tests {
 
         let receipt1 = fixture
             .provider_data
-            .transaction_receipt(transaction1.hash())?
+            .transaction_receipt(transaction1.transaction_hash())?
             .expect("receipt should exist");
 
         assert_eq!(receipt1.transaction_index, 0);
 
         let receipt2 = fixture
             .provider_data
-            .transaction_receipt(transaction2.hash())?
+            .transaction_receipt(transaction2.transaction_hash())?
             .expect("receipt should exist");
 
         assert_eq!(receipt2.transaction_index, 1);
@@ -3308,11 +3306,11 @@ mod tests {
 
         let receipt1 = fixture
             .provider_data
-            .transaction_receipt(transaction1.hash())?
+            .transaction_receipt(transaction1.transaction_hash())?
             .expect("receipt should exist");
         let receipt2 = fixture
             .provider_data
-            .transaction_receipt(transaction2.hash())?
+            .transaction_receipt(transaction2.transaction_hash())?
             .expect("receipt should exist");
 
         assert_eq!(receipt1.gas_used, 21_000);
@@ -3551,7 +3549,10 @@ mod tests {
             .transaction_by_hash(&transaction_hash)?
             .context("transaction not found")?;
 
-        assert_eq!(transaction_result.transaction.hash(), &transaction_hash);
+        assert_eq!(
+            transaction_result.transaction.transaction_hash(),
+            &transaction_hash
+        );
 
         Ok(())
     }
@@ -3583,7 +3584,10 @@ mod tests {
             .transaction_by_hash(&transaction_hash)?
             .context("transaction not found")?;
 
-        assert_eq!(transaction_result.transaction.hash(), &transaction_hash);
+        assert_eq!(
+            transaction_result.transaction.transaction_hash(),
+            &transaction_hash
+        );
 
         Ok(())
     }

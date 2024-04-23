@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::keccak256;
+use revm_primitives::{keccak256, TxEnv};
 
 use crate::{
     access_list::AccessList,
@@ -68,6 +68,24 @@ impl Eip1559SignedTransaction {
         }
 
         signature.recover(Eip1559TransactionRequest::from(self).hash())
+    }
+
+    /// Converts this transaction into a `TxEnv` struct.
+    pub fn into_tx_env(self, caller: Address) -> TxEnv {
+        TxEnv {
+            caller,
+            gas_limit: self.gas_limit,
+            gas_price: self.max_fee_per_gas,
+            transact_to: self.kind.to_transact_to(),
+            value: self.value,
+            data: self.input,
+            nonce: Some(self.nonce),
+            chain_id: Some(self.chain_id),
+            access_list: self.access_list.into(),
+            gas_priority_fee: Some(self.max_priority_fee_per_gas),
+            blob_hashes: Vec::new(),
+            max_fee_per_blob_gas: None,
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, GAS_PER_BLOB};
+use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
 
 use crate::{
     access_list::AccessList,
@@ -71,6 +71,24 @@ impl Eip4844SignedTransaction {
         }
 
         signature.recover(Eip4844TransactionRequest::from(self).hash())
+    }
+
+    /// Converts this transaction into a `TxEnv` struct.
+    pub fn into_tx_env(self, caller: Address) -> TxEnv {
+        TxEnv {
+            caller,
+            gas_limit: self.gas_limit,
+            gas_price: self.max_fee_per_gas,
+            transact_to: TransactTo::Call(self.to),
+            value: self.value,
+            data: self.input,
+            nonce: Some(self.nonce),
+            chain_id: Some(self.chain_id),
+            access_list: self.access_list.into(),
+            gas_priority_fee: Some(self.max_priority_fee_per_gas),
+            blob_hashes: self.blob_hashes,
+            max_fee_per_blob_gas: Some(self.max_fee_per_blob_gas),
+        }
     }
 
     /// Total blob gas used by the transaction.

@@ -2,6 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
+    transaction::Transaction,
     U256,
 };
 use revm::primitives::{CfgEnvWithHandlerCfg, ExecutionResult, InvalidTransaction};

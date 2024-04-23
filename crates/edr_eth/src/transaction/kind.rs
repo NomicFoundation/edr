@@ -1,4 +1,5 @@
 use alloy_rlp::{Buf, BufMut};
+use revm_primitives::{CreateScheme, TransactTo};
 
 use crate::Address;
 
@@ -15,6 +16,14 @@ impl TransactionKind {
         match self {
             TransactionKind::Call(to) => Some(to),
             TransactionKind::Create => None,
+        }
+    }
+
+    /// Converts this transaction kind into a `TransactTo` enum.
+    pub fn to_transact_to(self) -> TransactTo {
+        match self {
+            TransactionKind::Call(address) => TransactTo::Call(address),
+            TransactionKind::Create => TransactTo::Create(CreateScheme::Create),
         }
     }
 }

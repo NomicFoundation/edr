@@ -3,6 +3,7 @@ use std::sync::Arc;
 use edr_eth::{
     receipt::BlockReceipt,
     remote::filter::{matches_address_filter, matches_topics_filter},
+    transaction::Transaction,
     Address, B256, U256,
 };
 use revm::primitives::{HashMap, HashSet};
@@ -29,7 +30,7 @@ impl<BlockT: Block + Clone + ?Sized> SparseBlockchainStorage<BlockT> {
         let transaction_hash_to_block = block
             .transactions()
             .iter()
-            .map(|transaction| (*transaction.hash(), block.clone()))
+            .map(|transaction| (*transaction.transaction_hash(), block.clone()))
             .collect();
 
         let mut hash_to_block = HashMap::new();
@@ -100,7 +101,7 @@ impl<BlockT: Block + Clone + ?Sized> SparseBlockchainStorage<BlockT> {
             self.hash_to_total_difficulty.remove(block_hash);
 
             for transaction in block.transactions() {
-                let transaction_hash = transaction.hash();
+                let transaction_hash = transaction.transaction_hash();
 
                 self.transaction_hash_to_block.remove(transaction_hash);
                 self.transaction_hash_to_receipt.remove(transaction_hash);
@@ -137,10 +138,10 @@ impl<BlockT: Block + Clone + ?Sized> SparseBlockchainStorage<BlockT> {
 
         if let Some(transaction) = block.transactions().iter().find(|transaction| {
             self.transaction_hash_to_block
-                .contains_key(transaction.hash())
+                .contains_key(transaction.transaction_hash())
         }) {
             return Err(InsertError::DuplicateTransaction {
-                hash: *transaction.hash(),
+                hash: *transaction.transaction_hash(),
             });
         }
 
@@ -148,7 +149,7 @@ impl<BlockT: Block + Clone + ?Sized> SparseBlockchainStorage<BlockT> {
             block
                 .transactions()
                 .iter()
-                .map(|transaction| (*transaction.hash(), block.clone())),
+                .map(|transaction| (*transaction.transaction_hash(), block.clone())),
         );
 
         // We have checked that the block hash and number are not in the maps, so it's

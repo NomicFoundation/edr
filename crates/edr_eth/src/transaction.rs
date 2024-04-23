@@ -10,11 +10,63 @@ mod kind;
 pub mod pooled;
 mod request;
 mod signed;
+mod r#type;
 
 use revm_primitives::B256;
 
-pub use self::{kind::TransactionKind, request::*, signed::*};
+pub use self::{kind::TransactionKind, r#type::TransactionType, request::*, signed::*};
 use crate::{access_list::AccessListItem, Address, Bytes, U256};
+
+pub trait Transaction {
+    /// The effective gas price of the transaction, calculated using the
+    /// provided block base fee.
+    fn effective_gas_price(&self, block_base_fee: U256) -> U256;
+
+    /// The maximum amount of gas the transaction can use.
+    fn gas_limit(&self) -> u64;
+
+    /// The gas price the sender is willing to pay.
+    fn gas_price(&self) -> U256;
+
+    /// The maximum fee per gas the sender is willing to pay. Only applicable
+    /// for post-EIP-1559 transactions.
+    fn max_fee_per_gas(&self) -> Option<U256>;
+
+    /// The maximum fee per blob gas the sender is willing to pay. Only
+    /// applicable for EIP-4844 transactions.
+    fn max_fee_per_blob_gas(&self) -> Option<U256>;
+
+    /// The maximum priority fee per gas the sender is willing to pay. Only
+    /// applicable for post-EIP-1559 transactions.
+    fn max_priority_fee_per_gas(&self) -> Option<U256>;
+
+    /// The transaction's nonce.
+    fn nonce(&self) -> u64;
+
+    /// The address that receives the call, if any.
+    fn to(&self) -> Option<Address>;
+
+    /// The total amount of blob gas used by the transaction. Only applicable
+    /// for EIP-4844 transactions.
+    fn total_blob_gas(&self) -> Option<u64>;
+
+    /// The hash of the transaction.
+    fn transaction_hash(&self) -> &B256;
+
+    /// The type of the transaction.
+    fn transaction_type(&self) -> TransactionType;
+
+    /// The value of the transaction.
+    fn value(&self) -> U256;
+}
+
+pub fn max_cost(transaction: &impl Transaction) -> U256 {
+    U256::from(transaction.gas_limit()).saturating_mul(transaction.gas_price())
+}
+
+pub fn upfront_cost(transaction: &impl Transaction) -> U256 {
+    max_cost(transaction).saturating_add(transaction.value())
+}
 
 /// Represents _all_ transaction requests received from RPC
 #[derive(Clone, Debug, PartialEq, Eq, Default)]

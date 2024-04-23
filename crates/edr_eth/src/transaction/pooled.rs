@@ -3,9 +3,9 @@ mod eip4844;
 pub use self::eip4844::Eip4844PooledTransaction;
 use super::{
     Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
-    LegacySignedTransaction,
+    LegacySignedTransaction, SignedTransaction,
 };
-use crate::utils::enveloped;
+use crate::{transaction::INVALID_TX_TYPE_ERROR_MESSAGE, utils::enveloped};
 
 pub type LegacyPooledTransaction = LegacySignedTransaction;
 pub type Eip155PooledTransaction = Eip155SignedTransaction;
@@ -24,6 +24,19 @@ pub enum PooledTransaction {
     Eip1559(Eip1559PooledTransaction),
     /// EIP-4844 transaction
     Eip4844(Eip4844PooledTransaction),
+}
+
+impl PooledTransaction {
+    /// Converts the pooled transaction into a signed transaction.
+    pub fn into_payload(self) -> SignedTransaction {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => SignedTransaction::PreEip155Legacy(tx),
+            PooledTransaction::PostEip155Legacy(tx) => SignedTransaction::PostEip155Legacy(tx),
+            PooledTransaction::Eip2930(tx) => SignedTransaction::Eip2930(tx),
+            PooledTransaction::Eip1559(tx) => SignedTransaction::Eip1559(tx),
+            PooledTransaction::Eip4844(tx) => SignedTransaction::Eip4844(tx.into_payload()),
+        }
+    }
 }
 
 impl alloy_rlp::Decodable for PooledTransaction {
@@ -66,7 +79,7 @@ impl alloy_rlp::Decodable for PooledTransaction {
                     Ok(PooledTransaction::PreEip155Legacy(tx))
                 }
             }
-            _ => Err(alloy_rlp::Error::Custom("invalid tx type")),
+            _ => Err(alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE)),
         }
     }
 }
@@ -90,6 +103,36 @@ impl alloy_rlp::Encodable for PooledTransaction {
             PooledTransaction::Eip1559(tx) => tx.length() + 1,
             PooledTransaction::Eip4844(tx) => tx.length() + 1,
         }
+    }
+}
+
+impl From<LegacyPooledTransaction> for PooledTransaction {
+    fn from(value: LegacyPooledTransaction) -> Self {
+        PooledTransaction::PreEip155Legacy(value)
+    }
+}
+
+impl From<Eip155PooledTransaction> for PooledTransaction {
+    fn from(value: Eip155PooledTransaction) -> Self {
+        PooledTransaction::PostEip155Legacy(value)
+    }
+}
+
+impl From<Eip2930PooledTransaction> for PooledTransaction {
+    fn from(value: Eip2930PooledTransaction) -> Self {
+        PooledTransaction::Eip2930(value)
+    }
+}
+
+impl From<Eip1559PooledTransaction> for PooledTransaction {
+    fn from(value: Eip1559PooledTransaction) -> Self {
+        PooledTransaction::Eip1559(value)
+    }
+}
+
+impl From<Eip4844PooledTransaction> for PooledTransaction {
+    fn from(value: Eip4844PooledTransaction) -> Self {
+        PooledTransaction::Eip4844(value)
     }
 }
 
