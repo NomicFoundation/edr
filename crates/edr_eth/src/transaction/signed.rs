@@ -24,7 +24,7 @@ const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SignedTransaction {
-    /// Legacy transaction type
+    /// Legacy transaction
     PreEip155Legacy(LegacySignedTransaction),
     /// EIP-155 transaction
     PostEip155Legacy(Eip155SignedTransaction),

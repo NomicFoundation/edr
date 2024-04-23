@@ -6,6 +6,8 @@
 
 mod fake_signature;
 mod kind;
+/// Types for transaction gossip (aka pooled transactions)
+pub mod pooled;
 mod request;
 mod signed;
 
@@ -50,8 +52,11 @@ pub struct EthTransactionRequest {
     #[cfg_attr(feature = "serde", serde(default))]
     pub access_list: Option<Vec<AccessListItem>>,
     /// EIP-2718 type
-    #[cfg_attr(feature = "serde", serde(default, rename = "type"))]
-    pub transaction_type: Option<U256>,
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, rename = "type", with = "crate::serde::optional_u64")
+    )]
+    pub transaction_type: Option<u64>,
     /// Blobs (EIP-4844)
     pub blobs: Option<Vec<Bytes>>,
     /// Blob versioned hashes (EIP-4844)
