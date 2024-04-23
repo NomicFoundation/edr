@@ -1,8 +1,10 @@
+pub use c_kzg::{BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 use revm_primitives::{EnvKzgSettings, B256, VERSIONED_HASH_VERSION_KZG};
 use sha2::Digest;
 
 use crate::transaction::Eip4844SignedTransaction;
 
+/// An EIP-4844 pooled transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Eip4844PooledTransaction {
     payload: Eip4844SignedTransaction,
@@ -106,6 +108,21 @@ impl Eip4844PooledTransaction {
         })
     }
 
+    /// Returns the blobs of the pooled transaction.
+    pub fn blobs(&self) -> &[c_kzg::Blob] {
+        &self.blobs
+    }
+
+    /// Returns the commitments of the pooled transaction.
+    pub fn commitments(&self) -> &[c_kzg::Bytes48] {
+        &self.commitments
+    }
+
+    /// Returns the proofs of the pooled transaction.
+    pub fn proofs(&self) -> &[c_kzg::Bytes48] {
+        &self.proofs
+    }
+
     /// Converts the pooled transaction into its payload.
     pub fn into_payload(self) -> Eip4844SignedTransaction {
         self.payload
@@ -115,6 +132,31 @@ impl Eip4844PooledTransaction {
     pub fn payload(&self) -> &Eip4844SignedTransaction {
         &self.payload
     }
+
+    fn rlp_payload_length(&self) -> usize {
+        use alloy_rlp::Encodable;
+
+        let blob_payload =
+            c_kzg::BYTES_PER_BLOB + alloy_rlp::length_of_length(c_kzg::BYTES_PER_BLOB);
+
+        let commitment_payload =
+            c_kzg::BYTES_PER_COMMITMENT + alloy_rlp::length_of_length(c_kzg::BYTES_PER_COMMITMENT);
+
+        let proof_payload =
+            c_kzg::BYTES_PER_PROOF + alloy_rlp::length_of_length(c_kzg::BYTES_PER_PROOF);
+
+        let blobs_payload = self.blobs.len() * blob_payload;
+        let commitments_payload = self.commitments.len() * commitment_payload;
+        let proofs_payload = self.proofs.len() * proof_payload;
+
+        self.payload.length()
+            + blobs_payload
+            + alloy_rlp::length_of_length(blobs_payload)
+            + commitments_payload
+            + alloy_rlp::length_of_length(commitments_payload)
+            + proofs_payload
+            + alloy_rlp::length_of_length(proofs_payload)
+    }
 }
 
 #[repr(transparent)]
@@ -122,11 +164,11 @@ struct RlpBlob<'blob>(&'blob c_kzg::Blob);
 
 impl<'blob> alloy_rlp::Encodable for RlpBlob<'blob> {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        out.put_slice(self.0.as_ref());
+        self.0.as_ref().encode(out);
     }
 
     fn length(&self) -> usize {
-        self.0.len()
+        self.0.as_ref().length()
     }
 }
 
@@ -141,11 +183,11 @@ struct RlpBytes48<'bytes>(&'bytes c_kzg::Bytes48);
 
 impl<'bytes> alloy_rlp::Encodable for RlpBytes48<'bytes> {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        out.put_slice(self.0.as_ref());
+        self.0.as_ref().encode(out);
     }
 
     fn length(&self) -> usize {
-        self.0.len()
+        self.0.as_ref().length()
     }
 }
 
@@ -157,6 +199,20 @@ impl<'bytes> From<&'bytes c_kzg::Bytes48> for RlpBytes48<'bytes> {
 
 impl alloy_rlp::Decodable for Eip4844PooledTransaction {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let alloy_rlp::Header {
+            list,
+            payload_length,
+        } = alloy_rlp::Header::decode(buf)?;
+
+        if !list {
+            return Err(alloy_rlp::Error::UnexpectedString);
+        }
+
+        let started_len = buf.len();
+        if started_len < payload_length {
+            return Err(alloy_rlp::Error::InputTooShort);
+        }
+
         let payload = Eip4844SignedTransaction::decode(buf)?;
 
         let blobs = Vec::<[u8; c_kzg::BYTES_PER_BLOB]>::decode(buf)?;
@@ -174,6 +230,14 @@ impl alloy_rlp::Decodable for Eip4844PooledTransaction {
             .map(c_kzg::Bytes48::from)
             .collect::<Vec<_>>();
 
+        let consumed = started_len - buf.len();
+        if consumed != payload_length {
+            return Err(alloy_rlp::Error::ListLengthMismatch {
+                expected: payload_length,
+                got: consumed,
+            });
+        }
+
         let settings = EnvKzgSettings::Default;
         Self::new(payload, blobs, commitments, proofs, settings.get()).map_err(|_error| {
             alloy_rlp::Error::Custom("Failed to RLP decode Eip4844PooledTransaction.")
@@ -183,6 +247,12 @@ impl alloy_rlp::Decodable for Eip4844PooledTransaction {
 
 impl alloy_rlp::Encodable for Eip4844PooledTransaction {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        alloy_rlp::Header {
+            list: true,
+            payload_length: self.rlp_payload_length(),
+        }
+        .encode(out);
+
         self.payload.encode(out);
         alloy_rlp::encode_iter(self.blobs.iter().map(RlpBlob::from), out);
         alloy_rlp::encode_iter(self.commitments.iter().map(RlpBytes48::from), out);
@@ -190,16 +260,7 @@ impl alloy_rlp::Encodable for Eip4844PooledTransaction {
     }
 
     fn length(&self) -> usize {
-        let blob_payload = self.blobs.len() * c_kzg::BYTES_PER_BLOB;
-        let commitment_payload = self.commitments.len() * c_kzg::BYTES_PER_COMMITMENT;
-        let proof_payload = self.proofs.len() * c_kzg::BYTES_PER_PROOF;
-
-        self.payload.length()
-            + blob_payload
-            + alloy_rlp::length_of_length(blob_payload)
-            + commitment_payload
-            + alloy_rlp::length_of_length(commitment_payload)
-            + proof_payload
-            + alloy_rlp::length_of_length(proof_payload)
+        let payload_length = self.rlp_payload_length();
+        payload_length + alloy_rlp::length_of_length(payload_length)
     }
 }

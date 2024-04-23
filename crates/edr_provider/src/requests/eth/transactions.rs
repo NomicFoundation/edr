@@ -257,10 +257,6 @@ pub fn handle_send_transaction_request<LoggerErrorT: Debug>(
     let transaction_request = resolve_transaction_request(data, transaction_request)?;
     let signed_transaction = data.sign_transaction_request(transaction_request)?;
 
-    if signed_transaction.transaction_type() == TransactionType::Eip4844 {
-        return Err(ProviderError::Eip4844TransactionUnsupported);
-    }
-
     send_raw_transaction_and_log(data, signed_transaction)
 }
 
@@ -468,6 +464,16 @@ fn validate_send_transaction_request<LoggerErrorT: Debug>(
             &request.to,
             request_data,
         )?;
+    }
+
+    if request.blob_hashes.is_some() || request.blobs.is_some() {
+        return Err(ProviderError::Eip4844TransactionUnsupported);
+    }
+
+    if let Some(transaction_type) = request.transaction_type {
+        if transaction_type == u64::from(TransactionType::Eip4844) {
+            return Err(ProviderError::Eip4844TransactionUnsupported);
+        }
     }
 
     validate_transaction_and_call_request(data.spec_id(), request).map_err(|err| match err {

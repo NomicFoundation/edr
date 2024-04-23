@@ -1,4 +1,5 @@
-mod eip4844;
+/// Types for EIP-4844 pooled transactions
+pub mod eip4844;
 
 pub use self::eip4844::Eip4844PooledTransaction;
 use super::{
@@ -27,6 +28,22 @@ pub enum PooledTransaction {
 }
 
 impl PooledTransaction {
+    /// Returns the blobs of the EIP-4844 transaction, if any.
+    pub fn blobs(&self) -> Option<&[c_kzg::Blob]> {
+        match self {
+            PooledTransaction::Eip4844(tx) => Some(tx.blobs()),
+            _ => None,
+        }
+    }
+
+    /// Returns the commitments of the EIP-4844 transaction, if any.
+    pub fn commitments(&self) -> Option<&[c_kzg::Bytes48]> {
+        match self {
+            PooledTransaction::Eip4844(tx) => Some(tx.commitments()),
+            _ => None,
+        }
+    }
+
     /// Converts the pooled transaction into a signed transaction.
     pub fn into_payload(self) -> SignedTransaction {
         match self {
@@ -35,6 +52,14 @@ impl PooledTransaction {
             PooledTransaction::Eip2930(tx) => SignedTransaction::Eip2930(tx),
             PooledTransaction::Eip1559(tx) => SignedTransaction::Eip1559(tx),
             PooledTransaction::Eip4844(tx) => SignedTransaction::Eip4844(tx.into_payload()),
+        }
+    }
+
+    /// Returns the proofs of the EIP-4844 transaction, if any.
+    pub fn proofs(&self) -> Option<&[c_kzg::Bytes48]> {
+        match self {
+            PooledTransaction::Eip4844(tx) => Some(tx.proofs()),
+            _ => None,
         }
     }
 }
@@ -138,17 +163,32 @@ impl From<Eip4844PooledTransaction> for PooledTransaction {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::OnceLock;
+    use std::{str::FromStr, sync::OnceLock};
 
     use alloy_rlp::Decodable;
+    use c_kzg::BYTES_PER_BLOB;
     use revm_primitives::EnvKzgSettings;
 
     use super::*;
     use crate::{
         signature::Signature,
         transaction::{Eip4844SignedTransaction, TransactionKind},
-        Address, Bytes, U256,
+        Address, Bytes, B256, U256,
     };
+
+    fn fake_eip4844_blob() -> c_kzg::Blob {
+        const BLOB_VALUE: &[u8] = b"hello world";
+
+        // The blob starts 0, followed by `hello world`, then 0x80, and is padded with
+        // zeroes.
+        let mut bytes = vec![0x0u8];
+        bytes.append(&mut BLOB_VALUE.to_vec());
+        bytes.push(alloy_rlp::EMPTY_STRING_CODE);
+
+        bytes.resize(BYTES_PER_BLOB, 0);
+
+        c_kzg::Blob::from_bytes(bytes.as_slice()).expect("Invalid blob")
+    }
 
     macro_rules! impl_test_pooled_transaction_encoding_round_trip {
         ($(
@@ -234,23 +274,32 @@ mod tests {
             hash: OnceLock::new(),
             is_fake: false
         }),
-        eip4844 => PooledTransaction::Eip4844(Eip4844PooledTransaction::new(Eip4844SignedTransaction {
-            chain_id: 1337,
-            nonce: 0,
-            max_priority_fee_per_gas: U256::from(1_000_000_000),
-            max_fee_per_gas: U256::from(1_000_000_000),
-            max_fee_per_blob_gas: U256::from(1),
-            gas_limit: 1_000_000,
-            to: Address::ZERO,
-            value: U256::from(4),
-            input: Bytes::from(vec![1, 2]),
-            access_list: vec![].into(),
-            blob_hashes: vec![],
-            odd_y_parity: true,
-            r: U256::default(),
-            s: U256::default(),
-            hash: OnceLock::new(),
-            is_fake: false
-        }, vec![], vec![], vec![], EnvKzgSettings::Default.get())?),
+        eip4844 => PooledTransaction::Eip4844(
+            Eip4844PooledTransaction::new(Eip4844SignedTransaction {
+                chain_id: 1337,
+                nonce: 0,
+                max_priority_fee_per_gas: U256::from(1_000_000_000),
+                max_fee_per_gas: U256::from(1_000_000_000),
+                max_fee_per_blob_gas: U256::from(1),
+                gas_limit: 1_000_000,
+                to: Address::ZERO,
+                value: U256::ZERO,
+                input: Bytes::from_str("0x2069b0c7")?,
+                access_list: vec![].into(),
+                blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
+                odd_y_parity: true,
+                r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
+                s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
+                hash: OnceLock::new(),
+                is_fake: false
+            },
+            vec![fake_eip4844_blob()],
+            vec![c_kzg::Bytes48::from_hex(
+                "b93ab7583ad8a57b2edd262889391f37a83ab41107dc02c1a68220841379ae828343e84ac1c70fb7c2640ee3522c4c36"
+            ).expect("Invalid commitment")],
+            vec![c_kzg::Bytes48::from_hex(
+                "86ffb073648261475af77cc902c5189bf3d33d0f63e025f23c69ac1e4cc0a7646e1a59ff8e5600f0fcc35f78fe1a4df2"
+            ).expect("Invalid proof")], EnvKzgSettings::Default.get())?
+        ),
     }
 }
