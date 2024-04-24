@@ -1,0 +1,62 @@
+name: Run Hardhat tests
+
+on: [pull_request]
+
+jobs:
+  publish-in-verdaccio:
+    name: Publish EDR in verdaccio
+    # TODO: run in windows and macos too
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    # setup rust and node
+    - name: Install Rust (stable)
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        override: true
+    - uses: Swatinem/rust-cache@v2
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v1
+      with:
+        node-version: 20.x
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+    # verdaccio
+    - name: Install verdaccio
+      run: npm install -g verdaccio@5
+    - name: Prepare verdaccio config
+      run: |
+        mkdir storage
+        echo "storage: ./storage" > verdaccio.yml
+        echo "packages:" >> verdaccio.yml
+        echo "  '**':" >> verdaccio.yml
+        echo '    access: $all' >> verdaccio.yml
+        echo '    publish: $all' >> verdaccio.yml
+        echo '    unpublish: $all' >> verdaccio.yml
+        echo '    proxy: npmjs' >> verdaccio.yml
+        echo '//localhost:4873/:_authToken="tFLPfP7k4DiiOvZ9K/rnTw=="' > .npmrc
+    - name: Test
+      run: cat verdaccio.yml
+    - name: Start verdaccio
+      run: verdaccio --config verdaccio.yml &
+    # build and publish
+    - name: Build EDR
+      run: cd crates/edr_napi && pnpm install && pnpm build
+    - name: Test
+      run: ls
+    # - name: Publish package in verdaccio
+    #   run: npm publish --registry http://localhost:4873
+    # - name: Clone hardhat
+    #   uses: actions/checkout@master
+    #   with:
+    #     repository: NomicFoundation/hardhat
+    #     ref: refs/heads/main
+    #     path: hardhat
+    # - name: cd into hardhat
+    #   run: cd $GITHUB_WORKSPACE/hardhat/packages/hardhat-core
+    # - name: Install project
+    #   run: pnpm install --registry http://localhost:4873 test-verdaccio-ci
+    #
