@@ -37,6 +37,7 @@ jobs:
         echo '    publish: $all' >> verdaccio.yml
         echo '    unpublish: $all' >> verdaccio.yml
         echo '    proxy: npmjs' >> verdaccio.yml
+        echo '    max_body_size: 100mb' >> verdaccio.yml
     - name: Test
       run: cat verdaccio.yml
     - name: Start verdaccio
