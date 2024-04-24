@@ -3,6 +3,7 @@
 use std::str::FromStr;
 
 use edr_eth::{
+    receipt::BlockReceipt,
     remote::{self, PreEip1898BlockSpec},
     rlp::{self, Decodable},
     transaction::{
@@ -11,7 +12,7 @@ use edr_eth::{
     },
     AccountInfo, Address, Bytes, B256,
 };
-use edr_evm::{address, ExecutableTransaction, KECCAK_EMPTY};
+use edr_evm::{address, bytes, ExecutableTransaction, KECCAK_EMPTY};
 use edr_provider::{
     test_utils::{create_test_config, one_ether},
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
@@ -19,6 +20,7 @@ use edr_provider::{
 use tokio::runtime;
 
 const CALLER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+const CONTRACT_ADDRESS: Address = todo!();
 
 /// Must match the value in `fixtures/eip4844.txt`.
 fn fake_blobs() -> Vec<Bytes> {
@@ -43,6 +45,10 @@ fn fake_raw_transaction() -> Bytes {
 
 fn fake_raw_transaction_with_four_blobs() -> Bytes {
     todo!("Add file that contains an RLP-encoded transaction with 4 blobs")
+}
+
+fn fake_raw_transaction_with_contract_call() -> Bytes {
+    todo!("Add file that contains an RLP-encoded transaction with a contract call")
 }
 
 fn fake_pooled_transaction() -> PooledTransaction {
@@ -295,6 +301,72 @@ async fn block_header() -> anyhow::Result<()> {
         fifth_block.excess_blob_gas,
         Some(excess_blobs * BYTES_PER_BLOB as u64)
     );
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn blob_hash_opcode() -> anyhow::Result<()> {
+    const CONTRACT_CODE: Bytes = bytes!("6080604052348015600e575f80fd5b5061021b8061001c5f395ff3fe608060405234801561000f575f80fd5b506004361061007b575f3560e01c80635f5d7b07116100595780635f5d7b07146100c557806380d36689146100e35780639b1e6a8d14610101578063f02cfa011461011f5761007b565b80632069b0c71461007f57806342cd9eeb1461008957806352679165146100a7575b5f80fd5b61008761013d565b005b610091610191565b60405161009e91906101cc565b60405180910390f35b6100af610197565b6040516100bc91906101cc565b60405180910390f35b6100cd61019d565b6040516100da91906101cc565b60405180910390f35b6100eb6101a3565b6040516100f891906101cc565b60405180910390f35b6101096101a9565b60405161011691906101cc565b60405180910390f35b6101276101af565b60405161013491906101cc565b60405180910390f35b5f805f805f805f49955060014994506002499350600349925060044991506005499050855f819055508460018190555083600281905550826003819055508160048190555080600581905550505050505050565b60045481565b60015481565b60025481565b60055481565b60035481565b5f5481565b5f819050919050565b6101c6816101b4565b82525050565b5f6020820190506101df5f8301846101bd565b9291505056fea2646970667358221220ad92504abfd8a29e63e4f3267491d7eb9a8e8b87431974aed1c6f2fe37debea064736f6c63430008190033");
+
+    let logger = Box::new(NoopLogger);
+    let subscriber = Box::new(|_event| {});
+    let mut config = create_test_config();
+    config.chain_id = fake_transaction()
+        .chain_id()
+        .expect("Blob transaction has chain ID");
+
+    config.genesis_accounts.insert(
+        CALLER,
+        AccountInfo {
+            balance: one_ether(),
+            nonce: 0,
+            code: None,
+            code_hash: KECCAK_EMPTY,
+        },
+    );
+
+    let impersonated_account = Address::random();
+    config.genesis_accounts.insert(
+        impersonated_account,
+        AccountInfo {
+            balance: one_ether(),
+            nonce: 0,
+            code: None,
+            code_hash: KECCAK_EMPTY,
+        },
+    );
+
+    let provider = Provider::new(runtime::Handle::current(), logger, subscriber, config)?;
+
+    let deploy_transaction = EthTransactionRequest {
+        from: impersonated_account,
+        data: Some(CONTRACT_CODE),
+        ..EthTransactionRequest::default()
+    };
+
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::SendTransaction(deploy_transaction),
+    ))?;
+
+    let transaction_hash: B256 = serde_json::from_value(result.result)?;
+
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::GetTransactionReceipt(transaction_hash),
+    ))?;
+
+    let receipt: Option<BlockReceipt> = serde_json::from_value(result.result)?;
+    let receipt = receipt.expect("Transaction receipt must exist");
+    let contract_address = receipt.contract_address.expect("Call must create contract");
+
+    assert_eq!(contract_address, CONTRACT_ADDRESS);
+
+    provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::SendRawTransaction(fake_raw_transaction_with_contract_call()),
+    ))?;
+
+    // What are the indices of the storage slots?
+    todo!("Check storage slots");
 
     Ok(())
 }
