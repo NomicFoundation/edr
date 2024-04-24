@@ -44,19 +44,24 @@ jobs:
       run: verdaccio --config verdaccio.yml &
     # build and publish
     - name: Build EDR
-      run: cd crates/edr_napi && pnpm install && pnpm build
-    - name: Test
-      run: ls
-    # - name: Publish package in verdaccio
-    #   run: npm publish --registry http://localhost:4873
-    # - name: Clone hardhat
-    #   uses: actions/checkout@master
-    #   with:
-    #     repository: NomicFoundation/hardhat
-    #     ref: refs/heads/main
-    #     path: hardhat
-    # - name: cd into hardhat
-    #   run: cd $GITHUB_WORKSPACE/hardhat/packages/hardhat-core
-    # - name: Install project
-    #   run: pnpm install --registry http://localhost:4873 test-verdaccio-ci
-    #
+      run: |
+        cd crates/edr_napi
+        pnpm install
+        pnpm version prerelease
+        pnpm build
+        PLATFORM=$(echo edr.*.node | sed 's/^edr\.\(.*\)\.node$/\1/')
+        cp edr.*.node npm/${PLATFORM}
+        pnpm publish --registry http://localhost:4873 --no-git-checks --tag dev
+    - name: Clone hardhat
+      uses: actions/checkout@master
+      with:
+        repository: NomicFoundation/hardhat
+        ref: refs/heads/main
+        path: hardhat
+    - name: Run Hardhat tests
+      run: |
+        cd $GITHUB_WORKSPACE/hardhat/packages/hardhat-core
+        pnpm install --registry http://localhost:4873 @nomicfoundation/edr@dev
+        pnpm build
+        pnpm test
+
