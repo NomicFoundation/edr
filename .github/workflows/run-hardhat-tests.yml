@@ -50,7 +50,7 @@ jobs:
         pnpm build
         PLATFORM=$(echo edr.*.node | sed 's/^edr\.\(.*\)\.node$/\1/')
         cp edr.*.node npm/${PLATFORM}
-        echo '//localhost:4873/:_authToken="tFLPfP7k4DiiOvZ9K/rnTw=="' > .npmrc
+        pnpm config set //localhost:4873/:_authToken "tFLPfP7k4DiiOvZ9K/rnTw=="
         pnpm publish --registry http://localhost:4873 --no-git-checks --tag dev
     - name: Clone hardhat
       uses: actions/checkout@master
