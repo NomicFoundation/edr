@@ -147,7 +147,7 @@ impl Block for RemoteBlock {
                 self.rpc_client.get_transaction_receipts(
                     self.transactions
                         .iter()
-                        .map(|transaction| transaction.transaction_hash()),
+                        .map(ExecutableTransaction::transaction_hash),
                 ),
             )
         })

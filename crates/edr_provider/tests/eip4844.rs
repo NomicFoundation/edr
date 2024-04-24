@@ -4,19 +4,21 @@ use std::str::FromStr;
 
 use edr_eth::{
     remote::{self, PreEip1898BlockSpec},
-    rlp::Decodable,
+    rlp::{self, Decodable},
     transaction::{
         pooled::{eip4844::BYTES_PER_BLOB, PooledTransaction},
         EthTransactionRequest, SignedTransaction, Transaction,
     },
     AccountInfo, Address, Bytes, B256,
 };
-use edr_evm::{ExecutableTransaction, KECCAK_EMPTY};
+use edr_evm::{address, ExecutableTransaction, KECCAK_EMPTY};
 use edr_provider::{
     test_utils::{create_test_config, one_ether},
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
 use tokio::runtime;
+
+const CALLER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
 /// Must match the value in `fixtures/eip4844.txt`.
 fn fake_blobs() -> Vec<Bytes> {
@@ -35,14 +37,12 @@ fn fake_blobs() -> Vec<Bytes> {
     vec![Bytes::from(bytes)]
 }
 
-fn fake_caller() -> anyhow::Result<Address> {
-    let caller = fake_transaction().recover()?;
-
-    Ok(caller)
-}
-
 fn fake_raw_transaction() -> Bytes {
     Bytes::from_str(include_str!("fixtures/eip4844.txt")).expect("failed to parse raw transaction")
+}
+
+fn fake_raw_transaction_with_four_blobs() -> Bytes {
+    todo!("Add file that contains an RLP-encoded transaction with 4 blobs")
 }
 
 fn fake_pooled_transaction() -> PooledTransaction {
@@ -97,8 +97,6 @@ async fn send_transaction_unsupported() -> anyhow::Result<()> {
         )))
         .expect_err("Must return an error");
 
-    println!("error: {error:?}");
-
     assert!(matches!(
         error,
         ProviderError::Eip4844TransactionUnsupported
@@ -119,7 +117,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
 
     config.genesis_accounts.insert(
-        fake_caller()?,
+        CALLER,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
@@ -152,7 +150,7 @@ async fn get_transaction() -> anyhow::Result<()> {
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
 
     config.genesis_accounts.insert(
-        fake_caller()?,
+        CALLER,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
@@ -193,7 +191,7 @@ async fn block_header() -> anyhow::Result<()> {
         .expect("Blob transaction has chain ID");
 
     config.genesis_accounts.insert(
-        fake_caller()?,
+        CALLER,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
@@ -204,6 +202,9 @@ async fn block_header() -> anyhow::Result<()> {
 
     let provider = Provider::new(runtime::Handle::current(), logger, subscriber, config)?;
 
+    // The genesis block has 0 excess blobs
+    let mut excess_blobs = 0u64;
+
     provider.handle_request(ProviderRequest::Single(
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
     ))?;
@@ -213,29 +214,87 @@ async fn block_header() -> anyhow::Result<()> {
     ))?;
 
     let first_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    assert_eq!(first_block.blob_gas_used, Some(BYTES_PER_BLOB as u64));
 
-    let transaction = fake_pooled_transaction();
+    assert_eq!(
+        first_block.excess_blob_gas,
+        Some(excess_blobs * BYTES_PER_BLOB as u64)
+    );
 
-    let expected = transaction
-        .blobs()
-        .map(|blobs| blobs.iter().map(|blob| blob.len()).sum::<usize>() as u64);
+    // The first block does not affect the number of excess blobs, as it has less
+    // than the target number of blobs (3)
 
-    assert_eq!(first_block.blob_gas_used, expected);
-
-    // Excess is 0, as it's the first block
-    assert_eq!(first_block.excess_blob_gas, Some(0));
-
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+    provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::SendRawTransaction(fake_raw_transaction_with_four_blobs()),
+    ))?;
 
     let result = provider.handle_request(ProviderRequest::Single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
     let second_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    assert_eq!(second_block.blob_gas_used, Some(4 * BYTES_PER_BLOB as u64));
 
-    assert_eq!(second_block.blob_gas_used, Some(0));
-    // TODO: fix excess gas
-    assert_eq!(second_block.excess_blob_gas, Some(0));
+    assert_eq!(
+        second_block.excess_blob_gas,
+        Some(excess_blobs * BYTES_PER_BLOB as u64)
+    );
+
+    // The second block increases the excess by 1 blob (4 - 3)
+    excess_blobs += 1;
+
+    provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::SendRawTransaction(fake_raw_transaction_with_four_blobs()),
+    ))?;
+
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    ))?;
+
+    let third_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    assert_eq!(third_block.blob_gas_used, Some(4 * BYTES_PER_BLOB as u64));
+
+    assert_eq!(
+        third_block.excess_blob_gas,
+        Some(excess_blobs * BYTES_PER_BLOB as u64)
+    );
+
+    // The third block increases the excess by 1 blob (4 - 3)
+    excess_blobs += 1;
+
+    // Mine an empty block to validate the previous block's excess
+    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    ))?;
+
+    let fourth_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    assert_eq!(fourth_block.blob_gas_used, Some(0u64));
+
+    assert_eq!(
+        fourth_block.excess_blob_gas,
+        Some(excess_blobs * BYTES_PER_BLOB as u64)
+    );
+
+    // The fourth block decreases the excess by 3 blob (0 - 3), but should not go
+    // below 0 - the minimum
+    excess_blobs = excess_blobs.saturating_sub(3);
+
+    // Mine an empty block to validate the previous block's excess
+    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    ))?;
+
+    let fifth_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    assert_eq!(fifth_block.blob_gas_used, Some(0u64));
+
+    assert_eq!(
+        fifth_block.excess_blob_gas,
+        Some(excess_blobs * BYTES_PER_BLOB as u64)
+    );
 
     Ok(())
 }

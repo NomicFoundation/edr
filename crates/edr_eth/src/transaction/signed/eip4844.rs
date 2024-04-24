@@ -120,6 +120,8 @@ impl PartialEq for Eip4844SignedTransaction {
 mod tests {
     use std::str::FromStr;
 
+    use revm_primitives::{address, b256};
+
     use super::*;
 
     // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
@@ -170,5 +172,40 @@ mod tests {
 
         let signed = dummy_transaction();
         assert_eq!(expected, *signed.hash());
+    }
+
+    #[test]
+    fn recover() -> anyhow::Result<()> {
+        // From https://github.com/NomicFoundation/edr/issues/341#issuecomment-2039360056
+        const CALLER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+
+        let transaction = Eip4844SignedTransaction {
+            chain_id: 1337,
+            nonce: 0,
+            max_priority_fee_per_gas: U256::from(0x3b9aca00),
+            max_fee_per_gas: U256::from(0x3b9aca00u64),
+            gas_limit: 1000000,
+            to: Address::ZERO,
+            value: U256::ZERO,
+            input: Bytes::from_str("0x2069b0c7")?,
+            access_list: Vec::new().into(),
+            max_fee_per_blob_gas: U256::from(1),
+            blob_hashes: vec![b256!(
+                "01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e"
+            )],
+            odd_y_parity: true,
+            r: U256::from_str(
+                "0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082",
+            )?,
+            s: U256::from_str(
+                "0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b",
+            )?,
+            hash: OnceLock::new(),
+            is_fake: false,
+        };
+
+        assert_eq!(transaction.recover()?, CALLER);
+
+        Ok(())
     }
 }

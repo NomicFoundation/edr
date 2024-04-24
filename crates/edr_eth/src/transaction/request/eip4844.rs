@@ -33,7 +33,7 @@ impl Eip4844TransactionRequest {
     pub fn hash(&self) -> B256 {
         let encoded = alloy_rlp::encode(self);
 
-        keccak256(envelop_bytes(2, &encoded))
+        keccak256(envelop_bytes(3, &encoded))
     }
 
     pub fn sign(self, private_key: &SecretKey) -> Result<Eip4844SignedTransaction, SignatureError> {
@@ -107,26 +107,27 @@ impl From<&Eip4844SignedTransaction> for Eip4844TransactionRequest {
 pub(crate) mod tests {
     use std::str::FromStr;
 
+    use revm_primitives::b256;
+
     use super::*;
     use crate::transaction::fake_signature::tests::test_fake_sign_properties;
 
     fn dummy_request() -> Eip4844TransactionRequest {
         // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
         Eip4844TransactionRequest {
-            chain_id: 0x28757b3,
+            chain_id: 1337,
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(0x12a05f200u64),
-            max_fee_per_gas: U256::from(0x12a05f200u64),
-            max_fee_per_blob_gas: U256::from(0xb2d05e00u64),
-            gas_limit: 0x33450,
-            to: Address::from_str("0xffb38a7a99e3e2335be83fc74b7faa19d5531243").unwrap(),
-            value: U256::from(0xbc614eu64),
-            input: Bytes::default(),
+            max_priority_fee_per_gas: U256::from(0x3b9aca00u64),
+            max_fee_per_gas: U256::from(0x3b9aca00u64),
+            gas_limit: 1000000u64,
+            to: Address::ZERO,
+            value: U256::ZERO,
+            input: Bytes::from_str("0x2069b0c7").expect("Valid hex string"),
             access_list: Vec::new(),
-            blob_hashes: vec![B256::from_str(
-                "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",
-            )
-            .unwrap()],
+            max_fee_per_blob_gas: U256::from(1u64),
+            blob_hashes: vec![b256!(
+                "01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e"
+            )],
         }
     }
 
@@ -134,4 +135,12 @@ pub(crate) mod tests {
 
     // Hardhat doesn't support EIP-4844 yet, hence no fake signature test
     // vector.
+    #[test]
+    fn transaction_request_hash() {
+        const EXPECTED: B256 =
+            b256!("9dccf66bda0bd29f3a6fb35808360b041203b28c90236065cd4753cf97cfd5fd");
+
+        let request = dummy_request();
+        assert_eq!(*request.hash(), EXPECTED);
+    }
 }
