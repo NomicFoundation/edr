@@ -55,6 +55,7 @@ jobs:
         cp edr.*.node npm/${PLATFORM}
         echo "pnpm config set"
         pnpm config set //localhost:4873/:_authToken "tFLPfP7k4DiiOvZ9K/rnTw=="
+        pnpm config set max_body_size 100mb
         echo "pnpm publish"
         pnpm publish --registry http://localhost:4873 --no-git-checks --tag dev
     - name: Clone hardhat
