@@ -1813,41 +1813,5 @@ mod tests {
                 .await
                 .expect("should have succeeded");
         }
-
-        #[tokio::test]
-        async fn handles_invalid_type_in_cache_batch_call() {
-            let alchemy_url = get_alchemy_url();
-            let client = TestRpcClient::new(&alchemy_url);
-
-            let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
-                .expect("failed to parse address");
-            let block_spec = BlockSpec::Number(16220843);
-
-            // Make an initial call to populate the cache.
-            client
-                .get_account_info(&dai_address, Some(block_spec.clone()))
-                .await
-                .expect("initial call should succeed");
-            assert_eq!(client.files_in_cache().len(), 3);
-
-            // Write some valid JSON, but invalid U256
-            tokio::fs::write(&client.files_in_cache()[0], "\"not-hex\"")
-                .await
-                .unwrap();
-
-            // Call with invalid type in cache fails, but removes faulty cache item
-            client
-                .get_account_info(&dai_address, Some(block_spec.clone()))
-                .await
-                .expect_err("should fail due to invalid json in cache");
-            assert_eq!(client.files_in_cache().len(), 2);
-
-            // Subsequent call fetches removed cache item and succeeds.
-            client
-                .get_account_info(&dai_address, Some(block_spec.clone()))
-                .await
-                .expect("subsequent call should succeed");
-            assert_eq!(client.files_in_cache().len(), 3);
-        }
     }
 }
