@@ -1,15 +1,15 @@
-import { assert } from "chai";
 import { Block } from "@nomicfoundation/ethereumjs-block";
 import { Common } from "@nomicfoundation/ethereumjs-common";
-
-import { workaroundWindowsCiFailures } from "../../../utils/workaround-windows-ci-failures";
-import { PROVIDERS } from "../helpers/providers";
+import { assert } from "chai";
 import {
   numberToRpcQuantity,
   rpcQuantityToBigInt,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
 import { EthereumProvider } from "hardhat/types";
 import { makeForkClient } from "hardhat/internal/hardhat-network/provider/utils/makeForkClient";
+
+import { workaroundWindowsCiFailures } from "../../../utils/workaround-windows-ci-failures";
+import { PROVIDERS } from "../helpers/providers";
 import { ALCHEMY_URL } from "../../../setup";
 import { rpcToBlockData } from "./utils/rpcToBlockData";
 

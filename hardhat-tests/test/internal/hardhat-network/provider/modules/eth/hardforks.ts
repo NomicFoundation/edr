@@ -6,12 +6,18 @@ import {
 } from "@nomicfoundation/ethereumjs-tx";
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
-
 import {
   bufferToRpcData,
   numberToRpcQuantity,
   rpcQuantityToBigInt,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
+import { InvalidArgumentsError } from "hardhat/internal/core/providers/errors";
+import {
+  EIP1559RpcTransactionOutput,
+  RpcBlockOutput,
+} from "hardhat/internal/hardhat-network/provider/output";
+import * as BigIntUtils from "hardhat/internal/util/bigint";
+
 import {
   assertInvalidArgumentsError,
   assertInvalidInputError,
@@ -28,12 +34,6 @@ import {
   sendTxToZeroAddress,
 } from "../../../helpers/transactions";
 import { useProvider as importedUseProvider } from "../../../helpers/useProvider";
-import {
-  EIP1559RpcTransactionOutput,
-  RpcBlockOutput,
-} from "hardhat/internal/hardhat-network/provider/output";
-import { InvalidArgumentsError } from "hardhat/internal/core/providers/errors";
-import * as BigIntUtils from "hardhat/internal/util/bigint";
 import {
   EXAMPLE_TOUCH_ADDRESS_CONTRACT,
   EXAMPLE_DIFFICULTY_CONTRACT,

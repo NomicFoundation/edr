@@ -1,6 +1,4 @@
 import { assert } from "chai";
-import { Client } from "undici";
-
 import { ethers } from "ethers";
 import {
   numberToRpcQuantity,
@@ -10,7 +8,14 @@ import {
   rpcQuantityToBigInt,
   numberToRpcStorageSlot,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
+import {
+  InvalidArgumentsError,
+  InvalidInputError,
+} from "hardhat/internal/core/providers/errors";
 import { getCurrentTimestamp } from "hardhat/internal/hardhat-network/provider/utils/getCurrentTimestamp";
+import { EthereumProvider } from "hardhat/types";
+import { Client } from "undici";
+
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
 import {
   assertAddressBalance,
@@ -39,11 +44,6 @@ import {
   sendTxToZeroAddress,
 } from "../../../../helpers/transactions";
 import { compileLiteral } from "../../../../stack-traces/compilation";
-import { EthereumProvider } from "hardhat/types";
-import {
-  InvalidArgumentsError,
-  InvalidInputError,
-} from "hardhat/internal/core/providers/errors";
 
 describe("Eth module", function () {
   PROVIDERS.forEach(({ name, useProvider, isFork, chainId }) => {

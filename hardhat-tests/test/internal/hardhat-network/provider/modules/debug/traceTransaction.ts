@@ -1,12 +1,13 @@
 import { assert } from "chai";
-import _ from "lodash";
-
 import { defaultHardhatNetworkParams } from "hardhat/internal/core/config/default-config";
+import { numberToRpcQuantity } from "hardhat/internal/core/jsonrpc/types/base-types";
 import { BackwardsCompatibilityProviderAdapter } from "hardhat/internal/core/providers/backwards-compatibility";
 import { ForkConfig } from "hardhat/internal/hardhat-network/provider/node-types";
 import { RpcDebugTraceOutput } from "hardhat/internal/hardhat-network/provider/output";
 import { createHardhatNetworkProvider } from "hardhat/internal/hardhat-network/provider/provider";
 import { EthereumProvider } from "hardhat/types";
+import _ from "lodash";
+
 import { trace as mainnetPostLondonTxTrace } from "../../../../../fixture-debug-traces/mainnetPostLondonTxTrace";
 import { trace as mainnetReturnsDataTrace } from "../../../../../fixture-debug-traces/mainnetReturnsDataTrace";
 import { trace as mainnetReturnsDataTraceGeth } from "../../../../../fixture-debug-traces/mainnetReturnsDataTraceGeth";
@@ -32,7 +33,6 @@ import {
 import { sendDummyTransaction } from "../../../helpers/sendDummyTransaction";
 import { deployContract } from "../../../helpers/transactions";
 import { assertEqualTraces } from "../../utils/assertEqualTraces";
-import { numberToRpcQuantity } from "hardhat/internal/core/jsonrpc/types/base-types";
 
 // TODO: temporarily skip some of the tests because the latest version of ethereumjs
 // sometimes wrongly adds dummy empty words in the memory field

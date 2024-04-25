@@ -1,6 +1,7 @@
 import { Common } from "@nomicfoundation/ethereumjs-common";
 import { TransactionFactory } from "@nomicfoundation/ethereumjs-tx";
 import { assert } from "chai";
+import { RpcTransactionOutput } from "hardhat/internal/hardhat-network/provider/output";
 import { Client } from "undici";
 
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
@@ -17,7 +18,6 @@ import {
   DEFAULT_ACCOUNTS_ADDRESSES,
 } from "../../../../helpers/providers";
 import { deployContract } from "../../../../helpers/transactions";
-import { RpcTransactionOutput } from "hardhat/internal/hardhat-network/provider/output";
 
 describe("Eth module", function () {
   PROVIDERS.forEach(({ name, useProvider, isFork, isJsonRpc }) => {

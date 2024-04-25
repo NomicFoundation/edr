@@ -1,7 +1,6 @@
 import { zeroAddress } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { Client } from "undici";
-
 import {
   numberToRpcQuantity,
   rpcQuantityToNumber,
@@ -9,6 +8,12 @@ import {
   rpcDataToNumber,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
 import { InvalidInputError } from "hardhat/internal/core/providers/errors";
+import {
+  EIP1559RpcTransactionOutput,
+  RpcBlockOutput,
+} from "hardhat/internal/hardhat-network/provider/output";
+import { EthereumProvider } from "hardhat/types";
+
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
 import {
   assertInvalidInputError,
@@ -34,11 +39,6 @@ import {
 } from "../../../../helpers/transactions";
 import { useHelpers } from "../../../../helpers/useHelpers";
 import { compileLiteral } from "../../../../stack-traces/compilation";
-import {
-  EIP1559RpcTransactionOutput,
-  RpcBlockOutput,
-} from "hardhat/internal/hardhat-network/provider/output";
-import { EthereumProvider } from "hardhat/types";
 
 describe("Eth module", function () {
   PROVIDERS.forEach(({ name, useProvider, isFork, isJsonRpc }) => {

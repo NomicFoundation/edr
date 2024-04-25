@@ -1,8 +1,4 @@
-import {
-  scope,
-  subtask,
-  task,
-} from "hardhat/internal/core/config/config-env";
+import { scope, subtask, task } from "hardhat/internal/core/config/config-env";
 
 // type helper
 export type Equals<X, Y> = (<T>() => T extends X ? 1 : 2) extends <

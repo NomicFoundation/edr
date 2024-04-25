@@ -8,7 +8,7 @@
   "scripts": {
     "lint": "pnpm prettier --check && pnpm eslint",
     "lint:fix": "pnpm prettier --write && pnpm eslint --fix",
-    "eslint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
+    "eslint": "eslint 'test/**/*.ts'",
     "prettier": "prettier \"**/*.{js,md,json}\"",
     "pretest": "cd ../crates/edr_napi && pnpm build",
     "test": "mocha --recursive \"test/**/*.ts\"",

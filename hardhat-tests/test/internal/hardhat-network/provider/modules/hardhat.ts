@@ -1,8 +1,6 @@
 import { assert } from "chai";
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { ethers } from "ethers";
-import sinon from "sinon";
-
 import {
   numberToRpcQuantity,
   numberToRpcStorageSlot,
@@ -10,7 +8,13 @@ import {
   rpcQuantityToBigInt,
   rpcQuantityToNumber,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
+import { HardhatMetadata } from "hardhat/internal/core/jsonrpc/types/output/metadata";
+import { RpcBlockOutput } from "hardhat/internal/hardhat-network/provider/output";
+import { randomAddressString } from "hardhat/internal/hardhat-network/provider/utils/random";
+import * as BigIntUtils from "hardhat/internal/util/bigint";
 import { CompilerOutputContract } from "hardhat/types/artifacts";
+import sinon from "sinon";
+
 import { expectErrorAsync } from "../../../../helpers/errors";
 import { ALCHEMY_URL } from "../../../../setup";
 import { workaroundWindowsCiFailures } from "../../../../utils/workaround-windows-ci-failures";
@@ -29,14 +33,10 @@ import {
 } from "../../helpers/transactions";
 import { compileLiteral } from "../../stack-traces/compilation";
 import { getPendingBaseFeePerGas } from "../../helpers/getPendingBaseFeePerGas";
-import { RpcBlockOutput } from "hardhat/internal/hardhat-network/provider/output";
-import { randomAddressString } from "hardhat/internal/hardhat-network/provider/utils/random";
-import * as BigIntUtils from "hardhat/internal/util/bigint";
 import {
   EXAMPLE_CONTRACT,
   EXAMPLE_DIFFICULTY_CONTRACT,
 } from "../../helpers/contracts";
-import { HardhatMetadata } from "hardhat/internal/core/jsonrpc/types/output/metadata";
 import { useFixtureProject } from "../../../../helpers/project";
 import { useEnvironment } from "../../../../helpers/environment";
 

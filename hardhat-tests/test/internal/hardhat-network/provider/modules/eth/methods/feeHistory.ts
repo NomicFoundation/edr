@@ -1,4 +1,9 @@
 import { assert } from "chai";
+import {
+  numberToRpcQuantity,
+  rpcQuantityToNumber,
+} from "hardhat/internal/core/jsonrpc/types/base-types";
+import { RpcBlockOutput } from "hardhat/internal/hardhat-network/provider/output";
 
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
 import { setCWD } from "../../../../helpers/cwd";
@@ -7,11 +12,6 @@ import {
   PROVIDERS,
 } from "../../../../helpers/providers";
 import { assertInvalidInputError } from "../../../../helpers/assertions";
-import {
-  numberToRpcQuantity,
-  rpcQuantityToNumber,
-} from "hardhat/internal/core/jsonrpc/types/base-types";
-import { RpcBlockOutput } from "hardhat/internal/hardhat-network/provider/output";
 
 describe("Eth module", function () {
   PROVIDERS.forEach(({ name, useProvider, isFork }) => {

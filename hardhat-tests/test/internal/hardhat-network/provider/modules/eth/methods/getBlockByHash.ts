@@ -1,16 +1,16 @@
 import { assert } from "chai";
-
+import { rpcQuantityToNumber } from "hardhat/internal/core/jsonrpc/types/base-types";
 import {
   RpcBlockOutput,
   RpcTransactionOutput,
 } from "hardhat/internal/hardhat-network/provider/output";
+import { DEFAULT_COINBASE } from "hardhat/internal/hardhat-network/provider/provider";
+
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
 import { assertQuantity } from "../../../../helpers/assertions";
 import { setCWD } from "../../../../helpers/cwd";
 import { PROVIDERS } from "../../../../helpers/providers";
 import { sendTxToZeroAddress } from "../../../../helpers/transactions";
-import { DEFAULT_COINBASE } from "hardhat/internal/hardhat-network/provider/provider";
-import { rpcQuantityToNumber } from "hardhat/internal/core/jsonrpc/types/base-types";
 
 describe("Eth module", function () {
   PROVIDERS.forEach(({ name, useProvider, isFork }) => {

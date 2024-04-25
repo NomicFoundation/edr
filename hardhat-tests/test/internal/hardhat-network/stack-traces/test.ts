@@ -1,10 +1,7 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
-import fs from "fs";
-import fsExtra from "fs-extra";
-import path from "path";
-import semver from "semver";
-
+import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
+import { TracingConfig } from "hardhat/internal/hardhat-network/provider/node-types";
 import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/provider";
 import { ReturnData } from "hardhat/internal/hardhat-network/provider/return-data";
 import {
@@ -28,17 +25,19 @@ import {
 import { SolidityTracer } from "hardhat/internal/hardhat-network/stack-traces/solidityTracer";
 import { VmTraceDecoder } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
 import { VMTracer } from "hardhat/internal/hardhat-network/stack-traces/vm-tracer";
+import { SUPPORTED_SOLIDITY_VERSION_RANGE } from "hardhat/internal/hardhat-network/stack-traces/constants";
 import {
   BuildInfo,
   CompilerInput,
   CompilerOutput,
   CompilerOutputBytecode,
 } from "hardhat/types";
-import { setCWD } from "../helpers/cwd";
+import fs from "fs";
+import fsExtra from "fs-extra";
+import path from "path";
+import semver from "semver";
 
-import { SUPPORTED_SOLIDITY_VERSION_RANGE } from "hardhat/internal/hardhat-network/stack-traces/constants";
-import { TracingConfig } from "hardhat/internal/hardhat-network/provider/node-types";
-import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
+import { setCWD } from "../helpers/cwd";
 import { FakeModulesLogger } from "../helpers/fakeLogger";
 import {
   compileFiles,

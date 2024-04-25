@@ -1,6 +1,7 @@
+import { ethers } from "ethers";
+import { numberToRpcQuantity } from "hardhat/internal/core/jsonrpc/types/base-types";
 import _ from "lodash";
 
-import { ethers } from "ethers";
 import { trace as contractAGetMessageTrace } from "../../../../../fixture-debug-traces/traceCall/contractAGetMessage";
 import { trace as contractAGetMessageTraceDebugConfig } from "../../../../../fixture-debug-traces/traceCall/contractAGetMessageDebugConfig";
 import { trace as ethTransferTrace } from "../../../../../fixture-debug-traces/traceCall/ethTransfer";
@@ -17,7 +18,6 @@ import {
 } from "../../../helpers/providers";
 import { deployContract } from "../../../helpers/transactions";
 import { assertEqualTraces } from "../../utils/assertEqualTraces";
-import { numberToRpcQuantity } from "hardhat/internal/core/jsonrpc/types/base-types";
 
 // Set the base quantity to the value used in GETH to generate the traces
 const BASE_GAS_QUANTITY = numberToRpcQuantity(50000000);

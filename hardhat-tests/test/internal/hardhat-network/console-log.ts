@@ -1,7 +1,8 @@
 import { assert } from "chai";
+import { TASK_COMPILE } from "hardhat/builtin-tasks/task-names";
+
 import { useEnvironment } from "../../helpers/environment";
 import { useFixtureProject } from "../../helpers/project";
-import { TASK_COMPILE } from "hardhat/builtin-tasks/task-names";
 
 describe("Solidity console.log should print numbers without losing precision, occurrences of %d and %i should be correctly replaced with %s", function () {
   const n1 = "11111111111111111111111111111111";

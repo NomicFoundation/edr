@@ -1,4 +1,5 @@
 import { assert } from "chai";
+import { DEFAULT_COINBASE } from "hardhat/internal/hardhat-network/provider/provider";
 
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
 import {
@@ -10,7 +11,6 @@ import {
   DEFAULT_ACCOUNTS_ADDRESSES,
   PROVIDERS,
 } from "../../../../helpers/providers";
-import { DEFAULT_COINBASE } from "hardhat/internal/hardhat-network/provider/provider";
 
 /**
  * This file test the methods that are not covered by the other
