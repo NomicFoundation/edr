@@ -1,28 +1,124 @@
 #![cfg(feature = "test-utils")]
 
-use std::str::FromStr;
+use std::{convert::Infallible, str::FromStr};
 
+use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     receipt::BlockReceipt,
     remote::{self, PreEip1898BlockSpec},
     rlp::{self, Decodable},
+    signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
-        pooled::{eip4844::BYTES_PER_BLOB, PooledTransaction},
-        EthTransactionRequest, SignedTransaction, Transaction,
+        pooled::{
+            eip4844::{Blob, Bytes48, BYTES_PER_BLOB},
+            Eip4844PooledTransaction, PooledTransaction,
+        },
+        Eip4844TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
     },
-    AccountInfo, Address, Bytes, B256,
+    AccountInfo, Address, Bytes, B256, U256,
 };
-use edr_evm::{address, bytes, ExecutableTransaction, KECCAK_EMPTY};
+use edr_evm::{EnvKzgSettings, ExecutableTransaction, KECCAK_EMPTY};
 use edr_provider::{
     test_utils::{create_test_config, one_ether},
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
 use tokio::runtime;
 
-const CALLER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
-const CONTRACT_ADDRESS: Address = todo!();
+/// Helper struct to modify the pooled transaction from the value in
+/// `fixtures/eip4844.txt`. It reuses the secret key from `SECRET_KEYS[0]`.
+struct BlobTransactionBuilder {
+    request: Eip4844TransactionRequest,
+    blobs: Vec<Blob>,
+    commitments: Vec<Bytes48>,
+    proofs: Vec<Bytes48>,
+}
 
-/// Must match the value in `fixtures/eip4844.txt`.
+impl BlobTransactionBuilder {
+    pub fn blob_hashes(&self) -> Vec<B256> {
+        self.request.blob_hashes.clone()
+    }
+
+    pub fn build(self) -> PooledTransaction {
+        let secret_key = secret_key_from_str(SECRET_KEYS[0]).expect("Invalid secret key");
+        let signed_transaction = self
+            .request
+            .sign(&secret_key)
+            .expect("Failed to sign transaction");
+
+        let settings = EnvKzgSettings::Default;
+        let pooled_transaction = Eip4844PooledTransaction::new(
+            signed_transaction,
+            self.blobs,
+            self.commitments,
+            self.proofs,
+            settings.get(),
+        )
+        .expect("Invalid blob transaction");
+
+        PooledTransaction::Eip4844(pooled_transaction)
+    }
+
+    pub fn build_raw(self) -> Bytes {
+        rlp::encode(self.build()).into()
+    }
+
+    /// Duplicates the blobs, commitments, and proofs such that they exist
+    /// `count` times.
+    pub fn duplicate_blobs(mut self, count: usize) -> Self {
+        self.request.blob_hashes = self
+            .request
+            .blob_hashes
+            .into_iter()
+            .cycle()
+            .take(count)
+            .collect();
+
+        self.blobs = self.blobs.into_iter().cycle().take(count).collect();
+        self.commitments = self.commitments.into_iter().cycle().take(count).collect();
+        self.proofs = self.proofs.into_iter().cycle().take(count).collect();
+
+        self
+    }
+
+    pub fn input(mut self, input: Bytes) -> Self {
+        self.request.input = input;
+        self
+    }
+
+    pub fn nonce(mut self, nonce: u64) -> Self {
+        self.request.nonce = nonce;
+        self
+    }
+
+    pub fn to(mut self, to: Address) -> Self {
+        self.request.to = to;
+        self
+    }
+}
+
+impl Default for BlobTransactionBuilder {
+    fn default() -> Self {
+        let PooledTransaction::Eip4844(pooled_transaction) = fake_pooled_transaction() else {
+            unreachable!("Must be an EIP-4844 transaction")
+        };
+
+        let (transaction, blobs, commitments, proofs) = pooled_transaction.into_inner();
+
+        let request = Eip4844TransactionRequest::from(&transaction);
+
+        Self {
+            request,
+            blobs,
+            commitments,
+            proofs,
+        }
+    }
+}
+
+// const CONTRACT_ADDRESS: Address = todo!();
+
+/// Must match the value in `fixtures/eip4844.txt`. The transaction was signed
+/// by private key `SECRETS[0]`
 fn fake_blobs() -> Vec<Bytes> {
     const BLOB_VALUE: &[u8] = b"hello world";
 
@@ -41,14 +137,6 @@ fn fake_blobs() -> Vec<Bytes> {
 
 fn fake_raw_transaction() -> Bytes {
     Bytes::from_str(include_str!("fixtures/eip4844.txt")).expect("failed to parse raw transaction")
-}
-
-fn fake_raw_transaction_with_four_blobs() -> Bytes {
-    todo!("Add file that contains an RLP-encoded transaction with 4 blobs")
-}
-
-fn fake_raw_transaction_with_contract_call() -> Bytes {
-    todo!("Add file that contains an RLP-encoded transaction with a contract call")
 }
 
 fn fake_pooled_transaction() -> PooledTransaction {
@@ -123,7 +211,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
 
     config.genesis_accounts.insert(
-        CALLER,
+        secret_key_to_address(SECRET_KEYS[0])?,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
@@ -156,7 +244,7 @@ async fn get_transaction() -> anyhow::Result<()> {
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
 
     config.genesis_accounts.insert(
-        CALLER,
+        secret_key_to_address(SECRET_KEYS[0])?,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
@@ -197,7 +285,7 @@ async fn block_header() -> anyhow::Result<()> {
         .expect("Blob transaction has chain ID");
 
     config.genesis_accounts.insert(
-        CALLER,
+        secret_key_to_address(SECRET_KEYS[0])?,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
@@ -230,8 +318,13 @@ async fn block_header() -> anyhow::Result<()> {
     // The first block does not affect the number of excess blobs, as it has less
     // than the target number of blobs (3)
 
+    let excess_blob_transaction = BlobTransactionBuilder::default()
+        .duplicate_blobs(4)
+        .nonce(1)
+        .build_raw();
+
     provider.handle_request(ProviderRequest::Single(
-        MethodInvocation::SendRawTransaction(fake_raw_transaction_with_four_blobs()),
+        MethodInvocation::SendRawTransaction(excess_blob_transaction),
     ))?;
 
     let result = provider.handle_request(ProviderRequest::Single(
@@ -249,8 +342,13 @@ async fn block_header() -> anyhow::Result<()> {
     // The second block increases the excess by 1 blob (4 - 3)
     excess_blobs += 1;
 
+    let excess_blob_transaction = BlobTransactionBuilder::default()
+        .duplicate_blobs(5)
+        .nonce(2)
+        .build_raw();
+
     provider.handle_request(ProviderRequest::Single(
-        MethodInvocation::SendRawTransaction(fake_raw_transaction_with_four_blobs()),
+        MethodInvocation::SendRawTransaction(excess_blob_transaction),
     ))?;
 
     let result = provider.handle_request(ProviderRequest::Single(
@@ -258,15 +356,15 @@ async fn block_header() -> anyhow::Result<()> {
     ))?;
 
     let third_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(third_block.blob_gas_used, Some(4 * BYTES_PER_BLOB as u64));
+    assert_eq!(third_block.blob_gas_used, Some(5 * BYTES_PER_BLOB as u64));
 
     assert_eq!(
         third_block.excess_blob_gas,
         Some(excess_blobs * BYTES_PER_BLOB as u64)
     );
 
-    // The third block increases the excess by 1 blob (4 - 3)
-    excess_blobs += 1;
+    // The third block increases the excess by 2 blob (5 - 3)
+    excess_blobs += 2;
 
     // Mine an empty block to validate the previous block's excess
     provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
@@ -307,7 +405,51 @@ async fn block_header() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn blob_hash_opcode() -> anyhow::Result<()> {
-    const CONTRACT_CODE: Bytes = bytes!("6080604052348015600e575f80fd5b5061021b8061001c5f395ff3fe608060405234801561000f575f80fd5b506004361061007b575f3560e01c80635f5d7b07116100595780635f5d7b07146100c557806380d36689146100e35780639b1e6a8d14610101578063f02cfa011461011f5761007b565b80632069b0c71461007f57806342cd9eeb1461008957806352679165146100a7575b5f80fd5b61008761013d565b005b610091610191565b60405161009e91906101cc565b60405180910390f35b6100af610197565b6040516100bc91906101cc565b60405180910390f35b6100cd61019d565b6040516100da91906101cc565b60405180910390f35b6100eb6101a3565b6040516100f891906101cc565b60405180910390f35b6101096101a9565b60405161011691906101cc565b60405180910390f35b6101276101af565b60405161013491906101cc565b60405180910390f35b5f805f805f805f49955060014994506002499350600349925060044991506005499050855f819055508460018190555083600281905550826003819055508160048190555080600581905550505050505050565b60045481565b60015481565b60025481565b60055481565b60035481565b5f5481565b5f819050919050565b6101c6816101b4565b82525050565b5f6020820190506101df5f8301846101bd565b9291505056fea2646970667358221220ad92504abfd8a29e63e4f3267491d7eb9a8e8b87431974aed1c6f2fe37debea064736f6c63430008190033");
+    fn assert_blob_hash_opcodes(
+        provider: &Provider<Infallible>,
+        contract_address: &Address,
+        num_blobs: usize,
+        nonce: u64,
+    ) -> anyhow::Result<()> {
+        let builder = BlobTransactionBuilder::default()
+            .duplicate_blobs(num_blobs)
+            .input(Bytes::from_str("0x2069b0c7")?)
+            .nonce(nonce)
+            .to(*contract_address);
+
+        let blob_hashes = builder.blob_hashes();
+        let call_transaction = builder.build_raw();
+
+        provider.handle_request(ProviderRequest::Single(
+            MethodInvocation::SendRawTransaction(call_transaction),
+        ))?;
+
+        for (idx, blob_hash) in blob_hashes.into_iter().enumerate() {
+            let index = U256::from(idx);
+
+            let result = provider.handle_request(ProviderRequest::Single(
+                MethodInvocation::GetStorageAt(*contract_address, index, None),
+            ))?;
+
+            let storage_value: B256 = serde_json::from_value(result.result)?;
+            assert_eq!(storage_value, blob_hash);
+        }
+
+        for idx in num_blobs..6 {
+            let index = U256::from(idx);
+
+            let result = provider.handle_request(ProviderRequest::Single(
+                MethodInvocation::GetStorageAt(*contract_address, index, None),
+            ))?;
+
+            let storage_value: B256 = serde_json::from_value(result.result)?;
+            assert_eq!(storage_value, B256::ZERO);
+        }
+
+        Ok(())
+    }
+
+    const CONTRACT_CODE: &str = include_str!("fixtures/blob_hash_opcode_contract.txt");
 
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
@@ -316,19 +458,9 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         .chain_id()
         .expect("Blob transaction has chain ID");
 
+    let caller = secret_key_to_address(SECRET_KEYS[0])?;
     config.genesis_accounts.insert(
-        CALLER,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        },
-    );
-
-    let impersonated_account = Address::random();
-    config.genesis_accounts.insert(
-        impersonated_account,
+        caller,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
@@ -340,8 +472,8 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
     let provider = Provider::new(runtime::Handle::current(), logger, subscriber, config)?;
 
     let deploy_transaction = EthTransactionRequest {
-        from: impersonated_account,
-        data: Some(CONTRACT_CODE),
+        from: caller,
+        data: Some(Bytes::from_str(CONTRACT_CODE)?),
         ..EthTransactionRequest::default()
     };
 
@@ -359,14 +491,11 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
     let receipt = receipt.expect("Transaction receipt must exist");
     let contract_address = receipt.contract_address.expect("Call must create contract");
 
-    assert_eq!(contract_address, CONTRACT_ADDRESS);
-
-    provider.handle_request(ProviderRequest::Single(
-        MethodInvocation::SendRawTransaction(fake_raw_transaction_with_contract_call()),
-    ))?;
-
-    // What are the indices of the storage slots?
-    todo!("Check storage slots");
+    let mut nonce = 1;
+    for num_blobs in 1..=6 {
+        assert_blob_hash_opcodes(&provider, &contract_address, num_blobs, nonce)?;
+        nonce += 1;
+    }
 
     Ok(())
 }

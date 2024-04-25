@@ -1,4 +1,4 @@
-pub use c_kzg::{BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
+pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 use revm_primitives::{EnvKzgSettings, B256, VERSIONED_HASH_VERSION_KZG};
 use sha2::Digest;
 
@@ -8,9 +8,9 @@ use crate::transaction::Eip4844SignedTransaction;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Eip4844PooledTransaction {
     payload: Eip4844SignedTransaction,
-    blobs: Vec<c_kzg::Blob>,
-    commitments: Vec<c_kzg::Bytes48>,
-    proofs: Vec<c_kzg::Bytes48>,
+    blobs: Vec<Blob>,
+    commitments: Vec<Bytes48>,
+    proofs: Vec<Bytes48>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -38,9 +38,9 @@ impl Eip4844PooledTransaction {
     /// commitments, and proofs are valid.
     pub fn new(
         payload: Eip4844SignedTransaction,
-        blobs: Vec<c_kzg::Blob>,
-        commitments: Vec<c_kzg::Bytes48>,
-        proofs: Vec<c_kzg::Bytes48>,
+        blobs: Vec<Blob>,
+        commitments: Vec<Bytes48>,
+        proofs: Vec<Bytes48>,
         settings: &c_kzg::KzgSettings,
     ) -> Result<Self, CreationError> {
         if payload.blob_hashes.len() != blobs.len() {
@@ -109,18 +109,30 @@ impl Eip4844PooledTransaction {
     }
 
     /// Returns the blobs of the pooled transaction.
-    pub fn blobs(&self) -> &[c_kzg::Blob] {
+    pub fn blobs(&self) -> &[Blob] {
         &self.blobs
     }
 
     /// Returns the commitments of the pooled transaction.
-    pub fn commitments(&self) -> &[c_kzg::Bytes48] {
+    pub fn commitments(&self) -> &[Bytes48] {
         &self.commitments
     }
 
     /// Returns the proofs of the pooled transaction.
-    pub fn proofs(&self) -> &[c_kzg::Bytes48] {
+    pub fn proofs(&self) -> &[Bytes48] {
         &self.proofs
+    }
+
+    /// Converts the pooled transaction into its inner components.
+    pub fn into_inner(
+        self,
+    ) -> (
+        Eip4844SignedTransaction,
+        Vec<Blob>,
+        Vec<Bytes48>,
+        Vec<Bytes48>,
+    ) {
+        (self.payload, self.blobs, self.commitments, self.proofs)
     }
 
     /// Converts the pooled transaction into its payload.
@@ -160,7 +172,7 @@ impl Eip4844PooledTransaction {
 }
 
 #[repr(transparent)]
-struct RlpBlob<'blob>(&'blob c_kzg::Blob);
+struct RlpBlob<'blob>(&'blob Blob);
 
 impl<'blob> alloy_rlp::Encodable for RlpBlob<'blob> {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
@@ -172,14 +184,14 @@ impl<'blob> alloy_rlp::Encodable for RlpBlob<'blob> {
     }
 }
 
-impl<'blob> From<&'blob c_kzg::Blob> for RlpBlob<'blob> {
-    fn from(blob: &'blob c_kzg::Blob) -> Self {
+impl<'blob> From<&'blob Blob> for RlpBlob<'blob> {
+    fn from(blob: &'blob Blob) -> Self {
         Self(blob)
     }
 }
 
 #[repr(transparent)]
-struct RlpBytes48<'bytes>(&'bytes c_kzg::Bytes48);
+struct RlpBytes48<'bytes>(&'bytes Bytes48);
 
 impl<'bytes> alloy_rlp::Encodable for RlpBytes48<'bytes> {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
@@ -191,8 +203,8 @@ impl<'bytes> alloy_rlp::Encodable for RlpBytes48<'bytes> {
     }
 }
 
-impl<'bytes> From<&'bytes c_kzg::Bytes48> for RlpBytes48<'bytes> {
-    fn from(bytes: &'bytes c_kzg::Bytes48) -> Self {
+impl<'bytes> From<&'bytes Bytes48> for RlpBytes48<'bytes> {
+    fn from(bytes: &'bytes Bytes48) -> Self {
         Self(bytes)
     }
 }
@@ -216,19 +228,16 @@ impl alloy_rlp::Decodable for Eip4844PooledTransaction {
         let payload = Eip4844SignedTransaction::decode(buf)?;
 
         let blobs = Vec::<[u8; c_kzg::BYTES_PER_BLOB]>::decode(buf)?;
-        let blobs = blobs.into_iter().map(c_kzg::Blob::from).collect::<Vec<_>>();
+        let blobs = blobs.into_iter().map(Blob::from).collect::<Vec<_>>();
 
         let commitments = Vec::<[u8; c_kzg::BYTES_PER_COMMITMENT]>::decode(buf)?;
         let commitments = commitments
             .into_iter()
-            .map(c_kzg::Bytes48::from)
+            .map(Bytes48::from)
             .collect::<Vec<_>>();
 
         let proofs = Vec::<[u8; c_kzg::BYTES_PER_PROOF]>::decode(buf)?;
-        let proofs = proofs
-            .into_iter()
-            .map(c_kzg::Bytes48::from)
-            .collect::<Vec<_>>();
+        let proofs = proofs.into_iter().map(Bytes48::from).collect::<Vec<_>>();
 
         let consumed = started_len - buf.len();
         if consumed != payload_length {
