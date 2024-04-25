@@ -1,7 +1,4 @@
-import { assert, AssertionError } from "chai";
-
-import { HardhatError } from "hardhat/internal/core/errors";
-import { ErrorDescriptor } from "hardhat/internal/core/errors-list";
+import { AssertionError } from "chai";
 
 export async function expectErrorAsync(
   f: () => Promise<any>,
