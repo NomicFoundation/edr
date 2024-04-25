@@ -13,7 +13,6 @@ jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
-    needs: check-edr
     strategy:
       fail-fast: false
       matrix:
