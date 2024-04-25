@@ -20,6 +20,7 @@ use edr_eth::{
 use edr_evm::{EnvKzgSettings, ExecutableTransaction, KECCAK_EMPTY};
 use edr_provider::{
     test_utils::{create_test_config, one_ether},
+    time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
 use tokio::runtime;
@@ -183,7 +184,13 @@ async fn send_transaction_unsupported() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.chain_id = transaction.chain_id.expect("Blob transaction has chain ID");
 
-    let provider = Provider::new(runtime::Handle::current(), logger, subscriber, config)?;
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        CurrentTime,
+    )?;
 
     let error = provider
         .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
@@ -220,7 +227,13 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Provider::new(runtime::Handle::current(), logger, subscriber, config)?;
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        CurrentTime,
+    )?;
 
     let result = provider.handle_request(ProviderRequest::Single(
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
@@ -253,7 +266,13 @@ async fn get_transaction() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Provider::new(runtime::Handle::current(), logger, subscriber, config)?;
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        CurrentTime,
+    )?;
 
     let result = provider.handle_request(ProviderRequest::Single(
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
@@ -294,7 +313,13 @@ async fn block_header() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Provider::new(runtime::Handle::current(), logger, subscriber, config)?;
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        CurrentTime,
+    )?;
 
     // The genesis block has 0 excess blobs
     let mut excess_blobs = 0u64;
@@ -469,7 +494,13 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Provider::new(runtime::Handle::current(), logger, subscriber, config)?;
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        CurrentTime,
+    )?;
 
     let deploy_transaction = EthTransactionRequest {
         from: caller,

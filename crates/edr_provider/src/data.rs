@@ -72,6 +72,7 @@ use crate::{
     pending::BlockchainWithPending,
     requests::hardhat::rpc_types::{ForkConfig, ForkMetadata},
     snapshot::Snapshot,
+    time::{CurrentTime, TimeSinceEpoch},
     MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
     SyncSubscriberCallback,
 };
@@ -158,7 +159,7 @@ pub enum CreationError {
     RpcClient(#[from] RpcClientError),
 }
 
-pub struct ProviderData<LoggerErrorT: Debug> {
+pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = CurrentTime> {
     runtime_handle: runtime::Handle,
     initial_config: ProviderConfig,
     blockchain: Box<dyn SyncBlockchain<BlockchainError, StateError>>,
@@ -189,6 +190,7 @@ pub struct ProviderData<LoggerErrorT: Debug> {
     logger: Box<dyn SyncLogger<BlockchainError = BlockchainError, LoggerError = LoggerErrorT>>,
     impersonated_accounts: HashSet<Address>,
     subscriber_callback: Box<dyn SyncSubscriberCallback>,
+    timer: TimerT,
     call_override: Option<Arc<dyn SyncCallOverride>>,
     // We need the Arc to let us avoid returning references to the cache entries which need &mut
     // self to get.
@@ -197,13 +199,14 @@ pub struct ProviderData<LoggerErrorT: Debug> {
     block_number_to_state_id: HashTrieMapSync<u64, StateId>,
 }
 
-impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
+impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErrorT, TimerT> {
     pub fn new(
         runtime_handle: runtime::Handle,
         logger: Box<dyn SyncLogger<BlockchainError = BlockchainError, LoggerError = LoggerErrorT>>,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         call_override: Option<Arc<dyn SyncCallOverride>>,
         config: ProviderConfig,
+        timer: TimerT,
     ) -> Result<Self, CreationError> {
         let InitialAccounts {
             local_accounts,
@@ -219,7 +222,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
             prev_randao_generator,
             block_time_offset_seconds,
             next_block_base_fee_per_gas,
-        } = create_blockchain_and_state(runtime_handle.clone(), &config, genesis_accounts)?;
+        } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer, genesis_accounts)?;
 
         let max_cached_states = std::env::var(EDR_MAX_CACHED_STATES_ENV_VAR).map_or_else(
             |err| match err {
@@ -289,6 +292,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
             logger,
             impersonated_accounts: HashSet::new(),
             subscriber_callback,
+            timer,
             call_override,
             block_state_cache,
             current_state_id,
@@ -310,6 +314,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
             self.subscriber_callback.clone(),
             self.call_override.clone(),
             config,
+            self.timer.clone(),
         )?;
 
         std::mem::swap(self, &mut reset_instance);
@@ -1083,7 +1088,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
     fn mine_and_commit_block_impl(
         &mut self,
         mine_fn: impl FnOnce(
-            &mut ProviderData<LoggerErrorT>,
+            &mut ProviderData<LoggerErrorT, TimerT>,
             &CfgEnvWithHandlerCfg,
             BlockOptions,
             &mut Debugger,
@@ -1150,7 +1155,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         }
 
         let mine_block_with_interval =
-            |data: &mut ProviderData<LoggerErrorT>,
+            |data: &mut ProviderData<LoggerErrorT, TimerT>,
              mined_blocks: &mut Vec<DebugMineBlockResult<BlockchainError>>|
              -> Result<(), ProviderError<LoggerErrorT>> {
                 let previous_timestamp = mined_blocks
@@ -1922,7 +1927,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
     fn mine_block(
         &mut self,
         mine_fn: impl FnOnce(
-            &mut ProviderData<LoggerErrorT>,
+            &mut ProviderData<LoggerErrorT, TimerT>,
             &CfgEnvWithHandlerCfg,
             BlockOptions,
             &mut Debugger,
@@ -2047,8 +2052,7 @@ impl<LoggerErrorT: Debug> ProviderData<LoggerErrorT> {
         let latest_block_header = latest_block.header();
 
         let current_timestamp =
-            i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
-                .expect("timestamp too large");
+            i64::try_from(self.timer.since_epoch()).expect("timestamp too large");
 
         let (mut block_timestamp, mut new_offset) = if let Some(timestamp) = timestamp {
             timestamp.checked_sub(latest_block_header.timestamp).ok_or(
@@ -2305,7 +2309,10 @@ impl StateId {
     }
 }
 
-fn block_time_offset_seconds(config: &ProviderConfig) -> Result<i64, CreationError> {
+fn block_time_offset_seconds(
+    config: &ProviderConfig,
+    timer: &impl TimeSinceEpoch,
+) -> Result<i64, CreationError> {
     config.initial_date.map_or(Ok(0), |initial_date| {
         let initial_timestamp = i64::try_from(
             initial_date
@@ -2315,13 +2322,8 @@ fn block_time_offset_seconds(config: &ProviderConfig) -> Result<i64, CreationErr
         )
         .expect("initial date must be representable as i64");
 
-        let current_timestamp = i64::try_from(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("current time must be after UNIX epoch")
-                .as_secs(),
-        )
-        .expect("Current timestamp must be representable as i64");
+        let current_timestamp = i64::try_from(timer.since_epoch())
+            .expect("Current timestamp must be representable as i64");
 
         Ok(initial_timestamp - current_timestamp)
     })
@@ -2341,6 +2343,7 @@ struct BlockchainAndState {
 fn create_blockchain_and_state(
     runtime: runtime::Handle,
     config: &ProviderConfig,
+    timer: &impl TimeSinceEpoch,
     mut genesis_accounts: HashMap<Address, Account>,
 ) -> Result<BlockchainAndState, CreationError> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
@@ -2439,10 +2442,9 @@ fn create_blockchain_and_state(
                         .timestamp,
                 );
 
-            let elapsed_time = SystemTime::now()
-                .duration_since(fork_block_timestamp)
-                .expect("current time must be after fork block")
-                .as_secs();
+            let elapsed_time = timer
+                .since(fork_block_timestamp)
+                .expect("current time must be after fork block");
 
             -i64::try_from(elapsed_time)
                 .expect("Elapsed time since fork block must be representable as i64")
@@ -2515,7 +2517,7 @@ fn create_blockchain_and_state(
             .state_at_block_number(0, irregular_state.state_overrides())
             .expect("Genesis state must exist");
 
-        let block_time_offset_seconds = block_time_offset_seconds(config)?;
+        let block_time_offset_seconds = block_time_offset_seconds(config, timer)?;
 
         Ok(BlockchainAndState {
             fork_metadata: None,
@@ -2626,6 +2628,7 @@ pub(crate) mod test_utils {
                 subscription_callback_noop,
                 None,
                 config.clone(),
+                CurrentTime,
             )?;
 
             provider_data.impersonate_account(impersonated_account);
