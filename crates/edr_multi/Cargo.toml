@@ -1,0 +1,9 @@
+[package]
+name = "edr_multi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { version = "1.0.82", default-features = false, features = ["std"] }
+edr_eth2 = { path = "../edr_eth2", version = "0.1.0" }
+edr_opt = { path = "../edr_opt", version = "0.1.0" }
