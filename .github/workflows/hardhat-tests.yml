@@ -66,3 +66,23 @@ jobs:
           FORCE_COLOR: 3
           NODE_OPTIONS: --max-old-space-size=4096
         run: cd hardhat-tests && pnpm test
+  lint-hardhat-tests:
+    name: Lint Hardhat tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Install Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 18.15
+          cache: pnpm
+
+      - name: Install package
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build and lint
+        run: pnpm lint
