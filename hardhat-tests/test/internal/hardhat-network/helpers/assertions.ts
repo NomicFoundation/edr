@@ -303,7 +303,7 @@ export function assertEIP1559Transaction(
   assertEqualAccessLists(tx.accessList ?? [], txParams.accessList);
 }
 
-export function assertEqualAccessLists(
+function assertEqualAccessLists(
   txAccessList: RpcAccessListOutput,
   txParamsAccessList: AccessListBufferItem[]
 ) {

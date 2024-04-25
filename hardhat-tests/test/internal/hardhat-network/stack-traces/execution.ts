@@ -107,7 +107,7 @@ export function encodeCall(
   return Buffer.concat([methodId, abi.rawEncode(types, params)]);
 }
 
-export interface TxData {
+interface TxData {
   data: Buffer;
   to?: Buffer;
   value?: bigint;

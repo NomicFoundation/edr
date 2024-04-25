@@ -265,9 +265,3 @@ export const getLatestSupportedVersion = () =>
   solidityCompilers.map((sc) => sc.solidityVersion).sort(semver.compare)[
     solidityCompilers.length - 1
   ];
-
-export const getNextUnsupportedVersion = () =>
-  semver.inc(getLatestSupportedVersion(), "patch")!;
-
-export const getNextNextUnsupportedVersion = () =>
-  semver.inc(getNextUnsupportedVersion(), "patch")!;

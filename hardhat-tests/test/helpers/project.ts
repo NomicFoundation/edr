@@ -26,7 +26,7 @@ export function useFixtureProject(projectName: string) {
   });
 }
 
-export async function getFixtureProjectPath(
+async function getFixtureProjectPath(
   projectName: string
 ): Promise<string> {
   const normalizedProjectName = projectName.replaceAll("/", path.sep);
