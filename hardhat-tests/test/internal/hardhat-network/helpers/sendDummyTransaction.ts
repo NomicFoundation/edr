@@ -1,5 +1,5 @@
 import { numberToRpcQuantity } from "hardhat/internal/core/jsonrpc/types/base-types";
-import { EthereumProvider } from "../../../../types";
+import { EthereumProvider } from "hardhat/types";
 
 import { DEFAULT_ACCOUNTS_ADDRESSES } from "./providers";
 

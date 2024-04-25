@@ -7,7 +7,7 @@ import {
   EthereumProvider,
   EthSubscription,
   ProviderMessage,
-} from "../../../../../../../types";
+} from "hardhat/types";
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
 import { compileLiteral } from "../../../../stack-traces/compilation";
 import { EXAMPLE_CONTRACT } from "../../../../helpers/contracts";

@@ -16,6 +16,7 @@
     "clean": "rimraf build-test tsconfig.tsbuildinfo test/internal/hardhat-network/provider/.hardhat_node_test_cache test/internal/hardhat-network/stack-traces/test-files/artifacts"
   },
   "devDependencies": {
+    "@metamask/eth-sig-util": "^4.0.0",
     "@nomicfoundation/ethereumjs-block": "5.0.4",
     "@nomicfoundation/ethereumjs-common": "^4.0.4",
     "@nomicfoundation/ethereumjs-tx": "^5.0.4",
@@ -59,7 +60,8 @@
     "sinon": "^9.0.0",
     "time-require": "^0.1.2",
     "ts-node": "^9.1.1",
-    "typescript": "~5.0.0"
+    "typescript": "~5.0.0",
+    "undici": "^5.14.0"
   },
   "peerDependencies": {
     "ts-node": "*",
