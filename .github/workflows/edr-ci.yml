@@ -151,11 +151,7 @@ jobs:
           args: --all --check
 
       - name: Run cargo clippy
-        uses: auguwu/clippy-action@1.3.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          all-features: true
-          check-args: --workspace --all-targets -- -Dwarnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   edr-docs:
     name: Build EDR Docs
