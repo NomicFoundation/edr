@@ -1,3 +1,4 @@
 packages:
   - "crates/edr_napi"
   - "crates/tools/js/benchmark"
+  - "hardhat-tests"

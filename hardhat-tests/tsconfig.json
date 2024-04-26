@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "commonjs",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "noEmitOnError": true,
+    "skipDefaultLibCheck": true,
+    "skipLibCheck": true,
+    "outDir": "./build-test",
+    "rootDirs": ["./test"],
+    "composite": true
+  },
+  "include": ["./test/**/*.ts"],
+  "exclude": [
+    "./test/**/hardhat.config.ts",
+    "./node_modules",
+    "./test/internal/hardhat-network/stack-traces/test-files"
+  ]
+}

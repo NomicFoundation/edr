@@ -100,6 +100,7 @@ pub enum RequestMethod {
 }
 
 impl RequestMethod {
+    #[cfg(feature = "tracing")]
     pub fn name(&self) -> &'static str {
         match self {
             Self::BlockNumber(_) => "eth_blockNumber",
