@@ -10,6 +10,11 @@
   },
   "scripts": {
     "build": "cd crates/edr_napi && pnpm build",
-    "prettier": "prettier *.md \"{.github}/**/*.{md,yml,ts,js}\""
+    "prettier": "prettier \".github/**/*.{md,yml,ts,js}\""
+  },
+  "pnpm": {
+    "overrides": {
+      "hardhat@2>@nomicfoundation/edr": "workspace:*"
+    }
   }
 }
