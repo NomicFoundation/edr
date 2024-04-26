@@ -15,7 +15,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@foundry-rs/hardhat-anvil": "^0.1.7",
     "argparse": "^2.0.1",
     "hardhat": "^2.22.3",
     "lodash": "^4.17.11",

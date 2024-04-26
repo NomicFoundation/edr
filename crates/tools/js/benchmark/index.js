@@ -12,9 +12,6 @@ const { _ } = require("lodash");
 const {
   createHardhatNetworkProvider,
 } = require("hardhat/internal/hardhat-network/provider/provider");
-const {
-  AnvilServer,
-} = require("@foundry-rs/hardhat-anvil/dist/src/anvil-server");
 const { HttpProvider } = require("hardhat/internal/core/providers/http");
 
 const SCENARIOS_DIR = "../../scenarios/";
@@ -256,18 +253,8 @@ async function benchmarkScenario(scenarioFileName, useAnvil) {
   const start = performance.now();
 
   let provider;
-  let anvilServer;
   if (useAnvil) {
-    try {
-      // Wrapper doesn't support `--prune-history` argument, hence `launch: false`
-      anvilServer = await AnvilServer.launch({ launch: false });
-      provider = new HttpProvider(ANVIL_HOST, "anvil");
-    } catch (e) {
-      if (anvilServer) {
-        anvilServer.kill();
-      }
-      throw e;
-    }
+    provider = new HttpProvider(ANVIL_HOST, "anvil");
   } else {
     provider = await createHardhatNetworkProvider(config.providerConfig, {
       enabled: config.loggerEnabled,
@@ -289,10 +276,6 @@ async function benchmarkScenario(scenarioFileName, useAnvil) {
   }
 
   const timeMs = performance.now() - start;
-
-  if (anvilServer) {
-    anvilServer.kill();
-  }
 
   console.error(
     `${name} finished in ${
