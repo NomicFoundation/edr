@@ -235,11 +235,10 @@ impl RpcClient {
         error: jsonrpc::Error,
         request: SerializedRequest,
     ) -> Result<T, RpcClientError> {
-        fn is_missing_trie_node_error(error: &jsonrpc::Error) -> bool {
-            error.code == -32000 && error.message.contains("missing trie node")
-        }
+        let is_missing_trie_node_error =
+            error.code == -32000 && error.message.contains("missing trie node");
 
-        let result = if is_missing_trie_node_error(&error) {
+        let result = if is_missing_trie_node_error {
             self.send_request_body(&request)
                 .await
                 .and_then(Self::parse_response_str)?
@@ -489,6 +488,8 @@ impl RpcClient {
                 .data
                 .into_result(),
         )
+        // We retry at the application level because Alchemy has sporadic failures that are returned
+        // in the JSON-RPC layer
         .or_else(|error| async { self.retry_on_sporadic_failure(error, request).await })
         .await
     }
