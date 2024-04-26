@@ -54,7 +54,7 @@ pub enum ProviderError<LoggerErrorT> {
     Creation(#[from] CreationError),
     #[error(transparent)]
     DebugTrace(#[from] DebugTraceError<BlockchainError, StateError>),
-    #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat doesn't have support for them yet. See https://github.com/NomicFoundation/hardhat/issues/5023")]
+    #[error("An EIP-4844 (shard blob) transaction was sent using `eth_sendTransaction`, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
     Eip4844TransactionUnsupported,
     #[error("An EIP-4844 (shard blob) transaction is missing the to (receiver) parameter.")]
     Eip4844TransactionMissingReceiver,
