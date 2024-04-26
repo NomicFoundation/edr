@@ -4,7 +4,6 @@ use std::{convert::Infallible, str::FromStr};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    receipt::BlockReceipt,
     remote::{self, PreEip1898BlockSpec},
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
@@ -19,7 +18,7 @@ use edr_eth::{
 };
 use edr_evm::{EnvKzgSettings, ExecutableTransaction, KECCAK_EMPTY};
 use edr_provider::{
-    test_utils::{create_test_config, one_ether},
+    test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
@@ -115,8 +114,6 @@ impl Default for BlobTransactionBuilder {
         }
     }
 }
-
-// const CONTRACT_ADDRESS: Address = todo!();
 
 /// Must match the value in `fixtures/eip4844.txt`. The transaction was signed
 /// by private key `SECRETS[0]`
@@ -502,25 +499,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let deploy_transaction = EthTransactionRequest {
-        from: caller,
-        data: Some(Bytes::from_str(CONTRACT_CODE)?),
-        ..EthTransactionRequest::default()
-    };
-
-    let result = provider.handle_request(ProviderRequest::Single(
-        MethodInvocation::SendTransaction(deploy_transaction),
-    ))?;
-
-    let transaction_hash: B256 = serde_json::from_value(result.result)?;
-
-    let result = provider.handle_request(ProviderRequest::Single(
-        MethodInvocation::GetTransactionReceipt(transaction_hash),
-    ))?;
-
-    let receipt: Option<BlockReceipt> = serde_json::from_value(result.result)?;
-    let receipt = receipt.expect("Transaction receipt must exist");
-    let contract_address = receipt.contract_address.expect("Call must create contract");
+    let contract_address = deploy_contract(&provider, caller, Bytes::from_str(CONTRACT_CODE)?)?;
 
     let mut nonce = 1;
     for num_blobs in 1..=6 {

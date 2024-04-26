@@ -3,12 +3,14 @@ use std::{convert::Infallible, num::NonZeroU64, time::SystemTime};
 use anyhow::anyhow;
 use edr_eth::{
     block::{miner_reward, BlobGas, BlockOptions},
+    receipt::BlockReceipt,
     remote::{PreEip1898BlockSpec, RpcClient},
     signature::secret_key_from_str,
     spec::chain_hardfork_activations,
+    transaction::EthTransactionRequest,
     trie::KECCAK_NULL_RLP,
     withdrawal::Withdrawal,
-    Address, HashMap, SpecId, U256,
+    Address, Bytes, HashMap, SpecId, B256, U256,
 };
 use edr_evm::{
     alloy_primitives::U160,
@@ -91,6 +93,39 @@ pub fn pending_base_fee(
         .unwrap_or_else(|| U256::from(1));
 
     Ok(base_fee)
+}
+
+/// Deploys a contract with the provided code. Returns the address of the
+/// contract.
+pub fn deploy_contract<LoggerErrorT, TimerT>(
+    provider: &Provider<LoggerErrorT, TimerT>,
+    caller: Address,
+    code: Bytes,
+) -> anyhow::Result<Address>
+where
+    LoggerErrorT: Debug + Send + Sync + 'static,
+    TimerT: Clone + TimeSinceEpoch,
+{
+    let deploy_transaction = EthTransactionRequest {
+        from: caller,
+        data: Some(code),
+        ..EthTransactionRequest::default()
+    };
+
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::SendTransaction(deploy_transaction),
+    ))?;
+
+    let transaction_hash: B256 = serde_json::from_value(result.result)?;
+
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::GetTransactionReceipt(transaction_hash),
+    ))?;
+
+    let receipt: BlockReceipt = serde_json::from_value(result.result)?;
+    let contract_address = receipt.contract_address.expect("Call must create contract");
+
+    Ok(contract_address)
 }
 
 /// Runs a full remote block, asserting that the mined block matches the remote
