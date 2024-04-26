@@ -55,8 +55,8 @@ jobs:
             hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/artifacts
           key: hardhat-network-stack-traces-tests-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/**/*.sol') }}-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/**/test.json') }}-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/**/*.ts') }}
 
-      - name: Build and lint
-        run: cd hardhat-tests && pnpm build && pnpm lint
+      - name: Build
+        run: cd hardhat-tests && pnpm build
 
       - name: Run tests
         env:
@@ -85,4 +85,4 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build and lint
-        run: pnpm lint
+        run: cd hardhat-tests && pnpm lint
