@@ -29,22 +29,22 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-latest
+          - host: macos-12
             target: x86_64-apple-darwin
             build: |
               pnpm build
               strip -x *.node
-          - host: windows-latest
+          - host: windows-2022
             build: pnpm build
             target: x86_64-pc-windows-msvc
-          - host: ubuntu-latest
+          - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust@sha256:4b2638c0987845c4ab3488574a215a2a866b99fb28588788786f2b8cbcb40e71
             build: |-
               set -e &&
               pnpm run build --target x86_64-unknown-linux-gnu &&
               strip *.node
-          - host: ubuntu-latest
+          - host: ubuntu-22.04
             target: x86_64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust@sha256:2003f7f7027adaab2c97bf576ce6bb87640a77c62a6898ed2359c050c49872a5
             build: |-
@@ -52,12 +52,12 @@ jobs:
               set -e &&
               pnpm run build &&
               strip *.node
-          - host: macos-latest
+          - host: macos-12
             target: aarch64-apple-darwin
             build: |
               pnpm build --target aarch64-apple-darwin
               strip -x *.node
-          - host: ubuntu-latest
+          - host: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust@sha256:08cb2c8326ae78cf8ffd58f81523dd9592a4778c2c5f314251f5773ea204f289
             build: |-
@@ -71,7 +71,7 @@ jobs:
               export CXXFLAGS="-B/usr/aarch64-unknown-linux-gnu/lib/gcc/aarch64-unknown-linux-gnu/4.8.5 --sysroot=/usr/aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot" &&
               pnpm run build --target aarch64-unknown-linux-gnu &&
               aarch64-unknown-linux-gnu-strip *.node
-          - host: ubuntu-latest
+          - host: ubuntu-22.04
             target: aarch64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust@sha256:2003f7f7027adaab2c97bf576ce6bb87640a77c62a6898ed2359c050c49872a5
             build: |-
@@ -152,9 +152,9 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-latest
+          - host: macos-12
             target: x86_64-apple-darwin
-          - host: windows-latest
+          - host: windows-2022
             target: x86_64-pc-windows-msvc
         node:
           - "18"
@@ -196,7 +196,7 @@ jobs:
         node:
           - "18"
           - "20"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -230,7 +230,7 @@ jobs:
         node:
           - "18"
           - "20"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -266,7 +266,7 @@ jobs:
         node:
           - "18"
           - "20"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -304,7 +304,7 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-musl - node@lts
     needs:
       - build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -339,7 +339,7 @@ jobs:
             pnpm testNoBuild
   check_commit:
     name: Check commit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
       - uses: actions/checkout@v4
@@ -363,7 +363,7 @@ jobs:
   publish:
     name: Publish
     environment: edr-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - check_commit
       - test-macOS-windows-binding
