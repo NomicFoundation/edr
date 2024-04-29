@@ -1113,6 +1113,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_opt"
+version = "0.3.5"
+dependencies = [
+ "edr_eth",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_provider"
 version = "0.3.5"
 dependencies = [
