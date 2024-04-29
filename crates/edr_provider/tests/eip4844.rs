@@ -115,24 +115,6 @@ impl Default for BlobTransactionBuilder {
     }
 }
 
-/// Must match the value in `fixtures/eip4844.txt`. The transaction was signed
-/// by private key `SECRETS[0]`
-fn fake_blobs() -> Vec<Bytes> {
-    const BLOB_VALUE: &[u8] = b"hello world";
-
-    // The blob starts 0, followed by `hello world`, then 0x80, and is padded with
-    // zeroes.
-    let mut bytes = vec![0x0u8];
-    bytes.append(&mut BLOB_VALUE.to_vec());
-    bytes.push(0x80u8);
-
-    bytes.resize(BYTES_PER_BLOB, 0);
-
-    // let blob = c_kzg::Blob::from_bytes(bytes.as_slice()).expect("Invalid blob")
-
-    vec![Bytes::from(bytes)]
-}
-
 fn fake_raw_transaction() -> Bytes {
     Bytes::from_str(include_str!("fixtures/eip4844.txt")).expect("failed to parse raw transaction")
 }
@@ -149,7 +131,15 @@ fn fake_transaction() -> SignedTransaction {
 }
 
 fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
-    let transaction = fake_transaction();
+    let transaction = fake_pooled_transaction();
+    let blobs = transaction.blobs().map(|blobs| {
+        blobs
+            .iter()
+            .map(|blob| Bytes::copy_from_slice(blob.as_ref()))
+            .collect()
+    });
+
+    let transaction = transaction.into_payload();
     let from = transaction.recover()?;
 
     Ok(EthTransactionRequest {
@@ -166,7 +156,7 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
             .access_list()
             .map(|access_list| access_list.0.clone()),
         transaction_type: Some(transaction.transaction_type().into()),
-        blobs: Some(fake_blobs()),
+        blobs,
         blob_hashes: transaction.blob_hashes(),
         ..EthTransactionRequest::default()
     })
