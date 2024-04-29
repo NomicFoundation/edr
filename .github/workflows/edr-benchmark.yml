@@ -35,9 +35,7 @@ jobs:
     environment: github-action-benchmark
     runs-on: self-hosted
     # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
-    # Temporarily disabled after moving to our own repo; see https://github.com/NomicFoundation/edr/issues/402
-    # if: github.ref == 'refs/heads/main' || (github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR')
-    if: false
+    if: github.ref == 'refs/heads/main' || (github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR')
     steps:
       - uses: actions/checkout@v3
 
