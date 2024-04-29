@@ -35,11 +35,8 @@ jobs:
     environment: github-action-benchmark
     runs-on: self-hosted
     # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
-    #if: github.ref == 'refs/heads/main' || (github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR')
+    if: github.ref == 'refs/heads/main' || (github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR')
     steps:
-      - name: Dump GitHub context
-        run: echo ${{ github.event.pull_request.author_association }}
-
       - uses: actions/checkout@v3
 
       - uses: pnpm/action-setup@v2
