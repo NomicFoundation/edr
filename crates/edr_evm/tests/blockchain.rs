@@ -312,7 +312,7 @@ async fn block_by_number_some() {
 async fn block_by_number_with_create() -> anyhow::Result<()> {
     use std::str::FromStr;
 
-    use edr_eth::transaction::TransactionKind;
+    use edr_eth::transaction::TxKind;
 
     const DAI_CREATION_BLOCK_NUMBER: u64 = 4_719_568;
     const DAI_CREATION_TRANSACTION_INDEX: usize = 85;
@@ -332,7 +332,7 @@ async fn block_by_number_with_create() -> anyhow::Result<()> {
     );
     assert!(matches!(
         transactions[DAI_CREATION_TRANSACTION_INDEX].kind(),
-        TransactionKind::Create
+        TxKind::Create
     ));
 
     Ok(())

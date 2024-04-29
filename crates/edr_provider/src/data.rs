@@ -2433,7 +2433,7 @@ pub(crate) mod test_utils {
     use std::convert::Infallible;
 
     use anyhow::anyhow;
-    use edr_eth::transaction::{Eip155TransactionRequest, TransactionKind, TransactionRequest};
+    use edr_eth::transaction::{Eip155TransactionRequest, TransactionRequest, TxKind};
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
@@ -2524,7 +2524,7 @@ pub(crate) mod test_utils {
             nonce: Option<u64>,
         ) -> anyhow::Result<TransactionRequestAndSender> {
             let request = TransactionRequest::Eip155(Eip155TransactionRequest {
-                kind: TransactionKind::Call(Address::ZERO),
+                kind: TxKind::Call(Address::ZERO),
                 gas_limit,
                 gas_price: U256::from(42_000_000_000_u64),
                 value: U256::from(1),

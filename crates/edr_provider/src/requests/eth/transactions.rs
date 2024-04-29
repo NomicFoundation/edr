@@ -7,8 +7,8 @@ use edr_eth::{
     rlp::Decodable,
     transaction::{
         Eip1559TransactionRequest, Eip155TransactionRequest, Eip2930TransactionRequest,
-        EthTransactionRequest, SignedTransaction, TransactionKind, TransactionRequest,
-        TransactionRequestAndSender,
+        EthTransactionRequest, SignedTransaction, TransactionRequest, TransactionRequestAndSender,
+        TxKind,
     },
     Bytes, SpecId, B256, U256,
 };
@@ -377,8 +377,8 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
                 value,
                 input,
                 kind: match to {
-                    Some(to) => TransactionKind::Call(to),
-                    None => TransactionKind::Create,
+                    Some(to) => TxKind::Call(to),
+                    None => TxKind::Create,
                 },
                 chain_id,
                 access_list: access_list.unwrap_or_default(),
@@ -392,8 +392,8 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
                 value,
                 input,
                 kind: match to {
-                    Some(to) => TransactionKind::Call(to),
-                    None => TransactionKind::Create,
+                    Some(to) => TxKind::Call(to),
+                    None => TxKind::Create,
                 },
                 chain_id,
                 access_list,
@@ -406,8 +406,8 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
             value,
             input,
             kind: match to {
-                Some(to) => TransactionKind::Call(to),
-                None => TransactionKind::Create,
+                Some(to) => TxKind::Call(to),
+                None => TxKind::Create,
             },
             chain_id,
         }),
@@ -528,7 +528,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 mod tests {
     use anyhow::Context;
     use edr_eth::{
-        transaction::{Eip155TransactionRequest, TransactionKind, TransactionRequest},
+        transaction::{Eip155TransactionRequest, TransactionRequest, TxKind},
         Address, Bytes, U256,
     };
     use edr_evm::ExecutableTransaction;
@@ -552,7 +552,7 @@ mod tests {
         let chain_id = fixture.provider_data.chain_id();
 
         let request = TransactionRequest::Eip155(Eip155TransactionRequest {
-            kind: TransactionKind::Call(Address::ZERO),
+            kind: TxKind::Call(Address::ZERO),
             gas_limit: 30_000,
             gas_price: U256::from(42_000_000_000_u64),
             value: U256::from(1),

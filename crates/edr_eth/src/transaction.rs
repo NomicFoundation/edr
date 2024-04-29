@@ -5,13 +5,13 @@
 //! transaction related data
 
 mod fake_signature;
-mod kind;
 mod request;
 mod signed;
 
+pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
-pub use self::{kind::TransactionKind, request::*, signed::*};
+pub use self::{request::*, signed::*};
 use crate::{access_list::AccessListItem, Address, Bytes, U256};
 
 /// Represents _all_ transaction requests received from RPC
