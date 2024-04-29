@@ -1,7 +1,7 @@
 {
   "name": "@nomicfoundation/edr-darwin-x64",
   "repository": {
-    "url": "https://github.com/NomicFoundation/hardhat.git",
+    "url": "https://github.com/NomicFoundation/edr.git",
     "type": "git"
   },
   "version": "0.2.0-alpha.1",
