@@ -471,7 +471,12 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         Ok(())
     }
 
-    const CONTRACT_CODE: &str = include_str!("fixtures/blob_hash_opcode_contract.txt");
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ContractFixture {
+        _source: String,
+        bytecode: Bytes,
+    }
 
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
@@ -499,7 +504,10 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let contract_address = deploy_contract(&provider, caller, Bytes::from_str(CONTRACT_CODE)?)?;
+    let fixture: ContractFixture =
+        serde_json::from_str(include_str!("fixtures/blob_hash_opcode_contract.json"))?;
+
+    let contract_address = deploy_contract(&provider, caller, fixture.bytecode)?;
 
     let mut nonce = 1;
     for num_blobs in 1..=6 {
