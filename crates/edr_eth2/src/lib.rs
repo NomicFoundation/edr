@@ -1,3 +1,4 @@
+pub use revm::primitives::{SpecId, B256};
 use revm::{db::EmptyDB, Evm};
 
 pub struct TestEth<'evm> {

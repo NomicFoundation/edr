@@ -1,8 +1,5 @@
-use revm::{
-    db::EmptyDB,
-    primitives::{HandlerCfg, SpecId},
-    Evm,
-};
+pub use revm::primitives::{SpecId, B256};
+use revm::{db::EmptyDB, primitives::HandlerCfg, Evm};
 
 pub struct TestOpt<'evm> {
     pub evm: revm::Evm<'evm, (), EmptyDB>,
