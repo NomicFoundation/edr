@@ -89,7 +89,7 @@ impl CallOverrideCallback {
             },
             ThreadsafeFunctionCallMode::Blocking,
             move |result: Promise<Option<CallOverrideResult>>| {
-                runtime.block_on(async {
+                runtime.spawn(async move {
                     let result = result.await?.try_cast();
                     sender.send(result).map_err(|_error| {
                         napi::Error::new(
@@ -97,7 +97,8 @@ impl CallOverrideCallback {
                             "Failed to send result from call_override_callback",
                         )
                     })
-                })
+                });
+                Ok(())
             },
         );
 
