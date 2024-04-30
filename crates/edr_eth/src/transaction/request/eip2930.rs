@@ -7,10 +7,7 @@ use revm_primitives::keccak256;
 use crate::{
     access_list::AccessListItem,
     signature::{Signature, SignatureError},
-    transaction::{
-        fake_signature::make_fake_signature, kind::TransactionKind,
-        signed::Eip2930SignedTransaction,
-    },
+    transaction::{fake_signature::make_fake_signature, signed::Eip2930SignedTransaction, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
@@ -22,7 +19,7 @@ pub struct Eip2930TransactionRequest {
     pub nonce: u64,
     pub gas_price: U256,
     pub gas_limit: u64,
-    pub kind: TransactionKind,
+    pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
     pub access_list: Vec<AccessListItem>,
@@ -111,7 +108,7 @@ mod tests {
             nonce: 1,
             gas_price: U256::from(2),
             gas_limit: 3,
-            kind: TransactionKind::Call(to),
+            kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
             access_list: vec![AccessListItem {
@@ -157,7 +154,7 @@ mod tests {
             nonce: 0,
             gas_price: U256::from(1),
             gas_limit: 30_000,
-            kind: TransactionKind::Call("0xb5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?),
+            kind: TxKind::Call("0xb5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?),
             value: U256::from(1),
             input: Bytes::default(),
             access_list: vec![AccessListItem {

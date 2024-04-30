@@ -6,7 +6,7 @@ use edr_eth::{
     signature::Signature,
     transaction::{
         Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
-        Eip4844SignedTransaction, LegacySignedTransaction, SignedTransaction, TransactionKind,
+        Eip4844SignedTransaction, LegacySignedTransaction, SignedTransaction, TxKind,
     },
     Address, U256,
 };
@@ -47,7 +47,7 @@ impl ExecutableTransaction {
         transaction: SignedTransaction,
         caller: Address,
     ) -> Result<Self, TransactionCreationError> {
-        if transaction.kind() == TransactionKind::Create && transaction.data().is_empty() {
+        if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
             return Err(TransactionCreationError::ContractMissingData);
         }
 
@@ -106,10 +106,10 @@ impl alloy_rlp::Encodable for ExecutableTransaction {
 
 impl From<ExecutableTransaction> for TxEnv {
     fn from(transaction: ExecutableTransaction) -> Self {
-        fn transact_to(kind: TransactionKind) -> TransactTo {
+        fn transact_to(kind: TxKind) -> TransactTo {
             match kind {
-                TransactionKind::Call(address) => TransactTo::Call(address),
-                TransactionKind::Create => TransactTo::Create(CreateScheme::Create),
+                TxKind::Call(address) => TransactTo::Call(address),
+                TxKind::Create => TransactTo::Create(CreateScheme::Create),
             }
         }
 
@@ -254,9 +254,9 @@ impl TryFrom<Transaction> for ExecutableTransaction {
 
     fn try_from(value: Transaction) -> Result<Self, Self::Error> {
         let kind = if let Some(to) = &value.to {
-            TransactionKind::Call(*to)
+            TxKind::Call(*to)
         } else {
-            TransactionKind::Create
+            TxKind::Create
         };
 
         let caller = value.from;
@@ -412,7 +412,7 @@ fn initial_cost(spec_id: SpecId, transaction: &SignedTransaction) -> u64 {
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),
-        transaction.kind() == TransactionKind::Create,
+        transaction.kind() == TxKind::Create,
         access_list
             .as_ref()
             .map_or(&[], |access_list| access_list.as_slice()),
@@ -435,7 +435,7 @@ mod tests {
             nonce: 0,
             gas_price: U256::ZERO,
             gas_limit: TOO_LOW_GAS_LIMIT,
-            kind: TransactionKind::Call(caller),
+            kind: TxKind::Call(caller),
             value: U256::ZERO,
             input: Bytes::new(),
             chain_id: 123,
@@ -469,7 +469,7 @@ mod tests {
             nonce: 0,
             gas_price: U256::ZERO,
             gas_limit: 30_000,
-            kind: TransactionKind::Create,
+            kind: TxKind::Create,
             value: U256::ZERO,
             input: Bytes::new(),
             chain_id: 123,

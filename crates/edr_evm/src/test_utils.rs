@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 
 use edr_eth::{
-    transaction::{Eip1559TransactionRequest, Eip155TransactionRequest, TransactionKind},
+    transaction::{Eip1559TransactionRequest, Eip155TransactionRequest, TxKind},
     AccountInfo, Address, Bytes, HashMap, SpecId, U256,
 };
 
@@ -106,7 +106,7 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
         nonce,
         gas_price,
         gas_limit,
-        kind: TransactionKind::Call(from),
+        kind: TxKind::Call(from),
         value,
         input: Bytes::new(),
         chain_id: 123,
@@ -131,7 +131,7 @@ pub fn dummy_eip1559_transaction(
         max_priority_fee_per_gas,
         max_fee_per_gas,
         gas_limit: 30_000,
-        kind: TransactionKind::Call(from),
+        kind: TxKind::Call(from),
         value: U256::ZERO,
         input: Bytes::new(),
         access_list: Vec::new(),

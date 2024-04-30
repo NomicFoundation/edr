@@ -7,8 +7,7 @@ use crate::{
     access_list::AccessList,
     signature::{Signature, SignatureError},
     transaction::{
-        fake_signature::recover_fake_signature, kind::TransactionKind,
-        request::Eip1559TransactionRequest,
+        fake_signature::recover_fake_signature, request::Eip1559TransactionRequest, TxKind,
     },
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -26,7 +25,7 @@ pub struct Eip1559SignedTransaction {
     pub max_fee_per_gas: U256,
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub gas_limit: u64,
-    pub kind: TransactionKind,
+    pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
     pub access_list: AccessList,
@@ -113,7 +112,7 @@ mod tests {
             max_priority_fee_per_gas: U256::from(2),
             max_fee_per_gas: U256::from(5),
             gas_limit: 3,
-            kind: TransactionKind::Call(to),
+            kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
             access_list: vec![AccessListItem {

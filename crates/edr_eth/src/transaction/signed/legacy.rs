@@ -6,8 +6,7 @@ use revm_primitives::keccak256;
 use crate::{
     signature::{Signature, SignatureError},
     transaction::{
-        fake_signature::recover_fake_signature, kind::TransactionKind,
-        request::LegacyTransactionRequest,
+        fake_signature::recover_fake_signature, request::LegacyTransactionRequest, TxKind,
     },
     Address, Bytes, B256, U256,
 };
@@ -21,7 +20,7 @@ pub struct LegacySignedTransaction {
     pub gas_price: U256,
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub gas_limit: u64,
-    pub kind: TransactionKind,
+    pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
     pub signature: Signature,
@@ -81,7 +80,7 @@ mod tests {
             nonce: 1,
             gas_price: U256::from(2),
             gas_limit: 3,
-            kind: TransactionKind::Call(to),
+            kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
         }
