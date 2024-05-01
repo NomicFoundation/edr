@@ -5,8 +5,8 @@ use revm::{
     handler::register::EvmHandler,
     interpreter::{
         opcode::{self, BoxedInstruction, InstructionTables},
-        return_revert, CallInputs, CallOutcome, CreateInputs, CreateOutcome, InstructionResult,
-        Interpreter, SuccessOrHalt,
+        return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
+        InstructionResult, Interpreter, SuccessOrHalt,
     },
     primitives::{Bytecode, EVMError, ExecutionResult, Output},
     Database, Evm, EvmContext, FrameOrResult, FrameResult,
@@ -117,6 +117,10 @@ pub fn register_trace_collector_handles<
             FrameResult::Create(outcome) => {
                 let create_inputs = create_input_stack.borrow_mut().pop().unwrap();
                 tracer.create_transaction_end(&ctx.evm, &create_inputs, outcome);
+            }
+            // TODO: https://github.com/NomicFoundation/edr/issues/427
+            FrameResult::EOFCreate(_) => {
+                panic!("EDR doesn't support EOF yet. This code should not be reachable.")
             }
         }
         old_handle(ctx, frame_result)
@@ -284,7 +288,7 @@ impl TraceCollector {
         let code = data
             .journaled_state
             .state
-            .get(&inputs.contract)
+            .get(&inputs.bytecode_address)
             .map(|account| account.info.clone())
             .map(|mut account_info| {
                 if let Some(code) = account_info.code.take() {
@@ -294,7 +298,7 @@ impl TraceCollector {
                 }
             })
             .unwrap_or_else(|| {
-                data.db.basic(inputs.contract).unwrap().map_or(
+                data.db.basic(inputs.bytecode_address).unwrap().map_or(
                     // If an invalid contract address was provided, return empty code
                     Bytecode::new(),
                     |account_info| {
@@ -307,12 +311,14 @@ impl TraceCollector {
 
         self.pending_before = Some(BeforeMessage {
             depth: data.journaled_state.depth,
-            caller: inputs.context.caller,
-            to: Some(inputs.context.address),
+            caller: inputs.caller,
+            to: Some(inputs.target_address),
             gas_limit: inputs.gas_limit,
             data: inputs.input.clone(),
-            value: inputs.context.apparent_value,
-            code_address: Some(inputs.context.code_address),
+            value: match inputs.value {
+                CallValue::Transfer(value) | CallValue::Apparent(value) => value,
+            },
+            code_address: Some(inputs.bytecode_address),
             code: Some(code),
         });
     }

@@ -39,7 +39,7 @@ pub fn register_mocking_handles<DatabaseT: Database, ContextT: GetContextData<Mo
             if let Some(CallOverrideResult {
                 output,
                 should_revert,
-            }) = mocker.override_call(inputs.contract, inputs.input.clone())
+            }) = mocker.override_call(inputs.bytecode_address, inputs.input.clone())
             {
                 let result = if should_revert {
                     InstructionResult::Revert
