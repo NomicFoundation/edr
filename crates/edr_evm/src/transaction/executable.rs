@@ -145,7 +145,7 @@ impl From<ExecutableTransaction> for TxEnv {
                 access_list: Vec::new(),
                 blob_hashes: Vec::new(),
                 max_fee_per_blob_gas: None,
-                // https://github.com/NomicFoundation/edr/issues/427
+                // TODO: https://github.com/NomicFoundation/edr/issues/427
                 eof_initcodes: Vec::new(),
                 eof_initcodes_hashed: HashMap::new(),
             },
@@ -171,7 +171,7 @@ impl From<ExecutableTransaction> for TxEnv {
                 access_list: access_list.into(),
                 blob_hashes: Vec::new(),
                 max_fee_per_blob_gas: None,
-                // https://github.com/NomicFoundation/edr/issues/427
+                // TODO: https://github.com/NomicFoundation/edr/issues/427
                 eof_initcodes: Vec::new(),
                 eof_initcodes_hashed: HashMap::new(),
             },
@@ -198,7 +198,7 @@ impl From<ExecutableTransaction> for TxEnv {
                 access_list: access_list.into(),
                 blob_hashes: Vec::new(),
                 max_fee_per_blob_gas: None,
-                // https://github.com/NomicFoundation/edr/issues/427
+                // TODO: https://github.com/NomicFoundation/edr/issues/427
                 eof_initcodes: Vec::new(),
                 eof_initcodes_hashed: HashMap::new(),
             },
@@ -227,7 +227,7 @@ impl From<ExecutableTransaction> for TxEnv {
                 gas_priority_fee: Some(max_priority_fee_per_gas),
                 blob_hashes,
                 max_fee_per_blob_gas: Some(max_fee_per_blob_gas),
-                // https://github.com/NomicFoundation/edr/issues/427
+                // TODO: https://github.com/NomicFoundation/edr/issues/427
                 eof_initcodes: Vec::new(),
                 eof_initcodes_hashed: HashMap::new(),
             },
