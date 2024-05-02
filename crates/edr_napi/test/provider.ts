@@ -1,5 +1,7 @@
+import { smock } from "@defi-wonderland/smock";
 import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
+
 import {
   ContractAndFunctionName,
   EdrContext,
@@ -100,5 +102,28 @@ describe("Provider", () => {
     );
 
     await assert.isFulfilled(provider);
+  });
+
+  // Ported from https://github.com/fvictorio/edr-smock-issue
+  it("set call override callback for smock", async function () {
+    // Hardhat doesn't work with ESM modules, so we have to require it here.
+    // The pretest hook runs compile.
+    const { ethers } = require("hardhat");
+    
+    const provider = await Provider.withConfig(
+      context,
+      providerConfig,
+      loggerConfig,
+      (_event: SubscriptionEvent) => {}
+    );
+    
+    // Test that we handle promise result appropriately in Rust
+    provider.setCallOverrideCallback(async (contractAddress, data) => undefined);
+
+    const mockedFoo = await smock.fake('Foo');
+    const Bar = await ethers.getContractFactory('Bar');
+    const bar = await Bar.deploy();
+
+    await bar.callFoo(mockedFoo.address);
   });
 });

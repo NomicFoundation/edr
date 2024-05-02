@@ -96,3 +96,7 @@ typings/
 
 # DynamoDB Local files
 .dynamodb/
+
+# Hardhat output
+artifacts
+cache

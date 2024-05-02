@@ -27,7 +27,9 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@defi-wonderland/smock": "^2.4.0",
     "@napi-rs/cli": "^2.18.1",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@types/chai": "^4.2.0",
     "@types/chai-as-promised": "^7.1.8",
     "@types/mocha": ">=9.1.0",
@@ -50,7 +52,7 @@
     "prepublishOnly": "napi prepublish -t npm --skip-gh-release",
     "universal": "napi universal",
     "version": "napi version",
-    "pretest": "pnpm build",
+    "pretest": "pnpm build && npx hardhat compile",
     "test": "pnpm tsc && mocha --recursive \"test/**/*.ts\"",
     "testNoBuild": "pnpm tsc && mocha --recursive \"test/**/*.ts\"",
     "clean": "rm -rf @nomicfoundation/edr.node"
