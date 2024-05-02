@@ -187,7 +187,8 @@ impl Provider {
     ) -> napi::Result<()> {
         let provider = self.provider.clone();
 
-        let call_override_callback = CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone())?;
+        let call_override_callback =
+            CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone())?;
         let call_override_callback =
             Arc::new(move |address, data| call_override_callback.call_override(address, data));
 

@@ -46,7 +46,11 @@ pub struct CallOverrideCallback {
 }
 
 impl CallOverrideCallback {
-    pub fn new(env: &Env, call_override_callback: JsFunction, runtime: runtime::Handle) -> napi::Result<Self> {
+    pub fn new(
+        env: &Env,
+        call_override_callback: JsFunction,
+        runtime: runtime::Handle,
+    ) -> napi::Result<Self> {
         let mut call_override_callback_fn = call_override_callback.create_threadsafe_function(
             0,
             |ctx: ThreadSafeCallContext<CallOverrideCall>| {
@@ -70,7 +74,7 @@ impl CallOverrideCallback {
 
         Ok(Self {
             call_override_callback_fn,
-            runtime
+            runtime,
         })
     }
 
