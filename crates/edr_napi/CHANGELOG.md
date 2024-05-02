@@ -6,10 +6,10 @@
 
 - e82246c: Removed usage of batch calls to prevent 429 errors
 - 7745f35: Fixed mining of blocks when forking a chain that has non-Ethereum block headers
-- 8928b77: fix: avoid ecrecover for known sender
-- 1a83206: perf: changed internal data structures to achieve to constant time checkpointing for significant performance improvements on large test suites
+- 8928b77: Improved performance by avoiding call to ecrecover for known sender
+- 1a83206: Improved performance - especially for large test suites - by changing internal data structures to achieve constant time checkpointing
 - 7745f35: Fixed panic when re-setting global default subscriber
-- 9be7023: fix: avoid cloning transaction traces for improved performance
+- 9be7023: Improved performance by avoiding clones of transaction traces
 
 ## 0.3.5
 
