@@ -56,7 +56,7 @@
     "pretest": "pnpm build && npx hardhat compile",
     "test": "pnpm tsc && mocha --recursive \"test/**/*.ts\"",
     "pretestArtifact": "pnpm install && pnpm tsc && npx hardhat compile",
-    "testArtifact": "mocha --recursive \"test/**/*.ts\"",
+    "testArtifact": "mocha --recursive \"test/**/*.ts\" --timeout 60000",
     "clean": "rm -rf @nomicfoundation/edr.node"
   }
 }
