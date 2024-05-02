@@ -125,5 +125,7 @@ describe("Provider", () => {
     const bar = await Bar.deploy();
 
     await bar.callFoo(mockedFoo.address);
+
+    assert(false, "Fail test intentionally in CI");
   });
 });
