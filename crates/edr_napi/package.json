@@ -55,7 +55,7 @@
     "version": "napi version",
     "pretest": "pnpm build && npx hardhat compile",
     "test": "pnpm tsc && mocha --recursive \"test/**/*.ts\"",
-    "pretestArtifact": "CI=1 pnpm install --frozen-lockfile --prefer-offline && pnpm tsc && npx hardhat compile",
+    "pretestArtifact": "pnpm install && pnpm tsc && npx hardhat compile",
     "testArtifact": "mocha --recursive \"test/**/*.ts\"",
     "clean": "rm -rf @nomicfoundation/edr.node"
   }

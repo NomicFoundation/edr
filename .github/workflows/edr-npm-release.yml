@@ -4,6 +4,9 @@ env:
   DEBUG: napi:*
   APP_NAME: edr
   MACOSX_DEPLOYMENT_TARGET: "10.13"
+  # Important to make PNPM install non-interactive
+  # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
+  CI: 1
 permissions:
   contents: write
   id-token: write
