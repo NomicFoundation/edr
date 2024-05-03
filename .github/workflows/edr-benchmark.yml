@@ -76,7 +76,8 @@ jobs:
           benchmark-data-dir-path: bench
           github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
           # Only save the data for main branch pushes. For PRs we only compare
-          auto-push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+#          auto-push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+          auto-push: true
           alert-threshold: "110%"
           # Only fail on pull requests, don't break CI in main
           fail-on-alert: ${{ github.event_name == 'pull_request' }}
