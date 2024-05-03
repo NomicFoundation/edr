@@ -16,7 +16,6 @@ const { HttpProvider } = require("hardhat/internal/core/providers/http");
 
 const SCENARIOS_DIR = "../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
-const OZ_MAX_MIN_FAILURES = 1.05;
 const ANVIL_HOST = "http://127.0.0.1:8545";
 
 async function main() {
@@ -98,25 +97,6 @@ async function verify(benchmarkResultPath) {
   for (let scenarioName in snapshotResult) {
     // TODO https://github.com/NomicFoundation/edr/issues/365
     if (scenarioName.includes("neptune-mutual")) {
-      continue;
-    }
-
-    // TODO https://github.com/NomicFoundation/edr/issues/365
-    if (scenarioName.includes("openzeppelin")) {
-      const snapshotCount = snapshotResult[scenarioName].failures.length;
-      const actualCount = benchmarkResult[scenarioName].failures.length;
-      const ratio =
-        Math.max(snapshotCount, actualCount) /
-        Math.min(snapshotCount, actualCount);
-
-      if (ratio > OZ_MAX_MIN_FAILURES) {
-        console.error(
-          `Snapshot failure for ${scenarioName} with max/min failure ratio`,
-          ratio
-        );
-        success = false;
-      }
-
       continue;
     }
 
