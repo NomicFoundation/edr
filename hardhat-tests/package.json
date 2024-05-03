@@ -12,7 +12,7 @@
     "prettier": "prettier \"**/*.{js,md,json}\"",
     "pretest": "pnpm build:edr",
     "test": "mocha --recursive \"test/**/*.ts\"",
-    "test:integration": "./run-integration-tests.sh",
+    "test:integration": "bash run-integration-tests.sh",
     "test:ci": "pnpm test && pnpm test:integration",
     "build": "tsc --build --force --incremental .",
     "build:edr": "cd ../crates/edr_napi && pnpm build",
