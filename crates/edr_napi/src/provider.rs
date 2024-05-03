@@ -20,6 +20,7 @@ use crate::{
 #[napi]
 pub struct Provider {
     provider: Arc<edr_provider::Provider<LoggerError>>,
+    runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -53,7 +54,7 @@ impl Provider {
                 ))?;
 
             let result = edr_provider::Provider::new(
-                runtime,
+                runtime.clone(),
                 logger,
                 subscriber_callback,
                 config,
@@ -64,6 +65,7 @@ impl Provider {
                 |provider| {
                     Ok(Provider {
                         provider: Arc::new(provider),
+                        runtime,
                         #[cfg(feature = "scenarios")]
                         scenario_file,
                     })
@@ -185,7 +187,8 @@ impl Provider {
     ) -> napi::Result<()> {
         let provider = self.provider.clone();
 
-        let call_override_callback = CallOverrideCallback::new(&env, call_override_callback)?;
+        let call_override_callback =
+            CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone())?;
         let call_override_callback =
             Arc::new(move |address, data| call_override_callback.call_override(address, data));
 
