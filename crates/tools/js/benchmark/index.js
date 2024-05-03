@@ -169,7 +169,7 @@ async function benchmarkAllScenarios(outPath, useAnvil) {
     const args = [
       "--noconcurrent_sweeping",
       "--noconcurrent_recompilation",
-      "--max-old-space-size=120000",
+      "--max-old-space-size=28000",
       "index.js",
       "benchmark",
       "-g",
