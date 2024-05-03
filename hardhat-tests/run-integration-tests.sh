@@ -2,6 +2,8 @@
 
 set -e
 
+pnpm build:edr
+
 cd integration
 for i in *; do
   if [ -d "$i" ]; then

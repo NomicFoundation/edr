@@ -10,9 +10,12 @@
     "lint:fix": "pnpm prettier --write && pnpm eslint --fix",
     "eslint": "eslint 'test/**/*.ts'",
     "prettier": "prettier \"**/*.{js,md,json}\"",
-    "pretest": "cd ../crates/edr_napi && pnpm build",
-    "test": "mocha --recursive \"test/**/*.ts\" && ./run-integration-tests.sh",
+    "pretest": "pnpm build:edr",
+    "test": "mocha --recursive \"test/**/*.ts\"",
+    "test:integration": "./run-integration-tests.sh",
+    "test:ci": "pnpm test && pnpm test:integration",
     "build": "tsc --build --force --incremental .",
+    "build:edr": "cd ../crates/edr_napi && pnpm build",
     "clean": "rimraf build-test tsconfig.tsbuildinfo test/internal/hardhat-network/provider/.hardhat_node_test_cache test/internal/hardhat-network/stack-traces/test-files/artifacts"
   },
   "devDependencies": {
