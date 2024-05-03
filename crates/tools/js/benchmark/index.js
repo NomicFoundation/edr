@@ -228,11 +228,11 @@ function numIterations(scenarioName) {
     scenarioName.includes("rocketpool") ||
     scenarioName.includes("uniswap")
   ) {
-    return 5;
+    return 7;
   } else if (scenarioName.includes("neptune-mutual")) {
-    return 3;
+    return 5;
   } else {
-    return 1;
+    return 3;
   }
 }
 
