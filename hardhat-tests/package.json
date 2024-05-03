@@ -11,7 +11,7 @@
     "eslint": "eslint 'test/**/*.ts'",
     "prettier": "prettier \"**/*.{js,md,json}\"",
     "pretest": "cd ../crates/edr_napi && pnpm build",
-    "test": "mocha --recursive \"test/**/*.ts\"",
+    "test": "mocha --recursive \"test/**/*.ts\" && ./run-integration-tests.sh",
     "build": "tsc --build --force --incremental .",
     "clean": "rimraf build-test tsconfig.tsbuildinfo test/internal/hardhat-network/provider/.hardhat_node_test_cache test/internal/hardhat-network/stack-traces/test-files/artifacts"
   },
