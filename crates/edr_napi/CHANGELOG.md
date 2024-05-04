@@ -1,5 +1,9 @@
 # @nomicfoundation/edr
 
+## 0.3.7
+
+_This version didn't include any changes, but it fixed a release issue that caused one of our supported architectures to not be published._
+
 ## 0.3.6
 
 ### Patch Changes
