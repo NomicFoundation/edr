@@ -4,7 +4,7 @@ use std::{convert::Infallible, str::FromStr};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    remote::{self, PreEip1898BlockSpec},
+    remote::{self, eth::CallRequest, PreEip1898BlockSpec},
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
@@ -14,7 +14,7 @@ use edr_eth::{
         },
         Eip4844TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
     },
-    AccountInfo, Address, Bytes, B256, U256,
+    AccountInfo, Address, Bytes, SpecId, B256, U256,
 };
 use edr_evm::{EnvKzgSettings, ExecutableTransaction, KECCAK_EMPTY};
 use edr_provider::{
@@ -130,6 +130,34 @@ fn fake_transaction() -> SignedTransaction {
     fake_pooled_transaction().into_payload()
 }
 
+fn fake_call_request() -> anyhow::Result<CallRequest> {
+    let transaction = fake_pooled_transaction();
+    let blobs = transaction.blobs().map(|blobs| {
+        blobs
+            .iter()
+            .map(|blob| Bytes::copy_from_slice(blob.as_ref()))
+            .collect()
+    });
+    let transaction = transaction.into_payload();
+    let from = transaction.recover()?;
+
+    Ok(CallRequest {
+        from: Some(from),
+        to: transaction.to(),
+        max_fee_per_gas: transaction.max_fee_per_gas(),
+        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
+        gas: Some(transaction.gas_limit()),
+        value: Some(transaction.value()),
+        data: Some(transaction.data().clone()),
+        access_list: transaction
+            .access_list()
+            .map(|access_list| access_list.0.clone()),
+        blobs,
+        blob_hashes: transaction.blob_hashes(),
+        ..CallRequest::default()
+    })
+}
+
 fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
     let transaction = fake_pooled_transaction();
     let blobs = transaction.blobs().map(|blobs| {
@@ -160,6 +188,68 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
         blob_hashes: transaction.blob_hashes(),
         ..EthTransactionRequest::default()
     })
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn call_unsupported() -> anyhow::Result<()> {
+    let request = fake_call_request()?;
+
+    let logger = Box::new(NoopLogger);
+    let subscriber = Box::new(|_event| {});
+    let mut config = create_test_config();
+    config.hardfork = SpecId::SHANGHAI;
+
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        CurrentTime,
+    )?;
+
+    let error = provider
+        .handle_request(ProviderRequest::Single(MethodInvocation::Call(
+            request, None, None,
+        )))
+        .expect_err("Must return an error");
+
+    assert!(matches!(
+        error,
+        ProviderError::Eip4844CallRequestUnsupported
+    ));
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn estimate_gas_unsupported() -> anyhow::Result<()> {
+    let request = fake_call_request()?;
+
+    let logger = Box::new(NoopLogger);
+    let subscriber = Box::new(|_event| {});
+    let mut config = create_test_config();
+    config.hardfork = SpecId::SHANGHAI;
+
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        CurrentTime,
+    )?;
+
+    let error = provider
+        .handle_request(ProviderRequest::Single(MethodInvocation::EstimateGas(
+            request, None,
+        )))
+        .expect_err("Must return an error");
+
+    assert!(matches!(
+        error,
+        ProviderError::Eip4844CallRequestUnsupported
+    ));
+
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]

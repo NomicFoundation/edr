@@ -187,6 +187,10 @@ pub fn validate_call_request<LoggerErrorT: Debug>(
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     validate_post_merge_block_tags(spec_id, block_spec)?;
 
+    if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
+        return Err(ProviderError::Eip4844CallRequestUnsupported);
+    }
+
     validate_transaction_and_call_request(
         spec_id,
         call_request

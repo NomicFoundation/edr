@@ -54,7 +54,9 @@ pub enum ProviderError<LoggerErrorT> {
     Creation(#[from] CreationError),
     #[error(transparent)]
     DebugTrace(#[from] DebugTraceError<BlockchainError, StateError>),
-    #[error("An EIP-4844 (shard blob) transaction was sent using `eth_sendTransaction`, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
+    #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
+    Eip4844CallRequestUnsupported,
+    #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
     Eip4844TransactionUnsupported,
     #[error("An EIP-4844 (shard blob) transaction is missing the to (receiver) parameter.")]
     Eip4844TransactionMissingReceiver,
@@ -225,6 +227,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
             ProviderError::Blockchain(_) => INVALID_INPUT,
             ProviderError::Creation(_) => INVALID_INPUT,
             ProviderError::DebugTrace(_) => INTERNAL_ERROR,
+            ProviderError::Eip4844CallRequestUnsupported => INVALID_INPUT,
             ProviderError::Eip4844TransactionMissingReceiver => INVALID_INPUT,
             ProviderError::Eip4844TransactionUnsupported => INVALID_INPUT,
             ProviderError::Eip712Error(_) => INVALID_INPUT,
