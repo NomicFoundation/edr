@@ -21,7 +21,7 @@ pub use self::{
     },
     reward::miner_reward,
 };
-use crate::{trie::KECCAK_NULL_RLP, Address, Bloom, Bytes, SpecId, B256, B64, U256};
+use crate::{trie::KECCAK_NULL_RLP, Address, Bloom, Bytes, EthSpecId, B256, B64, U256};
 
 /// ethereum block header
 #[derive(Clone, Debug, Default, PartialEq, Eq, RlpDecodable, RlpEncodable)]
@@ -193,7 +193,7 @@ pub struct PartialHeader {
 impl PartialHeader {
     /// Constructs a new instance based on the provided [`BlockOptions`] and
     /// parent [`Header`] for the given [`SpecId`].
-    pub fn new(spec_id: SpecId, options: BlockOptions, parent: Option<&Header>) -> Self {
+    pub fn new(spec_id: EthSpecId, options: BlockOptions, parent: Option<&Header>) -> Self {
         let timestamp = options.timestamp.unwrap_or_default();
         let number = options.number.unwrap_or({
             if let Some(parent) = &parent {
@@ -218,7 +218,7 @@ impl PartialHeader {
             receipts_root: KECCAK_NULL_RLP,
             logs_bloom: Bloom::default(),
             difficulty: options.difficulty.unwrap_or_else(|| {
-                if spec_id >= SpecId::MERGE {
+                if spec_id >= EthSpecId::MERGE {
                     U256::ZERO
                 } else if let Some(parent) = parent {
                     calculate_ethash_canonical_difficulty(spec_id, parent, number, timestamp)
@@ -233,14 +233,14 @@ impl PartialHeader {
             extra_data: options.extra_data.unwrap_or_default(),
             mix_hash: options.mix_hash.unwrap_or_default(),
             nonce: options.nonce.unwrap_or_else(|| {
-                if spec_id >= SpecId::MERGE {
+                if spec_id >= EthSpecId::MERGE {
                     B64::ZERO
                 } else {
                     B64::from(66u64)
                 }
             }),
             base_fee: options.base_fee.or_else(|| {
-                if spec_id >= SpecId::LONDON {
+                if spec_id >= EthSpecId::LONDON {
                     Some(if let Some(parent) = &parent {
                         calculate_next_base_fee(parent)
                     } else {
@@ -252,7 +252,7 @@ impl PartialHeader {
                 }
             }),
             blob_gas: options.blob_gas.or_else(|| {
-                if spec_id >= SpecId::CANCUN {
+                if spec_id >= EthSpecId::CANCUN {
                     let excess_gas = parent.and_then(|parent| parent.blob_gas.as_ref()).map_or(
                         // For the first (post-fork) block, both parent.blob_gas_used and
                         // parent.excess_blob_gas are evaluated as 0.
@@ -272,7 +272,7 @@ impl PartialHeader {
                 }
             }),
             parent_beacon_block_root: options.parent_beacon_block_root.or_else(|| {
-                if spec_id >= SpecId::CANCUN {
+                if spec_id >= EthSpecId::CANCUN {
                     // Initial value from https://eips.ethereum.org/EIPS/eip-4788
                     Some(B256::ZERO)
                 } else {

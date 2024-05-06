@@ -1,19 +1,19 @@
-use crate::{block::Header, trie::KECCAK_RLP_EMPTY_ARRAY, SpecId, U256};
+use crate::{block::Header, trie::KECCAK_RLP_EMPTY_ARRAY, EthSpecId, U256};
 
-fn bomb_delay(spec_id: SpecId) -> u64 {
+fn bomb_delay(spec_id: EthSpecId) -> u64 {
     match spec_id {
-        SpecId::FRONTIER
-        | SpecId::FRONTIER_THAWING
-        | SpecId::HOMESTEAD
-        | SpecId::DAO_FORK
-        | SpecId::TANGERINE
-        | SpecId::SPURIOUS_DRAGON => 0,
-        SpecId::BYZANTIUM => 3000000,
-        SpecId::CONSTANTINOPLE | SpecId::PETERSBURG | SpecId::ISTANBUL => 5000000,
-        SpecId::MUIR_GLACIER | SpecId::BERLIN | SpecId::LONDON => 9000000,
-        // SpecId::LONDON => 9500000, // EIP-3554
-        SpecId::ARROW_GLACIER => 10700000,
-        SpecId::GRAY_GLACIER => 11400000,
+        EthSpecId::FRONTIER
+        | EthSpecId::FRONTIER_THAWING
+        | EthSpecId::HOMESTEAD
+        | EthSpecId::DAO_FORK
+        | EthSpecId::TANGERINE
+        | EthSpecId::SPURIOUS_DRAGON => 0,
+        EthSpecId::BYZANTIUM => 3000000,
+        EthSpecId::CONSTANTINOPLE | EthSpecId::PETERSBURG | EthSpecId::ISTANBUL => 5000000,
+        EthSpecId::MUIR_GLACIER | EthSpecId::BERLIN | EthSpecId::LONDON => 9000000,
+        // EthSpecId::LONDON => 9500000, // EIP-3554
+        EthSpecId::ARROW_GLACIER => 10700000,
+        EthSpecId::GRAY_GLACIER => 11400000,
         _ => {
             unreachable!("Post-merge hardforks don't have a bomb delay")
         }
@@ -22,14 +22,14 @@ fn bomb_delay(spec_id: SpecId) -> u64 {
 
 /// Calculates the mining difficulty of a block.
 pub fn calculate_ethash_canonical_difficulty(
-    spec_id: SpecId,
+    spec_id: EthSpecId,
     parent: &Header,
     block_number: u64,
     block_timestamp: u64,
 ) -> U256 {
     // TODO: Create a custom config that prevents usage of older hardforks
     assert!(
-        spec_id >= SpecId::BYZANTIUM,
+        spec_id >= EthSpecId::BYZANTIUM,
         "Hardforks older than Byzantium are not supported"
     );
 

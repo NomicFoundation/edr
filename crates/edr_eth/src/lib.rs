@@ -42,7 +42,7 @@ pub mod withdrawal;
 
 pub use revm_primitives::{
     alloy_primitives::{Bloom, BloomInput, B512, B64, U64},
-    hex_literal, AccountInfo, Address, Bytes, HashMap, SpecId, B256, U256,
+    hex_literal, AccountInfo, Address, Bytes, EthSpecId, HashMap, B256, U256,
 };
 
 /// A secret key

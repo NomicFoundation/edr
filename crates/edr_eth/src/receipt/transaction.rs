@@ -90,7 +90,7 @@ where
 
 #[cfg(all(test, feature = "serde"))]
 mod test {
-    use revm_primitives::SpecId;
+    use revm_primitives::EthSpecId;
 
     use super::*;
     use crate::receipt::TypedReceiptData;
@@ -103,7 +103,7 @@ mod test {
                 logs_bloom: Bloom::default(),
                 logs: vec![],
                 data: TypedReceiptData::Eip1559 { status: 1 },
-                spec_id: SpecId::LATEST,
+                spec_id: EthSpecId::LATEST,
             },
             transaction_hash: B256::default(),
             transaction_index: 5,

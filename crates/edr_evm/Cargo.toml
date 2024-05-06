@@ -21,7 +21,8 @@ once_cell = { version = "1.18.0", default-features = false, features = ["alloc",
 parking_lot = { version = "0.12.1", default-features = false }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["rand", "serde"] }
-revm = { git = "https://github.com/NomicFoundation/revm", rev = "aceb093", version = "8.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
+# revm = { git = "https://github.com/NomicFoundation/revm", rev = "af4c176", version = "8.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
+revm = { path = "../../../revm/crates/revm", version = "8.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { version = "1.0.158", default-features = false, features = ["std"] }
 serde_json = { version = "1.0.94", default-features = false, features = ["std"] }

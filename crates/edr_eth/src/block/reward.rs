@@ -1,25 +1,25 @@
-use revm_primitives::SpecId;
+use revm_primitives::EthSpecId;
 
 use crate::U256;
 
 /// Retrieves the miner reward for the provided hardfork.
-pub fn miner_reward(spec_id: SpecId) -> Option<U256> {
+pub fn miner_reward(spec_id: EthSpecId) -> Option<U256> {
     match spec_id {
-        SpecId::FRONTIER
-        | SpecId::FRONTIER_THAWING
-        | SpecId::HOMESTEAD
-        | SpecId::DAO_FORK
-        | SpecId::TANGERINE
-        | SpecId::SPURIOUS_DRAGON => Some(U256::from(5_000_000_000_000_000_000u128)),
-        SpecId::BYZANTIUM => Some(U256::from(3_000_000_000_000_000_000u128)),
-        SpecId::CONSTANTINOPLE
-        | SpecId::PETERSBURG
-        | SpecId::ISTANBUL
-        | SpecId::MUIR_GLACIER
-        | SpecId::BERLIN
-        | SpecId::LONDON
-        | SpecId::ARROW_GLACIER
-        | SpecId::GRAY_GLACIER => Some(U256::from(2_000_000_000_000_000_000u128)),
+        EthSpecId::FRONTIER
+        | EthSpecId::FRONTIER_THAWING
+        | EthSpecId::HOMESTEAD
+        | EthSpecId::DAO_FORK
+        | EthSpecId::TANGERINE
+        | EthSpecId::SPURIOUS_DRAGON => Some(U256::from(5_000_000_000_000_000_000u128)),
+        EthSpecId::BYZANTIUM => Some(U256::from(3_000_000_000_000_000_000u128)),
+        EthSpecId::CONSTANTINOPLE
+        | EthSpecId::PETERSBURG
+        | EthSpecId::ISTANBUL
+        | EthSpecId::MUIR_GLACIER
+        | EthSpecId::BERLIN
+        | EthSpecId::LONDON
+        | EthSpecId::ARROW_GLACIER
+        | EthSpecId::GRAY_GLACIER => Some(U256::from(2_000_000_000_000_000_000u128)),
         _ => None,
     }
 }

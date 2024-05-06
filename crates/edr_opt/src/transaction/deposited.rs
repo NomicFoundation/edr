@@ -1,10 +1,13 @@
-use edr_eth::{transaction::TxKind, Address, Bytes, SpecId, B256, U256};
+use edr_eth::{transaction::TxKind, Address, Bytes, B256, U256};
 
 /// Deposited transaction.
 ///
 /// For details, see <https://specs.optimism.io/protocol/deposits.html#the-deposited-transaction-type>.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "serde",
+    derive(Clone, Debug, PartialEq, Eq, serde::Deserialize)
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Transaction {
     /// Hash that uniquely identifies the origin of the deposit.
     pub source_hash: B256,
@@ -18,12 +21,12 @@ pub struct Transaction {
     ///  The ETH value to send to the recipient account.
     pub value: U256,
     /// The gas limit for the L2 transaction.
-    #[serde(rename = "gas")]
+    #[cfg_attr(feature = "serde", serde(rename = "gas"))]
     pub gas_limit: u64,
     /// Field indicating if this transaction is exempt from the L2 gas limit.
-    #[serde(rename = "isSystemTx")]
+    #[cfg_attr(feature = "serde", serde(rename = "isSystemTx"))]
     pub is_system_transaction: bool,
-    #[serde(alias = "input")]
+    #[cfg_attr(feature = "serde", serde(alias = "input"))]
     /// The calldata
     pub data: Bytes,
 }

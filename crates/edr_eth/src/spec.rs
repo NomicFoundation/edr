@@ -1,23 +1,23 @@
 use std::sync::OnceLock;
 
-use crate::{HashMap, SpecId};
+use crate::{EthSpecId, HashMap};
 
 /// A struct that stores the hardforks for a chain.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HardforkActivations {
-    /// (Start block number -> SpecId) mapping
-    hardforks: Vec<(u64, SpecId)>,
+    /// (Start block number -> EthSpecId) mapping
+    hardforks: Vec<(u64, EthSpecId)>,
 }
 
 impl HardforkActivations {
     /// Constructs a new instance with the provided hardforks.
-    pub fn new(hardforks: Vec<(u64, SpecId)>) -> Self {
+    pub fn new(hardforks: Vec<(u64, EthSpecId)>) -> Self {
         Self { hardforks }
     }
 
-    /// Creates a new instance for a new chain with the provided [`SpecId`].
-    pub fn with_spec_id(spec_id: SpecId) -> Self {
+    /// Creates a new instance for a new chain with the provided [`EthSpecId`].
+    pub fn with_spec_id(spec_id: EthSpecId) -> Self {
         Self {
             hardforks: vec![(0, spec_id)],
         }
@@ -28,9 +28,9 @@ impl HardforkActivations {
         self.hardforks.is_empty()
     }
 
-    /// Returns the hardfork's `SpecId` corresponding to the provided block
+    /// Returns the hardfork's `EthSpecId` corresponding to the provided block
     /// number.
-    pub fn hardfork_at_block_number(&self, block_number: u64) -> Option<SpecId> {
+    pub fn hardfork_at_block_number(&self, block_number: u64) -> Option<EthSpecId> {
         self.hardforks
             .iter()
             .rev()
@@ -39,7 +39,7 @@ impl HardforkActivations {
     }
 
     /// Retrieves the block number at which the provided hardfork was activated.
-    pub fn hardfork_activation(&self, spec_id: SpecId) -> Option<u64> {
+    pub fn hardfork_activation(&self, spec_id: EthSpecId) -> Option<u64> {
         self.hardforks
             .iter()
             .find(|(_, id)| *id == spec_id)
@@ -47,8 +47,8 @@ impl HardforkActivations {
     }
 }
 
-impl From<&[(u64, SpecId)]> for HardforkActivations {
-    fn from(hardforks: &[(u64, SpecId)]) -> Self {
+impl From<&[(u64, EthSpecId)]> for HardforkActivations {
+    fn from(hardforks: &[(u64, EthSpecId)]) -> Self {
         Self {
             hardforks: hardforks.to_vec(),
         }
@@ -62,25 +62,25 @@ struct ChainConfig {
     pub hardfork_activations: HardforkActivations,
 }
 
-const MAINNET_HARDFORKS: &[(u64, SpecId)] = &[
-    (0, SpecId::FRONTIER),
-    (200_000, SpecId::FRONTIER_THAWING),
-    (1_150_000, SpecId::HOMESTEAD),
-    (1_920_000, SpecId::DAO_FORK),
-    (2_463_000, SpecId::TANGERINE),
-    (2_675_000, SpecId::SPURIOUS_DRAGON),
-    (4_370_000, SpecId::BYZANTIUM),
-    (7_280_000, SpecId::CONSTANTINOPLE),
-    (7_280_000, SpecId::PETERSBURG),
-    (9_069_000, SpecId::ISTANBUL),
-    (9_200_000, SpecId::MUIR_GLACIER),
-    (12_244_000, SpecId::BERLIN),
-    (12_965_000, SpecId::LONDON),
-    (13_773_000, SpecId::ARROW_GLACIER),
-    (15_050_000, SpecId::GRAY_GLACIER),
-    (15_537_394, SpecId::MERGE),
-    (17_034_870, SpecId::SHANGHAI),
-    (19_426_589, SpecId::CANCUN),
+const MAINNET_HARDFORKS: &[(u64, EthSpecId)] = &[
+    (0, EthSpecId::FRONTIER),
+    (200_000, EthSpecId::FRONTIER_THAWING),
+    (1_150_000, EthSpecId::HOMESTEAD),
+    (1_920_000, EthSpecId::DAO_FORK),
+    (2_463_000, EthSpecId::TANGERINE),
+    (2_675_000, EthSpecId::SPURIOUS_DRAGON),
+    (4_370_000, EthSpecId::BYZANTIUM),
+    (7_280_000, EthSpecId::CONSTANTINOPLE),
+    (7_280_000, EthSpecId::PETERSBURG),
+    (9_069_000, EthSpecId::ISTANBUL),
+    (9_200_000, EthSpecId::MUIR_GLACIER),
+    (12_244_000, EthSpecId::BERLIN),
+    (12_965_000, EthSpecId::LONDON),
+    (13_773_000, EthSpecId::ARROW_GLACIER),
+    (15_050_000, EthSpecId::GRAY_GLACIER),
+    (15_537_394, EthSpecId::MERGE),
+    (17_034_870, EthSpecId::SHANGHAI),
+    (19_426_589, EthSpecId::CANCUN),
 ];
 
 fn mainnet_config() -> &'static ChainConfig {
@@ -96,14 +96,14 @@ fn mainnet_config() -> &'static ChainConfig {
     })
 }
 
-const ROPSTEN_HARDFORKS: &[(u64, SpecId)] = &[
-    (1_700_000, SpecId::BYZANTIUM),
-    (4_230_000, SpecId::CONSTANTINOPLE),
-    (4_939_394, SpecId::PETERSBURG),
-    (6_485_846, SpecId::ISTANBUL),
-    (7_117_117, SpecId::MUIR_GLACIER),
-    (9_812_189, SpecId::BERLIN),
-    (10_499_401, SpecId::LONDON),
+const ROPSTEN_HARDFORKS: &[(u64, EthSpecId)] = &[
+    (1_700_000, EthSpecId::BYZANTIUM),
+    (4_230_000, EthSpecId::CONSTANTINOPLE),
+    (4_939_394, EthSpecId::PETERSBURG),
+    (6_485_846, EthSpecId::ISTANBUL),
+    (7_117_117, EthSpecId::MUIR_GLACIER),
+    (9_812_189, EthSpecId::BERLIN),
+    (10_499_401, EthSpecId::LONDON),
 ];
 
 fn ropsten_config() -> &'static ChainConfig {
@@ -119,13 +119,13 @@ fn ropsten_config() -> &'static ChainConfig {
     })
 }
 
-const RINKEBY_HARDFORKS: &[(u64, SpecId)] = &[
-    (1_035_301, SpecId::BYZANTIUM),
-    (3_660_663, SpecId::CONSTANTINOPLE),
-    (4_321_234, SpecId::PETERSBURG),
-    (5_435_345, SpecId::ISTANBUL),
-    (8_290_928, SpecId::BERLIN),
-    (8_897_988, SpecId::LONDON),
+const RINKEBY_HARDFORKS: &[(u64, EthSpecId)] = &[
+    (1_035_301, EthSpecId::BYZANTIUM),
+    (3_660_663, EthSpecId::CONSTANTINOPLE),
+    (4_321_234, EthSpecId::PETERSBURG),
+    (5_435_345, EthSpecId::ISTANBUL),
+    (8_290_928, EthSpecId::BERLIN),
+    (8_897_988, EthSpecId::LONDON),
 ];
 
 fn rinkeby_config() -> &'static ChainConfig {
@@ -141,14 +141,14 @@ fn rinkeby_config() -> &'static ChainConfig {
     })
 }
 
-const GOERLI_HARDFORKS: &[(u64, SpecId)] = &[
-    (0, SpecId::PETERSBURG),
-    (1_561_651, SpecId::ISTANBUL),
-    (4_460_644, SpecId::BERLIN),
-    (5_062_605, SpecId::LONDON),
-    (7_382_818, SpecId::MERGE),
-    (8_656_123, SpecId::SHANGHAI),
-    (10_388_176, SpecId::CANCUN),
+const GOERLI_HARDFORKS: &[(u64, EthSpecId)] = &[
+    (0, EthSpecId::PETERSBURG),
+    (1_561_651, EthSpecId::ISTANBUL),
+    (4_460_644, EthSpecId::BERLIN),
+    (5_062_605, EthSpecId::LONDON),
+    (7_382_818, EthSpecId::MERGE),
+    (8_656_123, EthSpecId::SHANGHAI),
+    (10_388_176, EthSpecId::CANCUN),
 ];
 
 fn goerli_config() -> &'static ChainConfig {
@@ -164,13 +164,13 @@ fn goerli_config() -> &'static ChainConfig {
     })
 }
 
-const KOVAN_HARDFORKS: &[(u64, SpecId)] = &[
-    (5_067_000, SpecId::BYZANTIUM),
-    (9_200_000, SpecId::CONSTANTINOPLE),
-    (10_255_201, SpecId::PETERSBURG),
-    (14_111_141, SpecId::ISTANBUL),
-    (24_770_900, SpecId::BERLIN),
-    (26_741_100, SpecId::LONDON),
+const KOVAN_HARDFORKS: &[(u64, EthSpecId)] = &[
+    (5_067_000, EthSpecId::BYZANTIUM),
+    (9_200_000, EthSpecId::CONSTANTINOPLE),
+    (10_255_201, EthSpecId::PETERSBURG),
+    (14_111_141, EthSpecId::ISTANBUL),
+    (24_770_900, EthSpecId::BERLIN),
+    (26_741_100, EthSpecId::LONDON),
 ];
 
 fn kovan_config() -> &'static ChainConfig {
@@ -186,10 +186,10 @@ fn kovan_config() -> &'static ChainConfig {
     })
 }
 
-const HOLESKY_HARDFORKS: &[(u64, SpecId)] = &[
-    (0, SpecId::MERGE),
-    (6_698, SpecId::SHANGHAI),
-    (894_733, SpecId::CANCUN),
+const HOLESKY_HARDFORKS: &[(u64, EthSpecId)] = &[
+    (0, EthSpecId::MERGE),
+    (6_698, EthSpecId::SHANGHAI),
+    (894_733, EthSpecId::CANCUN),
 ];
 
 fn holesky_config() -> &'static ChainConfig {
@@ -205,11 +205,11 @@ fn holesky_config() -> &'static ChainConfig {
     })
 }
 
-const SEPOLIA_HARDFORKS: &[(u64, SpecId)] = &[
-    (0, SpecId::LONDON),
-    (1_450_409, SpecId::MERGE),
-    (2_990_908, SpecId::SHANGHAI),
-    (5_187_023, SpecId::CANCUN),
+const SEPOLIA_HARDFORKS: &[(u64, EthSpecId)] = &[
+    (0, EthSpecId::LONDON),
+    (1_450_409, EthSpecId::MERGE),
+    (2_990_908, EthSpecId::SHANGHAI),
+    (5_187_023, EthSpecId::CANCUN),
 ];
 
 fn sepolia_config() -> &'static ChainConfig {

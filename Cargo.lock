@@ -2929,10 +2929,8 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "8.0.0"
-source = "git+https://github.com/NomicFoundation/revm?rev=aceb093#aceb0939b1712faa0e8f45c1f5621c11b81df94e"
 dependencies = [
  "auto_impl",
- "cfg-if",
  "dyn-clone",
  "revm-interpreter",
  "revm-precompile",
@@ -2942,7 +2940,6 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "4.0.0"
-source = "git+https://github.com/NomicFoundation/revm?rev=aceb093#aceb0939b1712faa0e8f45c1f5621c11b81df94e"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -2951,7 +2948,6 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "6.0.0"
-source = "git+https://github.com/NomicFoundation/revm?rev=aceb093#aceb0939b1712faa0e8f45c1f5621c11b81df94e"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -2966,7 +2962,6 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "3.1.1"
-source = "git+https://github.com/NomicFoundation/revm?rev=aceb093#aceb0939b1712faa0e8f45c1f5621c11b81df94e"
 dependencies = [
  "alloy-primitives 0.7.0",
  "auto_impl",

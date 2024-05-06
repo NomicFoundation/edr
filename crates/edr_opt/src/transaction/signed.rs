@@ -1,3 +1,10 @@
+use edr_eth::transaction::{
+    Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
+    LegacySignedTransaction,
+};
+
+use super::deposited;
+
 pub enum Transaction {
     PreEip155Legacy(LegacySignedTransaction),
     PostEip155Legacy(Eip155SignedTransaction),
