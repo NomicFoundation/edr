@@ -5,14 +5,14 @@ mod eip4844;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut, Decodable};
-use revm_primitives::TxEnv;
+use revm_primitives::{CreateScheme, TransactTo, TxEnv};
 
 pub use self::{
     eip155::Eip155SignedTransaction, eip1559::Eip1559SignedTransaction,
     eip2930::Eip2930SignedTransaction, eip4844::Eip4844SignedTransaction,
     legacy::LegacySignedTransaction,
 };
-use super::{kind::TransactionKind, Transaction, TransactionType};
+use super::{Transaction, TransactionType, TxKind};
 use crate::{
     access_list::AccessList,
     signature::{Signature, SignatureError},
@@ -21,6 +21,14 @@ use crate::{
 };
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
+
+/// Converts a `TxKind` to a `TransactTo`.
+fn kind_to_transact_to(kind: TxKind) -> TransactTo {
+    match kind {
+        TxKind::Create => TransactTo::Create(CreateScheme::Create),
+        TxKind::Call(to) => TransactTo::Call(to),
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -114,13 +122,13 @@ impl SignedTransaction {
     }
 
     /// Returns what kind of transaction this is
-    pub fn kind(&self) -> TransactionKind {
+    pub fn kind(&self) -> TxKind {
         match self {
             SignedTransaction::PreEip155Legacy(tx) => tx.kind,
             SignedTransaction::PostEip155Legacy(tx) => tx.kind,
             SignedTransaction::Eip2930(tx) => tx.kind,
             SignedTransaction::Eip1559(tx) => tx.kind,
-            SignedTransaction::Eip4844(tx) => TransactionKind::Call(tx.to),
+            SignedTransaction::Eip4844(tx) => TxKind::Call(tx.to),
         }
     }
 
@@ -345,7 +353,7 @@ impl Transaction for SignedTransaction {
     }
 
     fn to(&self) -> Option<Address> {
-        self.kind().as_call().copied()
+        self.kind().to().copied()
     }
 
     fn total_blob_gas(&self) -> Option<u64> {
@@ -413,7 +421,7 @@ mod tests {
         assert_eq!(tx.gas_price, U256::from(0x01u64));
         assert_eq!(tx.gas_limit, 0x5208u64);
         assert_eq!(tx.nonce, 0x00u64);
-        if let TransactionKind::Call(ref to) = tx.kind {
+        if let TxKind::Call(ref to) = tx.kind {
             assert_eq!(
                 *to,
                 "0x095e7baea6a6c7c4c2dfeb977efac326af552d87"
@@ -457,7 +465,7 @@ mod tests {
                 nonce: 0,
                 gas_price: U256::from(1),
                 gas_limit: 2,
-                kind: TransactionKind::Call(Address::default()),
+                kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
                 signature: Signature {
@@ -472,7 +480,7 @@ mod tests {
                 nonce: 0,
                 gas_price: U256::from(1),
                 gas_limit: 2,
-                kind: TransactionKind::Create,
+                kind: TxKind::Create,
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
                 signature: Signature {
@@ -488,7 +496,7 @@ mod tests {
                 nonce: 0,
                 gas_price: U256::from(1),
                 gas_limit: 2,
-                kind: TransactionKind::Call(Address::random()),
+                kind: TxKind::Call(Address::random()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
                 odd_y_parity: true,
@@ -504,7 +512,7 @@ mod tests {
                 max_priority_fee_per_gas: U256::from(1),
                 max_fee_per_gas: U256::from(2),
                 gas_limit: 3,
-                kind: TransactionKind::Create,
+                kind: TxKind::Create,
                 value: U256::from(4),
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![].into(),
@@ -543,7 +551,7 @@ mod tests {
             nonce: 2u64,
             gas_price: U256::from(1000000000u64),
             gas_limit: 100000,
-            kind: TransactionKind::Call(Address::from_slice(
+            kind: TxKind::Call(Address::from_slice(
                 &hex::decode("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap(),
             )),
             value: U256::from(1000000000000000u64),
@@ -572,7 +580,7 @@ mod tests {
             nonce: 1,
             gas_price: U256::from(1000000000u64),
             gas_limit: 100000,
-            kind: TransactionKind::Call(Address::from_slice(
+            kind: TxKind::Call(Address::from_slice(
                 &hex::decode("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap(),
             )),
             value: U256::from(693361000000000u64),
@@ -601,7 +609,7 @@ mod tests {
             nonce: 3,
             gas_price: U256::from(2000000000u64),
             gas_limit: 10000000,
-            kind: TransactionKind::Call(Address::from_slice(
+            kind: TxKind::Call(Address::from_slice(
                 &hex::decode("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap(),
             )),
             value: U256::from(1000000000000000u64),
@@ -632,7 +640,7 @@ mod tests {
             max_priority_fee_per_gas: U256::from(1500000000u64),
             max_fee_per_gas: U256::from(1500000013u64),
             gas_limit: 21000,
-            kind: TransactionKind::Call(Address::from_slice(
+            kind: TxKind::Call(Address::from_slice(
                 &hex::decode("61815774383099e24810ab832a5b2a5425c154d5").unwrap(),
             )),
             value: U256::from(3000000000000000000u64),
@@ -656,7 +664,7 @@ mod tests {
             nonce: 15u64,
             gas_price: U256::from(2200000000u64),
             gas_limit: 34811,
-            kind: TransactionKind::Call(Address::from_slice(
+            kind: TxKind::Call(Address::from_slice(
                 &hex::decode("cf7f9e66af820a19257a2108375b180b0ec49167").unwrap(),
             )),
             value: U256::from(1234u64),

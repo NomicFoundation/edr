@@ -7,10 +7,7 @@ use revm_primitives::keccak256;
 use crate::{
     access_list::AccessListItem,
     signature::{Signature, SignatureError},
-    transaction::{
-        fake_signature::make_fake_signature, kind::TransactionKind,
-        signed::Eip1559SignedTransaction,
-    },
+    transaction::{fake_signature::make_fake_signature, signed::Eip1559SignedTransaction, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
@@ -23,7 +20,7 @@ pub struct Eip1559TransactionRequest {
     pub max_priority_fee_per_gas: U256,
     pub max_fee_per_gas: U256,
     pub gas_limit: u64,
-    pub kind: TransactionKind,
+    pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
     pub access_list: Vec<AccessListItem>,
@@ -114,7 +111,7 @@ pub(crate) mod tests {
             max_priority_fee_per_gas: U256::from(2),
             max_fee_per_gas: U256::from(5),
             gas_limit: 3,
-            kind: TransactionKind::Call(to),
+            kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
             access_list: vec![AccessListItem {
@@ -150,7 +147,7 @@ pub(crate) mod tests {
             max_priority_fee_per_gas: U256::ZERO,
             max_fee_per_gas: U256::ZERO,
             gas_limit: 0,
-            kind: TransactionKind::Create,
+            kind: TxKind::Create,
             value: U256::ZERO,
             input: Bytes::new(),
             access_list: vec![],
@@ -182,7 +179,7 @@ pub(crate) mod tests {
             max_priority_fee_per_gas: U256::from(2),
             max_fee_per_gas: U256::from(12),
             gas_limit: 30_000,
-            kind: TransactionKind::Call("0xb5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?),
+            kind: TxKind::Call("0xb5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?),
             value: U256::from(1),
             input: Bytes::default(),
             access_list: vec![],

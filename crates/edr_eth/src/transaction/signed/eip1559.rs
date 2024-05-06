@@ -3,12 +3,12 @@ use std::sync::OnceLock;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 use revm_primitives::{keccak256, TxEnv};
 
+use super::kind_to_transact_to;
 use crate::{
     access_list::AccessList,
     signature::{Signature, SignatureError},
     transaction::{
-        fake_signature::recover_fake_signature, kind::TransactionKind,
-        request::Eip1559TransactionRequest,
+        fake_signature::recover_fake_signature, request::Eip1559TransactionRequest, TxKind,
     },
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -26,7 +26,7 @@ pub struct Eip1559SignedTransaction {
     pub max_fee_per_gas: U256,
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub gas_limit: u64,
-    pub kind: TransactionKind,
+    pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
     pub access_list: AccessList,
@@ -76,7 +76,7 @@ impl Eip1559SignedTransaction {
             caller,
             gas_limit: self.gas_limit,
             gas_price: self.max_fee_per_gas,
-            transact_to: self.kind.to_transact_to(),
+            transact_to: kind_to_transact_to(self.kind),
             value: self.value,
             data: self.input,
             nonce: Some(self.nonce),
@@ -131,7 +131,7 @@ mod tests {
             max_priority_fee_per_gas: U256::from(2),
             max_fee_per_gas: U256::from(5),
             gas_limit: 3,
-            kind: TransactionKind::Call(to),
+            kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
             access_list: vec![AccessListItem {

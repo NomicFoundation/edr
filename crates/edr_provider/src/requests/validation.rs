@@ -53,7 +53,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
     fn from(value: &'data SignedTransaction) -> Self {
         match value {
             SignedTransaction::PreEip155Legacy(tx) => Self {
-                to: tx.kind.as_call(),
+                to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -62,7 +62,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::PostEip155Legacy(tx) => Self {
-                to: tx.kind.as_call(),
+                to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -71,7 +71,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::Eip2930(tx) => Self {
-                to: tx.kind.as_call(),
+                to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -80,7 +80,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::Eip1559(tx) => Self {
-                to: tx.kind.as_call(),
+                to: tx.kind.to(),
                 gas_price: None,
                 max_fee_per_gas: Some(&tx.max_fee_per_gas),
                 max_priority_fee_per_gas: Some(&tx.max_priority_fee_per_gas),

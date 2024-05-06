@@ -5,16 +5,16 @@
 //! transaction related data
 
 mod fake_signature;
-mod kind;
 /// Types for transaction gossip (aka pooled transactions)
 pub mod pooled;
 mod request;
 mod signed;
 mod r#type;
 
+pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
-pub use self::{kind::TransactionKind, r#type::TransactionType, request::*, signed::*};
+pub use self::{r#type::TransactionType, request::*, signed::*};
 use crate::{access_list::AccessListItem, Address, Bytes, U256};
 
 pub trait Transaction {

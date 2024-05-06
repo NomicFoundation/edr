@@ -3,11 +3,11 @@ use std::sync::OnceLock;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 use revm_primitives::{keccak256, TxEnv};
 
+use super::kind_to_transact_to;
 use crate::{
     signature::{Signature, SignatureError},
     transaction::{
-        fake_signature::recover_fake_signature, kind::TransactionKind,
-        request::LegacyTransactionRequest,
+        fake_signature::recover_fake_signature, request::LegacyTransactionRequest, TxKind,
     },
     Address, Bytes, B256, U256,
 };
@@ -21,7 +21,7 @@ pub struct LegacySignedTransaction {
     pub gas_price: U256,
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub gas_limit: u64,
-    pub kind: TransactionKind,
+    pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
     pub signature: Signature,
@@ -57,7 +57,7 @@ impl LegacySignedTransaction {
             caller,
             gas_limit: self.gas_limit,
             gas_price: self.gas_price,
-            transact_to: self.kind.to_transact_to(),
+            transact_to: kind_to_transact_to(self.kind),
             value: self.value,
             data: self.input,
             nonce: Some(self.nonce),
@@ -99,7 +99,7 @@ mod tests {
             nonce: 1,
             gas_price: U256::from(2),
             gas_limit: 3,
-            kind: TransactionKind::Call(to),
+            kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
         }

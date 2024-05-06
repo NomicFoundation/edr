@@ -172,7 +172,7 @@ mod tests {
     use super::*;
     use crate::{
         signature::Signature,
-        transaction::{Eip4844SignedTransaction, TransactionKind},
+        transaction::{Eip4844SignedTransaction, TxKind},
         Address, Bytes, B256, U256,
     };
 
@@ -217,7 +217,7 @@ mod tests {
             nonce: 0,
             gas_price: U256::from(1),
             gas_limit: 2,
-            kind: TransactionKind::Call(Address::default()),
+            kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
             signature: Signature {
@@ -232,7 +232,7 @@ mod tests {
             nonce: 0,
             gas_price: U256::from(1),
             gas_limit: 2,
-            kind: TransactionKind::Create,
+            kind: TxKind::Create,
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
             signature: Signature {
@@ -248,7 +248,7 @@ mod tests {
             nonce: 0,
             gas_price: U256::from(1),
             gas_limit: 2,
-            kind: TransactionKind::Call(Address::random()),
+            kind: TxKind::Call(Address::random()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
             odd_y_parity: true,
@@ -264,7 +264,7 @@ mod tests {
             max_priority_fee_per_gas: U256::from(1),
             max_fee_per_gas: U256::from(2),
             gas_limit: 3,
-            kind: TransactionKind::Create,
+            kind: TxKind::Create,
             value: U256::from(4),
             input: Bytes::from(vec![1, 2]),
             access_list: vec![].into(),

@@ -2,10 +2,11 @@ use std::sync::mpsc::channel;
 
 use edr_eth::{Address, Bytes};
 use napi::{
-    bindgen_prelude::Buffer,
+    bindgen_prelude::{Buffer, Promise},
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
+    tokio::runtime,
     Env, JsFunction, Status,
 };
 use napi_derive::napi;
@@ -41,10 +42,15 @@ struct CallOverrideCall {
 #[derive(Clone)]
 pub struct CallOverrideCallback {
     call_override_callback_fn: ThreadsafeFunction<CallOverrideCall, ErrorStrategy::Fatal>,
+    runtime: runtime::Handle,
 }
 
 impl CallOverrideCallback {
-    pub fn new(env: &Env, call_override_callback: JsFunction) -> napi::Result<Self> {
+    pub fn new(
+        env: &Env,
+        call_override_callback: JsFunction,
+        runtime: runtime::Handle,
+    ) -> napi::Result<Self> {
         let mut call_override_callback_fn = call_override_callback.create_threadsafe_function(
             0,
             |ctx: ThreadSafeCallContext<CallOverrideCall>| {
@@ -68,6 +74,7 @@ impl CallOverrideCallback {
 
         Ok(Self {
             call_override_callback_fn,
+            runtime,
         })
     }
 
@@ -78,21 +85,24 @@ impl CallOverrideCallback {
     ) -> Option<edr_provider::CallOverrideResult> {
         let (sender, receiver) = channel();
 
+        let runtime = self.runtime.clone();
         let status = self.call_override_callback_fn.call_with_return_value(
             CallOverrideCall {
                 contract_address,
                 data,
             },
             ThreadsafeFunctionCallMode::Blocking,
-            move |result: Option<CallOverrideResult>| {
-                let result = result.try_cast();
-
-                sender.send(result).map_err(|_error| {
-                    napi::Error::new(
-                        Status::GenericFailure,
-                        "Failed to send result from call_override_callback",
-                    )
-                })
+            move |result: Promise<Option<CallOverrideResult>>| {
+                runtime.spawn(async move {
+                    let result = result.await?.try_cast();
+                    sender.send(result).map_err(|_error| {
+                        napi::Error::new(
+                            Status::GenericFailure,
+                            "Failed to send result from call_override_callback",
+                        )
+                    })
+                });
+                Ok(())
             },
         );
 
