@@ -236,7 +236,7 @@ impl RpcClient {
         request: SerializedRequest,
     ) -> Result<T, RpcClientError> {
         let is_missing_trie_node_error =
-            error.code == -32000 && error.message.contains("missing trie node");
+            error.code == -32000 && error.message.to_lowercase().contains("missing trie node");
 
         let result = if is_missing_trie_node_error {
             self.send_request_body(&request)
