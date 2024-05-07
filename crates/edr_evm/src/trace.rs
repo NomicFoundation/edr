@@ -120,7 +120,7 @@ pub fn register_trace_collector_handles<
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameResult::EOFCreate(_) => {
-                panic!("EDR doesn't support EOF yet. This code should not be reachable.")
+                unreachable!("EDR doesn't support EOF yet.")
             }
         }
         old_handle(ctx, frame_result)
