@@ -1,5 +1,5 @@
 {
-  "name": "hardhat-edr-smock-test",
+  "name": "hardhat-edr-hardhat-tracer-test",
   "private": true,
   "version": "1.0.0",
   "description": "",
@@ -8,8 +8,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@defi-wonderland/smock": "^2.4.0",
-    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "chai": "^4.3.6",
     "hardhat": "^2.22.3",
     "mocha": "^10.0.0"

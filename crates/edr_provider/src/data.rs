@@ -179,6 +179,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     snapshots: BTreeMap<u64, Snapshot>,
     allow_blocks_with_same_timestamp: bool,
     allow_unlimited_contract_size: bool,
+    verbose_tracing: bool,
     // IndexMap to preserve account order for logging.
     local_accounts: IndexMap<Address, k256::SecretKey>,
     filters: HashMap<U256, Filter>,
@@ -282,6 +283,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             snapshots: BTreeMap::new(),
             allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size,
+            verbose_tracing: false,
             local_accounts,
             filters: HashMap::default(),
             last_filter_id: U256::ZERO,
@@ -665,7 +667,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         let state_overrides = StateOverrides::default();
 
-        let mut debugger = Debugger::with_mocker(Mocker::new(self.call_override.clone()));
+        let mut debugger = Debugger::with_mocker(
+            Mocker::new(self.call_override.clone()),
+            self.verbose_tracing,
+        );
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -1392,7 +1397,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let cfg_env = self.create_evm_config(Some(block_spec))?;
         let tx_env = transaction.into();
 
-        let mut debugger = Debugger::with_mocker(Mocker::new(self.call_override.clone()));
+        let mut debugger = Debugger::with_mocker(
+            Mocker::new(self.call_override.clone()),
+            self.verbose_tracing,
+        );
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let execution_result = call::run_call(RunCallArgs {
@@ -1446,6 +1454,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.min_gas_price = min_gas_price;
 
         Ok(())
+    }
+
+    pub fn set_verbose_tracing(&mut self, verbose_tracing: bool) {
+        self.verbose_tracing = verbose_tracing;
     }
 
     pub fn send_transaction(
@@ -1930,7 +1942,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut debugger = Debugger::with_mocker(Mocker::new(self.call_override.clone()));
+        let mut debugger = Debugger::with_mocker(
+            Mocker::new(self.call_override.clone()),
+            self.verbose_tracing,
+        );
 
         let state_to_be_modified = (*self.current_state()?).clone();
 

@@ -89,21 +89,57 @@ pub struct TracingStep {
     /// The top entry on the stack. None if the stack is empty.
     #[napi(readonly)]
     pub stack_top: Option<BigInt>,
+    /// The entries on the stack. None if verbose tracing is disabled.
+    #[napi(readonly)]
+    pub stack: Option<Vec<BigInt>>,
+    /// The memory at the step. None if verbose tracing is disabled.
+    #[napi(readonly)]
+    pub memory: Option<Vec<BigInt>>,
 }
 
 impl TracingStep {
     pub fn new(step: &edr_evm::trace::Step) -> Self {
+        let stack_top = step.stack.top().map(u256_to_bigint);
+        let stack = step
+            .stack
+            .full()
+            .map(|stack| stack.iter().map(u256_to_bigint).collect());
+        // Memory in steps is Vec<u8>
+        // TODO can we assume 32-byte alignment?
+        assert!(
+            step.memory
+                .as_ref()
+                .map_or(true, |memory| memory.len() % 32 == 0),
+            "Assumed 32-byte alignment"
+        );
+        let memory = step.memory.as_ref().map(|memory| {
+            memory
+                .chunks_exact(32)
+                .map(|words| BigInt {
+                    sign_bit: false,
+                    // TODO verify BE is correct
+                    words: edr_evm::U256::from_be_slice(words).into_limbs().to_vec(),
+                })
+                .collect()
+        });
+
         Self {
             depth: step.depth as u8,
             pc: BigInt::from(step.pc),
             opcode: OPCODE_JUMPMAP[usize::from(step.opcode)]
                 .unwrap_or("")
                 .to_string(),
-            stack_top: step.stack_top.map(|v| BigInt {
-                sign_bit: false,
-                words: v.into_limbs().to_vec(),
-            }),
+            stack_top,
+            stack,
+            memory,
         }
+    }
+}
+
+fn u256_to_bigint(v: &edr_evm::U256) -> BigInt {
+    BigInt {
+        sign_bit: false,
+        words: v.into_limbs().to_vec(),
     }
 }
 

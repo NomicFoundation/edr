@@ -146,6 +146,15 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
         data.set_call_override_callback(call_override);
     }
 
+    /// Set to `true` to make the traces returned with `eth_call`,
+    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
+    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
+    /// `false` to disable this.
+    pub fn set_verbose_tracing(&self, verbose_tracing: bool) {
+        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+        data.set_verbose_tracing(verbose_tracing);
+    }
+
     /// Blocking method to handle a request.
     pub fn handle_request(
         &self,

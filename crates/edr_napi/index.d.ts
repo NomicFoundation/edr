@@ -364,6 +364,10 @@ export interface TracingStep {
   readonly opcode: string
   /** The top entry on the stack. None if the stack is empty. */
   readonly stackTop?: bigint
+  /** The entries on the stack. None if verbose tracing is disabled. */
+  readonly stack?: Array<bigint>
+  /** The memory at the step. None if verbose tracing is disabled. */
+  readonly memory?: Array<bigint>
 }
 export interface TracingMessageResult {
   /** Execution result */
@@ -390,6 +394,12 @@ export class Provider {
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(jsonRequest: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): void
+  /**
+   * Set to `true` to make the traces returned with `eth_call`, `eth_estimateGas`,
+   * `eth_sendRawTransaction`, `eth_sendTransaction`, `evm_mine`, `hardhat_mine` include the full
+   * stack and memory. Set to `false` to disable this.
+   */
+  setVerboseTracing(verboseTracing: boolean): void
 }
 export class Response {
   get json(): string

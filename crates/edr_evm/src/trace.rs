@@ -204,8 +204,11 @@ pub struct Step {
     pub depth: u64,
     /// The executed op code
     pub opcode: u8,
-    /// The top entry on the stack. None if the stack is empty.
-    pub stack_top: Option<U256>,
+    /// `Stack::Full` if verbose tracing is enabled, `Stack::Top` otherwise
+    pub stack: Stack,
+    /// Array of all allocated values. Only present if verbose tracing is
+    /// enabled.
+    pub memory: Option<Vec<u8>>,
     // /// The amount of gas that was used by the step
     // pub gas_cost: u64,
     // /// The amount of gas that was refunded by the step
@@ -214,6 +217,33 @@ pub struct Step {
     // pub contract: AccountInfo,
     // /// The address of the contract
     // pub contract_address: Address,
+}
+
+/// The stack at a step.
+#[derive(Clone, Debug)]
+pub enum Stack {
+    /// The top of the stack at a step. None if the stack is empty.
+    Top(Option<U256>),
+    /// The full stack at a step.
+    Full(Vec<U256>),
+}
+
+impl Stack {
+    /// Get the top of the stack.
+    pub fn top(&self) -> Option<&U256> {
+        match self {
+            Stack::Top(top) => top.as_ref(),
+            Stack::Full(stack) => stack.last(),
+        }
+    }
+
+    /// Get the full stack if it has been recorded.
+    pub fn full(&self) -> Option<&Vec<U256>> {
+        match self {
+            Stack::Top(_) => None,
+            Stack::Full(stack) => Some(stack),
+        }
+    }
 }
 
 impl Trace {
@@ -227,13 +257,38 @@ impl Trace {
         self.messages.push(TraceMessage::After(result));
     }
 
-    /// Adds a VM step to the trace.
-    pub fn add_step(&mut self, depth: u64, pc: usize, opcode: u8, stack_top: Option<U256>) {
+    /// Adds a VM step to the trace without full stack and memory.
+    pub fn add_step_succinct(
+        &mut self,
+        depth: u64,
+        pc: usize,
+        opcode: u8,
+        stack_top: Option<U256>,
+    ) {
         self.messages.push(TraceMessage::Step(Step {
             pc: pc as u64,
             depth,
             opcode,
-            stack_top,
+            stack: Stack::Top(stack_top),
+            memory: None,
+        }));
+    }
+
+    /// Adds a VM step to the trace with full stack and memory.
+    pub fn add_step_verbose(
+        &mut self,
+        depth: u64,
+        pc: usize,
+        opcode: u8,
+        stack: Vec<U256>,
+        memory: Vec<u8>,
+    ) {
+        self.messages.push(TraceMessage::Step(Step {
+            pc: pc as u64,
+            depth,
+            opcode,
+            stack: Stack::Full(stack),
+            memory: Some(memory),
         }));
     }
 }
@@ -245,9 +300,21 @@ pub struct TraceCollector {
     traces: Vec<Trace>,
     pending_before: Option<BeforeMessage>,
     is_new_trace: bool,
+    verbose: bool,
 }
 
 impl TraceCollector {
+    /// Create a trace collector. If verbose is `true` full stack and memory
+    /// will be recorded.
+    pub fn new(verbose: bool) -> Self {
+        Self {
+            traces: Vec::new(),
+            pending_before: None,
+            is_new_trace: true,
+            verbose,
+        }
+    }
+
     /// Converts the [`TraceCollector`] into its [`Trace`].
     pub fn into_traces(self) -> Vec<Trace> {
         self.traces
@@ -438,12 +505,22 @@ impl TraceCollector {
         self.validate_before_message();
 
         if !skip_step {
-            self.current_trace_mut().add_step(
-                data.journaled_state.depth(),
-                interp.program_counter(),
-                interp.current_opcode(),
-                interp.stack.data().last().cloned(),
-            );
+            if self.verbose {
+                self.current_trace_mut().add_step_verbose(
+                    data.journaled_state.depth(),
+                    interp.program_counter(),
+                    interp.current_opcode(),
+                    interp.stack.data().clone(),
+                    interp.shared_memory.context_memory().to_vec(),
+                );
+            } else {
+                self.current_trace_mut().add_step_succinct(
+                    data.journaled_state.depth(),
+                    interp.program_counter(),
+                    interp.current_opcode(),
+                    interp.stack.data().last().cloned(),
+                );
+            }
         }
     }
 
@@ -465,16 +542,6 @@ impl TraceCollector {
     ) {
         self.is_new_trace = true;
         self.create_end(data, inputs, outcome);
-    }
-}
-
-impl Default for TraceCollector {
-    fn default() -> Self {
-        Self {
-            traces: Vec::new(),
-            pending_before: None,
-            is_new_trace: true,
-        }
     }
 }
 
