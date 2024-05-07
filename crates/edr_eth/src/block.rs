@@ -60,9 +60,10 @@ pub struct Header {
     /// The block's nonce
     // #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub nonce: B64,
-    /// BaseFee was added by EIP-1559 and is ignored in legacy headers.
+    /// `BaseFee` was added by EIP-1559 and is ignored in legacy headers.
     pub base_fee_per_gas: Option<U256>,
-    /// WithdrawalsHash was added by EIP-4895 and is ignored in legacy headers.
+    /// `WithdrawalsHash` was added by EIP-4895 and is ignored in legacy
+    /// headers.
     pub withdrawals_root: Option<B256>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -181,7 +182,7 @@ pub struct PartialHeader {
     pub mix_hash: B256,
     /// The block's nonce
     pub nonce: B64,
-    /// BaseFee was added by EIP-1559 and is ignored in legacy headers.
+    /// `BaseFee` was added by EIP-1559 and is ignored in legacy headers.
     pub base_fee: Option<U256>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.
     pub blob_gas: Option<BlobGas>,

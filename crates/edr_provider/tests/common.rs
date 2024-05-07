@@ -29,8 +29,8 @@ pub fn help_test_method_invocation_serde_with_expected<MethodInvocation>(
     #[derive(Debug, serde::Deserialize)]
     #[serde(untagged)]
     enum MethodInvocationEnumWithUntypedParams {
-        Eth(MethodInvocationStructWithUntypedParams),
-        Hardhat(MethodInvocationStructWithUntypedParams),
+        Eth(#[allow(dead_code)] MethodInvocationStructWithUntypedParams),
+        Hardhat(#[allow(dead_code)] MethodInvocationStructWithUntypedParams),
     }
 
     let json = serde_json::json!(call).to_string();

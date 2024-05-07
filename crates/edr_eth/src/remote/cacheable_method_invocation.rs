@@ -25,56 +25,56 @@ pub(super) fn try_write_cache_key(method: &RequestMethod) -> Option<WriteCacheKe
 /// Potentially cacheable Ethereum JSON-RPC methods.
 #[derive(Clone, Debug)]
 enum CacheableRequestMethod<'a> {
-    /// eth_feeHistory
+    /// `eth_feeHistory`
     FeeHistory {
         block_count: &'a U256,
         newest_block: CacheableBlockSpec<'a>,
         reward_percentiles: &'a Option<Vec<RewardPercentile>>,
     },
-    /// eth_getBalance
+    /// `eth_getBalance`
     GetBalance {
         address: &'a Address,
         block_spec: CacheableBlockSpec<'a>,
     },
-    /// eth_getBlockByNumber
+    /// `eth_getBlockByNumber`
     GetBlockByNumber {
         block_spec: CacheableBlockSpec<'a>,
 
         /// include transaction data
         include_tx_data: bool,
     },
-    /// eth_getBlockByHash
+    /// `eth_getBlockByHash`
     GetBlockByHash {
         /// hash
         block_hash: &'a B256,
         /// include transaction data
         include_tx_data: bool,
     },
-    /// eth_getCode
+    /// `eth_getCode`
     GetCode {
         address: &'a Address,
         block_spec: CacheableBlockSpec<'a>,
     },
-    /// eth_getLogs
+    /// `eth_getLogs`
     GetLogs {
         params: CacheableLogFilterOptions<'a>,
     },
-    /// eth_getStorageAt
+    /// `eth_getStorageAt`
     GetStorageAt {
         address: &'a Address,
         position: &'a U256,
         block_spec: CacheableBlockSpec<'a>,
     },
-    /// eth_getTransactionByHash
+    /// `eth_getTransactionByHash`
     GetTransactionByHash { transaction_hash: &'a B256 },
-    /// eth_getTransactionCount
+    /// `eth_getTransactionCount`
     GetTransactionCount {
         address: &'a Address,
         block_spec: CacheableBlockSpec<'a>,
     },
-    /// eth_getTransactionReceipt
+    /// `eth_getTransactionReceipt`
     GetTransactionReceipt { transaction_hash: &'a B256 },
-    /// net_version
+    /// `net_version`
     NetVersion,
 }
 

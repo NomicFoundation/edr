@@ -11,10 +11,10 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 #[serde(tag = "method", content = "params")]
 pub enum RequestMethod {
-    /// eth_blockNumber
+    /// `eth_blockNumber`
     #[serde(rename = "eth_blockNumber", with = "crate::serde::empty_params")]
     BlockNumber(()),
-    /// eth_feeHistory
+    /// `eth_feeHistory`
     #[serde(rename = "eth_feeHistory")]
     FeeHistory(
         /// block count
@@ -25,10 +25,10 @@ pub enum RequestMethod {
         #[serde(skip_serializing_if = "Option::is_none")]
         Option<Vec<RewardPercentile>>,
     ),
-    /// eth_chainId
+    /// `eth_chainId`
     #[serde(rename = "eth_chainId", with = "crate::serde::empty_params")]
     ChainId(()),
-    /// eth_getBalance
+    /// `eth_getBalance`
     #[serde(rename = "eth_getBalance")]
     GetBalance(
         Address,
@@ -38,14 +38,14 @@ pub enum RequestMethod {
         )]
         Option<BlockSpec>,
     ),
-    /// eth_getBlockByNumber
+    /// `eth_getBlockByNumber`
     #[serde(rename = "eth_getBlockByNumber")]
     GetBlockByNumber(
         PreEip1898BlockSpec,
         /// include transaction data
         bool,
     ),
-    /// eth_getBlockByHash
+    /// `eth_getBlockByHash`
     #[serde(rename = "eth_getBlockByHash")]
     GetBlockByHash(
         /// hash
@@ -53,7 +53,7 @@ pub enum RequestMethod {
         /// include transaction data
         bool,
     ),
-    /// eth_getCode
+    /// `eth_getCode`
     #[serde(rename = "eth_getCode")]
     GetCode(
         Address,
@@ -63,10 +63,10 @@ pub enum RequestMethod {
         )]
         Option<BlockSpec>,
     ),
-    /// eth_getLogs
+    /// `eth_getLogs`
     #[serde(rename = "eth_getLogs", with = "crate::serde::sequence")]
     GetLogs(LogFilterOptions),
-    /// eth_getStorageAt
+    /// `eth_getStorageAt`
     #[serde(rename = "eth_getStorageAt")]
     GetStorageAt(
         Address,
@@ -78,10 +78,10 @@ pub enum RequestMethod {
         )]
         Option<BlockSpec>,
     ),
-    /// eth_getTransactionByHash
+    /// `eth_getTransactionByHash`
     #[serde(rename = "eth_getTransactionByHash", with = "crate::serde::sequence")]
     GetTransactionByHash(B256),
-    /// eth_getTransactionCount
+    /// `eth_getTransactionCount`
     #[serde(rename = "eth_getTransactionCount")]
     GetTransactionCount(
         Address,
@@ -91,10 +91,10 @@ pub enum RequestMethod {
         )]
         Option<BlockSpec>,
     ),
-    /// eth_getTransactionReceipt
+    /// `eth_getTransactionReceipt`
     #[serde(rename = "eth_getTransactionReceipt", with = "crate::serde::sequence")]
     GetTransactionReceipt(B256),
-    /// net_version
+    /// `net_version`
     #[serde(rename = "net_version", with = "crate::serde::empty_params")]
     NetVersion(()),
 }

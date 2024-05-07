@@ -330,7 +330,7 @@ impl TracerEip3155 {
         self.gas_remaining = interp.gas().remaining();
 
         if !self.config.disable_stack {
-            self.stack = interp.stack.data().clone();
+            self.stack.clone_from(interp.stack.data());
         }
 
         if !self.config.disable_memory {
