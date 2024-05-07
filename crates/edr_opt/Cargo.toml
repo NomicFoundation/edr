@@ -5,5 +5,4 @@ edition = "2021"
 
 [dependencies]
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
-# revm-primitives = { git = "https://github.com/NomicFoundation/revm", rev = "af4c176", version = "3.1", default-features = false, features = ["c-kzg", "hashbrown", "optimism", "rand", "serde", "std"] }
-revm-primitives = { path = "../../../revm/crates/primitives", version = "3.1", default-features = false, features = ["c-kzg", "hashbrown", "optimism", "rand", "serde", "std"] }
+revm-primitives = { git = "https://github.com/NomicFoundation/revm", rev = "c8d1ff1", version = "3.1", default-features = false, features = ["c-kzg", "hashbrown", "optimism", "rand", "serde", "std"] }
