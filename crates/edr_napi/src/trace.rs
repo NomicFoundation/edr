@@ -94,7 +94,7 @@ pub struct TracingStep {
     pub stack: Option<Vec<BigInt>>,
     /// The memory at the step. None if verbose tracing is disabled.
     #[napi(readonly)]
-    pub memory: Option<Vec<BigInt>>,
+    pub memory: Option<Buffer>,
 }
 
 impl TracingStep {
@@ -104,24 +104,7 @@ impl TracingStep {
             .stack
             .full()
             .map(|stack| stack.iter().map(u256_to_bigint).collect());
-        // Memory in steps is Vec<u8>
-        // TODO can we assume 32-byte alignment?
-        assert!(
-            step.memory
-                .as_ref()
-                .map_or(true, |memory| memory.len() % 32 == 0),
-            "Assumed 32-byte alignment"
-        );
-        let memory = step.memory.as_ref().map(|memory| {
-            memory
-                .chunks_exact(32)
-                .map(|words| BigInt {
-                    sign_bit: false,
-                    // TODO verify BE is correct
-                    words: edr_evm::U256::from_be_slice(words).into_limbs().to_vec(),
-                })
-                .collect()
-        });
+        let memory = step.memory.as_ref().cloned().map(Buffer::from);
 
         Self {
             depth: step.depth as u8,
