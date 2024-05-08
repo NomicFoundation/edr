@@ -19,6 +19,10 @@ pub struct TracingMessage {
     #[napi(readonly)]
     pub to: Option<Buffer>,
 
+    /// Whether it's a static call
+    #[napi(readonly)]
+    pub is_static_call: bool,
+
     /// Transaction gas limit
     #[napi(readonly)]
     pub gas_limit: BigInt,
@@ -47,29 +51,41 @@ pub struct TracingMessage {
 
 impl TracingMessage {
     pub fn new(env: &Env, message: &BeforeMessage) -> napi::Result<Self> {
+        // Deconstruct to make sure all fields are handled
+        let BeforeMessage {
+            depth,
+            caller,
+            to: _,
+            is_static_call,
+            gas_limit,
+            data,
+            value,
+            code_address,
+            code,
+        } = message;
+
         let data = env
-            .create_buffer_with_data(message.data.to_vec())
+            .create_buffer_with_data(data.to_vec())
             .map(JsBufferValue::into_raw)?;
 
-        let code = message.code.as_ref().map_or(Ok(None), |code| {
+        let code = code.as_ref().map_or(Ok(None), |code| {
             env.create_buffer_with_data(code.original_bytes().to_vec())
                 .map(JsBufferValue::into_raw)
                 .map(Some)
         })?;
 
         Ok(TracingMessage {
-            caller: Buffer::from(message.caller.as_slice()),
+            caller: Buffer::from(caller.as_slice()),
             to: message.to.map(|to| Buffer::from(to.as_slice())),
-            gas_limit: BigInt::from(message.gas_limit),
-            depth: message.depth as u8,
+            gas_limit: BigInt::from(*gas_limit),
+            is_static_call: *is_static_call,
+            depth: *depth as u8,
             data,
             value: BigInt {
                 sign_bit: false,
-                words: message.value.into_limbs().to_vec(),
+                words: value.into_limbs().to_vec(),
             },
-            code_address: message
-                .code_address
-                .map(|address| Buffer::from(address.to_vec())),
+            code_address: code_address.map(|address| Buffer::from(address.to_vec())),
             code,
         })
     }

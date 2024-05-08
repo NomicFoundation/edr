@@ -172,6 +172,8 @@ pub struct BeforeMessage {
     pub caller: Address,
     /// Callee
     pub to: Option<Address>,
+    /// Whether the call is a static call
+    pub is_static_call: bool,
     /// Transaction gas limit
     pub gas_limit: u64,
     /// Input data
@@ -376,6 +378,7 @@ impl TraceCollector {
             depth: data.journaled_state.depth,
             caller: inputs.context.caller,
             to: Some(inputs.context.address),
+            is_static_call: inputs.is_static,
             gas_limit: inputs.gas_limit,
             data: inputs.input.clone(),
             value: inputs.context.apparent_value,
@@ -448,6 +451,7 @@ impl TraceCollector {
             caller: inputs.caller,
             to: None,
             gas_limit: inputs.gas_limit,
+            is_static_call: false,
             data: inputs.init_code.clone(),
             value: inputs.value,
             code_address: None,

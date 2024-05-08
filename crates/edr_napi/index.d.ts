@@ -339,6 +339,8 @@ export interface TracingMessage {
   readonly caller: Buffer
   /** Recipient address. None if it is a Create message. */
   readonly to?: Buffer
+  /** Whether it's a static call */
+  readonly isStaticCall: boolean
   /** Transaction gas limit */
   readonly gasLimit: bigint
   /** Depth of the message */
