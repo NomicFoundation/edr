@@ -160,16 +160,7 @@ pub enum TraceMessage {
     /// Event that occurs every step of a call or create message.
     Step(Step),
     /// Event that occurs after a call or create message.
-    After {
-        /// The execution result
-        result: ExecutionResult,
-        /// The newly created contract address if it's a create tx. `None`
-        /// if there was an error creating the contract.
-        contract_address: Option<Address>,
-        /// The newly created contract's code if it's a create tx. `None`
-        /// if there was an error creating the contract.
-        contract_code: Option<Bytecode>,
-    },
+    After(AfterMessage),
 }
 
 /// Temporary before message type for handling traces
@@ -193,6 +184,19 @@ pub struct BeforeMessage {
     pub code_address: Option<Address>,
     /// Bytecode
     pub code: Option<Bytecode>,
+}
+
+/// Event that occurs after a call or create message.
+#[derive(Clone, Debug)]
+pub struct AfterMessage {
+    /// The execution result
+    pub execution_result: ExecutionResult,
+    /// The newly created contract address if it's a create tx. `None`
+    /// if there was an error creating the contract.
+    pub contract_address: Option<Address>,
+    /// The newly created contract's code if it's a create tx. `None`
+    /// if there was an error creating the contract.
+    pub contract_code: Option<Bytecode>,
 }
 
 /// A trace for an EVM call.
@@ -265,12 +269,12 @@ impl Trace {
 
     /// Adds a result message without the contract code if a new contract was
     /// created.
-    pub fn add_after_succinct(&mut self, result: ExecutionResult) {
-        self.messages.push(TraceMessage::After {
-            result,
+    pub fn add_after_succinct(&mut self, execution_result: ExecutionResult) {
+        self.messages.push(TraceMessage::After(AfterMessage {
+            execution_result,
             contract_code: None,
             contract_address: None,
-        });
+        }));
     }
 
     /// Adds a result message with the contract address and contract code if a
@@ -278,15 +282,15 @@ impl Trace {
     /// there was an error creating the contract.
     pub fn add_after_verbose(
         &mut self,
-        result: ExecutionResult,
+        execution_result: ExecutionResult,
         address: Option<Address>,
         code: Option<Bytecode>,
     ) {
-        self.messages.push(TraceMessage::After {
-            result,
+        self.messages.push(TraceMessage::After(AfterMessage {
+            execution_result,
             contract_address: address,
             contract_code: code,
-        });
+        }));
     }
 
     /// Adds a VM step to the trace without full stack and memory.

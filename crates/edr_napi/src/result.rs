@@ -1,3 +1,4 @@
+use edr_evm::trace::AfterMessage;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Either, Env, JsBuffer, JsBufferValue,
@@ -175,13 +176,14 @@ pub struct ExecutionResult {
 }
 
 impl ExecutionResult {
-    pub fn new(
-        env: &Env,
-        result: &edr_evm::ExecutionResult,
-        contract_address: &Option<edr_evm::Address>,
-        contract_code: &Option<edr_evm::Bytecode>,
-    ) -> napi::Result<Self> {
-        let result = match result {
+    pub fn new(env: &Env, message: &AfterMessage) -> napi::Result<Self> {
+        let AfterMessage {
+            execution_result,
+            contract_address,
+            contract_code,
+        } = message;
+
+        let result = match execution_result {
             edr_evm::ExecutionResult::Success {
                 reason,
                 gas_used,
