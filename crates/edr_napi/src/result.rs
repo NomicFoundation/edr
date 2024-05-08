@@ -168,10 +168,19 @@ pub struct HaltResult {
 pub struct ExecutionResult {
     /// The transaction result
     pub result: Either3<SuccessResult, RevertResult, HaltResult>,
+    /// Optional contract address if the transaction created a new contract.
+    pub contract_address: Option<Buffer>,
+    /// Optional contract code if the transaction created a new contract.
+    pub contract_code: Option<Buffer>,
 }
 
 impl ExecutionResult {
-    pub fn new(env: &Env, result: &edr_evm::ExecutionResult) -> napi::Result<Self> {
+    pub fn new(
+        env: &Env,
+        result: &edr_evm::ExecutionResult,
+        contract_address: &Option<edr_evm::Address>,
+        contract_code: &Option<edr_evm::Bytecode>,
+    ) -> napi::Result<Self> {
         let result = match result {
             edr_evm::ExecutionResult::Success {
                 reason,
@@ -227,6 +236,15 @@ impl ExecutionResult {
             }),
         };
 
-        Ok(Self { result })
+        let contract_address = contract_address.map(|address| Buffer::from(address.as_slice()));
+        let contract_code = contract_code
+            .as_ref()
+            .map(|code| Buffer::from(code.original_bytes().to_vec()));
+
+        Ok(Self {
+            result,
+            contract_address,
+            contract_code,
+        })
     }
 }

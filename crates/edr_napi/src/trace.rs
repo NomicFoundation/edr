@@ -175,7 +175,11 @@ impl RawTrace {
                     TracingMessage::new(&env, message).map(Either3::A)
                 }
                 edr_evm::trace::TraceMessage::Step(step) => Ok(Either3::B(TracingStep::new(step))),
-                edr_evm::trace::TraceMessage::After(result) => ExecutionResult::new(&env, result)
+                edr_evm::trace::TraceMessage::After {
+                    result,
+                    contract_address: address,
+                    contract_code: code,
+                } => ExecutionResult::new(&env, result, address, code)
                     .map(|execution_result| Either3::C(TracingMessageResult { execution_result })),
             })
             .collect::<napi::Result<_>>()

@@ -100,7 +100,7 @@ pub fn register_trace_collector_handles<
         let create_inputs = create_input_stack_inner.borrow_mut().pop().unwrap();
 
         let tracer = ctx.external.get_context_data();
-        tracer.create_end(&ctx.evm, &create_inputs, &outcome);
+        tracer.create_end(&mut ctx.evm, &create_inputs, &outcome);
 
         old_handle(ctx, frame, outcome)
     });
@@ -116,7 +116,7 @@ pub fn register_trace_collector_handles<
             }
             FrameResult::Create(outcome) => {
                 let create_inputs = create_input_stack.borrow_mut().pop().unwrap();
-                tracer.create_transaction_end(&ctx.evm, &create_inputs, outcome);
+                tracer.create_transaction_end(&mut ctx.evm, &create_inputs, outcome);
             }
         }
         old_handle(ctx, frame_result)
@@ -160,7 +160,16 @@ pub enum TraceMessage {
     /// Event that occurs every step of a call or create message.
     Step(Step),
     /// Event that occurs after a call or create message.
-    After(ExecutionResult),
+    After {
+        /// The execution result
+        result: ExecutionResult,
+        /// The newly created contract address if it's a create tx. `None`
+        /// if there was an error creating the contract.
+        contract_address: Option<Address>,
+        /// The newly created contract's code if it's a create tx. `None`
+        /// if there was an error creating the contract.
+        contract_code: Option<Bytecode>,
+    },
 }
 
 /// Temporary before message type for handling traces
@@ -254,9 +263,30 @@ impl Trace {
         self.messages.push(TraceMessage::Before(message));
     }
 
-    /// Adds a result message
-    pub fn add_after(&mut self, result: ExecutionResult) {
-        self.messages.push(TraceMessage::After(result));
+    /// Adds a result message without the contract code if a new contract was
+    /// created.
+    pub fn add_after_succinct(&mut self, result: ExecutionResult) {
+        self.messages.push(TraceMessage::After {
+            result,
+            contract_code: None,
+            contract_address: None,
+        });
+    }
+
+    /// Adds a result message with the contract address and contract code if a
+    /// new contract was created. The `address` and `code` are `None` if
+    /// there was an error creating the contract.
+    pub fn add_after_verbose(
+        &mut self,
+        result: ExecutionResult,
+        address: Option<Address>,
+        code: Option<Bytecode>,
+    ) {
+        self.messages.push(TraceMessage::After {
+            result,
+            contract_address: address,
+            contract_code: code,
+        });
     }
 
     /// Adds a VM step to the trace without full stack and memory.
@@ -348,31 +378,7 @@ impl TraceCollector {
 
         self.validate_before_message();
 
-        // This needs to be split into two functions to avoid borrow checker issues
-        #[allow(clippy::map_unwrap_or)]
-        let code = data
-            .journaled_state
-            .state
-            .get(&inputs.contract)
-            .map(|account| account.info.clone())
-            .map(|mut account_info| {
-                if let Some(code) = account_info.code.take() {
-                    code
-                } else {
-                    data.db.code_by_hash(account_info.code_hash).unwrap()
-                }
-            })
-            .unwrap_or_else(|| {
-                data.db.basic(inputs.contract).unwrap().map_or(
-                    // If an invalid contract address was provided, return empty code
-                    Bytecode::new(),
-                    |account_info| {
-                        account_info.code.unwrap_or_else(|| {
-                            data.db.code_by_hash(account_info.code_hash).unwrap()
-                        })
-                    },
-                )
-            });
+        let code = get_code_from_state(data, &inputs.contract);
 
         self.pending_before = Some(BeforeMessage {
             depth: data.journaled_state.depth,
@@ -435,7 +441,7 @@ impl TraceCollector {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after(result);
+        self.current_trace_mut().add_after_succinct(result);
     }
 
     fn create<DatabaseT: Database>(&mut self, data: &EvmContext<DatabaseT>, inputs: &CreateInputs) {
@@ -461,10 +467,12 @@ impl TraceCollector {
 
     fn create_end<DatabaseT: Database>(
         &mut self,
-        data: &EvmContext<DatabaseT>,
+        data: &mut EvmContext<DatabaseT>,
         _inputs: &CreateInputs,
         outcome: &CreateOutcome,
-    ) {
+    ) where
+        <DatabaseT as Database>::Error: Debug,
+    {
         self.validate_before_message();
 
         let ret = *outcome.instruction_result();
@@ -497,7 +505,20 @@ impl TraceCollector {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after(result);
+        if self.verbose {
+            let (address, code) = match result {
+                ExecutionResult::Success { .. } => {
+                    let address = outcome.address.expect("Address must be present on success");
+                    let code = get_code_from_state(data, &address);
+                    (Some(address), Some(code))
+                }
+                _ => (None, None),
+            };
+            self.current_trace_mut()
+                .add_after_verbose(result, address, code);
+        } else {
+            self.current_trace_mut().add_after_succinct(result);
+        }
     }
 
     fn step<DatabaseT: Database>(&mut self, interp: &Interpreter, data: &EvmContext<DatabaseT>) {
@@ -540,13 +561,48 @@ impl TraceCollector {
 
     fn create_transaction_end<DatabaseT: Database>(
         &mut self,
-        data: &EvmContext<DatabaseT>,
+        data: &mut EvmContext<DatabaseT>,
         inputs: &CreateInputs,
         outcome: &CreateOutcome,
-    ) {
+    ) where
+        DatabaseT::Error: Debug,
+    {
         self.is_new_trace = true;
         self.create_end(data, inputs, outcome);
     }
+}
+
+fn get_code_from_state<DatabaseT: Database>(
+    data: &mut EvmContext<DatabaseT>,
+    contract_address: &Address,
+) -> Bytecode
+where
+    <DatabaseT as Database>::Error: Debug,
+{
+    // This needs to be split into two functions to avoid borrow checker issues
+    #[allow(clippy::map_unwrap_or)]
+    data.journaled_state
+        .state
+        .get(contract_address)
+        .map(|account| account.info.clone())
+        .map(|mut account_info| {
+            if let Some(code) = account_info.code.take() {
+                code
+            } else {
+                data.db.code_by_hash(account_info.code_hash).unwrap()
+            }
+        })
+        .unwrap_or_else(|| {
+            data.db.basic(*contract_address).unwrap().map_or(
+                // If an invalid contract address was provided, return empty code
+                Bytecode::new(),
+                |account_info| {
+                    account_info
+                        .code
+                        .unwrap_or_else(|| data.db.code_by_hash(account_info.code_hash).unwrap())
+                },
+            )
+        })
 }
 
 impl GetContextData<TraceCollector> for TraceCollector {

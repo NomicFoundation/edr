@@ -841,7 +841,8 @@ impl LogCollector {
                     }
                 }
             } else {
-                let result = if let Some(TraceMessage::After(result)) = trace.messages.last() {
+                let result = if let Some(TraceMessage::After { result, .. }) = trace.messages.last()
+                {
                     result
                 } else {
                     unreachable!("Before messages must have an after message")

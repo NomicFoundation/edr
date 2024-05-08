@@ -329,6 +329,10 @@ export interface HaltResult {
 export interface ExecutionResult {
   /** The transaction result */
   result: SuccessResult | RevertResult | HaltResult
+  /** Optional contract address if the transaction created a new contract. */
+  contractAddress?: Buffer
+  /** Optional contract code if the transaction created a new contract. */
+  contractCode?: Buffer
 }
 export interface SubscriptionEvent {
   filterId: bigint
