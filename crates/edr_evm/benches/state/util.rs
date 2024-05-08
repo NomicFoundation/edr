@@ -234,6 +234,5 @@ pub fn account_has_code(state: &dyn SyncState<StateError>, address: &Address) ->
         && !state
             .code_by_hash(account_info.code_hash)
             .expect("code_by_hash should succeed")
-            .bytecode
             .is_empty()
 }

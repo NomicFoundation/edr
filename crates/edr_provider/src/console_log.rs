@@ -20,7 +20,7 @@ pub fn register_console_log_handles<
     let old_handle = handler.execution.call.clone();
     handler.execution.call = Arc::new(
         move |ctx, inputs| -> Result<FrameOrResult, EVMError<DatabaseT::Error>> {
-            if inputs.contract == CONSOLE_ADDRESS {
+            if inputs.bytecode_address == CONSOLE_ADDRESS {
                 let collector = ctx.external.get_context_data();
                 collector.record_console_log(inputs.input.clone());
             }

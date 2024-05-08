@@ -14,7 +14,7 @@ fn bomb_delay(spec_id: SpecId) -> u64 {
         // SpecId::LONDON => 9500000, // EIP-3554
         SpecId::ARROW_GLACIER => 10700000,
         SpecId::GRAY_GLACIER => 11400000,
-        SpecId::MERGE | SpecId::SHANGHAI | SpecId::CANCUN | SpecId::LATEST => {
+        _ => {
             unreachable!("Post-merge hardforks don't have a bomb delay")
         }
     }

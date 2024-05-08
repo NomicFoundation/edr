@@ -8,11 +8,11 @@ use edr_eth::{
         Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
         Eip4844SignedTransaction, LegacySignedTransaction, SignedTransaction, TxKind,
     },
-    Address, U256,
+    Address, HashMap, U256,
 };
 use revm::{
     interpreter::gas::validate_initial_tx_gas,
-    primitives::{CreateScheme, SpecId, TransactTo, TxEnv},
+    primitives::{SpecId, TransactTo, TxEnv},
 };
 
 use super::TransactionCreationError;
@@ -109,7 +109,7 @@ impl From<ExecutableTransaction> for TxEnv {
         fn transact_to(kind: TxKind) -> TransactTo {
             match kind {
                 TxKind::Call(address) => TransactTo::Call(address),
-                TxKind::Create => TransactTo::Create(CreateScheme::Create),
+                TxKind::Create => TransactTo::Create,
             }
         }
 
@@ -145,6 +145,9 @@ impl From<ExecutableTransaction> for TxEnv {
                 access_list: Vec::new(),
                 blob_hashes: Vec::new(),
                 max_fee_per_blob_gas: None,
+                // TODO: https://github.com/NomicFoundation/edr/issues/427
+                eof_initcodes: Vec::new(),
+                eof_initcodes_hashed: HashMap::new(),
             },
             SignedTransaction::Eip2930(Eip2930SignedTransaction {
                 nonce,
@@ -168,6 +171,9 @@ impl From<ExecutableTransaction> for TxEnv {
                 access_list: access_list.into(),
                 blob_hashes: Vec::new(),
                 max_fee_per_blob_gas: None,
+                // TODO: https://github.com/NomicFoundation/edr/issues/427
+                eof_initcodes: Vec::new(),
+                eof_initcodes_hashed: HashMap::new(),
             },
             SignedTransaction::Eip1559(Eip1559SignedTransaction {
                 nonce,
@@ -192,6 +198,9 @@ impl From<ExecutableTransaction> for TxEnv {
                 access_list: access_list.into(),
                 blob_hashes: Vec::new(),
                 max_fee_per_blob_gas: None,
+                // TODO: https://github.com/NomicFoundation/edr/issues/427
+                eof_initcodes: Vec::new(),
+                eof_initcodes_hashed: HashMap::new(),
             },
             SignedTransaction::Eip4844(Eip4844SignedTransaction {
                 nonce,
@@ -218,6 +227,9 @@ impl From<ExecutableTransaction> for TxEnv {
                 gas_priority_fee: Some(max_priority_fee_per_gas),
                 blob_hashes,
                 max_fee_per_blob_gas: Some(max_fee_per_blob_gas),
+                // TODO: https://github.com/NomicFoundation/edr/issues/427
+                eof_initcodes: Vec::new(),
+                eof_initcodes_hashed: HashMap::new(),
             },
         }
     }
@@ -416,6 +428,8 @@ fn initial_cost(spec_id: SpecId, transaction: &SignedTransaction) -> u64 {
         access_list
             .as_ref()
             .map_or(&[], |access_list| access_list.as_slice()),
+        // TODO: https://github.com/NomicFoundation/edr/issues/427
+        &[],
     )
 }
 
