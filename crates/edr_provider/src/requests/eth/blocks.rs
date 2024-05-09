@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use edr_eth::{
     remote::{eth, BlockSpec, PreEip1898BlockSpec},
+    transaction::Transaction,
     EthSpecId, B256, U256, U64,
 };
 use edr_evm::{blockchain::BlockchainError, SyncBlock};
@@ -164,7 +165,7 @@ fn block_to_rpc_output<LoggerErrorT: Debug>(
         block
             .transactions()
             .iter()
-            .map(|tx| HashOrTransaction::Hash(*tx.hash()))
+            .map(|tx| HashOrTransaction::Hash(*tx.transaction_hash()))
             .collect()
     };
 

@@ -151,7 +151,10 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::remote::{eth::CallRequest, BlockTag};
+    use edr_eth::{
+        remote::{eth::CallRequest, BlockTag},
+        transaction::Transaction,
+    };
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};

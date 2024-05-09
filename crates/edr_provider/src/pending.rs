@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_eth::{receipt::BlockReceipt, EthSpecId, B256, U256};
+use edr_eth::{receipt::BlockReceipt, transaction::Transaction, EthSpecId, B256, U256};
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     db::BlockHashRef,
@@ -79,7 +79,7 @@ impl<'blockchain> Blockchain for BlockchainWithPending<'blockchain> {
             .pending_block
             .transactions()
             .iter()
-            .any(|tx| tx.hash() == transaction_hash);
+            .any(|tx| tx.transaction_hash() == transaction_hash);
 
         if contains_transaction {
             Ok(Some(self.pending_block.clone()))

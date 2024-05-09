@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::{Bytes, B256};
+use edr_eth::{transaction::Transaction, Bytes, B256};
 use edr_evm::{
     state::{StateDiff, SyncState},
     trace::Trace,
@@ -64,7 +64,7 @@ impl<BlockchainErrorT> DebugMineBlockResult<BlockchainErrorT> {
         self.block
             .transactions()
             .iter()
-            .any(|tx| *tx.hash() == *transaction_hash)
+            .any(|tx| *tx.transaction_hash() == *transaction_hash)
     }
 }
 

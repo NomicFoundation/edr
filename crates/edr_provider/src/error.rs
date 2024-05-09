@@ -12,7 +12,8 @@ use edr_evm::{
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     DebugTraceError, ExecutionResult, HaltReason, MainnetChainSpec, MemPoolAddTransactionError,
-    MineBlockError, OutOfGasError, TransactionCreationError, TransactionError,
+    MineBlockError, MineTransactionError, OutOfGasError, TransactionCreationError,
+    TransactionError,
 };
 use ethers_core::types::transaction::eip712::Eip712Error;
 
@@ -27,10 +28,14 @@ pub enum ProviderError<LoggerErrorT> {
     /// while automatically mining.
     #[error("Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
     AutoMineGasPriceTooLow { expected: U256, actual: U256 },
-    /// The transaction's max fee is lower than the next block's base fee, while
-    /// automatically mining.
+    /// The transaction's max fee per gas is lower than the next block's base
+    /// fee, while automatically mining.
     #[error("Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
-    AutoMineMaxFeeTooLow { expected: U256, actual: U256 },
+    AutoMineMaxFeePerGasTooLow { expected: U256, actual: U256 },
+    /// The transaction's max fee per blob gas is lower than the next block's
+    /// base fee, while automatically mining.
+    #[error("Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}")]
+    AutoMineMaxFeePerBlobGasTooLow { expected: U256, actual: U256 },
     /// The transaction's priority fee is lower than the minimum gas price,
     /// while automatically mining.
     #[error("Transaction gas price is {actual}, which is below the minimum of {expected}")]
@@ -41,6 +46,8 @@ pub enum ProviderError<LoggerErrorT> {
     /// The transaction nonce is too high, while automatically mining.
     #[error("Nonce too low. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
     AutoMineNonceTooLow { expected: u64, actual: u64 },
+    #[error("An EIP-4844 (shard blob) transaction was received while auto-mine was disabled or the mempool contained transactions, but Hardhat doesn't have support for them yet. See https://github.com/NomicFoundation/hardhat/issues/5024")]
+    BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
     Blockchain(#[from] BlockchainError),
@@ -48,8 +55,12 @@ pub enum ProviderError<LoggerErrorT> {
     Creation(#[from] CreationError),
     #[error(transparent)]
     DebugTrace(#[from] DebugTraceError<BlockchainError, StateError>),
-    #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat doesn't have support for them yet.")]
+    #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
+    Eip4844CallRequestUnsupported,
+    #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
     Eip4844TransactionUnsupported,
+    #[error("An EIP-4844 (shard blob) transaction is missing the to (receiver) parameter.")]
+    Eip4844TransactionMissingReceiver,
     #[error(transparent)]
     Eip712Error(#[from] Eip712Error),
     /// A transaction error occurred while estimating gas.
@@ -113,6 +124,9 @@ pub enum ProviderError<LoggerErrorT> {
     /// An error occurred while mining a block.
     #[error(transparent)]
     MineBlock(#[from] MineBlockError<BlockchainError, StateError>),
+    /// An error occurred while mining a block with a single transaction.
+    #[error(transparent)]
+    MineTransaction(#[from] MineTransactionError<BlockchainError, StateError>),
     /// Rpc client error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -192,6 +206,11 @@ pub enum ProviderError<LoggerErrorT> {
         current_hardfork: EthSpecId,
         minimum_hardfork: EthSpecId,
     },
+    #[error("The transaction contains EIP-4844 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
+    UnsupportedEIP4844Parameters {
+        current_hardfork: EthSpecId,
+        minimum_hardfork: EthSpecId,
+    },
     #[error("{method_name} - Method not supported")]
     UnsupportedMethod { method_name: String },
 }
@@ -206,13 +225,17 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
         let code = match &value {
             ProviderError::AccountOverrideConversionError(_) => INVALID_INPUT,
             ProviderError::AutoMineGasPriceTooLow { .. } => INVALID_INPUT,
-            ProviderError::AutoMineMaxFeeTooLow { .. } => INVALID_INPUT,
+            ProviderError::AutoMineMaxFeePerBlobGasTooLow { .. } => INVALID_INPUT,
+            ProviderError::AutoMineMaxFeePerGasTooLow { .. } => INVALID_INPUT,
             ProviderError::AutoMineNonceTooHigh { .. } => INVALID_INPUT,
             ProviderError::AutoMineNonceTooLow { .. } => INVALID_INPUT,
             ProviderError::AutoMinePriorityFeeTooLow { .. } => INVALID_INPUT,
+            ProviderError::BlobMemPoolUnsupported => INVALID_INPUT,
             ProviderError::Blockchain(_) => INVALID_INPUT,
             ProviderError::Creation(_) => INVALID_INPUT,
             ProviderError::DebugTrace(_) => INTERNAL_ERROR,
+            ProviderError::Eip4844CallRequestUnsupported => INVALID_INPUT,
+            ProviderError::Eip4844TransactionMissingReceiver => INVALID_INPUT,
             ProviderError::Eip4844TransactionUnsupported => INVALID_INPUT,
             ProviderError::Eip712Error(_) => INVALID_INPUT,
             ProviderError::EstimateGasTransactionFailure(_) => INVALID_INPUT,
@@ -232,6 +255,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
             ProviderError::MemPoolAddTransaction(_) => INVALID_INPUT,
             ProviderError::MemPoolUpdate(_) => INVALID_INPUT,
             ProviderError::MineBlock(_) => INVALID_INPUT,
+            ProviderError::MineTransaction(_) => INVALID_INPUT,
             ProviderError::RpcClientError(_) => INTERNAL_ERROR,
             ProviderError::RpcVersion(_) => INVALID_INPUT,
             ProviderError::RunTransaction(_) => INVALID_INPUT,
@@ -255,6 +279,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
             ProviderError::UnmetHardfork { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedAccessListParameter { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedEIP1559Parameters { .. } => INVALID_PARAMS,
+            ProviderError::UnsupportedEIP4844Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedMethod { .. } => -32004,
         };
 

@@ -89,7 +89,7 @@ pub struct ForkedBlockchain {
     /// The chan id of the forked blockchain is either the local chain id
     /// override or the chain id of the remote blockchain.
     chain_id: u64,
-    /// The chain id of the remote blockchain. It might deviate from chain_id.
+    /// The chain id of the remote blockchain. It might deviate from `chain_id`.
     remote_chain_id: u64,
     network_id: u64,
     spec_id: EthSpecId,

@@ -29,7 +29,7 @@ use crate::{
 /// Combinatorial error for the blockchain API.
 #[derive(Debug, thiserror::Error)]
 pub enum BlockchainError {
-    /// Block number exceeds storage capacity (usize::MAX)
+    /// Block number exceeds storage capacity (`usize::MAX`)
     #[error("Block number exceeds storage capacity.")]
     BlockNumberTooLarge,
     /// Forked blockchain error

@@ -267,7 +267,7 @@ mod tests {
         let account1 = AccountInfo {
             code_hash: code_1_hash,
             code: Some(code_1),
-            ..Default::default()
+            ..AccountInfo::default()
         };
         state1.insert_account(address1, account1)?;
         state1.set_account_storage_slot(address1, U256::from(100), U256::from(100))?;
@@ -276,7 +276,7 @@ mod tests {
         let account2 = AccountInfo {
             code_hash: code_2_hash,
             code: Some(code_2),
-            ..Default::default()
+            ..AccountInfo::default()
         };
         let mut state2 = state1.clone();
         state2.insert_account(address2, account2)?;

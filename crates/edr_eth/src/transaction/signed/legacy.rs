@@ -1,8 +1,10 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::keccak256;
+use hashbrown::HashMap;
+use revm_primitives::{keccak256, OptimismFields, TxEnv};
 
+use super::kind_to_transact_to;
 use crate::{
     signature::{Signature, SignatureError},
     transaction::{
@@ -48,6 +50,29 @@ impl LegacySignedTransaction {
         }
         self.signature
             .recover(LegacyTransactionRequest::from(self).hash())
+    }
+
+    /// Converts this transaction into a `TxEnv` struct.
+    pub fn into_tx_env(self, caller: Address) -> TxEnv {
+        TxEnv {
+            caller,
+            gas_limit: self.gas_limit,
+            gas_price: self.gas_price,
+            transact_to: kind_to_transact_to(self.kind),
+            value: self.value,
+            data: self.input,
+            nonce: Some(self.nonce),
+            chain_id: None,
+            access_list: Vec::new(),
+            gas_priority_fee: None,
+            blob_hashes: Vec::new(),
+            max_fee_per_blob_gas: None,
+            // TODO: https://github.com/NomicFoundation/edr/issues/427
+            eof_initcodes: Vec::new(),
+            eof_initcodes_hashed: HashMap::new(),
+            // TODO: remove optimism fields from revm
+            optimism: OptimismFields::default(),
+        }
     }
 }
 

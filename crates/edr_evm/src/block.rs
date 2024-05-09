@@ -5,7 +5,10 @@ mod remote;
 use std::{fmt::Debug, sync::Arc};
 
 use auto_impl::auto_impl;
-use edr_eth::{block, receipt::BlockReceipt, remote::eth, withdrawal::Withdrawal, B256, U256};
+use edr_eth::{
+    block, receipt::BlockReceipt, remote::eth, transaction::Transaction, withdrawal::Withdrawal,
+    B256, U256,
+};
 
 pub use self::{
     builder::{
@@ -74,7 +77,7 @@ impl<BlockchainErrorT> From<BlockAndTotalDifficulty<BlockchainErrorT>> for eth::
             .block
             .transactions()
             .iter()
-            .map(|tx| *tx.hash())
+            .map(|tx| *tx.transaction_hash())
             .collect();
 
         let header = value.block.header();

@@ -1,6 +1,9 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
-use edr_eth::{Address, B256, U256};
+use edr_eth::{
+    transaction::{upfront_cost, Transaction},
+    Address, B256, U256,
+};
 use indexmap::{map::Entry, IndexMap};
 use revm::{
     db::StateRef,
@@ -154,7 +157,7 @@ impl OrderedTransaction {
     }
 
     fn hash(&self) -> &B256 {
-        self.transaction.hash()
+        self.transaction.transaction_hash()
     }
 
     fn nonce(&self) -> u64 {
@@ -277,9 +280,12 @@ impl MemPool {
             });
         }
 
-        if self.hash_to_transaction.contains_key(transaction.hash()) {
+        if self
+            .hash_to_transaction
+            .contains_key(transaction.transaction_hash())
+        {
             return Err(MemPoolAddTransactionError::TransactionAlreadyExists {
-                transaction_hash: *transaction.hash(),
+                transaction_hash: *transaction.transaction_hash(),
             });
         }
 
@@ -292,7 +298,7 @@ impl MemPool {
         }
 
         // We need to validate funds at this stage to avoid DOS
-        let max_upfront_cost = transaction.as_inner().upfront_cost();
+        let max_upfront_cost = upfront_cost(&transaction);
         if max_upfront_cost > sender.balance {
             return Err(MemPoolAddTransactionError::InsufficientFunds {
                 max_upfront_cost,
@@ -384,7 +390,7 @@ impl MemPool {
             sender: &AccountInfo,
         ) -> bool {
             transaction.gas_limit() <= block_gas_limit.get()
-                && transaction.upfront_cost() <= sender.balance
+                && upfront_cost(transaction) <= sender.balance
                 // Remove all mined transactions
                 && transaction.nonce() >= sender.nonce
         }

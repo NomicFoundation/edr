@@ -2,7 +2,7 @@
 
 use std::num::NonZeroU64;
 
-use edr_eth::{AccountInfo, Address, U256};
+use edr_eth::{transaction::Transaction, AccountInfo, Address, U256};
 use edr_evm::{
     state::{AccountModifierFn, StateDebug},
     test_utils::{
@@ -376,7 +376,7 @@ fn add_transaction_already_exists() -> anyhow::Result<()> {
         result,
         Err(MemPoolAddTransactionError::TransactionAlreadyExists {
             transaction_hash,
-        }) if transaction_hash == *transaction.hash()
+        }) if transaction_hash == *transaction.transaction_hash()
     ));
 
     Ok(())
@@ -464,7 +464,9 @@ fn transaction_by_hash_pending() -> anyhow::Result<()> {
     let transaction = dummy_eip155_transaction(sender, 0)?;
     fixture.add_transaction(transaction.clone())?;
 
-    let transaction_by_hash = fixture.mem_pool.transaction_by_hash(transaction.hash());
+    let transaction_by_hash = fixture
+        .mem_pool
+        .transaction_by_hash(transaction.transaction_hash());
     assert_eq!(
         transaction_by_hash.map(OrderedTransaction::pending),
         Some(&transaction)
@@ -482,7 +484,9 @@ fn transaction_by_hash_future() -> anyhow::Result<()> {
     let transaction = dummy_eip155_transaction(sender, 1)?;
     fixture.add_transaction(transaction.clone())?;
 
-    let transaction_by_hash = fixture.mem_pool.transaction_by_hash(transaction.hash());
+    let transaction_by_hash = fixture
+        .mem_pool
+        .transaction_by_hash(transaction.transaction_hash());
     assert_eq!(
         transaction_by_hash.map(OrderedTransaction::pending),
         Some(&transaction)
@@ -500,7 +504,9 @@ fn transaction_by_hash_remove_pending_after_update() -> anyhow::Result<()> {
     let transaction = dummy_eip155_transaction(sender, 0)?;
     fixture.add_transaction(transaction.clone())?;
 
-    let transaction_by_hash = fixture.mem_pool.transaction_by_hash(transaction.hash());
+    let transaction_by_hash = fixture
+        .mem_pool
+        .transaction_by_hash(transaction.transaction_hash());
     assert_eq!(
         transaction_by_hash.map(OrderedTransaction::pending),
         Some(&transaction)
@@ -513,7 +519,9 @@ fn transaction_by_hash_remove_pending_after_update() -> anyhow::Result<()> {
 
     fixture.update()?;
 
-    let transaction_by_hash = fixture.mem_pool.transaction_by_hash(transaction.hash());
+    let transaction_by_hash = fixture
+        .mem_pool
+        .transaction_by_hash(transaction.transaction_hash());
     assert!(transaction_by_hash.is_none());
 
     Ok(())
@@ -528,7 +536,9 @@ fn transaction_by_hash_remove_future_after_update() -> anyhow::Result<()> {
     let transaction = dummy_eip155_transaction(sender, 1)?;
     fixture.add_transaction(transaction.clone())?;
 
-    let transaction_by_hash = fixture.mem_pool.transaction_by_hash(transaction.hash());
+    let transaction_by_hash = fixture
+        .mem_pool
+        .transaction_by_hash(transaction.transaction_hash());
     assert_eq!(
         transaction_by_hash.map(OrderedTransaction::pending),
         Some(&transaction)
@@ -541,7 +551,9 @@ fn transaction_by_hash_remove_future_after_update() -> anyhow::Result<()> {
 
     fixture.update()?;
 
-    let transaction_by_hash = fixture.mem_pool.transaction_by_hash(transaction.hash());
+    let transaction_by_hash = fixture
+        .mem_pool
+        .transaction_by_hash(transaction.transaction_hash());
     assert!(transaction_by_hash.is_none());
 
     Ok(())
