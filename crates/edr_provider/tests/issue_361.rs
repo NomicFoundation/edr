@@ -3,7 +3,7 @@
 use edr_eth::{
     remote::{filter::LogFilterOptions, BlockSpec},
     transaction::EthTransactionRequest,
-    AccountInfo, Address, SpecId,
+    AccountInfo, Address, EthSpecId,
 };
 use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
@@ -19,7 +19,7 @@ async fn issue_361() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::MUIR_GLACIER;
+    config.hardfork = EthSpecId::MUIR_GLACIER;
 
     let impersonated_account = Address::random();
     config.genesis_accounts.insert(

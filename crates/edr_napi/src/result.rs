@@ -1,3 +1,4 @@
+use edr_evm::MainnetChainSpec;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Either, Env, JsBuffer, JsBufferValue,
@@ -171,7 +172,10 @@ pub struct ExecutionResult {
 }
 
 impl ExecutionResult {
-    pub fn new(env: &Env, result: &edr_evm::ExecutionResult) -> napi::Result<Self> {
+    pub fn new(
+        env: &Env,
+        result: &edr_evm::ExecutionResult<MainnetChainSpec>,
+    ) -> napi::Result<Self> {
         let result = match result {
             edr_evm::ExecutionResult::Success {
                 reason,

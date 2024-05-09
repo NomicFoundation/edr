@@ -4,15 +4,15 @@ use std::num::TryFromIntError;
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
     remote::{filter::SubscriptionType, jsonrpc, BlockSpec, BlockTag, RpcClientError},
-    Address, Bytes, SpecId, B256, U256,
+    Address, Bytes, EthSpecId, B256, U256,
 };
 use edr_evm::{
     blockchain::BlockchainError,
     hex,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
-    DebugTraceError, ExecutionResult, HaltReason, MemPoolAddTransactionError, MineBlockError,
-    OutOfGasError, TransactionCreationError, TransactionError,
+    DebugTraceError, ExecutionResult, HaltReason, MainnetChainSpec, MemPoolAddTransactionError,
+    MineBlockError, OutOfGasError, TransactionCreationError, TransactionError,
 };
 use ethers_core::types::transaction::eip712::Eip712Error;
 
@@ -68,7 +68,10 @@ pub enum ProviderError<LoggerErrorT> {
     /// The block tag is not allowed in pre-merge hardforks.
     /// <https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1820>
     #[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{spec:?}' hardfork.")]
-    InvalidBlockTag { block_tag: BlockTag, spec: SpecId },
+    InvalidBlockTag {
+        block_tag: BlockTag,
+        spec: EthSpecId,
+    },
     /// Invalid chain ID
     #[error("Invalid chainId {actual} provided, expected ${expected} instead.")]
     InvalidChainId { expected: u64, actual: u64 },
@@ -140,11 +143,11 @@ pub enum ProviderError<LoggerErrorT> {
     /// The `hardhat_setNextBlockBaseFeePerGas` method is not supported due to
     /// an older hardfork.
     #[error("hardhat_setNextBlockBaseFeePerGas is disabled because EIP-1559 is not active")]
-    SetNextBlockBaseFeePerGasUnsupported { spec_id: SpecId },
+    SetNextBlockBaseFeePerGasUnsupported { spec_id: EthSpecId },
     /// The `hardhat_setPrevRandao` method is not supported due to an older
     /// hardfork.
     #[error("hardhat_setPrevRandao is only available in post-merge hardforks, the current hardfork is {spec_id:?}")]
-    SetNextPrevRandaoUnsupported { spec_id: SpecId },
+    SetNextPrevRandaoUnsupported { spec_id: EthSpecId },
     /// An error occurred while recovering a signature.
     #[error(transparent)]
     Signature(#[from] edr_eth::signature::SignatureError),
@@ -175,16 +178,19 @@ pub enum ProviderError<LoggerErrorT> {
     UnknownAddress { address: Address },
     /// Minimum required hardfork not met
     #[error("Feature is only available in post-{minimum:?} hardforks, the current hardfork is {actual:?}")]
-    UnmetHardfork { actual: SpecId, minimum: SpecId },
+    UnmetHardfork {
+        actual: EthSpecId,
+        minimum: EthSpecId,
+    },
     #[error("The transaction contains an access list parameter, but this is not supported by the current hardfork: {current_hardfork:?}")]
     UnsupportedAccessListParameter {
-        current_hardfork: SpecId,
-        minimum_hardfork: SpecId,
+        current_hardfork: EthSpecId,
+        minimum_hardfork: EthSpecId,
     },
     #[error("The transaction contains EIP-1559 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
     UnsupportedEIP1559Parameters {
-        current_hardfork: SpecId,
-        minimum_hardfork: SpecId,
+        current_hardfork: EthSpecId,
+        minimum_hardfork: EthSpecId,
     },
     #[error("{method_name} - Method not supported")]
     UnsupportedMethod { method_name: String },
@@ -323,7 +329,7 @@ pub struct TransactionFailure {
 
 impl TransactionFailure {
     pub fn from_execution_result(
-        execution_result: &ExecutionResult,
+        execution_result: &ExecutionResult<MainnetChainSpec>,
         transaction_hash: Option<&B256>,
         solidity_trace: &Trace,
     ) -> Option<Self> {

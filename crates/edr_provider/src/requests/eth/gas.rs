@@ -6,7 +6,7 @@ use edr_eth::{
         BlockSpec,
     },
     reward_percentile::RewardPercentile,
-    SpecId, U256, U64,
+    EthSpecId, U256, U64,
 };
 use edr_evm::{state::StateOverrides, trace::Trace, ExecutableTransaction};
 
@@ -54,7 +54,7 @@ pub fn handle_fee_history<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     newest_block: BlockSpec,
     reward_percentiles: Option<Vec<f64>>,
 ) -> Result<FeeHistoryResult, ProviderError<LoggerErrorT>> {
-    if data.spec_id() < SpecId::LONDON {
+    if data.spec_id() < EthSpecId::LONDON {
         return Err(ProviderError::InvalidInput(
             "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
                 .into(),

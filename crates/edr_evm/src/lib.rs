@@ -48,7 +48,10 @@ mod transaction;
 /// Types for interfacing with the evm
 pub mod evm {
     pub use revm::{
-        handler::register::{EvmHandler, HandleRegister},
+        handler::{
+            register::{EvmHandler, HandleRegister},
+            CfgEnvWithChainSpec,
+        },
         FrameOrResult, FrameResult,
     };
 }

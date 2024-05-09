@@ -4,7 +4,7 @@ use edr_evm::{
     db::Database,
     evm::EvmHandler,
     trace::{register_trace_collector_handles, TraceCollector},
-    GetContextData,
+    GetContextData, MainnetChainSpec,
 };
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
 
 /// Registers the EIP-3155 tracer handles.
 pub fn register_debugger_handles<DatabaseT, ContextT>(
-    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
+    handler: &mut EvmHandler<'_, MainnetChainSpec, ContextT, DatabaseT>,
 ) where
     DatabaseT: Database,
     DatabaseT::Error: Debug,

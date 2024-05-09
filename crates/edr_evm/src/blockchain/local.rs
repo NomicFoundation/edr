@@ -15,7 +15,7 @@ use edr_eth::{
 };
 use revm::{
     db::BlockHashRef,
-    primitives::{Bytecode, HashSet, SpecId},
+    primitives::{Bytecode, EthSpecId, HashSet},
     DatabaseCommit,
 };
 
@@ -78,7 +78,7 @@ impl From<GenesisBlockOptions> for BlockOptions {
 pub struct LocalBlockchain {
     storage: ReservableSparseBlockchainStorage<Arc<dyn SyncBlock<Error = BlockchainError>>>,
     chain_id: u64,
-    spec_id: SpecId,
+    spec_id: EthSpecId,
 }
 
 impl LocalBlockchain {
@@ -89,12 +89,12 @@ impl LocalBlockchain {
     pub fn new(
         mut genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: SpecId,
+        spec_id: EthSpecId,
         options: GenesisBlockOptions,
     ) -> Result<Self, CreationError> {
         const EXTRA_DATA: &[u8] = b"\x12\x34";
 
-        if spec_id >= SpecId::CANCUN {
+        if spec_id >= EthSpecId::CANCUN {
             let beacon_roots_address =
                 Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
             let beacon_roots_contract = Bytecode::new_raw(
@@ -114,7 +114,7 @@ impl LocalBlockchain {
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
 
-        if spec_id >= SpecId::MERGE && options.mix_hash.is_none() {
+        if spec_id >= EthSpecId::MERGE && options.mix_hash.is_none() {
             return Err(CreationError::MissingPrevrandao);
         }
 
@@ -154,7 +154,7 @@ impl LocalBlockchain {
         genesis_block: LocalBlock,
         genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: SpecId,
+        spec_id: EthSpecId,
     ) -> Result<Self, InsertBlockError> {
         let genesis_header = genesis_block.header();
 
@@ -165,7 +165,7 @@ impl LocalBlockchain {
             });
         }
 
-        if spec_id >= SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
+        if spec_id >= EthSpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InsertBlockError::MissingWithdrawals);
         }
 
@@ -185,7 +185,7 @@ impl LocalBlockchain {
         genesis_block: LocalBlock,
         genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: SpecId,
+        spec_id: EthSpecId,
     ) -> Self {
         let genesis_block: Arc<dyn SyncBlock<Error = BlockchainError>> = Arc::new(genesis_block);
 
@@ -281,7 +281,7 @@ impl Blockchain for LocalBlockchain {
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError> {
+    fn spec_at_block_number(&self, block_number: u64) -> Result<EthSpecId, Self::BlockchainError> {
         if block_number > self.last_block_number() {
             return Err(BlockchainError::UnknownBlockNumber);
         }
@@ -289,7 +289,7 @@ impl Blockchain for LocalBlockchain {
         Ok(self.spec_id)
     }
 
-    fn spec_id(&self) -> SpecId {
+    fn spec_id(&self) -> EthSpecId {
         self.spec_id
     }
 
@@ -434,7 +434,7 @@ mod tests {
         let mut blockchain = LocalBlockchain::new(
             genesis_diff,
             123,
-            SpecId::SHANGHAI,
+            EthSpecId::SHANGHAI,
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),

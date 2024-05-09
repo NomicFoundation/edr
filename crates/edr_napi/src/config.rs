@@ -43,28 +43,28 @@ pub enum SpecId {
     Latest = 18,
 }
 
-impl From<SpecId> for edr_evm::SpecId {
+impl From<SpecId> for edr_evm::EthSpecId {
     fn from(value: SpecId) -> Self {
         match value {
-            SpecId::Frontier => edr_evm::SpecId::FRONTIER,
-            SpecId::FrontierThawing => edr_evm::SpecId::FRONTIER_THAWING,
-            SpecId::Homestead => edr_evm::SpecId::HOMESTEAD,
-            SpecId::DaoFork => edr_evm::SpecId::DAO_FORK,
-            SpecId::Tangerine => edr_evm::SpecId::TANGERINE,
-            SpecId::SpuriousDragon => edr_evm::SpecId::SPURIOUS_DRAGON,
-            SpecId::Byzantium => edr_evm::SpecId::BYZANTIUM,
-            SpecId::Constantinople => edr_evm::SpecId::CONSTANTINOPLE,
-            SpecId::Petersburg => edr_evm::SpecId::PETERSBURG,
-            SpecId::Istanbul => edr_evm::SpecId::ISTANBUL,
-            SpecId::MuirGlacier => edr_evm::SpecId::MUIR_GLACIER,
-            SpecId::Berlin => edr_evm::SpecId::BERLIN,
-            SpecId::London => edr_evm::SpecId::LONDON,
-            SpecId::ArrowGlacier => edr_evm::SpecId::ARROW_GLACIER,
-            SpecId::GrayGlacier => edr_evm::SpecId::GRAY_GLACIER,
-            SpecId::Merge => edr_evm::SpecId::MERGE,
-            SpecId::Shanghai => edr_evm::SpecId::SHANGHAI,
-            SpecId::Cancun => edr_evm::SpecId::CANCUN,
-            SpecId::Latest => edr_evm::SpecId::LATEST,
+            SpecId::Frontier => edr_evm::EthSpecId::FRONTIER,
+            SpecId::FrontierThawing => edr_evm::EthSpecId::FRONTIER_THAWING,
+            SpecId::Homestead => edr_evm::EthSpecId::HOMESTEAD,
+            SpecId::DaoFork => edr_evm::EthSpecId::DAO_FORK,
+            SpecId::Tangerine => edr_evm::EthSpecId::TANGERINE,
+            SpecId::SpuriousDragon => edr_evm::EthSpecId::SPURIOUS_DRAGON,
+            SpecId::Byzantium => edr_evm::EthSpecId::BYZANTIUM,
+            SpecId::Constantinople => edr_evm::EthSpecId::CONSTANTINOPLE,
+            SpecId::Petersburg => edr_evm::EthSpecId::PETERSBURG,
+            SpecId::Istanbul => edr_evm::EthSpecId::ISTANBUL,
+            SpecId::MuirGlacier => edr_evm::EthSpecId::MUIR_GLACIER,
+            SpecId::Berlin => edr_evm::EthSpecId::BERLIN,
+            SpecId::London => edr_evm::EthSpecId::LONDON,
+            SpecId::ArrowGlacier => edr_evm::EthSpecId::ARROW_GLACIER,
+            SpecId::GrayGlacier => edr_evm::EthSpecId::GRAY_GLACIER,
+            SpecId::Merge => edr_evm::EthSpecId::MERGE,
+            SpecId::Shanghai => edr_evm::EthSpecId::SHANGHAI,
+            SpecId::Cancun => edr_evm::EthSpecId::CANCUN,
+            SpecId::Latest => edr_evm::EthSpecId::LATEST,
         }
     }
 }

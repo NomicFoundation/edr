@@ -2,7 +2,7 @@ use std::num::NonZeroU64;
 
 use edr_eth::{
     transaction::{Eip1559TransactionRequest, Eip155TransactionRequest, TxKind},
-    AccountInfo, Address, Bytes, HashMap, SpecId, U256,
+    AccountInfo, Address, Bytes, EthSpecId, HashMap, U256,
 };
 
 use crate::{
@@ -113,7 +113,7 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
     };
     let transaction = request.fake_sign(&caller);
 
-    ExecutableTransaction::with_caller(SpecId::LATEST, transaction.into(), caller)
+    ExecutableTransaction::with_caller(EthSpecId::LATEST, transaction.into(), caller)
 }
 
 /// Creates a dummy EIP-1559 transaction with the provided max fee and max
@@ -138,5 +138,5 @@ pub fn dummy_eip1559_transaction(
     };
     let transaction = request.fake_sign(&caller);
 
-    ExecutableTransaction::with_caller(SpecId::LATEST, transaction.into(), caller)
+    ExecutableTransaction::with_caller(EthSpecId::LATEST, transaction.into(), caller)
 }

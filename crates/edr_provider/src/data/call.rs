@@ -2,13 +2,14 @@ use core::fmt::Debug;
 
 use edr_eth::{
     block::{BlobGas, Header},
-    SpecId, U256,
+    EthSpecId, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
+    evm::CfgEnvWithChainSpec,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
-    BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, TxEnv,
+    BlobExcessGasAndPrice, BlockEnv, DebugContext, ExecutionResult, MainnetChainSpec, TxEnv,
 };
 
 use crate::ProviderError;
@@ -21,7 +22,7 @@ where
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithHandlerCfg,
+    pub cfg_env: CfgEnvWithChainSpec<MainnetChainSpec>,
     pub tx_env: TxEnv,
     pub debug_context: Option<
         DebugContext<
@@ -36,7 +37,7 @@ where
 /// Execute a transaction as a call. Returns the gas used and the output.
 pub(super) fn run_call<'a, 'evm, DebugDataT, LoggerErrorT: Debug>(
     args: RunCallArgs<'a, 'evm, DebugDataT>,
-) -> Result<ExecutionResult, ProviderError<LoggerErrorT>>
+) -> Result<ExecutionResult<MainnetChainSpec>, ProviderError<LoggerErrorT>>
 where
     'a: 'evm,
 {
@@ -57,7 +58,7 @@ where
         gas_limit: U256::from(header.gas_limit),
         basefee: U256::ZERO,
         difficulty: header.difficulty,
-        prevrandao: if cfg_env.handler_cfg.spec_id >= SpecId::MERGE {
+        prevrandao: if cfg_env.spec_id >= EthSpecId::MERGE {
             Some(header.mix_hash)
         } else {
             None

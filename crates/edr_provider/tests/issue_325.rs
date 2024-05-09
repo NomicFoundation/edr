@@ -1,8 +1,8 @@
 #![cfg(feature = "test-utils")]
 
 use edr_eth::{
-    remote::PreEip1898BlockSpec, transaction::EthTransactionRequest, AccountInfo, Address, SpecId,
-    B256,
+    remote::PreEip1898BlockSpec, transaction::EthTransactionRequest, AccountInfo, Address,
+    EthSpecId, B256,
 };
 use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
@@ -18,7 +18,7 @@ async fn issue_325() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::CANCUN;
+    config.hardfork = EthSpecId::CANCUN;
     config.mining = MiningConfig {
         auto_mine: false,
         ..MiningConfig::default()

@@ -14,10 +14,10 @@ use edr_eth::{
 };
 use revm::{
     db::{DatabaseComponentError, DatabaseComponents, StateRef},
+    handler::{CfgEnvWithChainSpec, EnvWithChainSpec},
     primitives::{
-        BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg,
-        ExecutionResult, InvalidHeader, InvalidTransaction, Output, ResultAndState, SpecId,
-        MAX_BLOB_GAS_PER_BLOCK,
+        BlobExcessGasAndPrice, BlockEnv, EVMError, EthSpecId, ExecutionResult, InvalidHeader,
+        InvalidTransaction, MainnetChainSpec, Output, ResultAndState, MAX_BLOB_GAS_PER_BLOCK,
     },
     Context, DatabaseCommit, Evm, InnerEvmContext,
 };
@@ -40,7 +40,7 @@ pub enum BlockBuilderCreationError {
     DaoHardforkInvalidData,
     /// Unsupported hardfork. Hardforks older than Byzantium are not supported
     #[error("Unsupported hardfork: {0:?}. Hardforks older than Byzantium are not supported.")]
-    UnsupportedHardfork(SpecId),
+    UnsupportedHardfork(EthSpecId),
 }
 
 /// An error caused during execution of a transaction while building a block.
@@ -112,7 +112,10 @@ pub struct ExecutionResultWithContext<
     StateT: StateRef,
 > {
     /// The result of executing the transaction.
-    pub result: Result<ExecutionResult, BlockTransactionError<BlockchainErrorT, StateErrorT>>,
+    pub result: Result<
+        ExecutionResult<MainnetChainSpec>,
+        BlockTransactionError<BlockchainErrorT, StateErrorT>,
+    >,
     /// The context in which the transaction was executed.
     pub evm_context: EvmContext<'evm, BlockchainErrorT, DebugDataT, StateT>,
 }
@@ -127,7 +130,7 @@ pub struct BuildBlockResult {
 
 /// A builder for constructing Ethereum blocks.
 pub struct BlockBuilder {
-    cfg: CfgEnvWithHandlerCfg,
+    cfg: CfgEnvWithChainSpec<MainnetChainSpec>,
     header: PartialHeader,
     transactions: Vec<ExecutableTransaction>,
     state_diff: StateDiff,
@@ -140,15 +143,13 @@ impl BlockBuilder {
     /// Creates an intance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new<BlockchainErrorT>(
-        cfg: CfgEnvWithHandlerCfg,
+        cfg: CfgEnvWithChainSpec<MainnetChainSpec>,
         parent: &dyn SyncBlock<Error = BlockchainErrorT>,
         mut options: BlockOptions,
         dao_hardfork_activation_block: Option<u64>,
     ) -> Result<Self, BlockBuilderCreationError> {
-        if cfg.handler_cfg.spec_id < SpecId::BYZANTIUM {
-            return Err(BlockBuilderCreationError::UnsupportedHardfork(
-                cfg.handler_cfg.spec_id,
-            ));
+        if cfg.spec_id < EthSpecId::BYZANTIUM {
+            return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec_id));
         }
 
         let parent_header = parent.header();
@@ -159,7 +160,7 @@ impl BlockBuilder {
         };
 
         let withdrawals = std::mem::take(&mut options.withdrawals).or_else(|| {
-            if cfg.handler_cfg.spec_id >= SpecId::SHANGHAI {
+            if cfg.spec_id >= EthSpecId::SHANGHAI {
                 Some(Vec::new())
             } else {
                 None
@@ -167,13 +168,13 @@ impl BlockBuilder {
         });
 
         options.parent_hash = Some(*parent.hash());
-        let header = PartialHeader::new(cfg.handler_cfg.spec_id, options, Some(parent_header));
+        let header = PartialHeader::new(cfg.spec_id, options, Some(parent_header));
 
         if let Some(dao_hardfork_activation_block) = dao_hardfork_activation_block {
             const DAO_FORCE_EXTRA_DATA_RANGE: u64 = 9;
 
             let drift = header.number - dao_hardfork_activation_block;
-            if cfg.handler_cfg.spec_id >= SpecId::DAO_FORK
+            if cfg.spec_id >= EthSpecId::DAO_FORK
                 && drift <= DAO_FORCE_EXTRA_DATA_RANGE
                 && *header.extra_data != DAO_EXTRA_DATA
             {
@@ -193,7 +194,7 @@ impl BlockBuilder {
     }
 
     /// Retrieves the config of the block builder.
-    pub fn config(&self) -> &CfgEnvWithHandlerCfg {
+    pub fn config(&self) -> &CfgEnvWithChainSpec<MainnetChainSpec> {
         &self.cfg
     }
 
@@ -256,7 +257,7 @@ impl BlockBuilder {
             }
         }
 
-        let spec_id = self.cfg.handler_cfg.spec_id;
+        let spec_id = self.cfg.spec_id;
 
         let block = BlockEnv {
             number: U256::from(self.header.number),
@@ -265,7 +266,7 @@ impl BlockBuilder {
             difficulty: self.header.difficulty,
             basefee: self.header.base_fee.unwrap_or(U256::ZERO),
             gas_limit: U256::from(self.header.gas_limit),
-            prevrandao: if spec_id >= SpecId::MERGE {
+            prevrandao: if spec_id >= EthSpecId::MERGE {
                 Some(self.header.mix_hash)
             } else {
                 None
@@ -277,7 +278,7 @@ impl BlockBuilder {
                 .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
         };
 
-        let env = EnvWithHandlerCfg::new_with_cfg_env(
+        let env = EnvWithChainSpec::new_with_cfg_env(
             self.cfg.clone(),
             block.clone(),
             transaction.clone().into(),
@@ -403,7 +404,7 @@ impl BlockBuilder {
                 data: match &*transaction {
                     SignedTransaction::PreEip155Legacy(_)
                     | SignedTransaction::PostEip155Legacy(_) => {
-                        if spec_id < SpecId::BYZANTIUM {
+                        if spec_id < EthSpecId::BYZANTIUM {
                             TypedReceiptData::PreEip658Legacy {
                                 state_root: state
                                     .state_root()
@@ -530,10 +531,10 @@ mod tests {
             ..PartialHeader::default()
         };
 
-        let spec_id = SpecId::BYZANTIUM;
+        let spec_id = EthSpecId::BYZANTIUM;
         let parent = LocalBlock::empty(spec_id, partial_header);
 
-        let cfg = CfgEnvWithHandlerCfg::new_with_spec_id(CfgEnv::default(), spec_id);
+        let cfg = CfgEnvWithChainSpec::new(CfgEnv::default(), spec_id);
         let block_options = BlockOptions {
             number: Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),
             extra_data: Some(Bytes::from(DAO_EXTRA_DATA)),
@@ -563,10 +564,10 @@ mod tests {
             ..PartialHeader::default()
         };
 
-        let spec_id = SpecId::BYZANTIUM;
+        let spec_id = EthSpecId::BYZANTIUM;
         let parent = LocalBlock::empty(spec_id, partial_header);
 
-        let cfg = CfgEnvWithHandlerCfg::new_with_spec_id(CfgEnv::default(), spec_id);
+        let cfg = CfgEnvWithChainSpec::new(CfgEnv::default(), spec_id);
 
         let block_options = BlockOptions {
             number: Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),

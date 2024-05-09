@@ -12,7 +12,7 @@ use edr_eth::{
 };
 use revm::{
     interpreter::gas::validate_initial_tx_gas,
-    primitives::{SpecId, TransactTo, TxEnv},
+    primitives::{EthSpecId, OptimismFields, TransactTo, TxEnv},
 };
 
 use super::TransactionCreationError;
@@ -30,7 +30,7 @@ impl ExecutableTransaction {
     /// Create an [`ExecutableTransaction`] by attempting to validate and
     /// recover the caller address of the provided transaction.
     pub fn new(
-        spec_id: SpecId,
+        spec_id: EthSpecId,
         transaction: SignedTransaction,
     ) -> Result<Self, TransactionCreationError> {
         let caller = transaction
@@ -43,7 +43,7 @@ impl ExecutableTransaction {
     /// Creates an [`ExecutableTransaction`] with the provided transaction and
     /// caller address.
     pub fn with_caller(
-        spec_id: SpecId,
+        spec_id: EthSpecId,
         transaction: SignedTransaction,
         caller: Address,
     ) -> Result<Self, TransactionCreationError> {
@@ -71,7 +71,7 @@ impl ExecutableTransaction {
     }
 
     /// The minimum gas required to include the transaction in a block.
-    pub fn initial_cost(&self, spec_id: SpecId) -> u64 {
+    pub fn initial_cost(&self, spec_id: EthSpecId) -> u64 {
         initial_cost(spec_id, &self.transaction)
     }
 
@@ -148,6 +148,8 @@ impl From<ExecutableTransaction> for TxEnv {
                 // TODO: https://github.com/NomicFoundation/edr/issues/427
                 eof_initcodes: Vec::new(),
                 eof_initcodes_hashed: HashMap::new(),
+                // TODO: remove optimism fields from revm
+                optimism: OptimismFields::default(),
             },
             SignedTransaction::Eip2930(Eip2930SignedTransaction {
                 nonce,
@@ -174,6 +176,8 @@ impl From<ExecutableTransaction> for TxEnv {
                 // TODO: https://github.com/NomicFoundation/edr/issues/427
                 eof_initcodes: Vec::new(),
                 eof_initcodes_hashed: HashMap::new(),
+                // TODO: remove optimism fields from revm
+                optimism: OptimismFields::default(),
             },
             SignedTransaction::Eip1559(Eip1559SignedTransaction {
                 nonce,
@@ -201,6 +205,8 @@ impl From<ExecutableTransaction> for TxEnv {
                 // TODO: https://github.com/NomicFoundation/edr/issues/427
                 eof_initcodes: Vec::new(),
                 eof_initcodes_hashed: HashMap::new(),
+                // TODO: remove optimism fields from revm
+                optimism: OptimismFields::default(),
             },
             SignedTransaction::Eip4844(Eip4844SignedTransaction {
                 nonce,
@@ -230,6 +236,8 @@ impl From<ExecutableTransaction> for TxEnv {
                 // TODO: https://github.com/NomicFoundation/edr/issues/427
                 eof_initcodes: Vec::new(),
                 eof_initcodes_hashed: HashMap::new(),
+                // TODO: remove optimism fields from revm
+                optimism: OptimismFields::default(),
             },
         }
     }
@@ -415,7 +423,7 @@ impl TryFrom<Transaction> for ExecutableTransaction {
     }
 }
 
-fn initial_cost(spec_id: SpecId, transaction: &SignedTransaction) -> u64 {
+fn initial_cost(spec_id: EthSpecId, transaction: &SignedTransaction) -> u64 {
     let access_list = transaction
         .access_list()
         .cloned()
@@ -456,7 +464,8 @@ mod tests {
         };
 
         let transaction = request.fake_sign(&caller);
-        let result = ExecutableTransaction::with_caller(SpecId::BERLIN, transaction.into(), caller);
+        let result =
+            ExecutableTransaction::with_caller(EthSpecId::BERLIN, transaction.into(), caller);
 
         let expected_gas_cost = U256::from(21_000);
         assert!(matches!(
@@ -490,7 +499,8 @@ mod tests {
         };
 
         let transaction = request.fake_sign(&caller);
-        let result = ExecutableTransaction::with_caller(SpecId::BERLIN, transaction.into(), caller);
+        let result =
+            ExecutableTransaction::with_caller(EthSpecId::BERLIN, transaction.into(), caller);
 
         assert!(matches!(
             result,

@@ -4,13 +4,13 @@ use edr_eth::{
     access_list::AccessListItem,
     remote::{eth::CallRequest, BlockSpec, BlockTag, PreEip1898BlockSpec},
     transaction::{EthTransactionRequest, SignedTransaction},
-    Address, SpecId, B256, U256,
+    Address, EthSpecId, B256, U256,
 };
 use edr_evm::Bytes;
 
 use crate::ProviderError;
 
-/// Data used for validating a transaction complies with a [`SpecId`].
+/// Data used for validating a transaction complies with a [`EthSpecId`].
 pub struct SpecValidationData<'data> {
     pub gas_price: Option<&'data U256>,
     pub max_fee_per_gas: Option<&'data U256>,
@@ -94,7 +94,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
 }
 
 pub fn validate_transaction_spec<LoggerErrorT: Debug>(
-    spec_id: SpecId,
+    spec_id: EthSpecId,
     data: SpecValidationData<'_>,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     let SpecValidationData {
@@ -106,18 +106,19 @@ pub fn validate_transaction_spec<LoggerErrorT: Debug>(
         blob_hashes,
     } = data;
 
-    if spec_id < SpecId::LONDON && (max_fee_per_gas.is_some() || max_priority_fee_per_gas.is_some())
+    if spec_id < EthSpecId::LONDON
+        && (max_fee_per_gas.is_some() || max_priority_fee_per_gas.is_some())
     {
         return Err(ProviderError::UnsupportedEIP1559Parameters {
             current_hardfork: spec_id,
-            minimum_hardfork: SpecId::BERLIN,
+            minimum_hardfork: EthSpecId::BERLIN,
         });
     }
 
-    if spec_id < SpecId::BERLIN && access_list.is_some() {
+    if spec_id < EthSpecId::BERLIN && access_list.is_some() {
         return Err(ProviderError::UnsupportedAccessListParameter {
             current_hardfork: spec_id,
-            minimum_hardfork: SpecId::BERLIN,
+            minimum_hardfork: EthSpecId::BERLIN,
         });
     }
 
@@ -153,7 +154,7 @@ pub fn validate_transaction_spec<LoggerErrorT: Debug>(
 }
 
 pub fn validate_call_request<LoggerErrorT: Debug>(
-    spec_id: SpecId,
+    spec_id: EthSpecId,
     call_request: &CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
@@ -166,7 +167,7 @@ pub fn validate_call_request<LoggerErrorT: Debug>(
 }
 
 pub fn validate_transaction_and_call_request<'a, LoggerErrorT: Debug>(
-    spec_id: SpecId,
+    spec_id: EthSpecId,
     validation_data: impl Into<SpecValidationData<'a>>,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     validate_transaction_spec(spec_id, validation_data.into()).map_err(|err| match err {
@@ -189,12 +190,12 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 }
 
 pub fn validate_eip3860_max_initcode_size<LoggerErrorT: Debug>(
-    spec_id: SpecId,
+    spec_id: EthSpecId,
     allow_unlimited_contract_code_size: bool,
     to: &Option<Address>,
     data: &Bytes,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
-    if spec_id < SpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
+    if spec_id < EthSpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
         return Ok(());
     }
 
@@ -240,12 +241,12 @@ impl<'a> From<ValidationBlockSpec<'a>> for BlockSpec {
 }
 
 pub fn validate_post_merge_block_tags<'a, LoggerErrorT: Debug>(
-    hardfork: SpecId,
+    hardfork: EthSpecId,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();
 
-    if hardfork < SpecId::MERGE {
+    if hardfork < EthSpecId::MERGE {
         match block_spec {
             ValidationBlockSpec::PreEip1898(PreEip1898BlockSpec::Tag(
                 tag @ (BlockTag::Safe | BlockTag::Finalized),

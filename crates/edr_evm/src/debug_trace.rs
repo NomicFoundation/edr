@@ -3,14 +3,14 @@ use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use edr_eth::{signature::SignatureError, utils::u256_to_padded_hex, B256};
 use revm::{
     db::DatabaseComponents,
-    handler::register::EvmHandler,
+    handler::{register::EvmHandler, CfgEnvWithChainSpec},
     interpreter::{
         opcode::{self, BoxedInstruction, InstructionTables, OpCode},
         InstructionResult, Interpreter, InterpreterResult,
     },
     primitives::{
-        hex, Address, BlockEnv, Bytes, CfgEnvWithHandlerCfg, ExecutionResult, ResultAndState,
-        SpecId, U256,
+        hex, Address, BlockEnv, Bytes, EthSpecId, ExecutionResult, MainnetChainSpec,
+        ResultAndState, U256,
     },
     Database, Evm, EvmContext, JournalEntry,
 };
@@ -26,7 +26,7 @@ pub fn debug_trace_transaction<BlockchainErrorT, StateErrorT>(
     blockchain: &dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn SyncState<StateErrorT>>,
-    evm_config: CfgEnvWithHandlerCfg,
+    evm_config: CfgEnvWithChainSpec<MainnetChainSpec>,
     trace_config: DebugTraceConfig,
     block_env: BlockEnv,
     transactions: Vec<ExecutableTransaction>,
@@ -36,14 +36,14 @@ where
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {
-    if evm_config.handler_cfg.spec_id < SpecId::SPURIOUS_DRAGON {
+    if evm_config.spec_id < EthSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
-        return Err(DebugTraceError::InvalidSpecId {
-            spec_id: evm_config.handler_cfg.spec_id,
+        return Err(DebugTraceError::InvalidEthSpecId {
+            spec_id: evm_config.spec_id,
         });
     }
 
-    if evm_config.handler_cfg.spec_id > SpecId::MERGE && block_env.prevrandao.is_none() {
+    if evm_config.spec_id > EthSpecId::MERGE && block_env.prevrandao.is_none() {
         return Err(TransactionError::MissingPrevrandao.into());
     }
 
@@ -95,7 +95,7 @@ where
 
 /// Convert an `ExecutionResult` to a `DebugTraceResult`.
 pub fn execution_result_to_debug_result(
-    execution_result: ExecutionResult,
+    execution_result: ExecutionResult<MainnetChainSpec>,
     tracer: TracerEip3155,
 ) -> DebugTraceResult {
     match execution_result {
@@ -138,9 +138,9 @@ pub struct DebugTraceConfig {
 pub enum DebugTraceError<BlockchainErrorT, StateErrorT> {
     /// Invalid hardfork spec argument.
     #[error("Invalid spec id: {spec_id:?}. `debug_traceTransaction` is not supported prior to Spurious Dragon")]
-    InvalidSpecId {
+    InvalidEthSpecId {
         /// The hardfork.
-        spec_id: SpecId,
+        spec_id: EthSpecId,
     },
     /// Invalid transaction hash argument.
     #[error("Transaction hash {transaction_hash} not found in block {block_number}")]
@@ -214,7 +214,7 @@ pub fn register_eip_3155_tracer_handles<
     DatabaseT: Database,
     ContextT: GetContextData<TracerEip3155>,
 >(
-    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
+    handler: &mut EvmHandler<'_, MainnetChainSpec, ContextT, DatabaseT>,
 ) {
     // Every instruction inside flat table that is going to be wrapped by tracer
     // calls.
@@ -263,12 +263,13 @@ fn instruction_handler<
     'a,
     ContextT: GetContextData<TracerEip3155>,
     DatabaseT: Database,
-    Instruction: Fn(&mut Interpreter, &mut Evm<'a, ContextT, DatabaseT>) + 'a,
+    Instruction: Fn(&mut Interpreter, &mut Evm<'a, MainnetChainSpec, ContextT, DatabaseT>) + 'a,
 >(
     instruction: Instruction,
-) -> BoxedInstruction<'a, Evm<'a, ContextT, DatabaseT>> {
+) -> BoxedInstruction<'a, Evm<'a, MainnetChainSpec, ContextT, DatabaseT>> {
     Box::new(
-        move |interpreter: &mut Interpreter, host: &mut Evm<'a, ContextT, DatabaseT>| {
+        move |interpreter: &mut Interpreter,
+              host: &mut Evm<'a, MainnetChainSpec, ContextT, DatabaseT>| {
             // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
             // the old Inspector behavior.
             interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };

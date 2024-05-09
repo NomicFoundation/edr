@@ -25,7 +25,7 @@ use edr_eth::{
     reward_percentile::RewardPercentile,
     signature::{RecoveryMessage, Signature},
     transaction::TransactionRequestAndSender,
-    Address, Bytes, SpecId, B256, U256,
+    Address, Bytes, EthSpecId, B256, U256,
 };
 use edr_evm::{
     blockchain::{
@@ -33,17 +33,18 @@ use edr_evm::{
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
     db::StateRef,
-    debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
-    register_eip_3155_tracer_handles,
+    debug_trace_transaction,
+    evm::CfgEnvWithChainSpec,
+    execution_result_to_debug_result, mempool, mine_block, register_eip_3155_tracer_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
     },
     trace::Trace,
-    Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockEnv, Bytecode, CfgEnv,
-    CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig, DebugTraceResult, ExecutableTransaction,
-    ExecutionResult, HashMap, HashSet, MemPool, OrderedTransaction, RandomHashGenerator,
-    StorageSlot, SyncBlock, TracerEip3155, TxEnv, KECCAK_EMPTY,
+    Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockEnv, Bytecode, CfgEnv, DebugContext,
+    DebugTraceConfig, DebugTraceResult, ExecutableTransaction, ExecutionResult, HashMap, HashSet,
+    MainnetChainSpec, MemPool, OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock,
+    TracerEip3155, TxEnv, KECCAK_EMPTY,
 };
 use ethers_core::types::transaction::eip712::{Eip712, TypedData};
 use gas::gas_used_ratio;
@@ -81,7 +82,7 @@ const DEFAULT_MAX_CACHED_STATES: usize = 100_000;
 #[derive(Clone, Debug)]
 pub struct CallResult {
     pub console_log_inputs: Vec<Bytes>,
-    pub execution_result: ExecutionResult,
+    pub execution_result: ExecutionResult<MainnetChainSpec>,
     pub trace: Trace,
 }
 
@@ -98,7 +99,9 @@ pub struct SendTransactionResult {
 
 impl SendTransactionResult {
     /// Present if the transaction was auto-mined.
-    pub fn transaction_result_and_trace(&self) -> Option<(&ExecutionResult, &Trace)> {
+    pub fn transaction_result_and_trace(
+        &self,
+    ) -> Option<(&ExecutionResult<MainnetChainSpec>, &Trace)> {
         self.mining_results.iter().find_map(|result| {
             izip!(
                 result.block.transactions().iter(),
@@ -249,7 +252,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let dao_activation_block = config
             .chains
             .get(&config.chain_id)
-            .and_then(|config| config.hardfork_activation(SpecId::DAO_FORK));
+            .and_then(|config| config.hardfork_activation(EthSpecId::DAO_FORK));
 
         let parent_beacon_block_root_generator = if let Some(initial_parent_beacon_block_root) =
             &config.initial_parent_beacon_block_root
@@ -477,7 +480,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             // Matching Hardhat behaviour by returning the last block for finalized and safe.
             // https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1395
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
-                if self.spec_id() >= SpecId::MERGE {
+                if self.spec_id() >= EthSpecId::MERGE {
                     Some(self.blockchain.last_block()?)
                 } else {
                     return Err(ProviderError::InvalidBlockTag {
@@ -519,7 +522,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             BlockSpec::Number(number) => Some(*number),
             BlockSpec::Tag(BlockTag::Earliest) => Some(0),
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
-                if self.spec_id() >= SpecId::MERGE {
+                if self.spec_id() >= EthSpecId::MERGE {
                     Some(self.blockchain.last_block_number())
                 } else {
                     return Err(ProviderError::InvalidBlockTag {
@@ -596,7 +599,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                     gas_limit: U256::from(header.gas_limit),
                     basefee: header.base_fee_per_gas.unwrap_or_default(),
                     difficulty: U256::from(header.difficulty),
-                    prevrandao: if cfg_env.handler_cfg.spec_id >= SpecId::MERGE {
+                    prevrandao: if cfg_env.spec_id >= EthSpecId::MERGE {
                         Some(header.mix_hash)
                     } else {
                         None
@@ -773,10 +776,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         newest_block_spec: &BlockSpec,
         percentiles: Option<Vec<RewardPercentile>>,
     ) -> Result<FeeHistoryResult, ProviderError<LoggerErrorT>> {
-        if self.spec_id() < SpecId::LONDON {
+        if self.spec_id() < EthSpecId::LONDON {
             return Err(ProviderError::UnmetHardfork {
                 actual: self.spec_id(),
-                minimum: SpecId::LONDON,
+                minimum: EthSpecId::LONDON,
             });
         }
 
@@ -1079,7 +1082,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
         options.timestamp = Some(block_timestamp);
 
-        if options.mix_hash.is_none() && self.blockchain.spec_id() >= SpecId::MERGE {
+        if options.mix_hash.is_none() && self.blockchain.spec_id() >= EthSpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
         }
 
@@ -1258,7 +1261,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     /// Calculates the next block's base fee per gas.
     pub fn next_block_base_fee_per_gas(&self) -> Result<Option<U256>, BlockchainError> {
-        if self.spec_id() < SpecId::LONDON {
+        if self.spec_id() < EthSpecId::LONDON {
             return Ok(None);
         }
 
@@ -1439,7 +1442,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         min_gas_price: U256,
     ) -> Result<(), ProviderError<LoggerErrorT>> {
-        if self.spec_id() >= SpecId::LONDON {
+        if self.spec_id() >= EthSpecId::LONDON {
             return Err(ProviderError::SetMinGasPriceUnsupported);
         }
 
@@ -1606,7 +1609,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         base_fee_per_gas: U256,
     ) -> Result<(), ProviderError<LoggerErrorT>> {
         let spec_id = self.spec_id();
-        if spec_id < SpecId::LONDON {
+        if spec_id < EthSpecId::LONDON {
             return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { spec_id });
         }
 
@@ -1646,7 +1649,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         prev_randao: B256,
     ) -> Result<(), ProviderError<LoggerErrorT>> {
         let spec_id = self.spec_id();
-        if spec_id < SpecId::MERGE {
+        if spec_id < EthSpecId::MERGE {
             return Err(ProviderError::SetNextPrevRandaoUnsupported { spec_id });
         }
 
@@ -1760,7 +1763,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         }
     }
 
-    pub fn spec_id(&self) -> SpecId {
+    pub fn spec_id(&self) -> EthSpecId {
         self.blockchain.spec_id()
     }
 
@@ -1851,7 +1854,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn create_evm_config(
         &self,
         block_spec: Option<&BlockSpec>,
-    ) -> Result<CfgEnvWithHandlerCfg, ProviderError<LoggerErrorT>> {
+    ) -> Result<CfgEnvWithChainSpec<MainnetChainSpec>, ProviderError<LoggerErrorT>> {
         let block_number = block_spec
             .map(|block_spec| self.block_number_by_block_spec(block_spec))
             .transpose()?
@@ -1872,7 +1875,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         };
         cfg_env.disable_eip3607 = true;
 
-        Ok(CfgEnvWithHandlerCfg::new_with_spec_id(cfg_env, spec_id))
+        Ok(CfgEnvWithChainSpec::new(cfg_env, spec_id))
     }
 
     fn execute_in_block_context<T>(
@@ -1924,7 +1927,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         let evm_config = self.create_evm_config(None)?;
 
-        if evm_config.handler_cfg.spec_id >= SpecId::CANCUN {
+        if evm_config.spec_id >= EthSpecId::CANCUN {
             options.parent_beacon_block_root = options
                 .parent_beacon_block_root
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
@@ -1942,7 +1945,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             options,
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
-            miner_reward(evm_config.handler_cfg.spec_id).unwrap_or(U256::ZERO),
+            miner_reward(evm_config.spec_id).unwrap_or(U256::ZERO),
             self.dao_activation_block,
             Some(DebugContext {
                 data: &mut debugger,
@@ -2326,7 +2329,7 @@ fn create_blockchain_and_state(
                 .expect("Elapsed time since fork block must be representable as i64")
         };
 
-        let next_block_base_fee_per_gas = if config.hardfork >= SpecId::LONDON {
+        let next_block_base_fee_per_gas = if config.hardfork >= EthSpecId::LONDON {
             if let Some(base_fee) = config.initial_base_fee_per_gas {
                 Some(base_fee)
             } else {
@@ -2365,7 +2368,7 @@ fn create_blockchain_and_state(
             next_block_base_fee_per_gas,
         })
     } else {
-        let mix_hash = if config.hardfork >= SpecId::MERGE {
+        let mix_hash = if config.hardfork >= EthSpecId::MERGE {
             Some(prev_randao_generator.generate_next())
         } else {
             None
@@ -3203,7 +3206,7 @@ mod tests {
     fn mine_and_commit_block_rewards_miner() -> anyhow::Result<()> {
         let default_config = create_test_config();
         let config = ProviderConfig {
-            hardfork: SpecId::BERLIN,
+            hardfork: EthSpecId::BERLIN,
             ..default_config
         };
 
@@ -3572,7 +3575,7 @@ mod tests {
     fn run_call_in_hardfork_context() -> anyhow::Result<()> {
         sol! { function Hello() public pure returns (string); }
 
-        fn assert_decoded_output(result: ExecutionResult) -> anyhow::Result<()> {
+        fn assert_decoded_output(result: ExecutionResult<MainnetChainSpec>) -> anyhow::Result<()> {
             let output = result.into_output().expect("Call must have output");
             let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
 
@@ -3619,7 +3622,7 @@ mod tests {
             block_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
             chain_id: 1,
             coinbase: Address::ZERO,
-            hardfork: SpecId::LONDON,
+            hardfork: EthSpecId::LONDON,
             network_id: 1,
             ..default_config
         };

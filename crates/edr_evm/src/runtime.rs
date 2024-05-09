@@ -2,10 +2,8 @@ use std::fmt::Debug;
 
 use revm::{
     db::{DatabaseComponents, StateRef},
-    primitives::{
-        BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, ExecutionResult, ResultAndState, SpecId,
-        TxEnv,
-    },
+    handler::{CfgEnvWithChainSpec, EnvWithChainSpec},
+    primitives::{BlockEnv, EthSpecId, ExecutionResult, MainnetChainSpec, ResultAndState, TxEnv},
     DatabaseCommit, Evm,
 };
 
@@ -28,7 +26,7 @@ pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErro
     blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
-    cfg: CfgEnvWithHandlerCfg,
+    cfg: CfgEnvWithChainSpec<MainnetChainSpec>,
     transaction: TxEnv,
     block: BlockEnv,
     debug_context: Option<
@@ -39,7 +37,7 @@ pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErro
             StateRefOverrider<'overrides, &'evm dyn SyncState<StateErrorT>>,
         >,
     >,
-) -> Result<ResultAndState, TransactionError<BlockchainErrorT, StateErrorT>>
+) -> Result<ResultAndState<MainnetChainSpec>, TransactionError<BlockchainErrorT, StateErrorT>>
 where
     'blockchain: 'evm,
     'state: 'evm,
@@ -50,7 +48,7 @@ where
 
     let state_overrider = StateRefOverrider::new(state_overrides, state);
 
-    let env = EnvWithHandlerCfg::new_with_cfg_env(cfg, block, transaction);
+    let env = EnvWithChainSpec::new_with_cfg_env(cfg, block, transaction);
     let result = {
         let evm_builder = Evm::builder().with_ref_db(DatabaseComponents {
             state: state_overrider,
@@ -89,7 +87,7 @@ pub fn guaranteed_dry_run<
     blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
-    mut cfg: CfgEnvWithHandlerCfg,
+    mut cfg: CfgEnvWithChainSpec<MainnetChainSpec>,
     mut transaction: TxEnv,
     block: BlockEnv,
     debug_context: Option<
@@ -100,7 +98,7 @@ pub fn guaranteed_dry_run<
             StateRefOverrider<'overrides, &'evm dyn SyncState<StateErrorT>>,
         >,
     >,
-) -> Result<ResultAndState, TransactionError<BlockchainErrorT, StateErrorT>>
+) -> Result<ResultAndState<MainnetChainSpec>, TransactionError<BlockchainErrorT, StateErrorT>>
 where
     'blockchain: 'evm,
     'state: 'evm,
@@ -126,11 +124,11 @@ where
 pub fn run<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT>(
     blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateT::Error>,
     state: StateT,
-    cfg: CfgEnvWithHandlerCfg,
+    cfg: CfgEnvWithChainSpec<MainnetChainSpec>,
     transaction: TxEnv,
     block: BlockEnv,
     debug_context: Option<DebugContext<'evm, BlockchainErrorT, DebugDataT, StateT>>,
-) -> Result<ExecutionResult, TransactionError<BlockchainErrorT, StateT::Error>>
+) -> Result<ExecutionResult<MainnetChainSpec>, TransactionError<BlockchainErrorT, StateT::Error>>
 where
     'blockchain: 'evm,
     BlockchainErrorT: Debug + Send,
@@ -139,7 +137,7 @@ where
 {
     validate_configuration(&cfg, &block, &transaction)?;
 
-    let env = EnvWithHandlerCfg::new_with_cfg_env(cfg, block, transaction);
+    let env = EnvWithChainSpec::new_with_cfg_env(cfg, block, transaction);
     let evm_builder = Evm::builder().with_ref_db(DatabaseComponents {
         state,
         block_hash: blockchain,
@@ -163,15 +161,15 @@ where
 }
 
 fn validate_configuration<BlockchainErrorT, StateErrorT>(
-    cfg: &CfgEnvWithHandlerCfg,
+    cfg: &CfgEnvWithChainSpec<MainnetChainSpec>,
     block: &BlockEnv,
     transaction: &TxEnv,
 ) -> Result<(), TransactionError<BlockchainErrorT, StateErrorT>> {
-    if cfg.handler_cfg.spec_id > SpecId::MERGE && block.prevrandao.is_none() {
+    if cfg.spec_id > EthSpecId::MERGE && block.prevrandao.is_none() {
         return Err(TransactionError::MissingPrevrandao);
     }
 
-    if transaction.gas_priority_fee.is_some() && cfg.handler_cfg.spec_id < SpecId::LONDON {
+    if transaction.gas_priority_fee.is_some() && cfg.spec_id < EthSpecId::LONDON {
         return Err(TransactionError::Eip1559Unsupported);
     }
 

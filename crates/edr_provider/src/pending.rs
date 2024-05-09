@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_eth::{receipt::BlockReceipt, SpecId, B256, U256};
+use edr_eth::{receipt::BlockReceipt, EthSpecId, B256, U256};
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     db::BlockHashRef,
@@ -134,7 +134,7 @@ impl<'blockchain> Blockchain for BlockchainWithPending<'blockchain> {
         }
     }
 
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError> {
+    fn spec_at_block_number(&self, block_number: u64) -> Result<EthSpecId, Self::BlockchainError> {
         if block_number == self.pending_block.header().number {
             Ok(self.blockchain.spec_id())
         } else {
@@ -142,7 +142,7 @@ impl<'blockchain> Blockchain for BlockchainWithPending<'blockchain> {
         }
     }
 
-    fn spec_id(&self) -> SpecId {
+    fn spec_id(&self) -> EthSpecId {
         self.blockchain.spec_id()
     }
 

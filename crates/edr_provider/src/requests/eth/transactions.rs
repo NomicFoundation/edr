@@ -10,7 +10,7 @@ use edr_eth::{
         EthTransactionRequest, SignedTransaction, TransactionRequest, TransactionRequestAndSender,
         TxKind,
     },
-    Bytes, SpecId, B256, U256,
+    Bytes, EthSpecId, B256, U256,
 };
 use edr_evm::{blockchain::BlockchainError, trace::Trace, ExecutableTransaction, SyncBlock};
 
@@ -25,7 +25,7 @@ use crate::{
     ProviderError, TransactionFailure,
 };
 
-const FIRST_HARDFORK_WITH_TRANSACTION_TYPE: SpecId = SpecId::BERLIN;
+const FIRST_HARDFORK_WITH_TRANSACTION_TYPE: EthSpecId = EthSpecId::BERLIN;
 
 pub fn handle_get_transaction_by_block_hash_and_index<
     LoggerErrorT: Debug,
@@ -114,7 +114,7 @@ pub fn handle_get_transaction_receipt<LoggerErrorT: Debug, TimerT: Clone + TimeS
     // The JSON-RPC layer should not return the gas price as effective gas price for
     // receipts in pre-London hardforks.
     if let Some(receipt) = receipt.as_ref() {
-        if data.spec_id() < SpecId::LONDON && receipt.effective_gas_price.is_some() {
+        if data.spec_id() < EthSpecId::LONDON && receipt.effective_gas_price.is_some() {
             return Ok(Some(Arc::new(BlockReceipt {
                 inner: TransactionReceipt {
                     effective_gas_price: None,
@@ -149,7 +149,7 @@ fn transaction_from_block(
 
 pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     transaction_and_block: TransactionAndBlock,
-    spec_id: SpecId,
+    spec_id: EthSpecId,
 ) -> Result<remote::eth::Transaction, ProviderError<LoggerErrorT>> {
     fn gas_price_for_post_eip1559(
         signed_transaction: &SignedTransaction,
@@ -300,7 +300,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
 
     /// # Panics
     ///
-    /// Panics if `data.spec_id()` is less than `SpecId::LONDON`.
+    /// Panics if `data.spec_id()` is less than `EthSpecId::LONDON`.
     fn calculate_max_fee_per_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
         data: &ProviderData<LoggerErrorT, TimerT>,
         max_priority_fee_per_gas: U256,
@@ -342,7 +342,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
         access_list,
     ) {
         (gas_price, max_fee_per_gas, max_priority_fee_per_gas, access_list)
-            if data.spec_id() >= SpecId::LONDON
+            if data.spec_id() >= EthSpecId::LONDON
                 && (gas_price.is_none()
                     || max_fee_per_gas.is_some()
                     || max_priority_fee_per_gas.is_some()) =>

@@ -1,7 +1,10 @@
 use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use edr_eth::{block::BlockOptions, U256};
-use revm::primitives::{CfgEnvWithHandlerCfg, ExecutionResult, InvalidTransaction};
+use revm::{
+    handler::CfgEnvWithChainSpec,
+    primitives::{ExecutionResult, InvalidTransaction, MainnetChainSpec},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -21,7 +24,7 @@ pub struct MineBlockResult<BlockchainErrorT> {
     /// Mined block
     pub block: Arc<dyn SyncBlock<Error = BlockchainErrorT>>,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult>,
+    pub transaction_results: Vec<ExecutionResult<MainnetChainSpec>>,
     /// Transaction traces
     pub transaction_traces: Vec<Trace>,
 }
@@ -46,7 +49,7 @@ pub struct MineBlockResultAndState<StateErrorT> {
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult>,
+    pub transaction_results: Vec<ExecutionResult<MainnetChainSpec>>,
 }
 
 /// The type of ordering to use when selecting blocks to mine.
@@ -86,7 +89,7 @@ pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
     mut state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool,
-    cfg: &CfgEnvWithHandlerCfg,
+    cfg: &CfgEnvWithChainSpec<MainnetChainSpec>,
     options: BlockOptions,
     min_gas_price: U256,
     mine_ordering: MineOrdering,

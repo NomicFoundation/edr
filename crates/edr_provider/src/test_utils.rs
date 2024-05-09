@@ -8,14 +8,15 @@ use edr_eth::{
     spec::chain_hardfork_activations,
     trie::KECCAK_NULL_RLP,
     withdrawal::Withdrawal,
-    Address, HashMap, SpecId, U256,
+    Address, EthSpecId, HashMap, U256,
 };
 use edr_evm::{
     alloy_primitives::U160,
     blockchain::{Blockchain, ForkedBlockchain},
+    evm::CfgEnvWithChainSpec,
     state::IrregularState,
-    Block, BlockBuilder, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResultWithContext,
-    RandomHashGenerator, RemoteBlock,
+    Block, BlockBuilder, CfgEnv, DebugContext, ExecutionResultWithContext, RandomHashGenerator,
+    RemoteBlock,
 };
 
 use super::*;
@@ -64,7 +65,7 @@ pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig 
         coinbase: Address::from(U160::from(1)),
         fork,
         genesis_accounts: HashMap::new(),
-        hardfork: SpecId::LATEST,
+        hardfork: EthSpecId::LATEST,
         initial_base_fee_per_gas: Some(U256::from(1000000000)),
         initial_blob_gas: Some(BlobGas {
             gas_used: 0,
@@ -143,7 +144,7 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 
-    let cfg = CfgEnvWithHandlerCfg::new_with_spec_id(cfg, spec_id);
+    let cfg = CfgEnvWithChainSpec::new(cfg, spec_id);
 
     let parent = blockchain.last_block()?;
     let replay_header = replay_block.header();

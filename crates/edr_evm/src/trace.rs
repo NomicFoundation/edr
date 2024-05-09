@@ -8,7 +8,7 @@ use revm::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         InstructionResult, Interpreter, SuccessOrHalt,
     },
-    primitives::{Bytecode, EVMError, ExecutionResult, Output},
+    primitives::{Bytecode, EVMError, ExecutionResult, MainnetChainSpec, Output},
     Database, Evm, EvmContext, FrameOrResult, FrameResult,
 };
 
@@ -19,7 +19,7 @@ pub fn register_trace_collector_handles<
     DatabaseT: Database,
     ContextT: GetContextData<TraceCollector>,
 >(
-    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
+    handler: &mut EvmHandler<'_, MainnetChainSpec, ContextT, DatabaseT>,
 ) where
     DatabaseT::Error: Debug,
 {
@@ -132,12 +132,13 @@ fn instruction_handler<
     'a,
     ContextT: GetContextData<TraceCollector>,
     DatabaseT: Database,
-    Instruction: Fn(&mut Interpreter, &mut Evm<'a, ContextT, DatabaseT>) + 'a,
+    Instruction: Fn(&mut Interpreter, &mut Evm<'a, MainnetChainSpec, ContextT, DatabaseT>) + 'a,
 >(
     instruction: Instruction,
-) -> BoxedInstruction<'a, Evm<'a, ContextT, DatabaseT>> {
+) -> BoxedInstruction<'a, Evm<'a, MainnetChainSpec, ContextT, DatabaseT>> {
     Box::new(
-        move |interpreter: &mut Interpreter, host: &mut Evm<'a, ContextT, DatabaseT>| {
+        move |interpreter: &mut Interpreter,
+              host: &mut Evm<'a, MainnetChainSpec, ContextT, DatabaseT>| {
             // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
             // the old Inspector behavior.
             interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
@@ -164,7 +165,7 @@ pub enum TraceMessage {
     /// Event that occurs every step of a call or create message.
     Step(Step),
     /// Event that occurs after a call or create message.
-    After(ExecutionResult),
+    After(ExecutionResult<MainnetChainSpec>),
 }
 
 /// Temporary before message type for handling traces
@@ -227,7 +228,7 @@ impl Trace {
     }
 
     /// Adds a result message
-    pub fn add_after(&mut self, result: ExecutionResult) {
+    pub fn add_after(&mut self, result: ExecutionResult<MainnetChainSpec>) {
         self.messages.push(TraceMessage::After(result));
     }
 
@@ -349,7 +350,8 @@ impl TraceCollector {
             ret
         };
 
-        let result = match safe_ret.into() {
+        let success_or_halt = SuccessOrHalt::<MainnetChainSpec>::from(safe_ret);
+        let result = match success_or_halt {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -410,7 +412,8 @@ impl TraceCollector {
                 ret
             };
 
-        let result = match safe_ret.into() {
+        let success_or_halt = SuccessOrHalt::<MainnetChainSpec>::from(safe_ret);
+        let result = match success_or_halt {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),

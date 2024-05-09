@@ -13,7 +13,7 @@ use parking_lot::Mutex;
 use revm::{
     db::BlockHashRef,
     primitives::{
-        alloy_primitives::ChainId, Account, AccountStatus, Bytecode, HashMap, HashSet, SpecId,
+        alloy_primitives::ChainId, Account, AccountStatus, Bytecode, EthSpecId, HashMap, HashSet,
     },
 };
 use tokio::runtime;
@@ -51,7 +51,7 @@ pub enum CreationError {
         /// Chain name
         chain_name: String,
         /// Detected hardfork
-        hardfork: SpecId,
+        hardfork: EthSpecId,
     },
 }
 
@@ -92,7 +92,7 @@ pub struct ForkedBlockchain {
     /// The chain id of the remote blockchain. It might deviate from chain_id.
     remote_chain_id: u64,
     network_id: u64,
-    spec_id: SpecId,
+    spec_id: EthSpecId,
     hardfork_activations: Option<HardforkActivations>,
 }
 
@@ -103,7 +103,7 @@ impl ForkedBlockchain {
     pub async fn new(
         runtime: runtime::Handle,
         chain_id_override: Option<u64>,
-        spec_id: SpecId,
+        spec_id: EthSpecId,
         rpc_client: Arc<RpcClient>,
         fork_block_number: Option<u64>,
         irregular_state: &mut IrregularState,
@@ -161,7 +161,7 @@ impl ForkedBlockchain {
                 hardfork_activations.hardfork_at_block_number(fork_block_number)
             })
         {
-            if hardfork < SpecId::SPURIOUS_DRAGON {
+            if hardfork < EthSpecId::SPURIOUS_DRAGON {
                 return Err(CreationError::InvalidHardfork {
                     chain_name: chain_name(remote_chain_id)
                         .map_or_else(|| "unknown".to_string(), ToString::to_string),
@@ -170,7 +170,7 @@ impl ForkedBlockchain {
                 });
             }
 
-            if hardfork < SpecId::CANCUN && spec_id >= SpecId::CANCUN {
+            if hardfork < EthSpecId::CANCUN && spec_id >= EthSpecId::CANCUN {
                 let beacon_roots_address =
                     Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
                 let beacon_roots_contract = Bytecode::new_raw(
@@ -405,7 +405,7 @@ impl Blockchain for ForkedBlockchain {
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError> {
+    fn spec_at_block_number(&self, block_number: u64) -> Result<EthSpecId, Self::BlockchainError> {
         if block_number > self.last_block_number() {
             return Err(BlockchainError::UnknownBlockNumber);
         }
@@ -436,7 +436,7 @@ impl Blockchain for ForkedBlockchain {
         }
     }
 
-    fn spec_id(&self) -> SpecId {
+    fn spec_id(&self) -> EthSpecId {
         self.spec_id
     }
 

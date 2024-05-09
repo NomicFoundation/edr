@@ -1,6 +1,6 @@
 use std::{num::NonZeroU64, sync::Arc};
 
-use edr_eth::{block::PartialHeader, receipt::BlockReceipt, Address, SpecId, B256, U256};
+use edr_eth::{block::PartialHeader, receipt::BlockReceipt, Address, EthSpecId, B256, U256};
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use revm::primitives::{HashMap, HashSet};
 
@@ -18,7 +18,7 @@ struct Reservation {
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
-    spec_id: SpecId,
+    spec_id: EthSpecId,
 }
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory,
@@ -139,7 +139,7 @@ impl<BlockT: Block + Clone> ReservableSparseBlockchainStorage<BlockT> {
         previous_base_fee: Option<U256>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        spec_id: SpecId,
+        spec_id: EthSpecId,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,

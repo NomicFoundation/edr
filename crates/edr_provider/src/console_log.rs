@@ -5,7 +5,7 @@ use edr_evm::{
     address,
     db::Database,
     evm::{EvmHandler, FrameOrResult},
-    EVMError, GetContextData,
+    EVMError, GetContextData, MainnetChainSpec,
 };
 
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
@@ -15,7 +15,7 @@ pub fn register_console_log_handles<
     DatabaseT: Database,
     ContextT: GetContextData<ConsoleLogCollector>,
 >(
-    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
+    handler: &mut EvmHandler<'_, MainnetChainSpec, ContextT, DatabaseT>,
 ) {
     let old_handle = handler.execution.call.clone();
     handler.execution.call = Arc::new(

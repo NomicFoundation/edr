@@ -3,7 +3,7 @@
 use std::str::FromStr;
 
 use edr_eth::{
-    remote::eth::CallRequest, transaction::EthTransactionRequest, AccountInfo, Address, SpecId,
+    remote::eth::CallRequest, transaction::EthTransactionRequest, AccountInfo, Address, EthSpecId,
     U256,
 };
 use edr_evm::KECCAK_EMPTY;
@@ -20,7 +20,7 @@ async fn issue_326() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::CANCUN;
+    config.hardfork = EthSpecId::CANCUN;
     config.mining = MiningConfig {
         auto_mine: false,
         ..MiningConfig::default()

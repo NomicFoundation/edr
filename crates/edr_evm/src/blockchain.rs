@@ -12,7 +12,7 @@ use edr_eth::{
 };
 use revm::{
     db::BlockHashRef,
-    primitives::{HashSet, SpecId},
+    primitives::{EthSpecId, HashSet},
     DatabaseCommit,
 };
 
@@ -141,10 +141,10 @@ pub trait Blockchain {
 
     /// Retrieves the hardfork specification of the block at the provided
     /// number.
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError>;
+    fn spec_at_block_number(&self, block_number: u64) -> Result<EthSpecId, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification used for new blocks.
-    fn spec_id(&self) -> SpecId;
+    fn spec_id(&self) -> EthSpecId;
 
     /// Retrieves the state at a given block.
     ///
@@ -246,7 +246,7 @@ fn compute_state_at_block<BlockT: Block + Clone>(
 
 /// Validates whether a block is a valid next block.
 fn validate_next_block(
-    spec_id: SpecId,
+    spec_id: EthSpecId,
     last_block: &dyn Block<Error = BlockchainError>,
     next_block: &dyn Block<Error = BlockchainError>,
 ) -> Result<(), BlockchainError> {
@@ -268,7 +268,7 @@ fn validate_next_block(
         });
     }
 
-    if spec_id >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if spec_id >= EthSpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 

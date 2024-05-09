@@ -21,7 +21,7 @@ pub trait Logger {
 
     fn log_call(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        spec_id: edr_eth::EthSpecId,
         transaction: &ExecutableTransaction,
         result: &CallResult,
     ) -> Result<(), Self::LoggerError> {
@@ -34,7 +34,7 @@ pub trait Logger {
 
     fn log_estimate_gas_failure(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        spec_id: edr_eth::EthSpecId,
         transaction: &ExecutableTransaction,
         result: &EstimateGasFailure,
     ) -> Result<(), Self::LoggerError> {
@@ -47,7 +47,7 @@ pub trait Logger {
 
     fn log_interval_mined(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        spec_id: edr_eth::EthSpecId,
         result: &DebugMineBlockResult<Self::BlockchainError>,
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
@@ -58,7 +58,7 @@ pub trait Logger {
 
     fn log_mined_block(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        spec_id: edr_eth::EthSpecId,
         results: &[DebugMineBlockResult<Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
@@ -69,7 +69,7 @@ pub trait Logger {
 
     fn log_send_transaction(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        spec_id: edr_eth::EthSpecId,
         transaction: &ExecutableTransaction,
         mining_results: &[DebugMineBlockResult<Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {

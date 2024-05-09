@@ -13,7 +13,7 @@ use itertools::izip;
 use revm::primitives::keccak256;
 
 use crate::{
-    blockchain::BlockchainError, Block, DetailedTransaction, ExecutableTransaction, SpecId,
+    blockchain::BlockchainError, Block, DetailedTransaction, EthSpecId, ExecutableTransaction,
     SyncBlock,
 };
 
@@ -35,8 +35,8 @@ pub struct LocalBlock {
 
 impl LocalBlock {
     /// Constructs an empty block, i.e. no transactions.
-    pub fn empty(spec_id: SpecId, partial_header: PartialHeader) -> Self {
-        let withdrawals = if spec_id >= SpecId::SHANGHAI {
+    pub fn empty(spec_id: EthSpecId, partial_header: PartialHeader) -> Self {
+        let withdrawals = if spec_id >= EthSpecId::SHANGHAI {
             Some(Vec::default())
         } else {
             None

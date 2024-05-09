@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use edr_eth::{
     remote::{eth, BlockSpec, PreEip1898BlockSpec},
-    SpecId, B256, U256, U64,
+    EthSpecId, B256, U256, U64,
 };
 use edr_evm::{blockchain::BlockchainError, SyncBlock};
 
@@ -137,7 +137,7 @@ fn block_by_number<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
 }
 
 fn block_to_rpc_output<LoggerErrorT: Debug>(
-    spec_id: SpecId,
+    spec_id: EthSpecId,
     block: Arc<dyn SyncBlock<Error = BlockchainError>>,
     pending: bool,
     total_difficulty: Option<U256>,

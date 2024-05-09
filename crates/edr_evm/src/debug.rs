@@ -1,11 +1,15 @@
 use auto_impl::auto_impl;
-use revm::db::{DatabaseComponents, StateRef, WrapDatabaseRef};
+use revm::{
+    db::{DatabaseComponents, StateRef, WrapDatabaseRef},
+    primitives::MainnetChainSpec,
+};
 
 use crate::blockchain::SyncBlockchain;
 
 /// Type for registering handles, specialised for EDR database component types.
 pub type HandleRegister<'evm, BlockchainErrorT, DebugDataT, StateT> =
     revm::handler::register::HandleRegister<
+        MainnetChainSpec,
         DebugDataT,
         WrapDatabaseRef<
             DatabaseComponents<

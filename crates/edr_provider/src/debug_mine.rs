@@ -5,7 +5,7 @@ use edr_eth::{Bytes, B256};
 use edr_evm::{
     state::{StateDiff, SyncState},
     trace::Trace,
-    ExecutionResult, LocalBlock, MineBlockResultAndState, SyncBlock,
+    ExecutionResult, LocalBlock, MainnetChainSpec, MineBlockResultAndState, SyncBlock,
 };
 
 /// The result of mining a block, including the state, in debug mode. This
@@ -18,7 +18,7 @@ pub struct DebugMineBlockResultAndState<StateErrorT> {
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult>,
+    pub transaction_results: Vec<ExecutionResult<MainnetChainSpec>>,
     /// Transaction traces
     pub transaction_traces: Vec<Trace>,
     /// Encoded `console.log` call inputs
@@ -51,7 +51,7 @@ pub struct DebugMineBlockResult<BlockchainErrorT> {
     /// Mined block
     pub block: Arc<dyn SyncBlock<Error = BlockchainErrorT>>,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult>,
+    pub transaction_results: Vec<ExecutionResult<MainnetChainSpec>>,
     /// Transaction traces
     pub transaction_traces: Vec<Trace>,
     /// Encoded `console.log` call inputs

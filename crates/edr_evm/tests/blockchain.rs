@@ -12,7 +12,7 @@ use edr_evm::{
     blockchain::{BlockchainError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    HashSet, LocalBlock, Log, SpecId, SyncBlock,
+    EthSpecId, HashSet, LocalBlock, Log, SyncBlock,
 };
 use serial_test::serial;
 
@@ -50,7 +50,7 @@ async fn create_forked_dummy_blockchain(
         ForkedBlockchain::new(
             tokio::runtime::Handle::current().clone(),
             None,
-            SpecId::LATEST,
+            EthSpecId::LATEST,
             Arc::new(rpc_client),
             fork_block_number,
             &mut irregular_state,
@@ -73,7 +73,7 @@ async fn create_dummy_blockchains() -> Vec<Box<dyn SyncBlockchain<BlockchainErro
     let local_blockchain = LocalBlockchain::new(
         StateDiff::default(),
         1,
-        SpecId::LATEST,
+        EthSpecId::LATEST,
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -129,7 +129,7 @@ fn create_dummy_block_with_difficulty(
     )
 }
 
-fn create_dummy_block_with_hash(spec_id: SpecId, number: u64, parent_hash: B256) -> LocalBlock {
+fn create_dummy_block_with_hash(spec_id: EthSpecId, number: u64, parent_hash: B256) -> LocalBlock {
     create_dummy_block_with_header(
         spec_id,
         PartialHeader {
@@ -140,7 +140,7 @@ fn create_dummy_block_with_hash(spec_id: SpecId, number: u64, parent_hash: B256)
     )
 }
 
-fn create_dummy_block_with_header(spec_id: SpecId, partial_header: PartialHeader) -> LocalBlock {
+fn create_dummy_block_with_header(spec_id: EthSpecId, partial_header: PartialHeader) -> LocalBlock {
     LocalBlock::empty(spec_id, partial_header)
 }
 

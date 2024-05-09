@@ -1,7 +1,7 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas, spec::HardforkActivations, AccountInfo, Address, HashMap, SpecId, B256, U256,
+    block::BlobGas, spec::HardforkActivations, AccountInfo, Address, EthSpecId, HashMap, B256, U256,
 };
 use edr_evm::{alloy_primitives::ChainId, MineOrdering};
 use rand::Rng;
@@ -88,7 +88,7 @@ pub struct ProviderConfig {
     pub fork: Option<ForkConfig>,
     // Genesis accounts in addition to accounts. Useful for adding impersonated accounts for tests.
     pub genesis_accounts: HashMap<Address, AccountInfo>,
-    pub hardfork: SpecId,
+    pub hardfork: EthSpecId,
     pub initial_base_fee_per_gas: Option<U256>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,

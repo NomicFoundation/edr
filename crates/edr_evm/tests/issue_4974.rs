@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{remote::RpcClient, HashMap, SpecId};
+use edr_eth::{remote::RpcClient, EthSpecId, HashMap};
 use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
 use parking_lot::Mutex;
 use tokio::runtime;
@@ -21,7 +21,7 @@ async fn issue_4974() -> anyhow::Result<()> {
     let _blockchain = ForkedBlockchain::new(
         runtime::Handle::current(),
         None,
-        SpecId::LATEST,
+        EthSpecId::LATEST,
         Arc::new(rpc_client),
         Some(FORK_BLOCK_NUMBER),
         &mut irregular_state,

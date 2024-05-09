@@ -6,7 +6,7 @@ use edr_eth::{
         Eip1559TransactionRequest, Eip155TransactionRequest, Eip2930TransactionRequest,
         TransactionRequest,
     },
-    Bytes, SpecId, U256,
+    Bytes, EthSpecId, U256,
 };
 use edr_evm::{state::StateOverrides, trace::Trace, ExecutableTransaction};
 
@@ -116,10 +116,10 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
     let nonce = data.nonce(&from, Some(block_spec), state_overrides)?;
     let value = value.unwrap_or(U256::ZERO);
 
-    let transaction = if data.spec_id() < SpecId::LONDON || gas_price.is_some() {
+    let transaction = if data.spec_id() < EthSpecId::LONDON || gas_price.is_some() {
         let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
         match access_list {
-            Some(access_list) if data.spec_id() >= SpecId::BERLIN => {
+            Some(access_list) if data.spec_id() >= EthSpecId::BERLIN => {
                 TransactionRequest::Eip2930(Eip2930TransactionRequest {
                     nonce,
                     gas_price,

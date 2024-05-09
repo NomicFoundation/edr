@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use edr_eth::{remote::eth::CallRequest, Address, Bytes, SpecId, U256};
+use edr_eth::{remote::eth::CallRequest, Address, Bytes, EthSpecId, U256};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
@@ -29,7 +29,7 @@ async fn issue_324() -> anyhow::Result<()> {
         block_number: Some(DEPLOYMENT_BLOCK_NUMBER),
         http_headers: None,
     }));
-    config.hardfork = SpecId::CANCUN;
+    config.hardfork = EthSpecId::CANCUN;
 
     let provider = Provider::new(
         runtime::Handle::current(),
