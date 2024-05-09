@@ -6,7 +6,7 @@ use crate::{EthSpecId, HashMap};
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HardforkActivations {
-    /// (Start block number -> EthSpecId) mapping
+    /// (Start block number -> `EthSpecId`) mapping
     hardforks: Vec<(u64, EthSpecId)>,
 }
 
