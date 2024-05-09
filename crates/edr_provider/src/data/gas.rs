@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use std::cmp;
 
-use edr_eth::{block::Header, reward_percentile::RewardPercentile, U256};
+use edr_eth::{block::Header, reward_percentile::RewardPercentile, transaction::Transaction, U256};
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
     state::{StateError, StateOverrides, SyncState},

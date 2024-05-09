@@ -6,9 +6,9 @@ use edr_eth::{
     remote::{self, PreEip1898BlockSpec},
     rlp::Decodable,
     transaction::{
-        Eip1559TransactionRequest, Eip155TransactionRequest, Eip2930TransactionRequest,
-        EthTransactionRequest, SignedTransaction, TransactionRequest, TransactionRequestAndSender,
-        TxKind,
+        pooled::PooledTransaction, Eip1559TransactionRequest, Eip155TransactionRequest,
+        Eip2930TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
+        TransactionRequest, TransactionRequestAndSender, TransactionType, TxKind,
     },
     Bytes, SpecId, B256, U256,
 };
@@ -19,7 +19,7 @@ use crate::{
     error::TransactionFailureWithTraces,
     requests::validation::{
         validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
-        validate_transaction_and_call_request, validate_transaction_spec,
+        validate_transaction_and_call_request,
     },
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure,
@@ -204,7 +204,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     };
 
     let show_transaction_type = spec_id >= FIRST_HARDFORK_WITH_TRANSACTION_TYPE;
-    let is_typed_transaction = signed_transaction.transaction_type() > 0;
+    let is_typed_transaction = signed_transaction.transaction_type() > TransactionType::Legacy;
     let transaction_type = if show_transaction_type || is_typed_transaction {
         Some(signed_transaction.transaction_type())
     } else {
@@ -227,7 +227,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     };
 
     Ok(remote::eth::Transaction {
-        hash: *signed_transaction.hash(),
+        hash: *signed_transaction.transaction_hash(),
         nonce: signed_transaction.nonce(),
         block_hash,
         block_number,
@@ -244,7 +244,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         r: signature.r,
         s: signature.s,
         chain_id,
-        transaction_type,
+        transaction_type: transaction_type.map(u64::from),
         access_list: signed_transaction
             .access_list()
             .map(|access_list| access_list.clone().into()),
@@ -272,8 +272,8 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
     raw_transaction: Bytes,
 ) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
-    let signed_transaction =
-        SignedTransaction::decode(&mut raw_transaction).map_err(|err| match err {
+    let pooled_transaction =
+    PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
             edr_eth::rlp::Error::Custom(message) if SignedTransaction::is_invalid_transaction_type_error(message) => {
                 let type_id = *raw_transaction.first().expect("We already validated that the transaction is not empty if it's an invalid transaction type error.");
                 ProviderError::InvalidTransactionType(type_id)
@@ -281,10 +281,7 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
             err => ProviderError::InvalidArgument(err.to_string()),
         })?;
 
-    if matches!(signed_transaction, SignedTransaction::Eip4844(_)) {
-        return Err(ProviderError::Eip4844TransactionUnsupported);
-    }
-
+    let signed_transaction = pooled_transaction.into_payload();
     validate_send_raw_transaction_request(data, &signed_transaction)?;
 
     let pending_transaction = ExecutableTransaction::new(data.spec_id(), signed_transaction)?;
@@ -476,22 +473,41 @@ fn validate_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSi
         )?;
     }
 
-    validate_transaction_and_call_request(data.spec_id(), request)
+    if request.blob_hashes.is_some() || request.blobs.is_some() {
+        return Err(ProviderError::Eip4844TransactionUnsupported);
+    }
+
+    if let Some(transaction_type) = request.transaction_type {
+        if transaction_type == u64::from(TransactionType::Eip4844) {
+            return Err(ProviderError::Eip4844TransactionUnsupported);
+        }
+    }
+
+    validate_transaction_and_call_request(data.spec_id(), request).map_err(|err| match err {
+        ProviderError::UnsupportedEIP1559Parameters {
+            minimum_hardfork, ..
+        } => ProviderError::InvalidArgument(format!("\
+EIP-1559 style fee params (maxFeePerGas or maxPriorityFeePerGas) received but they are not supported by the current hardfork.
+
+You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later.
+        ")),
+        err => err,
+    })
 }
 
 fn validate_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
-    signed_transaction: &SignedTransaction,
+    transaction: &SignedTransaction,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     // Validate signature
-    let _ = signed_transaction
+    let _ = transaction
         .recover()
         .map_err(|_err| ProviderError::InvalidArgument("Invalid Signature".into()))?;
 
-    if let Some(tx_chain_id) = signed_transaction.chain_id() {
+    if let Some(tx_chain_id) = transaction.chain_id() {
         let expected = data.chain_id();
         if tx_chain_id != expected {
-            let error = if signed_transaction.is_eip155() {
+            let error = if transaction.is_eip155() {
                 ProviderError::InvalidEip155TransactionChainId
             } else {
                 ProviderError::InvalidArgument(format!("Trying to send a raw transaction with an invalid chainId. The expected chainId is {expected}"))
@@ -500,28 +516,24 @@ fn validate_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + Ti
         }
     }
 
-    validate_transaction_spec(data.spec_id(), signed_transaction.into()).map_err(
-        |err| match err {
-            ProviderError::UnsupportedEIP1559Parameters {
-                minimum_hardfork, ..
-            } => ProviderError::InvalidArgument(format!(
-                "\
-Trying to send an EIP-1559 transaction but they are not supported by the current hard fork.\
-\
-You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later."
-            )),
-            err => err,
-        },
-    )?;
-
     validate_eip3860_max_initcode_size(
         data.spec_id(),
         data.allow_unlimited_initcode_size(),
-        &signed_transaction.to(),
-        signed_transaction.data(),
+        &transaction.to(),
+        transaction.data(),
     )?;
 
-    validate_transaction_and_call_request(data.spec_id(), signed_transaction)
+    validate_transaction_and_call_request(data.spec_id(), transaction).map_err(|err| match err {
+        ProviderError::UnsupportedEIP1559Parameters {
+            minimum_hardfork, ..
+        } => ProviderError::InvalidArgument(format!(
+            "\
+Trying to send an EIP-1559 transaction but they are not supported by the current hard fork.\
+\
+You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later."
+        )),
+        err => err,
+    })
 }
 
 #[cfg(test)]

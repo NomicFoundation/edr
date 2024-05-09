@@ -1158,7 +1158,7 @@ describe("Eth module", function () {
                 ],
               },
             ],
-            "An EIP-4844 (shard blob) transaction was received, but Hardhat doesn't have support for them yet."
+            "An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023"
           );
         });
       });

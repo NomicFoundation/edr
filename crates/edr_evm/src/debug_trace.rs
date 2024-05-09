@@ -1,6 +1,8 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
-use edr_eth::{signature::SignatureError, utils::u256_to_padded_hex, B256};
+use edr_eth::{
+    signature::SignatureError, transaction::Transaction, utils::u256_to_padded_hex, B256,
+};
 use revm::{
     db::DatabaseComponents,
     handler::register::EvmHandler,
@@ -48,7 +50,7 @@ where
     }
 
     for transaction in transactions {
-        if transaction.hash() == transaction_hash {
+        if transaction.transaction_hash() == transaction_hash {
             let mut tracer = TracerEip3155::new(trace_config);
 
             let ResultAndState { result, .. } = {

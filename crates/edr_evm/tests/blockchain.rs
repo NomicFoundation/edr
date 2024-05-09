@@ -6,6 +6,7 @@ use edr_eth::{
     block::PartialHeader,
     log::FilterLog,
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
+    transaction::Transaction,
     Address, Bloom, Bytes, B256, U256,
 };
 use edr_evm::{
@@ -158,7 +159,7 @@ fn insert_dummy_block_with_transaction(
 
     let caller = Address::random();
     let transaction = dummy_eip155_transaction(caller, 0)?;
-    let transaction_hash = *transaction.hash();
+    let transaction_hash = *transaction.transaction_hash();
 
     let header = PartialHeader {
         number: blockchain.last_block_number() + 1,
@@ -178,7 +179,7 @@ fn insert_dummy_block_with_transaction(
             data: TypedReceiptData::PostEip658Legacy { status: 1 },
             spec_id: blockchain.spec_id(),
         },
-        transaction_hash: *transaction.hash(),
+        transaction_hash: *transaction.transaction_hash(),
         transaction_index: 0,
         from: *transaction.caller(),
         to: transaction.to(),
@@ -273,11 +274,11 @@ async fn block_by_hash_remote() -> anyhow::Result<()> {
     let transactions = block.transactions();
     assert_eq!(transactions.len(), 192);
     assert_eq!(
-        *transactions[0].hash(),
+        *transactions[0].transaction_hash(),
         B256::from_str(REMOTE_BLOCK_FIRST_TRANSACTION_HASH)?
     );
     assert_eq!(
-        *transactions[transactions.len() - 1].hash(),
+        *transactions[transactions.len() - 1].transaction_hash(),
         B256::from_str(REMOTE_BLOCK_LAST_TRANSACTION_HASH)?
     );
 
@@ -312,8 +313,6 @@ async fn block_by_number_some() {
 async fn block_by_number_with_create() -> anyhow::Result<()> {
     use std::str::FromStr;
 
-    use edr_eth::transaction::TxKind;
-
     const DAI_CREATION_BLOCK_NUMBER: u64 = 4_719_568;
     const DAI_CREATION_TRANSACTION_INDEX: usize = 85;
     const DAI_CREATION_TRANSACTION_HASH: &str =
@@ -327,13 +326,10 @@ async fn block_by_number_with_create() -> anyhow::Result<()> {
     let transactions = block.transactions();
 
     assert_eq!(
-        *transactions[DAI_CREATION_TRANSACTION_INDEX].hash(),
+        *transactions[DAI_CREATION_TRANSACTION_INDEX].transaction_hash(),
         B256::from_str(DAI_CREATION_TRANSACTION_HASH)?
     );
-    assert!(matches!(
-        transactions[DAI_CREATION_TRANSACTION_INDEX].kind(),
-        TxKind::Create
-    ));
+    assert_eq!(transactions[DAI_CREATION_TRANSACTION_INDEX].to(), None);
 
     Ok(())
 }
@@ -368,11 +364,11 @@ async fn block_by_number_remote() -> anyhow::Result<()> {
     let transactions = block.transactions();
     assert_eq!(transactions.len(), 192);
     assert_eq!(
-        *transactions[0].hash(),
+        *transactions[0].transaction_hash(),
         B256::from_str(REMOTE_BLOCK_FIRST_TRANSACTION_HASH)?
     );
     assert_eq!(
-        *transactions[transactions.len() - 1].hash(),
+        *transactions[transactions.len() - 1].transaction_hash(),
         B256::from_str(REMOTE_BLOCK_LAST_TRANSACTION_HASH)?
     );
 
@@ -781,7 +777,7 @@ async fn block_by_transaction_hash_local() -> anyhow::Result<()> {
 
         let transactions = block.transactions();
         assert_eq!(transactions.len(), 1);
-        assert_eq!(*transactions[0].hash(), transaction_hash);
+        assert_eq!(*transactions[0].transaction_hash(), transaction_hash);
 
         blockchain.revert_to_block(previous_block_number)?;
 
@@ -820,7 +816,7 @@ async fn block_by_transaction_hash_unknown() -> anyhow::Result<()> {
     for blockchain in blockchains {
         let transaction = dummy_eip155_transaction(Address::random(), 0)?;
 
-        let block = blockchain.block_by_transaction_hash(transaction.hash())?;
+        let block = blockchain.block_by_transaction_hash(transaction.transaction_hash())?;
         assert!(block.is_none());
     }
 
@@ -903,7 +899,7 @@ async fn receipt_by_transaction_hash_unknown() -> anyhow::Result<()> {
     for blockchain in blockchains {
         let transaction = dummy_eip155_transaction(Address::random(), 0)?;
 
-        let receipt = blockchain.receipt_by_transaction_hash(transaction.hash())?;
+        let receipt = blockchain.receipt_by_transaction_hash(transaction.transaction_hash())?;
         assert!(receipt.is_none());
     }
 

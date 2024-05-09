@@ -1,6 +1,10 @@
 use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
-use edr_eth::{block::BlockOptions, U256};
+use edr_eth::{
+    block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
+    transaction::Transaction,
+    U256,
+};
 use revm::primitives::{CfgEnvWithHandlerCfg, ExecutionResult, InvalidTransaction};
 use serde::{Deserialize, Serialize};
 
@@ -175,6 +179,201 @@ where
         state,
         state_diff,
         transaction_results: results,
+    })
+}
+
+/// An error that occurred while mining a block with a single transaction.
+#[derive(Debug, thiserror::Error)]
+pub enum MineTransactionError<BlockchainErrorT, StateErrorT> {
+    /// An error that occurred while constructing a block builder.
+    #[error(transparent)]
+    BlockBuilderCreation(#[from] BlockBuilderCreationError),
+    /// An error that occurred while executing a transaction.
+    #[error(transparent)]
+    BlockTransaction(#[from] BlockTransactionError<BlockchainErrorT, StateErrorT>),
+    /// A blockchain error
+    #[error(transparent)]
+    Blockchain(BlockchainErrorT),
+    /// The transaction's gas price is lower than the block's minimum gas price.
+    #[error("Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
+    GasPriceTooLow {
+        /// The minimum gas price.
+        expected: U256,
+        /// The actual gas price.
+        actual: U256,
+    },
+    /// The transaction's max fee per gas is lower than the next block's base
+    /// fee.
+    #[error("Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
+    MaxFeePerGasTooLow {
+        /// The minimum max fee per gas.
+        expected: U256,
+        /// The actual max fee per gas.
+        actual: U256,
+    },
+    /// The transaction's max fee per blob gas is lower than the next block's
+    /// base fee.
+    #[error("Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}")]
+    MaxFeePerBlobGasTooLow {
+        /// The minimum max fee per blob gas.
+        expected: U256,
+        /// The actual max fee per blob gas.
+        actual: U256,
+    },
+    /// The block is expected to have a prevrandao, as the executor's config is
+    /// on a post-merge hardfork.
+    #[error("Post-merge transaction is missing prevrandao")]
+    MissingPrevrandao,
+    /// The transaction nonce is too high.
+    #[error("Nonce too high. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
+    NonceTooHigh {
+        /// The expected nonce.
+        expected: u64,
+        /// The actual nonce.
+        actual: u64,
+    },
+    /// The transaction nonce is too high.
+    #[error("Nonce too low. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
+    NonceTooLow {
+        /// The expected nonce.
+        expected: u64,
+        /// The actual nonce.
+        actual: u64,
+    },
+    /// The transaction's priority fee is lower than the minimum gas price.
+    #[error("Transaction gas price is {actual}, which is below the minimum of {expected}")]
+    PriorityFeeTooLow {
+        /// The minimum gas price.
+        expected: U256,
+        /// The actual max priority fee per gas.
+        actual: U256,
+    },
+    /// An error that occurred while querying state.
+    #[error(transparent)]
+    State(StateErrorT),
+}
+
+/// Mines a block with a single transaction.
+///
+/// If the transaction is invalid, returns an error.
+#[allow(clippy::too_many_arguments)]
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+pub fn mine_block_with_single_transaction<
+    'blockchain,
+    'evm,
+    BlockchainErrorT,
+    DebugDataT,
+    StateErrorT,
+>(
+    blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+    state: Box<dyn SyncState<StateErrorT>>,
+    transaction: ExecutableTransaction,
+    cfg: &CfgEnvWithHandlerCfg,
+    options: BlockOptions,
+    min_gas_price: U256,
+    reward: U256,
+    dao_hardfork_activation_block: Option<u64>,
+    debug_context: Option<
+        DebugContext<'evm, BlockchainErrorT, DebugDataT, Box<dyn SyncState<StateErrorT>>>,
+    >,
+) -> Result<MineBlockResultAndState<StateErrorT>, MineTransactionError<BlockchainErrorT, StateErrorT>>
+where
+    'blockchain: 'evm,
+    BlockchainErrorT: Debug + Send,
+    StateErrorT: Debug + Send,
+{
+    let max_priority_fee_per_gas = transaction
+        .max_priority_fee_per_gas()
+        .unwrap_or_else(|| transaction.gas_price());
+
+    if max_priority_fee_per_gas < min_gas_price {
+        return Err(MineTransactionError::PriorityFeeTooLow {
+            expected: min_gas_price,
+            actual: max_priority_fee_per_gas,
+        });
+    }
+
+    if let Some(base_fee_per_gas) = options.base_fee {
+        if let Some(max_fee_per_gas) = transaction.max_fee_per_gas() {
+            if max_fee_per_gas < base_fee_per_gas {
+                return Err(MineTransactionError::MaxFeePerGasTooLow {
+                    expected: base_fee_per_gas,
+                    actual: max_fee_per_gas,
+                });
+            }
+        } else {
+            let gas_price = transaction.gas_price();
+            if gas_price < base_fee_per_gas {
+                return Err(MineTransactionError::GasPriceTooLow {
+                    expected: base_fee_per_gas,
+                    actual: gas_price,
+                });
+            }
+        }
+    }
+
+    let parent_block = blockchain
+        .last_block()
+        .map_err(MineTransactionError::Blockchain)?;
+
+    if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
+        let base_fee_per_blob_gas = calculate_next_base_fee_per_blob_gas(parent_block.header());
+        if max_fee_per_blob_gas < base_fee_per_blob_gas {
+            return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
+                expected: base_fee_per_blob_gas,
+                actual: max_fee_per_blob_gas,
+            });
+        }
+    }
+
+    let sender = state
+        .basic(*transaction.caller())
+        .map_err(MineTransactionError::State)?
+        .unwrap_or_default();
+
+    // TODO: This is also checked by `revm`, so it can be simplified
+    match transaction.nonce().cmp(&sender.nonce) {
+        Ordering::Less => {
+            return Err(MineTransactionError::NonceTooLow {
+                expected: sender.nonce,
+                actual: transaction.nonce(),
+            })
+        }
+        Ordering::Equal => (),
+        Ordering::Greater => {
+            return Err(MineTransactionError::NonceTooHigh {
+                expected: sender.nonce,
+                actual: transaction.nonce(),
+            })
+        }
+    }
+
+    let mut block_builder = BlockBuilder::new(
+        cfg.clone(),
+        parent_block.as_ref(),
+        options,
+        dao_hardfork_activation_block,
+    )?;
+
+    let ExecutionResultWithContext {
+        result,
+        evm_context,
+    } = block_builder.add_transaction(blockchain, state, transaction, debug_context);
+
+    let result = result?;
+    let mut state = evm_context.state;
+
+    let beneficiary = block_builder.header().beneficiary;
+    let rewards = vec![(beneficiary, reward)];
+    let BuildBlockResult { block, state_diff } = block_builder
+        .finalize(&mut state, rewards)
+        .map_err(MineTransactionError::State)?;
+
+    Ok(MineBlockResultAndState {
+        block,
+        state,
+        state_diff,
+        transaction_results: vec![result],
     })
 }
 
