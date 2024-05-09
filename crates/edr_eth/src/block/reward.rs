@@ -20,6 +20,6 @@ pub fn miner_reward(spec_id: SpecId) -> Option<U256> {
         | SpecId::LONDON
         | SpecId::ARROW_GLACIER
         | SpecId::GRAY_GLACIER => Some(U256::from(2_000_000_000_000_000_000u128)),
-        SpecId::MERGE | SpecId::SHANGHAI | SpecId::CANCUN | SpecId::LATEST => None,
+        _ => None,
     }
 }

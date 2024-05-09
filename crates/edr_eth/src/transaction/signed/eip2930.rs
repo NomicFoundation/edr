@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
+use hashbrown::HashMap;
 use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
@@ -84,6 +85,8 @@ impl Eip2930SignedTransaction {
             gas_priority_fee: None,
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
+            eof_initcodes: Vec::new(),
+            eof_initcodes_hashed: HashMap::new(),
         }
     }
 }

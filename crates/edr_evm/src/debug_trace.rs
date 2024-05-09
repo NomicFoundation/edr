@@ -7,7 +7,7 @@ use revm::{
     db::DatabaseComponents,
     handler::register::EvmHandler,
     interpreter::{
-        opcode::{self, BoxedInstruction, InstructionTables},
+        opcode::{self, BoxedInstruction, InstructionTables, OpCode},
         InstructionResult, Interpreter, InterpreterResult,
     },
     primitives::{
@@ -328,11 +328,11 @@ impl TracerEip3155 {
     }
 
     fn step(&mut self, interp: &mut Interpreter) {
-        self.contract_address = interp.contract.address;
+        self.contract_address = interp.contract.target_address;
         self.gas_remaining = interp.gas().remaining();
 
         if !self.config.disable_stack {
-            self.stack = interp.stack.data().clone();
+            self.stack.clone_from(interp.stack.data());
         }
 
         if !self.config.disable_memory {
@@ -394,7 +394,7 @@ impl TracerEip3155 {
         };
 
         let mut error = None;
-        let op_name = opcode::OPCODE_JUMPMAP[self.opcode as usize].map_or_else(
+        let op_name = OpCode::new(self.opcode).map_or_else(
             || {
                 // Matches message from Hardhat
                 // https://github.com/NomicFoundation/hardhat/blob/37c5c5845969b15995cc96cb6bd0596977f8b1f8/packages/hardhat-core/src/internal/hardhat-network/stack-traces/vm-debug-tracer.ts#L452
@@ -402,7 +402,7 @@ impl TracerEip3155 {
                 error = Some(fallback.clone());
                 fallback
             },
-            String::from,
+            |opcode| opcode.to_string(),
         );
 
         let gas_cost = self.gas_remaining.saturating_sub(interp.gas().remaining());

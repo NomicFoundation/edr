@@ -139,20 +139,20 @@ impl RadixNode {
 
         if entire_word_matched {
             if entire_content_matched {
-                return (self.is_present, matched, &self);
+                return (self.is_present, matched, self);
             }
 
-            return (false, matched, &self);
+            return (false, matched, self);
         }
 
         if !entire_content_matched {
-            return (false, matched, &self);
+            return (false, matched, self);
         }
 
         let next_node = self.child_nodes.get(&word[prefix_length]);
 
         match next_node {
-            None => (false, matched, &self),
+            None => (false, matched, self),
             Some(next_node) => next_node.longest_match(&word[prefix_length..]),
         }
     }

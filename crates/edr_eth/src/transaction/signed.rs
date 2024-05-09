@@ -5,7 +5,7 @@ mod eip4844;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut, Decodable};
-use revm_primitives::{CreateScheme, TransactTo, TxEnv};
+use revm_primitives::{TransactTo, TxEnv};
 
 pub use self::{
     eip155::Eip155SignedTransaction, eip1559::Eip1559SignedTransaction,
@@ -25,7 +25,7 @@ pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 /// Converts a `TxKind` to a `TransactTo`.
 fn kind_to_transact_to(kind: TxKind) -> TransactTo {
     match kind {
-        TxKind::Create => TransactTo::Create(CreateScheme::Create),
+        TxKind::Create => TransactTo::Create,
         TxKind::Call(to) => TransactTo::Call(to),
     }
 }

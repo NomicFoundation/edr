@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
+use hashbrown::HashMap;
 use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
 
 use crate::{
@@ -88,6 +89,8 @@ impl Eip4844SignedTransaction {
             gas_priority_fee: Some(self.max_priority_fee_per_gas),
             blob_hashes: self.blob_hashes,
             max_fee_per_blob_gas: Some(self.max_fee_per_blob_gas),
+            eof_initcodes: Vec::new(),
+            eof_initcodes_hashed: HashMap::new(),
         }
     }
 

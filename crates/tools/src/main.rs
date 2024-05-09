@@ -57,7 +57,7 @@ enum Command {
     },
     /// Execute a benchmark scenario and report statistics
     Scenario {
-        /// The path to the scenario file (JSON lines or GZipped JSON lines)
+        /// The path to the scenario file (JSON lines or Gzipped JSON lines)
         path: PathBuf,
         /// The maximum number of requests to execute.
         #[clap(long, short)]

@@ -60,10 +60,10 @@ struct MetadataSettings {
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilerOutput {
-    /// mapping: source name -> CompilerOutputSource
+    /// mapping: source name -> `CompilerOutputSource`
     sources: HashMap<String, CompilerOutputSource>,
     /// mapping: source name -> (mapping: contract name ->
-    /// CompilerOutputContract)
+    /// `CompilerOutputContract`)
     contracts: HashMap<String, HashMap<String, CompilerOutputContract>>,
 }
 
@@ -96,7 +96,7 @@ pub struct CompilerOutputBytecode {
     object: String,
     opcodes: String,
     source_map: String,
-    /// mapping: source name -> (mapping: library name -> LinkReferences)
+    /// mapping: source name -> (mapping: library name -> `LinkReferences`)
     link_references: HashMap<String, HashMap<String, Vec<LinkReference>>>,
 }
 

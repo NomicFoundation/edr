@@ -346,6 +346,8 @@ fn initial_cost(spec_id: SpecId, transaction: &SignedTransaction) -> u64 {
         access_list
             .as_ref()
             .map_or(&[], |access_list| access_list.as_slice()),
+        // TODO: https://github.com/NomicFoundation/edr/issues/427
+        &[],
     )
 }
 
