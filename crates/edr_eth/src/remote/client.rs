@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures::stream::StreamExt;
+use futures::{future, stream::StreamExt, TryFutureExt};
 use hyper::header::HeaderValue;
 pub use hyper::{header, http::Error as HttpError, HeaderMap};
 use reqwest::Client as HttpClient;
@@ -220,27 +220,38 @@ impl RpcClient {
         })
     }
 
-    fn parse_response_str<T: DeserializeOwned>(response: &str) -> Result<T, RpcClientError> {
-        serde_json::from_str(response).map_err(|error| RpcClientError::InvalidResponse {
-            response: response.to_string(),
-            expected_type: std::any::type_name::<T>(),
+    fn parse_response_str<T: DeserializeOwned>(
+        response: String,
+    ) -> Result<jsonrpc::Response<T>, RpcClientError> {
+        serde_json::from_str(&response).map_err(|error| RpcClientError::InvalidResponse {
+            response,
+            expected_type: std::any::type_name::<jsonrpc::Response<T>>(),
             error,
         })
     }
 
-    fn extract_result<T: DeserializeOwned>(
+    async fn retry_on_sporadic_failure<T: DeserializeOwned>(
+        &self,
+        error: jsonrpc::Error,
         request: SerializedRequest,
-        response: String,
     ) -> Result<T, RpcClientError> {
-        let response: jsonrpc::Response<T> = Self::parse_response_str(&response)?;
+        let is_missing_trie_node_error =
+            error.code == -32000 && error.message.to_lowercase().contains("missing trie node");
 
-        response
-            .data
-            .into_result()
-            .map_err(|error| RpcClientError::JsonRpcError {
-                error,
-                request: request.to_json_string(),
-            })
+        let result = if is_missing_trie_node_error {
+            self.send_request_body(&request)
+                .await
+                .and_then(Self::parse_response_str)?
+                .data
+                .into_result()
+        } else {
+            Err(error)
+        };
+
+        result.map_err(|error| RpcClientError::JsonRpcError {
+            error,
+            request: request.to_json_string(),
+        })
     }
 
     async fn make_cache_path(&self, cache_key: &str) -> Result<PathBuf, RpcClientError> {
@@ -466,6 +477,23 @@ impl RpcClient {
         Ok(())
     }
 
+    async fn send_request_and_extract_result<T: DeserializeOwned>(
+        &self,
+        request: SerializedRequest,
+    ) -> Result<T, RpcClientError> {
+        future::ready(
+            self.send_request_body(&request)
+                .await
+                .and_then(Self::parse_response_str)?
+                .data
+                .into_result(),
+        )
+        // We retry at the application level because Alchemy has sporadic failures that are returned
+        // in the JSON-RPC layer
+        .or_else(|error| async { self.retry_on_sporadic_failure(error, request).await })
+        .await
+    }
+
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
     async fn send_request_body(
         &self,
@@ -549,10 +577,7 @@ impl RpcClient {
         #[cfg(feature = "tracing")]
         tracing::trace!("Cache miss: {}", method.name());
 
-        let result: T = self
-            .send_request_body(&request)
-            .await
-            .and_then(|response| Self::extract_result(request, response))?;
+        let result: T = self.send_request_and_extract_result(request).await?;
 
         self.try_write_response_to_cache(&method, &result, &resolve_block_number)
             .await?;
@@ -569,9 +594,7 @@ impl RpcClient {
     ) -> Result<T, RpcClientError> {
         let request = self.serialize_request(&method)?;
 
-        self.send_request_body(&request)
-            .await
-            .and_then(|response| Self::extract_result(request, response))
+        self.send_request_and_extract_result(request).await
     }
 
     /// Calls `eth_blockNumber` and returns the block number.

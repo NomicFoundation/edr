@@ -1,18 +1,19 @@
-use std::{ops::Deref, sync::OnceLock};
+use std::sync::OnceLock;
 
 use alloy_rlp::BufMut;
 use edr_eth::{
-    remote::eth::Transaction,
+    remote,
     signature::Signature,
     transaction::{
         Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
-        Eip4844SignedTransaction, LegacySignedTransaction, SignedTransaction, TxKind,
+        Eip4844SignedTransaction, LegacySignedTransaction, SignedTransaction, Transaction,
+        TransactionType, TxKind,
     },
-    Address, U256,
+    Address, B256, U256,
 };
 use revm::{
     interpreter::gas::validate_initial_tx_gas,
-    primitives::{CreateScheme, SpecId, TransactTo, TxEnv},
+    primitives::{SpecId, TxEnv},
 };
 
 use super::TransactionCreationError;
@@ -86,14 +87,6 @@ impl ExecutableTransaction {
     }
 }
 
-impl Deref for ExecutableTransaction {
-    type Target = SignedTransaction;
-
-    fn deref(&self) -> &Self::Target {
-        &self.transaction
-    }
-}
-
 impl alloy_rlp::Encodable for ExecutableTransaction {
     fn encode(&self, out: &mut dyn BufMut) {
         self.transaction.encode(out);
@@ -105,121 +98,58 @@ impl alloy_rlp::Encodable for ExecutableTransaction {
 }
 
 impl From<ExecutableTransaction> for TxEnv {
-    fn from(transaction: ExecutableTransaction) -> Self {
-        fn transact_to(kind: TxKind) -> TransactTo {
-            match kind {
-                TxKind::Call(address) => TransactTo::Call(address),
-                TxKind::Create => TransactTo::Create(CreateScheme::Create),
-            }
-        }
+    fn from(value: ExecutableTransaction) -> Self {
+        value.transaction.into_tx_env(value.caller)
+    }
+}
 
-        let chain_id = transaction.transaction.chain_id();
-        match transaction.transaction {
-            SignedTransaction::PreEip155Legacy(LegacySignedTransaction {
-                nonce,
-                gas_price,
-                gas_limit,
-                kind,
-                value,
-                input,
-                ..
-            })
-            | SignedTransaction::PostEip155Legacy(Eip155SignedTransaction {
-                nonce,
-                gas_price,
-                gas_limit,
-                kind,
-                value,
-                input,
-                ..
-            }) => Self {
-                caller: transaction.caller,
-                gas_limit,
-                gas_price,
-                gas_priority_fee: None,
-                transact_to: transact_to(kind),
-                value,
-                data: input,
-                chain_id,
-                nonce: Some(nonce),
-                access_list: Vec::new(),
-                blob_hashes: Vec::new(),
-                max_fee_per_blob_gas: None,
-            },
-            SignedTransaction::Eip2930(Eip2930SignedTransaction {
-                nonce,
-                gas_price,
-                gas_limit,
-                kind,
-                value,
-                input,
-                access_list,
-                ..
-            }) => Self {
-                caller: transaction.caller,
-                gas_limit,
-                gas_price,
-                gas_priority_fee: None,
-                transact_to: transact_to(kind),
-                value,
-                data: input,
-                chain_id,
-                nonce: Some(nonce),
-                access_list: access_list.into(),
-                blob_hashes: Vec::new(),
-                max_fee_per_blob_gas: None,
-            },
-            SignedTransaction::Eip1559(Eip1559SignedTransaction {
-                nonce,
-                max_priority_fee_per_gas,
-                max_fee_per_gas,
-                gas_limit,
-                kind,
-                value,
-                input,
-                access_list,
-                ..
-            }) => Self {
-                caller: transaction.caller,
-                gas_limit,
-                gas_price: max_fee_per_gas,
-                gas_priority_fee: Some(max_priority_fee_per_gas),
-                transact_to: transact_to(kind),
-                value,
-                data: input,
-                chain_id,
-                nonce: Some(nonce),
-                access_list: access_list.into(),
-                blob_hashes: Vec::new(),
-                max_fee_per_blob_gas: None,
-            },
-            SignedTransaction::Eip4844(Eip4844SignedTransaction {
-                nonce,
-                max_priority_fee_per_gas,
-                max_fee_per_gas,
-                max_fee_per_blob_gas,
-                gas_limit,
-                to,
-                value,
-                input,
-                access_list,
-                blob_hashes,
-                ..
-            }) => Self {
-                caller: transaction.caller,
-                gas_limit,
-                gas_price: max_fee_per_gas,
-                transact_to: TransactTo::Call(to),
-                value,
-                data: input,
-                nonce: Some(nonce),
-                chain_id,
-                access_list: access_list.into(),
-                gas_priority_fee: Some(max_priority_fee_per_gas),
-                blob_hashes,
-                max_fee_per_blob_gas: Some(max_fee_per_blob_gas),
-            },
-        }
+impl Transaction for ExecutableTransaction {
+    fn effective_gas_price(&self, block_base_fee: U256) -> U256 {
+        self.transaction.effective_gas_price(block_base_fee)
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.transaction.gas_limit()
+    }
+
+    fn gas_price(&self) -> U256 {
+        self.transaction.gas_price()
+    }
+
+    fn max_fee_per_gas(&self) -> Option<U256> {
+        self.transaction.max_fee_per_gas()
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<U256> {
+        self.transaction.max_fee_per_blob_gas()
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<U256> {
+        self.transaction.max_priority_fee_per_gas()
+    }
+
+    fn nonce(&self) -> u64 {
+        self.transaction.nonce()
+    }
+
+    fn to(&self) -> Option<Address> {
+        self.transaction.to()
+    }
+
+    fn total_blob_gas(&self) -> Option<u64> {
+        self.transaction.total_blob_gas()
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.transaction.transaction_hash()
+    }
+
+    fn transaction_type(&self) -> TransactionType {
+        self.transaction.transaction_type()
+    }
+
+    fn value(&self) -> U256 {
+        self.transaction.value()
     }
 }
 
@@ -249,10 +179,10 @@ pub enum TransactionConversionError {
     MissingReceiverAddress,
 }
 
-impl TryFrom<Transaction> for ExecutableTransaction {
+impl TryFrom<remote::eth::Transaction> for ExecutableTransaction {
     type Error = TransactionConversionError;
 
-    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
+    fn try_from(value: remote::eth::Transaction) -> Result<Self, Self::Error> {
         let kind = if let Some(to) = &value.to {
             TxKind::Call(*to)
         } else {
@@ -416,6 +346,8 @@ fn initial_cost(spec_id: SpecId, transaction: &SignedTransaction) -> u64 {
         access_list
             .as_ref()
             .map_or(&[], |access_list| access_list.as_slice()),
+        // TODO: https://github.com/NomicFoundation/edr/issues/427
+        &[],
     )
 }
 

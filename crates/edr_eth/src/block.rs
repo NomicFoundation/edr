@@ -10,7 +10,7 @@ mod reorg;
 mod reward;
 
 use alloy_rlp::{BufMut, Decodable, RlpDecodable, RlpEncodable};
-use revm_primitives::{calc_excess_blob_gas, keccak256};
+use revm_primitives::{calc_blob_gasprice, calc_excess_blob_gas, keccak256};
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
@@ -60,9 +60,10 @@ pub struct Header {
     /// The block's nonce
     // #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub nonce: B64,
-    /// BaseFee was added by EIP-1559 and is ignored in legacy headers.
+    /// `BaseFee` was added by EIP-1559 and is ignored in legacy headers.
     pub base_fee_per_gas: Option<U256>,
-    /// WithdrawalsHash was added by EIP-4895 and is ignored in legacy headers.
+    /// `WithdrawalsHash` was added by EIP-4895 and is ignored in legacy
+    /// headers.
     pub withdrawals_root: Option<B256>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -181,7 +182,7 @@ pub struct PartialHeader {
     pub mix_hash: B256,
     /// The block's nonce
     pub nonce: B64,
-    /// BaseFee was added by EIP-1559 and is ignored in legacy headers.
+    /// `BaseFee` was added by EIP-1559 and is ignored in legacy headers.
     pub base_fee: Option<U256>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.
     pub blob_gas: Option<BlobGas>,
@@ -242,7 +243,7 @@ impl PartialHeader {
             base_fee: options.base_fee.or_else(|| {
                 if spec_id >= SpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        calculate_next_base_fee(parent)
+                        calculate_next_base_fee_per_gas(parent)
                     } else {
                         // Initial base fee from https://eips.ethereum.org/EIPS/eip-1559
                         U256::from(1_000_000_000)
@@ -337,7 +338,7 @@ impl From<Header> for PartialHeader {
 /// # Panics
 ///
 /// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee(parent: &Header) -> U256 {
+pub fn calculate_next_base_fee_per_gas(parent: &Header) -> U256 {
     let elasticity = 2;
     let base_fee_max_change_denominator = U256::from(8);
 
@@ -367,6 +368,17 @@ pub fn calculate_next_base_fee(parent: &Header) -> U256 {
             parent_base_fee + delta.max(U256::from(1))
         }
     }
+}
+
+/// Calculates the next base fee per blob gas for a post-Cancun block, given the
+/// parent's header.
+pub fn calculate_next_base_fee_per_blob_gas(parent: &Header) -> U256 {
+    parent
+        .blob_gas
+        .as_ref()
+        .map_or(U256::ZERO, |BlobGas { excess_gas, .. }| {
+            U256::from(calc_blob_gasprice(*excess_gas))
+        })
 }
 
 #[cfg(test)]
@@ -409,7 +421,7 @@ mod tests {
 
             assert_eq!(
                 U256::from(next_base_fee),
-                calculate_next_base_fee(&parent_header)
+                calculate_next_base_fee_per_gas(&parent_header)
             );
         }
     }

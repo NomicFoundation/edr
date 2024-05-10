@@ -9,6 +9,7 @@ mod alchemy {
                     #[tokio::test]
                     async fn [<transaction_remote_ $name _hash>]() {
                         use edr_eth::{
+                            transaction::Transaction,
                             remote::{RpcClient, PreEip1898BlockSpec},
                             B256
                         };
@@ -33,7 +34,7 @@ mod alchemy {
                                     .expect("Conversion must succeed, as we're not retrieving a pending block");
 
                         for (index, transaction) in transactions.iter().enumerate() {
-                            assert_eq!(transaction_hashes[index], *transaction.hash());
+                            assert_eq!(transaction_hashes[index], *transaction.transaction_hash());
                         }
                     }
                 }

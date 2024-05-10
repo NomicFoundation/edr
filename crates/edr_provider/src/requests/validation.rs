@@ -12,6 +12,7 @@ use crate::ProviderError;
 
 /// Data used for validating a transaction complies with a [`SpecId`].
 pub struct SpecValidationData<'data> {
+    pub to: Option<&'data Address>,
     pub gas_price: Option<&'data U256>,
     pub max_fee_per_gas: Option<&'data U256>,
     pub max_priority_fee_per_gas: Option<&'data U256>,
@@ -23,6 +24,7 @@ pub struct SpecValidationData<'data> {
 impl<'data> From<&'data EthTransactionRequest> for SpecValidationData<'data> {
     fn from(value: &'data EthTransactionRequest) -> Self {
         Self {
+            to: value.to.as_ref(),
             gas_price: value.gas_price.as_ref(),
             max_fee_per_gas: value.max_fee_per_gas.as_ref(),
             max_priority_fee_per_gas: value.max_priority_fee_per_gas.as_ref(),
@@ -36,6 +38,7 @@ impl<'data> From<&'data EthTransactionRequest> for SpecValidationData<'data> {
 impl<'data> From<&'data CallRequest> for SpecValidationData<'data> {
     fn from(value: &'data CallRequest) -> Self {
         Self {
+            to: value.to.as_ref(),
             gas_price: value.gas_price.as_ref(),
             max_fee_per_gas: value.max_fee_per_gas.as_ref(),
             max_priority_fee_per_gas: value.max_priority_fee_per_gas.as_ref(),
@@ -50,6 +53,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
     fn from(value: &'data SignedTransaction) -> Self {
         match value {
             SignedTransaction::PreEip155Legacy(tx) => Self {
+                to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -58,6 +62,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::PostEip155Legacy(tx) => Self {
+                to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -66,6 +71,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::Eip2930(tx) => Self {
+                to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
@@ -74,6 +80,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::Eip1559(tx) => Self {
+                to: tx.kind.to(),
                 gas_price: None,
                 max_fee_per_gas: Some(&tx.max_fee_per_gas),
                 max_priority_fee_per_gas: Some(&tx.max_priority_fee_per_gas),
@@ -82,6 +89,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blob_hashes: None,
             },
             SignedTransaction::Eip4844(tx) => Self {
+                to: Some(&tx.to),
                 gas_price: None,
                 max_fee_per_gas: Some(&tx.max_fee_per_gas),
                 max_priority_fee_per_gas: Some(&tx.max_priority_fee_per_gas),
@@ -93,11 +101,12 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
     }
 }
 
-pub fn validate_transaction_spec<LoggerErrorT: Debug>(
+fn validate_transaction_spec<LoggerErrorT: Debug>(
     spec_id: SpecId,
     data: SpecValidationData<'_>,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     let SpecValidationData {
+        to,
         gas_price,
         max_fee_per_gas,
         max_priority_fee_per_gas,
@@ -105,6 +114,13 @@ pub fn validate_transaction_spec<LoggerErrorT: Debug>(
         blobs,
         blob_hashes,
     } = data;
+
+    if spec_id < SpecId::BERLIN && access_list.is_some() {
+        return Err(ProviderError::UnsupportedAccessListParameter {
+            current_hardfork: spec_id,
+            minimum_hardfork: SpecId::BERLIN,
+        });
+    }
 
     if spec_id < SpecId::LONDON && (max_fee_per_gas.is_some() || max_priority_fee_per_gas.is_some())
     {
@@ -114,10 +130,10 @@ pub fn validate_transaction_spec<LoggerErrorT: Debug>(
         });
     }
 
-    if spec_id < SpecId::BERLIN && access_list.is_some() {
-        return Err(ProviderError::UnsupportedAccessListParameter {
+    if spec_id < SpecId::CANCUN && (blobs.is_some() || blob_hashes.is_some()) {
+        return Err(ProviderError::UnsupportedEIP4844Parameters {
             current_hardfork: spec_id,
-            minimum_hardfork: SpecId::BERLIN,
+            minimum_hardfork: SpecId::CANCUN,
         });
     }
 
@@ -133,6 +149,18 @@ pub fn validate_transaction_spec<LoggerErrorT: Debug>(
                 "Cannot send both gasPrice and maxPriorityFeePerGas".to_string(),
             ));
         }
+
+        if blobs.is_some() {
+            return Err(ProviderError::InvalidTransactionInput(
+                "Cannot send both gasPrice and blobs".to_string(),
+            ));
+        }
+
+        if blob_hashes.is_some() {
+            return Err(ProviderError::InvalidTransactionInput(
+                "Cannot send both gasPrice and blobHashes".to_string(),
+            ));
+        }
     }
 
     if let Some(max_fee_per_gas) = max_fee_per_gas {
@@ -145,8 +173,8 @@ pub fn validate_transaction_spec<LoggerErrorT: Debug>(
         }
     }
 
-    if blobs.is_some() || blob_hashes.is_some() {
-        return Err(ProviderError::Eip4844TransactionUnsupported);
+    if (blobs.is_some() || blob_hashes.is_some()) && to.is_none() {
+        return Err(ProviderError::Eip4844TransactionMissingReceiver);
     }
 
     Ok(())
@@ -159,10 +187,23 @@ pub fn validate_call_request<LoggerErrorT: Debug>(
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     validate_post_merge_block_tags(spec_id, block_spec)?;
 
+    if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
+        return Err(ProviderError::Eip4844CallRequestUnsupported);
+    }
+
     validate_transaction_and_call_request(
         spec_id,
-        <&CallRequest as Into<SpecValidationData<'_>>>::into(call_request),
-    )
+        call_request
+    ).map_err(|err| match err {
+        ProviderError::UnsupportedEIP1559Parameters {
+            minimum_hardfork, ..
+        } => ProviderError::InvalidArgument(format!("\
+EIP-1559 style fee params (maxFeePerGas or maxPriorityFeePerGas) received but they are not supported by the current hardfork.
+
+You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later.
+        ")),
+        err => err,
+    })
 }
 
 pub fn validate_transaction_and_call_request<'a, LoggerErrorT: Debug>(
@@ -172,18 +213,13 @@ pub fn validate_transaction_and_call_request<'a, LoggerErrorT: Debug>(
     validate_transaction_spec(spec_id, validation_data.into()).map_err(|err| match err {
         ProviderError::UnsupportedAccessListParameter {
             minimum_hardfork, ..
-        } => ProviderError::InvalidArgument(format!("\
+        } => ProviderError::InvalidArgument(format!(
+            "\
 Access list received but is not supported by the current hardfork. 
 
 You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later.
-        ")),
-        ProviderError::UnsupportedEIP1559Parameters {
-            minimum_hardfork, ..
-        } => ProviderError::InvalidArgument(format!("\
-EIP-1559 style fee params (maxFeePerGas or maxPriorityFeePerGas) received but they are not supported by the current hardfork.
-
-You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later.
-        ")),
+        "
+        )),
         err => err,
     })
 }
@@ -262,4 +298,218 @@ pub fn validate_post_merge_block_tags<'a, LoggerErrorT: Debug>(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_mixed_eip_1559_parameters(spec: SpecId) {
+        let mixed_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            max_fee_per_gas: Some(U256::ZERO),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&mixed_request).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let mixed_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            max_priority_fee_per_gas: Some(U256::ZERO),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&mixed_request).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let request_with_too_low_max_fee = EthTransactionRequest {
+            from: Address::ZERO,
+            max_fee_per_gas: Some(U256::ZERO),
+            max_priority_fee_per_gas: Some(U256::from(1u64)),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&request_with_too_low_max_fee).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+    }
+
+    fn assert_unsupported_eip_1559_parameters(spec: SpecId) {
+        let eip_1559_request = EthTransactionRequest {
+            from: Address::ZERO,
+            max_fee_per_gas: Some(U256::ZERO),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&eip_1559_request).into()),
+            Err(ProviderError::UnsupportedEIP1559Parameters { .. })
+        ));
+
+        let eip_1559_request = EthTransactionRequest {
+            from: Address::ZERO,
+            max_priority_fee_per_gas: Some(U256::ZERO),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&eip_1559_request).into()),
+            Err(ProviderError::UnsupportedEIP1559Parameters { .. })
+        ));
+    }
+
+    fn assert_unsupported_eip_4844_parameters(spec: SpecId) {
+        let eip_4844_request = EthTransactionRequest {
+            from: Address::ZERO,
+            blobs: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&eip_4844_request).into()),
+            Err(ProviderError::UnsupportedEIP4844Parameters { .. })
+        ));
+
+        let eip_4844_request = EthTransactionRequest {
+            from: Address::ZERO,
+            blob_hashes: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&eip_4844_request).into()),
+            Err(ProviderError::UnsupportedEIP4844Parameters { .. })
+        ));
+    }
+
+    #[test]
+    fn validate_transaction_spec_eip_155_invalid_inputs() {
+        let eip155_spec = SpecId::MUIR_GLACIER;
+        let valid_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(validate_transaction_spec::<()>(eip155_spec, (&valid_request).into()).is_ok());
+
+        let eip_2930_request = EthTransactionRequest {
+            from: Address::ZERO,
+            access_list: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip155_spec, (&eip_2930_request).into()),
+            Err(ProviderError::UnsupportedAccessListParameter { .. })
+        ));
+
+        assert_unsupported_eip_1559_parameters(eip155_spec);
+        assert_unsupported_eip_4844_parameters(eip155_spec);
+    }
+
+    #[test]
+    fn validate_transaction_spec_eip_2930_invalid_inputs() {
+        let eip2930_spec = SpecId::BERLIN;
+        let valid_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            access_list: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(validate_transaction_spec::<()>(eip2930_spec, (&valid_request).into()).is_ok());
+
+        assert_unsupported_eip_1559_parameters(eip2930_spec);
+        assert_unsupported_eip_4844_parameters(eip2930_spec);
+    }
+
+    #[test]
+    fn validate_transaction_spec_eip_1559_invalid_inputs() {
+        let eip1559_spec = SpecId::LONDON;
+        let valid_request = EthTransactionRequest {
+            from: Address::ZERO,
+            max_fee_per_gas: Some(U256::ZERO),
+            max_priority_fee_per_gas: Some(U256::ZERO),
+            access_list: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(validate_transaction_spec::<()>(eip1559_spec, (&valid_request).into()).is_ok());
+
+        assert_unsupported_eip_4844_parameters(eip1559_spec);
+        assert_mixed_eip_1559_parameters(eip1559_spec);
+    }
+
+    #[test]
+    fn validate_transaction_spec_eip_4844_invalid_inputs() {
+        let eip4844_spec = SpecId::CANCUN;
+        let valid_request = EthTransactionRequest {
+            from: Address::ZERO,
+            to: Some(Address::ZERO),
+            max_fee_per_gas: Some(U256::ZERO),
+            max_priority_fee_per_gas: Some(U256::ZERO),
+            access_list: Some(Vec::new()),
+            blobs: Some(Vec::new()),
+            blob_hashes: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(validate_transaction_spec::<()>(eip4844_spec, (&valid_request).into()).is_ok());
+        assert_mixed_eip_1559_parameters(eip4844_spec);
+
+        let mixed_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            blobs: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip4844_spec, (&mixed_request).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let mixed_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            blob_hashes: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip4844_spec, (&mixed_request).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let missing_receiver_request = EthTransactionRequest {
+            from: Address::ZERO,
+            blobs: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip4844_spec, (&missing_receiver_request).into()),
+            Err(ProviderError::Eip4844TransactionMissingReceiver)
+        ));
+
+        let missing_receiver_request = EthTransactionRequest {
+            from: Address::ZERO,
+            blob_hashes: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip4844_spec, (&missing_receiver_request).into()),
+            Err(ProviderError::Eip4844TransactionMissingReceiver)
+        ));
+    }
 }

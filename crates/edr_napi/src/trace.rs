@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_evm::{interpreter::OPCODE_JUMPMAP, trace::BeforeMessage};
+use edr_evm::{interpreter::OpCode, trace::BeforeMessage};
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Env, JsBuffer, JsBufferValue,
@@ -125,9 +125,7 @@ impl TracingStep {
         Self {
             depth: step.depth as u8,
             pc: BigInt::from(step.pc),
-            opcode: OPCODE_JUMPMAP[usize::from(step.opcode)]
-                .unwrap_or("")
-                .to_string(),
+            opcode: OpCode::name_by_op(step.opcode).to_string(),
             stack_top,
             stack,
             memory,

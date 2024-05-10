@@ -219,6 +219,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
         let result = match request {
             // eth_* method
             MethodInvocation::Accounts(()) => eth::handle_accounts_request(data).and_then(to_json),
+            MethodInvocation::BlobBaseFee(()) => eth::handle_blob_base_fee(data).and_then(to_json),
             MethodInvocation::BlockNumber(()) => {
                 eth::handle_block_number_request(data).and_then(to_json)
             }

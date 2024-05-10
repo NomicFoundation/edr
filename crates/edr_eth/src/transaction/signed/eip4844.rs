@@ -1,7 +1,8 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, GAS_PER_BLOB};
+use hashbrown::HashMap;
+use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
 
 use crate::{
     access_list::AccessList,
@@ -73,6 +74,26 @@ impl Eip4844SignedTransaction {
         signature.recover(Eip4844TransactionRequest::from(self).hash())
     }
 
+    /// Converts this transaction into a `TxEnv` struct.
+    pub fn into_tx_env(self, caller: Address) -> TxEnv {
+        TxEnv {
+            caller,
+            gas_limit: self.gas_limit,
+            gas_price: self.max_fee_per_gas,
+            transact_to: TransactTo::Call(self.to),
+            value: self.value,
+            data: self.input,
+            nonce: Some(self.nonce),
+            chain_id: Some(self.chain_id),
+            access_list: self.access_list.into(),
+            gas_priority_fee: Some(self.max_priority_fee_per_gas),
+            blob_hashes: self.blob_hashes,
+            max_fee_per_blob_gas: Some(self.max_fee_per_blob_gas),
+            eof_initcodes: Vec::new(),
+            eof_initcodes_hashed: HashMap::new(),
+        }
+    }
+
     /// Total blob gas used by the transaction.
     pub fn total_blob_gas(&self) -> u64 {
         GAS_PER_BLOB * self.blob_hashes.len() as u64
@@ -101,6 +122,8 @@ impl PartialEq for Eip4844SignedTransaction {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+
+    use revm_primitives::{address, b256};
 
     use super::*;
 
@@ -132,7 +155,7 @@ mod tests {
     }
 
     #[test]
-    fn eip4884_signed_transaction_encoding() {
+    fn eip4844_signed_transaction_encoding() {
         // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L86
         let expected =
             hex::decode("f89b84028757b38085012a05f20085012a05f2008303345094ffb38a7a99e3e2335be83fc74b7faa19d553124383bc614e80c084b2d05e00e1a001b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded2880a08a83833ec07806485a4ded33f24f5cea4b8d4d24dc8f357e6d446bcdae5e58a7a068a2ba422a50cf84c0b5fcbda32ee142196910c97198ffd99035d920c2b557f8")
@@ -144,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn eip4884_signed_transaction_hash() {
+    fn eip4844_signed_transaction_hash() {
         // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L86
         let expected =
             B256::from_str("0xe5e02be0667b6d31895d1b5a8b916a6761cbc9865225c6144a3e2c50936d173e")
@@ -152,5 +175,40 @@ mod tests {
 
         let signed = dummy_transaction();
         assert_eq!(expected, *signed.hash());
+    }
+
+    #[test]
+    fn recover() -> anyhow::Result<()> {
+        // From https://github.com/NomicFoundation/edr/issues/341#issuecomment-2039360056
+        const CALLER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+
+        let transaction = Eip4844SignedTransaction {
+            chain_id: 1337,
+            nonce: 0,
+            max_priority_fee_per_gas: U256::from(0x3b9aca00),
+            max_fee_per_gas: U256::from(0x3b9aca00u64),
+            gas_limit: 1000000,
+            to: Address::ZERO,
+            value: U256::ZERO,
+            input: Bytes::from_str("0x2069b0c7")?,
+            access_list: Vec::new().into(),
+            max_fee_per_blob_gas: U256::from(1),
+            blob_hashes: vec![b256!(
+                "01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e"
+            )],
+            odd_y_parity: true,
+            r: U256::from_str(
+                "0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082",
+            )?,
+            s: U256::from_str(
+                "0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b",
+            )?,
+            hash: OnceLock::new(),
+            is_fake: false,
+        };
+
+        assert_eq!(transaction.recover()?, CALLER);
+
+        Ok(())
     }
 }

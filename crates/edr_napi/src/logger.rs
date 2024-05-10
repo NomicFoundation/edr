@@ -1,7 +1,7 @@
 use std::{fmt::Display, sync::mpsc::channel};
 
 use ansi_term::{Color, Style};
-use edr_eth::{Bytes, B256, U256};
+use edr_eth::{transaction::Transaction, Bytes, B256, U256};
 use edr_evm::{
     blockchain::BlockchainError,
     precompile::{self, Precompiles},
@@ -506,7 +506,7 @@ impl LogCollector {
                         result.transaction_traces.iter()
                     )
                     .find(|(block_transaction, _, _)| {
-                        *block_transaction.hash() == *transaction.hash()
+                        *block_transaction.transaction_hash() == *transaction.transaction_hash()
                     })
                     .map(|(_, transaction_result, trace)| (result, transaction_result, trace))
                 })
@@ -514,7 +514,11 @@ impl LogCollector {
 
             if mining_results.len() > 1 {
                 self.log_multiple_blocks_warning();
-                self.log_auto_mined_block_results(spec_id, mining_results, transaction.hash());
+                self.log_auto_mined_block_results(
+                    spec_id,
+                    mining_results,
+                    transaction.transaction_hash(),
+                );
                 self.log_currently_sent_transaction(
                     spec_id,
                     sent_block_result,
@@ -526,7 +530,11 @@ impl LogCollector {
                 let transactions = result.block.transactions();
                 if transactions.len() > 1 {
                     self.log_multiple_transactions_warning();
-                    self.log_auto_mined_block_results(spec_id, mining_results, transaction.hash());
+                    self.log_auto_mined_block_results(
+                        spec_id,
+                        mining_results,
+                        transaction.transaction_hash(),
+                    );
                     self.log_currently_sent_transaction(
                         spec_id,
                         sent_block_result,
@@ -659,7 +667,7 @@ impl LogCollector {
                     transaction_traces
                 ) {
                     let should_highlight_hash =
-                        *transaction.hash() == *transaction_hash_to_highlight;
+                        *transaction.transaction_hash() == *transaction_hash_to_highlight;
                     logger.log_block_transaction(
                         spec_id,
                         transaction,
@@ -706,7 +714,7 @@ impl LogCollector {
         console_log_inputs: &[Bytes],
         should_highlight_hash: bool,
     ) {
-        let transaction_hash = transaction.hash();
+        let transaction_hash = transaction.transaction_hash();
         if should_highlight_hash {
             self.log_with_title(
                 "Transaction",
@@ -1094,7 +1102,7 @@ impl LogCollector {
         self.indented(|logger| {
             logger.log_contract_and_function_name::<false>(spec_id, trace);
 
-            let transaction_hash = transaction.hash();
+            let transaction_hash = transaction.transaction_hash();
             logger.log_with_title("Transaction", transaction_hash);
 
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
