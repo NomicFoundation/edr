@@ -145,13 +145,10 @@ describe("Provider", () => {
 
       assert.lengthOf(steps, 4);
 
-      // verbose tracing is disabled, so none of the steps should have a stack
-      assert.isTrue(steps.every((step) => step.stack === undefined));
-
-      assert.isUndefined(steps[0].stackTop);
-      assert.equal(steps[1].stackTop, 1n);
-      assert.equal(steps[2].stackTop, 2n);
-      assert.equal(steps[3].stackTop, 3n);
+      assert.deepEqual(steps[0].stack, []);
+      assert.deepEqual(steps[1].stack, [1n]);
+      assert.deepEqual(steps[2].stack, [2n]);
+      assert.deepEqual(steps[3].stack, [3n]);
     });
 
     it("should only include the whole stack if verbose mode is enabled", async function () {
@@ -192,12 +189,6 @@ describe("Provider", () => {
 
       // verbose tracing is enabled, so all steps should have a stack
       assert.isTrue(steps.every((step) => step.stack !== undefined));
-
-      // same assertions as when verbose tracing is disabled
-      assert.isUndefined(steps[0].stackTop);
-      assert.equal(steps[1].stackTop, 1n);
-      assert.equal(steps[2].stackTop, 2n);
-      assert.equal(steps[3].stackTop, 3n);
 
       assert.deepEqual(steps[0].stack, []);
       assert.deepEqual(steps[1].stack, [1n]);
