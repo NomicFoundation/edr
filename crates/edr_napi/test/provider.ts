@@ -298,8 +298,8 @@ describe("Provider", () => {
             {
               from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
               // make a static call to the zero address
-              // yul: staticcall(gaslimit(), 0, 0, 0, 0, 0)
-              data: "0x60008080808045fa00",
+              // yul: staticcall(gas(), 0, 0, 0, 0, 0)
+              data: "0x6000808080805afa00",
               gas: "0x" + 1_000_000n.toString(16),
             },
           ],
