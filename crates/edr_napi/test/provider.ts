@@ -9,6 +9,7 @@ import {
   SpecId,
   SubscriptionEvent,
 } from "..";
+import { collectSteps } from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -36,7 +37,13 @@ describe("Provider", () => {
     chainId: 123n,
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
-    genesisAccounts: [],
+    genesisAccounts: [
+      {
+        secretKey:
+          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        balance: 1000n * 10n ** 18n,
+      },
+    ],
     hardfork: SpecId.Latest,
     initialBlobGas: {
       gasUsed: 0n,
@@ -101,5 +108,101 @@ describe("Provider", () => {
     );
 
     await assert.isFulfilled(provider);
+  });
+
+  describe("verbose mode", function () {
+    it("should only include the top of the stack by default", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {}
+      );
+
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 1
+              // PUSH1 2
+              // PUSH1 3
+              // STOP
+              data: "60016002600300",
+            },
+          ],
+        })
+      );
+
+      const rawTraces = responseObject.traces;
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0].trace();
+      const steps = collectSteps(trace);
+
+      assert.lengthOf(steps, 4);
+
+      // verbose tracing is disabled, so none of the steps should have a stack
+      assert.isTrue(steps.every((step) => step.stack === undefined));
+
+      assert.isUndefined(steps[0].stackTop);
+      assert.equal(steps[1].stackTop, 1n);
+      assert.equal(steps[2].stackTop, 2n);
+      assert.equal(steps[3].stackTop, 3n);
+    });
+
+    it("should only include the whole stack if verbose mode is enabled", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {}
+      );
+
+      provider.setVerboseTracing(true);
+
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 1
+              // PUSH1 2
+              // PUSH1 3
+              // STOP
+              data: "60016002600300",
+            },
+          ],
+        })
+      );
+
+      const rawTraces = responseObject.traces;
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0].trace();
+      const steps = collectSteps(trace);
+
+      assert.lengthOf(steps, 4);
+
+      // verbose tracing is enabled, so all steps should have a stack
+      assert.isTrue(steps.every((step) => step.stack !== undefined));
+
+      // same assertions as when verbose tracing is disabled
+      assert.isUndefined(steps[0].stackTop);
+      assert.equal(steps[1].stackTop, 1n);
+      assert.equal(steps[2].stackTop, 2n);
+      assert.equal(steps[3].stackTop, 3n);
+
+      assert.deepEqual(steps[0].stack, []);
+      assert.deepEqual(steps[1].stack, [1n]);
+      assert.deepEqual(steps[2].stack, [1n, 2n]);
+      assert.deepEqual(steps[3].stack, [1n, 2n, 3n]);
+    });
   });
 });
