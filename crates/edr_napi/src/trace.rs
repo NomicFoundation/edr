@@ -102,12 +102,11 @@ pub struct TracingStep {
     /// The executed op code
     #[napi(readonly)]
     pub opcode: String,
-    /// The top entry on the stack. None if the stack is empty.
+    /// The entries on the stack. It only contains the top element unless
+    /// verbose tracing is enabled. The vector is empty if there are no elements
+    /// on the stack.
     #[napi(readonly)]
-    pub stack_top: Option<BigInt>,
-    /// The entries on the stack. None if verbose tracing is disabled.
-    #[napi(readonly)]
-    pub stack: Option<Vec<BigInt>>,
+    pub stack: Vec<BigInt>,
     /// The memory at the step. None if verbose tracing is disabled.
     #[napi(readonly)]
     pub memory: Option<Buffer>,
@@ -115,18 +114,21 @@ pub struct TracingStep {
 
 impl TracingStep {
     pub fn new(step: &edr_evm::trace::Step) -> Self {
-        let stack_top = step.stack.top().map(u256_to_bigint);
-        let stack = step
-            .stack
-            .full()
-            .map(|stack| stack.iter().map(u256_to_bigint).collect());
+        let stack = step.stack.full().map_or_else(
+            || {
+                step.stack
+                    .top()
+                    .map(u256_to_bigint)
+                    .map_or_else(Vec::default, |top| vec![top])
+            },
+            |stack| stack.iter().map(u256_to_bigint).collect(),
+        );
         let memory = step.memory.as_ref().cloned().map(Buffer::from);
 
         Self {
             depth: step.depth as u8,
             pc: BigInt::from(step.pc),
             opcode: OpCode::name_by_op(step.opcode).to_string(),
-            stack_top,
             stack,
             memory,
         }
