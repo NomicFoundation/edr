@@ -495,7 +495,7 @@ impl RpcClient {
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
-    pub async fn send_request_body(
+    async fn send_request_body(
         &self,
         request_body: &SerializedRequest,
     ) -> Result<String, RpcClientError> {
@@ -512,7 +512,7 @@ impl RpcClient {
             .map_err(|err| RpcClientError::CorruptedResponse(err.into()))
     }
 
-    pub fn serialize_request(
+    fn serialize_request(
         &self,
         input: &RequestMethod,
     ) -> Result<SerializedRequest, RpcClientError> {
@@ -971,7 +971,7 @@ async fn ensure_cache_directory(
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[repr(transparent)]
 #[serde(transparent)]
-pub struct SerializedRequest(serde_json::Value);
+struct SerializedRequest(serde_json::Value);
 
 impl SerializedRequest {
     fn to_json_string(&self) -> String {
