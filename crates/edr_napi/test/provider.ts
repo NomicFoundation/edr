@@ -9,7 +9,7 @@ import {
   SpecId,
   SubscriptionEvent,
 } from "..";
-import { collectSteps } from "./helpers";
+import { collectMessages, collectSteps } from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -131,7 +131,7 @@ describe("Provider", () => {
               // PUSH1 2
               // PUSH1 3
               // STOP
-              data: "60016002600300",
+              data: "0x60016002600300",
             },
           ],
         })
@@ -176,7 +176,7 @@ describe("Provider", () => {
               // PUSH1 2
               // PUSH1 3
               // STOP
-              data: "60016002600300",
+              data: "0x60016002600300",
             },
           ],
         })
@@ -204,5 +204,137 @@ describe("Provider", () => {
       assert.deepEqual(steps[2].stack, [1n, 2n]);
       assert.deepEqual(steps[3].stack, [1n, 2n, 3n]);
     });
+
+    it("should not include memory by default", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {}
+      );
+
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // store 0x000...001 as the first memory word
+              // PUSH1 1
+              // PUSH0
+              // MSTORE
+              // STOP
+              data: "0x60015f5200",
+            },
+          ],
+        })
+      );
+
+      const rawTraces = responseObject.traces;
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0].trace();
+      const steps = collectSteps(trace);
+
+      assert.lengthOf(steps, 4);
+
+      // verbose tracing is disabled, so none of the steps should have a stack
+      assert.isTrue(steps.every((step) => step.memory === undefined));
+    });
+
+    it("should include memory if verbose mode is enabled", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {}
+      );
+
+      provider.setVerboseTracing(true);
+
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // store 0x000...001 as the first memory word
+              // PUSH1 1
+              // PUSH0
+              // MSTORE
+              // STOP
+              data: "0x60015f5200",
+            },
+          ],
+        })
+      );
+
+      const rawTraces = responseObject.traces;
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0].trace();
+      const steps = collectSteps(trace);
+
+      assert.lengthOf(steps, 4);
+
+      assertEqualMemory(steps[0].memory, Buffer.from([]));
+      assertEqualMemory(steps[1].memory, Buffer.from([]));
+      assertEqualMemory(steps[2].memory, Buffer.from([]));
+      assertEqualMemory(
+        steps[3].memory,
+        Buffer.from([...Array(31).fill(0), 1])
+      );
+    });
+
+    it("should include isStaticCall flag in tracing messages", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {}
+      );
+
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // make a static call to the zero address
+              // yul: staticcall(gaslimit(), 0, 0, 0, 0, 0)
+              data: "0x60008080808045fa00",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      const rawTraces = responseObject.traces;
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0].trace();
+      const messageResults = collectMessages(trace);
+      assert.lengthOf(messageResults, 2);
+
+      // outer message
+      assert.isFalse(messageResults[0].isStaticCall);
+
+      // inner message triggered by STATICCALL
+      assert.isTrue(messageResults[1].isStaticCall);
+    });
   });
 });
+
+function assertEqualMemory(stepMemory: Buffer | undefined, expected: Buffer) {
+  if (stepMemory === undefined) {
+    assert.fail("step memory is undefined");
+  }
+
+  assert.isTrue(stepMemory.equals(expected));
+}

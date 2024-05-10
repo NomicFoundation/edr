@@ -8,3 +8,12 @@ export function collectSteps(
 ): TracingStep[] {
   return trace.filter((traceItem) => "pc" in traceItem) as TracingStep[];
 }
+
+/**
+  * Given a trace, return only its messages.
+  */
+export function collectMessages(
+  trace: Array<TracingMessage | TracingStep | TracingMessageResult>
+): TracingMessage[] {
+  return trace.filter((traceItem) => "isStaticCall" in traceItem) as TracingMessage[];
+}
