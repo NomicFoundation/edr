@@ -53,7 +53,6 @@ pub struct Transaction {
     /// are returned by nodes.
     #[serde(
         default,
-        rename = "yParity",
         skip_serializing_if = "Option::is_none",
         with = "crate::serde::optional_u64"
     )]

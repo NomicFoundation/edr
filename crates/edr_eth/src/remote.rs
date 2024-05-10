@@ -16,4 +16,5 @@ pub use self::{
     block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec},
     client::{RpcClient, RpcClientError},
     r#override::*,
+    request_methods::RequestMethod,
 };

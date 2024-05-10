@@ -1118,8 +1118,12 @@ dependencies = [
 name = "edr_opt"
 version = "0.3.5"
 dependencies = [
+ "anyhow",
+ "edr_defaults",
  "edr_eth",
+ "edr_test_utils",
  "revm-primitives",
+ "tokio",
 ]
 
 [[package]]

@@ -287,6 +287,12 @@ pub enum PreEip1898BlockSpec {
     Tag(BlockTag),
 }
 
+impl From<u64> for PreEip1898BlockSpec {
+    fn from(value: u64) -> Self {
+        Self::Number(value)
+    }
+}
+
 impl From<PreEip1898BlockSpec> for BlockSpec {
     fn from(value: PreEip1898BlockSpec) -> Self {
         match value {
