@@ -368,10 +368,12 @@ export interface TracingStep {
   readonly pc: bigint
   /** The executed op code */
   readonly opcode: string
-  /** The top entry on the stack. None if the stack is empty. */
-  readonly stackTop?: bigint
-  /** The entries on the stack. None if verbose tracing is disabled. */
-  readonly stack?: Array<bigint>
+  /**
+   * The entries on the stack. It only contains the top element unless
+   * verbose tracing is enabled. The vector is empty if there are no elements
+   * on the stack.
+   */
+  readonly stack: Array<bigint>
   /** The memory at the step. None if verbose tracing is disabled. */
   readonly memory?: Buffer
 }
