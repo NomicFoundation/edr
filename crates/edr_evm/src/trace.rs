@@ -198,9 +198,6 @@ pub struct AfterMessage {
     /// The newly created contract address if it's a create tx. `None`
     /// if there was an error creating the contract.
     pub contract_address: Option<Address>,
-    /// The newly created contract's code if it's a create tx. `None`
-    /// if there was an error creating the contract.
-    pub contract_code: Option<Bytecode>,
 }
 
 /// A trace for an EVM call.
@@ -271,65 +268,14 @@ impl Trace {
         self.messages.push(TraceMessage::Before(message));
     }
 
-    /// Adds a result message without the contract code if a new contract was
-    /// created.
-    pub fn add_after_succinct(&mut self, execution_result: ExecutionResult) {
-        self.messages.push(TraceMessage::After(AfterMessage {
-            execution_result,
-            contract_code: None,
-            contract_address: None,
-        }));
+    /// Adds a result message
+    pub fn add_after(&mut self, message: AfterMessage) {
+        self.messages.push(TraceMessage::After(message));
     }
 
-    /// Adds a result message with the contract address and contract code if a
-    /// new contract was created. The `address` and `code` are `None` if
-    /// there was an error creating the contract.
-    pub fn add_after_verbose(
-        &mut self,
-        execution_result: ExecutionResult,
-        address: Option<Address>,
-        code: Option<Bytecode>,
-    ) {
-        self.messages.push(TraceMessage::After(AfterMessage {
-            execution_result,
-            contract_address: address,
-            contract_code: code,
-        }));
-    }
-
-    /// Adds a VM step to the trace without full stack and memory.
-    pub fn add_step_succinct(
-        &mut self,
-        depth: u64,
-        pc: usize,
-        opcode: u8,
-        stack_top: Option<U256>,
-    ) {
-        self.messages.push(TraceMessage::Step(Step {
-            pc: pc as u64,
-            depth,
-            opcode,
-            stack: Stack::Top(stack_top),
-            memory: None,
-        }));
-    }
-
-    /// Adds a VM step to the trace with full stack and memory.
-    pub fn add_step_verbose(
-        &mut self,
-        depth: u64,
-        pc: usize,
-        opcode: u8,
-        stack: Vec<U256>,
-        memory: Vec<u8>,
-    ) {
-        self.messages.push(TraceMessage::Step(Step {
-            pc: pc as u64,
-            depth,
-            opcode,
-            stack: Stack::Full(stack),
-            memory: Some(memory),
-        }));
+    /// Adds a VM step to the trace
+    pub fn add_step(&mut self, step: Step) {
+        self.messages.push(TraceMessage::Step(step));
     }
 }
 
@@ -386,7 +332,31 @@ impl TraceCollector {
 
         self.validate_before_message();
 
-        let code = get_code_from_state(data, &inputs.bytecode_address);
+        // This needs to be split into two functions to avoid borrow checker issues
+        #[allow(clippy::map_unwrap_or)]
+        let code = data
+            .journaled_state
+            .state
+            .get(&inputs.bytecode_address)
+            .map(|account| account.info.clone())
+            .map(|mut account_info| {
+                if let Some(code) = account_info.code.take() {
+                    code
+                } else {
+                    data.db.code_by_hash(account_info.code_hash).unwrap()
+                }
+            })
+            .unwrap_or_else(|| {
+                data.db.basic(inputs.bytecode_address).unwrap().map_or(
+                    // If an invalid contract address was provided, return empty code
+                    Bytecode::new(),
+                    |account_info| {
+                        account_info.code.unwrap_or_else(|| {
+                            data.db.code_by_hash(account_info.code_hash).unwrap()
+                        })
+                    },
+                )
+            });
 
         self.pending_before = Some(BeforeMessage {
             depth: data.journaled_state.depth,
@@ -429,7 +399,7 @@ impl TraceCollector {
             ret
         };
 
-        let result = match safe_ret.into() {
+        let execution_result = match safe_ret.into() {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -451,7 +421,10 @@ impl TraceCollector {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after_succinct(result);
+        self.current_trace_mut().add_after(AfterMessage {
+            execution_result,
+            contract_address: None,
+        });
     }
 
     fn create<DatabaseT: Database>(&mut self, data: &EvmContext<DatabaseT>, inputs: &CreateInputs) {
@@ -493,7 +466,7 @@ impl TraceCollector {
                 ret
             };
 
-        let result = match safe_ret.into() {
+        let execution_result = match safe_ret.into() {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -515,20 +488,10 @@ impl TraceCollector {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        if self.verbose {
-            let (address, code) = match result {
-                ExecutionResult::Success { .. } => {
-                    let address = outcome.address.expect("Address must be present on success");
-                    let code = get_code_from_state(data, &address);
-                    (Some(address), Some(code))
-                }
-                _ => (None, None),
-            };
-            self.current_trace_mut()
-                .add_after_verbose(result, address, code);
-        } else {
-            self.current_trace_mut().add_after_succinct(result);
-        }
+        self.current_trace_mut().add_after(AfterMessage {
+            execution_result,
+            contract_address: outcome.address,
+        });
     }
 
     fn step<DatabaseT: Database>(&mut self, interp: &Interpreter, data: &EvmContext<DatabaseT>) {
@@ -540,22 +503,23 @@ impl TraceCollector {
         self.validate_before_message();
 
         if !skip_step {
-            if self.verbose {
-                self.current_trace_mut().add_step_verbose(
-                    data.journaled_state.depth(),
-                    interp.program_counter(),
-                    interp.current_opcode(),
-                    interp.stack.data().clone(),
-                    interp.shared_memory.context_memory().to_vec(),
-                );
+            let stack = if self.verbose {
+                Stack::Full(interp.stack.data().clone())
             } else {
-                self.current_trace_mut().add_step_succinct(
-                    data.journaled_state.depth(),
-                    interp.program_counter(),
-                    interp.current_opcode(),
-                    interp.stack.data().last().cloned(),
-                );
-            }
+                Stack::Top(interp.stack.data().last().cloned())
+            };
+            let memory = if self.verbose {
+                Some(interp.shared_memory.context_memory().to_vec())
+            } else {
+                None
+            };
+            self.current_trace_mut().add_step(Step {
+                pc: interp.program_counter() as u64,
+                depth: data.journaled_state.depth(),
+                opcode: interp.current_opcode(),
+                stack,
+                memory,
+            });
         }
     }
 
@@ -580,39 +544,6 @@ impl TraceCollector {
         self.is_new_trace = true;
         self.create_end(data, inputs, outcome);
     }
-}
-
-fn get_code_from_state<DatabaseT: Database>(
-    data: &mut EvmContext<DatabaseT>,
-    bytecode_address: &Address,
-) -> Bytecode
-where
-    <DatabaseT as Database>::Error: Debug,
-{
-    // This needs to be split into two functions to avoid borrow checker issues
-    #[allow(clippy::map_unwrap_or)]
-    data.journaled_state
-        .state
-        .get(bytecode_address)
-        .map(|account| account.info.clone())
-        .map(|mut account_info| {
-            if let Some(code) = account_info.code.take() {
-                code
-            } else {
-                data.db.code_by_hash(account_info.code_hash).unwrap()
-            }
-        })
-        .unwrap_or_else(|| {
-            data.db.basic(*bytecode_address).unwrap().map_or(
-                // If an invalid contract address was provided, return empty code
-                Bytecode::new(),
-                |account_info| {
-                    account_info
-                        .code
-                        .unwrap_or_else(|| data.db.code_by_hash(account_info.code_hash).unwrap())
-                },
-            )
-        })
 }
 
 impl GetContextData<TraceCollector> for TraceCollector {

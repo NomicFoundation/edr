@@ -171,8 +171,6 @@ pub struct ExecutionResult {
     pub result: Either3<SuccessResult, RevertResult, HaltResult>,
     /// Optional contract address if the transaction created a new contract.
     pub contract_address: Option<Buffer>,
-    /// Optional contract code if the transaction created a new contract.
-    pub contract_code: Option<Buffer>,
 }
 
 impl ExecutionResult {
@@ -180,7 +178,6 @@ impl ExecutionResult {
         let AfterMessage {
             execution_result,
             contract_address,
-            contract_code,
         } = message;
 
         let result = match execution_result {
@@ -239,14 +236,10 @@ impl ExecutionResult {
         };
 
         let contract_address = contract_address.map(|address| Buffer::from(address.as_slice()));
-        let contract_code = contract_code
-            .as_ref()
-            .map(|code| Buffer::from(code.original_bytes().to_vec()));
 
         Ok(Self {
             result,
             contract_address,
-            contract_code,
         })
     }
 }
