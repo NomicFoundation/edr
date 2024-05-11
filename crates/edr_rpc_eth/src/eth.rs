@@ -6,12 +6,8 @@
 // - https://github.com/gakonst/ethers-rs/blob/7e6c3ba98363bdf6131e8284f186cc2c70ff48c3/LICENSE-MIT
 // For the original context, see https://github.com/gakonst/ethers-rs/tree/7e6c3ba98363bdf6131e8284f186cc2c70ff48c3
 
-/// Input type for `eth_call` and `eth_estimateGas`
-mod call_request;
-
 use std::fmt::Debug;
 
-pub use self::call_request::CallRequest;
 use crate::{
     access_list::AccessListItem, withdrawal::Withdrawal, Address, Bloom, Bytes, B256, B64, U256,
 };

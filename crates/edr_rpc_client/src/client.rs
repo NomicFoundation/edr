@@ -1,5 +1,3 @@
-mod reqwest_error;
-
 use std::{
     fmt::Debug,
     io,
@@ -8,6 +6,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+use edr_eth::{
+    eth,
+    filter::{LogFilterOptions, OneOrMore},
+    jsonrpc,
+    request_methods::RequestMethod,
+    BlockSpec, Bytecode, PreEip1898BlockSpec, KECCAK_EMPTY,
+};
 use futures::{future, stream::StreamExt, TryFutureExt};
 use hyper::header::HeaderValue;
 pub use hyper::{header, http::Error as HttpError, HeaderMap};
@@ -16,18 +21,10 @@ use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddlewar
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 #[cfg(feature = "tracing")]
 use reqwest_tracing::TracingMiddleware;
-use revm_primitives::{Bytecode, KECCAK_EMPTY};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{OnceCell, RwLock};
 use uuid::Uuid;
 
-use super::{
-    eth,
-    filter::{LogFilterOptions, OneOrMore},
-    jsonrpc,
-    request_methods::RequestMethod,
-    BlockSpec, PreEip1898BlockSpec,
-};
 pub use crate::remote::client::reqwest_error::{MiddlewareError, ReqwestError};
 use crate::{
     block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs},
