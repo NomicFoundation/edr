@@ -4,6 +4,7 @@ use std::{
     str::FromStr,
 };
 
+use alloy_dyn_abi::TypedData;
 use edr_eth::{Address, Bytes, U256, U64};
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -408,6 +409,19 @@ pub(crate) mod storage_value {
         let padded = format!("0x{value:0>64x}");
         serializer.serialize_str(&padded)
     }
+}
+
+/// Helper function for deserializing the payload of an `eth_signTypedData_v4`
+/// request.
+pub(crate) fn deserialize_typed_data<'de, DeserializerT>(
+    deserializer: DeserializerT,
+) -> Result<TypedData, DeserializerT::Error>
+where
+    DeserializerT: Deserializer<'de>,
+{
+    TypedData::deserialize(deserializer).map_err(|_error| {
+        serde::de::Error::custom("The message parameter is an invalid JSON.".to_string())
+    })
 }
 
 fn invalid_hex<'de, D>(value: &str) -> D::Error

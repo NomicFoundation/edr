@@ -222,7 +222,7 @@ pub enum MethodInvocation {
     #[serde(rename = "eth_signTypedData_v4")]
     SignTypedDataV4(
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
-        TypedData,
+        #[serde(deserialize_with = "crate::requests::serde::deserialize_typed_data")] TypedData,
     ),
     /// `eth_subscribe`
     #[serde(rename = "eth_subscribe")]
