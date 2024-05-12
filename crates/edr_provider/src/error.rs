@@ -14,7 +14,6 @@ use edr_evm::{
     DebugTraceError, ExecutionResult, HaltReason, MemPoolAddTransactionError, MineBlockError,
     MineTransactionError, OutOfGasError, TransactionCreationError, TransactionError,
 };
-use ethers_core::types::transaction::eip712::Eip712Error;
 
 use crate::{data::CreationError, IntervalConfigConversionError};
 
@@ -61,7 +60,7 @@ pub enum ProviderError<LoggerErrorT> {
     #[error("An EIP-4844 (shard blob) transaction is missing the to (receiver) parameter.")]
     Eip4844TransactionMissingReceiver,
     #[error(transparent)]
-    Eip712Error(#[from] Eip712Error),
+    Eip712Error(#[from] alloy_dyn_abi::Error),
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
     EstimateGasTransactionFailure(#[from] EstimateGasFailure),

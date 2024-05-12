@@ -1,3 +1,4 @@
+use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
     remote::{
         eth::CallRequest,
@@ -8,7 +9,6 @@ use edr_eth::{
     transaction::EthTransactionRequest,
     Address, Bytes, B256, U256, U64,
 };
-use ethers_core::types::transaction::eip712::TypedData;
 
 use super::serde::RpcAddress;
 use crate::requests::{
@@ -222,7 +222,7 @@ pub enum MethodInvocation {
     #[serde(rename = "eth_signTypedData_v4")]
     SignTypedDataV4(
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
-        #[serde(deserialize_with = "crate::requests::serde::typed_data::deserialize")] TypedData,
+        TypedData,
     ),
     /// `eth_subscribe`
     #[serde(rename = "eth_subscribe")]
