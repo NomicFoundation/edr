@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Fixed eth_call and eth_sendTransaction by allowing input instead of data to match gRPC
+Fixed eth_call and eth_sendTransaction to allow passing input data with both `input` and `data` fields
