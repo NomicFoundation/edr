@@ -11,7 +11,7 @@ on:
   push:
     branches:
       - main
-      - edr/release
+      - prerelease
     tags-ignore:
       - "**"
     paths-ignore:
@@ -373,8 +373,8 @@ jobs:
       - test-linux-x64-musl-binding
       - test-linux-aarch64-gnu-binding
       - test-linux-aarch64-musl-binding
-    # Only run workflow if the PR is merged to main and the commit message is a release commit.
-    if: ${{ needs.check_commit.outputs.match == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/edr/release') }}
+    # Only run workflow if the commit message is a release commit.
+    if: ${{ needs.check_commit.outputs.match == 'true' }}
     defaults:
       run:
         working-directory: ./crates/edr_napi
@@ -401,14 +401,22 @@ jobs:
         run: |
           if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
           then
-            echo "Publishing pre-release"
-            echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-            pnpm publish --no-git-checks --provenance --tag next --access public
+            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/prerelease" ]; then
+              echo "Publishing pre-release"
+              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+              pnpm publish --no-git-checks --provenance --tag next --access public
+            else
+              echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
+            fi
           elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
           then
-            echo "Publishing release"
-            echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-            pnpm publish --no-git-checks --provenance --access public
+            if [ "$GITHUB_REF" == "refs/heads/main" ]; then
+              echo "Publishing release"
+              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+              pnpm publish --no-git-checks --provenance --access public
+            else
+              echo "Trying to publish a release from a branch that is not 'main'"
+            fi
           else
             echo "Not a release, skipping publish"
           fi
