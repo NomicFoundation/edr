@@ -331,8 +331,6 @@ export interface ExecutionResult {
   result: SuccessResult | RevertResult | HaltResult
   /** Optional contract address if the transaction created a new contract. */
   contractAddress?: Buffer
-  /** Optional contract code if the transaction created a new contract. */
-  contractCode?: Buffer
 }
 export interface SubscriptionEvent {
   filterId: bigint
@@ -405,9 +403,8 @@ export class Provider {
   /**
    * Set to `true` to make the traces returned with `eth_call`,
    * `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
-   * `evm_mine`, `hardhat_mine` include the full stack and memory and
-   * newly creates contract addresses and code. Set to `false` to disable
-   * this.
+   * `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
+   * `false` to disable this.
    */
   setVerboseTracing(verboseTracing: boolean): void
 }
