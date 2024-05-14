@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
+use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{Address, Bytes};
-use ethers_core::types::transaction::eip712::TypedData;
 
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError};
 

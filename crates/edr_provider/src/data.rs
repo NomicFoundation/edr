@@ -12,6 +12,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
     block::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
@@ -49,7 +50,6 @@ use edr_evm::{
     OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock, TracerEip3155, TxEnv,
     KECCAK_EMPTY,
 };
-use ethers_core::types::transaction::eip712::{Eip712, TypedData};
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
@@ -1774,7 +1774,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     ) -> Result<Signature, ProviderError<LoggerErrorT>> {
         match self.local_accounts.get(address) {
             Some(secret_key) => {
-                let hash: B256 = message.encode_eip712()?.into();
+                let hash: B256 = message
+                    // TODO https://github.com/NomicFoundation/edr/issues/445
+                    // This returns B256, but we're currently using the EIP-712 types for Alloy from
+                    // Git, so we need to convert it to a slice before converting to our B256.
+                    .eip712_signing_hash()?
+                    .as_slice()
+                    .try_into()
+                    .expect("Git and released version of B256 are compatible");
                 Ok(Signature::new(RecoveryMessage::Hash(hash), secret_key)?)
             }
             None => Err(ProviderError::UnknownAddress { address: *address }),

@@ -4,6 +4,8 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
+# TODO switch to Cargo version https://github.com/NomicFoundation/edr/issues/445
+alloy-dyn-abi = { git = "https://github.com/alloy-rs/core", rev = "85aecdf", features = ["eip712"] }
 alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
 anyhow = { version = "1.0.75", optional = true }
 auto_impl = { version = "1.2", default-features = false }
@@ -11,7 +13,6 @@ dyn-clone = { version = "1.0.13", default-features = false }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["rand"] }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
-ethers-core = {  version = "2.0.12" , features = ["eip712"] }
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
 itertools = { version = "0.12.0", default-features = false, features = ["use_alloc"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
