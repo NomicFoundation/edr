@@ -51,7 +51,7 @@
     "build:debug": "napi build --platform",
     "build:tracing": "napi build --platform --release --features tracing",
     "build:scenarios": "napi build --platform --release --features scenarios",
-    "prepublishOnly": "napi prepublish -t npm --skip-gh-release",
+    "prepublishOnly": "bash scripts/prepublish.sh",
     "universal": "napi universal",
     "version": "napi version",
     "pretest": "pnpm build",
