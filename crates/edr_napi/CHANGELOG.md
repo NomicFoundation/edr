@@ -1,5 +1,17 @@
 # @nomicfoundation/edr
 
+## 0.3.8
+
+### Patch Changes
+
+- a4d5b62: Added support for blob transactions (EIP-4844) when auto-mining is enabled and the mempool is empty
+- ad1a4e8: Added support for EIP-712 payloads with signed integers
+- b03c944: Upgraded revm to commit aceb093
+- 3dfd1a5: Fixed `smock.fake` causing a panic
+- 0db9db9: Added retry for sporadic "missing trie node" JSON-RPC errors
+- c5da529: Fixed eth_call and eth_sendTransaction to allow passing input data with both `input` and `data` fields
+- caa6f85: Added a workaround for an npm bug by using all builds as normal dependencies
+
 ## 0.3.7
 
 _This version didn't include any changes, but it fixed a release issue that caused one of our supported architectures to not be published._
