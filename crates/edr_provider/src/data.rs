@@ -1774,14 +1774,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     ) -> Result<Signature, ProviderError<LoggerErrorT>> {
         match self.local_accounts.get(address) {
             Some(secret_key) => {
-                let hash: B256 = message
-                    // TODO https://github.com/NomicFoundation/edr/issues/445
-                    // This returns B256, but we're currently using the EIP-712 types for Alloy from
-                    // Git, so we need to convert it to a slice before converting to our B256.
-                    .eip712_signing_hash()?
-                    .as_slice()
-                    .try_into()
-                    .expect("Git and released version of B256 are compatible");
+                let hash = message.eip712_signing_hash()?;
                 Ok(Signature::new(RecoveryMessage::Hash(hash), secret_key)?)
             }
             None => Err(ProviderError::UnknownAddress { address: *address }),

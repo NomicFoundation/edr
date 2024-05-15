@@ -4,8 +4,7 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
-# TODO switch to Cargo version https://github.com/NomicFoundation/edr/issues/445
-alloy-dyn-abi = { git = "https://github.com/alloy-rs/core", rev = "85aecdf", features = ["eip712"] }
+alloy-dyn-abi = { version = "0.7.4", features = ["eip712"] }
 alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
 anyhow = { version = "1.0.75", optional = true }
 auto_impl = { version = "1.2", default-features = false }
