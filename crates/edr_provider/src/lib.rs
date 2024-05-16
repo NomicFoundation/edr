@@ -281,6 +281,9 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             MethodInvocation::GetTransactionReceipt(transaction_hash) => {
                 eth::handle_get_transaction_receipt(data, transaction_hash).and_then(to_json)
             }
+            MethodInvocation::MaxPriorityFeePerGas(()) => {
+                eth::handle_max_priority_fee_per_gas().and_then(to_json)
+            }
             MethodInvocation::Mining(()) => eth::handle_mining().and_then(to_json),
             MethodInvocation::NetListening(()) => {
                 eth::handle_net_listening_request().and_then(to_json)
