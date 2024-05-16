@@ -223,6 +223,10 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
                 eth::handle_estimate_gas(data, call_request, block_spec)
                     .and_then(to_json_with_traces)
             }
+            MethodInvocation::EthSign(address, message)
+            | MethodInvocation::PersonalSign(message, address) => {
+                eth::handle_sign_request(data, message, address).and_then(to_json)
+            }
             MethodInvocation::FeeHistory(block_count, newest_block, reward_percentiles) => {
                 eth::handle_fee_history(data, block_count, newest_block, reward_percentiles)
                     .and_then(to_json)
@@ -310,9 +314,6 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             MethodInvocation::SendTransaction(transaction_request) => {
                 eth::handle_send_transaction_request(data, transaction_request)
                     .and_then(to_json_with_traces)
-            }
-            MethodInvocation::Sign(message, address) => {
-                eth::handle_sign_request(data, message, address).and_then(to_json)
             }
             MethodInvocation::SignTypedDataV4(address, message) => {
                 eth::handle_sign_typed_data_v4(data, address, message).and_then(to_json)

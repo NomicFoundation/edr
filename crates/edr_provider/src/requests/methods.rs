@@ -68,6 +68,12 @@ pub enum MethodInvocation {
         )]
         Option<BlockSpec>,
     ),
+    /// `eth_sign`
+    #[serde(rename = "eth_sign")]
+    EthSign(
+        #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
+        Bytes,
+    ),
     /// `eth_feeHistory`
     #[serde(rename = "eth_feeHistory")]
     FeeHistory(
@@ -212,9 +218,9 @@ pub enum MethodInvocation {
     /// `eth_sendTransaction`
     #[serde(rename = "eth_sendTransaction", with = "edr_eth::serde::sequence")]
     SendTransaction(EthTransactionRequest),
-    /// `eth_sign`
-    #[serde(rename = "eth_sign", alias = "personal_sign")]
-    Sign(
+    /// `personal_sign`
+    #[serde(rename = "personal_sign")]
+    PersonalSign(
         Bytes,
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
     ),
@@ -410,6 +416,7 @@ impl MethodInvocation {
             MethodInvocation::ChainId(_) => "eth_chainId",
             MethodInvocation::Coinbase(_) => "eth_coinbase",
             MethodInvocation::EstimateGas(_, _) => "eth_estimateGas",
+            MethodInvocation::EthSign(_, _) => "eth_sign",
             MethodInvocation::FeeHistory(_, _, _) => "eth_feeHistory",
             MethodInvocation::GasPrice(_) => "eth_gasPrice",
             MethodInvocation::GetBalance(_, _) => "eth_getBalance",
@@ -443,9 +450,9 @@ impl MethodInvocation {
             MethodInvocation::NewFilter(_) => "eth_newFilter",
             MethodInvocation::NewPendingTransactionFilter(_) => "eth_newPendingTransactionFilter",
             MethodInvocation::PendingTransactions(_) => "eth_pendingTransactions",
+            MethodInvocation::PersonalSign(_, _) => "personal_sign",
             MethodInvocation::SendRawTransaction(_) => "eth_sendRawTransaction",
             MethodInvocation::SendTransaction(_) => "eth_sendTransaction",
-            MethodInvocation::Sign(_, _) => "eth_sign",
             MethodInvocation::SignTypedDataV4(_, _) => "eth_signTypedData_v4",
             MethodInvocation::Subscribe(_, _) => "eth_subscribe",
             MethodInvocation::Syncing(_) => "eth_syncing",

@@ -345,10 +345,18 @@ fn test_serde_eth_send_transaction() {
 }
 
 #[test]
-fn test_serde_eth_sign() {
-    help_test_method_invocation_serde(MethodInvocation::Sign(
+fn test_serde_personal_sign() {
+    help_test_method_invocation_serde(MethodInvocation::PersonalSign(
         Bytes::from(&b"whatever"[..]),
         Address::from(U160::from(1)),
+    ));
+}
+
+#[test]
+fn test_serde_eth_sign() {
+    help_test_method_invocation_serde(MethodInvocation::EthSign(
+        Address::from(U160::from(1)),
+        Bytes::from(&b"whatever"[..]),
     ));
 }
 
@@ -504,11 +512,23 @@ fn test_net_peer_count() {
 
 #[test]
 fn test_personal_sign() {
-    let call = MethodInvocation::Sign(Bytes::from(&b"whatever"[..]), Address::from(U160::from(1)));
+    let call =
+        MethodInvocation::PersonalSign(Bytes::from(&b"whatever"[..]), Address::from(U160::from(1)));
 
-    let serialized = serde_json::json!(call)
-        .to_string()
-        .replace("eth_sign", "personal_sign");
+    let serialized = serde_json::json!(call).to_string();
+
+    let call_deserialized: MethodInvocation = serde_json::from_str(&serialized)
+        .unwrap_or_else(|_| panic!("should have successfully deserialized json {serialized}"));
+
+    assert_eq!(call, call_deserialized);
+}
+
+#[test]
+fn test_eth_sign() {
+    let call =
+        MethodInvocation::EthSign(Address::from(U160::from(1)), Bytes::from(&b"whatever"[..]));
+
+    let serialized = serde_json::json!(call).to_string();
 
     let call_deserialized: MethodInvocation = serde_json::from_str(&serialized)
         .unwrap_or_else(|_| panic!("should have successfully deserialized json {serialized}"));
