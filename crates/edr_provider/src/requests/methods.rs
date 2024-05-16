@@ -176,6 +176,12 @@ pub enum MethodInvocation {
         with = "edr_eth::serde::sequence"
     )]
     GetTransactionReceipt(B256),
+    /// `eth_maxPriorityFeePerGas`
+    #[serde(
+        rename = "eth_maxPriorityFeePerGas",
+        with = "edr_eth::serde::empty_params"
+    )]
+    MaxPriorityFeePerGas(()),
     /// `eth_mining`
     #[serde(rename = "eth_mining", with = "edr_eth::serde::empty_params")]
     Mining(()),
@@ -435,6 +441,7 @@ impl MethodInvocation {
             MethodInvocation::GetTransactionByHash(_) => "eth_getTransactionByHash",
             MethodInvocation::GetTransactionCount(_, _) => "eth_getTransactionCount",
             MethodInvocation::GetTransactionReceipt(_) => "eth_getTransactionReceipt",
+            MethodInvocation::MaxPriorityFeePerGas(_) => "eth_maxPriorityFeePerGas",
             MethodInvocation::Mining(_) => "eth_mining",
             MethodInvocation::NetListening(_) => "net_listening",
             MethodInvocation::NetPeerCount(_) => "net_peerCount",
