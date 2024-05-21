@@ -23,10 +23,8 @@ cargo t --all-features
 To only run local tests, execute:
 
 ```bash
-cargo t --features bench-once,serde,std,tracing
+cargo t --features serde,std,tracing
 ```
-
-The `bench-once` feature flag is used to ensure that benchmarks only run one iteration, to avoid taking too long.
 
 ## Hardhat
 

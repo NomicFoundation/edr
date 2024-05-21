@@ -5,7 +5,7 @@
 
 if [ -z "${ALCHEMY_URL}" ] || [ -z "${INFURA_URL}" ]; then
   echo WARNING: skipping remote tests because the ALCHEMY_URL and INFURA_URL environment variables are not defined. Local test results may differ from those in CI.
-  ALL_FEATURES="--features tracing,bench-once,serde,std"
+  ALL_FEATURES="--features tracing,serde,std"
 else
   ALL_FEATURES=--all-features
 fi
