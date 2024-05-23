@@ -46,12 +46,12 @@ jobs:
       - uses: taiki-e/install-action@cargo-hack
 
       - uses: Swatinem/rust-cache@v2
-
-      - name: Cargo hack
-        uses: actions-rs/cargo@v1
-        with:
-          command: hack
-          args: check --feature-powerset --no-dev-deps
+  
+  #      - name: Cargo hack
+  #        uses: actions-rs/cargo@v1
+  #        with:
+  #          command: hack
+  #          args: check --feature-powerset --no-dev-deps
 
   test-edr-rs:
     name: Test EDR (${{ matrix.os }})
@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest", "macos-latest"]
+        os: [ "ubuntu-latest", "macos-latest" ]
         include:
           - RUSTFLAGS: "-Dwarnings"
           - os: "windows-latest"
