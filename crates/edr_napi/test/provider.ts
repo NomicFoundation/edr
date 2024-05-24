@@ -319,6 +319,83 @@ describe("Provider", () => {
       // inner message triggered by STATICCALL
       assert.isTrue(messageResults[1].isStaticCall);
     });
+
+    it("should have tracing information when debug_traceTransaction is used", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {}
+      );
+
+      const sendTxResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      const txHash = JSON.parse(sendTxResponse.json).result;
+
+      const traceTransactionResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceTransaction",
+          params: [txHash]
+        })
+      );
+
+      const rawTraces = traceTransactionResponse.traces;
+      assert.lengthOf(rawTraces, 1);
+    });
+
+    it("should have tracing information when debug_traceCall is used", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {}
+      );
+
+      const traceCallResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceCall",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      const rawTraces = traceCallResponse.traces;
+      assert.lengthOf(rawTraces, 1);
+    });
   });
 });
 
