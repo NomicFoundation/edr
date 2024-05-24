@@ -14,7 +14,6 @@ workspace.code-workspace
 # ignoring the node_modules part, as it'd ignore every node_modules, and we have some for testing
 
 # Logs
-logs
 *.log
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
