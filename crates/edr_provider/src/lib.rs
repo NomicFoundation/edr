@@ -383,11 +383,11 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             // debug_* methods
             MethodInvocation::DebugTraceTransaction(transaction_hash, config) => {
                 debug::handle_debug_trace_transaction(data, transaction_hash, config)
-                    .and_then(to_json)
+                    .and_then(to_json_with_traces)
             }
             MethodInvocation::DebugTraceCall(call_request, block_spec, config) => {
                 debug::handle_debug_trace_call(data, call_request, block_spec, config)
-                    .and_then(to_json)
+                    .and_then(to_json_with_traces)
             }
 
             // hardhat_* methods

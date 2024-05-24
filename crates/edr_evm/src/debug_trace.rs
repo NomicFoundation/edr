@@ -18,12 +18,56 @@ use revm::{
 };
 
 use crate::{
-    blockchain::SyncBlockchain, debug::GetContextData, state::SyncState, ExecutableTransaction,
-    TransactionError,
+    blockchain::SyncBlockchain,
+    debug::GetContextData,
+    state::SyncState,
+    trace::{register_trace_collector_handles, Trace, TraceCollector},
+    ExecutableTransaction, TransactionError,
 };
+
+/// EIP-3155 and raw tracers.
+pub struct Eip3155AndRawTracers {
+    eip3155: TracerEip3155,
+    raw: TraceCollector,
+}
+
+impl Eip3155AndRawTracers {
+    /// Creates a new instance.
+    pub fn new(config: DebugTraceConfig, verbose_tracing: bool) -> Self {
+        Self {
+            eip3155: TracerEip3155::new(config),
+            raw: TraceCollector::new(verbose_tracing),
+        }
+    }
+}
+
+impl GetContextData<TraceCollector> for Eip3155AndRawTracers {
+    fn get_context_data(&mut self) -> &mut TraceCollector {
+        &mut self.raw
+    }
+}
+
+impl GetContextData<TracerEip3155> for Eip3155AndRawTracers {
+    fn get_context_data(&mut self) -> &mut TracerEip3155 {
+        &mut self.eip3155
+    }
+}
+
+fn register_eip_3155_and_raw_tracers_handles<
+    DatabaseT: Database,
+    ContextT: GetContextData<TraceCollector> + GetContextData<TracerEip3155>,
+>(
+    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
+) where
+    DatabaseT::Error: Debug,
+{
+    register_trace_collector_handles(handler);
+    register_eip_3155_tracer_handles(handler);
+}
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+#[allow(clippy::too_many_arguments)]
 pub fn debug_trace_transaction<BlockchainErrorT, StateErrorT>(
     blockchain: &dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
@@ -33,7 +77,8 @@ pub fn debug_trace_transaction<BlockchainErrorT, StateErrorT>(
     block_env: BlockEnv,
     transactions: Vec<ExecutableTransaction>,
     transaction_hash: &B256,
-) -> Result<DebugTraceResult, DebugTraceError<BlockchainErrorT, StateErrorT>>
+    verbose_tracing: bool,
+) -> Result<DebugTraceResultWithTraces, DebugTraceError<BlockchainErrorT, StateErrorT>>
 where
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
@@ -51,7 +96,7 @@ where
 
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
-            let mut tracer = TracerEip3155::new(trace_config);
+            let mut tracer = Eip3155AndRawTracers::new(trace_config, verbose_tracing);
 
             let ResultAndState { result, .. } = {
                 let mut evm = Evm::builder()
@@ -61,7 +106,7 @@ where
                     })
                     .with_external_context(&mut tracer)
                     .with_cfg_env_with_handler_cfg(evm_config)
-                    .append_handler_register(register_eip_3155_tracer_handles)
+                    .append_handler_register(register_eip_3155_and_raw_tracers_handles)
                     .with_block_env(block_env)
                     .with_tx_env(transaction.into())
                     .build();
@@ -98,30 +143,35 @@ where
 /// Convert an `ExecutionResult` to a `DebugTraceResult`.
 pub fn execution_result_to_debug_result(
     execution_result: ExecutionResult,
-    tracer: TracerEip3155,
-) -> DebugTraceResult {
-    match execution_result {
+    tracer: Eip3155AndRawTracers,
+) -> DebugTraceResultWithTraces {
+    let Eip3155AndRawTracers { eip3155, raw } = tracer;
+    let traces = raw.into_traces();
+
+    let result = match execution_result {
         ExecutionResult::Success {
             gas_used, output, ..
         } => DebugTraceResult {
             pass: true,
             gas_used,
             output: Some(output.into_data()),
-            logs: tracer.logs,
+            logs: eip3155.logs,
         },
         ExecutionResult::Revert { gas_used, output } => DebugTraceResult {
             pass: false,
             gas_used,
             output: Some(output),
-            logs: tracer.logs,
+            logs: eip3155.logs,
         },
         ExecutionResult::Halt { gas_used, .. } => DebugTraceResult {
             pass: false,
             gas_used,
             output: None,
-            logs: tracer.logs,
+            logs: eip3155.logs,
         },
-    }
+    };
+
+    DebugTraceResultWithTraces { result, traces }
 }
 
 /// Config options for `debug_traceTransaction`
@@ -173,6 +223,14 @@ pub struct DebugTraceResult {
     /// The EIP-3155 debug logs.
     #[serde(rename = "structLogs")]
     pub logs: Vec<DebugTraceLogItem>,
+}
+
+/// Result of a `debug_traceTransaction` call with traces.
+pub struct DebugTraceResultWithTraces {
+    /// The result of the transaction.
+    pub result: DebugTraceResult,
+    /// The raw traces of the debugged transaction.
+    pub traces: Vec<Trace>,
 }
 
 /// The output of an EIP-3155 trace.
