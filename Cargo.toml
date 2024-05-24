@@ -8,19 +8,6 @@ members = [
     "crates/edr_solidity",
     "crates/edr_test_utils",
     "crates/tools",
-    # Foundry
-    "crates/foundry/cheatcodes",
-    "crates/foundry/cheatcodes/spec",
-    "crates/foundry/common",
-    "crates/foundry/config",
-    "crates/foundry/evm/core",
-    "crates/foundry/evm/coverage",
-    "crates/foundry/evm/evm",
-    "crates/foundry/evm/fuzz",
-    "crates/foundry/evm/traces",
-    "crates/foundry/forge",
-    "crates/foundry/macros",
-    "crates/foundry/test-utils",
 ]
 resolver = "2"
 
@@ -80,23 +67,6 @@ foundry-evm-fuzz.opt-level = 3
 scrypt.opt-level = 3
 
 [workspace.dependencies]
-forge = { path = "crates/foundry/forge" }
-
-foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
-foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }
-foundry-cli = { path = "crates/foundry/cli" }
-foundry-common = { path = "crates/foundry/common" }
-foundry-config = { path = "crates/foundry/config" }
-foundry-evm = { path = "crates/foundry/evm/evm" }
-foundry-evm-core = { path = "crates/foundry/evm/core" }
-foundry-evm-coverage = { path = "crates/foundry/evm/coverage" }
-foundry-evm-fuzz = { path = "crates/foundry/evm/fuzz" }
-foundry-evm-traces = { path = "crates/foundry/evm/traces" }
-foundry-macros = { path = "crates/foundry/macros" }
-foundry-test-utils = { path = "crates/foundry/test-utils" }
-foundry-wallets = { path = "crates/foundry/wallets" }
-foundry-linking = { path = "crates/foundry/linking" }
-
 # solc & compilation utilities
 foundry-block-explorers = { version = "0.2.7", default-features = false }
 foundry-compilers = { version = "0.4.3", default-features = false }
