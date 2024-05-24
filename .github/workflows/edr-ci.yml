@@ -46,12 +46,12 @@ jobs:
       - uses: taiki-e/install-action@cargo-hack
 
       - uses: Swatinem/rust-cache@v2
-  
-  #      - name: Cargo hack
-  #        uses: actions-rs/cargo@v1
-  #        with:
-  #          command: hack
-  #          args: check --feature-powerset --no-dev-deps
+
+      - name: Cargo hack for EDR crates
+        run: |
+          chmod +x ./.github/scripts/cargo-hack-edr.sh
+          ./.github/scripts/cargo-hack-edr.sh
+        shell: bash
 
   test-edr-rs:
     name: Test EDR (${{ matrix.os }})
