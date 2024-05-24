@@ -1,6 +1,6 @@
 {
   "name": "@nomicfoundation/edr",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
@@ -17,11 +17,15 @@
   "napi": {
     "name": "edr",
     "triples": {
+      "defaults": false,
       "additional": [
         "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
         "aarch64-unknown-linux-gnu",
         "aarch64-unknown-linux-musl",
-        "x86_64-unknown-linux-musl"
+        "x86_64-unknown-linux-gnu",
+        "x86_64-unknown-linux-musl",
+        "x86_64-pc-windows-msvc"
       ]
     }
   },
@@ -47,7 +51,7 @@
     "build:debug": "napi build --platform",
     "build:tracing": "napi build --platform --release --features tracing",
     "build:scenarios": "napi build --platform --release --features scenarios",
-    "prepublishOnly": "napi prepublish -t npm --skip-gh-release",
+    "prepublishOnly": "bash scripts/prepublish.sh",
     "universal": "napi universal",
     "version": "napi version",
     "pretest": "pnpm build",

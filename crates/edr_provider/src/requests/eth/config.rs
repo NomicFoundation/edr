@@ -24,6 +24,12 @@ pub fn handle_coinbase_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
     Ok(data.coinbase())
 }
 
+pub fn handle_max_priority_fee_per_gas<LoggerErrorT: Debug>(
+) -> Result<U256, ProviderError<LoggerErrorT>> {
+    // 1 gwei
+    Ok(U256::from(1_000_000_000))
+}
+
 pub fn handle_mining<LoggerErrorT: Debug>() -> Result<bool, ProviderError<LoggerErrorT>> {
     Ok(false)
 }

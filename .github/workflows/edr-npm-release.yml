@@ -395,6 +395,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           path: ./crates/edr_napi/artifacts
+      - name: Install sponge
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y moreutils
       - name: Move artifacts
         run: pnpm artifacts
       - name: Publish

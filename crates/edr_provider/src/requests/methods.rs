@@ -1,3 +1,4 @@
+use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
     remote::{
         eth::CallRequest,
@@ -8,7 +9,6 @@ use edr_eth::{
     transaction::EthTransactionRequest,
     Address, Bytes, B256, U256, U64,
 };
-use ethers_core::types::transaction::eip712::TypedData;
 
 use super::serde::RpcAddress;
 use crate::requests::{
@@ -67,6 +67,12 @@ pub enum MethodInvocation {
             default = "optional_block_spec::pending"
         )]
         Option<BlockSpec>,
+    ),
+    /// `eth_sign`
+    #[serde(rename = "eth_sign")]
+    EthSign(
+        #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
+        Bytes,
     ),
     /// `eth_feeHistory`
     #[serde(rename = "eth_feeHistory")]
@@ -176,6 +182,12 @@ pub enum MethodInvocation {
         with = "edr_eth::serde::sequence"
     )]
     GetTransactionReceipt(B256),
+    /// `eth_maxPriorityFeePerGas`
+    #[serde(
+        rename = "eth_maxPriorityFeePerGas",
+        with = "edr_eth::serde::empty_params"
+    )]
+    MaxPriorityFeePerGas(()),
     /// `eth_mining`
     #[serde(rename = "eth_mining", with = "edr_eth::serde::empty_params")]
     Mining(()),
@@ -212,9 +224,9 @@ pub enum MethodInvocation {
     /// `eth_sendTransaction`
     #[serde(rename = "eth_sendTransaction", with = "edr_eth::serde::sequence")]
     SendTransaction(EthTransactionRequest),
-    /// `eth_sign`
-    #[serde(rename = "eth_sign", alias = "personal_sign")]
-    Sign(
+    /// `personal_sign`
+    #[serde(rename = "personal_sign")]
+    PersonalSign(
         Bytes,
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
     ),
@@ -222,7 +234,7 @@ pub enum MethodInvocation {
     #[serde(rename = "eth_signTypedData_v4")]
     SignTypedDataV4(
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
-        #[serde(deserialize_with = "crate::requests::serde::typed_data::deserialize")] TypedData,
+        #[serde(deserialize_with = "crate::requests::serde::deserialize_typed_data")] TypedData,
     ),
     /// `eth_subscribe`
     #[serde(rename = "eth_subscribe")]
@@ -410,6 +422,7 @@ impl MethodInvocation {
             MethodInvocation::ChainId(_) => "eth_chainId",
             MethodInvocation::Coinbase(_) => "eth_coinbase",
             MethodInvocation::EstimateGas(_, _) => "eth_estimateGas",
+            MethodInvocation::EthSign(_, _) => "eth_sign",
             MethodInvocation::FeeHistory(_, _, _) => "eth_feeHistory",
             MethodInvocation::GasPrice(_) => "eth_gasPrice",
             MethodInvocation::GetBalance(_, _) => "eth_getBalance",
@@ -435,6 +448,7 @@ impl MethodInvocation {
             MethodInvocation::GetTransactionByHash(_) => "eth_getTransactionByHash",
             MethodInvocation::GetTransactionCount(_, _) => "eth_getTransactionCount",
             MethodInvocation::GetTransactionReceipt(_) => "eth_getTransactionReceipt",
+            MethodInvocation::MaxPriorityFeePerGas(_) => "eth_maxPriorityFeePerGas",
             MethodInvocation::Mining(_) => "eth_mining",
             MethodInvocation::NetListening(_) => "net_listening",
             MethodInvocation::NetPeerCount(_) => "net_peerCount",
@@ -443,9 +457,9 @@ impl MethodInvocation {
             MethodInvocation::NewFilter(_) => "eth_newFilter",
             MethodInvocation::NewPendingTransactionFilter(_) => "eth_newPendingTransactionFilter",
             MethodInvocation::PendingTransactions(_) => "eth_pendingTransactions",
+            MethodInvocation::PersonalSign(_, _) => "personal_sign",
             MethodInvocation::SendRawTransaction(_) => "eth_sendRawTransaction",
             MethodInvocation::SendTransaction(_) => "eth_sendTransaction",
-            MethodInvocation::Sign(_, _) => "eth_sign",
             MethodInvocation::SignTypedDataV4(_, _) => "eth_signTypedData_v4",
             MethodInvocation::Subscribe(_, _) => "eth_subscribe",
             MethodInvocation::Syncing(_) => "eth_syncing",

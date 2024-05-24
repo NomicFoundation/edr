@@ -5,12 +5,6 @@
     "type": "git"
   },
   "version": "0.2.0-alpha.1",
-  "os": [
-    "darwin"
-  ],
-  "cpu": [
-    "x64"
-  ],
   "main": "edr.darwin-x64.node",
   "files": [
     "edr.darwin-x64.node"
