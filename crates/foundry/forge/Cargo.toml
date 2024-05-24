@@ -49,6 +49,3 @@ tempfile.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 alloy-signer-wallet.workspace = true
-
-[features]
-asm-keccak = ["alloy-primitives/asm-keccak"]
