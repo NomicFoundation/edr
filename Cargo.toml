@@ -39,9 +39,7 @@ debug = 1
 [profile.release]
 rpath = true
 opt-level = 3
-debug = "line-tables-only"
 lto = "fat"
-strip = "debuginfo"
 panic = "abort"
 codegen-units = 1
 
