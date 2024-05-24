@@ -64,7 +64,7 @@ jobs:
         include:
           - RUSTFLAGS: "-Dwarnings"
           - os: "windows-latest"
-            RUSTFLAGS: "-Dwarnings -Ctarget-feature=+crt-static"
+            RUSTFLAGS: "-Dwarnings"
     steps:
       - uses: actions/checkout@v3
 
