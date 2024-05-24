@@ -51,7 +51,7 @@ describe("Provider", () => {
     },
     initialParentBeaconBlockRoot: Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex"
+      "hex",
     ),
     minGasPrice: 0n,
     mining: {
@@ -70,7 +70,7 @@ describe("Provider", () => {
     },
     getContractAndFunctionNameCallback: (
       _code: Buffer,
-      _calldata?: Buffer
+      _calldata?: Buffer,
     ): ContractAndFunctionName => {
       return {
         contractName: "",
@@ -84,7 +84,7 @@ describe("Provider", () => {
       context,
       providerConfig,
       loggerConfig,
-      (_event: SubscriptionEvent) => {}
+      (_event: SubscriptionEvent) => {},
     );
 
     await assert.isFulfilled(provider);
@@ -104,7 +104,7 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
-      (_event: SubscriptionEvent) => {}
+      (_event: SubscriptionEvent) => {},
     );
 
     await assert.isFulfilled(provider);
@@ -116,7 +116,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       const responseObject = await provider.handleRequest(
@@ -134,7 +134,7 @@ describe("Provider", () => {
               data: "0x60016002600300",
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -156,7 +156,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       provider.setVerboseTracing(true);
@@ -176,7 +176,7 @@ describe("Provider", () => {
               data: "0x60016002600300",
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -201,7 +201,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       const responseObject = await provider.handleRequest(
@@ -220,7 +220,7 @@ describe("Provider", () => {
               data: "0x60015f5200",
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -240,7 +240,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       provider.setVerboseTracing(true);
@@ -261,7 +261,7 @@ describe("Provider", () => {
               data: "0x60015f5200",
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -277,7 +277,7 @@ describe("Provider", () => {
       assertEqualMemory(steps[2].memory, Buffer.from([]));
       assertEqualMemory(
         steps[3].memory,
-        Buffer.from([...Array(31).fill(0), 1])
+        Buffer.from([...Array(31).fill(0), 1]),
       );
     });
 
@@ -286,7 +286,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       const responseObject = await provider.handleRequest(
@@ -303,7 +303,7 @@ describe("Provider", () => {
               gas: "0x" + 1_000_000n.toString(16),
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -325,7 +325,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       const sendTxResponse = await provider.handleRequest(
@@ -346,7 +346,7 @@ describe("Provider", () => {
               gas: "0x" + 1_000_000n.toString(16),
             },
           ],
-        })
+        }),
       );
 
       const txHash = JSON.parse(sendTxResponse.json).result;
@@ -356,8 +356,8 @@ describe("Provider", () => {
           id: 1,
           jsonrpc: "2.0",
           method: "debug_traceTransaction",
-          params: [txHash]
-        })
+          params: [txHash],
+        }),
       );
 
       const rawTraces = traceTransactionResponse.traces;
@@ -369,7 +369,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       const traceCallResponse = await provider.handleRequest(
@@ -390,7 +390,7 @@ describe("Provider", () => {
               gas: "0x" + 1_000_000n.toString(16),
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = traceCallResponse.traces;
