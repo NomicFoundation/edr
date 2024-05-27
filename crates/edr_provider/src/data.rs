@@ -38,7 +38,7 @@ use edr_evm::{
     },
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
-    mine_block_with_single_transaction, register_eip_3155_tracer_handles,
+    mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
@@ -651,7 +651,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 tx_env: tx_env.clone(),
                 debug_context: Some(DebugContext {
                     data: &mut tracer,
-                    register_handles_fn: register_eip_3155_tracer_handles,
+                    register_handles_fn: register_eip_3155_and_raw_tracers_handles,
                 }),
             })?;
 

@@ -53,7 +53,8 @@ impl GetContextData<TracerEip3155> for Eip3155AndRawTracers {
     }
 }
 
-fn register_eip_3155_and_raw_tracers_handles<
+/// Register EIP-3155 and trace collector handles.
+pub fn register_eip_3155_and_raw_tracers_handles<
     DatabaseT: Database,
     ContextT: GetContextData<TraceCollector> + GetContextData<TracerEip3155>,
 >(
