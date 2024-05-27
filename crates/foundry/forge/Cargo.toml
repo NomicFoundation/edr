@@ -1,0 +1,51 @@
+[package]
+name = "forge"
+description = "Fast and flexible Ethereum testing framework"
+
+version.workspace = true
+edition.workspace = true
+
+[build-dependencies]
+vergen = { workspace = true, default-features = false, features = ["build", "git", "gitcl"] }
+
+[dependencies]
+# lib
+foundry-common.workspace = true
+foundry-compilers = { workspace = true, features = ["full"] }
+foundry-config.workspace = true
+foundry-evm.workspace = true
+foundry-linking.workspace = true
+
+comfy-table = "7"
+eyre.workspace = true
+proptest = "1"
+rayon = "1"
+serde.workspace = true
+tracing.workspace = true
+yansi.workspace = true
+humantime-serde = "1.1.1"
+
+alloy-dyn-abi.workspace = true
+alloy-json-abi.workspace = true
+alloy-primitives = { workspace = true, features = ["serde"] }
+
+tokio = { workspace = true, features = ["time"] }
+evm-disassembler.workspace = true
+
+[dev-dependencies]
+foundry-test-utils.workspace = true
+
+mockall = "0.12"
+criterion = "0.5"
+futures = "0.3"
+globset = "0.4"
+itertools.workspace = true
+once_cell = "1"
+paste = "1.0"
+path-slash = "0.2"
+similar-asserts.workspace = true
+svm = { package = "svm-rs", version = "0.5", default-features = false, features = ["rustls"] }
+tempfile.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+
+alloy-signer-wallet.workspace = true

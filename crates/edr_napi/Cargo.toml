@@ -1,7 +1,7 @@
 [package]
 name = "edr_napi"
-version = "0.3.5"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
@@ -17,7 +17,7 @@ log = { version = "0.4.20", default-features = false }
 napi = { version = "2.16.0", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
 napi-derive = "2.16.0"
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
-edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"]}
+edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_provider = { version = "0.3.5", path = "../edr_provider" }
 serde_json = { version = "1.0.85", default-features = false, features = ["alloc"] }

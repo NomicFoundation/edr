@@ -47,11 +47,17 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Cargo hack
+      - name: Cargo check no default features for all crates
         uses: actions-rs/cargo@v1
         with:
-          command: hack
-          args: check --feature-powerset --no-dev-deps
+          command: check
+          args: --all --no-default-features
+
+      - name: Cargo hack for EDR crates
+        run: |
+          chmod +x ./.github/scripts/cargo-hack-edr.sh
+          ./.github/scripts/cargo-hack-edr.sh
+        shell: bash
 
   test-edr-rs:
     name: Test EDR (${{ matrix.os }})
@@ -60,7 +66,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest", "macos-latest"]
+        os: [ "ubuntu-latest", "macos-latest" ]
         include:
           - RUSTFLAGS: "-Dwarnings"
           - os: "windows-latest"
@@ -169,9 +175,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Cargo doc
-        uses: actions-rs/cargo@v1
-        env:
-          RUSTDOCFLAGS: "-D warnings"
-        with:
-          command: doc
-          args: --workspace --no-deps --all-features
+        run: |
+          chmod +x ./.github/scripts/cargo-doc.sh
+          ./.github/scripts/cargo-doc.sh
+        shell: bash

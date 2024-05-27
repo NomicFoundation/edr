@@ -1,8 +1,8 @@
 [alias]
-gen-execution-api       = "run --bin tools -- gen-execution-api"
-scenario                = "run --release --bin tools -- scenario"
-scenario-with-tracing   = "run --release --features tracing --bin tools -- scenario"
-replay-block            = "run --release --bin tools -- replay-block"
+gen-execution-api = "run --bin tools -- gen-execution-api"
+scenario = "run --release --bin tools -- scenario"
+scenario-with-tracing = "run --release --features tracing --bin tools -- scenario"
+replay-block = "run --release --bin tools -- replay-block"
 
 [target.'cfg(all())']
 rustflags = [
@@ -28,7 +28,6 @@ rustflags = [
     "-Wclippy::float_cmp_const",
     "-Wclippy::fn_params_excessive_bools",
     "-Wclippy::from_iter_instead_of_collect",
-    "-Wclippy::if-not-else",
     "-Wclippy::implicit_clone",
     "-Wclippy::imprecise_flops",
     "-Wclippy::inconsistent_struct_constructor",
