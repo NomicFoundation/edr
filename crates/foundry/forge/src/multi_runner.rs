@@ -1,12 +1,6 @@
 //! Forge test runner for multiple contracts.
 
-use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    path::Path,
-    sync::{mpsc, Arc},
-    time::Instant,
-};
+use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Instant};
 
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Bytes, U256};
@@ -140,7 +134,7 @@ impl MultiContractRunner {
         &mut self,
         filter: &dyn TestFilter,
     ) -> impl Iterator<Item = (String, SuiteResult)> {
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = std::sync::mpsc::channel();
         self.test(filter, tx);
         rx.into_iter()
     }
@@ -152,7 +146,48 @@ impl MultiContractRunner {
     /// in _parallel_.
     ///
     /// Each Executor gets its own instance of the `Backend`.
-    pub fn test(&mut self, filter: &dyn TestFilter, tx: mpsc::Sender<(String, SuiteResult)>) {
+    pub fn test(
+        &mut self,
+        filter: &dyn TestFilter,
+        tx: std::sync::mpsc::Sender<(String, SuiteResult)>,
+    ) {
+        let handle = tokio::runtime::Handle::current();
+        trace!("running all tests");
+
+        // The DB backend that serves all the data.
+        let db = Backend::spawn(self.fork.take());
+
+        let find_timer = Instant::now();
+        let contracts = self.matching_contracts(filter).collect::<Vec<_>>();
+        let find_time = find_timer.elapsed();
+        debug!(
+            "Found {} test contracts out of {} in {:?}",
+            contracts.len(),
+            self.contracts.len(),
+            find_time,
+        );
+
+        contracts
+            .par_iter()
+            .for_each_with(tx, |tx, &(id, contract)| {
+                let _guard = handle.enter();
+                let result = self.run_tests(id, contract, db.clone(), filter, &handle);
+                let _ = tx.send((id.identifier(), result));
+            });
+    }
+
+    /// Executes _all_ tests that match the given `filter`.
+    ///
+    /// This will create the runtime based on the configured `evm` ops and
+    /// create the `Backend` before executing all contracts and their tests
+    /// in _parallel_.
+    ///
+    /// Each Executor gets its own instance of the `Backend`.
+    pub fn test_async_channel(
+        &mut self,
+        filter: &dyn TestFilter,
+        tx: tokio::sync::mpsc::UnboundedSender<(String, SuiteResult)>,
+    ) {
         let handle = tokio::runtime::Handle::current();
         trace!("running all tests");
 

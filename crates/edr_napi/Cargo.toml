@@ -31,6 +31,14 @@ rand = { version = "0.8.4", optional = true }
 serde = { version = "1.0.189", features = ["derive"] }
 mimalloc = { version = "0.1.39", default-features = false, features = ["local_dynamic_tls"] }
 
+# Solidity tests
+alloy-primitives = { workspace = true, features = ["serde"] }
+forge.workspace = true
+foundry-compilers = { workspace = true, features = ["full"] }
+foundry-config.workspace = true
+foundry-evm.workspace = true
+tempfile = "3.10.1"
+
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }
 

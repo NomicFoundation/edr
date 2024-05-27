@@ -2395,12 +2395,17 @@ dependencies = [
 name = "edr_napi"
 version = "0.3.8"
 dependencies = [
+ "alloy-primitives 0.7.4",
  "ansi_term",
  "crossbeam-channel",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_provider",
+ "forge",
+ "foundry-compilers",
+ "foundry-config",
+ "foundry-evm",
  "itertools 0.12.1",
  "k256",
  "lazy_static",
@@ -2414,6 +2419,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "tracing",
  "tracing-flame",
