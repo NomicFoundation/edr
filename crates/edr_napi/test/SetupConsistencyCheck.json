@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "SetupConsistencyCheck",
-  "sourceName": "contracts/SetupConsistency.t.sol",
+  "sourceName": "../../foundry/testdata/default/core/SetupConsistency.t.sol",
   "abi": [
     {
       "anonymous": false,
