@@ -1,10 +1,6 @@
-use revm_primitives::{Address, B256};
+use edr_eth::{reward_percentile::RewardPercentile, Address, B256, U256};
 
-use crate::{
-    remote::{filter::LogFilterOptions, BlockSpec, PreEip1898BlockSpec},
-    reward_percentile::RewardPercentile,
-    U256,
-};
+use crate::{filter::LogFilterOptions, BlockSpec, PreEip1898BlockSpec};
 
 /// Methods for requests to a remote Ethereum node. Only contains methods
 /// supported by the [`crate::remote::client::RpcClient`].
@@ -12,7 +8,7 @@ use crate::{
 #[serde(tag = "method", content = "params")]
 pub enum RequestMethod {
     /// `eth_blockNumber`
-    #[serde(rename = "eth_blockNumber", with = "crate::serde::empty_params")]
+    #[serde(rename = "eth_blockNumber", with = "edr_eth::serde::empty_params")]
     BlockNumber(()),
     /// `eth_feeHistory`
     #[serde(rename = "eth_feeHistory")]
@@ -26,7 +22,7 @@ pub enum RequestMethod {
         Option<Vec<RewardPercentile>>,
     ),
     /// `eth_chainId`
-    #[serde(rename = "eth_chainId", with = "crate::serde::empty_params")]
+    #[serde(rename = "eth_chainId", with = "edr_eth::serde::empty_params")]
     ChainId(()),
     /// `eth_getBalance`
     #[serde(rename = "eth_getBalance")]
@@ -64,7 +60,7 @@ pub enum RequestMethod {
         Option<BlockSpec>,
     ),
     /// `eth_getLogs`
-    #[serde(rename = "eth_getLogs", with = "crate::serde::sequence")]
+    #[serde(rename = "eth_getLogs", with = "edr_eth::serde::sequence")]
     GetLogs(LogFilterOptions),
     /// `eth_getStorageAt`
     #[serde(rename = "eth_getStorageAt")]
@@ -79,7 +75,7 @@ pub enum RequestMethod {
         Option<BlockSpec>,
     ),
     /// `eth_getTransactionByHash`
-    #[serde(rename = "eth_getTransactionByHash", with = "crate::serde::sequence")]
+    #[serde(rename = "eth_getTransactionByHash", with = "edr_eth::serde::sequence")]
     GetTransactionByHash(B256),
     /// `eth_getTransactionCount`
     #[serde(rename = "eth_getTransactionCount")]
@@ -92,10 +88,13 @@ pub enum RequestMethod {
         Option<BlockSpec>,
     ),
     /// `eth_getTransactionReceipt`
-    #[serde(rename = "eth_getTransactionReceipt", with = "crate::serde::sequence")]
+    #[serde(
+        rename = "eth_getTransactionReceipt",
+        with = "edr_eth::serde::sequence"
+    )]
     GetTransactionReceipt(B256),
     /// `net_version`
-    #[serde(rename = "net_version", with = "crate::serde::empty_params")]
+    #[serde(rename = "net_version", with = "edr_eth::serde::empty_params")]
     NetVersion(()),
 }
 

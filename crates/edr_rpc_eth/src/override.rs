@@ -1,4 +1,4 @@
-use crate::{Address, Bytes, HashMap, B256, U256};
+use edr_eth::{Address, Bytes, HashMap, B256, U256};
 
 /// Type representing a set of overrides for storage information.
 pub type StorageOverride = HashMap<B256, U256>;
@@ -12,7 +12,7 @@ pub struct AccountOverrideOptions {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "crate::serde::optional_u64"
+        with = "edr_eth::serde::optional_u64"
     )]
     /// Account nonce override.
     pub nonce: Option<u64>,

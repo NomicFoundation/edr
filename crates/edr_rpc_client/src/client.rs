@@ -1,21 +1,19 @@
 use std::{
     fmt::Debug,
     io,
+    marker::PhantomData,
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use edr_eth::{
-    eth,
-    filter::{LogFilterOptions, OneOrMore},
-    jsonrpc,
-    request_methods::RequestMethod,
-    BlockSpec, Bytecode, PreEip1898BlockSpec, KECCAK_EMPTY,
+    block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs},
+    U64,
 };
 use futures::{future, stream::StreamExt, TryFutureExt};
 use hyper::header::HeaderValue;
-pub use hyper::{header, http::Error as HttpError, HeaderMap};
+pub use hyper::{header, http, HeaderMap};
 use reqwest::Client as HttpClient;
 use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
@@ -25,22 +23,14 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{OnceCell, RwLock};
 use uuid::Uuid;
 
-pub use crate::remote::client::reqwest_error::{MiddlewareError, ReqwestError};
 use crate::{
-    block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs},
-    log::FilterLog,
-    receipt::BlockReceipt,
-    remote::{
-        cacheable_method_invocation::{
-            try_read_cache_key, try_write_cache_key, CacheKeyForSymbolicBlockTag,
-            CacheKeyForUncheckedBlockNumber, ReadCacheKey, ResolvedSymbolicTag, WriteCacheKey,
-        },
-        chain_id::chain_id_from_url,
-        eth::FeeHistoryResult,
-        jsonrpc::Id,
+    cache::{
+        self,
+        key::{CacheKeyForBlockTag, CacheKeyForUncheckedBlockNumber, ResolvedSymbolicTag},
+        remove_from_cache, CachedBlockNumber,
     },
-    reward_percentile::RewardPercentile,
-    AccountInfo, Address, Bytes, B256, U256, U64,
+    chain_id::chain_id_from_url,
+    jsonrpc, CacheableMethod, MiddlewareError, ReadCacheKey, ReqwestError, WriteCacheKey,
 };
 
 const RPC_CACHE_DIR: &str = "rpc_cache";
@@ -90,7 +80,7 @@ pub enum RpcClientError {
         /// The response text
         response: String,
         /// The invalid id
-        id: Id,
+        id: jsonrpc::Id,
     },
 
     /// Invalid URL format
@@ -114,7 +104,7 @@ pub enum RpcClientError {
         /// The cache key for the error
         cache_key: String,
         /// The underlying error
-        error: CacheError,
+        error: cache::Error,
     },
 
     /// Failed to join a tokio task.
@@ -122,35 +112,11 @@ pub enum RpcClientError {
     JoinError(#[from] tokio::task::JoinError),
 }
 
-/// Wrapper for IO and JSON errors specific to the cache.
-#[derive(thiserror::Error, Debug)]
-pub enum CacheError {
-    /// An IO error
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    /// A JSON parsing error
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
-}
-
-/// A JSON-RPC request
-#[derive(Deserialize, Serialize)]
-pub struct Request<RequestMethod> {
-    /// JSON-RPC version
-    #[serde(rename = "jsonrpc")]
-    pub version: jsonrpc::Version,
-    /// the method to invoke, with its parameters
-    #[serde(flatten)]
-    pub method: RequestMethod,
-    /// the request ID, to be correlated via the response's ID
-    pub id: Id,
-}
-
 /// A client for executing RPC methods on a remote Ethereum node.
 /// The client caches responses based on chain id, so it's important to not use
 /// it with local nodes.
 #[derive(Debug)]
-pub struct RpcClient {
+pub struct RpcClient<MethodT: CacheableMethod + Serialize> {
     url: url::Url,
     chain_id: OnceCell<u64>,
     cached_block_number: RwLock<Option<CachedBlockNumber>>,
@@ -158,9 +124,10 @@ pub struct RpcClient {
     next_id: AtomicU64,
     rpc_cache_dir: PathBuf,
     tmp_dir: PathBuf,
+    _phantom: PhantomData<MethodT>,
 }
 
-impl RpcClient {
+impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
     /// Create a new instance, given a remote node URL.
     /// The cache directory is the global EDR cache directory configured by the
     /// user.
@@ -214,15 +181,16 @@ impl RpcClient {
             next_id: AtomicU64::new(0),
             rpc_cache_dir: cache_dir.join(RPC_CACHE_DIR),
             tmp_dir,
+            _phantom: PhantomData,
         })
     }
 
-    fn parse_response_str<T: DeserializeOwned>(
+    fn parse_response_str<SuccessT: DeserializeOwned>(
         response: String,
-    ) -> Result<jsonrpc::Response<T>, RpcClientError> {
+    ) -> Result<jsonrpc::Response<SuccessT>, RpcClientError> {
         serde_json::from_str(&response).map_err(|error| RpcClientError::InvalidResponse {
             response,
-            expected_type: std::any::type_name::<jsonrpc::Response<T>>(),
+            expected_type: std::any::type_name::<jsonrpc::Response<SuccessT>>(),
             error,
         })
     }
@@ -277,13 +245,13 @@ impl RpcClient {
     async fn read_response_from_cache(
         &self,
         cache_key: &ReadCacheKey,
-    ) -> Result<Option<ResponseValue>, RpcClientError> {
+    ) -> Result<Option<cache::Response>, RpcClientError> {
         let path = self.make_cache_path(cache_key.as_ref()).await?;
         match tokio::fs::read_to_string(&path).await {
             Ok(contents) => match serde_json::from_str(&contents) {
-                Ok(value) => Ok(Some(ResponseValue { value, path })),
+                Ok(value) => Ok(Some(cache::Response { value, path })),
                 Err(error) => {
-                    log_cache_error(
+                    cache::log_error(
                         cache_key.as_ref(),
                         "failed to deserialize item from RPC response cache",
                         error,
@@ -295,7 +263,7 @@ impl RpcClient {
             Err(error) => {
                 match error.kind() {
                     io::ErrorKind::NotFound => (),
-                    _ => log_cache_error(
+                    _ => cache::log_error(
                         cache_key.as_ref(),
                         "failed to read from RPC response cache",
                         error,
@@ -309,7 +277,7 @@ impl RpcClient {
     async fn try_from_cache(
         &self,
         cache_key: Option<&ReadCacheKey>,
-    ) -> Result<Option<ResponseValue>, RpcClientError> {
+    ) -> Result<Option<cache::Response>, RpcClientError> {
         if let Some(cache_key) = cache_key {
             self.read_response_from_cache(cache_key).await
         } else {
@@ -351,11 +319,11 @@ impl RpcClient {
         Ok(safety_checker.validate_block_number(chain_id, latest_block_number))
     }
 
-    async fn resolve_block_tag<T>(
+    async fn resolve_block_tag<ResultT>(
         &self,
-        block_tag_resolver: CacheKeyForSymbolicBlockTag,
-        result: T,
-        resolve_block_number: impl Fn(T) -> Option<u64>,
+        block_tag_resolver: CacheKeyForBlockTag<MethodT>,
+        result: ResultT,
+        resolve_block_number: impl Fn(ResultT) -> Option<u64>,
     ) -> Result<Option<String>, RpcClientError> {
         if let Some(block_number) = resolve_block_number(result) {
             if let Some(resolved_cache_key) = block_tag_resolver.resolve_symbolic_tag(block_number)
@@ -371,15 +339,13 @@ impl RpcClient {
         Ok(None)
     }
 
-    async fn resolve_write_key<T>(
+    async fn resolve_write_key<ResultT>(
         &self,
-        method: &RequestMethod,
-        result: T,
-        resolve_block_number: impl Fn(T) -> Option<u64>,
+        method: &MethodT,
+        result: ResultT,
+        resolve_block_number: impl Fn(ResultT) -> Option<u64>,
     ) -> Result<Option<String>, RpcClientError> {
-        let write_cache_key = try_write_cache_key(method);
-
-        if let Some(cache_key) = write_cache_key {
+        if let Some(cache_key) = method.write_cache_key() {
             match cache_key {
                 WriteCacheKey::NeedsSafetyCheck(safety_checker) => {
                     self.validate_block_number(safety_checker).await
@@ -395,11 +361,11 @@ impl RpcClient {
         }
     }
 
-    async fn try_write_response_to_cache<T: Serialize>(
+    async fn try_write_response_to_cache<ResultT: Serialize>(
         &self,
-        method: &RequestMethod,
-        result: &T,
-        resolve_block_number: impl Fn(&T) -> Option<u64>,
+        method: &MethodT,
+        result: &ResultT,
+        resolve_block_number: impl Fn(&ResultT) -> Option<u64>,
     ) -> Result<(), RpcClientError> {
         if let Some(cache_key) = self
             .resolve_write_key(method, result, resolve_block_number)
@@ -427,7 +393,7 @@ impl RpcClient {
         match tokio::fs::write(&tmp_path, contents).await {
             Ok(_) => (),
             Err(error) => {
-                log_cache_error(
+                cache::log_error(
                     cache_key,
                     "failed to write to tempfile for RPC response cache",
                     error,
@@ -449,7 +415,7 @@ impl RpcClient {
         match tokio::fs::rename(&tmp_path, cache_path).await {
             Ok(_) => (),
             Err(error) => {
-                log_cache_error(
+                cache::log_error(
                     cache_key,
                     "failed to rename temporary file for RPC response cache",
                     error,
@@ -463,7 +429,7 @@ impl RpcClient {
             Ok(_) => (),
             Err(error) => match error.kind() {
                 io::ErrorKind::NotFound => (),
-                _ => log_cache_error(
+                _ => cache::log_error(
                     cache_key,
                     "failed to remove temporary file for RPC response cache",
                     error,
@@ -474,10 +440,10 @@ impl RpcClient {
         Ok(())
     }
 
-    async fn send_request_and_extract_result<T: DeserializeOwned>(
+    async fn send_request_and_extract_result<SuccessT: DeserializeOwned>(
         &self,
         request: SerializedRequest,
-    ) -> Result<T, RpcClientError> {
+    ) -> Result<SuccessT, RpcClientError> {
         future::ready(
             self.send_request_body(&request)
                 .await
@@ -509,19 +475,16 @@ impl RpcClient {
             .map_err(|err| RpcClientError::CorruptedResponse(err.into()))
     }
 
-    fn serialize_request(
-        &self,
-        input: &RequestMethod,
-    ) -> Result<SerializedRequest, RpcClientError> {
-        let id = Id::Num(self.next_id.fetch_add(1, Ordering::Relaxed));
+    fn serialize_request(&self, input: &MethodT) -> Result<SerializedRequest, RpcClientError> {
+        let id = jsonrpc::Id::Num(self.next_id.fetch_add(1, Ordering::Relaxed));
         Self::serialize_request_with_id(input, id)
     }
 
     fn serialize_request_with_id(
-        method: &RequestMethod,
-        id: Id,
+        method: &MethodT,
+        id: jsonrpc::Id,
     ) -> Result<SerializedRequest, RpcClientError> {
-        let request = serde_json::to_value(Request {
+        let request = serde_json::to_value(jsonrpc::Request {
             version: jsonrpc::Version::V2_0,
             id,
             method,
@@ -531,19 +494,22 @@ impl RpcClient {
         Ok(SerializedRequest(request))
     }
 
-    async fn call<T: DeserializeOwned + Serialize>(
+    /// Calls the provided JSON-RPC method and returns the result.
+    pub async fn call<SuccessT: DeserializeOwned + Serialize>(
         &self,
-        method: RequestMethod,
-    ) -> Result<T, RpcClientError> {
+        method: MethodT,
+    ) -> Result<SuccessT, RpcClientError> {
         self.call_with_resolver(method, |_| None).await
     }
 
-    async fn call_with_resolver<T: DeserializeOwned + Serialize>(
+    /// Calls the provided JSON-RPC method, uses the provided resolver to
+    /// resolve the result, and returns the result.
+    pub async fn call_with_resolver<SuccessT: DeserializeOwned + Serialize>(
         &self,
-        method: RequestMethod,
-        resolve_block_number: impl Fn(&T) -> Option<u64>,
-    ) -> Result<T, RpcClientError> {
-        let read_cache_key = try_read_cache_key(&method);
+        method: MethodT,
+        resolve_block_number: impl Fn(&SuccessT) -> Option<u64>,
+    ) -> Result<SuccessT, RpcClientError> {
+        let read_cache_key = method.read_cache_key();
 
         let request = self.serialize_request(&method)?;
 
@@ -574,7 +540,7 @@ impl RpcClient {
         #[cfg(feature = "tracing")]
         tracing::trace!("Cache miss: {}", method.name());
 
-        let result: T = self.send_request_and_extract_result(request).await?;
+        let result: SuccessT = self.send_request_and_extract_result(request).await?;
 
         self.try_write_response_to_cache(&method, &result, &resolve_block_number)
             .await?;
@@ -587,7 +553,7 @@ impl RpcClient {
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip_all))]
     async fn call_without_cache<T: DeserializeOwned>(
         &self,
-        method: RequestMethod,
+        method: MethodT,
     ) -> Result<T, RpcClientError> {
         let request = self.serialize_request(&method)?;
 
@@ -598,7 +564,7 @@ impl RpcClient {
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
     pub async fn block_number(&self) -> Result<u64, RpcClientError> {
         let block_number = self
-            .call_without_cache::<U64>(RequestMethod::BlockNumber(()))
+            .call_without_cache::<U64>(MethodT::block_number_request())
             .await?
             .as_limbs()[0];
 
@@ -634,281 +600,13 @@ impl RpcClient {
                 if let Some(chain_id) = chain_id_from_url(&self.url) {
                     Ok(chain_id)
                 } else {
-                    self.call_without_cache::<U64>(RequestMethod::ChainId(()))
+                    self.call_without_cache::<U64>(MethodT::chain_id_request())
                         .await
                         .map(|chain_id| chain_id.as_limbs()[0])
                 }
             })
             .await?;
         Ok(chain_id)
-    }
-
-    /// Calls `eth_feeHistory` and returns the fee history.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn fee_history(
-        &self,
-        block_count: u64,
-        newest_block: BlockSpec,
-        reward_percentiles: Option<Vec<RewardPercentile>>,
-    ) -> Result<FeeHistoryResult, RpcClientError> {
-        self.call(RequestMethod::FeeHistory(
-            U256::from(block_count),
-            newest_block,
-            reward_percentiles,
-        ))
-        .await
-    }
-
-    /// Fetch the latest block number, chain id and network id concurrently.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn fetch_fork_metadata(&self) -> Result<ForkMetadata, RpcClientError> {
-        let network_id = self.network_id();
-        let block_number = self.block_number();
-        let chain_id = self.chain_id();
-
-        let (network_id, block_number, chain_id) =
-            tokio::try_join!(network_id, block_number, chain_id)?;
-
-        Ok(ForkMetadata {
-            chain_id,
-            network_id,
-            latest_block_number: block_number,
-        })
-    }
-
-    /// Submits three concurrent RPC method invocations in order to obtain
-    /// the set of data contained in [`AccountInfo`].
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_account_info(
-        &self,
-        address: &Address,
-        block: Option<BlockSpec>,
-    ) -> Result<AccountInfo, RpcClientError> {
-        let balance = self.get_balance(address, block.clone());
-        let nonce = self.get_transaction_count(address, block.clone());
-        let code = self.get_code(address, block.clone());
-
-        let (balance, nonce, code) = tokio::try_join!(balance, nonce, code)?;
-
-        let code = if code.is_empty() {
-            None
-        } else {
-            Some(Bytecode::new_raw(code))
-        };
-
-        Ok(AccountInfo {
-            balance,
-            code_hash: code.as_ref().map_or(KECCAK_EMPTY, Bytecode::hash_slow),
-            code,
-            nonce: nonce.to(),
-        })
-    }
-
-    /// Fetch account infos for multiple addresses using concurrent requests.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_account_infos(
-        &self,
-        addresses: &[Address],
-        block: Option<BlockSpec>,
-    ) -> Result<Vec<AccountInfo>, RpcClientError> {
-        futures::stream::iter(addresses.iter())
-            .map(|address| self.get_account_info(address, block.clone()))
-            .buffered(MAX_PARALLEL_REQUESTS / 3 + 1)
-            .collect::<Vec<Result<AccountInfo, RpcClientError>>>()
-            .await
-            .into_iter()
-            .collect()
-    }
-
-    /// Calls `eth_getBlockByHash` and returns the transaction's hash.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_block_by_hash(
-        &self,
-        hash: &B256,
-    ) -> Result<Option<eth::Block<B256>>, RpcClientError> {
-        self.call(RequestMethod::GetBlockByHash(*hash, false)).await
-    }
-
-    /// Calls `eth_getBalance`.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_balance(
-        &self,
-        address: &Address,
-        block: Option<BlockSpec>,
-    ) -> Result<U256, RpcClientError> {
-        self.call(RequestMethod::GetBalance(*address, block)).await
-    }
-
-    /// Calls `eth_getBlockByHash` and returns the transaction's data.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_block_by_hash_with_transaction_data(
-        &self,
-        hash: &B256,
-    ) -> Result<Option<eth::Block<eth::Transaction>>, RpcClientError> {
-        self.call(RequestMethod::GetBlockByHash(*hash, true)).await
-    }
-
-    /// Calls `eth_getBlockByNumber` and returns the transaction's hash.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_block_by_number(
-        &self,
-        spec: PreEip1898BlockSpec,
-    ) -> Result<Option<eth::Block<B256>>, RpcClientError> {
-        self.call_with_resolver(
-            RequestMethod::GetBlockByNumber(spec, false),
-            |block: &Option<eth::Block<B256>>| block.as_ref().and_then(|block| block.number),
-        )
-        .await
-    }
-
-    /// Calls `eth_getBlockByNumber` and returns the transaction's data.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_block_by_number_with_transaction_data(
-        &self,
-        spec: PreEip1898BlockSpec,
-    ) -> Result<eth::Block<eth::Transaction>, RpcClientError> {
-        self.call_with_resolver(
-            RequestMethod::GetBlockByNumber(spec, true),
-            |block: &eth::Block<eth::Transaction>| block.number,
-        )
-        .await
-    }
-
-    /// Calls `eth_getCode`.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_code(
-        &self,
-        address: &Address,
-        block: Option<BlockSpec>,
-    ) -> Result<Bytes, RpcClientError> {
-        self.call(RequestMethod::GetCode(*address, block)).await
-    }
-
-    /// Calls `eth_getLogs` using a starting and ending block (inclusive).
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_logs_by_range(
-        &self,
-        from_block: BlockSpec,
-        to_block: BlockSpec,
-        address: Option<OneOrMore<Address>>,
-        topics: Option<Vec<Option<OneOrMore<B256>>>>,
-    ) -> Result<Vec<FilterLog>, RpcClientError> {
-        self.call(RequestMethod::GetLogs(LogFilterOptions {
-            from_block: Some(from_block),
-            to_block: Some(to_block),
-            block_hash: None,
-            address,
-            topics,
-        }))
-        .await
-    }
-
-    /// Calls `eth_getTransactionByHash`.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_transaction_by_hash(
-        &self,
-        tx_hash: &B256,
-    ) -> Result<Option<eth::Transaction>, RpcClientError> {
-        self.call(RequestMethod::GetTransactionByHash(*tx_hash))
-            .await
-    }
-
-    /// Calls `eth_getTransactionCount`.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_transaction_count(
-        &self,
-        address: &Address,
-        block: Option<BlockSpec>,
-    ) -> Result<U256, RpcClientError> {
-        self.call(RequestMethod::GetTransactionCount(*address, block))
-            .await
-    }
-
-    /// Calls `eth_getTransactionReceipt`.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_transaction_receipt(
-        &self,
-        tx_hash: &B256,
-    ) -> Result<Option<BlockReceipt>, RpcClientError> {
-        self.call(RequestMethod::GetTransactionReceipt(*tx_hash))
-            .await
-    }
-
-    /// Methods for retrieving multiple transaction receipts using concurrent
-    /// requests.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_transaction_receipts(
-        &self,
-        hashes: impl IntoIterator<Item = &B256> + Debug,
-    ) -> Result<Option<Vec<BlockReceipt>>, RpcClientError> {
-        let requests = hashes
-            .into_iter()
-            .map(|transaction_hash| self.get_transaction_receipt(transaction_hash));
-
-        futures::stream::iter(requests)
-            .buffered(MAX_PARALLEL_REQUESTS)
-            .collect::<Vec<Result<Option<BlockReceipt>, RpcClientError>>>()
-            .await
-            .into_iter()
-            .collect()
-    }
-
-    /// Calls `eth_getStorageAt`.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn get_storage_at(
-        &self,
-        address: &Address,
-        position: U256,
-        block: Option<BlockSpec>,
-    ) -> Result<Option<U256>, RpcClientError> {
-        self.call(RequestMethod::GetStorageAt(*address, position, block))
-            .await
-    }
-
-    /// Calls `net_version`.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
-    pub async fn network_id(&self) -> Result<u64, RpcClientError> {
-        self.call::<U64>(RequestMethod::NetVersion(()))
-            .await
-            .map(|network_id| network_id.as_limbs()[0])
-    }
-}
-
-async fn remove_from_cache(path: &Path) -> Result<(), RpcClientError> {
-    match tokio::fs::remove_file(path).await {
-        Ok(_) => Ok(()),
-        Err(error) => {
-            log_cache_error(
-                path.to_str().unwrap_or("<invalid UTF-8>"),
-                "failed to remove from RPC response cache",
-                error,
-            );
-            Ok(())
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ResponseValue {
-    value: serde_json::Value,
-    path: PathBuf,
-}
-
-impl ResponseValue {
-    async fn parse<T: DeserializeOwned>(self) -> Result<T, RpcClientError> {
-        match serde_json::from_value(self.value.clone()) {
-            Ok(result) => Ok(result),
-            Err(error) => {
-                // Remove the file from cache if the contents don't match the expected type.
-                // This can happen for example if a new field is added to a type.
-                remove_from_cache(&self.path).await?;
-                Err(RpcClientError::InvalidResponse {
-                    response: self.value.to_string(),
-                    expected_type: std::any::type_name::<T>(),
-                    error,
-                })
-            }
-        }
     }
 }
 
@@ -921,32 +619,6 @@ pub struct ForkMetadata {
     pub network_id: u64,
     /// The latest block number as returned by `eth_blockNumber`
     pub latest_block_number: u64,
-}
-
-#[derive(Debug, Clone)]
-struct CachedBlockNumber {
-    block_number: u64,
-    timestamp: Instant,
-}
-
-impl CachedBlockNumber {
-    fn new(block_number: u64) -> Self {
-        Self {
-            block_number,
-            timestamp: Instant::now(),
-        }
-    }
-}
-
-/// Don't fail the request, just log an error if we fail to read/write from
-/// cache.
-fn log_cache_error(cache_key: &str, message: &'static str, error: impl Into<CacheError>) {
-    let cache_error = RpcClientError::CacheError {
-        message: message.to_string(),
-        cache_key: cache_key.to_string(),
-        error: error.into(),
-    };
-    log::error!("{cache_error}");
 }
 
 /// Ensure that the directory exists.
@@ -1030,7 +702,7 @@ mod tests {
                 .expect("failed to parse hash from string");
 
         let error = TestRpcClient::new(&server.url())
-            .call::<Option<eth::Transaction>>(RequestMethod::GetTransactionByHash(hash))
+            .call::<Option<eth::Transaction>>(MethodT::GetTransactionByHash(hash))
             .await
             .expect_err("should have failed to due to a HTTP status error");
 
@@ -1087,7 +759,7 @@ mod tests {
             .expect("failed to parse hash from string");
 
             let error = TestRpcClient::new(&alchemy_url)
-                .call::<Option<eth::Transaction>>(RequestMethod::GetTransactionByHash(hash))
+                .call::<Option<eth::Transaction>>(MethodT::GetTransactionByHash(hash))
                 .await
                 .expect_err("should have failed to interpret response as a Transaction");
 
@@ -1113,7 +785,7 @@ mod tests {
             .expect("failed to parse hash from string");
 
             let error = TestRpcClient::new(alchemy_url)
-                .call::<Option<eth::Transaction>>(RequestMethod::GetTransactionByHash(hash))
+                .call::<Option<eth::Transaction>>(MethodT::GetTransactionByHash(hash))
                 .await
                 .expect_err("should have failed to connect due to a garbage domain name");
 

@@ -21,7 +21,6 @@ sha3 = { version = "0.10.8", default-features = false }
 thiserror = { version = "1.0.37", default-features = false }
 tracing = { version = "0.1.37", features = ["attributes", "std"], optional = true }
 triehash = { version = "0.8.4", default-features = false }
-uuid = { version = "1.4.1", default-features = false, features = ["v4"] }
 
 [dev-dependencies]
 anyhow = "1.0.75"
@@ -39,6 +38,5 @@ walkdir = { version = "2.3.3", default-features = false }
 default = ["std"]
 rand = ["revm-primitives/rand"]
 serde = ["dep:serde", "c-kzg/serde", "revm-primitives/serde"]
-std = ["hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std", "uuid/std"]
+std = ["hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
 tracing = ["dep:tracing"]
-test-remote = ["serde"]

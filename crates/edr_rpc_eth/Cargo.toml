@@ -1,6 +1,19 @@
 [package]
 name = "edr_rpc_eth"
-version = "0.1.0"
+version = "0.3.5"
 edition = "2021"
 
 [dependencies]
+async-trait = { version = "0.1.80", default-features = false }
+edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
+edr_rpc_client = { version = "0.3.5", path = "../edr_rpc_client" }
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.147", default-features = false, features = ["derive", "std"] }
+thiserror = { version = "1.0.37", default-features = false }
+
+[dev-dependencies]
+anyhow = { version = "1.0.75", default-features = false, features = ["std"] }
+serde_json = { version = "1.0.89" }
+
+[features]
+test-remote = []

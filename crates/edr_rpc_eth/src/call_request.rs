@@ -1,4 +1,4 @@
-use crate::{access_list::AccessListItem, Address, Bytes, B256, U256};
+use edr_eth::{access_list::AccessListItem, Address, Bytes, B256, U256};
 
 /// For specifying input to methods requiring a transaction object, like
 /// `eth_call` and `eth_estimateGas`
@@ -9,7 +9,10 @@ pub struct CallRequest {
     pub from: Option<Address>,
     /// the address to which the transaction should be sent
     pub to: Option<Address>,
-    #[cfg_attr(feature = "serde", serde(default, with = "crate::serde::optional_u64"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, with = "edr_eth::serde::optional_u64")
+    )]
     /// gas
     pub gas: Option<u64>,
     /// gas price
