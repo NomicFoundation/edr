@@ -10,31 +10,29 @@
 Make sure you have the following dependencies installed on your machine:
 
 - [Rust](https://www.rust-lang.org/tools/install)
+- [Node.js](https://nodejs.org/en/download/package-manager)
+- [pnpm](https://pnpm.io/installation)
 
-EDR is part of the [Hardhat monorepo](https://github.com/NomicFoundation/hardhat). Clone the source code using ssh:
+Clone the source code using ssh:
 
 ```bash
-git clone git@github.com:NomicFoundation/hardhat.git
+git clone git@github.com:NomicFoundation/edr.git
 ```
 
 or https:
 
 ```bash
-git clone https://github.com/NomicFoundation/hardhat.git
+git clone https://github.com/NomicFoundation/edr.git
 ```
 
 Use `cargo` to build a release version:
 
 ```bash
-cd hardhat
+cd edr
 cargo build --release
 ```
 
-## Building a Node.js native module
-
-Make sure you have the following dependencies installed on your machine:
-
-- [node.js](https://nodejs.org)
+### Building a Node.js native module
 
 Use `pnpm` to build a release version:
 
