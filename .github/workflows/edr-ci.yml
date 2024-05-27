@@ -47,6 +47,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Cargo check no default features for all crates
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --all --no-default-features
+
       - name: Cargo hack for EDR crates
         run: |
           chmod +x ./.github/scripts/cargo-hack-edr.sh
