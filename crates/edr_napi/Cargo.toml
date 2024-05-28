@@ -49,6 +49,3 @@ napi-build = "2.0.1"
 [features]
 tracing = ["edr_evm/tracing", "edr_provider/tracing"]
 scenarios = ["rand"]
-
-[profile.release]
-lto = true

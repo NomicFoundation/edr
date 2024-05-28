@@ -47,14 +47,15 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --platform --release",
+    "build": "napi build --platform --profile napi-publish",
+    "build:test": "napi build --platform --release",
     "build:debug": "napi build --platform",
     "build:tracing": "napi build --platform --release --features tracing",
     "build:scenarios": "napi build --platform --release --features scenarios",
     "prepublishOnly": "bash scripts/prepublish.sh",
     "universal": "napi universal",
     "version": "napi version",
-    "pretest": "pnpm build",
+    "pretest": "pnpm build:test",
     "test": "pnpm tsc && mocha --recursive \"test/**/*.ts\"",
     "testNoBuild": "pnpm tsc && mocha --recursive \"test/**/*.ts\"",
     "clean": "rm -rf @nomicfoundation/edr.node"
