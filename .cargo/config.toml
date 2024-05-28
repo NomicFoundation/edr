@@ -1,4 +1,5 @@
 [alias]
+cheats = "test -p foundry-cheatcodes-spec --features schema tests::"
 gen-execution-api = "run --bin tools -- gen-execution-api"
 scenario = "run --release --bin tools -- scenario"
 scenario-with-tracing = "run --release --features tracing --bin tools -- scenario"

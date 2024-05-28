@@ -94,7 +94,6 @@ foundry-evm-fuzz = { path = "crates/foundry/evm/fuzz" }
 foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 foundry-macros = { path = "crates/foundry/macros" }
 foundry-test-utils = { path = "crates/foundry/test-utils" }
-foundry-wallets = { path = "crates/foundry/wallets" }
 foundry-linking = { path = "crates/foundry/linking" }
 
 # solc & compilation utilities

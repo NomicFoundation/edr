@@ -17,6 +17,7 @@ use revm::{
     primitives::{Account, Bytecode, SpecId, KECCAK_EMPTY},
     InnerEvmContext,
 };
+use spec::Vm::signCall;
 
 use crate::{
     Cheatcode, Cheatcodes, CheatsCtxt, Result,
@@ -24,11 +25,10 @@ use crate::{
         accessesCall, addrCall, blobBaseFeeCall, blobhashesCall, chainIdCall, coinbaseCall,
         coolCall, dealCall, deleteSnapshotCall, deleteSnapshotsCall, difficultyCall, dumpStateCall,
         etchCall, feeCall, getBlobBaseFeeCall, getBlobhashesCall, getBlockNumberCall,
-        getBlockTimestampCall, getNonce_0Call, getRecordedLogsCall, lastCallGasCall,
-        loadAllocsCall, loadCall, pauseGasMeteringCall, prevrandao_0Call, prevrandao_1Call,
-        readCallersCall, recordCall, recordLogsCall, resetNonceCall, resumeGasMeteringCall,
-        revertToAndDeleteCall, revertToCall, rollCall, setNonceCall, setNonceUnsafeCall,
-        signP256Call, sign_0Call, sign_1Call, sign_2Call, snapshotCall,
+        getBlockTimestampCall, getNonceCall, getRecordedLogsCall, lastCallGasCall, loadAllocsCall,
+        loadCall, pauseGasMeteringCall, prevrandao_0Call, prevrandao_1Call, readCallersCall,
+        recordCall, recordLogsCall, resetNonceCall, resumeGasMeteringCall, revertToAndDeleteCall,
+        revertToCall, rollCall, setNonceCall, setNonceUnsafeCall, signP256Call, snapshotCall,
         startStateDiffRecordingCall, stopAndReturnStateDiffCall, storeCall, txGasPriceCall,
         warpCall, CallerMode,
     },
@@ -67,7 +67,7 @@ impl Cheatcode for addrCall {
     }
 }
 
-impl Cheatcode for getNonce_0Call {
+impl Cheatcode for getNonceCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account } = self;
         get_nonce(ccx, account)
@@ -159,24 +159,10 @@ impl Cheatcode for dumpStateCall {
     }
 }
 
-impl Cheatcode for sign_0Call {
+impl Cheatcode for signCall {
     fn apply_full<DB: DatabaseExt>(&self, _: &mut CheatsCtxt<DB>) -> Result {
         let Self { privateKey, digest } = self;
         super::utils::sign(privateKey, digest)
-    }
-}
-
-impl Cheatcode for sign_1Call {
-    fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
-        let Self { digest } = self;
-        super::utils::sign_with_wallet(ccx, None, digest)
-    }
-}
-
-impl Cheatcode for sign_2Call {
-    fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
-        let Self { signer, digest } = self;
-        super::utils::sign_with_wallet(ccx, Some(*signer), digest)
     }
 }
 
@@ -633,23 +619,12 @@ pub(super) fn get_nonce<DB: DatabaseExt>(ccx: &mut CheatsCtxt<DB>, address: &Add
 ///     - `tx.origin` will be equal to the default sender address unless an
 ///       alternative one has been set when configuring the prank.
 ///
-/// - If there is an active broadcast:
-///     - `caller_mode` will be equal to:
-///         - [`CallerMode::Broadcast`] if the broadcast has been set with
-///           `vm.broadcast(..)`.
-///         - [`CallerMode::RecurrentBroadcast`] if the broadcast has been set
-///           with `vm.startBroadcast(..)`.
-///     - `msg.sender` and `tx.origin` will be equal to the address provided
-///       when setting the broadcast.
-///
 /// - If no caller modification is active:
 ///     - `caller_mode` will be equal to [`CallerMode::None`],
 ///     - `msg.sender` and `tx.origin` will be equal to the default sender
 ///       address.
 fn read_callers(state: &Cheatcodes, default_sender: &Address) -> Result {
-    let Cheatcodes {
-        prank, broadcast, ..
-    } = state;
+    let Cheatcodes { prank, .. } = state;
 
     let mut mode = CallerMode::None;
     let mut new_caller = default_sender;
@@ -664,14 +639,6 @@ fn read_callers(state: &Cheatcodes, default_sender: &Address) -> Result {
         if let Some(new) = &prank.new_origin {
             new_origin = new;
         }
-    } else if let Some(broadcast) = broadcast {
-        mode = if broadcast.single_call {
-            CallerMode::Broadcast
-        } else {
-            CallerMode::RecurrentBroadcast
-        };
-        new_caller = &broadcast.new_origin;
-        new_origin = &broadcast.new_origin;
     }
 
     Ok((mode, new_caller, new_origin).abi_encode_params())

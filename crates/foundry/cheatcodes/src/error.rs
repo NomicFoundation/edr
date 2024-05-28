@@ -7,7 +7,6 @@ use alloy_sol_types::SolError;
 use foundry_common::errors::FsPathError;
 use foundry_config::UnresolvedEnvVarError;
 use foundry_evm_core::backend::DatabaseError;
-use foundry_wallets::error::WalletSignerError;
 use k256::ecdsa::signature::Error as SignatureError;
 use revm::primitives::EVMError;
 
@@ -312,7 +311,6 @@ impl_from!(
     UnresolvedEnvVarError,
     WalletError,
     SignerError,
-    WalletSignerError,
 );
 
 impl From<EVMError<DatabaseError>> for Error {

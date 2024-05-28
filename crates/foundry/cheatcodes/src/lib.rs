@@ -32,14 +32,12 @@ mod evm;
 mod fs;
 mod inspector;
 mod json;
-mod script;
 mod string;
 mod test;
 mod toml;
 mod utils;
 
 pub use env::set_execution_context;
-pub use script::ScriptWallets;
 pub use test::expect::ExpectedCallTracker;
 pub use Vm::ForgeContext;
 
