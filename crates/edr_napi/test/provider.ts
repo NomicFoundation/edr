@@ -51,7 +51,7 @@ describe("Provider", () => {
     },
     initialParentBeaconBlockRoot: Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex"
+      "hex",
     ),
     minGasPrice: 0n,
     mining: {
@@ -70,7 +70,7 @@ describe("Provider", () => {
     },
     getContractAndFunctionNameCallback: (
       _code: Buffer,
-      _calldata?: Buffer
+      _calldata?: Buffer,
     ): ContractAndFunctionName => {
       return {
         contractName: "",
@@ -84,7 +84,7 @@ describe("Provider", () => {
       context,
       providerConfig,
       loggerConfig,
-      (_event: SubscriptionEvent) => {}
+      (_event: SubscriptionEvent) => {},
     );
 
     await assert.isFulfilled(provider);
@@ -104,7 +104,7 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
-      (_event: SubscriptionEvent) => {}
+      (_event: SubscriptionEvent) => {},
     );
 
     await assert.isFulfilled(provider);
@@ -116,7 +116,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       const responseObject = await provider.handleRequest(
@@ -134,7 +134,7 @@ describe("Provider", () => {
               data: "0x60016002600300",
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -156,7 +156,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       provider.setVerboseTracing(true);
@@ -176,7 +176,7 @@ describe("Provider", () => {
               data: "0x60016002600300",
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -201,7 +201,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       const responseObject = await provider.handleRequest(
@@ -220,7 +220,7 @@ describe("Provider", () => {
               data: "0x60015f5200",
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -240,7 +240,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       provider.setVerboseTracing(true);
@@ -261,7 +261,7 @@ describe("Provider", () => {
               data: "0x60015f5200",
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -277,7 +277,7 @@ describe("Provider", () => {
       assertEqualMemory(steps[2].memory, Buffer.from([]));
       assertEqualMemory(
         steps[3].memory,
-        Buffer.from([...Array(31).fill(0), 1])
+        Buffer.from([...Array(31).fill(0), 1]),
       );
     });
 
@@ -286,7 +286,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {}
+        (_event: SubscriptionEvent) => {},
       );
 
       const responseObject = await provider.handleRequest(
@@ -303,7 +303,7 @@ describe("Provider", () => {
               gas: "0x" + 1_000_000n.toString(16),
             },
           ],
-        })
+        }),
       );
 
       const rawTraces = responseObject.traces;
@@ -318,6 +318,83 @@ describe("Provider", () => {
 
       // inner message triggered by STATICCALL
       assert.isTrue(messageResults[1].isStaticCall);
+    });
+
+    it("should have tracing information when debug_traceTransaction is used", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {},
+      );
+
+      const sendTxResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        }),
+      );
+
+      const txHash = JSON.parse(sendTxResponse.json).result;
+
+      const traceTransactionResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceTransaction",
+          params: [txHash],
+        }),
+      );
+
+      const rawTraces = traceTransactionResponse.traces;
+      assert.lengthOf(rawTraces, 1);
+    });
+
+    it("should have tracing information when debug_traceCall is used", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        (_event: SubscriptionEvent) => {},
+      );
+
+      const traceCallResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceCall",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        }),
+      );
+
+      const rawTraces = traceCallResponse.traces;
+      assert.lengthOf(rawTraces, 1);
     });
   });
 });

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "cd crates/edr_napi && pnpm build",
-    "prettier": "prettier \".github/**/*.{md,yml,ts,js}\""
+    "prettier": "prettier \".github/**/*.{md,yml,ts,js}\" \"crates/edr_napi/test/**.ts\""
   },
   "pnpm": {
     "overrides": {

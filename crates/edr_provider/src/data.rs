@@ -38,17 +38,17 @@ use edr_evm::{
     },
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
-    mine_block_with_single_transaction, register_eip_3155_tracer_handles,
+    mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
     },
     trace::Trace,
     Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockAndTotalDifficulty, BlockEnv,
-    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig, DebugTraceResult,
-    ExecutableTransaction, ExecutionResult, HashMap, HashSet, MemPool, MineBlockResultAndState,
-    OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock, TracerEip3155, TxEnv,
-    KECCAK_EMPTY,
+    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
+    DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutableTransaction, ExecutionResult,
+    HashMap, HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
+    StorageSlot, SyncBlock, TxEnv, KECCAK_EMPTY,
 };
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
@@ -576,7 +576,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResult, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
         let block = self
             .blockchain
             .block_by_transaction_hash(transaction_hash)?
@@ -591,6 +591,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         let prev_block_number = block.header().number - 1;
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
+        let verbose_tracing = self.verbose_tracing;
 
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
@@ -621,6 +622,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                     block_env,
                     transactions,
                     transaction_hash,
+                    verbose_tracing,
                 )
                 .map_err(ProviderError::DebugTrace)
             },
@@ -632,12 +634,12 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         transaction: ExecutableTransaction,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResult, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
 
         let tx_env: TxEnv = transaction.into();
 
-        let mut tracer = TracerEip3155::new(trace_config);
+        let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let result = run_call(RunCallArgs {
@@ -649,7 +651,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 tx_env: tx_env.clone(),
                 debug_context: Some(DebugContext {
                     data: &mut tracer,
-                    register_handles_fn: register_eip_3155_tracer_handles,
+                    register_handles_fn: register_eip_3155_and_raw_tracers_handles,
                 }),
             })?;
 
