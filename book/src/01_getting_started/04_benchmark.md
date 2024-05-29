@@ -9,8 +9,7 @@ We take two approaches to benchmarking EDR:
 
 ## Manual
 
-To measure real-world performance, we use a build of [Hardhat](https://github.com/NomicFoundation/hardhat) with EDR in third-party projects.
-To make a local build of Hardhat available for linking in other packages, run:
+To measure real-world performance, we use a build of [Hardhat](https://github.com/NomicFoundation/hardhat) with EDR in third-party projects. To make a local build of Hardhat available for linking in other packages, run:
 
 ```bash
 cd packages/hardhat-core &&
@@ -50,8 +49,7 @@ To prevent the benchmark from being tainted by smart contract compilation, we fi
 npx hardhat compile
 ```
 
-Finally, to benchmark the third-party project, we time its test suite.
-For example:
+Finally, to benchmark the third-party project, we time its test suite. For example:
 
 ```bash
 time npx hardhat test
