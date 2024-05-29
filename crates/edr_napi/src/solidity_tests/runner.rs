@@ -56,7 +56,10 @@ pub(super) fn build_runner(
 }
 
 fn project_root() -> PathBuf {
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../testdata"))
+    PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../crates/foundry/testdata"
+    ))
 }
 
 fn foundry_config() -> Config {
