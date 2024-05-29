@@ -1,7 +1,7 @@
 use serde::{de::DeserializeOwned, Serialize};
 
-/// Trait for specifying chain-specific RPC client types.
-pub trait ChainSpec {
+/// Trait for specifying Ethereum-based JSON-RPC method types.
+pub trait RpcSpec {
     /// Type representing a block
     type Block<Data>: GetBlockNumber + DeserializeOwned + Serialize
     where
@@ -17,9 +17,9 @@ pub trait GetBlockNumber {
 
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct EthChainSpec;
+pub struct EthRpcSpec;
 
-impl ChainSpec for EthChainSpec {
+impl RpcSpec for EthRpcSpec {
     type Block<Data> = crate::block::Block<Data> where Data: Default + DeserializeOwned + Serialize;
     type Transaction = crate::transaction::Transaction;
 }

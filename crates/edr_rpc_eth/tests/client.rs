@@ -1,13 +1,13 @@
 use std::{ops::Deref, str::FromStr};
 
 use edr_eth::B256;
-use edr_rpc_client::{RpcClient, RpcClientError};
-use edr_rpc_eth::{client::EthClientExt, RequestMethod};
+use edr_rpc_client::RpcClientError;
+use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec, RequestMethod};
 use reqwest::StatusCode;
 use tempfile::TempDir;
 
 struct TestRpcClient {
-    client: RpcClient<RequestMethod>,
+    client: EthRpcClient<EthRpcSpec>,
 
     // Need to keep the tempdir around to prevent it from being deleted
     // Only accessed when feature = "test-remote", hence the allow.
@@ -19,14 +19,14 @@ impl TestRpcClient {
     fn new(url: &str) -> Self {
         let tempdir = TempDir::new().unwrap();
         Self {
-            client: RpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
+            client: EthRpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
             cache_dir: tempdir,
         }
     }
 }
 
 impl Deref for TestRpcClient {
-    type Target = RpcClient<RequestMethod>;
+    type Target = EthRpcClient<EthRpcSpec>;
 
     fn deref(&self) -> &Self::Target {
         &self.client
@@ -68,14 +68,13 @@ async fn send_request_body_400_status() {
 
 #[cfg(feature = "test-remote")]
 mod alchemy {
-    use std::fs::File;
+    use std::{fs::File, path::PathBuf};
 
     use edr_test_utils::env::get_alchemy_url;
     use futures::future::join_all;
     use walkdir::WalkDir;
 
     use super::*;
-    use crate::Bytes;
 
     // The maximum block number that Alchemy allows
     const MAX_BLOCK_NUMBER: u64 = u64::MAX >> 1;

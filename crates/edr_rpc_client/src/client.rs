@@ -638,6 +638,3 @@ impl SerializedRequest {
         self.0.to_string()
     }
 }
-
-#[cfg(test)]
-mod tests {}

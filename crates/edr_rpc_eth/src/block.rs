@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use edr_eth::{withdrawal::Withdrawal, Address, Bloom, Bytes, B256, B64, U256};
 use serde::{Deserialize, Serialize};
 
-use crate::chain_spec::GetBlockNumber;
+use crate::spec::GetBlockNumber;
 
 /// block object returned by `eth_getBlockBy*`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]

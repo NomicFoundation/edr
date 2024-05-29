@@ -32,7 +32,6 @@ paste = { version = "1.0.14", default-features = false }
 serde_json = { version = "1.0.89" }
 serial_test = "2.0.0"
 tokio = { version = "1.23.0", features = ["macros"] }
-walkdir = { version = "2.3.3", default-features = false }
 
 [features]
 default = ["std"]

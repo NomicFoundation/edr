@@ -1069,7 +1069,6 @@ dependencies = [
  "tokio",
  "tracing",
  "triehash",
- "walkdir",
 ]
 
 [[package]]
@@ -1201,9 +1200,9 @@ name = "edr_rpc_eth"
 version = "0.3.5"
 dependencies = [
  "anyhow",
- "async-trait",
  "edr_eth",
  "edr_rpc_client",
+ "edr_test_utils",
  "futures",
  "hex",
  "mockito",
@@ -1214,6 +1213,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "walkdir",
 ]
 
 [[package]]

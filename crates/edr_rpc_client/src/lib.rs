@@ -10,6 +10,6 @@ pub mod jsonrpc;
 mod reqwest_error;
 
 pub use self::{
-    client::{RpcClient, RpcClientError},
+    client::*,
     reqwest_error::{MiddlewareError, ReqwestError},
 };
