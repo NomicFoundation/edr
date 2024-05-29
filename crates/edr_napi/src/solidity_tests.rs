@@ -29,7 +29,6 @@ pub struct SolidityTestRunner {
 // The callback has to be passed in the constructor because it's not `Send`.
 #[napi]
 impl SolidityTestRunner {
-    /// Creates a new instance of the SolidityTestRunner.
     #[doc = "Creates a new instance of the SolidityTestRunner. The callback function will be called with suite results as they finish."]
     #[napi(constructor)]
     pub fn new(env: Env, results_callback: JsFunction) -> napi::Result<Self> {
