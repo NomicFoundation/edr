@@ -100,7 +100,7 @@ Cheatcodes are manually implemented through the [`Cheatcode` trait](#cheatcode-t
 
 ### [`sol!`]
 
-Generates the raw Rust bindings for the cheatcodes, as well as lets us specify custom attributes individually for each item, such as functions and structs, or for entire interfaces.
+Generates the raw Rust bindings for the cheatcodes, as well as letting us specify custom attributes individually for each item, such as functions and structs, or for entire interfaces.
 
 The way bindings are generated and extra information can be found in the [`sol!`] documentation.
 
