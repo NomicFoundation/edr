@@ -20,14 +20,12 @@ pub use self::hasher::KeyHasher;
 use self::key::{ReadCacheKey, WriteCacheKey};
 use crate::RpcClientError;
 
-/// Trait for types that can be cached.
+/// Trait for RPC method types that can be cached.
 pub trait CacheableMethod: Sized {
     /// The type representing the cached method.
-    type Cached<'method>: Into<Option<Self::MethodWithResolvableBlockTag>>;
-
-    /// The type representing a subset of methods containing a [`BlockTag`]
-    /// which can be resolved to a block number.
-    type MethodWithResolvableBlockTag: Clone + Debug;
+    type Cached<'method>: CachedMethod + TryFrom<&'method Self>
+    where
+        Self: 'method;
 
     /// Creates a method for requesting the block number.
     fn block_number_request() -> Self;
@@ -38,20 +36,24 @@ pub trait CacheableMethod: Sized {
     #[cfg(feature = "tracing")]
     /// Returns the name of the method.
     fn name(&self) -> &'static str;
+}
+
+/// Trait for RPC method types that will be cached to disk.
+pub trait CachedMethod: Into<Option<Self::MethodWithResolvableBlockTag>> {
+    /// The type representing a subset of methods containing a [`BlockTag`]
+    /// which can be resolved to a block number.
+    type MethodWithResolvableBlockTag: Clone + Debug;
 
     /// Resolves a block tag to a block number for the provided method.
-    fn resolve_block_tag<'method>(
-        method: Self::MethodWithResolvableBlockTag,
-        block_number: u64,
-    ) -> Self::Cached<'method> where;
+    fn resolve_block_tag(method: Self::MethodWithResolvableBlockTag, block_number: u64) -> Self;
 
     /// Returns the instance's [`ReadCacheKey`] if it can be read from the
     /// cache.
-    fn read_cache_key(&self) -> Option<ReadCacheKey>;
+    fn read_cache_key(self) -> Option<ReadCacheKey>;
 
     /// Returns the instance's [`WriteCacheKey`] if it can be written to the
     /// cache.
-    fn write_cache_key(&self) -> Option<WriteCacheKey<Self>>;
+    fn write_cache_key(self) -> Option<WriteCacheKey<Self>>;
 }
 
 #[derive(Debug, Clone)]

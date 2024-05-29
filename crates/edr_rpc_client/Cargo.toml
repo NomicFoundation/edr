@@ -25,10 +25,6 @@ tracing = { version = "0.1.37", default-features = false, features = ["attribute
 url = { version = "2.4.1", default-features = false }
 uuid = { version = "1.4.1", default-features = false, features = ["std", "v4"] }
 
-[dev-dependencies]
-mockito = { version = "1.0.2", default-features = false }
-tempfile = { version = "3.7.1", default-features = false }
-
 [features]
 test-remote = []
 tracing = ["dep:tracing", "dep:reqwest-tracing"]

@@ -1,12 +1,13 @@
 use std::{ops::Deref, str::FromStr};
 
+use edr_eth::B256;
+use edr_rpc_client::{RpcClient, RpcClientError};
+use edr_rpc_eth::{client::EthClientExt, RequestMethod};
 use reqwest::StatusCode;
 use tempfile::TempDir;
 
-use super::*;
-
 struct TestRpcClient {
-    client: RpcClient,
+    client: RpcClient<RequestMethod>,
 
     // Need to keep the tempdir around to prevent it from being deleted
     // Only accessed when feature = "test-remote", hence the allow.
@@ -25,7 +26,7 @@ impl TestRpcClient {
 }
 
 impl Deref for TestRpcClient {
-    type Target = RpcClient;
+    type Target = RpcClient<RequestMethod>;
 
     fn deref(&self) -> &Self::Target {
         &self.client
@@ -49,7 +50,7 @@ async fn send_request_body_400_status() {
         .expect("failed to parse hash from string");
 
     let error = TestRpcClient::new(&server.url())
-        .call::<Option<eth::Transaction>>(MethodT::GetTransactionByHash(hash))
+        .get_transaction_by_hash(hash)
         .await
         .expect_err("should have failed to due to a HTTP status error");
 
@@ -105,7 +106,7 @@ mod alchemy {
                 .expect("failed to parse hash from string");
 
         let error = TestRpcClient::new(&alchemy_url)
-            .call::<Option<eth::Transaction>>(MethodT::GetTransactionByHash(hash))
+            .call::<Option<eth::Transaction>>(RequestMethod::GetTransactionByHash(hash))
             .await
             .expect_err("should have failed to interpret response as a Transaction");
 
@@ -130,7 +131,7 @@ mod alchemy {
                 .expect("failed to parse hash from string");
 
         let error = TestRpcClient::new(alchemy_url)
-            .call::<Option<eth::Transaction>>(MethodT::GetTransactionByHash(hash))
+            .call::<Option<eth::Transaction>>(RequestMethod::GetTransactionByHash(hash))
             .await
             .expect_err("should have failed to connect due to a garbage domain name");
 

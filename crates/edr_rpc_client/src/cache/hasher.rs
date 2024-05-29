@@ -2,7 +2,7 @@ use edr_eth::{reward_percentile::RewardPercentile, Address, B256, U256};
 use sha3::{digest::FixedOutput, Digest, Sha3_256};
 
 use super::{
-    block_spec::{BlockTagNotCacheableError, CacheableBlockSpec},
+    block_spec::{CacheableBlockSpec, UnresolvedBlockTagError},
     filter::{CacheableLogFilterOptions, CacheableLogFilterRange},
     key::CacheKeyVariant,
 };
@@ -73,7 +73,7 @@ impl KeyHasher {
     pub fn hash_block_spec(
         self,
         block_spec: &CacheableBlockSpec<'_>,
-    ) -> Result<Self, BlockTagNotCacheableError> {
+    ) -> Result<Self, UnresolvedBlockTagError> {
         let this = self.hash_u8(block_spec.cache_key_variant());
 
         match block_spec {
@@ -92,14 +92,14 @@ impl KeyHasher {
             }
             CacheableBlockSpec::Earliest
             | CacheableBlockSpec::Safe
-            | CacheableBlockSpec::Finalized => Err(BlockTagNotCacheableError),
+            | CacheableBlockSpec::Finalized => Err(UnresolvedBlockTagError),
         }
     }
 
     pub fn hash_log_filter_options(
         self,
         params: &CacheableLogFilterOptions<'_>,
-    ) -> Result<Self, BlockTagNotCacheableError> {
+    ) -> Result<Self, UnresolvedBlockTagError> {
         // Destructuring to make sure we get a compiler error here if the fields change.
         let CacheableLogFilterOptions {
             range,
@@ -132,7 +132,7 @@ impl KeyHasher {
     pub fn hash_log_filter_range(
         self,
         params: &CacheableLogFilterRange<'_>,
-    ) -> Result<Self, BlockTagNotCacheableError> {
+    ) -> Result<Self, UnresolvedBlockTagError> {
         let this = self.hash_u8(params.cache_key_variant());
 
         match params {

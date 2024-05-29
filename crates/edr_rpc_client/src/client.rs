@@ -31,7 +31,7 @@ use crate::{
             CacheKeyForUncheckedBlockNumber, CacheKeyForUnresolvedBlockTag, ReadCacheKey,
             ResolvedSymbolicTag, WriteCacheKey,
         },
-        remove_from_cache, CacheableMethod, CachedBlockNumber,
+        remove_from_cache, CacheableMethod, CachedBlockNumber, CachedMethod,
     },
     jsonrpc, MiddlewareError, ReqwestError,
 };
@@ -321,7 +321,7 @@ impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
 
     async fn resolve_block_tag<ResultT>(
         &self,
-        block_tag_resolver: CacheKeyForUnresolvedBlockTag<MethodT>,
+        block_tag_resolver: CacheKeyForUnresolvedBlockTag<MethodT::Cached<'_>>,
         result: ResultT,
         resolve_block_number: impl Fn(ResultT) -> Option<u64>,
     ) -> Result<Option<String>, RpcClientError> {
@@ -344,7 +344,9 @@ impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
         result: ResultT,
         resolve_block_number: impl Fn(ResultT) -> Option<u64>,
     ) -> Result<Option<String>, RpcClientError> {
-        if let Some(cache_key) = method.write_cache_key() {
+        let cached_method = MethodT::Cached::try_from(method).ok();
+
+        if let Some(cache_key) = cached_method.and_then(CachedMethod::write_cache_key) {
             match cache_key {
                 WriteCacheKey::NeedsSafetyCheck(safety_checker) => {
                     self.validate_block_number(safety_checker).await
@@ -508,7 +510,8 @@ impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
         method: MethodT,
         resolve_block_number: impl Fn(&SuccessT) -> Option<u64>,
     ) -> Result<SuccessT, RpcClientError> {
-        let read_cache_key = method.read_cache_key();
+        let cached_method = MethodT::Cached::try_from(&method).ok();
+        let read_cache_key = cached_method.and_then(CachedMethod::read_cache_key);
 
         let request = self.serialize_request(&method)?;
 

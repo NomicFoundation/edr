@@ -1181,7 +1181,6 @@ dependencies = [
  "hyper",
  "lazy_static",
  "log",
- "mockito",
  "regex",
  "reqwest",
  "reqwest-middleware",
@@ -1190,7 +1189,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
- "tempfile",
  "thiserror",
  "tokio",
  "tracing",
@@ -1206,10 +1204,16 @@ dependencies = [
  "async-trait",
  "edr_eth",
  "edr_rpc_client",
+ "futures",
  "hex",
+ "mockito",
+ "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

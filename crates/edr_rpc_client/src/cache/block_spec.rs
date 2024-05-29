@@ -116,5 +116,5 @@ impl<'a> TryFrom<&'a PreEip1898BlockSpec> for CacheableBlockSpec<'a> {
 
 /// Error type for [`Hasher::hash_block_spec`].
 #[derive(thiserror::Error, Debug)]
-#[error("A block tag is not cacheable.")]
-pub struct BlockTagNotCacheableError;
+#[error("A block tag is not resolved.")]
+pub struct UnresolvedBlockTagError;

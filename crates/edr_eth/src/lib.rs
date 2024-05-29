@@ -15,6 +15,8 @@ pub mod beacon;
 pub mod block;
 /// Ethereum block spec
 mod block_spec;
+/// Ethereum fee history types
+pub mod fee_history;
 /// Ethereum types for filter-based RPC methods
 pub mod filter;
 /// Ethereum log types
@@ -43,7 +45,7 @@ pub mod withdrawal;
 
 pub use revm_primitives::{
     alloy_primitives::{Bloom, BloomInput, B512, B64, U64},
-    hex_literal, AccountInfo, Address, Bytes, HashMap, HashSet, SpecId, B256, U256,
+    hex_literal, AccountInfo, Address, Bytecode, Bytes, HashMap, HashSet, SpecId, B256, U256,
 };
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};
