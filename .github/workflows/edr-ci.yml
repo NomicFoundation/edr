@@ -153,7 +153,7 @@ jobs:
       - name: Check markdown style
         uses: actionsx/prettier@v2
         with:
-          args: --check **/*.md
+          args: --check "**/*.md"
 
       - name: Run cargo clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
