@@ -23,7 +23,7 @@ called in the
 `Cheatcodes` inspector implementation.
 
 See
-the [cheatcodes dev documentation](../../docs/dev/cheatcodes.md#cheatcodes-implementation)
+the [cheatcodes dev documentation](../../../book/src/02_development/05_cheatcodes.md#adding-a-new-cheatcode)
 for more details.
 
 ### JSON interface
@@ -48,7 +48,7 @@ to add your project to this list!
 ### Adding a new cheatcode
 
 Please see
-the [cheatcodes dev documentation](../../docs/dev/cheatcodes.md#adding-a-new-cheatcode)
+the [cheatcodes dev documentation](../../../book/src/02_development/05_cheatcodes.md#adding-a-new-cheatcode)
 on how to add new cheatcodes.
 
 [`sol!`]: https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html
