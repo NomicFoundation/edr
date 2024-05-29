@@ -1,5 +1,8 @@
-mod block_spec;
-mod filter;
+/// Types for caching block specifications.
+pub mod block_spec;
+pub(crate) mod chain_id;
+/// Types for caching filters.
+pub mod filter;
 mod hasher;
 /// Types for indexing the cache.
 pub mod key;
@@ -13,12 +16,17 @@ use std::{
 
 use serde::de::DeserializeOwned;
 
-pub use self::hasher::Hasher as CacheKeyHasher;
+pub use self::hasher::KeyHasher;
 use self::key::{ReadCacheKey, WriteCacheKey};
 use crate::RpcClientError;
 
 /// Trait for types that can be cached.
 pub trait CacheableMethod: Sized {
+    /// The type representing the cached method.
+    type Cached<'method>: Into<Option<Self::MethodWithResolvableBlockTag>>;
+
+    /// The type representing a subset of methods containing a [`BlockTag`]
+    /// which can be resolved to a block number.
     type MethodWithResolvableBlockTag: Clone + Debug;
 
     /// Creates a method for requesting the block number.
@@ -27,11 +35,22 @@ pub trait CacheableMethod: Sized {
     /// Creates a method for requesting the chain ID.
     fn chain_id_request() -> Self;
 
-    /// Resolves a block tag to a block number for the provided method.
-    fn resolve_block_tag(method: Self::MethodWithResolvableBlockTag, block_number: u64) -> Self;
+    #[cfg(feature = "tracing")]
+    /// Returns the name of the method.
+    fn name(&self) -> &'static str;
 
+    /// Resolves a block tag to a block number for the provided method.
+    fn resolve_block_tag<'method>(
+        method: Self::MethodWithResolvableBlockTag,
+        block_number: u64,
+    ) -> Self::Cached<'method> where;
+
+    /// Returns the instance's [`ReadCacheKey`] if it can be read from the
+    /// cache.
     fn read_cache_key(&self) -> Option<ReadCacheKey>;
 
+    /// Returns the instance's [`WriteCacheKey`] if it can be written to the
+    /// cache.
     fn write_cache_key(&self) -> Option<WriteCacheKey<Self>>;
 }
 

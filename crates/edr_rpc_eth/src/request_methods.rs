@@ -1,6 +1,7 @@
-use edr_eth::{reward_percentile::RewardPercentile, Address, B256, U256};
-
-use crate::{filter::LogFilterOptions, BlockSpec, PreEip1898BlockSpec};
+use edr_eth::{
+    filter::LogFilterOptions, reward_percentile::RewardPercentile, Address, BlockSpec,
+    PreEip1898BlockSpec, B256, U256,
+};
 
 /// Methods for requests to a remote Ethereum node. Only contains methods
 /// supported by the [`crate::remote::client::RpcClient`].
@@ -96,25 +97,4 @@ pub enum RequestMethod {
     /// `net_version`
     #[serde(rename = "net_version", with = "edr_eth::serde::empty_params")]
     NetVersion(()),
-}
-
-impl RequestMethod {
-    #[cfg(feature = "tracing")]
-    pub fn name(&self) -> &'static str {
-        match self {
-            Self::BlockNumber(_) => "eth_blockNumber",
-            Self::FeeHistory(_, _, _) => "eth_feeHistory",
-            Self::ChainId(_) => "eth_chainId",
-            Self::GetBalance(_, _) => "eth_getBalance",
-            Self::GetBlockByNumber(_, _) => "eth_getBlockByNumber",
-            Self::GetBlockByHash(_, _) => "eth_getBlockByHash",
-            Self::GetCode(_, _) => "eth_getCode",
-            Self::GetLogs(_) => "eth_getLogs",
-            Self::GetStorageAt(_, _, _) => "eth_getStorageAt",
-            Self::GetTransactionByHash(_) => "eth_getTransactionByHash",
-            Self::GetTransactionCount(_, _) => "eth_getTransactionCount",
-            Self::GetTransactionReceipt(_) => "eth_getTransactionReceipt",
-            Self::NetVersion(_) => "net_version",
-        }
-    }
 }

@@ -17,3 +17,4 @@ serde_json = { version = "1.0.89" }
 
 [features]
 test-remote = []
+tracing = ["edr_rpc_client/tracing"]

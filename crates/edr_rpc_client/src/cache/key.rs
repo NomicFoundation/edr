@@ -1,13 +1,16 @@
 use edr_eth::block::{is_safe_block_number, IsSafeBlockNumberArgs};
 
-use super::{block_spec::CacheableBlockSpec, filter::CacheableLogFilterRange, CacheKeyHasher};
-use crate::CacheableMethod;
+use super::{
+    block_spec::CacheableBlockSpec, filter::CacheableLogFilterRange, hasher::KeyHasher,
+    CacheableMethod,
+};
 
 /// Trait for retrieving the unique id of an enum variant.
 // This could be replaced by the unstable
 // [`core::intrinsics::discriminant_value`](https://dev-doc.rust-lang.org/beta/core/intrinsics/fn.discriminant_value.html)
 // function once it becomes stable.
 pub trait CacheKeyVariant {
+    /// Returns the unique id of the enum variant.
     fn cache_key_variant(&self) -> u8;
 }
 
@@ -26,9 +29,16 @@ impl<T> CacheKeyVariant for Option<T> {
 /// to cache (safe from reorgs). This is ok for reading from the cache, since
 /// the result will be a cache miss if the block number is not safe to cache and
 /// not having to resolve this data for reading offers performance advantages.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct ReadCacheKey(String);
+
+impl ReadCacheKey {
+    /// Finalizes the provided [`KeyHasher`] and return the resolved cache key.
+    pub fn finalize(hasher: KeyHasher) -> Self {
+        Self(hasher.finalize())
+    }
+}
 
 impl AsRef<str> for ReadCacheKey {
     fn as_ref(&self) -> &str {
@@ -36,6 +46,7 @@ impl AsRef<str> for ReadCacheKey {
     }
 }
 
+/// A cache key that can be used to write to the cache.
 #[derive(Clone, Debug)]
 pub enum WriteCacheKey<MethodT: CacheableMethod> {
     /// It needs to be checked whether the block number is safe (reorg-free)
@@ -44,18 +55,22 @@ pub enum WriteCacheKey<MethodT: CacheableMethod> {
     /// The method invocation contains a symbolic block spec (e.g. "finalized")
     /// that needs to be resolved to a block number before the result can be
     /// cached.
-    NeedsBlockNumber(CacheKeyForBlockTag<MethodT>),
+    NeedsBlockTagResolution(CacheKeyForUnresolvedBlockTag<MethodT>),
     /// The cache key is fully resolved and can be used to write to the cache.
     Resolved(String),
 }
 
 impl<MethodT: CacheableMethod> WriteCacheKey<MethodT> {
-    fn finalize(hasher: CacheKeyHasher) -> Self {
+    /// Finalizes the provided [`KeyHasher`] and return the resolved cache
+    /// key.
+    pub fn finalize(hasher: KeyHasher) -> Self {
         Self::Resolved(hasher.finalize())
     }
 
-    fn needs_range_check(
-        hasher: CacheKeyHasher,
+    /// Checks whether the block number is safe to cache before returning a
+    /// cache key.
+    pub fn needs_range_check(
+        hasher: KeyHasher,
         range: CacheableLogFilterRange<'_>,
     ) -> Option<Self> {
         match range {
@@ -67,8 +82,10 @@ impl<MethodT: CacheableMethod> WriteCacheKey<MethodT> {
         }
     }
 
-    fn needs_safety_check(
-        hasher: CacheKeyHasher,
+    /// Checks whether the block number is safe to cache before returning a
+    /// cache key.
+    pub fn needs_safety_check(
+        hasher: KeyHasher,
         block_spec: CacheableBlockSpec<'_>,
     ) -> Option<Self> {
         match block_spec {
@@ -84,12 +101,24 @@ impl<MethodT: CacheableMethod> WriteCacheKey<MethodT> {
             | CacheableBlockSpec::Finalized => None,
         }
     }
+
+    /// Checks whether a block tag needs to be resolved before returning a cache
+    /// key.
+    pub fn needs_block_tag_resolution(method: MethodT::Cached<'_>) -> Option<Self> {
+        let method = method.into()?;
+
+        Some(Self::NeedsBlockTagResolution(
+            CacheKeyForUnresolvedBlockTag { method },
+        ))
+    }
 }
 
-#[derive(Debug, Clone)]
-pub(crate) struct CacheKeyForUncheckedBlockNumber {
+/// A cache key for which the block number needs to be checked before writing to
+/// the cache.
+#[derive(Clone, Debug)]
+pub struct CacheKeyForUncheckedBlockNumber {
     // Boxed to keep the size of the enum small.
-    hasher: Box<CacheKeyHasher>,
+    hasher: Box<KeyHasher>,
     pub(super) block_number: u64,
 }
 
@@ -110,7 +139,7 @@ impl CacheKeyForUncheckedBlockNumber {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum ResolvedSymbolicTag {
     /// It needs to be checked whether the block number is safe (reorg-free)
     /// before writing to the cache.
@@ -119,16 +148,17 @@ pub(crate) enum ResolvedSymbolicTag {
     Resolved(String),
 }
 
-#[derive(Debug, Clone)]
-pub(crate) struct CacheKeyForBlockTag<MethodT: CacheableMethod> {
+/// A cache key for which the block tag needs to be resolved before writing to
+/// the cache.
+#[derive(Clone, Debug)]
+pub struct CacheKeyForUnresolvedBlockTag<MethodT: CacheableMethod> {
     method: MethodT::MethodWithResolvableBlockTag,
 }
 
-impl<MethodT: CacheableMethod> CacheKeyForBlockTag<MethodT> {
+impl<MethodT: CacheableMethod> CacheKeyForUnresolvedBlockTag<MethodT> {
     /// Check whether the block number is safe to cache before returning a cache
     /// key.
-    pub fn resolve_symbolic_tag(self, block_number: u64) -> Option<ResolvedSymbolicTag> {
-        let resolved_block_spec = CacheableBlockSpec::Number { block_number };
+    pub(crate) fn resolve_block_tag(self, block_number: u64) -> Option<ResolvedSymbolicTag> {
         let resolved_method = MethodT::resolve_block_tag(self.method, block_number);
 
         resolved_method.write_cache_key().map(|key| match key {
@@ -136,7 +166,7 @@ impl<MethodT: CacheableMethod> CacheKeyForBlockTag<MethodT> {
                 ResolvedSymbolicTag::NeedsSafetyCheck(cache_key)
             }
             WriteCacheKey::Resolved(cache_key) => ResolvedSymbolicTag::Resolved(cache_key),
-            WriteCacheKey::NeedsBlockNumber(_) => {
+            WriteCacheKey::NeedsBlockTagResolution(_) => {
                 unreachable!("resolved block spec should not need block number")
             }
         })

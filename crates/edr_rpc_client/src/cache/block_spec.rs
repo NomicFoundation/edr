@@ -1,4 +1,4 @@
-use edr_eth::{BlockSpec, BlockTag, Eip1898BlockSpec, B256};
+use edr_eth::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec, B256};
 
 use super::key::CacheKeyVariant;
 
@@ -6,10 +6,15 @@ use super::key::CacheKeyVariant;
 #[derive(Clone, Debug)]
 pub enum CacheableBlockSpec<'a> {
     /// Block number
-    Number { block_number: u64 },
+    Number {
+        /// Block number
+        block_number: u64,
+    },
     /// Block hash
     Hash {
+        /// Block hash
         block_hash: &'a B256,
+        /// Whether an error should be returned if the block is not canonical
         require_canonical: Option<bool>,
     },
     /// "earliest" block tag
@@ -78,6 +83,33 @@ impl<'a> TryFrom<&'a Option<BlockSpec>> for CacheableBlockSpec<'a> {
         match value {
             None => Err(BlockSpecNotCacheableError(None)),
             Some(block_spec) => CacheableBlockSpec::try_from(block_spec),
+        }
+    }
+}
+
+/// Error type for [`CacheableBlockSpec::try_from`].
+#[derive(thiserror::Error, Debug)]
+#[error("Block spec is not cacheable: {0:?}")]
+pub struct PreEip1898BlockSpecNotCacheableError(PreEip1898BlockSpec);
+
+impl<'a> TryFrom<&'a PreEip1898BlockSpec> for CacheableBlockSpec<'a> {
+    type Error = PreEip1898BlockSpecNotCacheableError;
+
+    fn try_from(value: &'a PreEip1898BlockSpec) -> Result<Self, Self::Error> {
+        match value {
+            PreEip1898BlockSpec::Number(block_number) => Ok(CacheableBlockSpec::Number {
+                block_number: *block_number,
+            }),
+            PreEip1898BlockSpec::Tag(tag) => match tag {
+                // Latest and pending can never be resolved to a safe block number.
+                BlockTag::Latest | BlockTag::Pending => {
+                    Err(PreEip1898BlockSpecNotCacheableError(value.clone()))
+                }
+                // Earliest, safe and finalized are potentially resolvable to a safe block number.
+                BlockTag::Earliest => Ok(CacheableBlockSpec::Earliest),
+                BlockTag::Safe => Ok(CacheableBlockSpec::Safe),
+                BlockTag::Finalized => Ok(CacheableBlockSpec::Finalized),
+            },
         }
     }
 }

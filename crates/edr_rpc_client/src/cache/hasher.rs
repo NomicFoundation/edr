@@ -8,7 +8,7 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub struct Hasher {
+pub struct KeyHasher {
     hasher: Sha3_256,
 }
 
@@ -33,7 +33,7 @@ pub struct Hasher {
 // When adding new types such as sequences or strings, [prefix
 // collisions](https://doc.rust-lang.org/std/hash/trait.Hash.html#prefix-collisions) should be
 // considered.
-impl Hasher {
+impl KeyHasher {
     pub fn new() -> Self {
         Self {
             hasher: Sha3_256::new(),

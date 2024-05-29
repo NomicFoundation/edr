@@ -4,6 +4,8 @@ mod call_request;
 mod client;
 /// ethereum objects as specifically used in the JSON-RPC interface
 pub mod eth;
+/// Types related to forking a remote blockchain.
+pub mod fork;
 mod r#override;
 mod request_methods;
 mod transaction;

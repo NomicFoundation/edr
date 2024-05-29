@@ -1,4 +1,4 @@
-pub(super) fn chain_id_from_url(url: &url::Url) -> Option<u64> {
+pub fn chain_id_from_url(url: &url::Url) -> Option<u64> {
     let host = url.host_str()?;
     match host {
         "mainnet.infura.io" | "eth-mainnet.g.alchemy.com" => Some(1),

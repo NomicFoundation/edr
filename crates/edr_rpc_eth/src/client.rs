@@ -1,9 +1,19 @@
+use std::fmt::Debug;
+
 use async_trait::async_trait;
-use edr_rpc_client::RpcClient;
+use edr_eth::{
+    filter::OneOrMore, log::FilterLog, receipt::BlockReceipt, reward_percentile::RewardPercentile,
+    AccountInfo, Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256,
+};
+use edr_rpc_client::{RpcClient, RpcClientError};
 
-use crate::{request_methods::RequestMethod, Transaction};
+use crate::{fork::ForkMetadata, request_methods::RequestMethod, Transaction};
 
-#[async_traitt]
+// Constrain parallel requests to avoid rate limiting on transport level and
+// thundering herd during backoff.
+const MAX_PARALLEL_REQUESTS: usize = 20;
+
+#[async_trait]
 pub trait EthClientExt {
     /// Calls `eth_feeHistory` and returns the fee history.
     async fn fee_history(
@@ -124,7 +134,7 @@ impl EthClientExt for RpcClient<RequestMethod> {
         newest_block: BlockSpec,
         reward_percentiles: Option<Vec<RewardPercentile>>,
     ) -> Result<FeeHistoryResult, RpcClientError> {
-        self.call(MethodT::FeeHistory(
+        self.call(RequestMethod::FeeHistory(
             U256::from(block_count),
             newest_block,
             reward_percentiles,

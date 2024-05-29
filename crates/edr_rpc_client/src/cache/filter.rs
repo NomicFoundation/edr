@@ -7,8 +7,8 @@ use super::{block_spec::CacheableBlockSpec, key::CacheKeyVariant};
 
 /// A cacheable input for the `eth_getLogs` method.
 #[derive(Clone, Debug)]
-pub(super) struct CacheableLogFilterOptions<'a> {
-    /// The  range
+pub struct CacheableLogFilterOptions<'a> {
+    /// The range
     pub range: CacheableLogFilterRange<'a>,
     /// The addresses
     pub addresses: Vec<&'a Address>,
@@ -20,7 +20,7 @@ pub(super) struct CacheableLogFilterOptions<'a> {
 /// [`CacheableLogFilterRange::try_from`].
 #[derive(thiserror::Error, Debug)]
 #[error("Method is not cacheable: {0:?}")]
-pub(super) struct LogFilterOptionsNotCacheableError(LogFilterOptions);
+pub struct LogFilterOptionsNotCacheableError(LogFilterOptions);
 
 impl<'a> TryFrom<&'a LogFilterOptions> for CacheableLogFilterOptions<'a> {
     type Error = LogFilterOptionsNotCacheableError;
@@ -54,9 +54,10 @@ impl<'a> TryFrom<&'a LogFilterOptions> for CacheableLogFilterOptions<'a> {
 
 /// A cacheable range input for the `eth_getLogs` method.
 #[derive(Clone, Debug)]
-pub(super) enum CacheableLogFilterRange<'a> {
+pub enum CacheableLogFilterRange<'a> {
     /// The `block_hash` argument
     Hash(&'a B256),
+    /// A range of blocks
     Range {
         /// The `from_block` argument
         from_block: CacheableBlockSpec<'a>,
