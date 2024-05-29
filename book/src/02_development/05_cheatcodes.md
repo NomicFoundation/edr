@@ -131,7 +131,7 @@ called in the [`Cheatcodes` inspector](#cheatcode-inspector) implementation.
 
 ### [`sol!`]
 
-Generates the raw Rust bindings for the cheatcodes, as well as lets us specify
+Generates the raw Rust bindings for the cheatcodes, as well as letting us specify
 custom attributes
 individually for each item, such as functions and structs, or for entire
 interfaces.
