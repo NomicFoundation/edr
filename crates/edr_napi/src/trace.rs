@@ -19,6 +19,10 @@ pub struct TracingMessage {
     #[napi(readonly)]
     pub to: Option<Buffer>,
 
+    /// Whether it's a static call
+    #[napi(readonly)]
+    pub is_static_call: bool,
+
     /// Transaction gas limit
     #[napi(readonly)]
     pub gas_limit: BigInt,
@@ -47,29 +51,41 @@ pub struct TracingMessage {
 
 impl TracingMessage {
     pub fn new(env: &Env, message: &BeforeMessage) -> napi::Result<Self> {
+        // Deconstruct to make sure all fields are handled
+        let BeforeMessage {
+            depth,
+            caller,
+            to: _,
+            is_static_call,
+            gas_limit,
+            data,
+            value,
+            code_address,
+            code,
+        } = message;
+
         let data = env
-            .create_buffer_with_data(message.data.to_vec())
+            .create_buffer_with_data(data.to_vec())
             .map(JsBufferValue::into_raw)?;
 
-        let code = message.code.as_ref().map_or(Ok(None), |code| {
+        let code = code.as_ref().map_or(Ok(None), |code| {
             env.create_buffer_with_data(code.original_bytes().to_vec())
                 .map(JsBufferValue::into_raw)
                 .map(Some)
         })?;
 
         Ok(TracingMessage {
-            caller: Buffer::from(message.caller.as_slice()),
+            caller: Buffer::from(caller.as_slice()),
             to: message.to.map(|to| Buffer::from(to.as_slice())),
-            gas_limit: BigInt::from(message.gas_limit),
-            depth: message.depth as u8,
+            gas_limit: BigInt::from(*gas_limit),
+            is_static_call: *is_static_call,
+            depth: *depth as u8,
             data,
             value: BigInt {
                 sign_bit: false,
-                words: message.value.into_limbs().to_vec(),
+                words: value.into_limbs().to_vec(),
             },
-            code_address: message
-                .code_address
-                .map(|address| Buffer::from(address.to_vec())),
+            code_address: code_address.map(|address| Buffer::from(address.to_vec())),
             code,
         })
     }
@@ -86,22 +102,43 @@ pub struct TracingStep {
     /// The executed op code
     #[napi(readonly)]
     pub opcode: String,
-    /// The top entry on the stack. None if the stack is empty.
+    /// The entries on the stack. It only contains the top element unless
+    /// verbose tracing is enabled. The vector is empty if there are no elements
+    /// on the stack.
     #[napi(readonly)]
-    pub stack_top: Option<BigInt>,
+    pub stack: Vec<BigInt>,
+    /// The memory at the step. None if verbose tracing is disabled.
+    #[napi(readonly)]
+    pub memory: Option<Buffer>,
 }
 
 impl TracingStep {
     pub fn new(step: &edr_evm::trace::Step) -> Self {
+        let stack = step.stack.full().map_or_else(
+            || {
+                step.stack
+                    .top()
+                    .map(u256_to_bigint)
+                    .map_or_else(Vec::default, |top| vec![top])
+            },
+            |stack| stack.iter().map(u256_to_bigint).collect(),
+        );
+        let memory = step.memory.as_ref().cloned().map(Buffer::from);
+
         Self {
             depth: step.depth as u8,
             pc: BigInt::from(step.pc),
             opcode: OpCode::name_by_op(step.opcode).to_string(),
-            stack_top: step.stack_top.map(|v| BigInt {
-                sign_bit: false,
-                words: v.into_limbs().to_vec(),
-            }),
+            stack,
+            memory,
         }
+    }
+}
+
+fn u256_to_bigint(v: &edr_evm::U256) -> BigInt {
+    BigInt {
+        sign_bit: false,
+        words: v.into_limbs().to_vec(),
     }
 }
 
@@ -138,7 +175,7 @@ impl RawTrace {
                     TracingMessage::new(&env, message).map(Either3::A)
                 }
                 edr_evm::trace::TraceMessage::Step(step) => Ok(Either3::B(TracingStep::new(step))),
-                edr_evm::trace::TraceMessage::After(result) => ExecutionResult::new(&env, result)
+                edr_evm::trace::TraceMessage::After(message) => ExecutionResult::new(&env, message)
                     .map(|execution_result| Either3::C(TracingMessageResult { execution_result })),
             })
             .collect::<napi::Result<_>>()
