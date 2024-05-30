@@ -179,7 +179,6 @@ jobs:
   prettier:
     name: Run Prettier
     runs-on: ubuntu-latest
-    needs: check-edr
     steps:
       - uses: actions/checkout@v3
 
