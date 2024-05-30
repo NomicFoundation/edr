@@ -1,5 +1,18 @@
 # @nomicfoundation/edr
 
+## 0.4.0
+
+### Minor Changes
+
+- 5b4acdd: Added verbose tracing for hardhat-tracer. Breaking change: The `stack_top`
+  property of `edr_napi::trace::TracingStep` was removed and `stack` was added
+  instead. Please see the documentation of the struct for details.
+
+### Patch Changes
+
+- af8053f: Fixed order of parameters for eth_sign (#455)
+- 32b765d: Added basic support for `eth_maxPriorityFeePerGas`, with a hardcoded response of 1 gwei (#369)
+
 ## 0.3.8
 
 ### Patch Changes
