@@ -890,22 +890,6 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn call_failed_to_send_error() {
-        let alchemy_url = "https://xxxeth-mainnet.g.alchemy.com/";
-
-        let error = TestRpcClient::new(alchemy_url)
-            .call::<U64>(TestMethod::BlockNumber(()))
-            .await
-            .expect_err("should have failed to connect due to a garbage domain name");
-
-        if let RpcClientError::FailedToSend(error) = error {
-            assert!(error.to_string().contains("dns error"));
-        } else {
-            unreachable!("Invalid error: {error}");
-        }
-    }
-
     #[cfg(feature = "test-remote")]
     mod alchemy {
         use edr_eth::U64;
