@@ -26,11 +26,13 @@ triehash = { version = "0.8.4", default-features = false }
 anyhow = "1.0.75"
 assert-json-diff = "2.0.2"
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
+edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 lazy_static = "1.4.0"
 paste = { version = "1.0.14", default-features = false }
 serde_json = { version = "1.0.89" }
 serial_test = "2.0.0"
+tempfile = { version = "3.7.1", default-features = false }
 tokio = { version = "1.23.0", features = ["macros"] }
 
 [features]
@@ -38,4 +40,5 @@ default = ["std"]
 rand = ["revm-primitives/rand"]
 serde = ["dep:serde", "c-kzg/serde", "revm-primitives/serde"]
 std = ["hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
+test-remote = []
 tracing = ["dep:tracing"]

@@ -1,10 +1,11 @@
-use std::{ops::Deref, str::FromStr};
+use std::{ops::Deref, path::PathBuf, str::FromStr};
 
 use edr_eth::B256;
 use edr_rpc_client::RpcClientError;
-use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec, RequestMethod};
+use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
 use reqwest::StatusCode;
 use tempfile::TempDir;
+use walkdir::WalkDir;
 
 struct TestRpcClient {
     client: EthRpcClient<EthRpcSpec>,
@@ -82,12 +83,10 @@ async fn send_request_body_400_status() {
 
 #[cfg(feature = "test-remote")]
 mod alchemy {
-    use std::{fs::File, path::PathBuf};
+    use std::fs::File;
 
-    use edr_eth::{account::KECCAK_EMPTY, Address, BlockSpec, U256};
+    use edr_eth::{filter::OneOrMore, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256};
     use edr_test_utils::env::get_alchemy_url;
-    use futures::future::join_all;
-    use walkdir::WalkDir;
 
     use super::*;
 
@@ -102,7 +101,7 @@ mod alchemy {
             .expect("failed to parse address");
 
         let error = TestRpcClient::new(&alchemy_url)
-            .get_account_info(&dai_address, Some(BlockSpec::Number(MAX_BLOCK_NUMBER)))
+            .get_account_info(dai_address, Some(BlockSpec::Number(MAX_BLOCK_NUMBER)))
             .await
             .expect_err("should have failed");
 
@@ -145,7 +144,7 @@ mod alchemy {
                 .expect("failed to parse hash from string");
 
         let block = TestRpcClient::new(&alchemy_url)
-            .get_block_by_hash(&hash)
+            .get_block_by_hash(hash)
             .await
             .expect("should have succeeded");
 
@@ -165,7 +164,7 @@ mod alchemy {
                 .expect("failed to parse hash from string");
 
         let block = TestRpcClient::new(&alchemy_url)
-            .get_block_by_hash_with_transaction_data(&hash)
+            .get_block_by_hash_with_transaction_data(hash)
             .await
             .expect("should have succeeded");
 
@@ -206,34 +205,6 @@ mod alchemy {
 
         assert_eq!(block.number, Some(block_number));
         assert_eq!(block.transactions.len(), 102);
-    }
-
-    #[tokio::test]
-    async fn get_block_by_number_with_transaction_data_unsafe_no_cache() {
-        let alchemy_url = get_alchemy_url();
-        let client = TestRpcClient::new(&alchemy_url);
-
-        assert_eq!(client.files_in_cache().len(), 0);
-
-        let block_number = client.block_number().await.unwrap();
-
-        // Check that the block number call caches the largest known block number
-        {
-            assert!(client.cached_block_number.read().await.is_some());
-        }
-
-        assert_eq!(client.files_in_cache().len(), 0);
-
-        let block = client
-            .get_block_by_number(PreEip1898BlockSpec::Number(block_number))
-            .await
-            .expect("should have succeeded")
-            .expect("Block must exist");
-
-        // Unsafe block number shouldn't be cached
-        assert_eq!(client.files_in_cache().len(), 0);
-
-        assert_eq!(block.number, Some(block_number));
     }
 
     #[tokio::test]
@@ -390,7 +361,7 @@ mod alchemy {
                 .expect("failed to parse hash from string");
 
         let tx = TestRpcClient::new(&alchemy_url)
-            .get_transaction_by_hash(&hash)
+            .get_transaction_by_hash(hash)
             .await
             .expect("failed to get transaction by hash");
 
@@ -477,7 +448,7 @@ mod alchemy {
             .expect("failed to parse address");
 
         let transaction_count = TestRpcClient::new(&alchemy_url)
-            .get_transaction_count(&dai_address, Some(BlockSpec::Number(16220843)))
+            .get_transaction_count(dai_address, Some(BlockSpec::Number(16220843)))
             .await
             .expect("should have succeeded");
 
@@ -492,7 +463,7 @@ mod alchemy {
             .expect("failed to parse address");
 
         let error = TestRpcClient::new(&alchemy_url)
-            .get_transaction_count(&missing_address, Some(BlockSpec::Number(MAX_BLOCK_NUMBER)))
+            .get_transaction_count(missing_address, Some(BlockSpec::Number(MAX_BLOCK_NUMBER)))
             .await
             .expect_err("should have failed");
 
@@ -514,7 +485,7 @@ mod alchemy {
                 .expect("failed to parse hash from string");
 
         let receipt = TestRpcClient::new(&alchemy_url)
-            .get_transaction_receipt(&hash)
+            .get_transaction_receipt(hash)
             .await
             .expect("failed to get transaction by hash");
 
@@ -566,7 +537,7 @@ mod alchemy {
 
         let total_supply = TestRpcClient::new(&alchemy_url)
             .get_storage_at(
-                &dai_address,
+                dai_address,
                 U256::from(1),
                 Some(BlockSpec::Number(16220843)),
             )
@@ -594,7 +565,7 @@ mod alchemy {
 
         let _total_supply = TestRpcClient::new(&alchemy_url)
             .get_storage_at(
-                &dai_address,
+                dai_address,
                 U256::from_str_radix(
                     "0000000000000000000000000000000000000000000000000000000000000001",
                     16,
@@ -615,7 +586,7 @@ mod alchemy {
 
         let storage_slot = TestRpcClient::new(&alchemy_url)
             .get_storage_at(
-                &dai_address,
+                dai_address,
                 U256::from(1),
                 Some(BlockSpec::Number(MAX_BLOCK_NUMBER)),
             )
@@ -646,7 +617,7 @@ mod alchemy {
 
         let total_supply = client
             .get_storage_at(
-                &dai_address,
+                dai_address,
                 U256::from(1),
                 Some(BlockSpec::Number(16220843)),
             )
@@ -664,25 +635,6 @@ mod alchemy {
     }
 
     #[tokio::test]
-    async fn concurrent_writes_to_cache_smoke_test() {
-        let client = TestRpcClient::new(&get_alchemy_url());
-
-        let test_contents = "some random test data 42";
-        let cache_key = "cache-key";
-
-        assert_eq!(client.files_in_cache().len(), 0);
-
-        join_all((0..100).map(|_| client.write_response_to_cache(cache_key, test_contents))).await;
-
-        assert_eq!(client.files_in_cache().len(), 1);
-
-        let contents = tokio::fs::read_to_string(&client.files_in_cache()[0])
-            .await
-            .unwrap();
-        assert_eq!(contents, serde_json::to_string(test_contents).unwrap());
-    }
-
-    #[tokio::test]
     async fn handles_invalid_type_in_cache_single_call() {
         let alchemy_url = get_alchemy_url();
         let client = TestRpcClient::new(&alchemy_url);
@@ -691,7 +643,7 @@ mod alchemy {
 
         client
             .get_storage_at(
-                &dai_address,
+                dai_address,
                 U256::from(1),
                 Some(BlockSpec::Number(16220843)),
             )
@@ -705,7 +657,7 @@ mod alchemy {
 
         client
             .get_storage_at(
-                &dai_address,
+                dai_address,
                 U256::from(1),
                 Some(BlockSpec::Number(16220843)),
             )

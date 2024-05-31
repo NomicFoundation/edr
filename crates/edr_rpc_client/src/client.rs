@@ -644,11 +644,18 @@ impl SerializedRequest {
 mod tests {
     use std::ops::Deref;
 
+    use edr_eth::PreEip1898BlockSpec;
     use hyper::StatusCode;
     use tempfile::TempDir;
     use walkdir::WalkDir;
 
-    use self::cache::{key::CacheKeyVariant, KeyHasher};
+    use self::cache::{
+        block_spec::{
+            CacheableBlockSpec, PreEip1898BlockSpecNotCacheableError, UnresolvedBlockTagError,
+        },
+        key::CacheKeyVariant,
+        KeyHasher,
+    };
     use super::*;
 
     #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -658,66 +665,137 @@ mod tests {
         BlockNumber(()),
         #[serde(rename = "eth_chainId", with = "edr_eth::serde::empty_params")]
         ChainId(()),
+        #[serde(rename = "eth_getBlockByNumber")]
+        GetBlockByNumber(
+            PreEip1898BlockSpec,
+            /// include transaction data
+            bool,
+        ),
         #[serde(rename = "net_version", with = "edr_eth::serde::empty_params")]
         NetVersion(()),
     }
 
-    enum CachedTestMethod {
+    enum CachedTestMethod<'method> {
+        GetBlockByNumber {
+            block_spec: CacheableBlockSpec<'method>,
+
+            /// include transaction data
+            include_tx_data: bool,
+        },
         NetVersion,
     }
 
-    impl CachedTestMethod {
-        fn key_hasher(&self) -> cache::KeyHasher {
-            KeyHasher::new().hash_u8(self.cache_key_variant())
+    impl<'method> CachedTestMethod<'method> {
+        fn key_hasher(&self) -> Result<cache::KeyHasher, UnresolvedBlockTagError> {
+            let hasher = KeyHasher::new().hash_u8(self.cache_key_variant());
+
+            let hasher = match self {
+                Self::GetBlockByNumber {
+                    block_spec,
+                    include_tx_data,
+                } => hasher
+                    .hash_block_spec(block_spec)?
+                    .hash_bool(*include_tx_data),
+                Self::NetVersion => hasher,
+            };
+
+            Ok(hasher)
         }
     }
 
-    impl From<CachedTestMethod> for Option<()> {
-        fn from(_: CachedTestMethod) -> Self {
-            None
+    #[derive(Clone, Debug)]
+    enum TestMethodWithResolvableBlockSpec {
+        GetBlockByNumber { include_tx_data: bool },
+    }
+
+    impl<'method> From<CachedTestMethod<'method>> for Option<TestMethodWithResolvableBlockSpec> {
+        fn from(value: CachedTestMethod<'method>) -> Self {
+            match value {
+                CachedTestMethod::GetBlockByNumber {
+                    block_spec: _,
+                    include_tx_data,
+                } => Some(TestMethodWithResolvableBlockSpec::GetBlockByNumber { include_tx_data }),
+                CachedTestMethod::NetVersion => None,
+            }
         }
     }
 
-    impl<'method> TryFrom<&'method TestMethod> for CachedTestMethod {
-        type Error = ();
+    #[derive(Debug, thiserror::Error)]
+    enum TestMethodNotCacheableError {
+        #[error("Method is not cacheable: {0:?}")]
+        Method(TestMethod),
+        #[error(transparent)]
+        PreEip1898BlockSpec(#[from] PreEip1898BlockSpecNotCacheableError),
+    }
+
+    impl<'method> TryFrom<&'method TestMethod> for CachedTestMethod<'method> {
+        type Error = TestMethodNotCacheableError;
 
         fn try_from(method: &'method TestMethod) -> Result<Self, Self::Error> {
             match method {
+                TestMethod::GetBlockByNumber(block_spec, include_tx_data) => {
+                    Ok(Self::GetBlockByNumber {
+                        block_spec: block_spec.try_into()?,
+                        include_tx_data: *include_tx_data,
+                    })
+                }
                 TestMethod::NetVersion(_) => Ok(Self::NetVersion),
-                _ => Err(()),
+                TestMethod::BlockNumber(_) | TestMethod::ChainId(_) => {
+                    Err(TestMethodNotCacheableError::Method(method.clone()))
+                }
             }
         }
     }
 
-    impl CacheKeyVariant for CachedTestMethod {
+    impl<'method> CacheKeyVariant for CachedTestMethod<'method> {
         fn cache_key_variant(&self) -> u8 {
             match self {
-                Self::NetVersion => 0,
+                Self::GetBlockByNumber { .. } => 0,
+                Self::NetVersion => 1,
             }
         }
     }
 
-    impl CachedMethod for CachedTestMethod {
-        type MethodWithResolvableBlockTag = ();
+    impl<'method> CachedMethod for CachedTestMethod<'method> {
+        type MethodWithResolvableBlockTag = TestMethodWithResolvableBlockSpec;
 
         fn resolve_block_tag(
-            _method: Self::MethodWithResolvableBlockTag,
-            _block_number: u64,
+            method: Self::MethodWithResolvableBlockTag,
+            block_number: u64,
         ) -> Self {
-            unreachable!("No methods with resolvable block tags exist")
+            let resolved_block_spec = CacheableBlockSpec::Number { block_number };
+
+            match method {
+                TestMethodWithResolvableBlockSpec::GetBlockByNumber { include_tx_data } => {
+                    Self::GetBlockByNumber {
+                        block_spec: resolved_block_spec,
+                        include_tx_data,
+                    }
+                }
+            }
         }
 
         fn read_cache_key(self) -> Option<ReadCacheKey> {
-            Some(ReadCacheKey::finalize(self.key_hasher()))
+            let key_hasher = self.key_hasher().ok()?;
+            Some(ReadCacheKey::finalize(key_hasher))
         }
 
         fn write_cache_key(self) -> Option<WriteCacheKey<Self>> {
-            Some(WriteCacheKey::finalize(self.key_hasher()))
+            match self.key_hasher() {
+                Err(UnresolvedBlockTagError) => WriteCacheKey::needs_block_tag_resolution(self),
+                Ok(hasher) => match self {
+                    CachedTestMethod::GetBlockByNumber {
+                        block_spec,
+                        include_tx_data: _,
+                    } => WriteCacheKey::needs_safety_check(hasher, block_spec),
+                    CachedTestMethod::NetVersion => Some(WriteCacheKey::finalize(hasher)),
+                },
+            }
         }
     }
 
     impl CacheableMethod for TestMethod {
-        type Cached<'method> = CachedTestMethod
+        type Cached<'method> = CachedTestMethod<'method>
     where
         Self: 'method;
 
@@ -734,6 +812,7 @@ mod tests {
             match self {
                 Self::BlockNumber(_) => "eth_blockNumber",
                 Self::ChainId(_) => "eth_chainId",
+                Self::GetBlockByNumber(_, _) => "eth_getBlockByNumber",
                 Self::NetVersion(_) => "net_version",
             }
         }
@@ -822,8 +901,70 @@ mod tests {
     mod alchemy {
         use edr_eth::U64;
         use edr_test_utils::env::get_alchemy_url;
+        use futures::future::join_all;
 
         use super::*;
+
+        #[tokio::test]
+        async fn concurrent_writes_to_cache_smoke_test() {
+            let client = TestRpcClient::new(&get_alchemy_url());
+
+            let test_contents = "some random test data 42";
+            let cache_key = "cache-key";
+
+            assert_eq!(client.files_in_cache().len(), 0);
+
+            join_all((0..100).map(|_| client.write_response_to_cache(cache_key, test_contents)))
+                .await;
+
+            assert_eq!(client.files_in_cache().len(), 1);
+
+            let contents = tokio::fs::read_to_string(&client.files_in_cache()[0])
+                .await
+                .unwrap();
+            assert_eq!(contents, serde_json::to_string(test_contents).unwrap());
+        }
+
+        #[tokio::test]
+        async fn get_block_by_number_with_transaction_data_unsafe_no_cache() -> anyhow::Result<()> {
+            let alchemy_url = get_alchemy_url();
+            let client = TestRpcClient::new(&alchemy_url);
+
+            assert_eq!(client.files_in_cache().len(), 0);
+
+            let block_number = client.block_number().await.unwrap();
+
+            // Check that the block number call caches the largest known block number
+            {
+                assert!(client.cached_block_number.read().await.is_some());
+            }
+
+            assert_eq!(client.files_in_cache().len(), 0);
+
+            let block = client
+                .call_with_resolver::<Option<serde_json::Value>>(
+                    TestMethod::GetBlockByNumber(PreEip1898BlockSpec::Number(block_number), false),
+                    |block: &Option<serde_json::Value>| {
+                        block
+                            .as_ref()
+                            .and_then(|block| block.get("number"))
+                            .and_then(serde_json::Value::as_u64)
+                    },
+                )
+                .await
+                .expect("should have succeeded")
+                .expect("Block must exist");
+
+            // Unsafe block number shouldn't be cached
+            assert_eq!(client.files_in_cache().len(), 0);
+
+            let number: U64 =
+                serde_json::from_value(block.get("number").expect("Must have number").clone())?;
+
+            assert_eq!(number, U64::from(block_number));
+
+            Ok(())
+        }
 
         #[tokio::test]
         async fn is_cacheable_block_number() {

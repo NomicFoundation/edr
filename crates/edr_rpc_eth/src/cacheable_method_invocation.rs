@@ -270,12 +270,12 @@ impl<'method> CachedMethod for CachedRequestMethod<'method> {
         let resolved_block_spec = CacheableBlockSpec::Number { block_number };
 
         match method {
-            MethodWithResolvableBlockSpec::GetBlockByNumber {
-                include_tx_data, ..
-            } => CachedRequestMethod::GetBlockByNumber {
-                block_spec: resolved_block_spec,
-                include_tx_data,
-            },
+            MethodWithResolvableBlockSpec::GetBlockByNumber { include_tx_data } => {
+                CachedRequestMethod::GetBlockByNumber {
+                    block_spec: resolved_block_spec,
+                    include_tx_data,
+                }
+            }
         }
     }
 

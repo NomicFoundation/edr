@@ -10,11 +10,12 @@ mod remote {
                 paste::item! {
                     #[tokio::test]
                     #[serial]
-                    async fn [<test_remote_block_receipt_root_ $name>]() {
-                        use edr_eth::{remote::{RpcClient, PreEip1898BlockSpec}, trie::ordered_trie_root};
+                    async fn [<remote_block_receipt_root_ $name>]() {
+                        use edr_eth::{PreEip1898BlockSpec, trie::ordered_trie_root};
+                        use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
                         use edr_test_utils::env::get_alchemy_url;
 
-                        let client = RpcClient::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
+                        let client = EthRpcClient::<EthRpcSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
 
                         let block = client
                             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number($block_number))
@@ -53,19 +54,20 @@ mod remote {
             $(
                 paste::item! {
                     #[tokio::test]
-                    async fn [<test_receipt_rlp_encoding_ $name>]() {
+                    async fn [<receipt_rlp_encoding_ $name>]() {
+                        use alloy_rlp::Decodable;
+                        use edr_eth::{log::Log, receipt::TypedReceipt, B256, SpecId};
+                        use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
                         use edr_test_utils::env::get_alchemy_url;
                         use tempfile::TempDir;
 
-                        use crate::{remote::RpcClient, B256};
-
                         let tempdir = TempDir::new().unwrap();
-                        let client = RpcClient::new(&get_alchemy_url(), tempdir.path().into(), None).unwrap();
+                        let client = EthRpcClient::<EthRpcSpec>::new(&get_alchemy_url(), tempdir.path().into(), None).unwrap();
 
                         let transaction_hash = B256::from_slice(&hex::decode($transaction_hash).unwrap());
 
                         let receipt = client
-                            .get_transaction_receipt(&transaction_hash)
+                            .get_transaction_receipt(transaction_hash)
                             .await
                             .expect("Should succeed")
                             .expect("Receipt must exist");
