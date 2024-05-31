@@ -33,9 +33,7 @@ use revm::{
     },
 };
 
-use crate::inspectors::{
-    cheatcodes::BroadcastableTransactions, Cheatcodes, InspectorData, InspectorStack,
-};
+use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
 
 mod builder;
 pub use builder::ExecutorBuilder;
@@ -397,15 +395,7 @@ impl Executor {
         }
 
         // Persist cheatcode state.
-        let mut cheatcodes = result.cheatcodes.take();
-        if let Some(cheats) = cheatcodes.as_mut() {
-            // Clear broadcastable transactions
-            cheats.broadcastable_transactions.clear();
-            debug!(target: "evm::executors", "cleared broadcastable transactions");
-
-            // corrected_nonce value is needed outside of this context (setUp),
-            // so we don't reset it.
-        }
+        let cheatcodes = result.cheatcodes.take();
         self.inspector.cheatcodes = cheatcodes;
 
         // Persist the changed environment.
@@ -727,8 +717,6 @@ pub struct RawCallResult {
     pub coverage: Option<HitMaps>,
     /// The debug nodes of the call
     pub debug: Option<DebugArena>,
-    /// Scripted transactions generated from this call
-    pub transactions: Option<BroadcastableTransactions>,
     /// The changeset of the state.
     ///
     /// This is only present if the changed state was not committed to the
@@ -760,7 +748,6 @@ impl Default for RawCallResult {
             traces: None,
             coverage: None,
             debug: None,
-            transactions: None,
             state_changeset: None,
             env: EnvWithHandlerCfg::new_with_spec_id(Box::default(), SpecId::LATEST),
             cheatcodes: Option::default(),
@@ -814,13 +801,6 @@ impl RawCallResult {
             raw: self,
             decoded_result,
         })
-    }
-
-    /// Returns the transactions generated from this call.
-    pub fn transactions(&self) -> Option<&BroadcastableTransactions> {
-        self.cheatcodes
-            .as_ref()
-            .map(|c| &c.broadcastable_transactions)
     }
 }
 
@@ -908,13 +888,6 @@ fn convert_executed_result(
         chisel_state,
     } = inspector.collect();
 
-    let transactions = match cheatcodes.as_ref() {
-        Some(cheats) if !cheats.broadcastable_transactions.is_empty() => {
-            Some(cheats.broadcastable_transactions.clone())
-        }
-        _ => None,
-    };
-
     Ok(RawCallResult {
         exit_reason,
         reverted: !matches!(exit_reason, return_ok!()),
@@ -928,7 +901,6 @@ fn convert_executed_result(
         traces,
         coverage,
         debug,
-        transactions,
         state_changeset: Some(state_changeset),
         env,
         cheatcodes,

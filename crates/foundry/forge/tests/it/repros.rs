@@ -342,12 +342,4 @@ test_repro!(5529; |config| {
   config.runner.config = Arc::new(prj_config);
 });
 
-// https://github.com/foundry-rs/foundry/issues/6634
-test_repro!(6634; |config| {
-  let mut prj_config = Config::clone(&config.runner.config);
-  prj_config.always_use_create_2_factory = true;
-  config.runner.evm_opts.always_use_create_2_factory = true;
-  config.runner.config = Arc::new(prj_config);
-});
-
 test_repro!(7481);

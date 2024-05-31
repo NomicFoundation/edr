@@ -9,8 +9,8 @@ use std::{
     sync::Arc,
 };
 
-use alloy_primitives::{Address, Bytes, Log, TxKind, B256, U256};
-use alloy_rpc_types::request::{TransactionInput, TransactionRequest};
+use alloy_primitives::{Address, Bytes, Log, B256, U256};
+use alloy_rpc_types::request::TransactionRequest;
 use alloy_sol_types::{SolInterface, SolValue};
 use foundry_common::{evm::Breakpoints, SELECTOR_LEN};
 use foundry_config::Config;
@@ -39,7 +39,6 @@ use crate::{
         prank::Prank,
         DealRecord, RecordAccess,
     },
-    script::{Broadcast, ScriptWallets},
     test::expect::{
         self, ExpectedCallData, ExpectedCallTracker, ExpectedCallType, ExpectedEmit,
         ExpectedRevert, ExpectedRevertKind,
@@ -132,9 +131,6 @@ pub struct Cheatcodes {
     /// Address labels
     pub labels: HashMap<Address, String>,
 
-    /// Remembered private keys
-    pub script_wallets: Option<ScriptWallets>,
-
     /// Prank information
     pub prank: Option<Prank>,
 
@@ -174,12 +170,6 @@ pub struct Cheatcodes {
     /// Map of context depths to memory offset ranges that may be written to
     /// within the call depth.
     pub allowed_mem_writes: FxHashMap<u64, Vec<Range<u64>>>,
-
-    /// Current broadcasting information
-    pub broadcast: Option<Broadcast>,
-
-    /// Scripting based transactions
-    pub broadcastable_transactions: BroadcastableTransactions,
 
     /// Additional, user configurable context this Inspector has access to when
     /// inspecting a call
@@ -228,12 +218,10 @@ impl Cheatcodes {
     #[inline]
     pub fn new(config: Arc<CheatsConfig>) -> Self {
         let labels = config.labels.clone();
-        let script_wallets = config.script_wallets.clone();
         Self {
             config,
             fs_commit: true,
             labels,
-            script_wallets,
             ..Default::default()
         }
     }
@@ -926,85 +914,6 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
             }
         }
 
-        // Apply our broadcast
-        if let Some(broadcast) = &self.broadcast {
-            // We only apply a broadcast *to a specific depth*.
-            //
-            // We do this because any subsequent contract calls *must* exist on chain and
-            // we only want to grab *this* call, not internal ones
-            if ecx.journaled_state.depth() == broadcast.depth
-                && call.context.caller == broadcast.original_caller
-            {
-                // At the target depth we set `msg.sender` & tx.origin.
-                // We are simulating the caller as being an EOA, so *both* must be set to the
-                // broadcast.origin.
-                ecx.env.tx.caller = broadcast.new_origin;
-
-                call.context.caller = broadcast.new_origin;
-                call.transfer.source = broadcast.new_origin;
-                // Add a `legacy` transaction to the VecDeque. We use a legacy transaction here
-                // because we only need the from, to, value, and data. We can later change this
-                // into 1559, in the cli package, relatively easily once we
-                // know the target chain supports EIP-1559.
-                if !call.is_static {
-                    if let Err(err) = ecx.load_account(broadcast.new_origin) {
-                        return Some(CallOutcome {
-                            result: InterpreterResult {
-                                result: InstructionResult::Revert,
-                                output: Error::encode(err),
-                                gas,
-                            },
-                            memory_offset: call.return_memory_offset.clone(),
-                        });
-                    }
-
-                    let is_fixed_gas_limit = check_if_fixed_gas_limit(ecx, call.gas_limit);
-
-                    let account = ecx
-                        .journaled_state
-                        .state()
-                        .get_mut(&broadcast.new_origin)
-                        .unwrap();
-
-                    self.broadcastable_transactions
-                        .push_back(BroadcastableTransaction {
-                            rpc: ecx.db.active_fork_url(),
-                            transaction: TransactionRequest {
-                                from: Some(broadcast.new_origin),
-                                to: Some(TxKind::from(Some(call.contract))),
-                                value: Some(call.transfer.value),
-                                input: TransactionInput::new(call.input.clone()),
-                                nonce: Some(account.info.nonce),
-                                gas: if is_fixed_gas_limit {
-                                    Some(u128::from(call.gas_limit))
-                                } else {
-                                    None
-                                },
-                                ..Default::default()
-                            },
-                        });
-                    debug!(target: "cheatcodes", tx=?self.broadcastable_transactions.back().unwrap(), "broadcastable call");
-
-                    let prev = account.info.nonce;
-
-                    // Touch account to ensure that incremented nonce is committed
-                    account.mark_touch();
-                    account.info.nonce += 1;
-                    debug!(target: "cheatcodes", address=%broadcast.new_origin, nonce=prev+1, prev, "incremented nonce");
-                } else if broadcast.single_call {
-                    let msg = "`staticcall`s are not allowed after `broadcast`; use `startBroadcast` instead";
-                    return Some(CallOutcome {
-                        result: InterpreterResult {
-                            result: InstructionResult::Revert,
-                            output: Error::encode(msg),
-                            gas,
-                        },
-                        memory_offset: call.return_memory_offset.clone(),
-                    });
-                }
-            }
-        }
-
         // Record called accounts if `startStateDiffRecording` has been called
         if let Some(recorded_account_diffs_stack) = &mut self.recorded_account_diffs_stack {
             // Determine if account is "initialized," ie, it has a non-zero balance, a
@@ -1078,18 +987,6 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                     // Clean single-call prank once we have returned to the original depth
                     if prank.single_call {
                         let _ = self.prank.take();
-                    }
-                }
-            }
-
-            // Clean up broadcast
-            if let Some(broadcast) = &self.broadcast {
-                if ecx.journaled_state.depth() == broadcast.depth {
-                    ecx.env.tx.caller = broadcast.original_origin;
-
-                    // Clean single-call broadcast once we have returned to the original depth
-                    if broadcast.single_call {
-                        let _ = self.broadcast.take();
                     }
                 }
             }
@@ -1364,7 +1261,6 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
         call: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
         let ecx = &mut ecx.inner;
-        let gas = Gas::new(call.gas_limit);
 
         // Apply our prank
         if let Some(prank) = &self.prank {
@@ -1377,60 +1273,6 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                 // At the target depth, or deeper, we set `tx.origin`
                 if let Some(new_origin) = prank.new_origin {
                     ecx.env.tx.caller = new_origin;
-                }
-            }
-        }
-
-        // Apply our broadcast
-        if let Some(broadcast) = &self.broadcast {
-            if ecx.journaled_state.depth() >= broadcast.depth
-                && call.caller == broadcast.original_caller
-            {
-                if let Err(err) = ecx
-                    .journaled_state
-                    .load_account(broadcast.new_origin, &mut ecx.db)
-                {
-                    return Some(CreateOutcome {
-                        result: InterpreterResult {
-                            result: InstructionResult::Revert,
-                            output: Error::encode(err),
-                            gas,
-                        },
-                        address: None,
-                    });
-                }
-
-                ecx.env.tx.caller = broadcast.new_origin;
-
-                if ecx.journaled_state.depth() == broadcast.depth {
-                    call.caller = broadcast.new_origin;
-                    let is_fixed_gas_limit = check_if_fixed_gas_limit(ecx, call.gas_limit);
-
-                    let account = &ecx.journaled_state.state()[&broadcast.new_origin];
-
-                    self.broadcastable_transactions
-                        .push_back(BroadcastableTransaction {
-                            rpc: ecx.db.active_fork_url(),
-                            transaction: TransactionRequest {
-                                from: Some(broadcast.new_origin),
-                                to: None,
-                                value: Some(call.value),
-                                input: TransactionInput::new(call.init_code.clone()),
-                                nonce: Some(account.info.nonce),
-                                gas: if is_fixed_gas_limit {
-                                    Some(u128::from(call.gas_limit))
-                                } else {
-                                    None
-                                },
-                                ..Default::default()
-                            },
-                        });
-
-                    let kind = match call.scheme {
-                        CreateScheme::Create => "create",
-                        CreateScheme::Create2 { .. } => "create2",
-                    };
-                    debug!(target: "cheatcodes", tx=?self.broadcastable_transactions.back().unwrap(), "broadcastable {kind}");
                 }
             }
         }
@@ -1482,18 +1324,6 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                 // Clean single-call prank once we have returned to the original depth
                 if prank.single_call {
                     std::mem::take(&mut self.prank);
-                }
-            }
-        }
-
-        // Clean up broadcasts
-        if let Some(broadcast) = &self.broadcast {
-            if ecx.journaled_state.depth() == broadcast.depth {
-                ecx.env.tx.caller = broadcast.original_origin;
-
-                // Clean single-call broadcast once we have returned to the original depth
-                if broadcast.single_call {
-                    std::mem::take(&mut self.broadcast);
                 }
             }
         }
@@ -1593,14 +1423,11 @@ impl<DB: DatabaseExt> InspectorExt<DB> for Cheatcodes {
         if let CreateScheme::Create2 { .. } = inputs.scheme {
             let target_depth = if let Some(prank) = &self.prank {
                 prank.depth
-            } else if let Some(broadcast) = &self.broadcast {
-                broadcast.depth
             } else {
                 1
             };
 
-            ecx.journaled_state.depth() == target_depth
-                && (self.broadcast.is_some() || self.config.always_use_create_2_factory)
+            ecx.journaled_state.depth() == target_depth && self.config.always_use_create_2_factory
         } else {
             false
         }
@@ -1637,24 +1464,6 @@ fn disallowed_mem_write(
             result: InstructionResult::Revert,
         },
     };
-}
-
-// Determines if the gas limit on a given call was manually set in the script
-// and should therefore not be overwritten by later estimations
-fn check_if_fixed_gas_limit<DB: DatabaseExt>(
-    ecx: &InnerEvmContext<DB>,
-    call_gas_limit: u64,
-) -> bool {
-    // If the gas limit was not set in the source code it is set to the estimated
-    // gas left at the time of the call, which should be rather close to
-    // configured gas limit. TODO: Find a way to reliably make this
-    // determination. For example by generating it in the compilation or EVM
-    // simulation process
-    U256::from(ecx.env.tx.gas_limit) > ecx.env.block.gas_limit &&
-        U256::from(call_gas_limit) <= ecx.env.block.gas_limit
-        // Transfers in forge scripts seem to be estimated at 2300 by revm leading to "Intrinsic
-        // gas too low" failure when simulated on chain
-        && call_gas_limit > 2300
 }
 
 /// Dispatches the cheatcode call to the appropriate function.

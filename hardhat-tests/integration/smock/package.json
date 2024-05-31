@@ -6,7 +6,7 @@
   "main": "index.js",
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@defi-wonderland/smock": "^2.4.0",
     "@nomiclabs/hardhat-ethers": "^2.2.3",

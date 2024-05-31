@@ -3053,66 +3053,6 @@
     },
     {
       "func": {
-        "id": "broadcast_0",
-        "description": "Has the next call (at this call depth only) create transactions that can later be signed and sent onchain.\nBroadcasting address is determined by checking the following in order:\n1. If `--sender` argument was provided, that address is used.\n2. If exactly one signer (e.g. private key, hw wallet, keystore) is set when `forge broadcast` is invoked, that signer is used.\n3. Otherwise, default foundry sender (1804c8AB1F12E6bbf3894d4083f33e07309d1f38) is used.",
-        "declaration": "function broadcast() external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "broadcast()",
-        "selector": "0xafc98040",
-        "selectorBytes": [
-          175,
-          201,
-          128,
-          64
-        ]
-      },
-      "group": "scripting",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "broadcast_1",
-        "description": "Has the next call (at this call depth only) create a transaction with the address provided\nas the sender that can later be signed and sent onchain.",
-        "declaration": "function broadcast(address signer) external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "broadcast(address)",
-        "selector": "0xe6962cdb",
-        "selectorBytes": [
-          230,
-          150,
-          44,
-          219
-        ]
-      },
-      "group": "scripting",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "broadcast_2",
-        "description": "Has the next call (at this call depth only) create a transaction with the private key\nprovided as the sender that can later be signed and sent onchain.",
-        "declaration": "function broadcast(uint256 privateKey) external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "broadcast(uint256)",
-        "selector": "0xf67a965b",
-        "selectorBytes": [
-          246,
-          122,
-          150,
-          91
-        ]
-      },
-      "group": "scripting",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
         "id": "chainId",
         "description": "Sets `block.chainid`.",
         "declaration": "function chainId(uint256 newChainId) external;",
@@ -3433,66 +3373,6 @@
     },
     {
       "func": {
-        "id": "createWallet_0",
-        "description": "Derives a private key from the name, labels the account with that name, and returns the wallet.",
-        "declaration": "function createWallet(string calldata walletLabel) external returns (Wallet memory wallet);",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "createWallet(string)",
-        "selector": "0x7404f1d2",
-        "selectorBytes": [
-          116,
-          4,
-          241,
-          210
-        ]
-      },
-      "group": "utilities",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "createWallet_1",
-        "description": "Generates a wallet from the private key and returns the wallet.",
-        "declaration": "function createWallet(uint256 privateKey) external returns (Wallet memory wallet);",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "createWallet(uint256)",
-        "selector": "0x7a675bb6",
-        "selectorBytes": [
-          122,
-          103,
-          91,
-          182
-        ]
-      },
-      "group": "utilities",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "createWallet_2",
-        "description": "Generates a wallet from the private key, labels the account with that name, and returns the wallet.",
-        "declaration": "function createWallet(uint256 privateKey, string calldata walletLabel) external returns (Wallet memory wallet);",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "createWallet(uint256,string)",
-        "selector": "0xed7c5462",
-        "selectorBytes": [
-          237,
-          124,
-          84,
-          98
-        ]
-      },
-      "group": "utilities",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
         "id": "deal",
         "description": "Sets an address' balance.",
         "declaration": "function deal(address account, uint256 newBalance) external;",
@@ -3550,86 +3430,6 @@
       "group": "evm",
       "status": "stable",
       "safety": "unsafe"
-    },
-    {
-      "func": {
-        "id": "deriveKey_0",
-        "description": "Derive a private key from a provided mnenomic string (or mnenomic file path)\nat the derivation path `m/44'/60'/0'/0/{index}`.",
-        "declaration": "function deriveKey(string calldata mnemonic, uint32 index) external pure returns (uint256 privateKey);",
-        "visibility": "external",
-        "mutability": "pure",
-        "signature": "deriveKey(string,uint32)",
-        "selector": "0x6229498b",
-        "selectorBytes": [
-          98,
-          41,
-          73,
-          139
-        ]
-      },
-      "group": "utilities",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "deriveKey_1",
-        "description": "Derive a private key from a provided mnenomic string (or mnenomic file path)\nat `{derivationPath}{index}`.",
-        "declaration": "function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index) external pure returns (uint256 privateKey);",
-        "visibility": "external",
-        "mutability": "pure",
-        "signature": "deriveKey(string,string,uint32)",
-        "selector": "0x6bcb2c1b",
-        "selectorBytes": [
-          107,
-          203,
-          44,
-          27
-        ]
-      },
-      "group": "utilities",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "deriveKey_2",
-        "description": "Derive a private key from a provided mnenomic string (or mnenomic file path) in the specified language\nat the derivation path `m/44'/60'/0'/0/{index}`.",
-        "declaration": "function deriveKey(string calldata mnemonic, uint32 index, string calldata language) external pure returns (uint256 privateKey);",
-        "visibility": "external",
-        "mutability": "pure",
-        "signature": "deriveKey(string,uint32,string)",
-        "selector": "0x32c8176d",
-        "selectorBytes": [
-          50,
-          200,
-          23,
-          109
-        ]
-      },
-      "group": "utilities",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "deriveKey_3",
-        "description": "Derive a private key from a provided mnenomic string (or mnenomic file path) in the specified language\nat `{derivationPath}{index}`.",
-        "declaration": "function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index, string calldata language) external pure returns (uint256 privateKey);",
-        "visibility": "external",
-        "mutability": "pure",
-        "signature": "deriveKey(string,string,uint32,string)",
-        "selector": "0x29233b1f",
-        "selectorBytes": [
-          41,
-          35,
-          59,
-          31
-        ]
-      },
-      "group": "utilities",
-      "status": "stable",
-      "safety": "safe"
     },
     {
       "func": {
@@ -4933,7 +4733,7 @@
     },
     {
       "func": {
-        "id": "getNonce_0",
+        "id": "getNonce",
         "description": "Gets the nonce of an account.",
         "declaration": "function getNonce(address account) external view returns (uint64 nonce);",
         "visibility": "external",
@@ -4948,26 +4748,6 @@
         ]
       },
       "group": "evm",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "getNonce_1",
-        "description": "Get a `Wallet`'s nonce.",
-        "declaration": "function getNonce(Wallet calldata wallet) external returns (uint64 nonce);",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "getNonce((address,uint256,uint256,uint256))",
-        "selector": "0xa5748aad",
-        "selectorBytes": [
-          165,
-          116,
-          138,
-          173
-        ]
-      },
-      "group": "utilities",
       "status": "stable",
       "safety": "safe"
     },
@@ -6593,26 +6373,6 @@
     },
     {
       "func": {
-        "id": "rememberKey",
-        "description": "Adds a private key to the local forge wallet and returns the address.",
-        "declaration": "function rememberKey(uint256 privateKey) external returns (address keyAddr);",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "rememberKey(uint256)",
-        "selector": "0x22100064",
-        "selectorBytes": [
-          34,
-          16,
-          0,
-          100
-        ]
-      },
-      "group": "utilities",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
         "id": "removeDir",
         "description": "Removes a directory at the provided path.\nThis cheatcode will revert in the following situations, but is not limited to just these cases:\n- `path` doesn't exist.\n- `path` isn't a directory.\n- User lacks permissions to modify `path`.\n- The directory is not empty and `recursive` is false.\n`path` is relative to the project root.",
         "declaration": "function removeDir(string calldata path, bool recursive) external;",
@@ -7373,27 +7133,7 @@
     },
     {
       "func": {
-        "id": "signP256",
-        "description": "Signs `digest` with `privateKey` using the secp256r1 curve.",
-        "declaration": "function signP256(uint256 privateKey, bytes32 digest) external pure returns (bytes32 r, bytes32 s);",
-        "visibility": "external",
-        "mutability": "pure",
-        "signature": "signP256(uint256,bytes32)",
-        "selector": "0x83211b40",
-        "selectorBytes": [
-          131,
-          33,
-          27,
-          64
-        ]
-      },
-      "group": "evm",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "sign_0",
+        "id": "sign",
         "description": "Signs `digest` with `privateKey` using the secp256k1 curve.",
         "declaration": "function sign(uint256 privateKey, bytes32 digest) external pure returns (uint8 v, bytes32 r, bytes32 s);",
         "visibility": "external",
@@ -7413,61 +7153,21 @@
     },
     {
       "func": {
-        "id": "sign_1",
-        "description": "Signs `digest` with signer provided to script using the secp256k1 curve.\nIf `--sender` is provided, the signer with provided address is used, otherwise,\nif exactly one signer is provided to the script, that signer is used.\nRaises error if signer passed through `--sender` does not match any unlocked signers or\nif `--sender` is not provided and not exactly one signer is passed to the script.",
-        "declaration": "function sign(bytes32 digest) external pure returns (uint8 v, bytes32 r, bytes32 s);",
+        "id": "signP256",
+        "description": "Signs `digest` with `privateKey` using the secp256r1 curve.",
+        "declaration": "function signP256(uint256 privateKey, bytes32 digest) external pure returns (bytes32 r, bytes32 s);",
         "visibility": "external",
         "mutability": "pure",
-        "signature": "sign(bytes32)",
-        "selector": "0x799cd333",
+        "signature": "signP256(uint256,bytes32)",
+        "selector": "0x83211b40",
         "selectorBytes": [
-          121,
-          156,
-          211,
-          51
+          131,
+          33,
+          27,
+          64
         ]
       },
       "group": "evm",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "sign_2",
-        "description": "Signs `digest` with signer provided to script using the secp256k1 curve.\nRaises error if none of the signers passed into the script have provided address.",
-        "declaration": "function sign(address signer, bytes32 digest) external pure returns (uint8 v, bytes32 r, bytes32 s);",
-        "visibility": "external",
-        "mutability": "pure",
-        "signature": "sign(address,bytes32)",
-        "selector": "0x8c1aa205",
-        "selectorBytes": [
-          140,
-          26,
-          162,
-          5
-        ]
-      },
-      "group": "evm",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "sign_3",
-        "description": "Signs data with a `Wallet`.",
-        "declaration": "function sign(Wallet calldata wallet, bytes32 digest) external returns (uint8 v, bytes32 r, bytes32 s);",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "sign((address,uint256,uint256,uint256),bytes32)",
-        "selector": "0xb25c5a25",
-        "selectorBytes": [
-          178,
-          92,
-          90,
-          37
-        ]
-      },
-      "group": "utilities",
       "status": "stable",
       "safety": "safe"
     },
@@ -7548,66 +7248,6 @@
         ]
       },
       "group": "string",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "startBroadcast_0",
-        "description": "Has all subsequent calls (at this call depth only) create transactions that can later be signed and sent onchain.\nBroadcasting address is determined by checking the following in order:\n1. If `--sender` argument was provided, that address is used.\n2. If exactly one signer (e.g. private key, hw wallet, keystore) is set when `forge broadcast` is invoked, that signer is used.\n3. Otherwise, default foundry sender (1804c8AB1F12E6bbf3894d4083f33e07309d1f38) is used.",
-        "declaration": "function startBroadcast() external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "startBroadcast()",
-        "selector": "0x7fb5297f",
-        "selectorBytes": [
-          127,
-          181,
-          41,
-          127
-        ]
-      },
-      "group": "scripting",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "startBroadcast_1",
-        "description": "Has all subsequent calls (at this call depth only) create transactions with the address\nprovided that can later be signed and sent onchain.",
-        "declaration": "function startBroadcast(address signer) external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "startBroadcast(address)",
-        "selector": "0x7fec2a8d",
-        "selectorBytes": [
-          127,
-          236,
-          42,
-          141
-        ]
-      },
-      "group": "scripting",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "startBroadcast_2",
-        "description": "Has all subsequent calls (at this call depth only) create transactions with the private key\nprovided that can later be signed and sent onchain.",
-        "declaration": "function startBroadcast(uint256 privateKey) external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "startBroadcast(uint256)",
-        "selector": "0xce817d47",
-        "selectorBytes": [
-          206,
-          129,
-          125,
-          71
-        ]
-      },
-      "group": "scripting",
       "status": "stable",
       "safety": "safe"
     },
@@ -7708,26 +7348,6 @@
         ]
       },
       "group": "evm",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "stopBroadcast",
-        "description": "Stops collecting onchain transactions.",
-        "declaration": "function stopBroadcast() external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "stopBroadcast()",
-        "selector": "0x76eadd36",
-        "selectorBytes": [
-          118,
-          234,
-          221,
-          54
-        ]
-      },
-      "group": "scripting",
       "status": "stable",
       "safety": "safe"
     },

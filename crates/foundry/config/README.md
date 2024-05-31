@@ -1,25 +1,16 @@
 # Configuration
 
-Foundry's configuration system allows you to configure its tools the way _you_ want while also providing with a
-sensible set of defaults.
+Foundry's configuration system allows you to configure its tools the way _you_ want while also providing with a sensible set of defaults.
 
 ## Profiles
 
-Configurations can be arbitrarily namespaced with profiles. Foundry's default config is also named `default`, but you can
-arbitrarily name and configure profiles as you like and set the `FOUNDRY_PROFILE` environment variable to the selected
-profile's name. This results in foundry's tools (forge) preferring the values in the profile with the named that's set
-in `FOUNDRY_PROFILE`. But all custom profiles inherit from the `default` profile.
+Configurations can be arbitrarily namespaced with profiles. Foundry's default config is also named `default`, but you can arbitrarily name and configure profiles as you like and set the `FOUNDRY_PROFILE` environment variable to the selected profile's name. This results in foundry's tools (forge) preferring the values in the profile with the named that's set in `FOUNDRY_PROFILE`. But all custom profiles inherit from the `default` profile.
 
 ## foundry.toml
 
-Foundry's tools search for a `foundry.toml` or the filename in a `FOUNDRY_CONFIG` environment variable starting at the
-current working directory. If it is not found, the parent directory, its parent directory, and so on are searched until
-the file is found or the root is reached. But the typical location for the global `foundry.toml` would
-be `~/.foundry/foundry.toml`, which is also checked. If the path set in `FOUNDRY_CONFIG` is absolute, no such search
-takes place and the absolute path is used directly.
+Foundry's tools search for a `foundry.toml` or the filename in a `FOUNDRY_CONFIG` environment variable starting at the current working directory. If it is not found, the parent directory, its parent directory, and so on are searched until the file is found or the root is reached. But the typical location for the global `foundry.toml` would be `~/.foundry/foundry.toml`, which is also checked. If the path set in `FOUNDRY_CONFIG` is absolute, no such search takes place and the absolute path is used directly.
 
-In `foundry.toml` you can define multiple profiles, therefore the file is assumed to be _nested_, so each top-level key
-declares a profile and its values configure the profile.
+In `foundry.toml` you can define multiple profiles, therefore the file is assumed to be _nested_, so each top-level key declares a profile and its values configure the profile.
 
 The following is an example of what such a file might look like. This can also be obtained with `forge config`
 
@@ -45,8 +36,7 @@ libs = ["node_modules"]
 
 ## Default profile
 
-When determining the profile to use, `Config` considers the following sources in ascending priority order to read from
-and merge, at the per-key level:
+When determining the profile to use, `Config` considers the following sources in ascending priority order to read from and merge, at the per-key level:
 
 1. [`Config::default()`], which provides default values for all parameters.
 2. `foundry.toml` _or_ TOML file path in `FOUNDRY_CONFIG` environment variable.
@@ -208,9 +198,7 @@ Optimizer components can be tweaked with the `OptimizerDetails` object:
 
 See [Compiler Input Description `settings.optimizer.details`](https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description)
 
-The `optimizer_details` (`optimizerDetails` also works) settings must be prefixed with the profile they correspond
-to: `[profile.default.optimizer_details]`
-belongs to the `[profile.default]` profile
+The `optimizer_details` (`optimizerDetails` also works) settings must be prefixed with the profile they correspond to: `[profile.default.optimizer_details]` belongs to the `[profile.default]` profile
 
 ```toml
 [profile.default.optimizer_details]
@@ -226,10 +214,7 @@ optimizerSteps = 'dhfoDgvulfnTUtnIf'
 
 The `rpc_endpoints` value accepts a list of `alias = "<url|env var>"` pairs.
 
-The following example declares two pairs:
-The alias `optimism` references the endpoint URL directly.
-The alias `mainnet` references the environment variable `RPC_MAINNET` which holds the entire URL.
-The alias `goerli` references an endpoint that will be interpolated with the value the `GOERLI_API_KEY` holds.
+The following example declares two pairs: The alias `optimism` references the endpoint URL directly. The alias `mainnet` references the environment variable `RPC_MAINNET` which holds the entire URL. The alias `goerli` references an endpoint that will be interpolated with the value the `GOERLI_API_KEY` holds.
 
 Environment variables need to be wrapped in `${}`
 
@@ -244,9 +229,7 @@ goerli = "https://eth-goerli.alchemyapi.io/v2/${GOERLI_API_KEY}"
 
 The `etherscan` value accepts a list of `alias = "{key = "", url? ="", chain?= """""}"` items.
 
-the `key` attribute is always required and should contain the actual API key for that chain or an env var that holds the key in the form `${ENV_VAR}`
-The `chain` attribute is optional if the `alias` is the already the `chain` name, such as in `mainnet = { key = "${ETHERSCAN_MAINNET_KEY}"}`
-The optional `url` attribute can be used to explicitly set the Etherscan API url, this is the recommended setting for chains not natively supported by name.
+the `key` attribute is always required and should contain the actual API key for that chain or an env var that holds the key in the form `${ENV_VAR}` The `chain` attribute is optional if the `alias` is the already the `chain` name, such as in `mainnet = { key = "${ETHERSCAN_MAINNET_KEY}"}` The optional `url` attribute can be used to explicitly set the Etherscan API url, this is the recommended setting for chains not natively supported by name.
 
 ```toml
 [etherscan]
@@ -258,19 +241,13 @@ unknownchain = { key = "ABCDEFG", url = "https://<etherscan-api-url-for-that-cha
 
 ##### Additional Model Checker settings
 
-[Solidity's built-in model checker](https://docs.soliditylang.org/en/latest/smtchecker.html#tutorial)
-is an opt-in module that can be enabled via the `ModelChecker` object.
+[Solidity's built-in model checker](https://docs.soliditylang.org/en/latest/smtchecker.html#tutorial) is an opt-in module that can be enabled via the `ModelChecker` object.
 
-See [Compiler Input Description `settings.modelChecker`](https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description)
-and [the model checker's options](https://docs.soliditylang.org/en/latest/smtchecker.html#smtchecker-options-and-tuning).
+See [Compiler Input Description `settings.modelChecker`](https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description) and [the model checker's options](https://docs.soliditylang.org/en/latest/smtchecker.html#smtchecker-options-and-tuning).
 
-The module is available in `solc` release binaries for OSX and Linux.
-The latter requires the z3 library version [4.8.8, 4.8.14] to be installed
-in the system (SO version 4.8).
+The module is available in `solc` release binaries for OSX and Linux. The latter requires the z3 library version [4.8.8, 4.8.14] to be installed in the system (SO version 4.8).
 
-Similarly to the optimizer settings above, the `model_checker` settings must be
-prefixed with the profile they correspond to: `[profile.default.model_checker]` belongs
-to the `[profile.default]` profile.
+Similarly to the optimizer settings above, the `model_checker` settings must be prefixed with the profile they correspond to: `[profile.default.model_checker]` belongs to the `[profile.default]` profile.
 
 ```toml
 [profile.default.model_checker]
@@ -280,26 +257,14 @@ timeout = 10000
 targets = [ 'assert' ]
 ```
 
-The fields above are recommended when using the model checker.
-Setting which contract should be verified is extremely important, otherwise all
-available contracts will be verified which can consume a lot of time.
-The recommended engine is `chc`, but `bmc` and `all` (runs both) are also
-accepted.
-It is also important to set a proper timeout (given in milliseconds), since the
-default time given to the underlying solvers may not be enough.
-If no verification targets are given, only assertions will be checked.
+The fields above are recommended when using the model checker. Setting which contract should be verified is extremely important, otherwise all available contracts will be verified which can consume a lot of time. The recommended engine is `chc`, but `bmc` and `all` (runs both) are also accepted. It is also important to set a proper timeout (given in milliseconds), since the default time given to the underlying solvers may not be enough. If no verification targets are given, only assertions will be checked.
 
-The model checker will run when `forge build` is invoked, and will show
-findings as warnings if any.
+The model checker will run when `forge build` is invoked, and will show findings as warnings if any.
 
 ## Environment Variables
 
-Foundry's tools read all environment variable names prefixed with `FOUNDRY_` using the string after the `_` as the name
-of a configuration value as the value of the parameter as the value itself. But the
-corresponding [dapptools](https://github.com/dapphub/dapptools/tree/master/src/dapp#configuration) config vars are also
-supported, this means that `FOUNDRY_SRC` and `DAPP_SRC` are equivalent.
+Foundry's tools read all environment variable names prefixed with `FOUNDRY_` using the string after the `_` as the name of a configuration value as the value of the parameter as the value itself. But the corresponding [dapptools](https://github.com/dapphub/dapptools/tree/master/src/dapp#configuration) config vars are also supported, this means that `FOUNDRY_SRC` and `DAPP_SRC` are equivalent.
 
 Some exceptions to the above are [explicitly ignored](https://github.com/foundry-rs/foundry/blob/10440422e63aae660104e079dfccd5b0ae5fd720/config/src/lib.rs#L1539-L15522) due to security concerns.
 
-Environment variables take precedence over values in `foundry.toml`. Values are parsed as a loose form of TOML syntax.
-Consider the following examples:
+Environment variables take precedence over values in `foundry.toml`. Values are parsed as a loose form of TOML syntax. Consider the following examples:
