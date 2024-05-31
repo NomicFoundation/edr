@@ -1,14 +1,14 @@
 use core::fmt::Debug;
 
 use edr_eth::{
-    remote::{eth::CallRequest, BlockSpec, StateOverrideOptions},
     transaction::{
         Eip1559TransactionRequest, Eip155TransactionRequest, Eip2930TransactionRequest,
         TransactionRequest,
     },
-    Bytes, SpecId, U256,
+    BlockSpec, Bytes, SpecId, U256,
 };
 use edr_evm::{state::StateOverrides, trace::Trace, ExecutableTransaction};
+use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
 use crate::{
     data::ProviderData, requests::validation::validate_call_request, time::TimeSinceEpoch,

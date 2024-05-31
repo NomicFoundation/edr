@@ -1,9 +1,8 @@
 #![cfg(feature = "test-utils")]
 
 use edr_eth::{
-    remote::{filter::LogFilterOptions, BlockSpec},
-    transaction::EthTransactionRequest,
-    AccountInfo, Address, SpecId,
+    filter::LogFilterOptions, transaction::EthTransactionRequest, AccountInfo, Address, BlockSpec,
+    SpecId,
 };
 use edr_evm::KECCAK_EMPTY;
 use edr_provider::{

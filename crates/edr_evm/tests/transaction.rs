@@ -10,13 +10,14 @@ mod alchemy {
                     async fn [<transaction_remote_ $name _hash>]() {
                         use edr_eth::{
                             transaction::Transaction,
-                            remote::{RpcClient, PreEip1898BlockSpec},
+                            PreEip1898BlockSpec,
                             B256
                         };
                         use edr_evm::ExecutableTransaction;
+                        use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
                         use edr_test_utils::env::get_alchemy_url;
 
-                        let client = RpcClient::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
+                        let client = EthRpcClient::<EthRpcSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
 
                         let block = client
                             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number($block_number))

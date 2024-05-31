@@ -3,14 +3,13 @@ use std::sync::Arc;
 
 use edr_eth::{
     receipt::{BlockReceipt, TransactionReceipt},
-    remote::{self, PreEip1898BlockSpec},
     rlp::Decodable,
     transaction::{
         pooled::PooledTransaction, Eip1559TransactionRequest, Eip155TransactionRequest,
         Eip2930TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
         TransactionRequest, TransactionRequestAndSender, TransactionType, TxKind,
     },
-    Bytes, SpecId, B256, U256,
+    Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{blockchain::BlockchainError, trace::Trace, ExecutableTransaction, SyncBlock};
 
@@ -34,7 +33,7 @@ pub fn handle_get_transaction_by_block_hash_and_index<
     data: &ProviderData<LoggerErrorT, TimerT>,
     block_hash: B256,
     index: U256,
-) -> Result<Option<remote::eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
     let index = rpc_index_to_usize(&index)?;
 
     data.block_by_hash(&block_hash)?
@@ -50,7 +49,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     block_spec: PreEip1898BlockSpec,
     index: U256,
-) -> Result<Option<remote::eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
     validate_post_merge_block_tags(data.spec_id(), &block_spec)?;
 
     let index = rpc_index_to_usize(&index)?;
@@ -74,7 +73,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
 
 pub fn handle_pending_transactions<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
-) -> Result<Vec<remote::eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Vec<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
     let spec_id = data.spec_id();
     data.pending_transactions()
         .map(|pending_transaction| {
@@ -99,7 +98,7 @@ fn rpc_index_to_usize<LoggerErrorT: Debug>(
 pub fn handle_get_transaction_by_hash<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
     transaction_hash: B256,
-) -> Result<Option<remote::eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
     data.transaction_by_hash(&transaction_hash)?
         .map(|tx| transaction_to_rpc_result(tx, data.spec_id()))
         .transpose()
@@ -150,7 +149,7 @@ fn transaction_from_block(
 pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     transaction_and_block: TransactionAndBlock,
     spec_id: SpecId,
-) -> Result<remote::eth::Transaction, ProviderError<LoggerErrorT>> {
+) -> Result<edr_rpc_eth::Transaction, ProviderError<LoggerErrorT>> {
     fn gas_price_for_post_eip1559(
         signed_transaction: &SignedTransaction,
         block: Option<&Arc<dyn SyncBlock<Error = BlockchainError>>>,
@@ -226,7 +225,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         block_data.as_ref().map(|bd| bd.transaction_index)
     };
 
-    Ok(remote::eth::Transaction {
+    Ok(edr_rpc_eth::Transaction {
         hash: *signed_transaction.transaction_hash(),
         nonce: signed_transaction.nonce(),
         block_hash,

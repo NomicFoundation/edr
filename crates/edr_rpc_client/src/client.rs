@@ -33,7 +33,8 @@ use crate::{
         },
         remove_from_cache, CacheableMethod, CachedBlockNumber, CachedMethod,
     },
-    jsonrpc, MiddlewareError, ReqwestError,
+    error::{MiddlewareError, ReqwestError},
+    jsonrpc,
 };
 
 const RPC_CACHE_DIR: &str = "rpc_cache";

@@ -1,14 +1,11 @@
 use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
-    remote::{
-        eth::CallRequest,
-        filter::{LogFilterOptions, SubscriptionType},
-        BlockSpec, PreEip1898BlockSpec, StateOverrideOptions,
-    },
+    filter::{LogFilterOptions, SubscriptionType},
     serde::{optional_single_to_sequence, sequence_to_optional_single},
     transaction::EthTransactionRequest,
-    Address, Bytes, B256, U256, U64,
+    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
+use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
 use super::serde::RpcAddress;
 use crate::requests::{

@@ -1,10 +1,8 @@
 use core::fmt::Debug;
 
-use edr_eth::{
-    remote::{eth::CallRequest, BlockSpec},
-    B256,
-};
+use edr_eth::{BlockSpec, B256};
 use edr_evm::{state::StateOverrides, DebugTraceResult};
+use edr_rpc_eth::CallRequest;
 use serde::{Deserialize, Deserializer};
 
 use crate::{

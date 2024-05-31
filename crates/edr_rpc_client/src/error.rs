@@ -1,5 +1,6 @@
 use std::error::Error;
 
+pub use hyper::http::Error as HttpError;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex, Replacer};
 use url::Url;

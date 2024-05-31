@@ -5,11 +5,9 @@
 /// Types for caching JSON-RPC responses
 pub mod cache;
 mod client;
+/// Types for JSON-RPC error reporting.
+pub mod error;
 /// Types specific to JSON-RPC
 pub mod jsonrpc;
-mod reqwest_error;
 
-pub use self::{
-    client::*,
-    reqwest_error::{MiddlewareError, ReqwestError},
-};
+pub use self::client::*;

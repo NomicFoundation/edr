@@ -2,10 +2,7 @@ use core::fmt::Debug;
 use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
-use edr_eth::{
-    remote::{filter::SubscriptionType, jsonrpc, BlockSpec, BlockTag, RpcClientError},
-    Address, Bytes, SpecId, B256, U256,
-};
+use edr_eth::{filter::SubscriptionType, Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256};
 use edr_evm::{
     blockchain::BlockchainError,
     hex,
@@ -14,6 +11,7 @@ use edr_evm::{
     DebugTraceError, ExecutionResult, HaltReason, MemPoolAddTransactionError, MineBlockError,
     MineTransactionError, OutOfGasError, TransactionCreationError, TransactionError,
 };
+use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 
 use crate::{data::CreationError, IntervalConfigConversionError};
 

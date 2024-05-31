@@ -2,10 +2,7 @@
 
 use std::{convert::Infallible, sync::Arc};
 
-use edr_eth::{
-    remote::{eth, PreEip1898BlockSpec},
-    B256, U64,
-};
+use edr_eth::{PreEip1898BlockSpec, B256, U64};
 use edr_provider::{
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
@@ -71,7 +68,7 @@ impl TimestampFixture {
             MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
         ))?;
 
-        let block: eth::Block<B256> = serde_json::from_value(result.result)?;
+        let block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
         Ok(block.timestamp)
     }
 

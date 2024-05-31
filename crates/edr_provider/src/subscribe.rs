@@ -1,5 +1,5 @@
 use dyn_clone::DynClone;
-use edr_eth::{remote::filter::LogOutput, B256, U256};
+use edr_eth::{filter::LogOutput, B256, U256};
 use edr_evm::{blockchain::BlockchainError, BlockAndTotalDifficulty};
 
 /// Subscription event.

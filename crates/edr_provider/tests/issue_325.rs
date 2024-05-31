@@ -1,8 +1,7 @@
 #![cfg(feature = "test-utils")]
 
 use edr_eth::{
-    remote::PreEip1898BlockSpec, transaction::EthTransactionRequest, AccountInfo, Address, SpecId,
-    B256,
+    transaction::EthTransactionRequest, AccountInfo, Address, PreEip1898BlockSpec, SpecId, B256,
 };
 use edr_evm::KECCAK_EMPTY;
 use edr_provider::{

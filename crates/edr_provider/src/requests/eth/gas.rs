@@ -1,14 +1,11 @@
 use core::fmt::Debug;
 
 use edr_eth::{
-    remote::{
-        eth::{CallRequest, FeeHistoryResult},
-        BlockSpec,
-    },
-    reward_percentile::RewardPercentile,
-    SpecId, U256, U64,
+    fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec, SpecId, U256,
+    U64,
 };
 use edr_evm::{state::StateOverrides, trace::Trace, ExecutableTransaction};
+use edr_rpc_eth::CallRequest;
 
 use super::resolve_call_request_inner;
 use crate::{
@@ -151,10 +148,7 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{
-        remote::{eth::CallRequest, BlockTag},
-        transaction::Transaction,
-    };
+    use edr_eth::{transaction::Transaction, BlockTag};
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};
