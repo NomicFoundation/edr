@@ -512,6 +512,7 @@ impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
     ) -> Result<SuccessT, RpcClientError> {
         let cached_method = MethodT::Cached::try_from(&method).ok();
         let read_cache_key = cached_method.and_then(CachedMethod::read_cache_key);
+        println!("read_cache_key: {read_cache_key:?}");
 
         let request = self.serialize_request(&method)?;
 
@@ -636,5 +637,237 @@ struct SerializedRequest(serde_json::Value);
 impl SerializedRequest {
     fn to_json_string(&self) -> String {
         self.0.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ops::Deref;
+
+    use hyper::StatusCode;
+    use tempfile::TempDir;
+    use walkdir::WalkDir;
+
+    use self::cache::{key::CacheKeyVariant, KeyHasher};
+    use super::*;
+
+    #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+    #[serde(tag = "method", content = "params")]
+    enum TestMethod {
+        #[serde(rename = "eth_blockNumber", with = "edr_eth::serde::empty_params")]
+        BlockNumber(()),
+        #[serde(rename = "eth_chainId", with = "edr_eth::serde::empty_params")]
+        ChainId(()),
+        #[serde(rename = "net_version", with = "edr_eth::serde::empty_params")]
+        NetVersion(()),
+    }
+
+    enum CachedTestMethod {
+        NetVersion,
+    }
+
+    impl CachedTestMethod {
+        fn key_hasher(&self) -> cache::KeyHasher {
+            KeyHasher::new().hash_u8(self.cache_key_variant())
+        }
+    }
+
+    impl From<CachedTestMethod> for Option<()> {
+        fn from(_: CachedTestMethod) -> Self {
+            None
+        }
+    }
+
+    impl<'method> TryFrom<&'method TestMethod> for CachedTestMethod {
+        type Error = ();
+
+        fn try_from(method: &'method TestMethod) -> Result<Self, Self::Error> {
+            match method {
+                TestMethod::NetVersion(_) => Ok(Self::NetVersion),
+                _ => Err(()),
+            }
+        }
+    }
+
+    impl CacheKeyVariant for CachedTestMethod {
+        fn cache_key_variant(&self) -> u8 {
+            match self {
+                Self::NetVersion => 0,
+            }
+        }
+    }
+
+    impl CachedMethod for CachedTestMethod {
+        type MethodWithResolvableBlockTag = ();
+
+        fn resolve_block_tag(
+            _method: Self::MethodWithResolvableBlockTag,
+            _block_number: u64,
+        ) -> Self {
+            unreachable!("No methods with resolvable block tags exist")
+        }
+
+        fn read_cache_key(self) -> Option<ReadCacheKey> {
+            Some(ReadCacheKey::finalize(self.key_hasher()))
+        }
+
+        fn write_cache_key(self) -> Option<WriteCacheKey<Self>> {
+            Some(WriteCacheKey::finalize(self.key_hasher()))
+        }
+    }
+
+    impl CacheableMethod for TestMethod {
+        type Cached<'method> = CachedTestMethod
+    where
+        Self: 'method;
+
+        fn block_number_request() -> Self {
+            Self::BlockNumber(())
+        }
+
+        fn chain_id_request() -> Self {
+            Self::ChainId(())
+        }
+
+        #[cfg(feature = "tracing")]
+        fn name(&self) -> &'static str {
+            match self {
+                Self::BlockNumber(_) => "eth_blockNumber",
+                Self::ChainId(_) => "eth_chainId",
+                Self::NetVersion(_) => "net_version",
+            }
+        }
+    }
+
+    struct TestRpcClient {
+        client: RpcClient<TestMethod>,
+
+        // Need to keep the tempdir around to prevent it from being deleted
+        // Only accessed when feature = "test-remote", hence the allow.
+        #[allow(dead_code)]
+        cache_dir: TempDir,
+    }
+
+    impl TestRpcClient {
+        fn new(url: &str) -> Self {
+            let tempdir = TempDir::new().unwrap();
+            Self {
+                client: RpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
+                cache_dir: tempdir,
+            }
+        }
+
+        fn files_in_cache(&self) -> Vec<PathBuf> {
+            let mut files = Vec::new();
+            for entry in WalkDir::new(&self.cache_dir)
+                .follow_links(true)
+                .into_iter()
+                .filter_map(Result::ok)
+            {
+                if entry.file_type().is_file() {
+                    files.push(entry.path().to_owned());
+                }
+            }
+            files
+        }
+    }
+
+    impl Deref for TestRpcClient {
+        type Target = RpcClient<TestMethod>;
+
+        fn deref(&self) -> &Self::Target {
+            &self.client
+        }
+    }
+
+    #[tokio::test]
+    async fn call_bad_api_key() {
+        let api_key = "invalid-api-key";
+        let alchemy_url = format!("https://eth-mainnet.g.alchemy.com/v2/{api_key}");
+
+        let error = TestRpcClient::new(&alchemy_url)
+            .call::<U64>(TestMethod::BlockNumber(()))
+            .await
+            .expect_err("should have failed to interpret response as a Transaction");
+
+        assert!(!error.to_string().contains(api_key));
+
+        if let RpcClientError::HttpStatus(error) = error {
+            assert_eq!(
+                reqwest::Error::from(error).status(),
+                Some(StatusCode::from_u16(401).unwrap())
+            );
+        } else {
+            unreachable!("Invalid error: {error}");
+        }
+    }
+
+    #[tokio::test]
+    async fn call_failed_to_send_error() {
+        let alchemy_url = "https://xxxeth-mainnet.g.alchemy.com/";
+
+        let error = TestRpcClient::new(alchemy_url)
+            .call::<U64>(TestMethod::BlockNumber(()))
+            .await
+            .expect_err("should have failed to connect due to a garbage domain name");
+
+        if let RpcClientError::FailedToSend(error) = error {
+            assert!(error.to_string().contains("dns error"));
+        } else {
+            unreachable!("Invalid error: {error}");
+        }
+    }
+
+    #[cfg(feature = "test-remote")]
+    mod alchemy {
+        use edr_eth::U64;
+        use edr_test_utils::env::get_alchemy_url;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn is_cacheable_block_number() {
+            let client = TestRpcClient::new(&get_alchemy_url());
+
+            let latest_block_number = client.block_number().await.unwrap();
+
+            {
+                assert!(client.cached_block_number.read().await.is_some());
+            }
+
+            // Latest block number is never cacheable
+            assert!(!client
+                .is_cacheable_block_number(latest_block_number)
+                .await
+                .unwrap());
+
+            assert!(client.is_cacheable_block_number(16220843).await.unwrap());
+        }
+
+        #[tokio::test]
+        async fn network_id_from_cache() {
+            let alchemy_url = get_alchemy_url();
+            let client = TestRpcClient::new(&alchemy_url);
+
+            assert_eq!(client.files_in_cache().len(), 0);
+
+            // Populate cache
+            client
+                .call::<U64>(TestMethod::NetVersion(()))
+                .await
+                .expect("should have succeeded");
+
+            assert_eq!(client.files_in_cache().len(), 3);
+
+            // Returned from cache
+            let network_id = client
+                .call::<U64>(TestMethod::NetVersion(()))
+                .await
+                .expect("should have succeeded");
+
+            assert_eq!(client.files_in_cache().len(), 3);
+
+            assert_eq!(network_id, U64::ZERO);
+        }
     }
 }

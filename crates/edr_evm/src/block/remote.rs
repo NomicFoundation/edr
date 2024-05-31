@@ -3,11 +3,11 @@ use std::sync::{Arc, OnceLock};
 use edr_eth::{
     block::{BlobGas, Header},
     receipt::BlockReceipt,
-    remote::{eth, RpcClient},
     transaction::Transaction,
     withdrawal::Withdrawal,
     B256,
 };
+use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
 use tokio::runtime;
 
 use crate::{
@@ -54,15 +54,15 @@ pub struct RemoteBlock {
     /// The length of the RLP encoding of this block in bytes
     size: u64,
     // The RPC client is needed to lazily fetch receipts
-    rpc_client: Arc<RpcClient>,
+    rpc_client: Arc<EthRpcClient<EthRpcSpec>>,
     runtime: runtime::Handle,
 }
 
 impl RemoteBlock {
     /// Constructs a new instance with the provided JSON-RPC block and client.
     pub fn new(
-        block: eth::Block<eth::Transaction>,
-        rpc_client: Arc<RpcClient>,
+        block: edr_rpc_eth::Block<edr_rpc_eth::Transaction>,
+        rpc_client: Arc<EthRpcClient<EthRpcSpec>>,
         runtime: runtime::Handle,
     ) -> Result<Self, CreationError> {
         let header = Header {

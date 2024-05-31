@@ -1,5 +1,5 @@
 /// Types for Ethereum JSON-RPC blocks
-pub mod block;
+mod block;
 mod cacheable_method_invocation;
 /// Input type for `eth_call` and `eth_estimateGas`
 mod call_request;
@@ -14,6 +14,6 @@ pub mod spec;
 mod transaction;
 
 pub use self::{
-    call_request::CallRequest, r#override::*, request_methods::RequestMethod,
+    block::Block, call_request::CallRequest, r#override::*, request_methods::RequestMethod,
     transaction::Transaction,
 };

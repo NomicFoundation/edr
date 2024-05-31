@@ -11,7 +11,8 @@ mod trie;
 use std::fmt::Debug;
 
 use dyn_clone::DynClone;
-use edr_eth::{remote::RpcClientError, B256};
+use edr_eth::B256;
+use edr_rpc_eth::client::RpcClientError;
 use revm::{db::StateRef, DatabaseCommit};
 
 pub use self::{

@@ -23,6 +23,20 @@ impl TestRpcClient {
             cache_dir: tempdir,
         }
     }
+
+    fn files_in_cache(&self) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        for entry in WalkDir::new(&self.cache_dir)
+            .follow_links(true)
+            .into_iter()
+            .filter_map(Result::ok)
+        {
+            if entry.file_type().is_file() {
+                files.push(entry.path().to_owned());
+            }
+        }
+        files
+    }
 }
 
 impl Deref for TestRpcClient {
@@ -70,6 +84,7 @@ async fn send_request_body_400_status() {
 mod alchemy {
     use std::{fs::File, path::PathBuf};
 
+    use edr_eth::{account::KECCAK_EMPTY, Address, BlockSpec, U256};
     use edr_test_utils::env::get_alchemy_url;
     use futures::future::join_all;
     use walkdir::WalkDir;
@@ -78,152 +93,6 @@ mod alchemy {
 
     // The maximum block number that Alchemy allows
     const MAX_BLOCK_NUMBER: u64 = u64::MAX >> 1;
-
-    impl TestRpcClient {
-        fn files_in_cache(&self) -> Vec<PathBuf> {
-            let mut files = Vec::new();
-            for entry in WalkDir::new(&self.cache_dir)
-                .follow_links(true)
-                .into_iter()
-                .filter_map(Result::ok)
-            {
-                if entry.file_type().is_file() {
-                    files.push(entry.path().to_owned());
-                }
-            }
-            files
-        }
-    }
-
-    #[tokio::test]
-    async fn call_bad_api_key() {
-        let api_key = "invalid-api-key";
-        let alchemy_url = format!("https://eth-mainnet.g.alchemy.com/v2/{api_key}");
-
-        let hash =
-            B256::from_str("0xc008e9f9bb92057dd0035496fbf4fb54f66b4b18b370928e46d6603933022222")
-                .expect("failed to parse hash from string");
-
-        let error = TestRpcClient::new(&alchemy_url)
-            .call::<Option<eth::Transaction>>(RequestMethod::GetTransactionByHash(hash))
-            .await
-            .expect_err("should have failed to interpret response as a Transaction");
-
-        assert!(!error.to_string().contains(api_key));
-
-        if let RpcClientError::HttpStatus(error) = error {
-            assert_eq!(
-                reqwest::Error::from(error).status(),
-                Some(StatusCode::from_u16(401).unwrap())
-            );
-        } else {
-            unreachable!("Invalid error: {error}");
-        }
-    }
-
-    #[tokio::test]
-    async fn call_failed_to_send_error() {
-        let alchemy_url = "https://xxxeth-mainnet.g.alchemy.com/";
-
-        let hash =
-            B256::from_str("0xc008e9f9bb92057dd0035496fbf4fb54f66b4b18b370928e46d6603933051111")
-                .expect("failed to parse hash from string");
-
-        let error = TestRpcClient::new(alchemy_url)
-            .call::<Option<eth::Transaction>>(RequestMethod::GetTransactionByHash(hash))
-            .await
-            .expect_err("should have failed to connect due to a garbage domain name");
-
-        if let RpcClientError::FailedToSend(error) = error {
-            assert!(error.to_string().contains("dns error"));
-        } else {
-            unreachable!("Invalid error: {error}");
-        }
-    }
-
-    #[tokio::test]
-    async fn test_is_cacheable_block_number() {
-        let client = TestRpcClient::new(&get_alchemy_url());
-
-        let latest_block_number = client.block_number().await.unwrap();
-
-        {
-            assert!(client.cached_block_number.read().await.is_some());
-        }
-
-        // Latest block number is never cacheable
-        assert!(!client
-            .is_cacheable_block_number(latest_block_number)
-            .await
-            .unwrap());
-
-        assert!(client.is_cacheable_block_number(16220843).await.unwrap());
-    }
-
-    #[tokio::test]
-    async fn get_account_info_works_from_cache() {
-        let alchemy_url = get_alchemy_url();
-        let client = TestRpcClient::new(&alchemy_url);
-
-        let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
-            .expect("failed to parse address");
-        let block_spec = BlockSpec::Number(16220843);
-
-        assert_eq!(client.files_in_cache().len(), 0);
-
-        // Populate cache
-        client
-            .get_account_info(&dai_address, Some(block_spec.clone()))
-            .await
-            .expect("should have succeeded");
-
-        assert_eq!(client.files_in_cache().len(), 3);
-
-        // Returned from cache
-        let account_info = client
-            .get_account_info(&dai_address, Some(block_spec))
-            .await
-            .expect("should have succeeded");
-
-        assert_eq!(client.files_in_cache().len(), 3);
-
-        assert_eq!(account_info.balance, U256::ZERO);
-        assert_eq!(account_info.nonce, 1);
-        assert_ne!(account_info.code_hash, KECCAK_EMPTY);
-        assert!(account_info.code.is_some());
-    }
-
-    #[tokio::test]
-    async fn get_account_info_works_with_partial_cache() {
-        let alchemy_url = get_alchemy_url();
-        let client = TestRpcClient::new(&alchemy_url);
-
-        let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
-            .expect("failed to parse address");
-        let block_spec = BlockSpec::Number(16220843);
-
-        assert_eq!(client.files_in_cache().len(), 0);
-
-        // Populate cache
-        client
-            .get_transaction_count(&dai_address, Some(block_spec.clone()))
-            .await
-            .expect("should have succeeded");
-
-        assert_eq!(client.files_in_cache().len(), 1);
-
-        let account_info = client
-            .get_account_info(&dai_address, Some(block_spec.clone()))
-            .await
-            .expect("should have succeeded");
-
-        assert_eq!(client.files_in_cache().len(), 3);
-
-        assert_eq!(account_info.balance, U256::ZERO);
-        assert_eq!(account_info.nonce, 1);
-        assert_ne!(account_info.code_hash, KECCAK_EMPTY);
-        assert!(account_info.code.is_some());
-    }
 
     #[tokio::test]
     async fn get_account_info_unknown_block() {

@@ -19,6 +19,7 @@ edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 mockito = { version = "1.0.2", default-features = false }
 reqwest = { version = "0.11", default-features = false, features = ["blocking", "json"] }
 serde_json = { version = "1.0.89" }
+serial_test = "2.0.0"
 tempfile = { version = "3.7.1", default-features = false }
 walkdir = { version = "2.3.3", default-features = false }
 

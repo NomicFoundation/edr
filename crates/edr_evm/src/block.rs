@@ -6,8 +6,7 @@ use std::{fmt::Debug, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    block, receipt::BlockReceipt, remote::eth, transaction::Transaction, withdrawal::Withdrawal,
-    B256, U256,
+    block, receipt::BlockReceipt, transaction::Transaction, withdrawal::Withdrawal, B256, U256,
 };
 
 pub use self::{
@@ -71,7 +70,9 @@ impl<BlockchainErrorT> Clone for BlockAndTotalDifficulty<BlockchainErrorT> {
     }
 }
 
-impl<BlockchainErrorT> From<BlockAndTotalDifficulty<BlockchainErrorT>> for eth::Block<B256> {
+impl<BlockchainErrorT> From<BlockAndTotalDifficulty<BlockchainErrorT>>
+    for edr_rpc_eth::Block<B256>
+{
     fn from(value: BlockAndTotalDifficulty<BlockchainErrorT>) -> Self {
         let transactions = value
             .block
@@ -81,7 +82,7 @@ impl<BlockchainErrorT> From<BlockAndTotalDifficulty<BlockchainErrorT>> for eth::
             .collect();
 
         let header = value.block.header();
-        eth::Block {
+        edr_rpc_eth::Block {
             hash: Some(*value.block.hash()),
             parent_hash: header.parent_hash,
             sha3_uncles: header.ommers_hash,

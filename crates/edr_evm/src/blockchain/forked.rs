@@ -5,9 +5,13 @@ use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     log::FilterLog,
     receipt::BlockReceipt,
-    remote::{client::ForkMetadata, BlockSpec, RpcClient, RpcClientError},
     spec::{chain_hardfork_activations, chain_name, HardforkActivations},
-    AccountInfo, Address, Bytes, B256, U256,
+    AccountInfo, Address, BlockSpec, Bytes, B256, U256,
+};
+use edr_rpc_eth::{
+    client::{EthRpcClient, RpcClientError},
+    fork::ForkMetadata,
+    spec::EthRpcSpec,
 };
 use parking_lot::Mutex;
 use revm::{
@@ -104,7 +108,7 @@ impl ForkedBlockchain {
         runtime: runtime::Handle,
         chain_id_override: Option<u64>,
         spec_id: SpecId,
-        rpc_client: Arc<RpcClient>,
+        rpc_client: Arc<EthRpcClient<EthRpcSpec>>,
         fork_block_number: Option<u64>,
         irregular_state: &mut IrregularState,
         state_root_generator: Arc<Mutex<RandomHashGenerator>>,
@@ -114,7 +118,7 @@ impl ForkedBlockchain {
             chain_id: remote_chain_id,
             network_id,
             latest_block_number,
-        } = rpc_client.fetch_fork_metadata().await?;
+        } = rpc_client.fork_metadata().await?;
 
         let recommended_block_number =
             recommended_fork_block_number(RecommendedForkBlockNumberArgs {

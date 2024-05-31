@@ -28,6 +28,7 @@ const MAX_PARALLEL_REQUESTS: usize = 20;
 //     RpcSpecT::Block<RpcSpecT::Transaction>: Send + Sync,
 //     RpcSpecT::Transaction: Send + Sync,
 
+#[derive(Debug)]
 pub struct EthRpcClient<RpcSpecT: RpcSpec> {
     inner: RpcClient<RequestMethod>,
     _phantom: std::marker::PhantomData<RpcSpecT>,
@@ -48,6 +49,18 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
             inner,
             _phantom: std::marker::PhantomData,
         })
+    }
+
+    /// Calls `eth_blockNumber` and returns the block number.
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
+    pub async fn block_number(&self) -> Result<u64, RpcClientError> {
+        self.inner.block_number().await
+    }
+
+    /// Calls `eth_chainId` and returns the chain ID.
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
+    pub async fn chain_id(&self) -> Result<u64, RpcClientError> {
+        self.inner.chain_id().await
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
@@ -289,6 +302,15 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
         self.inner
             .call(RequestMethod::GetStorageAt(address, position, block))
             .await
+    }
+
+    /// Whether the block number should be cached based on its depth.
+    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
+    pub async fn is_cacheable_block_number(
+        &self,
+        block_number: u64,
+    ) -> Result<bool, RpcClientError> {
+        self.inner.is_cacheable_block_number(block_number).await
     }
 
     /// Calls `net_version`.
