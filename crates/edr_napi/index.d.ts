@@ -329,6 +329,8 @@ export interface HaltResult {
 export interface ExecutionResult {
   /** The transaction result */
   result: SuccessResult | RevertResult | HaltResult
+  /** Optional contract address if the transaction created a new contract. */
+  contractAddress?: Buffer
 }
 export interface SubscriptionEvent {
   filterId: bigint
@@ -339,6 +341,8 @@ export interface TracingMessage {
   readonly caller: Buffer
   /** Recipient address. None if it is a Create message. */
   readonly to?: Buffer
+  /** Whether it's a static call */
+  readonly isStaticCall: boolean
   /** Transaction gas limit */
   readonly gasLimit: bigint
   /** Depth of the message */
@@ -362,8 +366,14 @@ export interface TracingStep {
   readonly pc: bigint
   /** The executed op code */
   readonly opcode: string
-  /** The top entry on the stack. None if the stack is empty. */
-  readonly stackTop?: bigint
+  /**
+   * The entries on the stack. It only contains the top element unless
+   * verbose tracing is enabled. The vector is empty if there are no elements
+   * on the stack.
+   */
+  readonly stack: Array<bigint>
+  /** The memory at the step. None if verbose tracing is disabled. */
+  readonly memory?: Buffer
 }
 export interface TracingMessageResult {
   /** Execution result */
@@ -390,6 +400,13 @@ export class Provider {
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(jsonRequest: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): void
+  /**
+   * Set to `true` to make the traces returned with `eth_call`,
+   * `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
+   * `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
+   * `false` to disable this.
+   */
+  setVerboseTracing(verboseTracing: boolean): void
 }
 export class Response {
   get json(): string
