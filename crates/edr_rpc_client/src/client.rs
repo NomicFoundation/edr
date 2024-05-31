@@ -31,7 +31,7 @@ use crate::{
             CacheKeyForUncheckedBlockNumber, CacheKeyForUnresolvedBlockTag, ReadCacheKey,
             ResolvedSymbolicTag, WriteCacheKey,
         },
-        remove_from_cache, CacheableMethod, CachedBlockNumber, CachedMethod,
+        remove_from_cache, CacheableMethod, CachedBlockNumber,
     },
     error::{MiddlewareError, ReqwestError},
     jsonrpc,
@@ -113,11 +113,35 @@ pub enum RpcClientError {
     JoinError(#[from] tokio::task::JoinError),
 }
 
+/// Trait for RPC method types that support EVM-based blockchains.
+pub trait RpcMethod {
+    /// A type representing the subset of RPC methods that can be cached.
+    type Cacheable<'method>: CacheableMethod + TryFrom<&'method Self>
+    where
+        Self: 'method;
+
+    /// Creates a method for requesting the block number.
+    ///
+    /// This is used for caching purposes.
+    fn block_number_request() -> Self;
+
+    /// Creates a method for requesting the chain ID.
+    ///
+    /// This is used for caching purposes.
+    fn chain_id_request() -> Self;
+
+    #[cfg(feature = "tracing")]
+    /// Returns the name of the method.
+    fn name(&self) -> &'static str;
+}
+
 /// A client for executing RPC methods on a remote Ethereum node.
-/// The client caches responses based on chain id, so it's important to not use
-/// it with local nodes.
+///
+/// The client caches responses based on chain ID, so it's important to not use
+/// it with local nodes. For responses that depend on the block number, the
+/// client only caches responses for finalized blocks.
 #[derive(Debug)]
-pub struct RpcClient<MethodT: CacheableMethod + Serialize> {
+pub struct RpcClient<MethodT: RpcMethod + Serialize> {
     url: url::Url,
     chain_id: OnceCell<u64>,
     cached_block_number: RwLock<Option<CachedBlockNumber>>,
@@ -128,7 +152,7 @@ pub struct RpcClient<MethodT: CacheableMethod + Serialize> {
     _phantom: PhantomData<MethodT>,
 }
 
-impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
+impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
     /// Create a new instance, given a remote node URL.
     /// The cache directory is the global EDR cache directory configured by the
     /// user.
@@ -322,7 +346,7 @@ impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
 
     async fn resolve_block_tag<ResultT>(
         &self,
-        block_tag_resolver: CacheKeyForUnresolvedBlockTag<MethodT::Cached<'_>>,
+        block_tag_resolver: CacheKeyForUnresolvedBlockTag<MethodT::Cacheable<'_>>,
         result: ResultT,
         resolve_block_number: impl Fn(ResultT) -> Option<u64>,
     ) -> Result<Option<String>, RpcClientError> {
@@ -345,9 +369,9 @@ impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
         result: ResultT,
         resolve_block_number: impl Fn(ResultT) -> Option<u64>,
     ) -> Result<Option<String>, RpcClientError> {
-        let cached_method = MethodT::Cached::try_from(method).ok();
+        let cached_method = MethodT::Cacheable::try_from(method).ok();
 
-        if let Some(cache_key) = cached_method.and_then(CachedMethod::write_cache_key) {
+        if let Some(cache_key) = cached_method.and_then(CacheableMethod::write_cache_key) {
             match cache_key {
                 WriteCacheKey::NeedsSafetyCheck(safety_checker) => {
                     self.validate_block_number(safety_checker).await
@@ -511,8 +535,8 @@ impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
         method: MethodT,
         resolve_block_number: impl Fn(&SuccessT) -> Option<u64>,
     ) -> Result<SuccessT, RpcClientError> {
-        let cached_method = MethodT::Cached::try_from(&method).ok();
-        let read_cache_key = cached_method.and_then(CachedMethod::read_cache_key);
+        let cached_method = MethodT::Cacheable::try_from(&method).ok();
+        let read_cache_key = cached_method.and_then(CacheableMethod::read_cache_key);
 
         let request = self.serialize_request(&method)?;
 
@@ -647,7 +671,6 @@ mod tests {
     use edr_eth::PreEip1898BlockSpec;
     use hyper::StatusCode;
     use tempfile::TempDir;
-    use walkdir::WalkDir;
 
     use self::cache::{
         block_spec::{
@@ -687,7 +710,7 @@ mod tests {
 
     impl<'method> CachedTestMethod<'method> {
         fn key_hasher(&self) -> Result<cache::KeyHasher, UnresolvedBlockTagError> {
-            let hasher = KeyHasher::new().hash_u8(self.cache_key_variant());
+            let hasher = KeyHasher::default().hash_u8(self.cache_key_variant());
 
             let hasher = match self {
                 Self::GetBlockByNumber {
@@ -756,7 +779,7 @@ mod tests {
         }
     }
 
-    impl<'method> CachedMethod for CachedTestMethod<'method> {
+    impl<'method> CacheableMethod for CachedTestMethod<'method> {
         type MethodWithResolvableBlockTag = TestMethodWithResolvableBlockSpec;
 
         fn resolve_block_tag(
@@ -794,8 +817,8 @@ mod tests {
         }
     }
 
-    impl CacheableMethod for TestMethod {
-        type Cached<'method> = CachedTestMethod<'method>
+    impl RpcMethod for TestMethod {
+        type Cacheable<'method> = CachedTestMethod<'method>
     where
         Self: 'method;
 
@@ -834,20 +857,6 @@ mod tests {
                 client: RpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
                 cache_dir: tempdir,
             }
-        }
-
-        fn files_in_cache(&self) -> Vec<PathBuf> {
-            let mut files = Vec::new();
-            for entry in WalkDir::new(&self.cache_dir)
-                .follow_links(true)
-                .into_iter()
-                .filter_map(Result::ok)
-            {
-                if entry.file_type().is_file() {
-                    files.push(entry.path().to_owned());
-                }
-            }
-            files
         }
     }
 
@@ -902,8 +911,25 @@ mod tests {
         use edr_eth::U64;
         use edr_test_utils::env::get_alchemy_url;
         use futures::future::join_all;
+        use walkdir::WalkDir;
 
         use super::*;
+
+        impl TestRpcClient {
+            fn files_in_cache(&self) -> Vec<PathBuf> {
+                let mut files = Vec::new();
+                for entry in WalkDir::new(&self.cache_dir)
+                    .follow_links(true)
+                    .into_iter()
+                    .filter_map(Result::ok)
+                {
+                    if entry.file_type().is_file() {
+                        files.push(entry.path().to_owned());
+                    }
+                }
+                files
+            }
+        }
 
         #[tokio::test]
         async fn concurrent_writes_to_cache_smoke_test() {

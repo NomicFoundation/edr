@@ -20,28 +20,10 @@ pub use self::hasher::KeyHasher;
 use self::key::{ReadCacheKey, WriteCacheKey};
 use crate::RpcClientError;
 
-/// Trait for RPC method types that can be cached.
-pub trait CacheableMethod: Sized {
-    /// The type representing the cached method.
-    type Cached<'method>: CachedMethod + TryFrom<&'method Self>
-    where
-        Self: 'method;
-
-    /// Creates a method for requesting the block number.
-    fn block_number_request() -> Self;
-
-    /// Creates a method for requesting the chain ID.
-    fn chain_id_request() -> Self;
-
-    #[cfg(feature = "tracing")]
-    /// Returns the name of the method.
-    fn name(&self) -> &'static str;
-}
-
-/// Trait for RPC method types that will be cached to disk.
-pub trait CachedMethod: Into<Option<Self::MethodWithResolvableBlockTag>> {
+/// Trait for RPC method types that can be cached to disk.
+pub trait CacheableMethod: Into<Option<Self::MethodWithResolvableBlockTag>> {
     /// The type representing a subset of methods containing a [`BlockTag`]
-    /// which can be resolved to a block number.
+    /// which can potentially be resolved to a block number.
     type MethodWithResolvableBlockTag: Clone + Debug;
 
     /// Resolves a block tag to a block number for the provided method.

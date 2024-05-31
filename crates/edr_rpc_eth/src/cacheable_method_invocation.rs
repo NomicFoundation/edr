@@ -1,13 +1,16 @@
 use edr_eth::{reward_percentile::RewardPercentile, Address, B256, U256};
-use edr_rpc_client::cache::{
-    self,
-    block_spec::{
-        BlockSpecNotCacheableError, CacheableBlockSpec, PreEip1898BlockSpecNotCacheableError,
-        UnresolvedBlockTagError,
+use edr_rpc_client::{
+    cache::{
+        self,
+        block_spec::{
+            BlockSpecNotCacheableError, CacheableBlockSpec, PreEip1898BlockSpecNotCacheableError,
+            UnresolvedBlockTagError,
+        },
+        filter::{CacheableLogFilterOptions, LogFilterOptionsNotCacheableError},
+        key::{CacheKeyVariant, ReadCacheKey, WriteCacheKey},
+        CacheableMethod,
     },
-    filter::{CacheableLogFilterOptions, LogFilterOptionsNotCacheableError},
-    key::{CacheKeyVariant, ReadCacheKey, WriteCacheKey},
-    CacheableMethod, CachedMethod,
+    RpcMethod,
 };
 
 use crate::request_methods::RequestMethod;
@@ -72,7 +75,7 @@ impl<'a> CachedRequestMethod<'a> {
     // Allow to keep same structure as other RequestMethod and other methods.
     #[allow(clippy::match_same_arms)]
     fn key_hasher(&self) -> Result<cache::KeyHasher, UnresolvedBlockTagError> {
-        let hasher = cache::KeyHasher::new();
+        let hasher = cache::KeyHasher::default();
         let hasher = hasher.hash_u8(self.cache_key_variant());
 
         let hasher = match self {
@@ -232,8 +235,8 @@ impl<'method> From<CachedRequestMethod<'method>> for Option<MethodWithResolvable
     }
 }
 
-impl CacheableMethod for RequestMethod {
-    type Cached<'method> = CachedRequestMethod<'method>;
+impl RpcMethod for RequestMethod {
+    type Cacheable<'method> = CachedRequestMethod<'method>;
 
     fn block_number_request() -> Self {
         Self::BlockNumber(())
@@ -263,7 +266,7 @@ impl CacheableMethod for RequestMethod {
     }
 }
 
-impl<'method> CachedMethod for CachedRequestMethod<'method> {
+impl<'method> CacheableMethod for CachedRequestMethod<'method> {
     type MethodWithResolvableBlockTag = MethodWithResolvableBlockSpec;
 
     fn resolve_block_tag(method: Self::MethodWithResolvableBlockTag, block_number: u64) -> Self {
@@ -367,7 +370,7 @@ mod test {
 
     #[test]
     fn test_hash_length() {
-        let hash = cache::KeyHasher::new().hash_u8(0).finalize();
+        let hash = cache::KeyHasher::default().hash_u8(0).finalize();
         // 32 bytes as hex
         assert_eq!(hash.len(), 2 * 32);
     }
@@ -377,14 +380,14 @@ mod test {
         let block_number = u64::default();
         let block_hash = B256::default();
 
-        let hash_one = cache::KeyHasher::new()
+        let hash_one = cache::KeyHasher::default()
             .hash_block_spec(&CacheableBlockSpec::Hash {
                 block_hash: &block_hash,
                 require_canonical: None,
             })
             .unwrap()
             .finalize();
-        let hash_two = cache::KeyHasher::new()
+        let hash_two = cache::KeyHasher::default()
             .hash_block_spec(&CacheableBlockSpec::Number { block_number })
             .unwrap()
             .finalize();
@@ -398,7 +401,7 @@ mod test {
         let to = CacheableBlockSpec::Number { block_number: 2 };
         let address = Address::default();
 
-        let hash_one = cache::KeyHasher::new()
+        let hash_one = cache::KeyHasher::default()
             .hash_log_filter_options(&CacheableLogFilterOptions {
                 range: CacheableLogFilterRange::Range {
                     from_block: from.clone(),
@@ -410,7 +413,7 @@ mod test {
             .unwrap()
             .finalize();
 
-        let hash_two = cache::KeyHasher::new()
+        let hash_two = cache::KeyHasher::default()
             .hash_log_filter_options(&CacheableLogFilterOptions {
                 range: CacheableLogFilterRange::Range {
                     from_block: to,

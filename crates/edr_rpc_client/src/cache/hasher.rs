@@ -7,7 +7,8 @@ use super::{
     key::CacheKeyVariant,
 };
 
-#[derive(Debug, Clone)]
+/// A hasher for cache keys.
+#[derive(Clone, Debug, Default)]
 pub struct KeyHasher {
     hasher: Sha3_256,
 }
@@ -34,42 +35,44 @@ pub struct KeyHasher {
 // collisions](https://doc.rust-lang.org/std/hash/trait.Hash.html#prefix-collisions) should be
 // considered.
 impl KeyHasher {
-    pub fn new() -> Self {
-        Self {
-            hasher: Sha3_256::new(),
-        }
-    }
-
+    /// Hashes a sequence of bytes.
     pub fn hash_bytes(mut self, bytes: impl AsRef<[u8]>) -> Self {
         self.hasher.update(bytes);
 
         self
     }
 
+    /// Hashes a `u8` value.
     pub fn hash_u8(self, value: u8) -> Self {
         self.hash_bytes(value.to_le_bytes())
     }
 
+    /// Hashes a `bool` value.
     pub fn hash_bool(self, value: bool) -> Self {
         self.hash_u8(u8::from(value))
     }
 
+    /// Hashes an `Address` value.
     pub fn hash_address(self, address: &Address) -> Self {
         self.hash_bytes(address)
     }
 
+    /// Hashes a `u64` value.
     pub fn hash_u64(self, value: u64) -> Self {
         self.hash_bytes(value.to_le_bytes())
     }
 
+    /// Hashes a `U256` value.
     pub fn hash_u256(self, value: &U256) -> Self {
         self.hash_bytes(value.as_le_bytes())
     }
 
+    /// Hashes a `B256` value.
     pub fn hash_b256(self, value: &B256) -> Self {
         self.hash_bytes(value)
     }
 
+    /// Hashes a [`CacheableBlockSpec`] value.
     pub fn hash_block_spec(
         self,
         block_spec: &CacheableBlockSpec<'_>,
@@ -96,6 +99,7 @@ impl KeyHasher {
         }
     }
 
+    /// Hashes a [`CacheableLogFilterOptions`] value
     pub fn hash_log_filter_options(
         self,
         params: &CacheableLogFilterOptions<'_>,
@@ -129,6 +133,7 @@ impl KeyHasher {
         Ok(this)
     }
 
+    /// Hashes a [`CacheableLogFilterRange`] value.
     pub fn hash_log_filter_range(
         self,
         params: &CacheableLogFilterRange<'_>,
@@ -146,6 +151,7 @@ impl KeyHasher {
         }
     }
 
+    /// Hashes a single [`RewardPercentile`] value.
     pub fn hash_reward_percentile(self, value: &RewardPercentile) -> Self {
         const RESOLUTION: f64 = 100.0;
         // `RewardPercentile` is an f64 in range [0, 100], so this is guaranteed not to
@@ -153,6 +159,7 @@ impl KeyHasher {
         self.hash_u64((value.as_ref() * RESOLUTION).floor() as u64)
     }
 
+    /// Hashes a sequence of [`RewardPercentile`] values.
     pub fn hash_reward_percentiles(self, value: &[RewardPercentile]) -> Self {
         let mut this = self.hash_u64(value.len() as u64);
         for v in value {

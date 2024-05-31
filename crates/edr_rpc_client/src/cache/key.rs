@@ -2,7 +2,7 @@ use edr_eth::block::{is_safe_block_number, IsSafeBlockNumberArgs};
 
 use super::{
     block_spec::CacheableBlockSpec, filter::CacheableLogFilterRange, hasher::KeyHasher,
-    CachedMethod,
+    CacheableMethod,
 };
 
 /// Trait for retrieving the unique id of an enum variant.
@@ -48,7 +48,7 @@ impl AsRef<str> for ReadCacheKey {
 
 /// A cache key that can be used to write to the cache.
 #[derive(Clone, Debug)]
-pub enum WriteCacheKey<MethodT: CachedMethod> {
+pub enum WriteCacheKey<MethodT: CacheableMethod> {
     /// It needs to be checked whether the block number is safe (reorg-free)
     /// before writing to the cache.
     NeedsSafetyCheck(CacheKeyForUncheckedBlockNumber),
@@ -60,7 +60,7 @@ pub enum WriteCacheKey<MethodT: CachedMethod> {
     Resolved(String),
 }
 
-impl<MethodT: CachedMethod> WriteCacheKey<MethodT> {
+impl<MethodT: CacheableMethod> WriteCacheKey<MethodT> {
     /// Finalizes the provided [`KeyHasher`] and return the resolved cache
     /// key.
     pub fn finalize(hasher: KeyHasher) -> Self {
@@ -151,11 +151,11 @@ pub(crate) enum ResolvedSymbolicTag {
 /// A cache key for which the block tag needs to be resolved before writing to
 /// the cache.
 #[derive(Clone, Debug)]
-pub struct CacheKeyForUnresolvedBlockTag<MethodT: CachedMethod> {
+pub struct CacheKeyForUnresolvedBlockTag<MethodT: CacheableMethod> {
     method: MethodT::MethodWithResolvableBlockTag,
 }
 
-impl<MethodT: CachedMethod> CacheKeyForUnresolvedBlockTag<MethodT> {
+impl<MethodT: CacheableMethod> CacheKeyForUnresolvedBlockTag<MethodT> {
     /// Check whether the block number is safe to cache before returning a cache
     /// key.
     pub(crate) fn resolve_block_tag(self, block_number: u64) -> Option<ResolvedSymbolicTag> {

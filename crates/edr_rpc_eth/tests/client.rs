@@ -1,11 +1,10 @@
-use std::{ops::Deref, path::PathBuf, str::FromStr};
+use std::{ops::Deref, str::FromStr};
 
 use edr_eth::B256;
 use edr_rpc_client::RpcClientError;
 use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
 use reqwest::StatusCode;
 use tempfile::TempDir;
-use walkdir::WalkDir;
 
 struct TestRpcClient {
     client: EthRpcClient<EthRpcSpec>,
@@ -23,20 +22,6 @@ impl TestRpcClient {
             client: EthRpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
             cache_dir: tempdir,
         }
-    }
-
-    fn files_in_cache(&self) -> Vec<PathBuf> {
-        let mut files = Vec::new();
-        for entry in WalkDir::new(&self.cache_dir)
-            .follow_links(true)
-            .into_iter()
-            .filter_map(Result::ok)
-        {
-            if entry.file_type().is_file() {
-                files.push(entry.path().to_owned());
-            }
-        }
-        files
     }
 }
 
@@ -83,15 +68,32 @@ async fn send_request_body_400_status() {
 
 #[cfg(feature = "test-remote")]
 mod alchemy {
-    use std::fs::File;
+    use std::{fs::File, path::PathBuf};
 
     use edr_eth::{filter::OneOrMore, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256};
     use edr_test_utils::env::get_alchemy_url;
+    use walkdir::WalkDir;
 
     use super::*;
 
     // The maximum block number that Alchemy allows
     const MAX_BLOCK_NUMBER: u64 = u64::MAX >> 1;
+
+    impl TestRpcClient {
+        fn files_in_cache(&self) -> Vec<PathBuf> {
+            let mut files = Vec::new();
+            for entry in WalkDir::new(&self.cache_dir)
+                .follow_links(true)
+                .into_iter()
+                .filter_map(Result::ok)
+            {
+                if entry.file_type().is_file() {
+                    files.push(entry.path().to_owned());
+                }
+            }
+            files
+        }
+    }
 
     #[tokio::test]
     async fn get_account_info_unknown_block() {

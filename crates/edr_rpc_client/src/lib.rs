@@ -1,6 +1,7 @@
 #![warn(missing_docs)]
 
-//! Ethereum JSON-RPC client
+//! Implementation of a JSON-RPC client for EVM-based blockchains that uses a
+//! caching strategy based on finalized blocks and chain IDs.
 
 /// Types for caching JSON-RPC responses
 pub mod cache;
