@@ -291,22 +291,6 @@ interface Vm {
     #[cheatcode(group = Evm, safety = Safe)]
     function sign(uint256 privateKey, bytes32 digest) external pure returns (uint8 v, bytes32 r, bytes32 s);
 
-    /// Signs `digest` with signer provided to script using the secp256k1 curve.
-    ///
-    /// If `--sender` is provided, the signer with provided address is used, otherwise,
-    /// if exactly one signer is provided to the script, that signer is used.
-    ///
-    /// Raises error if signer passed through `--sender` does not match any unlocked signers or
-    /// if `--sender` is not provided and not exactly one signer is passed to the script.
-    #[cheatcode(group = Evm, safety = Safe)]
-    function sign(bytes32 digest) external pure returns (uint8 v, bytes32 r, bytes32 s);
-
-    /// Signs `digest` with signer provided to script using the secp256k1 curve.
-    ///
-    /// Raises error if none of the signers passed into the script have provided address.
-    #[cheatcode(group = Evm, safety = Safe)]
-    function sign(address signer, bytes32 digest) external pure returns (uint8 v, bytes32 r, bytes32 s);
-
     /// Signs `digest` with `privateKey` using the secp256r1 curve.
     #[cheatcode(group = Evm, safety = Safe)]
     function signP256(uint256 privateKey, bytes32 digest) external pure returns (bytes32 r, bytes32 s);
@@ -1670,52 +1654,6 @@ interface Vm {
     #[cheatcode(group = Environment)]
     function isContext(ForgeContext context) external view returns (bool result);
 
-    // ======== Scripts ========
-
-    // -------- Broadcasting Transactions --------
-
-    /// Has the next call (at this call depth only) create transactions that can later be signed and sent onchain.
-    ///
-    /// Broadcasting address is determined by checking the following in order:
-    /// 1. If `--sender` argument was provided, that address is used.
-    /// 2. If exactly one signer (e.g. private key, hw wallet, keystore) is set when `forge broadcast` is invoked, that signer is used.
-    /// 3. Otherwise, default foundry sender (1804c8AB1F12E6bbf3894d4083f33e07309d1f38) is used.
-    #[cheatcode(group = Scripting)]
-    function broadcast() external;
-
-    /// Has the next call (at this call depth only) create a transaction with the address provided
-    /// as the sender that can later be signed and sent onchain.
-    #[cheatcode(group = Scripting)]
-    function broadcast(address signer) external;
-
-    /// Has the next call (at this call depth only) create a transaction with the private key
-    /// provided as the sender that can later be signed and sent onchain.
-    #[cheatcode(group = Scripting)]
-    function broadcast(uint256 privateKey) external;
-
-    /// Has all subsequent calls (at this call depth only) create transactions that can later be signed and sent onchain.
-    ///
-    /// Broadcasting address is determined by checking the following in order:
-    /// 1. If `--sender` argument was provided, that address is used.
-    /// 2. If exactly one signer (e.g. private key, hw wallet, keystore) is set when `forge broadcast` is invoked, that signer is used.
-    /// 3. Otherwise, default foundry sender (1804c8AB1F12E6bbf3894d4083f33e07309d1f38) is used.
-    #[cheatcode(group = Scripting)]
-    function startBroadcast() external;
-
-    /// Has all subsequent calls (at this call depth only) create transactions with the address
-    /// provided that can later be signed and sent onchain.
-    #[cheatcode(group = Scripting)]
-    function startBroadcast(address signer) external;
-
-    /// Has all subsequent calls (at this call depth only) create transactions with the private key
-    /// provided that can later be signed and sent onchain.
-    #[cheatcode(group = Scripting)]
-    function startBroadcast(uint256 privateKey) external;
-
-    /// Stops collecting onchain transactions.
-    #[cheatcode(group = Scripting)]
-    function stopBroadcast() external;
-
     // ======== Utilities ========
 
     // -------- Strings --------
@@ -2050,58 +1988,6 @@ interface Vm {
     /// This is useful to replace a specific value of a TOML file, without having to parse the entire thing.
     #[cheatcode(group = Toml)]
     function writeToml(string calldata json, string calldata path, string calldata valueKey) external;
-
-    // -------- Key Management --------
-
-    /// Derives a private key from the name, labels the account with that name, and returns the wallet.
-    #[cheatcode(group = Utilities)]
-    function createWallet(string calldata walletLabel) external returns (Wallet memory wallet);
-
-    /// Generates a wallet from the private key and returns the wallet.
-    #[cheatcode(group = Utilities)]
-    function createWallet(uint256 privateKey) external returns (Wallet memory wallet);
-
-    /// Generates a wallet from the private key, labels the account with that name, and returns the wallet.
-    #[cheatcode(group = Utilities)]
-    function createWallet(uint256 privateKey, string calldata walletLabel) external returns (Wallet memory wallet);
-
-    /// Get a `Wallet`'s nonce.
-    #[cheatcode(group = Utilities)]
-    function getNonce(Wallet calldata wallet) external returns (uint64 nonce);
-
-    /// Signs data with a `Wallet`.
-    #[cheatcode(group = Utilities)]
-    function sign(Wallet calldata wallet, bytes32 digest) external returns (uint8 v, bytes32 r, bytes32 s);
-
-    /// Derive a private key from a provided mnenomic string (or mnenomic file path)
-    /// at the derivation path `m/44'/60'/0'/0/{index}`.
-    #[cheatcode(group = Utilities)]
-    function deriveKey(string calldata mnemonic, uint32 index) external pure returns (uint256 privateKey);
-    /// Derive a private key from a provided mnenomic string (or mnenomic file path)
-    /// at `{derivationPath}{index}`.
-    #[cheatcode(group = Utilities)]
-    function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index)
-        external
-        pure
-        returns (uint256 privateKey);
-    /// Derive a private key from a provided mnenomic string (or mnenomic file path) in the specified language
-    /// at the derivation path `m/44'/60'/0'/0/{index}`.
-    #[cheatcode(group = Utilities)]
-    function deriveKey(string calldata mnemonic, uint32 index, string calldata language)
-        external
-        pure
-        returns (uint256 privateKey);
-    /// Derive a private key from a provided mnenomic string (or mnenomic file path) in the specified language
-    /// at `{derivationPath}{index}`.
-    #[cheatcode(group = Utilities)]
-    function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index, string calldata language)
-        external
-        pure
-        returns (uint256 privateKey);
-
-    /// Adds a private key to the local forge wallet and returns the address.
-    #[cheatcode(group = Utilities)]
-    function rememberKey(uint256 privateKey) external returns (address keyAddr);
 
     // -------- Uncategorized Utilities --------
 

@@ -6,7 +6,7 @@ use foundry_common::provider::ProviderBuilder;
 use foundry_evm_core::fork::CreateFork;
 
 use crate::{
-    Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Result,
+    Cheatcode, CheatsCtxt, DatabaseExt, Result,
     Vm::{
         activeForkCall, allowCheatcodesCall, createFork_0Call, createFork_1Call, createFork_2Call,
         createSelectFork_0Call, createSelectFork_1Call, createSelectFork_2Call, eth_getLogsCall,
@@ -134,7 +134,6 @@ impl Cheatcode for rollFork_3Call {
 impl Cheatcode for selectForkCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { forkId } = self;
-        check_broadcast(ccx.state)?;
 
         ccx.ecx
             .db
@@ -325,8 +324,6 @@ fn create_select_fork<DB: DatabaseExt>(
     url_or_alias: &str,
     block: Option<u64>,
 ) -> Result {
-    check_broadcast(ccx.state)?;
-
     let fork = create_fork_request(ccx, url_or_alias, block)?;
     let id = ccx
         .ecx
@@ -352,8 +349,6 @@ fn create_select_fork_at_transaction<DB: DatabaseExt>(
     url_or_alias: &str,
     transaction: &B256,
 ) -> Result {
-    check_broadcast(ccx.state)?;
-
     let fork = create_fork_request(ccx, url_or_alias, None)?;
     let id = ccx.ecx.db.create_select_fork_at_transaction(
         fork,
@@ -395,13 +390,4 @@ fn create_fork_request<DB: DatabaseExt>(
         evm_opts,
     };
     Ok(fork)
-}
-
-#[inline]
-fn check_broadcast(state: &Cheatcodes) -> Result<()> {
-    if state.broadcast.is_none() {
-        Ok(())
-    } else {
-        Err(fmt_err!("cannot select forks during a broadcast"))
-    }
 }
