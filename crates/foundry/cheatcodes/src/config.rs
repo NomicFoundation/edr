@@ -16,7 +16,7 @@ use foundry_evm_core::opts::EvmOpts;
 use semver::Version;
 
 use super::Result;
-use crate::{script::ScriptWallets, Vm::Rpc};
+use crate::Vm::Rpc;
 
 /// Additional, configurable context the `Cheatcodes` inspector has access to
 ///
@@ -48,8 +48,6 @@ pub struct CheatsConfig {
     pub evm_opts: EvmOpts,
     /// Address labels from config
     pub labels: HashMap<Address, String>,
-    /// Script wallets
-    pub script_wallets: Option<ScriptWallets>,
     /// Artifacts which are guaranteed to be fresh (either recompiled or
     /// cached). If Some, `vm.getDeployedCode` invocations are validated to
     /// be in scope of this list. If None, no validation is performed.
@@ -64,7 +62,6 @@ impl CheatsConfig {
         config: &Config,
         evm_opts: EvmOpts,
         available_artifacts: Option<Arc<ContractsByArtifact>>,
-        script_wallets: Option<ScriptWallets>,
         running_version: Option<Version>,
     ) -> Self {
         let mut allowed_paths = vec![config.__root.0.clone()];
@@ -93,7 +90,6 @@ impl CheatsConfig {
             allowed_paths,
             evm_opts,
             labels: config.labels.clone(),
-            script_wallets,
             available_artifacts,
             running_version,
         }
@@ -235,7 +231,6 @@ impl Default for CheatsConfig {
             allowed_paths: vec![],
             evm_opts: EvmOpts::default(),
             labels: HashMap::default(),
-            script_wallets: None,
             available_artifacts: Option::default(),
             running_version: Option::default(),
         }
@@ -256,7 +251,6 @@ mod tests {
                 ..Default::default()
             },
             EvmOpts::default(),
-            None,
             None,
             None,
         )

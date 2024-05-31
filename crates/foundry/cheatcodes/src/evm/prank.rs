@@ -136,12 +136,6 @@ fn prank<DB: DatabaseExt>(
         );
     }
 
-    ensure!(
-        ccx.state.broadcast.is_none(),
-        "cannot `prank` for a broadcasted transaction; \
-         pass the desired `tx.origin` into the `broadcast` cheatcode call"
-    );
-
     ccx.state.prank = Some(prank);
     Ok(Vec::default())
 }

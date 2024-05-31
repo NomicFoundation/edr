@@ -100,7 +100,7 @@ pub fn register_trace_collector_handles<
         let create_inputs = create_input_stack_inner.borrow_mut().pop().unwrap();
 
         let tracer = ctx.external.get_context_data();
-        tracer.create_end(&ctx.evm, &create_inputs, &outcome);
+        tracer.create_end(&mut ctx.evm, &create_inputs, &outcome);
 
         old_handle(ctx, frame, outcome)
     });
@@ -116,7 +116,7 @@ pub fn register_trace_collector_handles<
             }
             FrameResult::Create(outcome) => {
                 let create_inputs = create_input_stack.borrow_mut().pop().unwrap();
-                tracer.create_transaction_end(&ctx.evm, &create_inputs, outcome);
+                tracer.create_transaction_end(&mut ctx.evm, &create_inputs, outcome);
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameResult::EOFCreate(_) => {
@@ -164,7 +164,7 @@ pub enum TraceMessage {
     /// Event that occurs every step of a call or create message.
     Step(Step),
     /// Event that occurs after a call or create message.
-    After(ExecutionResult),
+    After(AfterMessage),
 }
 
 /// Temporary before message type for handling traces
@@ -176,6 +176,8 @@ pub struct BeforeMessage {
     pub caller: Address,
     /// Callee
     pub to: Option<Address>,
+    /// Whether the call is a static call
+    pub is_static_call: bool,
     /// Transaction gas limit
     pub gas_limit: u64,
     /// Input data
@@ -186,6 +188,16 @@ pub struct BeforeMessage {
     pub code_address: Option<Address>,
     /// Bytecode
     pub code: Option<Bytecode>,
+}
+
+/// Event that occurs after a call or create message.
+#[derive(Clone, Debug)]
+pub struct AfterMessage {
+    /// The execution result
+    pub execution_result: ExecutionResult,
+    /// The newly created contract address if it's a create tx. `None`
+    /// if there was an error creating the contract.
+    pub contract_address: Option<Address>,
 }
 
 /// A trace for an EVM call.
@@ -208,8 +220,11 @@ pub struct Step {
     pub depth: u64,
     /// The executed op code
     pub opcode: u8,
-    /// The top entry on the stack. None if the stack is empty.
-    pub stack_top: Option<U256>,
+    /// `Stack::Full` if verbose tracing is enabled, `Stack::Top` otherwise
+    pub stack: Stack,
+    /// Array of all allocated values. Only present if verbose tracing is
+    /// enabled.
+    pub memory: Option<Vec<u8>>,
     // /// The amount of gas that was used by the step
     // pub gas_cost: u64,
     // /// The amount of gas that was refunded by the step
@@ -220,6 +235,33 @@ pub struct Step {
     // pub contract_address: Address,
 }
 
+/// The stack at a step.
+#[derive(Clone, Debug)]
+pub enum Stack {
+    /// The top of the stack at a step. None if the stack is empty.
+    Top(Option<U256>),
+    /// The full stack at a step.
+    Full(Vec<U256>),
+}
+
+impl Stack {
+    /// Get the top of the stack.
+    pub fn top(&self) -> Option<&U256> {
+        match self {
+            Stack::Top(top) => top.as_ref(),
+            Stack::Full(stack) => stack.last(),
+        }
+    }
+
+    /// Get the full stack if it has been recorded.
+    pub fn full(&self) -> Option<&Vec<U256>> {
+        match self {
+            Stack::Top(_) => None,
+            Stack::Full(stack) => Some(stack),
+        }
+    }
+}
+
 impl Trace {
     /// Adds a before message
     pub fn add_before(&mut self, message: BeforeMessage) {
@@ -227,18 +269,13 @@ impl Trace {
     }
 
     /// Adds a result message
-    pub fn add_after(&mut self, result: ExecutionResult) {
-        self.messages.push(TraceMessage::After(result));
+    pub fn add_after(&mut self, message: AfterMessage) {
+        self.messages.push(TraceMessage::After(message));
     }
 
-    /// Adds a VM step to the trace.
-    pub fn add_step(&mut self, depth: u64, pc: usize, opcode: u8, stack_top: Option<U256>) {
-        self.messages.push(TraceMessage::Step(Step {
-            pc: pc as u64,
-            depth,
-            opcode,
-            stack_top,
-        }));
+    /// Adds a VM step to the trace
+    pub fn add_step(&mut self, step: Step) {
+        self.messages.push(TraceMessage::Step(step));
     }
 }
 
@@ -249,9 +286,21 @@ pub struct TraceCollector {
     traces: Vec<Trace>,
     pending_before: Option<BeforeMessage>,
     is_new_trace: bool,
+    verbose: bool,
 }
 
 impl TraceCollector {
+    /// Create a trace collector. If verbose is `true` full stack and memory
+    /// will be recorded.
+    pub fn new(verbose: bool) -> Self {
+        Self {
+            traces: Vec::new(),
+            pending_before: None,
+            is_new_trace: true,
+            verbose,
+        }
+    }
+
     /// Converts the [`TraceCollector`] into its [`Trace`].
     pub fn into_traces(self) -> Vec<Trace> {
         self.traces
@@ -313,6 +362,7 @@ impl TraceCollector {
             depth: data.journaled_state.depth,
             caller: inputs.caller,
             to: Some(inputs.target_address),
+            is_static_call: inputs.is_static,
             gas_limit: inputs.gas_limit,
             data: inputs.input.clone(),
             value: match inputs.value {
@@ -349,7 +399,7 @@ impl TraceCollector {
             ret
         };
 
-        let result = match safe_ret.into() {
+        let execution_result = match safe_ret.into() {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -371,7 +421,10 @@ impl TraceCollector {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after(result);
+        self.current_trace_mut().add_after(AfterMessage {
+            execution_result,
+            contract_address: None,
+        });
     }
 
     fn create<DatabaseT: Database>(&mut self, data: &EvmContext<DatabaseT>, inputs: &CreateInputs) {
@@ -387,6 +440,7 @@ impl TraceCollector {
             caller: inputs.caller,
             to: None,
             gas_limit: inputs.gas_limit,
+            is_static_call: false,
             data: inputs.init_code.clone(),
             value: inputs.value,
             code_address: None,
@@ -396,10 +450,12 @@ impl TraceCollector {
 
     fn create_end<DatabaseT: Database>(
         &mut self,
-        data: &EvmContext<DatabaseT>,
+        data: &mut EvmContext<DatabaseT>,
         _inputs: &CreateInputs,
         outcome: &CreateOutcome,
-    ) {
+    ) where
+        <DatabaseT as Database>::Error: Debug,
+    {
         self.validate_before_message();
 
         let ret = *outcome.instruction_result();
@@ -410,7 +466,7 @@ impl TraceCollector {
                 ret
             };
 
-        let result = match safe_ret.into() {
+        let execution_result = match safe_ret.into() {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -432,7 +488,10 @@ impl TraceCollector {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after(result);
+        self.current_trace_mut().add_after(AfterMessage {
+            execution_result,
+            contract_address: outcome.address,
+        });
     }
 
     fn step<DatabaseT: Database>(&mut self, interp: &Interpreter, data: &EvmContext<DatabaseT>) {
@@ -444,12 +503,23 @@ impl TraceCollector {
         self.validate_before_message();
 
         if !skip_step {
-            self.current_trace_mut().add_step(
-                data.journaled_state.depth(),
-                interp.program_counter(),
-                interp.current_opcode(),
-                interp.stack.data().last().cloned(),
-            );
+            let stack = if self.verbose {
+                Stack::Full(interp.stack.data().clone())
+            } else {
+                Stack::Top(interp.stack.data().last().cloned())
+            };
+            let memory = if self.verbose {
+                Some(interp.shared_memory.context_memory().to_vec())
+            } else {
+                None
+            };
+            self.current_trace_mut().add_step(Step {
+                pc: interp.program_counter() as u64,
+                depth: data.journaled_state.depth(),
+                opcode: interp.current_opcode(),
+                stack,
+                memory,
+            });
         }
     }
 
@@ -465,22 +535,14 @@ impl TraceCollector {
 
     fn create_transaction_end<DatabaseT: Database>(
         &mut self,
-        data: &EvmContext<DatabaseT>,
+        data: &mut EvmContext<DatabaseT>,
         inputs: &CreateInputs,
         outcome: &CreateOutcome,
-    ) {
+    ) where
+        DatabaseT::Error: Debug,
+    {
         self.is_new_trace = true;
         self.create_end(data, inputs, outcome);
-    }
-}
-
-impl Default for TraceCollector {
-    fn default() -> Self {
-        Self {
-            traces: Vec::new(),
-            pending_before: None,
-            is_new_trace: true,
-        }
     }
 }
 

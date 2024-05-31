@@ -9,10 +9,7 @@ As EDR matures, we will gradually be moving over Hardhat E2E tests to granular u
 
 ## EDR
 
-Part of EDR's test suite requires a working internet connection. 
-Those tests are marked with the `test-remote` feature flag.
-EDR uses both Alchemy and Infura as Ethereum mainnet providers for its remote tests. 
-This requires their API URLs (including token) to be set in the `ALCHEMY_URL` and `INFURA_URL` environment variables.
+Part of EDR's test suite requires a working internet connection. Those tests are marked with the `test-remote` feature flag. EDR uses both Alchemy and Infura as Ethereum mainnet providers for its remote tests. This requires their API URLs (including token) to be set in the `ALCHEMY_URL` and `INFURA_URL` environment variables.
 
 To run all tests, including remote tests, execute:
 
@@ -28,8 +25,7 @@ cargo t --features serde,std,tracing
 
 ## Hardhat
 
-To validate that the port of Hardhat Node to EDR did not break any functionality, we implemented the EDR integration alongside the existing TypeScript code.
-Each system in hidden behind an interface that allows us to either execute the original Hardhat implementation, EDR, or a dual-mode adapter that executes both implementations side-by-side and asserts that outputs are equal.
+To validate that the port of Hardhat Node to EDR did not break any functionality, we implemented the EDR integration alongside the existing TypeScript code. Each system in hidden behind an interface that allows us to either execute the original Hardhat implementation, EDR, or a dual-mode adapter that executes both implementations side-by-side and asserts that outputs are equal.
 
 To switch modes, set the `HARDHAT_EXPERIMENTAL_VM_MODE` environment variable to one of: `ethereumjs`, `edr` (for EDR), or `dual` (default). E.g.:
 
@@ -53,8 +49,7 @@ pnpm test -- -g "Reads from disk if available, not making any request a request"
 
 will only run the test with this specific name.
 
-Hierarchies of tests can be filtered by separating the levels with spaces. 
-E.g. the test matching
+Hierarchies of tests can be filtered by separating the levels with spaces. E.g. the test matching
 
 ```
 Alchemy Forked provider

@@ -180,7 +180,7 @@ interface Vm {{
             file.display()
         );
         if std::env::var("CI").is_ok() {
-            eprintln!("    NOTE: run `cargo cheats` locally and commit the updated files\n");
+            eprintln!("    NOTE: run `cargo generate-cheats-interface` locally and commit the updated files\n");
         }
         if let Some(parent) = file.parent() {
             let _ = fs::create_dir_all(parent);
