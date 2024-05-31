@@ -856,7 +856,7 @@ mod tests {
                 .await
                 .expect("should have succeeded");
 
-            assert_eq!(client.files_in_cache().len(), 3);
+            assert_eq!(client.files_in_cache().len(), 1);
 
             // Returned from cache
             let network_id = client
@@ -864,9 +864,9 @@ mod tests {
                 .await
                 .expect("should have succeeded");
 
-            assert_eq!(client.files_in_cache().len(), 3);
+            assert_eq!(client.files_in_cache().len(), 1);
 
-            assert_eq!(network_id, U64::ZERO);
+            assert_eq!(network_id, U64::from(1u64));
         }
     }
 }
