@@ -512,7 +512,6 @@ impl<MethodT: CacheableMethod + Serialize> RpcClient<MethodT> {
     ) -> Result<SuccessT, RpcClientError> {
         let cached_method = MethodT::Cached::try_from(&method).ok();
         let read_cache_key = cached_method.and_then(CachedMethod::read_cache_key);
-        println!("read_cache_key: {read_cache_key:?}");
 
         let request = self.serialize_request(&method)?;
 
