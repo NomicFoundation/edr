@@ -23,7 +23,7 @@ futures = "0.3"
 hex.workspace = true
 itertools.workspace = true
 once_cell = "1"
-serde = "1"
+serde.workspace = true
 tokio = { workspace = true, features = ["time", "macros"] }
 tracing = "0.1"
 yansi.workspace = true
