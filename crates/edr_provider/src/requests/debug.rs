@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use edr_eth::{BlockSpec, B256};
-use edr_evm::{state::StateOverrides, DebugTraceResult};
+use edr_evm::{state::StateOverrides, trace::Trace, DebugTraceResult, DebugTraceResultWithTraces};
 use edr_rpc_eth::CallRequest;
 use serde::{Deserialize, Deserializer};
 
@@ -19,17 +19,20 @@ pub fn handle_debug_trace_transaction<LoggerErrorT: Debug, TimerT: Clone + TimeS
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     transaction_hash: B256,
     config: Option<DebugTraceConfig>,
-) -> Result<DebugTraceResult, ProviderError<LoggerErrorT>> {
-    data.debug_trace_transaction(
-        &transaction_hash,
-        config.map(Into::into).unwrap_or_default(),
-    )
-    .map_err(|error| match error {
-        ProviderError::InvalidTransactionHash(tx_hash) => ProviderError::InvalidInput(format!(
-            "Unable to find a block containing transaction {tx_hash}"
-        )),
-        _ => error,
-    })
+) -> Result<(DebugTraceResult, Vec<Trace>), ProviderError<LoggerErrorT>> {
+    let DebugTraceResultWithTraces { result, traces } = data
+        .debug_trace_transaction(
+            &transaction_hash,
+            config.map(Into::into).unwrap_or_default(),
+        )
+        .map_err(|error| match error {
+            ProviderError::InvalidTransactionHash(tx_hash) => ProviderError::InvalidInput(format!(
+                "Unable to find a block containing transaction {tx_hash}"
+            )),
+            _ => error,
+        })?;
+
+    Ok((result, traces))
 }
 
 pub fn handle_debug_trace_call<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
@@ -37,17 +40,20 @@ pub fn handle_debug_trace_call<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
     call_request: CallRequest,
     block_spec: Option<BlockSpec>,
     config: Option<DebugTraceConfig>,
-) -> Result<DebugTraceResult, ProviderError<LoggerErrorT>> {
+) -> Result<(DebugTraceResult, Vec<Trace>), ProviderError<LoggerErrorT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
     validate_call_request(data.spec_id(), &call_request, &block_spec)?;
 
     let transaction =
         resolve_call_request(data, call_request, &block_spec, &StateOverrides::default())?;
-    data.debug_trace_call(
+
+    let DebugTraceResultWithTraces { result, traces } = data.debug_trace_call(
         transaction,
         &block_spec,
         config.map(Into::into).unwrap_or_default(),
-    )
+    )?;
+
+    Ok((result, traces))
 }
 
 /// Config options for `debug_traceTransaction`

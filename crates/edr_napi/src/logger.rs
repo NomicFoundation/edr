@@ -5,7 +5,7 @@ use edr_eth::{transaction::Transaction, Bytes, B256, U256};
 use edr_evm::{
     blockchain::BlockchainError,
     precompile::{self, Precompiles},
-    trace::TraceMessage,
+    trace::{AfterMessage, TraceMessage},
     ExecutableTransaction, ExecutionResult, SyncBlock,
 };
 use edr_provider::{ProviderError, TransactionFailure};
@@ -849,8 +849,12 @@ impl LogCollector {
                     }
                 }
             } else {
-                let result = if let Some(TraceMessage::After(result)) = trace.messages.last() {
-                    result
+                let result = if let Some(TraceMessage::After(AfterMessage {
+                    execution_result,
+                    ..
+                })) = trace.messages.last()
+                {
+                    execution_result
                 } else {
                     unreachable!("Before messages must have an after message")
                 };

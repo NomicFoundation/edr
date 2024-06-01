@@ -34,17 +34,17 @@ use edr_evm::{
     },
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
-    mine_block_with_single_transaction, register_eip_3155_tracer_handles,
+    mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
     },
     trace::Trace,
     Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockAndTotalDifficulty, BlockEnv,
-    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig, DebugTraceResult,
-    ExecutableTransaction, ExecutionResult, HashMap, HashSet, MemPool, MineBlockResultAndState,
-    OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock, TracerEip3155, TxEnv,
-    KECCAK_EMPTY,
+    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
+    DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutableTransaction, ExecutionResult,
+    HashMap, HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
+    StorageSlot, SyncBlock, TxEnv, KECCAK_EMPTY,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -184,6 +184,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     snapshots: BTreeMap<u64, Snapshot>,
     allow_blocks_with_same_timestamp: bool,
     allow_unlimited_contract_size: bool,
+    verbose_tracing: bool,
     // IndexMap to preserve account order for logging.
     local_accounts: IndexMap<Address, k256::SecretKey>,
     filters: HashMap<U256, Filter>,
@@ -287,6 +288,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             snapshots: BTreeMap::new(),
             allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size,
+            verbose_tracing: false,
             local_accounts,
             filters: HashMap::default(),
             last_filter_id: U256::ZERO,
@@ -575,7 +577,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResult, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
         let block = self
             .blockchain
             .block_by_transaction_hash(transaction_hash)?
@@ -590,6 +592,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         let prev_block_number = block.header().number - 1;
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
+        let verbose_tracing = self.verbose_tracing;
 
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
@@ -620,6 +623,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                     block_env,
                     transactions,
                     transaction_hash,
+                    verbose_tracing,
                 )
                 .map_err(ProviderError::DebugTrace)
             },
@@ -631,12 +635,12 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         transaction: ExecutableTransaction,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResult, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
 
         let tx_env: TxEnv = transaction.into();
 
-        let mut tracer = TracerEip3155::new(trace_config);
+        let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let result = run_call(RunCallArgs {
@@ -648,7 +652,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 tx_env: tx_env.clone(),
                 debug_context: Some(DebugContext {
                     data: &mut tracer,
-                    register_handles_fn: register_eip_3155_tracer_handles,
+                    register_handles_fn: register_eip_3155_and_raw_tracers_handles,
                 }),
             })?;
 
@@ -670,7 +674,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         let state_overrides = StateOverrides::default();
 
-        let mut debugger = Debugger::with_mocker(Mocker::new(self.call_override.clone()));
+        let mut debugger = Debugger::with_mocker(
+            Mocker::new(self.call_override.clone()),
+            self.verbose_tracing,
+        );
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -1387,7 +1394,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let cfg_env = self.create_evm_config(Some(block_spec))?;
         let tx_env = transaction.into();
 
-        let mut debugger = Debugger::with_mocker(Mocker::new(self.call_override.clone()));
+        let mut debugger = Debugger::with_mocker(
+            Mocker::new(self.call_override.clone()),
+            self.verbose_tracing,
+        );
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let execution_result = call::run_call(RunCallArgs {
@@ -1441,6 +1451,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.min_gas_price = min_gas_price;
 
         Ok(())
+    }
+
+    pub fn set_verbose_tracing(&mut self, verbose_tracing: bool) {
+        self.verbose_tracing = verbose_tracing;
     }
 
     pub fn send_transaction(
@@ -1952,7 +1966,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut debugger = Debugger::with_mocker(Mocker::new(self.call_override.clone()));
+        let mut debugger = Debugger::with_mocker(
+            Mocker::new(self.call_override.clone()),
+            self.verbose_tracing,
+        );
 
         let result = mine_fn(self, &evm_config, options, &mut debugger)?;
 

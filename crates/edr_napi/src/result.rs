@@ -1,3 +1,4 @@
+use edr_evm::trace::AfterMessage;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Either, Env, JsBuffer, JsBufferValue,
@@ -168,11 +169,18 @@ pub struct HaltResult {
 pub struct ExecutionResult {
     /// The transaction result
     pub result: Either3<SuccessResult, RevertResult, HaltResult>,
+    /// Optional contract address if the transaction created a new contract.
+    pub contract_address: Option<Buffer>,
 }
 
 impl ExecutionResult {
-    pub fn new(env: &Env, result: &edr_evm::ExecutionResult) -> napi::Result<Self> {
-        let result = match result {
+    pub fn new(env: &Env, message: &AfterMessage) -> napi::Result<Self> {
+        let AfterMessage {
+            execution_result,
+            contract_address,
+        } = message;
+
+        let result = match execution_result {
             edr_evm::ExecutionResult::Success {
                 reason,
                 gas_used,
@@ -227,6 +235,11 @@ impl ExecutionResult {
             }),
         };
 
-        Ok(Self { result })
+        let contract_address = contract_address.map(|address| Buffer::from(address.as_slice()));
+
+        Ok(Self {
+            result,
+            contract_address,
+        })
     }
 }

@@ -1,11 +1,10 @@
 # Verdaccio
 
-[Verdaccio](https://verdaccio.org/) is a private npm registry that can be used locally. 
-It’s useful to test things related to publishing without actually publishing, or to just test changes in a more realistic way than linking a package but with less friction than packing a `.tar.gz` and installing it.
+[Verdaccio](https://verdaccio.org/) is a private npm registry that can be used locally. It’s useful to test things related to publishing without actually publishing, or to just test changes in a more realistic way than linking a package but with less friction than packing a `.tar.gz` and installing it.
 
 ## Installation
 
-`npm i -g verdaccio` 
+`npm i -g verdaccio`
 
 ## Usage
 

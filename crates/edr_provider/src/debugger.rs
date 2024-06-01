@@ -35,11 +35,13 @@ pub struct Debugger {
 
 impl Debugger {
     /// Creates a new instance with the provided mocker.
-    pub fn with_mocker(mocker: Mocker) -> Self {
+    /// If verbose is true, full stack and memory will be recorded for each
+    /// step.
+    pub fn with_mocker(mocker: Mocker, verbose: bool) -> Self {
         Self {
             console_logger: ConsoleLogCollector::default(),
             mocker,
-            trace_collector: TraceCollector::default(),
+            trace_collector: TraceCollector::new(verbose),
         }
     }
 }

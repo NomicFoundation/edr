@@ -196,6 +196,15 @@ impl Provider {
 
         Ok(())
     }
+
+    /// Set to `true` to make the traces returned with `eth_call`,
+    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
+    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
+    /// `false` to disable this.
+    #[napi(ts_return_type = "void")]
+    pub fn set_verbose_tracing(&self, verbose_tracing: bool) {
+        self.provider.set_verbose_tracing(verbose_tracing);
+    }
 }
 
 #[napi]
