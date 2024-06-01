@@ -274,7 +274,7 @@ impl CoverageReporter for BytecodeReporter {
             fs::write(
                 &self
                     .destdir
-                    .join(contract_id.contract_name.clone())
+                    .join(&*contract_id.contract_name.clone())
                     .with_extension("asm"),
                 formatted,
             )?;

@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::sync::Arc;
 
 use foundry_compilers::artifacts::ast::{self, Ast, Node, NodeType};
 use foundry_evm_core::abi::TestFunctionExt;
+use rayon::prelude::*;
 use rustc_hash::FxHashMap;
-use semver::Version;
 
-use super::{ContractId, CoverageItem, CoverageItemKind, SourceLocation};
+use super::{CoverageItem, CoverageItemKind, SourceLocation};
 
 /// A visitor that walks the AST of a single contract and finds coverage items.
 #[derive(Clone, Debug)]
@@ -16,7 +16,7 @@ pub struct ContractVisitor<'a> {
     source: &'a str,
 
     /// The name of the contract being walked.
-    contract_name: String,
+    contract_name: &'a Arc<str>,
 
     /// The current branch ID
     branch_id: usize,
@@ -29,7 +29,7 @@ pub struct ContractVisitor<'a> {
 }
 
 impl<'a> ContractVisitor<'a> {
-    pub fn new(source_id: usize, source: &'a str, contract_name: String) -> Self {
+    pub fn new(source_id: usize, source: &'a str, contract_name: &'a Arc<str>) -> Self {
         Self {
             source_id,
             source,
@@ -40,10 +40,10 @@ impl<'a> ContractVisitor<'a> {
         }
     }
 
-    pub fn visit(mut self, contract_ast: Node) -> eyre::Result<Self> {
+    pub fn visit_contract(&mut self, node: &Node) -> eyre::Result<()> {
         // Find all functions and walk their AST
-        for node in contract_ast.nodes {
-            match &node.node_type {
+        for node in &node.nodes {
+            match node.node_type {
                 NodeType::FunctionDefinition => {
                     self.visit_function_definition(node)?;
                 }
@@ -53,11 +53,10 @@ impl<'a> ContractVisitor<'a> {
                 _ => {}
             }
         }
-
-        Ok(self)
+        Ok(())
     }
 
-    fn visit_function_definition(&mut self, mut node: Node) -> eyre::Result<()> {
+    fn visit_function_definition(&mut self, node: &Node) -> eyre::Result<()> {
         let name: String = node
             .attribute("name")
             .ok_or_else(|| eyre::eyre!("Function has no name"))?;
@@ -70,47 +69,48 @@ impl<'a> ContractVisitor<'a> {
             return Ok(());
         }
 
-        match node.body.take() {
+        match &node.body {
             Some(body) => {
                 self.push_item(CoverageItem {
                     kind: CoverageItemKind::Function { name },
                     loc: self.source_location_for(&node.src),
                     hits: 0,
                 });
-                self.visit_block(*body)
+                self.visit_block(body)
             }
             _ => Ok(()),
         }
     }
 
-    fn visit_modifier_definition(&mut self, mut node: Node) -> eyre::Result<()> {
+    fn visit_modifier_definition(&mut self, node: &Node) -> eyre::Result<()> {
         let name: String = node
             .attribute("name")
             .ok_or_else(|| eyre::eyre!("Modifier has no name"))?;
 
-        match node.body.take() {
+        match &node.body {
             Some(body) => {
                 self.push_item(CoverageItem {
                     kind: CoverageItemKind::Function { name },
                     loc: self.source_location_for(&node.src),
                     hits: 0,
                 });
-                self.visit_block(*body)
+                self.visit_block(body)
             }
             _ => Ok(()),
         }
     }
 
-    fn visit_block(&mut self, node: Node) -> eyre::Result<()> {
+    fn visit_block(&mut self, node: &Node) -> eyre::Result<()> {
         let statements: Vec<Node> = node.attribute("statements").unwrap_or_default();
 
-        for statement in statements {
+        for statement in &statements {
             self.visit_statement(statement)?;
         }
 
         Ok(())
     }
-    fn visit_statement(&mut self, node: Node) -> eyre::Result<()> {
+
+    fn visit_statement(&mut self, node: &Node) -> eyre::Result<()> {
         // TODO: YulSwitch, YulForLoop, YulFunctionDefinition, YulVariableDeclaration
         match node.node_type {
             // Blocks
@@ -119,7 +119,8 @@ impl<'a> ContractVisitor<'a> {
             }
             // Inline assembly block
             NodeType::InlineAssembly => self.visit_block(
-                node.attribute("AST")
+                &node
+                    .attribute("AST")
                     .ok_or_else(|| eyre::eyre!("inline assembly block with no AST attribute"))?,
             ),
             // Simple statements
@@ -150,7 +151,7 @@ impl<'a> ContractVisitor<'a> {
                     hits: 0,
                 });
                 if let Some(expr) = node.attribute("expression") {
-                    self.visit_expression(expr)?;
+                    self.visit_expression(&expr)?;
                 }
                 Ok(())
             }
@@ -163,49 +164,54 @@ impl<'a> ContractVisitor<'a> {
                     hits: 0,
                 });
                 if let Some(expr) = node.attribute("initialValue") {
-                    self.visit_expression(expr)?;
+                    self.visit_expression(&expr)?;
                 }
                 Ok(())
             }
             // While loops
             NodeType::DoWhileStatement | NodeType::WhileStatement => {
                 self.visit_expression(
-                    node.attribute("condition")
+                    &node
+                        .attribute("condition")
                         .ok_or_else(|| eyre::eyre!("while statement had no condition"))?,
                 )?;
 
                 let body = node
                     .body
+                    .as_deref()
                     .ok_or_else(|| eyre::eyre!("while statement had no body node"))?;
-                self.visit_block_or_statement(*body)
+                self.visit_block_or_statement(body)
             }
             // For loops
             NodeType::ForStatement => {
                 if let Some(stmt) = node.attribute("initializationExpression") {
-                    self.visit_statement(stmt)?;
+                    self.visit_statement(&stmt)?;
                 }
                 if let Some(expr) = node.attribute("condition") {
-                    self.visit_expression(expr)?;
+                    self.visit_expression(&expr)?;
                 }
                 if let Some(stmt) = node.attribute("loopExpression") {
-                    self.visit_statement(stmt)?;
+                    self.visit_statement(&stmt)?;
                 }
 
                 let body = node
                     .body
+                    .as_deref()
                     .ok_or_else(|| eyre::eyre!("for statement had no body node"))?;
-                self.visit_block_or_statement(*body)
+                self.visit_block_or_statement(body)
             }
             // Expression statement
             NodeType::ExpressionStatement | NodeType::YulExpressionStatement => self
                 .visit_expression(
-                    node.attribute("expression")
+                    &node
+                        .attribute("expression")
                         .ok_or_else(|| eyre::eyre!("expression statement had no expression"))?,
                 ),
             // If statement
             NodeType::IfStatement => {
                 self.visit_expression(
-                    node.attribute("condition")
+                    &node
+                        .attribute("condition")
                         .ok_or_else(|| eyre::eyre!("while statement had no condition"))?,
                 )?;
 
@@ -241,23 +247,24 @@ impl<'a> ContractVisitor<'a> {
                 );
 
                 // Process the true branch
-                self.visit_block_or_statement(true_body)?;
+                self.visit_block_or_statement(&true_body)?;
 
                 // Process the false branch
-                let false_body: Option<Node> = node.attribute("falseBody");
-                if let Some(false_body) = false_body {
-                    self.visit_block_or_statement(false_body)?;
+                if let Some(false_body) = node.attribute("falseBody") {
+                    self.visit_block_or_statement(&false_body)?;
                 }
 
                 Ok(())
             }
             NodeType::YulIf => {
                 self.visit_expression(
-                    node.attribute("condition")
+                    &node
+                        .attribute("condition")
                         .ok_or_else(|| eyre::eyre!("yul if statement had no condition"))?,
                 )?;
                 let body = node
                     .body
+                    .as_deref()
                     .ok_or_else(|| eyre::eyre!("yul if statement had no body"))?;
 
                 // We need to store the current branch ID here since visiting the body of either
@@ -277,7 +284,7 @@ impl<'a> ContractVisitor<'a> {
                     loc: self.source_location_for(&node.src),
                     hits: 0,
                 });
-                self.visit_block(*body)?;
+                self.visit_block(body)?;
 
                 Ok(())
             }
@@ -286,7 +293,8 @@ impl<'a> ContractVisitor<'a> {
                 // TODO: Clauses
                 // TODO: This is branching, right?
                 self.visit_expression(
-                    node.attribute("externalCall")
+                    &node
+                        .attribute("externalCall")
                         .ok_or_else(|| eyre::eyre!("try statement had no call"))?,
                 )
             }
@@ -300,7 +308,7 @@ impl<'a> ContractVisitor<'a> {
         }
     }
 
-    fn visit_expression(&mut self, node: Node) -> eyre::Result<()> {
+    fn visit_expression(&mut self, node: &Node) -> eyre::Result<()> {
         // TODO
         // elementarytypenameexpression
         //  memberaccess
@@ -327,11 +335,11 @@ impl<'a> ContractVisitor<'a> {
                 // There could possibly a function call in the left or right expression
                 // e.g: callFunc(a) + callFunc(b)
                 if let Some(expr) = node.attribute("leftExpression") {
-                    self.visit_expression(expr)?;
+                    self.visit_expression(&expr)?;
                 }
 
                 if let Some(expr) = node.attribute("rightExpression") {
-                    self.visit_expression(expr)?;
+                    self.visit_expression(&expr)?;
                 }
 
                 Ok(())
@@ -373,7 +381,7 @@ impl<'a> ContractVisitor<'a> {
         }
     }
 
-    fn visit_block_or_statement(&mut self, node: Node) -> eyre::Result<()> {
+    fn visit_block_or_statement(&mut self, node: &Node) -> eyre::Result<()> {
         match node.node_type {
             NodeType::Block => self.visit_block(node),
             NodeType::Break
@@ -453,6 +461,7 @@ impl<'a> ContractVisitor<'a> {
     }
 }
 
+/// [`SourceAnalyzer`] result type.
 #[derive(Debug)]
 pub struct SourceAnalysis {
     /// A collection of coverage items.
@@ -460,50 +469,15 @@ pub struct SourceAnalysis {
 }
 
 /// Analyzes a set of sources to find coverage items.
-#[derive(Clone, Debug, Default)]
-pub struct SourceAnalyzer {
-    /// A map of source IDs to their source code
-    sources: FxHashMap<usize, String>,
-    /// A map of contract IDs to their AST nodes.
-    contracts: HashMap<ContractId, Node>,
-    /// A collection of coverage items.
-    items: Vec<CoverageItem>,
+#[derive(Debug)]
+pub struct SourceAnalyzer<'a> {
+    sources: &'a SourceFiles<'a>,
 }
 
-impl SourceAnalyzer {
+impl<'a> SourceAnalyzer<'a> {
     /// Creates a new source analyzer.
-    ///
-    /// The source analyzer expects all given sources to belong to the same
-    /// compilation job (defined by `version`).
-    pub fn new(
-        version: Version,
-        asts: FxHashMap<usize, Ast>,
-        sources: FxHashMap<usize, String>,
-    ) -> eyre::Result<Self> {
-        let mut analyzer = SourceAnalyzer {
-            sources,
-            ..Default::default()
-        };
-
-        // TODO: Skip interfaces
-        for (source_id, ast) in asts {
-            for child in ast.nodes {
-                if !matches!(child.node_type, NodeType::ContractDefinition) {
-                    continue;
-                }
-
-                let contract_id = ContractId {
-                    version: version.clone(),
-                    source_id,
-                    contract_name: child
-                        .attribute("name")
-                        .ok_or_else(|| eyre::eyre!("Contract has no name"))?,
-                };
-                analyzer.contracts.insert(contract_id, child);
-            }
-        }
-
-        Ok(analyzer)
+    pub fn new(data: &'a SourceFiles<'a>) -> Self {
+        Self { sources: data }
     }
 
     /// Analyzes contracts in the sources held by the source analyzer.
@@ -520,33 +494,66 @@ impl SourceAnalyzer {
     /// base compiled with two different solc versions will produce
     /// overlapping source IDs if the compiler version is not taken into
     /// account.
-    pub fn analyze(mut self) -> eyre::Result<SourceAnalysis> {
-        for (contract_id, ast) in self.contracts {
-            let ContractVisitor { items, .. } = ContractVisitor::new(
-                contract_id.source_id,
-                self.sources.get(&contract_id.source_id).ok_or_else(|| {
-                    eyre::eyre!(
-                        "We should have the source code for source ID {}",
-                        contract_id.source_id
-                    )
-                })?,
-                contract_id.contract_name.clone(),
-            )
-            .visit(ast)?;
+    pub fn analyze(&self) -> eyre::Result<SourceAnalysis> {
+        let items = self
+            .sources
+            .sources
+            .par_iter()
+            .flat_map_iter(|(&source_id, SourceFile { source, ast })| {
+                ast.nodes.iter().map(move |node| {
+                    if !matches!(node.node_type, NodeType::ContractDefinition) {
+                        return Ok(vec![]);
+                    }
 
-            let is_test = items.iter().any(|item| {
-                if let CoverageItemKind::Function { name } = &item.kind {
-                    name.is_test()
-                } else {
-                    false
-                }
-            });
+                    // Skip interfaces which have no function implementations.
+                    let contract_kind: String = node
+                        .attribute("contractKind")
+                        .ok_or_else(|| eyre::eyre!("Contract has no kind"))?;
+                    if contract_kind == "interface" {
+                        return Ok(vec![]);
+                    }
 
-            if !is_test {
-                self.items.extend(items);
-            }
-        }
+                    let name = node
+                        .attribute("name")
+                        .ok_or_else(|| eyre::eyre!("Contract has no name"))?;
 
-        Ok(SourceAnalysis { items: self.items })
+                    let mut visitor = ContractVisitor::new(source_id, source, &name);
+                    visitor.visit_contract(node)?;
+                    let mut items = visitor.items;
+
+                    let is_test = items.iter().any(|item| {
+                        if let CoverageItemKind::Function { name } = &item.kind {
+                            name.is_test()
+                        } else {
+                            false
+                        }
+                    });
+                    if is_test {
+                        items.clear();
+                    }
+
+                    Ok(items)
+                })
+            })
+            .collect::<eyre::Result<Vec<Vec<_>>>>()?;
+        Ok(SourceAnalysis {
+            items: items.concat(),
+        })
     }
+}
+
+/// A list of versioned sources and their ASTs.
+#[derive(Debug, Default)]
+pub struct SourceFiles<'a> {
+    /// The versioned sources.
+    pub sources: FxHashMap<usize, SourceFile<'a>>,
+}
+
+/// The source code and AST of a file.
+#[derive(Debug)]
+pub struct SourceFile<'a> {
+    /// The source code.
+    pub source: String,
+    /// The AST of the source code.
+    pub ast: &'a Ast,
 }

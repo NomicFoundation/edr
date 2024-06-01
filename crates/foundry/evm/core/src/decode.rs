@@ -1,6 +1,6 @@
 //! Various utilities to decode test results.
 
-use std::{collections::HashMap, sync::OnceLock};
+use std::sync::OnceLock;
 
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::{Error, JsonAbi};
@@ -8,6 +8,7 @@ use alloy_primitives::{Log, Selector};
 use alloy_sol_types::{SolCall, SolError, SolEventInterface, SolInterface, SolValue};
 use itertools::Itertools;
 use revm::interpreter::InstructionResult;
+use rustc_hash::FxHashMap;
 
 use crate::abi::{Console, Vm};
 
@@ -31,7 +32,7 @@ pub fn decode_console_log(log: &Log) -> Option<String> {
 #[derive(Clone, Debug, Default)]
 pub struct RevertDecoder {
     /// The custom errors to use for decoding.
-    pub errors: HashMap<Selector, Vec<Error>>,
+    pub errors: FxHashMap<Selector, Vec<Error>>,
 }
 
 impl Default for &RevertDecoder {
