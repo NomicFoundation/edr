@@ -44,6 +44,7 @@ pub(super) fn build_runner(
         debug: builder.debug,
         test_options: builder.test_options.unwrap_or_default(),
         isolation: builder.isolation,
+        output: None,
     })
 }
 

@@ -84,7 +84,7 @@ impl SolidityTestRunner {
                 .expect("Failed to send test result");
         });
 
-        runner.test_async_channel(&EverythingFilter, tx_results);
+        runner.test_hardhat(&EverythingFilter, tx_results);
 
         let results = rx_end_result.recv().await.ok_or_else(|| {
             napi::Error::new(napi::Status::GenericFailure, "Failed to receive end result")

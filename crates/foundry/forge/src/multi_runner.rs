@@ -56,6 +56,8 @@ pub struct MultiContractRunner {
     pub test_options: TestOptions,
     /// Whether to enable call isolation
     pub isolation: bool,
+    /// Output of the project compilation
+    pub output: Option<ProjectCompileOutput>,
 }
 
 impl MultiContractRunner {
@@ -181,7 +183,7 @@ impl MultiContractRunner {
     /// in _parallel_.
     ///
     /// Each Executor gets its own instance of the `Backend`.
-    pub fn test_async_channel(
+    pub fn test_hardhat(
         &mut self,
         filter: &dyn TestFilter,
         tx: tokio::sync::mpsc::UnboundedSender<(String, SuiteResult)>,
@@ -206,12 +208,75 @@ impl MultiContractRunner {
             .par_iter()
             .for_each_with(tx, |tx, &(id, contract)| {
                 let _guard = handle.enter();
-                let result = self.run_tests(id, contract, db.clone(), filter, &handle);
+                let result = self.run_tests_hardhat(id, contract, db.clone(), filter, &handle);
                 let _ = tx.send((id.identifier(), result));
             });
     }
 
     fn run_tests(
+        &self,
+        artifact_id: &ArtifactId,
+        contract: &TestContract,
+        db: Backend,
+        filter: &dyn TestFilter,
+        handle: &tokio::runtime::Handle,
+    ) -> SuiteResult {
+        let identifier = artifact_id.identifier();
+        let mut span_name = identifier.as_str();
+
+        let linker = Linker::new(
+            self.config.project_paths().root,
+            self.output.as_ref().unwrap().artifact_ids().collect(),
+        );
+        let linked_contracts = linker
+            .get_linked_artifacts(&contract.libraries)
+            .unwrap_or_default();
+        let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
+
+        let cheats_config = CheatsConfig::new(
+            &self.config,
+            self.evm_opts.clone(),
+            Some(known_contracts.clone()),
+            Some(artifact_id.version.clone()),
+        );
+
+        let executor = ExecutorBuilder::new()
+            .inspectors(|stack| {
+                stack
+                    .cheatcodes(Arc::new(cheats_config))
+                    .trace(self.evm_opts.verbosity >= 3 || self.debug)
+                    .debug(self.debug)
+                    .coverage(self.coverage)
+                    .enable_isolation(self.isolation)
+            })
+            .spec(self.evm_spec)
+            .gas_limit(self.evm_opts.gas_limit())
+            .build(self.env.clone(), db);
+
+        if !enabled!(tracing::Level::TRACE) {
+            span_name = get_contract_name(&identifier);
+        }
+        let _guard = info_span!("run_tests", name = span_name).entered();
+
+        debug!("start executing all tests in contract");
+
+        let runner = ContractRunner::new(
+            &identifier,
+            executor,
+            contract,
+            self.evm_opts.initial_balance,
+            self.sender,
+            &self.revert_decoder,
+            self.debug,
+        );
+        let r = runner.run_tests(filter, &self.test_options, known_contracts, handle);
+
+        debug!(duration=?r.duration, "executed all tests in contract");
+
+        r
+    }
+
+    fn run_tests_hardhat(
         &self,
         artifact_id: &ArtifactId,
         contract: &TestContract,
@@ -440,6 +505,7 @@ impl MultiContractRunnerBuilder {
             debug: self.debug,
             test_options: self.test_options.unwrap_or_default(),
             isolation: self.isolation,
+            output: Some(output),
         })
     }
 }
