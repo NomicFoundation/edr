@@ -96,6 +96,59 @@ impl TestOptions {
         })
     }
 
+    /// Tries to create a new instance by detecting inline configurations from
+    /// the Hardhat project compile output.
+    pub fn new_hardhat(
+        profiles: Vec<String>,
+        base_fuzz: FuzzConfig,
+        base_invariant: InvariantConfig,
+    ) -> Result<Self, InlineConfigError> {
+        // TODO: add this back
+        // https://github.com/NomicFoundation/edr/issues/487
+        // let natspecs: Vec<NatSpec> = NatSpec::parse(output, root);
+        let natspecs: Vec<NatSpec> = Vec::default();
+        let mut inline_invariant = InlineConfig::<InvariantConfig>::default();
+        let mut inline_fuzz = InlineConfig::<FuzzConfig>::default();
+
+        for natspec in natspecs {
+            // Perform general validation
+            validate_profiles(&natspec, &profiles)?;
+            FuzzConfig::validate_configs(&natspec)?;
+            InvariantConfig::validate_configs(&natspec)?;
+
+            // Apply in-line configurations for the current profile
+            let configs: Vec<String> = natspec.current_profile_configs().collect();
+            let c: &str = &natspec.contract;
+            let f: &str = &natspec.function;
+            let line: String = natspec.debug_context();
+
+            match base_fuzz.try_merge(&configs) {
+                Ok(Some(conf)) => inline_fuzz.insert(c, f, conf),
+                Ok(None) => { /* No inline config found, do nothing */ }
+                Err(e) => Err(InlineConfigError {
+                    line: line.clone(),
+                    source: e,
+                })?,
+            }
+
+            match base_invariant.try_merge(&configs) {
+                Ok(Some(conf)) => inline_invariant.insert(c, f, conf),
+                Ok(None) => { /* No inline config found, do nothing */ }
+                Err(e) => Err(InlineConfigError {
+                    line: line.clone(),
+                    source: e,
+                })?,
+            }
+        }
+
+        Ok(Self {
+            fuzz: base_fuzz,
+            invariant: base_invariant,
+            inline_fuzz,
+            inline_invariant,
+        })
+    }
+
     /// Returns a "fuzz" test runner instance. Parameters are used to select
     /// tight scoped fuzz configs that apply for a contract-function pair. A
     /// fallback configuration is applied if no specific setup is found for
@@ -237,5 +290,17 @@ impl TestOptionsBuilder {
         let base_fuzz = self.fuzz.unwrap_or_default();
         let base_invariant = self.invariant.unwrap_or_default();
         TestOptions::new(output, root, profiles, base_fuzz, base_invariant)
+    }
+
+    /// Creates an instance of [`TestOptions`]. This takes care of creating
+    /// "fuzz" and "invariant" fallbacks, and extracting all inline test
+    /// configs, if available.
+    pub fn build_hardhat(self) -> Result<TestOptions, InlineConfigError> {
+        let profiles: Vec<String> = self
+            .profiles
+            .unwrap_or_else(|| vec![Config::selected_profile().into()]);
+        let base_fuzz = self.fuzz.unwrap_or_default();
+        let base_invariant = self.invariant.unwrap_or_default();
+        TestOptions::new_hardhat(profiles, base_fuzz, base_invariant)
     }
 }

@@ -10,7 +10,7 @@ use forge::{
     revm::primitives::SpecId,
     MultiContractRunner, MultiContractRunnerBuilder, TestOptions, TestOptionsBuilder,
 };
-use foundry_compilers::{ArtifactId, ProjectCompileOutput};
+use foundry_compilers::ArtifactId;
 use foundry_config::{
     Config, FuzzConfig, FuzzDictionaryConfig, InvariantConfig, RpcEndpoint, RpcEndpoints,
 };
@@ -22,16 +22,9 @@ pub(super) fn build_runner(
     let mut evm_opts = evm_opts();
     evm_opts.isolate = config.isolate;
 
-    let project = config
-        .project()
-        .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-    let compiled = project
-        .compile()
-        .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
-
     let builder = MultiContractRunnerBuilder::new(Arc::new(config))
         .sender(evm_opts.sender)
-        .with_test_options(test_opts(&compiled));
+        .with_test_options(test_opts());
 
     let abis = test_suites.iter().map(|(_, contract)| &contract.abi);
     let revert_decoder = RevertDecoder::new().with_abis(abis);
@@ -51,7 +44,6 @@ pub(super) fn build_runner(
         debug: builder.debug,
         test_options: builder.test_options.unwrap_or_default(),
         isolation: builder.isolation,
-        output: compiled,
     })
 }
 
@@ -78,7 +70,7 @@ fn foundry_config() -> Config {
         vec!["fork/Fork.t.sol:DssExecLib:0xfD88CeE74f7D78697775aBDAE53f9Da1559728E4".to_string()];
 
     config.rpc_endpoints = rpc_endpoints();
-    // TODO
+    // TODO https://github.com/NomicFoundation/edr/issues/487
     // config.allow_paths.push(manifest_root().to_path_buf());
 
     // no prompt testing
@@ -111,7 +103,7 @@ fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([("alchemy", RpcEndpoint::Url("${ALCHEMY_URL}".to_string()))])
 }
 
-pub fn test_opts(compiled: &ProjectCompileOutput) -> TestOptions {
+pub fn test_opts() -> TestOptions {
     TestOptionsBuilder::default()
         .fuzz(FuzzConfig {
             runs: 256,
@@ -145,6 +137,6 @@ pub fn test_opts(compiled: &ProjectCompileOutput) -> TestOptions {
             gas_report_samples: 256,
             failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
         })
-        .build(compiled, &project_root())
+        .build_hardhat()
         .expect("Config loaded")
 }

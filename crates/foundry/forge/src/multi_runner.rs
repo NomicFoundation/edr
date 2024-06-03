@@ -56,8 +56,6 @@ pub struct MultiContractRunner {
     pub test_options: TestOptions,
     /// Whether to enable call isolation
     pub isolation: bool,
-    /// Output of the project compilation
-    pub output: ProjectCompileOutput,
 }
 
 impl MultiContractRunner {
@@ -224,14 +222,17 @@ impl MultiContractRunner {
         let identifier = artifact_id.identifier();
         let mut span_name = identifier.as_str();
 
-        let linker = Linker::new(
-            self.config.project_paths().root,
-            self.output.artifact_ids().collect(),
-        );
-        let linked_contracts = linker
-            .get_linked_artifacts(&contract.libraries)
-            .unwrap_or_default();
-        let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
+        // TODO make sure these are passed in
+        // https://github.com/NomicFoundation/edr/issues/487
+        // let linker = Linker::new(
+        //     self.config.project_paths().root,
+        //     self.output.artifact_ids().collect(),
+        // );
+        // let linked_contracts = linker
+        //     .get_linked_artifacts(&contract.libraries)
+        //     .unwrap_or_default();
+        // let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
+        let known_contracts = Arc::new(ContractsByArtifact::new(Vec::default()));
 
         let cheats_config = CheatsConfig::new(
             &self.config,
@@ -439,7 +440,6 @@ impl MultiContractRunnerBuilder {
             debug: self.debug,
             test_options: self.test_options.unwrap_or_default(),
             isolation: self.isolation,
-            output,
         })
     }
 }
