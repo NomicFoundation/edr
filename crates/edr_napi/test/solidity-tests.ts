@@ -11,8 +11,8 @@ import {
 describe("Solidity Tests", () => {
   it("executes basic tests", async function () {
     const testSuites = [
-      loadContract("./SetupConsistencyCheck.json"),
-      loadContract("./PaymentFailureTest.json"),
+      loadContract("./artifacts/SetupConsistencyCheck.json"),
+      loadContract("./artifacts/PaymentFailureTest.json"),
     ];
 
     const resultsFromCallback: Array<SuiteResult> = [];
