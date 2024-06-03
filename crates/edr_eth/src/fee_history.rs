@@ -2,11 +2,12 @@ use crate::U256;
 
 /// Fee history for the returned block range. This can be a subsection of the
 /// requested range if not all blocks are available.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct FeeHistoryResult {
     /// Lowest number block of returned range.
-    #[serde(with = "crate::serde::u64")]
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub oldest_block: u64,
     /// An array of block base fees per gas. This includes the next block after
     /// the newest of the returned range, because this value can be derived from
@@ -17,7 +18,7 @@ pub struct FeeHistoryResult {
     pub gas_used_ratio: Vec<f64>,
     /// A two-dimensional array of effective priority fees per gas at the
     /// requested block percentiles.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub reward: Option<Vec<Vec<U256>>>,
 }
 
