@@ -24,7 +24,7 @@ use edr_eth::{
     receipt::BlockReceipt,
     reward_percentile::RewardPercentile,
     signature::{RecoveryMessage, Signature},
-    transaction::{Transaction, TransactionRequestAndSender, TransactionType},
+    transaction::{request::TransactionRequestAndSender, Transaction, TransactionType},
     Address, BlockSpec, BlockTag, Bytes, Eip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{
@@ -2575,7 +2575,7 @@ pub(crate) mod test_utils {
     use std::convert::Infallible;
 
     use anyhow::anyhow;
-    use edr_eth::transaction::{Eip155TransactionRequest, TransactionRequest, TxKind};
+    use edr_eth::transaction::{self, TxKind};
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
@@ -2665,7 +2665,7 @@ pub(crate) mod test_utils {
             gas_limit: u64,
             nonce: Option<u64>,
         ) -> anyhow::Result<TransactionRequestAndSender> {
-            let request = TransactionRequest::Eip155(Eip155TransactionRequest {
+            let request = transaction::Request::Eip155(transaction::request::Eip155 {
                 kind: TxKind::Call(Address::ZERO),
                 gas_limit,
                 gas_price: U256::from(42_000_000_000_u64),

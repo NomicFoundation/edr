@@ -7,14 +7,14 @@ use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
 use crate::{
     access_list::AccessList,
     signature::{Signature, SignatureError},
-    transaction::{fake_signature::recover_fake_signature, Eip4844TransactionRequest},
+    transaction::{self, fake_signature::recover_fake_signature},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Eip4844SignedTransaction {
+pub struct Eip4844 {
     // The order of these fields determines de-/encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub chain_id: u64,
@@ -45,7 +45,7 @@ pub struct Eip4844SignedTransaction {
     pub is_fake: bool,
 }
 
-impl Eip4844SignedTransaction {
+impl Eip4844 {
     pub fn nonce(&self) -> &u64 {
         &self.nonce
     }
@@ -71,7 +71,7 @@ impl Eip4844SignedTransaction {
             return Ok(recover_fake_signature(&signature));
         }
 
-        signature.recover(Eip4844TransactionRequest::from(self).hash())
+        signature.recover(transaction::request::Eip4844::from(self).hash())
     }
 
     /// Converts this transaction into a `TxEnv` struct.
@@ -100,7 +100,7 @@ impl Eip4844SignedTransaction {
     }
 }
 
-impl PartialEq for Eip4844SignedTransaction {
+impl PartialEq for Eip4844 {
     fn eq(&self, other: &Self) -> bool {
         self.chain_id == other.chain_id
             && self.nonce == other.nonce
@@ -128,8 +128,8 @@ mod tests {
     use super::*;
 
     // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
-    fn dummy_transaction() -> Eip4844SignedTransaction {
-        Eip4844SignedTransaction {
+    fn dummy_transaction() -> Eip4844 {
+        Eip4844 {
             chain_id: 0x28757b3,
             nonce: 0,
             max_priority_fee_per_gas: U256::from(0x12a05f200u64),
@@ -182,7 +182,7 @@ mod tests {
         // From https://github.com/NomicFoundation/edr/issues/341#issuecomment-2039360056
         const CALLER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
-        let transaction = Eip4844SignedTransaction {
+        let transaction = Eip4844 {
             chain_id: 1337,
             nonce: 0,
             max_priority_fee_per_gas: U256::from(0x3b9aca00),

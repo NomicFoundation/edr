@@ -5,9 +5,8 @@ use edr_eth::{
     receipt::{BlockReceipt, TransactionReceipt},
     rlp::Decodable,
     transaction::{
-        pooled::PooledTransaction, Eip1559TransactionRequest, Eip155TransactionRequest,
-        Eip2930TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
-        TransactionRequest, TransactionRequestAndSender, TransactionType, TxKind,
+        self, pooled::PooledTransaction, request::TransactionRequestAndSender,
+        EthTransactionRequest, Transaction, TransactionType, TxKind,
     },
     Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
@@ -151,7 +150,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     spec_id: SpecId,
 ) -> Result<edr_rpc_eth::Transaction, ProviderError<LoggerErrorT>> {
     fn gas_price_for_post_eip1559(
-        signed_transaction: &SignedTransaction,
+        signed_transaction: &transaction::Signed,
         block: Option<&Arc<dyn SyncBlock<Error = BlockchainError>>>,
     ) -> U256 {
         let max_fee_per_gas = signed_transaction
@@ -185,10 +184,10 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     let header = block.map(|b| b.header());
 
     let gas_price = match &signed_transaction {
-        SignedTransaction::PreEip155Legacy(tx) => tx.gas_price,
-        SignedTransaction::PostEip155Legacy(tx) => tx.gas_price,
-        SignedTransaction::Eip2930(tx) => tx.gas_price,
-        SignedTransaction::Eip1559(_) | SignedTransaction::Eip4844(_) => {
+        transaction::Signed::PreEip155Legacy(tx) => tx.gas_price,
+        transaction::Signed::PostEip155Legacy(tx) => tx.gas_price,
+        transaction::Signed::Eip2930(tx) => tx.gas_price,
+        transaction::Signed::Eip1559(_) | transaction::Signed::Eip4844(_) => {
             gas_price_for_post_eip1559(signed_transaction, block)
         }
     };
@@ -196,10 +195,10 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     let chain_id = match &signed_transaction {
         // Following Hardhat in not returning `chain_id` for `PostEip155Legacy` legacy transactions
         // even though the chain id would be recoverable.
-        SignedTransaction::PreEip155Legacy(_) | SignedTransaction::PostEip155Legacy(_) => None,
-        SignedTransaction::Eip2930(tx) => Some(tx.chain_id),
-        SignedTransaction::Eip1559(tx) => Some(tx.chain_id),
-        SignedTransaction::Eip4844(tx) => Some(tx.chain_id),
+        transaction::Signed::PreEip155Legacy(_) | transaction::Signed::PostEip155Legacy(_) => None,
+        transaction::Signed::Eip2930(tx) => Some(tx.chain_id),
+        transaction::Signed::Eip1559(tx) => Some(tx.chain_id),
+        transaction::Signed::Eip4844(tx) => Some(tx.chain_id),
     };
 
     let show_transaction_type = spec_id >= FIRST_HARDFORK_WITH_TRANSACTION_TYPE;
@@ -273,7 +272,7 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
-            edr_eth::rlp::Error::Custom(message) if SignedTransaction::is_invalid_transaction_type_error(message) => {
+            edr_eth::rlp::Error::Custom(message) if transaction::Signed::is_invalid_transaction_type_error(message) => {
                 let type_id = *raw_transaction.first().expect("We already validated that the transaction is not empty if it's an invalid transaction type error.");
                 ProviderError::InvalidTransactionType(type_id)
             }
@@ -365,7 +364,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
                     }
                 };
 
-            TransactionRequest::Eip1559(Eip1559TransactionRequest {
+            transaction::Request::Eip1559(transaction::request::Eip1559 {
                 nonce,
                 max_priority_fee_per_gas,
                 max_fee_per_gas,
@@ -381,7 +380,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
             })
         }
         (gas_price, _, _, Some(access_list)) => {
-            TransactionRequest::Eip2930(Eip2930TransactionRequest {
+            transaction::Request::Eip2930(transaction::request::Eip2930 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
@@ -395,7 +394,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
                 access_list,
             })
         }
-        (gas_price, _, _, _) => TransactionRequest::Eip155(Eip155TransactionRequest {
+        (gas_price, _, _, _) => transaction::Request::Eip155(transaction::request::Eip155 {
             nonce,
             gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
             gas_limit,
@@ -496,7 +495,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 
 fn validate_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
-    transaction: &SignedTransaction,
+    transaction: &transaction::Signed,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     // Validate signature
     let _ = transaction
@@ -538,10 +537,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{
-        transaction::{Eip155TransactionRequest, TransactionRequest, TxKind},
-        Address, Bytes, U256,
-    };
+    use edr_eth::{Address, Bytes, U256};
     use edr_evm::ExecutableTransaction;
 
     use super::*;
@@ -562,7 +558,7 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
 
-        let request = TransactionRequest::Eip155(Eip155TransactionRequest {
+        let request = transaction::Request::Eip155(transaction::request::Eip155 {
             kind: TxKind::Call(Address::ZERO),
             gas_limit: 30_000,
             gas_price: U256::from(42_000_000_000_u64),

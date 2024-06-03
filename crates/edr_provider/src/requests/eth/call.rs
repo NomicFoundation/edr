@@ -1,12 +1,6 @@
 use core::fmt::Debug;
 
-use edr_eth::{
-    transaction::{
-        Eip1559TransactionRequest, Eip155TransactionRequest, Eip2930TransactionRequest,
-        TransactionRequest,
-    },
-    BlockSpec, Bytes, SpecId, U256,
-};
+use edr_eth::{transaction, BlockSpec, Bytes, SpecId, U256};
 use edr_evm::{state::StateOverrides, trace::Trace, ExecutableTransaction};
 use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
@@ -120,7 +114,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
         match access_list {
             Some(access_list) if data.spec_id() >= SpecId::BERLIN => {
-                TransactionRequest::Eip2930(Eip2930TransactionRequest {
+                transaction::Request::Eip2930(transaction::request::Eip2930 {
                     nonce,
                     gas_price,
                     gas_limit,
@@ -131,7 +125,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
                     access_list,
                 })
             }
-            _ => TransactionRequest::Eip155(Eip155TransactionRequest {
+            _ => transaction::Request::Eip155(transaction::request::Eip155 {
                 nonce,
                 gas_price,
                 gas_limit,
@@ -145,7 +139,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             max_fees_fn(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-        TransactionRequest::Eip1559(Eip1559TransactionRequest {
+        transaction::Request::Eip1559(transaction::request::Eip1559 {
             chain_id,
             nonce,
             max_fee_per_gas,

@@ -7,13 +7,13 @@ use revm_primitives::keccak256;
 use crate::{
     access_list::AccessListItem,
     signature::{Signature, SignatureError},
-    transaction::{fake_signature::make_fake_signature, signed::Eip2930SignedTransaction, TxKind},
+    transaction::{self, fake_signature::make_fake_signature, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
-pub struct Eip2930TransactionRequest {
+pub struct Eip2930 {
     // The order of these fields determines encoding order.
     pub chain_id: u64,
     pub nonce: u64,
@@ -25,7 +25,7 @@ pub struct Eip2930TransactionRequest {
     pub access_list: Vec<AccessListItem>,
 }
 
-impl Eip2930TransactionRequest {
+impl Eip2930 {
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         let encoded = alloy_rlp::encode(self);
@@ -34,12 +34,15 @@ impl Eip2930TransactionRequest {
     }
 
     /// Signs the transaction with the provided secret key.
-    pub fn sign(self, secret_key: &SecretKey) -> Result<Eip2930SignedTransaction, SignatureError> {
+    pub fn sign(
+        self,
+        secret_key: &SecretKey,
+    ) -> Result<transaction::signed::Eip2930, SignatureError> {
         let hash = self.hash();
 
         let signature = Signature::new(hash, secret_key)?;
 
-        Ok(Eip2930SignedTransaction {
+        Ok(transaction::signed::Eip2930 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             gas_price: self.gas_price,
@@ -57,10 +60,10 @@ impl Eip2930TransactionRequest {
     }
 
     /// Creates a fake signature for an impersonated account.
-    pub fn fake_sign(self, address: &Address) -> Eip2930SignedTransaction {
+    pub fn fake_sign(self, address: &Address) -> transaction::signed::Eip2930 {
         let signature = make_fake_signature::<1>(address);
 
-        Eip2930SignedTransaction {
+        transaction::signed::Eip2930 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             gas_price: self.gas_price,
@@ -78,8 +81,8 @@ impl Eip2930TransactionRequest {
     }
 }
 
-impl From<&Eip2930SignedTransaction> for Eip2930TransactionRequest {
-    fn from(tx: &Eip2930SignedTransaction) -> Self {
+impl From<&transaction::signed::Eip2930> for Eip2930 {
+    fn from(tx: &transaction::signed::Eip2930) -> Self {
         Self {
             chain_id: tx.chain_id,
             nonce: tx.nonce,
@@ -100,10 +103,10 @@ mod tests {
     use super::*;
     use crate::transaction::fake_signature::tests::test_fake_sign_properties;
 
-    fn dummy_request() -> Eip2930TransactionRequest {
+    fn dummy_request() -> Eip2930 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        Eip2930TransactionRequest {
+        Eip2930 {
             chain_id: 1,
             nonce: 1,
             gas_price: U256::from(2),
@@ -149,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_fake_sign_test_vector() -> anyhow::Result<()> {
-        let transaction = Eip2930TransactionRequest {
+        let transaction = Eip2930 {
             chain_id: 123,
             nonce: 0,
             gas_price: U256::from(1),

@@ -4,18 +4,16 @@ use alloy_rlp::{RlpDecodable, RlpEncodable};
 use hashbrown::HashMap;
 use revm_primitives::{keccak256, TxEnv};
 
-use super::{kind_to_transact_to, LegacySignedTransaction};
+use super::kind_to_transact_to;
 use crate::{
     signature::{Signature, SignatureError},
-    transaction::{
-        fake_signature::recover_fake_signature, request::Eip155TransactionRequest, TxKind,
-    },
+    transaction::{self, fake_signature::recover_fake_signature, TxKind},
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Eip155SignedTransaction {
+pub struct Eip155 {
     // The order of these fields determines de-/encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub nonce: u64,
@@ -38,7 +36,7 @@ pub struct Eip155SignedTransaction {
     pub is_fake: bool,
 }
 
-impl Eip155SignedTransaction {
+impl Eip155 {
     pub fn hash(&self) -> &B256 {
         self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
     }
@@ -49,7 +47,7 @@ impl Eip155SignedTransaction {
             return Ok(recover_fake_signature(&self.signature));
         }
         self.signature
-            .recover(Eip155TransactionRequest::from(self).hash())
+            .recover(transaction::request::Eip155::from(self).hash())
     }
 
     pub fn chain_id(&self) -> u64 {
@@ -78,8 +76,8 @@ impl Eip155SignedTransaction {
     }
 }
 
-impl From<LegacySignedTransaction> for Eip155SignedTransaction {
-    fn from(tx: LegacySignedTransaction) -> Self {
+impl From<transaction::signed::legacy::Legacy> for Eip155 {
+    fn from(tx: transaction::signed::legacy::Legacy) -> Self {
         Self {
             nonce: tx.nonce,
             gas_price: tx.gas_price,
@@ -94,7 +92,7 @@ impl From<LegacySignedTransaction> for Eip155SignedTransaction {
     }
 }
 
-impl PartialEq for Eip155SignedTransaction {
+impl PartialEq for Eip155 {
     fn eq(&self, other: &Self) -> bool {
         self.nonce == other.nonce
             && self.gas_price == other.gas_price
@@ -116,10 +114,10 @@ mod tests {
     use super::*;
     use crate::signature::secret_key_from_str;
 
-    fn dummy_request() -> Eip155TransactionRequest {
+    fn dummy_request() -> transaction::request::Eip155 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        Eip155TransactionRequest {
+        transaction::request::Eip155 {
             nonce: 1,
             gas_price: U256::from(2),
             gas_limit: 3,
@@ -169,9 +167,6 @@ mod tests {
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
         let encoded = alloy_rlp::encode(&signed);
-        assert_eq!(
-            signed,
-            Eip155SignedTransaction::decode(&mut encoded.as_slice()).unwrap()
-        );
+        assert_eq!(signed, Eip155::decode(&mut encoded.as_slice()).unwrap());
     }
 }

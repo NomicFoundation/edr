@@ -7,15 +7,13 @@ use revm_primitives::{keccak256, TxEnv};
 use super::kind_to_transact_to;
 use crate::{
     signature::{Signature, SignatureError},
-    transaction::{
-        fake_signature::recover_fake_signature, request::LegacyTransactionRequest, TxKind,
-    },
+    transaction::{self, fake_signature::recover_fake_signature, TxKind},
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct LegacySignedTransaction {
+pub struct Legacy {
     // The order of these fields determines de-/encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub nonce: u64,
@@ -38,7 +36,7 @@ pub struct LegacySignedTransaction {
     pub is_fake: bool,
 }
 
-impl LegacySignedTransaction {
+impl Legacy {
     pub fn hash(&self) -> &B256 {
         self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
     }
@@ -49,7 +47,7 @@ impl LegacySignedTransaction {
             return Ok(recover_fake_signature(&self.signature));
         }
         self.signature
-            .recover(LegacyTransactionRequest::from(self).hash())
+            .recover(transaction::request::Legacy::from(self).hash())
     }
 
     /// Converts this transaction into a `TxEnv` struct.
@@ -73,7 +71,7 @@ impl LegacySignedTransaction {
     }
 }
 
-impl PartialEq for LegacySignedTransaction {
+impl PartialEq for Legacy {
     fn eq(&self, other: &Self) -> bool {
         self.nonce == other.nonce
             && self.gas_price == other.gas_price
@@ -95,10 +93,10 @@ mod tests {
     use super::*;
     use crate::signature::secret_key_from_str;
 
-    fn dummy_request() -> LegacyTransactionRequest {
+    fn dummy_request() -> transaction::request::Legacy {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        LegacyTransactionRequest {
+        transaction::request::Legacy {
             nonce: 1,
             gas_price: U256::from(2),
             gas_limit: 3,
@@ -146,9 +144,6 @@ mod tests {
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
         let encoded = alloy_rlp::encode(&signed);
-        assert_eq!(
-            signed,
-            LegacySignedTransaction::decode(&mut encoded.as_slice()).unwrap()
-        );
+        assert_eq!(signed, Legacy::decode(&mut encoded.as_slice()).unwrap());
     }
 }

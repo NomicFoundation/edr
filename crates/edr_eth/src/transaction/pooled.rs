@@ -1,17 +1,13 @@
-/// Types for EIP-4844 pooled transactions
-pub mod eip4844;
+mod eip4844;
 
-pub use self::eip4844::Eip4844PooledTransaction;
-use super::{
-    Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
-    LegacySignedTransaction, SignedTransaction,
-};
+pub use self::eip4844::Eip4844;
+use super::Signed;
 use crate::{transaction::INVALID_TX_TYPE_ERROR_MESSAGE, utils::enveloped};
 
-pub type LegacyPooledTransaction = LegacySignedTransaction;
-pub type Eip155PooledTransaction = Eip155SignedTransaction;
-pub type Eip2930PooledTransaction = Eip2930SignedTransaction;
-pub type Eip1559PooledTransaction = Eip1559SignedTransaction;
+pub type LegacyPooledTransaction = super::signed::Legacy;
+pub type Eip155PooledTransaction = super::signed::Eip155;
+pub type Eip2930PooledTransaction = super::signed::Eip2930;
+pub type Eip1559PooledTransaction = super::signed::Eip1559;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PooledTransaction {
@@ -24,7 +20,7 @@ pub enum PooledTransaction {
     /// EIP-1559 transaction
     Eip1559(Eip1559PooledTransaction),
     /// EIP-4844 transaction
-    Eip4844(Eip4844PooledTransaction),
+    Eip4844(Eip4844),
 }
 
 impl PooledTransaction {
@@ -45,13 +41,13 @@ impl PooledTransaction {
     }
 
     /// Converts the pooled transaction into a signed transaction.
-    pub fn into_payload(self) -> SignedTransaction {
+    pub fn into_payload(self) -> Signed {
         match self {
-            PooledTransaction::PreEip155Legacy(tx) => SignedTransaction::PreEip155Legacy(tx),
-            PooledTransaction::PostEip155Legacy(tx) => SignedTransaction::PostEip155Legacy(tx),
-            PooledTransaction::Eip2930(tx) => SignedTransaction::Eip2930(tx),
-            PooledTransaction::Eip1559(tx) => SignedTransaction::Eip1559(tx),
-            PooledTransaction::Eip4844(tx) => SignedTransaction::Eip4844(tx.into_payload()),
+            PooledTransaction::PreEip155Legacy(tx) => Signed::PreEip155Legacy(tx),
+            PooledTransaction::PostEip155Legacy(tx) => Signed::PostEip155Legacy(tx),
+            PooledTransaction::Eip2930(tx) => Signed::Eip2930(tx),
+            PooledTransaction::Eip1559(tx) => Signed::Eip1559(tx),
+            PooledTransaction::Eip4844(tx) => Signed::Eip4844(tx.into_payload()),
         }
     }
 
@@ -92,9 +88,7 @@ impl alloy_rlp::Decodable for PooledTransaction {
             0x03 => {
                 buf.advance(1);
 
-                Ok(PooledTransaction::Eip4844(
-                    Eip4844PooledTransaction::decode(buf)?,
-                ))
+                Ok(PooledTransaction::Eip4844(Eip4844::decode(buf)?))
             }
             byte if is_list(byte) => {
                 let tx = LegacyPooledTransaction::decode(buf)?;
@@ -155,8 +149,8 @@ impl From<Eip1559PooledTransaction> for PooledTransaction {
     }
 }
 
-impl From<Eip4844PooledTransaction> for PooledTransaction {
-    fn from(value: Eip4844PooledTransaction) -> Self {
+impl From<Eip4844> for PooledTransaction {
+    fn from(value: Eip4844) -> Self {
         PooledTransaction::Eip4844(value)
     }
 }
@@ -172,7 +166,7 @@ mod tests {
     use super::*;
     use crate::{
         signature::Signature,
-        transaction::{Eip4844SignedTransaction, TxKind},
+        transaction::{self, TxKind},
         Address, Bytes, B256, U256,
     };
 
@@ -275,7 +269,7 @@ mod tests {
             is_fake: false
         }),
         eip4844 => PooledTransaction::Eip4844(
-            Eip4844PooledTransaction::new(Eip4844SignedTransaction {
+            Eip4844::new(transaction::signed::Eip4844 {
                 chain_id: 1337,
                 nonce: 0,
                 max_priority_fee_per_gas: U256::from(1_000_000_000),
