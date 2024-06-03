@@ -4,7 +4,7 @@ use edr_eth::{
 };
 
 /// Methods for requests to a remote Ethereum node. Only contains methods
-/// supported by the [`crate::remote::client::RpcClient`].
+/// supported by the [`edr_rpc_client::RpcClient`].
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 #[serde(tag = "method", content = "params")]
 pub enum RequestMethod {

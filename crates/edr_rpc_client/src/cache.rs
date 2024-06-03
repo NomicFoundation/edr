@@ -22,8 +22,9 @@ use crate::RpcClientError;
 
 /// Trait for RPC method types that can be cached to disk.
 pub trait CacheableMethod: Into<Option<Self::MethodWithResolvableBlockTag>> {
-    /// The type representing a subset of methods containing a [`BlockTag`]
-    /// which can potentially be resolved to a block number.
+    /// The type representing a subset of methods containing a
+    /// [`edr_eth::BlockTag`] which can potentially be resolved to a block
+    /// number.
     type MethodWithResolvableBlockTag: Clone + Debug;
 
     /// Resolves a block tag to a block number for the provided method.
