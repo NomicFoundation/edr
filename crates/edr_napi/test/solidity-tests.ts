@@ -1,11 +1,19 @@
-import chai, { assert } from "chai";
-import chaiAsPromised from "chai-as-promised";
+import { assert } from "chai";
 
-import { SolidityTestRunner, TestSuite, TestContract, ArtifactId, SuiteResult } from "..";
+import {
+  SolidityTestRunner,
+  TestSuite,
+  TestContract,
+  ArtifactId,
+  SuiteResult,
+} from "..";
 
 describe("Solidity Tests", () => {
-  it("executes basic tests", async function() {
-    const testSuites = [loadContract("./SetupConsistencyCheck.json"), loadContract("./PaymentFailureTest.json")];
+  it("executes basic tests", async function () {
+    const testSuites = [
+      loadContract("./SetupConsistencyCheck.json"),
+      loadContract("./PaymentFailureTest.json"),
+    ];
 
     const resultsFromCallback: Array<SuiteResult> = [];
     const runner = new SolidityTestRunner((...args) => {
@@ -31,7 +39,6 @@ describe("Solidity Tests", () => {
   });
 });
 
-
 // Load a contract built with Hardhat into a test suite
 function loadContract(artifactPath: string): TestSuite {
   const compiledContract = require(artifactPath);
@@ -41,18 +48,18 @@ function loadContract(artifactPath: string): TestSuite {
     artifactCachePath: "./none",
     name: compiledContract.contractName,
     solcVersion: "0.8.18",
-    source: compiledContract.sourceName
+    source: compiledContract.sourceName,
   };
 
   const testContract: TestContract = {
     abi: JSON.stringify(compiledContract.abi),
     bytecode: compiledContract.bytecode,
     libsToDeploy: [],
-    libraries: []
+    libraries: [],
   };
 
   return {
     id: artifactId,
-    contract: testContract
+    contract: testContract,
   };
 }
