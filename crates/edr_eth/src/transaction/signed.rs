@@ -10,7 +10,9 @@ use revm_primitives::{TransactTo, TxEnv};
 pub use self::{
     eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, legacy::Legacy,
 };
-use super::{Signed, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE};
+use super::{
+    Signed, SignedTransaction, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+};
 use crate::{
     access_list::AccessList,
     signature::{Signature, SignatureError},
@@ -110,17 +112,6 @@ impl Signed {
             Signed::Eip2930(tx) => tx.kind,
             Signed::Eip1559(tx) => tx.kind,
             Signed::Eip4844(tx) => TxKind::Call(tx.to),
-        }
-    }
-
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<Address, SignatureError> {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.recover(),
-            Signed::PostEip155Legacy(tx) => tx.recover(),
-            Signed::Eip2930(tx) => tx.recover(),
-            Signed::Eip1559(tx) => tx.recover(),
-            Signed::Eip4844(tx) => tx.recover(),
         }
     }
 
@@ -249,6 +240,18 @@ impl From<self::eip1559::Eip1559> for Signed {
 impl From<self::eip4844::Eip4844> for Signed {
     fn from(transaction: self::eip4844::Eip4844) -> Self {
         Self::Eip4844(transaction)
+    }
+}
+
+impl SignedTransaction for Signed {
+    fn recover(&self) -> Result<Address, SignatureError> {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.recover(),
+            Signed::PostEip155Legacy(tx) => tx.recover(),
+            Signed::Eip2930(tx) => tx.recover(),
+            Signed::Eip1559(tx) => tx.recover(),
+            Signed::Eip4844(tx) => tx.recover(),
+        }
     }
 }
 

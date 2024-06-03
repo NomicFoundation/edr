@@ -33,6 +33,8 @@ pub mod state;
 pub mod trace;
 
 mod block;
+/// Types for chain specification.
+pub mod chain_spec;
 pub(crate) mod collections;
 mod debug;
 mod debug_trace;

@@ -17,7 +17,7 @@ pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
 pub use self::r#type::TransactionType;
-use crate::{access_list::AccessListItem, Address, Bytes, U256};
+use crate::{access_list::AccessListItem, signature::SignatureError, Address, Bytes, U256};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -50,6 +50,12 @@ pub enum Signed {
     Eip1559(signed::Eip1559),
     /// EIP-4844 transaction
     Eip4844(signed::Eip4844),
+}
+
+/// Trait for signed transactions.
+pub trait SignedTransaction: Transaction {
+    /// Recovers the Ethereum address which was used to sign the transaction.
+    fn recover(&self) -> Result<Address, SignatureError>;
 }
 
 pub trait Transaction {

@@ -17,11 +17,11 @@ pub use self::{
     local::LocalBlock,
     remote::{CreationError as RemoteBlockCreationError, RemoteBlock},
 };
-use crate::ExecutableTransaction;
+use crate::{chain_spec::ChainSpec, ExecutableTransaction};
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]
-pub trait Block: Debug {
+pub trait Block<ChainSpecT: ChainSpec>: Debug {
     /// The blockchain error type.
     type Error;
 
