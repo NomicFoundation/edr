@@ -1,4 +1,4 @@
 {
   "require": "ts-node/register/transpile-only",
-  "timeout": 120000
+  "timeout": 25000
 }
