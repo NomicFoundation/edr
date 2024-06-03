@@ -114,7 +114,7 @@ impl<'a> TryFrom<&'a PreEip1898BlockSpec> for CacheableBlockSpec<'a> {
     }
 }
 
-/// Error type for [`KeyHasher::hash_block_spec`].
+/// Error type for [`crate::cache::KeyHasher::hash_block_spec`].
 #[derive(thiserror::Error, Debug)]
 #[error("A block tag is not resolved.")]
 pub struct UnresolvedBlockTagError;
