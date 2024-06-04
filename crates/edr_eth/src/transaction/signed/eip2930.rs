@@ -8,16 +8,14 @@ use super::kind_to_transact_to;
 use crate::{
     access_list::AccessList,
     signature::{Signature, SignatureError},
-    transaction::{
-        fake_signature::recover_fake_signature, request::Eip2930TransactionRequest, TxKind,
-    },
+    transaction::{self, fake_signature::recover_fake_signature, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Eip2930SignedTransaction {
+pub struct Eip2930 {
     // The order of these fields determines de-/encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub chain_id: u64,
@@ -45,7 +43,7 @@ pub struct Eip2930SignedTransaction {
     pub is_fake: bool,
 }
 
-impl Eip2930SignedTransaction {
+impl Eip2930 {
     pub fn hash(&self) -> &B256 {
         self.hash.get_or_init(|| {
             let encoded = alloy_rlp::encode(self);
@@ -67,7 +65,7 @@ impl Eip2930SignedTransaction {
             return Ok(recover_fake_signature(&signature));
         }
 
-        signature.recover(Eip2930TransactionRequest::from(self).hash())
+        signature.recover(transaction::request::Eip2930::from(self).hash())
     }
 
     /// Converts this transaction into a `TxEnv` struct.
@@ -91,7 +89,7 @@ impl Eip2930SignedTransaction {
     }
 }
 
-impl PartialEq for Eip2930SignedTransaction {
+impl PartialEq for Eip2930 {
     fn eq(&self, other: &Self) -> bool {
         self.chain_id == other.chain_id
             && self.nonce == other.nonce
@@ -117,10 +115,10 @@ mod tests {
     use super::*;
     use crate::{access_list::AccessListItem, signature::secret_key_from_str};
 
-    fn dummy_request() -> Eip2930TransactionRequest {
+    fn dummy_request() -> transaction::request::Eip2930 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        Eip2930TransactionRequest {
+        transaction::request::Eip2930 {
             chain_id: 1,
             nonce: 1,
             gas_price: U256::from(2),
@@ -174,9 +172,6 @@ mod tests {
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
         let encoded = alloy_rlp::encode(&signed);
-        assert_eq!(
-            signed,
-            Eip2930SignedTransaction::decode(&mut encoded.as_slice()).unwrap()
-        );
+        assert_eq!(signed, Eip2930::decode(&mut encoded.as_slice()).unwrap());
     }
 }

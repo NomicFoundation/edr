@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 
 use edr_eth::{
-    transaction::{Eip1559TransactionRequest, Eip155TransactionRequest, TxKind},
+    transaction::{self, TxKind},
     AccountInfo, Address, Bytes, HashMap, SpecId, U256,
 };
 
@@ -102,7 +102,7 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
     value: U256,
 ) -> Result<ExecutableTransaction, TransactionCreationError> {
     let from = Address::random();
-    let request = Eip155TransactionRequest {
+    let request = transaction::request::Eip155 {
         nonce,
         gas_price,
         gas_limit,
@@ -125,7 +125,7 @@ pub fn dummy_eip1559_transaction(
     max_priority_fee_per_gas: U256,
 ) -> Result<ExecutableTransaction, TransactionCreationError> {
     let from = Address::random();
-    let request = Eip1559TransactionRequest {
+    let request = transaction::request::Eip1559 {
         chain_id: 123,
         nonce,
         max_priority_fee_per_gas,

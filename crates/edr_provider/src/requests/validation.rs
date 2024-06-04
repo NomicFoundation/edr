@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use edr_eth::{
     access_list::AccessListItem,
-    transaction::{EthTransactionRequest, SignedTransaction},
+    transaction::{self, EthTransactionRequest},
     Address, BlockSpec, BlockTag, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::Bytes;
@@ -49,10 +49,10 @@ impl<'data> From<&'data CallRequest> for SpecValidationData<'data> {
     }
 }
 
-impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
-    fn from(value: &'data SignedTransaction) -> Self {
+impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
+    fn from(value: &'data transaction::Signed) -> Self {
         match value {
-            SignedTransaction::PreEip155Legacy(tx) => Self {
+            transaction::Signed::PreEip155Legacy(tx) => Self {
                 to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
@@ -61,7 +61,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blobs: None,
                 blob_hashes: None,
             },
-            SignedTransaction::PostEip155Legacy(tx) => Self {
+            transaction::Signed::PostEip155Legacy(tx) => Self {
                 to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
@@ -70,7 +70,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blobs: None,
                 blob_hashes: None,
             },
-            SignedTransaction::Eip2930(tx) => Self {
+            transaction::Signed::Eip2930(tx) => Self {
                 to: tx.kind.to(),
                 gas_price: Some(&tx.gas_price),
                 max_fee_per_gas: None,
@@ -79,7 +79,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blobs: None,
                 blob_hashes: None,
             },
-            SignedTransaction::Eip1559(tx) => Self {
+            transaction::Signed::Eip1559(tx) => Self {
                 to: tx.kind.to(),
                 gas_price: None,
                 max_fee_per_gas: Some(&tx.max_fee_per_gas),
@@ -88,7 +88,7 @@ impl<'data> From<&'data SignedTransaction> for SpecValidationData<'data> {
                 blobs: None,
                 blob_hashes: None,
             },
-            SignedTransaction::Eip4844(tx) => Self {
+            transaction::Signed::Eip4844(tx) => Self {
                 to: Some(&tx.to),
                 gas_price: None,
                 max_fee_per_gas: Some(&tx.max_fee_per_gas),

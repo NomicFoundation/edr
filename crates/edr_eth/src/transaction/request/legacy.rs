@@ -6,12 +6,12 @@ use revm_primitives::keccak256;
 
 use crate::{
     signature::{Signature, SignatureError},
-    transaction::{fake_signature::make_fake_signature, signed::LegacySignedTransaction, TxKind},
+    transaction::{self, fake_signature::make_fake_signature, TxKind},
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
-pub struct LegacyTransactionRequest {
+pub struct Legacy {
     // The order of these fields determines encoding order.
     pub nonce: u64,
     pub gas_price: U256,
@@ -21,19 +21,22 @@ pub struct LegacyTransactionRequest {
     pub input: Bytes,
 }
 
-impl LegacyTransactionRequest {
+impl Legacy {
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         keccak256(alloy_rlp::encode(self))
     }
 
     /// Signs the transaction with the provided secret key.
-    pub fn sign(self, secret_key: &SecretKey) -> Result<LegacySignedTransaction, SignatureError> {
+    pub fn sign(
+        self,
+        secret_key: &SecretKey,
+    ) -> Result<transaction::signed::Legacy, SignatureError> {
         let hash = self.hash();
 
         let signature = Signature::new(hash, secret_key)?;
 
-        Ok(LegacySignedTransaction {
+        Ok(transaction::signed::Legacy {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
@@ -47,10 +50,10 @@ impl LegacyTransactionRequest {
     }
 
     /// Creates a fake signature for an impersonated account.
-    pub fn fake_sign(self, sender: &Address) -> LegacySignedTransaction {
+    pub fn fake_sign(self, sender: &Address) -> transaction::signed::Legacy {
         let signature = make_fake_signature::<0>(sender);
 
-        LegacySignedTransaction {
+        transaction::signed::Legacy {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
@@ -64,8 +67,8 @@ impl LegacyTransactionRequest {
     }
 }
 
-impl From<&LegacySignedTransaction> for LegacyTransactionRequest {
-    fn from(tx: &LegacySignedTransaction) -> Self {
+impl From<&transaction::signed::Legacy> for Legacy {
+    fn from(tx: &transaction::signed::Legacy) -> Self {
         Self {
             nonce: tx.nonce,
             gas_price: tx.gas_price,
@@ -84,10 +87,10 @@ mod tests {
     use super::*;
     use crate::transaction::fake_signature::tests::test_fake_sign_properties;
 
-    fn dummy_request() -> LegacyTransactionRequest {
+    fn dummy_request() -> Legacy {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        LegacyTransactionRequest {
+        Legacy {
             nonce: 1,
             gas_price: U256::from(2),
             gas_limit: 3,
@@ -125,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_fake_sign_test_vector() -> anyhow::Result<()> {
-        let transaction = LegacyTransactionRequest {
+        let transaction = Legacy {
             nonce: 0,
             gas_price: U256::from(678_912),
             gas_limit: 30_000,

@@ -3,11 +3,7 @@ use std::sync::OnceLock;
 use alloy_rlp::BufMut;
 use edr_eth::{
     signature::Signature,
-    transaction::{
-        Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
-        Eip4844SignedTransaction, LegacySignedTransaction, SignedTransaction, Transaction,
-        TransactionType, TxKind,
-    },
+    transaction::{self, Transaction, TransactionType, TxKind},
     Address, B256, U256,
 };
 use revm::{
@@ -22,7 +18,7 @@ use super::TransactionCreationError;
 /// that can be recovered from a signature.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutableTransaction {
-    transaction: SignedTransaction,
+    transaction: transaction::Signed,
     caller: Address,
 }
 
@@ -31,7 +27,7 @@ impl ExecutableTransaction {
     /// recover the caller address of the provided transaction.
     pub fn new(
         spec_id: SpecId,
-        transaction: SignedTransaction,
+        transaction: transaction::Signed,
     ) -> Result<Self, TransactionCreationError> {
         let caller = transaction
             .recover()
@@ -44,7 +40,7 @@ impl ExecutableTransaction {
     /// caller address.
     pub fn with_caller(
         spec_id: SpecId,
-        transaction: SignedTransaction,
+        transaction: transaction::Signed,
         caller: Address,
     ) -> Result<Self, TransactionCreationError> {
         if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
@@ -75,13 +71,13 @@ impl ExecutableTransaction {
         initial_cost(spec_id, &self.transaction)
     }
 
-    /// Returns the inner [`SignedTransaction`]
-    pub fn as_inner(&self) -> &SignedTransaction {
+    /// Returns the inner [`transaction::Signed`]
+    pub fn as_inner(&self) -> &transaction::Signed {
         &self.transaction
     }
 
     /// Returns the inner transaction and caller
-    pub fn into_inner(self) -> (SignedTransaction, Address) {
+    pub fn into_inner(self) -> (transaction::Signed, Address) {
         (self.transaction, self.caller)
     }
 }
@@ -193,7 +189,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
         let transaction = match value.transaction_type {
             Some(0) | None => {
                 if value.is_legacy() {
-                    SignedTransaction::PreEip155Legacy(LegacySignedTransaction {
+                    transaction::Signed::PreEip155Legacy(transaction::signed::Legacy {
                         nonce: value.nonce,
                         gas_price: value.gas_price,
                         gas_limit: value.gas.to(),
@@ -209,7 +205,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
                         is_fake: false,
                     })
                 } else {
-                    SignedTransaction::PostEip155Legacy(Eip155SignedTransaction {
+                    transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
                         nonce: value.nonce,
                         gas_price: value.gas_price,
                         gas_limit: value.gas.to(),
@@ -226,7 +222,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
                     })
                 }
             }
-            Some(1) => SignedTransaction::Eip2930(Eip2930SignedTransaction {
+            Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
                 odd_y_parity: value.odd_y_parity(),
                 chain_id: value
                     .chain_id
@@ -246,7 +242,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
                 hash: OnceLock::from(value.hash),
                 is_fake: false,
             }),
-            Some(2) => SignedTransaction::Eip1559(Eip1559SignedTransaction {
+            Some(2) => transaction::Signed::Eip1559(transaction::signed::Eip1559 {
                 odd_y_parity: value.odd_y_parity(),
                 chain_id: value
                     .chain_id
@@ -271,7 +267,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
                 hash: OnceLock::from(value.hash),
                 is_fake: false,
             }),
-            Some(3) => SignedTransaction::Eip4844(Eip4844SignedTransaction {
+            Some(3) => transaction::Signed::Eip4844(transaction::signed::Eip4844 {
                 odd_y_parity: value.odd_y_parity(),
                 chain_id: value
                     .chain_id
@@ -307,7 +303,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
             Some(r#type) => {
                 log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction", );
 
-                SignedTransaction::PostEip155Legacy(Eip155SignedTransaction {
+                transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
                     nonce: value.nonce,
                     gas_price: value.gas_price,
                     gas_limit: value.gas.to(),
@@ -332,7 +328,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
     }
 }
 
-fn initial_cost(spec_id: SpecId, transaction: &SignedTransaction) -> u64 {
+fn initial_cost(spec_id: SpecId, transaction: &transaction::Signed) -> u64 {
     let access_list = transaction
         .access_list()
         .cloned()
@@ -352,7 +348,7 @@ fn initial_cost(spec_id: SpecId, transaction: &SignedTransaction) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction::Eip155TransactionRequest, Bytes};
+    use edr_eth::{transaction, Bytes};
 
     use super::*;
 
@@ -362,7 +358,7 @@ mod tests {
 
         let caller = Address::random();
 
-        let request = Eip155TransactionRequest {
+        let request = transaction::request::Eip155 {
             nonce: 0,
             gas_price: U256::ZERO,
             gas_limit: TOO_LOW_GAS_LIMIT,
@@ -396,7 +392,7 @@ mod tests {
     fn create_missing_data() -> anyhow::Result<()> {
         let caller = Address::random();
 
-        let request = Eip155TransactionRequest {
+        let request = transaction::request::Eip155 {
             nonce: 0,
             gas_price: U256::ZERO,
             gas_limit: 30_000,

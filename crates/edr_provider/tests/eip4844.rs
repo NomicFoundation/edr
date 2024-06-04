@@ -6,14 +6,9 @@ use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
-    transaction::{
-        pooled::{
-            eip4844::{Blob, Bytes48, BYTES_PER_BLOB},
-            Eip4844PooledTransaction, PooledTransaction,
-        },
-        Eip4844TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
-    },
-    AccountInfo, Address, Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
+    transaction::{self, pooled::PooledTransaction, EthTransactionRequest, Transaction},
+    AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
+    U256,
 };
 use edr_evm::{EnvKzgSettings, ExecutableTransaction, KECCAK_EMPTY};
 use edr_provider::{
@@ -27,7 +22,7 @@ use tokio::runtime;
 /// Helper struct to modify the pooled transaction from the value in
 /// `fixtures/eip4844.txt`. It reuses the secret key from `SECRET_KEYS[0]`.
 struct BlobTransactionBuilder {
-    request: Eip4844TransactionRequest,
+    request: transaction::request::Eip4844,
     blobs: Vec<Blob>,
     commitments: Vec<Bytes48>,
     proofs: Vec<Bytes48>,
@@ -46,7 +41,7 @@ impl BlobTransactionBuilder {
             .expect("Failed to sign transaction");
 
         let settings = EnvKzgSettings::Default;
-        let pooled_transaction = Eip4844PooledTransaction::new(
+        let pooled_transaction = transaction::pooled::Eip4844::new(
             signed_transaction,
             self.blobs,
             self.commitments,
@@ -104,7 +99,7 @@ impl Default for BlobTransactionBuilder {
 
         let (transaction, blobs, commitments, proofs) = pooled_transaction.into_inner();
 
-        let request = Eip4844TransactionRequest::from(&transaction);
+        let request = transaction::request::Eip4844::from(&transaction);
 
         Self {
             request,
@@ -126,7 +121,7 @@ fn fake_pooled_transaction() -> PooledTransaction {
         .expect("failed to decode raw transaction")
 }
 
-fn fake_transaction() -> SignedTransaction {
+fn fake_transaction() -> transaction::Signed {
     fake_pooled_transaction().into_payload()
 }
 

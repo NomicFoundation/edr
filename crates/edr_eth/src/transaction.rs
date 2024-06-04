@@ -7,15 +7,50 @@
 mod fake_signature;
 /// Types for transaction gossip (aka pooled transactions)
 pub mod pooled;
-mod request;
-mod signed;
+/// Types for transaction requests.
+pub mod request;
+/// Types for signed transactions.
+pub mod signed;
 mod r#type;
 
 pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
-pub use self::{r#type::TransactionType, request::*, signed::*};
+pub use self::r#type::TransactionType;
 use crate::{access_list::AccessListItem, Address, Bytes, U256};
+
+pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
+
+/// Container type for various Ethereum transaction requests
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Request {
+    /// A legacy transaction request
+    Legacy(request::Legacy),
+    /// An EIP-155 transaction request
+    Eip155(request::Eip155),
+    /// An EIP-2930 transaction request
+    Eip2930(request::Eip2930),
+    /// An EIP-1559 transaction request
+    Eip1559(request::Eip1559),
+    /// An EIP-4844 transaction request
+    Eip4844(request::Eip4844),
+}
+
+/// Container type for various signed Ethereum transactions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Signed {
+    /// Legacy transaction
+    PreEip155Legacy(signed::Legacy),
+    /// EIP-155 transaction
+    PostEip155Legacy(signed::Eip155),
+    /// EIP-2930 transaction
+    Eip2930(signed::Eip2930),
+    /// EIP-1559 transaction
+    Eip1559(signed::Eip1559),
+    /// EIP-4844 transaction
+    Eip4844(signed::Eip4844),
+}
 
 pub trait Transaction {
     /// The effective gas price of the transaction, calculated using the
