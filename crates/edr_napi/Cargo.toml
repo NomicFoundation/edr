@@ -36,7 +36,6 @@ alloy-primitives = { workspace = true, features = ["serde"] }
 forge.workspace = true
 foundry-compilers = { workspace = true, features = ["full"] }
 foundry-config.workspace = true
-foundry-evm.workspace = true
 tempfile = "3.10.1"
 
 [target.x86_64-unknown-linux-gnu.dependencies]

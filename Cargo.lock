@@ -1924,7 +1924,6 @@ dependencies = [
  "forge",
  "foundry-compilers",
  "foundry-config",
- "foundry-evm",
  "itertools 0.12.1",
  "k256",
  "lazy_static",
