@@ -1,13 +1,12 @@
 use std::mem::take;
 
-use hashbrown::HashSet;
-
-use crate::{log::FilterLog, remote::BlockSpec, Address, Bytes, B256};
+use crate::{block_spec::BlockSpec, log::FilterLog, Address, Bytes, B256};
 
 /// A type that can be used to pass either one or many objects to a JSON-RPC
 /// request
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum OneOrMore<T> {
     /// one object
     One(T),
@@ -16,41 +15,43 @@ pub enum OneOrMore<T> {
 }
 
 /// for specifying the inputs to `eth_newFilter` and `eth_getLogs`
-#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct LogFilterOptions {
     /// beginning of a range of blocks
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub from_block: Option<BlockSpec>,
     /// end of a range of blocks
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub to_block: Option<BlockSpec>,
     /// a single block, specified by its hash
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub block_hash: Option<B256>,
     /// address
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub address: Option<OneOrMore<Address>>,
     /// topics
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub topics: Option<Vec<Option<OneOrMore<B256>>>>,
 }
 
 /// represents the output of `eth_getFilterLogs` and `eth_getFilterChanges` when
 /// used with a log filter
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct LogOutput {
     /// true when the log was removed, due to a chain reorganization. false if
     /// it's a valid log
     pub removed: bool,
     /// integer of the log index position in the block. None when its pending
     /// log.
-    #[serde(with = "crate::serde::optional_u64")]
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde::optional_u64"))]
     pub log_index: Option<u64>,
     /// integer of the transactions index position log was created from. None
     /// when its pending log.
-    #[serde(with = "crate::serde::optional_u64")]
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde::optional_u64"))]
     pub transaction_index: Option<u64>,
     /// hash of the transactions this log was created from. None when its
     /// pending log.
@@ -60,7 +61,7 @@ pub struct LogOutput {
     pub block_hash: Option<B256>,
     /// the block number where this log was in. null when its pending. None when
     /// its pending log.
-    #[serde(with = "crate::serde::optional_u64")]
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde::optional_u64"))]
     pub block_number: Option<u64>,
     /// address from which this log originated.
     pub address: Address,
@@ -90,8 +91,9 @@ impl From<&FilterLog> for LogOutput {
 }
 
 /// represents the output of `eth_getFilterChanges`
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum FilteredEvents {
     /// logs
     Logs(Vec<LogOutput>),
@@ -134,6 +136,7 @@ pub enum SubscriptionType {
     NewPendingTransactions,
 }
 
+#[cfg(feature = "serde")]
 impl serde::Serialize for SubscriptionType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -147,6 +150,7 @@ impl serde::Serialize for SubscriptionType {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'a> serde::Deserialize<'a> for SubscriptionType {
     fn deserialize<D>(deserializer: D) -> Result<SubscriptionType, D::Error>
     where
@@ -175,29 +179,4 @@ impl<'a> serde::Deserialize<'a> for SubscriptionType {
 
         deserializer.deserialize_identifier(SubscriptionTypeVisitor)
     }
-}
-
-/// Whether the log address matches the address filter.
-pub fn matches_address_filter(log_address: &Address, address_filter: &HashSet<Address>) -> bool {
-    address_filter.is_empty() || address_filter.contains(log_address)
-}
-
-/// Whether the log topics match the topics filter.
-pub fn matches_topics_filter(log_topics: &[B256], topics_filter: &[Option<Vec<B256>>]) -> bool {
-    if topics_filter.len() > log_topics.len() {
-        return false;
-    }
-
-    topics_filter
-        .iter()
-        .zip(log_topics.iter())
-        .all(|(normalized_topics, log_topic)| {
-            normalized_topics
-                .as_ref()
-                .map_or(true, |normalized_topics| {
-                    normalized_topics
-                        .iter()
-                        .any(|normalized_topic| *normalized_topic == *log_topic)
-                })
-        })
 }

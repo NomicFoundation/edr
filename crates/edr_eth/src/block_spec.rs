@@ -1,40 +1,38 @@
 use std::{
-    borrow::Cow,
     fmt,
     fmt::{Display, Formatter},
 };
 
-use serde::de;
-
-use crate::{B256, U64};
-
-const BLOCK_HASH_FIELD: &str = "blockHash";
-const REQUIRE_CANONICAL_FIELD: &str = "requireCanonical";
-const BLOCK_NUMBER_FIELD: &str = "blockNumber";
+use crate::B256;
 
 /// for representing block specifications per EIP-1898
-#[derive(Clone, Debug, PartialEq, serde::Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Eip1898BlockSpec {
     /// to represent the Object { blockHash, requireCanonical } in EIP-1898
-    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Hash {
         /// the block hash
         block_hash: B256,
         /// whether the server should additionally raise a JSON-RPC error if the
         /// block is not in the canonical chain
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         require_canonical: Option<bool>,
     },
     /// to represent the Object { blockNumber } in EIP-1898
-    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Number {
         /// the block number
-        #[serde(serialize_with = "crate::serde::u64::serialize")]
+        #[cfg_attr(
+            feature = "serde",
+            serde(serialize_with = "crate::serde::u64::serialize")
+        )]
         block_number: u64,
     },
 }
 
+#[cfg(feature = "serde")]
 // We are not using a derived implementation for untagged enums, because we want
 // to be able to error on invalid combinations of fields
 impl<'de> serde::Deserialize<'de> for Eip1898BlockSpec {
@@ -42,6 +40,16 @@ impl<'de> serde::Deserialize<'de> for Eip1898BlockSpec {
     where
         D: serde::Deserializer<'de>,
     {
+        use std::borrow::Cow;
+
+        use serde::de;
+
+        use crate::U64;
+
+        const BLOCK_HASH_FIELD: &str = "blockHash";
+        const REQUIRE_CANONICAL_FIELD: &str = "requireCanonical";
+        const BLOCK_NUMBER_FIELD: &str = "blockNumber";
+
         #[derive(serde::Deserialize)]
         #[serde(field_identifier, rename_all = "camelCase")]
         enum Field {
@@ -138,22 +146,23 @@ impl Display for Eip1898BlockSpec {
 }
 
 /// possible block tags as defined by the Ethereum JSON-RPC specification
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum BlockTag {
     /// earliest
-    #[serde(rename = "earliest")]
+    #[cfg_attr(feature = "serde", serde(rename = "earliest"))]
     Earliest,
     /// latest
-    #[serde(rename = "latest")]
+    #[cfg_attr(feature = "serde", serde(rename = "latest"))]
     Latest,
     /// pending
-    #[serde(rename = "pending")]
+    #[cfg_attr(feature = "serde", serde(rename = "pending"))]
     Pending,
     /// safe
-    #[serde(rename = "safe")]
+    #[cfg_attr(feature = "serde", serde(rename = "safe"))]
     Safe,
     /// finalized
-    #[serde(rename = "finalized")]
+    #[cfg_attr(feature = "serde", serde(rename = "finalized"))]
     Finalized,
 }
 
@@ -170,27 +179,37 @@ impl Display for BlockTag {
 }
 
 /// For specifying a block
-#[derive(Clone, Debug, PartialEq, serde::Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum BlockSpec {
     /// as a block number
-    Number(#[serde(serialize_with = "crate::serde::u64::serialize")] u64),
+    Number(
+        #[cfg_attr(
+            feature = "serde",
+            serde(serialize_with = "crate::serde::u64::serialize")
+        )]
+        u64,
+    ),
     /// as a block tag (eg "latest")
     Tag(BlockTag),
     /// as an EIP-1898-compliant block specifier
     Eip1898(Eip1898BlockSpec),
 }
 
+#[cfg(feature = "serde")]
 // We are not using a derived implementation for untagged enums, because we want
 // to propagate custom error messages from the `Eip1898BlockSpec` deserializer.
-impl<'de> de::Deserialize<'de> for BlockSpec {
+impl<'de> serde::de::Deserialize<'de> for BlockSpec {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: de::Deserializer<'de>,
+        D: serde::de::Deserializer<'de>,
     {
+        use crate::U64;
+
         struct BlockSpecVisitor;
 
-        impl<'de> de::Visitor<'de> for BlockSpecVisitor {
+        impl<'de> serde::de::Visitor<'de> for BlockSpecVisitor {
             type Value = BlockSpec;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -199,16 +218,17 @@ impl<'de> de::Deserialize<'de> for BlockSpec {
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
             where
-                E: de::Error,
+                E: serde::de::Error,
             {
                 let result = if v.starts_with("0x") {
-                    let number: U64 =
-                        de::Deserialize::deserialize(de::value::StrDeserializer::new(v))?;
+                    let number: U64 = serde::de::Deserialize::deserialize(
+                        serde::de::value::StrDeserializer::new(v),
+                    )?;
                     BlockSpec::Number(number.try_into().expect("U64 fits into u64"))
                 } else {
                     // Forward to deserializer of `BlockTag`
-                    BlockSpec::Tag(de::Deserialize::deserialize(
-                        de::value::StrDeserializer::new(v),
+                    BlockSpec::Tag(serde::de::Deserialize::deserialize(
+                        serde::de::value::StrDeserializer::new(v),
                     )?)
                 };
                 Ok(result)
@@ -216,11 +236,11 @@ impl<'de> de::Deserialize<'de> for BlockSpec {
 
             fn visit_map<M>(self, map: M) -> Result<BlockSpec, M::Error>
             where
-                M: de::MapAccess<'de>,
+                M: serde::de::MapAccess<'de>,
             {
                 // Forward to deserializer of `Eip1898BlockSpec`
-                Ok(BlockSpec::Eip1898(de::Deserialize::deserialize(
-                    de::value::MapAccessDeserializer::new(map),
+                Ok(BlockSpec::Eip1898(serde::de::Deserialize::deserialize(
+                    serde::de::value::MapAccessDeserializer::new(map),
                 )?))
             }
         }
@@ -278,11 +298,12 @@ impl Display for BlockSpec {
 }
 
 /// A block spec without EIP-1898 support.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum PreEip1898BlockSpec {
     /// as a block number
-    Number(#[serde(with = "crate::serde::u64")] u64),
+    Number(#[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))] u64),
     /// as a block tag (eg "latest")
     Tag(BlockTag),
 }
@@ -298,7 +319,7 @@ impl From<PreEip1898BlockSpec> for BlockSpec {
 
 impl_block_tags!(PreEip1898BlockSpec);
 
-#[cfg(test)]
+#[cfg(all(test, feature = "serde"))]
 mod tests {
     use serde_json::json;
 

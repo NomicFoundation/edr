@@ -2,7 +2,6 @@ use std::sync::OnceLock;
 
 use alloy_rlp::BufMut;
 use edr_eth::{
-    remote,
     signature::Signature,
     transaction::{
         Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
@@ -179,10 +178,10 @@ pub enum TransactionConversionError {
     MissingReceiverAddress,
 }
 
-impl TryFrom<remote::eth::Transaction> for ExecutableTransaction {
+impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
     type Error = TransactionConversionError;
 
-    fn try_from(value: remote::eth::Transaction) -> Result<Self, Self::Error> {
+    fn try_from(value: edr_rpc_eth::Transaction) -> Result<Self, Self::Error> {
         let kind = if let Some(to) = &value.to {
             TxKind::Call(*to)
         } else {

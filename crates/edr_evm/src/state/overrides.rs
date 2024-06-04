@@ -1,10 +1,7 @@
 use std::fmt::Debug;
 
-use edr_eth::{
-    account::KECCAK_EMPTY,
-    remote::{AccountOverrideOptions, StateOverrideOptions},
-    Address, B256, U256,
-};
+use edr_eth::{account::KECCAK_EMPTY, Address, B256, U256};
+use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
 use revm::{
     db::StateRef,
     primitives::{AccountInfo, Bytecode, HashMap},

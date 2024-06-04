@@ -122,7 +122,7 @@ impl State for CachedRemoteState {
 mod tests {
     use std::{str::FromStr, sync::Arc};
 
-    use edr_eth::remote::RpcClient;
+    use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
     use edr_test_utils::env::get_alchemy_url;
     use tokio::runtime;
 
@@ -133,7 +133,8 @@ mod tests {
         let tempdir = tempfile::tempdir().expect("can create tempdir");
 
         let rpc_client =
-            RpcClient::new(&get_alchemy_url(), tempdir.path().to_path_buf(), None).expect("url ok");
+            EthRpcClient::<EthRpcSpec>::new(&get_alchemy_url(), tempdir.path().to_path_buf(), None)
+                .expect("url ok");
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");

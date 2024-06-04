@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-use edr_eth::{remote::BlockSpec, utils::u256_to_padded_hex, Address, Bytes, U256};
+use edr_eth::{utils::u256_to_padded_hex, Address, BlockSpec, Bytes, U256};
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags, time::TimeSinceEpoch,

@@ -18,18 +18,14 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         BlobGas, BlockOptions,
     },
+    fee_history::FeeHistoryResult,
+    filter::{FilteredEvents, LogOutput, SubscriptionType},
     log::FilterLog,
     receipt::BlockReceipt,
-    remote::{
-        client::{HeaderMap, HttpError},
-        eth::FeeHistoryResult,
-        filter::{FilteredEvents, LogOutput, SubscriptionType},
-        BlockSpec, BlockTag, Eip1898BlockSpec, RpcClient, RpcClientError,
-    },
     reward_percentile::RewardPercentile,
     signature::{RecoveryMessage, Signature},
     transaction::{Transaction, TransactionRequestAndSender, TransactionType},
-    Address, Bytes, SpecId, B256, U256,
+    Address, BlockSpec, BlockTag, Bytes, Eip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{
     blockchain::{
@@ -49,6 +45,11 @@ use edr_evm::{
     DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutableTransaction, ExecutionResult,
     HashMap, HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
     StorageSlot, SyncBlock, TxEnv, KECCAK_EMPTY,
+};
+use edr_rpc_eth::{
+    client::{EthRpcClient, HeaderMap, RpcClientError},
+    error::HttpError,
+    spec::EthRpcSpec,
 };
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
@@ -174,7 +175,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     fork_metadata: Option<ForkMetadata>,
     // Must be set if the provider is created with a fork config.
     // Hack to get around the type erasure with the dyn blockchain trait.
-    rpc_client: Option<Arc<RpcClient>>,
+    rpc_client: Option<Arc<EthRpcClient<EthRpcSpec>>>,
     instance_id: B256,
     is_auto_mining: bool,
     next_block_base_fee_per_gas: Option<U256>,
@@ -2349,7 +2350,7 @@ fn block_time_offset_seconds(
 struct BlockchainAndState {
     blockchain: Box<dyn SyncBlockchain<BlockchainError, StateError>>,
     fork_metadata: Option<ForkMetadata>,
-    rpc_client: Option<Arc<RpcClient>>,
+    rpc_client: Option<Arc<EthRpcClient<EthRpcSpec>>>,
     state: Box<dyn SyncState<StateError>>,
     irregular_state: IrregularState,
     prev_randao_generator: RandomHashGenerator,
@@ -2376,7 +2377,7 @@ fn create_blockchain_and_state(
             .map(|headers| HeaderMap::try_from(headers).map_err(CreationError::InvalidHttpHeaders))
             .transpose()?;
 
-        let rpc_client = Arc::new(RpcClient::new(
+        let rpc_client = Arc::new(EthRpcClient::<EthRpcSpec>::new(
             &fork_config.json_rpc_url,
             config.cache_dir.clone(),
             http_headers.clone(),
@@ -2716,8 +2717,8 @@ mod tests {
 
     use alloy_sol_types::{sol, SolCall};
     use anyhow::Context;
-    use edr_eth::remote::eth::CallRequest;
     use edr_evm::{hex, MineOrdering, TransactionError};
+    use edr_rpc_eth::CallRequest;
     use edr_test_utils::env::get_alchemy_url;
     use serde_json::json;
 

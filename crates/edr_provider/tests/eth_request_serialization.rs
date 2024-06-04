@@ -1,16 +1,13 @@
 mod common;
 
 use edr_eth::{
-    remote::{
-        eth::CallRequest,
-        filter::{LogFilterOptions, LogOutput, OneOrMore},
-        BlockSpec, BlockTag, PreEip1898BlockSpec,
-    },
+    filter::{LogFilterOptions, LogOutput, OneOrMore},
     transaction::EthTransactionRequest,
-    Address, Bytes, B256, U256, U64,
+    Address, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_evm::alloy_primitives::U160;
 use edr_provider::{IntervalConfigRequest, MethodInvocation, U64OrUsize};
+use edr_rpc_eth::CallRequest;
 
 use crate::common::{
     help_test_method_invocation_serde, help_test_method_invocation_serde_with_expected,
@@ -368,14 +365,14 @@ macro_rules! impl_serde_eth_subscribe_tests {
             paste::item! {
                 #[test]
                 fn [<test_serde_eth_subscribe_ $name _without_filter>]() {
-                    use edr_eth::remote::filter::SubscriptionType;
+                    use edr_eth::filter::SubscriptionType;
 
                     help_test_method_invocation_serde(MethodInvocation::Subscribe($variant, None));
                 }
 
                 #[test]
                 fn [<test_serde_eth_subscribe_ $name _with_filter>]() {
-                    use edr_eth::remote::filter::SubscriptionType;
+                    use edr_eth::filter::SubscriptionType;
 
                     help_test_method_invocation_serde(MethodInvocation::Subscribe($variant, Some(LogFilterOptions {
                         from_block: Some(BlockSpec::Number(1000)),

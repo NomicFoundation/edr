@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use edr_eth::{
+    log::{matches_address_filter, matches_topics_filter},
     receipt::BlockReceipt,
-    remote::filter::{matches_address_filter, matches_topics_filter},
     transaction::Transaction,
     Address, B256, U256,
 };

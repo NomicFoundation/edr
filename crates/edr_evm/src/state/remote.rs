@@ -3,9 +3,10 @@ mod cached;
 use std::sync::Arc;
 
 pub use cached::CachedRemoteState;
-use edr_eth::{
-    remote::{BlockSpec, PreEip1898BlockSpec, RpcClient, RpcClientError},
-    Address, B256, U256,
+use edr_eth::{Address, BlockSpec, PreEip1898BlockSpec, B256, U256};
+use edr_rpc_eth::{
+    client::{EthRpcClient, RpcClientError},
+    spec::EthRpcSpec,
 };
 use revm::{
     db::StateRef,
@@ -18,7 +19,7 @@ use super::StateError;
 /// A state backed by a remote Ethereum node
 #[derive(Debug)]
 pub struct RemoteState {
-    client: Arc<RpcClient>,
+    client: Arc<EthRpcClient<EthRpcSpec>>,
     runtime: runtime::Handle,
     block_number: u64,
 }
@@ -26,7 +27,11 @@ pub struct RemoteState {
 impl RemoteState {
     /// Construct a new instance using an RPC client for a remote Ethereum node
     /// and a block number from which data will be pulled.
-    pub fn new(runtime: runtime::Handle, client: Arc<RpcClient>, block_number: u64) -> Self {
+    pub fn new(
+        runtime: runtime::Handle,
+        client: Arc<EthRpcClient<EthRpcSpec>>,
+        block_number: u64,
+    ) -> Self {
         Self {
             client,
             runtime,
@@ -73,7 +78,7 @@ impl StateRef for RemoteState {
             self.runtime
                 .block_on(
                     self.client
-                        .get_account_info(&address, Some(BlockSpec::Number(self.block_number))),
+                        .get_account_info(address, Some(BlockSpec::Number(self.block_number))),
                 )
                 .map_err(StateError::Remote)
         })?))
@@ -89,7 +94,7 @@ impl StateRef for RemoteState {
         Ok(tokio::task::block_in_place(move || {
             self.runtime
                 .block_on(self.client.get_storage_at(
-                    &address,
+                    address,
                     index,
                     Some(BlockSpec::Number(self.block_number)),
                 ))
@@ -117,7 +122,8 @@ mod tests {
             .expect("couldn't convert OsString into a String");
 
         let rpc_client =
-            RpcClient::new(&alchemy_url, tempdir.path().to_path_buf(), None).expect("url ok");
+            EthRpcClient::<EthRpcSpec>::new(&alchemy_url, tempdir.path().to_path_buf(), None)
+                .expect("url ok");
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");

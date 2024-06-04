@@ -2,11 +2,11 @@ use core::fmt::Debug;
 
 use edr_eth::{
     access_list::AccessListItem,
-    remote::{eth::CallRequest, BlockSpec, BlockTag, PreEip1898BlockSpec},
     transaction::{EthTransactionRequest, SignedTransaction},
-    Address, SpecId, B256, U256,
+    Address, BlockSpec, BlockTag, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::Bytes;
+use edr_rpc_eth::CallRequest;
 
 use crate::ProviderError;
 

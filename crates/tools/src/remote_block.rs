@@ -1,8 +1,8 @@
-use edr_eth::remote::RpcClient;
 use edr_provider::test_utils::run_full_block;
+use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
 
 pub async fn replay(url: String, block_number: Option<u64>, chain_id: u64) -> anyhow::Result<()> {
-    let rpc_client = RpcClient::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
+    let rpc_client = EthRpcClient::<EthRpcSpec>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
 
     let block_number = if let Some(block_number) = block_number {
         block_number

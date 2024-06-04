@@ -3,11 +3,12 @@
 use std::{str::FromStr, sync::Arc};
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{remote::RpcClient, Address, U256};
+use edr_eth::{Address, U256};
 use edr_evm::{
     state::{AccountModifierFn, ForkState, StateDebug},
     RandomHashGenerator,
 };
+use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
 use edr_test_utils::env::get_alchemy_url;
 use parking_lot::Mutex;
 use tokio::runtime;
@@ -19,7 +20,7 @@ async fn issue_4984() -> anyhow::Result<()> {
 
     let contract_address = Address::from_str(TEST_CONTRACT_ADDRESS).unwrap();
 
-    let rpc_client = RpcClient::new(
+    let rpc_client = EthRpcClient::<EthRpcSpec>::new(
         &get_alchemy_url().replace("mainnet", "sepolia"),
         CACHE_DIR.into(),
         None,

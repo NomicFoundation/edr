@@ -18,9 +18,22 @@ pub struct Error {
     pub data: Option<serde_json::Value>,
 }
 
+/// A JSON-RPC request
+#[derive(Deserialize, Serialize)]
+pub struct Request<MethodT> {
+    /// JSON-RPC version
+    #[serde(rename = "jsonrpc")]
+    pub version: Version,
+    /// the method to invoke, with its parameters
+    #[serde(flatten)]
+    pub method: MethodT,
+    /// the request ID, to be correlated via the response's ID
+    pub id: Id,
+}
+
 /// Represents a JSON-RPC 2.0 response.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Response<T> {
+pub struct Response<SuccessT> {
     /// A String specifying the version of the JSON-RPC protocol.
     pub jsonrpc: Version,
     //
@@ -31,13 +44,13 @@ pub struct Response<T> {
     pub id: Id,
     /// Response data.
     #[serde(flatten)]
-    pub data: ResponseData<T>,
+    pub data: ResponseData<SuccessT>,
 }
 
 /// Represents JSON-RPC 2.0 success response.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ResponseData<T> {
+pub enum ResponseData<SuccessT> {
     /// an error response
     Error {
         /// the error
@@ -46,14 +59,14 @@ pub enum ResponseData<T> {
     /// a success response
     Success {
         /// the result
-        result: T,
+        result: SuccessT,
     },
 }
 
-impl<T> ResponseData<T> {
+impl<SuccessT> ResponseData<SuccessT> {
     /// Returns a [`Result`] where `Success` is mapped to `Ok` and `Error` to
     /// `Err`.
-    pub fn into_result(self) -> Result<T, Error> {
+    pub fn into_result(self) -> Result<SuccessT, Error> {
         match self {
             ResponseData::Success { result } => Ok(result),
             ResponseData::Error { error } => Err(error),
@@ -62,7 +75,7 @@ impl<T> ResponseData<T> {
 
     /// convenience constructor for an error response
     pub fn new_error(code: i16, message: &str, data: Option<serde_json::Value>) -> Self {
-        ResponseData::<T>::Error {
+        ResponseData::<SuccessT>::Error {
             error: Error {
                 code,
                 message: String::from(message),

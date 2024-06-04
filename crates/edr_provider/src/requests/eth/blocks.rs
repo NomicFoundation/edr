@@ -1,11 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::{
-    remote::{eth, BlockSpec, PreEip1898BlockSpec},
-    transaction::Transaction,
-    SpecId, B256, U256, U64,
-};
+use edr_eth::{transaction::Transaction, BlockSpec, PreEip1898BlockSpec, SpecId, B256, U256, U64};
 use edr_evm::{blockchain::BlockchainError, SyncBlock};
 
 use crate::{
@@ -19,14 +15,14 @@ use crate::{
 #[serde(untagged)]
 pub enum HashOrTransaction {
     Hash(B256),
-    Transaction(eth::Transaction),
+    Transaction(edr_rpc_eth::Transaction),
 }
 
 pub fn handle_get_block_by_hash_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
     block_hash: B256,
     transaction_detail_flag: bool,
-) -> Result<Option<eth::Block<HashOrTransaction>>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Block<HashOrTransaction>>, ProviderError<LoggerErrorT>> {
     data.block_by_hash(&block_hash)?
         .map(|block| {
             let total_difficulty = data.total_difficulty_by_hash(block.hash())?;
@@ -46,7 +42,7 @@ pub fn handle_get_block_by_number_request<LoggerErrorT: Debug, TimerT: Clone + T
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     block_spec: PreEip1898BlockSpec,
     transaction_detail_flag: bool,
-) -> Result<Option<eth::Block<HashOrTransaction>>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Block<HashOrTransaction>>, ProviderError<LoggerErrorT>> {
     block_by_number(data, &block_spec.into())?
         .map(
             |BlockByNumberResult {
@@ -143,7 +139,7 @@ fn block_to_rpc_output<LoggerErrorT: Debug>(
     pending: bool,
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,
-) -> Result<eth::Block<HashOrTransaction>, ProviderError<LoggerErrorT>> {
+) -> Result<edr_rpc_eth::Block<HashOrTransaction>, ProviderError<LoggerErrorT>> {
     let header = block.header();
 
     let transactions: Vec<HashOrTransaction> = if transaction_detail_flag {
@@ -173,7 +169,7 @@ fn block_to_rpc_output<LoggerErrorT: Debug>(
     let nonce = if pending { None } else { Some(header.nonce) };
     let number = if pending { None } else { Some(header.number) };
 
-    Ok(eth::Block {
+    Ok(edr_rpc_eth::Block {
         hash: Some(*block.hash()),
         parent_hash: header.parent_hash,
         sha3_uncles: header.ommers_hash,

@@ -4,13 +4,12 @@ use anyhow::anyhow;
 use edr_eth::{
     block::{miner_reward, BlobGas, BlockOptions},
     receipt::BlockReceipt,
-    remote::{PreEip1898BlockSpec, RpcClient},
     signature::secret_key_from_str,
     spec::chain_hardfork_activations,
     transaction::EthTransactionRequest,
     trie::KECCAK_NULL_RLP,
     withdrawal::Withdrawal,
-    Address, Bytes, HashMap, SpecId, B256, U256,
+    Address, Bytes, HashMap, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{
     alloy_primitives::U160,
@@ -19,6 +18,7 @@ use edr_evm::{
     Block, BlockBuilder, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResultWithContext,
     RandomHashGenerator, RemoteBlock,
 };
+use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
 
 use super::*;
 use crate::{config::MiningConfig, requests::hardhat::rpc_types::ForkConfig};
@@ -139,7 +139,8 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
     }));
 
     let replay_block = {
-        let rpc_client = RpcClient::new(&url, default_config.cache_dir.clone(), None)?;
+        let rpc_client =
+            EthRpcClient::<EthRpcSpec>::new(&url, default_config.cache_dir.clone(), None)?;
 
         let block = rpc_client
             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(block_number))
@@ -148,7 +149,7 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
         RemoteBlock::new(block, Arc::new(rpc_client), runtime.clone())?
     };
 
-    let rpc_client = RpcClient::new(&url, default_config.cache_dir.clone(), None)?;
+    let rpc_client = EthRpcClient::<EthRpcSpec>::new(&url, default_config.cache_dir.clone(), None)?;
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(parking_lot::Mutex::new(RandomHashGenerator::with_seed(
         edr_defaults::STATE_ROOT_HASH_SEED,

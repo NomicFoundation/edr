@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use edr_eth::{remote::RpcClient, trie::KECCAK_NULL_RLP, Address, B256, U256};
+use edr_eth::{trie::KECCAK_NULL_RLP, Address, B256, U256};
+use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use revm::{
     db::components::{State, StateRef},
@@ -29,7 +30,7 @@ impl ForkState {
     /// Constructs a new instance
     pub fn new(
         runtime: runtime::Handle,
-        rpc_client: Arc<RpcClient>,
+        rpc_client: Arc<EthRpcClient<EthRpcSpec>>,
         hash_generator: Arc<Mutex<RandomHashGenerator>>,
         fork_block_number: u64,
         state_root: B256,
@@ -226,7 +227,7 @@ mod tests {
         str::FromStr,
     };
 
-    use edr_eth::remote::PreEip1898BlockSpec;
+    use edr_eth::PreEip1898BlockSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
@@ -251,8 +252,12 @@ mod tests {
             let tempdir = tempfile::tempdir().expect("can create tempdir");
 
             let runtime = runtime::Handle::current();
-            let rpc_client = RpcClient::new(&get_alchemy_url(), tempdir.path().to_path_buf(), None)
-                .expect("url ok");
+            let rpc_client = EthRpcClient::<EthRpcSpec>::new(
+                &get_alchemy_url(),
+                tempdir.path().to_path_buf(),
+                None,
+            )
+            .expect("url ok");
 
             let block = rpc_client
                 .get_block_by_number(PreEip1898BlockSpec::Number(FORK_BLOCK))

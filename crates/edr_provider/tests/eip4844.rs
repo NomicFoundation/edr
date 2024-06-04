@@ -4,7 +4,6 @@ use std::{convert::Infallible, str::FromStr};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    remote::{self, eth::CallRequest, PreEip1898BlockSpec},
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
@@ -14,7 +13,7 @@ use edr_eth::{
         },
         Eip4844TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
     },
-    AccountInfo, Address, Bytes, SpecId, B256, U256,
+    AccountInfo, Address, Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{EnvKzgSettings, ExecutableTransaction, KECCAK_EMPTY};
 use edr_provider::{
@@ -22,6 +21,7 @@ use edr_provider::{
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
+use edr_rpc_eth::CallRequest;
 use tokio::runtime;
 
 /// Helper struct to modify the pooled transaction from the value in
@@ -361,7 +361,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: remote::eth::Transaction = serde_json::from_value(result.result)?;
+    let transaction: edr_rpc_eth::Transaction = serde_json::from_value(result.result)?;
     let transaction = ExecutableTransaction::try_from(transaction)?;
 
     assert_eq!(transaction.into_inner().0, expected);
@@ -409,7 +409,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let first_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let first_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(first_block.blob_gas_used, Some(BYTES_PER_BLOB as u64));
 
     assert_eq!(
@@ -433,7 +433,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let second_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let second_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(second_block.blob_gas_used, Some(4 * BYTES_PER_BLOB as u64));
 
     assert_eq!(
@@ -457,7 +457,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let third_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let third_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(third_block.blob_gas_used, Some(5 * BYTES_PER_BLOB as u64));
 
     assert_eq!(
@@ -475,7 +475,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fourth_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fourth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fourth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
@@ -494,7 +494,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fifth_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fifth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fifth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
