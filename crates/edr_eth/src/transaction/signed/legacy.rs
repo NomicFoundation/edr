@@ -6,7 +6,7 @@ use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
 use crate::{
-    signature::{Signature, SignatureError},
+    signature::{self, SignatureError},
     transaction::{self, fake_signature::recover_fake_signature, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -23,7 +23,7 @@ pub struct Legacy {
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub signature: Signature,
+    pub signature: signature::Ecdsa,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]

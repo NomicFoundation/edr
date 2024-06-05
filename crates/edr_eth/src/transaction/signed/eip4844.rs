@@ -6,7 +6,7 @@ use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
 
 use crate::{
     access_list::AccessList,
-    signature::{Signature, SignatureError},
+    signature::{self, SignatureError},
     transaction::{self, fake_signature::recover_fake_signature},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -61,7 +61,7 @@ impl Eip4844 {
 
     /// Recovers the Ethereum address which was used to sign the transaction.
     pub fn recover(&self) -> Result<Address, SignatureError> {
-        let signature = Signature {
+        let signature = signature::Ecdsa {
             r: self.r,
             s: self.s,
             v: u64::from(self.odd_y_parity),

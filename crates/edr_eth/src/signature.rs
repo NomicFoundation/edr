@@ -114,7 +114,7 @@ pub enum RecoveryMessage {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// An ECDSA signature
-pub struct Signature {
+pub struct Ecdsa {
     /// R value
     pub r: U256,
     /// S Value
@@ -123,14 +123,14 @@ pub struct Signature {
     pub v: u64,
 }
 
-impl fmt::Display for Signature {
+impl fmt::Display for Ecdsa {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sig = <[u8; 65]>::from(self);
         write!(f, "{}", hex::encode(&sig[..]))
     }
 }
 
-impl Signature {
+impl Ecdsa {
     /// Constructs a new signature from a message and secret key.
     /// To obtain the hash of a message consider [`hash_message`].
     pub fn new<M>(message: M, secret_key: &SecretKey) -> Result<Self, SignatureError>
@@ -231,7 +231,7 @@ impl Signature {
 
 // We need a custom implementation to avoid the struct being treated as an RLP
 // list.
-impl alloy_rlp::Decodable for Signature {
+impl alloy_rlp::Decodable for Ecdsa {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let decode = Self {
             // The order of these fields determines decoding order.
@@ -246,7 +246,7 @@ impl alloy_rlp::Decodable for Signature {
 
 // We need a custom implementation to avoid the struct being treated as an RLP
 // list.
-impl alloy_rlp::Encodable for Signature {
+impl alloy_rlp::Encodable for Ecdsa {
     fn encode(&self, out: &mut dyn BufMut) {
         // The order of these fields determines decoding order.
         self.v.encode(out);
@@ -268,7 +268,7 @@ fn normalize_recovery_id(v: u64) -> u8 {
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for Signature {
+impl<'a> TryFrom<&'a [u8]> for Ecdsa {
     type Error = SignatureError;
 
     /// Parses a raw signature which is expected to be 65 bytes long where
@@ -287,23 +287,23 @@ impl<'a> TryFrom<&'a [u8]> for Signature {
 
         let v = remainder[0];
 
-        Ok(Signature { r, s, v: v.into() })
+        Ok(Ecdsa { r, s, v: v.into() })
     }
 }
 
 #[cfg(feature = "std")]
-impl FromStr for Signature {
+impl FromStr for Ecdsa {
     type Err = SignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.strip_prefix("0x").unwrap_or(s);
         let bytes = hex::decode(s).map_err(SignatureError::DecodingError)?;
-        Signature::try_from(&bytes[..])
+        Ecdsa::try_from(&bytes[..])
     }
 }
 
-impl From<&Signature> for [u8; 65] {
-    fn from(src: &Signature) -> [u8; 65] {
+impl From<&Ecdsa> for [u8; 65] {
+    fn from(src: &Ecdsa) -> [u8; 65] {
         let mut sig = [0u8; 65];
         let r_bytes = src.r.to_be_bytes::<32>();
         let s_bytes = src.s.to_be_bytes::<32>();
@@ -321,26 +321,26 @@ impl From<&Signature> for [u8; 65] {
     }
 }
 
-impl From<Signature> for [u8; 65] {
-    fn from(src: Signature) -> [u8; 65] {
+impl From<Ecdsa> for [u8; 65] {
+    fn from(src: Ecdsa) -> [u8; 65] {
         <[u8; 65]>::from(&src)
     }
 }
 
-impl From<&Signature> for Vec<u8> {
-    fn from(src: &Signature) -> Vec<u8> {
+impl From<&Ecdsa> for Vec<u8> {
+    fn from(src: &Ecdsa) -> Vec<u8> {
         <[u8; 65]>::from(src).to_vec()
     }
 }
 
-impl From<Signature> for Vec<u8> {
-    fn from(src: Signature) -> Vec<u8> {
+impl From<Ecdsa> for Vec<u8> {
+    fn from(src: Ecdsa) -> Vec<u8> {
         <[u8; 65]>::from(&src).to_vec()
     }
 }
 
-impl From<&Signature> for Bytes {
-    fn from(src: &Signature) -> Self {
+impl From<&Ecdsa> for Bytes {
+    fn from(src: &Ecdsa) -> Self {
         Bytes::from(Vec::<u8>::from(src))
     }
 }
@@ -391,7 +391,7 @@ mod tests {
     fn recover_web3_signature() {
         // test vector taken from:
         // https://web3js.readthedocs.io/en/v1.2.2/web3-eth-accounts.html#sign
-        let signature = Signature::from_str(
+        let signature = Ecdsa::from_str(
             "0xb91467e570a6466aa9e9876cbcd013baba02900b8979d43fe208a4a4f339f5fd6007e74cd82e037b800186422fc2da167c747ef045e5d18a5f5d4300f8e1a0291c"
         ).expect("could not parse signature");
         assert_eq!(
@@ -402,11 +402,11 @@ mod tests {
 
     #[test]
     fn signature_from_str() {
-        let s1 = Signature::from_str(
+        let s1 = Ecdsa::from_str(
             "0xaa231fbe0ed2b5418e6ba7c19bee2522852955ec50996c02a2fe3e71d30ddaf1645baf4823fea7cb4fcc7150842493847cfb6a6d63ab93e8ee928ee3f61f503500"
         ).expect("could not parse 0x-prefixed signature");
 
-        let s2 = Signature::from_str(
+        let s2 = Ecdsa::from_str(
             "aa231fbe0ed2b5418e6ba7c19bee2522852955ec50996c02a2fe3e71d30ddaf1645baf4823fea7cb4fcc7150842493847cfb6a6d63ab93e8ee928ee3f61f503500"
         ).expect("could not parse non-prefixed signature");
 
@@ -440,7 +440,7 @@ mod tests {
             let secret_key_str = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
             let secret_key = secret_key_from_str(secret_key_str).unwrap();
 
-            let signature = Signature::new(msg_input, &secret_key).unwrap();
+            let signature = Ecdsa::new(msg_input, &secret_key).unwrap();
 
             let recovered_address = signature.recover(hashed_message).unwrap();
 

@@ -6,7 +6,7 @@ use revm_primitives::keccak256;
 
 use crate::{
     access_list::AccessListItem,
-    signature::{Signature, SignatureError},
+    signature::{self, SignatureError},
     transaction::{self, fake_signature::make_fake_signature},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -42,7 +42,7 @@ impl Eip4844 {
     ) -> Result<transaction::signed::Eip4844, SignatureError> {
         let hash = self.hash();
 
-        let signature = Signature::new(hash, private_key)?;
+        let signature = signature::Ecdsa::new(hash, private_key)?;
 
         Ok(transaction::signed::Eip4844 {
             chain_id: self.chain_id,

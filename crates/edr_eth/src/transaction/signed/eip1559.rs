@@ -7,7 +7,7 @@ use revm_primitives::{keccak256, TxEnv};
 use super::kind_to_transact_to;
 use crate::{
     access_list::AccessList,
-    signature::{Signature, SignatureError},
+    signature::{self, SignatureError},
     transaction::{self, fake_signature::recover_fake_signature, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -56,7 +56,7 @@ impl Eip1559 {
 
     /// Recovers the Ethereum address which was used to sign the transaction.
     pub fn recover(&self) -> Result<Address, SignatureError> {
-        let signature = Signature {
+        let signature = signature::Ecdsa {
             r: self.r,
             s: self.s,
             v: u64::from(self.odd_y_parity),

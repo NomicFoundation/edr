@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     access_list::AccessList,
-    signature::{Signature, SignatureError},
+    signature::{self, SignatureError},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
@@ -84,21 +84,21 @@ impl Signed {
     }
 
     /// Returns the [`Signature`] of the transaction
-    pub fn signature(&self) -> Signature {
+    pub fn signature(&self) -> signature::Ecdsa {
         match self {
             Signed::PreEip155Legacy(tx) => tx.signature,
             Signed::PostEip155Legacy(tx) => tx.signature,
-            Signed::Eip2930(tx) => Signature {
+            Signed::Eip2930(tx) => signature::Ecdsa {
                 r: tx.r,
                 s: tx.s,
                 v: u64::from(tx.odd_y_parity),
             },
-            Signed::Eip1559(tx) => Signature {
+            Signed::Eip1559(tx) => signature::Ecdsa {
                 r: tx.r,
                 s: tx.s,
                 v: u64::from(tx.odd_y_parity),
             },
-            Signed::Eip4844(tx) => Signature {
+            Signed::Eip4844(tx) => signature::Ecdsa {
                 r: tx.r,
                 s: tx.s,
                 v: u64::from(tx.odd_y_parity),
@@ -421,7 +421,7 @@ mod tests {
                 kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: Signature {
+                signature: signature::Ecdsa {
                     r: U256::default(),
                     s: U256::default(),
                     v: 1,
@@ -436,7 +436,7 @@ mod tests {
                 kind: TxKind::Create,
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: Signature {
+                signature: signature::Ecdsa {
                     r: U256::default(),
                     s: U256::default(),
                     v: 37,
@@ -509,7 +509,7 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: Signature {
+            signature: signature::Ecdsa {
                 v: 43,
                 r: U256::from_str(
                     "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
@@ -538,7 +538,7 @@ mod tests {
             )),
             value: U256::from(693361000000000u64),
             input: Bytes::default(),
-            signature: Signature {
+            signature: signature::Ecdsa {
                 v: 43,
                 r: U256::from_str(
                     "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
@@ -567,7 +567,7 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: Signature {
+            signature: signature::Ecdsa {
                 v: 43,
                 r: U256::from_str(
                     "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
@@ -622,7 +622,7 @@ mod tests {
             )),
             value: U256::from(1234u64),
             input: Bytes::default(),
-            signature: Signature {
+            signature: signature::Ecdsa {
                 v: 44,
                 r: U256::from_str(
                     "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",

@@ -23,7 +23,7 @@ use edr_eth::{
     log::FilterLog,
     receipt::BlockReceipt,
     reward_percentile::RewardPercentile,
-    signature::{RecoveryMessage, Signature},
+    signature::{self, RecoveryMessage},
     transaction::{request::TransactionRequestAndSender, Transaction, TransactionType},
     Address, BlockSpec, BlockTag, Bytes, Eip1898BlockSpec, SpecId, B256, U256,
 };
@@ -1778,9 +1778,9 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         address: &Address,
         message: Bytes,
-    ) -> Result<Signature, ProviderError<LoggerErrorT>> {
+    ) -> Result<signature::Ecdsa, ProviderError<LoggerErrorT>> {
         match self.local_accounts.get(address) {
-            Some(secret_key) => Ok(Signature::new(&message[..], secret_key)?),
+            Some(secret_key) => Ok(signature::Ecdsa::new(&message[..], secret_key)?),
             None => Err(ProviderError::UnknownAddress { address: *address }),
         }
     }
@@ -1789,11 +1789,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         address: &Address,
         message: &TypedData,
-    ) -> Result<Signature, ProviderError<LoggerErrorT>> {
+    ) -> Result<signature::Ecdsa, ProviderError<LoggerErrorT>> {
         match self.local_accounts.get(address) {
             Some(secret_key) => {
                 let hash = message.eip712_signing_hash()?;
-                Ok(Signature::new(RecoveryMessage::Hash(hash), secret_key)?)
+                Ok(signature::Ecdsa::new(
+                    RecoveryMessage::Hash(hash),
+                    secret_key,
+                )?)
             }
             None => Err(ProviderError::UnknownAddress { address: *address }),
         }

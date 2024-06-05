@@ -5,7 +5,7 @@ use k256::SecretKey;
 use revm_primitives::keccak256;
 
 use crate::{
-    signature::{Signature, SignatureError},
+    signature::{self, SignatureError},
     transaction::{self, fake_signature::make_fake_signature, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -35,7 +35,7 @@ impl Eip155 {
     ) -> Result<transaction::signed::Eip155, SignatureError> {
         let hash = self.hash();
 
-        let mut signature = Signature::new(hash, secret_key)?;
+        let mut signature = signature::Ecdsa::new(hash, secret_key)?;
         signature.v += self.v_value_adjustment();
 
         Ok(transaction::signed::Eip155 {

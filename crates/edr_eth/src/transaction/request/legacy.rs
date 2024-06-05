@@ -5,7 +5,7 @@ use k256::SecretKey;
 use revm_primitives::keccak256;
 
 use crate::{
-    signature::{Signature, SignatureError},
+    signature::{self, SignatureError},
     transaction::{self, fake_signature::make_fake_signature, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -34,7 +34,7 @@ impl Legacy {
     ) -> Result<transaction::signed::Legacy, SignatureError> {
         let hash = self.hash();
 
-        let signature = Signature::new(hash, secret_key)?;
+        let signature = signature::Ecdsa::new(hash, secret_key)?;
 
         Ok(transaction::signed::Legacy {
             nonce: self.nonce,

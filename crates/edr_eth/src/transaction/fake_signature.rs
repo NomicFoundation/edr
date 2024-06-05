@@ -1,10 +1,10 @@
-use crate::{signature::Signature, Address, U256};
+use crate::{signature, Address, U256};
 
 // Must match the Hardhat implementation to make sure that transaction hashes
 // and by extension block hashes match for identical input.
 // Hardhat legacy and EIP-155 sender transactions use `v` value 0 while EIP-1559
 // and EIP-2930 transactions use `v` value 1.
-pub(super) fn make_fake_signature<const V: usize>(sender: &Address) -> Signature {
+pub(super) fn make_fake_signature<const V: usize>(sender: &Address) -> signature::Ecdsa {
     // The only requirements on a fake signature are that when it is encoded as part
     // of a transaction, it produces the same hash for the same transaction from
     // a sender, and it produces different hashes for different senders. We
@@ -23,10 +23,10 @@ pub(super) fn make_fake_signature<const V: usize>(sender: &Address) -> Signature
     // from Bitcoin as the `Signature::new` function adds it as well.
     let v = V as u64 + 27;
 
-    Signature { r, s, v }
+    signature::Ecdsa { r, s, v }
 }
 
-pub(super) fn recover_fake_signature(signature: &Signature) -> Address {
+pub(super) fn recover_fake_signature(signature: &signature::Ecdsa) -> Address {
     let address: [u8; 32] = signature.r.to_be_bytes();
     Address::from_slice(&address.as_slice()[12..])
 }

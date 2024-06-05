@@ -165,7 +165,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        signature::Signature,
+        signature,
         transaction::{self, TxKind},
         Address, Bytes, B256, U256,
     };
@@ -214,7 +214,7 @@ mod tests {
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: Signature {
+            signature: signature::Ecdsa {
                 r: U256::default(),
                 s: U256::default(),
                 v: 1,
@@ -229,7 +229,7 @@ mod tests {
             kind: TxKind::Create,
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: Signature {
+            signature: signature::Ecdsa {
                 r: U256::default(),
                 s: U256::default(),
                 v: 37,

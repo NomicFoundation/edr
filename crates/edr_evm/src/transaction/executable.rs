@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use alloy_rlp::BufMut;
 use edr_eth::{
-    signature::Signature,
+    signature,
     transaction::{self, SignedTransaction, Transaction, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -205,7 +205,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                         kind,
                         value: value.value,
                         input: value.input,
-                        signature: Signature {
+                        signature: signature::Ecdsa {
                             r: value.r,
                             s: value.s,
                             v: value.v,
@@ -221,7 +221,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                         kind,
                         value: value.value,
                         input: value.input,
-                        signature: Signature {
+                        signature: signature::Ecdsa {
                             r: value.r,
                             s: value.s,
                             v: value.v,
@@ -319,7 +319,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                     kind,
                     value: value.value,
                     input: value.input,
-                    signature: Signature {
+                    signature: signature::Ecdsa {
                         r: value.r,
                         s: value.s,
                         v: value.v,
