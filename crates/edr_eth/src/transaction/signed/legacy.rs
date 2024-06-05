@@ -7,12 +7,12 @@ use revm_primitives::{keccak256, TxEnv};
 use super::kind_to_transact_to;
 use crate::{
     signature::{self, SignatureError},
-    transaction::{self, fake_signature::recover_fake_signature, TxKind},
+    transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Legacy {
     // The order of these fields determines de-/encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
@@ -23,17 +23,13 @@ pub struct Legacy {
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub signature: signature::Ecdsa,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub signature: signature::Recoverable,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
-    /// Whether the signature is from an impersonated account.
-    #[rlp(default)]
-    #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    pub is_fake: bool,
 }
 
 impl Legacy {
@@ -43,11 +39,8 @@ impl Legacy {
 
     /// Recovers the Ethereum address which was used to sign the transaction.
     pub fn recover(&self) -> Result<Address, SignatureError> {
-        if self.is_fake {
-            return Ok(recover_fake_signature(&self.signature));
-        }
         self.signature
-            .recover(transaction::request::Legacy::from(self).hash())
+            .recover_address(transaction::request::Legacy::from(self).hash())
     }
 
     /// Converts this transaction into a `TxEnv` struct.

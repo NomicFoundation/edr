@@ -6,7 +6,7 @@ use revm_primitives::keccak256;
 
 use crate::{
     signature::{self, SignatureError},
-    transaction::{self, fake_signature::make_fake_signature, TxKind},
+    transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
 
@@ -45,16 +45,14 @@ impl Eip155 {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature,
+            signature: signature.into(),
             hash: OnceLock::new(),
-            is_fake: false,
         })
     }
 
     /// Creates a fake signature for an impersonated account.
-    pub fn fake_sign(self, address: &Address) -> transaction::signed::Eip155 {
-        let mut signature = make_fake_signature::<0>(address);
-        signature.v += self.v_value_adjustment();
+    pub fn fake_sign(self, address: Address) -> transaction::signed::Eip155 {
+        let v = self.v_value_adjustment();
 
         transaction::signed::Eip155 {
             nonce: self.nonce,
@@ -63,9 +61,8 @@ impl Eip155 {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature,
+            signature: signature::Recoverable::fake(address, v, false),
             hash: OnceLock::new(),
-            is_fake: true,
         }
     }
 
@@ -191,7 +188,7 @@ mod tests {
 
         let fake_sender: Address = "0xa5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?;
 
-        let signed = transaction.fake_sign(&fake_sender);
+        let signed = transaction.fake_sign(fake_sender);
 
         let expected_hash: B256 =
             "bcdd3230665912079522dfbfe605e70443c81bf78db768a688a8d8007accf14b".parse()?;

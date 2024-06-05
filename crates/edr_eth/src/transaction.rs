@@ -42,7 +42,7 @@ pub enum Request {
 
 /// Container type for various signed Ethereum transactions.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum Signed {
     /// Legacy transaction
     PreEip155Legacy(signed::Legacy),

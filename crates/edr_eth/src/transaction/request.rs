@@ -74,7 +74,7 @@ impl Request {
         })
     }
 
-    pub fn fake_sign(self, sender: &Address) -> Signed {
+    pub fn fake_sign(self, sender: Address) -> Signed {
         match self {
             Request::Legacy(transaction) => transaction.fake_sign(sender).into(),
             Request::Eip155(transaction) => transaction.fake_sign(sender).into(),

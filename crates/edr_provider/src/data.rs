@@ -2200,7 +2200,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let TransactionRequestAndSender { request, sender } = transaction_request;
 
         if self.impersonated_accounts.contains(&sender) {
-            let signed_transaction = request.fake_sign(&sender);
+            let signed_transaction = request.fake_sign(sender);
 
             Ok(ExecutableTransaction::with_caller(
                 self.blockchain.spec_id(),

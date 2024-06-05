@@ -84,25 +84,13 @@ impl Signed {
     }
 
     /// Returns the [`Signature`] of the transaction
-    pub fn signature(&self) -> signature::Ecdsa {
+    pub fn signature(&self) -> &signature::Recoverable {
         match self {
-            Signed::PreEip155Legacy(tx) => tx.signature,
-            Signed::PostEip155Legacy(tx) => tx.signature,
-            Signed::Eip2930(tx) => signature::Ecdsa {
-                r: tx.r,
-                s: tx.s,
-                v: u64::from(tx.odd_y_parity),
-            },
-            Signed::Eip1559(tx) => signature::Ecdsa {
-                r: tx.r,
-                s: tx.s,
-                v: u64::from(tx.odd_y_parity),
-            },
-            Signed::Eip4844(tx) => signature::Ecdsa {
-                r: tx.r,
-                s: tx.s,
-                v: u64::from(tx.odd_y_parity),
-            },
+            Signed::PreEip155Legacy(tx) => &tx.signature,
+            Signed::PostEip155Legacy(tx) => &tx.signature,
+            Signed::Eip2930(tx) => &tx.signature,
+            Signed::Eip1559(tx) => &tx.signature,
+            Signed::Eip4844(tx) => &tx.signature,
         }
     }
 
@@ -137,7 +125,7 @@ impl Decodable for Signed {
             }
             byte if is_list(byte) => {
                 let tx = self::legacy::Legacy::decode(buf)?;
-                if tx.signature.v >= 35 {
+                if tx.signature.v() >= 35 {
                     Ok(Signed::PostEip155Legacy(tx.into()))
                 } else {
                     Ok(Signed::PreEip155Legacy(tx))
@@ -421,13 +409,12 @@ mod tests {
                 kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::Ecdsa {
+                signature: signature::Recoverable::Rsv {
                     r: U256::default(),
                     s: U256::default(),
                     v: 1,
                 },
                 hash: OnceLock::new(),
-                is_fake: false
             }),
             post_eip155 => Signed::PostEip155Legacy(self::eip155::Eip155 {
                 nonce: 0,
@@ -436,13 +423,12 @@ mod tests {
                 kind: TxKind::Create,
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::Ecdsa {
+                signature: signature::Recoverable::Rsv {
                     r: U256::default(),
                     s: U256::default(),
                     v: 37,
                 },
                 hash: OnceLock::new(),
-                is_fake: false
             }),
             eip2930 => Signed::Eip2930(self::eip2930::Eip2930 {
                 chain_id: 1,
@@ -452,12 +438,13 @@ mod tests {
                 kind: TxKind::Call(Address::random()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                odd_y_parity: true,
-                r: U256::default(),
-                s: U256::default(),
+                signature: signature::Recoverable::RsyParity {
+                    r: U256::default(),
+                    s: U256::default(),
+                    y_parity: true,
+                },
                 access_list: vec![].into(),
                 hash: OnceLock::new(),
-                is_fake: false
             }),
             eip1559 => Signed::Eip1559(self::eip1559::Eip1559 {
                 chain_id: 1,
@@ -469,11 +456,12 @@ mod tests {
                 value: U256::from(4),
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![].into(),
-                odd_y_parity: true,
-                r: U256::default(),
-                s: U256::default(),
+                signature: signature::Recoverable::RsyParity {
+                    r: U256::default(),
+                    s: U256::default(),
+                    y_parity: true,
+                },
                 hash: OnceLock::new(),
-                is_fake: false
             }),
             eip4844 => Signed::Eip4844(self::eip4844::Eip4844 {
                 chain_id: 1,
@@ -487,11 +475,12 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::random(), B256::random()],
-                odd_y_parity: true,
-                r: U256::default(),
-                s: U256::default(),
+                signature: signature::Recoverable::RsyParity {
+                    r: U256::default(),
+                    s: U256::default(),
+                    y_parity: true,
+                },
                 hash: OnceLock::new(),
-                is_fake: false
             }),
     }
 
@@ -509,8 +498,7 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: signature::Ecdsa {
-                v: 43,
+            signature: signature::Recoverable::Rsv {
                 r: U256::from_str(
                     "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
                 )
@@ -519,9 +507,9 @@ mod tests {
                     "0x3a456401896b1b6055311536bf00a718568c744d8c1f9df59879e8350220ca18",
                 )
                 .unwrap(),
+                v: 43,
             },
             hash: OnceLock::new(),
-            is_fake: false,
         });
         assert_eq!(
             expected,
@@ -538,8 +526,7 @@ mod tests {
             )),
             value: U256::from(693361000000000u64),
             input: Bytes::default(),
-            signature: signature::Ecdsa {
-                v: 43,
+            signature: signature::Recoverable::Rsv {
                 r: U256::from_str(
                     "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
                 )
@@ -548,9 +535,9 @@ mod tests {
                     "0x5406ad177223213df262cb66ccbb2f46bfdccfdfbbb5ffdda9e2c02d977631da",
                 )
                 .unwrap(),
+                v: 43,
             },
             hash: OnceLock::new(),
-            is_fake: false,
         });
         assert_eq!(
             expected,
@@ -567,8 +554,7 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: signature::Ecdsa {
-                v: 43,
+            signature: signature::Recoverable::Rsv {
                 r: U256::from_str(
                     "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
                 )
@@ -577,9 +563,9 @@ mod tests {
                     "0x3ca3ae86580e94550d7c071e3a02eadb5a77830947c9225165cf9100901bee88",
                 )
                 .unwrap(),
+                v: 43,
             },
             hash: OnceLock::new(),
-            is_fake: false,
         });
         assert_eq!(
             expected,
@@ -599,13 +585,18 @@ mod tests {
             value: U256::from(3000000000000000000u64),
             input: Bytes::default(),
             access_list: AccessList::default(),
-            odd_y_parity: true,
-            r: U256::from_str("0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd")
+            signature: signature::Recoverable::RsyParity {
+                r: U256::from_str(
+                    "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
+                )
                 .unwrap(),
-            s: U256::from_str("0x016b83f4f980694ed2eee4d10667242b1f40dc406901b34125b008d334d47469")
+                s: U256::from_str(
+                    "0x016b83f4f980694ed2eee4d10667242b1f40dc406901b34125b008d334d47469",
+                )
                 .unwrap(),
+                y_parity: true,
+            },
             hash: OnceLock::new(),
-            is_fake: false,
         });
         assert_eq!(
             expected,
@@ -622,8 +613,7 @@ mod tests {
             )),
             value: U256::from(1234u64),
             input: Bytes::default(),
-            signature: signature::Ecdsa {
-                v: 44,
+            signature: signature::Recoverable::Rsv {
                 r: U256::from_str(
                     "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",
                 )
@@ -632,9 +622,9 @@ mod tests {
                     "0x612638fb29427ca33b9a3be2a0a561beecfe0269655be160d35e72d366a6a860",
                 )
                 .unwrap(),
+                v: 44,
             },
             hash: OnceLock::new(),
-            is_fake: false,
         });
         assert_eq!(
             expected,
