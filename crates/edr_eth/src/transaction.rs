@@ -17,7 +17,11 @@ pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
 pub use self::r#type::TransactionType;
-use crate::{access_list::AccessListItem, signature::SignatureError, Address, Bytes, U256};
+use crate::{
+    access_list::{AccessList, AccessListItem},
+    signature::SignatureError,
+    Address, Bytes, U256,
+};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -59,6 +63,12 @@ pub trait SignedTransaction: Transaction {
 }
 
 pub trait Transaction {
+    /// Returns the access list of the transaction, if any.
+    fn access_list(&self) -> Option<&AccessList>;
+
+    /// Returns the input data of the transaction.
+    fn data(&self) -> &Bytes;
+
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee.
     fn effective_gas_price(&self, block_base_fee: U256) -> U256;
@@ -68,6 +78,9 @@ pub trait Transaction {
 
     /// The gas price the sender is willing to pay.
     fn gas_price(&self) -> U256;
+
+    /// Returns what kind of transaction this is.
+    fn kind(&self) -> TxKind;
 
     /// The maximum fee per gas the sender is willing to pay. Only applicable
     /// for post-EIP-1559 transactions.
@@ -83,9 +96,6 @@ pub trait Transaction {
 
     /// The transaction's nonce.
     fn nonce(&self) -> u64;
-
-    /// The address that receives the call, if any.
-    fn to(&self) -> Option<Address>;
 
     /// The total amount of blob gas used by the transaction. Only applicable
     /// for EIP-4844 transactions.

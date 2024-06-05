@@ -227,7 +227,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 pub fn validate_eip3860_max_initcode_size<LoggerErrorT: Debug>(
     spec_id: SpecId,
     allow_unlimited_contract_code_size: bool,
-    to: &Option<Address>,
+    to: Option<&Address>,
     data: &Bytes,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     if spec_id < SpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {

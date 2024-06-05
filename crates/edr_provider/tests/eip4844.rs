@@ -6,7 +6,9 @@ use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
-    transaction::{self, pooled::PooledTransaction, EthTransactionRequest, Transaction},
+    transaction::{
+        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction, Transaction,
+    },
     AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
     U256,
 };
@@ -138,7 +140,7 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
 
     Ok(CallRequest {
         from: Some(from),
-        to: transaction.to(),
+        to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
         gas: Some(transaction.gas_limit()),
@@ -167,7 +169,7 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
 
     Ok(EthTransactionRequest {
         from,
-        to: transaction.to(),
+        to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
         gas: Some(transaction.gas_limit()),

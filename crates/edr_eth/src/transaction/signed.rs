@@ -29,27 +29,6 @@ fn kind_to_transact_to(kind: TxKind) -> TransactTo {
 }
 
 impl Signed {
-    /// Returns the input data of the transaction.
-    pub fn data(&self) -> &Bytes {
-        match self {
-            Signed::PreEip155Legacy(tx) => &tx.input,
-            Signed::PostEip155Legacy(tx) => &tx.input,
-            Signed::Eip2930(tx) => &tx.input,
-            Signed::Eip1559(tx) => &tx.input,
-            Signed::Eip4844(tx) => &tx.input,
-        }
-    }
-
-    /// Returns the access list of the transaction, if any.
-    pub fn access_list(&self) -> Option<&AccessList> {
-        match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => None,
-            Signed::Eip2930(tx) => Some(&tx.access_list),
-            Signed::Eip1559(tx) => Some(&tx.access_list),
-            Signed::Eip4844(tx) => Some(&tx.access_list),
-        }
-    }
-
     /// Whether this is a legacy (pre-EIP-155) transaction.
     pub fn is_legacy(&self) -> bool {
         matches!(self, Signed::PreEip155Legacy(_))
@@ -101,17 +80,6 @@ impl Signed {
         match self {
             Signed::PreEip155Legacy(tx) => Some(tx),
             _ => None,
-        }
-    }
-
-    /// Returns what kind of transaction this is
-    pub fn kind(&self) -> TxKind {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.kind,
-            Signed::PostEip155Legacy(tx) => tx.kind,
-            Signed::Eip2930(tx) => tx.kind,
-            Signed::Eip1559(tx) => tx.kind,
-            Signed::Eip4844(tx) => TxKind::Call(tx.to),
         }
     }
 
@@ -256,6 +224,25 @@ impl SignedTransaction for Signed {
 }
 
 impl Transaction for Signed {
+    fn access_list(&self) -> Option<&AccessList> {
+        match self {
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => None,
+            Signed::Eip2930(tx) => Some(&tx.access_list),
+            Signed::Eip1559(tx) => Some(&tx.access_list),
+            Signed::Eip4844(tx) => Some(&tx.access_list),
+        }
+    }
+
+    fn data(&self) -> &Bytes {
+        match self {
+            Signed::PreEip155Legacy(tx) => &tx.input,
+            Signed::PostEip155Legacy(tx) => &tx.input,
+            Signed::Eip2930(tx) => &tx.input,
+            Signed::Eip1559(tx) => &tx.input,
+            Signed::Eip4844(tx) => &tx.input,
+        }
+    }
+
     fn effective_gas_price(&self, block_base_fee: U256) -> U256 {
         match self {
             Signed::PreEip155Legacy(tx) => tx.gas_price,
@@ -287,6 +274,16 @@ impl Transaction for Signed {
             Signed::Eip2930(tx) => tx.gas_price,
             Signed::Eip1559(tx) => tx.max_fee_per_gas,
             Signed::Eip4844(tx) => tx.max_fee_per_gas,
+        }
+    }
+
+    fn kind(&self) -> TxKind {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.kind,
+            Signed::PostEip155Legacy(tx) => tx.kind,
+            Signed::Eip2930(tx) => tx.kind,
+            Signed::Eip1559(tx) => tx.kind,
+            Signed::Eip4844(tx) => TxKind::Call(tx.to),
         }
     }
 
@@ -324,10 +321,6 @@ impl Transaction for Signed {
             Signed::Eip1559(t) => t.nonce,
             Signed::Eip4844(t) => t.nonce,
         }
-    }
-
-    fn to(&self) -> Option<Address> {
-        self.kind().to().copied()
     }
 
     fn total_blob_gas(&self) -> Option<u64> {

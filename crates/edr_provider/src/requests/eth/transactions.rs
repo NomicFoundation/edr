@@ -6,11 +6,14 @@ use edr_eth::{
     rlp::Decodable,
     transaction::{
         self, pooled::PooledTransaction, request::TransactionRequestAndSender,
-        EthTransactionRequest, Transaction, TransactionType, TxKind,
+        EthTransactionRequest, SignedTransaction, Transaction, TransactionType, TxKind,
     },
     Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
-use edr_evm::{blockchain::BlockchainError, trace::Trace, ExecutableTransaction, SyncBlock};
+use edr_evm::{
+    blockchain::BlockchainError, chain_spec::L1ChainSpec, trace::Trace, ExecutableTransaction,
+    SyncBlock,
+};
 
 use crate::{
     data::{BlockDataForTransaction, ProviderData, TransactionAndBlock},
@@ -231,7 +234,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         block_number,
         transaction_index,
         from: *transaction.caller(),
-        to: signed_transaction.to(),
+        to: signed_transaction.kind().to().copied(),
         value: signed_transaction.value(),
         gas_price,
         gas: U256::from(signed_transaction.gas_limit()),
@@ -416,7 +419,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
 
 fn send_raw_transaction_and_log<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
-    signed_transaction: ExecutableTransaction,
+    signed_transaction: ExecutableTransaction<L1ChainSpec>,
 ) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
@@ -466,7 +469,7 @@ fn validate_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSi
         validate_eip3860_max_initcode_size(
             data.spec_id(),
             data.allow_unlimited_initcode_size(),
-            &request.to,
+            request.to.as_ref(),
             request_data,
         )?;
     }
@@ -517,7 +520,7 @@ fn validate_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + Ti
     validate_eip3860_max_initcode_size(
         data.spec_id(),
         data.allow_unlimited_initcode_size(),
-        &transaction.to(),
+        transaction.kind().to(),
         transaction.data(),
     )?;
 

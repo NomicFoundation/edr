@@ -32,6 +32,7 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
+    chain_spec::L1ChainSpec,
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
@@ -632,7 +633,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     pub fn debug_trace_call(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
     ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
@@ -663,7 +664,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// Estimate the gas cost of a transaction. Matches Hardhat behavior.
     pub fn estimate_gas(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
         block_spec: &BlockSpec,
     ) -> Result<EstimateGasResult, ProviderError<LoggerErrorT>> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
@@ -1318,7 +1319,9 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             )
     }
 
-    pub fn pending_transactions(&self) -> impl Iterator<Item = &ExecutableTransaction> {
+    pub fn pending_transactions(
+        &self,
+    ) -> impl Iterator<Item = &ExecutableTransaction<L1ChainSpec>> {
         self.mem_pool.transactions()
     }
 
@@ -1387,7 +1390,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     pub fn run_call(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult, ProviderError<LoggerErrorT>> {
@@ -1459,7 +1462,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     pub fn send_transaction(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
     ) -> Result<SendTransactionResult, ProviderError<LoggerErrorT>> {
         if transaction.transaction_type() == TransactionType::Eip4844 {
             if !self.is_auto_mining || mempool::has_transactions(&self.mem_pool) {
@@ -1857,7 +1860,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     fn add_pending_transaction(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
     ) -> Result<B256, ProviderError<LoggerErrorT>> {
         let transaction_hash = *transaction.transaction_hash();
 
@@ -2018,7 +2021,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         config: &CfgEnvWithHandlerCfg,
         options: BlockOptions,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
         debugger: &mut Debugger,
     ) -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
@@ -2190,7 +2193,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn sign_transaction_request(
         &self,
         transaction_request: TransactionRequestAndSender,
-    ) -> Result<ExecutableTransaction, ProviderError<LoggerErrorT>> {
+    ) -> Result<ExecutableTransaction<L1ChainSpec>, ProviderError<LoggerErrorT>> {
         let TransactionRequestAndSender { request, sender } = transaction_request;
 
         if self.impersonated_accounts.contains(&sender) {
@@ -2218,7 +2221,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     fn validate_auto_mine_transaction(
         &mut self,
-        transaction: &ExecutableTransaction,
+        transaction: &ExecutableTransaction<L1ChainSpec>,
     ) -> Result<(), ProviderError<LoggerErrorT>> {
         let next_nonce = { self.account_next_nonce(transaction.caller())? };
 
@@ -2556,7 +2559,7 @@ fn create_blockchain_and_state(
 #[derive(Debug, Clone)]
 pub struct TransactionAndBlock {
     /// The transaction.
-    pub transaction: ExecutableTransaction,
+    pub transaction: ExecutableTransaction<L1ChainSpec>,
     /// Block data in which the transaction is found if it has been mined.
     pub block_data: Option<BlockDataForTransaction>,
     /// Whether the transaction is pending
@@ -2693,7 +2696,9 @@ pub(crate) mod test_utils {
                 .ok_or(anyhow!("the requested local account does not exist"))
         }
 
-        pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<ExecutableTransaction> {
+        pub fn impersonated_dummy_transaction(
+            &self,
+        ) -> anyhow::Result<ExecutableTransaction<L1ChainSpec>> {
             let mut transaction = self.dummy_transaction_request(0, 30_000, None)?;
             transaction.sender = self.impersonated_account;
 
@@ -2704,7 +2709,7 @@ pub(crate) mod test_utils {
             &self,
             local_account_index: usize,
             nonce: Option<u64>,
-        ) -> anyhow::Result<ExecutableTransaction> {
+        ) -> anyhow::Result<ExecutableTransaction<L1ChainSpec>> {
             let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
             Ok(self.provider_data.sign_transaction_request(transaction)?)
         }
@@ -2717,6 +2722,7 @@ mod tests {
 
     use alloy_sol_types::{sol, SolCall};
     use anyhow::Context;
+    use edr_eth::transaction::SignedTransaction;
     use edr_evm::{hex, MineOrdering, TransactionError};
     use edr_rpc_eth::CallRequest;
     use edr_test_utils::env::get_alchemy_url;
@@ -2802,7 +2808,7 @@ mod tests {
 
     fn test_add_pending_transaction(
         fixture: &mut ProviderTestFixture,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
     ) -> anyhow::Result<()> {
         let filter_id = fixture
             .provider_data
@@ -3072,7 +3078,9 @@ mod tests {
         let transaction = fixture.signed_dummy_transaction(0, None)?;
         let expected = transaction.value();
         let receiver = transaction
+            .kind()
             .to()
+            .copied()
             .expect("Dummy transaction should have a receiver");
 
         fixture.provider_data.add_pending_transaction(transaction)?;
@@ -3100,7 +3108,9 @@ mod tests {
         let transaction2 = fixture.signed_dummy_transaction(1, None)?;
 
         let receiver = transaction1
+            .kind()
             .to()
+            .copied()
             .expect("Dummy transaction should have a receiver");
 
         let expected = transaction1.value() + transaction2.value();
@@ -3135,7 +3145,9 @@ mod tests {
         let transaction2 = fixture.signed_dummy_transaction(0, Some(1))?;
 
         let receiver = transaction1
+            .kind()
             .to()
+            .copied()
             .expect("Dummy transaction should have a receiver");
 
         let expected = transaction1.value() + transaction2.value();

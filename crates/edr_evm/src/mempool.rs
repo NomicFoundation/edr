@@ -10,7 +10,7 @@ use revm::{
     primitives::{AccountInfo, HashMap},
 };
 
-use crate::ExecutableTransaction;
+use crate::{chain_spec::L1ChainSpec, ExecutableTransaction};
 
 /// An iterator over pending transactions.
 pub struct PendingTransactions<ComparatorT>
@@ -47,10 +47,10 @@ impl<ComparatorT> Iterator for PendingTransactions<ComparatorT>
 where
     ComparatorT: Fn(&OrderedTransaction, &OrderedTransaction) -> Ordering,
 {
-    type Item = ExecutableTransaction;
+    type Item = ExecutableTransaction<L1ChainSpec>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn next(&mut self) -> Option<ExecutableTransaction> {
+    fn next(&mut self) -> Option<ExecutableTransaction<L1ChainSpec>> {
         let (to_be_removed, next) = self
             .transactions
             .iter_mut()
@@ -138,7 +138,7 @@ pub enum MemPoolAddTransactionError<SE> {
 #[derive(Clone, Debug)]
 pub struct OrderedTransaction {
     order_id: usize,
-    transaction: ExecutableTransaction,
+    transaction: ExecutableTransaction<L1ChainSpec>,
 }
 
 impl OrderedTransaction {
@@ -148,7 +148,7 @@ impl OrderedTransaction {
     }
 
     /// Retrieves the pending transaction.
-    pub fn pending(&self) -> &ExecutableTransaction {
+    pub fn pending(&self) -> &ExecutableTransaction<L1ChainSpec> {
         &self.transaction
     }
 
@@ -245,7 +245,7 @@ impl MemPool {
     /// Retrieves an iterator for all transactions in the instance. Pending
     /// transactions are followed by future transactions, grouped by sender
     /// in order of insertion.
-    pub fn transactions(&self) -> impl Iterator<Item = &ExecutableTransaction> {
+    pub fn transactions(&self) -> impl Iterator<Item = &ExecutableTransaction<L1ChainSpec>> {
         self.pending_transactions
             .values()
             .chain(self.future_transactions.values())
@@ -270,7 +270,7 @@ impl MemPool {
     pub fn add_transaction<S: StateRef + ?Sized>(
         &mut self,
         state: &S,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
     ) -> Result<(), MemPoolAddTransactionError<S::Error>> {
         let transaction_gas_limit = transaction.gas_limit();
         if transaction_gas_limit > self.block_gas_limit.get() {
@@ -385,7 +385,7 @@ impl MemPool {
         S::Error: Debug,
     {
         fn is_valid_tx(
-            transaction: &ExecutableTransaction,
+            transaction: &ExecutableTransaction<L1ChainSpec>,
             block_gas_limit: NonZeroU64,
             sender: &AccountInfo,
         ) -> bool {
@@ -572,8 +572,8 @@ pub fn has_transactions(mem_pool: &MemPool) -> bool {
 }
 
 fn validate_replacement_transaction<StateError>(
-    old_transaction: &ExecutableTransaction,
-    new_transaction: &ExecutableTransaction,
+    old_transaction: &ExecutableTransaction<L1ChainSpec>,
+    new_transaction: &ExecutableTransaction<L1ChainSpec>,
 ) -> Result<(), MemPoolAddTransactionError<StateError>> {
     let min_new_max_fee_per_gas = min_new_fee(old_transaction.gas_price());
     if new_transaction.gas_price() < min_new_max_fee_per_gas {

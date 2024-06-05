@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::convert::Infallible;
 
 use dyn_clone::DynClone;
-use edr_evm::{blockchain::BlockchainError, ExecutableTransaction};
+use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, ExecutableTransaction};
 
 use crate::{
     data::CallResult, debug_mine::DebugMineBlockResult, error::EstimateGasFailure, ProviderError,
@@ -22,7 +22,7 @@ pub trait Logger {
     fn log_call(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &ExecutableTransaction,
+        transaction: &ExecutableTransaction<L1ChainSpec>,
         result: &CallResult,
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
@@ -35,7 +35,7 @@ pub trait Logger {
     fn log_estimate_gas_failure(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &ExecutableTransaction,
+        transaction: &ExecutableTransaction<L1ChainSpec>,
         result: &EstimateGasFailure,
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
@@ -70,7 +70,7 @@ pub trait Logger {
     fn log_send_transaction(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &ExecutableTransaction,
+        transaction: &ExecutableTransaction<L1ChainSpec>,
         mining_results: &[DebugMineBlockResult<Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;

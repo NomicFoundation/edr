@@ -13,8 +13,8 @@ use itertools::izip;
 use revm::primitives::keccak256;
 
 use crate::{
-    blockchain::BlockchainError, Block, DetailedTransaction, ExecutableTransaction, SpecId,
-    SyncBlock,
+    blockchain::BlockchainError, chain_spec::L1ChainSpec, Block, DetailedTransaction,
+    ExecutableTransaction, SpecId, SyncBlock,
 };
 
 /// A locally mined block, which contains complete information.
@@ -22,7 +22,7 @@ use crate::{
 #[rlp(trailing)]
 pub struct LocalBlock {
     header: block::Header,
-    transactions: Vec<ExecutableTransaction>,
+    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
     #[rlp(skip)]
     transaction_receipts: Vec<Arc<BlockReceipt>>,
     ommers: Vec<block::Header>,
@@ -54,7 +54,7 @@ impl LocalBlock {
     /// Constructs a new instance with the provided data.
     pub fn new(
         partial_header: PartialHeader,
-        transactions: Vec<ExecutableTransaction>,
+        transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
         transaction_receipts: Vec<TransactionReceipt<Log>>,
         ommers: Vec<Header>,
         withdrawals: Option<Vec<Withdrawal>>,
@@ -123,7 +123,7 @@ impl Block for LocalBlock {
             .expect("usize fits into u64")
     }
 
-    fn transactions(&self) -> &[ExecutableTransaction] {
+    fn transactions(&self) -> &[ExecutableTransaction<L1ChainSpec>] {
         &self.transactions
     }
 

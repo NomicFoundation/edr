@@ -17,11 +17,11 @@ pub use self::{
     local::LocalBlock,
     remote::{CreationError as RemoteBlockCreationError, RemoteBlock},
 };
-use crate::{chain_spec::ChainSpec, ExecutableTransaction};
+use crate::{chain_spec::L1ChainSpec, ExecutableTransaction};
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]
-pub trait Block<ChainSpecT: ChainSpec>: Debug {
+pub trait Block: Debug {
     /// The blockchain error type.
     type Error;
 
@@ -38,7 +38,7 @@ pub trait Block<ChainSpecT: ChainSpec>: Debug {
     fn rlp_size(&self) -> u64;
 
     /// Returns the block's transactions.
-    fn transactions(&self) -> &[ExecutableTransaction];
+    fn transactions(&self) -> &[ExecutableTransaction<L1ChainSpec>];
 
     /// Returns the receipts of the block's transactions.
     fn transaction_receipts(&self) -> Result<Vec<Arc<BlockReceipt>>, Self::Error>;

@@ -19,6 +19,7 @@ use revm::{
 
 use crate::{
     blockchain::SyncBlockchain,
+    chain_spec::L1ChainSpec,
     debug::GetContextData,
     state::SyncState,
     trace::{register_trace_collector_handles, Trace, TraceCollector},
@@ -76,7 +77,7 @@ pub fn debug_trace_transaction<BlockchainErrorT, StateErrorT>(
     evm_config: CfgEnvWithHandlerCfg,
     trace_config: DebugTraceConfig,
     block_env: BlockEnv,
-    transactions: Vec<ExecutableTransaction>,
+    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
     transaction_hash: &B256,
     verbose_tracing: bool,
 ) -> Result<DebugTraceResultWithTraces, DebugTraceError<BlockchainErrorT, StateErrorT>>
