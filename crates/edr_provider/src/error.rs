@@ -77,7 +77,7 @@ pub enum ProviderError<LoggerErrorT> {
     #[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{spec:?}' hardfork.")]
     InvalidBlockTag { block_tag: BlockTag, spec: SpecId },
     /// Invalid chain ID
-    #[error("Invalid chainId {actual} provided, expected ${expected} instead.")]
+    #[error("Invalid chainId {actual} provided, expected {expected} instead.")]
     InvalidChainId { expected: u64, actual: u64 },
     /// The transaction with the provided hash was already mined.
     #[error("Transaction {0} cannot be dropped because it's already mined")]
