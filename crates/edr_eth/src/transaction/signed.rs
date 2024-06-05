@@ -5,7 +5,7 @@ mod eip4844;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut, Decodable};
-use revm_primitives::{TransactTo, TxEnv};
+use revm_primitives::TransactTo;
 
 pub use self::{
     eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, legacy::Legacy,
@@ -103,17 +103,6 @@ impl Signed {
                 s: tx.s,
                 v: u64::from(tx.odd_y_parity),
             },
-        }
-    }
-
-    /// Converts this transaction into a `TxEnv` struct.
-    pub fn into_tx_env(self, caller: Address) -> TxEnv {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.into_tx_env(caller),
-            Signed::PostEip155Legacy(tx) => tx.into_tx_env(caller),
-            Signed::Eip2930(tx) => tx.into_tx_env(caller),
-            Signed::Eip1559(tx) => tx.into_tx_env(caller),
-            Signed::Eip4844(tx) => tx.into_tx_env(caller),
         }
     }
 

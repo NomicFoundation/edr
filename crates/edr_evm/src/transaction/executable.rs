@@ -12,7 +12,7 @@ use revm::{
 };
 
 use super::TransactionCreationError;
-use crate::chain_spec::{ChainSpec, L1ChainSpec};
+use crate::chain_spec::{ChainSpec, IntoTxEnv, L1ChainSpec};
 
 /// A transaction that can be executed by the EVM. It allows manual
 /// specification of the caller, e.g. to override the caller of a transaction
