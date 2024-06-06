@@ -23,7 +23,8 @@ impl ChainSpec for L1ChainSpec {
     type SignedTransaction = edr_eth::transaction::Signed;
 }
 
-// TODO: This is a temporary solution until the revm fork has been merged. In
+// TODO: https://github.com/NomicFoundation/edr/issues/495
+// This is a temporary solution until the revm fork has been merged. In
 // the fork each chain type has its own transaction type with an accompanying
 // trait.
 /// A trait for converting a transaction into a [`revm::primitives::TxEnv`].
