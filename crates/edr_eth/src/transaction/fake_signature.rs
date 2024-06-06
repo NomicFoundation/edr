@@ -46,7 +46,7 @@ pub(super) mod tests {
 
                 let recovered = signed_transaction.recover().expect("valid signature");
 
-                assert_eq!(recovered, sender);
+                assert_eq!(*recovered, sender);
             }
         };
     }

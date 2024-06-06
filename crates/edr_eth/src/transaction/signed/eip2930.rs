@@ -29,7 +29,7 @@ pub struct Eip2930 {
     pub input: Bytes,
     pub access_list: AccessList,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Recoverable,
+    pub signature: signature::Fakeable<signature::EcdsaWithYParity>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
@@ -48,7 +48,7 @@ impl Eip2930 {
     }
 
     /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<Address, SignatureError> {
+    pub fn recover(&self) -> Result<&Address, SignatureError> {
         self.signature
             .recover_address(transaction::request::Eip2930::from(self).hash())
     }

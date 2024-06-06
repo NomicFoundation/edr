@@ -24,7 +24,7 @@ pub struct Legacy {
     pub value: U256,
     pub input: Bytes,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Recoverable,
+    pub signature: signature::Fakeable<signature::Ecdsa>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
@@ -38,7 +38,7 @@ impl Legacy {
     }
 
     /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<Address, SignatureError> {
+    pub fn recover(&self) -> Result<&Address, SignatureError> {
         self.signature
             .recover_address(transaction::request::Legacy::from(self).hash())
     }

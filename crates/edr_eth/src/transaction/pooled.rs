@@ -2,7 +2,9 @@ mod eip4844;
 
 pub use self::eip4844::Eip4844;
 use super::Signed;
-use crate::{transaction::INVALID_TX_TYPE_ERROR_MESSAGE, utils::enveloped};
+use crate::{
+    signature::Signature as _, transaction::INVALID_TX_TYPE_ERROR_MESSAGE, utils::enveloped,
+};
 
 pub type LegacyPooledTransaction = super::signed::Legacy;
 pub type Eip155PooledTransaction = super::signed::Eip155;
@@ -214,11 +216,11 @@ mod tests {
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::Recoverable::Rsv {
+            signature: signature::Ecdsa {
                 r: U256::default(),
                 s: U256::default(),
                 v: 1,
-            },
+            }.into(),
             hash: OnceLock::new(),
         }),
         post_eip155 => PooledTransaction::PostEip155Legacy(Eip155PooledTransaction {
@@ -228,11 +230,11 @@ mod tests {
             kind: TxKind::Create,
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::Recoverable::Rsv {
+            signature: signature::Ecdsa {
                 r: U256::default(),
                 s: U256::default(),
                 v: 37,
-            },
+            }.into(),
             hash: OnceLock::new(),
         }),
         eip2930 => PooledTransaction::Eip2930(Eip2930PooledTransaction {
@@ -243,11 +245,11 @@ mod tests {
             kind: TxKind::Call(Address::random()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::Recoverable::RsyParity {
+            signature: signature::EcdsaWithYParity {
                 r: U256::default(),
                 s: U256::default(),
                 y_parity: true,
-            },
+            }.into(),
             access_list: vec![].into(),
             hash: OnceLock::new(),
         }),
@@ -261,11 +263,11 @@ mod tests {
             value: U256::from(4),
             input: Bytes::from(vec![1, 2]),
             access_list: vec![].into(),
-            signature: signature::Recoverable::RsyParity {
+            signature: signature::EcdsaWithYParity {
                 r: U256::default(),
                 s: U256::default(),
                 y_parity: true,
-            },
+            }.into(),
             hash: OnceLock::new(),
         }),
         eip4844 => PooledTransaction::Eip4844(
@@ -281,11 +283,11 @@ mod tests {
                 input: Bytes::from_str("0x2069b0c7")?,
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
-                signature: signature::Recoverable::RsyParity {
+                signature: signature::EcdsaWithYParity {
                     r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
                     s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
                     y_parity: true,
-                },
+                }.into(),
                 hash: OnceLock::new(),
             },
             vec![fake_eip4844_blob()],

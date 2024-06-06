@@ -33,7 +33,6 @@ impl Legacy {
         secret_key: &SecretKey,
     ) -> Result<transaction::signed::Legacy, SignatureError> {
         let hash = self.hash();
-
         let signature = signature::Ecdsa::new(hash, secret_key)?;
 
         Ok(transaction::signed::Legacy {
@@ -57,7 +56,7 @@ impl Legacy {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature: signature::Recoverable::fake(sender, 0, false),
+            signature: signature::Fakeable::fake(sender, Some(0)),
             hash: OnceLock::new(),
         }
     }

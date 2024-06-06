@@ -61,7 +61,7 @@ impl Eip155 {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature: signature::Recoverable::fake(address, v, false),
+            signature: signature::Fakeable::fake(address, Some(v)),
             hash: OnceLock::new(),
         }
     }

@@ -5,12 +5,133 @@
 // For the original context see: https://github.com/gakonst/ethers-rs/blob/cba6f071aedafb766e82e4c2f469ed5e4638337d/ethers-core/src/types/signature.rs
 
 mod ecdsa;
-mod recoverable;
+mod fakeable;
 
 use k256::{elliptic_curve::sec1::ToEncodedPoint, FieldBytes, PublicKey, SecretKey};
+use once_cell::sync::OnceCell;
 use sha3::{Digest, Keccak256};
 
 use crate::{Address, B256, U256};
+
+/// An error involving a signature.
+#[derive(Debug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+pub enum SignatureError {
+    /// Invalid length, ECDSA secp256k1 signatures with recovery are 65 bytes
+    #[cfg_attr(
+        feature = "std",
+        error("invalid signature length, got {0}, expected 65")
+    )]
+    InvalidLength(usize),
+    /// Invalid secret key.
+    #[cfg_attr(feature = "std", error("Invalid secret key: {0}"))]
+    InvalidSecretKey(String),
+    /// When parsing a signature from string to hex
+    #[cfg_attr(feature = "std", error(transparent))]
+    DecodingError(#[cfg_attr(feature = "std", from)] hex::FromHexError),
+    /// Thrown when signature verification failed (i.e. when the address that
+    /// produced the signature did not match the expected address)
+    #[cfg_attr(
+        feature = "std",
+        error("Signature verification failed. Expected {0}, got {1}")
+    )]
+    VerificationError(Address, Address),
+    /// ECDSA error
+    #[cfg_attr(feature = "std", error(transparent))]
+    ECDSAError(#[cfg_attr(feature = "std", from)] k256::ecdsa::signature::Error),
+    /// Elliptic curve error
+    #[cfg_attr(feature = "std", error(transparent))]
+    EllipticCurveError(#[cfg_attr(feature = "std", from)] k256::elliptic_curve::Error),
+    /// Error in recovering public key from signature
+    #[cfg_attr(feature = "std", error("Public key recovery error"))]
+    RecoveryError,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// An ECDSA signature
+pub struct Ecdsa {
+    /// R value
+    pub r: U256,
+    /// S Value
+    pub s: U256,
+    /// V value
+    pub v: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// An ECDSA signature
+pub struct EcdsaWithYParity {
+    /// R value
+    pub r: U256,
+    /// S value
+    pub s: U256,
+    /// Whether the V value has odd Y parity.
+    pub y_parity: bool,
+}
+
+/// A fakeable signature which can either be a fake signature or a real ECDSA
+/// signature.
+#[derive(Clone, Debug)]
+pub struct Fakeable<SignatureT: Recoverable + Signature> {
+    data: FakeableData<SignatureT>,
+    address: OnceCell<Address>,
+}
+
+/// Signature with a recoverable caller address.
+#[derive(Clone, Debug)]
+enum FakeableData<SignatureT: Recoverable + Signature> {
+    /// Fake signature, used for impersonation.
+    /// Contains the caller address.
+    ///
+    /// The only requirements on a fake signature are that when it is encoded as
+    /// part of a transaction, it produces the same hash for the same
+    /// transaction from a sender, and it produces different hashes for
+    /// different senders. We achieve this by setting the `r` and `s` values
+    /// to the sender's address. This is the simplest implementation and it
+    /// helps us recognize fake signatures in debug logs.
+    Fake {
+        // /// Whether the fake transaction uses Y-parity (0 or 1).
+        v: u64,
+    },
+    /// ECDSA signature with a recoverable caller address.
+    Recoverable { signature: SignatureT },
+}
+
+/// Trait for an ECDSA signature.
+pub trait Signature {
+    /// Returns the signature's R-value.
+    fn r(&self) -> U256;
+
+    /// Returns the signature's S-value.
+    fn s(&self) -> U256;
+
+    /// Returns the signature's V-value.
+    fn v(&self) -> u64;
+
+    /// Returns the signature's Y-parity value, if it exists.
+    fn y_parity(&self) -> Option<bool>;
+}
+
+/// Trait for a signature with a recoverable address.
+pub trait Recoverable {
+    /// Recovers the Ethereum address which was used to sign the message.
+    fn recover_address(&self, message: RecoveryMessage) -> Result<Address, SignatureError>;
+}
+
+/// Recovery message data.
+///
+/// The message data can either be a binary message that is first hashed
+/// according to EIP-191 and then recovered based on the signature or a
+/// precomputed hash.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RecoveryMessage {
+    /// Message bytes
+    Data(Vec<u8>),
+    /// Message hash
+    Hash(B256),
+}
 
 /// Converts a [`PublicKey`] to an [`Address`].
 pub fn public_key_to_address(public_key: PublicKey) -> Address {
@@ -53,106 +174,4 @@ pub fn secret_key_from_str(secret_key: &str) -> Result<SecretKey, SignatureError
 /// Converts a secret key to a 0x-prefixed hex string.
 pub fn secret_key_to_str(secret_key: &SecretKey) -> String {
     format!("0x{}", hex::encode(secret_key.to_bytes().as_slice()))
-}
-
-/// An error involving a signature.
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
-pub enum SignatureError {
-    /// Invalid length, ECDSA secp256k1 signatures with recovery are 65 bytes
-    #[cfg_attr(
-        feature = "std",
-        error("invalid signature length, got {0}, expected 65")
-    )]
-    InvalidLength(usize),
-    /// Invalid secret key.
-    #[cfg_attr(feature = "std", error("Invalid secret key: {0}"))]
-    InvalidSecretKey(String),
-    /// When parsing a signature from string to hex
-    #[cfg_attr(feature = "std", error(transparent))]
-    DecodingError(#[cfg_attr(feature = "std", from)] hex::FromHexError),
-    /// Thrown when signature verification failed (i.e. when the address that
-    /// produced the signature did not match the expected address)
-    #[cfg_attr(
-        feature = "std",
-        error("Signature verification failed. Expected {0}, got {1}")
-    )]
-    VerificationError(Address, Address),
-    /// ECDSA error
-    #[cfg_attr(feature = "std", error(transparent))]
-    ECDSAError(#[cfg_attr(feature = "std", from)] k256::ecdsa::signature::Error),
-    /// Elliptic curve error
-    #[cfg_attr(feature = "std", error(transparent))]
-    EllipticCurveError(#[cfg_attr(feature = "std", from)] k256::elliptic_curve::Error),
-    /// Error in recovering public key from signature
-    #[cfg_attr(feature = "std", error("Public key recovery error"))]
-    RecoveryError,
-}
-
-/// Recovery message data.
-///
-/// The message data can either be a binary message that is first hashed
-/// according to EIP-191 and then recovered based on the signature or a
-/// precomputed hash.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RecoveryMessage {
-    /// Message bytes
-    Data(Vec<u8>),
-    /// Message hash
-    Hash(B256),
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// An ECDSA signature
-pub struct Ecdsa {
-    /// R value
-    pub r: U256,
-    /// S Value
-    pub s: U256,
-    /// V value
-    pub v: u64,
-}
-
-/// Signature with a recoverable caller address.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Recoverable {
-    /// Fake signature, used for impersonation.
-    /// Contains the caller address.
-    ///
-    /// The only requirements on a fake signature are that when it is encoded as
-    /// part of a transaction, it produces the same hash for the same
-    /// transaction from a sender, and it produces different hashes for
-    /// different senders. We achieve this by setting the `r` and `s` values
-    /// to the sender's address. This is the simplest implementation and it
-    /// helps us recognize fake signatures in debug logs.
-    Fake {
-        /// The caller address.
-        caller: Address,
-        /// Whether the fake transaction uses Y-parity (0 or 1) instead of the
-        /// V-value.
-        has_y_parity: bool,
-        /// The V-value, if `has_y_parity` is false. Otherwise, it is the
-        /// Y-parity.
-        v: u64,
-    },
-    /// ECDSA signature with a recoverable caller address (EIP-155).
-    /// Has a recoverable caller address.
-    Rsv {
-        /// The R value.
-        r: U256,
-        /// The S value.
-        s: U256,
-        /// The V value.
-        v: u64,
-    },
-    /// ECDSA signature (post-EIP-2930)
-    RsyParity {
-        /// The R value.
-        r: U256,
-        /// The S value.
-        s: U256,
-        /// The Y-parity value.
-        y_parity: bool,
-    },
 }

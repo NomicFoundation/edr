@@ -139,7 +139,7 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
     let from = transaction.recover()?;
 
     Ok(CallRequest {
-        from: Some(from),
+        from: Some(*from),
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
@@ -165,7 +165,7 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
     });
 
     let transaction = transaction.into_payload();
-    let from = transaction.recover()?;
+    let from = *transaction.recover()?;
 
     Ok(EthTransactionRequest {
         from,

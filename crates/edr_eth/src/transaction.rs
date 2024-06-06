@@ -59,7 +59,7 @@ pub enum Signed {
 /// Trait for signed transactions.
 pub trait SignedTransaction: Transaction {
     /// Recovers the Ethereum address which was used to sign the transaction.
-    fn recover(&self) -> Result<Address, SignatureError>;
+    fn recover(&self) -> Result<&Address, SignatureError>;
 }
 
 pub trait Transaction {

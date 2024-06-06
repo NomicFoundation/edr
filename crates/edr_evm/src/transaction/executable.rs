@@ -30,7 +30,7 @@ impl<ChainSpecT: ChainSpec> ExecutableTransaction<ChainSpecT> {
         spec_id: SpecId,
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<Self, TransactionCreationError> {
-        let caller = transaction
+        let caller = *transaction
             .recover()
             .map_err(TransactionCreationError::Signature)?;
 
@@ -205,11 +205,12 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                         kind,
                         value: value.value,
                         input: value.input,
-                        signature: signature::Recoverable::Rsv {
+                        signature: signature::Ecdsa {
                             r: value.r,
                             s: value.s,
                             v: value.v,
-                        },
+                        }
+                        .into(),
                         hash: OnceLock::from(value.hash),
                     })
                 } else {
@@ -220,21 +221,23 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                         kind,
                         value: value.value,
                         input: value.input,
-                        signature: signature::Recoverable::Rsv {
+                        signature: signature::Ecdsa {
                             r: value.r,
                             s: value.s,
                             v: value.v,
-                        },
+                        }
+                        .into(),
                         hash: OnceLock::from(value.hash),
                     })
                 }
             }
             Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
-                signature: signature::Recoverable::RsyParity {
+                signature: signature::EcdsaWithYParity {
                     y_parity: value.odd_y_parity(),
                     r: value.r,
                     s: value.s,
-                },
+                }
+                .into(),
                 chain_id: value
                     .chain_id
                     .ok_or(TransactionConversionError::MissingChainId)?,
@@ -251,11 +254,12 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                 hash: OnceLock::from(value.hash),
             }),
             Some(2) => transaction::Signed::Eip1559(transaction::signed::Eip1559 {
-                signature: signature::Recoverable::RsyParity {
+                signature: signature::EcdsaWithYParity {
                     y_parity: value.odd_y_parity(),
                     r: value.r,
                     s: value.s,
-                },
+                }
+                .into(),
                 chain_id: value
                     .chain_id
                     .ok_or(TransactionConversionError::MissingChainId)?,
@@ -277,11 +281,12 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                 hash: OnceLock::from(value.hash),
             }),
             Some(3) => transaction::Signed::Eip4844(transaction::signed::Eip4844 {
-                signature: signature::Recoverable::RsyParity {
+                signature: signature::EcdsaWithYParity {
                     r: value.r,
                     s: value.s,
                     y_parity: value.odd_y_parity(),
-                },
+                }
+                .into(),
                 chain_id: value
                     .chain_id
                     .ok_or(TransactionConversionError::MissingChainId)?,
@@ -320,11 +325,12 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                     kind,
                     value: value.value,
                     input: value.input,
-                    signature: signature::Recoverable::Rsv {
+                    signature: signature::Ecdsa {
                         r: value.r,
                         s: value.s,
                         v: value.v,
-                    },
+                    }
+                    .into(),
                     hash: OnceLock::from(value.hash),
                 })
             }

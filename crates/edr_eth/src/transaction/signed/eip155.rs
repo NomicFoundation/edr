@@ -6,7 +6,7 @@ use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
 use crate::{
-    signature::{self, SignatureError},
+    signature::{self, Signature, SignatureError},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -24,7 +24,7 @@ pub struct Eip155 {
     pub value: U256,
     pub input: Bytes,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Recoverable,
+    pub signature: signature::Fakeable<signature::Ecdsa>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
@@ -38,7 +38,7 @@ impl Eip155 {
     }
 
     /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<Address, SignatureError> {
+    pub fn recover(&self) -> Result<&Address, SignatureError> {
         self.signature
             .recover_address(transaction::request::Eip155::from(self).hash())
     }

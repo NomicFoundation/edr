@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     access_list::AccessList,
-    signature::{self, SignatureError},
+    signature::{Signature, SignatureError},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
@@ -84,7 +84,7 @@ impl Signed {
     }
 
     /// Returns the [`Signature`] of the transaction
-    pub fn signature(&self) -> &signature::Recoverable {
+    pub fn signature(&self) -> &dyn Signature {
         match self {
             Signed::PreEip155Legacy(tx) => &tx.signature,
             Signed::PostEip155Legacy(tx) => &tx.signature,
@@ -189,7 +189,7 @@ impl From<self::eip4844::Eip4844> for Signed {
 }
 
 impl SignedTransaction for Signed {
-    fn recover(&self) -> Result<Address, SignatureError> {
+    fn recover(&self) -> Result<&Address, SignatureError> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.recover(),
             Signed::PostEip155Legacy(tx) => tx.recover(),
@@ -342,7 +342,7 @@ mod tests {
     use std::sync::OnceLock;
 
     use super::*;
-    use crate::Bytes;
+    use crate::{signature, Bytes};
 
     #[test]
     fn can_recover_sender() {
@@ -374,7 +374,7 @@ mod tests {
         }
         assert_eq!(tx.value, U256::from(0x0au64));
         assert_eq!(
-            tx.recover().unwrap(),
+            *tx.recover().unwrap(),
             "0x0f65fe9276bc9a24ae7083ae28e2660ef72df99e"
                 .parse::<Address>()
                 .unwrap()
@@ -409,11 +409,11 @@ mod tests {
                 kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::Recoverable::Rsv {
+                signature: signature::Ecdsa {
                     r: U256::default(),
                     s: U256::default(),
                     v: 1,
-                },
+                }.into(),
                 hash: OnceLock::new(),
             }),
             post_eip155 => Signed::PostEip155Legacy(self::eip155::Eip155 {
@@ -423,11 +423,11 @@ mod tests {
                 kind: TxKind::Create,
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::Recoverable::Rsv {
+                signature: signature::Ecdsa {
                     r: U256::default(),
                     s: U256::default(),
                     v: 37,
-                },
+                }.into(),
                 hash: OnceLock::new(),
             }),
             eip2930 => Signed::Eip2930(self::eip2930::Eip2930 {
@@ -438,11 +438,11 @@ mod tests {
                 kind: TxKind::Call(Address::random()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::Recoverable::RsyParity {
+                signature: signature::EcdsaWithYParity {
                     r: U256::default(),
                     s: U256::default(),
                     y_parity: true,
-                },
+                }.into(),
                 access_list: vec![].into(),
                 hash: OnceLock::new(),
             }),
@@ -456,11 +456,11 @@ mod tests {
                 value: U256::from(4),
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![].into(),
-                signature: signature::Recoverable::RsyParity {
+                signature: signature::EcdsaWithYParity {
                     r: U256::default(),
                     s: U256::default(),
                     y_parity: true,
-                },
+                }.into(),
                 hash: OnceLock::new(),
             }),
             eip4844 => Signed::Eip4844(self::eip4844::Eip4844 {
@@ -475,11 +475,11 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::random(), B256::random()],
-                signature: signature::Recoverable::RsyParity {
+                signature: signature::EcdsaWithYParity {
                     r: U256::default(),
                     s: U256::default(),
                     y_parity: true,
-                },
+                }.into(),
                 hash: OnceLock::new(),
             }),
     }
@@ -498,7 +498,7 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: signature::Recoverable::Rsv {
+            signature: signature::Ecdsa {
                 r: U256::from_str(
                     "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
                 )
@@ -508,7 +508,8 @@ mod tests {
                 )
                 .unwrap(),
                 v: 43,
-            },
+            }
+            .into(),
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -526,7 +527,7 @@ mod tests {
             )),
             value: U256::from(693361000000000u64),
             input: Bytes::default(),
-            signature: signature::Recoverable::Rsv {
+            signature: signature::Ecdsa {
                 r: U256::from_str(
                     "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
                 )
@@ -536,7 +537,8 @@ mod tests {
                 )
                 .unwrap(),
                 v: 43,
-            },
+            }
+            .into(),
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -554,7 +556,7 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: signature::Recoverable::Rsv {
+            signature: signature::Ecdsa {
                 r: U256::from_str(
                     "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
                 )
@@ -564,7 +566,8 @@ mod tests {
                 )
                 .unwrap(),
                 v: 43,
-            },
+            }
+            .into(),
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -585,7 +588,7 @@ mod tests {
             value: U256::from(3000000000000000000u64),
             input: Bytes::default(),
             access_list: AccessList::default(),
-            signature: signature::Recoverable::RsyParity {
+            signature: signature::EcdsaWithYParity {
                 r: U256::from_str(
                     "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
                 )
@@ -595,7 +598,8 @@ mod tests {
                 )
                 .unwrap(),
                 y_parity: true,
-            },
+            }
+            .into(),
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -613,7 +617,7 @@ mod tests {
             )),
             value: U256::from(1234u64),
             input: Bytes::default(),
-            signature: signature::Recoverable::Rsv {
+            signature: signature::Ecdsa {
                 r: U256::from_str(
                     "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",
                 )
@@ -623,7 +627,8 @@ mod tests {
                 )
                 .unwrap(),
                 v: 44,
-            },
+            }
+            .into(),
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -642,7 +647,7 @@ mod tests {
         let expected: Address = "0xa12e1462d0ced572f396f58b6e2d03894cd7c8a4"
             .parse()
             .unwrap();
-        assert_eq!(expected, recovered);
+        assert_eq!(expected, *recovered);
     }
 
     #[test]

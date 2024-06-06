@@ -39,6 +39,7 @@ impl Eip1559 {
         secret_key: &SecretKey,
     ) -> Result<transaction::signed::Eip1559, SignatureError> {
         let hash = self.hash();
+        let signature = signature::EcdsaWithYParity::new(hash, secret_key)?;
 
         Ok(transaction::signed::Eip1559 {
             chain_id: self.chain_id,
@@ -50,7 +51,7 @@ impl Eip1559 {
             value: self.value,
             input: self.input,
             access_list: self.access_list.into(),
-            signature: signature::Recoverable::rs_and_y_parity(hash, secret_key)?,
+            signature: signature.into(),
             hash: OnceLock::new(),
         })
     }
@@ -66,7 +67,7 @@ impl Eip1559 {
             value: self.value,
             input: self.input,
             access_list: self.access_list.into(),
-            signature: signature::Recoverable::fake(sender, 1, true),
+            signature: signature::Fakeable::fake(sender, None),
             hash: OnceLock::new(),
         }
     }

@@ -2793,7 +2793,7 @@ mod tests {
         assert!(fixture
             .provider_data
             .local_accounts
-            .contains_key(&recovered_address));
+            .contains_key(recovered_address));
 
         Ok(())
     }

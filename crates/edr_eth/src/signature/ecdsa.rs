@@ -2,6 +2,7 @@ use core::fmt;
 #[cfg(feature = "std")]
 use std::str::FromStr;
 
+use alloy_rlp::BufMut;
 use k256::{
     ecdsa::{
         signature::hazmat::PrehashSigner, RecoveryId, Signature as ECDSASignature, SigningKey,
@@ -10,7 +11,10 @@ use k256::{
     FieldBytes, SecretKey,
 };
 
-use super::{public_key_to_address, Ecdsa, RecoveryMessage, SignatureError};
+use super::{
+    public_key_to_address, Ecdsa, EcdsaWithYParity, Fakeable, Recoverable, RecoveryMessage,
+    Signature, SignatureError,
+};
 use crate::{utils::hash_message, Address, Bytes, B256, U256};
 
 impl fmt::Display for Ecdsa {
@@ -116,6 +120,154 @@ impl Ecdsa {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_vec(&self) -> Vec<u8> {
         self.into()
+    }
+}
+
+impl EcdsaWithYParity {
+    /// Constructs a new instance from a message and secret key.
+    ///
+    /// To obtain the hash of a message consider [`hash_message`].
+    pub fn new<M>(message: M, secret_key: &SecretKey) -> Result<Self, SignatureError>
+    where
+        M: Into<RecoveryMessage>,
+    {
+        Ecdsa::new(message, secret_key).map(EcdsaWithYParity::from)
+    }
+}
+
+// We need a custom implementation to avoid the struct being treated as an RLP
+// list.
+impl alloy_rlp::Decodable for Ecdsa {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let decoded = Self {
+            // The order of these fields determines decoding order.
+            v: u64::decode(buf)?,
+            r: U256::decode(buf)?,
+            s: U256::decode(buf)?,
+        };
+
+        Ok(decoded)
+    }
+}
+
+// We need a custom implementation to avoid the struct being treated as an RLP
+// list.
+impl alloy_rlp::Decodable for EcdsaWithYParity {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let decoded = Self {
+            // The order of these fields determines decoding order.
+            y_parity: bool::decode(buf)?,
+            r: U256::decode(buf)?,
+            s: U256::decode(buf)?,
+        };
+
+        Ok(decoded)
+    }
+}
+
+// We need a custom implementation to avoid the struct being treated as an RLP
+// list.
+impl alloy_rlp::Encodable for Ecdsa {
+    fn encode(&self, out: &mut dyn BufMut) {
+        // The order of these fields determines decoding order.
+        self.v.encode(out);
+        self.r.encode(out);
+        self.s.encode(out);
+    }
+
+    fn length(&self) -> usize {
+        self.r.length() + self.s.length() + self.v.length()
+    }
+}
+
+// We need a custom implementation to avoid the struct being treated as an RLP
+// list.
+impl alloy_rlp::Encodable for EcdsaWithYParity {
+    fn encode(&self, out: &mut dyn BufMut) {
+        // The order of these fields determines decoding order.
+        self.y_parity.encode(out);
+        self.r.encode(out);
+        self.s.encode(out);
+    }
+
+    fn length(&self) -> usize {
+        self.r.length() + self.s.length() + self.y_parity.length()
+    }
+}
+
+impl From<Ecdsa> for EcdsaWithYParity {
+    fn from(value: Ecdsa) -> Self {
+        Self {
+            r: value.r,
+            s: value.s,
+            y_parity: value.odd_y_parity(),
+        }
+    }
+}
+
+impl From<Ecdsa> for Fakeable<Ecdsa> {
+    fn from(value: Ecdsa) -> Self {
+        Self::recoverable(value)
+    }
+}
+
+impl From<EcdsaWithYParity> for Fakeable<EcdsaWithYParity> {
+    fn from(value: EcdsaWithYParity) -> Self {
+        Self::recoverable(value)
+    }
+}
+
+impl Recoverable for Ecdsa {
+    fn recover_address(&self, message: RecoveryMessage) -> Result<Address, SignatureError> {
+        self.recover(message)
+    }
+}
+
+impl Recoverable for EcdsaWithYParity {
+    fn recover_address(&self, message: RecoveryMessage) -> Result<Address, SignatureError> {
+        let ecdsa = Ecdsa {
+            r: self.r,
+            s: self.s,
+            v: self.v(),
+        };
+
+        ecdsa.recover(message)
+    }
+}
+
+impl Signature for Ecdsa {
+    fn r(&self) -> U256 {
+        self.r
+    }
+
+    fn s(&self) -> U256 {
+        self.s
+    }
+
+    fn v(&self) -> u64 {
+        self.v
+    }
+
+    fn y_parity(&self) -> Option<bool> {
+        None
+    }
+}
+
+impl Signature for EcdsaWithYParity {
+    fn r(&self) -> U256 {
+        self.r
+    }
+
+    fn s(&self) -> U256 {
+        self.s
+    }
+
+    fn v(&self) -> u64 {
+        u64::from(self.y_parity)
+    }
+
+    fn y_parity(&self) -> Option<bool> {
+        Some(self.y_parity)
     }
 }
 
