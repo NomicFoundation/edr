@@ -1,6 +1,7 @@
 {
   "name": "hardhat-edr-tests",
   "version": "1.0.0",
+  "private": true,
   "author": "Nomic Foundation",
   "license": "MIT",
   "homepage": "https://hardhat.org",
