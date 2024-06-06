@@ -12,6 +12,7 @@ use tokio::runtime;
 
 use crate::{
     blockchain::{BlockchainError, ForkedBlockchainError},
+    chain_spec::L1ChainSpec,
     Block, ExecutableTransaction, SyncBlock, TransactionConversionError,
 };
 
@@ -42,7 +43,7 @@ pub enum CreationError {
 #[derive(Clone, Debug)]
 pub struct RemoteBlock {
     header: Header,
-    transactions: Vec<ExecutableTransaction>,
+    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
     /// The receipts of the block's transactions
     receipts: OnceLock<Vec<Arc<BlockReceipt>>>,
     /// The hashes of the block's ommers
@@ -133,7 +134,7 @@ impl Block for RemoteBlock {
         self.size
     }
 
-    fn transactions(&self) -> &[ExecutableTransaction] {
+    fn transactions(&self) -> &[ExecutableTransaction<L1ChainSpec>] {
         &self.transactions
     }
 

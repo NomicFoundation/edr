@@ -5,12 +5,14 @@ mod eip4844;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut, Decodable};
-use revm_primitives::{TransactTo, TxEnv};
+use revm_primitives::TransactTo;
 
 pub use self::{
     eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, legacy::Legacy,
 };
-use super::{Signed, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE};
+use super::{
+    Signed, SignedTransaction, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+};
 use crate::{
     access_list::AccessList,
     signature::{Signature, SignatureError},
@@ -27,27 +29,6 @@ fn kind_to_transact_to(kind: TxKind) -> TransactTo {
 }
 
 impl Signed {
-    /// Returns the input data of the transaction.
-    pub fn data(&self) -> &Bytes {
-        match self {
-            Signed::PreEip155Legacy(tx) => &tx.input,
-            Signed::PostEip155Legacy(tx) => &tx.input,
-            Signed::Eip2930(tx) => &tx.input,
-            Signed::Eip1559(tx) => &tx.input,
-            Signed::Eip4844(tx) => &tx.input,
-        }
-    }
-
-    /// Returns the access list of the transaction, if any.
-    pub fn access_list(&self) -> Option<&AccessList> {
-        match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => None,
-            Signed::Eip2930(tx) => Some(&tx.access_list),
-            Signed::Eip1559(tx) => Some(&tx.access_list),
-            Signed::Eip4844(tx) => Some(&tx.access_list),
-        }
-    }
-
     /// Whether this is a legacy (pre-EIP-155) transaction.
     pub fn is_legacy(&self) -> bool {
         matches!(self, Signed::PreEip155Legacy(_))
@@ -102,28 +83,6 @@ impl Signed {
         }
     }
 
-    /// Returns what kind of transaction this is
-    pub fn kind(&self) -> TxKind {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.kind,
-            Signed::PostEip155Legacy(tx) => tx.kind,
-            Signed::Eip2930(tx) => tx.kind,
-            Signed::Eip1559(tx) => tx.kind,
-            Signed::Eip4844(tx) => TxKind::Call(tx.to),
-        }
-    }
-
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<Address, SignatureError> {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.recover(),
-            Signed::PostEip155Legacy(tx) => tx.recover(),
-            Signed::Eip2930(tx) => tx.recover(),
-            Signed::Eip1559(tx) => tx.recover(),
-            Signed::Eip4844(tx) => tx.recover(),
-        }
-    }
-
     /// Returns the [`Signature`] of the transaction
     pub fn signature(&self) -> Signature {
         match self {
@@ -144,17 +103,6 @@ impl Signed {
                 s: tx.s,
                 v: u64::from(tx.odd_y_parity),
             },
-        }
-    }
-
-    /// Converts this transaction into a `TxEnv` struct.
-    pub fn into_tx_env(self, caller: Address) -> TxEnv {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.into_tx_env(caller),
-            Signed::PostEip155Legacy(tx) => tx.into_tx_env(caller),
-            Signed::Eip2930(tx) => tx.into_tx_env(caller),
-            Signed::Eip1559(tx) => tx.into_tx_env(caller),
-            Signed::Eip4844(tx) => tx.into_tx_env(caller),
         }
     }
 
@@ -252,7 +200,38 @@ impl From<self::eip4844::Eip4844> for Signed {
     }
 }
 
+impl SignedTransaction for Signed {
+    fn recover(&self) -> Result<Address, SignatureError> {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.recover(),
+            Signed::PostEip155Legacy(tx) => tx.recover(),
+            Signed::Eip2930(tx) => tx.recover(),
+            Signed::Eip1559(tx) => tx.recover(),
+            Signed::Eip4844(tx) => tx.recover(),
+        }
+    }
+}
+
 impl Transaction for Signed {
+    fn access_list(&self) -> Option<&AccessList> {
+        match self {
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => None,
+            Signed::Eip2930(tx) => Some(&tx.access_list),
+            Signed::Eip1559(tx) => Some(&tx.access_list),
+            Signed::Eip4844(tx) => Some(&tx.access_list),
+        }
+    }
+
+    fn data(&self) -> &Bytes {
+        match self {
+            Signed::PreEip155Legacy(tx) => &tx.input,
+            Signed::PostEip155Legacy(tx) => &tx.input,
+            Signed::Eip2930(tx) => &tx.input,
+            Signed::Eip1559(tx) => &tx.input,
+            Signed::Eip4844(tx) => &tx.input,
+        }
+    }
+
     fn effective_gas_price(&self, block_base_fee: U256) -> U256 {
         match self {
             Signed::PreEip155Legacy(tx) => tx.gas_price,
@@ -284,6 +263,16 @@ impl Transaction for Signed {
             Signed::Eip2930(tx) => tx.gas_price,
             Signed::Eip1559(tx) => tx.max_fee_per_gas,
             Signed::Eip4844(tx) => tx.max_fee_per_gas,
+        }
+    }
+
+    fn kind(&self) -> TxKind {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.kind,
+            Signed::PostEip155Legacy(tx) => tx.kind,
+            Signed::Eip2930(tx) => tx.kind,
+            Signed::Eip1559(tx) => tx.kind,
+            Signed::Eip4844(tx) => TxKind::Call(tx.to),
         }
     }
 
@@ -321,10 +310,6 @@ impl Transaction for Signed {
             Signed::Eip1559(t) => t.nonce,
             Signed::Eip4844(t) => t.nonce,
         }
-    }
-
-    fn to(&self) -> Option<Address> {
-        self.kind().to().copied()
     }
 
     fn total_blob_gas(&self) -> Option<u64> {

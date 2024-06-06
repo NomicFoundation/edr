@@ -183,7 +183,7 @@ fn insert_dummy_block_with_transaction(
         transaction_hash: *transaction.transaction_hash(),
         transaction_index: 0,
         from: *transaction.caller(),
-        to: transaction.to(),
+        to: transaction.kind().to().copied(),
         contract_address: None,
         gas_used: GAS_USED,
         effective_gas_price: None,
@@ -314,6 +314,8 @@ async fn block_by_number_some() {
 async fn block_by_number_with_create() -> anyhow::Result<()> {
     use std::str::FromStr;
 
+    use edr_eth::transaction::TxKind;
+
     const DAI_CREATION_BLOCK_NUMBER: u64 = 4_719_568;
     const DAI_CREATION_TRANSACTION_INDEX: usize = 85;
     const DAI_CREATION_TRANSACTION_HASH: &str =
@@ -330,7 +332,10 @@ async fn block_by_number_with_create() -> anyhow::Result<()> {
         *transactions[DAI_CREATION_TRANSACTION_INDEX].transaction_hash(),
         B256::from_str(DAI_CREATION_TRANSACTION_HASH)?
     );
-    assert_eq!(transactions[DAI_CREATION_TRANSACTION_INDEX].to(), None);
+    assert_eq!(
+        transactions[DAI_CREATION_TRANSACTION_INDEX].kind(),
+        TxKind::Create
+    );
 
     Ok(())
 }

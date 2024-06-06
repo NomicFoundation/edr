@@ -3,8 +3,8 @@ use std::sync::OnceLock;
 use alloy_rlp::BufMut;
 use edr_eth::{
     signature::Signature,
-    transaction::{self, Transaction, TransactionType, TxKind},
-    Address, B256, U256,
+    transaction::{self, SignedTransaction, Transaction, TransactionType, TxKind},
+    Address, Bytes, B256, U256,
 };
 use revm::{
     interpreter::gas::validate_initial_tx_gas,
@@ -12,22 +12,23 @@ use revm::{
 };
 
 use super::TransactionCreationError;
+use crate::chain_spec::{ChainSpec, IntoTxEnv, L1ChainSpec};
 
 /// A transaction that can be executed by the EVM. It allows manual
 /// specification of the caller, e.g. to override the caller of a transaction
 /// that can be recovered from a signature.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ExecutableTransaction {
-    transaction: transaction::Signed,
+pub struct ExecutableTransaction<ChainSpecT: ChainSpec> {
+    transaction: ChainSpecT::SignedTransaction,
     caller: Address,
 }
 
-impl ExecutableTransaction {
+impl<ChainSpecT: ChainSpec> ExecutableTransaction<ChainSpecT> {
     /// Create an [`ExecutableTransaction`] by attempting to validate and
     /// recover the caller address of the provided transaction.
     pub fn new(
         spec_id: SpecId,
-        transaction: transaction::Signed,
+        transaction: ChainSpecT::SignedTransaction,
     ) -> Result<Self, TransactionCreationError> {
         let caller = transaction
             .recover()
@@ -40,7 +41,7 @@ impl ExecutableTransaction {
     /// caller address.
     pub fn with_caller(
         spec_id: SpecId,
-        transaction: transaction::Signed,
+        transaction: ChainSpecT::SignedTransaction,
         caller: Address,
     ) -> Result<Self, TransactionCreationError> {
         if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
@@ -72,17 +73,17 @@ impl ExecutableTransaction {
     }
 
     /// Returns the inner [`transaction::Signed`]
-    pub fn as_inner(&self) -> &transaction::Signed {
+    pub fn as_inner(&self) -> &ChainSpecT::SignedTransaction {
         &self.transaction
     }
 
     /// Returns the inner transaction and caller
-    pub fn into_inner(self) -> (transaction::Signed, Address) {
+    pub fn into_inner(self) -> (ChainSpecT::SignedTransaction, Address) {
         (self.transaction, self.caller)
     }
 }
 
-impl alloy_rlp::Encodable for ExecutableTransaction {
+impl<ChainSpecT: ChainSpec> alloy_rlp::Encodable for ExecutableTransaction<ChainSpecT> {
     fn encode(&self, out: &mut dyn BufMut) {
         self.transaction.encode(out);
     }
@@ -92,13 +93,21 @@ impl alloy_rlp::Encodable for ExecutableTransaction {
     }
 }
 
-impl From<ExecutableTransaction> for TxEnv {
-    fn from(value: ExecutableTransaction) -> Self {
+impl From<ExecutableTransaction<L1ChainSpec>> for TxEnv {
+    fn from(value: ExecutableTransaction<L1ChainSpec>) -> Self {
         value.transaction.into_tx_env(value.caller)
     }
 }
 
-impl Transaction for ExecutableTransaction {
+impl<ChainSpecT: ChainSpec> Transaction for ExecutableTransaction<ChainSpecT> {
+    fn access_list(&self) -> Option<&edr_eth::access_list::AccessList> {
+        self.transaction.access_list()
+    }
+
+    fn data(&self) -> &Bytes {
+        self.transaction.data()
+    }
+
     fn effective_gas_price(&self, block_base_fee: U256) -> U256 {
         self.transaction.effective_gas_price(block_base_fee)
     }
@@ -109,6 +118,10 @@ impl Transaction for ExecutableTransaction {
 
     fn gas_price(&self) -> U256 {
         self.transaction.gas_price()
+    }
+
+    fn kind(&self) -> TxKind {
+        self.transaction.kind()
     }
 
     fn max_fee_per_gas(&self) -> Option<U256> {
@@ -125,10 +138,6 @@ impl Transaction for ExecutableTransaction {
 
     fn nonce(&self) -> u64 {
         self.transaction.nonce()
-    }
-
-    fn to(&self) -> Option<Address> {
-        self.transaction.to()
     }
 
     fn total_blob_gas(&self) -> Option<u64> {
@@ -174,7 +183,7 @@ pub enum TransactionConversionError {
     MissingReceiverAddress,
 }
 
-impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
+impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
     type Error = TransactionConversionError;
 
     fn try_from(value: edr_rpc_eth::Transaction) -> Result<Self, Self::Error> {
@@ -328,7 +337,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction {
     }
 }
 
-fn initial_cost(spec_id: SpecId, transaction: &transaction::Signed) -> u64 {
+fn initial_cost(spec_id: SpecId, transaction: &impl Transaction) -> u64 {
     let access_list = transaction
         .access_list()
         .cloned()
@@ -369,7 +378,11 @@ mod tests {
         };
 
         let transaction = request.fake_sign(&caller);
-        let result = ExecutableTransaction::with_caller(SpecId::BERLIN, transaction.into(), caller);
+        let result = ExecutableTransaction::<L1ChainSpec>::with_caller(
+            SpecId::BERLIN,
+            transaction.into(),
+            caller,
+        );
 
         let expected_gas_cost = U256::from(21_000);
         assert!(matches!(
@@ -403,7 +416,11 @@ mod tests {
         };
 
         let transaction = request.fake_sign(&caller);
-        let result = ExecutableTransaction::with_caller(SpecId::BERLIN, transaction.into(), caller);
+        let result = ExecutableTransaction::<L1ChainSpec>::with_caller(
+            SpecId::BERLIN,
+            transaction.into(),
+            caller,
+        );
 
         assert!(matches!(
             result,

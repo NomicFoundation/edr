@@ -4,7 +4,9 @@ use edr_eth::{
     fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec, SpecId, U256,
     U64,
 };
-use edr_evm::{state::StateOverrides, trace::Trace, ExecutableTransaction};
+use edr_evm::{
+    chain_spec::L1ChainSpec, state::StateOverrides, trace::Trace, ExecutableTransaction,
+};
 use edr_rpc_eth::CallRequest;
 
 use super::resolve_call_request_inner;
@@ -103,7 +105,7 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ExecutableTransaction, ProviderError<LoggerErrorT>> {
+) -> Result<ExecutableTransaction<L1ChainSpec>, ProviderError<LoggerErrorT>> {
     resolve_call_request_inner(
         data,
         request,

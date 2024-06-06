@@ -25,6 +25,7 @@ use revm::{
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
+    chain_spec::L1ChainSpec,
     debug::{DebugContext, EvmContext},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
     ExecutableTransaction, SyncBlock,
@@ -129,7 +130,7 @@ pub struct BuildBlockResult {
 pub struct BlockBuilder {
     cfg: CfgEnvWithHandlerCfg,
     header: PartialHeader,
-    transactions: Vec<ExecutableTransaction>,
+    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
     state_diff: StateDiff,
     receipts: Vec<TransactionReceipt<Log>>,
     parent_gas_limit: Option<u64>,
@@ -218,7 +219,7 @@ impl BlockBuilder {
         &mut self,
         blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
         state: StateT,
-        transaction: ExecutableTransaction,
+        transaction: ExecutableTransaction<L1ChainSpec>,
         debug_context: Option<DebugContext<'evm, BlockchainErrorT, DebugDataT, StateT>>,
     ) -> ExecutionResultWithContext<'evm, BlockchainErrorT, StateErrorT, DebugDataT, StateT>
     where
@@ -421,7 +422,7 @@ impl BlockBuilder {
             transaction_hash: *transaction.transaction_hash(),
             transaction_index: self.transactions.len() as u64,
             from: *transaction.caller(),
-            to: transaction.to(),
+            to: transaction.kind().to().copied(),
             contract_address,
             gas_used: result.gas_used(),
             effective_gas_price: Some(transaction.effective_gas_price(block.basefee)),
