@@ -57,7 +57,7 @@ pub(crate) fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinc
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ExecutableTransaction<L1ChainSpec>, ProviderError<LoggerErrorT>> {
+) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
     resolve_call_request_inner(
         data,
         request,
@@ -91,7 +91,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         // max_priority_fee_per_gas
         Option<U256>,
     ) -> Result<(U256, U256), ProviderError<LoggerErrorT>>,
-) -> Result<ExecutableTransaction<L1ChainSpec>, ProviderError<LoggerErrorT>> {
+) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
     let CallRequest {
         from,
         to,

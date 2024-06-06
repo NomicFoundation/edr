@@ -419,7 +419,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
 
 fn send_raw_transaction_and_log<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
-    signed_transaction: ExecutableTransaction<L1ChainSpec>,
+    signed_transaction: transaction::Signed,
 ) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
     let result = data.send_transaction(signed_transaction.clone())?;
 

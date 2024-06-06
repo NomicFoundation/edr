@@ -47,10 +47,10 @@ impl<ComparatorT> Iterator for PendingTransactions<ComparatorT>
 where
     ComparatorT: Fn(&OrderedTransaction, &OrderedTransaction) -> Ordering,
 {
-    type Item = ExecutableTransaction<L1ChainSpec>;
+    type Item = transaction::Signed;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn next(&mut self) -> Option<ExecutableTransaction<L1ChainSpec>> {
+    fn next(&mut self) -> Option<transaction::Signed> {
         let (to_be_removed, next) = self
             .transactions
             .iter_mut()
@@ -138,7 +138,7 @@ pub enum MemPoolAddTransactionError<SE> {
 #[derive(Clone, Debug)]
 pub struct OrderedTransaction {
     order_id: usize,
-    transaction: ExecutableTransaction<L1ChainSpec>,
+    transaction: transaction::Signed,
 }
 
 impl OrderedTransaction {
@@ -148,7 +148,7 @@ impl OrderedTransaction {
     }
 
     /// Retrieves the pending transaction.
-    pub fn pending(&self) -> &ExecutableTransaction<L1ChainSpec> {
+    pub fn pending(&self) -> &transaction::Signed {
         &self.transaction
     }
 
@@ -245,7 +245,7 @@ impl MemPool {
     /// Retrieves an iterator for all transactions in the instance. Pending
     /// transactions are followed by future transactions, grouped by sender
     /// in order of insertion.
-    pub fn transactions(&self) -> impl Iterator<Item = &ExecutableTransaction<L1ChainSpec>> {
+    pub fn transactions(&self) -> impl Iterator<Item = &transaction::Signed> {
         self.pending_transactions
             .values()
             .chain(self.future_transactions.values())
@@ -270,7 +270,7 @@ impl MemPool {
     pub fn add_transaction<S: StateRef + ?Sized>(
         &mut self,
         state: &S,
-        transaction: ExecutableTransaction<L1ChainSpec>,
+        transaction: transaction::Signed,
     ) -> Result<(), MemPoolAddTransactionError<S::Error>> {
         let transaction_gas_limit = transaction.gas_limit();
         if transaction_gas_limit > self.block_gas_limit.get() {
@@ -385,7 +385,7 @@ impl MemPool {
         S::Error: Debug,
     {
         fn is_valid_tx(
-            transaction: &ExecutableTransaction<L1ChainSpec>,
+            transaction: &transaction::Signed,
             block_gas_limit: NonZeroU64,
             sender: &AccountInfo,
         ) -> bool {
@@ -572,8 +572,8 @@ pub fn has_transactions(mem_pool: &MemPool) -> bool {
 }
 
 fn validate_replacement_transaction<StateError>(
-    old_transaction: &ExecutableTransaction<L1ChainSpec>,
-    new_transaction: &ExecutableTransaction<L1ChainSpec>,
+    old_transaction: &transaction::Signed,
+    new_transaction: &transaction::Signed,
 ) -> Result<(), MemPoolAddTransactionError<StateError>> {
     let min_new_max_fee_per_gas = min_new_fee(old_transaction.gas_price());
     if new_transaction.gas_price() < min_new_max_fee_per_gas {

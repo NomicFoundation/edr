@@ -1,9 +1,6 @@
-use std::sync::OnceLock;
-
 use alloy_rlp::BufMut;
 use edr_eth::{
-    signature,
-    transaction::{self, SignedTransaction, Transaction, TransactionType, TxKind},
+    transaction::{SignedTransaction, Transaction, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
 use revm::{
@@ -93,8 +90,8 @@ impl<ChainSpecT: ChainSpec> alloy_rlp::Encodable for ExecutableTransaction<Chain
     }
 }
 
-impl From<ExecutableTransaction<L1ChainSpec>> for TxEnv {
-    fn from(value: ExecutableTransaction<L1ChainSpec>) -> Self {
+impl From<transaction::Signed> for TxEnv {
+    fn from(value: transaction::Signed) -> Self {
         value.transaction.into_tx_env(value.caller)
     }
 }
@@ -154,192 +151,6 @@ impl<ChainSpecT: ChainSpec> Transaction for ExecutableTransaction<ChainSpecT> {
 
     fn value(&self) -> U256 {
         self.transaction.value()
-    }
-}
-
-/// Error that occurs when trying to convert the JSON-RPC `Transaction` type.
-#[derive(Debug, thiserror::Error)]
-pub enum TransactionConversionError {
-    /// Missing access list
-    #[error("Missing access list")]
-    MissingAccessList,
-    /// EIP-4844 transaction is missing blob (versioned) hashes
-    #[error("Missing blob hashes")]
-    MissingBlobHashes,
-    /// Missing chain ID
-    #[error("Missing chain ID")]
-    MissingChainId,
-    /// Missing max fee per gas
-    #[error("Missing max fee per gas")]
-    MissingMaxFeePerGas,
-    /// Missing max priority fee per gas
-    #[error("Missing max priority fee per gas")]
-    MissingMaxPriorityFeePerGas,
-    /// EIP-4844 transaction is missing the max fee per blob gas
-    #[error("Missing max fee per blob gas")]
-    MissingMaxFeePerBlobGas,
-    /// EIP-4844 transaction is missing the receiver (to) address
-    #[error("Missing receiver (to) address")]
-    MissingReceiverAddress,
-}
-
-impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
-    type Error = TransactionConversionError;
-
-    fn try_from(value: edr_rpc_eth::Transaction) -> Result<Self, Self::Error> {
-        let kind = if let Some(to) = &value.to {
-            TxKind::Call(*to)
-        } else {
-            TxKind::Create
-        };
-
-        let caller = value.from;
-
-        let transaction = match value.transaction_type {
-            Some(0) | None => {
-                if value.is_legacy() {
-                    transaction::Signed::PreEip155Legacy(transaction::signed::Legacy {
-                        nonce: value.nonce,
-                        gas_price: value.gas_price,
-                        gas_limit: value.gas.to(),
-                        kind,
-                        value: value.value,
-                        input: value.input,
-                        signature: signature::SignatureWithRecoveryId {
-                            r: value.r,
-                            s: value.s,
-                            v: value.v,
-                        }
-                        .into(),
-                        hash: OnceLock::from(value.hash),
-                    })
-                } else {
-                    transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
-                        nonce: value.nonce,
-                        gas_price: value.gas_price,
-                        gas_limit: value.gas.to(),
-                        kind,
-                        value: value.value,
-                        input: value.input,
-                        signature: signature::SignatureWithRecoveryId {
-                            r: value.r,
-                            s: value.s,
-                            v: value.v,
-                        }
-                        .into(),
-                        hash: OnceLock::from(value.hash),
-                    })
-                }
-            }
-            Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
-                signature: signature::SignatureWithYParity {
-                    y_parity: value.odd_y_parity(),
-                    r: value.r,
-                    s: value.s,
-                }
-                .into(),
-                chain_id: value
-                    .chain_id
-                    .ok_or(TransactionConversionError::MissingChainId)?,
-                nonce: value.nonce,
-                gas_price: value.gas_price,
-                gas_limit: value.gas.to(),
-                kind,
-                value: value.value,
-                input: value.input,
-                access_list: value
-                    .access_list
-                    .ok_or(TransactionConversionError::MissingAccessList)?
-                    .into(),
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(2) => transaction::Signed::Eip1559(transaction::signed::Eip1559 {
-                signature: signature::SignatureWithYParity {
-                    y_parity: value.odd_y_parity(),
-                    r: value.r,
-                    s: value.s,
-                }
-                .into(),
-                chain_id: value
-                    .chain_id
-                    .ok_or(TransactionConversionError::MissingChainId)?,
-                nonce: value.nonce,
-                max_priority_fee_per_gas: value
-                    .max_priority_fee_per_gas
-                    .ok_or(TransactionConversionError::MissingMaxPriorityFeePerGas)?,
-                max_fee_per_gas: value
-                    .max_fee_per_gas
-                    .ok_or(TransactionConversionError::MissingMaxFeePerGas)?,
-                gas_limit: value.gas.to(),
-                kind,
-                value: value.value,
-                input: value.input,
-                access_list: value
-                    .access_list
-                    .ok_or(TransactionConversionError::MissingAccessList)?
-                    .into(),
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(3) => transaction::Signed::Eip4844(transaction::signed::Eip4844 {
-                signature: signature::SignatureWithYParity {
-                    r: value.r,
-                    s: value.s,
-                    y_parity: value.odd_y_parity(),
-                }
-                .into(),
-                chain_id: value
-                    .chain_id
-                    .ok_or(TransactionConversionError::MissingChainId)?,
-                nonce: value.nonce,
-                max_priority_fee_per_gas: value
-                    .max_priority_fee_per_gas
-                    .ok_or(TransactionConversionError::MissingMaxPriorityFeePerGas)?,
-                max_fee_per_gas: value
-                    .max_fee_per_gas
-                    .ok_or(TransactionConversionError::MissingMaxFeePerGas)?,
-                max_fee_per_blob_gas: value
-                    .max_fee_per_blob_gas
-                    .ok_or(TransactionConversionError::MissingMaxFeePerBlobGas)?,
-                gas_limit: value.gas.to(),
-                to: value
-                    .to
-                    .ok_or(TransactionConversionError::MissingReceiverAddress)?,
-                value: value.value,
-                input: value.input,
-                access_list: value
-                    .access_list
-                    .ok_or(TransactionConversionError::MissingAccessList)?
-                    .into(),
-                blob_hashes: value
-                    .blob_versioned_hashes
-                    .ok_or(TransactionConversionError::MissingBlobHashes)?,
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(r#type) => {
-                log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction", );
-
-                transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
-                    nonce: value.nonce,
-                    gas_price: value.gas_price,
-                    gas_limit: value.gas.to(),
-                    kind,
-                    value: value.value,
-                    input: value.input,
-                    signature: signature::SignatureWithRecoveryId {
-                        r: value.r,
-                        s: value.s,
-                        v: value.v,
-                    }
-                    .into(),
-                    hash: OnceLock::from(value.hash),
-                })
-            }
-        };
-
-        Ok(ExecutableTransaction {
-            transaction,
-            caller,
-        })
     }
 }
 

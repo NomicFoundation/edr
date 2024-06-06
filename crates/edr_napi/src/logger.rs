@@ -136,7 +136,7 @@ impl edr_provider::Logger for Logger {
     fn log_call(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &ExecutableTransaction<L1ChainSpec>,
+        transaction: &transaction::Signed,
         result: &edr_provider::CallResult,
     ) -> Result<(), Self::LoggerError> {
         self.collector.log_call(spec_id, transaction, result);
@@ -147,7 +147,7 @@ impl edr_provider::Logger for Logger {
     fn log_estimate_gas_failure(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &ExecutableTransaction<L1ChainSpec>,
+        transaction: &transaction::Signed,
         failure: &edr_provider::EstimateGasFailure,
     ) -> Result<(), Self::LoggerError> {
         self.collector
@@ -177,7 +177,7 @@ impl edr_provider::Logger for Logger {
     fn log_send_transaction(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &edr_evm::ExecutableTransaction<L1ChainSpec>,
+        transaction: &edr_evm::transaction::Signed,
         mining_results: &[edr_provider::DebugMineBlockResult<Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         self.collector
@@ -336,7 +336,7 @@ impl LogCollector {
     pub fn log_call(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &ExecutableTransaction<L1ChainSpec>,
+        transaction: &transaction::Signed,
         result: &edr_provider::CallResult,
     ) {
         let edr_provider::CallResult {
@@ -371,7 +371,7 @@ impl LogCollector {
     pub fn log_estimate_gas(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &ExecutableTransaction<L1ChainSpec>,
+        transaction: &transaction::Signed,
         result: &edr_provider::EstimateGasFailure,
     ) {
         let edr_provider::EstimateGasFailure {
@@ -492,7 +492,7 @@ impl LogCollector {
     pub fn log_send_transaction(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &edr_evm::ExecutableTransaction<L1ChainSpec>,
+        transaction: &edr_evm::transaction::Signed,
         mining_results: &[edr_provider::DebugMineBlockResult<BlockchainError>],
     ) {
         if !mining_results.is_empty() {
@@ -709,7 +709,7 @@ impl LogCollector {
     fn log_block_transaction(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &edr_evm::ExecutableTransaction<L1ChainSpec>,
+        transaction: &edr_evm::transaction::Signed,
         result: &edr_evm::ExecutionResult,
         trace: &edr_evm::trace::Trace,
         console_log_inputs: &[Bytes],
@@ -1055,7 +1055,7 @@ impl LogCollector {
         &mut self,
         spec_id: edr_eth::SpecId,
         block_result: &edr_provider::DebugMineBlockResult<BlockchainError>,
-        transaction: &ExecutableTransaction<L1ChainSpec>,
+        transaction: &transaction::Signed,
         transaction_result: &edr_evm::ExecutionResult,
         trace: &edr_evm::trace::Trace,
     ) {
@@ -1077,7 +1077,7 @@ impl LogCollector {
         &mut self,
         spec_id: edr_eth::SpecId,
         result: &edr_provider::DebugMineBlockResult<BlockchainError>,
-        transaction: &ExecutableTransaction<L1ChainSpec>,
+        transaction: &transaction::Signed,
     ) {
         let trace = result
             .transaction_traces
@@ -1096,7 +1096,7 @@ impl LogCollector {
         &mut self,
         spec_id: edr_eth::SpecId,
         block_result: &edr_provider::DebugMineBlockResult<BlockchainError>,
-        transaction: &ExecutableTransaction<L1ChainSpec>,
+        transaction: &transaction::Signed,
         transaction_result: &edr_evm::ExecutionResult,
         trace: &edr_evm::trace::Trace,
     ) {

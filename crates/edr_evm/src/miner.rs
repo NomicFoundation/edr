@@ -268,7 +268,7 @@ pub fn mine_block_with_single_transaction<
 >(
     blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
-    transaction: ExecutableTransaction<L1ChainSpec>,
+    transaction: transaction::Signed,
     cfg: &CfgEnvWithHandlerCfg,
     options: BlockOptions,
     min_gas_price: U256,
@@ -378,10 +378,7 @@ where
     })
 }
 
-fn effective_miner_fee(
-    transaction: &ExecutableTransaction<L1ChainSpec>,
-    base_fee: Option<U256>,
-) -> U256 {
+fn effective_miner_fee(transaction: &transaction::Signed, base_fee: Option<U256>) -> U256 {
     let max_fee_per_gas = transaction.gas_price();
     let max_priority_fee_per_gas = transaction
         .max_priority_fee_per_gas()
@@ -401,9 +398,8 @@ fn priority_comparator(
     rhs: &OrderedTransaction,
     base_fee: Option<U256>,
 ) -> Ordering {
-    let effective_miner_fee = move |transaction: &ExecutableTransaction<L1ChainSpec>| {
-        effective_miner_fee(transaction, base_fee)
-    };
+    let effective_miner_fee =
+        move |transaction: &transaction::Signed| effective_miner_fee(transaction, base_fee);
 
     // Invert lhs and rhs to get decreasing order by effective miner fee
     let ordering = effective_miner_fee(rhs.pending()).cmp(&effective_miner_fee(lhs.pending()));

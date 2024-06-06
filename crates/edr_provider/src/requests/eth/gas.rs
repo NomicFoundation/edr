@@ -105,7 +105,7 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ExecutableTransaction<L1ChainSpec>, ProviderError<LoggerErrorT>> {
+) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
     resolve_call_request_inner(
         data,
         request,

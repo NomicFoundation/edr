@@ -1214,6 +1214,7 @@ dependencies = [
  "edr_test_utils",
  "futures",
  "hex",
+ "log",
  "mockito",
  "reqwest",
  "serde",

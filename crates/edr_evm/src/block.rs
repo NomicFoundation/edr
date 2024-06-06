@@ -6,7 +6,11 @@ use std::{fmt::Debug, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    block, receipt::BlockReceipt, transaction::Transaction, withdrawal::Withdrawal, B256, U256,
+    block,
+    receipt::BlockReceipt,
+    transaction::{self, Transaction},
+    withdrawal::Withdrawal,
+    B256, U256,
 };
 
 pub use self::{
@@ -38,7 +42,7 @@ pub trait Block: Debug {
     fn rlp_size(&self) -> u64;
 
     /// Returns the block's transactions.
-    fn transactions(&self) -> &[ExecutableTransaction<L1ChainSpec>];
+    fn transactions(&self) -> &[transaction::Signed];
 
     /// Returns the receipts of the block's transactions.
     fn transaction_receipts(&self) -> Result<Vec<Arc<BlockReceipt>>, Self::Error>;

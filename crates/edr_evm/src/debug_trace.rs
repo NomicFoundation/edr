@@ -77,7 +77,7 @@ pub fn debug_trace_transaction<BlockchainErrorT, StateErrorT>(
     evm_config: CfgEnvWithHandlerCfg,
     trace_config: DebugTraceConfig,
     block_env: BlockEnv,
-    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
+    transactions: Vec<transaction::Signed>,
     transaction_hash: &B256,
     verbose_tracing: bool,
 ) -> Result<DebugTraceResultWithTraces, DebugTraceError<BlockchainErrorT, StateErrorT>>

@@ -22,7 +22,7 @@ use crate::{
 #[rlp(trailing)]
 pub struct LocalBlock {
     header: block::Header,
-    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
+    transactions: Vec<transaction::Signed>,
     #[rlp(skip)]
     transaction_receipts: Vec<Arc<BlockReceipt>>,
     ommers: Vec<block::Header>,
@@ -54,7 +54,7 @@ impl LocalBlock {
     /// Constructs a new instance with the provided data.
     pub fn new(
         partial_header: PartialHeader,
-        transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
+        transactions: Vec<transaction::Signed>,
         transaction_receipts: Vec<TransactionReceipt<Log>>,
         ommers: Vec<Header>,
         withdrawals: Option<Vec<Withdrawal>>,
@@ -123,7 +123,7 @@ impl Block for LocalBlock {
             .expect("usize fits into u64")
     }
 
-    fn transactions(&self) -> &[ExecutableTransaction<L1ChainSpec>] {
+    fn transactions(&self) -> &[transaction::Signed] {
         &self.transactions
     }
 

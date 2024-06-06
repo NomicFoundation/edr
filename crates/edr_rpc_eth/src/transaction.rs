@@ -1,4 +1,11 @@
-use edr_eth::{access_list::AccessListItem, Address, Bytes, B256, U256};
+use std::sync::OnceLock;
+
+use edr_eth::{
+    access_list::AccessListItem,
+    signature,
+    transaction::{self, TxKind},
+    Address, Bytes, B256, U256,
+};
 
 /// RPC transaction
 #[derive(Clone, Debug, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
@@ -91,4 +98,190 @@ impl Transaction {
     pub fn is_legacy(&self) -> bool {
         matches!(self.transaction_type, None | Some(0)) && matches!(self.v, 27 | 28)
     }
+}
+
+impl TryFrom<Transaction> for transaction::Signed {
+    type Error = ConversionError;
+
+    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
+        let kind = if let Some(to) = &value.to {
+            TxKind::Call(*to)
+        } else {
+            TxKind::Create
+        };
+
+        let transaction = match value.transaction_type {
+            Some(0) | None => {
+                if value.is_legacy() {
+                    transaction::Signed::PreEip155Legacy(transaction::signed::Legacy {
+                        nonce: value.nonce,
+                        gas_price: value.gas_price,
+                        gas_limit: value.gas.to(),
+                        kind,
+                        value: value.value,
+                        input: value.input,
+                        // SAFETY: The `from` field represents the caller address of the signed
+                        // transaction.
+                        signature: unsafe {
+                            signature::Fakeable::with_address(
+                                signature::SignatureWithRecoveryId {
+                                    r: value.r,
+                                    s: value.s,
+                                    v: value.v,
+                                },
+                                value.from,
+                            )
+                        },
+                        hash: OnceLock::from(value.hash),
+                    })
+                } else {
+                    transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
+                        nonce: value.nonce,
+                        gas_price: value.gas_price,
+                        gas_limit: value.gas.to(),
+                        kind,
+                        value: value.value,
+                        input: value.input,
+                        // SAFETY: The `from` field represents the caller address of the signed
+                        // transaction.
+                        signature: unsafe {
+                            signature::Fakeable::with_address(
+                                signature::SignatureWithRecoveryId {
+                                    r: value.r,
+                                    s: value.s,
+                                    v: value.v,
+                                },
+                                value.from,
+                            )
+                        },
+                        hash: OnceLock::from(value.hash),
+                    })
+                }
+            }
+            Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
+                // SAFETY: The `from` field represents the caller address of the signed
+                // transaction.
+                signature: signature::SignatureWithYParity {
+                    y_parity: value.odd_y_parity(),
+                    r: value.r,
+                    s: value.s,
+                }
+                .into(),
+                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+                nonce: value.nonce,
+                gas_price: value.gas_price,
+                gas_limit: value.gas.to(),
+                kind,
+                value: value.value,
+                input: value.input,
+                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+                hash: OnceLock::from(value.hash),
+            }),
+            Some(2) => transaction::Signed::Eip1559(transaction::signed::Eip1559 {
+                // SAFETY: The `from` field represents the caller address of the signed
+                // transaction.
+                signature: unsafe {
+                    signature::Fakeable::with_address(
+                        signature::SignatureWithYParity {
+                            y_parity: value.odd_y_parity(),
+                            r: value.r,
+                            s: value.s,
+                        },
+                        value.from,
+                    )
+                },
+                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+                nonce: value.nonce,
+                max_priority_fee_per_gas: value
+                    .max_priority_fee_per_gas
+                    .ok_or(ConversionError::MaxPriorityFeePerGas)?,
+                max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+                gas_limit: value.gas.to(),
+                kind,
+                value: value.value,
+                input: value.input,
+                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+                hash: OnceLock::from(value.hash),
+            }),
+            Some(3) => transaction::Signed::Eip4844(transaction::signed::Eip4844 {
+                // SAFETY: The `from` field represents the caller address of the signed
+                // transaction.
+                signature: unsafe {
+                    signature::Fakeable::with_address(
+                        signature::SignatureWithYParity {
+                            r: value.r,
+                            s: value.s,
+                            y_parity: value.odd_y_parity(),
+                        },
+                        value.from,
+                    )
+                },
+                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+                nonce: value.nonce,
+                max_priority_fee_per_gas: value
+                    .max_priority_fee_per_gas
+                    .ok_or(ConversionError::MaxPriorityFeePerGas)?,
+                max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+                max_fee_per_blob_gas: value
+                    .max_fee_per_blob_gas
+                    .ok_or(ConversionError::MaxFeePerBlobGas)?,
+                gas_limit: value.gas.to(),
+                to: value.to.ok_or(ConversionError::ReceiverAddress)?,
+                value: value.value,
+                input: value.input,
+                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+                blob_hashes: value
+                    .blob_versioned_hashes
+                    .ok_or(ConversionError::BlobHashes)?,
+                hash: OnceLock::from(value.hash),
+            }),
+            Some(r#type) => {
+                log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction", );
+
+                transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
+                    nonce: value.nonce,
+                    gas_price: value.gas_price,
+                    gas_limit: value.gas.to(),
+                    kind,
+                    value: value.value,
+                    input: value.input,
+                    signature: signature::SignatureWithRecoveryId {
+                        r: value.r,
+                        s: value.s,
+                        v: value.v,
+                    }
+                    .into(),
+                    hash: OnceLock::from(value.hash),
+                })
+            }
+        };
+
+        Ok(transaction)
+    }
+}
+
+/// Error that occurs when trying to convert the JSON-RPC `Transaction` type.
+#[derive(Debug, thiserror::Error)]
+pub enum ConversionError {
+    /// Missing access list
+    #[error("Missing access list")]
+    AccessList,
+    /// EIP-4844 transaction is missing blob (versioned) hashes
+    #[error("Missing blob hashes")]
+    BlobHashes,
+    /// Missing chain ID
+    #[error("Missing chain ID")]
+    ChainId,
+    /// Missing max fee per gas
+    #[error("Missing max fee per gas")]
+    MaxFeePerGas,
+    /// Missing max priority fee per gas
+    #[error("Missing max priority fee per gas")]
+    MaxPriorityFeePerGas,
+    /// EIP-4844 transaction is missing the max fee per blob gas
+    #[error("Missing max fee per blob gas")]
+    MaxFeePerBlobGas,
+    /// EIP-4844 transaction is missing the receiver (to) address
+    #[error("Missing receiver (to) address")]
+    ReceiverAddress,
 }

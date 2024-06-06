@@ -7,7 +7,7 @@ use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     log::{add_log_to_bloom, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::{Transaction, TransactionType},
+    transaction::{self, Transaction as _, TransactionType},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
@@ -25,10 +25,9 @@ use revm::{
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::L1ChainSpec,
     debug::{DebugContext, EvmContext},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
-    ExecutableTransaction, SyncBlock,
+    SyncBlock,
 };
 
 const DAO_EXTRA_DATA: &[u8] = b"dao-hard-fork";
@@ -130,7 +129,7 @@ pub struct BuildBlockResult {
 pub struct BlockBuilder {
     cfg: CfgEnvWithHandlerCfg,
     header: PartialHeader,
-    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
+    transactions: Vec<transaction::Signed>,
     state_diff: StateDiff,
     receipts: Vec<TransactionReceipt<Log>>,
     parent_gas_limit: Option<u64>,
@@ -219,7 +218,7 @@ impl BlockBuilder {
         &mut self,
         blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
         state: StateT,
-        transaction: ExecutableTransaction<L1ChainSpec>,
+        transaction: transaction::Signed,
         debug_context: Option<DebugContext<'evm, BlockchainErrorT, DebugDataT, StateT>>,
     ) -> ExecutionResultWithContext<'evm, BlockchainErrorT, StateErrorT, DebugDataT, StateT>
     where
