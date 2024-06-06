@@ -394,10 +394,10 @@ where
     match serde_json::Value::deserialize(deserializer)? {
         serde_json::Value::Number(num) => num.as_u64().ok_or_else(error_msg),
         serde_json::Value::String(value) => {
-            if value.starts_with("0x") {
-                u64::from_str_radix(&value[2..], 16).map_err(|_| error_msg())
+            if let Some(hex_str) = value.strip_prefix("0x") {
+                u64::from_str_radix(hex_str, 16).map_err(|_err| error_msg())
             } else {
-                value.parse::<u64>().map_err(|_| error_msg())
+                value.parse::<u64>().map_err(|_err| error_msg())
             }
         }
         _ => Err(error_msg()),
