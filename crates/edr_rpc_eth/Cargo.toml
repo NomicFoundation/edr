@@ -25,3 +25,6 @@ walkdir = { version = "2.3.3", default-features = false }
 [features]
 test-remote = []
 tracing = ["dep:tracing", "edr_rpc_client/tracing"]
+
+[lints]
+workspace = true

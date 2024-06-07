@@ -40,3 +40,6 @@ tempfile = "3.7.1"
 test-remote = []
 test-utils = []
 tracing = ["dep:tracing", "edr_eth/tracing"]
+
+[lints]
+workspace = true

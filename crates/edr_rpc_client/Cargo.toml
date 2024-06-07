@@ -33,3 +33,6 @@ walkdir = { version = "2.3.3", default-features = false }
 [features]
 test-remote = []
 tracing = ["dep:tracing", "dep:reqwest-tracing"]
+
+[lints]
+workspace = true
