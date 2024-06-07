@@ -11,4 +11,4 @@ rpath = true
 rpath = true
 
 [profile.test]
-opt-level = 1
+opt-level = 0
