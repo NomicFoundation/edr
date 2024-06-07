@@ -23,7 +23,7 @@ on:
 
 env:
   RUSTFLAGS: -Dwarnings
-  RUSTDOCFLAGS: "-D warnings"
+  RUSTDOCFLAGS: -Dwarnings
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
