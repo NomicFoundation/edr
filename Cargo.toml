@@ -14,9 +14,9 @@ rpath = true
 opt-level = 2
 
 [workspace.lints.rust]
-rust_2018_idioms = "warn"
-nonstandard_style = "warn"
 future_incompatible = "warn"
+nonstandard_style = "warn"
+rust_2018_idioms = "warn"
 
 [workspace.lints.clippy]
 all = "warn"
