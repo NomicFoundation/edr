@@ -43,3 +43,6 @@ toml = { version = "0.5.9", default-features = false }
 [features]
 test-utils = ["anyhow"]
 tracing = ["dep:tracing", "edr_eth/tracing", "edr_evm/tracing"]
+
+[lints]
+workspace = true
