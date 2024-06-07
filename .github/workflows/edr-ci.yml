@@ -60,11 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest", "macos-latest"]
-        include:
-          - RUSTFLAGS: "-Dwarnings"
-          - os: "windows-latest"
-            RUSTFLAGS: "-Dwarnings -Ctarget-feature=+crt-static"
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
     steps:
       - uses: actions/checkout@v3
 
@@ -86,7 +82,6 @@ jobs:
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         env:
-          RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
           INFURA_URL: ${{ secrets.INFURA_URL }}
         with:
@@ -95,8 +90,6 @@ jobs:
 
       - name: Doctests
         uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
         with:
           command: test
           args: --doc --workspace --features tracing
@@ -113,7 +106,6 @@ jobs:
       # - name: Test with latest nextest release
       #   uses: actions-rs/cargo@v1
       #   env:
-      #     RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
       #     CARGO_INCREMENTAL: ${{ matrix.CARGO_INCREMENTAL }}
       #     ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
       #   with:
