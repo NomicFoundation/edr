@@ -5,7 +5,7 @@ use super::{
     Ecdsa, EcdsaWithYParity, Fakeable, FakeableData, Recoverable, RecoveryMessage, Signature,
     SignatureError,
 };
-use crate::{Address, U256, U64};
+use crate::{Address, U256};
 
 impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
     /// Constructs an instance with a signature that has a recoverable address.
@@ -112,8 +112,6 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
                         v: *v,
                     };
 
-                    println!("ecdsa: {ecdsa:?}");
-
                     ecdsa.encode(out);
                 }
             }
@@ -124,26 +122,48 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
     fn length(&self) -> usize {
         match &self.data {
             FakeableData::Fake { v } => {
-                let v_length = if let Some(y_parity) = self.y_parity() {
-                    y_parity.length()
+                if let Some(y_parity) = self.y_parity() {
+                    EcdsaWithYParity {
+                        r: self.r(),
+                        s: self.s(),
+                        y_parity,
+                    }
+                    .length()
                 } else {
-                    v.length()
-                };
-
-                self.r().length() + self.s().length() + v_length
+                    Ecdsa {
+                        r: self.r(),
+                        s: self.s(),
+                        v: *v,
+                    }
+                    .length()
+                }
             }
             FakeableData::Recoverable { signature } => signature.length(),
         }
     }
 }
 
-impl<SignatureT: Recoverable + Signature> PartialEq for Fakeable<SignatureT> {
+impl<SignatureT: Recoverable + Signature + PartialEq> PartialEq for Fakeable<SignatureT> {
     fn eq(&self, other: &Self) -> bool {
-        self.r() == other.r() && self.s() == other.s() && self.v() == other.v()
+        match (&self.data, &other.data) {
+            (FakeableData::Fake { v: v1 }, FakeableData::Fake { v: v2 }) => {
+                // SAFETY: The address is always initialized for fake signatures.
+                let address1 = unsafe { self.address.get_unchecked() };
+                // SAFETY: The address is always initialized for fake signatures.
+                let address2 = unsafe { other.address.get_unchecked() };
+
+                v1 == v2 && address1 == address2
+            }
+            (
+                FakeableData::Recoverable { signature: s1 },
+                FakeableData::Recoverable { signature: s2 },
+            ) => s1 == s2,
+            _ => false,
+        }
     }
 }
 
-impl<SignatureT: Recoverable + Signature> Eq for Fakeable<SignatureT> {}
+impl<SignatureT: Recoverable + Signature + PartialEq> Eq for Fakeable<SignatureT> {}
 
 #[cfg(feature = "serde")]
 impl<SignatureT: Recoverable + Signature> serde::Serialize for Fakeable<SignatureT> {
@@ -153,10 +173,14 @@ impl<SignatureT: Recoverable + Signature> serde::Serialize for Fakeable<Signatur
     {
         use serde::ser::SerializeMap;
 
+        use crate::U64;
+
         let mut map = serializer.serialize_map(Some(3))?;
         map.serialize_entry("r", &self.r())?;
         map.serialize_entry("s", &self.s())?;
-        // We serialize the `v` field for backwards compatibility
+        // Match geth's behavior by always serializing V-value, even when the Y-parity
+        // is known.
+        // <https://github.com/ethereum/go-ethereum/blob/6a49d13c13d967dd9fb2190fd110ef6d90fc09cd/core/types/transaction_marshalling.go#L81>
         map.serialize_entry("v", &self.v())?;
 
         if let Some(y_parity) = self.y_parity() {

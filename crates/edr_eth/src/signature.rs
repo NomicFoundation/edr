@@ -92,7 +92,11 @@ enum FakeableData<SignatureT: Recoverable + Signature> {
     /// to the sender's address. This is the simplest implementation and it
     /// helps us recognize fake signatures in debug logs.
     Fake {
-        // /// Whether the fake transaction uses Y-parity (0 or 1).
+        /// The fake V-value.
+        ///
+        /// A V-value of 28 (1 + 27) signals that the signature uses a
+        /// `y_parity: bool` for encoding/decoding purposes instead of the `v:
+        /// u64`.
         v: u64,
     },
     /// ECDSA signature with a recoverable caller address.
@@ -110,7 +114,10 @@ pub trait Signature {
     /// Returns the signature's V-value.
     fn v(&self) -> u64;
 
-    /// Returns the signature's Y-parity value, if it exists.
+    /// Signals whether the signature internally uses a boolean Y-parity instead
+    /// of the V-value.
+    ///
+    /// This applies to EIP-2930 and later transaction signatures.
     fn y_parity(&self) -> Option<bool>;
 }
 
