@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - ".github/workflows/edr.yml"
+      - ".github/workflows/edr-ci.yml"
       - "rust-toolchain"
       - "Cargo.lock"
       - "Cargo.toml"
@@ -14,7 +14,7 @@ on:
     branches:
       - "**"
     paths:
-      - ".github/workflows/edr.yml"
+      - ".github/workflows/edr-ci.yml"
       - "rust-toolchain"
       - "Cargo.lock"
       - "Cargo.toml"
