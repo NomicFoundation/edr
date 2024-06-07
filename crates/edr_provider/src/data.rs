@@ -2579,6 +2579,7 @@ pub(crate) mod test_utils {
 
     use anyhow::anyhow;
     use edr_eth::transaction::{self, TxKind};
+    #[cfg(feature = "test-remote")]
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
@@ -2599,6 +2600,7 @@ pub(crate) mod test_utils {
             Self::with_fork(None)
         }
 
+        #[cfg(feature = "test-remote")]
         pub(crate) fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
             let fork_url = url.unwrap_or(get_alchemy_url());
             Self::with_fork(Some(fork_url))
@@ -2720,21 +2722,17 @@ pub(crate) mod test_utils {
 mod tests {
     use std::convert::Infallible;
 
-    use alloy_sol_types::{sol, SolCall};
     use anyhow::Context;
     use edr_eth::transaction::SignedTransaction;
-    use edr_evm::{hex, MineOrdering, TransactionError};
-    use edr_rpc_eth::CallRequest;
+    use edr_evm::{hex, MineOrdering};
+    #[cfg(feature = "test-remote")]
     use edr_test_utils::env::get_alchemy_url;
     use serde_json::json;
 
     use super::{test_utils::ProviderTestFixture, *};
     use crate::{
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
-        requests::eth::resolve_call_request,
-        test_utils::{
-            create_test_config, create_test_config_with_fork, one_ether, FORK_BLOCK_NUMBER,
-        },
+        test_utils::{create_test_config, one_ether},
         MemPoolConfig, MiningConfig, ProviderConfig,
     };
 
@@ -2759,6 +2757,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn test_local_account_balance_forked() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::new_forked(None)?;
@@ -2941,6 +2940,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn chain_id_fork_mode() -> anyhow::Result<()> {
         let fixture = ProviderTestFixture::new_forked(None)?;
@@ -2951,6 +2951,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn fork_metadata_fork_mode() -> anyhow::Result<()> {
         let fixture = ProviderTestFixture::new_forked(None)?;
@@ -3625,6 +3626,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn reset_local_to_forking() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::new_local()?;
@@ -3653,6 +3655,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn reset_forking_to_local() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::new_forked(None)?;
@@ -3731,8 +3734,17 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn run_call_in_hardfork_context() -> anyhow::Result<()> {
+        use alloy_sol_types::{sol, SolCall};
+        use edr_evm::TransactionError;
+        use edr_rpc_eth::CallRequest;
+
+        use crate::{
+            requests::eth::resolve_call_request, test_utils::create_test_config_with_fork,
+        };
+
         sol! { function Hello() public pure returns (string); }
 
         fn assert_decoded_output(result: ExecutionResult) -> anyhow::Result<()> {
@@ -3875,6 +3887,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     macro_rules! impl_full_block_tests {
         ($(
             $name:ident => {
@@ -3897,6 +3910,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "test-remote")]
     impl_full_block_tests! {
         mainnet_byzantium => {
             block_number: 4_370_001,
