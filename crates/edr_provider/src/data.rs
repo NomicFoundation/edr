@@ -2728,7 +2728,7 @@ mod tests {
     #[cfg(feature = "test-remote")]
     use edr_test_utils::env::get_alchemy_url;
     #[cfg(feature = "test-remote")]
-    use edr_test_utils::FORK_BLOCK_NUMBER;
+    use crate::test_utils::FORK_BLOCK_NUMBER;
     use serde_json::json;
 
     use super::{test_utils::ProviderTestFixture, *};
