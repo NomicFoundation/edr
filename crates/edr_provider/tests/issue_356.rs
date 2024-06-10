@@ -1,4 +1,4 @@
-#![cfg(feature = "test-utils")]
+#![cfg(all(feature = "test-remote", feature = "test-utils"))]
 
 use std::str::FromStr;
 
@@ -17,7 +17,7 @@ use tokio::runtime;
 // hardfork is specified as Cancun, but the block number is before the Cancun
 // hardfork. https://github.com/NomicFoundation/edr/issues/356
 #[tokio::test(flavor = "multi_thread")]
-async fn issue_324() -> anyhow::Result<()> {
+async fn issue_356() -> anyhow::Result<()> {
     // ERC-20 contract
     const TEST_CONTRACT_ADDRESS: &str = "0xaa8e23fb1079ea71e0a56f48a2aa51851d8433d0";
 

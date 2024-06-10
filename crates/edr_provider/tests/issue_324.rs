@@ -1,4 +1,4 @@
-#![cfg(feature = "test-utils")]
+#![cfg(all(feature = "test-remote", feature = "test-utils"))]
 
 use std::str::FromStr;
 
