@@ -191,7 +191,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         transaction::Signed::PostEip155Legacy(tx) => tx.gas_price,
         transaction::Signed::Eip2930(tx) => tx.gas_price,
         transaction::Signed::Eip1559(_) | transaction::Signed::Eip4844(_) => {
-            gas_price_for_post_eip1559(signed_transaction, block)
+            gas_price_for_post_eip1559(&signed_transaction, block)
         }
     };
 
@@ -502,7 +502,7 @@ fn validate_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + Ti
 ) -> Result<(), ProviderError<LoggerErrorT>> {
     // Validate signature
     let _ = transaction
-        .recover()
+        .caller()
         .map_err(|_err| ProviderError::InvalidArgument("Invalid Signature".into()))?;
 
     if let Some(tx_chain_id) = transaction.chain_id() {

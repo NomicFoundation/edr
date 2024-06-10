@@ -6,15 +6,15 @@ use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
 use crate::{
-    signature::{self, Signature, SignatureError},
+    signature::{self, Fakeable, Signature},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
 
-#[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip155 {
-    // The order of these fields determines de-/encoding order.
+    // The order of these fields determines encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub nonce: u64,
     pub gas_price: U256,
@@ -33,39 +33,17 @@ pub struct Eip155 {
 }
 
 impl Eip155 {
-    pub fn hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
-    }
-
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<&Address, SignatureError> {
-        self.signature
-            .recover_address(transaction::request::Eip155::from(self).hash())
+    /// Returns the caller/signer of the transaction.
+    pub fn caller(&self) -> &Address {
+        self.signature.caller()
     }
 
     pub fn chain_id(&self) -> u64 {
-        (self.signature.v() - 35) / 2
+        v_to_chain_id(self.signature.v())
     }
 
-    /// Converts this transaction into a `TxEnv` struct.
-    pub fn into_tx_env(self, caller: Address) -> TxEnv {
-        let chain_id = self.chain_id();
-        TxEnv {
-            caller,
-            gas_limit: self.gas_limit,
-            gas_price: self.gas_price,
-            transact_to: kind_to_transact_to(self.kind),
-            value: self.value,
-            data: self.input,
-            nonce: Some(self.nonce),
-            chain_id: Some(chain_id),
-            access_list: Vec::new(),
-            gas_priority_fee: None,
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
-            eof_initcodes: Vec::new(),
-            eof_initcodes_hashed: HashMap::new(),
-        }
+    pub fn hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
     }
 }
 
@@ -84,6 +62,29 @@ impl From<transaction::signed::Legacy> for Eip155 {
     }
 }
 
+impl From<Eip155> for TxEnv {
+    fn from(value: Eip155) -> Self {
+        let chain_id = value.chain_id();
+
+        TxEnv {
+            caller: *value.caller(),
+            gas_limit: value.gas_limit,
+            gas_price: value.gas_price,
+            transact_to: kind_to_transact_to(value.kind),
+            value: value.value,
+            data: value.input,
+            nonce: Some(value.nonce),
+            chain_id: Some(chain_id),
+            access_list: Vec::new(),
+            gas_priority_fee: None,
+            blob_hashes: Vec::new(),
+            max_fee_per_blob_gas: None,
+            eof_initcodes: Vec::new(),
+            eof_initcodes_hashed: HashMap::new(),
+        }
+    }
+}
+
 impl PartialEq for Eip155 {
     fn eq(&self, other: &Self) -> bool {
         self.nonce == other.nonce
@@ -94,6 +95,59 @@ impl PartialEq for Eip155 {
             && self.input == other.input
             && self.signature == other.signature
     }
+}
+
+#[derive(RlpDecodable)]
+struct Decodable {
+    // The order of these fields determines decoding order.
+    nonce: u64,
+    gas_price: U256,
+    gas_limit: u64,
+    kind: TxKind,
+    value: U256,
+    input: Bytes,
+    signature: signature::SignatureWithRecoveryId,
+}
+
+impl alloy_rlp::Decodable for Eip155 {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let transaction = Decodable::decode(buf)?;
+        let request = transaction::request::Eip155::from(&transaction);
+
+        let signature = Fakeable::recover(transaction.signature, request.hash().into())
+            .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
+
+        Ok(Self {
+            nonce: transaction.nonce,
+            gas_price: transaction.gas_price,
+            gas_limit: transaction.gas_limit,
+            kind: transaction.kind,
+            value: transaction.value,
+            input: transaction.input,
+            signature,
+            hash: OnceLock::new(),
+        })
+    }
+}
+
+impl From<&Decodable> for transaction::request::Eip155 {
+    fn from(value: &Decodable) -> Self {
+        let chain_id = v_to_chain_id(value.signature.v);
+        Self {
+            nonce: value.nonce,
+            gas_price: value.gas_price,
+            gas_limit: value.gas_limit,
+            kind: value.kind,
+            value: value.value,
+            input: value.input.clone(),
+            chain_id,
+        }
+    }
+}
+
+/// Converts a V-value to a chain ID.
+fn v_to_chain_id(v: u64) -> u64 {
+    (v - 35) / 2
 }
 
 #[cfg(test)]

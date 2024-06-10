@@ -1,9 +1,7 @@
 use alloy_rlp::BufMut;
 use k256::SecretKey;
 
-use super::{
-    Fakeable, Recoverable, RecoveryMessage, Signature, SignatureError, SignatureWithRecoveryId,
-};
+use super::{Recoverable, RecoveryMessage, Signature, SignatureError, SignatureWithRecoveryId};
 use crate::{Address, U256};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -68,12 +66,6 @@ impl From<SignatureWithRecoveryId> for SignatureWithYParity {
             s: value.s,
             y_parity: value.odd_y_parity(),
         }
-    }
-}
-
-impl From<SignatureWithYParity> for Fakeable<SignatureWithYParity> {
-    fn from(value: SignatureWithYParity) -> Self {
-        Self::recoverable(value)
     }
 }
 

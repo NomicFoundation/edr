@@ -3,13 +3,10 @@ use edr_eth::{
     transaction::{SignedTransaction, Transaction, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
-use revm::{
-    interpreter::gas::validate_initial_tx_gas,
-    primitives::{SpecId, TxEnv},
-};
+use revm::{interpreter::gas::validate_initial_tx_gas, primitives::SpecId};
 
 use super::TransactionCreationError;
-use crate::chain_spec::{ChainSpec, IntoTxEnv, L1ChainSpec};
+use crate::chain_spec::ChainSpec;
 
 /// A transaction that can be executed by the EVM. It allows manual
 /// specification of the caller, e.g. to override the caller of a transaction
@@ -28,7 +25,7 @@ impl<ChainSpecT: ChainSpec> ExecutableTransaction<ChainSpecT> {
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<Self, TransactionCreationError> {
         let caller = *transaction
-            .recover()
+            .caller()
             .map_err(TransactionCreationError::Signature)?;
 
         Self::with_caller(spec_id, transaction, caller)
@@ -87,12 +84,6 @@ impl<ChainSpecT: ChainSpec> alloy_rlp::Encodable for ExecutableTransaction<Chain
 
     fn length(&self) -> usize {
         self.transaction.length()
-    }
-}
-
-impl From<transaction::Signed> for TxEnv {
-    fn from(value: transaction::Signed) -> Self {
-        value.transaction.into_tx_env(value.caller)
     }
 }
 
@@ -177,6 +168,7 @@ mod tests {
     use edr_eth::{transaction, Bytes};
 
     use super::*;
+    use crate::chain_spec::L1ChainSpec;
 
     #[test]
     fn gas_limit_less_than_base_fee() -> anyhow::Result<()> {

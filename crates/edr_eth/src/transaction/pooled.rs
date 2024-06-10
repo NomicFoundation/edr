@@ -216,11 +216,15 @@ mod tests {
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::SignatureWithRecoveryId {
-                r: U256::default(),
-                s: U256::default(),
-                v: 1,
-            }.into(),
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature::SignatureWithRecoveryId {
+                    r: U256::default(),
+                    s: U256::default(),
+                    v: 1,
+                },
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
             hash: OnceLock::new(),
         }),
         post_eip155 => PooledTransaction::PostEip155Legacy(Eip155PooledTransaction {
@@ -230,11 +234,15 @@ mod tests {
             kind: TxKind::Create,
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::SignatureWithRecoveryId {
-                r: U256::default(),
-                s: U256::default(),
-                v: 37,
-            }.into(),
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature::SignatureWithRecoveryId {
+                    r: U256::default(),
+                    s: U256::default(),
+                    v: 37,
+                },
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
             hash: OnceLock::new(),
         }),
         eip2930 => PooledTransaction::Eip2930(Eip2930PooledTransaction {
@@ -245,11 +253,15 @@ mod tests {
             kind: TxKind::Call(Address::random()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::SignatureWithYParity {
-                r: U256::default(),
-                s: U256::default(),
-                y_parity: true,
-            }.into(),
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature::SignatureWithYParity {
+                    r: U256::default(),
+                    s: U256::default(),
+                    y_parity: true,
+                },
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
             access_list: vec![].into(),
             hash: OnceLock::new(),
         }),
@@ -263,11 +275,15 @@ mod tests {
             value: U256::from(4),
             input: Bytes::from(vec![1, 2]),
             access_list: vec![].into(),
-            signature: signature::SignatureWithYParity {
-                r: U256::default(),
-                s: U256::default(),
-                y_parity: true,
-            }.into(),
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature::SignatureWithYParity {
+                    r: U256::default(),
+                    s: U256::default(),
+                    y_parity: true,
+                },
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
             hash: OnceLock::new(),
         }),
         eip4844 => PooledTransaction::Eip4844(
@@ -283,11 +299,15 @@ mod tests {
                 input: Bytes::from_str("0x2069b0c7")?,
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
-                signature: signature::SignatureWithYParity {
-                    r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
-                    s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
-                    y_parity: true,
-                }.into(),
+                // SAFETY: Caller address has been precomputed
+                signature: unsafe { signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithYParity {
+                        r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
+                        s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
+                        y_parity: true,
+                    },
+                    Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+                )},
                 hash: OnceLock::new(),
             },
             vec![fake_eip4844_blob()],

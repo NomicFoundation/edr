@@ -5,7 +5,7 @@ mod eip4844;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut, Decodable};
-use revm_primitives::TransactTo;
+use revm_primitives::{TransactTo, TxEnv};
 
 pub use self::{
     eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, legacy::Legacy,
@@ -14,10 +14,7 @@ use super::{
     Signed, SignedTransaction, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
-    access_list::AccessList,
-    signature::{Signature, SignatureError},
-    utils::enveloped,
-    Address, Bytes, B256, U256,
+    access_list::AccessList, signature::Signature, utils::enveloped, Address, Bytes, B256, U256,
 };
 
 /// Converts a `TxKind` to a `TransactTo`.
@@ -188,14 +185,26 @@ impl From<self::eip4844::Eip4844> for Signed {
     }
 }
 
+impl From<Signed> for TxEnv {
+    fn from(value: Signed) -> Self {
+        match value {
+            Signed::PreEip155Legacy(tx) => tx.into(),
+            Signed::PostEip155Legacy(tx) => tx.into(),
+            Signed::Eip2930(tx) => tx.into(),
+            Signed::Eip1559(tx) => tx.into(),
+            Signed::Eip4844(tx) => tx.into(),
+        }
+    }
+}
+
 impl SignedTransaction for Signed {
-    fn recover(&self) -> Result<&Address, SignatureError> {
+    fn caller(&self) -> &Address {
         match self {
-            Signed::PreEip155Legacy(tx) => tx.recover(),
-            Signed::PostEip155Legacy(tx) => tx.recover(),
-            Signed::Eip2930(tx) => tx.recover(),
-            Signed::Eip1559(tx) => tx.recover(),
-            Signed::Eip4844(tx) => tx.recover(),
+            Signed::PreEip155Legacy(tx) => tx.caller(),
+            Signed::PostEip155Legacy(tx) => tx.caller(),
+            Signed::Eip2930(tx) => tx.caller(),
+            Signed::Eip1559(tx) => tx.caller(),
+            Signed::Eip4844(tx) => tx.caller(),
         }
     }
 }
@@ -342,7 +351,7 @@ mod tests {
     use std::sync::OnceLock;
 
     use super::*;
-    use crate::{signature, Bytes};
+    use crate::{signature, transaction, Bytes};
 
     #[test]
     fn can_recover_sender() {
@@ -374,7 +383,7 @@ mod tests {
         }
         assert_eq!(tx.value, U256::from(0x0au64));
         assert_eq!(
-            *tx.recover().unwrap(),
+            *tx.caller(),
             "0x0f65fe9276bc9a24ae7083ae28e2660ef72df99e"
                 .parse::<Address>()
                 .unwrap()
@@ -383,18 +392,29 @@ mod tests {
 
     macro_rules! impl_test_signed_transaction_encoding_round_trip {
         ($(
-            $name:ident => $transaction:expr,
+            $name:ident => $request:expr,
         )+) => {
             $(
                 paste::item! {
                     #[test]
-                    fn [<signed_transaction_encoding_round_trip_ $name>]() {
-                        let transaction = $transaction;
+                    fn [<signed_transaction_encoding_round_trip_ $name>]() -> anyhow::Result<()> {
+                        use signature::secret_key_from_str;
+
+                        let request = $request;
+
+                        let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0]).expect("Failed to parse secret key");
+                        let transaction = request.sign(&secret_key)?;
+
+                        println!("signature: {:?}", transaction.signature);
+
+                        let transaction = Signed::from(transaction);
 
                         let encoded = alloy_rlp::encode(&transaction);
                         let decoded = Signed::decode(&mut encoded.as_slice()).unwrap();
 
                         assert_eq!(decoded, transaction);
+
+                        Ok(())
                     }
                 }
             )+
@@ -402,35 +422,24 @@ mod tests {
     }
 
     impl_test_signed_transaction_encoding_round_trip! {
-            pre_eip155 => Signed::PreEip155Legacy(self::legacy::Legacy {
+            pre_eip155 => transaction::request::Legacy {
                 nonce: 0,
                 gas_price: U256::from(1),
                 gas_limit: 2,
                 kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::SignatureWithRecoveryId {
-                    r: U256::default(),
-                    s: U256::default(),
-                    v: 1,
-                }.into(),
-                hash: OnceLock::new(),
-            }),
-            post_eip155 => Signed::PostEip155Legacy(self::eip155::Eip155 {
+            },
+            post_eip155 => transaction::request::Eip155 {
                 nonce: 0,
                 gas_price: U256::from(1),
                 gas_limit: 2,
                 kind: TxKind::Create,
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::SignatureWithRecoveryId {
-                    r: U256::default(),
-                    s: U256::default(),
-                    v: 37,
-                }.into(),
-                hash: OnceLock::new(),
-            }),
-            eip2930 => Signed::Eip2930(self::eip2930::Eip2930 {
+                chain_id: 1337,
+            },
+            eip2930 => transaction::request::Eip2930 {
                 chain_id: 1,
                 nonce: 0,
                 gas_price: U256::from(1),
@@ -438,15 +447,9 @@ mod tests {
                 kind: TxKind::Call(Address::random()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::SignatureWithYParity {
-                    r: U256::default(),
-                    s: U256::default(),
-                    y_parity: true,
-                }.into(),
-                access_list: vec![].into(),
-                hash: OnceLock::new(),
-            }),
-            eip1559 => Signed::Eip1559(self::eip1559::Eip1559 {
+                access_list: vec![],
+            },
+            eip1559 => transaction::request::Eip1559 {
                 chain_id: 1,
                 nonce: 0,
                 max_priority_fee_per_gas: U256::from(1),
@@ -455,15 +458,9 @@ mod tests {
                 kind: TxKind::Create,
                 value: U256::from(4),
                 input: Bytes::from(vec![1, 2]),
-                access_list: vec![].into(),
-                signature: signature::SignatureWithYParity {
-                    r: U256::default(),
-                    s: U256::default(),
-                    y_parity: true,
-                }.into(),
-                hash: OnceLock::new(),
-            }),
-            eip4844 => Signed::Eip4844(self::eip4844::Eip4844 {
+                access_list: vec![],
+            },
+            eip4844 => transaction::request::Eip4844 {
                 chain_id: 1,
                 nonce: 0,
                 max_priority_fee_per_gas: U256::from(1),
@@ -473,15 +470,9 @@ mod tests {
                 to: Address::random(),
                 value: U256::from(4),
                 input: Bytes::from(vec![1, 2]),
-                access_list: vec![].into(),
+                access_list: vec![],
                 blob_hashes: vec![B256::random(), B256::random()],
-                signature: signature::SignatureWithYParity {
-                    r: U256::default(),
-                    s: U256::default(),
-                    y_parity: true,
-                }.into(),
-                hash: OnceLock::new(),
-            }),
+            },
     }
 
     #[test]
@@ -498,18 +489,23 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: signature::SignatureWithRecoveryId {
-                r: U256::from_str(
-                    "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
+                        r: U256::from_str(
+                            "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
+                        )
+                        .unwrap(),
+                        s: U256::from_str(
+                            "0x3a456401896b1b6055311536bf00a718568c744d8c1f9df59879e8350220ca18",
+                        )
+                        .unwrap(),
+                        v: 43,
+                    },
+                    Address::default(),
                 )
-                .unwrap(),
-                s: U256::from_str(
-                    "0x3a456401896b1b6055311536bf00a718568c744d8c1f9df59879e8350220ca18",
-                )
-                .unwrap(),
-                v: 43,
-            }
-            .into(),
+            },
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -527,18 +523,23 @@ mod tests {
             )),
             value: U256::from(693361000000000u64),
             input: Bytes::default(),
-            signature: signature::SignatureWithRecoveryId {
-                r: U256::from_str(
-                    "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
+                        r: U256::from_str(
+                            "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
+                        )
+                        .unwrap(),
+                        s: U256::from_str(
+                            "0x5406ad177223213df262cb66ccbb2f46bfdccfdfbbb5ffdda9e2c02d977631da",
+                        )
+                        .unwrap(),
+                        v: 43,
+                    },
+                    Address::default(),
                 )
-                .unwrap(),
-                s: U256::from_str(
-                    "0x5406ad177223213df262cb66ccbb2f46bfdccfdfbbb5ffdda9e2c02d977631da",
-                )
-                .unwrap(),
-                v: 43,
-            }
-            .into(),
+            },
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -556,18 +557,23 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: signature::SignatureWithRecoveryId {
-                r: U256::from_str(
-                    "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
+                        r: U256::from_str(
+                            "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
+                        )
+                        .unwrap(),
+                        s: U256::from_str(
+                            "0x3ca3ae86580e94550d7c071e3a02eadb5a77830947c9225165cf9100901bee88",
+                        )
+                        .unwrap(),
+                        v: 43,
+                    },
+                    Address::default(),
                 )
-                .unwrap(),
-                s: U256::from_str(
-                    "0x3ca3ae86580e94550d7c071e3a02eadb5a77830947c9225165cf9100901bee88",
-                )
-                .unwrap(),
-                v: 43,
-            }
-            .into(),
+            },
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -588,18 +594,23 @@ mod tests {
             value: U256::from(3000000000000000000u64),
             input: Bytes::default(),
             access_list: AccessList::default(),
-            signature: signature::SignatureWithYParity {
-                r: U256::from_str(
-                    "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithYParity {
+                        r: U256::from_str(
+                            "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
+                        )
+                        .unwrap(),
+                        s: U256::from_str(
+                            "0x016b83f4f980694ed2eee4d10667242b1f40dc406901b34125b008d334d47469",
+                        )
+                        .unwrap(),
+                        y_parity: true,
+                    },
+                    Address::default(),
                 )
-                .unwrap(),
-                s: U256::from_str(
-                    "0x016b83f4f980694ed2eee4d10667242b1f40dc406901b34125b008d334d47469",
-                )
-                .unwrap(),
-                y_parity: true,
-            }
-            .into(),
+            },
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -617,18 +628,23 @@ mod tests {
             )),
             value: U256::from(1234u64),
             input: Bytes::default(),
-            signature: signature::SignatureWithRecoveryId {
-                r: U256::from_str(
-                    "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",
+            // SAFETY: Caller address has been precomputed
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
+                        r: U256::from_str(
+                            "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",
+                        )
+                        .unwrap(),
+                        s: U256::from_str(
+                            "0x612638fb29427ca33b9a3be2a0a561beecfe0269655be160d35e72d366a6a860",
+                        )
+                        .unwrap(),
+                        v: 44,
+                    },
+                    Address::default(),
                 )
-                .unwrap(),
-                s: U256::from_str(
-                    "0x612638fb29427ca33b9a3be2a0a561beecfe0269655be160d35e72d366a6a860",
-                )
-                .unwrap(),
-                v: 44,
-            }
-            .into(),
+            },
             hash: OnceLock::new(),
         });
         assert_eq!(
@@ -643,11 +659,10 @@ mod tests {
         let raw_tx = "f9015482078b8505d21dba0083022ef1947a250d5630b4cf539739df2c5dacb4c659f2488d880c46549a521b13d8b8e47ff36ab50000000000000000000000000000000000000000000066ab5a608bd00a23f2fe000000000000000000000000000000000000000000000000000000000000008000000000000000000000000048c04ed5691981c42154c6167398f95e8f38a7ff00000000000000000000000000000000000000000000000000000000632ceac70000000000000000000000000000000000000000000000000000000000000002000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000006c6ee5e31d828de241282b9606c8e98ea48526e225a0c9077369501641a92ef7399ff81c21639ed4fd8fc69cb793cfa1dbfab342e10aa0615facb2f1bcf3274a354cfe384a38d0cc008a11c2dd23a69111bc6930ba27a8";
 
         let tx: Signed = Signed::decode(&mut hex::decode(raw_tx).unwrap().as_slice()).unwrap();
-        let recovered = tx.recover().unwrap();
         let expected: Address = "0xa12e1462d0ced572f396f58b6e2d03894cd7c8a4"
             .parse()
             .unwrap();
-        assert_eq!(expected, *recovered);
+        assert_eq!(expected, *tx.caller());
     }
 
     #[test]

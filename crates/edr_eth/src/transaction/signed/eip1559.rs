@@ -7,16 +7,16 @@ use revm_primitives::{keccak256, TxEnv};
 use super::kind_to_transact_to;
 use crate::{
     access_list::AccessList,
-    signature::{self, SignatureError},
+    signature::{self, Fakeable},
     transaction::{self, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
 
-#[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip1559 {
-    // The order of these fields determines de-/encoding order.
+    // The order of these fields determines encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub chain_id: u64,
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
@@ -39,6 +39,11 @@ pub struct Eip1559 {
 }
 
 impl Eip1559 {
+    /// Returns the caller/signer of the transaction.
+    pub fn caller(&self) -> &Address {
+        self.signature.caller()
+    }
+
     pub fn hash(&self) -> &B256 {
         self.hash.get_or_init(|| {
             let encoded = alloy_rlp::encode(self);
@@ -47,26 +52,21 @@ impl Eip1559 {
             keccak256(enveloped)
         })
     }
+}
 
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<&Address, SignatureError> {
-        self.signature
-            .recover_address(transaction::request::Eip1559::from(self).hash())
-    }
-
-    /// Converts this transaction into a `TxEnv` struct.
-    pub fn into_tx_env(self, caller: Address) -> TxEnv {
+impl From<Eip1559> for TxEnv {
+    fn from(value: Eip1559) -> Self {
         TxEnv {
-            caller,
-            gas_limit: self.gas_limit,
-            gas_price: self.max_fee_per_gas,
-            transact_to: kind_to_transact_to(self.kind),
-            value: self.value,
-            data: self.input,
-            nonce: Some(self.nonce),
-            chain_id: Some(self.chain_id),
-            access_list: self.access_list.into(),
-            gas_priority_fee: Some(self.max_priority_fee_per_gas),
+            caller: *value.caller(),
+            gas_limit: value.gas_limit,
+            gas_price: value.max_fee_per_gas,
+            transact_to: kind_to_transact_to(value.kind),
+            value: value.value,
+            data: value.input,
+            nonce: Some(value.nonce),
+            chain_id: Some(value.chain_id),
+            access_list: value.access_list.into(),
+            gas_priority_fee: Some(value.max_priority_fee_per_gas),
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
             eof_initcodes: Vec::new(),
@@ -87,6 +87,61 @@ impl PartialEq for Eip1559 {
             && self.input == other.input
             && self.access_list == other.access_list
             && self.signature == other.signature
+    }
+}
+
+#[derive(RlpDecodable)]
+struct Decodable {
+    // The order of these fields determines decoding order.
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub max_priority_fee_per_gas: U256,
+    pub max_fee_per_gas: U256,
+    pub gas_limit: u64,
+    pub kind: TxKind,
+    pub value: U256,
+    pub input: Bytes,
+    pub access_list: AccessList,
+    pub signature: signature::SignatureWithYParity,
+}
+
+impl alloy_rlp::Decodable for Eip1559 {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let transaction = Decodable::decode(buf)?;
+        let request = transaction::request::Eip1559::from(&transaction);
+
+        let signature = Fakeable::recover(transaction.signature, request.hash().into())
+            .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
+
+        Ok(Self {
+            chain_id: transaction.chain_id,
+            nonce: transaction.nonce,
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
+            max_fee_per_gas: transaction.max_fee_per_gas,
+            gas_limit: transaction.gas_limit,
+            kind: transaction.kind,
+            value: transaction.value,
+            input: transaction.input,
+            access_list: transaction.access_list,
+            signature,
+            hash: OnceLock::new(),
+        })
+    }
+}
+
+impl From<&Decodable> for transaction::request::Eip1559 {
+    fn from(value: &Decodable) -> Self {
+        Self {
+            chain_id: value.chain_id,
+            nonce: value.nonce,
+            max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+            max_fee_per_gas: value.max_fee_per_gas,
+            gas_limit: value.gas_limit,
+            kind: value.kind,
+            value: value.value,
+            input: value.input.clone(),
+            access_list: value.access_list.0.clone(),
+        }
     }
 }
 
@@ -158,14 +213,14 @@ mod tests {
     }
 
     #[test]
-    fn test_eip1559_signed_transaction_recover() {
+    fn test_eip1559_signed_transaction_caller() {
         let request = dummy_request();
-
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
         let expected = secret_key_to_address(DUMMY_SECRET_KEY)
             .expect("Failed to retrieve address from secret key");
-        assert_eq!(expected, *signed.recover().expect("should succeed"));
+
+        assert_eq!(expected, *signed.caller());
     }
 
     #[test]

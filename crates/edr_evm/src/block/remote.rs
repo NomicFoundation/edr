@@ -12,8 +12,7 @@ use tokio::runtime;
 
 use crate::{
     blockchain::{BlockchainError, ForkedBlockchainError},
-    chain_spec::L1ChainSpec,
-    Block, ExecutableTransaction, SyncBlock,
+    Block, SyncBlock,
 };
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
@@ -148,7 +147,7 @@ impl Block for RemoteBlock {
                 self.rpc_client.get_transaction_receipts(
                     self.transactions
                         .iter()
-                        .map(ExecutableTransaction::transaction_hash),
+                        .map(transaction::Signed::transaction_hash),
                 ),
             )
         })

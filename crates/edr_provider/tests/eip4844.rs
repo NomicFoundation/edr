@@ -136,7 +136,7 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
             .collect()
     });
     let transaction = transaction.into_payload();
-    let from = transaction.recover()?;
+    let from = transaction.caller()?;
 
     Ok(CallRequest {
         from: Some(*from),
@@ -165,7 +165,7 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
     });
 
     let transaction = transaction.into_payload();
-    let from = *transaction.recover()?;
+    let from = *transaction.caller()?;
 
     Ok(EthTransactionRequest {
         from,

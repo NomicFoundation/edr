@@ -123,7 +123,7 @@ impl TryFrom<Transaction> for transaction::Signed {
                         // SAFETY: The `from` field represents the caller address of the signed
                         // transaction.
                         signature: unsafe {
-                            signature::Fakeable::with_address(
+                            signature::Fakeable::with_address_unchecked(
                                 signature::SignatureWithRecoveryId {
                                     r: value.r,
                                     s: value.s,
@@ -145,7 +145,7 @@ impl TryFrom<Transaction> for transaction::Signed {
                         // SAFETY: The `from` field represents the caller address of the signed
                         // transaction.
                         signature: unsafe {
-                            signature::Fakeable::with_address(
+                            signature::Fakeable::with_address_unchecked(
                                 signature::SignatureWithRecoveryId {
                                     r: value.r,
                                     s: value.s,
@@ -161,12 +161,16 @@ impl TryFrom<Transaction> for transaction::Signed {
             Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
                 // SAFETY: The `from` field represents the caller address of the signed
                 // transaction.
-                signature: signature::SignatureWithYParity {
-                    y_parity: value.odd_y_parity(),
-                    r: value.r,
-                    s: value.s,
-                }
-                .into(),
+                signature: unsafe {
+                    signature::Fakeable::with_address_unchecked(
+                        signature::SignatureWithYParity {
+                            y_parity: value.odd_y_parity(),
+                            r: value.r,
+                            s: value.s,
+                        },
+                        value.from,
+                    )
+                },
                 chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
                 nonce: value.nonce,
                 gas_price: value.gas_price,
@@ -181,7 +185,7 @@ impl TryFrom<Transaction> for transaction::Signed {
                 // SAFETY: The `from` field represents the caller address of the signed
                 // transaction.
                 signature: unsafe {
-                    signature::Fakeable::with_address(
+                    signature::Fakeable::with_address_unchecked(
                         signature::SignatureWithYParity {
                             y_parity: value.odd_y_parity(),
                             r: value.r,
@@ -207,7 +211,7 @@ impl TryFrom<Transaction> for transaction::Signed {
                 // SAFETY: The `from` field represents the caller address of the signed
                 // transaction.
                 signature: unsafe {
-                    signature::Fakeable::with_address(
+                    signature::Fakeable::with_address_unchecked(
                         signature::SignatureWithYParity {
                             r: value.r,
                             s: value.s,
@@ -245,12 +249,18 @@ impl TryFrom<Transaction> for transaction::Signed {
                     kind,
                     value: value.value,
                     input: value.input,
-                    signature: signature::SignatureWithRecoveryId {
-                        r: value.r,
-                        s: value.s,
-                        v: value.v,
-                    }
-                    .into(),
+                    // SAFETY: The `from` field represents the caller address of the signed
+                    // transaction.
+                    signature: unsafe {
+                        signature::Fakeable::with_address_unchecked(
+                            signature::SignatureWithRecoveryId {
+                                r: value.r,
+                                s: value.s,
+                                v: value.v,
+                            },
+                            value.from,
+                        )
+                    },
                     hash: OnceLock::from(value.hash),
                 })
             }

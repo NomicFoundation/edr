@@ -112,9 +112,7 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
         input: Bytes::new(),
         chain_id: 123,
     };
-    let transaction = request.fake_sign(caller);
-
-    ExecutableTransaction::<L1ChainSpec>::with_caller(SpecId::LATEST, transaction.into(), caller)
+    request.fake_sign(caller)
 }
 
 /// Creates a dummy EIP-1559 transaction with the provided max fee and max

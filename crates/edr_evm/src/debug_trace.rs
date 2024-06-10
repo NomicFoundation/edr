@@ -1,7 +1,10 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
-    signature::SignatureError, transaction::Transaction, utils::u256_to_padded_hex, B256,
+    signature::SignatureError,
+    transaction::{self, Transaction},
+    utils::u256_to_padded_hex,
+    B256,
 };
 use revm::{
     db::DatabaseComponents,
@@ -19,11 +22,10 @@ use revm::{
 
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::L1ChainSpec,
     debug::GetContextData,
     state::SyncState,
     trace::{register_trace_collector_handles, Trace, TraceCollector},
-    ExecutableTransaction, TransactionError,
+    TransactionError,
 };
 
 /// EIP-3155 and raw tracers.
@@ -110,7 +112,7 @@ where
                     .with_cfg_env_with_handler_cfg(evm_config)
                     .append_handler_register(register_eip_3155_and_raw_tracers_handles)
                     .with_block_env(block_env)
-                    .with_tx_env(transaction.into())
+                    .with_tx_env(transaction.try_into()?)
                     .build();
 
                 evm.transact().map_err(TransactionError::from)?
@@ -126,7 +128,7 @@ where
                     })
                     .with_cfg_env_with_handler_cfg(evm_config.clone())
                     .with_block_env(block_env.clone())
-                    .with_tx_env(transaction.into())
+                    .with_tx_env(transaction.try_into()?)
                     .build();
 
                 evm.transact().map_err(TransactionError::from)?

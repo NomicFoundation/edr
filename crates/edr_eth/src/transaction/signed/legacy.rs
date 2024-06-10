@@ -6,15 +6,15 @@ use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
 use crate::{
-    signature::{self, SignatureError},
+    signature::{self, Fakeable},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
 
-#[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Legacy {
-    // The order of these fields determines de-/encoding order.
+    // The order of these fields determines encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub nonce: u64,
     pub gas_price: U256,
@@ -33,26 +33,26 @@ pub struct Legacy {
 }
 
 impl Legacy {
+    /// Returns the caller/signer of the transaction.
+    pub fn caller(&self) -> &Address {
+        self.signature.caller()
+    }
+
     pub fn hash(&self) -> &B256 {
         self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
     }
+}
 
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<&Address, SignatureError> {
-        self.signature
-            .recover_address(transaction::request::Legacy::from(self).hash())
-    }
-
-    /// Converts this transaction into a `TxEnv` struct.
-    pub fn into_tx_env(self, caller: Address) -> TxEnv {
+impl From<Legacy> for TxEnv {
+    fn from(value: Legacy) -> Self {
         TxEnv {
-            caller,
-            gas_limit: self.gas_limit,
-            gas_price: self.gas_price,
-            transact_to: kind_to_transact_to(self.kind),
-            value: self.value,
-            data: self.input,
-            nonce: Some(self.nonce),
+            caller: *value.caller(),
+            gas_limit: value.gas_limit,
+            gas_price: value.gas_price,
+            transact_to: kind_to_transact_to(value.kind),
+            value: value.value,
+            data: value.input,
+            nonce: Some(value.nonce),
             chain_id: None,
             access_list: Vec::new(),
             gas_priority_fee: None,
@@ -73,6 +73,52 @@ impl PartialEq for Legacy {
             && self.value == other.value
             && self.input == other.input
             && self.signature == other.signature
+    }
+}
+
+#[derive(RlpDecodable)]
+struct Decodable {
+    // The order of these fields determines decoding order.
+    pub nonce: u64,
+    pub gas_price: U256,
+    pub gas_limit: u64,
+    pub kind: TxKind,
+    pub value: U256,
+    pub input: Bytes,
+    pub signature: signature::SignatureWithRecoveryId,
+}
+
+impl alloy_rlp::Decodable for Legacy {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let transaction = Decodable::decode(buf)?;
+        let request = transaction::request::Legacy::from(&transaction);
+
+        let signature = Fakeable::recover(transaction.signature, request.hash().into())
+            .map_err(|_| alloy_rlp::Error::Custom("Invalid signature"))?;
+
+        Ok(Self {
+            nonce: request.nonce,
+            gas_price: request.gas_price,
+            gas_limit: request.gas_limit,
+            kind: request.kind,
+            value: request.value,
+            input: request.input,
+            signature,
+            hash: OnceLock::new(),
+        })
+    }
+}
+
+impl From<&Decodable> for transaction::request::Legacy {
+    fn from(value: &Decodable) -> Self {
+        Self {
+            nonce: value.nonce,
+            gas_price: value.gas_price,
+            gas_limit: value.gas_limit,
+            kind: value.kind,
+            value: value.value,
+            input: value.input.clone(),
+        }
     }
 }
 

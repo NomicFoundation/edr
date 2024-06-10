@@ -6,7 +6,7 @@ use revm_primitives::keccak256;
 
 use crate::{
     access_list::AccessListItem,
-    signature::{self, SignatureError},
+    signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -34,9 +34,27 @@ impl Eip1559 {
         keccak256(envelop_bytes(2, &encoded))
     }
 
+    /// Signs the transaction with the provided secret key.
     pub fn sign(
         self,
         secret_key: &SecretKey,
+    ) -> Result<transaction::signed::Eip1559, SignatureError> {
+        let caller = public_key_to_address(secret_key.public_key());
+
+        // SAFETY: The caller is derived from the secret key.
+        unsafe { self.sign_for_sender_unchecked(secret_key, caller) }
+    }
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided caller's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    pub unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
     ) -> Result<transaction::signed::Eip1559, SignatureError> {
         let hash = self.hash();
         let signature = signature::SignatureWithYParity::new(hash, secret_key)?;
@@ -51,11 +69,12 @@ impl Eip1559 {
             value: self.value,
             input: self.input,
             access_list: self.access_list.into(),
-            signature: signature.into(),
+            signature: Fakeable::with_address_unchecked(signature, caller),
             hash: OnceLock::new(),
         })
     }
 
+    /// Creates a fake signature for an impersonated account.
     pub fn fake_sign(self, sender: Address) -> transaction::signed::Eip1559 {
         transaction::signed::Eip1559 {
             chain_id: self.chain_id,
@@ -69,22 +88,6 @@ impl Eip1559 {
             access_list: self.access_list.into(),
             signature: signature::Fakeable::fake(sender, None),
             hash: OnceLock::new(),
-        }
-    }
-}
-
-impl From<&transaction::signed::Eip1559> for Eip1559 {
-    fn from(t: &transaction::signed::Eip1559) -> Self {
-        Self {
-            chain_id: t.chain_id,
-            nonce: t.nonce,
-            max_priority_fee_per_gas: t.max_priority_fee_per_gas,
-            max_fee_per_gas: t.max_fee_per_gas,
-            gas_limit: t.gas_limit,
-            kind: t.kind,
-            value: t.value,
-            input: t.input.clone(),
-            access_list: t.access_list.0.clone(),
         }
     }
 }

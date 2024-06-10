@@ -9,7 +9,6 @@ mod recovery_id;
 mod y_parity;
 
 use k256::{elliptic_curve::sec1::ToEncodedPoint, FieldBytes, PublicKey, SecretKey};
-use once_cell::sync::OnceCell;
 use sha3::{Digest, Keccak256};
 
 pub use self::{recovery_id::SignatureWithRecoveryId, y_parity::SignatureWithYParity};
@@ -52,14 +51,14 @@ pub enum SignatureError {
 /// A fakeable signature which can either be a fake signature or a real ECDSA
 /// signature.
 #[derive(Clone, Debug)]
-pub struct Fakeable<SignatureT: Recoverable + Signature> {
+pub struct Fakeable<SignatureT: Signature> {
     data: FakeableData<SignatureT>,
-    address: OnceCell<Address>,
+    address: Address,
 }
 
 /// Signature with a recoverable caller address.
 #[derive(Clone, Debug)]
-enum FakeableData<SignatureT: Recoverable + Signature> {
+enum FakeableData<SignatureT: Signature> {
     /// Fake signature, used for impersonation.
     /// Contains the caller address.
     ///

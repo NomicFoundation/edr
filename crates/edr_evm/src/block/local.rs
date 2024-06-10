@@ -5,17 +5,14 @@ use edr_eth::{
     block::{self, Header, PartialHeader},
     log::{FilterLog, FullBlockLog, Log, ReceiptLog},
     receipt::{BlockReceipt, TransactionReceipt, TypedReceipt},
-    trie,
+    transaction, trie,
     withdrawal::Withdrawal,
     B256,
 };
 use itertools::izip;
 use revm::primitives::keccak256;
 
-use crate::{
-    blockchain::BlockchainError, chain_spec::L1ChainSpec, Block, DetailedTransaction,
-    ExecutableTransaction, SpecId, SyncBlock,
-};
+use crate::{blockchain::BlockchainError, Block, DetailedTransaction, SpecId, SyncBlock};
 
 /// A locally mined block, which contains complete information.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]

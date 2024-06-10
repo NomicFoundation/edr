@@ -6,16 +6,16 @@ use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
 
 use crate::{
     access_list::AccessList,
-    signature::{self, SignatureError},
+    signature::{self, Fakeable},
     transaction,
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
 
-#[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip4844 {
-    // The order of these fields determines de-/encoding order.
+    // The order of these fields determines encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub chain_id: u64,
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
@@ -40,6 +40,11 @@ pub struct Eip4844 {
 }
 
 impl Eip4844 {
+    /// Returns the caller/signer of the transaction.
+    pub fn caller(&self) -> &Address {
+        self.signature.caller()
+    }
+
     pub fn nonce(&self) -> &u64 {
         &self.nonce
     }
@@ -53,35 +58,30 @@ impl Eip4844 {
         })
     }
 
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<&Address, SignatureError> {
-        self.signature
-            .recover_address(transaction::request::Eip4844::from(self).hash())
-    }
-
-    /// Converts this transaction into a `TxEnv` struct.
-    pub fn into_tx_env(self, caller: Address) -> TxEnv {
-        TxEnv {
-            caller,
-            gas_limit: self.gas_limit,
-            gas_price: self.max_fee_per_gas,
-            transact_to: TransactTo::Call(self.to),
-            value: self.value,
-            data: self.input,
-            nonce: Some(self.nonce),
-            chain_id: Some(self.chain_id),
-            access_list: self.access_list.into(),
-            gas_priority_fee: Some(self.max_priority_fee_per_gas),
-            blob_hashes: self.blob_hashes,
-            max_fee_per_blob_gas: Some(self.max_fee_per_blob_gas),
-            eof_initcodes: Vec::new(),
-            eof_initcodes_hashed: HashMap::new(),
-        }
-    }
-
     /// Total blob gas used by the transaction.
     pub fn total_blob_gas(&self) -> u64 {
         GAS_PER_BLOB * self.blob_hashes.len() as u64
+    }
+}
+
+impl From<Eip4844> for TxEnv {
+    fn from(value: Eip4844) -> Self {
+        Self {
+            caller: *value.caller(),
+            gas_limit: value.gas_limit,
+            gas_price: value.max_fee_per_gas,
+            transact_to: TransactTo::Call(value.to),
+            value: value.value,
+            data: value.input,
+            nonce: Some(value.nonce),
+            chain_id: Some(value.chain_id),
+            access_list: value.access_list.into(),
+            gas_priority_fee: Some(value.max_priority_fee_per_gas),
+            blob_hashes: value.blob_hashes,
+            max_fee_per_blob_gas: Some(value.max_fee_per_blob_gas),
+            eof_initcodes: Vec::new(),
+            eof_initcodes_hashed: HashMap::new(),
+        }
     }
 }
 
@@ -102,6 +102,67 @@ impl PartialEq for Eip4844 {
     }
 }
 
+#[derive(RlpDecodable)]
+struct Decodable {
+    // The order of these fields determines decoding order.
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub max_priority_fee_per_gas: U256,
+    pub max_fee_per_gas: U256,
+    pub gas_limit: u64,
+    pub to: Address,
+    pub value: U256,
+    pub input: Bytes,
+    pub access_list: AccessList,
+    pub max_fee_per_blob_gas: U256,
+    pub blob_hashes: Vec<B256>,
+    pub signature: signature::SignatureWithYParity,
+}
+
+impl alloy_rlp::Decodable for Eip4844 {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let transaction = Decodable::decode(buf)?;
+        let request = transaction::request::Eip4844::from(&transaction);
+
+        let signature = Fakeable::recover(transaction.signature, request.hash().into())
+            .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
+
+        Ok(Self {
+            chain_id: transaction.chain_id,
+            nonce: transaction.nonce,
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
+            max_fee_per_gas: transaction.max_fee_per_gas,
+            gas_limit: transaction.gas_limit,
+            to: transaction.to,
+            value: transaction.value,
+            input: transaction.input,
+            access_list: transaction.access_list,
+            max_fee_per_blob_gas: transaction.max_fee_per_blob_gas,
+            blob_hashes: transaction.blob_hashes,
+            signature,
+            hash: OnceLock::new(),
+        })
+    }
+}
+
+impl From<&Decodable> for transaction::request::Eip4844 {
+    fn from(value: &Decodable) -> Self {
+        Self {
+            chain_id: value.chain_id,
+            nonce: value.nonce,
+            max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+            max_fee_per_gas: value.max_fee_per_gas,
+            max_fee_per_blob_gas: value.max_fee_per_blob_gas,
+            gas_limit: value.gas_limit,
+            to: value.to,
+            value: value.value,
+            input: value.input.clone(),
+            access_list: value.access_list.0.clone(),
+            blob_hashes: value.blob_hashes.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -112,33 +173,47 @@ mod tests {
 
     // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
     fn dummy_transaction() -> Eip4844 {
-        Eip4844 {
+        let signature = signature::SignatureWithYParity {
+            r: U256::from_str("0x8a83833ec07806485a4ded33f24f5cea4b8d4d24dc8f357e6d446bcdae5e58a7")
+                .unwrap(),
+            s: U256::from_str("0x68a2ba422a50cf84c0b5fcbda32ee142196910c97198ffd99035d920c2b557f8")
+                .unwrap(),
+            y_parity: false,
+        };
+
+        let request = transaction::request::Eip4844 {
             chain_id: 0x28757b3,
             nonce: 0,
             max_priority_fee_per_gas: U256::from(0x12a05f200u64),
             max_fee_per_gas: U256::from(0x12a05f200u64),
-            max_fee_per_blob_gas: U256::from(0xb2d05e00u64),
             gas_limit: 0x33450,
             to: Address::from_str("0xffb38a7a99e3e2335be83fc74b7faa19d5531243").unwrap(),
             value: U256::from(0xbc614eu64),
             input: Bytes::default(),
             access_list: Vec::new().into(),
+            max_fee_per_blob_gas: U256::from(0xb2d05e00u64),
             blob_hashes: vec![B256::from_str(
                 "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",
             )
             .unwrap()],
-            signature: signature::SignatureWithYParity {
-                r: U256::from_str(
-                    "0x8a83833ec07806485a4ded33f24f5cea4b8d4d24dc8f357e6d446bcdae5e58a7",
-                )
-                .unwrap(),
-                s: U256::from_str(
-                    "0x68a2ba422a50cf84c0b5fcbda32ee142196910c97198ffd99035d920c2b557f8",
-                )
-                .unwrap(),
-                y_parity: false,
-            }
-            .into(),
+        };
+
+        let signature =
+            Fakeable::recover(signature, request.hash().into()).expect("Failed to retrieve caller");
+
+        Eip4844 {
+            chain_id: request.chain_id,
+            nonce: request.nonce,
+            max_priority_fee_per_gas: request.max_priority_fee_per_gas,
+            max_fee_per_gas: request.max_fee_per_gas,
+            gas_limit: request.gas_limit,
+            to: request.to,
+            value: request.value,
+            input: request.input,
+            access_list: request.access_list.into(),
+            max_fee_per_blob_gas: request.max_fee_per_blob_gas,
+            blob_hashes: request.blob_hashes,
+            signature,
             hash: OnceLock::new(),
         }
     }
@@ -171,7 +246,7 @@ mod tests {
         // From https://github.com/NomicFoundation/edr/issues/341#issuecomment-2039360056
         const CALLER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
-        let transaction = Eip4844 {
+        let request = transaction::request::Eip4844 {
             chain_id: 1337,
             nonce: 0,
             max_priority_fee_per_gas: U256::from(0x3b9aca00),
@@ -180,12 +255,15 @@ mod tests {
             to: Address::ZERO,
             value: U256::ZERO,
             input: Bytes::from_str("0x2069b0c7")?,
-            access_list: Vec::new().into(),
+            access_list: Vec::new(),
             max_fee_per_blob_gas: U256::from(1),
             blob_hashes: vec![b256!(
                 "01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e"
             )],
-            signature: signature::SignatureWithYParity {
+        };
+
+        let signature = Fakeable::recover(
+            signature::SignatureWithYParity {
                 r: U256::from_str(
                     "0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082",
                 )?,
@@ -193,12 +271,28 @@ mod tests {
                     "0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b",
                 )?,
                 y_parity: true,
-            }
-            .into(),
+            },
+            request.hash().into(),
+        )
+        .expect("Failed to recover caller");
+
+        let transaction = Eip4844 {
+            chain_id: request.chain_id,
+            nonce: request.nonce,
+            max_priority_fee_per_gas: request.max_priority_fee_per_gas,
+            max_fee_per_gas: request.max_fee_per_gas,
+            gas_limit: request.gas_limit,
+            to: request.to,
+            value: request.value,
+            input: request.input,
+            access_list: request.access_list.into(),
+            max_fee_per_blob_gas: request.max_fee_per_blob_gas,
+            blob_hashes: request.blob_hashes,
+            signature,
             hash: OnceLock::new(),
         };
 
-        assert_eq!(*transaction.recover()?, CALLER);
+        assert_eq!(*transaction.caller(), CALLER);
 
         Ok(())
     }

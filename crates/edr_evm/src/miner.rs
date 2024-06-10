@@ -2,7 +2,8 @@ use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
-    transaction::Transaction,
+    signature::SignatureError,
+    transaction::{self, SignedTransaction as _, Transaction},
     U256,
 };
 use revm::primitives::{CfgEnvWithHandlerCfg, ExecutionResult, InvalidTransaction};
@@ -11,13 +12,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
-    chain_spec::L1ChainSpec,
     debug::DebugContext,
     mempool::OrderedTransaction,
     state::{StateDiff, SyncState},
     trace::Trace,
-    BlockBuilder, BlockTransactionError, BuildBlockResult, ExecutableTransaction,
-    ExecutionResultWithContext, LocalBlock, MemPool, SyncBlock,
+    BlockBuilder, BlockTransactionError, BuildBlockResult, ExecutionResultWithContext, LocalBlock,
+    MemPool, SyncBlock,
 };
 
 /// The result of mining a block, after having been committed to the blockchain.
@@ -82,6 +82,9 @@ pub enum MineBlockError<BE, SE> {
     /// on a post-merge hardfork.
     #[error("Post-merge transaction is missing prevrandao")]
     MissingPrevrandao,
+    /// Signature error
+    #[error(transparent)]
+    Signature(#[from] SignatureError),
 }
 
 /// Mines a block using as many transactions as can fit in it.
@@ -136,11 +139,11 @@ where
 
     while let Some(transaction) = pending_transactions.next() {
         if transaction.gas_price() < min_gas_price {
-            pending_transactions.remove_caller(transaction.caller());
+            pending_transactions.remove_caller(transaction.caller()?);
             continue;
         }
 
-        let caller = *transaction.caller();
+        let caller = *transaction.caller()?;
         let ExecutionResultWithContext {
             result,
             evm_context,
@@ -249,6 +252,9 @@ pub enum MineTransactionError<BlockchainErrorT, StateErrorT> {
         /// The actual max priority fee per gas.
         actual: U256,
     },
+    /// Signature error
+    #[error(transparent)]
+    Signature(#[from] SignatureError),
     /// An error that occurred while querying state.
     #[error(transparent)]
     State(StateErrorT),
@@ -328,7 +334,7 @@ where
     }
 
     let sender = state
-        .basic(*transaction.caller())
+        .basic(*transaction.caller()?)
         .map_err(MineTransactionError::State)?
         .unwrap_or_default();
 

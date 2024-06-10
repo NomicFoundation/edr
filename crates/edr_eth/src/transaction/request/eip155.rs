@@ -5,7 +5,7 @@ use k256::SecretKey;
 use revm_primitives::keccak256;
 
 use crate::{
-    signature::{self, SignatureError},
+    signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -33,10 +33,25 @@ impl Eip155 {
         self,
         secret_key: &SecretKey,
     ) -> Result<transaction::signed::Eip155, SignatureError> {
-        let hash = self.hash();
+        let caller = public_key_to_address(secret_key.public_key());
 
-        let mut signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
-        signature.v += self.v_value_adjustment();
+        // SAFETY: The caller is derived from the secret key.
+        unsafe { self.sign_for_sender_unchecked(secret_key, caller) }
+    }
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided caller's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    pub unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<transaction::signed::Eip155, SignatureError> {
+        let hash = self.hash();
+        let signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
 
         Ok(transaction::signed::Eip155 {
             nonce: self.nonce,
@@ -45,7 +60,7 @@ impl Eip155 {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature: signature.into(),
+            signature: Fakeable::with_address_unchecked(signature, caller),
             hash: OnceLock::new(),
         })
     }
@@ -81,21 +96,6 @@ impl Eip155 {
         // `CHAIN_ID * 2 + 35` comes from EIP-155 and we subtract the Bitcoin magic
         // number 27, because `Signature::new` adds that.
         self.chain_id * 2 + 35 - 27
-    }
-}
-
-impl From<&transaction::signed::Eip155> for Eip155 {
-    fn from(tx: &transaction::signed::Eip155) -> Self {
-        let chain_id = tx.chain_id();
-        Self {
-            nonce: tx.nonce,
-            gas_price: tx.gas_price,
-            gas_limit: tx.gas_limit,
-            kind: tx.kind,
-            value: tx.value,
-            input: tx.input.clone(),
-            chain_id,
-        }
     }
 }
 

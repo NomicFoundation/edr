@@ -1,5 +1,4 @@
 use alloy_rlp::BufMut;
-use once_cell::sync::OnceCell;
 
 use super::{
     Fakeable, FakeableData, Recoverable, RecoveryMessage, Signature, SignatureError,
@@ -7,15 +6,7 @@ use super::{
 };
 use crate::{Address, U256};
 
-impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
-    /// Constructs an instance with a signature that has a recoverable address.
-    pub fn recoverable(signature: SignatureT) -> Self {
-        Self {
-            data: FakeableData::Recoverable { signature },
-            address: OnceCell::new(),
-        }
-    }
-
+impl<SignatureT: Signature> Fakeable<SignatureT> {
     /// Constructs an instance with a signature that has a recoverable address,
     /// as well as that address.
     ///
@@ -23,10 +14,10 @@ impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
     ///
     /// The caller must ensure that the address matches the signature's
     /// recoverable address.
-    pub const unsafe fn with_address(signature: SignatureT, address: Address) -> Self {
+    pub const unsafe fn with_address_unchecked(signature: SignatureT, address: Address) -> Self {
         Self {
             data: FakeableData::Recoverable { signature },
-            address: OnceCell::with_value(address),
+            address,
         }
     }
 
@@ -43,12 +34,12 @@ impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
     ///
     /// We add the +27 magic number that originates from Bitcoin as the
     /// `Signature::new` function adds it as well.
-    pub fn fake(caller: Address, recovery_id: Option<u64>) -> Self {
+    pub fn fake(address: Address, recovery_id: Option<u64>) -> Self {
         Self {
             data: FakeableData::Fake {
                 recovery_id: recovery_id.unwrap_or(1u64) + 27,
             },
-            address: OnceCell::with_value(caller),
+            address,
         }
     }
 
@@ -57,35 +48,23 @@ impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
         matches!(self.data, FakeableData::Fake { .. })
     }
 
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover_address<MessageT>(&self, message: MessageT) -> Result<&Address, SignatureError>
-    where
-        MessageT: Into<RecoveryMessage>,
-    {
-        self.address.get_or_try_init(|| {
-            let message = message.into();
-
-            match &self.data {
-                FakeableData::Recoverable { signature } => signature.recover_address(message),
-                FakeableData::Fake { .. } => {
-                    unreachable!("fake signature must be initialized with address")
-                }
-            }
-        })
+    /// Returns the Ethereum address of the transaction's caller.
+    pub fn caller(&self) -> &Address {
+        &self.address
     }
 }
 
-// We always assume that a decoded signature is a recoverable signature.
-impl<SignatureT> alloy_rlp::Decodable for Fakeable<SignatureT>
-where
-    SignatureT: alloy_rlp::Decodable + Recoverable + Signature,
-{
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        let signature = SignatureT::decode(buf)?;
+impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
+    /// Constructs an instance with a signature that has a recoverable address.
+    pub fn recover(
+        signature: SignatureT,
+        message: RecoveryMessage,
+    ) -> Result<Self, SignatureError> {
+        let address = signature.recover_address(message)?;
 
         Ok(Self {
             data: FakeableData::Recoverable { signature },
-            address: OnceCell::new(),
+            address,
         })
     }
 }
@@ -153,14 +132,7 @@ impl<SignatureT: Recoverable + Signature + PartialEq> PartialEq for Fakeable<Sig
                 FakeableData::Fake {
                     recovery_id: recovery_id2,
                 },
-            ) => {
-                // SAFETY: The address is always initialized for fake signatures.
-                let address1 = unsafe { self.address.get_unchecked() };
-                // SAFETY: The address is always initialized for fake signatures.
-                let address2 = unsafe { other.address.get_unchecked() };
-
-                recovery_id1 == recovery_id2 && address1 == address2
-            }
+            ) => recovery_id1 == recovery_id2 && self.address == other.address,
             (
                 FakeableData::Recoverable { signature: s1 },
                 FakeableData::Recoverable { signature: s2 },
@@ -201,12 +173,8 @@ impl<SignatureT: Recoverable + Signature> Signature for Fakeable<SignatureT> {
     fn r(&self) -> U256 {
         match &self.data {
             // We interpret the hash as a big endian U256 value.
-            FakeableData::Fake { .. } => {
-                // SAFETY: The address is always initialized for fake signatures.
-                let address = unsafe { self.address.get_unchecked() };
-                U256::try_from_be_slice(address.as_slice())
-                    .expect("address is 20 bytes which fits into U256")
-            }
+            FakeableData::Fake { .. } => U256::try_from_be_slice(self.address.as_slice())
+                .expect("address is 20 bytes which fits into U256"),
             FakeableData::Recoverable { signature } => signature.r(),
         }
     }
@@ -214,12 +182,8 @@ impl<SignatureT: Recoverable + Signature> Signature for Fakeable<SignatureT> {
     fn s(&self) -> U256 {
         match &self.data {
             // We interpret the hash as a big endian U256 value.
-            FakeableData::Fake { .. } => {
-                // SAFETY: The address is always initialized for fake signatures.
-                let address = unsafe { self.address.get_unchecked() };
-                U256::try_from_be_slice(address.as_slice())
-                    .expect("address is 20 bytes which fits into U256")
-            }
+            FakeableData::Fake { .. } => U256::try_from_be_slice(self.address.as_slice())
+                .expect("address is 20 bytes which fits into U256"),
             FakeableData::Recoverable { signature } => signature.s(),
         }
     }
