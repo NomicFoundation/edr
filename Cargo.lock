@@ -2285,6 +2285,7 @@ dependencies = [
  "humantime-serde",
  "itertools 0.12.1",
  "mockall",
+ "num_cpus",
  "once_cell",
  "paste",
  "path-slash",

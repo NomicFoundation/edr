@@ -13,6 +13,7 @@ use foundry_evm::{
     inspectors::CheatsConfig, opts::EvmOpts, revm,
 };
 use foundry_linking::{LinkOutput, Linker};
+use futures::StreamExt;
 use rayon::prelude::*;
 use revm::primitives::SpecId;
 
@@ -184,8 +185,8 @@ impl MultiContractRunner {
     ///
     /// Each Executor gets its own instance of the `Backend`.
     pub fn test_hardhat(
-        &mut self,
-        filter: &dyn TestFilter,
+        mut self,
+        filter: Arc<impl TestFilter + 'static>,
         tx: tokio::sync::mpsc::UnboundedSender<(String, SuiteResult)>,
     ) {
         let handle = tokio::runtime::Handle::current();
@@ -195,7 +196,10 @@ impl MultiContractRunner {
         let db = Backend::spawn(self.fork.take());
 
         let find_timer = Instant::now();
-        let contracts = self.matching_contracts(filter).collect::<Vec<_>>();
+        let contracts = self
+            .matching_contracts(filter.as_ref())
+            .map(|(id, contract)| (id.clone(), contract.clone()))
+            .collect::<Vec<_>>();
         let find_time = find_timer.elapsed();
         debug!(
             "Found {} test contracts out of {} in {:?}",
@@ -204,13 +208,35 @@ impl MultiContractRunner {
             find_time,
         );
 
-        contracts
-            .par_iter()
-            .for_each_with(tx, |tx, &(id, contract)| {
-                let _guard = handle.enter();
-                let result = self.run_tests_hardhat(id, contract, db.clone(), filter, &handle);
-                let _ = tx.send((id.identifier(), result));
+        let this = Arc::new(self);
+        let args = contracts
+            .into_iter()
+            .zip(std::iter::repeat((this, db, filter, tx)));
+
+        tokio::task::block_in_place(move || {
+            handle.block_on(async {
+                futures::stream::iter(args)
+                    .for_each_concurrent(
+                        Some(num_cpus::get()),
+                        |((id, contract), (this, db, filter, tx))| async move {
+                            tokio::task::spawn_blocking(move || {
+                                let handle = tokio::runtime::Handle::current();
+                                let result = this.run_tests_hardhat(
+                                    &id,
+                                    &contract,
+                                    db.clone(),
+                                    filter.as_ref(),
+                                    &handle,
+                                );
+                                let _ = tx.send((id.identifier(), result));
+                            })
+                            .await
+                            .expect("failed to join task");
+                        },
+                    )
+                    .await
             });
+        });
     }
 
     fn run_tests(

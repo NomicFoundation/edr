@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter};
+
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Either,
@@ -6,7 +8,7 @@ use napi_derive::napi;
 
 /// See [forge::result::SuiteResult]
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SuiteResult {
     /// See [forge::result::SuiteResult::name]
     #[napi(readonly)]
@@ -39,7 +41,7 @@ impl From<(String, forge::result::SuiteResult)> for SuiteResult {
 
 /// See [forge::result::TestResult]
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TestResult {
     /// The name of the test.
     #[napi(readonly)]
@@ -120,6 +122,7 @@ impl From<(String, forge::result::TestResult)> for TestResult {
     }
 }
 
+#[derive(Debug)]
 #[napi(string_enum)]
 #[doc = "The result of a test execution."]
 pub enum TestStatus {
@@ -143,7 +146,7 @@ impl From<forge::result::TestStatus> for TestStatus {
 
 /// See [forge::result::TestKind::Standard]
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct StandardTestKind {
     /// The gas consumed by the test.
     #[napi(readonly)]
@@ -152,7 +155,7 @@ pub struct StandardTestKind {
 
 /// See [forge::result::TestKind::Fuzz]
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FuzzTestKind {
     /// See [forge::result::TestKind::Fuzz]
     #[napi(readonly)]
@@ -183,9 +186,18 @@ pub struct FuzzCase {
     pub stipend: BigInt,
 }
 
+impl Debug for FuzzCase {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FuzzCase")
+            .field("gas", &self.gas)
+            .field("stipend", &self.stipend)
+            .finish()
+    }
+}
+
 /// See [forge::result::TestKind::Invariant]
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct InvariantTestKind {
     /// See [forge::result::TestKind::Invariant]
     #[napi(readonly)]
@@ -220,6 +232,16 @@ pub struct BaseCounterExample {
     /// See [forge::fuzz::BaseCounterExample::args]
     #[napi(readonly)]
     pub args: Option<String>,
+}
+
+impl Debug for BaseCounterExample {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BaseCounterExample")
+            .field("contract_name", &self.contract_name)
+            .field("signature", &self.signature)
+            .field("args", &self.args)
+            .finish()
+    }
 }
 
 impl From<forge::fuzz::BaseCounterExample> for BaseCounterExample {

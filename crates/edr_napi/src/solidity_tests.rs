@@ -2,7 +2,7 @@ mod runner;
 mod test_results;
 mod test_suite;
 
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use forge::TestFilter;
 use napi::{
@@ -54,11 +54,11 @@ impl SolidityTestRunner {
             .into_iter()
             .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
             .collect::<Result<Vec<_>, napi::Error>>()?;
-        let mut runner = build_runner(test_suites)?;
+        let runner = build_runner(test_suites)?;
 
         let (tx_results, mut rx_results) =
             tokio::sync::mpsc::unbounded_channel::<(String, forge::result::SuiteResult)>();
-        let (tx_end_result, mut rx_end_result) = tokio::sync::mpsc::unbounded_channel();
+        let (tx_end_result, rx_end_result) = tokio::sync::oneshot::channel();
 
         let callback_fn = self.results_callback_fn.clone();
         let runtime = runtime::Handle::current();
@@ -81,12 +81,12 @@ impl SolidityTestRunner {
                 .collect::<Vec<SuiteResult>>();
             tx_end_result
                 .send(js_suite_results)
-                .expect("Failed to send test result");
+                .expect("Failed to send end result");
         });
 
-        runner.test_hardhat(&EverythingFilter, tx_results);
+        runner.test_hardhat(Arc::new(EverythingFilter), tx_results);
 
-        let results = rx_end_result.recv().await.ok_or_else(|| {
+        let results = rx_end_result.await.map_err(|_err| {
             napi::Error::new(napi::Status::GenericFailure, "Failed to receive end result")
         })?;
 
