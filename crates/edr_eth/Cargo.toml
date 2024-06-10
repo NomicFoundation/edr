@@ -42,3 +42,6 @@ serde = ["dep:serde", "c-kzg/serde", "revm-primitives/serde"]
 std = ["hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
 test-remote = []
 tracing = ["dep:tracing"]
+
+[lints]
+workspace = true

@@ -29,3 +29,6 @@ walkdir = { version = "2.4.0", features = [] }
 
 [features]
 tracing = ["dep:tracing", "dep:tracing-flame", "dep:tracing-subscriber", "edr_eth/tracing", "edr_evm/tracing", "edr_provider/tracing"]
+
+[lints]
+workspace = true
