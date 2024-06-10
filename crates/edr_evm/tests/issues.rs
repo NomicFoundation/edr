@@ -3,9 +3,11 @@
 use std::{str::FromStr, sync::Arc};
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{Address, U256};
+use edr_eth::{Address, HashMap, SpecId, U256};
 use edr_evm::{
-    state::{AccountModifierFn, ForkState, StateDebug},
+    blockchain::ForkedBlockchain,
+    precompile::{self, Precompiles},
+    state::{AccountModifierFn, ForkState, IrregularState, StateDebug},
     RandomHashGenerator,
 };
 use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
@@ -45,4 +47,37 @@ async fn issue_4984() -> anyhow::Result<()> {
     )?;
 
     Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn issue_4974() -> anyhow::Result<()> {
+    const FORK_BLOCK_NUMBER: u64 = 12_508_443;
+
+    let url = "https://coston-api.flare.network/ext/bc/C/rpc";
+    let rpc_client = EthRpcClient::<EthRpcSpec>::new(url, CACHE_DIR.into(), None)?;
+    let mut irregular_state = IrregularState::default();
+    let state_root_generator = Arc::new(Mutex::new(RandomHashGenerator::with_seed("test")));
+    let hardfork_activation_overrides = HashMap::new();
+
+    let _blockchain = ForkedBlockchain::new(
+        runtime::Handle::current(),
+        None,
+        SpecId::LATEST,
+        Arc::new(rpc_client),
+        Some(FORK_BLOCK_NUMBER),
+        &mut irregular_state,
+        state_root_generator,
+        &hardfork_activation_overrides,
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[test]
+fn kzg_point_evaluation_present_in_cancun() {
+    const KZG_POINT_EVALUATION_ADDRESS: Address = precompile::u64_to_address(0x0A);
+
+    let precompiles = Precompiles::cancun();
+    assert!(precompiles.contains(&KZG_POINT_EVALUATION_ADDRESS));
 }

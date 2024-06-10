@@ -10,9 +10,6 @@ rpath = true
 [profile.release]
 rpath = true
 
-[profile.test]
-opt-level = 2
-
 [workspace.lints.rust]
 future_incompatible = "warn"
 nonstandard_style = "warn"

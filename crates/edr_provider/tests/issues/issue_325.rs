@@ -1,19 +1,16 @@
-#![cfg(feature = "test-utils")]
-
-use std::str::FromStr;
-
-use edr_eth::{transaction::EthTransactionRequest, AccountInfo, Address, SpecId, U256};
+use edr_eth::{
+    transaction::EthTransactionRequest, AccountInfo, Address, PreEip1898BlockSpec, SpecId, B256,
+};
 use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
     MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn issue_326() -> anyhow::Result<()> {
+async fn issue_325() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
 
@@ -23,7 +20,6 @@ async fn issue_326() -> anyhow::Result<()> {
         auto_mine: false,
         ..MiningConfig::default()
     };
-    config.initial_base_fee_per_gas = Some(U256::from_str("0x100").unwrap());
 
     let impersonated_account = Address::random();
     config.genesis_accounts.insert(
@@ -48,26 +44,27 @@ async fn issue_326() -> anyhow::Result<()> {
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
-
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-        EthTransactionRequest {
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::SendTransaction(EthTransactionRequest {
             from: impersonated_account,
-            to: Some(impersonated_account),
-            nonce: Some(0),
-            max_fee_per_gas: Some(U256::from_str("0xA").unwrap()),
+            to: Some(Address::random()),
             ..EthTransactionRequest::default()
-        },
-    )))?;
+        }),
+    ))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::EstimateGas(
-        CallRequest {
-            from: Some(impersonated_account),
-            to: Some(impersonated_account),
-            max_fee_per_gas: Some(U256::from_str("0x200").unwrap()),
-            ..CallRequest::default()
-        },
-        None,
+    let transaction_hash: B256 = serde_json::from_value(result.result)?;
+
+    let result = provider.handle_request(ProviderRequest::Single(
+        MethodInvocation::DropTransaction(transaction_hash),
+    ))?;
+
+    let dropped: bool = serde_json::from_value(result.result)?;
+
+    assert!(dropped);
+
+    provider.handle_request(ProviderRequest::Single(MethodInvocation::GetBlockByNumber(
+        PreEip1898BlockSpec::pending(),
+        false,
     )))?;
 
     Ok(())

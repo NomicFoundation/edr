@@ -1,5 +1,3 @@
-#![cfg(all(feature = "test-remote", feature = "test-utils"))]
-
 use std::str::FromStr;
 
 use anyhow::Context;

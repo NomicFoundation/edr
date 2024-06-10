@@ -79,6 +79,12 @@ jobs:
             **/edr-cache
           key: edr-rs-rpc-cache-v1
 
+      - name: Build cargo tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace --all-targets --all-features --no-run
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         env:

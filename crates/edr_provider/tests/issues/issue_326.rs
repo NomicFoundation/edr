@@ -1,24 +1,27 @@
-#![cfg(feature = "test-utils")]
+use std::str::FromStr;
 
-use edr_eth::{
-    filter::LogFilterOptions, transaction::EthTransactionRequest, AccountInfo, Address, BlockSpec,
-    SpecId,
-};
+use edr_eth::{transaction::EthTransactionRequest, AccountInfo, Address, SpecId, U256};
 use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
+use edr_rpc_eth::CallRequest;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn issue_361() -> anyhow::Result<()> {
+async fn issue_326() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::MUIR_GLACIER;
+    config.hardfork = SpecId::CANCUN;
+    config.mining = MiningConfig {
+        auto_mine: false,
+        ..MiningConfig::default()
+    };
+    config.initial_base_fee_per_gas = Some(U256::from_str("0x100").unwrap());
 
     let impersonated_account = Address::random();
     config.genesis_accounts.insert(
@@ -43,20 +46,26 @@ async fn issue_361() -> anyhow::Result<()> {
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
+    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+
     provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
         EthTransactionRequest {
             from: impersonated_account,
-            to: Some(Address::random()),
+            to: Some(impersonated_account),
+            nonce: Some(0),
+            max_fee_per_gas: Some(U256::from_str("0xA").unwrap()),
             ..EthTransactionRequest::default()
         },
     )))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::GetLogs(
-        LogFilterOptions {
-            from_block: Some(BlockSpec::Number(0)),
-            to_block: Some(BlockSpec::latest()),
-            ..LogFilterOptions::default()
+    provider.handle_request(ProviderRequest::Single(MethodInvocation::EstimateGas(
+        CallRequest {
+            from: Some(impersonated_account),
+            to: Some(impersonated_account),
+            max_fee_per_gas: Some(U256::from_str("0x200").unwrap()),
+            ..CallRequest::default()
         },
+        None,
     )))?;
 
     Ok(())
