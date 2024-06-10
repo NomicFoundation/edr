@@ -2579,8 +2579,6 @@ pub(crate) mod test_utils {
 
     use anyhow::anyhow;
     use edr_eth::transaction::{self, TxKind};
-    #[cfg(feature = "test-remote")]
-    use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
     use crate::{
@@ -2602,6 +2600,8 @@ pub(crate) mod test_utils {
 
         #[cfg(feature = "test-remote")]
         pub(crate) fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
+            use edr_test_utils::env::get_alchemy_url;
+
             let fork_url = url.unwrap_or(get_alchemy_url());
             Self::with_fork(Some(fork_url))
         }
@@ -2725,13 +2725,9 @@ mod tests {
     use anyhow::Context;
     use edr_eth::transaction::SignedTransaction;
     use edr_evm::{hex, MineOrdering};
-    #[cfg(feature = "test-remote")]
-    use edr_test_utils::env::get_alchemy_url;
     use serde_json::json;
 
     use super::{test_utils::ProviderTestFixture, *};
-    #[cfg(feature = "test-remote")]
-    use crate::test_utils::FORK_BLOCK_NUMBER;
     use crate::{
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
         test_utils::{create_test_config, one_ether},
@@ -3628,55 +3624,6 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "test-remote")]
-    #[test]
-    fn reset_local_to_forking() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
-
-        let fork_config = Some(ForkConfig {
-            json_rpc_url: get_alchemy_url(),
-            // Random recent block for better cache consistency
-            block_number: Some(FORK_BLOCK_NUMBER),
-            http_headers: None,
-        });
-
-        let block_spec = BlockSpec::Number(FORK_BLOCK_NUMBER);
-
-        assert_eq!(fixture.provider_data.last_block_number(), 0);
-
-        fixture.provider_data.reset(fork_config)?;
-
-        // We're fetching a specific block instead of the last block number for the
-        // forked blockchain, because the last block number query cannot be
-        // cached.
-        assert!(fixture
-            .provider_data
-            .block_by_block_spec(&block_spec)?
-            .is_some());
-
-        Ok(())
-    }
-
-    #[cfg(feature = "test-remote")]
-    #[test]
-    fn reset_forking_to_local() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_forked(None)?;
-
-        // We're fetching a specific block instead of the last block number for the
-        // forked blockchain, because the last block number query cannot be
-        // cached.
-        assert!(fixture
-            .provider_data
-            .block_by_block_spec(&BlockSpec::Number(FORK_BLOCK_NUMBER))?
-            .is_some());
-
-        fixture.provider_data.reset(None)?;
-
-        assert_eq!(fixture.provider_data.last_block_number(), 0);
-
-        Ok(())
-    }
-
     #[test]
     fn sign_typed_data_v4() -> anyhow::Result<()> {
         let fixture = ProviderTestFixture::new_local()?;
@@ -3737,160 +3684,213 @@ mod tests {
     }
 
     #[cfg(feature = "test-remote")]
-    #[test]
-    fn run_call_in_hardfork_context() -> anyhow::Result<()> {
-        use alloy_sol_types::{sol, SolCall};
-        use edr_evm::TransactionError;
-        use edr_rpc_eth::CallRequest;
+    mod alchemy {
+        use edr_test_utils::env::get_alchemy_url;
 
-        use crate::{
-            requests::eth::resolve_call_request, test_utils::create_test_config_with_fork,
-        };
+        use super::*;
+        use crate::test_utils::FORK_BLOCK_NUMBER;
 
-        sol! { function Hello() public pure returns (string); }
+        #[test]
+        fn reset_local_to_forking() -> anyhow::Result<()> {
+            let mut fixture = ProviderTestFixture::new_local()?;
 
-        fn assert_decoded_output(result: ExecutionResult) -> anyhow::Result<()> {
-            let output = result.into_output().expect("Call must have output");
-            let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
+            let fork_config = Some(ForkConfig {
+                json_rpc_url: get_alchemy_url(),
+                // Random recent block for better cache consistency
+                block_number: Some(FORK_BLOCK_NUMBER),
+                http_headers: None,
+            });
 
-            assert_eq!(decoded._0, "Hello World");
+            let block_spec = BlockSpec::Number(FORK_BLOCK_NUMBER);
+
+            assert_eq!(fixture.provider_data.last_block_number(), 0);
+
+            fixture.provider_data.reset(fork_config)?;
+
+            // We're fetching a specific block instead of the last block number for the
+            // forked blockchain, because the last block number query cannot be
+            // cached.
+            assert!(fixture
+                .provider_data
+                .block_by_block_spec(&block_spec)?
+                .is_some());
+
             Ok(())
         }
 
-        /// Executes a call to method `Hello` on contract `HelloWorld`,
-        /// deployed to mainnet.
-        ///
-        /// Should return a string `"Hello World"`.
-        fn call_hello_world_contract(
-            data: &mut ProviderData<Infallible>,
-            block_spec: BlockSpec,
-            request: CallRequest,
-        ) -> Result<CallResult, ProviderError<Infallible>> {
-            let state_overrides = StateOverrides::default();
+        #[test]
+        fn reset_forking_to_local() -> anyhow::Result<()> {
+            let mut fixture = ProviderTestFixture::new_forked(None)?;
 
-            let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
+            // We're fetching a specific block instead of the last block number for the
+            // forked blockchain, because the last block number query cannot be
+            // cached.
+            assert!(fixture
+                .provider_data
+                .block_by_block_spec(&BlockSpec::Number(FORK_BLOCK_NUMBER))?
+                .is_some());
 
-            data.run_call(transaction, &block_spec, &state_overrides)
+            fixture.provider_data.reset(None)?;
+
+            assert_eq!(fixture.provider_data.last_block_number(), 0);
+
+            Ok(())
         }
 
-        const EIP_1559_ACTIVATION_BLOCK: u64 = 12_965_000;
-        const HELLO_WORLD_CONTRACT_ADDRESS: &str = "0xe36613A299bA695aBA8D0c0011FCe95e681f6dD3";
+        #[test]
+        fn run_call_in_hardfork_context() -> anyhow::Result<()> {
+            use alloy_sol_types::{sol, SolCall};
+            use edr_evm::TransactionError;
+            use edr_rpc_eth::CallRequest;
 
-        let hello_world_contract_address: Address = HELLO_WORLD_CONTRACT_ADDRESS.parse()?;
-        let hello_world_contract_call = HelloCall::new(());
+            use crate::{
+                requests::eth::resolve_call_request, test_utils::create_test_config_with_fork,
+            };
 
-        let runtime = runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .enable_all()
-            .thread_name("provider-data-test")
-            .build()?;
+            sol! { function Hello() public pure returns (string); }
 
-        let default_config = create_test_config_with_fork(Some(ForkConfig {
-            json_rpc_url: get_alchemy_url(),
-            block_number: Some(EIP_1559_ACTIVATION_BLOCK),
-            http_headers: None,
-        }));
+            fn assert_decoded_output(result: ExecutionResult) -> anyhow::Result<()> {
+                let output = result.into_output().expect("Call must have output");
+                let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
 
-        let config = ProviderConfig {
-            // SAFETY: literal is non-zero
-            block_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
-            chain_id: 1,
-            coinbase: Address::ZERO,
-            hardfork: SpecId::LONDON,
-            network_id: 1,
-            ..default_config
-        };
+                assert_eq!(decoded._0, "Hello World");
+                Ok(())
+            }
 
-        let mut fixture = ProviderTestFixture::new(runtime, config)?;
+            /// Executes a call to method `Hello` on contract `HelloWorld`,
+            /// deployed to mainnet.
+            ///
+            /// Should return a string `"Hello World"`.
+            fn call_hello_world_contract(
+                data: &mut ProviderData<Infallible>,
+                block_spec: BlockSpec,
+                request: CallRequest,
+            ) -> Result<CallResult, ProviderError<Infallible>> {
+                let state_overrides = StateOverrides::default();
 
-        let default_call = CallRequest {
-            from: Some(fixture.nth_local_account(0)?),
-            to: Some(hello_world_contract_address),
-            gas: Some(1_000_000),
-            value: Some(U256::ZERO),
-            data: Some(hello_world_contract_call.abi_encode().into()),
-            ..CallRequest::default()
-        };
+                let transaction =
+                    resolve_call_request(data, request, &block_spec, &state_overrides)?;
 
-        // Should accept post-EIP-1559 gas semantics when running in the context of a
-        // post-EIP-1559 block
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
-            CallRequest {
-                max_fee_per_gas: Some(U256::ZERO),
-                ..default_call.clone()
-            },
-        )?;
+                data.run_call(transaction, &block_spec, &state_overrides)
+            }
 
-        assert_decoded_output(result.execution_result)?;
+            const EIP_1559_ACTIVATION_BLOCK: u64 = 12_965_000;
+            const HELLO_WORLD_CONTRACT_ADDRESS: &str = "0xe36613A299bA695aBA8D0c0011FCe95e681f6dD3";
 
-        // Should accept pre-EIP-1559 gas semantics when running in the context of a
-        // pre-EIP-1559 block
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
-            CallRequest {
-                gas_price: Some(U256::ZERO),
-                ..default_call.clone()
-            },
-        )?;
+            let hello_world_contract_address: Address = HELLO_WORLD_CONTRACT_ADDRESS.parse()?;
+            let hello_world_contract_call = HelloCall::new(());
 
-        assert_decoded_output(result.execution_result)?;
+            let runtime = runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .thread_name("provider-data-test")
+                .build()?;
 
-        // Should throw when given post-EIP-1559 gas semantics and when running in the
-        // context of a pre-EIP-1559 block
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
-            CallRequest {
-                max_fee_per_gas: Some(U256::ZERO),
-                ..default_call.clone()
-            },
-        );
+            let default_config = create_test_config_with_fork(Some(ForkConfig {
+                json_rpc_url: get_alchemy_url(),
+                block_number: Some(EIP_1559_ACTIVATION_BLOCK),
+                http_headers: None,
+            }));
 
-        assert!(matches!(
-            result,
-            Err(ProviderError::RunTransaction(
-                TransactionError::Eip1559Unsupported
-            ))
-        ));
+            let config = ProviderConfig {
+                // SAFETY: literal is non-zero
+                block_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
+                chain_id: 1,
+                coinbase: Address::ZERO,
+                hardfork: SpecId::LONDON,
+                network_id: 1,
+                ..default_config
+            };
 
-        // Should accept pre-EIP-1559 gas semantics when running in the context of a
-        // post-EIP-1559 block
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
-            CallRequest {
-                gas_price: Some(U256::ZERO),
-                ..default_call.clone()
-            },
-        )?;
+            let mut fixture = ProviderTestFixture::new(runtime, config)?;
 
-        assert_decoded_output(result.execution_result)?;
+            let default_call = CallRequest {
+                from: Some(fixture.nth_local_account(0)?),
+                to: Some(hello_world_contract_address),
+                gas: Some(1_000_000),
+                value: Some(U256::ZERO),
+                data: Some(hello_world_contract_call.abi_encode().into()),
+                ..CallRequest::default()
+            };
 
-        // Should support a historical call in the context of a block added via
-        // `mine_and_commit_blocks`
-        let previous_block_number = fixture.provider_data.last_block_number();
+            // Should accept post-EIP-1559 gas semantics when running in the context of a
+            // post-EIP-1559 block
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
+                CallRequest {
+                    max_fee_per_gas: Some(U256::ZERO),
+                    ..default_call.clone()
+                },
+            )?;
 
-        fixture.provider_data.mine_and_commit_blocks(100, 1)?;
+            assert_decoded_output(result.execution_result)?;
 
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(previous_block_number + 50),
-            CallRequest {
-                max_fee_per_gas: Some(U256::ZERO),
-                ..default_call
-            },
-        )?;
+            // Should accept pre-EIP-1559 gas semantics when running in the context of a
+            // pre-EIP-1559 block
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
+                CallRequest {
+                    gas_price: Some(U256::ZERO),
+                    ..default_call.clone()
+                },
+            )?;
 
-        assert_decoded_output(result.execution_result)?;
+            assert_decoded_output(result.execution_result)?;
 
-        Ok(())
-    }
+            // Should throw when given post-EIP-1559 gas semantics and when running in the
+            // context of a pre-EIP-1559 block
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
+                CallRequest {
+                    max_fee_per_gas: Some(U256::ZERO),
+                    ..default_call.clone()
+                },
+            );
 
-    #[cfg(feature = "test-remote")]
-    macro_rules! impl_full_block_tests {
+            assert!(matches!(
+                result,
+                Err(ProviderError::RunTransaction(
+                    TransactionError::Eip1559Unsupported
+                ))
+            ));
+
+            // Should accept pre-EIP-1559 gas semantics when running in the context of a
+            // post-EIP-1559 block
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
+                CallRequest {
+                    gas_price: Some(U256::ZERO),
+                    ..default_call.clone()
+                },
+            )?;
+
+            assert_decoded_output(result.execution_result)?;
+
+            // Should support a historical call in the context of a block added via
+            // `mine_and_commit_blocks`
+            let previous_block_number = fixture.provider_data.last_block_number();
+
+            fixture.provider_data.mine_and_commit_blocks(100, 1)?;
+
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(previous_block_number + 50),
+                CallRequest {
+                    max_fee_per_gas: Some(U256::ZERO),
+                    ..default_call
+                },
+            )?;
+
+            assert_decoded_output(result.execution_result)?;
+
+            Ok(())
+        }
+
+        macro_rules! impl_full_block_tests {
         ($(
             $name:ident => {
                 block_number: $block_number:expr,
@@ -3912,63 +3912,63 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "test-remote")]
-    impl_full_block_tests! {
-        mainnet_byzantium => {
-            block_number: 4_370_001,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        mainnet_constantinople => {
-            block_number: 7_280_001,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        mainnet_istanbul => {
-            block_number: 9_069_001,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        mainnet_muir_glacier => {
-            block_number: 9_300_077,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        mainnet_shanghai => {
-            block_number: 17_050_001,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        // This block contains a sequence of transaction that first raise
-        // an empty account's balance and then decrease it
-        mainnet_19318016 => {
-            block_number: 19_318_016,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        // This block has both EIP-2930 and EIP-1559 transactions
-        sepolia_eip_1559_2930 => {
-            block_number: 5_632_795,
-            chain_id: 11_155_111,
-            url: get_alchemy_url().replace("mainnet", "sepolia"),
-        },
-        sepolia_shanghai => {
-            block_number: 3_095_000,
-            chain_id: 11_155_111,
-            url: get_alchemy_url().replace("mainnet", "sepolia"),
-        },
-        // This block has an EIP-4844 transaction
-        mainnet_cancun => {
-            block_number: 19_529_021,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        // This block contains a transaction that uses the KZG point evaluation
-        // precompile, introduced in Cancun
-        mainnet_cancun2 => {
-            block_number: 19_562_047,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
+        impl_full_block_tests! {
+            mainnet_byzantium => {
+                block_number: 4_370_001,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            mainnet_constantinople => {
+                block_number: 7_280_001,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            mainnet_istanbul => {
+                block_number: 9_069_001,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            mainnet_muir_glacier => {
+                block_number: 9_300_077,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            mainnet_shanghai => {
+                block_number: 17_050_001,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            // This block contains a sequence of transaction that first raise
+            // an empty account's balance and then decrease it
+            mainnet_19318016 => {
+                block_number: 19_318_016,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            // This block has both EIP-2930 and EIP-1559 transactions
+            sepolia_eip_1559_2930 => {
+                block_number: 5_632_795,
+                chain_id: 11_155_111,
+                url: get_alchemy_url().replace("mainnet", "sepolia"),
+            },
+            sepolia_shanghai => {
+                block_number: 3_095_000,
+                chain_id: 11_155_111,
+                url: get_alchemy_url().replace("mainnet", "sepolia"),
+            },
+            // This block has an EIP-4844 transaction
+            mainnet_cancun => {
+                block_number: 19_529_021,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            // This block contains a transaction that uses the KZG point evaluation
+            // precompile, introduced in Cancun
+            mainnet_cancun2 => {
+                block_number: 19_562_047,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+        }
     }
 }
