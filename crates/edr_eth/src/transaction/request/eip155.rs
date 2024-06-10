@@ -35,7 +35,7 @@ impl Eip155 {
     ) -> Result<transaction::signed::Eip155, SignatureError> {
         let hash = self.hash();
 
-        let mut signature = signature::Ecdsa::new(hash, secret_key)?;
+        let mut signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
         signature.v += self.v_value_adjustment();
 
         Ok(transaction::signed::Eip155 {

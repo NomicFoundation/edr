@@ -1778,9 +1778,12 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         address: &Address,
         message: Bytes,
-    ) -> Result<signature::Ecdsa, ProviderError<LoggerErrorT>> {
+    ) -> Result<signature::SignatureWithRecoveryId, ProviderError<LoggerErrorT>> {
         match self.local_accounts.get(address) {
-            Some(secret_key) => Ok(signature::Ecdsa::new(&message[..], secret_key)?),
+            Some(secret_key) => Ok(signature::SignatureWithRecoveryId::new(
+                &message[..],
+                secret_key,
+            )?),
             None => Err(ProviderError::UnknownAddress { address: *address }),
         }
     }
@@ -1789,11 +1792,11 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         address: &Address,
         message: &TypedData,
-    ) -> Result<signature::Ecdsa, ProviderError<LoggerErrorT>> {
+    ) -> Result<signature::SignatureWithRecoveryId, ProviderError<LoggerErrorT>> {
         match self.local_accounts.get(address) {
             Some(secret_key) => {
                 let hash = message.eip712_signing_hash()?;
-                Ok(signature::Ecdsa::new(
+                Ok(signature::SignatureWithRecoveryId::new(
                     RecoveryMessage::Hash(hash),
                     secret_key,
                 )?)

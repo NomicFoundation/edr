@@ -409,7 +409,7 @@ mod tests {
                 kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::Ecdsa {
+                signature: signature::SignatureWithRecoveryId {
                     r: U256::default(),
                     s: U256::default(),
                     v: 1,
@@ -423,7 +423,7 @@ mod tests {
                 kind: TxKind::Create,
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::Ecdsa {
+                signature: signature::SignatureWithRecoveryId {
                     r: U256::default(),
                     s: U256::default(),
                     v: 37,
@@ -438,7 +438,7 @@ mod tests {
                 kind: TxKind::Call(Address::random()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
-                signature: signature::EcdsaWithYParity {
+                signature: signature::SignatureWithYParity {
                     r: U256::default(),
                     s: U256::default(),
                     y_parity: true,
@@ -456,7 +456,7 @@ mod tests {
                 value: U256::from(4),
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![].into(),
-                signature: signature::EcdsaWithYParity {
+                signature: signature::SignatureWithYParity {
                     r: U256::default(),
                     s: U256::default(),
                     y_parity: true,
@@ -475,7 +475,7 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::random(), B256::random()],
-                signature: signature::EcdsaWithYParity {
+                signature: signature::SignatureWithYParity {
                     r: U256::default(),
                     s: U256::default(),
                     y_parity: true,
@@ -498,7 +498,7 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: signature::Ecdsa {
+            signature: signature::SignatureWithRecoveryId {
                 r: U256::from_str(
                     "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
                 )
@@ -527,7 +527,7 @@ mod tests {
             )),
             value: U256::from(693361000000000u64),
             input: Bytes::default(),
-            signature: signature::Ecdsa {
+            signature: signature::SignatureWithRecoveryId {
                 r: U256::from_str(
                     "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
                 )
@@ -556,7 +556,7 @@ mod tests {
             )),
             value: U256::from(1000000000000000u64),
             input: Bytes::default(),
-            signature: signature::Ecdsa {
+            signature: signature::SignatureWithRecoveryId {
                 r: U256::from_str(
                     "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
                 )
@@ -588,7 +588,7 @@ mod tests {
             value: U256::from(3000000000000000000u64),
             input: Bytes::default(),
             access_list: AccessList::default(),
-            signature: signature::EcdsaWithYParity {
+            signature: signature::SignatureWithYParity {
                 r: U256::from_str(
                     "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
                 )
@@ -617,7 +617,7 @@ mod tests {
             )),
             value: U256::from(1234u64),
             input: Bytes::default(),
-            signature: signature::Ecdsa {
+            signature: signature::SignatureWithRecoveryId {
                 r: U256::from_str(
                     "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",
                 )

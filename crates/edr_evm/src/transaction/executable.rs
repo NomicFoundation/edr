@@ -205,7 +205,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                         kind,
                         value: value.value,
                         input: value.input,
-                        signature: signature::Ecdsa {
+                        signature: signature::SignatureWithRecoveryId {
                             r: value.r,
                             s: value.s,
                             v: value.v,
@@ -221,7 +221,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                         kind,
                         value: value.value,
                         input: value.input,
-                        signature: signature::Ecdsa {
+                        signature: signature::SignatureWithRecoveryId {
                             r: value.r,
                             s: value.s,
                             v: value.v,
@@ -232,7 +232,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                 }
             }
             Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
-                signature: signature::EcdsaWithYParity {
+                signature: signature::SignatureWithYParity {
                     y_parity: value.odd_y_parity(),
                     r: value.r,
                     s: value.s,
@@ -254,7 +254,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                 hash: OnceLock::from(value.hash),
             }),
             Some(2) => transaction::Signed::Eip1559(transaction::signed::Eip1559 {
-                signature: signature::EcdsaWithYParity {
+                signature: signature::SignatureWithYParity {
                     y_parity: value.odd_y_parity(),
                     r: value.r,
                     s: value.s,
@@ -281,7 +281,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                 hash: OnceLock::from(value.hash),
             }),
             Some(3) => transaction::Signed::Eip4844(transaction::signed::Eip4844 {
-                signature: signature::EcdsaWithYParity {
+                signature: signature::SignatureWithYParity {
                     r: value.r,
                     s: value.s,
                     y_parity: value.odd_y_parity(),
@@ -325,7 +325,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                     kind,
                     value: value.value,
                     input: value.input,
-                    signature: signature::Ecdsa {
+                    signature: signature::SignatureWithRecoveryId {
                         r: value.r,
                         s: value.s,
                         v: value.v,

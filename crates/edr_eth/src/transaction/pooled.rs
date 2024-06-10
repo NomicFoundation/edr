@@ -216,7 +216,7 @@ mod tests {
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::Ecdsa {
+            signature: signature::SignatureWithRecoveryId {
                 r: U256::default(),
                 s: U256::default(),
                 v: 1,
@@ -230,7 +230,7 @@ mod tests {
             kind: TxKind::Create,
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::Ecdsa {
+            signature: signature::SignatureWithRecoveryId {
                 r: U256::default(),
                 s: U256::default(),
                 v: 37,
@@ -245,7 +245,7 @@ mod tests {
             kind: TxKind::Call(Address::random()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: signature::EcdsaWithYParity {
+            signature: signature::SignatureWithYParity {
                 r: U256::default(),
                 s: U256::default(),
                 y_parity: true,
@@ -263,7 +263,7 @@ mod tests {
             value: U256::from(4),
             input: Bytes::from(vec![1, 2]),
             access_list: vec![].into(),
-            signature: signature::EcdsaWithYParity {
+            signature: signature::SignatureWithYParity {
                 r: U256::default(),
                 s: U256::default(),
                 y_parity: true,
@@ -283,7 +283,7 @@ mod tests {
                 input: Bytes::from_str("0x2069b0c7")?,
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
-                signature: signature::EcdsaWithYParity {
+                signature: signature::SignatureWithYParity {
                     r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
                     s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
                     y_parity: true,

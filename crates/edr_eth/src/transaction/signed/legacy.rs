@@ -24,7 +24,7 @@ pub struct Legacy {
     pub value: U256,
     pub input: Bytes,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Fakeable<signature::Ecdsa>,
+    pub signature: signature::Fakeable<signature::SignatureWithRecoveryId>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]

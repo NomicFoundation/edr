@@ -31,7 +31,7 @@ pub struct Eip4844 {
     pub max_fee_per_blob_gas: U256,
     pub blob_hashes: Vec<B256>,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Fakeable<signature::EcdsaWithYParity>,
+    pub signature: signature::Fakeable<signature::SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
@@ -127,7 +127,7 @@ mod tests {
                 "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",
             )
             .unwrap()],
-            signature: signature::EcdsaWithYParity {
+            signature: signature::SignatureWithYParity {
                 r: U256::from_str(
                     "0x8a83833ec07806485a4ded33f24f5cea4b8d4d24dc8f357e6d446bcdae5e58a7",
                 )
@@ -185,7 +185,7 @@ mod tests {
             blob_hashes: vec![b256!(
                 "01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e"
             )],
-            signature: signature::EcdsaWithYParity {
+            signature: signature::SignatureWithYParity {
                 r: U256::from_str(
                     "0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082",
                 )?,

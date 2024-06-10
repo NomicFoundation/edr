@@ -2,8 +2,8 @@ use alloy_rlp::BufMut;
 use once_cell::sync::OnceCell;
 
 use super::{
-    Ecdsa, EcdsaWithYParity, Fakeable, FakeableData, Recoverable, RecoveryMessage, Signature,
-    SignatureError,
+    Fakeable, FakeableData, Recoverable, RecoveryMessage, Signature, SignatureError,
+    SignatureWithRecoveryId, SignatureWithYParity,
 };
 use crate::{Address, U256};
 
@@ -43,10 +43,10 @@ impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
     ///
     /// We add the +27 magic number that originates from Bitcoin as the
     /// `Signature::new` function adds it as well.
-    pub fn fake(caller: Address, v: Option<u64>) -> Self {
+    pub fn fake(caller: Address, recovery_id: Option<u64>) -> Self {
         Self {
             data: FakeableData::Fake {
-                v: v.unwrap_or(1u64) + 27,
+                recovery_id: recovery_id.unwrap_or(1u64) + 27,
             },
             address: OnceCell::with_value(caller),
         }
@@ -97,19 +97,19 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
 {
     fn encode(&self, out: &mut dyn BufMut) {
         match &self.data {
-            FakeableData::Fake { v } => {
+            FakeableData::Fake { recovery_id } => {
                 if let Some(y_parity) = self.y_parity() {
-                    EcdsaWithYParity {
+                    SignatureWithYParity {
                         r: self.r(),
                         s: self.s(),
                         y_parity,
                     }
                     .encode(out);
                 } else {
-                    let ecdsa = Ecdsa {
+                    let ecdsa = SignatureWithRecoveryId {
                         r: self.r(),
                         s: self.s(),
-                        v: *v,
+                        v: *recovery_id,
                     };
 
                     ecdsa.encode(out);
@@ -121,19 +121,19 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
 
     fn length(&self) -> usize {
         match &self.data {
-            FakeableData::Fake { v } => {
+            FakeableData::Fake { recovery_id } => {
                 if let Some(y_parity) = self.y_parity() {
-                    EcdsaWithYParity {
+                    SignatureWithYParity {
                         r: self.r(),
                         s: self.s(),
                         y_parity,
                     }
                     .length()
                 } else {
-                    Ecdsa {
+                    SignatureWithRecoveryId {
                         r: self.r(),
                         s: self.s(),
-                        v: *v,
+                        v: *recovery_id,
                     }
                     .length()
                 }
@@ -146,13 +146,20 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
 impl<SignatureT: Recoverable + Signature + PartialEq> PartialEq for Fakeable<SignatureT> {
     fn eq(&self, other: &Self) -> bool {
         match (&self.data, &other.data) {
-            (FakeableData::Fake { v: v1 }, FakeableData::Fake { v: v2 }) => {
+            (
+                FakeableData::Fake {
+                    recovery_id: recovery_id1,
+                },
+                FakeableData::Fake {
+                    recovery_id: recovery_id2,
+                },
+            ) => {
                 // SAFETY: The address is always initialized for fake signatures.
                 let address1 = unsafe { self.address.get_unchecked() };
                 // SAFETY: The address is always initialized for fake signatures.
                 let address2 = unsafe { other.address.get_unchecked() };
 
-                v1 == v2 && address1 == address2
+                recovery_id1 == recovery_id2 && address1 == address2
             }
             (
                 FakeableData::Recoverable { signature: s1 },
@@ -219,17 +226,17 @@ impl<SignatureT: Recoverable + Signature> Signature for Fakeable<SignatureT> {
 
     fn v(&self) -> u64 {
         match &self.data {
-            FakeableData::Fake { v } => *v,
+            FakeableData::Fake { recovery_id } => *recovery_id,
             FakeableData::Recoverable { signature } => signature.v(),
         }
     }
 
     fn y_parity(&self) -> Option<bool> {
         match &self.data {
-            FakeableData::Fake { v } => {
+            FakeableData::Fake { recovery_id } => {
                 // We add the +27 magic number that originates from Bitcoin as the
                 // `Signature::new` function adds it as well.
-                if *v == 28 {
+                if *recovery_id == 28 {
                     Some(true)
                 } else {
                     None

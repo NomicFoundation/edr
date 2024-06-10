@@ -33,7 +33,7 @@ impl Legacy {
         secret_key: &SecretKey,
     ) -> Result<transaction::signed::Legacy, SignatureError> {
         let hash = self.hash();
-        let signature = signature::Ecdsa::new(hash, secret_key)?;
+        let signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
 
         Ok(transaction::signed::Legacy {
             nonce: self.nonce,

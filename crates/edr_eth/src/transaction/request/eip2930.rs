@@ -39,7 +39,7 @@ impl Eip2930 {
         secret_key: &SecretKey,
     ) -> Result<transaction::signed::Eip2930, SignatureError> {
         let hash = self.hash();
-        let signature = signature::EcdsaWithYParity::new(hash, secret_key)?;
+        let signature = signature::SignatureWithYParity::new(hash, secret_key)?;
 
         Ok(transaction::signed::Eip2930 {
             chain_id: self.chain_id,

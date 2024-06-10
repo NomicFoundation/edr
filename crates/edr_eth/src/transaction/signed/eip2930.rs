@@ -29,7 +29,7 @@ pub struct Eip2930 {
     pub input: Bytes,
     pub access_list: AccessList,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Fakeable<signature::EcdsaWithYParity>,
+    pub signature: signature::Fakeable<signature::SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]

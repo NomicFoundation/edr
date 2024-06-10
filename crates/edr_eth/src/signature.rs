@@ -4,13 +4,15 @@
 // - https://github.com/gakonst/ethers-rs/blob/cba6f071aedafb766e82e4c2f469ed5e4638337d/LICENSE-MIT
 // For the original context see: https://github.com/gakonst/ethers-rs/blob/cba6f071aedafb766e82e4c2f469ed5e4638337d/ethers-core/src/types/signature.rs
 
-mod ecdsa;
 mod fakeable;
+mod recovery_id;
+mod y_parity;
 
 use k256::{elliptic_curve::sec1::ToEncodedPoint, FieldBytes, PublicKey, SecretKey};
 use once_cell::sync::OnceCell;
 use sha3::{Digest, Keccak256};
 
+pub use self::{recovery_id::SignatureWithRecoveryId, y_parity::SignatureWithYParity};
 use crate::{Address, B256, U256};
 
 /// An error involving a signature.
@@ -47,30 +49,6 @@ pub enum SignatureError {
     RecoveryError,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// An ECDSA signature
-pub struct Ecdsa {
-    /// R value
-    pub r: U256,
-    /// S Value
-    pub s: U256,
-    /// V value
-    pub v: u64,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// An ECDSA signature
-pub struct EcdsaWithYParity {
-    /// R value
-    pub r: U256,
-    /// S value
-    pub s: U256,
-    /// Whether the V value has odd Y parity.
-    pub y_parity: bool,
-}
-
 /// A fakeable signature which can either be a fake signature or a real ECDSA
 /// signature.
 #[derive(Clone, Debug)]
@@ -92,12 +70,11 @@ enum FakeableData<SignatureT: Recoverable + Signature> {
     /// to the sender's address. This is the simplest implementation and it
     /// helps us recognize fake signatures in debug logs.
     Fake {
-        /// The fake V-value.
+        /// The fake recovery ID.
         ///
-        /// A V-value of 28 (1 + 27) signals that the signature uses a
-        /// `y_parity: bool` for encoding/decoding purposes instead of the `v:
-        /// u64`.
-        v: u64,
+        /// A recovery ID of 28 (1 + 27) signals that the signature uses a
+        /// `y_parity: bool` for encoding/decoding purposes instead of `v: u64`.
+        recovery_id: u64,
     },
     /// ECDSA signature with a recoverable caller address.
     Recoverable { signature: SignatureT },
