@@ -1,27 +1,22 @@
-#![cfg(feature = "test-utils")]
-
 use edr_eth::{
-    transaction::EthTransactionRequest, AccountInfo, Address, PreEip1898BlockSpec, SpecId, B256,
+    filter::LogFilterOptions, transaction::EthTransactionRequest, AccountInfo, Address, BlockSpec,
+    SpecId,
 };
 use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
-    MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn issue_325() -> anyhow::Result<()> {
+async fn issue_361() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::CANCUN;
-    config.mining = MiningConfig {
-        auto_mine: false,
-        ..MiningConfig::default()
-    };
+    config.hardfork = SpecId::MUIR_GLACIER;
 
     let impersonated_account = Address::random();
     config.genesis_accounts.insert(
@@ -46,27 +41,20 @@ async fn issue_325() -> anyhow::Result<()> {
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
-        MethodInvocation::SendTransaction(EthTransactionRequest {
+    provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
+        EthTransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
             ..EthTransactionRequest::default()
-        }),
-    ))?;
+        },
+    )))?;
 
-    let transaction_hash: B256 = serde_json::from_value(result.result)?;
-
-    let result = provider.handle_request(ProviderRequest::Single(
-        MethodInvocation::DropTransaction(transaction_hash),
-    ))?;
-
-    let dropped: bool = serde_json::from_value(result.result)?;
-
-    assert!(dropped);
-
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::GetBlockByNumber(
-        PreEip1898BlockSpec::pending(),
-        false,
+    provider.handle_request(ProviderRequest::Single(MethodInvocation::GetLogs(
+        LogFilterOptions {
+            from_block: Some(BlockSpec::Number(0)),
+            to_block: Some(BlockSpec::latest()),
+            ..LogFilterOptions::default()
+        },
     )))?;
 
     Ok(())

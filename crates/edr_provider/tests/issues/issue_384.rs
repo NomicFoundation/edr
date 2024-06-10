@@ -1,5 +1,3 @@
-#![cfg(all(feature = "test-remote", feature = "test-utils"))]
-
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
