@@ -21,7 +21,8 @@ pub struct SignatureWithYParity {
 impl SignatureWithYParity {
     /// Constructs a new instance from a message and secret key.
     ///
-    /// To obtain the hash of a message consider [`hash_message`].
+    /// To obtain the hash of a message consider
+    /// [`crate::utils::hash_message`].
     pub fn new<M>(message: M, secret_key: &SecretKey) -> Result<Self, SignatureError>
     where
         M: Into<RecoveryMessage>,
