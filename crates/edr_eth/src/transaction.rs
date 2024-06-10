@@ -42,7 +42,7 @@ pub enum Request {
 
 /// Container type for various signed Ethereum transactions.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum Signed {
     /// Legacy transaction
     PreEip155Legacy(signed::Legacy),
@@ -59,7 +59,7 @@ pub enum Signed {
 /// Trait for signed transactions.
 pub trait SignedTransaction: Transaction {
     /// Recovers the Ethereum address which was used to sign the transaction.
-    fn recover(&self) -> Result<Address, SignatureError>;
+    fn recover(&self) -> Result<&Address, SignatureError>;
 }
 
 pub trait Transaction {

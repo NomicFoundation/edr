@@ -7,14 +7,14 @@ use revm_primitives::{keccak256, TxEnv};
 use super::kind_to_transact_to;
 use crate::{
     access_list::AccessList,
-    signature::{Signature, SignatureError},
-    transaction::{self, fake_signature::recover_fake_signature, TxKind},
+    signature::{self, SignatureError},
+    transaction::{self, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip2930 {
     // The order of these fields determines de-/encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
@@ -28,19 +28,13 @@ pub struct Eip2930 {
     pub value: U256,
     pub input: Bytes,
     pub access_list: AccessList,
-    pub odd_y_parity: bool,
-    pub r: U256,
-    pub s: U256,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub signature: signature::Fakeable<signature::SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
-    /// Whether the signed transaction is from an impersonated account.
-    #[rlp(default)]
-    #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    pub is_fake: bool,
 }
 
 impl Eip2930 {
@@ -54,18 +48,9 @@ impl Eip2930 {
     }
 
     /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<Address, SignatureError> {
-        let signature = Signature {
-            r: self.r,
-            s: self.s,
-            v: u64::from(self.odd_y_parity),
-        };
-
-        if self.is_fake {
-            return Ok(recover_fake_signature(&signature));
-        }
-
-        signature.recover(transaction::request::Eip2930::from(self).hash())
+    pub fn recover(&self) -> Result<&Address, SignatureError> {
+        self.signature
+            .recover_address(transaction::request::Eip2930::from(self).hash())
     }
 
     /// Converts this transaction into a `TxEnv` struct.
@@ -99,9 +84,7 @@ impl PartialEq for Eip2930 {
             && self.value == other.value
             && self.input == other.input
             && self.access_list == other.access_list
-            && self.odd_y_parity == other.odd_y_parity
-            && self.r == other.r
-            && self.s == other.s
+            && self.signature == other.signature
     }
 }
 

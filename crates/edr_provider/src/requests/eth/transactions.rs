@@ -239,11 +239,11 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         gas_price,
         gas: U256::from(signed_transaction.gas_limit()),
         input: signed_transaction.data().clone(),
-        v: signature.v,
+        v: signature.v(),
         // Following Hardhat in always returning `v` instead of `y_parity`.
         y_parity: None,
-        r: signature.r,
-        s: signature.s,
+        r: signature.r(),
+        s: signature.s(),
         chain_id,
         transaction_type: transaction_type.map(u64::from),
         access_list: signed_transaction
@@ -570,7 +570,7 @@ mod tests {
             nonce: 0,
             chain_id,
         })
-        .fake_sign(&impersonated_account);
+        .fake_sign(impersonated_account);
         let transaction = ExecutableTransaction::with_caller(
             fixture.provider_data.spec_id(),
             request,

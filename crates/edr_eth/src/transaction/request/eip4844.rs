@@ -6,8 +6,8 @@ use revm_primitives::keccak256;
 
 use crate::{
     access_list::AccessListItem,
-    signature::{Signature, SignatureError},
-    transaction::{self, fake_signature::make_fake_signature},
+    signature::{self, SignatureError},
+    transaction,
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
@@ -38,11 +38,10 @@ impl Eip4844 {
 
     pub fn sign(
         self,
-        private_key: &SecretKey,
+        secret_key: &SecretKey,
     ) -> Result<transaction::signed::Eip4844, SignatureError> {
         let hash = self.hash();
-
-        let signature = Signature::new(hash, private_key)?;
+        let signature = signature::SignatureWithYParity::new(hash, secret_key)?;
 
         Ok(transaction::signed::Eip4844 {
             chain_id: self.chain_id,
@@ -56,17 +55,12 @@ impl Eip4844 {
             input: self.input,
             access_list: self.access_list.into(),
             blob_hashes: self.blob_hashes,
-            odd_y_parity: signature.odd_y_parity(),
-            r: signature.r,
-            s: signature.s,
+            signature: signature.into(),
             hash: OnceLock::new(),
-            is_fake: false,
         })
     }
 
-    pub fn fake_sign(self, address: &Address) -> transaction::signed::Eip4844 {
-        let signature = make_fake_signature::<1>(address);
-
+    pub fn fake_sign(self, address: Address) -> transaction::signed::Eip4844 {
         transaction::signed::Eip4844 {
             chain_id: self.chain_id,
             nonce: self.nonce,
@@ -79,11 +73,8 @@ impl Eip4844 {
             input: self.input,
             access_list: self.access_list.into(),
             blob_hashes: self.blob_hashes,
-            odd_y_parity: signature.odd_y_parity(),
-            r: signature.r,
-            s: signature.s,
+            signature: signature::Fakeable::fake(address, None),
             hash: OnceLock::new(),
-            is_fake: true,
         }
     }
 }

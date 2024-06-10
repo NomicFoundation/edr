@@ -154,7 +154,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         })
     };
 
-    let transaction = transaction.fake_sign(&from);
+    let transaction = transaction.fake_sign(from);
     ExecutableTransaction::with_caller(data.spec_id(), transaction, from)
         .map_err(ProviderError::TransactionCreationError)
 }

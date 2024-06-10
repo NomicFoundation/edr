@@ -6,13 +6,13 @@ use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
 use crate::{
-    signature::{Signature, SignatureError},
-    transaction::{self, fake_signature::recover_fake_signature, TxKind},
+    signature::{self, Signature, SignatureError},
+    transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip155 {
     // The order of these fields determines de-/encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
@@ -23,17 +23,13 @@ pub struct Eip155 {
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub signature: Signature,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub signature: signature::Fakeable<signature::SignatureWithRecoveryId>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
-    /// Whether the signed transaction is from an impersonated account.
-    #[rlp(default)]
-    #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    pub is_fake: bool,
 }
 
 impl Eip155 {
@@ -42,16 +38,13 @@ impl Eip155 {
     }
 
     /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<Address, SignatureError> {
-        if self.is_fake {
-            return Ok(recover_fake_signature(&self.signature));
-        }
+    pub fn recover(&self) -> Result<&Address, SignatureError> {
         self.signature
-            .recover(transaction::request::Eip155::from(self).hash())
+            .recover_address(transaction::request::Eip155::from(self).hash())
     }
 
     pub fn chain_id(&self) -> u64 {
-        (self.signature.v - 35) / 2
+        (self.signature.v() - 35) / 2
     }
 
     /// Converts this transaction into a `TxEnv` struct.
@@ -76,8 +69,8 @@ impl Eip155 {
     }
 }
 
-impl From<transaction::signed::legacy::Legacy> for Eip155 {
-    fn from(tx: transaction::signed::legacy::Legacy) -> Self {
+impl From<transaction::signed::Legacy> for Eip155 {
+    fn from(tx: transaction::signed::Legacy) -> Self {
         Self {
             nonce: tx.nonce,
             gas_price: tx.gas_price,
@@ -87,7 +80,6 @@ impl From<transaction::signed::legacy::Legacy> for Eip155 {
             input: tx.input,
             signature: tx.signature,
             hash: tx.hash,
-            is_fake: tx.is_fake,
         }
     }
 }

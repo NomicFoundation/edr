@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use alloy_rlp::BufMut;
 use edr_eth::{
-    signature::Signature,
+    signature,
     transaction::{self, SignedTransaction, Transaction, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -30,7 +30,7 @@ impl<ChainSpecT: ChainSpec> ExecutableTransaction<ChainSpecT> {
         spec_id: SpecId,
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<Self, TransactionCreationError> {
-        let caller = transaction
+        let caller = *transaction
             .recover()
             .map_err(TransactionCreationError::Signature)?;
 
@@ -205,13 +205,13 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                         kind,
                         value: value.value,
                         input: value.input,
-                        signature: Signature {
+                        signature: signature::SignatureWithRecoveryId {
                             r: value.r,
                             s: value.s,
                             v: value.v,
-                        },
+                        }
+                        .into(),
                         hash: OnceLock::from(value.hash),
-                        is_fake: false,
                     })
                 } else {
                     transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
@@ -221,18 +221,23 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                         kind,
                         value: value.value,
                         input: value.input,
-                        signature: Signature {
+                        signature: signature::SignatureWithRecoveryId {
                             r: value.r,
                             s: value.s,
                             v: value.v,
-                        },
+                        }
+                        .into(),
                         hash: OnceLock::from(value.hash),
-                        is_fake: false,
                     })
                 }
             }
             Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
-                odd_y_parity: value.odd_y_parity(),
+                signature: signature::SignatureWithYParity {
+                    y_parity: value.odd_y_parity(),
+                    r: value.r,
+                    s: value.s,
+                }
+                .into(),
                 chain_id: value
                     .chain_id
                     .ok_or(TransactionConversionError::MissingChainId)?,
@@ -246,13 +251,15 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                     .access_list
                     .ok_or(TransactionConversionError::MissingAccessList)?
                     .into(),
-                r: value.r,
-                s: value.s,
                 hash: OnceLock::from(value.hash),
-                is_fake: false,
             }),
             Some(2) => transaction::Signed::Eip1559(transaction::signed::Eip1559 {
-                odd_y_parity: value.odd_y_parity(),
+                signature: signature::SignatureWithYParity {
+                    y_parity: value.odd_y_parity(),
+                    r: value.r,
+                    s: value.s,
+                }
+                .into(),
                 chain_id: value
                     .chain_id
                     .ok_or(TransactionConversionError::MissingChainId)?,
@@ -271,13 +278,15 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                     .access_list
                     .ok_or(TransactionConversionError::MissingAccessList)?
                     .into(),
-                r: value.r,
-                s: value.s,
                 hash: OnceLock::from(value.hash),
-                is_fake: false,
             }),
             Some(3) => transaction::Signed::Eip4844(transaction::signed::Eip4844 {
-                odd_y_parity: value.odd_y_parity(),
+                signature: signature::SignatureWithYParity {
+                    r: value.r,
+                    s: value.s,
+                    y_parity: value.odd_y_parity(),
+                }
+                .into(),
                 chain_id: value
                     .chain_id
                     .ok_or(TransactionConversionError::MissingChainId)?,
@@ -304,10 +313,7 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                 blob_hashes: value
                     .blob_versioned_hashes
                     .ok_or(TransactionConversionError::MissingBlobHashes)?,
-                r: value.r,
-                s: value.s,
                 hash: OnceLock::from(value.hash),
-                is_fake: false,
             }),
             Some(r#type) => {
                 log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction", );
@@ -319,13 +325,13 @@ impl TryFrom<edr_rpc_eth::Transaction> for ExecutableTransaction<L1ChainSpec> {
                     kind,
                     value: value.value,
                     input: value.input,
-                    signature: Signature {
+                    signature: signature::SignatureWithRecoveryId {
                         r: value.r,
                         s: value.s,
                         v: value.v,
-                    },
+                    }
+                    .into(),
                     hash: OnceLock::from(value.hash),
-                    is_fake: false,
                 })
             }
         };
@@ -377,7 +383,7 @@ mod tests {
             chain_id: 123,
         };
 
-        let transaction = request.fake_sign(&caller);
+        let transaction = request.fake_sign(caller);
         let result = ExecutableTransaction::<L1ChainSpec>::with_caller(
             SpecId::BERLIN,
             transaction.into(),
@@ -415,7 +421,7 @@ mod tests {
             chain_id: 123,
         };
 
-        let transaction = request.fake_sign(&caller);
+        let transaction = request.fake_sign(caller);
         let result = ExecutableTransaction::<L1ChainSpec>::with_caller(
             SpecId::BERLIN,
             transaction.into(),

@@ -1059,6 +1059,7 @@ dependencies = [
  "k256",
  "lazy_static",
  "log",
+ "once_cell",
  "paste",
  "revm-primitives",
  "serde",

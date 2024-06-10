@@ -2,7 +2,9 @@ mod eip4844;
 
 pub use self::eip4844::Eip4844;
 use super::Signed;
-use crate::{transaction::INVALID_TX_TYPE_ERROR_MESSAGE, utils::enveloped};
+use crate::{
+    signature::Signature as _, transaction::INVALID_TX_TYPE_ERROR_MESSAGE, utils::enveloped,
+};
 
 pub type LegacyPooledTransaction = super::signed::Legacy;
 pub type Eip155PooledTransaction = super::signed::Eip155;
@@ -92,7 +94,7 @@ impl alloy_rlp::Decodable for PooledTransaction {
             }
             byte if is_list(byte) => {
                 let tx = LegacyPooledTransaction::decode(buf)?;
-                if tx.signature.v >= 35 {
+                if tx.signature.v() >= 35 {
                     Ok(PooledTransaction::PostEip155Legacy(tx.into()))
                 } else {
                     Ok(PooledTransaction::PreEip155Legacy(tx))
@@ -165,7 +167,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        signature::Signature,
+        signature,
         transaction::{self, TxKind},
         Address, Bytes, B256, U256,
     };
@@ -214,13 +216,12 @@ mod tests {
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: Signature {
+            signature: signature::SignatureWithRecoveryId {
                 r: U256::default(),
                 s: U256::default(),
                 v: 1,
-            },
+            }.into(),
             hash: OnceLock::new(),
-            is_fake: false
         }),
         post_eip155 => PooledTransaction::PostEip155Legacy(Eip155PooledTransaction {
             nonce: 0,
@@ -229,13 +230,12 @@ mod tests {
             kind: TxKind::Create,
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: Signature {
+            signature: signature::SignatureWithRecoveryId {
                 r: U256::default(),
                 s: U256::default(),
                 v: 37,
-            },
+            }.into(),
             hash: OnceLock::new(),
-            is_fake: false
         }),
         eip2930 => PooledTransaction::Eip2930(Eip2930PooledTransaction {
             chain_id: 1,
@@ -245,12 +245,13 @@ mod tests {
             kind: TxKind::Call(Address::random()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            odd_y_parity: true,
-            r: U256::default(),
-            s: U256::default(),
+            signature: signature::SignatureWithYParity {
+                r: U256::default(),
+                s: U256::default(),
+                y_parity: true,
+            }.into(),
             access_list: vec![].into(),
             hash: OnceLock::new(),
-            is_fake: false
         }),
         eip1559 => PooledTransaction::Eip1559(Eip1559PooledTransaction {
             chain_id: 1,
@@ -262,11 +263,12 @@ mod tests {
             value: U256::from(4),
             input: Bytes::from(vec![1, 2]),
             access_list: vec![].into(),
-            odd_y_parity: true,
-            r: U256::default(),
-            s: U256::default(),
+            signature: signature::SignatureWithYParity {
+                r: U256::default(),
+                s: U256::default(),
+                y_parity: true,
+            }.into(),
             hash: OnceLock::new(),
-            is_fake: false
         }),
         eip4844 => PooledTransaction::Eip4844(
             Eip4844::new(transaction::signed::Eip4844 {
@@ -281,11 +283,12 @@ mod tests {
                 input: Bytes::from_str("0x2069b0c7")?,
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
-                odd_y_parity: true,
-                r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
-                s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
+                signature: signature::SignatureWithYParity {
+                    r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
+                    s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
+                    y_parity: true,
+                }.into(),
                 hash: OnceLock::new(),
-                is_fake: false
             },
             vec![fake_eip4844_blob()],
             vec![c_kzg::Bytes48::from_hex(

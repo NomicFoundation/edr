@@ -112,7 +112,7 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
         input: Bytes::new(),
         chain_id: 123,
     };
-    let transaction = request.fake_sign(&caller);
+    let transaction = request.fake_sign(caller);
 
     ExecutableTransaction::<L1ChainSpec>::with_caller(SpecId::LATEST, transaction.into(), caller)
 }
@@ -137,7 +137,7 @@ pub fn dummy_eip1559_transaction(
         input: Bytes::new(),
         access_list: Vec::new(),
     };
-    let transaction = request.fake_sign(&caller);
+    let transaction = request.fake_sign(caller);
 
     ExecutableTransaction::<L1ChainSpec>::with_caller(SpecId::LATEST, transaction.into(), caller)
 }
