@@ -234,7 +234,7 @@ impl MultiContractRunner {
                             .expect("failed to join task");
                         },
                     )
-                    .await
+                    .await;
             });
         });
     }
