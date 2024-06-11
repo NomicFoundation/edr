@@ -2,7 +2,8 @@ use core::fmt::Debug;
 use std::convert::Infallible;
 
 use dyn_clone::DynClone;
-use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, ExecutableTransaction};
+use edr_eth::transaction;
+use edr_evm::blockchain::BlockchainError;
 
 use crate::{
     data::CallResult, debug_mine::DebugMineBlockResult, error::EstimateGasFailure, ProviderError,

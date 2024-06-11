@@ -1,14 +1,11 @@
 use std::num::NonZeroU64;
 
-use edr_eth::{
-    transaction::{self, TxKind},
-    AccountInfo, Address, Bytes, HashMap, SpecId, U256,
-};
+use edr_eth::{transaction::TxKind, AccountInfo, Address, Bytes, HashMap, SpecId, U256};
 
 use crate::{
     chain_spec::L1ChainSpec,
     state::{AccountTrie, StateError, TrieState},
-    ExecutableTransaction, MemPool, MemPoolAddTransactionError, TransactionCreationError,
+    transaction, MemPool, MemPoolAddTransactionError, TransactionCreationError,
 };
 
 /// A test fixture for `MemPool`.
@@ -112,7 +109,10 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
         input: Bytes::new(),
         chain_id: 123,
     };
-    request.fake_sign(caller)
+    let transaction = request.fake_sign(caller);
+    let transaction = transaction::Signed::from(transaction);
+
+    transaction::validate(transaction, SpecId::LATEST)
 }
 
 /// Creates a dummy EIP-1559 transaction with the provided max fee and max
@@ -136,6 +136,7 @@ pub fn dummy_eip1559_transaction(
         access_list: Vec::new(),
     };
     let transaction = request.fake_sign(caller);
+    let transaction = transaction::Signed::from(transaction);
 
-    ExecutableTransaction::<L1ChainSpec>::with_caller(SpecId::LATEST, transaction.into(), caller)
+    transaction::validate(transaction, SpecId::LATEST)
 }

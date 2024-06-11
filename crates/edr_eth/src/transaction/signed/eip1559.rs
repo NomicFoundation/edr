@@ -111,7 +111,7 @@ impl alloy_rlp::Decodable for Eip1559 {
         let request = transaction::request::Eip1559::from(&transaction);
 
         let signature = Fakeable::recover(transaction.signature, request.hash().into())
-            .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
+            .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
 
         Ok(Self {
             chain_id: transaction.chain_id,

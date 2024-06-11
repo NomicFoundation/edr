@@ -1,12 +1,10 @@
 use core::fmt::Debug;
 
 use edr_eth::{
-    fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec, SpecId, U256,
-    U64,
+    fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, transaction, BlockSpec,
+    SpecId, U256, U64,
 };
-use edr_evm::{
-    chain_spec::L1ChainSpec, state::StateOverrides, trace::Trace, ExecutableTransaction,
-};
+use edr_evm::{state::StateOverrides, trace::Trace};
 use edr_rpc_eth::CallRequest;
 
 use super::resolve_call_request_inner;

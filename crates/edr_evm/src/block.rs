@@ -21,7 +21,6 @@ pub use self::{
     local::LocalBlock,
     remote::{CreationError as RemoteBlockCreationError, RemoteBlock},
 };
-use crate::{chain_spec::L1ChainSpec, ExecutableTransaction};
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]

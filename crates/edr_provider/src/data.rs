@@ -32,7 +32,6 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
-    chain_spec::L1ChainSpec,
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
@@ -41,10 +40,10 @@ use edr_evm::{
         SyncState,
     },
     trace::Trace,
-    Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockAndTotalDifficulty, BlockEnv,
-    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
-    DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutableTransaction, ExecutionResult,
-    HashMap, HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
+    transaction, Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockAndTotalDifficulty,
+    BlockEnv, Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
+    DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutionResult, HashMap, HashSet, MemPool,
+    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, SignedTransaction as _,
     StorageSlot, SyncBlock, TxEnv, KECCAK_EMPTY,
 };
 use edr_rpc_eth::{
@@ -670,7 +669,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let cfg_env = self.create_evm_config(Some(block_spec))?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
-        let minimum_cost = transaction.initial_cost(self.spec_id());
+        let minimum_cost = transaction::initial_cost(&transaction, self.spec_id());
         let tx_env: TxEnv = transaction.into();
 
         let state_overrides = StateOverrides::default();
@@ -2202,24 +2201,21 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         if self.impersonated_accounts.contains(&sender) {
             let signed_transaction = request.fake_sign(sender);
-
-            Ok(ExecutableTransaction::with_caller(
-                self.blockchain.spec_id(),
-                signed_transaction,
-                sender,
-            )?)
+            transaction::validate(signed_transaction, self.blockchain.spec_id())
+                .map_err(ProviderError::TransactionCreationError)
         } else {
             let secret_key = self
                 .local_accounts
                 .get(&sender)
                 .ok_or(ProviderError::UnknownAddress { address: sender })?;
 
-            let signed_transaction = request.sign(secret_key)?;
-            Ok(ExecutableTransaction::with_caller(
-                self.blockchain.spec_id(),
-                signed_transaction,
-                sender,
-            )?)
+            // SAFETY: We know the secret key belongs to the sender, as we retrieved it from
+            // `local_accounts`.
+            let signed_transaction =
+                unsafe { request.sign_for_sender_unchecked(secret_key, sender) }?;
+
+            transaction::validate(signed_transaction, self.blockchain.spec_id())
+                .map_err(ProviderError::TransactionCreationError)
         }
     }
 
@@ -2784,7 +2780,7 @@ mod tests {
         let fixture = ProviderTestFixture::new_local()?;
 
         let transaction = fixture.signed_dummy_transaction(0, None)?;
-        let recovered_address = transaction.as_inner().recover()?;
+        let recovered_address = transaction.caller();
 
         assert!(fixture
             .provider_data

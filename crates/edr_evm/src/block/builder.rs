@@ -7,7 +7,6 @@ use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     log::{add_log_to_bloom, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    signature::SignatureError,
     transaction::{self, SignedTransaction as _, Transaction as _, TransactionType},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
@@ -70,9 +69,6 @@ pub enum BlockTransactionError<BE, SE> {
     /// Corrupt transaction data
     #[error("Invalid transaction: {0:?}")]
     InvalidTransaction(InvalidTransaction),
-    /// Signature error
-    #[error(transparent)]
-    Signature(#[from] SignatureError),
     /// State errors
     #[error(transparent)]
     State(SE),
@@ -281,20 +277,11 @@ impl BlockBuilder {
                 .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
         };
 
-        let tx_env = match transaction.clone().try_into() {
-            Ok(tx_env) => tx_env,
-            Err(error) => {
-                return ExecutionResultWithContext {
-                    result: Err(BlockTransactionError::Signature(error)),
-                    evm_context: EvmContext {
-                        debug: debug_context,
-                        state,
-                    },
-                };
-            }
-        };
-
-        let env = EnvWithHandlerCfg::new_with_cfg_env(self.cfg.clone(), block.clone(), tx_env);
+        let env = EnvWithHandlerCfg::new_with_cfg_env(
+            self.cfg.clone(),
+            block.clone(),
+            transaction.clone().into(),
+        );
 
         let db = DatabaseComponents {
             state,
@@ -433,9 +420,7 @@ impl BlockBuilder {
             },
             transaction_hash: *transaction.transaction_hash(),
             transaction_index: self.transactions.len() as u64,
-            from: *transaction
-                .caller()
-                .expect("Already recovered caller earlier in function"),
+            from: *transaction.caller(),
             to: transaction.kind().to().copied(),
             contract_address,
             gas_used: result.gas_used(),

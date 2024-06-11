@@ -12,7 +12,7 @@ use edr_eth::{
     AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
     U256,
 };
-use edr_evm::{EnvKzgSettings, ExecutableTransaction, KECCAK_EMPTY};
+use edr_evm::{EnvKzgSettings, KECCAK_EMPTY};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,

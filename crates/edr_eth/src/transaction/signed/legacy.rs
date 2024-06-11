@@ -132,7 +132,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
             let request = transaction::request::Eip155::from(&transaction);
 
             let signature = Fakeable::recover(transaction.signature, request.hash().into())
-                .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
+                .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
 
             Self::Post(transaction::signed::Eip155 {
                 nonce: transaction.nonce,
@@ -148,7 +148,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
             let request = transaction::request::Legacy::from(&transaction);
 
             let signature = Fakeable::recover(transaction.signature, request.hash().into())
-                .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
+                .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
 
             Self::Pre(Legacy {
                 nonce: request.nonce,

@@ -1,9 +1,7 @@
 use core::fmt::Debug;
 
-use edr_eth::{transaction, BlockSpec, Bytes, SpecId, U256};
-use edr_evm::{
-    chain_spec::L1ChainSpec, state::StateOverrides, trace::Trace, ExecutableTransaction,
-};
+use edr_eth::{BlockSpec, Bytes, SpecId, U256};
+use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
 use crate::{
@@ -155,7 +153,8 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
     };
 
     let transaction = transaction.fake_sign(from);
-    ExecutableTransaction::with_caller(data.spec_id(), transaction, from)
+
+    transaction::validate(transaction, SpecId::LATEST)
         .map_err(ProviderError::TransactionCreationError)
 }
 

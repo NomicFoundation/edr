@@ -82,9 +82,6 @@ pub enum MineBlockError<BE, SE> {
     /// on a post-merge hardfork.
     #[error("Post-merge transaction is missing prevrandao")]
     MissingPrevrandao,
-    /// Signature error
-    #[error(transparent)]
-    Signature(#[from] SignatureError),
 }
 
 /// Mines a block using as many transactions as can fit in it.
@@ -139,11 +136,11 @@ where
 
     while let Some(transaction) = pending_transactions.next() {
         if transaction.gas_price() < min_gas_price {
-            pending_transactions.remove_caller(transaction.caller()?);
+            pending_transactions.remove_caller(transaction.caller());
             continue;
         }
 
-        let caller = *transaction.caller()?;
+        let caller = *transaction.caller();
         let ExecutionResultWithContext {
             result,
             evm_context,
@@ -334,7 +331,7 @@ where
     }
 
     let sender = state
-        .basic(*transaction.caller()?)
+        .basic(*transaction.caller())
         .map_err(MineTransactionError::State)?
         .unwrap_or_default();
 

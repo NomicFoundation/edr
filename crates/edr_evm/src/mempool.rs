@@ -1,8 +1,7 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use edr_eth::{
-    signature::SignatureError,
-    transaction::{self, upfront_cost, SignedTransaction, Transaction as _},
+    transaction::{self, upfront_cost, SignedTransaction as _, Transaction as _},
     Address, B256, U256,
 };
 use indexmap::{map::Entry, IndexMap};
@@ -106,6 +105,15 @@ pub enum MemPoolAddTransactionError<SE> {
         /// Sender's nonce.
         sender_nonce: u64,
     },
+    /// Transaction already exists in the mempool.
+    #[error("Known transaction: 0x{transaction_hash:x}")]
+    TransactionAlreadyExists {
+        /// The transaction hash
+        transaction_hash: B256,
+    },
+    /// State error
+    #[error(transparent)]
+    State(#[from] SE),
     /// Replacement transaction has underpriced max fee per gas.
     #[error("Replacement transaction underpriced. A gasPrice/maxFeePerGas of at least {min_new_max_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}.")]
     ReplacementMaxFeePerGasTooLow {
@@ -121,18 +129,6 @@ pub enum MemPoolAddTransactionError<SE> {
         min_new_max_priority_fee_per_gas: U256,
         /// The transaction nonce
         transaction_nonce: u64,
-    },
-    /// Signature error
-    #[error(transparent)]
-    Signature(SignatureError),
-    /// State error
-    #[error(transparent)]
-    State(#[from] SE),
-    /// Transaction already exists in the mempool.
-    #[error("Known transaction: 0x{transaction_hash:x}")]
-    TransactionAlreadyExists {
-        /// The transaction hash
-        transaction_hash: B256,
     },
 }
 
@@ -291,13 +287,7 @@ impl MemPool {
             });
         }
 
-        let sender = state
-            .basic(
-                *transaction
-                    .caller()
-                    .map_err(MemPoolAddTransactionError::Signature)?,
-            )?
-            .unwrap_or_default();
+        let sender = state.basic(*transaction.caller())?.unwrap_or_default();
         if transaction.nonce() < sender.nonce {
             return Err(MemPoolAddTransactionError::NonceTooLow {
                 transaction_nonce: transaction.nonce(),
@@ -314,13 +304,7 @@ impl MemPool {
             });
         }
 
-        let next_nonce = account_next_nonce(
-            self,
-            state,
-            transaction
-                .caller()
-                .map_err(MemPoolAddTransactionError::Signature)?,
-        )?;
+        let next_nonce = account_next_nonce(self, state, transaction.caller())?;
         let transaction = OrderedTransaction {
             order_id: self.next_order_id,
             transaction,
@@ -343,12 +327,9 @@ impl MemPool {
     /// Removes the transaction corresponding to the provided transaction hash,
     /// if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn remove_transaction(
-        &mut self,
-        hash: &B256,
-    ) -> Result<Option<OrderedTransaction>, SignatureError> {
+    pub fn remove_transaction(&mut self, hash: &B256) -> Option<OrderedTransaction> {
         if let Some(old_transaction) = self.hash_to_transaction.remove(hash) {
-            let caller = old_transaction.caller()?;
+            let caller = old_transaction.caller();
             if let Some(pending_transactions) = self.pending_transactions.get_mut(caller) {
                 if let Some((idx, _)) = pending_transactions
                     .iter()
@@ -369,7 +350,7 @@ impl MemPool {
                         })
                         .or_insert(invalidated_transactions);
 
-                    return Ok(Some(removed));
+                    return Some(removed);
                 }
             }
 
@@ -385,12 +366,12 @@ impl MemPool {
                         self.future_transactions.shift_remove(caller);
                     }
 
-                    return Ok(Some(removed));
+                    return Some(removed);
                 }
             }
         }
 
-        Ok(None)
+        None
     }
 
     /// Updates the [`MemPool`], moving any future transactions to the pending
@@ -484,11 +465,7 @@ impl MemPool {
         &mut self,
         transaction: OrderedTransaction,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
-        let caller = *transaction
-            .caller()
-            .map_err(MemPoolAddTransactionError::Signature)?;
-
-        let mut pending_transactions = self.pending_transactions.entry(caller);
+        let mut pending_transactions = self.pending_transactions.entry(*transaction.caller());
 
         // Check whether an existing transaction can be replaced
         if let Entry::Occupied(ref mut pending_transactions) = pending_transactions {
@@ -511,6 +488,7 @@ impl MemPool {
             }
         }
 
+        let caller = *transaction.caller();
         let mut next_pending_nonce = transaction.nonce() + 1;
 
         let pending_transactions = pending_transactions.or_default();
@@ -541,11 +519,7 @@ impl MemPool {
         &mut self,
         transaction: OrderedTransaction,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
-        let caller = *transaction
-            .caller()
-            .map_err(MemPoolAddTransactionError::Signature)?;
-
-        let mut future_transactions = self.future_transactions.entry(caller);
+        let mut future_transactions = self.future_transactions.entry(*transaction.caller());
 
         // Check whether an existing transaction can be replaced
         if let Entry::Occupied(ref mut future_transactions) = future_transactions {

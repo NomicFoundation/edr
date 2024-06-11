@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
-    signature::SignatureError,
     transaction::{self, Transaction},
     utils::u256_to_padded_hex,
     B256,
@@ -112,7 +111,7 @@ where
                     .with_cfg_env_with_handler_cfg(evm_config)
                     .append_handler_register(register_eip_3155_and_raw_tracers_handles)
                     .with_block_env(block_env)
-                    .with_tx_env(transaction.try_into()?)
+                    .with_tx_env(transaction.into())
                     .build();
 
                 evm.transact().map_err(TransactionError::from)?
@@ -128,7 +127,7 @@ where
                     })
                     .with_cfg_env_with_handler_cfg(evm_config.clone())
                     .with_block_env(block_env.clone())
-                    .with_tx_env(transaction.try_into()?)
+                    .with_tx_env(transaction.into())
                     .build();
 
                 evm.transact().map_err(TransactionError::from)?
@@ -206,9 +205,6 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT> {
         /// The block number.
         block_number: U256,
     },
-    /// Signature error.
-    #[error(transparent)]
-    SignatureError(#[from] SignatureError),
     /// Transaction error.
     #[error(transparent)]
     TransactionError(#[from] TransactionError<BlockchainErrorT, StateErrorT>),
