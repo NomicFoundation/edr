@@ -4,11 +4,15 @@ mod eip2930;
 mod eip4844;
 mod legacy;
 
-use alloy_rlp::{Buf, BufMut, Decodable};
+use alloy_rlp::{Buf, BufMut};
 use revm_primitives::{TransactTo, TxEnv};
 
 pub use self::{
-    eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, legacy::Legacy,
+    eip155::Eip155,
+    eip1559::Eip1559,
+    eip2930::Eip2930,
+    eip4844::Eip4844,
+    legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
     Signed, SignedTransaction, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
@@ -96,7 +100,7 @@ impl Signed {
     }
 }
 
-impl Decodable for Signed {
+impl alloy_rlp::Decodable for Signed {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         fn is_list(byte: u8) -> bool {
             byte >= 0xc0
@@ -121,12 +125,8 @@ impl Decodable for Signed {
                 Ok(Signed::Eip4844(self::eip4844::Eip4844::decode(buf)?))
             }
             byte if is_list(byte) => {
-                let tx = self::legacy::Legacy::decode(buf)?;
-                if tx.signature.v() >= 35 {
-                    Ok(Signed::PostEip155Legacy(tx.into()))
-                } else {
-                    Ok(Signed::PreEip155Legacy(tx))
-                }
+                let transaction = PreOrPostEip155::decode(buf)?;
+                Ok(transaction.into())
             }
             _ => Err(alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE)),
         }
@@ -182,6 +182,15 @@ impl From<self::eip1559::Eip1559> for Signed {
 impl From<self::eip4844::Eip4844> for Signed {
     fn from(transaction: self::eip4844::Eip4844) -> Self {
         Self::Eip4844(transaction)
+    }
+}
+
+impl From<PreOrPostEip155> for Signed {
+    fn from(value: PreOrPostEip155) -> Self {
+        match value {
+            PreOrPostEip155::Pre(tx) => Self::PreEip155Legacy(tx),
+            PreOrPostEip155::Post(tx) => Self::PostEip155Legacy(tx),
+        }
     }
 }
 
@@ -349,6 +358,8 @@ impl Transaction for Signed {
 #[cfg(test)]
 mod tests {
     use std::sync::OnceLock;
+
+    use alloy_rlp::Decodable as _;
 
     use super::*;
     use crate::{signature, transaction, Bytes};

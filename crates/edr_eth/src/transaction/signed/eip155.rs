@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
-use alloy_rlp::{RlpDecodable, RlpEncodable};
+use alloy_rlp::RlpEncodable;
 use hashbrown::HashMap;
 use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
 use crate::{
-    signature::{self, Fakeable, Signature},
+    signature::{self, Signature},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -97,56 +97,8 @@ impl PartialEq for Eip155 {
     }
 }
 
-#[derive(RlpDecodable)]
-struct Decodable {
-    // The order of these fields determines decoding order.
-    nonce: u64,
-    gas_price: U256,
-    gas_limit: u64,
-    kind: TxKind,
-    value: U256,
-    input: Bytes,
-    signature: signature::SignatureWithRecoveryId,
-}
-
-impl alloy_rlp::Decodable for Eip155 {
-    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        let transaction = Decodable::decode(buf)?;
-        let request = transaction::request::Eip155::from(&transaction);
-
-        let signature = Fakeable::recover(transaction.signature, request.hash().into())
-            .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
-
-        Ok(Self {
-            nonce: transaction.nonce,
-            gas_price: transaction.gas_price,
-            gas_limit: transaction.gas_limit,
-            kind: transaction.kind,
-            value: transaction.value,
-            input: transaction.input,
-            signature,
-            hash: OnceLock::new(),
-        })
-    }
-}
-
-impl From<&Decodable> for transaction::request::Eip155 {
-    fn from(value: &Decodable) -> Self {
-        let chain_id = v_to_chain_id(value.signature.v);
-        Self {
-            nonce: value.nonce,
-            gas_price: value.gas_price,
-            gas_limit: value.gas_limit,
-            kind: value.kind,
-            value: value.value,
-            input: value.input.clone(),
-            chain_id,
-        }
-    }
-}
-
 /// Converts a V-value to a chain ID.
-fn v_to_chain_id(v: u64) -> u64 {
+pub(super) fn v_to_chain_id(v: u64) -> u64 {
     (v - 35) / 2
 }
 
@@ -154,11 +106,11 @@ fn v_to_chain_id(v: u64) -> u64 {
 mod tests {
     use std::str::FromStr;
 
-    use alloy_rlp::Decodable;
+    use alloy_rlp::Decodable as _;
     use k256::SecretKey;
 
     use super::*;
-    use crate::signature::secret_key_from_str;
+    use crate::{signature::secret_key_from_str, transaction::signed::PreOrPostEip155};
 
     fn dummy_request() -> transaction::request::Eip155 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
@@ -213,6 +165,12 @@ mod tests {
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
         let encoded = alloy_rlp::encode(&signed);
-        assert_eq!(signed, Eip155::decode(&mut encoded.as_slice()).unwrap());
+        let decoded = PreOrPostEip155::decode(&mut encoded.as_slice()).unwrap();
+        let decoded = match decoded {
+            PreOrPostEip155::Pre(_) => panic!("Expected post-EIP-155 transaction"),
+            PreOrPostEip155::Post(post) => post,
+        };
+
+        assert_eq!(signed, decoded);
     }
 }

@@ -3,7 +3,8 @@ mod eip4844;
 pub use self::eip4844::Eip4844;
 use super::Signed;
 use crate::{
-    signature::Signature as _, transaction::INVALID_TX_TYPE_ERROR_MESSAGE, utils::enveloped,
+    transaction::{signed::PreOrPostEip155, INVALID_TX_TYPE_ERROR_MESSAGE},
+    utils::enveloped,
 };
 
 pub type LegacyPooledTransaction = super::signed::Legacy;
@@ -93,12 +94,8 @@ impl alloy_rlp::Decodable for PooledTransaction {
                 Ok(PooledTransaction::Eip4844(Eip4844::decode(buf)?))
             }
             byte if is_list(byte) => {
-                let tx = LegacyPooledTransaction::decode(buf)?;
-                if tx.signature.v() >= 35 {
-                    Ok(PooledTransaction::PostEip155Legacy(tx.into()))
-                } else {
-                    Ok(PooledTransaction::PreEip155Legacy(tx))
-                }
+                let transaction = PreOrPostEip155::decode(buf)?;
+                Ok(transaction.into())
             }
             _ => Err(alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE)),
         }
@@ -154,6 +151,15 @@ impl From<Eip1559PooledTransaction> for PooledTransaction {
 impl From<Eip4844> for PooledTransaction {
     fn from(value: Eip4844) -> Self {
         PooledTransaction::Eip4844(value)
+    }
+}
+
+impl From<PreOrPostEip155> for PooledTransaction {
+    fn from(value: PreOrPostEip155) -> Self {
+        match value {
+            PreOrPostEip155::Pre(tx) => Self::PreEip155Legacy(tx),
+            PreOrPostEip155::Post(tx) => Self::PostEip155Legacy(tx),
+        }
     }
 }
 

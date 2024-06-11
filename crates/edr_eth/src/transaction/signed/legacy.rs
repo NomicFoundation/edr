@@ -76,49 +76,93 @@ impl PartialEq for Legacy {
     }
 }
 
-#[derive(RlpDecodable)]
-struct Decodable {
-    // The order of these fields determines decoding order.
-    pub nonce: u64,
-    pub gas_price: U256,
-    pub gas_limit: u64,
-    pub kind: TxKind,
-    pub value: U256,
-    pub input: Bytes,
-    pub signature: signature::SignatureWithRecoveryId,
+/// A transaction that is either a legacy transaction or an EIP-155
+/// transaction. This is used to decode `super::Signed`, as
+/// their decoding format is the same.
+pub enum PreOrPostEip155 {
+    Pre(Legacy),
+    Post(transaction::signed::Eip155),
 }
 
-impl alloy_rlp::Decodable for Legacy {
+impl alloy_rlp::Decodable for PreOrPostEip155 {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        let transaction = Decodable::decode(buf)?;
-        let request = transaction::request::Legacy::from(&transaction);
-
-        let signature = Fakeable::recover(transaction.signature, request.hash().into())
-            .map_err(|_| alloy_rlp::Error::Custom("Invalid signature"))?;
-
-        Ok(Self {
-            nonce: request.nonce,
-            gas_price: request.gas_price,
-            gas_limit: request.gas_limit,
-            kind: request.kind,
-            value: request.value,
-            input: request.input,
-            signature,
-            hash: OnceLock::new(),
-        })
-    }
-}
-
-impl From<&Decodable> for transaction::request::Legacy {
-    fn from(value: &Decodable) -> Self {
-        Self {
-            nonce: value.nonce,
-            gas_price: value.gas_price,
-            gas_limit: value.gas_limit,
-            kind: value.kind,
-            value: value.value,
-            input: value.input.clone(),
+        #[derive(RlpDecodable)]
+        struct Decodable {
+            // The order of these fields determines decoding order.
+            pub nonce: u64,
+            pub gas_price: U256,
+            pub gas_limit: u64,
+            pub kind: TxKind,
+            pub value: U256,
+            pub input: Bytes,
+            pub signature: signature::SignatureWithRecoveryId,
         }
+
+        impl From<&Decodable> for transaction::request::Eip155 {
+            fn from(value: &Decodable) -> Self {
+                let chain_id = transaction::signed::eip155::v_to_chain_id(value.signature.v);
+                Self {
+                    nonce: value.nonce,
+                    gas_price: value.gas_price,
+                    gas_limit: value.gas_limit,
+                    kind: value.kind,
+                    value: value.value,
+                    input: value.input.clone(),
+                    chain_id,
+                }
+            }
+        }
+
+        impl From<&Decodable> for transaction::request::Legacy {
+            fn from(value: &Decodable) -> Self {
+                Self {
+                    nonce: value.nonce,
+                    gas_price: value.gas_price,
+                    gas_limit: value.gas_limit,
+                    kind: value.kind,
+                    value: value.value,
+                    input: value.input.clone(),
+                }
+            }
+        }
+
+        let transaction = Decodable::decode(buf)?;
+
+        let transaction = if transaction.signature.v >= 35 {
+            let request = transaction::request::Eip155::from(&transaction);
+
+            let signature = Fakeable::recover(transaction.signature, request.hash().into())
+                .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
+
+            Self::Post(transaction::signed::Eip155 {
+                nonce: transaction.nonce,
+                gas_price: transaction.gas_price,
+                gas_limit: transaction.gas_limit,
+                kind: transaction.kind,
+                value: transaction.value,
+                input: transaction.input,
+                signature,
+                hash: OnceLock::new(),
+            })
+        } else {
+            let request = transaction::request::Legacy::from(&transaction);
+
+            let signature = Fakeable::recover(transaction.signature, request.hash().into())
+                .map_err(|_error| alloy_rlp::Error::Custom("Invalid signature"))?;
+
+            Self::Pre(Legacy {
+                nonce: request.nonce,
+                gas_price: request.gas_price,
+                gas_limit: request.gas_limit,
+                kind: request.kind,
+                value: request.value,
+                input: request.input,
+                signature,
+                hash: OnceLock::new(),
+            })
+        };
+
+        Ok(transaction)
     }
 }
 
@@ -126,7 +170,7 @@ impl From<&Decodable> for transaction::request::Legacy {
 mod tests {
     use std::str::FromStr;
 
-    use alloy_rlp::Decodable;
+    use alloy_rlp::Decodable as _;
     use k256::SecretKey;
 
     use super::*;
@@ -183,6 +227,12 @@ mod tests {
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
         let encoded = alloy_rlp::encode(&signed);
-        assert_eq!(signed, Legacy::decode(&mut encoded.as_slice()).unwrap());
+        let decoded = PreOrPostEip155::decode(&mut encoded.as_slice()).unwrap();
+        let decoded = match decoded {
+            PreOrPostEip155::Pre(pre) => pre,
+            PreOrPostEip155::Post(_) => panic!("Expected pre-EIP-155 transaction"),
+        };
+
+        assert_eq!(signed, decoded);
     }
 }

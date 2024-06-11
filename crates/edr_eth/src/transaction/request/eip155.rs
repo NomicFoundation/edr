@@ -51,7 +51,9 @@ impl Eip155 {
         caller: Address,
     ) -> Result<transaction::signed::Eip155, SignatureError> {
         let hash = self.hash();
-        let signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
+
+        let mut signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
+        signature.v += self.v_value_adjustment();
 
         Ok(transaction::signed::Eip155 {
             nonce: self.nonce,
