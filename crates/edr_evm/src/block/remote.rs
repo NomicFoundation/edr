@@ -12,6 +12,7 @@ use tokio::runtime;
 
 use crate::{
     blockchain::{BlockchainError, ForkedBlockchainError},
+    chain_spec::ChainSpec,
     Block, SyncBlock,
 };
 
@@ -40,9 +41,9 @@ pub enum CreationError {
 
 /// A remote block, which lazily loads receipts.
 #[derive(Clone, Debug)]
-pub struct RemoteBlock {
+pub struct RemoteBlock<ChainSpecT: ChainSpec> {
     header: Header,
-    transactions: Vec<transaction::Signed>,
+    transactions: Vec<ChainSpecT::SignedTransaction>,
     /// The receipts of the block's transactions
     receipts: OnceLock<Vec<Arc<BlockReceipt>>>,
     /// The hashes of the block's ommers
@@ -54,48 +55,23 @@ pub struct RemoteBlock {
     /// The length of the RLP encoding of this block in bytes
     size: u64,
     // The RPC client is needed to lazily fetch receipts
-    rpc_client: Arc<EthRpcClient<EthRpcSpec>>,
+    rpc_client: Arc<EthRpcClient<ChainSpecT>>,
     runtime: runtime::Handle,
 }
 
-impl RemoteBlock {
+impl<ChainSpecT: ChainSpec> RemoteBlock<ChainSpecT> {
     /// Constructs a new instance with the provided JSON-RPC block and client.
     pub fn new(
-        block: edr_rpc_eth::Block<edr_rpc_eth::Transaction>,
-        rpc_client: Arc<EthRpcClient<EthRpcSpec>>,
+        block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
+        rpc_client: Arc<EthRpcClient<ChainSpecT>>,
         runtime: runtime::Handle,
     ) -> Result<Self, CreationError> {
-        let header = Header {
-            parent_hash: block.parent_hash,
-            ommers_hash: block.sha3_uncles,
-            beneficiary: block.miner.ok_or(CreationError::MissingMiner)?,
-            state_root: block.state_root,
-            transactions_root: block.transactions_root,
-            receipts_root: block.receipts_root,
-            logs_bloom: block.logs_bloom,
-            difficulty: block.difficulty,
-            number: block.number.ok_or(CreationError::MissingNumber)?,
-            gas_limit: block.gas_limit,
-            gas_used: block.gas_used,
-            timestamp: block.timestamp,
-            extra_data: block.extra_data,
-            mix_hash: block.mix_hash.ok_or(CreationError::MissingMixHash)?,
-            nonce: block.nonce.ok_or(CreationError::MissingNonce)?,
-            base_fee_per_gas: block.base_fee_per_gas,
-            withdrawals_root: block.withdrawals_root,
-            blob_gas: block.blob_gas_used.and_then(|gas_used| {
-                block.excess_blob_gas.map(|excess_gas| BlobGas {
-                    gas_used,
-                    excess_gas,
-                })
-            }),
-            parent_beacon_block_root: block.parent_beacon_block_root,
-        };
+        let header = Header::try_from(&block)?
 
         let transactions = block
             .transactions
             .into_iter()
-            .map(transaction::Signed::try_from)
+            .map(ChainSpecT::SignedTransaction::try_from)
             .collect::<Result<Vec<_>, _>>()?;
 
         let hash = block.hash.ok_or(CreationError::MissingHash)?;
@@ -114,7 +90,7 @@ impl RemoteBlock {
     }
 }
 
-impl Block for RemoteBlock {
+impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
     type Error = BlockchainError;
 
     fn hash(&self) -> &B256 {
@@ -133,7 +109,7 @@ impl Block for RemoteBlock {
         self.size
     }
 
-    fn transactions(&self) -> &[transaction::Signed] {
+    fn transactions(&self) -> &[ChainSpecT::SignedTransaction] {
         &self.transactions
     }
 
@@ -147,7 +123,7 @@ impl Block for RemoteBlock {
                 self.rpc_client.get_transaction_receipts(
                     self.transactions
                         .iter()
-                        .map(transaction::Signed::transaction_hash),
+                        .map(ChainSpecT::SignedTransaction::transaction_hash),
                 ),
             )
         })
@@ -171,8 +147,11 @@ impl Block for RemoteBlock {
     }
 }
 
-impl From<RemoteBlock> for Arc<dyn SyncBlock<Error = BlockchainError>> {
-    fn from(value: RemoteBlock) -> Self {
+impl<ChainSpecT> From<RemoteBlock<ChainSpecT>> for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
+where
+    ChainSpecT: ChainSpec + Send + Sync,
+    ChainSpecT::SignedTransaction: Send + Sync, {
+    fn from(value: RemoteBlock<ChainSpecT>) -> Self {
         Arc::new(value)
     }
 }

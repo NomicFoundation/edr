@@ -146,7 +146,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_block_by_hash(
         &self,
         hash: B256,
-    ) -> Result<Option<RpcSpecT::Block<B256>>, RpcClientError> {
+    ) -> Result<Option<RpcSpecT::RpcBlock<B256>>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetBlockByHash(hash, false))
             .await
@@ -169,7 +169,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_block_by_hash_with_transaction_data(
         &self,
         hash: B256,
-    ) -> Result<Option<RpcSpecT::Block<RpcSpecT::Transaction>>, RpcClientError> {
+    ) -> Result<Option<RpcSpecT::RpcBlock<RpcSpecT::RpcTransaction>>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetBlockByHash(hash, true))
             .await
@@ -180,11 +180,11 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_block_by_number(
         &self,
         spec: PreEip1898BlockSpec,
-    ) -> Result<Option<RpcSpecT::Block<B256>>, RpcClientError> {
+    ) -> Result<Option<RpcSpecT::RpcBlock<B256>>, RpcClientError> {
         self.inner
             .call_with_resolver(
                 RequestMethod::GetBlockByNumber(spec, false),
-                |block: &Option<RpcSpecT::Block<B256>>| {
+                |block: &Option<RpcSpecT::RpcBlock<B256>>| {
                     block.as_ref().and_then(GetBlockNumber::number)
                 },
             )
@@ -196,11 +196,11 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_block_by_number_with_transaction_data(
         &self,
         spec: PreEip1898BlockSpec,
-    ) -> Result<RpcSpecT::Block<RpcSpecT::Transaction>, RpcClientError> {
+    ) -> Result<RpcSpecT::RpcBlock<RpcSpecT::RpcTransaction>, RpcClientError> {
         self.inner
             .call_with_resolver(
                 RequestMethod::GetBlockByNumber(spec, true),
-                |block: &RpcSpecT::Block<RpcSpecT::Transaction>| block.number(),
+                |block: &RpcSpecT::RpcBlock<RpcSpecT::RpcTransaction>| block.number(),
             )
             .await
     }
@@ -242,7 +242,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_transaction_by_hash(
         &self,
         tx_hash: B256,
-    ) -> Result<Option<RpcSpecT::Transaction>, RpcClientError> {
+    ) -> Result<Option<RpcSpecT::RpcTransaction>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetTransactionByHash(tx_hash))
             .await

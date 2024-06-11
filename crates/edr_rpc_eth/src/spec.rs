@@ -2,13 +2,13 @@ use serde::{de::DeserializeOwned, Serialize};
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
 pub trait RpcSpec {
-    /// Type representing a block
-    type Block<Data>: GetBlockNumber + DeserializeOwned + Serialize
+    /// Type representing an RPC block
+    type RpcBlock<Data>: GetBlockNumber + DeserializeOwned + Serialize
     where
         Data: Default + DeserializeOwned + Serialize;
 
-    /// Type representing the transaction.
-    type Transaction: Default + DeserializeOwned + Serialize;
+    /// Type representing an RPC transaction.
+    type RpcTransaction: Default + DeserializeOwned + Serialize;
 }
 
 pub trait GetBlockNumber {
@@ -20,6 +20,6 @@ pub trait GetBlockNumber {
 pub struct EthRpcSpec;
 
 impl RpcSpec for EthRpcSpec {
-    type Block<Data> = crate::block::Block<Data> where Data: Default + DeserializeOwned + Serialize;
-    type Transaction = crate::transaction::Transaction;
+    type RpcBlock<Data> = crate::block::Block<Data> where Data: Default + DeserializeOwned + Serialize;
+    type RpcTransaction = crate::transaction::Transaction;
 }

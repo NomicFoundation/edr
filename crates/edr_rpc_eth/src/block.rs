@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use edr_eth::{withdrawal::Withdrawal, Address, Bloom, Bytes, B256, B64, U256};
+use edr_eth::{block::BlobGas, withdrawal::Withdrawal, Address, Bloom, Bytes, B256, B64, U256};
 use serde::{Deserialize, Serialize};
 
 use crate::spec::GetBlockNumber;
@@ -90,5 +90,60 @@ pub struct Block<TransactionT> {
 impl<TransactionT> GetBlockNumber for Block<TransactionT> {
     fn number(&self) -> Option<u64> {
         self.number
+    }
+}
+
+/// Error that occurs when trying to convert the JSON-RPC `Block` type.
+#[derive(Debug, thiserror::Error)]
+pub enum MissingFieldError {
+    /// Missing hash
+    #[error("Missing hash")]
+    Hash,
+    /// Missing miner
+    #[error("Missing miner")]
+    Miner,
+    /// Missing mix hash
+    #[error("Missing mix hash")]
+    MixHash,
+    /// Missing nonce
+    #[error("Missing nonce")]
+    Nonce,
+    /// Missing number
+    #[error("Missing numbeer")]
+    Number,
+}
+
+impl<TransactionT> TryFrom<&Block<TransactionT>> for edr_eth::block::Header {
+    type Error = MissingFieldError;
+
+    fn try_from(value: &Block<TransactionT>) -> Result<Self, Self::Error> {
+        let header = edr_eth::block::Header {
+            parent_hash: value.parent_hash,
+            ommers_hash: value.sha3_uncles,
+            beneficiary: value.miner.ok_or(MissingFieldError::Miner)?,
+            state_root: value.state_root,
+            transactions_root: value.transactions_root,
+            receipts_root: value.receipts_root,
+            logs_bloom: value.logs_bloom,
+            difficulty: value.difficulty,
+            number: value.number.ok_or(MissingFieldError::Number)?,
+            gas_limit: value.gas_limit,
+            gas_used: value.gas_used,
+            timestamp: value.timestamp,
+            extra_data: value.extra_data.clone(),
+            mix_hash: value.mix_hash.ok_or(MissingFieldError::MixHash)?,
+            nonce: value.nonce.ok_or(MissingFieldError::Nonce)?,
+            base_fee_per_gas: value.base_fee_per_gas,
+            withdrawals_root: value.withdrawals_root,
+            blob_gas: value.blob_gas_used.and_then(|gas_used| {
+                value.excess_blob_gas.map(|excess_gas| BlobGas {
+                    gas_used,
+                    excess_gas,
+                })
+            }),
+            parent_beacon_block_root: value.parent_beacon_block_root,
+        };
+
+        Ok(header)
     }
 }

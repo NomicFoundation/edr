@@ -1,11 +1,11 @@
-use std::{num::NonZeroU64, sync::Arc};
+use std::{marker::PhantomData, num::NonZeroU64, sync::Arc};
 
 use edr_eth::{block::PartialHeader, receipt::BlockReceipt, Address, SpecId, B256, U256};
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use revm::primitives::{HashMap, HashSet};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{state::StateDiff, Block, LocalBlock};
+use crate::{chain_spec::ChainSpec, state::StateDiff, Block, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
@@ -24,18 +24,27 @@ struct Reservation {
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory,
 /// while lazily loading blocks that have been reserved.
 #[derive(Debug)]
-pub struct ReservableSparseBlockchainStorage<BlockT: Block + Clone + ?Sized> {
+pub struct ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    ChainSpecT: ChainSpec,
+{
     reservations: RwLock<Vec<Reservation>>,
-    storage: RwLock<SparseBlockchainStorage<BlockT>>,
+    storage: RwLock<SparseBlockchainStorage<BlockT, ChainSpecT>>,
     // We can store the state diffs contiguously, as reservations don't contain any diffs.
     // Diffs are a mapping from one state to the next, so the genesis block contains the initial
     // state.
     state_diffs: Vec<(u64, StateDiff)>,
     number_to_diff_index: HashMap<u64, usize>,
     last_block_number: u64,
+    phantom: PhantomData<ChainSpecT>,
 }
 
-impl<BlockT: Block + Clone> ReservableSparseBlockchainStorage<BlockT> {
+impl<BlockT, ChainSpecT> ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: ChainSpec,
+{
     /// Constructs a new instance with the provided block as genesis block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn with_genesis_block(block: BlockT, diff: StateDiff, total_difficulty: U256) -> Self {
@@ -45,6 +54,7 @@ impl<BlockT: Block + Clone> ReservableSparseBlockchainStorage<BlockT> {
             state_diffs: vec![(0, diff)],
             number_to_diff_index: std::iter::once((0, 0)).collect(),
             last_block_number: 0,
+            phantom: PhantomData,
         }
     }
 
@@ -57,6 +67,7 @@ impl<BlockT: Block + Clone> ReservableSparseBlockchainStorage<BlockT> {
             state_diffs: Vec::new(),
             number_to_diff_index: HashMap::new(),
             last_block_number,
+            phantom: PhantomData,
         }
     }
 
@@ -220,7 +231,11 @@ impl<BlockT: Block + Clone> ReservableSparseBlockchainStorage<BlockT> {
     }
 }
 
-impl<BlockT: Block + Clone + From<LocalBlock>> ReservableSparseBlockchainStorage<BlockT> {
+impl<BlockT, ChainSpecT> ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone + From<LocalBlock<ChainSpecT>>,
+    ChainSpecT: ChainSpec,
+{
     /// Retrieves the block by number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn block_by_number(&self, number: u64) -> Result<Option<BlockT>, InsertError> {
@@ -234,7 +249,7 @@ impl<BlockT: Block + Clone + From<LocalBlock>> ReservableSparseBlockchainStorage
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn insert_block(
         &mut self,
-        block: LocalBlock,
+        block: LocalBlock<ChainSpecT>,
         state_diff: StateDiff,
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertError> {
@@ -319,12 +334,16 @@ impl<BlockT: Block + Clone + From<LocalBlock>> ReservableSparseBlockchainStorage
 }
 
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-fn calculate_timestamp_for_reserved_block<BlockT: Block + Clone>(
-    storage: &SparseBlockchainStorage<BlockT>,
+fn calculate_timestamp_for_reserved_block<BlockT, ChainSpecT>(
+    storage: &SparseBlockchainStorage<BlockT, ChainSpecT>,
     reservations: &Vec<Reservation>,
     reservation: &Reservation,
     block_number: u64,
-) -> u64 {
+) -> u64
+where
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: ChainSpec,
+{
     let previous_block_number = reservation.first_number - 1;
     let previous_timestamp =
         if let Some(previous_reservation) = find_reservation(reservations, previous_block_number) {

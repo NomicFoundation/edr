@@ -5,25 +5,32 @@ use edr_eth::{
     filter::OneOrMore, log::FilterLog, receipt::BlockReceipt, Address, BlockSpec,
     PreEip1898BlockSpec, B256, U256,
 };
-use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
+use edr_rpc_eth::client::EthRpcClient;
 use revm::primitives::HashSet;
 use tokio::runtime;
 
 use super::storage::SparseBlockchainStorage;
-use crate::{blockchain::ForkedBlockchainError, Block, RemoteBlock};
+use crate::{blockchain::ForkedBlockchainError, chain_spec::ChainSpec, Block, RemoteBlock};
 
 #[derive(Debug)]
-pub struct RemoteBlockchain<BlockT: Block + Clone, const FORCE_CACHING: bool> {
-    client: Arc<EthRpcClient<EthRpcSpec>>,
-    cache: RwLock<SparseBlockchainStorage<BlockT>>,
+pub struct RemoteBlockchain<BlockT, ChainSpecT, const FORCE_CACHING: bool>
+where
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: ChainSpec,
+{
+    client: Arc<EthRpcClient<ChainSpecT>>,
+    cache: RwLock<SparseBlockchainStorage<BlockT, ChainSpecT>>,
     runtime: runtime::Handle,
 }
 
-impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
-    RemoteBlockchain<BlockT, FORCE_CACHING>
+impl<BlockT, ChainSpecT, const FORCE_CACHING: bool>
+    RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>
+where
+    BlockT: Block<ChainSpecT> + Clone + From<RemoteBlock<ChainSpecT>>,
+    ChainSpecT: ChainSpec,
 {
     /// Constructs a new instance with the provided RPC client.
-    pub fn new(client: Arc<EthRpcClient<EthRpcSpec>>, runtime: runtime::Handle) -> Self {
+    pub fn new(client: Arc<EthRpcClient<ChainSpecT>>, runtime: runtime::Handle) -> Self {
         Self {
             client,
             cache: RwLock::new(SparseBlockchainStorage::default()),
@@ -106,7 +113,7 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
     }
 
     /// Retrieves the instance's RPC client.
-    pub fn client(&self) -> &Arc<EthRpcClient<EthRpcSpec>> {
+    pub fn client(&self) -> &Arc<EthRpcClient<ChainSpecT>> {
         &self.client
     }
 
@@ -213,14 +220,15 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     async fn fetch_and_cache_block(
         &self,
-        cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT>>,
-        block: edr_rpc_eth::Block<edr_rpc_eth::Transaction>,
+        cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT, ChainSpecT>>,
+        block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
     ) -> Result<BlockT, ForkedBlockchainError> {
         let total_difficulty = block
             .total_difficulty
             .expect("Must be present as this is not a pending block");
 
-        let block = RemoteBlock::new(block, self.client.clone(), self.runtime.clone())?;
+        let block =
+            RemoteBlock::<ChainSpecT>::new(block, self.client.clone(), self.runtime.clone())?;
 
         let is_cacheable = FORCE_CACHING
             || self
@@ -245,6 +253,7 @@ mod tests {
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
+    use crate::chain_spec::L1ChainSpec;
 
     #[tokio::test]
     async fn no_cache_for_unsafe_block_number() {
@@ -257,7 +266,7 @@ mod tests {
         // Latest block number is always unsafe to cache
         let block_number = rpc_client.block_number().await.unwrap();
 
-        let remote = RemoteBlockchain::<RemoteBlock, false>::new(
+        let remote = RemoteBlockchain::<RemoteBlock<L1ChainSpec>, L1ChainSpec, false>::new(
             Arc::new(rpc_client),
             runtime::Handle::current(),
         );

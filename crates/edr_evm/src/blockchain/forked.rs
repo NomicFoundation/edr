@@ -28,6 +28,7 @@ use super::{
     BlockchainMut,
 };
 use crate::{
+    chain_spec::ChainSpec,
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, LocalBlock, RandomHashGenerator, RemoteBlockCreationError,
     SyncBlock,
@@ -84,10 +85,14 @@ pub enum ForkedBlockchainError {
 
 /// A blockchain that forked from a remote blockchain.
 #[derive(Debug)]
-pub struct ForkedBlockchain {
-    local_storage: ReservableSparseBlockchainStorage<Arc<dyn SyncBlock<Error = BlockchainError>>>,
+pub struct ForkedBlockchain<ChainSpecT: ChainSpec> {
+    local_storage: ReservableSparseBlockchainStorage<
+        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
+        ChainSpecT,
+    >,
     // We can force caching here because we only fork from a safe block number.
-    remote: RemoteBlockchain<Arc<dyn SyncBlock<Error = BlockchainError>>, true>,
+    remote:
+        RemoteBlockchain<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>, ChainSpecT, true>,
     state_root_generator: Arc<Mutex<RandomHashGenerator>>,
     fork_block_number: u64,
     /// The chan id of the forked blockchain is either the local chain id
@@ -100,7 +105,7 @@ pub struct ForkedBlockchain {
     hardfork_activations: Option<HardforkActivations>,
 }
 
-impl ForkedBlockchain {
+impl<ChainSpecT: ChainSpec> ForkedBlockchain<ChainSpecT> {
     /// Constructs a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
@@ -108,7 +113,7 @@ impl ForkedBlockchain {
         runtime: runtime::Handle,
         chain_id_override: Option<u64>,
         spec_id: SpecId,
-        rpc_client: Arc<EthRpcClient<EthRpcSpec>>,
+        rpc_client: Arc<EthRpcClient<ChainSpecT>>,
         fork_block_number: Option<u64>,
         irregular_state: &mut IrregularState,
         state_root_generator: Arc<Mutex<RandomHashGenerator>>,
