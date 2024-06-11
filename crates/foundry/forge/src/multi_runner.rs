@@ -1,12 +1,6 @@
 //! Forge test runner for multiple contracts.
 
-use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    path::Path,
-    sync::{mpsc, Arc},
-    time::Instant,
-};
+use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Instant};
 
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Bytes, U256};
@@ -19,6 +13,7 @@ use foundry_evm::{
     inspectors::CheatsConfig, opts::EvmOpts, revm,
 };
 use foundry_linking::{LinkOutput, Linker};
+use futures::StreamExt;
 use rayon::prelude::*;
 use revm::primitives::SpecId;
 
@@ -63,7 +58,7 @@ pub struct MultiContractRunner {
     /// Whether to enable call isolation
     pub isolation: bool,
     /// Output of the project compilation
-    pub output: ProjectCompileOutput,
+    pub output: Option<ProjectCompileOutput>,
 }
 
 impl MultiContractRunner {
@@ -140,7 +135,7 @@ impl MultiContractRunner {
         &mut self,
         filter: &dyn TestFilter,
     ) -> impl Iterator<Item = (String, SuiteResult)> {
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = std::sync::mpsc::channel();
         self.test(filter, tx);
         rx.into_iter()
     }
@@ -152,7 +147,11 @@ impl MultiContractRunner {
     /// in _parallel_.
     ///
     /// Each Executor gets its own instance of the `Backend`.
-    pub fn test(&mut self, filter: &dyn TestFilter, tx: mpsc::Sender<(String, SuiteResult)>) {
+    pub fn test(
+        &mut self,
+        filter: &dyn TestFilter,
+        tx: std::sync::mpsc::Sender<(String, SuiteResult)>,
+    ) {
         let handle = tokio::runtime::Handle::current();
         trace!("running all tests");
 
@@ -178,6 +177,68 @@ impl MultiContractRunner {
             });
     }
 
+    /// Executes _all_ tests that match the given `filter`.
+    ///
+    /// This will create the runtime based on the configured `evm` ops and
+    /// create the `Backend` before executing all contracts and their tests
+    /// in _parallel_.
+    ///
+    /// Each Executor gets its own instance of the `Backend`.
+    pub fn test_hardhat(
+        mut self,
+        filter: Arc<impl TestFilter + 'static>,
+        tx: tokio::sync::mpsc::UnboundedSender<(String, SuiteResult)>,
+    ) {
+        let handle = tokio::runtime::Handle::current();
+        trace!("running all tests");
+
+        // The DB backend that serves all the data.
+        let db = Backend::spawn(self.fork.take());
+
+        let find_timer = Instant::now();
+        let contracts = self
+            .matching_contracts(filter.as_ref())
+            .map(|(id, contract)| (id.clone(), contract.clone()))
+            .collect::<Vec<_>>();
+        let find_time = find_timer.elapsed();
+        debug!(
+            "Found {} test contracts out of {} in {:?}",
+            contracts.len(),
+            self.contracts.len(),
+            find_time,
+        );
+
+        let this = Arc::new(self);
+        let args = contracts
+            .into_iter()
+            .zip(std::iter::repeat((this, db, filter, tx)));
+
+        tokio::task::block_in_place(move || {
+            handle.block_on(async {
+                futures::stream::iter(args)
+                    .for_each_concurrent(
+                        Some(num_cpus::get()),
+                        |((id, contract), (this, db, filter, tx))| async move {
+                            tokio::task::spawn_blocking(move || {
+                                let handle = tokio::runtime::Handle::current();
+                                let result = this.run_tests_hardhat(
+                                    &id,
+                                    &contract,
+                                    db.clone(),
+                                    filter.as_ref(),
+                                    &handle,
+                                );
+                                let _ = tx.send((id.identifier(), result));
+                            })
+                            .await
+                            .expect("failed to join task");
+                        },
+                    )
+                    .await;
+            });
+        });
+    }
+
     fn run_tests(
         &self,
         artifact_id: &ArtifactId,
@@ -191,12 +252,78 @@ impl MultiContractRunner {
 
         let linker = Linker::new(
             self.config.project_paths().root,
-            self.output.artifact_ids().collect(),
+            self.output.as_ref().unwrap().artifact_ids().collect(),
         );
         let linked_contracts = linker
             .get_linked_artifacts(&contract.libraries)
             .unwrap_or_default();
         let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
+
+        let cheats_config = CheatsConfig::new(
+            &self.config,
+            self.evm_opts.clone(),
+            Some(known_contracts.clone()),
+            Some(artifact_id.version.clone()),
+        );
+
+        let executor = ExecutorBuilder::new()
+            .inspectors(|stack| {
+                stack
+                    .cheatcodes(Arc::new(cheats_config))
+                    .trace(self.evm_opts.verbosity >= 3 || self.debug)
+                    .debug(self.debug)
+                    .coverage(self.coverage)
+                    .enable_isolation(self.isolation)
+            })
+            .spec(self.evm_spec)
+            .gas_limit(self.evm_opts.gas_limit())
+            .build(self.env.clone(), db);
+
+        if !enabled!(tracing::Level::TRACE) {
+            span_name = get_contract_name(&identifier);
+        }
+        let _guard = info_span!("run_tests", name = span_name).entered();
+
+        debug!("start executing all tests in contract");
+
+        let runner = ContractRunner::new(
+            &identifier,
+            executor,
+            contract,
+            self.evm_opts.initial_balance,
+            self.sender,
+            &self.revert_decoder,
+            self.debug,
+        );
+        let r = runner.run_tests(filter, &self.test_options, known_contracts, handle);
+
+        debug!(duration=?r.duration, "executed all tests in contract");
+
+        r
+    }
+
+    fn run_tests_hardhat(
+        &self,
+        artifact_id: &ArtifactId,
+        contract: &TestContract,
+        db: Backend,
+        filter: &dyn TestFilter,
+        handle: &tokio::runtime::Handle,
+    ) -> SuiteResult {
+        let identifier = artifact_id.identifier();
+        let mut span_name = identifier.as_str();
+
+        // TODO make sure these are passed in
+        // https://github.com/NomicFoundation/edr/issues/487
+        // let linker = Linker::new(
+        //     self.config.project_paths().root,
+        //     self.output.artifact_ids().collect(),
+        // );
+        // let linked_contracts = linker
+        //     .get_linked_artifacts(&contract.libraries)
+        //     .unwrap_or_default();
+        // let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
+        let known_contracts = Arc::new(ContractsByArtifact::new(Vec::default()));
 
         let cheats_config = CheatsConfig::new(
             &self.config,
@@ -404,7 +531,7 @@ impl MultiContractRunnerBuilder {
             debug: self.debug,
             test_options: self.test_options.unwrap_or_default(),
             isolation: self.isolation,
-            output,
+            output: Some(output),
         })
     }
 }

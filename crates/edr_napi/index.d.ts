@@ -332,6 +332,126 @@ export interface ExecutionResult {
   /** Optional contract address if the transaction created a new contract. */
   contractAddress?: Buffer
 }
+/** See [forge::result::SuiteResult] */
+export interface SuiteResult {
+  /** See [forge::result::SuiteResult::name] */
+  readonly name: string
+  /** See [forge::result::SuiteResult::duration] */
+  readonly durationMs: bigint
+  /** See [forge::result::SuiteResult::test_results] */
+  readonly testResults: Array<TestResult>
+  /** See [forge::result::SuiteResult::warnings] */
+  readonly warnings: Array<string>
+}
+/** See [forge::result::TestResult] */
+export interface TestResult {
+  /** The name of the test. */
+  readonly name: string
+  /** See [forge::result::TestResult::status] */
+  readonly status: TestStatus
+  /** See [forge::result::TestResult::reason] */
+  readonly reason?: string
+  /** See [forge::result::TestResult::counterexample] */
+  readonly counterexample?: BaseCounterExample | Array<BaseCounterExample>
+  /** See [forge::result::TestResult::decoded_logs] */
+  readonly decodedLogs: Array<string>
+  /** See [forge::result::TestResult::kind] */
+  readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
+  /** See [forge::result::TestResult::duration] */
+  readonly durationMs: bigint
+}
+/**The result of a test execution. */
+export const enum TestStatus {
+  /**Test success */
+  Success = 'Success',
+  /**Test failure */
+  Failure = 'Failure',
+  /**Test skipped */
+  Skipped = 'Skipped'
+}
+/** See [forge::result::TestKind::Standard] */
+export interface StandardTestKind {
+  /** The gas consumed by the test. */
+  readonly consumedGas: bigint
+}
+/** See [forge::result::TestKind::Fuzz] */
+export interface FuzzTestKind {
+  /** See [forge::result::TestKind::Fuzz] */
+  readonly firstCase: FuzzCase
+  /** See [forge::result::TestKind::Fuzz] */
+  readonly runs: bigint
+  /** See [forge::result::TestKind::Fuzz] */
+  readonly meanGas: bigint
+  /** See [forge::result::TestKind::Fuzz] */
+  readonly medianGas: bigint
+}
+/** See [forge::fuzz::FuzzCase] */
+export interface FuzzCase {
+  /** The calldata used for this fuzz test */
+  readonly calldata: Buffer
+  /** Consumed gas */
+  readonly gas: bigint
+  /** The initial gas stipend for the transaction */
+  readonly stipend: bigint
+}
+/** See [forge::result::TestKind::Invariant] */
+export interface InvariantTestKind {
+  /** See [forge::result::TestKind::Invariant] */
+  readonly runs: bigint
+  /** See [forge::result::TestKind::Invariant] */
+  readonly calls: bigint
+  /** See [forge::result::TestKind::Invariant] */
+  readonly reverts: bigint
+}
+/** See [forge::fuzz::BaseCounterExample] */
+export interface BaseCounterExample {
+  /** See [forge::fuzz::BaseCounterExample::sender] */
+  readonly sender?: Buffer
+  /** See [forge::fuzz::BaseCounterExample::addr] */
+  readonly address?: Buffer
+  /** See [forge::fuzz::BaseCounterExample::calldata] */
+  readonly calldata: Buffer
+  /** See [forge::fuzz::BaseCounterExample::contract_name] */
+  readonly contractName?: string
+  /** See [forge::fuzz::BaseCounterExample::signature] */
+  readonly signature?: string
+  /** See [forge::fuzz::BaseCounterExample::args] */
+  readonly args?: string
+}
+/** A test suite is a contract and its test methods. */
+export interface TestSuite {
+  /** The identifier of the test suite. */
+  id: ArtifactId
+  /** The test contract. */
+  contract: TestContract
+}
+/** The identifier of a Solidity test contract. */
+export interface ArtifactId {
+  /** The name of the contract. */
+  name: string
+  /** Original source file path. */
+  source: string
+  /** The solc semver string. */
+  solcVersion: string
+  /** The artifact cache path. Currently unused. */
+  artifactCachePath: string
+}
+/** A test contract to execute. */
+export interface TestContract {
+  /** The contract ABI as a JSON string. */
+  abi: string
+  /** The contract bytecode including all libraries as a hex string. */
+  bytecode: string
+  /** Vector of library bytecodes to deploy as hex string. */
+  libsToDeploy: Array<string>
+  /**
+   * Vector of library specifications of the form corresponding to libs to
+   * deploy, example item:
+   * `"src/DssSpell.sol:DssExecLib:
+   * 0xfD88CeE74f7D78697775aBDAE53f9Da1559728E4"`
+   */
+  libraries: Array<string>
+}
 export interface SubscriptionEvent {
   filterId: bigint
   result: any
@@ -412,6 +532,13 @@ export class Response {
   get json(): string
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
+}
+/** Executes solidity tests. */
+export class SolidityTestRunner {
+  /**Creates a new instance of the SolidityTestRunner. The callback function will be called with suite results as they finish. */
+  constructor(resultsCallback: (...args: any[]) => any)
+  /**Runs the given test suites. */
+  runTests(testSuites: Array<TestSuite>): Promise<Array<SuiteResult>>
 }
 export class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
