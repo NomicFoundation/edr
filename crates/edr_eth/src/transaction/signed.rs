@@ -455,7 +455,7 @@ mod tests {
                 nonce: 0,
                 gas_price: U256::from(1),
                 gas_limit: 2,
-                kind: TxKind::Call(Address::random()),
+                kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![],

@@ -222,12 +222,13 @@ mod tests {
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            // SAFETY: Caller address has been precomputed
+            // SAFETY: Signature and caller address have been precomputed based on
+            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
             signature: unsafe { signature::Fakeable::with_address_unchecked(
                 signature::SignatureWithRecoveryId {
-                    r: U256::default(),
-                    s: U256::default(),
-                    v: 1,
+                    r: U256::from_str("0xf0407adecc60467f3293582a9e1d726db5bc6b64f230bfb6ff04f23a1bbfe8dc")?,
+                    s: U256::from_str("0x2f68623b42c3b302b8b96035c30ca58c566fdfdc3421ddb4f41d61b485e1401b")?,
+                    v: 27,
                 },
                 Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
             )},
@@ -240,12 +241,13 @@ mod tests {
             kind: TxKind::Create,
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            // SAFETY: Caller address has been precomputed
+            // SAFETY: Signature and caller address have been precomputed based on
+            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
             signature: unsafe { signature::Fakeable::with_address_unchecked(
                 signature::SignatureWithRecoveryId {
-                    r: U256::default(),
-                    s: U256::default(),
-                    v: 37,
+                    r: U256::from_str("0xed3a859fce13d142bba6051a91f934947f71c5f8ce8e3fe5bc7a845365309b90")?,
+                    s: U256::from_str("0x1deb3bbf3fff7fba96e853ff1a19eabb117ef93b7704176893e4e9fff0e04576")?,
+                    v: 2709,
                 },
                 Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
             )},
@@ -256,19 +258,20 @@ mod tests {
             nonce: 0,
             gas_price: U256::from(1),
             gas_limit: 2,
-            kind: TxKind::Call(Address::random()),
+            kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            // SAFETY: Caller address has been precomputed
+            access_list: vec![].into(),
+            // SAFETY: Signature and caller address have been precomputed based on
+            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
             signature: unsafe { signature::Fakeable::with_address_unchecked(
                 signature::SignatureWithYParity {
-                    r: U256::default(),
-                    s: U256::default(),
+                    r: U256::from_str("0xa8d41ec812e66a7d80a1478f053cb8b627abb36191f53c2f7a153b4e4f90564d")?,
+                    s: U256::from_str("0x5a04b306c280730f872be5cd1970a3b493bdb4855fdbc2725dd9452f1a3e9412")?,
                     y_parity: true,
                 },
                 Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
             )},
-            access_list: vec![].into(),
             hash: OnceLock::new(),
         }),
         eip1559 => PooledTransaction::Eip1559(Eip1559PooledTransaction {
@@ -281,11 +284,12 @@ mod tests {
             value: U256::from(4),
             input: Bytes::from(vec![1, 2]),
             access_list: vec![].into(),
-            // SAFETY: Caller address has been precomputed
+            // SAFETY: Signature and caller address have been precomputed based on
+            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
             signature: unsafe { signature::Fakeable::with_address_unchecked(
                 signature::SignatureWithYParity {
-                    r: U256::default(),
-                    s: U256::default(),
+                    r: U256::from_str("0x263b71578125bf86e9e842a920af2d941cd023893c4a452d158c87eabdf06bb9")?,
+                    s: U256::from_str("0x097ff1980e38856c8e0310823e6cfc83032314f50ddd38568d3c9cf93e47d517")?,
                     y_parity: true,
                 },
                 Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
@@ -305,7 +309,7 @@ mod tests {
                 input: Bytes::from_str("0x2069b0c7")?,
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
-                // SAFETY: Caller address has been precomputed
+                // SAFETY: Signature and caller address have been precomputed
                 signature: unsafe { signature::Fakeable::with_address_unchecked(
                     signature::SignatureWithYParity {
                         r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
