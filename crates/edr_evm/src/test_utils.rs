@@ -3,7 +3,6 @@ use std::num::NonZeroU64;
 use edr_eth::{transaction::TxKind, AccountInfo, Address, Bytes, HashMap, SpecId, U256};
 
 use crate::{
-    chain_spec::L1ChainSpec,
     state::{AccountTrie, StateError, TrieState},
     transaction, MemPool, MemPoolAddTransactionError, TransactionCreationError,
 };

@@ -1,13 +1,15 @@
 use std::{fmt::Display, sync::mpsc::channel};
 
 use ansi_term::{Color, Style};
-use edr_eth::{transaction::Transaction, Bytes, B256, U256};
+use edr_eth::{
+    transaction::{self, Transaction},
+    Bytes, B256, U256,
+};
 use edr_evm::{
     blockchain::BlockchainError,
-    chain_spec::L1ChainSpec,
     precompile::{self, Precompiles},
     trace::{AfterMessage, TraceMessage},
-    ExecutableTransaction, ExecutionResult, SyncBlock,
+    ExecutionResult, SignedTransaction as _, SyncBlock,
 };
 use edr_provider::{ProviderError, TransactionFailure};
 use itertools::izip;

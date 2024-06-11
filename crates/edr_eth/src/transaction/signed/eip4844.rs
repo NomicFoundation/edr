@@ -190,7 +190,7 @@ mod tests {
             to: Address::from_str("0xffb38a7a99e3e2335be83fc74b7faa19d5531243").unwrap(),
             value: U256::from(0xbc614eu64),
             input: Bytes::default(),
-            access_list: Vec::new().into(),
+            access_list: Vec::new(),
             max_fee_per_blob_gas: U256::from(0xb2d05e00u64),
             blob_hashes: vec![B256::from_str(
                 "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",

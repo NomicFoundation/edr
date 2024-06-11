@@ -100,8 +100,19 @@ impl Default for BlobTransactionBuilder {
         };
 
         let (transaction, blobs, commitments, proofs) = pooled_transaction.into_inner();
-
-        let request = transaction::request::Eip4844::from(&transaction);
+        let request = transaction::request::Eip4844 {
+            chain_id: transaction.chain_id,
+            nonce: transaction.nonce,
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
+            max_fee_per_gas: transaction.max_fee_per_gas,
+            gas_limit: transaction.gas_limit,
+            to: transaction.to,
+            value: transaction.value,
+            input: transaction.input,
+            access_list: transaction.access_list.into(),
+            max_fee_per_blob_gas: transaction.max_fee_per_blob_gas,
+            blob_hashes: transaction.blob_hashes,
+        };
 
         Self {
             request,
@@ -136,7 +147,7 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
             .collect()
     });
     let transaction = transaction.into_payload();
-    let from = transaction.caller()?;
+    let from = transaction.caller();
 
     Ok(CallRequest {
         from: Some(*from),
@@ -155,7 +166,7 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
     })
 }
 
-fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
+fn fake_transaction_request() -> EthTransactionRequest {
     let transaction = fake_pooled_transaction();
     let blobs = transaction.blobs().map(|blobs| {
         blobs
@@ -165,9 +176,9 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
     });
 
     let transaction = transaction.into_payload();
-    let from = *transaction.caller()?;
+    let from = *transaction.caller();
 
-    Ok(EthTransactionRequest {
+    EthTransactionRequest {
         from,
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
@@ -184,7 +195,7 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
         blobs,
         blob_hashes: transaction.blob_hashes(),
         ..EthTransactionRequest::default()
-    })
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -251,7 +262,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction_unsupported() -> anyhow::Result<()> {
-    let transaction = fake_transaction_request()?;
+    let transaction = fake_transaction_request();
 
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
@@ -359,9 +370,9 @@ async fn get_transaction() -> anyhow::Result<()> {
     ))?;
 
     let transaction: edr_rpc_eth::Transaction = serde_json::from_value(result.result)?;
-    let transaction = ExecutableTransaction::try_from(transaction)?;
+    let transaction = transaction::Signed::try_from(transaction)?;
 
-    assert_eq!(transaction.into_inner().0, expected);
+    assert_eq!(transaction, expected);
 
     Ok(())
 }
