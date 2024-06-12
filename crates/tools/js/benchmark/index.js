@@ -13,6 +13,7 @@ const {
   createHardhatNetworkProvider,
 } = require("hardhat/internal/hardhat-network/provider/provider");
 const { HttpProvider } = require("hardhat/internal/core/providers/http");
+const { runForgeStdTests, setupForgeStdRepo } = require("./solidity-tests");
 
 const SCENARIOS_DIR = "../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
@@ -24,7 +25,7 @@ async function main() {
     description: "Scenario benchmark runner",
   });
   parser.add_argument("command", {
-    choices: ["benchmark", "verify", "report"],
+    choices: ["benchmark", "verify", "report", "solidity-tests"],
     help: "Whether to run a benchmark, verify that there are no regressions or create a report for `github-action-benchmark`",
   });
   parser.add_argument("-g", "--grep", {
@@ -61,6 +62,9 @@ async function main() {
   } else if (args.command === "report") {
     await report(args.benchmark_output);
     await flushStdout();
+  } else if (args.command === "solidity-tests") {
+    const repoPath = await setupForgeStdRepo();
+    await runForgeStdTests(repoPath);
   }
 }
 
@@ -90,10 +94,9 @@ async function report(benchmarkResultPath) {
 async function verify(benchmarkResultPath) {
   let success = true;
   const benchmarkResult = require(benchmarkResultPath);
-  const snapshotResult = require(path.join(
-    getScenariosDir(),
-    SCENARIO_SNAPSHOT_NAME
-  ));
+  const snapshotResult = require(
+    path.join(getScenariosDir(), SCENARIO_SNAPSHOT_NAME),
+  );
 
   for (let scenarioName in snapshotResult) {
     // TODO https://github.com/NomicFoundation/edr/issues/365
@@ -107,7 +110,7 @@ async function verify(benchmarkResultPath) {
       if (ratio > NEPTUNE_MAX_MIN_FAILURES) {
         console.error(
           `Snapshot failure for ${scenarioName} with max/min failure ratio`,
-          ratio
+          ratio,
         );
         success = false;
       }
@@ -129,16 +132,16 @@ async function verify(benchmarkResultPath) {
       if (shouldFail.size > 0) {
         console.error(
           `Scenario ${scenarioName} should fail at indexes ${Array.from(
-            shouldFail
-          ).sort()}`
+            shouldFail,
+          ).sort()}`,
         );
       }
 
       if (shouldNotFail.size > 0) {
         console.error(
           `Scenario ${scenarioName} should not fail at indexes ${Array.from(
-            shouldNotFail
-          ).sort()}`
+            shouldNotFail,
+          ).sort()}`,
         );
       }
     }
@@ -207,7 +210,7 @@ async function benchmarkAllScenarios(outPath, useAnvil) {
   console.error(
     `Total time ${
       Math.round(100 * (totalTime / 1000)) / 100
-    } seconds with ${totalFailures} failures.`
+    } seconds with ${totalFailures} failures.`,
   );
 
   console.error(`Benchmark results written to ${outPath}`);
@@ -275,7 +278,7 @@ async function benchmarkScenario(scenarioFileName, useAnvil) {
   console.error(
     `${name} finished in ${
       Math.round(100 * (timeMs / 1000)) / 100
-    } seconds with ${failures.length} failures.`
+    } seconds with ${failures.length} failures.`,
   );
 
   const result = {
@@ -331,11 +334,11 @@ function preprocessConfig(config) {
   config = removeNull(config);
 
   config.providerConfig.initialDate = new Date(
-    config.providerConfig.initialDate.secsSinceEpoch * 1000
+    config.providerConfig.initialDate.secsSinceEpoch * 1000,
   );
 
   config.providerConfig.hardfork = normalizeHardfork(
-    config.providerConfig.hardfork
+    config.providerConfig.hardfork,
   );
 
   // "accounts" in EDR are "genesisAccounts" in Hardhat
@@ -345,7 +348,7 @@ function preprocessConfig(config) {
   config.providerConfig.genesisAccounts = config.providerConfig.accounts.map(
     ({ balance, secretKey }) => {
       return { balance, privateKey: secretKey };
-    }
+    },
   );
   delete config.providerConfig.accounts;
 

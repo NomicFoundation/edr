@@ -3274,7 +3274,7 @@ snapshots:
       '@ethersproject/bignumber': 5.7.0
       '@ethersproject/bytes': 5.7.0
       '@ethersproject/constants': 5.7.0
-      '@ethersproject/logger': 5.7.0
+      '@ethersproject/logger': 5.0.6
       '@ethersproject/properties': 5.7.0
       '@ethersproject/transactions': 5.7.0
 
