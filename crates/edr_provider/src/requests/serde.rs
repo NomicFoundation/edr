@@ -351,7 +351,7 @@ where
 ///
 /// While technically the Yellow Paper allows specifying the timestamp as
 /// any scalar value, using `u64` in practice is more than enough.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Timestamp(pub u64);
 
 impl From<u64> for Timestamp {
@@ -367,7 +367,7 @@ impl From<Timestamp> for u64 {
 }
 
 impl Timestamp {
-    pub fn as_u64(&self) -> u64 {
+    pub fn as_u64(self) -> u64 {
         self.0
     }
 }
@@ -387,17 +387,22 @@ where
 {
     let error_msg = || {
         serde::de::Error::custom(
-            "Timestamp must be a positive integer or a string not exceeding 2^64.",
+            "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64.",
         )
     };
 
     match serde_json::Value::deserialize(deserializer)? {
+        // Unlike other JSON-RPC types, timestamp can also be a number
         serde_json::Value::Number(num) => num.as_u64().ok_or_else(error_msg),
-        serde_json::Value::String(value) => {
-            if let Some(hex_str) = value.strip_prefix("0x") {
-                u64::from_str_radix(hex_str, 16).map_err(|_err| error_msg())
+        serde_json::Value::String(ref value) => {
+            if let Some(value) = value.strip_prefix("0x") {
+                u64::from_str_radix(value, 16).map_err(|_err| error_msg())
             } else {
-                value.parse::<u64>().map_err(|_err| error_msg())
+                // symmetrical and more explicit about the base 10
+                #[allow(clippy::from_str_radix_10)]
+                // Since it exceptionally can also be a number, be more relaxed
+                // and accept stringified numbers as well (base 10 by default).
+                u64::from_str_radix(value, 10).map_err(|_err| error_msg())
             }
         }
         _ => Err(error_msg()),
@@ -568,19 +573,19 @@ mod tests {
             serde_json::from_str::<Timestamp>("1000000000000000000000000000000")
                 .unwrap_err()
                 .to_string(),
-            "Timestamp must be a positive integer or a string not exceeding 2^64."
+            "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64."
         );
         assert_eq!(
             serde_json::from_str::<Timestamp>("\"1000000000000000000000000000000\"")
                 .unwrap_err()
                 .to_string(),
-            "Timestamp must be a positive integer or a string not exceeding 2^64."
+            "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64."
         );
         assert_eq!(
             serde_json::from_str::<Timestamp>("\"0x11223344556677889900\"")
                 .unwrap_err()
                 .to_string(),
-            "Timestamp must be a positive integer or a string not exceeding 2^64."
+            "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64."
         );
     }
 }
