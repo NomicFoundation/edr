@@ -46,7 +46,8 @@ mod runtime;
 /// Utilities for testing
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
-mod transaction;
+/// Types for Ethereum transactions
+pub mod transaction;
 
 /// Types for interfacing with the evm
 pub mod evm {

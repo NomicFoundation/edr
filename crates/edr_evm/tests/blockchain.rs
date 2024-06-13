@@ -13,7 +13,7 @@ use edr_evm::{
     blockchain::{BlockchainError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    HashSet, LocalBlock, Log, SpecId, SyncBlock,
+    HashSet, LocalBlock, Log, SignedTransaction as _, SpecId, SyncBlock,
 };
 use serial_test::serial;
 

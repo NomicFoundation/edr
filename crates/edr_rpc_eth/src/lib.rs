@@ -16,6 +16,9 @@ mod transaction;
 pub use edr_rpc_client::{error, header, jsonrpc, HeaderMap};
 
 pub use self::{
-    block::Block, call_request::CallRequest, r#override::*, request_methods::RequestMethod,
-    transaction::Transaction,
+    block::Block,
+    call_request::CallRequest,
+    r#override::*,
+    request_methods::RequestMethod,
+    transaction::{ConversionError as TransactionConversionError, Transaction},
 };

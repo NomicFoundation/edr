@@ -6,7 +6,7 @@ use revm_primitives::keccak256;
 
 use crate::{
     access_list::AccessListItem,
-    signature::{self, SignatureError},
+    signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -38,6 +38,23 @@ impl Eip2930 {
         self,
         secret_key: &SecretKey,
     ) -> Result<transaction::signed::Eip2930, SignatureError> {
+        let caller = public_key_to_address(secret_key.public_key());
+
+        // SAFETY: The caller is derived from the secret key.
+        unsafe { self.sign_for_sender_unchecked(secret_key, caller) }
+    }
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided caller's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    pub unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<transaction::signed::Eip2930, SignatureError> {
         let hash = self.hash();
         let signature = signature::SignatureWithYParity::new(hash, secret_key)?;
 
@@ -50,7 +67,7 @@ impl Eip2930 {
             value: self.value,
             input: self.input,
             access_list: self.access_list.into(),
-            signature: signature.into(),
+            signature: Fakeable::with_address_unchecked(signature, caller),
             hash: OnceLock::new(),
         })
     }
@@ -68,21 +85,6 @@ impl Eip2930 {
             access_list: self.access_list.into(),
             signature: signature::Fakeable::fake(address, None),
             hash: OnceLock::new(),
-        }
-    }
-}
-
-impl From<&transaction::signed::Eip2930> for Eip2930 {
-    fn from(tx: &transaction::signed::Eip2930) -> Self {
-        Self {
-            chain_id: tx.chain_id,
-            nonce: tx.nonce,
-            gas_price: tx.gas_price,
-            gas_limit: tx.gas_limit,
-            kind: tx.kind,
-            value: tx.value,
-            input: tx.input.clone(),
-            access_list: tx.access_list.0.clone(),
         }
     }
 }

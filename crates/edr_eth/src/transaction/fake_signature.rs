@@ -43,10 +43,7 @@ pub(super) mod tests {
                     .expect("valid address");
 
                 let signed_transaction = transaction_request.fake_sign(sender);
-
-                let recovered = signed_transaction.recover().expect("valid signature");
-
-                assert_eq!(*recovered, sender);
+                assert_eq!(*signed_transaction.caller(), sender);
             }
         };
     }

@@ -257,7 +257,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
             ProviderError::SetMinGasPriceUnsupported => INVALID_INPUT,
             ProviderError::SetNextBlockBaseFeePerGasUnsupported { .. } => INVALID_INPUT,
             ProviderError::SetNextPrevRandaoUnsupported { .. } => INVALID_INPUT,
-            ProviderError::Signature(_) => INVALID_INPUT,
+            ProviderError::Signature(_) => INVALID_PARAMS,
             ProviderError::State(_) => INVALID_INPUT,
             ProviderError::TimestampLowerThanPrevious { .. } => INVALID_INPUT,
             ProviderError::TimestampEqualsPrevious { .. } => INVALID_INPUT,

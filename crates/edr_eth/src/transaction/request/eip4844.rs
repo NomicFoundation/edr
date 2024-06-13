@@ -6,7 +6,7 @@ use revm_primitives::keccak256;
 
 use crate::{
     access_list::AccessListItem,
-    signature::{self, SignatureError},
+    signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction,
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -36,9 +36,27 @@ impl Eip4844 {
         keccak256(envelop_bytes(3, &encoded))
     }
 
+    /// Signs the transaction with the provided secret key.
     pub fn sign(
         self,
         secret_key: &SecretKey,
+    ) -> Result<transaction::signed::Eip4844, SignatureError> {
+        let caller = public_key_to_address(secret_key.public_key());
+
+        // SAFETY: The caller is derived from the secret key.
+        unsafe { self.sign_for_sender_unchecked(secret_key, caller) }
+    }
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided caller's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    pub unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
     ) -> Result<transaction::signed::Eip4844, SignatureError> {
         let hash = self.hash();
         let signature = signature::SignatureWithYParity::new(hash, secret_key)?;
@@ -55,7 +73,7 @@ impl Eip4844 {
             input: self.input,
             access_list: self.access_list.into(),
             blob_hashes: self.blob_hashes,
-            signature: signature.into(),
+            signature: Fakeable::with_address_unchecked(signature, caller),
             hash: OnceLock::new(),
         })
     }
@@ -75,24 +93,6 @@ impl Eip4844 {
             blob_hashes: self.blob_hashes,
             signature: signature::Fakeable::fake(address, None),
             hash: OnceLock::new(),
-        }
-    }
-}
-
-impl From<&transaction::signed::Eip4844> for Eip4844 {
-    fn from(t: &transaction::signed::Eip4844) -> Self {
-        Self {
-            chain_id: t.chain_id,
-            nonce: t.nonce,
-            max_priority_fee_per_gas: t.max_priority_fee_per_gas,
-            max_fee_per_gas: t.max_fee_per_gas,
-            max_fee_per_blob_gas: t.max_fee_per_blob_gas,
-            gas_limit: t.gas_limit,
-            to: t.to,
-            value: t.value,
-            input: t.input.clone(),
-            access_list: t.access_list.0.clone(),
-            blob_hashes: t.blob_hashes.clone(),
         }
     }
 }

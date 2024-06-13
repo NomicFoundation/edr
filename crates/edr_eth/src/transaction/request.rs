@@ -74,6 +74,36 @@ impl Request {
         })
     }
 
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided sender's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    pub unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<Signed, SignatureError> {
+        Ok(match self {
+            Request::Legacy(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+            Request::Eip155(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+            Request::Eip2930(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+            Request::Eip1559(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+            Request::Eip4844(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+        })
+    }
+
     pub fn fake_sign(self, sender: Address) -> Signed {
         match self {
             Request::Legacy(transaction) => transaction.fake_sign(sender).into(),

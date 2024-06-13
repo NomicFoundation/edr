@@ -7,16 +7,16 @@ use revm_primitives::{keccak256, TxEnv};
 use super::kind_to_transact_to;
 use crate::{
     access_list::AccessList,
-    signature::{self, SignatureError},
+    signature::{self, Fakeable},
     transaction::{self, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
 
-#[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip2930 {
-    // The order of these fields determines de-/encoding order.
+    // The order of these fields determines encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub chain_id: u64,
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
@@ -38,6 +38,11 @@ pub struct Eip2930 {
 }
 
 impl Eip2930 {
+    /// Returns the caller/signer of the transaction.
+    pub fn caller(&self) -> &Address {
+        self.signature.caller()
+    }
+
     pub fn hash(&self) -> &B256 {
         self.hash.get_or_init(|| {
             let encoded = alloy_rlp::encode(self);
@@ -46,25 +51,20 @@ impl Eip2930 {
             keccak256(enveloped)
         })
     }
+}
 
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<&Address, SignatureError> {
-        self.signature
-            .recover_address(transaction::request::Eip2930::from(self).hash())
-    }
-
-    /// Converts this transaction into a `TxEnv` struct.
-    pub fn into_tx_env(self, caller: Address) -> TxEnv {
+impl From<Eip2930> for TxEnv {
+    fn from(value: Eip2930) -> Self {
         TxEnv {
-            caller,
-            gas_limit: self.gas_limit,
-            gas_price: self.gas_price,
-            transact_to: kind_to_transact_to(self.kind),
-            value: self.value,
-            data: self.input,
-            nonce: Some(self.nonce),
-            chain_id: Some(self.chain_id),
-            access_list: self.access_list.into(),
+            caller: *value.caller(),
+            gas_limit: value.gas_limit,
+            gas_price: value.gas_price,
+            transact_to: kind_to_transact_to(value.kind),
+            value: value.value,
+            data: value.input,
+            nonce: Some(value.nonce),
+            chain_id: Some(value.chain_id),
+            access_list: value.access_list.into(),
             gas_priority_fee: None,
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
@@ -85,6 +85,58 @@ impl PartialEq for Eip2930 {
             && self.input == other.input
             && self.access_list == other.access_list
             && self.signature == other.signature
+    }
+}
+
+#[derive(RlpDecodable)]
+struct Decodable {
+    // The order of these fields determines decoding order.
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub gas_price: U256,
+    pub gas_limit: u64,
+    pub kind: TxKind,
+    pub value: U256,
+    pub input: Bytes,
+    pub access_list: AccessList,
+    pub signature: signature::SignatureWithYParity,
+}
+
+impl alloy_rlp::Decodable for Eip2930 {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        let transaction = Decodable::decode(buf)?;
+        let request = transaction::request::Eip2930::from(&transaction);
+
+        let signature = Fakeable::recover(transaction.signature, request.hash().into())
+            .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
+
+        Ok(Self {
+            chain_id: transaction.chain_id,
+            nonce: transaction.nonce,
+            gas_price: transaction.gas_price,
+            gas_limit: transaction.gas_limit,
+            kind: transaction.kind,
+            value: transaction.value,
+            input: transaction.input,
+            access_list: transaction.access_list,
+            signature,
+            hash: OnceLock::new(),
+        })
+    }
+}
+
+impl From<&Decodable> for transaction::request::Eip2930 {
+    fn from(value: &Decodable) -> Self {
+        Self {
+            chain_id: value.chain_id,
+            nonce: value.nonce,
+            gas_price: value.gas_price,
+            gas_limit: value.gas_limit,
+            kind: value.kind,
+            value: value.value,
+            input: value.input.clone(),
+            access_list: value.access_list.0.clone(),
+        }
     }
 }
 

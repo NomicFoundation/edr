@@ -9,11 +9,10 @@ mod alchemy {
                     #[tokio::test]
                     async fn [<transaction_remote_ $name _hash>]() {
                         use edr_eth::{
-                            transaction::Transaction,
+                            transaction::{self, Transaction as _},
                             PreEip1898BlockSpec,
                             B256
                         };
-                        use edr_evm::ExecutableTransaction;
                         use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
                         use edr_test_utils::env::get_alchemy_url;
 
@@ -31,7 +30,7 @@ mod alchemy {
                             .collect();
 
                         let transactions =
-                                block.transactions.into_iter().map(ExecutableTransaction::try_from).collect::<Result<Vec<_>, _>>()
+                                block.transactions.into_iter().map(transaction::Signed::try_from).collect::<Result<Vec<_>, _>>()
                                     .expect("Conversion must succeed, as we're not retrieving a pending block");
 
                         for (index, transaction) in transactions.iter().enumerate() {

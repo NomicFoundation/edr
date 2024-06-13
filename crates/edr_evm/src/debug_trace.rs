@@ -1,7 +1,9 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
-    signature::SignatureError, transaction::Transaction, utils::u256_to_padded_hex, B256,
+    transaction::{self, Transaction},
+    utils::u256_to_padded_hex,
+    B256,
 };
 use revm::{
     db::DatabaseComponents,
@@ -19,11 +21,10 @@ use revm::{
 
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::L1ChainSpec,
     debug::GetContextData,
     state::SyncState,
     trace::{register_trace_collector_handles, Trace, TraceCollector},
-    ExecutableTransaction, TransactionError,
+    TransactionError,
 };
 
 /// EIP-3155 and raw tracers.
@@ -77,7 +78,7 @@ pub fn debug_trace_transaction<BlockchainErrorT, StateErrorT>(
     evm_config: CfgEnvWithHandlerCfg,
     trace_config: DebugTraceConfig,
     block_env: BlockEnv,
-    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
+    transactions: Vec<transaction::Signed>,
     transaction_hash: &B256,
     verbose_tracing: bool,
 ) -> Result<DebugTraceResultWithTraces, DebugTraceError<BlockchainErrorT, StateErrorT>>
@@ -204,9 +205,6 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT> {
         /// The block number.
         block_number: U256,
     },
-    /// Signature error.
-    #[error(transparent)]
-    SignatureError(#[from] SignatureError),
     /// Transaction error.
     #[error(transparent)]
     TransactionError(#[from] TransactionError<BlockchainErrorT, StateErrorT>),

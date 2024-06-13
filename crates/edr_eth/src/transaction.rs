@@ -19,7 +19,6 @@ use revm_primitives::B256;
 pub use self::r#type::TransactionType;
 use crate::{
     access_list::{AccessList, AccessListItem},
-    signature::SignatureError,
     Address, Bytes, U256,
 };
 
@@ -58,8 +57,8 @@ pub enum Signed {
 
 /// Trait for signed transactions.
 pub trait SignedTransaction: Transaction {
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    fn recover(&self) -> Result<&Address, SignatureError>;
+    /// Returns the caller/signer of the transaction.
+    fn caller(&self) -> &Address;
 }
 
 pub trait Transaction {

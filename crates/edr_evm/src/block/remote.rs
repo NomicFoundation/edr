@@ -3,17 +3,16 @@ use std::sync::{Arc, OnceLock};
 use edr_eth::{
     block::{BlobGas, Header},
     receipt::BlockReceipt,
-    transaction::Transaction,
+    transaction::{self, Transaction},
     withdrawal::Withdrawal,
     B256,
 };
-use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
+use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec, TransactionConversionError};
 use tokio::runtime;
 
 use crate::{
     blockchain::{BlockchainError, ForkedBlockchainError},
-    chain_spec::L1ChainSpec,
-    Block, ExecutableTransaction, SyncBlock, TransactionConversionError,
+    Block, SyncBlock,
 };
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
@@ -43,7 +42,7 @@ pub enum CreationError {
 #[derive(Clone, Debug)]
 pub struct RemoteBlock {
     header: Header,
-    transactions: Vec<ExecutableTransaction<L1ChainSpec>>,
+    transactions: Vec<transaction::Signed>,
     /// The receipts of the block's transactions
     receipts: OnceLock<Vec<Arc<BlockReceipt>>>,
     /// The hashes of the block's ommers
@@ -96,7 +95,7 @@ impl RemoteBlock {
         let transactions = block
             .transactions
             .into_iter()
-            .map(ExecutableTransaction::try_from)
+            .map(transaction::Signed::try_from)
             .collect::<Result<Vec<_>, _>>()?;
 
         let hash = block.hash.ok_or(CreationError::MissingHash)?;
@@ -134,7 +133,7 @@ impl Block for RemoteBlock {
         self.size
     }
 
-    fn transactions(&self) -> &[ExecutableTransaction<L1ChainSpec>] {
+    fn transactions(&self) -> &[transaction::Signed] {
         &self.transactions
     }
 
@@ -148,7 +147,7 @@ impl Block for RemoteBlock {
                 self.rpc_client.get_transaction_receipts(
                     self.transactions
                         .iter()
-                        .map(ExecutableTransaction::transaction_hash),
+                        .map(transaction::Signed::transaction_hash),
                 ),
             )
         })
