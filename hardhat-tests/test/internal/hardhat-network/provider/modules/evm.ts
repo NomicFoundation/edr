@@ -152,13 +152,13 @@ describe("Evm module", function () {
             this.provider,
             "evm_increaseTime",
             ["10000000000000000000000000000000"],
-            "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64"
+            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
           );
           await assertInvalidArgumentsError(
             this.provider,
             "evm_increaseTime",
             ["0x1111111111111111111111111111111111111"],
-            "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64"
+            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
           );
         });
       });
@@ -339,13 +339,13 @@ describe("Evm module", function () {
                 this.provider,
                 "evm_setNextBlockTimestamp",
                 ["10000000000000000000000000000000"],
-                "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64"
+                "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
               );
               await assertInvalidArgumentsError(
                 this.provider,
                 "evm_setNextBlockTimestamp",
                 ["0x1111111111111111111111111111111111111"],
-                "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64"
+                "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
               );
             });
 
@@ -647,13 +647,13 @@ describe("Evm module", function () {
             this.provider,
             "evm_mine",
             ["10000000000000000000000000000000"],
-            "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64"
+            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
           );
           await assertInvalidArgumentsError(
             this.provider,
             "evm_mine",
             ["0x1111111111111111111111111111111111111"],
-            "Timestamp must be a positive integer or a (`0x`-prefixed hex) string not exceeding 2^64"
+            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
           );
         });
 
