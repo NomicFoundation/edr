@@ -152,13 +152,26 @@ describe("Evm module", function () {
             this.provider,
             "evm_increaseTime",
             ["10000000000000000000000000000000"],
-            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
           );
           await assertInvalidArgumentsError(
             this.provider,
             "evm_increaseTime",
             ["0x1111111111111111111111111111111111111"],
-            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+          );
+
+          await assertInvalidArgumentsError(
+            this.provider,
+            "evm_increaseTime",
+            [(2n ** 64n).toString()],
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+          );
+          await assertInvalidArgumentsError(
+            this.provider,
+            "evm_increaseTime",
+            ["0x10000000000000000"],
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
           );
         });
       });
@@ -339,14 +352,34 @@ describe("Evm module", function () {
                 this.provider,
                 "evm_setNextBlockTimestamp",
                 ["10000000000000000000000000000000"],
-                "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+                "Timestamp must be a non-negative number not exceeding 2^64 - 1"
               );
               await assertInvalidArgumentsError(
                 this.provider,
                 "evm_setNextBlockTimestamp",
                 ["0x1111111111111111111111111111111111111"],
-                "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+                "Timestamp must be a non-negative number not exceeding 2^64 - 1"
               );
+
+              // Check that the limit is in fact 2^64 - 1
+              await assertInvalidArgumentsError(
+                this.provider,
+                "evm_setNextBlockTimestamp",
+                [(2n ** 64n).toString()],
+                "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+              );
+              await assertInvalidArgumentsError(
+                this.provider,
+                "evm_setNextBlockTimestamp",
+                ["0x10000000000000000"],
+                "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+              );
+              await this.provider.send("evm_setNextBlockTimestamp", [
+                (2n ** 64n - 1n).toString(),
+              ]);
+              await this.provider.send("evm_setNextBlockTimestamp", [
+                "0xFFFFFFFFFFFFFFFF",
+              ]);
             });
 
             describe("When the initial date is in the past", function () {
@@ -647,13 +680,13 @@ describe("Evm module", function () {
             this.provider,
             "evm_mine",
             ["10000000000000000000000000000000"],
-            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
           );
           await assertInvalidArgumentsError(
             this.provider,
             "evm_mine",
             ["0x1111111111111111111111111111111111111"],
-            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
           );
         });
 

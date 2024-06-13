@@ -380,9 +380,9 @@ impl<'de> Deserialize<'de> for Timestamp {
         // TODO: Accept only `0x`-prefixed hex strings (and possibly base 10 strings).
         U64::deserialize(deserializer)
             .map(|value| Timestamp(value.as_limbs()[0]))
-            .map_err(|_| {
+            .map_err(|_err| {
                 serde::de::Error::custom(
-                    "Timestamp must be a positive integer or a string not exceeding 2^64 - 1",
+                    "Timestamp must be a non-negative number not exceeding 2^64 - 1",
                 )
             })
     }
@@ -553,19 +553,19 @@ mod tests {
             serde_json::from_str::<Timestamp>("1000000000000000000000000000000")
                 .unwrap_err()
                 .to_string(),
-            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
         );
         assert_eq!(
             serde_json::from_str::<Timestamp>("\"1000000000000000000000000000000\"")
                 .unwrap_err()
                 .to_string(),
-            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
         );
         assert_eq!(
             serde_json::from_str::<Timestamp>("\"0x11223344556677889900\"")
                 .unwrap_err()
                 .to_string(),
-            "Timestamp must be a positive integer or a string not exceeding 2^64 - 1"
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
         );
     }
 }
