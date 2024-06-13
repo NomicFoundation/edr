@@ -50,14 +50,14 @@ pub enum SignatureError {
 
 /// A fakeable signature which can either be a fake signature or a real ECDSA
 /// signature.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Fakeable<SignatureT: Signature> {
     data: FakeableData<SignatureT>,
     address: Address,
 }
 
 /// Signature with a recoverable caller address.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum FakeableData<SignatureT: Signature> {
     /// Fake signature, used for impersonation.
     /// Contains the caller address.

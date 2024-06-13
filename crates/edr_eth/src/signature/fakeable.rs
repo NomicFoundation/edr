@@ -122,28 +122,6 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
     }
 }
 
-impl<SignatureT: Recoverable + Signature + PartialEq> PartialEq for Fakeable<SignatureT> {
-    fn eq(&self, other: &Self) -> bool {
-        match (&self.data, &other.data) {
-            (
-                FakeableData::Fake {
-                    recovery_id: recovery_id1,
-                },
-                FakeableData::Fake {
-                    recovery_id: recovery_id2,
-                },
-            ) => recovery_id1 == recovery_id2 && self.address == other.address,
-            (
-                FakeableData::Recoverable { signature: s1 },
-                FakeableData::Recoverable { signature: s2 },
-            ) => s1 == s2,
-            _ => false,
-        }
-    }
-}
-
-impl<SignatureT: Recoverable + Signature + PartialEq> Eq for Fakeable<SignatureT> {}
-
 #[cfg(feature = "serde")]
 impl<SignatureT: Recoverable + Signature> serde::Serialize for Fakeable<SignatureT> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

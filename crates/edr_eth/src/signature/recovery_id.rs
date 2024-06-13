@@ -14,7 +14,7 @@ use k256::{
 use super::{public_key_to_address, Recoverable, RecoveryMessage, Signature, SignatureError};
 use crate::{utils::hash_message, Address, Bytes, B256, U256};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// An ECDSA signature with recovery ID.
 pub struct SignatureWithRecoveryId {
