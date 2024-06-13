@@ -15,7 +15,7 @@ pub use self::{
         ExecutionResultWithContext,
     },
     local::LocalBlock,
-    remote::{CreationError as RemoteBlockCreationError, RemoteBlock},
+    remote::{CreationError as RemoteBlockCreationError, IntoRemoteBlock, RemoteBlock},
 };
 use crate::chain_spec::ChainSpec;
 
@@ -63,7 +63,7 @@ where
 
 /// The result returned by requesting a block by number.
 #[derive(Debug)]
-pub struct BlockAndTotalDifficulty<BlockchainErrorT, ChainSpecT: ChainSpec> {
+pub struct BlockAndTotalDifficulty<ChainSpecT: ChainSpec, BlockchainErrorT> {
     /// The block
     pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// The total difficulty with the block
@@ -71,7 +71,7 @@ pub struct BlockAndTotalDifficulty<BlockchainErrorT, ChainSpecT: ChainSpec> {
 }
 
 impl<BlockchainErrorT, ChainSpecT: ChainSpec> Clone
-    for BlockAndTotalDifficulty<BlockchainErrorT, ChainSpecT>
+    for BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>
 {
     fn clone(&self) -> Self {
         Self {
@@ -82,9 +82,9 @@ impl<BlockchainErrorT, ChainSpecT: ChainSpec> Clone
 }
 
 impl<BlockchainErrorT, ChainSpecT: ChainSpec>
-    From<BlockAndTotalDifficulty<BlockchainErrorT, ChainSpecT>> for edr_rpc_eth::Block<B256>
+    From<BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>> for edr_rpc_eth::Block<B256>
 {
-    fn from(value: BlockAndTotalDifficulty<BlockchainErrorT, ChainSpecT>) -> Self {
+    fn from(value: BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>) -> Self {
         let transactions = value
             .block
             .transactions()

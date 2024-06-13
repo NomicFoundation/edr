@@ -13,8 +13,9 @@ use itertools::izip;
 use revm::primitives::keccak256;
 
 use crate::{
-    blockchain::BlockchainError, chain_spec::ChainSpec, Block, DetailedTransaction, SpecId,
-    SyncBlock,
+    blockchain::BlockchainError,
+    chain_spec::{ChainSpec, SyncChainSpec},
+    Block, DetailedTransaction, SpecId, SyncBlock,
 };
 
 /// A locally mined block, which contains complete information.
@@ -204,7 +205,7 @@ fn transaction_to_block_receipts(
 impl<ChainSpecT> From<LocalBlock<ChainSpecT>>
     for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
 where
-    ChainSpecT: ChainSpec,
+    ChainSpecT: SyncChainSpec,
     ChainSpecT::SignedTransaction: Send + Sync,
 {
     fn from(value: LocalBlock<ChainSpecT>) -> Self {

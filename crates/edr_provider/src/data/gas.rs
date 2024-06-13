@@ -147,7 +147,7 @@ fn min_difference(lower_bound: u64) -> u64 {
 
 /// Compute miner rewards for percentiles.
 pub(super) fn compute_rewards<LoggerErrorT: Debug>(
-    block: &dyn SyncBlock<Error = BlockchainError>,
+    block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError>,
     reward_percentiles: &[RewardPercentile],
 ) -> Result<Vec<U256>, ProviderError<LoggerErrorT>> {
     if block.transactions().is_empty() {

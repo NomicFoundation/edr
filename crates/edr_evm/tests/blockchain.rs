@@ -147,7 +147,7 @@ fn create_dummy_block_with_header(spec_id: SpecId, partial_header: PartialHeader
 }
 
 struct DummyBlockAndTransaction {
-    block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
     transaction_hash: B256,
     transaction_receipt: TransactionReceipt<Log>,
 }

@@ -49,7 +49,7 @@ impl<StateErrorT> DebugMineBlockResultAndState<StateErrorT> {
 #[derive(Debug)]
 pub struct DebugMineBlockResult<BlockchainErrorT> {
     /// Mined block
-    pub block: Arc<dyn SyncBlock<Error = BlockchainErrorT>>,
+    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult>,
     /// Transaction traces

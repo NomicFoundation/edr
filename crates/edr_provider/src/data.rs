@@ -385,7 +385,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// Returns the last block in the blockchain.
     pub fn last_block(
         &self,
-    ) -> Result<Arc<dyn SyncBlock<Error = BlockchainError>>, BlockchainError> {
+    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>, BlockchainError> {
         self.blockchain.last_block()
     }
 
@@ -465,8 +465,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn block_by_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = BlockchainError>>>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>>,
+        ProviderError<LoggerErrorT>,
+    > {
         let result = match block_spec {
             BlockSpec::Number(block_number) => Some(
                 self.blockchain
@@ -557,8 +559,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn block_by_hash(
         &self,
         block_hash: &B256,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = BlockchainError>>>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>>,
+        ProviderError<LoggerErrorT>,
+    > {
         self.blockchain
             .block_by_hash(block_hash)
             .map_err(ProviderError::Blockchain)
@@ -1911,7 +1915,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
             &dyn SyncBlockchain<BlockchainError, StateError>,
-            &Arc<dyn SyncBlock<Error = BlockchainError>>,
+            &Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
             &Box<dyn SyncState<StateError>>,
         ) -> T,
     ) -> Result<T, ProviderError<LoggerErrorT>> {
@@ -2569,7 +2573,7 @@ pub struct TransactionAndBlock {
 /// Block metadata for a transaction.
 #[derive(Debug, Clone)]
 pub struct BlockDataForTransaction {
-    pub block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
     pub transaction_index: u64,
 }
 

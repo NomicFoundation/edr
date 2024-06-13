@@ -7,7 +7,7 @@ use revm::primitives::TxEnv;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// A trait for defining a chain's associated types.
-pub trait ChainSpec: Debug + alloy_rlp::Encodable + RpcSpec + 'static {
+pub trait ChainSpec: Debug + alloy_rlp::Encodable + RpcSpec {
     /// The type of signed transactions used by this chain.
     type SignedTransaction: alloy_rlp::Encodable
         + Clone
@@ -16,6 +16,20 @@ pub trait ChainSpec: Debug + alloy_rlp::Encodable + RpcSpec + 'static {
         + PartialEq
         + Eq
         + SignedTransaction;
+}
+
+/// A supertrait for [`ChainSpec`] that is safe to send between threads.
+pub trait SyncChainSpec: ChainSpec + Send + Sync + 'static
+where
+    Self::SignedTransaction: Send + Sync,
+{
+}
+
+impl<ChainSpecT> SyncChainSpec for ChainSpecT
+where
+    ChainSpecT: ChainSpec + Send + Sync + 'static,
+    ChainSpecT::SignedTransaction: Send + Sync,
+{
 }
 
 /// The chain specification for Ethereum Layer 1.

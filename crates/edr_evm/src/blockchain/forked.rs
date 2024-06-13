@@ -11,7 +11,6 @@ use edr_eth::{
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
-    spec::EthRpcSpec,
 };
 use parking_lot::Mutex;
 use revm::{
@@ -28,7 +27,7 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    chain_spec::ChainSpec,
+    chain_spec::SyncChainSpec,
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, LocalBlock, RandomHashGenerator, RemoteBlockCreationError,
     SyncBlock,
@@ -85,7 +84,11 @@ pub enum ForkedBlockchainError {
 
 /// A blockchain that forked from a remote blockchain.
 #[derive(Debug)]
-pub struct ForkedBlockchain<ChainSpecT: ChainSpec> {
+pub struct ForkedBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+    ChainSpecT::SignedTransaction: Send + Sync,
+{
     local_storage: ReservableSparseBlockchainStorage<
         Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
         ChainSpecT,
@@ -105,7 +108,11 @@ pub struct ForkedBlockchain<ChainSpecT: ChainSpec> {
     hardfork_activations: Option<HardforkActivations>,
 }
 
-impl<ChainSpecT: ChainSpec> ForkedBlockchain<ChainSpecT> {
+impl<ChainSpecT> ForkedBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+    ChainSpecT::SignedTransaction: Send + Sync,
+{
     /// Constructs a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
@@ -247,7 +254,11 @@ impl<ChainSpecT: ChainSpec> ForkedBlockchain<ChainSpecT> {
     }
 }
 
-impl BlockHashRef for ForkedBlockchain {
+impl<ChainSpecT> BlockHashRef for ForkedBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+    ChainSpecT::SignedTransaction: Send + Sync,
+{
     type Error = BlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -269,7 +280,11 @@ impl BlockHashRef for ForkedBlockchain {
     }
 }
 
-impl Blockchain for ForkedBlockchain {
+impl<ChainSpecT> Blockchain<ChainSpecT> for ForkedBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+    ChainSpecT::SignedTransaction: Send + Sync,
+{
     type BlockchainError = BlockchainError;
 
     type StateError = StateError;
@@ -279,8 +294,10 @@ impl Blockchain for ForkedBlockchain {
     fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         if let Some(block) = self.local_storage.block_by_hash(hash) {
             Ok(Some(block))
         } else {
@@ -295,8 +312,10 @@ impl Blockchain for ForkedBlockchain {
     fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         if number <= self.fork_block_number {
             tokio::task::block_in_place(move || {
                 self.runtime().block_on(self.remote.block_by_number(number))
@@ -312,8 +331,10 @@ impl Blockchain for ForkedBlockchain {
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         if let Some(block) = self
             .local_storage
             .block_by_transaction_hash(transaction_hash)
@@ -334,7 +355,8 @@ impl Blockchain for ForkedBlockchain {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn last_block(
         &self,
-    ) -> Result<Arc<dyn SyncBlock<Error = Self::BlockchainError>>, Self::BlockchainError> {
+    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>, Self::BlockchainError>
+    {
         let last_block_number = self.last_block_number();
         if self.fork_block_number < last_block_number {
             Ok(self
@@ -515,15 +537,19 @@ impl Blockchain for ForkedBlockchain {
     }
 }
 
-impl BlockchainMut for ForkedBlockchain {
+impl<ChainSpecT> BlockchainMut<ChainSpecT> for ForkedBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+    ChainSpecT::SignedTransaction: Send + Sync,
+{
     type Error = BlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_block(
         &mut self,
-        block: LocalBlock,
+        block: LocalBlock<ChainSpecT>,
         state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficulty<Self::Error>, Self::Error> {
+    ) -> Result<BlockAndTotalDifficulty<ChainSpecT, Self::Error>, Self::Error> {
         let last_block = self.last_block()?;
 
         validate_next_block(self.spec_id, &last_block, &block)?;

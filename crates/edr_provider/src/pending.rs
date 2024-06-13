@@ -21,7 +21,7 @@ use edr_evm::{
 #[derive(Debug)]
 pub(crate) struct BlockchainWithPending<'blockchain> {
     blockchain: &'blockchain dyn SyncBlockchain<BlockchainError, StateError>,
-    pending_block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    pending_block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
     pending_state_diff: StateDiff,
 }
 
@@ -49,8 +49,10 @@ impl<'blockchain> Blockchain for BlockchainWithPending<'blockchain> {
     fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         if hash == self.pending_block.hash() {
             Ok(Some(self.pending_block.clone()))
         } else {
@@ -61,8 +63,10 @@ impl<'blockchain> Blockchain for BlockchainWithPending<'blockchain> {
     fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         if number == self.pending_block.header().number {
             Ok(Some(self.pending_block.clone()))
         } else {
@@ -73,8 +77,10 @@ impl<'blockchain> Blockchain for BlockchainWithPending<'blockchain> {
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         let contains_transaction = self
             .pending_block
             .transactions()
@@ -94,7 +100,8 @@ impl<'blockchain> Blockchain for BlockchainWithPending<'blockchain> {
 
     fn last_block(
         &self,
-    ) -> Result<Arc<dyn SyncBlock<Error = Self::BlockchainError>>, Self::BlockchainError> {
+    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>, Self::BlockchainError>
+    {
         Ok(self.pending_block.clone())
     }
 

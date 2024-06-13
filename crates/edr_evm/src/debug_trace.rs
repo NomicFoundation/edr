@@ -71,8 +71,8 @@ pub fn register_eip_3155_and_raw_tracers_handles<
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 #[allow(clippy::too_many_arguments)]
-pub fn debug_trace_transaction<BlockchainErrorT, StateErrorT>(
-    blockchain: &dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn SyncState<StateErrorT>>,
     evm_config: CfgEnvWithHandlerCfg,

@@ -259,9 +259,12 @@ mod tests {
     async fn no_cache_for_unsafe_block_number() {
         let tempdir = tempfile::tempdir().expect("can create tempdir");
 
-        let rpc_client =
-            EthRpcClient::<EthRpcSpec>::new(&get_alchemy_url(), tempdir.path().to_path_buf(), None)
-                .expect("url ok");
+        let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+            &get_alchemy_url(),
+            tempdir.path().to_path_buf(),
+            None,
+        )
+        .expect("url ok");
 
         // Latest block number is always unsafe to cache
         let block_number = rpc_client.block_number().await.unwrap();

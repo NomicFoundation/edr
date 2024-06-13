@@ -58,7 +58,8 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         // Pending block requested
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<dyn SyncBlock<Error = BlockchainError>> = Arc::new(result.block);
+            let block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>> =
+                Arc::new(result.block);
             Some((block, true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
@@ -128,7 +129,7 @@ pub fn handle_get_transaction_receipt<LoggerErrorT: Debug, TimerT: Clone + TimeS
 }
 
 fn transaction_from_block(
-    block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
     transaction_index: usize,
     is_pending: bool,
 ) -> Option<TransactionAndBlock> {
@@ -151,7 +152,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
 ) -> Result<edr_rpc_eth::Transaction, ProviderError<LoggerErrorT>> {
     fn gas_price_for_post_eip1559(
         signed_transaction: &transaction::Signed,
-        block: Option<&Arc<dyn SyncBlock<Error = BlockchainError>>>,
+        block: Option<&Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>>,
     ) -> U256 {
         let max_fee_per_gas = signed_transaction
             .max_fee_per_gas()

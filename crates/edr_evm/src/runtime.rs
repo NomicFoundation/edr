@@ -11,21 +11,23 @@ use revm::{
 
 use crate::{
     blockchain::SyncBlockchain,
+    chain_spec::L1ChainSpec,
     debug::DebugContext,
     state::{StateOverrides, StateRefOverrider, SyncState},
     transaction::TransactionError,
 };
 
 /// Asynchronous implementation of the Database super-trait
-pub type SyncDatabase<'blockchain, 'state, BlockchainErrorT, StateErrorT> = DatabaseComponents<
-    &'state dyn StateRef<Error = StateErrorT>,
-    &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
->;
+pub type SyncDatabase<'blockchain, 'state, ChainSpecT, BlockchainErrorT, StateErrorT> =
+    DatabaseComponents<
+        &'state dyn StateRef<Error = StateErrorT>,
+        &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    >;
 
 /// Runs a transaction without committing the state.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErrorT, StateErrorT>(
-    blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
     cfg: CfgEnvWithHandlerCfg,
@@ -34,6 +36,7 @@ pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErro
     debug_context: Option<
         DebugContext<
             'evm,
+            L1ChainSpec,
             BlockchainErrorT,
             DebugDataT,
             StateRefOverrider<'overrides, &'evm dyn SyncState<StateErrorT>>,
@@ -86,7 +89,7 @@ pub fn guaranteed_dry_run<
     BlockchainErrorT,
     StateErrorT,
 >(
-    blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
     mut cfg: CfgEnvWithHandlerCfg,
@@ -95,6 +98,7 @@ pub fn guaranteed_dry_run<
     debug_context: Option<
         DebugContext<
             'evm,
+            L1ChainSpec,
             BlockchainErrorT,
             DebugDataT,
             StateRefOverrider<'overrides, &'evm dyn SyncState<StateErrorT>>,
@@ -124,12 +128,12 @@ where
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn run<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT>(
-    blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateT::Error>,
+    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateT::Error>,
     state: StateT,
     cfg: CfgEnvWithHandlerCfg,
     transaction: TxEnv,
     block: BlockEnv,
-    debug_context: Option<DebugContext<'evm, BlockchainErrorT, DebugDataT, StateT>>,
+    debug_context: Option<DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<ExecutionResult, TransactionError<BlockchainErrorT, StateT::Error>>
 where
     'blockchain: 'evm,
