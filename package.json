@@ -6,7 +6,6 @@
   "private": true,
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
-    "hardhat": "^2.22.5",
     "prettier": "^3.2.5"
   },
   "scripts": {

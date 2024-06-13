@@ -14,9 +14,6 @@ importers:
       '@changesets/cli':
         specifier: ^2.27.1
         version: 2.27.1
-      hardhat:
-        specifier: ^2.22.5
-        version: 2.22.5(ts-node@9.1.1)(typescript@5.0.4)
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -60,7 +57,7 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1
       hardhat:
-        specifier: '*'
+        specifier: 2.22.5
         version: 2.22.5(ts-node@9.1.1)(typescript@5.0.4)
       lodash:
         specifier: ^4.17.11
@@ -174,7 +171,7 @@ importers:
         specifier: ^6.1.0
         version: 6.12.0
       hardhat:
-        specifier: '*'
+        specifier: 2.22.5
         version: 2.22.5(ts-node@9.1.1)(typescript@5.0.4)
       mocha:
         specifier: ^10.0.0
@@ -210,7 +207,7 @@ importers:
         specifier: ^4.3.6
         version: 4.4.1
       hardhat:
-        specifier: '*'
+        specifier: 2.22.5
         version: 2.22.5(ts-node@9.1.1)(typescript@5.0.4)
       mocha:
         specifier: ^10.0.0
@@ -4553,6 +4550,7 @@ packages:
 
   /rimraf@2.7.1:
     resolution: {integrity: sha512-uWjbaKIK3T1OSVptzX7Nl6PvQ3qAGtKEtVRjRuazjfL3Bx5eI409VZSqgND+4UNnmzLVdPj9FqFJNPqBZFve4w==}
+    deprecated: Rimraf versions prior to v4 are no longer supported
     hasBin: true
     dependencies:
       glob: 7.2.0
