@@ -487,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    fn test_signed_transaction_decode_multiple_networks() {
+    fn test_signed_transaction_decode_multiple_networks() -> anyhow::Result<()> {
         use std::str::FromStr;
 
         let bytes_first = hex::decode("f86b02843b9aca00830186a094d3e8763675e4c425df46cc3b5c0f6cbdac39604687038d7ea4c68000802ba00eb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5aea03a456401896b1b6055311536bf00a718568c744d8c1f9df59879e8350220ca18").unwrap();
@@ -514,7 +514,7 @@ mod tests {
                         .unwrap(),
                         v: 43,
                     },
-                    Address::default(),
+                    Address::from_str("0x2efc0b963da6f672254b4e5eea754551fe191fd6")?,
                 )
             },
             hash: OnceLock::new(),
@@ -548,7 +548,7 @@ mod tests {
                         .unwrap(),
                         v: 43,
                     },
-                    Address::default(),
+                    Address::from_str("0x2efc0b963da6f672254b4e5eea754551fe191fd6")?,
                 )
             },
             hash: OnceLock::new(),
@@ -582,7 +582,7 @@ mod tests {
                         .unwrap(),
                         v: 43,
                     },
-                    Address::default(),
+                    Address::from_str("0x2efc0b963da6f672254b4e5eea754551fe191fd6")?,
                 )
             },
             hash: OnceLock::new(),
@@ -619,7 +619,7 @@ mod tests {
                         .unwrap(),
                         y_parity: true,
                     },
-                    Address::default(),
+                    Address::from_str("0x9421de2177f0e810ca1d69a040a2169f8c7c8e4b")?,
                 )
             },
             hash: OnceLock::new(),
@@ -653,7 +653,7 @@ mod tests {
                         .unwrap(),
                         v: 44,
                     },
-                    Address::default(),
+                    Address::from_str("0xd35bd31431b33b756f965af3c62776354d6e4bd8")?,
                 )
             },
             hash: OnceLock::new(),
@@ -662,6 +662,8 @@ mod tests {
             expected,
             Signed::decode(&mut bytes_fifth.as_slice()).unwrap()
         );
+
+        Ok(())
     }
 
     // <https://github.com/gakonst/ethers-rs/issues/1732>

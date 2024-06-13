@@ -55,8 +55,7 @@ where
     }
 }
 
-/// An error that occurred while trying to construct an
-/// [`ExecutableTransaction`].
+/// An error that occurred while during [`validate`].
 #[derive(Debug, thiserror::Error)]
 pub enum TransactionCreationError {
     /// Creating contract without any data.
