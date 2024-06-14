@@ -432,6 +432,7 @@ impl Blockchain for ForkedBlockchain {
                     Err(BlockchainError::MissingHardforkActivations {
                         block_number,
                         fork_block_number: self.fork_block_number,
+                        chain_id: self.remote_chain_id,
                     })
                 }
             })

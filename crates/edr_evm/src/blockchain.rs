@@ -55,12 +55,14 @@ pub enum BlockchainError {
         expected: B256,
     },
     /// Missing hardfork activation history
-    #[error("No known hardfork for execution on historical block {block_number} (relative to fork block number {fork_block_number}). The node was not configured with a hardfork activation history.")]
+    #[error("No known hardfork for execution on historical block {block_number} (relative to fork block number {fork_block_number}) in chain with id {chain_id}. The node was not configured with a hardfork activation history.")]
     MissingHardforkActivations {
         /// Block number
         block_number: u64,
         /// Fork block number
         fork_block_number: u64,
+        /// Chain id
+        chain_id: u64,
     },
     /// Missing withdrawals for post-Shanghai blockchain
     #[error("Missing withdrawals for post-Shanghai blockchain")]
