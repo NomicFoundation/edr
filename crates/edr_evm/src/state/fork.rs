@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::{trie::KECCAK_NULL_RLP, Address, B256, U256};
-use edr_rpc_eth::{
-    client::EthRpcClient,
-    spec::{EthRpcSpec, RpcSpec},
-};
+use edr_rpc_eth::{client::EthRpcClient, spec::RpcSpec};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use revm::{
     db::components::{State, StateRef},
@@ -234,11 +231,12 @@ mod tests {
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
+    use crate::chain_spec::L1ChainSpec;
 
     const FORK_BLOCK: u64 = 16220843;
 
     struct TestForkState {
-        fork_state: ForkState<EthRpcSpec>,
+        fork_state: ForkState<L1ChainSpec>,
         // We need to keep it around as long as the fork state is alive
         _tempdir: tempfile::TempDir,
     }
@@ -255,7 +253,7 @@ mod tests {
             let tempdir = tempfile::tempdir().expect("can create tempdir");
 
             let runtime = runtime::Handle::current();
-            let rpc_client = EthRpcClient::<EthRpcSpec>::new(
+            let rpc_client = EthRpcClient::<L1ChainSpec>::new(
                 &get_alchemy_url(),
                 tempdir.path().to_path_buf(),
                 None,
@@ -284,7 +282,7 @@ mod tests {
     }
 
     impl Deref for TestForkState {
-        type Target = ForkState<EthRpcSpec>;
+        type Target = ForkState<L1ChainSpec>;
 
         fn deref(&self) -> &Self::Target {
             &self.fork_state

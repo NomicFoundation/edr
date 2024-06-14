@@ -87,7 +87,6 @@ pub enum ForkedBlockchainError {
 pub struct ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     local_storage: ReservableSparseBlockchainStorage<
         Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
@@ -111,7 +110,6 @@ where
 impl<ChainSpecT> ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     /// Constructs a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -257,7 +255,6 @@ where
 impl<ChainSpecT> BlockHashRef for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     type Error = BlockchainError;
 
@@ -283,7 +280,6 @@ where
 impl<ChainSpecT> Blockchain<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     type BlockchainError = BlockchainError;
 
@@ -540,7 +536,6 @@ where
 impl<ChainSpecT> BlockchainMut<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     type Error = BlockchainError;
 

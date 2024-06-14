@@ -79,7 +79,6 @@ impl From<GenesisBlockOptions> for BlockOptions {
 pub struct LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     storage: ReservableSparseBlockchainStorage<
         Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
@@ -92,7 +91,6 @@ where
 impl<ChainSpecT> LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     /// Constructs a new instance using the provided arguments to build a
     /// genesis block.
@@ -220,7 +218,6 @@ where
 impl<ChainSpecT> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     type BlockchainError = BlockchainError;
 
@@ -342,7 +339,6 @@ where
 impl<ChainSpecT> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     type Error = BlockchainError;
 
@@ -413,7 +409,6 @@ where
 impl<ChainSpecT> BlockHashRef for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     type Error = BlockchainError;
 

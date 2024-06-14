@@ -15,7 +15,8 @@ use revm::primitives::keccak256;
 use crate::{
     blockchain::BlockchainError,
     chain_spec::{ChainSpec, SyncChainSpec},
-    Block, DetailedTransaction, SpecId, SyncBlock,
+    transaction::DetailedTransaction,
+    Block, SpecId, SyncBlock,
 };
 
 /// A locally mined block, which contains complete information.
@@ -206,7 +207,6 @@ impl<ChainSpecT> From<LocalBlock<ChainSpecT>>
     for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     fn from(value: LocalBlock<ChainSpecT>) -> Self {
         Arc::new(value)

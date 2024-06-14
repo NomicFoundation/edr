@@ -24,7 +24,7 @@ use crate::{
     debug::GetContextData,
     state::SyncState,
     trace::{register_trace_collector_handles, Trace, TraceCollector},
-    TransactionError,
+    transaction::TransactionError,
 };
 
 /// EIP-3155 and raw tracers.

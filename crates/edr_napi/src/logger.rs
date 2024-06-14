@@ -7,9 +7,11 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::BlockchainError,
+    chain_spec::L1ChainSpec,
     precompile::{self, Precompiles},
     trace::{AfterMessage, TraceMessage},
-    ExecutionResult, SignedTransaction as _, SyncBlock,
+    transaction::SignedTransaction as _,
+    ExecutionResult, SyncBlock,
 };
 use edr_provider::{ProviderError, TransactionFailure};
 use itertools::izip;
@@ -688,20 +690,20 @@ impl LogCollector {
         self.log_empty_line();
     }
 
-    fn log_block_hash(&mut self, block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError>) {
+    fn log_block_hash(&mut self, block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError>) {
         let block_hash = block.hash();
 
         self.log(format!("Block: {block_hash}"));
     }
 
-    fn log_block_id(&mut self, block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError>) {
+    fn log_block_id(&mut self, block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError>) {
         let block_number = block.header().number;
         let block_hash = block.hash();
 
         self.log(format!("Block #{block_number}: {block_hash}"));
     }
 
-    fn log_block_number(&mut self, block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError>) {
+    fn log_block_number(&mut self, block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError>) {
         let block_number = block.header().number;
 
         self.log(format!("Mined block #{block_number}"));
@@ -884,7 +886,7 @@ impl LogCollector {
         }
     }
 
-    fn log_empty_block(&mut self, block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError>) {
+    fn log_empty_block(&mut self, block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError>) {
         let block_header = block.header();
         let block_number = block_header.number;
 
@@ -909,7 +911,7 @@ impl LogCollector {
 
     fn log_hardhat_mined_empty_block(
         &mut self,
-        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError>,
+        block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError>,
         empty_blocks_range_start: Option<u64>,
     ) {
         self.indented(|logger| {

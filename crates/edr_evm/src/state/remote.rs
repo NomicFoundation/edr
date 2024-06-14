@@ -15,6 +15,7 @@ use revm::{
 use tokio::runtime;
 
 use super::StateError;
+use crate::{chain_spec::ChainSpec, EthRpcBlock as _};
 
 /// A state backed by a remote Ethereum node
 #[derive(Debug)]
@@ -56,7 +57,9 @@ impl<ChainSpecT: RpcSpec> RemoteState<ChainSpecT> {
     pub fn set_block_number(&mut self, block_number: u64) {
         self.block_number = block_number;
     }
+}
 
+impl<ChainSpecT: ChainSpec> RemoteState<ChainSpecT> {
     /// Retrieve the state root of the given block, if it exists.
     pub fn state_root(&self, block_number: u64) -> Result<Option<B256>, RpcClientError> {
         Ok(tokio::task::block_in_place(move || {
@@ -65,7 +68,7 @@ impl<ChainSpecT: RpcSpec> RemoteState<ChainSpecT> {
                     .get_block_by_number(PreEip1898BlockSpec::Number(block_number)),
             )
         })?
-        .map(|block| block.state_root))
+        .map(|block| *block.state_root()))
     }
 }
 

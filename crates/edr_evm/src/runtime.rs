@@ -25,6 +25,8 @@ pub type SyncDatabase<'blockchain, 'state, ChainSpecT, BlockchainErrorT, StateEr
     >;
 
 /// Runs a transaction without committing the state.
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErrorT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
@@ -79,6 +81,8 @@ where
 
 /// Runs a transaction without committing the state, while disabling balance
 /// checks and creating accounts for new addresses.
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn guaranteed_dry_run<
     'blockchain,

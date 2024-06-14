@@ -1,7 +1,7 @@
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
-pub trait RpcSpec {
+pub trait RpcSpec: Sized {
     /// Type representing an RPC block
     type RpcBlock<Data>: GetBlockNumber + DeserializeOwned + Serialize
     where

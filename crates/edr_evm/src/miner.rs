@@ -90,6 +90,8 @@ pub enum MineBlockError<BE, SE> {
 
 /// Mines a block using as many transactions as can fit in it.
 #[allow(clippy::too_many_arguments)]
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
@@ -274,6 +276,8 @@ pub enum MineTransactionError<BlockchainErrorT, StateErrorT> {
 ///
 /// If the transaction is invalid, returns an error.
 #[allow(clippy::too_many_arguments)]
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<
     'blockchain,

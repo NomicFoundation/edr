@@ -1,13 +1,24 @@
 use std::fmt::Debug;
 
 use alloy_rlp::RlpEncodable;
-use edr_eth::transaction::SignedTransaction;
+use edr_eth::{transaction::SignedTransaction, B256};
 use edr_rpc_eth::spec::{EthRpcSpec, RpcSpec};
 use revm::primitives::TxEnv;
 use serde::{de::DeserializeOwned, Serialize};
 
+use crate::{transaction::remote::EthRpcTransaction, EthRpcBlock, IntoRemoteBlock};
+
 /// A trait for defining a chain's associated types.
-pub trait ChainSpec: Debug + alloy_rlp::Encodable + RpcSpec {
+// Bug: https://github.com/rust-lang/rust-clippy/issues/12927
+#[allow(clippy::trait_duplication_in_bounds)]
+pub trait ChainSpec:
+    Debug
+    + alloy_rlp::Encodable
+    + RpcSpec<
+        RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock + IntoRemoteBlock<Self>,
+        RpcTransaction: EthRpcTransaction,
+    > + RpcSpec<RpcBlock<B256>: EthRpcBlock>
+{
     /// The type of signed transactions used by this chain.
     type SignedTransaction: alloy_rlp::Encodable
         + Clone
@@ -19,16 +30,10 @@ pub trait ChainSpec: Debug + alloy_rlp::Encodable + RpcSpec {
 }
 
 /// A supertrait for [`ChainSpec`] that is safe to send between threads.
-pub trait SyncChainSpec: ChainSpec + Send + Sync + 'static
-where
-    Self::SignedTransaction: Send + Sync,
-{
-}
+pub trait SyncChainSpec: ChainSpec<SignedTransaction: Send + Sync> + Send + Sync + 'static {}
 
-impl<ChainSpecT> SyncChainSpec for ChainSpecT
-where
-    ChainSpecT: ChainSpec + Send + Sync + 'static,
-    ChainSpecT::SignedTransaction: Send + Sync,
+impl<ChainSpecT> SyncChainSpec for ChainSpecT where
+    ChainSpecT: ChainSpec<SignedTransaction: Send + Sync> + Send + Sync + 'static
 {
 }
 

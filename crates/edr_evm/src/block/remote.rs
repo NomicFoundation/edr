@@ -5,7 +5,7 @@ use edr_eth::{
     receipt::BlockReceipt,
     transaction::{self, Transaction},
     withdrawal::Withdrawal,
-    B256,
+    B256, U256,
 };
 use edr_rpc_eth::{client::EthRpcClient, TransactionConversionError};
 use tokio::runtime;
@@ -120,34 +120,50 @@ impl<ChainSpecT> From<RemoteBlock<ChainSpecT>>
     for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     fn from(value: RemoteBlock<ChainSpecT>) -> Self {
         Arc::new(value)
     }
 }
 
+/// Trait that provides access to the state root and total difficulty of an
+/// Ethereum-based block.
+pub trait EthRpcBlock {
+    /// Returns the root of the block's state trie.
+    fn state_root(&self) -> &B256;
+
+    /// Returns the total difficulty of the chain until this block for finalised
+    /// blocks. For pending blocks, returns `None`.
+    fn total_difficulty(&self) -> Option<&U256>;
+}
+
+impl<TransactionT> EthRpcBlock for edr_rpc_eth::Block<TransactionT> {
+    fn state_root(&self) -> &B256 {
+        &self.state_root
+    }
+
+    fn total_difficulty(&self) -> Option<&U256> {
+        self.total_difficulty.as_ref()
+    }
+}
+
 /// Trait for types that can be converted into a remote Ethereum block.
 pub trait IntoRemoteBlock<ChainSpecT: ChainSpec> {
-    type Error;
-
     /// Converts the instance into a `RemoteBlock` with the provided JSON-RPC
     /// client and tokio runtime.
     fn into_remote_block(
         self,
         rpc_client: Arc<EthRpcClient<ChainSpecT>>,
         runtime: runtime::Handle,
-    ) -> Result<RemoteBlock<ChainSpecT>, Self::Error>;
+    ) -> Result<RemoteBlock<ChainSpecT>, CreationError>;
 }
 
 impl IntoRemoteBlock<L1ChainSpec> for edr_rpc_eth::Block<edr_rpc_eth::Transaction> {
-    type Error = CreationError;
-
     fn into_remote_block(
         self,
         rpc_client: Arc<EthRpcClient<L1ChainSpec>>,
         runtime: runtime::Handle,
-    ) -> Result<RemoteBlock<L1ChainSpec>, Self::Error> {
+    ) -> Result<RemoteBlock<L1ChainSpec>, CreationError> {
         let header = Header {
             parent_hash: self.parent_hash,
             ommers_hash: self.sha3_uncles,

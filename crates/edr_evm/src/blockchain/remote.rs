@@ -10,7 +10,11 @@ use revm::primitives::HashSet;
 use tokio::runtime;
 
 use super::storage::SparseBlockchainStorage;
-use crate::{blockchain::ForkedBlockchainError, chain_spec::ChainSpec, Block, RemoteBlock};
+use crate::{
+    blockchain::ForkedBlockchainError, chain_spec::ChainSpec,
+    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, IntoRemoteBlock,
+    RemoteBlock,
+};
 
 #[derive(Debug)]
 pub struct RemoteBlockchain<BlockT, ChainSpecT, const FORCE_CACHING: bool>
@@ -105,7 +109,7 @@ where
             .get_transaction_by_hash(*transaction_hash)
             .await?
         {
-            self.block_by_hash(&transaction.block_hash.expect("Not a pending transaction"))
+            self.block_by_hash(transaction.block_hash().expect("Not a pending transaction"))
                 .await
         } else {
             Ok(None)
@@ -204,8 +208,8 @@ where
             .get_block_by_hash_with_transaction_data(*hash)
             .await?
         {
-            let total_difficulty = block
-                .total_difficulty
+            let total_difficulty = *block
+                .total_difficulty()
                 .expect("Must be present as this is not a pending transaction");
 
             self.fetch_and_cache_block(cache, block).await?;
@@ -223,12 +227,12 @@ where
         cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT, ChainSpecT>>,
         block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
     ) -> Result<BlockT, ForkedBlockchainError> {
-        let total_difficulty = block
-            .total_difficulty
+        let total_difficulty = *block
+            .total_difficulty()
             .expect("Must be present as this is not a pending block");
 
-        let block =
-            RemoteBlock::<ChainSpecT>::new(block, self.client.clone(), self.runtime.clone())?;
+        let block: RemoteBlock<ChainSpecT> =
+            block.into_remote_block(self.client.clone(), self.runtime.clone())?;
 
         let is_cacheable = FORCE_CACHING
             || self

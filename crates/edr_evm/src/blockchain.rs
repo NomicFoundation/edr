@@ -84,7 +84,6 @@ pub enum BlockchainError {
 pub trait Blockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
     /// The blockchain's error type
     type BlockchainError;
@@ -209,7 +208,6 @@ pub trait SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>:
 where
     BlockchainErrorT: Debug + Send,
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
 }
 
@@ -224,7 +222,6 @@ where
         + Debug,
     BlockchainErrorT: Debug + Send,
     ChainSpecT: SyncChainSpec,
-    ChainSpecT::SignedTransaction: Send + Sync,
 {
 }
 

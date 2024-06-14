@@ -32,6 +32,7 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
+    chain_spec::L1ChainSpec,
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
@@ -40,16 +41,16 @@ use edr_evm::{
         SyncState,
     },
     trace::Trace,
-    transaction, Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockAndTotalDifficulty,
-    BlockEnv, Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
+    transaction::{self, SignedTransaction as _},
+    Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
+    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
     DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutionResult, HashMap, HashSet, MemPool,
-    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, SignedTransaction as _,
-    StorageSlot, SyncBlock, TxEnv, KECCAK_EMPTY,
+    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock,
+    TxEnv, KECCAK_EMPTY,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
     error::HttpError,
-    spec::EthRpcSpec,
 };
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
@@ -163,7 +164,7 @@ pub enum CreationError {
 pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = CurrentTime> {
     runtime_handle: runtime::Handle,
     initial_config: ProviderConfig,
-    blockchain: Box<dyn SyncBlockchain<BlockchainError, StateError>>,
+    blockchain: Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool,
     beneficiary: Address,
@@ -175,7 +176,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     fork_metadata: Option<ForkMetadata>,
     // Must be set if the provider is created with a fork config.
     // Hack to get around the type erasure with the dyn blockchain trait.
-    rpc_client: Option<Arc<EthRpcClient<EthRpcSpec>>>,
+    rpc_client: Option<Arc<EthRpcClient<L1ChainSpec>>>,
     instance_id: B256,
     is_auto_mining: bool,
     next_block_base_fee_per_gas: Option<U256>,
@@ -385,7 +386,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// Returns the last block in the blockchain.
     pub fn last_block(
         &self,
-    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>, BlockchainError> {
+    ) -> Result<Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>, BlockchainError> {
         self.blockchain.last_block()
     }
 
@@ -462,11 +463,13 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// number or a hash and the block isn't found.
     /// Returns `ProviderError::InvalidBlockTag` error if the block tag is safe
     /// or finalized and block spec is pre-merge.
+    // `SyncBlock` cannot be simplified further
+    #[allow(clippy::type_complexity)]
     pub fn block_by_block_spec(
         &self,
         block_spec: &BlockSpec,
     ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>>,
+        Option<Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>>,
         ProviderError<LoggerErrorT>,
     > {
         let result = match block_spec {
@@ -556,11 +559,13 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(block_number)
     }
 
+    // `SyncBlock` cannot be simplified further
+    #[allow(clippy::type_complexity)]
     pub fn block_by_hash(
         &self,
         block_hash: &B256,
     ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>>,
+        Option<Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>>,
         ProviderError<LoggerErrorT>,
     > {
         self.blockchain
@@ -1104,8 +1109,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             &CfgEnvWithHandlerCfg,
             BlockOptions,
             &mut Debugger,
-        )
-            -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>>,
+        ) -> Result<
+            MineBlockResultAndState<L1ChainSpec, StateError>,
+            ProviderError<LoggerErrorT>,
+        >,
         mut options: BlockOptions,
     ) -> Result<DebugMineBlockResult<BlockchainError>, ProviderError<LoggerErrorT>> {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
@@ -1914,8 +1921,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
-            &dyn SyncBlockchain<BlockchainError, StateError>,
-            &Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
+            &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+            &Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
             &Box<dyn SyncState<StateError>>,
         ) -> T,
     ) -> Result<T, ProviderError<LoggerErrorT>> {
@@ -1956,8 +1963,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             &CfgEnvWithHandlerCfg,
             BlockOptions,
             &mut Debugger,
-        )
-            -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>>,
+        ) -> Result<
+            MineBlockResultAndState<L1ChainSpec, StateError>,
+            ProviderError<LoggerErrorT>,
+        >,
         mut options: BlockOptions,
     ) -> Result<DebugMineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
@@ -2003,7 +2012,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         config: &CfgEnvWithHandlerCfg,
         options: BlockOptions,
         debugger: &mut Debugger,
-    ) -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
+    ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block(
             self.blockchain.as_ref(),
@@ -2030,7 +2039,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         options: BlockOptions,
         transaction: transaction::Signed,
         debugger: &mut Debugger,
-    ) -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
+    ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
@@ -2145,7 +2154,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// about the mined block.
     fn notify_subscribers_about_mined_block(
         &mut self,
-        block_and_total_difficulty: &BlockAndTotalDifficulty<BlockchainError>,
+        block_and_total_difficulty: &BlockAndTotalDifficulty<L1ChainSpec, BlockchainError>,
     ) -> Result<(), BlockchainError> {
         let block = &block_and_total_difficulty.block;
         for (filter_id, filter) in self.filters.iter_mut() {
@@ -2355,9 +2364,9 @@ fn block_time_offset_seconds(
 }
 
 struct BlockchainAndState {
-    blockchain: Box<dyn SyncBlockchain<BlockchainError, StateError>>,
+    blockchain: Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>,
     fork_metadata: Option<ForkMetadata>,
-    rpc_client: Option<Arc<EthRpcClient<EthRpcSpec>>>,
+    rpc_client: Option<Arc<EthRpcClient<L1ChainSpec>>>,
     state: Box<dyn SyncState<StateError>>,
     irregular_state: IrregularState,
     prev_randao_generator: RandomHashGenerator,
@@ -2384,7 +2393,7 @@ fn create_blockchain_and_state(
             .map(|headers| HeaderMap::try_from(headers).map_err(CreationError::InvalidHttpHeaders))
             .transpose()?;
 
-        let rpc_client = Arc::new(EthRpcClient::<EthRpcSpec>::new(
+        let rpc_client = Arc::new(EthRpcClient::<L1ChainSpec>::new(
             &fork_config.json_rpc_url,
             config.cache_dir.clone(),
             http_headers.clone(),
@@ -2393,7 +2402,7 @@ fn create_blockchain_and_state(
         let (blockchain, mut irregular_state) =
             tokio::task::block_in_place(|| -> Result<_, ForkedCreationError> {
                 let mut irregular_state = IrregularState::default();
-                let blockchain = runtime.block_on(ForkedBlockchain::new(
+                let blockchain = runtime.block_on(ForkedBlockchain::<L1ChainSpec>::new(
                     runtime.clone(),
                     Some(config.chain_id),
                     config.hardfork,
@@ -2573,7 +2582,7 @@ pub struct TransactionAndBlock {
 /// Block metadata for a transaction.
 #[derive(Debug, Clone)]
 pub struct BlockDataForTransaction {
-    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
+    pub block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     pub transaction_index: u64,
 }
 
@@ -3742,7 +3751,7 @@ mod tests {
         #[test]
         fn run_call_in_hardfork_context() -> anyhow::Result<()> {
             use alloy_sol_types::{sol, SolCall};
-            use edr_evm::TransactionError;
+            use edr_evm::transaction::TransactionError;
             use edr_rpc_eth::CallRequest;
 
             use crate::{

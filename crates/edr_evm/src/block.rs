@@ -15,7 +15,9 @@ pub use self::{
         ExecutionResultWithContext,
     },
     local::LocalBlock,
-    remote::{CreationError as RemoteBlockCreationError, IntoRemoteBlock, RemoteBlock},
+    remote::{
+        CreationError as RemoteBlockCreationError, EthRpcBlock, IntoRemoteBlock, RemoteBlock,
+    },
 };
 use crate::chain_spec::ChainSpec;
 
