@@ -15,7 +15,7 @@
   },
   "pnpm": {
     "overrides": {
-      "hardhat@2>@nomicfoundation/edr": "workspace:*"
+      "hardhat>@nomicfoundation/edr": "workspace:*"
     }
   }
 }
