@@ -79,7 +79,7 @@ impl RemoteBlock {
             gas_used: block.gas_used,
             timestamp: block.timestamp,
             extra_data: block.extra_data,
-            mix_hash: block.mix_hash.ok_or(CreationError::MissingMixHash)?,
+            mix_hash: block.mix_hash.unwrap_or_default(),
             nonce: block.nonce.ok_or(CreationError::MissingNonce)?,
             base_fee_per_gas: block.base_fee_per_gas,
             withdrawals_root: block.withdrawals_root,
