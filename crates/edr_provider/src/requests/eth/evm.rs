@@ -4,13 +4,11 @@ use std::num::NonZeroU64;
 use edr_eth::{block::BlockOptions, U64};
 use edr_evm::trace::Trace;
 
-use crate::{
-    data::ProviderData, requests::methods::U64OrUsize, time::TimeSinceEpoch, ProviderError,
-};
+use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, Timestamp};
 
 pub fn handle_increase_time_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
-    increment: U64OrUsize,
+    increment: Timestamp,
 ) -> Result<String, ProviderError<LoggerErrorT>> {
     let new_block_time = data.increase_block_time(increment.into());
 
@@ -20,10 +18,10 @@ pub fn handle_increase_time_request<LoggerErrorT: Debug, TimerT: Clone + TimeSin
 
 pub fn handle_mine_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
-    timestamp: Option<U64OrUsize>,
+    timestamp: Option<Timestamp>,
 ) -> Result<(String, Vec<Trace>), ProviderError<LoggerErrorT>> {
     let mine_block_result = data.mine_and_commit_block(BlockOptions {
-        timestamp: timestamp.map(U64OrUsize::into),
+        timestamp: timestamp.map(Into::into),
         ..BlockOptions::default()
     })?;
 
@@ -71,7 +69,7 @@ pub fn handle_set_next_block_timestamp_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
-    timestamp: U64OrUsize,
+    timestamp: Timestamp,
 ) -> Result<String, ProviderError<LoggerErrorT>> {
     let new_timestamp = data.set_next_block_timestamp(timestamp.into())?;
 

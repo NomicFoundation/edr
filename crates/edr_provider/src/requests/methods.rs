@@ -7,7 +7,7 @@ use edr_eth::{
 };
 use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
-use super::serde::RpcAddress;
+use super::serde::{RpcAddress, Timestamp};
 use crate::requests::{
     debug::DebugTraceConfig,
     hardhat::rpc_types::{CompilerInput, CompilerOutput, ResetProviderConfig},
@@ -256,14 +256,14 @@ pub enum MethodInvocation {
     Web3Sha3(Bytes),
     /// `evm_increaseTime`
     #[serde(rename = "evm_increaseTime", with = "edr_eth::serde::sequence")]
-    EvmIncreaseTime(U64OrUsize),
+    EvmIncreaseTime(Timestamp),
     /// `evm_mine`
     #[serde(
         rename = "evm_mine",
         serialize_with = "optional_single_to_sequence",
         deserialize_with = "sequence_to_optional_single"
     )]
-    EvmMine(Option<U64OrUsize>),
+    EvmMine(Option<Timestamp>),
     /// `evm_revert`
     #[serde(rename = "evm_revert", with = "edr_eth::serde::sequence")]
     EvmRevert(U64),
@@ -281,7 +281,7 @@ pub enum MethodInvocation {
         rename = "evm_setNextBlockTimestamp",
         with = "edr_eth::serde::sequence"
     )]
-    EvmSetNextBlockTimestamp(U64OrUsize),
+    EvmSetNextBlockTimestamp(Timestamp),
     /// `evm_snapshot`
     #[serde(rename = "evm_snapshot", with = "edr_eth::serde::empty_params")]
     EvmSnapshot(()),
@@ -505,23 +505,4 @@ pub enum IntervalConfig {
     FixedOrDisabled(u64),
     /// an array of two `u64` values
     Range([u64; 2]),
-}
-
-/// an input that can be either a U256 or a usize
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(untagged)]
-pub enum U64OrUsize {
-    /// usize
-    Usize(usize),
-    /// U256
-    U64(U64),
-}
-
-impl From<U64OrUsize> for u64 {
-    fn from(either: U64OrUsize) -> Self {
-        match either {
-            U64OrUsize::U64(u) => u.as_limbs()[0],
-            U64OrUsize::Usize(u) => u as u64,
-        }
-    }
 }

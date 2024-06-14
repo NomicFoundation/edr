@@ -15,8 +15,8 @@ use ::serde::{
 };
 
 pub use crate::requests::{
-    methods::{IntervalConfig, MethodInvocation, U64OrUsize},
-    serde::InvalidRequestReason,
+    methods::{IntervalConfig, MethodInvocation},
+    serde::{InvalidRequestReason, Timestamp},
 };
 
 /// JSON-RPC request for the provider.
