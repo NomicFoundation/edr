@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
-use edr_eth::{receipt::BlockReceipt, transaction};
+use edr_eth::receipt::BlockReceipt;
+
+use crate::chain_spec::ChainSpec;
 
 /// Wrapper struct for a transaction and its receipt.
-pub struct DetailedTransaction<'t> {
+pub struct DetailedTransaction<'transaction, ChainSpecT: ChainSpec> {
     /// The transaction
-    pub transaction: &'t transaction::Signed,
+    pub transaction: &'transaction ChainSpecT::SignedTransaction,
     /// The transaction's receipt
-    pub receipt: &'t Arc<BlockReceipt>,
+    pub receipt: &'transaction Arc<BlockReceipt>,
 }

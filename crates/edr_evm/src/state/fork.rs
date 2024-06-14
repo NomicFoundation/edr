@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::{trie::KECCAK_NULL_RLP, Address, B256, U256};
-use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
+use edr_rpc_eth::{client::EthRpcClient, spec::RpcSpec};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use revm::{
     db::components::{State, StateRef},
@@ -16,9 +16,9 @@ use crate::random::RandomHashGenerator;
 /// A database integrating the state from a remote node and the state from a
 /// local layered database.
 #[derive(Debug)]
-pub struct ForkState {
+pub struct ForkState<ChainSpecT: RpcSpec> {
     local_state: TrieState,
-    remote_state: Arc<Mutex<CachedRemoteState>>,
+    remote_state: Arc<Mutex<CachedRemoteState<ChainSpecT>>>,
     removed_storage_slots: HashSet<(Address, U256)>,
     /// A pair of the latest state root and local state root
     current_state: RwLock<(B256, B256)>,
@@ -26,11 +26,11 @@ pub struct ForkState {
     removed_remote_accounts: HashSet<Address>,
 }
 
-impl ForkState {
+impl<ChainSpecT: RpcSpec> ForkState<ChainSpecT> {
     /// Constructs a new instance
     pub fn new(
         runtime: runtime::Handle,
-        rpc_client: Arc<EthRpcClient<EthRpcSpec>>,
+        rpc_client: Arc<EthRpcClient<ChainSpecT>>,
         hash_generator: Arc<Mutex<RandomHashGenerator>>,
         fork_block_number: u64,
         state_root: B256,
@@ -60,7 +60,7 @@ impl ForkState {
     }
 }
 
-impl Clone for ForkState {
+impl<ChainSpecT: RpcSpec> Clone for ForkState<ChainSpecT> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn clone(&self) -> Self {
         Self {
@@ -74,7 +74,7 @@ impl Clone for ForkState {
     }
 }
 
-impl StateRef for ForkState {
+impl<ChainSpecT: RpcSpec> StateRef for ForkState<ChainSpecT> {
     type Error = StateError;
 
     fn basic(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -105,7 +105,7 @@ impl StateRef for ForkState {
     }
 }
 
-impl DatabaseCommit for ForkState {
+impl<ChainSpecT: RpcSpec> DatabaseCommit for ForkState<ChainSpecT> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
         changes.iter().for_each(|(address, account)| {
             account.storage.iter().for_each(|(index, value)| {
@@ -121,7 +121,7 @@ impl DatabaseCommit for ForkState {
     }
 }
 
-impl StateDebug for ForkState {
+impl<ChainSpecT: RpcSpec> StateDebug for ForkState<ChainSpecT> {
     type Error = StateError;
 
     fn account_storage_root(&self, _address: &Address) -> Result<Option<B256>, Self::Error> {
@@ -231,11 +231,12 @@ mod tests {
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
+    use crate::chain_spec::L1ChainSpec;
 
     const FORK_BLOCK: u64 = 16220843;
 
     struct TestForkState {
-        fork_state: ForkState,
+        fork_state: ForkState<L1ChainSpec>,
         // We need to keep it around as long as the fork state is alive
         _tempdir: tempfile::TempDir,
     }
@@ -252,7 +253,7 @@ mod tests {
             let tempdir = tempfile::tempdir().expect("can create tempdir");
 
             let runtime = runtime::Handle::current();
-            let rpc_client = EthRpcClient::<EthRpcSpec>::new(
+            let rpc_client = EthRpcClient::<L1ChainSpec>::new(
                 &get_alchemy_url(),
                 tempdir.path().to_path_buf(),
                 None,
@@ -281,7 +282,7 @@ mod tests {
     }
 
     impl Deref for TestForkState {
-        type Target = ForkState;
+        type Target = ForkState<L1ChainSpec>;
 
         fn deref(&self) -> &Self::Target {
             &self.fork_state

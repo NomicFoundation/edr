@@ -6,7 +6,7 @@ pub use cached::CachedRemoteState;
 use edr_eth::{Address, BlockSpec, PreEip1898BlockSpec, B256, U256};
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
-    spec::EthRpcSpec,
+    spec::RpcSpec,
 };
 use revm::{
     db::StateRef,
@@ -15,21 +15,22 @@ use revm::{
 use tokio::runtime;
 
 use super::StateError;
+use crate::{chain_spec::ChainSpec, EthRpcBlock as _};
 
 /// A state backed by a remote Ethereum node
 #[derive(Debug)]
-pub struct RemoteState {
-    client: Arc<EthRpcClient<EthRpcSpec>>,
+pub struct RemoteState<ChainSpecT: RpcSpec> {
+    client: Arc<EthRpcClient<ChainSpecT>>,
     runtime: runtime::Handle,
     block_number: u64,
 }
 
-impl RemoteState {
+impl<ChainSpecT: RpcSpec> RemoteState<ChainSpecT> {
     /// Construct a new instance using an RPC client for a remote Ethereum node
     /// and a block number from which data will be pulled.
     pub fn new(
         runtime: runtime::Handle,
-        client: Arc<EthRpcClient<EthRpcSpec>>,
+        client: Arc<EthRpcClient<ChainSpecT>>,
         block_number: u64,
     ) -> Self {
         Self {
@@ -56,7 +57,9 @@ impl RemoteState {
     pub fn set_block_number(&mut self, block_number: u64) {
         self.block_number = block_number;
     }
+}
 
+impl<ChainSpecT: ChainSpec> RemoteState<ChainSpecT> {
     /// Retrieve the state root of the given block, if it exists.
     pub fn state_root(&self, block_number: u64) -> Result<Option<B256>, RpcClientError> {
         Ok(tokio::task::block_in_place(move || {
@@ -65,11 +68,11 @@ impl RemoteState {
                     .get_block_by_number(PreEip1898BlockSpec::Number(block_number)),
             )
         })?
-        .map(|block| block.state_root))
+        .map(|block| *block.state_root()))
     }
 }
 
-impl StateRef for RemoteState {
+impl<ChainSpecT: RpcSpec> StateRef for RemoteState<ChainSpecT> {
     type Error = StateError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
@@ -108,6 +111,7 @@ impl StateRef for RemoteState {
 mod tests {
     use std::str::FromStr;
 
+    use edr_rpc_eth::spec::EthRpcSpec;
     use tokio::runtime;
 
     use super::*;

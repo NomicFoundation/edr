@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use edr_eth::{transaction::Transaction, Bytes, B256};
 use edr_evm::{
+    chain_spec::L1ChainSpec,
     state::{StateDiff, SyncState},
     trace::Trace,
     ExecutionResult, LocalBlock, MineBlockResultAndState, SyncBlock,
@@ -12,7 +13,7 @@ use edr_evm::{
 /// result needs to be inserted into the blockchain to be persistent.
 pub struct DebugMineBlockResultAndState<StateErrorT> {
     /// Mined block
-    pub block: LocalBlock,
+    pub block: LocalBlock<L1ChainSpec>,
     /// State after mining the block
     pub state: Box<dyn SyncState<StateErrorT>>,
     /// State diff applied by block
@@ -29,7 +30,7 @@ impl<StateErrorT> DebugMineBlockResultAndState<StateErrorT> {
     /// Constructs a new instance from a [`MineBlockResultAndState`],
     /// transaction traces, and decoded console log messages.
     pub fn new(
-        result: MineBlockResultAndState<StateErrorT>,
+        result: MineBlockResultAndState<L1ChainSpec, StateErrorT>,
         transaction_traces: Vec<Trace>,
         console_log_decoded_messages: Vec<Bytes>,
     ) -> Self {
@@ -49,7 +50,7 @@ impl<StateErrorT> DebugMineBlockResultAndState<StateErrorT> {
 #[derive(Debug)]
 pub struct DebugMineBlockResult<BlockchainErrorT> {
     /// Mined block
-    pub block: Arc<dyn SyncBlock<Error = BlockchainErrorT>>,
+    pub block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainErrorT>>,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult>,
     /// Transaction traces

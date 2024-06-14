@@ -1,4 +1,6 @@
 mod detailed;
+/// Types for transactions from a remote provider.
+pub mod remote;
 
 use std::fmt::Debug;
 
@@ -57,7 +59,7 @@ where
 
 /// An error that occurred while during [`validate`].
 #[derive(Debug, thiserror::Error)]
-pub enum TransactionCreationError {
+pub enum CreationError {
     /// Creating contract without any data.
     #[error("Contract creation without any data provided")]
     ContractMissingData,
@@ -75,14 +77,14 @@ pub enum TransactionCreationError {
 pub fn validate<TransactionT: Transaction>(
     transaction: TransactionT,
     spec_id: SpecId,
-) -> Result<TransactionT, TransactionCreationError> {
+) -> Result<TransactionT, CreationError> {
     if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
-        return Err(TransactionCreationError::ContractMissingData);
+        return Err(CreationError::ContractMissingData);
     }
 
     let initial_cost = initial_cost(&transaction, spec_id);
     if transaction.gas_limit() < initial_cost {
-        return Err(TransactionCreationError::InsufficientGas {
+        return Err(CreationError::InsufficientGas {
             initial_gas_cost: U256::from(initial_cost),
             gas_limit: transaction.gas_limit(),
         });
@@ -139,7 +141,7 @@ mod tests {
         let expected_gas_cost = U256::from(21_000);
         assert!(matches!(
             result,
-            Err(TransactionCreationError::InsufficientGas {
+            Err(CreationError::InsufficientGas {
                 initial_gas_cost,
                 gas_limit: TOO_LOW_GAS_LIMIT,
             }) if initial_gas_cost == expected_gas_cost
@@ -171,10 +173,7 @@ mod tests {
         let transaction = transaction::Signed::from(transaction);
         let result = validate(transaction, SpecId::BERLIN);
 
-        assert!(matches!(
-            result,
-            Err(TransactionCreationError::ContractMissingData)
-        ));
+        assert!(matches!(result, Err(CreationError::ContractMissingData)));
 
         assert_eq!(
             result.unwrap_err().to_string(),

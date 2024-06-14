@@ -1,8 +1,10 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::{transaction::Transaction, BlockSpec, PreEip1898BlockSpec, SpecId, B256, U256, U64};
-use edr_evm::{blockchain::BlockchainError, SyncBlock};
+use edr_eth::{
+    transaction::Transaction as _, BlockSpec, PreEip1898BlockSpec, SpecId, B256, U256, U64,
+};
+use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, SyncBlock};
 
 use crate::{
     data::{BlockDataForTransaction, ProviderData, TransactionAndBlock},
@@ -89,7 +91,7 @@ pub fn handle_get_block_transaction_count_by_block_number<
 #[derive(Debug, Clone)]
 struct BlockByNumberResult {
     /// The block
-    pub block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    pub block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     /// Whether the block is a pending block.
     pub pending: bool,
     /// The total difficulty with the block
@@ -114,7 +116,8 @@ fn block_by_number<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
         // Pending block
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<dyn SyncBlock<Error = BlockchainError>> = Arc::new(result.block);
+            let block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>> =
+                Arc::new(result.block);
 
             let last_block = data.last_block()?;
             let previous_total_difficulty = data
@@ -135,7 +138,7 @@ fn block_by_number<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
 
 fn block_to_rpc_output<LoggerErrorT: Debug>(
     spec_id: SpecId,
-    block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     pending: bool,
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,

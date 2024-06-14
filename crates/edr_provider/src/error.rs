@@ -8,8 +8,9 @@ use edr_evm::{
     hex,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
+    transaction::{self, TransactionError},
     DebugTraceError, ExecutionResult, HaltReason, MemPoolAddTransactionError, MineBlockError,
-    MineTransactionError, OutOfGasError, TransactionCreationError, TransactionError,
+    MineTransactionError, OutOfGasError,
 };
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 
@@ -169,7 +170,7 @@ pub enum ProviderError<LoggerErrorT> {
     TimestampEqualsPrevious { proposed: u64 },
     /// An error occurred while creating a pending transaction.
     #[error(transparent)]
-    TransactionCreationError(#[from] TransactionCreationError),
+    TransactionCreationError(#[from] transaction::CreationError),
     /// `eth_sendTransaction` failed and
     /// [`crate::config::ProviderConfig::bail_on_call_failure`] was enabled
     #[error(transparent)]
