@@ -16,7 +16,7 @@ use parking_lot::Mutex;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn issue_4984() -> anyhow::Result<()> {
+async fn issue_336_set_balance_after_forking() -> anyhow::Result<()> {
     const TEST_CONTRACT_ADDRESS: &str = "0x530B7F66914c1E345DF1683eae4536fc7b80660f";
     const DEPLOYMENT_BLOCK_NUMBER: u64 = 5464258;
 
@@ -50,7 +50,7 @@ async fn issue_4984() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn issue_4974() -> anyhow::Result<()> {
+async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     const FORK_BLOCK_NUMBER: u64 = 12_508_443;
 
     let url = "https://coston-api.flare.network/ext/bc/C/rpc";
@@ -75,7 +75,7 @@ async fn issue_4974() -> anyhow::Result<()> {
 }
 
 #[test]
-fn kzg_point_evaluation_present_in_cancun() {
+fn issue_364_kzg_point_evaluation_present_in_cancun() {
     const KZG_POINT_EVALUATION_ADDRESS: Address = precompile::u64_to_address(0x0A);
 
     let precompiles = Precompiles::cancun();
