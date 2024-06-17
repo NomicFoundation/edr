@@ -42,22 +42,9 @@ impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
             return Ok(Some(account.info.clone()));
         }
 
-        if let Some(mut account_info) = self.remote.basic(address)? {
-            // Split code and store separately
-            // Always cache code regardless of the block number for two reasons:
-            // 1. It's an invariant of this trait getting an `AccountInfo` by calling
-            //    `basic`,
-            // one can call `code_by_hash` with `AccountInfo.code_hash` and get the code.
-            // 2. Since the code is identified by its hash, it never goes stale.
-            if let Some(code) = account_info.code.take() {
-                let block_code = self
-                    .code_cache
-                    .entry(self.remote.block_number())
-                    .or_default();
-
-                block_code.entry(account_info.code_hash).or_insert(code);
-            }
-
+        if let Some(account_info) =
+            fetch_remote_account(address, &self.remote, &mut self.code_cache)?
+        {
             if self.remote.is_cacheable()? {
                 block_accounts.insert(address, account_info.clone().into());
             }
@@ -101,10 +88,9 @@ impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
             }
             Entry::Vacant(account_entry) => {
                 // account needs to be loaded for us to access slots.
-                let mut account = self
-                    .remote
-                    .basic(address)?
-                    .map_or_else(EdrAccount::default, EdrAccount::from);
+                let mut account =
+                    fetch_remote_account(address, &self.remote, &mut self.code_cache)?
+                        .map_or_else(EdrAccount::default, EdrAccount::from);
 
                 let value = self.remote.storage(address, index)?;
 
@@ -117,6 +103,30 @@ impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
             }
         })
     }
+}
+
+/// Fetches an account from the remote state. If it exists, code is split off
+/// and stored separately in the provided cache.
+fn fetch_remote_account(
+    address: Address,
+    remote: &RemoteState,
+    code_cache: &mut HashMap<u64, HashMap<B256, Bytecode>>,
+) -> Result<Option<AccountInfo>, StateError> {
+    let account = remote.basic(address)?.map(|mut account_info| {
+        // Always cache code regardless of the block number for two reasons:
+        // 1. It's an invariant of this trait getting an `AccountInfo` by calling
+        //    `basic`,
+        // one can call `code_by_hash` with `AccountInfo.code_hash` and get the code.
+        // 2. Since the code is identified by its hash, it never goes stale.
+        if let Some(code) = account_info.code.take() {
+            let block_code = code_cache.entry(remote.block_number()).or_default();
+
+            block_code.entry(account_info.code_hash).or_insert(code);
+        }
+        account_info
+    });
+
+    Ok(account)
 }
 
 #[cfg(all(test, feature = "test-remote"))]
