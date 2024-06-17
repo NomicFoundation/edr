@@ -536,7 +536,7 @@ export class Response {
 /** Executes solidity tests. */
 export class SolidityTestRunner {
   /**Creates a new instance of the SolidityTestRunner. The callback function will be called with suite results as they finish. */
-  constructor(resultsCallback: (...args: any[]) => any)
+  constructor(cacheDir: string, gasReport: boolean, resultsCallback: (...args: any[]) => any)
   /**Runs the given test suites. */
   runTests(testSuites: Array<TestSuite>): Promise<Array<SuiteResult>>
 }

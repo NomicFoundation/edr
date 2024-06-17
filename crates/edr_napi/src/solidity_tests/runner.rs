@@ -11,12 +11,12 @@ use forge::{
     MultiContractRunner, MultiContractRunnerBuilder, TestOptions, TestOptionsBuilder,
 };
 use foundry_compilers::ArtifactId;
-use foundry_config::{
-    Config, FuzzConfig, FuzzDictionaryConfig, InvariantConfig, RpcEndpoint, RpcEndpoints,
-};
+use foundry_config::{Config, FuzzConfig, InvariantConfig, RpcEndpoint, RpcEndpoints};
 
 pub(super) fn build_runner(
+    cache_dir: PathBuf,
     test_suites: Vec<(ArtifactId, TestContract)>,
+    gas_report: bool,
 ) -> napi::Result<MultiContractRunner> {
     let config = foundry_config();
     let mut evm_opts = evm_opts();
@@ -24,7 +24,7 @@ pub(super) fn build_runner(
 
     let builder = MultiContractRunnerBuilder::new(Arc::new(config))
         .sender(evm_opts.sender)
-        .with_test_options(test_opts());
+        .with_test_options(test_opts(cache_dir, gas_report));
 
     let abis = test_suites.iter().map(|(_, contract)| &contract.abi);
     let revert_decoder = RevertDecoder::new().with_abis(abis);
@@ -104,40 +104,18 @@ fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([("alchemy", RpcEndpoint::Url("${ALCHEMY_URL}".to_string()))])
 }
 
-pub fn test_opts() -> TestOptions {
+fn test_opts(cache_dir: PathBuf, gas_report: bool) -> TestOptions {
+    let mut fuzz_config = FuzzConfig::new(cache_dir.clone());
+    let mut invariant_config = InvariantConfig::new(cache_dir);
+
+    if !gas_report {
+        fuzz_config.gas_report_samples = 0;
+        invariant_config.gas_report_samples = 0;
+    }
+
     TestOptionsBuilder::default()
-        .fuzz(FuzzConfig {
-            runs: 256,
-            max_test_rejects: 65536,
-            seed: None,
-            dictionary: FuzzDictionaryConfig {
-                include_storage: true,
-                include_push_bytes: true,
-                dictionary_weight: 40,
-                max_fuzz_dictionary_addresses: 10_000,
-                max_fuzz_dictionary_values: 10_000,
-            },
-            gas_report_samples: 256,
-            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
-            failure_persist_file: Some("testfailure".to_string()),
-        })
-        .invariant(InvariantConfig {
-            runs: 256,
-            depth: 15,
-            fail_on_revert: false,
-            call_override: false,
-            dictionary: FuzzDictionaryConfig {
-                dictionary_weight: 80,
-                include_storage: true,
-                include_push_bytes: true,
-                max_fuzz_dictionary_addresses: 10_000,
-                max_fuzz_dictionary_values: 10_000,
-            },
-            shrink_run_limit: 2usize.pow(18u32),
-            max_assume_rejects: 65536,
-            gas_report_samples: 256,
-            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
-        })
+        .fuzz(fuzz_config)
+        .invariant(invariant_config)
         .build_hardhat()
         .expect("Config loaded")
 }
