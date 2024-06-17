@@ -178,7 +178,9 @@ impl IntoRemoteBlock<L1ChainSpec> for edr_rpc_eth::Block<edr_rpc_eth::Transactio
             gas_used: self.gas_used,
             timestamp: self.timestamp,
             extra_data: self.extra_data,
-            mix_hash: self.mix_hash.ok_or(CreationError::MissingMixHash)?,
+            // TODO don't accept remote blocks with missing mix hash,
+            // see https://github.com/NomicFoundation/edr/issues/518
+            mix_hash: self.mix_hash.unwrap_or_default(),
             nonce: self.nonce.ok_or(CreationError::MissingNonce)?,
             base_fee_per_gas: self.base_fee_per_gas,
             withdrawals_root: self.withdrawals_root,
