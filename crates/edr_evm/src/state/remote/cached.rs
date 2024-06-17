@@ -107,9 +107,9 @@ impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
 
 /// Fetches an account from the remote state. If it exists, code is split off
 /// and stored separately in the provided cache.
-fn fetch_remote_account(
+fn fetch_remote_account<ChainSpecT: RpcSpec>(
     address: Address,
-    remote: &RemoteState,
+    remote: &RemoteState<ChainSpecT>,
     code_cache: &mut HashMap<u64, HashMap<B256, Bytecode>>,
 ) -> Result<Option<AccountInfo>, StateError> {
     let account = remote.basic(address)?.map(|mut account_info| {
