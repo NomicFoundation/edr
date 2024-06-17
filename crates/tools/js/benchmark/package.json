@@ -9,6 +9,7 @@
     "prebenchmark": "cd ../../../edr_napi/ && pnpm build",
     "verify": "node index.js verify",
     "report": "node index.js report",
+    "test": "mocha --recursive \"test/**/*.js\"",
     "help": "node index.js -h"
   },
   "keywords": [],
@@ -16,8 +17,10 @@
   "license": "ISC",
   "devDependencies": {
     "argparse": "^2.0.1",
+    "chai": "^4.2.0",
     "hardhat": "2.22.5",
     "lodash": "^4.17.11",
+    "mocha": "^10.0.0",
     "tsx": "^4.7.1"
   }
 }
