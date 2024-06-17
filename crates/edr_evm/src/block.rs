@@ -6,11 +6,7 @@ use std::{fmt::Debug, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    block,
-    receipt::BlockReceipt,
-    transaction::{self, Transaction},
-    withdrawal::Withdrawal,
-    B256, U256,
+    block, receipt::BlockReceipt, transaction::Transaction, withdrawal::Withdrawal, B256, U256,
 };
 
 pub use self::{
@@ -19,12 +15,15 @@ pub use self::{
         ExecutionResultWithContext,
     },
     local::LocalBlock,
-    remote::{CreationError as RemoteBlockCreationError, RemoteBlock},
+    remote::{
+        CreationError as RemoteBlockCreationError, EthRpcBlock, IntoRemoteBlock, RemoteBlock,
+    },
 };
+use crate::chain_spec::ChainSpec;
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]
-pub trait Block: Debug {
+pub trait Block<ChainSpecT: ChainSpec>: Debug {
     /// The blockchain error type.
     type Error;
 
@@ -41,7 +40,7 @@ pub trait Block: Debug {
     fn rlp_size(&self) -> u64;
 
     /// Returns the block's transactions.
-    fn transactions(&self) -> &[transaction::Signed];
+    fn transactions(&self) -> &[ChainSpecT::SignedTransaction];
 
     /// Returns the receipts of the block's transactions.
     fn transaction_receipts(&self) -> Result<Vec<Arc<BlockReceipt>>, Self::Error>;
@@ -51,20 +50,31 @@ pub trait Block: Debug {
 }
 
 /// Trait that meets all requirements for a synchronous block.
-pub trait SyncBlock: Block + Send + Sync {}
+pub trait SyncBlock<ChainSpecT>: Block<ChainSpecT> + Send + Sync
+where
+    ChainSpecT: ChainSpec,
+{
+}
 
-impl<BlockT> SyncBlock for BlockT where BlockT: Block + Send + Sync {}
+impl<BlockT, ChainSpecT> SyncBlock<ChainSpecT> for BlockT
+where
+    BlockT: Block<ChainSpecT> + Send + Sync,
+    ChainSpecT: ChainSpec,
+{
+}
 
 /// The result returned by requesting a block by number.
 #[derive(Debug)]
-pub struct BlockAndTotalDifficulty<BlockchainErrorT> {
+pub struct BlockAndTotalDifficulty<ChainSpecT: ChainSpec, BlockchainErrorT> {
     /// The block
-    pub block: Arc<dyn SyncBlock<Error = BlockchainErrorT>>,
+    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// The total difficulty with the block
     pub total_difficulty: Option<U256>,
 }
 
-impl<BlockchainErrorT> Clone for BlockAndTotalDifficulty<BlockchainErrorT> {
+impl<BlockchainErrorT, ChainSpecT: ChainSpec> Clone
+    for BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>
+{
     fn clone(&self) -> Self {
         Self {
             block: self.block.clone(),
@@ -73,10 +83,10 @@ impl<BlockchainErrorT> Clone for BlockAndTotalDifficulty<BlockchainErrorT> {
     }
 }
 
-impl<BlockchainErrorT> From<BlockAndTotalDifficulty<BlockchainErrorT>>
-    for edr_rpc_eth::Block<B256>
+impl<BlockchainErrorT, ChainSpecT: ChainSpec>
+    From<BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>> for edr_rpc_eth::Block<B256>
 {
-    fn from(value: BlockAndTotalDifficulty<BlockchainErrorT>) -> Self {
+    fn from(value: BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>) -> Self {
         let transactions = value
             .block
             .transactions()

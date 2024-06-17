@@ -6,6 +6,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
+    chain_spec::L1ChainSpec,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
     BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, TxEnv,
@@ -17,15 +18,18 @@ pub(super) struct RunCallArgs<'a, 'evm, DebugDataT>
 where
     'a: 'evm,
 {
-    pub blockchain: &'a dyn SyncBlockchain<BlockchainError, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnvWithHandlerCfg,
     pub tx_env: TxEnv,
+    // `DebugContext` cannot be simplified further
+    #[allow(clippy::type_complexity)]
     pub debug_context: Option<
         DebugContext<
             'evm,
+            L1ChainSpec,
             BlockchainError,
             DebugDataT,
             StateRefOverrider<'a, &'evm dyn SyncState<StateError>>,

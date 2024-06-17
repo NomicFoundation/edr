@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
+    chain_spec::{ChainSpec, L1ChainSpec},
     debug::DebugContext,
     mempool::OrderedTransaction,
     state::{StateDiff, SyncState},
@@ -22,16 +23,16 @@ use crate::{
 
 /// The result of mining a block, after having been committed to the blockchain.
 #[derive(Debug)]
-pub struct MineBlockResult<BlockchainErrorT> {
+pub struct MineBlockResult<ChainSpecT, BlockchainErrorT> {
     /// Mined block
-    pub block: Arc<dyn SyncBlock<Error = BlockchainErrorT>>,
+    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult>,
     /// Transaction traces
     pub transaction_traces: Vec<Trace>,
 }
 
-impl<BlockchainErrorT> Clone for MineBlockResult<BlockchainErrorT> {
+impl<BlockchainErrorT, ChainSpecT> Clone for MineBlockResult<ChainSpecT, BlockchainErrorT> {
     fn clone(&self) -> Self {
         Self {
             block: self.block.clone(),
@@ -43,9 +44,12 @@ impl<BlockchainErrorT> Clone for MineBlockResult<BlockchainErrorT> {
 
 /// The result of mining a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.
-pub struct MineBlockResultAndState<StateErrorT> {
+pub struct MineBlockResultAndState<ChainSpecT, StateErrorT>
+where
+    ChainSpecT: ChainSpec,
+{
     /// Mined block
-    pub block: LocalBlock,
+    pub block: LocalBlock<ChainSpecT>,
     /// State after mining the block
     pub state: Box<dyn SyncState<StateErrorT>>,
     /// State diff applied by block
@@ -86,9 +90,11 @@ pub enum MineBlockError<BE, SE> {
 
 /// Mines a block using as many transactions as can fit in it.
 #[allow(clippy::too_many_arguments)]
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
-    blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     mut state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool,
     cfg: &CfgEnvWithHandlerCfg,
@@ -98,9 +104,18 @@ pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     reward: U256,
     dao_hardfork_activation_block: Option<u64>,
     mut debug_context: Option<
-        DebugContext<'evm, BlockchainErrorT, DebugDataT, Box<dyn SyncState<StateErrorT>>>,
+        DebugContext<
+            'evm,
+            L1ChainSpec,
+            BlockchainErrorT,
+            DebugDataT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
     >,
-) -> Result<MineBlockResultAndState<StateErrorT>, MineBlockError<BlockchainErrorT, StateErrorT>>
+) -> Result<
+    MineBlockResultAndState<L1ChainSpec, StateErrorT>,
+    MineBlockError<BlockchainErrorT, StateErrorT>,
+>
 where
     'blockchain: 'evm,
     BlockchainErrorT: Debug + Send,
@@ -261,6 +276,8 @@ pub enum MineTransactionError<BlockchainErrorT, StateErrorT> {
 ///
 /// If the transaction is invalid, returns an error.
 #[allow(clippy::too_many_arguments)]
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<
     'blockchain,
@@ -269,7 +286,7 @@ pub fn mine_block_with_single_transaction<
     DebugDataT,
     StateErrorT,
 >(
-    blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: transaction::Signed,
     cfg: &CfgEnvWithHandlerCfg,
@@ -278,9 +295,18 @@ pub fn mine_block_with_single_transaction<
     reward: U256,
     dao_hardfork_activation_block: Option<u64>,
     debug_context: Option<
-        DebugContext<'evm, BlockchainErrorT, DebugDataT, Box<dyn SyncState<StateErrorT>>>,
+        DebugContext<
+            'evm,
+            L1ChainSpec,
+            BlockchainErrorT,
+            DebugDataT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
     >,
-) -> Result<MineBlockResultAndState<StateErrorT>, MineTransactionError<BlockchainErrorT, StateErrorT>>
+) -> Result<
+    MineBlockResultAndState<L1ChainSpec, StateErrorT>,
+    MineTransactionError<BlockchainErrorT, StateErrorT>,
+>
 where
     'blockchain: 'evm,
     BlockchainErrorT: Debug + Send,

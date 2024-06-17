@@ -1,4 +1,5 @@
 use edr_eth::{Address, B256, U256};
+use edr_rpc_eth::spec::RpcSpec;
 use revm::{
     db::components::{State, StateRef},
     primitives::{hash_map::Entry, AccountInfo, Bytecode, HashMap},
@@ -9,17 +10,17 @@ use crate::state::{account::EdrAccount, StateError};
 
 /// A cached version of [`RemoteState`].
 #[derive(Debug)]
-pub struct CachedRemoteState {
-    remote: RemoteState,
+pub struct CachedRemoteState<ChainSpecT: RpcSpec> {
+    remote: RemoteState<ChainSpecT>,
     /// Mapping of block numbers to cached accounts
     account_cache: HashMap<u64, HashMap<Address, EdrAccount>>,
     /// Mapping of block numbers to cached code
     code_cache: HashMap<u64, HashMap<B256, Bytecode>>,
 }
 
-impl CachedRemoteState {
+impl<ChainSpecT: RpcSpec> CachedRemoteState<ChainSpecT> {
     /// Constructs a new [`CachedRemoteState`].
-    pub fn new(remote: RemoteState) -> Self {
+    pub fn new(remote: RemoteState<ChainSpecT>) -> Self {
         Self {
             remote,
             account_cache: HashMap::new(),
@@ -28,7 +29,7 @@ impl CachedRemoteState {
     }
 }
 
-impl State for CachedRemoteState {
+impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
     type Error = StateError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {

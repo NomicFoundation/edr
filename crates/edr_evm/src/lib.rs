@@ -20,7 +20,6 @@ pub use crate::{
     miner::*,
     random::RandomHashGenerator,
     runtime::{dry_run, guaranteed_dry_run, run, SyncDatabase},
-    transaction::*,
 };
 
 /// Types for managing Ethereum blockchain

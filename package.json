@@ -17,5 +17,8 @@
     "overrides": {
       "hardhat>@nomicfoundation/edr": "workspace:*"
     }
+  },
+  "engines": {
+    "pnpm": ">=9"
   }
 }

@@ -4,28 +4,28 @@ use revm::db::{DatabaseComponents, StateRef, WrapDatabaseRef};
 use crate::blockchain::SyncBlockchain;
 
 /// Type for registering handles, specialised for EDR database component types.
-pub type HandleRegister<'evm, BlockchainErrorT, DebugDataT, StateT> =
+pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> =
     revm::handler::register::HandleRegister<
         DebugDataT,
         WrapDatabaseRef<
             DatabaseComponents<
                 StateT,
-                &'evm dyn SyncBlockchain<BlockchainErrorT, <StateT as StateRef>::Error>,
+                &'evm dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, <StateT as StateRef>::Error>,
             >,
         >,
     >;
 
 /// Type for encapsulating contextual data and handler registration in an
 /// `EvmBuilder`.
-pub struct DebugContext<'evm, BlockchainErrorT, DebugDataT, StateT: StateRef> {
+pub struct DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT: StateRef> {
     /// The contextual data.
     pub data: DebugDataT,
     /// The function to register handles.
-    pub register_handles_fn: HandleRegister<'evm, BlockchainErrorT, DebugDataT, StateT>,
+    pub register_handles_fn: HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>,
 }
 
-pub struct EvmContext<'evm, BlockchainErrorT, DebugDataT, StateT: StateRef> {
-    pub debug: Option<DebugContext<'evm, BlockchainErrorT, DebugDataT, StateT>>,
+pub struct EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT: StateRef> {
+    pub debug: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
     pub state: StateT,
 }
 

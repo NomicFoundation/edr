@@ -1,6 +1,6 @@
 use dyn_clone::DynClone;
 use edr_eth::{filter::LogOutput, B256, U256};
-use edr_evm::{blockchain::BlockchainError, BlockAndTotalDifficulty};
+use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, BlockAndTotalDifficulty};
 
 /// Subscription event.
 #[derive(Clone, Debug)]
@@ -13,7 +13,7 @@ pub struct SubscriptionEvent {
 #[derive(Clone, Debug)]
 pub enum SubscriptionEventData {
     Logs(Vec<LogOutput>),
-    NewHeads(BlockAndTotalDifficulty<BlockchainError>),
+    NewHeads(BlockAndTotalDifficulty<L1ChainSpec, BlockchainError>),
     NewPendingTransactions(B256),
 }
 
