@@ -60,7 +60,7 @@ jobs:
 
       - name: Run benchmark tests
         run: pnpm test
-        
+
       - name: Run benchmark
         run: pnpm run -s benchmark
 
