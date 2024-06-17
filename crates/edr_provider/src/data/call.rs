@@ -9,7 +9,7 @@ use edr_evm::{
     chain_spec::L1ChainSpec,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
-    BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, TxEnv,
+    BlobExcessGasAndPrice, BlockEnv, CfgEnvWithChainSpec, DebugContext, ExecutionResult, TxEnv,
 };
 
 use crate::ProviderError;
@@ -22,7 +22,7 @@ where
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithHandlerCfg,
+    pub cfg_env: CfgEnvWithChainSpec<ChainSpecT>,
     pub tx_env: TxEnv,
     // `DebugContext` cannot be simplified further
     #[allow(clippy::type_complexity)]

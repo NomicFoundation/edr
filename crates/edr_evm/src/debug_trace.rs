@@ -12,10 +12,7 @@ use revm::{
         opcode::{self, BoxedInstruction, InstructionTables, OpCode},
         InstructionResult, Interpreter, InterpreterResult,
     },
-    primitives::{
-        hex, Address, BlockEnv, Bytes, CfgEnvWithHandlerCfg, ExecutionResult, ResultAndState,
-        SpecId, U256,
-    },
+    primitives::{hex, Address, BlockEnv, Bytes, ExecutionResult, ResultAndState, SpecId, U256},
     Database, Evm, EvmContext, JournalEntry,
 };
 
@@ -75,7 +72,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn SyncState<StateErrorT>>,
-    evm_config: CfgEnvWithHandlerCfg,
+    evm_config: CfgEnvWithChainSpec<ChainSpecT>,
     trace_config: DebugTraceConfig,
     block_env: BlockEnv,
     transactions: Vec<transaction::Signed>,

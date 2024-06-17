@@ -6,7 +6,7 @@ use edr_eth::{
     transaction::{self, SignedTransaction as _, Transaction},
     U256,
 };
-use revm::primitives::{CfgEnvWithHandlerCfg, ExecutionResult, InvalidTransaction};
+use revm::primitives::{CfgEnvWithChainSpec, ExecutionResult, InvalidTransaction};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -97,7 +97,7 @@ pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     mut state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool,
-    cfg: &CfgEnvWithHandlerCfg,
+    cfg: &CfgEnvWithChainSpec<ChainSpecT>,
     options: BlockOptions,
     min_gas_price: U256,
     mine_ordering: MineOrdering,
@@ -289,7 +289,7 @@ pub fn mine_block_with_single_transaction<
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: transaction::Signed,
-    cfg: &CfgEnvWithHandlerCfg,
+    cfg: &CfgEnvWithChainSpec<ChainSpecT>,
     options: BlockOptions,
     min_gas_price: U256,
     reward: U256,

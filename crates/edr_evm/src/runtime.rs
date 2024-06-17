@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use revm::{
     db::{DatabaseComponents, StateRef},
     primitives::{
-        BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, ExecutionResult, ResultAndState, SpecId,
+        BlockEnv, CfgEnvWithChainSpec, EnvWithChainSpec, ExecutionResult, ResultAndState, SpecId,
         TxEnv,
     },
     DatabaseCommit, Evm,
@@ -32,7 +32,7 @@ pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErro
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
-    cfg: CfgEnvWithHandlerCfg,
+    cfg: CfgEnvWithChainSpec<ChainSpecT>,
     transaction: TxEnv,
     block: BlockEnv,
     debug_context: Option<
@@ -55,7 +55,7 @@ where
 
     let state_overrider = StateRefOverrider::new(state_overrides, state);
 
-    let env = EnvWithHandlerCfg::new_with_cfg_env(cfg, block, transaction);
+    let env = EnvWithChainSpec::new_with_cfg_env(cfg, block, transaction);
     let result = {
         let evm_builder = Evm::builder().with_ref_db(DatabaseComponents {
             state: state_overrider,
@@ -96,7 +96,7 @@ pub fn guaranteed_dry_run<
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
-    mut cfg: CfgEnvWithHandlerCfg,
+    mut cfg: CfgEnvWithChainSpec<ChainSpecT>,
     mut transaction: TxEnv,
     block: BlockEnv,
     debug_context: Option<
@@ -134,7 +134,7 @@ where
 pub fn run<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT>(
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateT::Error>,
     state: StateT,
-    cfg: CfgEnvWithHandlerCfg,
+    cfg: CfgEnvWithChainSpec<ChainSpecT>,
     transaction: TxEnv,
     block: BlockEnv,
     debug_context: Option<DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>>,
@@ -147,7 +147,7 @@ where
 {
     validate_configuration(&cfg, &block, &transaction)?;
 
-    let env = EnvWithHandlerCfg::new_with_cfg_env(cfg, block, transaction);
+    let env = EnvWithChainSpec::new_with_cfg_env(cfg, block, transaction);
     let evm_builder = Evm::builder().with_ref_db(DatabaseComponents {
         state,
         block_hash: blockchain,
@@ -171,15 +171,15 @@ where
 }
 
 fn validate_configuration<BlockchainErrorT, StateErrorT>(
-    cfg: &CfgEnvWithHandlerCfg,
+    cfg: &CfgEnvWithChainSpec<ChainSpecT>,
     block: &BlockEnv,
     transaction: &TxEnv,
 ) -> Result<(), TransactionError<BlockchainErrorT, StateErrorT>> {
-    if cfg.handler_cfg.spec_id > SpecId::MERGE && block.prevrandao.is_none() {
+    if cfg.spec_id > SpecId::MERGE && block.prevrandao.is_none() {
         return Err(TransactionError::MissingPrevrandao);
     }
 
-    if transaction.gas_priority_fee.is_some() && cfg.handler_cfg.spec_id < SpecId::LONDON {
+    if transaction.gas_priority_fee.is_some() && cfg.spec_id < SpecId::LONDON {
         return Err(TransactionError::Eip1559Unsupported);
     }
 

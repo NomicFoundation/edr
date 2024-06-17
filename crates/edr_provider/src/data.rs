@@ -43,7 +43,7 @@ use edr_evm::{
     trace::Trace,
     transaction::{self, SignedTransaction as _},
     Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
-    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
+    Bytecode, CfgEnv, CfgEnvWithChainSpec, DebugContext, DebugTraceConfig,
     DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutionResult, HashMap, HashSet, MemPool,
     MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock,
     TxEnv, KECCAK_EMPTY,
@@ -1106,7 +1106,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<LoggerErrorT, TimerT>,
-            &CfgEnvWithHandlerCfg,
+            &CfgEnvWithChainSpec<ChainSpecT>,
             BlockOptions,
             &mut Debugger,
         ) -> Result<
@@ -1893,7 +1893,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn create_evm_config(
         &self,
         block_spec: Option<&BlockSpec>,
-    ) -> Result<CfgEnvWithHandlerCfg, ProviderError<LoggerErrorT>> {
+    ) -> Result<CfgEnvWithChainSpec<ChainSpecT>, ProviderError<LoggerErrorT>> {
         let block_number = block_spec
             .map(|block_spec| self.block_number_by_block_spec(block_spec))
             .transpose()?
@@ -1914,7 +1914,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         };
         cfg_env.disable_eip3607 = true;
 
-        Ok(CfgEnvWithHandlerCfg::new_with_spec_id(cfg_env, spec_id))
+        Ok(CfgEnvWithChainSpec<ChainSpecT>::new_with_spec_id(cfg_env, spec_id))
     }
 
     fn execute_in_block_context<T>(
@@ -1960,7 +1960,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<LoggerErrorT, TimerT>,
-            &CfgEnvWithHandlerCfg,
+            &CfgEnvWithChainSpec<ChainSpecT>,
             BlockOptions,
             &mut Debugger,
         ) -> Result<
@@ -2009,7 +2009,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     fn mine_block_with_mem_pool(
         &mut self,
-        config: &CfgEnvWithHandlerCfg,
+        config: &CfgEnvWithChainSpec<ChainSpecT>,
         options: BlockOptions,
         debugger: &mut Debugger,
     ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
@@ -2035,7 +2035,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     fn mine_block_with_single_transaction(
         &mut self,
-        config: &CfgEnvWithHandlerCfg,
+        config: &CfgEnvWithChainSpec<ChainSpecT>,
         options: BlockOptions,
         transaction: transaction::Signed,
         debugger: &mut Debugger,

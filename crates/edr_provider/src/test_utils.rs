@@ -16,7 +16,7 @@ use edr_evm::{
     blockchain::{Blockchain as _, ForkedBlockchain},
     chain_spec::L1ChainSpec,
     state::IrregularState,
-    Block, BlockBuilder, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResultWithContext,
+    Block, BlockBuilder, CfgEnv, CfgEnvWithChainSpec, DebugContext, ExecutionResultWithContext,
     IntoRemoteBlock, RandomHashGenerator,
 };
 use edr_rpc_eth::client::EthRpcClient;
@@ -181,7 +181,7 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 
-    let cfg = CfgEnvWithHandlerCfg::new_with_spec_id(cfg, spec_id);
+    let cfg = CfgEnvWithChainSpec<ChainSpecT>::new_with_spec_id(cfg, spec_id);
 
     let parent = blockchain.last_block()?;
     let replay_header = replay_block.header();

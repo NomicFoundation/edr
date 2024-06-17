@@ -14,6 +14,7 @@ use crate::{transaction::remote::EthRpcTransaction, EthRpcBlock, IntoRemoteBlock
 pub trait ChainSpec:
     Debug
     + alloy_rlp::Encodable
+    + revm::primitives::ChainSpec
     + RpcSpec<
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock + IntoRemoteBlock<Self>,
         RpcTransaction: EthRpcTransaction,
@@ -38,8 +39,20 @@ impl<ChainSpecT> SyncChainSpec for ChainSpecT where
 }
 
 /// The chain specification for Ethereum Layer 1.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, RlpEncodable)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct L1ChainSpec;
+
+impl revm::primitives::ChainSpec for L1ChainSpec {
+    type Block = revm::primitives::BlockEnv;
+
+    type Hardfork = revm::primitives::SpecId;
+
+    type HaltReason = revm::primitives::HaltReason;
+
+    type Transaction = revm::primitives::TxEnv;
+
+    type TransactionValidationError = revm::primitives::InvalidTransaction;
+}
 
 impl ChainSpec for L1ChainSpec {
     type SignedTransaction = edr_eth::transaction::Signed;

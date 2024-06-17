@@ -7,7 +7,7 @@ use edr_evm::{
     chain_spec::L1ChainSpec,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, SyncBlock, TxEnv,
+    CfgEnvWithChainSpec, DebugContext, ExecutionResult, SyncBlock, TxEnv,
 };
 use itertools::Itertools;
 
@@ -21,7 +21,7 @@ pub(super) struct CheckGasLimitArgs<'a> {
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithHandlerCfg,
+    pub cfg_env: CfgEnvWithChainSpec<ChainSpecT>,
     pub tx_env: TxEnv,
     pub gas_limit: u64,
     pub trace_collector: &'a mut TraceCollector,
@@ -67,7 +67,7 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithHandlerCfg,
+    pub cfg_env: CfgEnvWithChainSpec<ChainSpecT>,
     pub tx_env: TxEnv,
     pub lower_bound: u64,
     pub upper_bound: u64,
