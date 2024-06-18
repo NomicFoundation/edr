@@ -18,11 +18,10 @@ describe("Solidity Tests", () => {
       loadContract("./artifacts/PaymentFailureTest.json"),
     ];
 
-    const tmpDir = await mkdtemp(path.join(tmpdir(), "solidity-tests-"));
     const gasReport = false;
 
     const resultsFromCallback: Array<SuiteResult> = [];
-    const runner = new SolidityTestRunner(tmpDir, gasReport, (...args) => {
+    const runner = new SolidityTestRunner(gasReport, (...args) => {
       resultsFromCallback.push(args[1] as SuiteResult);
     });
 

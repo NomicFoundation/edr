@@ -2,10 +2,7 @@ mod runner;
 mod test_results;
 mod test_suite;
 
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::Path, sync::Arc};
 
 use forge::TestFilter;
 use napi::{
@@ -27,7 +24,6 @@ use crate::solidity_tests::{
 pub struct SolidityTestRunner {
     /// The callback to call with the results as they become available.
     results_callback_fn: ThreadsafeFunction<SuiteResult>,
-    cache_dir: PathBuf,
     gas_report: bool,
 }
 
@@ -36,12 +32,7 @@ pub struct SolidityTestRunner {
 impl SolidityTestRunner {
     #[doc = "Creates a new instance of the SolidityTestRunner. The callback function will be called with suite results as they finish."]
     #[napi(constructor)]
-    pub fn new(
-        env: Env,
-        cache_dir: String,
-        gas_report: bool,
-        results_callback: JsFunction,
-    ) -> napi::Result<Self> {
+    pub fn new(env: Env, gas_report: bool, results_callback: JsFunction) -> napi::Result<Self> {
         let mut results_callback_fn: ThreadsafeFunction<_, ErrorStrategy::CalleeHandled> =
             results_callback.create_threadsafe_function(
                 // Unbounded queue size
@@ -52,11 +43,8 @@ impl SolidityTestRunner {
         // Allow the event loop to exit before the function is destroyed
         results_callback_fn.unref(&env)?;
 
-        let cache_dir: PathBuf = cache_dir.into();
-
         Ok(Self {
             results_callback_fn,
-            cache_dir,
             gas_report,
         })
     }
@@ -68,7 +56,7 @@ impl SolidityTestRunner {
             .into_iter()
             .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
             .collect::<Result<Vec<_>, napi::Error>>()?;
-        let runner = build_runner(self.cache_dir.clone(), test_suites, self.gas_report)?;
+        let runner = build_runner(test_suites, self.gas_report)?;
 
         let (tx_results, mut rx_results) =
             tokio::sync::mpsc::unbounded_channel::<(String, forge::result::SuiteResult)>();
