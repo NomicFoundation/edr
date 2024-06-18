@@ -413,9 +413,11 @@ jobs:
       - name: Check number of artifacts
         shell: bash
         run: |
-          NUMBER_OF_ARTIFACTS=$(ls -1q ./crates/edr_napi/artifacts/*.node | wc -l)
-          echo "Number of artifacts: $NUMBER_OF_ARTIFACTS"
-          echo "Expected number of artifacts: $NUMBER_OF_TARGETS"
+          tree artifacts
+          # get number of artifacts with unique names
+          NUMBER_OF_ARTIFACTS=$(ls -1q artifacts/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+          echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
+          echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
       - name: Install sponge
         run: |
