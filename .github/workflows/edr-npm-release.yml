@@ -87,13 +87,13 @@ jobs:
       run:
         working-directory: ./crates/edr_napi
     steps:
+      - uses: actions/checkout@v4
       - name: Check number of targets
         shell: bash
         run: |
           echo "Number of build jobs: ${{ strategy.job-total }}"
           echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
-      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
           version: 9
