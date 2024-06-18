@@ -4,6 +4,7 @@ env:
   DEBUG: napi:*
   APP_NAME: edr
   MACOSX_DEPLOYMENT_TARGET: "10.13"
+  NUMBER_OF_TARGETS: 7
 permissions:
   contents: write
   id-token: write
@@ -87,6 +88,12 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - uses: actions/checkout@v4
+      - name: Check number of targets
+        shell: bash
+        run: |
+          echo "Number of build jobs: ${{ strategy.job-total }}"
+          echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
+          test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
       - uses: pnpm/action-setup@v2
         with:
           version: 9
@@ -154,6 +161,8 @@ jobs:
         settings:
           - host: macos-12
             target: x86_64-apple-darwin
+          - host: macos-14
+            target: aarch64-apple-darwin
           - host: windows-2022
             target: x86_64-pc-windows-msvc
         node:
@@ -303,9 +312,15 @@ jobs:
             pnpm testNoBuild
             ls -la
   test-linux-aarch64-musl-binding:
-    name: Test bindings on aarch64-unknown-linux-musl - node@lts
+    name: Test bindings on aarch64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "18"
+          - "20"
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -333,7 +348,7 @@ jobs:
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
-          image: node:lts-alpine
+          image: node:${{ matrix.node }}-alpine
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
             wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node
@@ -395,6 +410,15 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           path: ./crates/edr_napi/artifacts
+      - name: Check number of artifacts
+        shell: bash
+        run: |
+          tree artifacts
+          # get number of artifacts with unique names
+          NUMBER_OF_ARTIFACTS=$(ls -1q artifacts/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+          echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
+          echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
+          test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
       - name: Install sponge
         run: |
           sudo apt-get update
