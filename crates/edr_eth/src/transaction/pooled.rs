@@ -1,17 +1,16 @@
-/// Types for EIP-4844 pooled transactions
-pub mod eip4844;
+mod eip4844;
 
-pub use self::eip4844::Eip4844PooledTransaction;
-use super::{
-    Eip1559SignedTransaction, Eip155SignedTransaction, Eip2930SignedTransaction,
-    LegacySignedTransaction, SignedTransaction,
+pub use self::eip4844::Eip4844;
+use super::Signed;
+use crate::{
+    transaction::{signed::PreOrPostEip155, INVALID_TX_TYPE_ERROR_MESSAGE},
+    utils::enveloped,
 };
-use crate::{transaction::INVALID_TX_TYPE_ERROR_MESSAGE, utils::enveloped};
 
-pub type LegacyPooledTransaction = LegacySignedTransaction;
-pub type Eip155PooledTransaction = Eip155SignedTransaction;
-pub type Eip2930PooledTransaction = Eip2930SignedTransaction;
-pub type Eip1559PooledTransaction = Eip1559SignedTransaction;
+pub type LegacyPooledTransaction = super::signed::Legacy;
+pub type Eip155PooledTransaction = super::signed::Eip155;
+pub type Eip2930PooledTransaction = super::signed::Eip2930;
+pub type Eip1559PooledTransaction = super::signed::Eip1559;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PooledTransaction {
@@ -24,7 +23,7 @@ pub enum PooledTransaction {
     /// EIP-1559 transaction
     Eip1559(Eip1559PooledTransaction),
     /// EIP-4844 transaction
-    Eip4844(Eip4844PooledTransaction),
+    Eip4844(Eip4844),
 }
 
 impl PooledTransaction {
@@ -45,13 +44,13 @@ impl PooledTransaction {
     }
 
     /// Converts the pooled transaction into a signed transaction.
-    pub fn into_payload(self) -> SignedTransaction {
+    pub fn into_payload(self) -> Signed {
         match self {
-            PooledTransaction::PreEip155Legacy(tx) => SignedTransaction::PreEip155Legacy(tx),
-            PooledTransaction::PostEip155Legacy(tx) => SignedTransaction::PostEip155Legacy(tx),
-            PooledTransaction::Eip2930(tx) => SignedTransaction::Eip2930(tx),
-            PooledTransaction::Eip1559(tx) => SignedTransaction::Eip1559(tx),
-            PooledTransaction::Eip4844(tx) => SignedTransaction::Eip4844(tx.into_payload()),
+            PooledTransaction::PreEip155Legacy(tx) => Signed::PreEip155Legacy(tx),
+            PooledTransaction::PostEip155Legacy(tx) => Signed::PostEip155Legacy(tx),
+            PooledTransaction::Eip2930(tx) => Signed::Eip2930(tx),
+            PooledTransaction::Eip1559(tx) => Signed::Eip1559(tx),
+            PooledTransaction::Eip4844(tx) => Signed::Eip4844(tx.into_payload()),
         }
     }
 
@@ -92,17 +91,11 @@ impl alloy_rlp::Decodable for PooledTransaction {
             0x03 => {
                 buf.advance(1);
 
-                Ok(PooledTransaction::Eip4844(
-                    Eip4844PooledTransaction::decode(buf)?,
-                ))
+                Ok(PooledTransaction::Eip4844(Eip4844::decode(buf)?))
             }
             byte if is_list(byte) => {
-                let tx = LegacyPooledTransaction::decode(buf)?;
-                if tx.signature.v >= 35 {
-                    Ok(PooledTransaction::PostEip155Legacy(tx.into()))
-                } else {
-                    Ok(PooledTransaction::PreEip155Legacy(tx))
-                }
+                let transaction = PreOrPostEip155::decode(buf)?;
+                Ok(transaction.into())
             }
             _ => Err(alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE)),
         }
@@ -155,9 +148,18 @@ impl From<Eip1559PooledTransaction> for PooledTransaction {
     }
 }
 
-impl From<Eip4844PooledTransaction> for PooledTransaction {
-    fn from(value: Eip4844PooledTransaction) -> Self {
+impl From<Eip4844> for PooledTransaction {
+    fn from(value: Eip4844) -> Self {
         PooledTransaction::Eip4844(value)
+    }
+}
+
+impl From<PreOrPostEip155> for PooledTransaction {
+    fn from(value: PreOrPostEip155) -> Self {
+        match value {
+            PreOrPostEip155::Pre(tx) => Self::PreEip155Legacy(tx),
+            PreOrPostEip155::Post(tx) => Self::PostEip155Legacy(tx),
+        }
     }
 }
 
@@ -171,8 +173,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        signature::Signature,
-        transaction::{Eip4844SignedTransaction, TxKind},
+        signature,
+        transaction::{self, TxKind},
         Address, Bytes, B256, U256,
     };
 
@@ -220,13 +222,17 @@ mod tests {
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: Signature {
-                r: U256::default(),
-                s: U256::default(),
-                v: 1,
-            },
+            // SAFETY: Signature and caller address have been precomputed based on
+            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature::SignatureWithRecoveryId {
+                    r: U256::from_str("0xf0407adecc60467f3293582a9e1d726db5bc6b64f230bfb6ff04f23a1bbfe8dc")?,
+                    s: U256::from_str("0x2f68623b42c3b302b8b96035c30ca58c566fdfdc3421ddb4f41d61b485e1401b")?,
+                    v: 27,
+                },
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
             hash: OnceLock::new(),
-            is_fake: false
         }),
         post_eip155 => PooledTransaction::PostEip155Legacy(Eip155PooledTransaction {
             nonce: 0,
@@ -235,28 +241,38 @@ mod tests {
             kind: TxKind::Create,
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            signature: Signature {
-                r: U256::default(),
-                s: U256::default(),
-                v: 37,
-            },
+            // SAFETY: Signature and caller address have been precomputed based on
+            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature::SignatureWithRecoveryId {
+                    r: U256::from_str("0xed3a859fce13d142bba6051a91f934947f71c5f8ce8e3fe5bc7a845365309b90")?,
+                    s: U256::from_str("0x1deb3bbf3fff7fba96e853ff1a19eabb117ef93b7704176893e4e9fff0e04576")?,
+                    v: 2709,
+                },
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
             hash: OnceLock::new(),
-            is_fake: false
         }),
         eip2930 => PooledTransaction::Eip2930(Eip2930PooledTransaction {
             chain_id: 1,
             nonce: 0,
             gas_price: U256::from(1),
             gas_limit: 2,
-            kind: TxKind::Call(Address::random()),
+            kind: TxKind::Call(Address::default()),
             value: U256::from(3),
             input: Bytes::from(vec![1, 2]),
-            odd_y_parity: true,
-            r: U256::default(),
-            s: U256::default(),
             access_list: vec![].into(),
+            // SAFETY: Signature and caller address have been precomputed based on
+            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature::SignatureWithYParity {
+                    r: U256::from_str("0xa8d41ec812e66a7d80a1478f053cb8b627abb36191f53c2f7a153b4e4f90564d")?,
+                    s: U256::from_str("0x5a04b306c280730f872be5cd1970a3b493bdb4855fdbc2725dd9452f1a3e9412")?,
+                    y_parity: true,
+                },
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
             hash: OnceLock::new(),
-            is_fake: false
         }),
         eip1559 => PooledTransaction::Eip1559(Eip1559PooledTransaction {
             chain_id: 1,
@@ -268,14 +284,20 @@ mod tests {
             value: U256::from(4),
             input: Bytes::from(vec![1, 2]),
             access_list: vec![].into(),
-            odd_y_parity: true,
-            r: U256::default(),
-            s: U256::default(),
+            // SAFETY: Signature and caller address have been precomputed based on
+            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature::SignatureWithYParity {
+                    r: U256::from_str("0x263b71578125bf86e9e842a920af2d941cd023893c4a452d158c87eabdf06bb9")?,
+                    s: U256::from_str("0x097ff1980e38856c8e0310823e6cfc83032314f50ddd38568d3c9cf93e47d517")?,
+                    y_parity: true,
+                },
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
             hash: OnceLock::new(),
-            is_fake: false
         }),
         eip4844 => PooledTransaction::Eip4844(
-            Eip4844PooledTransaction::new(Eip4844SignedTransaction {
+            Eip4844::new(transaction::signed::Eip4844 {
                 chain_id: 1337,
                 nonce: 0,
                 max_priority_fee_per_gas: U256::from(1_000_000_000),
@@ -287,11 +309,16 @@ mod tests {
                 input: Bytes::from_str("0x2069b0c7")?,
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
-                odd_y_parity: true,
-                r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
-                s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
+                // SAFETY: Signature and caller address have been precomputed
+                signature: unsafe { signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithYParity {
+                        r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
+                        s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
+                        y_parity: true,
+                    },
+                    Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+                )},
                 hash: OnceLock::new(),
-                is_fake: false
             },
             vec![fake_eip4844_blob()],
             vec![c_kzg::Bytes48::from_hex(

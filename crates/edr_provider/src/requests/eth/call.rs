@@ -1,14 +1,8 @@
 use core::fmt::Debug;
 
-use edr_eth::{
-    remote::{eth::CallRequest, BlockSpec, StateOverrideOptions},
-    transaction::{
-        Eip1559TransactionRequest, Eip155TransactionRequest, Eip2930TransactionRequest,
-        TransactionRequest,
-    },
-    Bytes, SpecId, U256,
-};
-use edr_evm::{state::StateOverrides, trace::Trace, ExecutableTransaction};
+use edr_eth::{BlockSpec, Bytes, SpecId, U256};
+use edr_evm::{state::StateOverrides, trace::Trace, transaction};
+use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
 use crate::{
     data::ProviderData, requests::validation::validate_call_request, time::TimeSinceEpoch,
@@ -61,7 +55,7 @@ pub(crate) fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinc
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ExecutableTransaction, ProviderError<LoggerErrorT>> {
+) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
     resolve_call_request_inner(
         data,
         request,
@@ -95,7 +89,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         // max_priority_fee_per_gas
         Option<U256>,
     ) -> Result<(U256, U256), ProviderError<LoggerErrorT>>,
-) -> Result<ExecutableTransaction, ProviderError<LoggerErrorT>> {
+) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
     let CallRequest {
         from,
         to,
@@ -120,7 +114,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
         match access_list {
             Some(access_list) if data.spec_id() >= SpecId::BERLIN => {
-                TransactionRequest::Eip2930(Eip2930TransactionRequest {
+                transaction::Request::Eip2930(transaction::request::Eip2930 {
                     nonce,
                     gas_price,
                     gas_limit,
@@ -131,7 +125,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
                     access_list,
                 })
             }
-            _ => TransactionRequest::Eip155(Eip155TransactionRequest {
+            _ => transaction::Request::Eip155(transaction::request::Eip155 {
                 nonce,
                 gas_price,
                 gas_limit,
@@ -145,7 +139,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             max_fees_fn(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-        TransactionRequest::Eip1559(Eip1559TransactionRequest {
+        transaction::Request::Eip1559(transaction::request::Eip1559 {
             chain_id,
             nonce,
             max_fee_per_gas,
@@ -158,8 +152,9 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         })
     };
 
-    let transaction = transaction.fake_sign(&from);
-    ExecutableTransaction::with_caller(data.spec_id(), transaction, from)
+    let transaction = transaction.fake_sign(from);
+
+    transaction::validate(transaction, SpecId::LATEST)
         .map_err(ProviderError::TransactionCreationError)
 }
 

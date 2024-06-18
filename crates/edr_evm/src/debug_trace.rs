@@ -1,7 +1,9 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
-    signature::SignatureError, transaction::Transaction, utils::u256_to_padded_hex, B256,
+    transaction::{self, Transaction},
+    utils::u256_to_padded_hex,
+    B256,
 };
 use revm::{
     db::DatabaseComponents,
@@ -22,7 +24,7 @@ use crate::{
     debug::GetContextData,
     state::SyncState,
     trace::{register_trace_collector_handles, Trace, TraceCollector},
-    ExecutableTransaction, TransactionError,
+    transaction::TransactionError,
 };
 
 /// EIP-3155 and raw tracers.
@@ -69,14 +71,14 @@ pub fn register_eip_3155_and_raw_tracers_handles<
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 #[allow(clippy::too_many_arguments)]
-pub fn debug_trace_transaction<BlockchainErrorT, StateErrorT>(
-    blockchain: &dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn SyncState<StateErrorT>>,
     evm_config: CfgEnvWithHandlerCfg,
     trace_config: DebugTraceConfig,
     block_env: BlockEnv,
-    transactions: Vec<ExecutableTransaction>,
+    transactions: Vec<transaction::Signed>,
     transaction_hash: &B256,
     verbose_tracing: bool,
 ) -> Result<DebugTraceResultWithTraces, DebugTraceError<BlockchainErrorT, StateErrorT>>
@@ -203,9 +205,6 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT> {
         /// The block number.
         block_number: U256,
     },
-    /// Signature error.
-    #[error(transparent)]
-    SignatureError(#[from] SignatureError),
     /// Transaction error.
     #[error(transparent)]
     TransactionError(#[from] TransactionError<BlockchainErrorT, StateErrorT>),

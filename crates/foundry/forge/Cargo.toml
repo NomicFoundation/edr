@@ -11,7 +11,7 @@ vergen = { workspace = true, default-features = false, features = ["build", "git
 [dependencies]
 # lib
 foundry-common.workspace = true
-foundry-compilers = { workspace = true, features = ["full"] }
+foundry-compilers = { workspace = true }
 foundry-config.workspace = true
 foundry-evm.workspace = true
 foundry-linking.workspace = true
@@ -51,3 +51,6 @@ tempfile.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 alloy-signer-wallet.workspace = true
+
+[lints]
+workspace = true

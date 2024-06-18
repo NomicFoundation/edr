@@ -2,11 +2,8 @@ use core::fmt::Debug;
 use std::iter;
 
 use edr_eth::{
-    remote::{
-        filter::{FilteredEvents, LogFilterOptions, LogOutput, OneOrMore, SubscriptionType},
-        BlockSpec, BlockTag, Eip1898BlockSpec,
-    },
-    U256,
+    filter::{FilteredEvents, LogFilterOptions, LogOutput, OneOrMore, SubscriptionType},
+    BlockSpec, BlockTag, Eip1898BlockSpec, U256,
 };
 use edr_evm::HashSet;
 

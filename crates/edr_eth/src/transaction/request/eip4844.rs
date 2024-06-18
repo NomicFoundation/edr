@@ -6,14 +6,14 @@ use revm_primitives::keccak256;
 
 use crate::{
     access_list::AccessListItem,
-    signature::{Signature, SignatureError},
-    transaction::{fake_signature::make_fake_signature, Eip4844SignedTransaction},
+    signature::{self, public_key_to_address, Fakeable, SignatureError},
+    transaction,
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
-pub struct Eip4844TransactionRequest {
+pub struct Eip4844 {
     // The order of these fields determines encoding order.
     pub chain_id: u64,
     pub nonce: u64,
@@ -28,7 +28,7 @@ pub struct Eip4844TransactionRequest {
     pub blob_hashes: Vec<B256>,
 }
 
-impl Eip4844TransactionRequest {
+impl Eip4844 {
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         let encoded = alloy_rlp::encode(self);
@@ -36,12 +36,32 @@ impl Eip4844TransactionRequest {
         keccak256(envelop_bytes(3, &encoded))
     }
 
-    pub fn sign(self, private_key: &SecretKey) -> Result<Eip4844SignedTransaction, SignatureError> {
+    /// Signs the transaction with the provided secret key.
+    pub fn sign(
+        self,
+        secret_key: &SecretKey,
+    ) -> Result<transaction::signed::Eip4844, SignatureError> {
+        let caller = public_key_to_address(secret_key.public_key());
+
+        // SAFETY: The caller is derived from the secret key.
+        unsafe { self.sign_for_sender_unchecked(secret_key, caller) }
+    }
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided caller's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    pub unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<transaction::signed::Eip4844, SignatureError> {
         let hash = self.hash();
+        let signature = signature::SignatureWithYParity::new(hash, secret_key)?;
 
-        let signature = Signature::new(hash, private_key)?;
-
-        Ok(Eip4844SignedTransaction {
+        Ok(transaction::signed::Eip4844 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,
@@ -53,18 +73,13 @@ impl Eip4844TransactionRequest {
             input: self.input,
             access_list: self.access_list.into(),
             blob_hashes: self.blob_hashes,
-            odd_y_parity: signature.odd_y_parity(),
-            r: signature.r,
-            s: signature.s,
+            signature: Fakeable::with_address_unchecked(signature, caller),
             hash: OnceLock::new(),
-            is_fake: false,
         })
     }
 
-    pub fn fake_sign(self, address: &Address) -> Eip4844SignedTransaction {
-        let signature = make_fake_signature::<1>(address);
-
-        Eip4844SignedTransaction {
+    pub fn fake_sign(self, address: Address) -> transaction::signed::Eip4844 {
+        transaction::signed::Eip4844 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,
@@ -76,29 +91,8 @@ impl Eip4844TransactionRequest {
             input: self.input,
             access_list: self.access_list.into(),
             blob_hashes: self.blob_hashes,
-            odd_y_parity: signature.odd_y_parity(),
-            r: signature.r,
-            s: signature.s,
+            signature: signature::Fakeable::fake(address, None),
             hash: OnceLock::new(),
-            is_fake: true,
-        }
-    }
-}
-
-impl From<&Eip4844SignedTransaction> for Eip4844TransactionRequest {
-    fn from(t: &Eip4844SignedTransaction) -> Self {
-        Self {
-            chain_id: t.chain_id,
-            nonce: t.nonce,
-            max_priority_fee_per_gas: t.max_priority_fee_per_gas,
-            max_fee_per_gas: t.max_fee_per_gas,
-            max_fee_per_blob_gas: t.max_fee_per_blob_gas,
-            gas_limit: t.gas_limit,
-            to: t.to,
-            value: t.value,
-            input: t.input.clone(),
-            access_list: t.access_list.0.clone(),
-            blob_hashes: t.blob_hashes.clone(),
         }
     }
 }
@@ -112,9 +106,9 @@ pub(crate) mod tests {
     use super::*;
     use crate::transaction::fake_signature::tests::test_fake_sign_properties;
 
-    fn dummy_request() -> Eip4844TransactionRequest {
+    fn dummy_request() -> Eip4844 {
         // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
-        Eip4844TransactionRequest {
+        Eip4844 {
             chain_id: 1337,
             nonce: 0,
             max_priority_fee_per_gas: U256::from(0x3b9aca00u64),

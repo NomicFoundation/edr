@@ -2,29 +2,39 @@ use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use edr_eth::{
-    log::FilterLog,
-    receipt::BlockReceipt,
-    remote::{self, filter::OneOrMore, BlockSpec, PreEip1898BlockSpec, RpcClient},
-    Address, B256, U256,
+    filter::OneOrMore, log::FilterLog, receipt::BlockReceipt, Address, BlockSpec,
+    PreEip1898BlockSpec, B256, U256,
 };
+use edr_rpc_eth::client::EthRpcClient;
 use revm::primitives::HashSet;
 use tokio::runtime;
 
 use super::storage::SparseBlockchainStorage;
-use crate::{blockchain::ForkedBlockchainError, Block, RemoteBlock};
+use crate::{
+    blockchain::ForkedBlockchainError, chain_spec::ChainSpec,
+    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, IntoRemoteBlock,
+    RemoteBlock,
+};
 
 #[derive(Debug)]
-pub struct RemoteBlockchain<BlockT: Block + Clone, const FORCE_CACHING: bool> {
-    client: Arc<RpcClient>,
-    cache: RwLock<SparseBlockchainStorage<BlockT>>,
+pub struct RemoteBlockchain<BlockT, ChainSpecT, const FORCE_CACHING: bool>
+where
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: ChainSpec,
+{
+    client: Arc<EthRpcClient<ChainSpecT>>,
+    cache: RwLock<SparseBlockchainStorage<BlockT, ChainSpecT>>,
     runtime: runtime::Handle,
 }
 
-impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
-    RemoteBlockchain<BlockT, FORCE_CACHING>
+impl<BlockT, ChainSpecT, const FORCE_CACHING: bool>
+    RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>
+where
+    BlockT: Block<ChainSpecT> + Clone + From<RemoteBlock<ChainSpecT>>,
+    ChainSpecT: ChainSpec,
 {
     /// Constructs a new instance with the provided RPC client.
-    pub fn new(client: Arc<RpcClient>, runtime: runtime::Handle) -> Self {
+    pub fn new(client: Arc<EthRpcClient<ChainSpecT>>, runtime: runtime::Handle) -> Self {
         Self {
             client,
             cache: RwLock::new(SparseBlockchainStorage::default()),
@@ -46,7 +56,7 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
 
         if let Some(block) = self
             .client
-            .get_block_by_hash_with_transaction_data(hash)
+            .get_block_by_hash_with_transaction_data(*hash)
             .await?
         {
             self.fetch_and_cache_block(cache, block)
@@ -96,10 +106,10 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
 
         if let Some(transaction) = self
             .client
-            .get_transaction_by_hash(transaction_hash)
+            .get_transaction_by_hash(*transaction_hash)
             .await?
         {
-            self.block_by_hash(&transaction.block_hash.expect("Not a pending transaction"))
+            self.block_by_hash(transaction.block_hash().expect("Not a pending transaction"))
                 .await
         } else {
             Ok(None)
@@ -107,7 +117,7 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
     }
 
     /// Retrieves the instance's RPC client.
-    pub fn client(&self) -> &Arc<RpcClient> {
+    pub fn client(&self) -> &Arc<EthRpcClient<ChainSpecT>> {
         &self.client
     }
 
@@ -166,7 +176,7 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
             Ok(Some(receipt.clone()))
         } else if let Some(receipt) = self
             .client
-            .get_transaction_receipt(transaction_hash)
+            .get_transaction_receipt(*transaction_hash)
             .await?
         {
             Ok(Some({
@@ -195,11 +205,11 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
             Ok(Some(difficulty))
         } else if let Some(block) = self
             .client
-            .get_block_by_hash_with_transaction_data(hash)
+            .get_block_by_hash_with_transaction_data(*hash)
             .await?
         {
-            let total_difficulty = block
-                .total_difficulty
+            let total_difficulty = *block
+                .total_difficulty()
                 .expect("Must be present as this is not a pending transaction");
 
             self.fetch_and_cache_block(cache, block).await?;
@@ -214,14 +224,15 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     async fn fetch_and_cache_block(
         &self,
-        cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT>>,
-        block: remote::eth::Block<remote::eth::Transaction>,
+        cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT, ChainSpecT>>,
+        block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
     ) -> Result<BlockT, ForkedBlockchainError> {
-        let total_difficulty = block
-            .total_difficulty
+        let total_difficulty = *block
+            .total_difficulty()
             .expect("Must be present as this is not a pending block");
 
-        let block = RemoteBlock::new(block, self.client.clone(), self.runtime.clone())?;
+        let block: RemoteBlock<ChainSpecT> =
+            block.into_remote_block(self.client.clone(), self.runtime.clone())?;
 
         let is_cacheable = FORCE_CACHING
             || self
@@ -243,23 +254,26 @@ impl<BlockT: Block + Clone + From<RemoteBlock>, const FORCE_CACHING: bool>
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-
-    use edr_eth::remote::RpcClient;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
+    use crate::chain_spec::L1ChainSpec;
 
     #[tokio::test]
     async fn no_cache_for_unsafe_block_number() {
         let tempdir = tempfile::tempdir().expect("can create tempdir");
 
-        let rpc_client =
-            RpcClient::new(&get_alchemy_url(), tempdir.path().to_path_buf(), None).expect("url ok");
+        let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+            &get_alchemy_url(),
+            tempdir.path().to_path_buf(),
+            None,
+        )
+        .expect("url ok");
 
         // Latest block number is always unsafe to cache
         let block_number = rpc_client.block_number().await.unwrap();
 
-        let remote = RemoteBlockchain::<RemoteBlock, false>::new(
+        let remote = RemoteBlockchain::<RemoteBlock<L1ChainSpec>, L1ChainSpec, false>::new(
             Arc::new(rpc_client),
             runtime::Handle::current(),
         );

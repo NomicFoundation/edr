@@ -146,6 +146,34 @@ describe("Evm module", function () {
           assert.strictEqual(totalOffset1, originalOffset + offset1);
           assert.strictEqual(totalOffset2, originalOffset + offset1 + offset2);
         });
+
+        it("should provide a reasonable error for big numbers", async function () {
+          await assertInvalidArgumentsError(
+            this.provider,
+            "evm_increaseTime",
+            ["10000000000000000000000000000000"],
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+          );
+          await assertInvalidArgumentsError(
+            this.provider,
+            "evm_increaseTime",
+            ["0x1111111111111111111111111111111111111"],
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+          );
+
+          await assertInvalidArgumentsError(
+            this.provider,
+            "evm_increaseTime",
+            [(2n ** 64n).toString()],
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+          );
+          await assertInvalidArgumentsError(
+            this.provider,
+            "evm_increaseTime",
+            ["0x10000000000000000"],
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+          );
+        });
       });
 
       describe("evm_setNextBlockTimestamp", function () {
@@ -317,6 +345,41 @@ describe("Evm module", function () {
               );
 
               assertQuantity(block.timestamp, timestamp);
+            });
+
+            it("should provide a reasonable error for big numbers", async function () {
+              await assertInvalidArgumentsError(
+                this.provider,
+                "evm_setNextBlockTimestamp",
+                ["10000000000000000000000000000000"],
+                "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+              );
+              await assertInvalidArgumentsError(
+                this.provider,
+                "evm_setNextBlockTimestamp",
+                ["0x1111111111111111111111111111111111111"],
+                "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+              );
+
+              // Check that the limit is in fact 2^64 - 1
+              await assertInvalidArgumentsError(
+                this.provider,
+                "evm_setNextBlockTimestamp",
+                [(2n ** 64n).toString()],
+                "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+              );
+              await assertInvalidArgumentsError(
+                this.provider,
+                "evm_setNextBlockTimestamp",
+                ["0x10000000000000000"],
+                "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+              );
+              await this.provider.send("evm_setNextBlockTimestamp", [
+                (2n ** 64n - 1n).toString(),
+              ]);
+              await this.provider.send("evm_setNextBlockTimestamp", [
+                "0xFFFFFFFFFFFFFFFF",
+              ]);
             });
 
             describe("When the initial date is in the past", function () {
@@ -610,6 +673,21 @@ describe("Evm module", function () {
           );
 
           assertQuantity(block.timestamp, timestamp);
+        });
+
+        it("should provide a reasonable error for big numbers", async function () {
+          await assertInvalidArgumentsError(
+            this.provider,
+            "evm_mine",
+            ["10000000000000000000000000000000"],
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+          );
+          await assertInvalidArgumentsError(
+            this.provider,
+            "evm_mine",
+            ["0x1111111111111111111111111111111111111"],
+            "Timestamp must be a non-negative number not exceeding 2^64 - 1"
+          );
         });
 
         describe.skip("tests using sinon", () => {

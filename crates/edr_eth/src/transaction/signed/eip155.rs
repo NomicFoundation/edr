@@ -1,22 +1,20 @@
 use std::sync::OnceLock;
 
-use alloy_rlp::{RlpDecodable, RlpEncodable};
+use alloy_rlp::RlpEncodable;
 use hashbrown::HashMap;
 use revm_primitives::{keccak256, TxEnv};
 
-use super::{kind_to_transact_to, LegacySignedTransaction};
+use super::kind_to_transact_to;
 use crate::{
-    signature::{Signature, SignatureError},
-    transaction::{
-        fake_signature::recover_fake_signature, request::Eip155TransactionRequest, TxKind,
-    },
+    signature::{self, Signature},
+    transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
 
-#[derive(Clone, Debug, Eq, RlpDecodable, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Eip155SignedTransaction {
-    // The order of these fields determines de-/encoding order.
+#[derive(Clone, Debug, Eq, RlpEncodable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct Eip155 {
+    // The order of these fields determines encoding order.
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub nonce: u64,
     pub gas_price: U256,
@@ -25,48 +23,57 @@ pub struct Eip155SignedTransaction {
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub signature: Signature,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub signature: signature::Fakeable<signature::SignatureWithRecoveryId>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
-    /// Whether the signed transaction is from an impersonated account.
-    #[rlp(default)]
-    #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    pub is_fake: bool,
 }
 
-impl Eip155SignedTransaction {
-    pub fn hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
-    }
-
-    /// Recovers the Ethereum address which was used to sign the transaction.
-    pub fn recover(&self) -> Result<Address, SignatureError> {
-        if self.is_fake {
-            return Ok(recover_fake_signature(&self.signature));
-        }
-        self.signature
-            .recover(Eip155TransactionRequest::from(self).hash())
+impl Eip155 {
+    /// Returns the caller/signer of the transaction.
+    pub fn caller(&self) -> &Address {
+        self.signature.caller()
     }
 
     pub fn chain_id(&self) -> u64 {
-        (self.signature.v - 35) / 2
+        v_to_chain_id(self.signature.v())
     }
 
-    /// Converts this transaction into a `TxEnv` struct.
-    pub fn into_tx_env(self, caller: Address) -> TxEnv {
-        let chain_id = self.chain_id();
+    pub fn hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
+    }
+}
+
+impl From<transaction::signed::Legacy> for Eip155 {
+    fn from(tx: transaction::signed::Legacy) -> Self {
+        Self {
+            nonce: tx.nonce,
+            gas_price: tx.gas_price,
+            gas_limit: tx.gas_limit,
+            kind: tx.kind,
+            value: tx.value,
+            input: tx.input,
+            signature: tx.signature,
+            hash: tx.hash,
+        }
+    }
+}
+
+impl From<Eip155> for TxEnv {
+    fn from(value: Eip155) -> Self {
+        let chain_id = value.chain_id();
+
         TxEnv {
-            caller,
-            gas_limit: self.gas_limit,
-            gas_price: self.gas_price,
-            transact_to: kind_to_transact_to(self.kind),
-            value: self.value,
-            data: self.input,
-            nonce: Some(self.nonce),
+            caller: *value.caller(),
+            gas_limit: value.gas_limit,
+            gas_price: value.gas_price,
+            transact_to: kind_to_transact_to(value.kind),
+            value: value.value,
+            data: value.input,
+            nonce: Some(value.nonce),
             chain_id: Some(chain_id),
             access_list: Vec::new(),
             gas_priority_fee: None,
@@ -78,23 +85,7 @@ impl Eip155SignedTransaction {
     }
 }
 
-impl From<LegacySignedTransaction> for Eip155SignedTransaction {
-    fn from(tx: LegacySignedTransaction) -> Self {
-        Self {
-            nonce: tx.nonce,
-            gas_price: tx.gas_price,
-            gas_limit: tx.gas_limit,
-            kind: tx.kind,
-            value: tx.value,
-            input: tx.input,
-            signature: tx.signature,
-            hash: tx.hash,
-            is_fake: tx.is_fake,
-        }
-    }
-}
-
-impl PartialEq for Eip155SignedTransaction {
+impl PartialEq for Eip155 {
     fn eq(&self, other: &Self) -> bool {
         self.nonce == other.nonce
             && self.gas_price == other.gas_price
@@ -106,20 +97,25 @@ impl PartialEq for Eip155SignedTransaction {
     }
 }
 
+/// Converts a V-value to a chain ID.
+pub(super) fn v_to_chain_id(v: u64) -> u64 {
+    (v - 35) / 2
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
 
-    use alloy_rlp::Decodable;
+    use alloy_rlp::Decodable as _;
     use k256::SecretKey;
 
     use super::*;
-    use crate::signature::secret_key_from_str;
+    use crate::{signature::secret_key_from_str, transaction::signed::PreOrPostEip155};
 
-    fn dummy_request() -> Eip155TransactionRequest {
+    fn dummy_request() -> transaction::request::Eip155 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        Eip155TransactionRequest {
+        transaction::request::Eip155 {
             nonce: 1,
             gas_price: U256::from(2),
             gas_limit: 3,
@@ -169,9 +165,12 @@ mod tests {
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
         let encoded = alloy_rlp::encode(&signed);
-        assert_eq!(
-            signed,
-            Eip155SignedTransaction::decode(&mut encoded.as_slice()).unwrap()
-        );
+        let decoded = PreOrPostEip155::decode(&mut encoded.as_slice()).unwrap();
+        let decoded = match decoded {
+            PreOrPostEip155::Pre(_) => panic!("Expected post-EIP-155 transaction"),
+            PreOrPostEip155::Post(post) => post,
+        };
+
+        assert_eq!(signed, decoded);
     }
 }

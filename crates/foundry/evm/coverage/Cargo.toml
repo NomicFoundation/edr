@@ -16,3 +16,6 @@ revm.workspace = true
 semver = "1"
 tracing = "0.1"
 rustc-hash.workspace = true
+
+[lints]
+workspace = true

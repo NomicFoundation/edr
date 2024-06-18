@@ -39,7 +39,7 @@ pub use self::{
     mock::CallOverrideResult,
     requests::{
         hardhat::rpc_types as hardhat_rpc_types, IntervalConfig as IntervalConfigRequest,
-        InvalidRequestReason, MethodInvocation, ProviderRequest, U64OrUsize,
+        InvalidRequestReason, MethodInvocation, ProviderRequest, Timestamp,
     },
     subscribe::*,
 };

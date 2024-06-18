@@ -3,16 +3,16 @@ use std::sync::Arc;
 
 use edr_eth::{
     receipt::{BlockReceipt, TransactionReceipt},
-    remote::{self, PreEip1898BlockSpec},
     rlp::Decodable,
     transaction::{
-        pooled::PooledTransaction, Eip1559TransactionRequest, Eip155TransactionRequest,
-        Eip2930TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
-        TransactionRequest, TransactionRequestAndSender, TransactionType, TxKind,
+        pooled::PooledTransaction, request::TransactionRequestAndSender, EthTransactionRequest,
+        SignedTransaction, Transaction, TransactionType, TxKind,
     },
-    Bytes, SpecId, B256, U256,
+    Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
-use edr_evm::{blockchain::BlockchainError, trace::Trace, ExecutableTransaction, SyncBlock};
+use edr_evm::{
+    blockchain::BlockchainError, chain_spec::L1ChainSpec, trace::Trace, transaction, SyncBlock,
+};
 
 use crate::{
     data::{BlockDataForTransaction, ProviderData, TransactionAndBlock},
@@ -34,7 +34,7 @@ pub fn handle_get_transaction_by_block_hash_and_index<
     data: &ProviderData<LoggerErrorT, TimerT>,
     block_hash: B256,
     index: U256,
-) -> Result<Option<remote::eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
     let index = rpc_index_to_usize(&index)?;
 
     data.block_by_hash(&block_hash)?
@@ -50,7 +50,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     block_spec: PreEip1898BlockSpec,
     index: U256,
-) -> Result<Option<remote::eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
     validate_post_merge_block_tags(data.spec_id(), &block_spec)?;
 
     let index = rpc_index_to_usize(&index)?;
@@ -60,7 +60,8 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         // Pending block requested
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<dyn SyncBlock<Error = BlockchainError>> = Arc::new(result.block);
+            let block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>> =
+                Arc::new(result.block);
             Some((block, true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
@@ -74,7 +75,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
 
 pub fn handle_pending_transactions<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
-) -> Result<Vec<remote::eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Vec<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
     let spec_id = data.spec_id();
     data.pending_transactions()
         .map(|pending_transaction| {
@@ -99,7 +100,7 @@ fn rpc_index_to_usize<LoggerErrorT: Debug>(
 pub fn handle_get_transaction_by_hash<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
     transaction_hash: B256,
-) -> Result<Option<remote::eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
     data.transaction_by_hash(&transaction_hash)?
         .map(|tx| transaction_to_rpc_result(tx, data.spec_id()))
         .transpose()
@@ -130,7 +131,7 @@ pub fn handle_get_transaction_receipt<LoggerErrorT: Debug, TimerT: Clone + TimeS
 }
 
 fn transaction_from_block(
-    block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     transaction_index: usize,
     is_pending: bool,
 ) -> Option<TransactionAndBlock> {
@@ -150,10 +151,10 @@ fn transaction_from_block(
 pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     transaction_and_block: TransactionAndBlock,
     spec_id: SpecId,
-) -> Result<remote::eth::Transaction, ProviderError<LoggerErrorT>> {
+) -> Result<edr_rpc_eth::Transaction, ProviderError<LoggerErrorT>> {
     fn gas_price_for_post_eip1559(
-        signed_transaction: &SignedTransaction,
-        block: Option<&Arc<dyn SyncBlock<Error = BlockchainError>>>,
+        signed_transaction: &transaction::Signed,
+        block: Option<&Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>>,
     ) -> U256 {
         let max_fee_per_gas = signed_transaction
             .max_fee_per_gas()
@@ -181,37 +182,36 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         block_data,
         is_pending,
     } = transaction_and_block;
-    let signed_transaction = transaction.as_inner();
     let block = block_data.as_ref().map(|b| &b.block);
     let header = block.map(|b| b.header());
 
-    let gas_price = match &signed_transaction {
-        SignedTransaction::PreEip155Legacy(tx) => tx.gas_price,
-        SignedTransaction::PostEip155Legacy(tx) => tx.gas_price,
-        SignedTransaction::Eip2930(tx) => tx.gas_price,
-        SignedTransaction::Eip1559(_) | SignedTransaction::Eip4844(_) => {
-            gas_price_for_post_eip1559(signed_transaction, block)
+    let gas_price = match &transaction {
+        transaction::Signed::PreEip155Legacy(tx) => tx.gas_price,
+        transaction::Signed::PostEip155Legacy(tx) => tx.gas_price,
+        transaction::Signed::Eip2930(tx) => tx.gas_price,
+        transaction::Signed::Eip1559(_) | transaction::Signed::Eip4844(_) => {
+            gas_price_for_post_eip1559(&transaction, block)
         }
     };
 
-    let chain_id = match &signed_transaction {
+    let chain_id = match &transaction {
         // Following Hardhat in not returning `chain_id` for `PostEip155Legacy` legacy transactions
         // even though the chain id would be recoverable.
-        SignedTransaction::PreEip155Legacy(_) | SignedTransaction::PostEip155Legacy(_) => None,
-        SignedTransaction::Eip2930(tx) => Some(tx.chain_id),
-        SignedTransaction::Eip1559(tx) => Some(tx.chain_id),
-        SignedTransaction::Eip4844(tx) => Some(tx.chain_id),
+        transaction::Signed::PreEip155Legacy(_) | transaction::Signed::PostEip155Legacy(_) => None,
+        transaction::Signed::Eip2930(tx) => Some(tx.chain_id),
+        transaction::Signed::Eip1559(tx) => Some(tx.chain_id),
+        transaction::Signed::Eip4844(tx) => Some(tx.chain_id),
     };
 
     let show_transaction_type = spec_id >= FIRST_HARDFORK_WITH_TRANSACTION_TYPE;
-    let is_typed_transaction = signed_transaction.transaction_type() > TransactionType::Legacy;
+    let is_typed_transaction = transaction.transaction_type() > TransactionType::Legacy;
     let transaction_type = if show_transaction_type || is_typed_transaction {
-        Some(signed_transaction.transaction_type())
+        Some(transaction.transaction_type())
     } else {
         None
     };
 
-    let signature = signed_transaction.signature();
+    let signature = transaction.signature();
     let (block_hash, block_number) = if is_pending {
         (None, None)
     } else {
@@ -226,32 +226,32 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         block_data.as_ref().map(|bd| bd.transaction_index)
     };
 
-    Ok(remote::eth::Transaction {
-        hash: *signed_transaction.transaction_hash(),
-        nonce: signed_transaction.nonce(),
+    Ok(edr_rpc_eth::Transaction {
+        hash: *transaction.transaction_hash(),
+        nonce: transaction.nonce(),
         block_hash,
         block_number,
         transaction_index,
         from: *transaction.caller(),
-        to: signed_transaction.to(),
-        value: signed_transaction.value(),
+        to: transaction.kind().to().copied(),
+        value: transaction.value(),
         gas_price,
-        gas: U256::from(signed_transaction.gas_limit()),
-        input: signed_transaction.data().clone(),
-        v: signature.v,
+        gas: U256::from(transaction.gas_limit()),
+        input: transaction.data().clone(),
+        v: signature.v(),
         // Following Hardhat in always returning `v` instead of `y_parity`.
         y_parity: None,
-        r: signature.r,
-        s: signature.s,
+        r: signature.r(),
+        s: signature.s(),
         chain_id,
         transaction_type: transaction_type.map(u64::from),
-        access_list: signed_transaction
+        access_list: transaction
             .access_list()
             .map(|access_list| access_list.clone().into()),
-        max_fee_per_gas: signed_transaction.max_fee_per_gas(),
-        max_priority_fee_per_gas: signed_transaction.max_priority_fee_per_gas(),
-        max_fee_per_blob_gas: signed_transaction.max_fee_per_blob_gas(),
-        blob_versioned_hashes: signed_transaction.blob_hashes(),
+        max_fee_per_gas: transaction.max_fee_per_gas(),
+        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
+        max_fee_per_blob_gas: transaction.max_fee_per_blob_gas(),
+        blob_versioned_hashes: transaction.blob_hashes(),
     })
 }
 
@@ -274,7 +274,7 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
-            edr_eth::rlp::Error::Custom(message) if SignedTransaction::is_invalid_transaction_type_error(message) => {
+            edr_eth::rlp::Error::Custom(message) if transaction::Signed::is_invalid_transaction_type_error(message) => {
                 let type_id = *raw_transaction.first().expect("We already validated that the transaction is not empty if it's an invalid transaction type error.");
                 ProviderError::InvalidTransactionType(type_id)
             }
@@ -284,9 +284,10 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
     let signed_transaction = pooled_transaction.into_payload();
     validate_send_raw_transaction_request(data, &signed_transaction)?;
 
-    let pending_transaction = ExecutableTransaction::new(data.spec_id(), signed_transaction)?;
+    let signed_transaction = transaction::validate(signed_transaction, data.spec_id())
+        .map_err(ProviderError::TransactionCreationError)?;
 
-    send_raw_transaction_and_log(data, pending_transaction)
+    send_raw_transaction_and_log(data, signed_transaction)
 }
 
 fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
@@ -366,7 +367,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
                     }
                 };
 
-            TransactionRequest::Eip1559(Eip1559TransactionRequest {
+            transaction::Request::Eip1559(transaction::request::Eip1559 {
                 nonce,
                 max_priority_fee_per_gas,
                 max_fee_per_gas,
@@ -382,7 +383,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
             })
         }
         (gas_price, _, _, Some(access_list)) => {
-            TransactionRequest::Eip2930(Eip2930TransactionRequest {
+            transaction::Request::Eip2930(transaction::request::Eip2930 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
@@ -396,7 +397,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
                 access_list,
             })
         }
-        (gas_price, _, _, _) => TransactionRequest::Eip155(Eip155TransactionRequest {
+        (gas_price, _, _, _) => transaction::Request::Eip155(transaction::request::Eip155 {
             nonce,
             gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
             gas_limit,
@@ -418,7 +419,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
 
 fn send_raw_transaction_and_log<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
-    signed_transaction: ExecutableTransaction,
+    signed_transaction: transaction::Signed,
 ) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
@@ -468,7 +469,7 @@ fn validate_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSi
         validate_eip3860_max_initcode_size(
             data.spec_id(),
             data.allow_unlimited_initcode_size(),
-            &request.to,
+            request.to.as_ref(),
             request_data,
         )?;
     }
@@ -497,13 +498,8 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 
 fn validate_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
-    transaction: &SignedTransaction,
+    transaction: &transaction::Signed,
 ) -> Result<(), ProviderError<LoggerErrorT>> {
-    // Validate signature
-    let _ = transaction
-        .recover()
-        .map_err(|_err| ProviderError::InvalidArgument("Invalid Signature".into()))?;
-
     if let Some(tx_chain_id) = transaction.chain_id() {
         let expected = data.chain_id();
         if tx_chain_id != expected {
@@ -519,7 +515,7 @@ fn validate_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + Ti
     validate_eip3860_max_initcode_size(
         data.spec_id(),
         data.allow_unlimited_initcode_size(),
-        &transaction.to(),
+        transaction.kind().to(),
         transaction.data(),
     )?;
 
@@ -539,11 +535,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{
-        transaction::{Eip155TransactionRequest, TransactionRequest, TxKind},
-        Address, Bytes, U256,
-    };
-    use edr_evm::ExecutableTransaction;
+    use edr_eth::{Address, Bytes, U256};
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::one_ether};
@@ -563,7 +555,7 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
 
-        let request = TransactionRequest::Eip155(Eip155TransactionRequest {
+        let transaction = transaction::Request::Eip155(transaction::request::Eip155 {
             kind: TxKind::Call(Address::ZERO),
             gas_limit: 30_000,
             gas_price: U256::from(42_000_000_000_u64),
@@ -572,12 +564,8 @@ mod tests {
             nonce: 0,
             chain_id,
         })
-        .fake_sign(&impersonated_account);
-        let transaction = ExecutableTransaction::with_caller(
-            fixture.provider_data.spec_id(),
-            request,
-            impersonated_account,
-        )?;
+        .fake_sign(impersonated_account);
+        let transaction = transaction::validate(transaction, fixture.provider_data.spec_id())?;
 
         fixture.provider_data.set_auto_mining(true);
         let result = fixture.provider_data.send_transaction(transaction)?;

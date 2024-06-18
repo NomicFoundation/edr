@@ -1,6 +1,6 @@
 use edr_eth::{
-    log::FilterLog,
-    remote::filter::{matches_address_filter, matches_topics_filter, LogOutput},
+    filter::LogOutput,
+    log::{matches_address_filter, matches_topics_filter, FilterLog},
     Address, Bloom, BloomInput, B256,
 };
 use edr_evm::HashSet;

@@ -2,7 +2,8 @@ use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
-    transaction::Transaction,
+    signature::SignatureError,
+    transaction::{self, SignedTransaction as _, Transaction},
     U256,
 };
 use revm::primitives::{CfgEnvWithHandlerCfg, ExecutionResult, InvalidTransaction};
@@ -11,26 +12,27 @@ use serde::{Deserialize, Serialize};
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
+    chain_spec::{ChainSpec, L1ChainSpec},
     debug::DebugContext,
     mempool::OrderedTransaction,
     state::{StateDiff, SyncState},
     trace::Trace,
-    BlockBuilder, BlockTransactionError, BuildBlockResult, ExecutableTransaction,
-    ExecutionResultWithContext, LocalBlock, MemPool, SyncBlock,
+    BlockBuilder, BlockTransactionError, BuildBlockResult, ExecutionResultWithContext, LocalBlock,
+    MemPool, SyncBlock,
 };
 
 /// The result of mining a block, after having been committed to the blockchain.
 #[derive(Debug)]
-pub struct MineBlockResult<BlockchainErrorT> {
+pub struct MineBlockResult<ChainSpecT, BlockchainErrorT> {
     /// Mined block
-    pub block: Arc<dyn SyncBlock<Error = BlockchainErrorT>>,
+    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult>,
     /// Transaction traces
     pub transaction_traces: Vec<Trace>,
 }
 
-impl<BlockchainErrorT> Clone for MineBlockResult<BlockchainErrorT> {
+impl<BlockchainErrorT, ChainSpecT> Clone for MineBlockResult<ChainSpecT, BlockchainErrorT> {
     fn clone(&self) -> Self {
         Self {
             block: self.block.clone(),
@@ -42,9 +44,12 @@ impl<BlockchainErrorT> Clone for MineBlockResult<BlockchainErrorT> {
 
 /// The result of mining a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.
-pub struct MineBlockResultAndState<StateErrorT> {
+pub struct MineBlockResultAndState<ChainSpecT, StateErrorT>
+where
+    ChainSpecT: ChainSpec,
+{
     /// Mined block
-    pub block: LocalBlock,
+    pub block: LocalBlock<ChainSpecT>,
     /// State after mining the block
     pub state: Box<dyn SyncState<StateErrorT>>,
     /// State diff applied by block
@@ -85,9 +90,11 @@ pub enum MineBlockError<BE, SE> {
 
 /// Mines a block using as many transactions as can fit in it.
 #[allow(clippy::too_many_arguments)]
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
-    blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     mut state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool,
     cfg: &CfgEnvWithHandlerCfg,
@@ -97,9 +104,18 @@ pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     reward: U256,
     dao_hardfork_activation_block: Option<u64>,
     mut debug_context: Option<
-        DebugContext<'evm, BlockchainErrorT, DebugDataT, Box<dyn SyncState<StateErrorT>>>,
+        DebugContext<
+            'evm,
+            L1ChainSpec,
+            BlockchainErrorT,
+            DebugDataT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
     >,
-) -> Result<MineBlockResultAndState<StateErrorT>, MineBlockError<BlockchainErrorT, StateErrorT>>
+) -> Result<
+    MineBlockResultAndState<L1ChainSpec, StateErrorT>,
+    MineBlockError<BlockchainErrorT, StateErrorT>,
+>
 where
     'blockchain: 'evm,
     BlockchainErrorT: Debug + Send,
@@ -248,6 +264,9 @@ pub enum MineTransactionError<BlockchainErrorT, StateErrorT> {
         /// The actual max priority fee per gas.
         actual: U256,
     },
+    /// Signature error
+    #[error(transparent)]
+    Signature(#[from] SignatureError),
     /// An error that occurred while querying state.
     #[error(transparent)]
     State(StateErrorT),
@@ -257,6 +276,8 @@ pub enum MineTransactionError<BlockchainErrorT, StateErrorT> {
 ///
 /// If the transaction is invalid, returns an error.
 #[allow(clippy::too_many_arguments)]
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<
     'blockchain,
@@ -265,18 +286,27 @@ pub fn mine_block_with_single_transaction<
     DebugDataT,
     StateErrorT,
 >(
-    blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
-    transaction: ExecutableTransaction,
+    transaction: transaction::Signed,
     cfg: &CfgEnvWithHandlerCfg,
     options: BlockOptions,
     min_gas_price: U256,
     reward: U256,
     dao_hardfork_activation_block: Option<u64>,
     debug_context: Option<
-        DebugContext<'evm, BlockchainErrorT, DebugDataT, Box<dyn SyncState<StateErrorT>>>,
+        DebugContext<
+            'evm,
+            L1ChainSpec,
+            BlockchainErrorT,
+            DebugDataT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
     >,
-) -> Result<MineBlockResultAndState<StateErrorT>, MineTransactionError<BlockchainErrorT, StateErrorT>>
+) -> Result<
+    MineBlockResultAndState<L1ChainSpec, StateErrorT>,
+    MineTransactionError<BlockchainErrorT, StateErrorT>,
+>
 where
     'blockchain: 'evm,
     BlockchainErrorT: Debug + Send,
@@ -377,7 +407,7 @@ where
     })
 }
 
-fn effective_miner_fee(transaction: &ExecutableTransaction, base_fee: Option<U256>) -> U256 {
+fn effective_miner_fee(transaction: &transaction::Signed, base_fee: Option<U256>) -> U256 {
     let max_fee_per_gas = transaction.gas_price();
     let max_priority_fee_per_gas = transaction
         .max_priority_fee_per_gas()
@@ -398,7 +428,7 @@ fn priority_comparator(
     base_fee: Option<U256>,
 ) -> Ordering {
     let effective_miner_fee =
-        move |transaction: &ExecutableTransaction| effective_miner_fee(transaction, base_fee);
+        move |transaction: &transaction::Signed| effective_miner_fee(transaction, base_fee);
 
     // Invert lhs and rhs to get decreasing order by effective miner fee
     let ordering = effective_miner_fee(rhs.pending()).cmp(&effective_miner_fee(lhs.pending()));

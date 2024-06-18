@@ -2,14 +2,11 @@
 
 use std::{convert::Infallible, sync::Arc};
 
-use edr_eth::{
-    remote::{eth, PreEip1898BlockSpec},
-    B256, U64,
-};
+use edr_eth::{PreEip1898BlockSpec, B256};
 use edr_provider::{
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, U64OrUsize,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest, Timestamp,
 };
 use tokio::runtime;
 
@@ -44,7 +41,7 @@ impl TimestampFixture {
 
     fn increase_time(&self, seconds: u64) -> anyhow::Result<()> {
         self.provider.handle_request(ProviderRequest::Single(
-            MethodInvocation::EvmIncreaseTime(U64OrUsize::U64(U64::from(seconds))),
+            MethodInvocation::EvmIncreaseTime(Timestamp::from(seconds)),
         ))?;
 
         Ok(())
@@ -60,7 +57,7 @@ impl TimestampFixture {
     fn mine_block_with_timestamp(&self, timestamp: u64) -> anyhow::Result<()> {
         self.provider
             .handle_request(ProviderRequest::Single(MethodInvocation::EvmMine(Some(
-                U64OrUsize::U64(U64::from(timestamp)),
+                Timestamp::from(timestamp),
             ))))?;
 
         Ok(())
@@ -71,13 +68,13 @@ impl TimestampFixture {
             MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
         ))?;
 
-        let block: eth::Block<B256> = serde_json::from_value(result.result)?;
+        let block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
         Ok(block.timestamp)
     }
 
     fn set_next_block_timestamp(&self, timestamp: u64) -> anyhow::Result<()> {
         self.provider.handle_request(ProviderRequest::Single(
-            MethodInvocation::EvmSetNextBlockTimestamp(U64OrUsize::U64(U64::from(timestamp))),
+            MethodInvocation::EvmSetNextBlockTimestamp(Timestamp::from(timestamp)),
         ))?;
 
         Ok(())

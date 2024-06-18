@@ -2,18 +2,17 @@ use core::fmt::Debug;
 use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
-use edr_eth::{
-    remote::{filter::SubscriptionType, jsonrpc, BlockSpec, BlockTag, RpcClientError},
-    Address, Bytes, SpecId, B256, U256,
-};
+use edr_eth::{filter::SubscriptionType, Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256};
 use edr_evm::{
     blockchain::BlockchainError,
     hex,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
+    transaction::{self, TransactionError},
     DebugTraceError, ExecutionResult, HaltReason, MemPoolAddTransactionError, MineBlockError,
-    MineTransactionError, OutOfGasError, TransactionCreationError, TransactionError,
+    MineTransactionError, OutOfGasError,
 };
+use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 
 use crate::{data::CreationError, IntervalConfigConversionError};
 
@@ -79,7 +78,7 @@ pub enum ProviderError<LoggerErrorT> {
     #[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{spec:?}' hardfork.")]
     InvalidBlockTag { block_tag: BlockTag, spec: SpecId },
     /// Invalid chain ID
-    #[error("Invalid chainId {actual} provided, expected ${expected} instead.")]
+    #[error("Invalid chainId {actual} provided, expected {expected} instead.")]
     InvalidChainId { expected: u64, actual: u64 },
     /// The transaction with the provided hash was already mined.
     #[error("Transaction {0} cannot be dropped because it's already mined")]
@@ -171,7 +170,7 @@ pub enum ProviderError<LoggerErrorT> {
     TimestampEqualsPrevious { proposed: u64 },
     /// An error occurred while creating a pending transaction.
     #[error(transparent)]
-    TransactionCreationError(#[from] TransactionCreationError),
+    TransactionCreationError(#[from] transaction::CreationError),
     /// `eth_sendTransaction` failed and
     /// [`crate::config::ProviderConfig::bail_on_call_failure`] was enabled
     #[error(transparent)]
@@ -259,7 +258,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
             ProviderError::SetMinGasPriceUnsupported => INVALID_INPUT,
             ProviderError::SetNextBlockBaseFeePerGasUnsupported { .. } => INVALID_INPUT,
             ProviderError::SetNextPrevRandaoUnsupported { .. } => INVALID_INPUT,
-            ProviderError::Signature(_) => INVALID_INPUT,
+            ProviderError::Signature(_) => INVALID_PARAMS,
             ProviderError::State(_) => INVALID_INPUT,
             ProviderError::TimestampLowerThanPrevious { .. } => INVALID_INPUT,
             ProviderError::TimestampEqualsPrevious { .. } => INVALID_INPUT,

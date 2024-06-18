@@ -6,7 +6,7 @@ use std::{
 };
 
 use edr_eth::{
-    remote::filter::{FilteredEvents, LogOutput, SubscriptionType},
+    filter::{FilteredEvents, LogOutput, SubscriptionType},
     B256,
 };
 

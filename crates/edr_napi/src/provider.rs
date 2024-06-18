@@ -2,8 +2,8 @@ mod config;
 
 use std::sync::Arc;
 
-use edr_eth::remote::jsonrpc;
 use edr_provider::{time::CurrentTime, InvalidRequestReason};
+use edr_rpc_eth::jsonrpc;
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 

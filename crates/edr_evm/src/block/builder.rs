@@ -7,7 +7,7 @@ use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     log::{add_log_to_bloom, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::{Transaction, TransactionType},
+    transaction::{self, SignedTransaction as _, Transaction as _, TransactionType},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
@@ -25,9 +25,10 @@ use revm::{
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
+    chain_spec::{ChainSpec, L1ChainSpec},
     debug::{DebugContext, EvmContext},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
-    ExecutableTransaction, SyncBlock,
+    SyncBlock,
 };
 
 const DAO_EXTRA_DATA: &[u8] = b"dao-hard-fork";
@@ -114,13 +115,13 @@ pub struct ExecutionResultWithContext<
     /// The result of executing the transaction.
     pub result: Result<ExecutionResult, BlockTransactionError<BlockchainErrorT, StateErrorT>>,
     /// The context in which the transaction was executed.
-    pub evm_context: EvmContext<'evm, BlockchainErrorT, DebugDataT, StateT>,
+    pub evm_context: EvmContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
 }
 
 /// The result of building a block, using the [`BlockBuilder`].
-pub struct BuildBlockResult {
+pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
     /// Built block
-    pub block: LocalBlock,
+    pub block: LocalBlock<ChainSpecT>,
     /// State diff
     pub state_diff: StateDiff,
 }
@@ -129,7 +130,7 @@ pub struct BuildBlockResult {
 pub struct BlockBuilder {
     cfg: CfgEnvWithHandlerCfg,
     header: PartialHeader,
-    transactions: Vec<ExecutableTransaction>,
+    transactions: Vec<transaction::Signed>,
     state_diff: StateDiff,
     receipts: Vec<TransactionReceipt<Log>>,
     parent_gas_limit: Option<u64>,
@@ -141,7 +142,7 @@ impl BlockBuilder {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new<BlockchainErrorT>(
         cfg: CfgEnvWithHandlerCfg,
-        parent: &dyn SyncBlock<Error = BlockchainErrorT>,
+        parent: &dyn SyncBlock<L1ChainSpec, Error = BlockchainErrorT>,
         mut options: BlockOptions,
         dao_hardfork_activation_block: Option<u64>,
     ) -> Result<Self, BlockBuilderCreationError> {
@@ -216,10 +217,12 @@ impl BlockBuilder {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn add_transaction<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT, StateErrorT>(
         &mut self,
-        blockchain: &'blockchain dyn SyncBlockchain<BlockchainErrorT, StateErrorT>,
+        blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
         state: StateT,
-        transaction: ExecutableTransaction,
-        debug_context: Option<DebugContext<'evm, BlockchainErrorT, DebugDataT, StateT>>,
+        transaction: transaction::Signed,
+        debug_context: Option<
+            DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
+        >,
     ) -> ExecutionResultWithContext<'evm, BlockchainErrorT, StateErrorT, DebugDataT, StateT>
     where
         'blockchain: 'evm,
@@ -421,7 +424,7 @@ impl BlockBuilder {
             transaction_hash: *transaction.transaction_hash(),
             transaction_index: self.transactions.len() as u64,
             from: *transaction.caller(),
-            to: transaction.to(),
+            to: transaction.kind().to().copied(),
             contract_address,
             gas_used: result.gas_used(),
             effective_gas_price: Some(transaction.effective_gas_price(block.basefee)),
@@ -443,7 +446,7 @@ impl BlockBuilder {
         mut self,
         state: &mut StateT,
         rewards: Vec<(Address, U256)>,
-    ) -> Result<BuildBlockResult, StateErrorT>
+    ) -> Result<BuildBlockResult<L1ChainSpec>, StateErrorT>
     where
         StateT: SyncState<StateErrorT> + ?Sized,
         StateErrorT: Debug + Send,

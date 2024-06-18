@@ -7,17 +7,67 @@
 mod fake_signature;
 /// Types for transaction gossip (aka pooled transactions)
 pub mod pooled;
-mod request;
-mod signed;
+/// Types for transaction requests.
+pub mod request;
+/// Types for signed transactions.
+pub mod signed;
 mod r#type;
 
 pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
-pub use self::{r#type::TransactionType, request::*, signed::*};
-use crate::{access_list::AccessListItem, Address, Bytes, U256};
+pub use self::r#type::TransactionType;
+use crate::{
+    access_list::{AccessList, AccessListItem},
+    Address, Bytes, U256,
+};
+
+pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
+
+/// Container type for various Ethereum transaction requests
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Request {
+    /// A legacy transaction request
+    Legacy(request::Legacy),
+    /// An EIP-155 transaction request
+    Eip155(request::Eip155),
+    /// An EIP-2930 transaction request
+    Eip2930(request::Eip2930),
+    /// An EIP-1559 transaction request
+    Eip1559(request::Eip1559),
+    /// An EIP-4844 transaction request
+    Eip4844(request::Eip4844),
+}
+
+/// Container type for various signed Ethereum transactions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub enum Signed {
+    /// Legacy transaction
+    PreEip155Legacy(signed::Legacy),
+    /// EIP-155 transaction
+    PostEip155Legacy(signed::Eip155),
+    /// EIP-2930 transaction
+    Eip2930(signed::Eip2930),
+    /// EIP-1559 transaction
+    Eip1559(signed::Eip1559),
+    /// EIP-4844 transaction
+    Eip4844(signed::Eip4844),
+}
+
+/// Trait for signed transactions.
+pub trait SignedTransaction: Transaction {
+    /// Returns the caller/signer of the transaction.
+    fn caller(&self) -> &Address;
+}
 
 pub trait Transaction {
+    /// Returns the access list of the transaction, if any.
+    fn access_list(&self) -> Option<&AccessList>;
+
+    /// Returns the input data of the transaction.
+    fn data(&self) -> &Bytes;
+
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee.
     fn effective_gas_price(&self, block_base_fee: U256) -> U256;
@@ -27,6 +77,9 @@ pub trait Transaction {
 
     /// The gas price the sender is willing to pay.
     fn gas_price(&self) -> U256;
+
+    /// Returns what kind of transaction this is.
+    fn kind(&self) -> TxKind;
 
     /// The maximum fee per gas the sender is willing to pay. Only applicable
     /// for post-EIP-1559 transactions.
@@ -42,9 +95,6 @@ pub trait Transaction {
 
     /// The transaction's nonce.
     fn nonce(&self) -> u64;
-
-    /// The address that receives the call, if any.
-    fn to(&self) -> Option<Address>;
 
     /// The total amount of blob gas used by the transaction. Only applicable
     /// for EIP-4844 transactions.

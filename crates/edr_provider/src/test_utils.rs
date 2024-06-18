@@ -4,21 +4,22 @@ use anyhow::anyhow;
 use edr_eth::{
     block::{miner_reward, BlobGas, BlockOptions},
     receipt::BlockReceipt,
-    remote::{PreEip1898BlockSpec, RpcClient},
     signature::secret_key_from_str,
     spec::chain_hardfork_activations,
     transaction::EthTransactionRequest,
     trie::KECCAK_NULL_RLP,
     withdrawal::Withdrawal,
-    Address, Bytes, HashMap, SpecId, B256, U256,
+    Address, Bytes, HashMap, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{
     alloy_primitives::U160,
-    blockchain::{Blockchain, ForkedBlockchain},
+    blockchain::{Blockchain as _, ForkedBlockchain},
+    chain_spec::L1ChainSpec,
     state::IrregularState,
     Block, BlockBuilder, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResultWithContext,
-    RandomHashGenerator, RemoteBlock,
+    IntoRemoteBlock, RandomHashGenerator,
 };
+use edr_rpc_eth::client::EthRpcClient;
 
 use super::*;
 use crate::{config::MiningConfig, requests::hardhat::rpc_types::ForkConfig};
@@ -139,16 +140,18 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
     }));
 
     let replay_block = {
-        let rpc_client = RpcClient::new(&url, default_config.cache_dir.clone(), None)?;
+        let rpc_client =
+            EthRpcClient::<L1ChainSpec>::new(&url, default_config.cache_dir.clone(), None)?;
 
         let block = rpc_client
             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(block_number))
             .await?;
 
-        RemoteBlock::new(block, Arc::new(rpc_client), runtime.clone())?
+        block.into_remote_block(Arc::new(rpc_client), runtime.clone())?
     };
 
-    let rpc_client = RpcClient::new(&url, default_config.cache_dir.clone(), None)?;
+    let rpc_client =
+        EthRpcClient::<L1ChainSpec>::new(&url, default_config.cache_dir.clone(), None)?;
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(parking_lot::Mutex::new(RandomHashGenerator::with_seed(
         edr_defaults::STATE_ROOT_HASH_SEED,
@@ -205,7 +208,7 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
         blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
 
     for transaction in replay_block.transactions() {
-        let debug_context: Option<DebugContext<'_, _, (), _>> = None;
+        let debug_context: Option<DebugContext<'_, L1ChainSpec, _, (), _>> = None;
         let ExecutionResultWithContext {
             result,
             evm_context: _,

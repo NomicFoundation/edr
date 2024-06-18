@@ -13,16 +13,18 @@ use itertools::izip;
 use revm::primitives::keccak256;
 
 use crate::{
-    blockchain::BlockchainError, Block, DetailedTransaction, ExecutableTransaction, SpecId,
-    SyncBlock,
+    blockchain::BlockchainError,
+    chain_spec::{ChainSpec, SyncChainSpec},
+    transaction::DetailedTransaction,
+    Block, SpecId, SyncBlock,
 };
 
 /// A locally mined block, which contains complete information.
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
 #[rlp(trailing)]
-pub struct LocalBlock {
+pub struct LocalBlock<ChainSpecT: ChainSpec> {
     header: block::Header,
-    transactions: Vec<ExecutableTransaction>,
+    transactions: Vec<ChainSpecT::SignedTransaction>,
     #[rlp(skip)]
     transaction_receipts: Vec<Arc<BlockReceipt>>,
     ommers: Vec<block::Header>,
@@ -33,7 +35,7 @@ pub struct LocalBlock {
     hash: B256,
 }
 
-impl LocalBlock {
+impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
     /// Constructs an empty block, i.e. no transactions.
     pub fn empty(spec_id: SpecId, partial_header: PartialHeader) -> Self {
         let withdrawals = if spec_id >= SpecId::SHANGHAI {
@@ -54,7 +56,7 @@ impl LocalBlock {
     /// Constructs a new instance with the provided data.
     pub fn new(
         partial_header: PartialHeader,
-        transactions: Vec<ExecutableTransaction>,
+        transactions: Vec<ChainSpecT::SignedTransaction>,
         transaction_receipts: Vec<TransactionReceipt<Log>>,
         ommers: Vec<Header>,
         withdrawals: Option<Vec<Withdrawal>>,
@@ -95,7 +97,9 @@ impl LocalBlock {
     }
 
     /// Retrieves the block's transactions.
-    pub fn detailed_transactions(&self) -> impl Iterator<Item = DetailedTransaction<'_>> {
+    pub fn detailed_transactions(
+        &self,
+    ) -> impl Iterator<Item = DetailedTransaction<'_, ChainSpecT>> {
         izip!(self.transactions.iter(), self.transaction_receipts.iter()).map(
             |(transaction, receipt)| DetailedTransaction {
                 transaction,
@@ -105,7 +109,7 @@ impl LocalBlock {
     }
 }
 
-impl Block for LocalBlock {
+impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
     type Error = BlockchainError;
 
     fn hash(&self) -> &B256 {
@@ -123,7 +127,7 @@ impl Block for LocalBlock {
             .expect("usize fits into u64")
     }
 
-    fn transactions(&self) -> &[ExecutableTransaction] {
+    fn transactions(&self) -> &[ChainSpecT::SignedTransaction] {
         &self.transactions
     }
 
@@ -199,8 +203,12 @@ fn transaction_to_block_receipts(
         .collect()
 }
 
-impl From<LocalBlock> for Arc<dyn SyncBlock<Error = BlockchainError>> {
-    fn from(value: LocalBlock) -> Self {
+impl<ChainSpecT> From<LocalBlock<ChainSpecT>>
+    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
+where
+    ChainSpecT: SyncChainSpec,
+{
+    fn from(value: LocalBlock<ChainSpecT>) -> Self {
         Arc::new(value)
     }
 }

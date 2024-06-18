@@ -20,6 +20,7 @@ edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_provider = { version = "0.3.5", path = "../edr_provider" }
+edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror = { version = "1.0.37", default-features = false }
@@ -56,3 +57,6 @@ napi-build = "2.0.1"
 [features]
 tracing = ["edr_evm/tracing", "edr_provider/tracing"]
 scenarios = ["rand"]
+
+[lints]
+workspace = true

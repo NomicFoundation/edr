@@ -1,27 +1,36 @@
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use edr_eth::{
+    log::{matches_address_filter, matches_topics_filter},
     receipt::BlockReceipt,
-    remote::filter::{matches_address_filter, matches_topics_filter},
     transaction::Transaction,
     Address, B256, U256,
 };
 use revm::primitives::{HashMap, HashSet};
 
 use super::InsertError;
-use crate::{hash_map::OccupiedError, Block};
+use crate::{chain_spec::ChainSpec, hash_map::OccupiedError, Block};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
 #[derive(Debug)]
-pub struct SparseBlockchainStorage<BlockT: Block + Clone + ?Sized> {
+pub struct SparseBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    ChainSpecT: ChainSpec,
+{
     hash_to_block: HashMap<B256, BlockT>,
     hash_to_total_difficulty: HashMap<B256, U256>,
     number_to_block: HashMap<u64, BlockT>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
     transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt>>,
+    phantom: PhantomData<ChainSpecT>,
 }
 
-impl<BlockT: Block + Clone + ?Sized> SparseBlockchainStorage<BlockT> {
+impl<BlockT, ChainSpecT> SparseBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    ChainSpecT: ChainSpec,
+{
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn with_block(block: BlockT, total_difficulty: U256) -> Self {
@@ -48,6 +57,7 @@ impl<BlockT: Block + Clone + ?Sized> SparseBlockchainStorage<BlockT> {
             number_to_block,
             transaction_hash_to_block,
             transaction_hash_to_receipt: HashMap::new(),
+            phantom: PhantomData,
         }
     }
 
@@ -208,7 +218,11 @@ impl<BlockT: Block + Clone + ?Sized> SparseBlockchainStorage<BlockT> {
     }
 }
 
-impl<BlockT: Block + Clone> Default for SparseBlockchainStorage<BlockT> {
+impl<BlockT, ChainSpecT> Default for SparseBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: ChainSpec,
+{
     fn default() -> Self {
         Self {
             hash_to_block: HashMap::default(),
@@ -216,18 +230,23 @@ impl<BlockT: Block + Clone> Default for SparseBlockchainStorage<BlockT> {
             number_to_block: HashMap::default(),
             transaction_hash_to_block: HashMap::default(),
             transaction_hash_to_receipt: HashMap::default(),
+            phantom: PhantomData,
         }
     }
 }
 
 /// Retrieves the logs that match the provided filter.
-pub fn logs<BlockT: Block + Clone>(
-    storage: &SparseBlockchainStorage<BlockT>,
+pub fn logs<BlockT, ChainSpecT>(
+    storage: &SparseBlockchainStorage<BlockT, ChainSpecT>,
     from_block: u64,
     to_block: u64,
     addresses: &HashSet<Address>,
     topics_filter: &[Option<Vec<B256>>],
-) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error> {
+) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error>
+where
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: ChainSpec,
+{
     let mut logs = Vec::new();
     let addresses: HashSet<Address> = addresses.iter().copied().collect();
 

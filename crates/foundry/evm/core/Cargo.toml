@@ -52,3 +52,6 @@ url = "2"
 
 [dev-dependencies]
 foundry-test-utils.workspace = true
+
+[lints]
+workspace = true

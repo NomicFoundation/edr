@@ -13,13 +13,16 @@ pub mod account;
 pub mod beacon;
 /// Ethereum block types
 pub mod block;
+/// Ethereum block spec
+mod block_spec;
+/// Ethereum fee history types
+pub mod fee_history;
+/// Ethereum types for filter-based RPC methods
+pub mod filter;
 /// Ethereum log types
 pub mod log;
 /// Ethereum receipt types
 pub mod receipt;
-/// Remote node interaction
-#[cfg(feature = "serde")]
-pub mod remote;
 /// Ethereum gas related types
 pub mod reward_percentile;
 /// RLP traits and functions
@@ -40,10 +43,13 @@ pub mod trie;
 pub mod utils;
 pub mod withdrawal;
 
+pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 pub use revm_primitives::{
     alloy_primitives::{Bloom, BloomInput, B512, B64, U64},
-    hex_literal, AccountInfo, Address, Bytes, HashMap, SpecId, B256, U256,
+    hex_literal, AccountInfo, Address, Bytecode, Bytes, HashMap, HashSet, SpecId, B256, U256,
 };
+
+pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};
 
 /// A secret key
 pub type Secret = B256;

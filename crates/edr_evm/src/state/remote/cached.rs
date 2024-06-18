@@ -1,4 +1,5 @@
 use edr_eth::{Address, B256, U256};
+use edr_rpc_eth::spec::RpcSpec;
 use revm::{
     db::components::{State, StateRef},
     primitives::{hash_map::Entry, AccountInfo, Bytecode, HashMap},
@@ -9,17 +10,17 @@ use crate::state::{account::EdrAccount, StateError};
 
 /// A cached version of [`RemoteState`].
 #[derive(Debug)]
-pub struct CachedRemoteState {
-    remote: RemoteState,
+pub struct CachedRemoteState<ChainSpecT: RpcSpec> {
+    remote: RemoteState<ChainSpecT>,
     /// Mapping of block numbers to cached accounts
     account_cache: HashMap<u64, HashMap<Address, EdrAccount>>,
     /// Mapping of block numbers to cached code
     code_cache: HashMap<u64, HashMap<B256, Bytecode>>,
 }
 
-impl CachedRemoteState {
+impl<ChainSpecT: RpcSpec> CachedRemoteState<ChainSpecT> {
     /// Constructs a new [`CachedRemoteState`].
-    pub fn new(remote: RemoteState) -> Self {
+    pub fn new(remote: RemoteState<ChainSpecT>) -> Self {
         Self {
             remote,
             account_cache: HashMap::new(),
@@ -28,7 +29,7 @@ impl CachedRemoteState {
     }
 }
 
-impl State for CachedRemoteState {
+impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
     type Error = StateError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -41,22 +42,9 @@ impl State for CachedRemoteState {
             return Ok(Some(account.info.clone()));
         }
 
-        if let Some(mut account_info) = self.remote.basic(address)? {
-            // Split code and store separately
-            // Always cache code regardless of the block number for two reasons:
-            // 1. It's an invariant of this trait getting an `AccountInfo` by calling
-            //    `basic`,
-            // one can call `code_by_hash` with `AccountInfo.code_hash` and get the code.
-            // 2. Since the code is identified by its hash, it never goes stale.
-            if let Some(code) = account_info.code.take() {
-                let block_code = self
-                    .code_cache
-                    .entry(self.remote.block_number())
-                    .or_default();
-
-                block_code.entry(account_info.code_hash).or_insert(code);
-            }
-
+        if let Some(account_info) =
+            fetch_remote_account(address, &self.remote, &mut self.code_cache)?
+        {
             if self.remote.is_cacheable()? {
                 block_accounts.insert(address, account_info.clone().into());
             }
@@ -100,10 +88,9 @@ impl State for CachedRemoteState {
             }
             Entry::Vacant(account_entry) => {
                 // account needs to be loaded for us to access slots.
-                let mut account = self
-                    .remote
-                    .basic(address)?
-                    .map_or_else(EdrAccount::default, EdrAccount::from);
+                let mut account =
+                    fetch_remote_account(address, &self.remote, &mut self.code_cache)?
+                        .map_or_else(EdrAccount::default, EdrAccount::from);
 
                 let value = self.remote.storage(address, index)?;
 
@@ -118,11 +105,35 @@ impl State for CachedRemoteState {
     }
 }
 
+/// Fetches an account from the remote state. If it exists, code is split off
+/// and stored separately in the provided cache.
+fn fetch_remote_account<ChainSpecT: RpcSpec>(
+    address: Address,
+    remote: &RemoteState<ChainSpecT>,
+    code_cache: &mut HashMap<u64, HashMap<B256, Bytecode>>,
+) -> Result<Option<AccountInfo>, StateError> {
+    let account = remote.basic(address)?.map(|mut account_info| {
+        // Always cache code regardless of the block number for two reasons:
+        // 1. It's an invariant of this trait getting an `AccountInfo` by calling
+        //    `basic`,
+        // one can call `code_by_hash` with `AccountInfo.code_hash` and get the code.
+        // 2. Since the code is identified by its hash, it never goes stale.
+        if let Some(code) = account_info.code.take() {
+            let block_code = code_cache.entry(remote.block_number()).or_default();
+
+            block_code.entry(account_info.code_hash).or_insert(code);
+        }
+        account_info
+    });
+
+    Ok(account)
+}
+
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
     use std::{str::FromStr, sync::Arc};
 
-    use edr_eth::remote::RpcClient;
+    use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
     use edr_test_utils::env::get_alchemy_url;
     use tokio::runtime;
 
@@ -133,7 +144,8 @@ mod tests {
         let tempdir = tempfile::tempdir().expect("can create tempdir");
 
         let rpc_client =
-            RpcClient::new(&get_alchemy_url(), tempdir.path().to_path_buf(), None).expect("url ok");
+            EthRpcClient::<EthRpcSpec>::new(&get_alchemy_url(), tempdir.path().to_path_buf(), None)
+                .expect("url ok");
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");

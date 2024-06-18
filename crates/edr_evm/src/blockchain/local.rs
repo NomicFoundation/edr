@@ -24,6 +24,7 @@ use super::{
     Blockchain, BlockchainError, BlockchainMut,
 };
 use crate::{
+    chain_spec::SyncChainSpec,
     state::{StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
 };
@@ -75,13 +76,22 @@ impl From<GenesisBlockOptions> for BlockOptions {
 
 /// A blockchain consisting of locally created blocks.
 #[derive(Debug)]
-pub struct LocalBlockchain {
-    storage: ReservableSparseBlockchainStorage<Arc<dyn SyncBlock<Error = BlockchainError>>>,
+pub struct LocalBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+{
+    storage: ReservableSparseBlockchainStorage<
+        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
+        ChainSpecT,
+    >,
     chain_id: u64,
     spec_id: SpecId,
 }
 
-impl LocalBlockchain {
+impl<ChainSpecT> LocalBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+{
     /// Constructs a new instance using the provided arguments to build a
     /// genesis block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -151,7 +161,7 @@ impl LocalBlockchain {
     /// zero block number.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn with_genesis_block(
-        genesis_block: LocalBlock,
+        genesis_block: LocalBlock<ChainSpecT>,
         genesis_diff: StateDiff,
         chain_id: u64,
         spec_id: SpecId,
@@ -182,12 +192,13 @@ impl LocalBlockchain {
     /// Ensure that the genesis block's number is zero.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub unsafe fn with_genesis_block_unchecked(
-        genesis_block: LocalBlock,
+        genesis_block: LocalBlock<ChainSpecT>,
         genesis_diff: StateDiff,
         chain_id: u64,
         spec_id: SpecId,
     ) -> Self {
-        let genesis_block: Arc<dyn SyncBlock<Error = BlockchainError>> = Arc::new(genesis_block);
+        let genesis_block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>> =
+            Arc::new(genesis_block);
 
         let total_difficulty = genesis_block.header().difficulty;
         let storage = ReservableSparseBlockchainStorage::with_genesis_block(
@@ -204,7 +215,10 @@ impl LocalBlockchain {
     }
 }
 
-impl Blockchain for LocalBlockchain {
+impl<ChainSpecT> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+{
     type BlockchainError = BlockchainError;
 
     type StateError = StateError;
@@ -214,8 +228,10 @@ impl Blockchain for LocalBlockchain {
     fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         Ok(self.storage.block_by_hash(hash))
     }
 
@@ -224,8 +240,10 @@ impl Blockchain for LocalBlockchain {
     fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         Ok(self.storage.block_by_number(number)?)
     }
 
@@ -234,8 +252,10 @@ impl Blockchain for LocalBlockchain {
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = Self::BlockchainError>>>, Self::BlockchainError>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Self::BlockchainError,
+    > {
         Ok(self.storage.block_by_transaction_hash(transaction_hash))
     }
 
@@ -246,7 +266,8 @@ impl Blockchain for LocalBlockchain {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn last_block(
         &self,
-    ) -> Result<Arc<dyn SyncBlock<Error = Self::BlockchainError>>, Self::BlockchainError> {
+    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>, Self::BlockchainError>
+    {
         Ok(self
             .storage
             .block_by_number(self.storage.last_block_number())?
@@ -315,15 +336,18 @@ impl Blockchain for LocalBlockchain {
     }
 }
 
-impl BlockchainMut for LocalBlockchain {
+impl<ChainSpecT> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+{
     type Error = BlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_block(
         &mut self,
-        block: LocalBlock,
+        block: LocalBlock<ChainSpecT>,
         state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficulty<Self::Error>, Self::Error> {
+    ) -> Result<BlockAndTotalDifficulty<ChainSpecT, Self::Error>, Self::Error> {
         let last_block = self.last_block()?;
 
         validate_next_block(self.spec_id, &last_block, &block)?;
@@ -382,7 +406,10 @@ impl BlockchainMut for LocalBlockchain {
     }
 }
 
-impl BlockHashRef for LocalBlockchain {
+impl<ChainSpecT> BlockHashRef for LocalBlockchain<ChainSpecT>
+where
+    ChainSpecT: SyncChainSpec,
+{
     type Error = BlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -403,7 +430,7 @@ mod tests {
     use revm::primitives::{Account, AccountStatus};
 
     use super::*;
-    use crate::state::IrregularState;
+    use crate::{chain_spec::L1ChainSpec, state::IrregularState};
 
     #[test]
     fn compute_state_after_reserve() -> anyhow::Result<()> {
@@ -431,7 +458,7 @@ mod tests {
             .collect::<HashMap<_, _>>()
             .into();
 
-        let mut blockchain = LocalBlockchain::new(
+        let mut blockchain = LocalBlockchain::<L1ChainSpec>::new(
             genesis_diff,
             123,
             SpecId::SHANGHAI,

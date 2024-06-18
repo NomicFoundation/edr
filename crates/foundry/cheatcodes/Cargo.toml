@@ -38,3 +38,6 @@ thiserror = "1"
 semver = "1"
 rustc-hash.workspace = true
 dialoguer = "0.11.0"
+
+[lints]
+workspace = true

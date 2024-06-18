@@ -1,13 +1,12 @@
-pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 use revm_primitives::{EnvKzgSettings, B256, VERSIONED_HASH_VERSION_KZG};
 use sha2::Digest;
 
-use crate::transaction::Eip4844SignedTransaction;
+use crate::{transaction, Blob, Bytes48};
 
 /// An EIP-4844 pooled transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Eip4844PooledTransaction {
-    payload: Eip4844SignedTransaction,
+pub struct Eip4844 {
+    payload: transaction::signed::Eip4844,
     blobs: Vec<Blob>,
     commitments: Vec<Bytes48>,
     proofs: Vec<Bytes48>,
@@ -33,11 +32,11 @@ pub enum CreationError {
     Unverified,
 }
 
-impl Eip4844PooledTransaction {
+impl Eip4844 {
     /// Creates a new EIP-4844 pooled transaction, if the provided blobs,
     /// commitments, and proofs are valid.
     pub fn new(
-        payload: Eip4844SignedTransaction,
+        payload: transaction::signed::Eip4844,
         blobs: Vec<Blob>,
         commitments: Vec<Bytes48>,
         proofs: Vec<Bytes48>,
@@ -127,7 +126,7 @@ impl Eip4844PooledTransaction {
     pub fn into_inner(
         self,
     ) -> (
-        Eip4844SignedTransaction,
+        transaction::signed::Eip4844,
         Vec<Blob>,
         Vec<Bytes48>,
         Vec<Bytes48>,
@@ -136,12 +135,12 @@ impl Eip4844PooledTransaction {
     }
 
     /// Converts the pooled transaction into its payload.
-    pub fn into_payload(self) -> Eip4844SignedTransaction {
+    pub fn into_payload(self) -> transaction::signed::Eip4844 {
         self.payload
     }
 
     /// Returns the payload of the pooled transaction.
-    pub fn payload(&self) -> &Eip4844SignedTransaction {
+    pub fn payload(&self) -> &transaction::signed::Eip4844 {
         &self.payload
     }
 
@@ -209,7 +208,7 @@ impl<'bytes> From<&'bytes Bytes48> for RlpBytes48<'bytes> {
     }
 }
 
-impl alloy_rlp::Decodable for Eip4844PooledTransaction {
+impl alloy_rlp::Decodable for Eip4844 {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let alloy_rlp::Header {
             list,
@@ -225,7 +224,7 @@ impl alloy_rlp::Decodable for Eip4844PooledTransaction {
             return Err(alloy_rlp::Error::InputTooShort);
         }
 
-        let payload = Eip4844SignedTransaction::decode(buf)?;
+        let payload = transaction::signed::Eip4844::decode(buf)?;
 
         let blobs = Vec::<[u8; c_kzg::BYTES_PER_BLOB]>::decode(buf)?;
         let blobs = blobs.into_iter().map(Blob::from).collect::<Vec<_>>();
@@ -254,7 +253,7 @@ impl alloy_rlp::Decodable for Eip4844PooledTransaction {
     }
 }
 
-impl alloy_rlp::Encodable for Eip4844PooledTransaction {
+impl alloy_rlp::Encodable for Eip4844 {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         alloy_rlp::Header {
             list: true,

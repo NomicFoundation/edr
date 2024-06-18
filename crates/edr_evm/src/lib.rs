@@ -20,7 +20,6 @@ pub use crate::{
     miner::*,
     random::RandomHashGenerator,
     runtime::{dry_run, guaranteed_dry_run, run, SyncDatabase},
-    transaction::*,
 };
 
 /// Types for managing Ethereum blockchain
@@ -33,6 +32,8 @@ pub mod state;
 pub mod trace;
 
 mod block;
+/// Types for chain specification.
+pub mod chain_spec;
 pub(crate) mod collections;
 mod debug;
 mod debug_trace;
@@ -44,7 +45,8 @@ mod runtime;
 /// Utilities for testing
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
-mod transaction;
+/// Types for Ethereum transactions
+pub mod transaction;
 
 /// Types for interfacing with the evm
 pub mod evm {

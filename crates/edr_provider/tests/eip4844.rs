@@ -4,30 +4,27 @@ use std::{convert::Infallible, str::FromStr};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    remote::{self, eth::CallRequest, PreEip1898BlockSpec},
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
-        pooled::{
-            eip4844::{Blob, Bytes48, BYTES_PER_BLOB},
-            Eip4844PooledTransaction, PooledTransaction,
-        },
-        Eip4844TransactionRequest, EthTransactionRequest, SignedTransaction, Transaction,
+        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction, Transaction,
     },
-    AccountInfo, Address, Bytes, SpecId, B256, U256,
+    AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
+    U256,
 };
-use edr_evm::{EnvKzgSettings, ExecutableTransaction, KECCAK_EMPTY};
+use edr_evm::{EnvKzgSettings, KECCAK_EMPTY};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
+use edr_rpc_eth::CallRequest;
 use tokio::runtime;
 
 /// Helper struct to modify the pooled transaction from the value in
 /// `fixtures/eip4844.txt`. It reuses the secret key from `SECRET_KEYS[0]`.
 struct BlobTransactionBuilder {
-    request: Eip4844TransactionRequest,
+    request: transaction::request::Eip4844,
     blobs: Vec<Blob>,
     commitments: Vec<Bytes48>,
     proofs: Vec<Bytes48>,
@@ -46,7 +43,7 @@ impl BlobTransactionBuilder {
             .expect("Failed to sign transaction");
 
         let settings = EnvKzgSettings::Default;
-        let pooled_transaction = Eip4844PooledTransaction::new(
+        let pooled_transaction = transaction::pooled::Eip4844::new(
             signed_transaction,
             self.blobs,
             self.commitments,
@@ -103,8 +100,19 @@ impl Default for BlobTransactionBuilder {
         };
 
         let (transaction, blobs, commitments, proofs) = pooled_transaction.into_inner();
-
-        let request = Eip4844TransactionRequest::from(&transaction);
+        let request = transaction::request::Eip4844 {
+            chain_id: transaction.chain_id,
+            nonce: transaction.nonce,
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
+            max_fee_per_gas: transaction.max_fee_per_gas,
+            gas_limit: transaction.gas_limit,
+            to: transaction.to,
+            value: transaction.value,
+            input: transaction.input,
+            access_list: transaction.access_list.into(),
+            max_fee_per_blob_gas: transaction.max_fee_per_blob_gas,
+            blob_hashes: transaction.blob_hashes,
+        };
 
         Self {
             request,
@@ -126,7 +134,7 @@ fn fake_pooled_transaction() -> PooledTransaction {
         .expect("failed to decode raw transaction")
 }
 
-fn fake_transaction() -> SignedTransaction {
+fn fake_transaction() -> transaction::Signed {
     fake_pooled_transaction().into_payload()
 }
 
@@ -139,11 +147,11 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
             .collect()
     });
     let transaction = transaction.into_payload();
-    let from = transaction.recover()?;
+    let from = transaction.caller();
 
     Ok(CallRequest {
-        from: Some(from),
-        to: transaction.to(),
+        from: Some(*from),
+        to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
         gas: Some(transaction.gas_limit()),
@@ -158,7 +166,7 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
     })
 }
 
-fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
+fn fake_transaction_request() -> EthTransactionRequest {
     let transaction = fake_pooled_transaction();
     let blobs = transaction.blobs().map(|blobs| {
         blobs
@@ -168,11 +176,11 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
     });
 
     let transaction = transaction.into_payload();
-    let from = transaction.recover()?;
+    let from = *transaction.caller();
 
-    Ok(EthTransactionRequest {
+    EthTransactionRequest {
         from,
-        to: transaction.to(),
+        to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
         gas: Some(transaction.gas_limit()),
@@ -187,7 +195,7 @@ fn fake_transaction_request() -> anyhow::Result<EthTransactionRequest> {
         blobs,
         blob_hashes: transaction.blob_hashes(),
         ..EthTransactionRequest::default()
-    })
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -254,7 +262,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction_unsupported() -> anyhow::Result<()> {
-    let transaction = fake_transaction_request()?;
+    let transaction = fake_transaction_request();
 
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
@@ -361,10 +369,10 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: remote::eth::Transaction = serde_json::from_value(result.result)?;
-    let transaction = ExecutableTransaction::try_from(transaction)?;
+    let transaction: edr_rpc_eth::Transaction = serde_json::from_value(result.result)?;
+    let transaction = transaction::Signed::try_from(transaction)?;
 
-    assert_eq!(transaction.into_inner().0, expected);
+    assert_eq!(transaction, expected);
 
     Ok(())
 }
@@ -409,7 +417,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let first_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let first_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(first_block.blob_gas_used, Some(BYTES_PER_BLOB as u64));
 
     assert_eq!(
@@ -433,7 +441,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let second_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let second_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(second_block.blob_gas_used, Some(4 * BYTES_PER_BLOB as u64));
 
     assert_eq!(
@@ -457,7 +465,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let third_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let third_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(third_block.blob_gas_used, Some(5 * BYTES_PER_BLOB as u64));
 
     assert_eq!(
@@ -475,7 +483,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fourth_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fourth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fourth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
@@ -494,7 +502,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fifth_block: remote::eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fifth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fifth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(

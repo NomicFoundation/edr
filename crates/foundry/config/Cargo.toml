@@ -46,3 +46,6 @@ tempfile.workspace = true
 [features]
 default = ["rustls"]
 rustls = ["reqwest/rustls-tls-native-roots"]
+
+[lints]
+workspace = true

@@ -5,13 +5,13 @@ use k256::SecretKey;
 use revm_primitives::keccak256;
 
 use crate::{
-    signature::{Signature, SignatureError},
-    transaction::{fake_signature::make_fake_signature, signed::Eip155SignedTransaction, TxKind},
+    signature::{self, public_key_to_address, Fakeable, SignatureError},
+    transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Eip155TransactionRequest {
+pub struct Eip155 {
     // The order of these fields determines encoding order.
     pub nonce: u64,
     pub gas_price: U256,
@@ -22,47 +22,64 @@ pub struct Eip155TransactionRequest {
     pub chain_id: u64,
 }
 
-impl Eip155TransactionRequest {
+impl Eip155 {
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         keccak256(alloy_rlp::encode(self))
     }
 
     /// Signs the transaction with the provided secret key.
-    pub fn sign(self, secret_key: &SecretKey) -> Result<Eip155SignedTransaction, SignatureError> {
+    pub fn sign(
+        self,
+        secret_key: &SecretKey,
+    ) -> Result<transaction::signed::Eip155, SignatureError> {
+        let caller = public_key_to_address(secret_key.public_key());
+
+        // SAFETY: The caller is derived from the secret key.
+        unsafe { self.sign_for_sender_unchecked(secret_key, caller) }
+    }
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided caller's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    pub unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<transaction::signed::Eip155, SignatureError> {
         let hash = self.hash();
 
-        let mut signature = Signature::new(hash, secret_key)?;
+        let mut signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
         signature.v += self.v_value_adjustment();
 
-        Ok(Eip155SignedTransaction {
+        Ok(transaction::signed::Eip155 {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature,
+            signature: Fakeable::with_address_unchecked(signature, caller),
             hash: OnceLock::new(),
-            is_fake: false,
         })
     }
 
     /// Creates a fake signature for an impersonated account.
-    pub fn fake_sign(self, address: &Address) -> Eip155SignedTransaction {
-        let mut signature = make_fake_signature::<0>(address);
-        signature.v += self.v_value_adjustment();
+    pub fn fake_sign(self, address: Address) -> transaction::signed::Eip155 {
+        let v = self.v_value_adjustment();
 
-        Eip155SignedTransaction {
+        transaction::signed::Eip155 {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature,
+            signature: signature::Fakeable::fake(address, Some(v)),
             hash: OnceLock::new(),
-            is_fake: true,
         }
     }
 
@@ -84,22 +101,7 @@ impl Eip155TransactionRequest {
     }
 }
 
-impl From<&Eip155SignedTransaction> for Eip155TransactionRequest {
-    fn from(tx: &Eip155SignedTransaction) -> Self {
-        let chain_id = tx.chain_id();
-        Self {
-            nonce: tx.nonce,
-            gas_price: tx.gas_price,
-            gas_limit: tx.gas_limit,
-            kind: tx.kind,
-            value: tx.value,
-            input: tx.input.clone(),
-            chain_id,
-        }
-    }
-}
-
-impl Encodable for Eip155TransactionRequest {
+impl Encodable for Eip155 {
     fn length(&self) -> usize {
         let payload_length = self.rlp_payload_length();
         payload_length + alloy_rlp::length_of_length(payload_length)
@@ -133,10 +135,10 @@ mod tests {
     use super::*;
     use crate::transaction::fake_signature::tests::test_fake_sign_properties;
 
-    fn dummy_request() -> Eip155TransactionRequest {
+    fn dummy_request() -> Eip155 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        Eip155TransactionRequest {
+        Eip155 {
             nonce: 1,
             gas_price: U256::from(2),
             gas_limit: 3,
@@ -176,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_fake_sign_test_vector() -> anyhow::Result<()> {
-        let transaction = Eip155TransactionRequest {
+        let transaction = Eip155 {
             nonce: 0,
             gas_price: U256::from(678_912),
             gas_limit: 30_000,
@@ -188,7 +190,7 @@ mod tests {
 
         let fake_sender: Address = "0xa5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?;
 
-        let signed = transaction.fake_sign(&fake_sender);
+        let signed = transaction.fake_sign(fake_sender);
 
         let expected_hash: B256 =
             "bcdd3230665912079522dfbfe605e70443c81bf78db768a688a8d8007accf14b".parse()?;

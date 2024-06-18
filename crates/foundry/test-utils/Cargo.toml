@@ -30,3 +30,6 @@ rand.workspace = true
 [features]
 # feature for integration tests that test external projects
 external-integration-tests = []
+
+[lints]
+workspace = true

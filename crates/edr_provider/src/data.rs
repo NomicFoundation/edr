@@ -18,24 +18,21 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         BlobGas, BlockOptions,
     },
+    fee_history::FeeHistoryResult,
+    filter::{FilteredEvents, LogOutput, SubscriptionType},
     log::FilterLog,
     receipt::BlockReceipt,
-    remote::{
-        client::{HeaderMap, HttpError},
-        eth::FeeHistoryResult,
-        filter::{FilteredEvents, LogOutput, SubscriptionType},
-        BlockSpec, BlockTag, Eip1898BlockSpec, RpcClient, RpcClientError,
-    },
     reward_percentile::RewardPercentile,
-    signature::{RecoveryMessage, Signature},
-    transaction::{Transaction, TransactionRequestAndSender, TransactionType},
-    Address, Bytes, SpecId, B256, U256,
+    signature::{self, RecoveryMessage},
+    transaction::{request::TransactionRequestAndSender, Transaction, TransactionType},
+    Address, BlockSpec, BlockTag, Bytes, Eip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{
     blockchain::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
+    chain_spec::L1ChainSpec,
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
@@ -44,11 +41,16 @@ use edr_evm::{
         SyncState,
     },
     trace::Trace,
-    Account, AccountInfo, BlobExcessGasAndPrice, Block, BlockAndTotalDifficulty, BlockEnv,
+    transaction::{self, SignedTransaction as _},
+    Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
     Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
-    DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutableTransaction, ExecutionResult,
-    HashMap, HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
-    StorageSlot, SyncBlock, TxEnv, KECCAK_EMPTY,
+    DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutionResult, HashMap, HashSet, MemPool,
+    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock,
+    TxEnv, KECCAK_EMPTY,
+};
+use edr_rpc_eth::{
+    client::{EthRpcClient, HeaderMap, RpcClientError},
+    error::HttpError,
 };
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
@@ -162,7 +164,7 @@ pub enum CreationError {
 pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = CurrentTime> {
     runtime_handle: runtime::Handle,
     initial_config: ProviderConfig,
-    blockchain: Box<dyn SyncBlockchain<BlockchainError, StateError>>,
+    blockchain: Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool,
     beneficiary: Address,
@@ -174,7 +176,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     fork_metadata: Option<ForkMetadata>,
     // Must be set if the provider is created with a fork config.
     // Hack to get around the type erasure with the dyn blockchain trait.
-    rpc_client: Option<Arc<RpcClient>>,
+    rpc_client: Option<Arc<EthRpcClient<L1ChainSpec>>>,
     instance_id: B256,
     is_auto_mining: bool,
     next_block_base_fee_per_gas: Option<U256>,
@@ -384,7 +386,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// Returns the last block in the blockchain.
     pub fn last_block(
         &self,
-    ) -> Result<Arc<dyn SyncBlock<Error = BlockchainError>>, BlockchainError> {
+    ) -> Result<Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>, BlockchainError> {
         self.blockchain.last_block()
     }
 
@@ -461,11 +463,15 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// number or a hash and the block isn't found.
     /// Returns `ProviderError::InvalidBlockTag` error if the block tag is safe
     /// or finalized and block spec is pre-merge.
+    // `SyncBlock` cannot be simplified further
+    #[allow(clippy::type_complexity)]
     pub fn block_by_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = BlockchainError>>>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>>,
+        ProviderError<LoggerErrorT>,
+    > {
         let result = match block_spec {
             BlockSpec::Number(block_number) => Some(
                 self.blockchain
@@ -553,11 +559,15 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(block_number)
     }
 
+    // `SyncBlock` cannot be simplified further
+    #[allow(clippy::type_complexity)]
     pub fn block_by_hash(
         &self,
         block_hash: &B256,
-    ) -> Result<Option<Arc<dyn SyncBlock<Error = BlockchainError>>>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<
+        Option<Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>>,
+        ProviderError<LoggerErrorT>,
+    > {
         self.blockchain
             .block_by_hash(block_hash)
             .map_err(ProviderError::Blockchain)
@@ -631,7 +641,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     pub fn debug_trace_call(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: transaction::Signed,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
     ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
@@ -662,13 +672,13 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// Estimate the gas cost of a transaction. Matches Hardhat behavior.
     pub fn estimate_gas(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: transaction::Signed,
         block_spec: &BlockSpec,
     ) -> Result<EstimateGasResult, ProviderError<LoggerErrorT>> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
-        let minimum_cost = transaction.initial_cost(self.spec_id());
+        let minimum_cost = transaction::initial_cost(&transaction, self.spec_id());
         let tx_env: TxEnv = transaction.into();
 
         let state_overrides = StateOverrides::default();
@@ -1099,8 +1109,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             &CfgEnvWithHandlerCfg,
             BlockOptions,
             &mut Debugger,
-        )
-            -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>>,
+        ) -> Result<
+            MineBlockResultAndState<L1ChainSpec, StateError>,
+            ProviderError<LoggerErrorT>,
+        >,
         mut options: BlockOptions,
     ) -> Result<DebugMineBlockResult<BlockchainError>, ProviderError<LoggerErrorT>> {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
@@ -1317,7 +1329,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             )
     }
 
-    pub fn pending_transactions(&self) -> impl Iterator<Item = &ExecutableTransaction> {
+    pub fn pending_transactions(&self) -> impl Iterator<Item = &transaction::Signed> {
         self.mem_pool.transactions()
     }
 
@@ -1386,7 +1398,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     pub fn run_call(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: transaction::Signed,
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult, ProviderError<LoggerErrorT>> {
@@ -1458,7 +1470,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     pub fn send_transaction(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: transaction::Signed,
     ) -> Result<SendTransactionResult, ProviderError<LoggerErrorT>> {
         if transaction.transaction_type() == TransactionType::Eip4844 {
             if !self.is_auto_mining || mempool::has_transactions(&self.mem_pool) {
@@ -1774,9 +1786,12 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         address: &Address,
         message: Bytes,
-    ) -> Result<Signature, ProviderError<LoggerErrorT>> {
+    ) -> Result<signature::SignatureWithRecoveryId, ProviderError<LoggerErrorT>> {
         match self.local_accounts.get(address) {
-            Some(secret_key) => Ok(Signature::new(&message[..], secret_key)?),
+            Some(secret_key) => Ok(signature::SignatureWithRecoveryId::new(
+                &message[..],
+                secret_key,
+            )?),
             None => Err(ProviderError::UnknownAddress { address: *address }),
         }
     }
@@ -1785,11 +1800,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         address: &Address,
         message: &TypedData,
-    ) -> Result<Signature, ProviderError<LoggerErrorT>> {
+    ) -> Result<signature::SignatureWithRecoveryId, ProviderError<LoggerErrorT>> {
         match self.local_accounts.get(address) {
             Some(secret_key) => {
                 let hash = message.eip712_signing_hash()?;
-                Ok(Signature::new(RecoveryMessage::Hash(hash), secret_key)?)
+                Ok(signature::SignatureWithRecoveryId::new(
+                    RecoveryMessage::Hash(hash),
+                    secret_key,
+                )?)
             }
             None => Err(ProviderError::UnknownAddress { address: *address }),
         }
@@ -1856,7 +1874,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     fn add_pending_transaction(
         &mut self,
-        transaction: ExecutableTransaction,
+        transaction: transaction::Signed,
     ) -> Result<B256, ProviderError<LoggerErrorT>> {
         let transaction_hash = *transaction.transaction_hash();
 
@@ -1903,8 +1921,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
-            &dyn SyncBlockchain<BlockchainError, StateError>,
-            &Arc<dyn SyncBlock<Error = BlockchainError>>,
+            &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+            &Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
             &Box<dyn SyncState<StateError>>,
         ) -> T,
     ) -> Result<T, ProviderError<LoggerErrorT>> {
@@ -1945,8 +1963,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             &CfgEnvWithHandlerCfg,
             BlockOptions,
             &mut Debugger,
-        )
-            -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>>,
+        ) -> Result<
+            MineBlockResultAndState<L1ChainSpec, StateError>,
+            ProviderError<LoggerErrorT>,
+        >,
         mut options: BlockOptions,
     ) -> Result<DebugMineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
@@ -1992,7 +2012,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         config: &CfgEnvWithHandlerCfg,
         options: BlockOptions,
         debugger: &mut Debugger,
-    ) -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
+    ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block(
             self.blockchain.as_ref(),
@@ -2017,9 +2037,9 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         config: &CfgEnvWithHandlerCfg,
         options: BlockOptions,
-        transaction: ExecutableTransaction,
+        transaction: transaction::Signed,
         debugger: &mut Debugger,
-    ) -> Result<MineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
+    ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
@@ -2134,7 +2154,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// about the mined block.
     fn notify_subscribers_about_mined_block(
         &mut self,
-        block_and_total_difficulty: &BlockAndTotalDifficulty<BlockchainError>,
+        block_and_total_difficulty: &BlockAndTotalDifficulty<L1ChainSpec, BlockchainError>,
     ) -> Result<(), BlockchainError> {
         let block = &block_and_total_difficulty.block;
         for (filter_id, filter) in self.filters.iter_mut() {
@@ -2189,35 +2209,32 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn sign_transaction_request(
         &self,
         transaction_request: TransactionRequestAndSender,
-    ) -> Result<ExecutableTransaction, ProviderError<LoggerErrorT>> {
+    ) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
         let TransactionRequestAndSender { request, sender } = transaction_request;
 
         if self.impersonated_accounts.contains(&sender) {
-            let signed_transaction = request.fake_sign(&sender);
-
-            Ok(ExecutableTransaction::with_caller(
-                self.blockchain.spec_id(),
-                signed_transaction,
-                sender,
-            )?)
+            let signed_transaction = request.fake_sign(sender);
+            transaction::validate(signed_transaction, self.blockchain.spec_id())
+                .map_err(ProviderError::TransactionCreationError)
         } else {
             let secret_key = self
                 .local_accounts
                 .get(&sender)
                 .ok_or(ProviderError::UnknownAddress { address: sender })?;
 
-            let signed_transaction = request.sign(secret_key)?;
-            Ok(ExecutableTransaction::with_caller(
-                self.blockchain.spec_id(),
-                signed_transaction,
-                sender,
-            )?)
+            // SAFETY: We know the secret key belongs to the sender, as we retrieved it from
+            // `local_accounts`.
+            let signed_transaction =
+                unsafe { request.sign_for_sender_unchecked(secret_key, sender) }?;
+
+            transaction::validate(signed_transaction, self.blockchain.spec_id())
+                .map_err(ProviderError::TransactionCreationError)
         }
     }
 
     fn validate_auto_mine_transaction(
         &mut self,
-        transaction: &ExecutableTransaction,
+        transaction: &transaction::Signed,
     ) -> Result<(), ProviderError<LoggerErrorT>> {
         let next_nonce = { self.account_next_nonce(transaction.caller())? };
 
@@ -2347,9 +2364,9 @@ fn block_time_offset_seconds(
 }
 
 struct BlockchainAndState {
-    blockchain: Box<dyn SyncBlockchain<BlockchainError, StateError>>,
+    blockchain: Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>,
     fork_metadata: Option<ForkMetadata>,
-    rpc_client: Option<Arc<RpcClient>>,
+    rpc_client: Option<Arc<EthRpcClient<L1ChainSpec>>>,
     state: Box<dyn SyncState<StateError>>,
     irregular_state: IrregularState,
     prev_randao_generator: RandomHashGenerator,
@@ -2376,7 +2393,7 @@ fn create_blockchain_and_state(
             .map(|headers| HeaderMap::try_from(headers).map_err(CreationError::InvalidHttpHeaders))
             .transpose()?;
 
-        let rpc_client = Arc::new(RpcClient::new(
+        let rpc_client = Arc::new(EthRpcClient::<L1ChainSpec>::new(
             &fork_config.json_rpc_url,
             config.cache_dir.clone(),
             http_headers.clone(),
@@ -2385,7 +2402,7 @@ fn create_blockchain_and_state(
         let (blockchain, mut irregular_state) =
             tokio::task::block_in_place(|| -> Result<_, ForkedCreationError> {
                 let mut irregular_state = IrregularState::default();
-                let blockchain = runtime.block_on(ForkedBlockchain::new(
+                let blockchain = runtime.block_on(ForkedBlockchain::<L1ChainSpec>::new(
                     runtime.clone(),
                     Some(config.chain_id),
                     config.hardfork,
@@ -2555,7 +2572,7 @@ fn create_blockchain_and_state(
 #[derive(Debug, Clone)]
 pub struct TransactionAndBlock {
     /// The transaction.
-    pub transaction: ExecutableTransaction,
+    pub transaction: transaction::Signed,
     /// Block data in which the transaction is found if it has been mined.
     pub block_data: Option<BlockDataForTransaction>,
     /// Whether the transaction is pending
@@ -2565,7 +2582,7 @@ pub struct TransactionAndBlock {
 /// Block metadata for a transaction.
 #[derive(Debug, Clone)]
 pub struct BlockDataForTransaction {
-    pub block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    pub block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     pub transaction_index: u64,
 }
 
@@ -2574,8 +2591,7 @@ pub(crate) mod test_utils {
     use std::convert::Infallible;
 
     use anyhow::anyhow;
-    use edr_eth::transaction::{Eip155TransactionRequest, TransactionRequest, TxKind};
-    use edr_test_utils::env::get_alchemy_url;
+    use edr_eth::transaction::{self, TxKind};
 
     use super::*;
     use crate::{
@@ -2595,7 +2611,10 @@ pub(crate) mod test_utils {
             Self::with_fork(None)
         }
 
+        #[cfg(feature = "test-remote")]
         pub(crate) fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
+            use edr_test_utils::env::get_alchemy_url;
+
             let fork_url = url.unwrap_or(get_alchemy_url());
             Self::with_fork(Some(fork_url))
         }
@@ -2664,7 +2683,7 @@ pub(crate) mod test_utils {
             gas_limit: u64,
             nonce: Option<u64>,
         ) -> anyhow::Result<TransactionRequestAndSender> {
-            let request = TransactionRequest::Eip155(Eip155TransactionRequest {
+            let request = transaction::Request::Eip155(transaction::request::Eip155 {
                 kind: TxKind::Call(Address::ZERO),
                 gas_limit,
                 gas_price: U256::from(42_000_000_000_u64),
@@ -2692,7 +2711,7 @@ pub(crate) mod test_utils {
                 .ok_or(anyhow!("the requested local account does not exist"))
         }
 
-        pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<ExecutableTransaction> {
+        pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<transaction::Signed> {
             let mut transaction = self.dummy_transaction_request(0, 30_000, None)?;
             transaction.sender = self.impersonated_account;
 
@@ -2703,7 +2722,7 @@ pub(crate) mod test_utils {
             &self,
             local_account_index: usize,
             nonce: Option<u64>,
-        ) -> anyhow::Result<ExecutableTransaction> {
+        ) -> anyhow::Result<transaction::Signed> {
             let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
             Ok(self.provider_data.sign_transaction_request(transaction)?)
         }
@@ -2714,20 +2733,15 @@ pub(crate) mod test_utils {
 mod tests {
     use std::convert::Infallible;
 
-    use alloy_sol_types::{sol, SolCall};
     use anyhow::Context;
-    use edr_eth::remote::eth::CallRequest;
-    use edr_evm::{hex, MineOrdering, TransactionError};
-    use edr_test_utils::env::get_alchemy_url;
+    use edr_eth::transaction::SignedTransaction;
+    use edr_evm::{hex, MineOrdering};
     use serde_json::json;
 
     use super::{test_utils::ProviderTestFixture, *};
     use crate::{
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
-        requests::eth::resolve_call_request,
-        test_utils::{
-            create_test_config, create_test_config_with_fork, one_ether, FORK_BLOCK_NUMBER,
-        },
+        test_utils::{create_test_config, one_ether},
         MemPoolConfig, MiningConfig, ProviderConfig,
     };
 
@@ -2752,6 +2766,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn test_local_account_balance_forked() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::new_forked(None)?;
@@ -2778,12 +2793,12 @@ mod tests {
         let fixture = ProviderTestFixture::new_local()?;
 
         let transaction = fixture.signed_dummy_transaction(0, None)?;
-        let recovered_address = transaction.as_inner().recover()?;
+        let recovered_address = transaction.caller();
 
         assert!(fixture
             .provider_data
             .local_accounts
-            .contains_key(&recovered_address));
+            .contains_key(recovered_address));
 
         Ok(())
     }
@@ -2801,7 +2816,7 @@ mod tests {
 
     fn test_add_pending_transaction(
         fixture: &mut ProviderTestFixture,
-        transaction: ExecutableTransaction,
+        transaction: transaction::Signed,
     ) -> anyhow::Result<()> {
         let filter_id = fixture
             .provider_data
@@ -2934,6 +2949,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn chain_id_fork_mode() -> anyhow::Result<()> {
         let fixture = ProviderTestFixture::new_forked(None)?;
@@ -2944,6 +2960,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "test-remote")]
     #[test]
     fn fork_metadata_fork_mode() -> anyhow::Result<()> {
         let fixture = ProviderTestFixture::new_forked(None)?;
@@ -3071,7 +3088,9 @@ mod tests {
         let transaction = fixture.signed_dummy_transaction(0, None)?;
         let expected = transaction.value();
         let receiver = transaction
+            .kind()
             .to()
+            .copied()
             .expect("Dummy transaction should have a receiver");
 
         fixture.provider_data.add_pending_transaction(transaction)?;
@@ -3099,7 +3118,9 @@ mod tests {
         let transaction2 = fixture.signed_dummy_transaction(1, None)?;
 
         let receiver = transaction1
+            .kind()
             .to()
+            .copied()
             .expect("Dummy transaction should have a receiver");
 
         let expected = transaction1.value() + transaction2.value();
@@ -3134,7 +3155,9 @@ mod tests {
         let transaction2 = fixture.signed_dummy_transaction(0, Some(1))?;
 
         let receiver = transaction1
+            .kind()
             .to()
+            .copied()
             .expect("Dummy transaction should have a receiver");
 
         let expected = transaction1.value() + transaction2.value();
@@ -3613,53 +3636,6 @@ mod tests {
     }
 
     #[test]
-    fn reset_local_to_forking() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
-
-        let fork_config = Some(ForkConfig {
-            json_rpc_url: get_alchemy_url(),
-            // Random recent block for better cache consistency
-            block_number: Some(FORK_BLOCK_NUMBER),
-            http_headers: None,
-        });
-
-        let block_spec = BlockSpec::Number(FORK_BLOCK_NUMBER);
-
-        assert_eq!(fixture.provider_data.last_block_number(), 0);
-
-        fixture.provider_data.reset(fork_config)?;
-
-        // We're fetching a specific block instead of the last block number for the
-        // forked blockchain, because the last block number query cannot be
-        // cached.
-        assert!(fixture
-            .provider_data
-            .block_by_block_spec(&block_spec)?
-            .is_some());
-
-        Ok(())
-    }
-
-    #[test]
-    fn reset_forking_to_local() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_forked(None)?;
-
-        // We're fetching a specific block instead of the last block number for the
-        // forked blockchain, because the last block number query cannot be
-        // cached.
-        assert!(fixture
-            .provider_data
-            .block_by_block_spec(&BlockSpec::Number(FORK_BLOCK_NUMBER))?
-            .is_some());
-
-        fixture.provider_data.reset(None)?;
-
-        assert_eq!(fixture.provider_data.last_block_number(), 0);
-
-        Ok(())
-    }
-
-    #[test]
     fn sign_typed_data_v4() -> anyhow::Result<()> {
         let fixture = ProviderTestFixture::new_local()?;
 
@@ -3718,151 +3694,214 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn run_call_in_hardfork_context() -> anyhow::Result<()> {
-        sol! { function Hello() public pure returns (string); }
+    #[cfg(feature = "test-remote")]
+    mod alchemy {
+        use edr_test_utils::env::get_alchemy_url;
 
-        fn assert_decoded_output(result: ExecutionResult) -> anyhow::Result<()> {
-            let output = result.into_output().expect("Call must have output");
-            let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
+        use super::*;
+        use crate::test_utils::FORK_BLOCK_NUMBER;
 
-            assert_eq!(decoded._0, "Hello World");
+        #[test]
+        fn reset_local_to_forking() -> anyhow::Result<()> {
+            let mut fixture = ProviderTestFixture::new_local()?;
+
+            let fork_config = Some(ForkConfig {
+                json_rpc_url: get_alchemy_url(),
+                // Random recent block for better cache consistency
+                block_number: Some(FORK_BLOCK_NUMBER),
+                http_headers: None,
+            });
+
+            let block_spec = BlockSpec::Number(FORK_BLOCK_NUMBER);
+
+            assert_eq!(fixture.provider_data.last_block_number(), 0);
+
+            fixture.provider_data.reset(fork_config)?;
+
+            // We're fetching a specific block instead of the last block number for the
+            // forked blockchain, because the last block number query cannot be
+            // cached.
+            assert!(fixture
+                .provider_data
+                .block_by_block_spec(&block_spec)?
+                .is_some());
+
             Ok(())
         }
 
-        /// Executes a call to method `Hello` on contract `HelloWorld`,
-        /// deployed to mainnet.
-        ///
-        /// Should return a string `"Hello World"`.
-        fn call_hello_world_contract(
-            data: &mut ProviderData<Infallible>,
-            block_spec: BlockSpec,
-            request: CallRequest,
-        ) -> Result<CallResult, ProviderError<Infallible>> {
-            let state_overrides = StateOverrides::default();
+        #[test]
+        fn reset_forking_to_local() -> anyhow::Result<()> {
+            let mut fixture = ProviderTestFixture::new_forked(None)?;
 
-            let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
+            // We're fetching a specific block instead of the last block number for the
+            // forked blockchain, because the last block number query cannot be
+            // cached.
+            assert!(fixture
+                .provider_data
+                .block_by_block_spec(&BlockSpec::Number(FORK_BLOCK_NUMBER))?
+                .is_some());
 
-            data.run_call(transaction, &block_spec, &state_overrides)
+            fixture.provider_data.reset(None)?;
+
+            assert_eq!(fixture.provider_data.last_block_number(), 0);
+
+            Ok(())
         }
 
-        const EIP_1559_ACTIVATION_BLOCK: u64 = 12_965_000;
-        const HELLO_WORLD_CONTRACT_ADDRESS: &str = "0xe36613A299bA695aBA8D0c0011FCe95e681f6dD3";
+        #[test]
+        fn run_call_in_hardfork_context() -> anyhow::Result<()> {
+            use alloy_sol_types::{sol, SolCall};
+            use edr_evm::transaction::TransactionError;
+            use edr_rpc_eth::CallRequest;
 
-        let hello_world_contract_address: Address = HELLO_WORLD_CONTRACT_ADDRESS.parse()?;
-        let hello_world_contract_call = HelloCall::new(());
+            use crate::{
+                requests::eth::resolve_call_request, test_utils::create_test_config_with_fork,
+            };
 
-        let runtime = runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .enable_all()
-            .thread_name("provider-data-test")
-            .build()?;
+            sol! { function Hello() public pure returns (string); }
 
-        let default_config = create_test_config_with_fork(Some(ForkConfig {
-            json_rpc_url: get_alchemy_url(),
-            block_number: Some(EIP_1559_ACTIVATION_BLOCK),
-            http_headers: None,
-        }));
+            fn assert_decoded_output(result: ExecutionResult) -> anyhow::Result<()> {
+                let output = result.into_output().expect("Call must have output");
+                let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
 
-        let config = ProviderConfig {
-            // SAFETY: literal is non-zero
-            block_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
-            chain_id: 1,
-            coinbase: Address::ZERO,
-            hardfork: SpecId::LONDON,
-            network_id: 1,
-            ..default_config
-        };
+                assert_eq!(decoded._0, "Hello World");
+                Ok(())
+            }
 
-        let mut fixture = ProviderTestFixture::new(runtime, config)?;
+            /// Executes a call to method `Hello` on contract `HelloWorld`,
+            /// deployed to mainnet.
+            ///
+            /// Should return a string `"Hello World"`.
+            fn call_hello_world_contract(
+                data: &mut ProviderData<Infallible>,
+                block_spec: BlockSpec,
+                request: CallRequest,
+            ) -> Result<CallResult, ProviderError<Infallible>> {
+                let state_overrides = StateOverrides::default();
 
-        let default_call = CallRequest {
-            from: Some(fixture.nth_local_account(0)?),
-            to: Some(hello_world_contract_address),
-            gas: Some(1_000_000),
-            value: Some(U256::ZERO),
-            data: Some(hello_world_contract_call.abi_encode().into()),
-            ..CallRequest::default()
-        };
+                let transaction =
+                    resolve_call_request(data, request, &block_spec, &state_overrides)?;
 
-        // Should accept post-EIP-1559 gas semantics when running in the context of a
-        // post-EIP-1559 block
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
-            CallRequest {
-                max_fee_per_gas: Some(U256::ZERO),
-                ..default_call.clone()
-            },
-        )?;
+                data.run_call(transaction, &block_spec, &state_overrides)
+            }
 
-        assert_decoded_output(result.execution_result)?;
+            const EIP_1559_ACTIVATION_BLOCK: u64 = 12_965_000;
+            const HELLO_WORLD_CONTRACT_ADDRESS: &str = "0xe36613A299bA695aBA8D0c0011FCe95e681f6dD3";
 
-        // Should accept pre-EIP-1559 gas semantics when running in the context of a
-        // pre-EIP-1559 block
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
-            CallRequest {
-                gas_price: Some(U256::ZERO),
-                ..default_call.clone()
-            },
-        )?;
+            let hello_world_contract_address: Address = HELLO_WORLD_CONTRACT_ADDRESS.parse()?;
+            let hello_world_contract_call = HelloCall::new(());
 
-        assert_decoded_output(result.execution_result)?;
+            let runtime = runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .thread_name("provider-data-test")
+                .build()?;
 
-        // Should throw when given post-EIP-1559 gas semantics and when running in the
-        // context of a pre-EIP-1559 block
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
-            CallRequest {
-                max_fee_per_gas: Some(U256::ZERO),
-                ..default_call.clone()
-            },
-        );
+            let default_config = create_test_config_with_fork(Some(ForkConfig {
+                json_rpc_url: get_alchemy_url(),
+                block_number: Some(EIP_1559_ACTIVATION_BLOCK),
+                http_headers: None,
+            }));
 
-        assert!(matches!(
-            result,
-            Err(ProviderError::RunTransaction(
-                TransactionError::Eip1559Unsupported
-            ))
-        ));
+            let config = ProviderConfig {
+                // SAFETY: literal is non-zero
+                block_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
+                chain_id: 1,
+                coinbase: Address::ZERO,
+                hardfork: SpecId::LONDON,
+                network_id: 1,
+                ..default_config
+            };
 
-        // Should accept pre-EIP-1559 gas semantics when running in the context of a
-        // post-EIP-1559 block
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
-            CallRequest {
-                gas_price: Some(U256::ZERO),
-                ..default_call.clone()
-            },
-        )?;
+            let mut fixture = ProviderTestFixture::new(runtime, config)?;
 
-        assert_decoded_output(result.execution_result)?;
+            let default_call = CallRequest {
+                from: Some(fixture.nth_local_account(0)?),
+                to: Some(hello_world_contract_address),
+                gas: Some(1_000_000),
+                value: Some(U256::ZERO),
+                data: Some(hello_world_contract_call.abi_encode().into()),
+                ..CallRequest::default()
+            };
 
-        // Should support a historical call in the context of a block added via
-        // `mine_and_commit_blocks`
-        let previous_block_number = fixture.provider_data.last_block_number();
+            // Should accept post-EIP-1559 gas semantics when running in the context of a
+            // post-EIP-1559 block
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
+                CallRequest {
+                    max_fee_per_gas: Some(U256::ZERO),
+                    ..default_call.clone()
+                },
+            )?;
 
-        fixture.provider_data.mine_and_commit_blocks(100, 1)?;
+            assert_decoded_output(result.execution_result)?;
 
-        let result = call_hello_world_contract(
-            &mut fixture.provider_data,
-            BlockSpec::Number(previous_block_number + 50),
-            CallRequest {
-                max_fee_per_gas: Some(U256::ZERO),
-                ..default_call
-            },
-        )?;
+            // Should accept pre-EIP-1559 gas semantics when running in the context of a
+            // pre-EIP-1559 block
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
+                CallRequest {
+                    gas_price: Some(U256::ZERO),
+                    ..default_call.clone()
+                },
+            )?;
 
-        assert_decoded_output(result.execution_result)?;
+            assert_decoded_output(result.execution_result)?;
 
-        Ok(())
-    }
+            // Should throw when given post-EIP-1559 gas semantics and when running in the
+            // context of a pre-EIP-1559 block
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
+                CallRequest {
+                    max_fee_per_gas: Some(U256::ZERO),
+                    ..default_call.clone()
+                },
+            );
 
-    macro_rules! impl_full_block_tests {
+            assert!(matches!(
+                result,
+                Err(ProviderError::RunTransaction(
+                    TransactionError::Eip1559Unsupported
+                ))
+            ));
+
+            // Should accept pre-EIP-1559 gas semantics when running in the context of a
+            // post-EIP-1559 block
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
+                CallRequest {
+                    gas_price: Some(U256::ZERO),
+                    ..default_call.clone()
+                },
+            )?;
+
+            assert_decoded_output(result.execution_result)?;
+
+            // Should support a historical call in the context of a block added via
+            // `mine_and_commit_blocks`
+            let previous_block_number = fixture.provider_data.last_block_number();
+
+            fixture.provider_data.mine_and_commit_blocks(100, 1)?;
+
+            let result = call_hello_world_contract(
+                &mut fixture.provider_data,
+                BlockSpec::Number(previous_block_number + 50),
+                CallRequest {
+                    max_fee_per_gas: Some(U256::ZERO),
+                    ..default_call
+                },
+            )?;
+
+            assert_decoded_output(result.execution_result)?;
+
+            Ok(())
+        }
+
+        macro_rules! impl_full_block_tests {
         ($(
             $name:ident => {
                 block_number: $block_number:expr,
@@ -3884,62 +3923,63 @@ mod tests {
         }
     }
 
-    impl_full_block_tests! {
-        mainnet_byzantium => {
-            block_number: 4_370_001,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        mainnet_constantinople => {
-            block_number: 7_280_001,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        mainnet_istanbul => {
-            block_number: 9_069_001,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        mainnet_muir_glacier => {
-            block_number: 9_300_077,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        mainnet_shanghai => {
-            block_number: 17_050_001,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        // This block contains a sequence of transaction that first raise
-        // an empty account's balance and then decrease it
-        mainnet_19318016 => {
-            block_number: 19_318_016,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        // This block has both EIP-2930 and EIP-1559 transactions
-        sepolia_eip_1559_2930 => {
-            block_number: 5_632_795,
-            chain_id: 11_155_111,
-            url: get_alchemy_url().replace("mainnet", "sepolia"),
-        },
-        sepolia_shanghai => {
-            block_number: 3_095_000,
-            chain_id: 11_155_111,
-            url: get_alchemy_url().replace("mainnet", "sepolia"),
-        },
-        // This block has an EIP-4844 transaction
-        mainnet_cancun => {
-            block_number: 19_529_021,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
-        // This block contains a transaction that uses the KZG point evaluation
-        // precompile, introduced in Cancun
-        mainnet_cancun2 => {
-            block_number: 19_562_047,
-            chain_id: 1,
-            url: get_alchemy_url(),
-        },
+        impl_full_block_tests! {
+            mainnet_byzantium => {
+                block_number: 4_370_001,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            mainnet_constantinople => {
+                block_number: 7_280_001,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            mainnet_istanbul => {
+                block_number: 9_069_001,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            mainnet_muir_glacier => {
+                block_number: 9_300_077,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            mainnet_shanghai => {
+                block_number: 17_050_001,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            // This block contains a sequence of transaction that first raise
+            // an empty account's balance and then decrease it
+            mainnet_19318016 => {
+                block_number: 19_318_016,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            // This block has both EIP-2930 and EIP-1559 transactions
+            sepolia_eip_1559_2930 => {
+                block_number: 5_632_795,
+                chain_id: 11_155_111,
+                url: get_alchemy_url().replace("mainnet", "sepolia"),
+            },
+            sepolia_shanghai => {
+                block_number: 3_095_000,
+                chain_id: 11_155_111,
+                url: get_alchemy_url().replace("mainnet", "sepolia"),
+            },
+            // This block has an EIP-4844 transaction
+            mainnet_cancun => {
+                block_number: 19_529_021,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+            // This block contains a transaction that uses the KZG point evaluation
+            // precompile, introduced in Cancun
+            mainnet_cancun2 => {
+                block_number: 19_562_047,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
+        }
     }
 }

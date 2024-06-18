@@ -1,7 +1,7 @@
 #!/bin/sh
 #
-# Intended to be in sync with .github/workflows/hardhat-core-ci.yml's
-# test-edr-rs
+# Intended to be in sync with .github/workflows/edr-ci.yml's `test-edr-rs` job.
+
 
 if [ -z "${ALCHEMY_URL}" ] || [ -z "${INFURA_URL}" ]; then
   echo WARNING: skipping remote tests because the ALCHEMY_URL and INFURA_URL environment variables are not defined. Local test results may differ from those in CI.
@@ -13,7 +13,11 @@ fi
 # Set -x  here to avoid printing secrets
 set -xe
 
+# Do not modify or set RUSTFLAGS as this overrides any flags that may have been set
+# by the user and prevents from reusing the build cache.
+# See https://github.com/rust-lang/cargo/issues/8424#issuecomment-1734683743 and the thread.
+
+cargo clippy --workspace --all-targets ${ALL_FEATURES} -- --deny warnings
 cargo +nightly fmt --all -- --check
-cargo clippy --all --all-targets ${ALL_FEATURES} -- -D warnings
 cargo test --doc --workspace ${ALL_FEATURES}
 cargo test --workspace --all-targets ${ALL_FEATURES}

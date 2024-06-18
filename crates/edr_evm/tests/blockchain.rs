@@ -11,8 +11,10 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain},
+    chain_spec::L1ChainSpec,
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
+    transaction::SignedTransaction as _,
     HashSet, LocalBlock, Log, SpecId, SyncBlock,
 };
 use serial_test::serial;
@@ -35,16 +37,17 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 #[cfg(feature = "test-remote")]
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
-) -> Box<dyn SyncBlockchain<BlockchainError, StateError>> {
-    use edr_eth::remote::RpcClient;
+) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>> {
     use edr_evm::{
         blockchain::ForkedBlockchain, state::IrregularState, HashMap, RandomHashGenerator,
     };
+    use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use parking_lot::Mutex;
 
     let rpc_client =
-        RpcClient::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
+        EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None)
+            .expect("url ok");
 
     let mut irregular_state = IrregularState::default();
     Box::new(
@@ -67,7 +70,8 @@ async fn create_forked_dummy_blockchain(
 
 // The cache directory is only used when the `test-remote` feature is enabled
 #[allow(unused_variables)]
-async fn create_dummy_blockchains() -> Vec<Box<dyn SyncBlockchain<BlockchainError, StateError>>> {
+async fn create_dummy_blockchains(
+) -> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>> {
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
     const DEFAULT_INITIAL_BASE_FEE: u64 = 1000000000;
 
@@ -91,16 +95,18 @@ async fn create_dummy_blockchains() -> Vec<Box<dyn SyncBlockchain<BlockchainErro
     ]
 }
 
-fn create_dummy_block(blockchain: &dyn SyncBlockchain<BlockchainError, StateError>) -> LocalBlock {
+fn create_dummy_block(
+    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+) -> LocalBlock<L1ChainSpec> {
     let block_number = blockchain.last_block_number() + 1;
 
     create_dummy_block_with_number(blockchain, block_number)
 }
 
 fn create_dummy_block_with_number(
-    blockchain: &dyn SyncBlockchain<BlockchainError, StateError>,
+    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
     number: u64,
-) -> LocalBlock {
+) -> LocalBlock<L1ChainSpec> {
     let parent_hash = *blockchain
         .last_block()
         .expect("Failed to retrieve last block")
@@ -110,10 +116,10 @@ fn create_dummy_block_with_number(
 }
 
 fn create_dummy_block_with_difficulty(
-    blockchain: &dyn SyncBlockchain<BlockchainError, StateError>,
+    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
     number: u64,
     difficulty: u64,
-) -> LocalBlock {
+) -> LocalBlock<L1ChainSpec> {
     let parent_hash = *blockchain
         .last_block()
         .expect("Failed to retrieve last block")
@@ -130,7 +136,11 @@ fn create_dummy_block_with_difficulty(
     )
 }
 
-fn create_dummy_block_with_hash(spec_id: SpecId, number: u64, parent_hash: B256) -> LocalBlock {
+fn create_dummy_block_with_hash(
+    spec_id: SpecId,
+    number: u64,
+    parent_hash: B256,
+) -> LocalBlock<L1ChainSpec> {
     create_dummy_block_with_header(
         spec_id,
         PartialHeader {
@@ -141,19 +151,22 @@ fn create_dummy_block_with_hash(spec_id: SpecId, number: u64, parent_hash: B256)
     )
 }
 
-fn create_dummy_block_with_header(spec_id: SpecId, partial_header: PartialHeader) -> LocalBlock {
+fn create_dummy_block_with_header(
+    spec_id: SpecId,
+    partial_header: PartialHeader,
+) -> LocalBlock<L1ChainSpec> {
     LocalBlock::empty(spec_id, partial_header)
 }
 
 struct DummyBlockAndTransaction {
-    block: Arc<dyn SyncBlock<Error = BlockchainError>>,
+    block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     transaction_hash: B256,
     transaction_receipt: TransactionReceipt<Log>,
 }
 
 /// Returns the transaction's hash.
 fn insert_dummy_block_with_transaction(
-    blockchain: &mut dyn SyncBlockchain<BlockchainError, StateError>,
+    blockchain: &mut dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
 ) -> anyhow::Result<DummyBlockAndTransaction> {
     const GAS_USED: u64 = 100;
 
@@ -182,7 +195,7 @@ fn insert_dummy_block_with_transaction(
         transaction_hash: *transaction.transaction_hash(),
         transaction_index: 0,
         from: *transaction.caller(),
-        to: transaction.to(),
+        to: transaction.kind().to().copied(),
         contract_address: None,
         gas_used: GAS_USED,
         effective_gas_price: None,
@@ -313,6 +326,8 @@ async fn block_by_number_some() {
 async fn block_by_number_with_create() -> anyhow::Result<()> {
     use std::str::FromStr;
 
+    use edr_eth::transaction::TxKind;
+
     const DAI_CREATION_BLOCK_NUMBER: u64 = 4_719_568;
     const DAI_CREATION_TRANSACTION_INDEX: usize = 85;
     const DAI_CREATION_TRANSACTION_HASH: &str =
@@ -329,7 +344,10 @@ async fn block_by_number_with_create() -> anyhow::Result<()> {
         *transactions[DAI_CREATION_TRANSACTION_INDEX].transaction_hash(),
         B256::from_str(DAI_CREATION_TRANSACTION_HASH)?
     );
-    assert_eq!(transactions[DAI_CREATION_TRANSACTION_INDEX].to(), None);
+    assert_eq!(
+        transactions[DAI_CREATION_TRANSACTION_INDEX].kind(),
+        TxKind::Create
+    );
 
     Ok(())
 }
@@ -679,7 +697,7 @@ async fn revert_to_block_invalid_number() {
 #[tokio::test(flavor = "multi_thread")]
 #[serial]
 async fn block_total_difficulty_by_hash() {
-    let blockchains: Vec<Box<dyn SyncBlockchain<BlockchainError, StateError>>> =
+    let blockchains: Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>> =
         create_dummy_blockchains().await;
 
     for mut blockchain in blockchains {
