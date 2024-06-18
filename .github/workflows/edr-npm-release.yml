@@ -4,6 +4,7 @@ env:
   DEBUG: napi:*
   APP_NAME: edr
   MACOSX_DEPLOYMENT_TARGET: "10.13"
+  NUMBER_OF_TARGETS: 7
 permissions:
   contents: write
   id-token: write
@@ -86,6 +87,8 @@ jobs:
       run:
         working-directory: ./crates/edr_napi
     steps:
+      - name: Check number of targets
+        run: test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
@@ -403,6 +406,8 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           path: ./crates/edr_napi/artifacts
+      - name: Check number of artifacts
+        run: test $(ls -1q ./crates/edr_napi/artifacts/*.node | wc -l) -eq "$NUMBER_OF_TARGETS"
       - name: Install sponge
         run: |
           sudo apt-get update
