@@ -88,6 +88,7 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - name: Check number of targets
+        shell: bash
         run: |
           echo "Number of build jobs: ${{ strategy.job-total }}"
           echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
@@ -410,6 +411,7 @@ jobs:
         with:
           path: ./crates/edr_napi/artifacts
       - name: Check number of artifacts
+        shell: bash
         run: |
           NUMBER_OF_ARTIFACTS=$(ls -1q ./crates/edr_napi/artifacts/*.node | wc -l)
           echo "Number of artifacts: $NUMBER_OF_ARTIFACTS"
