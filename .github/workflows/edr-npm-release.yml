@@ -88,7 +88,10 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - name: Check number of targets
-        run: test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
+        run: |
+          echo "Number of build jobs: ${{ strategy.job-total }}"
+          echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
+          test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
@@ -407,7 +410,11 @@ jobs:
         with:
           path: ./crates/edr_napi/artifacts
       - name: Check number of artifacts
-        run: test $(ls -1q ./crates/edr_napi/artifacts/*.node | wc -l) -eq "$NUMBER_OF_TARGETS"
+        run: |
+          NUMBER_OF_ARTIFACTS=$(ls -1q ./crates/edr_napi/artifacts/*.node | wc -l)
+          echo "Number of artifacts: $NUMBER_OF_ARTIFACTS"
+          echo "Expected number of artifacts: $NUMBER_OF_TARGETS"
+          test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
       - name: Install sponge
         run: |
           sudo apt-get update
