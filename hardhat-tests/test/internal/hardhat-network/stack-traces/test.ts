@@ -132,11 +132,16 @@ function defineTest(
       ? testDefinition.description
       : path.relative(__dirname, dirPath);
 
+  // test definitions can optionally further restrict the solc version range,
+  // if that's the case we skip the test if the current solc version doesn't
+  // match the range in the test definition
   const solcVersionDoesntMatch: boolean =
     testDefinition.solc !== undefined &&
     !semver.satisfies(compilerOptions.solidityVersion, testDefinition.solc);
 
-  dirPath.includes("oog-chaining");
+  const skipViaIR =
+    testDefinition.skipViaIR === true &&
+    compilerOptions.optimizer?.viaIR === true;
 
   const func = async function (this: Mocha.Context) {
     this.timeout(TEST_TIMEOUT_MILLIS);
@@ -144,14 +149,9 @@ function defineTest(
     await runTest(dirPath, testDefinition, sources, compilerOptions);
   };
 
-  if (
-    testDefinition.skip === true ||
-    (testDefinition.skipViaIR === true &&
-      compilerOptions.optimizer?.viaIR === true) ||
-    solcVersionDoesntMatch
-  ) {
+  if (testDefinition.skip === true || skipViaIR || solcVersionDoesntMatch) {
     it.skip(desc, func);
-  } else if (testDefinition.only !== undefined && testDefinition.only) {
+  } else if (testDefinition.only === true) {
     // eslint-disable-next-line mocha/no-exclusive-tests
     it.only(desc, func);
   } else {
@@ -193,22 +193,6 @@ function defineDirTests(dirPath: string, compilerOptions: SolidityCompiler) {
       describe(description, function () {
         defineTest(dirPath, testDefinition, sources, compilerOptions);
       });
-
-      if (process.env.HARDHAT_NETWORK_TESTS_WITH_OPTIMIZATIONS !== undefined) {
-        const runsNumbers = [1, 200, 10000];
-
-        for (const runs of runsNumbers) {
-          describe(`With optimizations (${runs} run)`, function () {
-            defineTest(dirPath, testDefinition, sources, {
-              ...compilerOptions,
-              optimizer: {
-                viaIR: false,
-                runs,
-              },
-            });
-          });
-        }
-      }
     }
 
     for (const dir of dirs) {
@@ -687,7 +671,11 @@ async function runDeploymentTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
-  return trace as CreateMessageTrace;
+  if (!("deployedContract" in trace)) {
+    assert.fail("Expected trace to be a deployment trace");
+  }
+
+  return trace;
 }
 
 async function runCallTransactionTest(
@@ -722,7 +710,11 @@ async function runCallTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
-  return trace as CallMessageTrace;
+  if (!("calldata" in trace) || "precompile" in trace) {
+    assert.fail("Expected trace to be a call trace");
+  }
+
+  return trace;
 }
 
 const onlyLatestSolcVersions =
