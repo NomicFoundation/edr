@@ -132,9 +132,16 @@ function defineTest(
       ? testDefinition.description
       : path.relative(__dirname, dirPath);
 
+  // test definitions can optionally further restrict the solc version range,
+  // if that's the case we skip the test if the current solc version doesn't
+  // match the range in the test definition
   const solcVersionDoesntMatch: boolean =
     testDefinition.solc !== undefined &&
     !semver.satisfies(compilerOptions.solidityVersion, testDefinition.solc);
+
+  const skipViaIR =
+    testDefinition.skipViaIR === true &&
+    compilerOptions.optimizer?.viaIR === true;
 
   const func = async function (this: Mocha.Context) {
     this.timeout(TEST_TIMEOUT_MILLIS);
@@ -142,14 +149,9 @@ function defineTest(
     await runTest(dirPath, testDefinition, sources, compilerOptions);
   };
 
-  if (
-    testDefinition.skip === true ||
-    (testDefinition.skipViaIR === true &&
-      compilerOptions.optimizer?.viaIR === true) ||
-    solcVersionDoesntMatch
-  ) {
+  if (testDefinition.skip === true || skipViaIR || solcVersionDoesntMatch) {
     it.skip(desc, func);
-  } else if (testDefinition.only !== undefined && testDefinition.only) {
+  } else if (testDefinition.only === true) {
     // eslint-disable-next-line mocha/no-exclusive-tests
     it.only(desc, func);
   } else {
