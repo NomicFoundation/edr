@@ -671,7 +671,11 @@ async function runDeploymentTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
-  return trace as CreateMessageTrace;
+  if (!("deployedContract" in trace)) {
+    assert.fail("Expected trace to be a deployment trace");
+  }
+
+  return trace;
 }
 
 async function runCallTransactionTest(
@@ -706,7 +710,11 @@ async function runCallTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
-  return trace as CallMessageTrace;
+  if (!("calldata" in trace) || "precompile" in trace) {
+    assert.fail("Expected trace to be a call trace");
+  }
+
+  return trace;
 }
 
 const onlyLatestSolcVersions =
