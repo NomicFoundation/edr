@@ -17,6 +17,10 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
+defaults:
+  run:
+    working-directory: book/
+
 jobs:
   build:
     runs-on: ubuntu-latest
