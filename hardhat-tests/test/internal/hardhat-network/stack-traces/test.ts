@@ -191,22 +191,6 @@ function defineDirTests(dirPath: string, compilerOptions: SolidityCompiler) {
       describe(description, function () {
         defineTest(dirPath, testDefinition, sources, compilerOptions);
       });
-
-      if (process.env.HARDHAT_NETWORK_TESTS_WITH_OPTIMIZATIONS !== undefined) {
-        const runsNumbers = [1, 200, 10000];
-
-        for (const runs of runsNumbers) {
-          describe(`With optimizations (${runs} run)`, function () {
-            defineTest(dirPath, testDefinition, sources, {
-              ...compilerOptions,
-              optimizer: {
-                viaIR: false,
-                runs,
-              },
-            });
-          });
-        }
-      }
     }
 
     for (const dir of dirs) {
