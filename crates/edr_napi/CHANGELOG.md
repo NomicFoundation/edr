@@ -1,5 +1,13 @@
 # @nomicfoundation/edr
 
+## 0.4.1
+
+### Patch Changes
+
+- 245fd07: Provide a more helpful message when passing a timestamp bigger than 2^64 via JSON-RPC
+- d87a8c4: Fixed a problem that prevented forking chains without mix hash fields in their blocks
+- 5984f11: Fixed missing remote contract code when setting storage
+
 ## 0.4.0
 
 ### Minor Changes
