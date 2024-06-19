@@ -14,6 +14,7 @@
   - [Verdaccio](02_development/02_verdaccio.md)
   - [Local release](02_development/03_local_release.md)
   - [Update N-API targets](02_development/04_update_napi_targets.md)
+  - [Using pnpm link](02_development/05_pnpm_link.md)
 
 - [Release](./03_release.md)
 
