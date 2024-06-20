@@ -6,10 +6,10 @@ use edr_eth::{
     transaction::Transaction,
     Address, B256, U256,
 };
-use revm::primitives::{HashMap, HashSet};
+use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};
 
 use super::InsertError;
-use crate::{chain_spec::ChainSpec, hash_map::OccupiedError, Block};
+use crate::{chain_spec::ChainSpec, Block};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
 #[derive(Debug)]

@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
 use alloy_rlp::RlpEncodable;
-use edr_eth::{transaction::SignedTransaction, B256};
+use edr_eth::{
+    transaction::{self, SignedTransaction},
+    B256,
+};
 use edr_rpc_eth::spec::{EthRpcSpec, RpcSpec};
 use revm::primitives::TxEnv;
 use serde::{de::DeserializeOwned, Serialize};
@@ -49,9 +52,7 @@ impl revm::primitives::ChainSpec for L1ChainSpec {
 
     type HaltReason = revm::primitives::HaltReason;
 
-    type Transaction = revm::primitives::TxEnv;
-
-    type TransactionValidationError = revm::primitives::InvalidTransaction;
+    type Transaction = transaction::Signed;
 }
 
 impl ChainSpec for L1ChainSpec {

@@ -7,7 +7,7 @@ use edr_eth::{
     receipt::{BlockReceipt, TransactionReceipt, TypedReceipt},
     trie,
     withdrawal::Withdrawal,
-    B256,
+    SpecId, B256,
 };
 use itertools::izip;
 use revm::primitives::keccak256;
@@ -16,7 +16,7 @@ use crate::{
     blockchain::BlockchainError,
     chain_spec::{ChainSpec, SyncChainSpec},
     transaction::DetailedTransaction,
-    Block, SpecId, SyncBlock,
+    Block, SyncBlock,
 };
 
 /// A locally mined block, which contains complete information.

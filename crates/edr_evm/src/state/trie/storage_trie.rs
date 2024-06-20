@@ -1,12 +1,10 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use alloy_rlp::Decodable;
+use edr_eth::{B256, U256};
 use hasher::{Hasher, HasherKeccak};
 
-use crate::{
-    state::trie::{persistent_memory_db::PersistentMemoryDB, trie_query::TrieQuery},
-    B256, U256,
-};
+use crate::state::trie::{persistent_memory_db::PersistentMemoryDB, trie_query::TrieQuery};
 
 #[derive(Debug)]
 pub(super) struct StorageTrie {

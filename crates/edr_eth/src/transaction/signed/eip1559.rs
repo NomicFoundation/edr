@@ -1,16 +1,13 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use hashbrown::HashMap;
 use revm_primitives::{keccak256, TxEnv};
 
-use super::kind_to_transact_to;
 use crate::{
-    access_list::AccessList,
     signature::{self, Fakeable},
     transaction::{self, TxKind},
     utils::envelop_bytes,
-    Address, Bytes, B256, U256,
+    AccessList, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -60,7 +57,7 @@ impl From<Eip1559> for TxEnv {
             caller: *value.caller(),
             gas_limit: value.gas_limit,
             gas_price: value.max_fee_per_gas,
-            transact_to: kind_to_transact_to(value.kind),
+            transact_to: value.kind,
             value: value.value,
             data: value.input,
             nonce: Some(value.nonce),
@@ -69,8 +66,6 @@ impl From<Eip1559> for TxEnv {
             gas_priority_fee: Some(value.max_priority_fee_per_gas),
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
-            eof_initcodes: Vec::new(),
-            eof_initcodes_hashed: HashMap::new(),
         }
     }
 }
@@ -154,8 +149,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        access_list::AccessListItem,
         signature::{secret_key_from_str, secret_key_to_address},
+        AccessListItem,
     };
 
     const DUMMY_SECRET_KEY: &str =

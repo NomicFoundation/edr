@@ -16,10 +16,11 @@ use crate::debug::GetContextData;
 
 /// Registers trace collector handles to the EVM handler.
 pub fn register_trace_collector_handles<
+    ChainSpecT: revm::primitives::ChainSpec,
     DatabaseT: Database,
     ContextT: GetContextData<TraceCollector>,
 >(
-    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
+    handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
 ) where
     DatabaseT::Error: Debug,
 {
@@ -39,6 +40,7 @@ pub fn register_trace_collector_handles<
             .into_iter()
             .map(|i| instruction_handler(i))
             .collect::<Vec<_>>(),
+        InstructionTables::_Unused(_) => unreachable!(),
     };
 
     // cast vector to array.

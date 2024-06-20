@@ -1,10 +1,8 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use hashbrown::HashMap;
 use revm_primitives::{keccak256, TxEnv};
 
-use super::kind_to_transact_to;
 use crate::{
     signature::{self, Signature},
     transaction::{self, TxKind},
@@ -70,7 +68,7 @@ impl From<Eip155> for TxEnv {
             caller: *value.caller(),
             gas_limit: value.gas_limit,
             gas_price: value.gas_price,
-            transact_to: kind_to_transact_to(value.kind),
+            transact_to: value.kind,
             value: value.value,
             data: value.input,
             nonce: Some(value.nonce),
@@ -79,8 +77,6 @@ impl From<Eip155> for TxEnv {
             gas_priority_fee: None,
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
-            eof_initcodes: Vec::new(),
-            eof_initcodes_hashed: HashMap::new(),
         }
     }
 }
