@@ -8,23 +8,32 @@ use forge::{
     multi_runner::TestContract,
     opts::{Env as EvmEnv, EvmOpts},
     revm::primitives::SpecId,
-    MultiContractRunner, MultiContractRunnerBuilder, TestOptions, TestOptionsBuilder,
+    MultiContractRunner, MultiContractRunnerBuilder, TestOptionsBuilder,
 };
 use foundry_compilers::ArtifactId;
-use foundry_config::{
-    Config, FuzzConfig, FuzzDictionaryConfig, InvariantConfig, RpcEndpoint, RpcEndpoints,
-};
+use foundry_config::{Config, RpcEndpoint, RpcEndpoints};
 
 pub(super) fn build_runner(
     test_suites: Vec<(ArtifactId, TestContract)>,
+    gas_report: bool,
 ) -> napi::Result<MultiContractRunner> {
-    let config = foundry_config();
+    let config = foundry_config(gas_report);
+
     let mut evm_opts = evm_opts();
     evm_opts.isolate = config.isolate;
+    evm_opts.verbosity = config.verbosity;
+    evm_opts.memory_limit = config.memory_limit;
+    evm_opts.env.gas_limit = config.gas_limit.into();
+
+    let test_options = TestOptionsBuilder::default()
+        .fuzz(config.fuzz.clone())
+        .invariant(config.invariant.clone())
+        .build_hardhat()
+        .expect("Config loaded");
 
     let builder = MultiContractRunnerBuilder::new(Arc::new(config))
         .sender(evm_opts.sender)
-        .with_test_options(test_opts());
+        .with_test_options(test_options);
 
     let abis = test_suites.iter().map(|(_, contract)| &contract.abi);
     let revert_decoder = RevertDecoder::new().with_abis(abis);
@@ -55,7 +64,7 @@ fn project_root() -> PathBuf {
     ))
 }
 
-fn foundry_config() -> Config {
+fn foundry_config(gas_report: bool) -> Config {
     const TEST_PROFILE: &str = "default";
 
     // Forge project root.
@@ -76,6 +85,11 @@ fn foundry_config() -> Config {
 
     // no prompt testing
     config.prompt_timeout = 0;
+
+    if !gas_report {
+        config.fuzz.gas_report_samples = 0;
+        config.invariant.gas_report_samples = 0;
+    }
 
     config
 }
@@ -102,42 +116,4 @@ fn evm_opts() -> EvmOpts {
 /// The RPC endpoints used during tests.
 fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([("alchemy", RpcEndpoint::Url("${ALCHEMY_URL}".to_string()))])
-}
-
-pub fn test_opts() -> TestOptions {
-    TestOptionsBuilder::default()
-        .fuzz(FuzzConfig {
-            runs: 256,
-            max_test_rejects: 65536,
-            seed: None,
-            dictionary: FuzzDictionaryConfig {
-                include_storage: true,
-                include_push_bytes: true,
-                dictionary_weight: 40,
-                max_fuzz_dictionary_addresses: 10_000,
-                max_fuzz_dictionary_values: 10_000,
-            },
-            gas_report_samples: 256,
-            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
-            failure_persist_file: Some("testfailure".to_string()),
-        })
-        .invariant(InvariantConfig {
-            runs: 256,
-            depth: 15,
-            fail_on_revert: false,
-            call_override: false,
-            dictionary: FuzzDictionaryConfig {
-                dictionary_weight: 80,
-                include_storage: true,
-                include_push_bytes: true,
-                max_fuzz_dictionary_addresses: 10_000,
-                max_fuzz_dictionary_values: 10_000,
-            },
-            shrink_run_limit: 2usize.pow(18u32),
-            max_assume_rejects: 65536,
-            gas_report_samples: 256,
-            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
-        })
-        .build_hardhat()
-        .expect("Config loaded")
 }

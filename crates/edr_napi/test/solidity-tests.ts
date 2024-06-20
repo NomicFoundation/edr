@@ -1,4 +1,7 @@
 import { assert } from "chai";
+import { mkdtemp } from "fs/promises";
+import { tmpdir } from "os";
+import path from "path";
 
 import {
   SolidityTestRunner,
@@ -15,8 +18,10 @@ describe("Solidity Tests", () => {
       loadContract("./artifacts/PaymentFailureTest.json"),
     ];
 
+    const gasReport = false;
+
     const resultsFromCallback: Array<SuiteResult> = [];
-    const runner = new SolidityTestRunner((...args) => {
+    const runner = new SolidityTestRunner(gasReport, (...args) => {
       resultsFromCallback.push(args[1] as SuiteResult);
     });
 

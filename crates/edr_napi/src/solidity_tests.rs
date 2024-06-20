@@ -24,6 +24,7 @@ use crate::solidity_tests::{
 pub struct SolidityTestRunner {
     /// The callback to call with the results as they become available.
     results_callback_fn: ThreadsafeFunction<SuiteResult>,
+    gas_report: bool,
 }
 
 // The callback has to be passed in the constructor because it's not `Send`.
@@ -31,7 +32,7 @@ pub struct SolidityTestRunner {
 impl SolidityTestRunner {
     #[doc = "Creates a new instance of the SolidityTestRunner. The callback function will be called with suite results as they finish."]
     #[napi(constructor)]
-    pub fn new(env: Env, results_callback: JsFunction) -> napi::Result<Self> {
+    pub fn new(env: Env, gas_report: bool, results_callback: JsFunction) -> napi::Result<Self> {
         let mut results_callback_fn: ThreadsafeFunction<_, ErrorStrategy::CalleeHandled> =
             results_callback.create_threadsafe_function(
                 // Unbounded queue size
@@ -44,6 +45,7 @@ impl SolidityTestRunner {
 
         Ok(Self {
             results_callback_fn,
+            gas_report,
         })
     }
 
@@ -54,7 +56,7 @@ impl SolidityTestRunner {
             .into_iter()
             .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
             .collect::<Result<Vec<_>, napi::Error>>()?;
-        let runner = build_runner(test_suites)?;
+        let runner = build_runner(test_suites, self.gas_report)?;
 
         let (tx_results, mut rx_results) =
             tokio::sync::mpsc::unbounded_channel::<(String, forge::result::SuiteResult)>();
