@@ -443,7 +443,12 @@ where
                     .journal
                     .last()
                     .and_then(|v| v.last());
-                if let Some(JournalEntry::StorageChanged { address, key, .. }) = last_entry {
+
+                if let Some(
+                    JournalEntry::StorageChanged { address, key, .. }
+                    | JournalEntry::StorageWarmed { address, key },
+                ) = last_entry
+                {
                     let value = context.journaled_state.state[address].storage[key].present_value();
                     let contract_storage = self.storage.entry(self.contract_address).or_default();
                     contract_storage.insert(u256_to_padded_hex(key), u256_to_padded_hex(&value));
