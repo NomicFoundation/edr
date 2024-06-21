@@ -200,6 +200,10 @@ function defineDirTests(dirPath: string, compilerOptions: SolidityCompiler) {
   });
 }
 
+/** Either re-uses the compiled artifacts or invokes solc to compile the sources.
+ *
+ * The artifacts are saved in `test-files/artifacts/{testDir}`.
+ */
 async function compileIfNecessary(
   testDir: string,
   sources: string[],
@@ -452,6 +456,7 @@ function compareConsoleLogs(logs: string[], expectedLogs?: ConsoleLogs[]) {
   }
 }
 
+/** The main entry point for a stack trace test. */
 async function runTest(
   testDir: string,
   testDefinition: TestDefinition,
@@ -479,7 +484,6 @@ async function runTest(
   };
 
   const logger = new FakeModulesLogger();
-  const solidityTracer = new SolidityTracer();
   const provider = await instantiateProvider(
     {
       enabled: false,
@@ -529,7 +533,8 @@ async function runTest(
 
     compareConsoleLogs(logger.lines, tx.consoleLogs);
 
-    const vmTraceDecoder = (provider as any)._vmTraceDecoder as VmTraceDecoder;
+    // @ts-ignore - this is a private field but don't `as any` for go-to-def to work
+    const vmTraceDecoder = provider._vmTraceDecoder as VmTraceDecoder;
     const decodedTrace = vmTraceDecoder.tryToDecodeMessageTrace(trace);
 
     try {
@@ -551,6 +556,7 @@ async function runTest(
     }
 
     if (trace.exit.isError()) {
+      const solidityTracer = new SolidityTracer();
       const stackTrace = solidityTracer.getStackTrace(decodedTrace);
 
       try {
