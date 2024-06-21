@@ -353,8 +353,8 @@ impl std::fmt::Display for TransactionFailureWithTraces {
     }
 }
 
-/// Wrapper around [`edr_evm::HaltReason`] to convert error messages to match
-/// Hardhat.
+/// Wrapper around [`edr_eth::result::HaltReason`] to convert error messages to
+/// match Hardhat.
 #[derive(Clone, Debug, thiserror::Error, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionFailure {
