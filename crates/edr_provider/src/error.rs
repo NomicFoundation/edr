@@ -5,7 +5,7 @@ use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
     filter::SubscriptionType,
     hex,
-    result::{ExecutionResult, HaltReason, OutOfGasError},
+    result::{ExecutionResult, HaltReason, InvalidTransaction, OutOfGasError},
     Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256,
 };
 use edr_evm::{
@@ -14,7 +14,8 @@ use edr_evm::{
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
-    DebugTraceError, MemPoolAddTransactionError, MineBlockError, MineTransactionError,
+    BlockTransactionError, DebugTraceError, MemPoolAddTransactionError, MineBlockError,
+    MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 
@@ -291,6 +292,23 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
         };
 
         let message = match &value {
+            ProviderError::DebugTrace(DebugTraceError::TransactionError(error))
+            | ProviderError::MineBlock(MineBlockError::BlockTransaction(
+                BlockTransactionError::Transaction(error),
+            ))
+            | ProviderError::MineTransaction(MineTransactionError::BlockTransaction(
+                BlockTransactionError::Transaction(error),
+            ))
+            | ProviderError::RunTransaction(error) => {
+                if let TransactionError::InvalidTransaction(
+                    InvalidTransaction::LackOfFundForMaxFee { fee, balance },
+                ) = error
+                {
+                    format!("Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}.")
+                } else {
+                    value.to_string()
+                }
+            }
             ProviderError::TransactionFailed(inner)
                 if matches!(
                     inner.failure.reason,
