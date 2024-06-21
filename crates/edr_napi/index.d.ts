@@ -149,6 +149,7 @@ export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
   decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
+  /** Used to resolve the contract and function name when logging. */
   getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
   printLineCallback: (message: string, replace: boolean) => void
 }
