@@ -1,13 +1,13 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use edr_eth::{
-    transaction::{self, upfront_cost, SignedTransaction as _, Transaction as _},
+    transaction::{self, upfront_cost, SignedTransaction as _},
     Address, B256, U256,
 };
 use indexmap::{map::Entry, IndexMap};
 use revm::{
     db::StateRef,
-    primitives::{AccountInfo, HashMap},
+    primitives::{AccountInfo, HashMap, Transaction as _},
 };
 
 /// An iterator over pending transactions.
@@ -573,8 +573,8 @@ fn validate_replacement_transaction<StateError>(
     old_transaction: &transaction::Signed,
     new_transaction: &transaction::Signed,
 ) -> Result<(), MemPoolAddTransactionError<StateError>> {
-    let min_new_max_fee_per_gas = min_new_fee(old_transaction.gas_price());
-    if new_transaction.gas_price() < min_new_max_fee_per_gas {
+    let min_new_max_fee_per_gas = min_new_fee(*old_transaction.gas_price());
+    if *new_transaction.gas_price() < min_new_max_fee_per_gas {
         return Err(MemPoolAddTransactionError::ReplacementMaxFeePerGasTooLow {
             min_new_max_fee_per_gas,
             transaction_nonce: old_transaction.nonce(),
@@ -582,12 +582,12 @@ fn validate_replacement_transaction<StateError>(
     }
 
     let min_new_max_priority_fee_per_gas = min_new_fee(
-        old_transaction
+        *old_transaction
             .max_priority_fee_per_gas()
             .unwrap_or_else(|| old_transaction.gas_price()),
     );
 
-    if new_transaction
+    if *new_transaction
         .max_priority_fee_per_gas()
         .unwrap_or_else(|| new_transaction.gas_price())
         < min_new_max_priority_fee_per_gas

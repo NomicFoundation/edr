@@ -6,9 +6,7 @@ use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
-    transaction::{
-        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction, Transaction,
-    },
+    transaction::{self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction},
     AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
     U256,
 };

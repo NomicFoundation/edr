@@ -2,7 +2,7 @@ use std::{fmt::Display, sync::mpsc::channel};
 
 use ansi_term::{Color, Style};
 use edr_eth::{
-    transaction::{self, Transaction},
+    transaction::{self, SignedTransaction},
     Bytes, B256, U256,
 };
 use edr_evm::{

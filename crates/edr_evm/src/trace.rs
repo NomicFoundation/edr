@@ -4,12 +4,12 @@ use edr_eth::{Address, Bytes, U256};
 use revm::{
     handler::register::EvmHandler,
     interpreter::{
-        opcode::{self, BoxedInstruction, InstructionTables},
+        opcode::{self, DynInstruction},
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         InstructionResult, Interpreter, SuccessOrHalt,
     },
-    primitives::{Bytecode, EVMError, ExecutionResult, Output},
-    Database, Evm, EvmContext, FrameOrResult, FrameResult,
+    primitives::{Bytecode, EVMErrorForChain, ExecutionResult, Output},
+    Context, Database, EvmContext, FrameOrResult, FrameResult,
 };
 
 use crate::debug::GetContextData;
@@ -18,35 +18,16 @@ use crate::debug::GetContextData;
 pub fn register_trace_collector_handles<
     ChainSpecT: revm::primitives::ChainSpec,
     DatabaseT: Database,
-    ContextT: GetContextData<TraceCollector>,
+    ContextT: GetContextData<TraceCollector<ChainSpecT>>,
 >(
     handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
 ) where
     DatabaseT::Error: Debug,
 {
-    // Every instruction inside flat table that is going to be wrapped by tracer
-    // calls.
-    let table = handler
-        .instruction_table
-        .take()
-        .expect("Handler must have instruction table");
+    let table = &mut handler.instruction_table;
 
-    let table = match table {
-        InstructionTables::Plain(table) => table
-            .into_iter()
-            .map(|i| instruction_handler(i))
-            .collect::<Vec<_>>(),
-        InstructionTables::Boxed(table) => table
-            .into_iter()
-            .map(|i| instruction_handler(i))
-            .collect::<Vec<_>>(),
-        InstructionTables::_Unused(_) => unreachable!(),
-    };
-
-    // cast vector to array.
-    handler.instruction_table = Some(InstructionTables::Boxed(
-        table.try_into().unwrap_or_else(|_| unreachable!()),
-    ));
+    // Update all instructions to call the instruction handler.
+    table.update_all(instruction_handler);
 
     // call and create input stack shared between handlers. They are used to share
     // inputs in *_end Inspector calls.
@@ -57,7 +38,9 @@ pub fn register_trace_collector_handles<
     let create_input_stack_inner = create_input_stack.clone();
     let old_handle = handler.execution.create.clone();
     handler.execution.create = Arc::new(
-        move |ctx, inputs| -> Result<FrameOrResult, EVMError<DatabaseT::Error>> {
+        move |ctx,
+              inputs|
+              -> Result<FrameOrResult, EVMErrorForChain<DatabaseT::Error, ChainSpecT>> {
             let tracer = ctx.external.get_context_data();
             tracer.create(&ctx.evm, &inputs);
 
@@ -71,7 +54,9 @@ pub fn register_trace_collector_handles<
     let call_input_stack_inner = call_input_stack.clone();
     let old_handle = handler.execution.call.clone();
     handler.execution.call = Arc::new(
-        move |ctx, inputs| -> Result<FrameOrResult, EVMError<DatabaseT::Error>> {
+        move |ctx,
+              inputs|
+              -> Result<FrameOrResult, EVMErrorForChain<DatabaseT::Error, ChainSpecT>> {
             let tracer = ctx.external.get_context_data();
             tracer.call(&mut ctx.evm, &inputs);
 
@@ -85,7 +70,10 @@ pub fn register_trace_collector_handles<
     let call_input_stack_inner = call_input_stack.clone();
     let old_handle = handler.execution.insert_call_outcome.clone();
     handler.execution.insert_call_outcome = Arc::new(
-        move |ctx: &mut revm::Context<ContextT, DatabaseT>, frame, shared_memory, outcome| {
+        move |ctx: &mut revm::Context<ChainSpecT, ContextT, DatabaseT>,
+              frame,
+              shared_memory,
+              outcome| {
             let call_inputs = call_input_stack_inner.borrow_mut().pop().unwrap();
 
             let tracer = ctx.external.get_context_data();
@@ -102,7 +90,7 @@ pub fn register_trace_collector_handles<
         let create_inputs = create_input_stack_inner.borrow_mut().pop().unwrap();
 
         let tracer = ctx.external.get_context_data();
-        tracer.create_end(&mut ctx.evm, &create_inputs, &outcome);
+        tracer.create_end(&ctx.evm, &create_inputs, &outcome);
 
         old_handle(ctx, frame, outcome)
     });
@@ -118,7 +106,7 @@ pub fn register_trace_collector_handles<
             }
             FrameResult::Create(outcome) => {
                 let create_inputs = create_input_stack.borrow_mut().pop().unwrap();
-                tracer.create_transaction_end(&mut ctx.evm, &create_inputs, outcome);
+                tracer.create_transaction_end(&ctx.evm, &create_inputs, outcome);
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameResult::EOFCreate(_) => {
@@ -130,43 +118,49 @@ pub fn register_trace_collector_handles<
 }
 
 /// Outer closure that calls tracer for every instruction.
-fn instruction_handler<
-    'a,
-    ContextT: GetContextData<TraceCollector>,
+fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
+    prev: &DynInstruction<'_, Context<ChainSpecT, ContextT, DatabaseT>>,
+    interpreter: &mut Interpreter,
+    host: &mut Context<ChainSpecT, ContextT, DatabaseT>,
+) where
+    ChainSpecT: revm::primitives::ChainSpec,
+    ContextT: GetContextData<TraceCollector<ChainSpecT>>,
     DatabaseT: Database,
-    Instruction: Fn(&mut Interpreter, &mut Evm<'a, ContextT, DatabaseT>) + 'a,
->(
-    instruction: Instruction,
-) -> BoxedInstruction<'a, Evm<'a, ContextT, DatabaseT>> {
-    Box::new(
-        move |interpreter: &mut Interpreter, host: &mut Evm<'a, ContextT, DatabaseT>| {
-            // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
-            // the old Inspector behavior.
-            interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
+{
+    // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
+    // the old Inspector behavior.
+    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
 
-            host.context
-                .external
-                .get_context_data()
-                .step(interpreter, &host.context.evm);
+    host.external
+        .get_context_data()
+        .step(interpreter, &host.evm);
 
-            // return PC to old value
-            interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.add(1) };
+    // Reset PC to previous value.
+    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.add(1) };
 
-            // execute instruction.
-            instruction(interpreter, host);
-        },
-    )
+    // Execute instruction.
+    prev(interpreter, host);
 }
 
 /// Stack tracing message
-#[derive(Clone, Debug)]
-pub enum TraceMessage {
+#[derive(Debug)]
+pub enum TraceMessage<ChainSpecT: revm::primitives::ChainSpec> {
     /// Event that occurs before a call or create message.
     Before(BeforeMessage),
     /// Event that occurs every step of a call or create message.
     Step(Step),
     /// Event that occurs after a call or create message.
-    After(AfterMessage),
+    After(AfterMessage<ChainSpecT>),
+}
+
+impl<ChainSpecT: revm::primitives::ChainSpec> Clone for TraceMessage<ChainSpecT> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Before(message) => Self::Before(message.clone()),
+            Self::Step(step) => Self::Step(step.clone()),
+            Self::After(message) => Self::After(message.clone()),
+        }
+    }
 }
 
 /// Temporary before message type for handling traces
@@ -193,24 +187,51 @@ pub struct BeforeMessage {
 }
 
 /// Event that occurs after a call or create message.
-#[derive(Clone, Debug)]
-pub struct AfterMessage {
+#[derive(Debug)]
+pub struct AfterMessage<ChainSpecT: revm::primitives::ChainSpec> {
     /// The execution result
-    pub execution_result: ExecutionResult,
+    pub execution_result: ExecutionResult<ChainSpecT>,
     /// The newly created contract address if it's a create tx. `None`
     /// if there was an error creating the contract.
     pub contract_address: Option<Address>,
 }
 
+impl<ChainSpecT: revm::primitives::ChainSpec> Clone for AfterMessage<ChainSpecT> {
+    fn clone(&self) -> Self {
+        Self {
+            execution_result: self.execution_result.clone(),
+            contract_address: self.contract_address.clone(),
+        }
+    }
+}
+
 /// A trace for an EVM call.
-#[derive(Clone, Debug, Default)]
-pub struct Trace {
+#[derive(Debug)]
+pub struct Trace<ChainSpecT: revm::primitives::ChainSpec> {
     // /// The individual steps of the call
     // pub steps: Vec<Step>,
     /// Messages
-    pub messages: Vec<TraceMessage>,
+    pub messages: Vec<TraceMessage<ChainSpecT>>,
     /// The return value of the call
     pub return_value: Bytes,
+}
+
+impl<ChainSpecT: revm::primitives::ChainSpec> Clone for Trace<ChainSpecT> {
+    fn clone(&self) -> Self {
+        Self {
+            messages: self.messages.clone(),
+            return_value: self.return_value.clone(),
+        }
+    }
+}
+
+impl<ChainSpecT: revm::primitives::ChainSpec> Default for Trace<ChainSpecT> {
+    fn default() -> Self {
+        Self {
+            messages: Vec::new(),
+            return_value: Bytes::new(),
+        }
+    }
 }
 
 /// A single EVM step.
@@ -264,14 +285,14 @@ impl Stack {
     }
 }
 
-impl Trace {
+impl<ChainSpecT: revm::primitives::ChainSpec> Trace<ChainSpecT> {
     /// Adds a before message
     pub fn add_before(&mut self, message: BeforeMessage) {
         self.messages.push(TraceMessage::Before(message));
     }
 
     /// Adds a result message
-    pub fn add_after(&mut self, message: AfterMessage) {
+    pub fn add_after(&mut self, message: AfterMessage<ChainSpecT>) {
         self.messages.push(TraceMessage::After(message));
     }
 
@@ -284,14 +305,14 @@ impl Trace {
 /// Object that gathers trace information during EVM execution and can be turned
 /// into a trace upon completion.
 #[derive(Debug)]
-pub struct TraceCollector {
-    traces: Vec<Trace>,
+pub struct TraceCollector<ChainSpecT: revm::primitives::ChainSpec> {
+    traces: Vec<Trace<ChainSpecT>>,
     pending_before: Option<BeforeMessage>,
     is_new_trace: bool,
     verbose: bool,
 }
 
-impl TraceCollector {
+impl<ChainSpecT: revm::primitives::ChainSpec> TraceCollector<ChainSpecT> {
     /// Create a trace collector. If verbose is `true` full stack and memory
     /// will be recorded.
     pub fn new(verbose: bool) -> Self {
@@ -304,16 +325,16 @@ impl TraceCollector {
     }
 
     /// Converts the [`TraceCollector`] into its [`Trace`].
-    pub fn into_traces(self) -> Vec<Trace> {
+    pub fn into_traces(self) -> Vec<Trace<ChainSpecT>> {
         self.traces
     }
 
     /// Returns the traces collected so far.
-    pub fn traces(&self) -> &[Trace] {
+    pub fn traces(&self) -> &[Trace<ChainSpecT>] {
         &self.traces
     }
 
-    fn current_trace_mut(&mut self) -> &mut Trace {
+    fn current_trace_mut(&mut self) -> &mut Trace<ChainSpecT> {
         self.traces.last_mut().expect("Trace must have been added")
     }
 
@@ -323,8 +344,11 @@ impl TraceCollector {
         }
     }
 
-    fn call<DatabaseT: Database>(&mut self, data: &mut EvmContext<DatabaseT>, inputs: &CallInputs)
-    where
+    fn call<DatabaseT: Database>(
+        &mut self,
+        data: &mut EvmContext<ChainSpecT, DatabaseT>,
+        inputs: &CallInputs,
+    ) where
         DatabaseT::Error: Debug,
     {
         if self.is_new_trace {
@@ -377,7 +401,7 @@ impl TraceCollector {
 
     fn call_end<DatabaseT: Database>(
         &mut self,
-        data: &EvmContext<DatabaseT>,
+        data: &EvmContext<ChainSpecT, DatabaseT>,
         _inputs: &CallInputs,
         outcome: &CallOutcome,
     ) {
@@ -401,7 +425,7 @@ impl TraceCollector {
             ret
         };
 
-        let execution_result = match safe_ret.into() {
+        let execution_result = match SuccessOrHalt::<ChainSpecT>::from(safe_ret) {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -429,7 +453,11 @@ impl TraceCollector {
         });
     }
 
-    fn create<DatabaseT: Database>(&mut self, data: &EvmContext<DatabaseT>, inputs: &CreateInputs) {
+    fn create<DatabaseT: Database>(
+        &mut self,
+        data: &EvmContext<ChainSpecT, DatabaseT>,
+        inputs: &CreateInputs,
+    ) {
         if self.is_new_trace {
             self.is_new_trace = false;
             self.traces.push(Trace::default());
@@ -452,7 +480,7 @@ impl TraceCollector {
 
     fn create_end<DatabaseT: Database>(
         &mut self,
-        data: &mut EvmContext<DatabaseT>,
+        data: &EvmContext<ChainSpecT, DatabaseT>,
         _inputs: &CreateInputs,
         outcome: &CreateOutcome,
     ) where
@@ -468,7 +496,7 @@ impl TraceCollector {
                 ret
             };
 
-        let execution_result = match safe_ret.into() {
+        let execution_result = match SuccessOrHalt::<ChainSpecT>::from(safe_ret) {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -496,7 +524,11 @@ impl TraceCollector {
         });
     }
 
-    fn step<DatabaseT: Database>(&mut self, interp: &Interpreter, data: &EvmContext<DatabaseT>) {
+    fn step<DatabaseT: Database>(
+        &mut self,
+        interp: &Interpreter,
+        data: &EvmContext<ChainSpecT, DatabaseT>,
+    ) {
         // Skip the step
         let skip_step = self.pending_before.as_ref().map_or(false, |message| {
             message.code.is_some() && interp.current_opcode() == opcode::STOP
@@ -527,7 +559,7 @@ impl TraceCollector {
 
     fn call_transaction_end<DatabaseT: Database>(
         &mut self,
-        data: &EvmContext<DatabaseT>,
+        data: &EvmContext<ChainSpecT, DatabaseT>,
         inputs: &CallInputs,
         outcome: &CallOutcome,
     ) {
@@ -537,7 +569,7 @@ impl TraceCollector {
 
     fn create_transaction_end<DatabaseT: Database>(
         &mut self,
-        data: &mut EvmContext<DatabaseT>,
+        data: &EvmContext<ChainSpecT, DatabaseT>,
         inputs: &CreateInputs,
         outcome: &CreateOutcome,
     ) where
@@ -548,8 +580,10 @@ impl TraceCollector {
     }
 }
 
-impl GetContextData<TraceCollector> for TraceCollector {
-    fn get_context_data(&mut self) -> &mut TraceCollector {
+impl<ChainSpecT: revm::primitives::ChainSpec> GetContextData<TraceCollector<ChainSpecT>>
+    for TraceCollector<ChainSpecT>
+{
+    fn get_context_data(&mut self) -> &mut TraceCollector<ChainSpecT> {
         self
     }
 }

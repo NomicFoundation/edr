@@ -24,7 +24,7 @@ use edr_eth::{
     receipt::BlockReceipt,
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
-    transaction::{request::TransactionRequestAndSender, Transaction, TransactionType},
+    transaction::{request::TransactionRequestAndSender, SignedTransaction, TransactionType},
     Address, BlockSpec, BlockTag, Bytes, Eip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{
@@ -658,7 +658,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides: &StateOverrides::default(),
                 cfg_env: cfg_env.clone(),
-                tx_env: tx_env.clone(),
+                transaction: tx_env.clone(),
                 debug_context: Some(DebugContext {
                     data: &mut tracer,
                     register_handles_fn: register_eip_3155_and_raw_tracers_handles,
@@ -700,7 +700,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                tx_env: tx_env.clone(),
+                transaction: tx_env.clone(),
                 debug_context: Some(DebugContext {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
@@ -754,7 +754,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                tx_env: tx_env.clone(),
+                transaction: tx_env.clone(),
                 gas_limit: initial_estimation,
                 trace_collector: &mut trace_collector,
             })?;
@@ -776,7 +776,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                tx_env: tx_env.clone(),
+                transaction: tx_env.clone(),
                 lower_bound: initial_estimation,
                 upper_bound: header.gas_limit,
                 trace_collector: &mut trace_collector,
@@ -1417,7 +1417,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides,
                 cfg_env,
-                tx_env,
+                transaction: tx_env,
                 debug_context: Some(DebugContext {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,

@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
-    transaction::Transaction as _, BlockSpec, PreEip1898BlockSpec, SpecId, B256, U256, U64,
+    transaction::SignedTransaction as _, BlockSpec, PreEip1898BlockSpec, SpecId, B256, U256, U64,
 };
 use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, SyncBlock};
 

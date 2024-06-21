@@ -1,7 +1,10 @@
 use core::fmt::Debug;
 
 use edr_eth::{BlockSpec, B256};
-use edr_evm::{state::StateOverrides, trace::Trace, DebugTraceResult, DebugTraceResultWithTraces};
+use edr_evm::{
+    chain_spec::L1ChainSpec, state::StateOverrides, trace::Trace, DebugTraceResult,
+    DebugTraceResultWithTraces,
+};
 use edr_rpc_eth::CallRequest;
 use serde::{Deserialize, Deserializer};
 
@@ -19,7 +22,7 @@ pub fn handle_debug_trace_transaction<LoggerErrorT: Debug, TimerT: Clone + TimeS
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     transaction_hash: B256,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(DebugTraceResult, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     let DebugTraceResultWithTraces { result, traces } = data
         .debug_trace_transaction(
             &transaction_hash,
@@ -40,7 +43,7 @@ pub fn handle_debug_trace_call<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
     call_request: CallRequest,
     block_spec: Option<BlockSpec>,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(DebugTraceResult, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
     validate_call_request(data.spec_id(), &call_request, &block_spec)?;
 

@@ -6,7 +6,6 @@ use edr_eth::{
     B256,
 };
 use edr_rpc_eth::spec::{EthRpcSpec, RpcSpec};
-use revm::primitives::TxEnv;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{transaction::remote::EthRpcTransaction, EthRpcBlock, IntoRemoteBlock};
@@ -17,27 +16,20 @@ use crate::{transaction::remote::EthRpcTransaction, EthRpcBlock, IntoRemoteBlock
 pub trait ChainSpec:
     Debug
     + alloy_rlp::Encodable
-    + revm::primitives::ChainSpec
-    + RpcSpec<
+    + revm::primitives::ChainSpec<
+        Transaction: alloy_rlp::Encodable + Clone + Debug + PartialEq + Eq + SignedTransaction,
+    > + RpcSpec<
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock + IntoRemoteBlock<Self>,
         RpcTransaction: EthRpcTransaction,
     > + RpcSpec<RpcBlock<B256>: EthRpcBlock>
 {
-    /// The type of signed transactions used by this chain.
-    type SignedTransaction: alloy_rlp::Encodable
-        + Clone
-        + Debug
-        + TryInto<TxEnv>
-        + PartialEq
-        + Eq
-        + SignedTransaction;
 }
 
 /// A supertrait for [`ChainSpec`] that is safe to send between threads.
-pub trait SyncChainSpec: ChainSpec<SignedTransaction: Send + Sync> + Send + Sync + 'static {}
+pub trait SyncChainSpec: ChainSpec<Transaction: Send + Sync> + Send + Sync + 'static {}
 
 impl<ChainSpecT> SyncChainSpec for ChainSpecT where
-    ChainSpecT: ChainSpec<SignedTransaction: Send + Sync> + Send + Sync + 'static
+    ChainSpecT: ChainSpec<Transaction: Send + Sync> + Send + Sync + 'static
 {
 }
 
@@ -55,9 +47,7 @@ impl revm::primitives::ChainSpec for L1ChainSpec {
     type Transaction = transaction::Signed;
 }
 
-impl ChainSpec for L1ChainSpec {
-    type SignedTransaction = edr_eth::transaction::Signed;
-}
+impl ChainSpec for L1ChainSpec {}
 
 impl RpcSpec for L1ChainSpec {
     type RpcBlock<Data> = <EthRpcSpec as RpcSpec>::RpcBlock<Data> where Data: Default + DeserializeOwned + Serialize;

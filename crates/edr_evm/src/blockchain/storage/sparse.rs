@@ -3,7 +3,7 @@ use std::{marker::PhantomData, sync::Arc};
 use edr_eth::{
     log::{matches_address_filter, matches_topics_filter},
     receipt::BlockReceipt,
-    transaction::Transaction,
+    transaction::SignedTransaction,
     Address, B256, U256,
 };
 use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};

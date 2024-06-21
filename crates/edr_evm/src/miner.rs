@@ -3,10 +3,13 @@ use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
     signature::SignatureError,
-    transaction::{self, SignedTransaction as _, Transaction},
+    transaction::{self, SignedTransaction},
     U256,
 };
-use revm::primitives::{CfgEnvWithChainSpec, ExecutionResult, InvalidTransaction};
+use revm::{
+    handler::CfgEnvWithChainSpec,
+    primitives::{ExecutionResult, InvalidTransaction, Transaction as _},
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,22 +20,29 @@ use crate::{
     mempool::OrderedTransaction,
     state::{StateDiff, SyncState},
     trace::Trace,
+    transaction::TransactionError,
     BlockBuilder, BlockTransactionError, BuildBlockResult, ExecutionResultWithContext, LocalBlock,
     MemPool, SyncBlock,
 };
 
 /// The result of mining a block, after having been committed to the blockchain.
 #[derive(Debug)]
-pub struct MineBlockResult<ChainSpecT, BlockchainErrorT> {
+pub struct MineBlockResult<ChainSpecT, BlockchainErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
+{
     /// Mined block
     pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult>,
+    pub transaction_results: Vec<ExecutionResult<L1ChainSpec>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace>,
+    pub transaction_traces: Vec<Trace<ChainSpecT>>,
 }
 
-impl<BlockchainErrorT, ChainSpecT> Clone for MineBlockResult<ChainSpecT, BlockchainErrorT> {
+impl<BlockchainErrorT, ChainSpecT> Clone for MineBlockResult<ChainSpecT, BlockchainErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
+{
     fn clone(&self) -> Self {
         Self {
             block: self.block.clone(),
@@ -55,7 +65,7 @@ where
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult>,
+    pub transaction_results: Vec<ExecutionResult<L1ChainSpec>>,
 }
 
 /// The type of ordering to use when selecting blocks to mine.
@@ -69,19 +79,22 @@ pub enum MineOrdering {
 
 /// An error that occurred while mining a block.
 #[derive(Debug, thiserror::Error)]
-pub enum MineBlockError<BE, SE> {
+pub enum MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
+{
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(#[from] BlockBuilderCreationError),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
-    BlockTransaction(#[from] BlockTransactionError<BE, SE>),
+    BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
     /// An error that occurred while finalizing a block.
     #[error(transparent)]
-    BlockFinalize(SE),
+    BlockFinalize(StateErrorT),
     /// A blockchain error
     #[error(transparent)]
-    Blockchain(BE),
+    Blockchain(BlockchainErrorT),
     /// The block is expected to have a prevrandao, as the executor's config is
     /// on a post-merge hardfork.
     #[error("Post-merge transaction is missing prevrandao")]
@@ -97,7 +110,7 @@ pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     mut state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool,
-    cfg: &CfgEnvWithChainSpec<ChainSpecT>,
+    cfg: &CfgEnvWithChainSpec<L1ChainSpec>,
     options: BlockOptions,
     min_gas_price: U256,
     mine_ordering: MineOrdering,
@@ -114,7 +127,7 @@ pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     >,
 ) -> Result<
     MineBlockResultAndState<L1ChainSpec, StateErrorT>,
-    MineBlockError<BlockchainErrorT, StateErrorT>,
+    MineBlockError<L1ChainSpec, BlockchainErrorT, StateErrorT>,
 >
 where
     'blockchain: 'evm,
@@ -150,7 +163,7 @@ where
     let mut results = Vec::new();
 
     while let Some(transaction) = pending_transactions.next() {
-        if transaction.gas_price() < min_gas_price {
+        if *transaction.gas_price() < min_gas_price {
             pending_transactions.remove_caller(transaction.caller());
             continue;
         }
@@ -164,9 +177,9 @@ where
         match result {
             Err(
                 BlockTransactionError::ExceedsBlockGasLimit
-                | BlockTransactionError::InvalidTransaction(
+                | BlockTransactionError::Transaction(TransactionError::InvalidTransaction(
                     InvalidTransaction::GasPriceLessThanBasefee,
-                ),
+                )),
             ) => {
                 pending_transactions.remove_caller(&caller);
                 state = evm_context.state;
@@ -200,13 +213,16 @@ where
 
 /// An error that occurred while mining a block with a single transaction.
 #[derive(Debug, thiserror::Error)]
-pub enum MineTransactionError<BlockchainErrorT, StateErrorT> {
+pub enum MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
+{
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(#[from] BlockBuilderCreationError),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
-    BlockTransaction(#[from] BlockTransactionError<BlockchainErrorT, StateErrorT>),
+    BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
@@ -289,7 +305,7 @@ pub fn mine_block_with_single_transaction<
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: transaction::Signed,
-    cfg: &CfgEnvWithChainSpec<ChainSpecT>,
+    cfg: &CfgEnvWithChainSpec<L1ChainSpec>,
     options: BlockOptions,
     min_gas_price: U256,
     reward: U256,
@@ -305,7 +321,7 @@ pub fn mine_block_with_single_transaction<
     >,
 ) -> Result<
     MineBlockResultAndState<L1ChainSpec, StateErrorT>,
-    MineTransactionError<BlockchainErrorT, StateErrorT>,
+    MineTransactionError<L1ChainSpec, BlockchainErrorT, StateErrorT>,
 >
 where
     'blockchain: 'evm,
@@ -316,10 +332,10 @@ where
         .max_priority_fee_per_gas()
         .unwrap_or_else(|| transaction.gas_price());
 
-    if max_priority_fee_per_gas < min_gas_price {
+    if *max_priority_fee_per_gas < min_gas_price {
         return Err(MineTransactionError::PriorityFeeTooLow {
             expected: min_gas_price,
-            actual: max_priority_fee_per_gas,
+            actual: *max_priority_fee_per_gas,
         });
     }
 
@@ -333,10 +349,10 @@ where
             }
         } else {
             let gas_price = transaction.gas_price();
-            if gas_price < base_fee_per_gas {
+            if *gas_price < base_fee_per_gas {
                 return Err(MineTransactionError::GasPriceTooLow {
                     expected: base_fee_per_gas,
-                    actual: gas_price,
+                    actual: *gas_price,
                 });
             }
         }
@@ -348,10 +364,10 @@ where
 
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
         let base_fee_per_blob_gas = calculate_next_base_fee_per_blob_gas(parent_block.header());
-        if max_fee_per_blob_gas < base_fee_per_blob_gas {
+        if *max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                 expected: base_fee_per_blob_gas,
-                actual: max_fee_per_blob_gas,
+                actual: *max_fee_per_blob_gas,
             });
         }
     }
@@ -409,12 +425,12 @@ where
 
 fn effective_miner_fee(transaction: &transaction::Signed, base_fee: Option<U256>) -> U256 {
     let max_fee_per_gas = transaction.gas_price();
-    let max_priority_fee_per_gas = transaction
+    let max_priority_fee_per_gas = *transaction
         .max_priority_fee_per_gas()
         .unwrap_or(max_fee_per_gas);
 
-    base_fee.map_or(max_fee_per_gas, |base_fee| {
-        max_priority_fee_per_gas.min(max_fee_per_gas - base_fee)
+    base_fee.map_or(*max_fee_per_gas, |base_fee| {
+        max_priority_fee_per_gas.min(*max_fee_per_gas - base_fee)
     })
 }
 

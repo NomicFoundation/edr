@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, TxEnv};
+use revm_primitives::keccak256;
 
 use crate::{
     signature::{self, Fakeable},
@@ -48,25 +48,6 @@ impl Eip1559 {
 
             keccak256(enveloped)
         })
-    }
-}
-
-impl From<Eip1559> for TxEnv {
-    fn from(value: Eip1559) -> Self {
-        TxEnv {
-            caller: *value.caller(),
-            gas_limit: value.gas_limit,
-            gas_price: value.max_fee_per_gas,
-            transact_to: value.kind,
-            value: value.value,
-            data: value.input,
-            nonce: Some(value.nonce),
-            chain_id: Some(value.chain_id),
-            access_list: value.access_list.into(),
-            gas_priority_fee: Some(value.max_priority_fee_per_gas),
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
-        }
     }
 }
 

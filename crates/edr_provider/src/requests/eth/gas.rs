@@ -4,7 +4,7 @@ use edr_eth::{
     fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, transaction, BlockSpec,
     SpecId, U256, U64,
 };
-use edr_evm::{state::StateOverrides, trace::Trace};
+use edr_evm::{chain_spec::L1ChainSpec, state::StateOverrides, trace::Trace};
 use edr_rpc_eth::CallRequest;
 
 use super::resolve_call_request_inner;
@@ -19,7 +19,7 @@ pub fn handle_estimate_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     call_request: CallRequest,
     block_spec: Option<BlockSpec>,
-) -> Result<(U64, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(U64, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
@@ -148,7 +148,7 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction::Transaction, BlockTag};
+    use edr_eth::{transaction::SignedTransaction, BlockTag};
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};

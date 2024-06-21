@@ -1,11 +1,9 @@
 use core::fmt::Debug;
 
 use edr_eth::{
-    access_list::AccessListItem,
     transaction::{self, EthTransactionRequest},
-    Address, BlockSpec, BlockTag, PreEip1898BlockSpec, SpecId, B256, U256,
+    AccessListItem, Address, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
-use edr_evm::Bytes;
 use edr_rpc_eth::CallRequest;
 
 use crate::ProviderError;

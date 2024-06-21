@@ -6,18 +6,20 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{Address, SpecId, U256};
+use edr_eth::{SpecId, U256};
 use revm::{
-    db::DatabaseComponentError, interpreter::gas::validate_initial_tx_gas, primitives::EVMError,
+    db::DatabaseComponentError,
+    interpreter::gas::validate_initial_tx_gas,
+    primitives::{EVMError, EVMErrorForChain, TransactionValidation},
 };
 
 pub use self::detailed::*;
 
 /// Invalid transaction error
-#[derive(Debug, thiserror::Error)]
-pub enum TransactionError<ChainErrorT, BlockchainErrorT, StateErrorT>
+#[derive(thiserror::Error)]
+pub enum TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainErrorT: revm::primitives::ChainSpec<TransactionValidationError: std::error::Error>,
+    ChainSpecT: revm::primitives::ChainSpec,
 {
     /// Blockchain errors
     #[error(transparent)]
@@ -33,22 +35,48 @@ where
     InvalidHeader(revm::primitives::InvalidHeader),
     /// Corrupt transaction data
     #[error(transparent)]
-    InvalidTransaction(ChainErrorT::TransactionValidationError),
+    InvalidTransaction(<ChainSpecT::Transaction as TransactionValidation>::ValidationError),
+    /// Precompile errors
+    #[error("{0}")]
+    Precompile(String),
     /// State errors
     #[error(transparent)]
     State(StateErrorT),
 }
 
-impl<ChainSpecT, BlockchainErrorT, StateErrorT>
-    From<EVMError<ChainSpecT, DatabaseComponentError<StateErrorT, BlockchainErrorT>>>
+impl<ChainSpecT, BlockchainErrorT, StateErrorT> Debug
     for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec<TransactionValidationError: std::error::Error>,
+    ChainSpecT:
+        revm::primitives::ChainSpec<Transaction: TransactionValidation<ValidationError: Debug>>,
+    BlockchainErrorT: Debug,
+    StateErrorT: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Blockchain(arg0) => f.debug_tuple("Blockchain").field(arg0).finish(),
+            Self::Custom(arg0) => f.debug_tuple("Custom").field(arg0).finish(),
+            Self::Eip1559Unsupported => write!(f, "Eip1559Unsupported"),
+            Self::InvalidHeader(arg0) => f.debug_tuple("InvalidHeader").field(arg0).finish(),
+            Self::InvalidTransaction(arg0) => {
+                f.debug_tuple("InvalidTransaction").field(arg0).finish()
+            }
+            Self::Precompile(arg0) => f.debug_tuple("Precompile").field(arg0).finish(),
+            Self::State(arg0) => f.debug_tuple("State").field(arg0).finish(),
+        }
+    }
+}
+
+impl<ChainSpecT, BlockchainErrorT, StateErrorT>
+    From<EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>>
+    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {
     fn from(
-        error: EVMError<ChainSpecT, DatabaseComponentError<StateErrorT, BlockchainErrorT>>,
+        error: EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>,
     ) -> Self {
         match error {
             EVMError::Transaction(error) => Self::InvalidTransaction(error),
@@ -56,6 +84,7 @@ where
             EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
             EVMError::Database(DatabaseComponentError::BlockHash(e)) => Self::Blockchain(e),
             EVMError::Custom(error) => Self::Custom(error),
+            EVMError::Precompile(error) => Self::Precompile(error),
         }
     }
 }
@@ -77,7 +106,7 @@ pub enum CreationError {
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: Transaction>(
+pub fn validate<TransactionT: SignedTransaction>(
     transaction: TransactionT,
     spec_id: SpecId,
 ) -> Result<TransactionT, CreationError> {
@@ -97,7 +126,7 @@ pub fn validate<TransactionT: Transaction>(
 }
 
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
+pub fn initial_cost(transaction: &impl SignedTransaction, spec_id: SpecId) -> u64 {
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),
@@ -108,7 +137,7 @@ pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction, Bytes};
+    use edr_eth::{transaction, Address, Bytes};
 
     use super::*;
 

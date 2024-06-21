@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::{transaction::Transaction, Bytes, B256};
+use edr_eth::{transaction::SignedTransaction, Bytes, B256};
 use edr_evm::{
     chain_spec::L1ChainSpec,
     state::{StateDiff, SyncState},

@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, TxEnv};
+use revm_primitives::keccak256;
 
 use crate::{
     signature::{self, Fakeable},
@@ -38,25 +38,6 @@ impl Legacy {
 
     pub fn hash(&self) -> &B256 {
         self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
-    }
-}
-
-impl From<Legacy> for TxEnv {
-    fn from(value: Legacy) -> Self {
-        TxEnv {
-            caller: *value.caller(),
-            gas_limit: value.gas_limit,
-            gas_price: value.gas_price,
-            transact_to: value.kind,
-            value: value.value,
-            data: value.input,
-            nonce: Some(value.nonce),
-            chain_id: None,
-            access_list: Vec::new(),
-            gas_priority_fee: None,
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
-        }
     }
 }
 

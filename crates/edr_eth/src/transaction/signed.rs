@@ -4,8 +4,9 @@ mod eip2930;
 mod eip4844;
 mod legacy;
 
+use std::sync::OnceLock;
+
 use alloy_rlp::{Buf, BufMut};
-use revm_primitives::TxEnv;
 
 pub use self::{
     eip155::Eip155,
@@ -14,8 +15,12 @@ pub use self::{
     eip4844::Eip4844,
     legacy::{Legacy, PreOrPostEip155},
 };
-use super::{Signed, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE};
-use crate::{signature::Signature, utils::enveloped, AccessListItem, Address, Bytes, B256, U256};
+use super::{Signed, SignedTransaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE};
+use crate::{
+    signature::{Fakeable, Signature},
+    utils::enveloped,
+    AccessListItem, Address, Bytes, B256, U256,
+};
 
 impl Signed {
     /// Whether this is a legacy (pre-EIP-155) transaction.
@@ -121,6 +126,22 @@ impl alloy_rlp::Encodable for Signed {
     }
 }
 
+impl Default for Signed {
+    fn default() -> Self {
+        // This implementation is necessary to be able to use `revm`'s builder pattern.
+        Self::PreEip155Legacy(Legacy {
+            nonce: 0,
+            gas_price: U256::ZERO,
+            gas_limit: u64::MAX,
+            kind: TxKind::Call(Address::ZERO), // will do nothing
+            value: U256::ZERO,
+            input: Bytes::new(),
+            signature: Fakeable::fake(Address::ZERO, Some(0)),
+            hash: OnceLock::new(),
+        })
+    }
+}
+
 impl From<self::legacy::Legacy> for Signed {
     fn from(transaction: self::legacy::Legacy) -> Self {
         Self::PreEip155Legacy(transaction)
@@ -160,19 +181,7 @@ impl From<PreOrPostEip155> for Signed {
     }
 }
 
-impl From<Signed> for TxEnv {
-    fn from(value: Signed) -> Self {
-        match value {
-            Signed::PreEip155Legacy(tx) => tx.into(),
-            Signed::PostEip155Legacy(tx) => tx.into(),
-            Signed::Eip2930(tx) => tx.into(),
-            Signed::Eip1559(tx) => tx.into(),
-            Signed::Eip4844(tx) => tx.into(),
-        }
-    }
-}
-
-impl Transaction for Signed {
+impl SignedTransaction for Signed {
     fn effective_gas_price(&self, block_base_fee: U256) -> U256 {
         match self {
             Signed::PreEip155Legacy(tx) => tx.gas_price,
@@ -192,16 +201,6 @@ impl Transaction for Signed {
             Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
             Signed::Eip1559(tx) => Some(tx.max_fee_per_gas),
             Signed::Eip4844(tx) => Some(tx.max_fee_per_gas),
-        }
-    }
-
-    fn nonce(&self) -> u64 {
-        match self {
-            Signed::PreEip155Legacy(t) => t.nonce,
-            Signed::PostEip155Legacy(t) => t.nonce,
-            Signed::Eip2930(t) => t.nonce,
-            Signed::Eip1559(t) => t.nonce,
-            Signed::Eip4844(t) => t.nonce,
         }
     }
 
@@ -293,8 +292,14 @@ impl revm_primitives::Transaction for Signed {
         }
     }
 
-    fn nonce_opt(&self) -> Option<u64> {
-        Some(self.nonce())
+    fn nonce(&self) -> u64 {
+        match self {
+            Signed::PreEip155Legacy(t) => t.nonce,
+            Signed::PostEip155Legacy(t) => t.nonce,
+            Signed::Eip2930(t) => t.nonce,
+            Signed::Eip1559(t) => t.nonce,
+            Signed::Eip4844(t) => t.nonce,
+        }
     }
 
     fn chain_id(&self) -> Option<u64> {

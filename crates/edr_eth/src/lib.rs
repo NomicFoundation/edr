@@ -46,8 +46,8 @@ pub mod withdrawal;
 pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 pub use revm_primitives::{
     alloy_primitives::{Bloom, BloomInput, B512, B64, U64},
-    hex_literal, AccessList, AccessListItem, AccountInfo, Address, Bytecode, Bytes, HashMap,
-    HashSet, SpecId, B256, U256,
+    hex_literal, AccessList, AccessListItem, Account, AccountInfo, AccountStatus, Address,
+    Bytecode, Bytes, HashMap, HashSet, SpecId, B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
 };
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};

@@ -7,17 +7,17 @@ use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     log::{add_log_to_bloom, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::{self, SignedTransaction as _, Transaction as _, TransactionType},
+    transaction::{self, SignedTransaction as _, TransactionType},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
 };
 use revm::{
-    db::{DatabaseComponentError, DatabaseComponents, StateRef},
+    db::{DatabaseComponents, StateRef},
     handler::{CfgEnvWithChainSpec, EnvWithChainSpec},
     primitives::{
-        BlobExcessGasAndPrice, BlockEnv, EVMError, ExecutionResult, InvalidHeader,
-        InvalidTransaction, Output, ResultAndState, SpecId, MAX_BLOB_GAS_PER_BLOCK,
+        BlobExcessGasAndPrice, BlockEnv, ExecutionResult, Output, ResultAndState, SpecId,
+        Transaction as _, MAX_BLOB_GAS_PER_BLOCK,
     },
     Context, DatabaseCommit, Evm, InnerEvmContext,
 };
@@ -28,6 +28,7 @@ use crate::{
     chain_spec::{ChainSpec, L1ChainSpec},
     debug::{DebugContext, EvmContext},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
+    transaction::TransactionError,
     SyncBlock,
 };
 
@@ -46,63 +47,19 @@ pub enum BlockBuilderCreationError {
 
 /// An error caused during execution of a transaction while building a block.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockTransactionError<BE, SE> {
-    /// Blockchain errors
-    #[error(transparent)]
-    BlockHash(BE),
-    /// Custom error
-    #[error("{0}")]
-    Custom(String),
+pub enum BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
+{
     /// Transaction has higher gas limit than is remaining in block
     #[error("Transaction has a higher gas limit than the remaining gas in the block")]
     ExceedsBlockGasLimit,
     /// Transaction has higher blob gas usage than is remaining in block
     #[error("Transaction has higher blob gas usage than is remaining in block")]
     ExceedsBlockBlobGasLimit,
-    /// Sender does not have enough funds to send transaction.
-    #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {max_upfront_cost} and the sender's balance is: {sender_balance}.")]
-    InsufficientFunds {
-        /// The maximum upfront cost of the transaction
-        max_upfront_cost: U256,
-        /// The sender's balance
-        sender_balance: U256,
-    },
-    /// Corrupt transaction data
-    #[error("Invalid transaction: {0:?}")]
-    InvalidTransaction(InvalidTransaction),
-    /// State errors
+    /// Transaction error
     #[error(transparent)]
-    State(SE),
-}
-
-impl<ChainSpecT, BE, SE> From<EVMError<ChainSpecT, DatabaseComponentError<SE, BE>>>
-    for BlockTransactionError<BE, SE>
-where
-    ChainSpecT: revm::primitives::ChainSpec,
-    BE: Debug + Send,
-    SE: Debug + Send,
-{
-    fn from(error: EVMError<ChainSpecT, DatabaseComponentError<SE, BE>>) -> Self {
-        match error {
-            EVMError::Transaction(e) => match e {
-                InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
-                    Self::InsufficientFunds {
-                        max_upfront_cost: *fee,
-                        sender_balance: *balance,
-                    }
-                }
-                _ => Self::InvalidTransaction(e),
-            },
-            EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
-            EVMError::Database(DatabaseComponentError::BlockHash(e)) => Self::BlockHash(e),
-            // This case is a bug in our codebase for local blockchains, but it can happen that the
-            // remote returns incorrect block data in which case we should return a custom error.
-            EVMError::Header(
-                error @ (InvalidHeader::ExcessBlobGasNotSet | InvalidHeader::PrevrandaoNotSet),
-            ) => Self::Custom(error.to_string()),
-            EVMError::Custom(error) => Self::Custom(error),
-        }
-    }
+    Transaction(#[from] TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
 }
 
 /// The result of executing a transaction, along with the context in which it
@@ -118,8 +75,10 @@ pub struct ExecutionResultWithContext<
     ChainSpecT: revm::primitives::ChainSpec,
 {
     /// The result of executing the transaction.
-    pub result:
-        Result<ExecutionResult<ChainSpecT>, BlockTransactionError<BlockchainErrorT, StateErrorT>>,
+    pub result: Result<
+        ExecutionResult<ChainSpecT>,
+        BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    >,
     /// The context in which the transaction was executed.
     pub evm_context: EvmContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
 }
@@ -294,7 +253,7 @@ impl BlockBuilder {
         let env = EnvWithChainSpec::new_with_cfg_env(
             self.cfg.clone(),
             block.clone(),
-            transaction.clone().into(),
+            transaction.clone(),
         );
 
         let db = DatabaseComponents {
@@ -340,7 +299,7 @@ impl BlockBuilder {
                     Ok(result) => (evm_context, result),
                     Err(error) => {
                         return ExecutionResultWithContext {
-                            result: Err(error.into()),
+                            result: Err(TransactionError::from(error).into()),
                             evm_context,
                         };
                     }
@@ -371,7 +330,7 @@ impl BlockBuilder {
                     Ok(result) => (evm_context, result),
                     Err(error) => {
                         return ExecutionResultWithContext {
-                            result: Err(error.into()),
+                            result: Err(TransactionError::from(error).into()),
                             evm_context,
                         };
                     }

@@ -6,7 +6,7 @@ use edr_eth::{
     rlp::Decodable,
     transaction::{
         pooled::PooledTransaction, request::TransactionRequestAndSender, EthTransactionRequest,
-        SignedTransaction, Transaction, TransactionType, TxKind,
+        SignedTransaction, TransactionType, TxKind,
     },
     Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
@@ -258,7 +258,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
 pub fn handle_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     transaction_request: EthTransactionRequest,
-) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     validate_send_transaction_request(data, &transaction_request)?;
 
     let transaction_request = resolve_transaction_request(data, transaction_request)?;
@@ -270,7 +270,7 @@ pub fn handle_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + Time
 pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     raw_transaction: Bytes,
-) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
@@ -420,7 +420,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
 fn send_raw_transaction_and_log<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     signed_transaction: transaction::Signed,
-) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
     let spec_id = data.spec_id();

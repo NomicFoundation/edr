@@ -1,5 +1,5 @@
 use edr_eth::{Address, U256};
-use revm::primitives::{Account, AccountInfo, AccountStatus, HashMap, StorageSlot};
+use revm::primitives::{Account, AccountInfo, AccountStatus, EvmStorageSlot, HashMap};
 
 /// The difference between two states, which can be applied to a state to get
 /// the new state using [`revm::db::DatabaseCommit::commit`].
@@ -34,7 +34,7 @@ impl StateDiff {
         &mut self,
         address: Address,
         index: U256,
-        slot: StorageSlot,
+        slot: EvmStorageSlot,
         account_info: Option<AccountInfo>,
     ) {
         self.inner

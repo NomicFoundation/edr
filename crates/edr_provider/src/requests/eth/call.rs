@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use edr_eth::{BlockSpec, Bytes, SpecId, U256};
-use edr_evm::{state::StateOverrides, trace::Trace, transaction};
+use edr_evm::{chain_spec::L1ChainSpec, state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
 use crate::{
@@ -14,7 +14,7 @@ pub fn handle_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     request: CallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace), ProviderError<LoggerErrorT>> {
+) -> Result<(Bytes, Trace<L1ChainSpec>), ProviderError<LoggerErrorT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
     validate_call_request(data.spec_id(), &request, &block_spec)?;
 
@@ -160,7 +160,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::transaction::Transaction;
+    use edr_eth::transaction::SignedTransaction;
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};

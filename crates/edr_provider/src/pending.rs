@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_eth::{receipt::BlockReceipt, transaction::Transaction as _, SpecId, B256, U256};
+use edr_eth::{receipt::BlockReceipt, transaction::SignedTransaction as _, SpecId, B256, U256};
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     chain_spec::L1ChainSpec,

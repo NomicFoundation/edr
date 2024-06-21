@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use revm_primitives::{keccak256, TxEnv};
+use revm_primitives::keccak256;
 
 use crate::{
     signature::{self, Signature},
@@ -56,27 +56,6 @@ impl From<transaction::signed::Legacy> for Eip155 {
             input: tx.input,
             signature: tx.signature,
             hash: tx.hash,
-        }
-    }
-}
-
-impl From<Eip155> for TxEnv {
-    fn from(value: Eip155) -> Self {
-        let chain_id = value.chain_id();
-
-        TxEnv {
-            caller: *value.caller(),
-            gas_limit: value.gas_limit,
-            gas_price: value.gas_price,
-            transact_to: value.kind,
-            value: value.value,
-            data: value.input,
-            nonce: Some(value.nonce),
-            chain_id: Some(chain_id),
-            access_list: Vec::new(),
-            gas_priority_fee: None,
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
         }
     }
 }
