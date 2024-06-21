@@ -200,7 +200,7 @@ impl<ChainSpecT: revm::primitives::ChainSpec> Clone for AfterMessage<ChainSpecT>
     fn clone(&self) -> Self {
         Self {
             execution_result: self.execution_result.clone(),
-            contract_address: self.contract_address.clone(),
+            contract_address: self.contract_address,
         }
     }
 }

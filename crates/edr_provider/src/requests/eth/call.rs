@@ -160,7 +160,7 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::transaction::SignedTransaction;
+    use edr_eth::transaction::Transaction as _;
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};
@@ -187,7 +187,7 @@ mod tests {
             |_, _, _| unreachable!("gas_price is set"),
         )?;
 
-        assert_eq!(resolved.gas_price(), pending_base_fee);
+        assert_eq!(*resolved.gas_price(), pending_base_fee);
 
         Ok(())
     }
@@ -221,9 +221,9 @@ mod tests {
             },
         )?;
 
-        assert_eq!(resolved.gas_price(), max_fee_per_gas);
+        assert_eq!(*resolved.gas_price(), max_fee_per_gas);
         assert_eq!(
-            resolved.max_priority_fee_per_gas(),
+            resolved.max_priority_fee_per_gas().cloned(),
             max_priority_fee_per_gas
         );
 

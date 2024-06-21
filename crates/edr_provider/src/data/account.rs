@@ -1,6 +1,7 @@
 use edr_eth::{
-    signature::public_key_to_address, Account, AccountInfo, AccountStatus, Address, HashMap,
-    KECCAK_EMPTY,
+    signature::public_key_to_address,
+    state::{Account, AccountStatus},
+    AccountInfo, Address, HashMap, KECCAK_EMPTY,
 };
 use indexmap::IndexMap;
 

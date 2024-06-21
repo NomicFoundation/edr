@@ -143,7 +143,7 @@ where
                     })
                     .with_cfg_env_with_handler_cfg(evm_config.clone())
                     .with_block_env(block.clone())
-                    .with_tx_env(transaction.into())
+                    .with_tx_env(transaction)
                     .build();
 
                 evm.transact().map_err(TransactionError::from)?

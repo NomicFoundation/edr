@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use edr_eth::{Address, Bytes};
+use edr_eth::{address, db::Database, result::EVMErrorForChain, Address, Bytes};
 use edr_evm::{
-    address,
-    db::Database,
-    evm::{EvmHandler, FrameOrResult},
-    EVMError, GetContextData,
+    chain_spec::L1ChainSpec,
+    evm::{handler::register::EvmHandler, FrameOrResult},
+    GetContextData,
 };
 
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
@@ -15,11 +14,13 @@ pub fn register_console_log_handles<
     DatabaseT: Database,
     ContextT: GetContextData<ConsoleLogCollector>,
 >(
-    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
+    handler: &mut EvmHandler<'_, L1ChainSpec, ContextT, DatabaseT>,
 ) {
     let old_handle = handler.execution.call.clone();
     handler.execution.call = Arc::new(
-        move |ctx, inputs| -> Result<FrameOrResult, EVMError<DatabaseT::Error>> {
+        move |ctx,
+              inputs|
+              -> Result<FrameOrResult, EVMErrorForChain<DatabaseT::Error, L1ChainSpec>> {
             if inputs.bytecode_address == CONSOLE_ADDRESS {
                 let collector = ctx.external.get_context_data();
                 collector.record_console_log(inputs.input.clone());
@@ -52,10 +53,10 @@ pub(crate) mod tests {
 
     use anyhow::Context;
     use edr_eth::{
+        hex,
         transaction::{self, request::TransactionRequestAndSender, TxKind},
         Bytes, U256,
     };
-    use edr_evm::hex;
 
     use crate::{data::ProviderData, time::TimeSinceEpoch};
 

@@ -72,6 +72,11 @@ pub trait SignedTransaction: Transaction {
     fn transaction_type(&self) -> TransactionType;
 }
 
+pub trait TransactionMut {
+    /// Sets the gas limit of the transaction.
+    fn set_gas_limit(&mut self, gas_limit: u64);
+}
+
 pub fn max_cost(transaction: &impl SignedTransaction) -> U256 {
     U256::from(transaction.gas_limit()).saturating_mul(*transaction.gas_price())
 }

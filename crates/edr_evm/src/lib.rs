@@ -48,10 +48,7 @@ pub mod transaction;
 
 /// Types for interfacing with the evm
 pub mod evm {
-    pub use revm::{
-        handler::register::{EvmHandler, HandleRegister},
-        FrameOrResult, FrameResult,
-    };
+    pub use revm::{handler, FrameOrResult, FrameResult};
 }
 
 /// Types for interfacing with the interpreter

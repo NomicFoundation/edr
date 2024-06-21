@@ -1,9 +1,10 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas, spec::HardforkActivations, AccountInfo, Address, HashMap, SpecId, B256, U256,
+    block::BlobGas, spec::HardforkActivations, AccountInfo, Address, ChainId, HashMap, SpecId,
+    B256, U256,
 };
-use edr_evm::{alloy_primitives::ChainId, MineOrdering};
+use edr_evm::MineOrdering;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 

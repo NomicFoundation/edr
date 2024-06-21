@@ -1,10 +1,12 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_eth::{receipt::BlockReceipt, transaction::SignedTransaction as _, SpecId, B256, U256};
+use edr_eth::{
+    db::BlockHashRef, receipt::BlockReceipt, transaction::SignedTransaction as _, HashSet, SpecId,
+    B256, U256,
+};
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     chain_spec::L1ChainSpec,
-    db::BlockHashRef,
     state::{StateDiff, StateError, StateOverride, SyncState},
     BlockAndTotalDifficulty, LocalBlock, SyncBlock,
 };
@@ -114,7 +116,7 @@ impl<'blockchain> Blockchain<L1ChainSpec> for BlockchainWithPending<'blockchain>
         &self,
         _from_block: u64,
         _to_block: u64,
-        _addresses: &edr_evm::HashSet<edr_eth::Address>,
+        _addresses: &HashSet<edr_eth::Address>,
         _normalized_topics: &[Option<Vec<B256>>],
     ) -> Result<Vec<edr_eth::log::FilterLog>, Self::BlockchainError> {
         panic!("Retrieving logs from a pending blockchain is not supported.");

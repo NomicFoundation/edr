@@ -15,7 +15,10 @@ pub use self::{
     eip4844::Eip4844,
     legacy::{Legacy, PreOrPostEip155},
 };
-use super::{Signed, SignedTransaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE};
+use super::{
+    Signed, SignedTransaction, TransactionMut, TransactionType, TxKind,
+    INVALID_TX_TYPE_ERROR_MESSAGE,
+};
 use crate::{
     signature::{Fakeable, Signature},
     utils::enveloped,
@@ -346,6 +349,18 @@ impl revm_primitives::Transaction for Signed {
             | Signed::Eip2930(_)
             | Signed::Eip1559(_) => None,
             Signed::Eip4844(tx) => Some(&tx.max_fee_per_blob_gas),
+        }
+    }
+}
+
+impl TransactionMut for Signed {
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.gas_limit = gas_limit,
+            Signed::PostEip155Legacy(tx) => tx.gas_limit = gas_limit,
+            Signed::Eip2930(tx) => tx.gas_limit = gas_limit,
+            Signed::Eip1559(tx) => tx.gas_limit = gas_limit,
+            Signed::Eip4844(tx) => tx.gas_limit = gas_limit,
         }
     }
 }

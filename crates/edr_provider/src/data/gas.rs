@@ -1,13 +1,20 @@
 use core::fmt::Debug;
 use std::cmp;
 
-use edr_eth::{block::Header, reward_percentile::RewardPercentile, U256};
+use edr_eth::{
+    block::Header,
+    result::ExecutionResult,
+    reward_percentile::RewardPercentile,
+    transaction::{Transaction as _, TransactionMut as _},
+    U256,
+};
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
     chain_spec::L1ChainSpec,
+    evm::handler::CfgEnvWithChainSpec,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    transaction, CfgEnvWithChainSpec, DebugContext, ExecutionResult, SyncBlock,
+    transaction, DebugContext, SyncBlock,
 };
 use itertools::Itertools;
 
@@ -44,7 +51,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         trace_collector,
     } = args;
 
-    transaction.gas_limit = gas_limit;
+    transaction.set_gas_limit(gas_limit);
 
     let result = call::run_call(RunCallArgs {
         blockchain,
@@ -170,7 +177,7 @@ pub(super) fn compute_rewards<LoggerErrorT: Debug>(
 
             let effective_reward =
                 if let Some(max_priority_fee_per_gas) = transaction.max_priority_fee_per_gas() {
-                    cmp::min(max_priority_fee_per_gas, gas_price - base_fee_per_gas)
+                    cmp::min(*max_priority_fee_per_gas, gas_price - base_fee_per_gas)
                 } else {
                     gas_price.saturating_sub(base_fee_per_gas)
                 };

@@ -148,7 +148,7 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction::SignedTransaction, BlockTag};
+    use edr_eth::{transaction::Transaction as _, BlockTag};
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};
@@ -174,9 +174,9 @@ mod tests {
             &StateOverrides::default(),
         )?;
 
-        assert_eq!(resolved.gas_price(), max_fee_per_gas);
+        assert_eq!(*resolved.gas_price(), max_fee_per_gas);
         assert_eq!(
-            resolved.max_priority_fee_per_gas(),
+            resolved.max_priority_fee_per_gas().cloned(),
             Some(U256::from(1_000_000_000u64))
         );
 
@@ -209,11 +209,11 @@ mod tests {
         )?;
 
         assert_eq!(
-            resolved.gas_price(),
+            *resolved.gas_price(),
             U256::from(2) * base_fee + max_priority_fee_per_gas
         );
         assert_eq!(
-            resolved.max_priority_fee_per_gas(),
+            resolved.max_priority_fee_per_gas().cloned(),
             Some(max_priority_fee_per_gas)
         );
 
@@ -250,14 +250,14 @@ mod tests {
         )?;
 
         assert_eq!(
-            Some(resolved.gas_price()),
+            Some(*resolved.gas_price()),
             last_block
                 .header()
                 .base_fee_per_gas
                 .map(|base_fee| base_fee + max_priority_fee_per_gas)
         );
         assert_eq!(
-            resolved.max_priority_fee_per_gas(),
+            resolved.max_priority_fee_per_gas().cloned(),
             Some(max_priority_fee_per_gas)
         );
 
@@ -287,8 +287,11 @@ mod tests {
             &StateOverrides::default(),
         )?;
 
-        assert_eq!(resolved.gas_price(), max_fee_per_gas);
-        assert_eq!(resolved.max_priority_fee_per_gas(), Some(max_fee_per_gas));
+        assert_eq!(*resolved.gas_price(), max_fee_per_gas);
+        assert_eq!(
+            resolved.max_priority_fee_per_gas().cloned(),
+            Some(max_fee_per_gas)
+        );
 
         Ok(())
     }

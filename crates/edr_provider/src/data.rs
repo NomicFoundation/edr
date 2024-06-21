@@ -18,14 +18,19 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         BlobGas, BlockOptions,
     },
+    db::StateRef,
+    env::{BlobExcessGasAndPrice, BlockEnv, CfgEnv},
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     log::FilterLog,
     receipt::BlockReceipt,
+    result::ExecutionResult,
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
+    state::{Account, EvmStorageSlot},
     transaction::{request::TransactionRequestAndSender, SignedTransaction, TransactionType},
-    Address, BlockSpec, BlockTag, Bytes, Eip1898BlockSpec, SpecId, B256, U256,
+    AccountInfo, Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet,
+    SpecId, B256, KECCAK_EMPTY, U256,
 };
 use edr_evm::{
     blockchain::{
@@ -33,20 +38,19 @@ use edr_evm::{
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
     chain_spec::L1ChainSpec,
-    db::StateRef,
-    debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
-    mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
+    debug_trace_transaction,
+    evm::handler::CfgEnvWithChainSpec,
+    execution_result_to_debug_result, mempool, mine_block, mine_block_with_single_transaction,
+    register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
     },
     trace::Trace,
-    transaction::{self, SignedTransaction as _},
-    Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
-    Bytecode, CfgEnv, CfgEnvWithChainSpec, DebugContext, DebugTraceConfig,
-    DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutionResult, HashMap, HashSet, MemPool,
-    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock,
-    TxEnv, KECCAK_EMPTY,
+    transaction::{self, Transaction as _},
+    Block as _, BlockAndTotalDifficulty, DebugContext, DebugTraceConfig,
+    DebugTraceResultWithTraces, Eip3155AndRawTracers, MemPool, MineBlockResultAndState,
+    OrderedTransaction, RandomHashGenerator, SyncBlock,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -87,14 +91,14 @@ const DEFAULT_MAX_CACHED_STATES: usize = 100_000;
 #[derive(Clone, Debug)]
 pub struct CallResult {
     pub console_log_inputs: Vec<Bytes>,
-    pub execution_result: ExecutionResult,
-    pub trace: Trace,
+    pub execution_result: ExecutionResult<L1ChainSpec>,
+    pub trace: Trace<L1ChainSpec>,
 }
 
 #[derive(Clone)]
 pub struct EstimateGasResult {
     pub estimation: u64,
-    pub traces: Vec<Trace>,
+    pub traces: Vec<Trace<L1ChainSpec>>,
 }
 
 pub struct SendTransactionResult {
@@ -104,7 +108,9 @@ pub struct SendTransactionResult {
 
 impl SendTransactionResult {
     /// Present if the transaction was auto-mined.
-    pub fn transaction_result_and_trace(&self) -> Option<(&ExecutionResult, &Trace)> {
+    pub fn transaction_result_and_trace(
+        &self,
+    ) -> Option<(&ExecutionResult<L1ChainSpec>, &Trace<L1ChainSpec>)> {
         self.mining_results.iter().find_map(|result| {
             izip!(
                 result.block.transactions().iter(),
@@ -122,7 +128,7 @@ impl SendTransactionResult {
     }
 }
 
-impl From<SendTransactionResult> for (B256, Vec<Trace>) {
+impl From<SendTransactionResult> for (B256, Vec<Trace<L1ChainSpec>>) {
     fn from(value: SendTransactionResult) -> Self {
         let SendTransactionResult {
             transaction_hash,
@@ -586,7 +592,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugTraceResultWithTraces<L1ChainSpec>, ProviderError<LoggerErrorT>> {
         let block = self
             .blockchain
             .block_by_transaction_hash(transaction_hash)?
@@ -613,7 +619,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                     gas_limit: U256::from(header.gas_limit),
                     basefee: header.base_fee_per_gas.unwrap_or_default(),
                     difficulty: U256::from(header.difficulty),
-                    prevrandao: if cfg_env.handler_cfg.spec_id >= SpecId::MERGE {
+                    prevrandao: if cfg_env.spec_id >= SpecId::MERGE {
                         Some(header.mix_hash)
                     } else {
                         None
@@ -644,10 +650,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         transaction: transaction::Signed,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugTraceResultWithTraces<L1ChainSpec>, ProviderError<LoggerErrorT>> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
-
-        let tx_env: TxEnv = transaction.into();
 
         let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
 
@@ -658,7 +662,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides: &StateOverrides::default(),
                 cfg_env: cfg_env.clone(),
-                transaction: tx_env.clone(),
+                transaction,
                 debug_context: Some(DebugContext {
                     data: &mut tracer,
                     register_handles_fn: register_eip_3155_and_raw_tracers_handles,
@@ -679,7 +683,6 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         // Minimum gas cost that is required for transaction to be included in
         // a block
         let minimum_cost = transaction::initial_cost(&transaction, self.spec_id());
-        let tx_env: TxEnv = transaction.into();
 
         let state_overrides = StateOverrides::default();
 
@@ -700,7 +703,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                transaction: tx_env.clone(),
+                transaction: transaction.clone(),
                 debug_context: Some(DebugContext {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
@@ -754,7 +757,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                transaction: tx_env.clone(),
+                transaction: transaction.clone(),
                 gas_limit: initial_estimation,
                 trace_collector: &mut trace_collector,
             })?;
@@ -776,7 +779,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                transaction: tx_env.clone(),
+                transaction,
                 lower_bound: initial_estimation,
                 upper_bound: header.gas_limit,
                 trace_collector: &mut trace_collector,
@@ -1106,7 +1109,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<LoggerErrorT, TimerT>,
-            &CfgEnvWithChainSpec<ChainSpecT>,
+            &CfgEnvWithChainSpec<L1ChainSpec>,
             BlockOptions,
             &mut Debugger,
         ) -> Result<
@@ -1403,7 +1406,6 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         state_overrides: &StateOverrides,
     ) -> Result<CallResult, ProviderError<LoggerErrorT>> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
-        let tx_env = transaction.into();
 
         let mut debugger = Debugger::with_mocker(
             Mocker::new(self.call_override.clone()),
@@ -1417,7 +1419,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state,
                 state_overrides,
                 cfg_env,
-                transaction: tx_env,
+                transaction,
                 debug_context: Some(DebugContext {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
@@ -1756,7 +1758,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let mut modified_state = (*self.current_state()?).clone();
         let old_value = modified_state.set_account_storage_slot(address, index, value)?;
 
-        let slot = StorageSlot::new_changed(old_value, value);
+        let slot = EvmStorageSlot::new_changed(old_value, value);
         let account_info = modified_state.basic(address).and_then(|mut account_info| {
             // Retrieve the code if it's not empty. This is needed for the irregular state.
             if let Some(account_info) = &mut account_info {
@@ -1893,7 +1895,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn create_evm_config(
         &self,
         block_spec: Option<&BlockSpec>,
-    ) -> Result<CfgEnvWithChainSpec<ChainSpecT>, ProviderError<LoggerErrorT>> {
+    ) -> Result<CfgEnvWithChainSpec<L1ChainSpec>, ProviderError<LoggerErrorT>> {
         let block_number = block_spec
             .map(|block_spec| self.block_number_by_block_spec(block_spec))
             .transpose()?
@@ -1914,7 +1916,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         };
         cfg_env.disable_eip3607 = true;
 
-        Ok(CfgEnvWithChainSpec<ChainSpecT>::new_with_spec_id(cfg_env, spec_id))
+        Ok(CfgEnvWithChainSpec::<L1ChainSpec>::new(cfg_env, spec_id))
     }
 
     fn execute_in_block_context<T>(
@@ -1960,7 +1962,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<LoggerErrorT, TimerT>,
-            &CfgEnvWithChainSpec<ChainSpecT>,
+            &CfgEnvWithChainSpec<L1ChainSpec>,
             BlockOptions,
             &mut Debugger,
         ) -> Result<
@@ -1975,11 +1977,11 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         let evm_config = self.create_evm_config(None)?;
 
-        if options.mix_hash.is_none() && evm_config.handler_cfg.spec_id >= SpecId::MERGE {
+        if options.mix_hash.is_none() && evm_config.spec_id >= SpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
         }
 
-        if evm_config.handler_cfg.spec_id >= SpecId::CANCUN {
+        if evm_config.spec_id >= SpecId::CANCUN {
             options.parent_beacon_block_root = options
                 .parent_beacon_block_root
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
@@ -2009,7 +2011,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     fn mine_block_with_mem_pool(
         &mut self,
-        config: &CfgEnvWithChainSpec<ChainSpecT>,
+        config: &CfgEnvWithChainSpec<L1ChainSpec>,
         options: BlockOptions,
         debugger: &mut Debugger,
     ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
@@ -2022,7 +2024,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             options,
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
-            miner_reward(config.handler_cfg.spec_id).unwrap_or(U256::ZERO),
+            miner_reward(config.spec_id).unwrap_or(U256::ZERO),
             self.dao_activation_block,
             Some(DebugContext {
                 data: debugger,
@@ -2035,7 +2037,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     fn mine_block_with_single_transaction(
         &mut self,
-        config: &CfgEnvWithChainSpec<ChainSpecT>,
+        config: &CfgEnvWithChainSpec<L1ChainSpec>,
         options: BlockOptions,
         transaction: transaction::Signed,
         debugger: &mut Debugger,
@@ -2048,7 +2050,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             config,
             options,
             self.min_gas_price,
-            miner_reward(config.handler_cfg.spec_id).unwrap_or(U256::ZERO),
+            miner_reward(config.spec_id).unwrap_or(U256::ZERO),
             self.dao_activation_block,
             Some(DebugContext {
                 data: debugger,
@@ -2258,10 +2260,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             .max_priority_fee_per_gas()
             .unwrap_or_else(|| transaction.gas_price());
 
-        if max_priority_fee_per_gas < self.min_gas_price {
+        if *max_priority_fee_per_gas < self.min_gas_price {
             return Err(ProviderError::AutoMinePriorityFeeTooLow {
                 expected: self.min_gas_price,
-                actual: max_priority_fee_per_gas,
+                actual: *max_priority_fee_per_gas,
             });
         }
 
@@ -2275,10 +2277,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 }
             } else {
                 let gas_price = transaction.gas_price();
-                if gas_price < next_block_base_fee {
+                if *gas_price < next_block_base_fee {
                     return Err(ProviderError::AutoMineGasPriceTooLow {
                         expected: next_block_base_fee,
-                        actual: gas_price,
+                        actual: *gas_price,
                     });
                 }
             }
@@ -2734,8 +2736,8 @@ mod tests {
     use std::convert::Infallible;
 
     use anyhow::Context;
-    use edr_eth::transaction::SignedTransaction;
-    use edr_evm::{hex, MineOrdering};
+    use edr_eth::{hex, transaction::SignedTransaction as _};
+    use edr_evm::MineOrdering;
     use serde_json::json;
 
     use super::{test_utils::ProviderTestFixture, *};
@@ -3086,7 +3088,7 @@ mod tests {
         let mut fixture = ProviderTestFixture::new_local()?;
 
         let transaction = fixture.signed_dummy_transaction(0, None)?;
-        let expected = transaction.value();
+        let expected = *transaction.value();
         let receiver = transaction
             .kind()
             .to()
@@ -3760,7 +3762,7 @@ mod tests {
 
             sol! { function Hello() public pure returns (string); }
 
-            fn assert_decoded_output(result: ExecutionResult) -> anyhow::Result<()> {
+            fn assert_decoded_output(result: ExecutionResult<L1ChainSpec>) -> anyhow::Result<()> {
                 let output = result.into_output().expect("Call must have output");
                 let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
 

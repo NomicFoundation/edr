@@ -103,7 +103,7 @@ pub fn guaranteed_dry_run<
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
     mut cfg: CfgEnvWithChainSpec<L1ChainSpec>,
-    mut transaction: transaction::Signed,
+    transaction: transaction::Signed,
     block: BlockEnv,
     debug_context: Option<
         DebugContext<

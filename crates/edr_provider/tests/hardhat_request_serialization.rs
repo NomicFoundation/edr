@@ -1,7 +1,6 @@
 mod common;
 
-use edr_eth::{Address, Bytes, B256, U256};
-use edr_evm::alloy_primitives::U160;
+use edr_eth::{Address, Bytes, B256, U160, U256};
 use edr_provider::{
     hardhat_rpc_types::{CompilerInput, CompilerOutput, ForkConfig, ResetProviderConfig},
     MethodInvocation,

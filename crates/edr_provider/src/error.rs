@@ -2,15 +2,19 @@ use core::fmt::Debug;
 use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
-use edr_eth::{filter::SubscriptionType, Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256};
+use edr_eth::{
+    filter::SubscriptionType,
+    hex,
+    result::{ExecutionResult, HaltReason, OutOfGasError},
+    Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256,
+};
 use edr_evm::{
     blockchain::BlockchainError,
-    hex,
+    chain_spec::L1ChainSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
-    DebugTraceError, ExecutionResult, HaltReason, MemPoolAddTransactionError, MineBlockError,
-    MineTransactionError, OutOfGasError,
+    DebugTraceError, MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 
@@ -51,7 +55,7 @@ pub enum ProviderError<LoggerErrorT> {
     #[error(transparent)]
     Creation(#[from] CreationError),
     #[error(transparent)]
-    DebugTrace(#[from] DebugTraceError<BlockchainError, StateError>),
+    DebugTrace(#[from] DebugTraceError<L1ChainSpec, BlockchainError, StateError>),
     #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
     Eip4844CallRequestUnsupported,
     #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
@@ -117,10 +121,10 @@ pub enum ProviderError<LoggerErrorT> {
     MemPoolUpdate(StateError),
     /// An error occurred while mining a block.
     #[error(transparent)]
-    MineBlock(#[from] MineBlockError<BlockchainError, StateError>),
+    MineBlock(#[from] MineBlockError<L1ChainSpec, BlockchainError, StateError>),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
-    MineTransaction(#[from] MineTransactionError<BlockchainError, StateError>),
+    MineTransaction(#[from] MineTransactionError<L1ChainSpec, BlockchainError, StateError>),
     /// Rpc client error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -129,7 +133,7 @@ pub enum ProviderError<LoggerErrorT> {
     RpcVersion(jsonrpc::Version),
     /// Error while running a transaction
     #[error(transparent)]
-    RunTransaction(#[from] TransactionError<BlockchainError, StateError>),
+    RunTransaction(#[from] TransactionError<L1ChainSpec, BlockchainError, StateError>),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
     #[error("hardhat_setMinGasPrice is not supported when EIP-1559 is active")]
@@ -322,7 +326,7 @@ impl std::fmt::Display for EstimateGasFailure {
 #[derive(Clone, Debug, thiserror::Error)]
 pub struct TransactionFailureWithTraces {
     pub failure: TransactionFailure,
-    pub traces: Vec<Trace>,
+    pub traces: Vec<Trace<L1ChainSpec>>,
 }
 
 impl std::fmt::Display for TransactionFailureWithTraces {
@@ -339,15 +343,15 @@ pub struct TransactionFailure {
     pub reason: TransactionFailureReason,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: Trace,
+    pub solidity_trace: Trace<L1ChainSpec>,
     pub transaction_hash: Option<B256>,
 }
 
 impl TransactionFailure {
     pub fn from_execution_result(
-        execution_result: &ExecutionResult,
+        execution_result: &ExecutionResult<L1ChainSpec>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &Trace,
+        solidity_trace: &Trace<L1ChainSpec>,
     ) -> Option<Self> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
@@ -364,7 +368,11 @@ impl TransactionFailure {
         }
     }
 
-    pub fn revert(output: Bytes, transaction_hash: Option<B256>, solidity_trace: Trace) -> Self {
+    pub fn revert(
+        output: Bytes,
+        transaction_hash: Option<B256>,
+        solidity_trace: Trace<L1ChainSpec>,
+    ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         Self {
             reason: TransactionFailureReason::Revert(output),
@@ -374,7 +382,11 @@ impl TransactionFailure {
         }
     }
 
-    pub fn halt(halt: HaltReason, tx_hash: Option<B256>, solidity_trace: Trace) -> Self {
+    pub fn halt(
+        halt: HaltReason,
+        tx_hash: Option<B256>,
+        solidity_trace: Trace<L1ChainSpec>,
+    ) -> Self {
         let reason = match halt {
             HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
                 TransactionFailureReason::OpcodeNotFound

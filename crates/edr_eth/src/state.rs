@@ -1,3 +1,5 @@
+pub use revm_primitives::state::*;
+
 use crate::{account::BasicAccount, trie::sec_trie_root, Address, HashMap, B256, U256};
 
 /// State mapping of addresses to accounts.

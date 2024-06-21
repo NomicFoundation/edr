@@ -2,15 +2,17 @@ use core::fmt::Debug;
 
 use edr_eth::{
     block::{BlobGas, Header},
+    env::{BlobExcessGasAndPrice, BlockEnv},
+    result::ExecutionResult,
     SpecId, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
     chain_spec::L1ChainSpec,
+    evm::handler::CfgEnvWithChainSpec,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
-    transaction, BlobExcessGasAndPrice, BlockEnv, CfgEnvWithChainSpec, DebugContext,
-    ExecutionResult,
+    transaction, DebugContext,
 };
 
 use crate::ProviderError;
@@ -41,7 +43,7 @@ where
 /// Execute a transaction as a call. Returns the gas used and the output.
 pub(super) fn run_call<'a, 'evm, DebugDataT, LoggerErrorT: Debug>(
     args: RunCallArgs<'a, 'evm, DebugDataT>,
-) -> Result<ExecutionResult, ProviderError<LoggerErrorT>>
+) -> Result<ExecutionResult<L1ChainSpec>, ProviderError<LoggerErrorT>>
 where
     'a: 'evm,
 {
@@ -62,7 +64,7 @@ where
         gas_limit: U256::from(header.gas_limit),
         basefee: U256::ZERO,
         difficulty: header.difficulty,
-        prevrandao: if cfg_env.handler_cfg.spec_id >= SpecId::MERGE {
+        prevrandao: if cfg_env.spec_id >= SpecId::MERGE {
             Some(header.mix_hash)
         } else {
             None
