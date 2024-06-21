@@ -21,7 +21,10 @@ mod library_utils;
 mod model;
 mod source_map;
 
+mod exit;
+mod message_trace;
 mod opcodes;
+mod vm_tracer;
 
 #[napi(object)]
 pub struct TracingMessage {
@@ -165,7 +168,7 @@ pub struct TracingMessageResult {
 
 #[napi]
 pub struct RawTrace {
-    inner: Arc<edr_evm::trace::Trace>,
+    pub(crate) inner: Arc<edr_evm::trace::Trace>,
 }
 
 impl RawTrace {
