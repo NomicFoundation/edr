@@ -1,7 +1,7 @@
 //! Naive Rust port of the `VMTracer` fromHardhat
 
 use edr_eth::{Bytes, U256};
-use edr_evm::ExecutionResult;
+use edr_evm::{alloy_primitives::U160, ExecutionResult};
 
 use crate::{
     exit::ExitCode,
@@ -77,11 +77,11 @@ impl VMTracer {
 
             trace = MessageTrace::Create(create_trace);
         } else {
-            // TODO: Make this nicer and make sure the U256 logic/precompile comparison logic works
+            // TODO: Make this nicer and make sure the U160 logic/precompile comparison logic works
             let to = message.to.unwrap();
-            let to_as_bigint = U256::from_be_bytes(**to);
+            let to_as_bigint = U160::from_be_bytes(**to);
 
-            if to_as_bigint <= U256::from(self.max_precompile_number) {
+            if to_as_bigint <= U160::from(self.max_precompile_number) {
                 let precompile_trace = PrecompileMessageTrace {
                     base: BaseMessageTrace {
                         value: message.value,

@@ -8,7 +8,7 @@ use edr_evm::SuccessReason;
 
 #[derive(Clone, Copy)]
 pub enum ExitCode {
-    Success,
+    Success = 0,
     Revert,
     OutOfGas,
     InternalError,
@@ -17,6 +17,25 @@ pub enum ExitCode {
     CodesizeExceedsMaximum,
     CreateCollision,
     StaticStateChange,
+}
+
+impl TryFrom<u8> for ExitCode {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Success),
+            1 => Ok(Self::Revert),
+            2 => Ok(Self::OutOfGas),
+            3 => Ok(Self::InternalError),
+            4 => Ok(Self::InvalidOpcode),
+            5 => Ok(Self::StackUnderflow),
+            6 => Ok(Self::CodesizeExceedsMaximum),
+            7 => Ok(Self::CreateCollision),
+            8 => Ok(Self::StaticStateChange),
+            _ => Err("Invalid exit code"),
+        }
+    }
 }
 
 impl ExitCode {

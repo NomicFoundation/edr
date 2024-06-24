@@ -151,7 +151,7 @@ pub struct TracingMessageResult {
 
 #[napi]
 pub struct RawTrace {
-    inner: Arc<edr_evm::trace::Trace>,
+    pub(crate) inner: Arc<edr_evm::trace::Trace>,
 }
 
 impl RawTrace {

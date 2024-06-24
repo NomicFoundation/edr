@@ -62,7 +62,6 @@ pub struct CreateMessageTrace {
     pub deployed_contract: Option<Bytes>,
 }
 
-// }
 #[derive(Clone)]
 pub struct CallMessageTrace {
     pub base: BaseEvmMessageTrace,

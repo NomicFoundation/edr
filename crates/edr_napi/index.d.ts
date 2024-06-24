@@ -153,6 +153,44 @@ export interface LoggerConfig {
   getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
   printLineCallback: (message: string, replace: boolean) => void
 }
+export interface EvmStep {
+  pc: number
+}
+export interface PrecompileMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  precompile: number
+  calldata: Uint8Array
+}
+export interface CreateMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  code: Uint8Array
+  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
+  bytecode?: any
+  numberOfSubtraces: number
+  deployedContract: Uint8Array | undefined
+}
+export interface CallMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  code: Uint8Array
+  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
+  bytecode?: any
+  numberOfSubtraces: number
+  calldata: Uint8Array
+  address: Uint8Array
+  codeAddress: Uint8Array
+}
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
@@ -416,4 +454,17 @@ export class Response {
 }
 export class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
+}
+export type VMTracer = VmTracer
+export class VmTracer {
+  constructor()
+  /** Observes a trace, collecting information about the execution of the EVM. */
+  observe(trace: RawTrace): void
+  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace | undefined
+  getLastError(): Error | undefined
+}
+export class Exit {
+  get kind(): number
+  isError(): boolean
+  getReason(): string
 }

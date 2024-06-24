@@ -14,10 +14,13 @@ mod context;
 mod debug_trace;
 mod log;
 mod logger;
+mod message_trace;
 mod provider;
 mod result;
 #[cfg(feature = "scenarios")]
 mod scenarios;
 mod subscribe;
 mod trace;
+mod vm_tracer;
 mod withdrawal;
+mod exit;
