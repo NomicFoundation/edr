@@ -8,7 +8,7 @@ use napi::{
 use napi_derive::napi;
 use serde_json::Value;
 
-use crate::exit::Exit;
+use super::exit::Exit;
 
 #[napi(object)]
 pub struct EvmStep {

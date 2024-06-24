@@ -4,12 +4,10 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::{
-    message_trace::{
-        message_trace_to_napi, CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace,
-    },
-    trace::RawTrace,
+use crate::trace::message_trace::{
+    message_trace_to_napi, CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace,
 };
+use crate::trace::RawTrace;
 
 #[napi]
 pub struct VMTracer(edr_solidity::vm_tracer::VMTracer);

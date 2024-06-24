@@ -153,44 +153,6 @@ export interface LoggerConfig {
   getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
   printLineCallback: (message: string, replace: boolean) => void
 }
-export interface EvmStep {
-  pc: number
-}
-export interface PrecompileMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  precompile: number
-  calldata: Uint8Array
-}
-export interface CreateMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
-  bytecode?: any
-  numberOfSubtraces: number
-  deployedContract: Uint8Array | undefined
-}
-export interface CallMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
-  bytecode?: any
-  numberOfSubtraces: number
-  calldata: Uint8Array
-  address: Uint8Array
-  codeAddress: Uint8Array
-}
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
@@ -375,6 +337,44 @@ export interface SubscriptionEvent {
   filterId: bigint
   result: any
 }
+export interface EvmStep {
+  pc: number
+}
+export interface PrecompileMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  precompile: number
+  calldata: Uint8Array
+}
+export interface CreateMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  code: Uint8Array
+  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
+  bytecode?: any
+  numberOfSubtraces: number
+  deployedContract: Uint8Array | undefined
+}
+export interface CallMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  code: Uint8Array
+  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
+  bytecode?: any
+  numberOfSubtraces: number
+  calldata: Uint8Array
+  address: Uint8Array
+  codeAddress: Uint8Array
+}
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
@@ -452,8 +452,10 @@ export class Response {
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
 }
-export class RawTrace {
-  trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
+export class Exit {
+  get kind(): number
+  isError(): boolean
+  getReason(): string
 }
 export type VMTracer = VmTracer
 export class VmTracer {
@@ -463,8 +465,6 @@ export class VmTracer {
   getLastTopLevelMessageTrace(): PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace | undefined
   getLastError(): Error | undefined
 }
-export class Exit {
-  get kind(): number
-  isError(): boolean
-  getReason(): string
+export class RawTrace {
+  trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
 }

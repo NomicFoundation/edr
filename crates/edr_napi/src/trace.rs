@@ -9,6 +9,10 @@ use napi_derive::napi;
 
 use crate::result::ExecutionResult;
 
+mod exit;
+mod message_trace;
+mod vm_tracer;
+
 #[napi(object)]
 pub struct TracingMessage {
     /// Sender address
