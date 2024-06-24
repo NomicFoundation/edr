@@ -60,8 +60,3 @@ pub mod interpreter {
 pub mod precompile {
     pub use revm::precompile::{u64_to_address, PrecompileSpecId, Precompiles};
 }
-
-// /// Primitive types of Ethereum
-// pub mod primitives {
-//     pub use revm::primitives::*;
-// }
