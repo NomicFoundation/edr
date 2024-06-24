@@ -441,7 +441,7 @@ impl<ChainSpecT: revm::primitives::ChainSpec> TraceCollector<ChainSpecT> {
                 reason,
                 gas_used: outcome.gas().limit(),
             },
-            SuccessOrHalt::InternalContinue | SuccessOrHalt::InternalCallOrCreate => {
+            SuccessOrHalt::Internal(_) => {
                 panic!("Internal error: {safe_ret:?}")
             }
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
@@ -512,7 +512,7 @@ impl<ChainSpecT: revm::primitives::ChainSpec> TraceCollector<ChainSpecT> {
                 reason,
                 gas_used: outcome.gas().limit(),
             },
-            SuccessOrHalt::InternalContinue | SuccessOrHalt::InternalCallOrCreate => {
+            SuccessOrHalt::Internal(_) => {
                 panic!("Internal error: {safe_ret:?}")
             }
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),

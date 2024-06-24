@@ -406,7 +406,7 @@ impl TransactionFailure {
         solidity_trace: Trace<L1ChainSpec>,
     ) -> Self {
         let reason = match halt {
-            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+            HaltReason::OpcodeNotFound | HaltReason::InvalidEFOpcode => {
                 TransactionFailureReason::OpcodeNotFound
             }
             HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),

@@ -85,7 +85,7 @@ pub struct RevertResult {
 pub enum ExceptionalHalt {
     OutOfGas,
     OpcodeNotFound,
-    InvalidFEOpcode,
+    InvalidEFOpcode,
     InvalidJump,
     NotActivated,
     StackUnderflow,
@@ -100,6 +100,12 @@ pub enum ExceptionalHalt {
     CreateContractStartingWithEF,
     /// EIP-3860: Limit and meter initcode. Initcode size limit exceeded.
     CreateInitCodeSizeLimit,
+    /// Aux data overflow, new aux data is larger tha u16 max size.
+    EofAuxDataOverflow,
+    /// Aud data is smaller then already present data size.
+    EofAuxDataTooSmall,
+    /// EOF Subroutine stack overflow
+    EOFFunctionStackOverflow,
 }
 
 impl From<edr_eth::result::HaltReason> for ExceptionalHalt {
@@ -107,7 +113,7 @@ impl From<edr_eth::result::HaltReason> for ExceptionalHalt {
         match halt {
             edr_eth::result::HaltReason::OutOfGas(..) => ExceptionalHalt::OutOfGas,
             edr_eth::result::HaltReason::OpcodeNotFound => ExceptionalHalt::OpcodeNotFound,
-            edr_eth::result::HaltReason::InvalidFEOpcode => ExceptionalHalt::InvalidFEOpcode,
+            edr_eth::result::HaltReason::InvalidEFOpcode => ExceptionalHalt::InvalidEFOpcode,
             edr_eth::result::HaltReason::InvalidJump => ExceptionalHalt::InvalidJump,
             edr_eth::result::HaltReason::NotActivated => ExceptionalHalt::NotActivated,
             edr_eth::result::HaltReason::StackUnderflow => ExceptionalHalt::StackUnderflow,
@@ -125,6 +131,11 @@ impl From<edr_eth::result::HaltReason> for ExceptionalHalt {
             edr_eth::result::HaltReason::CreateInitCodeSizeLimit => {
                 ExceptionalHalt::CreateInitCodeSizeLimit
             }
+            edr_eth::result::HaltReason::EofAuxDataOverflow => ExceptionalHalt::EofAuxDataOverflow,
+            edr_eth::result::HaltReason::EofAuxDataTooSmall => ExceptionalHalt::EofAuxDataTooSmall,
+            edr_eth::result::HaltReason::EOFFunctionStackOverflow => {
+                ExceptionalHalt::EOFFunctionStackOverflow
+            }
             edr_eth::result::HaltReason::OverflowPayment
             | edr_eth::result::HaltReason::StateChangeDuringStaticCall
             | edr_eth::result::HaltReason::CallNotAllowedInsideStatic
@@ -141,7 +152,7 @@ impl From<ExceptionalHalt> for edr_eth::result::HaltReason {
         match value {
             ExceptionalHalt::OutOfGas => Self::OutOfGas(edr_eth::result::OutOfGasError::Basic),
             ExceptionalHalt::OpcodeNotFound => Self::OpcodeNotFound,
-            ExceptionalHalt::InvalidFEOpcode => Self::InvalidFEOpcode,
+            ExceptionalHalt::InvalidEFOpcode => Self::InvalidEFOpcode,
             ExceptionalHalt::InvalidJump => Self::InvalidJump,
             ExceptionalHalt::NotActivated => Self::NotActivated,
             ExceptionalHalt::StackUnderflow => Self::StackUnderflow,
@@ -153,6 +164,9 @@ impl From<ExceptionalHalt> for edr_eth::result::HaltReason {
             ExceptionalHalt::CreateContractSizeLimit => Self::CreateContractSizeLimit,
             ExceptionalHalt::CreateContractStartingWithEF => Self::CreateContractStartingWithEF,
             ExceptionalHalt::CreateInitCodeSizeLimit => Self::CreateInitCodeSizeLimit,
+            ExceptionalHalt::EofAuxDataOverflow => Self::EofAuxDataOverflow,
+            ExceptionalHalt::EofAuxDataTooSmall => Self::EofAuxDataTooSmall,
+            ExceptionalHalt::EOFFunctionStackOverflow => Self::EOFFunctionStackOverflow,
         }
     }
 }
