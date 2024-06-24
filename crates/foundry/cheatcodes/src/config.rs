@@ -10,7 +10,7 @@ use foundry_common::{fs::normalize_path, ContractsByArtifact};
 use foundry_compilers::{utils::canonicalize, ProjectPathsConfig};
 use foundry_config::{
     cache::StorageCachingConfig, fs_permissions::FsAccessKind, Config, FsPermissions,
-    ResolvedRpcEndpoints,
+    ResolvedRpcEndpoints, RpcEndpoints,
 };
 use foundry_evm_core::opts::EvmOpts;
 use semver::Version;
@@ -56,40 +56,85 @@ pub struct CheatsConfig {
     pub running_version: Option<Version>,
 }
 
+/// Configuration options specific to cheat codes.
+#[derive(Clone, Debug)]
+pub struct CheatsConfigOptions {
+    /// Multiple rpc endpoints and their aliases
+    pub rpc_endpoints: RpcEndpoints,
+    /// Whether to enable safety checks for `vm.getCode` and
+    /// `vm.getDeployedCode` invocations. If disabled, it is possible to
+    /// access artifacts which were not recompiled or cached.
+    pub unchecked_cheatcode_artifacts: bool,
+    /// Sets a timeout in seconds for vm.prompt cheatcodes
+    pub prompt_timeout: u64,
+    /// RPC storage caching settings determines what chains and endpoints to
+    /// cache
+    pub rpc_storage_caching: StorageCachingConfig,
+    /// Configures the permissions of cheat codes that touch the file system.
+    ///
+    /// This includes what operations can be executed (read, write)
+    pub fs_permissions: FsPermissions,
+    /// Address labels
+    pub labels: HashMap<Address, String>,
+}
+
+impl From<Config> for CheatsConfigOptions {
+    fn from(value: Config) -> Self {
+        Self {
+            rpc_endpoints: value.rpc_endpoints,
+            unchecked_cheatcode_artifacts: value.unchecked_cheatcode_artifacts,
+            prompt_timeout: value.prompt_timeout,
+            rpc_storage_caching: value.rpc_storage_caching,
+            fs_permissions: value.fs_permissions,
+            labels: value.labels,
+        }
+    }
+}
+
 impl CheatsConfig {
     /// Extracts the necessary settings from the Config
     pub fn new(
-        config: &Config,
+        paths: ProjectPathsConfig,
+        config: CheatsConfigOptions,
         evm_opts: EvmOpts,
         available_artifacts: Option<Arc<ContractsByArtifact>>,
         running_version: Option<Version>,
     ) -> Self {
-        let mut allowed_paths = vec![config.__root.0.clone()];
-        allowed_paths.extend(config.libs.clone());
-        allowed_paths.extend(config.allow_paths.clone());
+        let CheatsConfigOptions {
+            rpc_endpoints,
+            unchecked_cheatcode_artifacts,
+            prompt_timeout,
+            rpc_storage_caching,
+            fs_permissions,
+            labels,
+        } = config;
 
-        let rpc_endpoints = config.rpc_endpoints.clone().resolved();
+        let rpc_endpoints = rpc_endpoints.resolved();
         trace!(?rpc_endpoints, "using resolved rpc endpoints");
 
         // If user explicitly disabled safety checks, do not set available_artifacts
-        let available_artifacts = if config.unchecked_cheatcode_artifacts {
+        let available_artifacts = if unchecked_cheatcode_artifacts {
             None
         } else {
             available_artifacts
         };
 
+        let fs_permissions = fs_permissions.joined(&paths.root);
+        let root = paths.root.clone();
+        let allowed_paths = paths.allowed_paths.clone().into_iter().collect();
+
         Self {
             ffi: evm_opts.ffi,
             always_use_create_2_factory: evm_opts.always_use_create_2_factory,
-            prompt_timeout: Duration::from_secs(config.prompt_timeout),
-            rpc_storage_caching: config.rpc_storage_caching.clone(),
+            prompt_timeout: Duration::from_secs(prompt_timeout),
+            rpc_storage_caching,
             rpc_endpoints,
-            paths: config.project_paths(),
-            fs_permissions: config.fs_permissions.clone().joined(&config.__root),
-            root: config.__root.0.clone(),
+            paths,
+            fs_permissions,
+            root,
             allowed_paths,
             evm_opts,
-            labels: config.labels.clone(),
+            labels,
             available_artifacts,
             running_version,
         }
@@ -244,12 +289,18 @@ mod tests {
     use super::*;
 
     fn config(root: &str, fs_permissions: FsPermissions) -> CheatsConfig {
+        let config = Config {
+            __root: PathBuf::from(root).into(),
+            fs_permissions,
+            ..Default::default()
+        };
+
+        let project_paths_config = config.project_paths();
+        let cheats_config_options = CheatsConfigOptions::from(config);
+
         CheatsConfig::new(
-            &Config {
-                __root: PathBuf::from(root).into(),
-                fs_permissions,
-                ..Default::default()
-            },
+            project_paths_config,
+            cheats_config_options,
             EvmOpts::default(),
             None,
             None,
