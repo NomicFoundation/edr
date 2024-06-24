@@ -1,52 +1,49 @@
+//! N-API bindings for the Rust port of `VMTracer` from Hardhat.
+
 use napi::{
     bindgen_prelude::{Either3, Either4, Undefined},
     Either, JsError,
 };
 use napi_derive::napi;
 
-use crate::trace::message_trace::{
-    message_trace_to_napi, CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace,
+use crate::trace::{
+    message_trace::{
+        message_trace_to_napi, CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace,
+    },
+    RawTrace,
 };
-use crate::trace::RawTrace;
 
+/// N-API bindings for the Rust port of `VMTracer` from Hardhat.
 #[napi]
-pub struct VMTracer(edr_solidity::vm_tracer::VMTracer);
+pub struct VMTracer(edr_solidity::vm_tracer::VmTracer);
 
 #[napi]
 impl VMTracer {
     #[napi(constructor)]
     pub fn new() -> napi::Result<Self> {
-        Ok(Self(edr_solidity::vm_tracer::VMTracer::new()))
+        Ok(Self(edr_solidity::vm_tracer::VmTracer::new()))
     }
 
     /// Observes a trace, collecting information about the execution of the EVM.
     #[napi]
     pub fn observe(&mut self, trace: &RawTrace) {
-        for msg in &trace.inner.messages {
-            match msg.clone() {
-                edr_evm::trace::TraceMessage::Before(before) => {
-                    self.0.add_before_message(before);
-                }
-                edr_evm::trace::TraceMessage::Step(step) => {
-                    self.0.add_step(step);
-                }
-                edr_evm::trace::TraceMessage::After(after) => {
-                    self.0.add_after_message(after.execution_result);
-                }
-            }
-        }
+        self.0.observe(&trace.inner);
     }
 
     // Explicitly return undefined as `Option<T>` by default returns `null` in JS
-    // and the null/undefined checks we use there are strict
+    // and the null/undefined checks we use in JS are strict
     #[napi]
     pub fn get_last_top_level_message_trace(
         &self,
     ) -> Either4<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace, Undefined> {
         match self
             .0
-            .get_last_top_level_message_trace()
-            .cloned()
+            .get_last_top_level_message_trace_ref()
+            .map(|x| {
+                x.try_borrow()
+                    .expect("cannot be executed concurrently with `VMTracer::observe`")
+                    .clone()
+            })
             .map(message_trace_to_napi)
         {
             Some(Either3::A(precompile)) => Either4::A(precompile),
@@ -57,7 +54,7 @@ impl VMTracer {
     }
 
     // Explicitly return undefined as `Option<T>` by default returns `null` in JS
-    // and the null/undefined checks we use there are strict
+    // and the null/undefined checks we use in JS are strict
     #[napi]
     pub fn get_last_error(&self) -> Either<JsError, Undefined> {
         match self.0.get_last_error() {

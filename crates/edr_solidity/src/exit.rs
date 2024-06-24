@@ -1,21 +1,31 @@
 //! Naive rewrite of `hardhat-network/provider/vm/exit.ts` from Hardhat.
-//! Used together with `VMTracer`.
+//! Used together with `VmTracer`.
 
 use std::fmt;
 
 use edr_evm::HaltReason;
-use edr_evm::SuccessReason;
 
-#[derive(Clone, Copy)]
+/// Represents the exit code of the EVM. Naive Rust port of the `ExitCode` from
+/// Hardhat.
+#[derive(Clone, Copy, Debug)]
 pub enum ExitCode {
+    /// Execution was successful.
     Success = 0,
+    /// Execution was reverted.
     Revert,
+    /// Execution ran out of gas.
     OutOfGas,
+    /// Execution encountered an internal error.
     InternalError,
+    /// Execution encountered an invalid opcode.
     InvalidOpcode,
+    /// Execution encountered a stack underflow.
     StackUnderflow,
+    /// Create init code size exceeds limit (runtime).
     CodesizeExceedsMaximum,
+    /// Create collision.
     CreateCollision,
+    /// Static state change.
     StaticStateChange,
 }
 
@@ -39,6 +49,7 @@ impl TryFrom<u8> for ExitCode {
 }
 
 impl ExitCode {
+    /// Whether the exit code represents an error.
     pub fn is_error(&self) -> bool {
         !matches!(self, ExitCode::Success)
     }
@@ -60,16 +71,7 @@ impl fmt::Display for ExitCode {
     }
 }
 
-impl From<SuccessReason> for ExitCode {
-    fn from(reason: SuccessReason) -> Self {
-        match reason {
-            SuccessReason::Stop => Self::Success,
-            SuccessReason::Return => Self::Success,
-            SuccessReason::SelfDestruct => Self::Success,
-        }
-    }
-}
-
+#[allow(clippy::fallible_impl_from)] // naively ported for now
 impl From<HaltReason> for ExitCode {
     fn from(halt: HaltReason) -> Self {
         match halt {

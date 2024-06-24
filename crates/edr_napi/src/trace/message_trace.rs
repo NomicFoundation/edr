@@ -1,10 +1,9 @@
-//! Bridging type for the `MessageTrace` interface in Hardhat.
+//! Bridging type for the existing `MessageTrace` interface in Hardhat.
 
 use napi::{
     bindgen_prelude::{BigInt, Either3, Either4, Uint8Array, Undefined},
     Either,
 };
-
 use napi_derive::napi;
 use serde_json::Value;
 
@@ -70,7 +69,32 @@ pub struct CallMessageTrace {
     pub code_address: Uint8Array,
 }
 
-/// Converts the Rust representation of a `MessageTrace` to the N-API representation.
+/// Converts [`edr_solidity::message_trace::MessageTraceStep`] to the N-API
+/// representation.
+///
+/// # Panics
+/// This function will panic if the value is mutably borrowed.
+pub fn message_trace_step_to_napi(
+    value: edr_solidity::message_trace::MessageTraceStep,
+) -> Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace> {
+    match value {
+        edr_solidity::message_trace::MessageTraceStep::Evm(step) => {
+            Either4::A(EvmStep { pc: step.pc as u32 })
+        }
+        edr_solidity::message_trace::MessageTraceStep::Message(msg) => {
+            // Immediately drop the borrow lock as it may be
+            let owned = msg.borrow().clone();
+            match message_trace_to_napi(owned) {
+                Either3::A(precompile) => Either4::B(precompile),
+                Either3::B(create) => Either4::C(create),
+                Either3::C(call) => Either4::D(call),
+            }
+        }
+    }
+}
+
+/// Converts the Rust representation of a `MessageTrace` to the N-API
+/// representation.
 pub fn message_trace_to_napi(
     value: edr_solidity::message_trace::MessageTrace,
 ) -> Either3<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace> {
@@ -105,18 +129,7 @@ pub fn message_trace_to_napi(
                     .base
                     .steps
                     .into_iter()
-                    .map(|step| match step {
-                        edr_solidity::message_trace::MessageTraceStep::Evm(step) => {
-                            Either4::A(EvmStep { pc: step.pc as u32 })
-                        }
-                        edr_solidity::message_trace::MessageTraceStep::Message(msg) => {
-                            match message_trace_to_napi(msg) {
-                                Either3::A(precompile) => Either4::B(precompile),
-                                Either3::B(create) => Either4::C(create),
-                                Either3::C(call) => Either4::D(call),
-                            }
-                        }
-                    })
+                    .map(message_trace_step_to_napi)
                     .collect(),
                 // NOTE: We specifically use None as that will be later filled on the JS side
                 bytecode: None,
@@ -142,18 +155,7 @@ pub fn message_trace_to_napi(
                 .base
                 .steps
                 .into_iter()
-                .map(|step| match step {
-                    edr_solidity::message_trace::MessageTraceStep::Evm(step) => {
-                        Either4::A(EvmStep { pc: step.pc as u32 })
-                    }
-                    edr_solidity::message_trace::MessageTraceStep::Message(msg) => {
-                        match message_trace_to_napi(msg) {
-                            Either3::A(precompile) => Either4::B(precompile),
-                            Either3::B(create) => Either4::C(create),
-                            Either3::C(call) => Either4::D(call),
-                        }
-                    }
-                })
+                .map(message_trace_step_to_napi)
                 .collect(),
             // NOTE: We specifically use None as that will be later filled on the JS side
             bytecode: None,

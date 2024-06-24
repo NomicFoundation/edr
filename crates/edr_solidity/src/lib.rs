@@ -10,6 +10,6 @@ pub mod contracts_identifier;
 
 mod opcodes;
 
-pub mod message_trace;
 pub mod exit;
+pub mod message_trace;
 pub mod vm_tracer;

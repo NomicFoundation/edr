@@ -458,6 +458,7 @@ export class Exit {
   getReason(): string
 }
 export type VMTracer = VmTracer
+/** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
 export class VmTracer {
   constructor()
   /** Observes a trace, collecting information about the execution of the EVM. */
