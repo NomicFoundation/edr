@@ -1,3 +1,4 @@
+mod config;
 mod runner;
 mod test_results;
 mod test_suite;

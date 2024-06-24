@@ -6,11 +6,18 @@ use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Bytes, U256};
 use eyre::Result;
 use foundry_common::{get_contract_name, ContractsByArtifact, TestFunctionExt};
-use foundry_compilers::{artifacts::Libraries, Artifact, ArtifactId, ProjectCompileOutput};
+use foundry_compilers::{
+    artifacts::Libraries, Artifact, ArtifactId, ProjectCompileOutput, ProjectPathsConfig,
+};
 use foundry_config::Config;
 use foundry_evm::{
-    backend::Backend, decode::RevertDecoder, executors::ExecutorBuilder, fork::CreateFork,
-    inspectors::CheatsConfig, opts::EvmOpts, revm,
+    backend::Backend,
+    decode::RevertDecoder,
+    executors::ExecutorBuilder,
+    fork::CreateFork,
+    inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
+    opts::EvmOpts,
+    revm,
 };
 use foundry_linking::{LinkOutput, Linker};
 use futures::StreamExt;
@@ -32,6 +39,10 @@ pub type DeployableContracts = BTreeMap<ArtifactId, TestContract>;
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
 pub struct MultiContractRunner {
+    /// Project paths config.
+    pub project_paths_config: Arc<ProjectPathsConfig>,
+    /// Cheats config.
+    pub cheats_config_opts: Arc<CheatsConfigOptions>,
     /// Mapping of contract name to `JsonAbi`, creation bytecode and library
     /// bytecode which needs to be deployed & linked against
     pub contracts: DeployableContracts,
@@ -47,8 +58,6 @@ pub struct MultiContractRunner {
     pub sender: Option<Address>,
     /// The fork to use at launch
     pub fork: Option<CreateFork>,
-    /// Project config.
-    pub config: Arc<Config>,
     /// Whether to collect coverage info
     pub coverage: bool,
     /// Whether to collect debug info
@@ -251,7 +260,7 @@ impl MultiContractRunner {
         let mut span_name = identifier.as_str();
 
         let linker = Linker::new(
-            self.config.project_paths().root,
+            &self.project_paths_config.root,
             self.output.as_ref().unwrap().artifact_ids().collect(),
         );
         let linked_contracts = linker
@@ -260,7 +269,8 @@ impl MultiContractRunner {
         let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
 
         let cheats_config = CheatsConfig::new(
-            &self.config,
+            (*self.project_paths_config).clone(),
+            (*self.cheats_config_opts).clone(),
             self.evm_opts.clone(),
             Some(known_contracts.clone()),
             Some(artifact_id.version.clone()),
@@ -326,7 +336,8 @@ impl MultiContractRunner {
         let known_contracts = Arc::new(ContractsByArtifact::new(Vec::default()));
 
         let cheats_config = CheatsConfig::new(
-            &self.config,
+            (*self.project_paths_config).clone(),
+            (*self.cheats_config_opts).clone(),
             self.evm_opts.clone(),
             Some(known_contracts.clone()),
             Some(artifact_id.version.clone()),
@@ -383,7 +394,7 @@ pub struct MultiContractRunnerBuilder {
     /// The fork to use at launch
     pub fork: Option<CreateFork>,
     /// Project config.
-    pub config: Arc<Config>,
+    pub config: Config,
     /// Whether or not to collect coverage info
     pub coverage: bool,
     /// Whether or not to collect debug info
@@ -395,7 +406,7 @@ pub struct MultiContractRunnerBuilder {
 }
 
 impl MultiContractRunnerBuilder {
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
             config,
             sender: None,
@@ -518,6 +529,9 @@ impl MultiContractRunnerBuilder {
             }
         }
 
+        let project_paths_config = self.config.project_paths();
+        let cheats_config_opts = self.config.into();
+
         Ok(MultiContractRunner {
             contracts: deployable_contracts,
             evm_opts,
@@ -526,7 +540,8 @@ impl MultiContractRunnerBuilder {
             sender: self.sender,
             revert_decoder,
             fork: self.fork,
-            config: self.config,
+            project_paths_config: Arc::new(project_paths_config),
+            cheats_config_opts: Arc::new(cheats_config_opts),
             coverage: self.coverage,
             debug: self.debug,
             test_options: self.test_options.unwrap_or_default(),

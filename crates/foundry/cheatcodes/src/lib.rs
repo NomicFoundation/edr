@@ -16,7 +16,7 @@ pub extern crate foundry_cheatcodes_spec as spec;
 extern crate tracing;
 
 use alloy_primitives::Address;
-pub use config::CheatsConfig;
+pub use config::{CheatsConfig, CheatsConfigOptions};
 pub use error::{Error, ErrorKind, Result};
 use foundry_evm_core::backend::DatabaseExt;
 pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatcodes, Context};
