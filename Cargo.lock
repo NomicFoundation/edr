@@ -1095,7 +1095,7 @@ dependencies = [
  "log",
  "once_cell",
  "paste",
- "revm-primitives",
+ "revm-primitives 5.0.0",
  "serde",
  "serde_json",
  "serial_test",
@@ -1171,6 +1171,21 @@ dependencies = [
  "tracing",
  "tracing-flame",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "edr_opt"
+version = "0.3.5"
+dependencies = [
+ "anyhow",
+ "edr_defaults",
+ "edr_eth",
+ "edr_evm",
+ "edr_rpc_eth",
+ "edr_test_utils",
+ "revm-primitives 3.1.1",
+ "serde",
+ "tokio",
 ]
 
 [[package]]
@@ -2880,7 +2895,7 @@ version = "6.0.0"
 source = "git+https://github.com/NomicFoundation/revm?rev=14945e92#14945e9256fac36c4ace4683cb30a897221c5734"
 dependencies = [
  "derive-where",
- "revm-primitives",
+ "revm-primitives 5.0.0",
  "serde",
 ]
 
@@ -2893,10 +2908,30 @@ dependencies = [
  "c-kzg",
  "k256",
  "once_cell",
- "revm-primitives",
+ "revm-primitives 5.0.0",
  "ripemd",
  "sha2",
  "substrate-bn",
+]
+
+[[package]]
+name = "revm-primitives"
+version = "3.1.1"
+source = "git+https://github.com/NomicFoundation/revm?rev=cc64e26#cc64e26083b43c133de48d2499ad5cb8850780de"
+dependencies = [
+ "alloy-primitives 0.7.6",
+ "auto_impl",
+ "bitflags 2.5.0",
+ "bitvec",
+ "c-kzg",
+ "cfg-if",
+ "derive_more",
+ "dyn-clone",
+ "enumn",
+ "hashbrown 0.14.3",
+ "hex",
+ "once_cell",
+ "serde",
 ]
 
 [[package]]

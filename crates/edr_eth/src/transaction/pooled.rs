@@ -7,21 +7,21 @@ use crate::{
     utils::enveloped,
 };
 
-pub type LegacyPooledTransaction = super::signed::Legacy;
-pub type Eip155PooledTransaction = super::signed::Eip155;
-pub type Eip2930PooledTransaction = super::signed::Eip2930;
-pub type Eip1559PooledTransaction = super::signed::Eip1559;
+pub type Legacy = super::signed::Legacy;
+pub type Eip155 = super::signed::Eip155;
+pub type Eip2930 = super::signed::Eip2930;
+pub type Eip1559 = super::signed::Eip1559;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PooledTransaction {
     /// Legacy transaction
-    PreEip155Legacy(LegacyPooledTransaction),
+    PreEip155Legacy(Legacy),
     /// EIP-155 transaction
-    PostEip155Legacy(Eip155PooledTransaction),
+    PostEip155Legacy(Eip155),
     /// EIP-2930 transaction
-    Eip2930(Eip2930PooledTransaction),
+    Eip2930(Eip2930),
     /// EIP-1559 transaction
-    Eip1559(Eip1559PooledTransaction),
+    Eip1559(Eip1559),
     /// EIP-4844 transaction
     Eip4844(Eip4844),
 }
@@ -77,16 +77,12 @@ impl alloy_rlp::Decodable for PooledTransaction {
             0x01 => {
                 buf.advance(1);
 
-                Ok(PooledTransaction::Eip2930(
-                    Eip2930PooledTransaction::decode(buf)?,
-                ))
+                Ok(PooledTransaction::Eip2930(Eip2930::decode(buf)?))
             }
             0x02 => {
                 buf.advance(1);
 
-                Ok(PooledTransaction::Eip1559(
-                    Eip1559PooledTransaction::decode(buf)?,
-                ))
+                Ok(PooledTransaction::Eip1559(Eip1559::decode(buf)?))
             }
             0x03 => {
                 buf.advance(1);
@@ -124,26 +120,26 @@ impl alloy_rlp::Encodable for PooledTransaction {
     }
 }
 
-impl From<LegacyPooledTransaction> for PooledTransaction {
-    fn from(value: LegacyPooledTransaction) -> Self {
+impl From<Legacy> for PooledTransaction {
+    fn from(value: Legacy) -> Self {
         PooledTransaction::PreEip155Legacy(value)
     }
 }
 
-impl From<Eip155PooledTransaction> for PooledTransaction {
-    fn from(value: Eip155PooledTransaction) -> Self {
+impl From<Eip155> for PooledTransaction {
+    fn from(value: Eip155) -> Self {
         PooledTransaction::PostEip155Legacy(value)
     }
 }
 
-impl From<Eip2930PooledTransaction> for PooledTransaction {
-    fn from(value: Eip2930PooledTransaction) -> Self {
+impl From<Eip2930> for PooledTransaction {
+    fn from(value: Eip2930) -> Self {
         PooledTransaction::Eip2930(value)
     }
 }
 
-impl From<Eip1559PooledTransaction> for PooledTransaction {
-    fn from(value: Eip1559PooledTransaction) -> Self {
+impl From<Eip1559> for PooledTransaction {
+    fn from(value: Eip1559) -> Self {
         PooledTransaction::Eip1559(value)
     }
 }
@@ -215,7 +211,7 @@ mod tests {
     }
 
     impl_test_pooled_transaction_encoding_round_trip! {
-        pre_eip155 => PooledTransaction::PreEip155Legacy(LegacyPooledTransaction {
+        pre_eip155 => PooledTransaction::PreEip155Legacy(Legacy {
             nonce: 0,
             gas_price: U256::from(1),
             gas_limit: 2,
@@ -234,7 +230,7 @@ mod tests {
             )},
             hash: OnceLock::new(),
         }),
-        post_eip155 => PooledTransaction::PostEip155Legacy(Eip155PooledTransaction {
+        post_eip155 => PooledTransaction::PostEip155Legacy(Eip155 {
             nonce: 0,
             gas_price: U256::from(1),
             gas_limit: 2,
@@ -253,7 +249,7 @@ mod tests {
             )},
             hash: OnceLock::new(),
         }),
-        eip2930 => PooledTransaction::Eip2930(Eip2930PooledTransaction {
+        eip2930 => PooledTransaction::Eip2930(Eip2930 {
             chain_id: 1,
             nonce: 0,
             gas_price: U256::from(1),
@@ -274,7 +270,7 @@ mod tests {
             )},
             hash: OnceLock::new(),
         }),
-        eip1559 => PooledTransaction::Eip1559(Eip1559PooledTransaction {
+        eip1559 => PooledTransaction::Eip1559(Eip1559 {
             chain_id: 1,
             nonce: 0,
             max_priority_fee_per_gas: U256::from(1),

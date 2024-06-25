@@ -1,0 +1,20 @@
+[package]
+name = "edr_opt"
+version = "0.3.5"
+edition = "2021"
+
+[dependencies]
+edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
+edr_evm = { path = "../edr_evm" }
+edr_rpc_eth = { path = "../edr_rpc_eth" }
+revm-primitives = { git = "https://github.com/NomicFoundation/revm", rev = "cc64e26", version = "3.1", default-features = false, features = ["c-kzg", "hashbrown", "optimism", "rand", "serde", "std"] }
+serde = { version = "1.0.147", default-features = false, features = ["derive", "std"] }
+
+[dev-dependencies]
+anyhow = "1.0.75"
+edr_defaults = { path = "../edr_defaults" }
+edr_test_utils = { path = "../edr_test_utils" }
+tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
+
+[features]
+test-remote = []
