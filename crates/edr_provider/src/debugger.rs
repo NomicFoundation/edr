@@ -1,8 +1,7 @@
 use core::fmt::Debug;
 
-use edr_eth::db::Database;
+use edr_eth::{chain_spec::L1ChainSpec, db::Database};
 use edr_evm::{
-    chain_spec::L1ChainSpec,
     evm::handler::register::EvmHandler,
     trace::{register_trace_collector_handles, TraceCollector},
     GetContextData,

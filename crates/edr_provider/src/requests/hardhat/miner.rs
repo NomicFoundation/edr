@@ -1,6 +1,7 @@
 use core::fmt::Debug;
 
-use edr_evm::{chain_spec::L1ChainSpec, trace::Trace};
+use edr_eth::chain_spec::L1ChainSpec;
+use edr_evm::trace::Trace;
 
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError};
 

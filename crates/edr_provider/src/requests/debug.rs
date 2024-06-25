@@ -1,10 +1,7 @@
 use core::fmt::Debug;
 
-use edr_eth::{BlockSpec, B256};
-use edr_evm::{
-    chain_spec::L1ChainSpec, state::StateOverrides, trace::Trace, DebugTraceResult,
-    DebugTraceResultWithTraces,
-};
+use edr_eth::{chain_spec::L1ChainSpec, BlockSpec, B256};
+use edr_evm::{state::StateOverrides, trace::Trace, DebugTraceResult, DebugTraceResultWithTraces};
 use edr_rpc_eth::CallRequest;
 use serde::{Deserialize, Deserializer};
 

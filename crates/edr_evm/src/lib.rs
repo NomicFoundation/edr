@@ -35,6 +35,8 @@ pub mod chain_spec;
 pub(crate) mod collections;
 mod debug;
 mod debug_trace;
+/// Types for Ethereum hardforks
+pub mod hardfork;
 /// Types for managing Ethereum mem pool
 pub mod mempool;
 mod miner;

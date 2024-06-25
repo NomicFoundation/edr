@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
-use edr_eth::{BlockSpec, Bytes, SpecId, U256};
-use edr_evm::{chain_spec::L1ChainSpec, state::StateOverrides, trace::Trace, transaction};
+use edr_eth::{chain_spec::L1ChainSpec, BlockSpec, Bytes, SpecId, U256};
+use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
 use crate::{

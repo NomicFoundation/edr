@@ -1,16 +1,16 @@
 use std::fmt::Debug;
 
-use edr_eth::transaction::{self, SignedTransaction};
+use edr_eth::{result::InvalidTransaction, transaction::SignedTransaction as _};
 use revm::{
     db::{DatabaseComponents, StateRef},
     handler::{CfgEnvWithChainSpec, EnvWithChainSpec},
-    primitives::{BlockEnv, ExecutionResult, ResultAndState, SpecId},
+    primitives::{ExecutionResult, ResultAndState, SpecId, TransactionValidation},
     DatabaseCommit, Evm,
 };
 
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::{ChainSpec, L1ChainSpec},
+    chain_spec::ChainSpec,
     debug::DebugContext,
     state::{StateOverrides, StateRefOverrider, SyncState},
     transaction::TransactionError,
@@ -27,33 +27,43 @@ pub type SyncDatabase<'blockchain, 'state, ChainSpecT, BlockchainErrorT, StateEr
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErrorT, StateErrorT>(
-    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
+pub fn dry_run<
+    'blockchain,
+    'evm,
+    'overrides,
+    'state,
+    ChainSpecT,
+    DebugDataT,
+    BlockchainErrorT,
+    StateErrorT,
+>(
+    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
-    cfg: CfgEnvWithChainSpec<L1ChainSpec>,
-    transaction: transaction::Signed,
-    block: BlockEnv,
+    cfg: CfgEnvWithChainSpec<ChainSpecT>,
+    transaction: ChainSpecT::Transaction,
+    block: ChainSpecT::Block,
     debug_context: Option<
         DebugContext<
             'evm,
-            L1ChainSpec,
+            ChainSpecT,
             BlockchainErrorT,
             DebugDataT,
             StateRefOverrider<'overrides, &'evm dyn SyncState<StateErrorT>>,
         >,
     >,
-) -> Result<ResultAndState<L1ChainSpec>, TransactionError<L1ChainSpec, BlockchainErrorT, StateErrorT>>
+) -> Result<ResultAndState<ChainSpecT>, TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>>
 where
     'blockchain: 'evm,
     'state: 'evm,
+    ChainSpecT: ChainSpec<
+        Block: Default,
+        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {
-    validate_configuration::<L1ChainSpec, BlockchainErrorT, StateErrorT>(
-        cfg.spec_id,
-        &transaction,
-    )?;
+    validate_configuration::<ChainSpecT, BlockchainErrorT, StateErrorT>(cfg.spec_id, &transaction)?;
 
     let state_overrider = StateRefOverrider::new(state_overrides, state);
 
@@ -66,7 +76,7 @@ where
 
         if let Some(debug_context) = debug_context {
             let mut evm = evm_builder
-                .with_chain_spec::<L1ChainSpec>()
+                .with_chain_spec::<ChainSpecT>()
                 .with_external_context(debug_context.data)
                 .with_env_with_handler_cfg(env)
                 .append_handler_register(debug_context.register_handles_fn)
@@ -75,7 +85,7 @@ where
             evm.transact()
         } else {
             let mut evm = evm_builder
-                .with_chain_spec::<L1ChainSpec>()
+                .with_chain_spec::<ChainSpecT>()
                 .with_env_with_handler_cfg(env)
                 .build();
             evm.transact()
@@ -95,29 +105,34 @@ pub fn guaranteed_dry_run<
     'evm,
     'overrides,
     'state,
+    ChainSpecT,
     DebugDataT,
     BlockchainErrorT,
     StateErrorT,
 >(
-    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
+    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
-    mut cfg: CfgEnvWithChainSpec<L1ChainSpec>,
-    transaction: transaction::Signed,
-    block: BlockEnv,
+    mut cfg: CfgEnvWithChainSpec<ChainSpecT>,
+    transaction: ChainSpecT::Transaction,
+    block: ChainSpecT::Block,
     debug_context: Option<
         DebugContext<
             'evm,
-            L1ChainSpec,
+            ChainSpecT,
             BlockchainErrorT,
             DebugDataT,
             StateRefOverrider<'overrides, &'evm dyn SyncState<StateErrorT>>,
         >,
     >,
-) -> Result<ResultAndState<L1ChainSpec>, TransactionError<L1ChainSpec, BlockchainErrorT, StateErrorT>>
+) -> Result<ResultAndState<ChainSpecT>, TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>>
 where
     'blockchain: 'evm,
     'state: 'evm,
+    ChainSpecT: ChainSpec<
+        Block: Default,
+        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {
@@ -137,24 +152,28 @@ where
 
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn run<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT>(
-    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateT::Error>,
+pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
+    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
     state: StateT,
-    cfg: CfgEnvWithChainSpec<L1ChainSpec>,
-    transaction: transaction::Signed,
-    block: BlockEnv,
-    debug_context: Option<DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>>,
+    cfg: CfgEnvWithChainSpec<ChainSpecT>,
+    transaction: ChainSpecT::Transaction,
+    block: ChainSpecT::Block,
+    debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
-    ExecutionResult<L1ChainSpec>,
-    TransactionError<L1ChainSpec, BlockchainErrorT, StateT::Error>,
+    ExecutionResult<ChainSpecT>,
+    TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
 >
 where
     'blockchain: 'evm,
+    ChainSpecT: ChainSpec<
+        Block: Default,
+        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     BlockchainErrorT: Debug + Send,
     StateT: StateRef + DatabaseCommit,
     StateT::Error: Debug + Send,
 {
-    validate_configuration::<L1ChainSpec, BlockchainErrorT, StateT::Error>(
+    validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(
         cfg.spec_id,
         &transaction,
     )?;
@@ -167,7 +186,7 @@ where
 
     let result = if let Some(debug_context) = debug_context {
         let mut evm = evm_builder
-            .with_chain_spec::<L1ChainSpec>()
+            .with_chain_spec::<ChainSpecT>()
             .with_external_context(debug_context.data)
             .with_env_with_handler_cfg(env)
             .append_handler_register(debug_context.register_handles_fn)
@@ -176,7 +195,7 @@ where
         evm.transact_commit()
     } else {
         let mut evm = evm_builder
-            .with_chain_spec::<L1ChainSpec>()
+            .with_chain_spec::<ChainSpecT>()
             .with_env_with_handler_cfg(env)
             .build();
 
@@ -188,8 +207,8 @@ where
 
 fn validate_configuration<ChainSpecT: ChainSpec, BlockchainErrorT, StateErrorT>(
     hardfork: ChainSpecT::Hardfork,
-    transaction: &transaction::Signed,
-) -> Result<(), TransactionError<L1ChainSpec, BlockchainErrorT, StateErrorT>> {
+    transaction: &ChainSpecT::Transaction,
+) -> Result<(), TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>> {
     if transaction.max_fee_per_gas().is_some() && Into::into(hardfork) < SpecId::LONDON {
         return Err(TransactionError::Eip1559Unsupported);
     }

@@ -1,4 +1,5 @@
-use edr_evm::{chain_spec::L1ChainSpec, trace::AfterMessage};
+use edr_eth::chain_spec::L1ChainSpec;
+use edr_evm::trace::AfterMessage;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Either, Env, JsBuffer, JsBufferValue,
@@ -113,7 +114,7 @@ impl From<edr_eth::result::HaltReason> for ExceptionalHalt {
         match halt {
             edr_eth::result::HaltReason::OutOfGas(..) => ExceptionalHalt::OutOfGas,
             edr_eth::result::HaltReason::OpcodeNotFound => ExceptionalHalt::OpcodeNotFound,
-            edr_eth::result::HaltReason::InvalidEFOpcode => ExceptionalHalt::InvalidEFOpcode,
+            edr_eth::result::HaltReason::InvalidFEOpcode => ExceptionalHalt::InvalidEFOpcode,
             edr_eth::result::HaltReason::InvalidJump => ExceptionalHalt::InvalidJump,
             edr_eth::result::HaltReason::NotActivated => ExceptionalHalt::NotActivated,
             edr_eth::result::HaltReason::StackUnderflow => ExceptionalHalt::StackUnderflow,
@@ -152,7 +153,7 @@ impl From<ExceptionalHalt> for edr_eth::result::HaltReason {
         match value {
             ExceptionalHalt::OutOfGas => Self::OutOfGas(edr_eth::result::OutOfGasError::Basic),
             ExceptionalHalt::OpcodeNotFound => Self::OpcodeNotFound,
-            ExceptionalHalt::InvalidEFOpcode => Self::InvalidEFOpcode,
+            ExceptionalHalt::InvalidEFOpcode => Self::InvalidFEOpcode,
             ExceptionalHalt::InvalidJump => Self::InvalidJump,
             ExceptionalHalt::NotActivated => Self::NotActivated,
             ExceptionalHalt::StackUnderflow => Self::StackUnderflow,

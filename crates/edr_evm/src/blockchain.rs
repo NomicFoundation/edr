@@ -7,9 +7,9 @@ pub mod storage;
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
-use edr_eth::{
-    log::FilterLog, receipt::BlockReceipt, spec::HardforkActivations, Address, B256, U256,
-};
+use derive_where::derive_where;
+use edr_eth::{log::FilterLog, Address, B256, U256};
+use edr_rpc_eth::spec::BlockReceipt;
 use revm::{
     db::BlockHashRef,
     primitives::{HashSet, SpecId},
@@ -23,16 +23,18 @@ pub use self::{
 };
 use crate::{
     chain_spec::{ChainSpec, SyncChainSpec},
+    hardfork::Activations,
     state::{StateDiff, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
 };
 
 /// Combinatorial error for the blockchain API.
-#[derive(Debug, thiserror::Error)]
-pub enum BlockchainError {
+#[derive(thiserror::Error)]
+#[derive_where(Debug; ChainSpecT::Hardfork, ChainSpecT::RpcBlockConversionError)]
+pub enum BlockchainError<ChainSpecT: ChainSpec> {
     /// Forked blockchain error
     #[error(transparent)]
-    Forked(#[from] ForkedBlockchainError),
+    Forked(#[from] ForkedBlockchainError<ChainSpecT>),
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
     Insert(#[from] storage::InsertError),
@@ -74,7 +76,7 @@ pub enum BlockchainError {
         /// Block number
         block_number: u64,
         /// Hardfork activation history
-        hardfork_activations: HardforkActivations,
+        hardfork_activations: Activations<ChainSpecT>,
     },
 }
 
@@ -149,14 +151,17 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt>>, Self::BlockchainError>;
+    ) -> Result<Option<Arc<BlockReceipt<ChainSpecT>>>, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification of the block at the provided
     /// number.
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError>;
+    fn spec_at_block_number(
+        &self,
+        block_number: u64,
+    ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification used for new blocks.
-    fn spec_id(&self) -> SpecId;
+    fn spec_id(&self) -> ChainSpecT::Hardfork;
 
     /// Retrieves the state at a given block.
     ///
@@ -260,10 +265,10 @@ fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: ChainSp
 
 /// Validates whether a block is a valid next block.
 fn validate_next_block<ChainSpecT: ChainSpec>(
-    spec_id: SpecId,
-    last_block: &dyn Block<ChainSpecT, Error = BlockchainError>,
-    next_block: &dyn Block<ChainSpecT, Error = BlockchainError>,
-) -> Result<(), BlockchainError> {
+    spec_id: ChainSpecT::Hardfork,
+    last_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+    next_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+) -> Result<(), BlockchainError<ChainSpecT>> {
     let last_header = last_block.header();
     let next_header = next_block.header();
 
@@ -282,7 +287,7 @@ fn validate_next_block<ChainSpecT: ChainSpec>(
         });
     }
 
-    if spec_id >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if spec_id.into() >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 

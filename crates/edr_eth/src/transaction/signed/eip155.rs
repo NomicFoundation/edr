@@ -28,9 +28,16 @@ pub struct Eip155 {
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
+    /// Cached RLP-encoding
+    #[rlp(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub rlp_encoding: OnceLock<Bytes>,
 }
 
 impl Eip155 {
+    /// The type identifier for a post-EIP-155 transaction.
+    pub const TYPE: u8 = transaction::request::Eip155::TYPE;
+
     /// Returns the caller/signer of the transaction.
     pub fn caller(&self) -> &Address {
         self.signature.caller()
@@ -40,7 +47,14 @@ impl Eip155 {
         v_to_chain_id(self.signature.v())
     }
 
-    pub fn hash(&self) -> &B256 {
+    /// Returns the (cached) RLP-encoding of the transaction.
+    pub fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding
+            .get_or_init(|| alloy_rlp::encode(self).into())
+    }
+
+    /// Returns the (cached) hash of the transaction.
+    pub fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
     }
 }
@@ -56,6 +70,7 @@ impl From<transaction::signed::Legacy> for Eip155 {
             input: tx.input,
             signature: tx.signature,
             hash: tx.hash,
+            rlp_encoding: tx.rlp_encoding,
         }
     }
 }
@@ -131,7 +146,7 @@ mod tests {
         let request = dummy_request();
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

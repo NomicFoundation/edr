@@ -1,17 +1,21 @@
-use std::ops::Deref;
+use std::marker::PhantomData;
 
 use alloy_rlp::BufMut;
+use revm_primitives::{ChainSpec, ExecutionResult, Output};
 
-use super::TypedReceipt;
-use crate::{Address, Bloom, B256, U256};
+use super::{MapReceiptLogs, Receipt};
+use crate::{transaction::SignedTransaction, Address, Bloom, B256, U256};
 
 /// Type for a receipt that's created when processing a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct TransactionReceipt<L> {
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct TransactionReceipt<ExecutionReceiptT, LogT> {
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub inner: TypedReceipt<L>,
+    inner: ExecutionReceiptT,
     /// Hash of the transaction
     pub transaction_hash: B256,
     /// Index of the transaction in the block
@@ -29,55 +33,118 @@ pub struct TransactionReceipt<L> {
     #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub gas_used: u64,
     /// The actual value per gas deducted from the senders account, which is
-    /// equal to equal to baseFeePerGas + min(maxFeePerGas - baseFeePerGas,
+    /// equal to baseFeePerGas + min(maxFeePerGas - baseFeePerGas,
     /// maxPriorityFeePerGas) after EIP-1559. Following Hardhat, only present if
     /// the hardfork is at least London.
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub effective_gas_price: Option<U256>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    phantom: PhantomData<LogT>,
 }
 
-impl<L> TransactionReceipt<L> {
-    /// Returns the gas used by the transactions up until this point.
-    pub fn cumulative_gas_used(&self) -> u64 {
-        self.inner.cumulative_gas_used
+impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
+    /// Returns a reference to the inner execution receipt.
+    pub fn as_execution_receipt(&self) -> &ExecutionReceiptT {
+        &self.inner
     }
 
-    /// Returns the bloom filter of transaction's logs.
-    pub fn logs_bloom(&self) -> &Bloom {
-        &self.inner.logs_bloom
+    /// Converts the instance into the inner execution receipt.
+    pub fn into_execution_receipt(self) -> ExecutionReceiptT {
+        self.inner
+    }
+}
+
+impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
+    /// Constructs a new instance using the provided execution receipt an
+    /// transaction
+    pub fn new<ChainSpecT>(
+        execution_receipt: ExecutionReceiptT,
+        transaction: &impl SignedTransaction,
+        result: &ExecutionResult<ChainSpecT>,
+        transaction_index: u64,
+        block_base_fee: U256,
+    ) -> Self
+    where
+        ChainSpecT: ChainSpec,
+    {
+        let contract_address = if let ExecutionResult::Success {
+            output: Output::Create(_, address),
+            ..
+        } = result
+        {
+            *address
+        } else {
+            None
+        };
+
+        Self {
+            inner: execution_receipt,
+            transaction_hash: *transaction.transaction_hash(),
+            transaction_index,
+            from: *transaction.caller(),
+            to: transaction.kind().to().copied(),
+            contract_address,
+            gas_used: result.gas_used(),
+            effective_gas_price: transaction.effective_gas_price(block_base_fee),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<OldExecutionReceiptT, NewExecutionReceiptT, OldLogT, NewLogT>
+    MapReceiptLogs<OldLogT, NewLogT, TransactionReceipt<NewExecutionReceiptT, NewLogT>>
+    for TransactionReceipt<OldExecutionReceiptT, OldLogT>
+where
+    OldExecutionReceiptT: MapReceiptLogs<OldLogT, NewLogT, NewExecutionReceiptT> + Receipt<OldLogT>,
+    NewExecutionReceiptT: Receipt<NewLogT>,
+{
+    fn map_logs(
+        self,
+        map_fn: impl FnMut(OldLogT) -> NewLogT,
+    ) -> TransactionReceipt<NewExecutionReceiptT, NewLogT> {
+        TransactionReceipt {
+            inner: self.inner.map_logs(map_fn),
+            transaction_hash: self.transaction_hash,
+            transaction_index: self.transaction_index,
+            from: self.from,
+            to: self.to,
+            contract_address: self.contract_address,
+            gas_used: self.gas_used,
+            effective_gas_price: self.effective_gas_price,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<ExecutionReceiptT: Receipt<LogT>, LogT> Receipt<LogT>
+    for TransactionReceipt<ExecutionReceiptT, LogT>
+{
+    type Type = ExecutionReceiptT::Type;
+
+    fn cumulative_gas_used(&self) -> u64 {
+        self.inner.cumulative_gas_used()
     }
 
-    /// Returns the transaction's logs.
-    pub fn logs(&self) -> &[L] {
-        &self.inner.logs
-    }
-    /// Returns the status code of the receipt, if any.
-    pub fn status_code(&self) -> Option<u8> {
-        self.inner.status_code()
+    fn logs_bloom(&self) -> &Bloom {
+        self.inner.logs_bloom()
     }
 
-    /// Returns the state root of the receipt, if any.
-    pub fn state_root(&self) -> Option<&B256> {
-        self.inner.state_root()
+    fn logs(&self) -> &[LogT] {
+        self.inner.logs()
     }
 
-    /// Returns the transaction type of the receipt.
-    pub fn transaction_type(&self) -> u64 {
+    fn root_or_status(&self) -> super::RootOrStatus<'_> {
+        self.inner.root_or_status()
+    }
+
+    fn transaction_type(&self) -> Option<Self::Type> {
         self.inner.transaction_type()
     }
 }
 
-impl<L> Deref for TransactionReceipt<L> {
-    type Target = TypedReceipt<L>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl<LogT> alloy_rlp::Encodable for TransactionReceipt<LogT>
+impl<ExecutionReceiptT, LogT> alloy_rlp::Encodable for TransactionReceipt<ExecutionReceiptT, LogT>
 where
-    LogT: alloy_rlp::Encodable,
+    ExecutionReceiptT: Receipt<LogT> + alloy_rlp::Encodable,
 {
     fn encode(&self, out: &mut dyn BufMut) {
         self.inner.encode(out);
@@ -90,32 +157,63 @@ where
 
 #[cfg(all(test, feature = "serde"))]
 mod test {
-    use revm_primitives::SpecId;
+    use std::sync::OnceLock;
 
     use super::*;
-    use crate::receipt::TypedReceiptData;
+    use crate::{
+        chain_spec::L1ChainSpec,
+        log::ExecutionLog,
+        receipt,
+        result::SuccessReason,
+        signature::Fakeable,
+        transaction::{self, TxKind},
+        AccessList, Bytes,
+    };
 
     #[test]
     fn test_transaction_receipt_serde() {
-        let receipt = TransactionReceipt {
-            inner: TypedReceipt {
-                cumulative_gas_used: 100,
-                logs_bloom: Bloom::default(),
-                logs: vec![],
-                data: TypedReceiptData::Eip1559 { status: 1 },
-                spec_id: SpecId::LATEST,
-            },
-            transaction_hash: B256::default(),
-            transaction_index: 5,
-            from: Address::default(),
-            to: None,
-            contract_address: Some(Address::default()),
+        let execution_result = ExecutionResult::<L1ChainSpec>::Success {
+            reason: SuccessReason::Stop,
             gas_used: 100,
-            effective_gas_price: Some(U256::from(100)),
+            gas_refunded: 0,
+            logs: Vec::new(),
+            output: Output::Call(Bytes::new()),
         };
 
+        let transaction: transaction::Signed = transaction::signed::Eip1559 {
+            chain_id: 1,
+            nonce: 1,
+            max_priority_fee_per_gas: U256::ZERO,
+            max_fee_per_gas: U256::from(100u64),
+            gas_limit: 100,
+            kind: TxKind::Call(Address::default()),
+            value: U256::ZERO,
+            input: Bytes::new(),
+            access_list: AccessList::default(),
+            signature: Fakeable::fake(Address::default(), None),
+            hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
+        }
+        .into();
+
+        let receipt = TransactionReceipt::new(
+            receipt::execution::Eip2718::<ExecutionLog, _> {
+                status: true,
+                cumulative_gas_used: 100,
+                logs_bloom: Bloom::ZERO,
+                logs: vec![],
+                transaction_type: crate::transaction::Type::Eip1559,
+            }
+            .into(),
+            &transaction,
+            &execution_result,
+            0,
+            U256::ZERO,
+        );
+
         let serialized = serde_json::to_string(&receipt).unwrap();
-        let deserialized: TransactionReceipt<()> = serde_json::from_str(&serialized).unwrap();
+        let deserialized: TransactionReceipt<receipt::Execution<ExecutionLog>, ExecutionLog> =
+            serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(receipt, deserialized);
     }

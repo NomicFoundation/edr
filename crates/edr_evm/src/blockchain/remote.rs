@@ -2,18 +2,16 @@ use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use edr_eth::{
-    filter::OneOrMore, log::FilterLog, receipt::BlockReceipt, Address, BlockSpec,
-    PreEip1898BlockSpec, B256, U256,
+    filter::OneOrMore, log::FilterLog, Address, BlockSpec, PreEip1898BlockSpec, B256, U256,
 };
-use edr_rpc_eth::client::EthRpcClient;
+use edr_rpc_eth::{client::EthRpcClient, spec::BlockReceipt};
 use revm::primitives::HashSet;
 use tokio::runtime;
 
 use super::storage::SparseBlockchainStorage;
 use crate::{
     blockchain::ForkedBlockchainError, chain_spec::ChainSpec,
-    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, IntoRemoteBlock,
-    RemoteBlock,
+    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, RemoteBlock,
 };
 
 #[derive(Debug)]
@@ -47,7 +45,7 @@ where
     pub async fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<BlockT>, ForkedBlockchainError> {
+    ) -> Result<Option<BlockT>, ForkedBlockchainError<ChainSpecT>> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(block) = cache.block_by_hash(hash).cloned() {
@@ -69,7 +67,10 @@ where
 
     /// Retrieves the block with the provided number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub async fn block_by_number(&self, number: u64) -> Result<BlockT, ForkedBlockchainError> {
+    pub async fn block_by_number(
+        &self,
+        number: u64,
+    ) -> Result<BlockT, ForkedBlockchainError<ChainSpecT>> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(block) = cache.block_by_number(number).cloned() {
@@ -90,7 +91,7 @@ where
     pub async fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<BlockT>, ForkedBlockchainError> {
+    ) -> Result<Option<BlockT>, ForkedBlockchainError<ChainSpecT>> {
         // This block ensure that the read lock is dropped
         {
             if let Some(block) = self
@@ -127,7 +128,7 @@ where
         to_block: BlockSpec,
         addresses: &HashSet<Address>,
         normalized_topics: &[Option<Vec<B256>>],
-    ) -> Result<Vec<FilterLog>, ForkedBlockchainError> {
+    ) -> Result<Vec<FilterLog>, ForkedBlockchainError<ChainSpecT>> {
         self.client
             .get_logs_by_range(
                 from_block,
@@ -169,7 +170,7 @@ where
     pub async fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt>>, ForkedBlockchainError> {
+    ) -> Result<Option<Arc<BlockReceipt<ChainSpecT>>>, ForkedBlockchainError<ChainSpecT>> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(receipt) = cache.receipt_by_transaction_hash(transaction_hash) {
@@ -198,7 +199,7 @@ where
     pub async fn total_difficulty_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<U256>, ForkedBlockchainError> {
+    ) -> Result<Option<U256>, ForkedBlockchainError<ChainSpecT>> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(difficulty) = cache.total_difficulty_by_hash(hash).cloned() {
@@ -226,13 +227,13 @@ where
         &self,
         cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT, ChainSpecT>>,
         block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
-    ) -> Result<BlockT, ForkedBlockchainError> {
+    ) -> Result<BlockT, ForkedBlockchainError<ChainSpecT>> {
         let total_difficulty = *block
             .total_difficulty()
             .expect("Must be present as this is not a pending block");
 
-        let block: RemoteBlock<ChainSpecT> =
-            block.into_remote_block(self.client.clone(), self.runtime.clone())?;
+        let block = RemoteBlock::new(block, self.client.clone(), self.runtime.clone())
+            .map_err(ForkedBlockchainError::BlockCreation)?;
 
         let is_cacheable = FORCE_CACHING
             || self
@@ -254,10 +255,10 @@ where
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
+    use edr_eth::chain_spec::L1ChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
-    use crate::chain_spec::L1ChainSpec;
 
     #[tokio::test]
     async fn no_cache_for_unsafe_block_number() {

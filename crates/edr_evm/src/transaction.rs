@@ -10,7 +10,7 @@ use edr_eth::{SpecId, U256};
 use revm::{
     db::DatabaseComponentError,
     interpreter::gas::validate_initial_tx_gas,
-    primitives::{EVMError, EVMErrorForChain, TransactionValidation},
+    primitives::{EVMError, EVMErrorForChain},
 };
 
 pub use self::detailed::*;
@@ -132,6 +132,7 @@ pub fn initial_cost(transaction: &impl SignedTransaction, spec_id: SpecId) -> u6
         transaction.data().as_ref(),
         transaction.kind() == TxKind::Create,
         transaction.access_list(),
+        0,
     )
 }
 

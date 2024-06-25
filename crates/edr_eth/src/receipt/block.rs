@@ -2,16 +2,19 @@ use std::ops::Deref;
 
 use alloy_rlp::BufMut;
 
-use super::TransactionReceipt;
+use super::{Receipt, TransactionReceipt};
 use crate::{log::FilterLog, B256};
 
 /// Type for a receipt that's included in a block.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct BlockReceipt {
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct BlockReceipt<ExecutionReceiptT: Receipt<FilterLog>> {
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub inner: TransactionReceipt<FilterLog>,
+    pub inner: TransactionReceipt<ExecutionReceiptT, FilterLog>,
     /// Hash of the block that this is part of
     pub block_hash: B256,
     /// Number of the block that this is part of
@@ -19,15 +22,18 @@ pub struct BlockReceipt {
     pub block_number: u64,
 }
 
-impl Deref for BlockReceipt {
-    type Target = TransactionReceipt<FilterLog>;
+impl<ExecutionReceiptT: Receipt<FilterLog>> Deref for BlockReceipt<ExecutionReceiptT> {
+    type Target = TransactionReceipt<ExecutionReceiptT, FilterLog>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl alloy_rlp::Encodable for BlockReceipt {
+impl<ExecutionReceiptT> alloy_rlp::Encodable for BlockReceipt<ExecutionReceiptT>
+where
+    ExecutionReceiptT: Receipt<FilterLog> + alloy_rlp::Encodable,
+{
     fn encode(&self, out: &mut dyn BufMut) {
         self.inner.encode(out);
     }
@@ -39,35 +45,61 @@ impl alloy_rlp::Encodable for BlockReceipt {
 
 #[cfg(all(test, feature = "serde"))]
 mod test {
+    use std::sync::OnceLock;
+
     use assert_json_diff::assert_json_eq;
-    use revm_primitives::SpecId;
     use serde_json::json;
 
     use super::*;
     use crate::{
-        receipt::{TypedReceipt, TypedReceiptData},
-        Address, Bloom, U256,
+        chain_spec::L1ChainSpec,
+        receipt,
+        result::{ExecutionResult, Output, SuccessReason},
+        signature::Fakeable,
+        transaction::{self, TxKind},
+        AccessList, Address, Bloom, Bytes, U256,
     };
 
     #[test]
     fn test_block_receipt_serde() {
+        let execution_result = ExecutionResult::<L1ChainSpec>::Success {
+            reason: SuccessReason::Stop,
+            gas_used: 100,
+            gas_refunded: 0,
+            logs: Vec::new(),
+            output: Output::Call(Bytes::new()),
+        };
+
+        let transaction: transaction::Signed = transaction::signed::Eip1559 {
+            chain_id: 1,
+            nonce: 1,
+            max_priority_fee_per_gas: U256::ZERO,
+            max_fee_per_gas: U256::from(100u64),
+            gas_limit: 100,
+            kind: TxKind::Call(Address::default()),
+            value: U256::ZERO,
+            input: Bytes::new(),
+            access_list: AccessList::default(),
+            signature: Fakeable::fake(Address::default(), None),
+            hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
+        }
+        .into();
+
         let receipt = BlockReceipt {
-            inner: TransactionReceipt {
-                inner: TypedReceipt {
-                    cumulative_gas_used: 1,
-                    logs_bloom: Bloom::default(),
+            inner: TransactionReceipt::new(
+                receipt::Execution::Eip2718(receipt::execution::Eip2718 {
+                    status: true,
+                    cumulative_gas_used: 100,
+                    logs_bloom: Bloom::ZERO,
                     logs: vec![],
-                    data: TypedReceiptData::Eip1559 { status: 1 },
-                    spec_id: SpecId::LATEST,
-                },
-                transaction_hash: B256::default(),
-                transaction_index: 5,
-                from: Address::default(),
-                to: Some(Address::default()),
-                contract_address: None,
-                gas_used: 1,
-                effective_gas_price: Some(U256::from(1)),
-            },
+                    transaction_type: crate::transaction::Type::Eip1559,
+                }),
+                &transaction,
+                &execution_result,
+                0,
+                U256::ZERO,
+            ),
             block_hash: B256::default(),
             block_number: 1,
         };
@@ -114,9 +146,10 @@ mod test {
           "effectiveGasPrice": "0x699e6346"
         });
 
-        let deserialized: BlockReceipt = serde_json::from_value(receipt_from_hardhat.clone())?;
-        let serialized = serde_json::to_value(deserialized)?;
+        let deserialized: BlockReceipt<receipt::Execution<FilterLog>> =
+            serde_json::from_value(receipt_from_hardhat.clone())?;
 
+        let serialized = serde_json::to_value(deserialized)?;
         assert_json_eq!(receipt_from_hardhat, serialized);
 
         Ok(())

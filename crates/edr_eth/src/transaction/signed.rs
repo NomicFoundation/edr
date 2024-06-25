@@ -15,13 +15,9 @@ pub use self::{
     eip4844::Eip4844,
     legacy::{Legacy, PreOrPostEip155},
 };
-use super::{
-    Signed, SignedTransaction, TransactionMut, TransactionType, TxKind,
-    INVALID_TX_TYPE_ERROR_MESSAGE,
-};
+use super::{Signed, SignedTransaction, TransactionMut, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE};
 use crate::{
     signature::{Fakeable, Signature},
-    utils::enveloped,
     AccessListItem, Address, Bytes, B256, U256,
 };
 
@@ -77,26 +73,26 @@ impl Signed {
 impl alloy_rlp::Decodable for Signed {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         fn is_list(byte: u8) -> bool {
-            byte >= 0xc0
+            byte >= alloy_rlp::EMPTY_LIST_CODE
         }
 
         let first = buf.first().ok_or(alloy_rlp::Error::InputTooShort)?;
 
         match *first {
-            0x01 => {
+            Eip2930::TYPE => {
                 buf.advance(1);
 
-                Ok(Signed::Eip2930(self::eip2930::Eip2930::decode(buf)?))
+                Ok(Signed::Eip2930(Eip2930::decode(buf)?))
             }
-            0x02 => {
+            Eip1559::TYPE => {
                 buf.advance(1);
 
-                Ok(Signed::Eip1559(self::eip1559::Eip1559::decode(buf)?))
+                Ok(Signed::Eip1559(Eip1559::decode(buf)?))
             }
-            0x03 => {
+            Eip4844::TYPE => {
                 buf.advance(1);
 
-                Ok(Signed::Eip4844(self::eip4844::Eip4844::decode(buf)?))
+                Ok(Signed::Eip4844(Eip4844::decode(buf)?))
             }
             byte if is_list(byte) => {
                 let transaction = PreOrPostEip155::decode(buf)?;
@@ -109,13 +105,8 @@ impl alloy_rlp::Decodable for Signed {
 
 impl alloy_rlp::Encodable for Signed {
     fn encode(&self, out: &mut dyn BufMut) {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.encode(out),
-            Signed::PostEip155Legacy(tx) => tx.encode(out),
-            Signed::Eip2930(tx) => enveloped(1, tx, out),
-            Signed::Eip1559(tx) => enveloped(2, tx, out),
-            Signed::Eip4844(tx) => enveloped(3, tx, out),
-        }
+        let encoded = self.rlp_encoding();
+        out.put_slice(encoded);
     }
 
     fn length(&self) -> usize {
@@ -141,6 +132,7 @@ impl Default for Signed {
             input: Bytes::new(),
             signature: Fakeable::fake(Address::ZERO, Some(0)),
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         })
     }
 }
@@ -185,17 +177,19 @@ impl From<PreOrPostEip155> for Signed {
 }
 
 impl SignedTransaction for Signed {
-    fn effective_gas_price(&self, block_base_fee: U256) -> U256 {
+    type Type = super::Type;
+
+    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
         match self {
-            Signed::PreEip155Legacy(tx) => tx.gas_price,
-            Signed::PostEip155Legacy(tx) => tx.gas_price,
-            Signed::Eip2930(tx) => tx.gas_price,
-            Signed::Eip1559(tx) => tx
-                .max_fee_per_gas
-                .min(block_base_fee + tx.max_priority_fee_per_gas),
-            Signed::Eip4844(tx) => tx
-                .max_fee_per_gas
-                .min(block_base_fee + tx.max_priority_fee_per_gas),
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
+            Signed::Eip1559(tx) => Some(
+                tx.max_fee_per_gas
+                    .min(block_base_fee + tx.max_priority_fee_per_gas),
+            ),
+            Signed::Eip4844(tx) => Some(
+                tx.max_fee_per_gas
+                    .min(block_base_fee + tx.max_priority_fee_per_gas),
+            ),
         }
     }
 
@@ -204,6 +198,16 @@ impl SignedTransaction for Signed {
             Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
             Signed::Eip1559(tx) => Some(tx.max_fee_per_gas),
             Signed::Eip4844(tx) => Some(tx.max_fee_per_gas),
+        }
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.rlp_encoding(),
+            Signed::PostEip155Legacy(tx) => tx.rlp_encoding(),
+            Signed::Eip2930(tx) => tx.rlp_encoding(),
+            Signed::Eip1559(tx) => tx.rlp_encoding(),
+            Signed::Eip4844(tx) => tx.rlp_encoding(),
         }
     }
 
@@ -216,20 +220,20 @@ impl SignedTransaction for Signed {
 
     fn transaction_hash(&self) -> &B256 {
         match self {
-            Signed::PreEip155Legacy(t) => t.hash(),
-            Signed::PostEip155Legacy(t) => t.hash(),
-            Signed::Eip2930(t) => t.hash(),
-            Signed::Eip1559(t) => t.hash(),
-            Signed::Eip4844(t) => t.hash(),
+            Signed::PreEip155Legacy(t) => t.transaction_hash(),
+            Signed::PostEip155Legacy(t) => t.transaction_hash(),
+            Signed::Eip2930(t) => t.transaction_hash(),
+            Signed::Eip1559(t) => t.transaction_hash(),
+            Signed::Eip4844(t) => t.transaction_hash(),
         }
     }
 
-    fn transaction_type(&self) -> TransactionType {
+    fn transaction_type(&self) -> Self::Type {
         match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => TransactionType::Legacy,
-            Signed::Eip2930(_) => TransactionType::Eip2930,
-            Signed::Eip1559(_) => TransactionType::Eip1559,
-            Signed::Eip4844(_) => TransactionType::Eip4844,
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => super::Type::Legacy,
+            Signed::Eip2930(_) => super::Type::Eip2930,
+            Signed::Eip1559(_) => super::Type::Eip1559,
+            Signed::Eip4844(_) => super::Type::Eip4844,
         }
     }
 }
@@ -351,6 +355,10 @@ impl revm_primitives::Transaction for Signed {
             Signed::Eip4844(tx) => Some(&tx.max_fee_per_blob_gas),
         }
     }
+
+    fn authorization_list(&self) -> Option<&revm_primitives::AuthorizationList> {
+        None
+    }
 }
 
 impl TransactionMut for Signed {
@@ -430,8 +438,6 @@ mod tests {
 
                         let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0]).expect("Failed to parse secret key");
                         let transaction = request.sign(&secret_key)?;
-
-                        println!("signature: {:?}", transaction.signature);
 
                         let transaction = Signed::from(transaction);
 
@@ -533,6 +539,7 @@ mod tests {
                 )
             },
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         });
         assert_eq!(
             expected,
@@ -567,6 +574,7 @@ mod tests {
                 )
             },
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         });
         assert_eq!(
             expected,
@@ -601,6 +609,7 @@ mod tests {
                 )
             },
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         });
         assert_eq!(
             expected,
@@ -638,6 +647,7 @@ mod tests {
                 )
             },
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         });
         assert_eq!(
             expected,
@@ -672,6 +682,7 @@ mod tests {
                 )
             },
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         });
         assert_eq!(
             expected,

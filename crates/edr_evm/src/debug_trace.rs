@@ -27,7 +27,7 @@ use crate::{
 /// EIP-3155 and raw tracers.
 pub struct Eip3155AndRawTracers<ChainSpecT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     eip3155: TracerEip3155<ChainSpecT>,
     raw: TraceCollector<ChainSpecT>,
@@ -35,7 +35,7 @@ where
 
 impl<ChainSpecT> Eip3155AndRawTracers<ChainSpecT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     /// Creates a new instance.
     pub fn new(config: DebugTraceConfig, verbose_tracing: bool) -> Self {
@@ -48,7 +48,7 @@ where
 
 impl<ChainSpecT> GetContextData<TraceCollector<ChainSpecT>> for Eip3155AndRawTracers<ChainSpecT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     fn get_context_data(&mut self) -> &mut TraceCollector<ChainSpecT> {
         &mut self.raw
@@ -57,7 +57,7 @@ where
 
 impl<ChainSpecT> GetContextData<TracerEip3155<ChainSpecT>> for Eip3155AndRawTracers<ChainSpecT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     fn get_context_data(&mut self) -> &mut TracerEip3155<ChainSpecT> {
         &mut self.eip3155
@@ -66,7 +66,7 @@ where
 
 /// Register EIP-3155 and trace collector handles.
 pub fn register_eip_3155_and_raw_tracers_handles<
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
     DatabaseT: Database,
     ContextT: GetContextData<TraceCollector<ChainSpecT>> + GetContextData<TracerEip3155<ChainSpecT>>,
 >(
@@ -165,7 +165,7 @@ pub fn execution_result_to_debug_result<ChainSpecT>(
     tracer: Eip3155AndRawTracers<ChainSpecT>,
 ) -> DebugTraceResultWithTraces<ChainSpecT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     let Eip3155AndRawTracers { eip3155, raw } = tracer;
     let traces = raw.into_traces();
@@ -293,7 +293,7 @@ pub struct DebugTraceLogItem {
 
 /// Register EIP-3155 tracer handles.
 pub fn register_eip_3155_tracer_handles<
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
     DatabaseT: Database,
     ContextT: GetContextData<TracerEip3155<ChainSpecT>>,
 >(
@@ -329,7 +329,7 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
     interpreter: &mut Interpreter,
     host: &mut Context<ChainSpecT, ContextT, DatabaseT>,
 ) where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
     ContextT: GetContextData<TracerEip3155<ChainSpecT>>,
     DatabaseT: Database,
 {
@@ -354,7 +354,7 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
 #[derive(Debug)]
 pub struct TracerEip3155<ChainSpecT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     config: DebugTraceConfig,
     logs: Vec<DebugTraceLogItem>,
@@ -372,7 +372,7 @@ where
 
 impl<ChainSpecT> TracerEip3155<ChainSpecT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     /// Create a new tracer.
     pub fn new(config: DebugTraceConfig) -> Self {
@@ -502,7 +502,7 @@ where
 
 impl<ChainSpecT> GetContextData<TracerEip3155<ChainSpecT>> for TracerEip3155<ChainSpecT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     fn get_context_data(&mut self) -> &mut TracerEip3155<ChainSpecT> {
         self

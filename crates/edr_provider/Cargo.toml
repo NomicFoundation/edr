@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 alloy-dyn-abi = { version = "0.7.6", features = ["eip712"] }
+alloy-eips = { version = "0.2", default-features = false }
 alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
 anyhow = { version = "1.0.75", optional = true }
 auto_impl = { version = "1.2", default-features = false }
@@ -41,7 +42,7 @@ cargo_toml = { version = "0.15.3", default-features = false }
 toml = { version = "0.5.9", default-features = false }
 
 [features]
-test-utils = ["anyhow"]
+test-utils = ["dep:anyhow"]
 tracing = ["dep:tracing", "edr_eth/tracing", "edr_evm/tracing"]
 test-remote = []
 

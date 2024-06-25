@@ -13,6 +13,10 @@ pub mod beacon;
 pub mod block;
 /// Ethereum block spec
 mod block_spec;
+/// Ethereum L1 chain spec
+pub mod chain_spec;
+/// Types and functions related to EIPs
+pub mod eips;
 /// Ethereum fee history types
 pub mod fee_history;
 /// Ethereum types for filter-based RPC methods
@@ -29,8 +33,6 @@ pub mod rlp;
 pub mod serde;
 /// Ethereum signature types
 pub mod signature;
-/// Specification of hardforks
-pub mod spec;
 /// Ethereum state types and functions
 pub mod state;
 /// Ethereum transaction types
@@ -44,7 +46,7 @@ pub mod withdrawal;
 pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 pub use revm_primitives::{
     address,
-    alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U160, U64},
+    alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
     db, env, hex, hex_literal, result, AccessList, AccessListItem, AccountInfo, Address, Bytecode,
     Bytes, HashMap, HashSet, SpecId, B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
 };
