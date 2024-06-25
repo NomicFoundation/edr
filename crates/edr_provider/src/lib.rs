@@ -21,7 +21,8 @@ pub mod time;
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_evm::{blockchain::BlockchainError, trace::Trace, HashSet};
+use edr_eth::HashSet;
+use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, trace::Trace};
 use lazy_static::lazy_static;
 use logger::SyncLogger;
 use mock::SyncCallOverride;
@@ -63,7 +64,7 @@ lazy_static! {
 #[derive(Clone, Debug)]
 pub struct ResponseWithTraces {
     pub result: serde_json::Value,
-    pub traces: Vec<Trace>,
+    pub traces: Vec<Trace<L1ChainSpec>>,
 }
 
 /// A JSON-RPC provider for Ethereum.
@@ -492,7 +493,7 @@ fn to_json<T: serde::Serialize, LoggerErrorT: Debug>(
 }
 
 fn to_json_with_trace<T: serde::Serialize, LoggerErrorT: Debug>(
-    value: (T, Trace),
+    value: (T, Trace<L1ChainSpec>),
 ) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
@@ -503,7 +504,7 @@ fn to_json_with_trace<T: serde::Serialize, LoggerErrorT: Debug>(
 }
 
 fn to_json_with_traces<T: serde::Serialize, LoggerErrorT: Debug>(
-    value: (T, Vec<Trace>),
+    value: (T, Vec<Trace<L1ChainSpec>>),
 ) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 

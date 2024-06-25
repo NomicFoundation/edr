@@ -3,7 +3,7 @@ use std::sync::{Arc, OnceLock};
 use edr_eth::{
     block::{BlobGas, Header},
     receipt::BlockReceipt,
-    transaction::{self, Transaction},
+    transaction::{self, SignedTransaction},
     withdrawal::Withdrawal,
     B256, U256,
 };
@@ -43,7 +43,7 @@ pub enum CreationError {
 #[derive(Clone, Debug)]
 pub struct RemoteBlock<ChainSpecT: ChainSpec> {
     header: Header,
-    transactions: Vec<ChainSpecT::SignedTransaction>,
+    transactions: Vec<ChainSpecT::Transaction>,
     /// The receipts of the block's transactions
     receipts: OnceLock<Vec<Arc<BlockReceipt>>>,
     /// The hashes of the block's ommers
@@ -78,7 +78,7 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
         self.size
     }
 
-    fn transactions(&self) -> &[ChainSpecT::SignedTransaction] {
+    fn transactions(&self) -> &[ChainSpecT::Transaction] {
         &self.transactions
     }
 
@@ -92,7 +92,7 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
                 self.rpc_client.get_transaction_receipts(
                     self.transactions
                         .iter()
-                        .map(ChainSpecT::SignedTransaction::transaction_hash),
+                        .map(ChainSpecT::Transaction::transaction_hash),
                 ),
             )
         })

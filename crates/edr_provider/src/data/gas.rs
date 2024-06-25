@@ -1,13 +1,20 @@
 use core::fmt::Debug;
 use std::cmp;
 
-use edr_eth::{block::Header, reward_percentile::RewardPercentile, transaction::Transaction, U256};
+use edr_eth::{
+    block::Header,
+    result::ExecutionResult,
+    reward_percentile::RewardPercentile,
+    transaction::{Transaction as _, TransactionMut as _},
+    U256,
+};
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
     chain_spec::L1ChainSpec,
+    evm::handler::CfgEnvWithChainSpec,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, SyncBlock, TxEnv,
+    transaction, DebugContext, SyncBlock,
 };
 use itertools::Itertools;
 
@@ -21,10 +28,10 @@ pub(super) struct CheckGasLimitArgs<'a> {
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithHandlerCfg,
-    pub tx_env: TxEnv,
+    pub cfg_env: CfgEnvWithChainSpec<L1ChainSpec>,
+    pub transaction: transaction::Signed,
     pub gas_limit: u64,
-    pub trace_collector: &'a mut TraceCollector,
+    pub trace_collector: &'a mut TraceCollector<L1ChainSpec>,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
@@ -39,12 +46,12 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         state,
         state_overrides,
         cfg_env,
-        mut tx_env,
+        mut transaction,
         gas_limit,
         trace_collector,
     } = args;
 
-    tx_env.gas_limit = gas_limit;
+    transaction.set_gas_limit(gas_limit);
 
     let result = call::run_call(RunCallArgs {
         blockchain,
@@ -52,7 +59,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         state,
         state_overrides,
         cfg_env,
-        tx_env,
+        transaction,
         debug_context: Some(DebugContext {
             data: trace_collector,
             register_handles_fn: register_trace_collector_handles,
@@ -67,11 +74,11 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithHandlerCfg,
-    pub tx_env: TxEnv,
+    pub cfg_env: CfgEnvWithChainSpec<L1ChainSpec>,
+    pub transaction: transaction::Signed,
     pub lower_bound: u64,
     pub upper_bound: u64,
-    pub trace_collector: &'a mut TraceCollector,
+    pub trace_collector: &'a mut TraceCollector<L1ChainSpec>,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
@@ -88,7 +95,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
         state,
         state_overrides,
         cfg_env,
-        tx_env,
+        transaction,
         mut lower_bound,
         mut upper_bound,
         trace_collector,
@@ -111,7 +118,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
             state,
             state_overrides,
             cfg_env: cfg_env.clone(),
-            tx_env: tx_env.clone(),
+            transaction: transaction.clone(),
             gas_limit: mid,
             trace_collector,
         })?;
@@ -170,7 +177,7 @@ pub(super) fn compute_rewards<LoggerErrorT: Debug>(
 
             let effective_reward =
                 if let Some(max_priority_fee_per_gas) = transaction.max_priority_fee_per_gas() {
-                    cmp::min(max_priority_fee_per_gas, gas_price - base_fee_per_gas)
+                    cmp::min(*max_priority_fee_per_gas, gas_price - base_fee_per_gas)
                 } else {
                     gas_price.saturating_sub(base_fee_per_gas)
                 };

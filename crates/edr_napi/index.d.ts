@@ -260,7 +260,8 @@ export const enum SuccessReason {
   /** The opcode `RETURN` was called */
   Return = 1,
   /** The opcode `SELFDESTRUCT` was called */
-  SelfDestruct = 2
+  SelfDestruct = 2,
+  EofReturnContract = 3
 }
 export interface CallOutput {
   /** Return value */

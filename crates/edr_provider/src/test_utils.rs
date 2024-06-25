@@ -3,21 +3,22 @@ use std::{convert::Infallible, num::NonZeroU64, time::SystemTime};
 use anyhow::anyhow;
 use edr_eth::{
     block::{miner_reward, BlobGas, BlockOptions},
+    env::CfgEnv,
     receipt::BlockReceipt,
     signature::secret_key_from_str,
     spec::chain_hardfork_activations,
     transaction::EthTransactionRequest,
     trie::KECCAK_NULL_RLP,
     withdrawal::Withdrawal,
-    Address, Bytes, HashMap, PreEip1898BlockSpec, SpecId, B256, U256,
+    Address, Bytes, HashMap, PreEip1898BlockSpec, SpecId, B256, U160, U256,
 };
 use edr_evm::{
-    alloy_primitives::U160,
     blockchain::{Blockchain as _, ForkedBlockchain},
     chain_spec::L1ChainSpec,
+    evm::handler::CfgEnvWithChainSpec,
     state::IrregularState,
-    Block, BlockBuilder, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResultWithContext,
-    IntoRemoteBlock, RandomHashGenerator,
+    Block, BlockBuilder, DebugContext, ExecutionResultWithContext, IntoRemoteBlock,
+    RandomHashGenerator,
 };
 use edr_rpc_eth::client::EthRpcClient;
 
@@ -181,7 +182,7 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 
-    let cfg = CfgEnvWithHandlerCfg::new_with_spec_id(cfg, spec_id);
+    let cfg = CfgEnvWithChainSpec::<L1ChainSpec>::new(cfg, spec_id);
 
     let parent = blockchain.last_block()?;
     let replay_header = replay_block.header();

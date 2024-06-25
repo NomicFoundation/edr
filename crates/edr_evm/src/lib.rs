@@ -5,8 +5,6 @@
 //! The EDR EVM exposes APIs for running and interacting with a multi-threaded
 //! Ethereum Virtual Machine (or EVM).
 
-pub use revm::primitives::*;
-
 pub use crate::{
     block::*,
     debug::{DebugContext, GetContextData},
@@ -50,10 +48,7 @@ pub mod transaction;
 
 /// Types for interfacing with the evm
 pub mod evm {
-    pub use revm::{
-        handler::register::{EvmHandler, HandleRegister},
-        FrameOrResult, FrameResult,
-    };
+    pub use revm::{handler, FrameOrResult, FrameResult};
 }
 
 /// Types for interfacing with the interpreter

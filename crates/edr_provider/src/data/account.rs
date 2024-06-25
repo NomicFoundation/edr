@@ -1,5 +1,8 @@
-use edr_eth::{signature::public_key_to_address, Address};
-use edr_evm::{Account, AccountInfo, AccountStatus, HashMap, KECCAK_EMPTY};
+use edr_eth::{
+    signature::public_key_to_address,
+    state::{Account, AccountStatus},
+    AccountInfo, Address, HashMap, KECCAK_EMPTY,
+};
 use indexmap::IndexMap;
 
 use crate::{AccountConfig, ProviderConfig};

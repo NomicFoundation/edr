@@ -1,12 +1,10 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use alloy_rlp::Decodable;
+use edr_eth::{B256, U256};
 use hasher::{Hasher, HasherKeccak};
 
-use crate::{
-    state::trie::{persistent_memory_db::PersistentMemoryDB, trie_query::TrieQuery},
-    B256, U256,
-};
+use crate::state::trie::{persistent_memory_db::PersistentMemoryDB, trie_query::TrieQuery};
 
 #[derive(Debug)]
 pub(super) struct StorageTrie {
@@ -76,7 +74,7 @@ pub(super) struct StorageTrieMutation<'a> {
 
 impl<'a> StorageTrieMutation<'a> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
-    pub fn set_storage_slots(&mut self, storage: &revm::primitives::Storage) {
+    pub fn set_storage_slots(&mut self, storage: &revm::primitives::EvmStorage) {
         storage.iter().for_each(|(index, value)| {
             self.set_storage_slot(index, &value.present_value);
         });

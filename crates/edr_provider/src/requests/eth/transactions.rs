@@ -6,7 +6,7 @@ use edr_eth::{
     rlp::Decodable,
     transaction::{
         pooled::PooledTransaction, request::TransactionRequestAndSender, EthTransactionRequest,
-        SignedTransaction, Transaction, TransactionType, TxKind,
+        SignedTransaction, Transaction as _, TransactionType, TxKind,
     },
     Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
@@ -159,7 +159,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         let max_fee_per_gas = signed_transaction
             .max_fee_per_gas()
             .expect("Transaction must be post EIP-1559 transaction.");
-        let max_priority_fee_per_gas = signed_transaction
+        let max_priority_fee_per_gas = *signed_transaction
             .max_priority_fee_per_gas()
             .expect("Transaction must be post EIP-1559 transaction.");
 
@@ -226,6 +226,18 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         block_data.as_ref().map(|bd| bd.transaction_index)
     };
 
+    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
+        Some(transaction.access_list().to_vec())
+    } else {
+        None
+    };
+
+    let blob_versioned_hashes = if transaction.transaction_type() == TransactionType::Eip4844 {
+        Some(transaction.blob_hashes().to_vec())
+    } else {
+        None
+    };
+
     Ok(edr_rpc_eth::Transaction {
         hash: *transaction.transaction_hash(),
         nonce: transaction.nonce(),
@@ -234,7 +246,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         transaction_index,
         from: *transaction.caller(),
         to: transaction.kind().to().copied(),
-        value: transaction.value(),
+        value: *transaction.value(),
         gas_price,
         gas: U256::from(transaction.gas_limit()),
         input: transaction.data().clone(),
@@ -245,20 +257,18 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         s: signature.s(),
         chain_id,
         transaction_type: transaction_type.map(u64::from),
-        access_list: transaction
-            .access_list()
-            .map(|access_list| access_list.clone().into()),
+        access_list,
         max_fee_per_gas: transaction.max_fee_per_gas(),
-        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
-        max_fee_per_blob_gas: transaction.max_fee_per_blob_gas(),
-        blob_versioned_hashes: transaction.blob_hashes(),
+        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas().cloned(),
+        max_fee_per_blob_gas: transaction.max_fee_per_blob_gas().cloned(),
+        blob_versioned_hashes,
     })
 }
 
 pub fn handle_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     transaction_request: EthTransactionRequest,
-) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     validate_send_transaction_request(data, &transaction_request)?;
 
     let transaction_request = resolve_transaction_request(data, transaction_request)?;
@@ -270,7 +280,7 @@ pub fn handle_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + Time
 pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     raw_transaction: Bytes,
-) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
@@ -420,7 +430,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
 fn send_raw_transaction_and_log<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     signed_transaction: transaction::Signed,
-) -> Result<(B256, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
     let spec_id = data.spec_id();

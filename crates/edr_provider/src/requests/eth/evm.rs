@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::num::NonZeroU64;
 
 use edr_eth::{block::BlockOptions, U64};
-use edr_evm::trace::Trace;
+use edr_evm::{chain_spec::L1ChainSpec, trace::Trace};
 
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, Timestamp};
 
@@ -19,7 +19,7 @@ pub fn handle_increase_time_request<LoggerErrorT: Debug, TimerT: Clone + TimeSin
 pub fn handle_mine_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     timestamp: Option<Timestamp>,
-) -> Result<(String, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> Result<(String, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
     let mine_block_result = data.mine_and_commit_block(BlockOptions {
         timestamp: timestamp.map(Into::into),
         ..BlockOptions::default()

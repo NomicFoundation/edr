@@ -3,9 +3,8 @@ use std::iter;
 
 use edr_eth::{
     filter::{FilteredEvents, LogFilterOptions, LogOutput, OneOrMore, SubscriptionType},
-    BlockSpec, BlockTag, Eip1898BlockSpec, U256,
+    BlockSpec, BlockTag, Eip1898BlockSpec, HashSet, U256,
 };
-use edr_evm::HashSet;
 
 use crate::{
     data::ProviderData, filter::LogFilter, requests::validation::validate_post_merge_block_tags,

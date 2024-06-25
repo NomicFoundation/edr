@@ -3,9 +3,8 @@ mod common;
 use edr_eth::{
     filter::{LogFilterOptions, LogOutput, OneOrMore},
     transaction::EthTransactionRequest,
-    Address, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U256,
+    Address, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U160, U256,
 };
-use edr_evm::alloy_primitives::U160;
 use edr_provider::{IntervalConfigRequest, MethodInvocation, Timestamp};
 use edr_rpc_eth::CallRequest;
 

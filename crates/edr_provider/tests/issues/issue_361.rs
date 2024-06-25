@@ -1,8 +1,7 @@
 use edr_eth::{
     filter::LogFilterOptions, transaction::EthTransactionRequest, AccountInfo, Address, BlockSpec,
-    SpecId,
+    SpecId, KECCAK_EMPTY,
 };
-use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,

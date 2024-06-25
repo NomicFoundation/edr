@@ -1,15 +1,13 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use hashbrown::HashMap;
-use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
+use revm_primitives::{keccak256, GAS_PER_BLOB};
 
 use crate::{
-    access_list::AccessList,
     signature::{self, Fakeable},
     transaction,
     utils::envelop_bytes,
-    Address, Bytes, B256, U256,
+    AccessList, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -61,27 +59,6 @@ impl Eip4844 {
     /// Total blob gas used by the transaction.
     pub fn total_blob_gas(&self) -> u64 {
         GAS_PER_BLOB * self.blob_hashes.len() as u64
-    }
-}
-
-impl From<Eip4844> for TxEnv {
-    fn from(value: Eip4844) -> Self {
-        Self {
-            caller: *value.caller(),
-            gas_limit: value.gas_limit,
-            gas_price: value.max_fee_per_gas,
-            transact_to: TransactTo::Call(value.to),
-            value: value.value,
-            data: value.input,
-            nonce: Some(value.nonce),
-            chain_id: Some(value.chain_id),
-            access_list: value.access_list.into(),
-            gas_priority_fee: Some(value.max_priority_fee_per_gas),
-            blob_hashes: value.blob_hashes,
-            max_fee_per_blob_gas: Some(value.max_fee_per_blob_gas),
-            eof_initcodes: Vec::new(),
-            eof_initcodes_hashed: HashMap::new(),
-        }
     }
 }
 

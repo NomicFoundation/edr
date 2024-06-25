@@ -1,12 +1,12 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::{transaction::Transaction, Bytes, B256};
+use edr_eth::{result::ExecutionResult, transaction::SignedTransaction, Bytes, B256};
 use edr_evm::{
     chain_spec::L1ChainSpec,
     state::{StateDiff, SyncState},
     trace::Trace,
-    ExecutionResult, LocalBlock, MineBlockResultAndState, SyncBlock,
+    LocalBlock, MineBlockResultAndState, SyncBlock,
 };
 
 /// The result of mining a block, including the state, in debug mode. This
@@ -19,9 +19,9 @@ pub struct DebugMineBlockResultAndState<StateErrorT> {
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult>,
+    pub transaction_results: Vec<ExecutionResult<L1ChainSpec>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace>,
+    pub transaction_traces: Vec<Trace<L1ChainSpec>>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }
@@ -31,7 +31,7 @@ impl<StateErrorT> DebugMineBlockResultAndState<StateErrorT> {
     /// transaction traces, and decoded console log messages.
     pub fn new(
         result: MineBlockResultAndState<L1ChainSpec, StateErrorT>,
-        transaction_traces: Vec<Trace>,
+        transaction_traces: Vec<Trace<L1ChainSpec>>,
         console_log_decoded_messages: Vec<Bytes>,
     ) -> Self {
         Self {
@@ -52,9 +52,9 @@ pub struct DebugMineBlockResult<BlockchainErrorT> {
     /// Mined block
     pub block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainErrorT>>,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult>,
+    pub transaction_results: Vec<ExecutionResult<L1ChainSpec>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace>,
+    pub transaction_traces: Vec<Trace<L1ChainSpec>>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }

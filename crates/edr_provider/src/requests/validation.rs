@@ -1,11 +1,10 @@
 use core::fmt::Debug;
 
 use edr_eth::{
-    access_list::AccessListItem,
     transaction::{self, EthTransactionRequest},
-    Address, BlockSpec, BlockTag, PreEip1898BlockSpec, SpecId, B256, U256,
+    AccessListItem, Address, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, SpecId, B256,
+    MAX_INITCODE_SIZE, U256,
 };
-use edr_evm::Bytes;
 use edr_rpc_eth::CallRequest;
 
 use crate::ProviderError;
@@ -234,11 +233,11 @@ pub fn validate_eip3860_max_initcode_size<LoggerErrorT: Debug>(
         return Ok(());
     }
 
-    if data.len() > edr_evm::MAX_INITCODE_SIZE {
+    if data.len() > MAX_INITCODE_SIZE {
         return Err(ProviderError::InvalidArgument(format!("
 Trying to send a deployment transaction whose init code length is {}. The max length allowed by EIP-3860 is {}.
 
-Enable the 'allowUnlimitedContractSize' option to allow init codes of any length.", data.len(), edr_evm::MAX_INITCODE_SIZE)));
+Enable the 'allowUnlimitedContractSize' option to allow init codes of any length.", data.len(), MAX_INITCODE_SIZE)));
     }
 
     Ok(())

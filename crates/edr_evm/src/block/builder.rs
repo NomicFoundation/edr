@@ -7,17 +7,17 @@ use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     log::{add_log_to_bloom, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::{self, SignedTransaction as _, Transaction as _, TransactionType},
+    transaction::{self, SignedTransaction as _, TransactionType},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
 };
 use revm::{
-    db::{DatabaseComponentError, DatabaseComponents, StateRef},
+    db::{DatabaseComponents, StateRef},
+    handler::{CfgEnvWithChainSpec, EnvWithChainSpec},
     primitives::{
-        BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg,
-        ExecutionResult, InvalidHeader, InvalidTransaction, Output, ResultAndState, SpecId,
-        MAX_BLOB_GAS_PER_BLOCK,
+        BlobExcessGasAndPrice, BlockEnv, ExecutionResult, Output, ResultAndState, SpecId,
+        Transaction as _, MAX_BLOB_GAS_PER_BLOCK,
     },
     Context, DatabaseCommit, Evm, InnerEvmContext,
 };
@@ -28,6 +28,7 @@ use crate::{
     chain_spec::{ChainSpec, L1ChainSpec},
     debug::{DebugContext, EvmContext},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
+    transaction::TransactionError,
     SyncBlock,
 };
 
@@ -46,74 +47,38 @@ pub enum BlockBuilderCreationError {
 
 /// An error caused during execution of a transaction while building a block.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockTransactionError<BE, SE> {
-    /// Blockchain errors
-    #[error(transparent)]
-    BlockHash(BE),
-    /// Custom error
-    #[error("{0}")]
-    Custom(String),
+pub enum BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
+{
     /// Transaction has higher gas limit than is remaining in block
     #[error("Transaction has a higher gas limit than the remaining gas in the block")]
     ExceedsBlockGasLimit,
     /// Transaction has higher blob gas usage than is remaining in block
     #[error("Transaction has higher blob gas usage than is remaining in block")]
     ExceedsBlockBlobGasLimit,
-    /// Sender does not have enough funds to send transaction.
-    #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {max_upfront_cost} and the sender's balance is: {sender_balance}.")]
-    InsufficientFunds {
-        /// The maximum upfront cost of the transaction
-        max_upfront_cost: U256,
-        /// The sender's balance
-        sender_balance: U256,
-    },
-    /// Corrupt transaction data
-    #[error("Invalid transaction: {0:?}")]
-    InvalidTransaction(InvalidTransaction),
-    /// State errors
+    /// Transaction error
     #[error(transparent)]
-    State(SE),
-}
-
-impl<BE, SE> From<EVMError<DatabaseComponentError<SE, BE>>> for BlockTransactionError<BE, SE>
-where
-    BE: Debug + Send,
-    SE: Debug + Send,
-{
-    fn from(error: EVMError<DatabaseComponentError<SE, BE>>) -> Self {
-        match error {
-            EVMError::Transaction(e) => match e {
-                InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
-                    Self::InsufficientFunds {
-                        max_upfront_cost: *fee,
-                        sender_balance: *balance,
-                    }
-                }
-                _ => Self::InvalidTransaction(e),
-            },
-            EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
-            EVMError::Database(DatabaseComponentError::BlockHash(e)) => Self::BlockHash(e),
-            // This case is a bug in our codebase for local blockchains, but it can happen that the
-            // remote returns incorrect block data in which case we should return a custom error.
-            EVMError::Header(
-                error @ (InvalidHeader::ExcessBlobGasNotSet | InvalidHeader::PrevrandaoNotSet),
-            ) => Self::Custom(error.to_string()),
-            EVMError::Custom(error) => Self::Custom(error),
-        }
-    }
+    Transaction(#[from] TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
 }
 
 /// The result of executing a transaction, along with the context in which it
 /// was executed.
 pub struct ExecutionResultWithContext<
     'evm,
+    ChainSpecT,
     BlockchainErrorT,
     StateErrorT,
     DebugDataT,
     StateT: StateRef,
-> {
+> where
+    ChainSpecT: revm::primitives::ChainSpec,
+{
     /// The result of executing the transaction.
-    pub result: Result<ExecutionResult, BlockTransactionError<BlockchainErrorT, StateErrorT>>,
+    pub result: Result<
+        ExecutionResult<ChainSpecT>,
+        BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    >,
     /// The context in which the transaction was executed.
     pub evm_context: EvmContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
 }
@@ -128,7 +93,7 @@ pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
 
 /// A builder for constructing Ethereum blocks.
 pub struct BlockBuilder {
-    cfg: CfgEnvWithHandlerCfg,
+    cfg: CfgEnvWithChainSpec<L1ChainSpec>,
     header: PartialHeader,
     transactions: Vec<transaction::Signed>,
     state_diff: StateDiff,
@@ -141,15 +106,13 @@ impl BlockBuilder {
     /// Creates an intance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new<BlockchainErrorT>(
-        cfg: CfgEnvWithHandlerCfg,
+        cfg: CfgEnvWithChainSpec<L1ChainSpec>,
         parent: &dyn SyncBlock<L1ChainSpec, Error = BlockchainErrorT>,
         mut options: BlockOptions,
         dao_hardfork_activation_block: Option<u64>,
     ) -> Result<Self, BlockBuilderCreationError> {
-        if cfg.handler_cfg.spec_id < SpecId::BYZANTIUM {
-            return Err(BlockBuilderCreationError::UnsupportedHardfork(
-                cfg.handler_cfg.spec_id,
-            ));
+        if cfg.spec_id < SpecId::BYZANTIUM {
+            return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec_id));
         }
 
         let parent_header = parent.header();
@@ -160,7 +123,7 @@ impl BlockBuilder {
         };
 
         let withdrawals = std::mem::take(&mut options.withdrawals).or_else(|| {
-            if cfg.handler_cfg.spec_id >= SpecId::SHANGHAI {
+            if cfg.spec_id >= SpecId::SHANGHAI {
                 Some(Vec::new())
             } else {
                 None
@@ -168,13 +131,13 @@ impl BlockBuilder {
         });
 
         options.parent_hash = Some(*parent.hash());
-        let header = PartialHeader::new(cfg.handler_cfg.spec_id, options, Some(parent_header));
+        let header = PartialHeader::new(cfg.spec_id, options, Some(parent_header));
 
         if let Some(dao_hardfork_activation_block) = dao_hardfork_activation_block {
             const DAO_FORCE_EXTRA_DATA_RANGE: u64 = 9;
 
             let drift = header.number - dao_hardfork_activation_block;
-            if cfg.handler_cfg.spec_id >= SpecId::DAO_FORK
+            if cfg.spec_id >= SpecId::DAO_FORK
                 && drift <= DAO_FORCE_EXTRA_DATA_RANGE
                 && *header.extra_data != DAO_EXTRA_DATA
             {
@@ -194,7 +157,7 @@ impl BlockBuilder {
     }
 
     /// Retrieves the config of the block builder.
-    pub fn config(&self) -> &CfgEnvWithHandlerCfg {
+    pub fn config(&self) -> &CfgEnvWithChainSpec<L1ChainSpec> {
         &self.cfg
     }
 
@@ -223,7 +186,14 @@ impl BlockBuilder {
         debug_context: Option<
             DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
         >,
-    ) -> ExecutionResultWithContext<'evm, BlockchainErrorT, StateErrorT, DebugDataT, StateT>
+    ) -> ExecutionResultWithContext<
+        'evm,
+        L1ChainSpec,
+        BlockchainErrorT,
+        StateErrorT,
+        DebugDataT,
+        StateT,
+    >
     where
         'blockchain: 'evm,
         BlockchainErrorT: Debug + Send,
@@ -259,7 +229,7 @@ impl BlockBuilder {
             }
         }
 
-        let spec_id = self.cfg.handler_cfg.spec_id;
+        let spec_id = self.cfg.spec_id;
 
         let block = BlockEnv {
             number: U256::from(self.header.number),
@@ -280,10 +250,10 @@ impl BlockBuilder {
                 .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
         };
 
-        let env = EnvWithHandlerCfg::new_with_cfg_env(
+        let env = EnvWithChainSpec::new_with_cfg_env(
             self.cfg.clone(),
             block.clone(),
-            transaction.clone().into(),
+            transaction.clone(),
         );
 
         let db = DatabaseComponents {
@@ -300,6 +270,7 @@ impl BlockBuilder {
         ) = {
             if let Some(debug_context) = debug_context {
                 let mut evm = Evm::builder()
+                    .with_chain_spec::<L1ChainSpec>()
                     .with_ref_db(db)
                     .with_external_context(debug_context.data)
                     .with_env_with_handler_cfg(env)
@@ -328,13 +299,14 @@ impl BlockBuilder {
                     Ok(result) => (evm_context, result),
                     Err(error) => {
                         return ExecutionResultWithContext {
-                            result: Err(error.into()),
+                            result: Err(TransactionError::from(error).into()),
                             evm_context,
                         };
                     }
                 }
             } else {
                 let mut evm = Evm::builder()
+                    .with_chain_spec::<L1ChainSpec>()
                     .with_ref_db(db)
                     .with_env_with_handler_cfg(env)
                     .build();
@@ -358,7 +330,7 @@ impl BlockBuilder {
                     Ok(result) => (evm_context, result),
                     Err(error) => {
                         return ExecutionResultWithContext {
-                            result: Err(error.into()),
+                            result: Err(TransactionError::from(error).into()),
                             evm_context,
                         };
                     }
@@ -535,7 +507,7 @@ mod tests {
         let spec_id = SpecId::BYZANTIUM;
         let parent = LocalBlock::empty(spec_id, partial_header);
 
-        let cfg = CfgEnvWithHandlerCfg::new_with_spec_id(CfgEnv::default(), spec_id);
+        let cfg = CfgEnvWithChainSpec::<L1ChainSpec>::new(CfgEnv::default(), spec_id);
         let block_options = BlockOptions {
             number: Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),
             extra_data: Some(Bytes::from(DAO_EXTRA_DATA)),
@@ -568,7 +540,7 @@ mod tests {
         let spec_id = SpecId::BYZANTIUM;
         let parent = LocalBlock::empty(spec_id, partial_header);
 
-        let cfg = CfgEnvWithHandlerCfg::new_with_spec_id(CfgEnv::default(), spec_id);
+        let cfg = CfgEnvWithChainSpec::<L1ChainSpec>::new(CfgEnv::default(), spec_id);
 
         let block_options = BlockOptions {
             number: Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),

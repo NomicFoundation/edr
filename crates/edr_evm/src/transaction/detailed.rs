@@ -7,7 +7,7 @@ use crate::chain_spec::ChainSpec;
 /// Wrapper struct for a transaction and its receipt.
 pub struct DetailedTransaction<'transaction, ChainSpecT: ChainSpec> {
     /// The transaction
-    pub transaction: &'transaction ChainSpecT::SignedTransaction,
+    pub transaction: &'transaction ChainSpecT::Transaction,
     /// The transaction's receipt
     pub receipt: &'transaction Arc<BlockReceipt>,
 }

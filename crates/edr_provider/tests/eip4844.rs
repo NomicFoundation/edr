@@ -7,12 +7,13 @@ use edr_eth::{
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
-        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction, Transaction,
+        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction as _,
+        Transaction as _, TransactionType,
     },
     AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
-    U256,
+    KECCAK_EMPTY, U256,
 };
-use edr_evm::{EnvKzgSettings, KECCAK_EMPTY};
+use edr_evm::interpreter::primitives::EnvKzgSettings;
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
@@ -149,19 +150,29 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
     let transaction = transaction.into_payload();
     let from = transaction.caller();
 
+    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
+        Some(transaction.access_list().to_vec())
+    } else {
+        None
+    };
+
+    let blob_hashes = if transaction.transaction_type() == TransactionType::Eip4844 {
+        Some(transaction.blob_hashes().to_vec())
+    } else {
+        None
+    };
+
     Ok(CallRequest {
         from: Some(*from),
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
-        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
+        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas().cloned(),
         gas: Some(transaction.gas_limit()),
-        value: Some(transaction.value()),
+        value: Some(*transaction.value()),
         data: Some(transaction.data().clone()),
-        access_list: transaction
-            .access_list()
-            .map(|access_list| access_list.0.clone()),
+        access_list,
         blobs,
-        blob_hashes: transaction.blob_hashes(),
+        blob_hashes,
         ..CallRequest::default()
     })
 }
@@ -178,22 +189,32 @@ fn fake_transaction_request() -> EthTransactionRequest {
     let transaction = transaction.into_payload();
     let from = *transaction.caller();
 
+    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
+        Some(transaction.access_list().to_vec())
+    } else {
+        None
+    };
+
+    let blob_hashes = if transaction.transaction_type() == TransactionType::Eip4844 {
+        Some(transaction.blob_hashes().to_vec())
+    } else {
+        None
+    };
+
     EthTransactionRequest {
         from,
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
-        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
+        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas().cloned(),
         gas: Some(transaction.gas_limit()),
-        value: Some(transaction.value()),
+        value: Some(*transaction.value()),
         data: Some(transaction.data().clone()),
         nonce: Some(transaction.nonce()),
         chain_id: transaction.chain_id(),
-        access_list: transaction
-            .access_list()
-            .map(|access_list| access_list.0.clone()),
+        access_list,
         transaction_type: Some(transaction.transaction_type().into()),
         blobs,
-        blob_hashes: transaction.blob_hashes(),
+        blob_hashes,
         ..EthTransactionRequest::default()
     }
 }

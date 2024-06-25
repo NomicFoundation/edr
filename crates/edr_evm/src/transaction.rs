@@ -6,53 +6,85 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{Address, SpecId, U256};
+use edr_eth::{SpecId, U256};
 use revm::{
     db::DatabaseComponentError,
     interpreter::gas::validate_initial_tx_gas,
-    primitives::{EVMError, InvalidHeader, InvalidTransaction},
+    primitives::{EVMError, EVMErrorForChain, TransactionValidation},
 };
 
 pub use self::detailed::*;
 
 /// Invalid transaction error
-#[derive(Debug, thiserror::Error)]
-pub enum TransactionError<BE, SE> {
+#[derive(thiserror::Error)]
+pub enum TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
+{
     /// Blockchain errors
     #[error(transparent)]
-    Blockchain(#[from] BE),
-    #[error("{0}")]
+    Blockchain(BlockchainErrorT),
     /// Custom errors
+    #[error("{0}")]
     Custom(String),
     /// EIP-1559 is not supported
     #[error("Cannot run transaction: EIP 1559 is not activated.")]
     Eip1559Unsupported,
+    /// Invalid block header
+    #[error(transparent)]
+    InvalidHeader(revm::primitives::InvalidHeader),
     /// Corrupt transaction data
-    #[error("Invalid transaction: {0:?}")]
-    InvalidTransaction(InvalidTransaction),
-    /// The transaction is expected to have a prevrandao, as the executor's
-    /// config is on a post-merge hardfork.
-    #[error("Post-merge transaction is missing prevrandao")]
-    MissingPrevrandao,
+    #[error(transparent)]
+    InvalidTransaction(<ChainSpecT::Transaction as TransactionValidation>::ValidationError),
+    /// Precompile errors
+    #[error("{0}")]
+    Precompile(String),
     /// State errors
     #[error(transparent)]
-    State(SE),
+    State(StateErrorT),
 }
 
-impl<BE, SE> From<EVMError<DatabaseComponentError<SE, BE>>> for TransactionError<BE, SE>
+impl<ChainSpecT, BlockchainErrorT, StateErrorT> Debug
+    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    BE: Debug + Send,
-    SE: Debug + Send,
+    ChainSpecT:
+        revm::primitives::ChainSpec<Transaction: TransactionValidation<ValidationError: Debug>>,
+    BlockchainErrorT: Debug,
+    StateErrorT: Debug,
 {
-    fn from(error: EVMError<DatabaseComponentError<SE, BE>>) -> Self {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Blockchain(arg0) => f.debug_tuple("Blockchain").field(arg0).finish(),
+            Self::Custom(arg0) => f.debug_tuple("Custom").field(arg0).finish(),
+            Self::Eip1559Unsupported => write!(f, "Eip1559Unsupported"),
+            Self::InvalidHeader(arg0) => f.debug_tuple("InvalidHeader").field(arg0).finish(),
+            Self::InvalidTransaction(arg0) => {
+                f.debug_tuple("InvalidTransaction").field(arg0).finish()
+            }
+            Self::Precompile(arg0) => f.debug_tuple("Precompile").field(arg0).finish(),
+            Self::State(arg0) => f.debug_tuple("State").field(arg0).finish(),
+        }
+    }
+}
+
+impl<ChainSpecT, BlockchainErrorT, StateErrorT>
+    From<EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>>
+    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: revm::primitives::ChainSpec,
+    BlockchainErrorT: Debug + Send,
+    StateErrorT: Debug + Send,
+{
+    fn from(
+        error: EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>,
+    ) -> Self {
         match error {
-            EVMError::Transaction(e) => Self::InvalidTransaction(e),
-            EVMError::Header(
-                InvalidHeader::ExcessBlobGasNotSet | InvalidHeader::PrevrandaoNotSet,
-            ) => unreachable!("error: {error:?}"),
+            EVMError::Transaction(error) => Self::InvalidTransaction(error),
+            EVMError::Header(error) => Self::InvalidHeader(error),
             EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
             EVMError::Database(DatabaseComponentError::BlockHash(e)) => Self::Blockchain(e),
             EVMError::Custom(error) => Self::Custom(error),
+            EVMError::Precompile(error) => Self::Precompile(error),
         }
     }
 }
@@ -74,7 +106,7 @@ pub enum CreationError {
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: Transaction>(
+pub fn validate<TransactionT: SignedTransaction>(
     transaction: TransactionT,
     spec_id: SpecId,
 ) -> Result<TransactionT, CreationError> {
@@ -94,27 +126,18 @@ pub fn validate<TransactionT: Transaction>(
 }
 
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
-    let access_list = transaction
-        .access_list()
-        .cloned()
-        .map(Vec::<(Address, Vec<U256>)>::from);
-
+pub fn initial_cost(transaction: &impl SignedTransaction, spec_id: SpecId) -> u64 {
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),
         transaction.kind() == TxKind::Create,
-        access_list
-            .as_ref()
-            .map_or(&[], |access_list| access_list.as_slice()),
-        // TODO: https://github.com/NomicFoundation/edr/issues/427
-        &[],
+        transaction.access_list(),
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction, Bytes};
+    use edr_eth::{transaction, Address, Bytes};
 
     use super::*;
 

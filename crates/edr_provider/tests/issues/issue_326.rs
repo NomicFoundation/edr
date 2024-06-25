@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
-use edr_eth::{transaction::EthTransactionRequest, AccountInfo, Address, SpecId, U256};
-use edr_evm::KECCAK_EMPTY;
+use edr_eth::{
+    transaction::EthTransactionRequest, AccountInfo, Address, SpecId, KECCAK_EMPTY, U256,
+};
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,

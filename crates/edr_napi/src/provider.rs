@@ -2,6 +2,7 @@ mod config;
 
 use std::sync::Arc;
 
+use edr_evm::chain_spec::L1ChainSpec;
 use edr_provider::{time::CurrentTime, InvalidRequestReason};
 use edr_rpc_eth::jsonrpc;
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
@@ -212,9 +213,9 @@ pub struct Response {
     json: String,
     /// When a transaction fails to execute, the provider returns a trace of the
     /// transaction.
-    solidity_trace: Option<Arc<edr_evm::trace::Trace>>,
+    solidity_trace: Option<Arc<edr_evm::trace::Trace<L1ChainSpec>>>,
     /// This may contain zero or more traces, depending on the (batch) request
-    traces: Vec<Arc<edr_evm::trace::Trace>>,
+    traces: Vec<Arc<edr_evm::trace::Trace<L1ChainSpec>>>,
 }
 
 #[napi]

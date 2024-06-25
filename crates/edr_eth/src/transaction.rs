@@ -13,14 +13,11 @@ pub mod request;
 pub mod signed;
 mod r#type;
 
-pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
+pub use revm_primitives::{alloy_primitives::TxKind, Transaction};
 
 pub use self::r#type::TransactionType;
-use crate::{
-    access_list::{AccessList, AccessListItem},
-    Address, Bytes, U256,
-};
+use crate::{AccessListItem, Address, Bytes, U256};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -55,46 +52,14 @@ pub enum Signed {
     Eip4844(signed::Eip4844),
 }
 
-/// Trait for signed transactions.
 pub trait SignedTransaction: Transaction {
-    /// Returns the caller/signer of the transaction.
-    fn caller(&self) -> &Address;
-}
-
-pub trait Transaction {
-    /// Returns the access list of the transaction, if any.
-    fn access_list(&self) -> Option<&AccessList>;
-
-    /// Returns the input data of the transaction.
-    fn data(&self) -> &Bytes;
-
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee.
     fn effective_gas_price(&self, block_base_fee: U256) -> U256;
 
-    /// The maximum amount of gas the transaction can use.
-    fn gas_limit(&self) -> u64;
-
-    /// The gas price the sender is willing to pay.
-    fn gas_price(&self) -> U256;
-
-    /// Returns what kind of transaction this is.
-    fn kind(&self) -> TxKind;
-
     /// The maximum fee per gas the sender is willing to pay. Only applicable
     /// for post-EIP-1559 transactions.
     fn max_fee_per_gas(&self) -> Option<U256>;
-
-    /// The maximum fee per blob gas the sender is willing to pay. Only
-    /// applicable for EIP-4844 transactions.
-    fn max_fee_per_blob_gas(&self) -> Option<U256>;
-
-    /// The maximum priority fee per gas the sender is willing to pay. Only
-    /// applicable for post-EIP-1559 transactions.
-    fn max_priority_fee_per_gas(&self) -> Option<U256>;
-
-    /// The transaction's nonce.
-    fn nonce(&self) -> u64;
 
     /// The total amount of blob gas used by the transaction. Only applicable
     /// for EIP-4844 transactions.
@@ -105,17 +70,19 @@ pub trait Transaction {
 
     /// The type of the transaction.
     fn transaction_type(&self) -> TransactionType;
-
-    /// The value of the transaction.
-    fn value(&self) -> U256;
 }
 
-pub fn max_cost(transaction: &impl Transaction) -> U256 {
-    U256::from(transaction.gas_limit()).saturating_mul(transaction.gas_price())
+pub trait TransactionMut {
+    /// Sets the gas limit of the transaction.
+    fn set_gas_limit(&mut self, gas_limit: u64);
 }
 
-pub fn upfront_cost(transaction: &impl Transaction) -> U256 {
-    max_cost(transaction).saturating_add(transaction.value())
+pub fn max_cost(transaction: &impl SignedTransaction) -> U256 {
+    U256::from(transaction.gas_limit()).saturating_mul(*transaction.gas_price())
+}
+
+pub fn upfront_cost(transaction: &impl SignedTransaction) -> U256 {
+    max_cost(transaction).saturating_add(*transaction.value())
 }
 
 /// Represents _all_ transaction requests received from RPC

@@ -1,8 +1,9 @@
 use core::fmt::Debug;
 
+use edr_eth::db::Database;
 use edr_evm::{
-    db::Database,
-    evm::EvmHandler,
+    chain_spec::L1ChainSpec,
+    evm::handler::register::EvmHandler,
     trace::{register_trace_collector_handles, TraceCollector},
     GetContextData,
 };
@@ -14,13 +15,13 @@ use crate::{
 
 /// Registers the EIP-3155 tracer handles.
 pub fn register_debugger_handles<DatabaseT, ContextT>(
-    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
+    handler: &mut EvmHandler<'_, L1ChainSpec, ContextT, DatabaseT>,
 ) where
     DatabaseT: Database,
     DatabaseT::Error: Debug,
     ContextT: GetContextData<ConsoleLogCollector>
         + GetContextData<Mocker>
-        + GetContextData<TraceCollector>,
+        + GetContextData<TraceCollector<L1ChainSpec>>,
 {
     register_console_log_handles(handler);
     register_mocking_handles(handler);
@@ -30,7 +31,7 @@ pub fn register_debugger_handles<DatabaseT, ContextT>(
 pub struct Debugger {
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
-    pub trace_collector: TraceCollector,
+    pub trace_collector: TraceCollector<L1ChainSpec>,
 }
 
 impl Debugger {
@@ -58,8 +59,8 @@ impl GetContextData<Mocker> for Debugger {
     }
 }
 
-impl GetContextData<TraceCollector> for Debugger {
-    fn get_context_data(&mut self) -> &mut TraceCollector {
+impl GetContextData<TraceCollector<L1ChainSpec>> for Debugger {
+    fn get_context_data(&mut self) -> &mut TraceCollector<L1ChainSpec> {
         &mut self.trace_collector
     }
 }

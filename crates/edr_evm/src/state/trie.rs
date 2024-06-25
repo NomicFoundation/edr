@@ -251,8 +251,10 @@ impl StateDebug for TrieState {
 
 #[cfg(test)]
 mod tests {
+    use edr_eth::Bytes;
+
     use super::*;
-    use crate::{state::AccountModifierFn, Bytes};
+    use crate::state::AccountModifierFn;
 
     #[test]
     fn test_trie_state_clone() -> anyhow::Result<()> {

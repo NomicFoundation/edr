@@ -2,7 +2,8 @@ use std::{fmt::Display, sync::mpsc::channel};
 
 use ansi_term::{Color, Style};
 use edr_eth::{
-    transaction::{self, Transaction},
+    result::ExecutionResult,
+    transaction::{self, SignedTransaction},
     Bytes, B256, U256,
 };
 use edr_evm::{
@@ -10,8 +11,8 @@ use edr_evm::{
     chain_spec::L1ChainSpec,
     precompile::{self, Precompiles},
     trace::{AfterMessage, TraceMessage},
-    transaction::SignedTransaction as _,
-    ExecutionResult, SyncBlock,
+    transaction::Transaction as _,
+    SyncBlock,
 };
 use edr_provider::{ProviderError, TransactionFailure};
 use itertools::izip;
@@ -358,7 +359,7 @@ impl LogCollector {
             if let Some(to) = transaction.kind().to() {
                 logger.log_with_title("To", format!("0x{to:x}"));
             }
-            if transaction.value() > U256::ZERO {
+            if *transaction.value() > U256::ZERO {
                 logger.log_with_title("Value", wei_to_human_readable(transaction.value()));
             }
 
@@ -714,8 +715,8 @@ impl LogCollector {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &edr_evm::transaction::Signed,
-        result: &edr_evm::ExecutionResult,
-        trace: &edr_evm::trace::Trace,
+        result: &edr_eth::result::ExecutionResult<L1ChainSpec>,
+        trace: &edr_evm::trace::Trace<L1ChainSpec>,
         console_log_inputs: &[Bytes],
         should_highlight_hash: bool,
     ) {
@@ -805,7 +806,7 @@ impl LogCollector {
     fn log_contract_and_function_name<const PRINT_INVALID_CONTRACT_WARNING: bool>(
         &mut self,
         spec_id: edr_eth::SpecId,
-        trace: &edr_evm::trace::Trace,
+        trace: &edr_evm::trace::Trace<L1ChainSpec>,
     ) {
         if let Some(TraceMessage::Before(before_message)) = trace.messages.first() {
             if let Some(to) = before_message.to {
@@ -826,7 +827,7 @@ impl LogCollector {
                     let is_code_empty = before_message
                         .code
                         .as_ref()
-                        .map_or(true, edr_evm::Bytecode::is_empty);
+                        .map_or(true, edr_eth::Bytecode::is_empty);
 
                     if is_code_empty {
                         if PRINT_INVALID_CONTRACT_WARNING {
@@ -837,7 +838,7 @@ impl LogCollector {
                             before_message
                                 .code
                                 .as_ref()
-                                .map(edr_evm::Bytecode::original_bytes)
+                                .map(edr_eth::Bytecode::original_bytes)
                                 .expect("Call must be defined"),
                             Some(before_message.data.clone()),
                         );
@@ -871,7 +872,7 @@ impl LogCollector {
                 self.log_with_title("Contract deployment", contract_name);
 
                 if let ExecutionResult::Success { output, .. } = result {
-                    if let edr_evm::Output::Create(_, address) = output {
+                    if let edr_eth::result::Output::Create(_, address) = output {
                         if let Some(deployed_address) = address {
                             self.log_with_title(
                                 "Contract address",
@@ -1060,8 +1061,8 @@ impl LogCollector {
         spec_id: edr_eth::SpecId,
         block_result: &edr_provider::DebugMineBlockResult<BlockchainError>,
         transaction: &transaction::Signed,
-        transaction_result: &edr_evm::ExecutionResult,
-        trace: &edr_evm::trace::Trace,
+        transaction_result: &edr_eth::result::ExecutionResult<L1ChainSpec>,
+        trace: &edr_evm::trace::Trace<L1ChainSpec>,
     ) {
         self.indented(|logger| {
             logger.log("Currently sent transaction:");
@@ -1101,8 +1102,8 @@ impl LogCollector {
         spec_id: edr_eth::SpecId,
         block_result: &edr_provider::DebugMineBlockResult<BlockchainError>,
         transaction: &transaction::Signed,
-        transaction_result: &edr_evm::ExecutionResult,
-        trace: &edr_evm::trace::Trace,
+        transaction_result: &edr_eth::result::ExecutionResult<L1ChainSpec>,
+        trace: &edr_evm::trace::Trace<L1ChainSpec>,
     ) {
         self.indented(|logger| {
             logger.log_contract_and_function_name::<false>(spec_id, trace);
@@ -1218,12 +1219,12 @@ impl LogCollector {
     }
 }
 
-fn wei_to_human_readable(wei: U256) -> String {
-    if wei == U256::ZERO {
+fn wei_to_human_readable(wei: &U256) -> String {
+    if *wei == U256::ZERO {
         "0 ETH".to_string()
-    } else if wei < U256::from(100_000u64) {
+    } else if *wei < U256::from(100_000u64) {
         format!("{wei} wei")
-    } else if wei < U256::from(100_000_000_000_000u64) {
+    } else if *wei < U256::from(100_000_000_000_000u64) {
         let mut decimal = to_decimal_string(wei, 9);
         decimal.push_str(" gwei");
         decimal
@@ -1237,7 +1238,7 @@ fn wei_to_human_readable(wei: U256) -> String {
 /// Converts the provided `value` to a decimal string after dividing it by
 /// `10^exponent`. The returned string will have at most `MAX_DECIMALS`
 /// decimals.
-fn to_decimal_string(value: U256, exponent: u8) -> String {
+fn to_decimal_string(value: &U256, exponent: u8) -> String {
     const MAX_DECIMALS: u8 = 4;
 
     let (integer, remainder) = value.div_rem(U256::from(10).pow(U256::from(exponent)));

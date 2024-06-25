@@ -1,16 +1,13 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use hashbrown::HashMap;
-use revm_primitives::{keccak256, TxEnv};
+use revm_primitives::keccak256;
 
-use super::kind_to_transact_to;
 use crate::{
-    access_list::AccessList,
     signature::{self, Fakeable},
     transaction::{self, TxKind},
     utils::envelop_bytes,
-    Address, Bytes, B256, U256,
+    AccessList, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -50,27 +47,6 @@ impl Eip2930 {
 
             keccak256(enveloped)
         })
-    }
-}
-
-impl From<Eip2930> for TxEnv {
-    fn from(value: Eip2930) -> Self {
-        TxEnv {
-            caller: *value.caller(),
-            gas_limit: value.gas_limit,
-            gas_price: value.gas_price,
-            transact_to: kind_to_transact_to(value.kind),
-            value: value.value,
-            data: value.input,
-            nonce: Some(value.nonce),
-            chain_id: Some(value.chain_id),
-            access_list: value.access_list.into(),
-            gas_priority_fee: None,
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
-            eof_initcodes: Vec::new(),
-            eof_initcodes_hashed: HashMap::new(),
-        }
     }
 }
 
@@ -148,7 +124,7 @@ mod tests {
     use k256::SecretKey;
 
     use super::*;
-    use crate::{access_list::AccessListItem, signature::secret_key_from_str};
+    use crate::{signature::secret_key_from_str, AccessListItem};
 
     fn dummy_request() -> transaction::request::Eip2930 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();

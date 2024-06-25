@@ -7,7 +7,7 @@ use edr_eth::{
     receipt::{BlockReceipt, TransactionReceipt, TypedReceipt},
     trie,
     withdrawal::Withdrawal,
-    B256,
+    SpecId, B256,
 };
 use itertools::izip;
 use revm::primitives::keccak256;
@@ -16,7 +16,7 @@ use crate::{
     blockchain::BlockchainError,
     chain_spec::{ChainSpec, SyncChainSpec},
     transaction::DetailedTransaction,
-    Block, SpecId, SyncBlock,
+    Block, SyncBlock,
 };
 
 /// A locally mined block, which contains complete information.
@@ -24,7 +24,7 @@ use crate::{
 #[rlp(trailing)]
 pub struct LocalBlock<ChainSpecT: ChainSpec> {
     header: block::Header,
-    transactions: Vec<ChainSpecT::SignedTransaction>,
+    transactions: Vec<ChainSpecT::Transaction>,
     #[rlp(skip)]
     transaction_receipts: Vec<Arc<BlockReceipt>>,
     ommers: Vec<block::Header>,
@@ -56,7 +56,7 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
     /// Constructs a new instance with the provided data.
     pub fn new(
         partial_header: PartialHeader,
-        transactions: Vec<ChainSpecT::SignedTransaction>,
+        transactions: Vec<ChainSpecT::Transaction>,
         transaction_receipts: Vec<TransactionReceipt<Log>>,
         ommers: Vec<Header>,
         withdrawals: Option<Vec<Withdrawal>>,
@@ -127,7 +127,7 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
             .expect("usize fits into u64")
     }
 
-    fn transactions(&self) -> &[ChainSpecT::SignedTransaction] {
+    fn transactions(&self) -> &[ChainSpecT::Transaction] {
         &self.transactions
     }
 

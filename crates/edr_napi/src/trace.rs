@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_evm::{interpreter::OpCode, trace::BeforeMessage};
+use edr_evm::{chain_spec::L1ChainSpec, interpreter::OpCode, trace::BeforeMessage};
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Env, JsBuffer, JsBufferValue,
@@ -135,7 +135,7 @@ impl TracingStep {
     }
 }
 
-fn u256_to_bigint(v: &edr_evm::U256) -> BigInt {
+fn u256_to_bigint(v: &edr_eth::U256) -> BigInt {
     BigInt {
         sign_bit: false,
         words: v.into_limbs().to_vec(),
@@ -151,11 +151,11 @@ pub struct TracingMessageResult {
 
 #[napi]
 pub struct RawTrace {
-    inner: Arc<edr_evm::trace::Trace>,
+    inner: Arc<edr_evm::trace::Trace<L1ChainSpec>>,
 }
 
 impl RawTrace {
-    pub fn new(inner: Arc<edr_evm::trace::Trace>) -> Self {
+    pub fn new(inner: Arc<edr_evm::trace::Trace<L1ChainSpec>>) -> Self {
         Self { inner }
     }
 }

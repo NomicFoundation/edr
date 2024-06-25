@@ -4,18 +4,17 @@ use std::sync::Arc;
 
 use edr_eth::{
     block::PartialHeader,
-    log::FilterLog,
+    log::{FilterLog, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::Transaction,
-    Address, Bloom, Bytes, B256, U256,
+    transaction::{SignedTransaction as _, Transaction as _},
+    Address, Bloom, Bytes, HashSet, SpecId, B256, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain},
     chain_spec::L1ChainSpec,
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    transaction::SignedTransaction as _,
-    HashSet, LocalBlock, Log, SpecId, SyncBlock,
+    LocalBlock, SyncBlock,
 };
 use serial_test::serial;
 
@@ -38,9 +37,8 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
 ) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>> {
-    use edr_evm::{
-        blockchain::ForkedBlockchain, state::IrregularState, HashMap, RandomHashGenerator,
-    };
+    use edr_eth::HashMap;
+    use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use parking_lot::Mutex;
