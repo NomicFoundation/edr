@@ -379,8 +379,7 @@ export interface ContractFunction {
   readonly name: string
   /** TODO: Replace with `ContractFunctionType` */
   readonly type: number
-  /** TODO: Replace with `SourceLocation`` */
-  readonly location: any
+  readonly location: SourceLocation
   /** TODO: Replace with `Contract` */
   readonly contract: any
   /** TODO: Replace with `ContractFunctionVisibility` */

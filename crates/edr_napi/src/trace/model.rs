@@ -1,7 +1,7 @@
 use std::{cell::OnceCell, rc::Rc};
 
 use napi::{
-    bindgen_prelude::{FromNapiValue, Object, Uint8Array, Undefined},
+    bindgen_prelude::{ClassInstance, FromNapiValue, Object, Uint8Array, Undefined},
     Either, Env, JsBoolean, JsFunction, JsObject,
 };
 use napi_derive::napi;
@@ -265,9 +265,8 @@ pub struct ContractFunction {
     #[napi(readonly, js_name = "type")]
     pub r#type: u8, // enum but can't use since ts enums are not structurally typed
     // location: Reference<SourceLocation>,
-    /// TODO: Replace with `SourceLocation``
-    #[napi(readonly, ts_type = "any")]
-    pub location: Object,
+    #[napi(readonly)]
+    pub location: ClassInstance<SourceLocation>,
     /// TODO: Replace with `Contract`
     #[napi(readonly, ts_type = "any")]
     pub contract: Object,
