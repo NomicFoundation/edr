@@ -510,6 +510,13 @@ export class Exit {
   isError(): boolean
   getReason(): string
 }
+export class SourceFile {
+  readonly sourceName: string
+  readonly content: string
+  constructor(sourceName: string, content: string)
+  addFunction(contractFunction: object): void
+  getContainingFunction(location: object): object | undefined
+}
 export class SourceLocation {
   offset: number
   length: number

@@ -1,11 +1,109 @@
 use std::{cell::OnceCell, rc::Rc};
 
 use napi::{
-    bindgen_prelude::{Object, Uint8Array, Undefined},
-    Either, Env, JsFunction, JsObject,
+    bindgen_prelude::{FromNapiValue, Object, Uint8Array, Undefined},
+    Either, Env, JsBoolean, JsFunction, JsObject,
 };
 use napi_derive::napi;
 use serde_json::Value;
+
+const ENABLE_DEBUG: bool = false;
+
+macro_rules! neprintln {
+    ($($arg:tt)*) => {
+        if ENABLE_DEBUG {
+            eprintln!("{}", format_args!($($arg)*))
+        }
+    };
+    () => {
+    };
+}
+
+struct ContractFunctionRef {
+    r#ref: Rc<napi::Ref<()>>,
+}
+
+impl ContractFunctionRef {
+    fn from_obj(obj: Object, env: Env) -> napi::Result<ContractFunctionRef> {
+        let r#ref = env.create_reference(obj)?;
+        let r#ref = Rc::new(r#ref);
+        Ok(ContractFunctionRef { r#ref })
+    }
+
+    fn as_inner(&self, env: Env) -> napi::Result<Object> {
+        env.get_reference_value::<Object>(&self.r#ref)
+    }
+
+    fn location(&self, env: Env) -> napi::Result<Object> {
+        let obj = self.as_inner(env)?;
+        obj.get_named_property::<Object>("location")
+    }
+}
+
+#[napi]
+struct SourceFile {
+    // Referenced because it can be later updated by outside code
+    functions: Vec<ContractFunctionRef>,
+
+    #[napi(readonly)]
+    pub source_name: String,
+    #[napi(readonly)]
+    pub content: String,
+}
+
+#[napi]
+impl SourceFile {
+    #[napi(constructor)]
+    pub fn new(source_name: String, content: String) -> napi::Result<SourceFile> {
+        neprintln!("SourceFile::new in Rust");
+        Ok(SourceFile {
+            functions: Vec::new(),
+
+            content,
+            source_name,
+        })
+    }
+
+    // TODO: See if this even works
+    #[napi]
+    pub fn add_function(&mut self, contract_function: JsObject, env: Env) -> napi::Result<()> {
+        neprintln!("SourceFile::add_function in Rust");
+        let contract_function = ContractFunctionRef::from_obj(contract_function, env)?;
+
+        self.functions.push(contract_function);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn get_containing_function(
+        &self,
+        location: JsObject,
+        env: Env,
+    ) -> napi::Result<Either<JsObject, Undefined>> {
+        neprintln!("SourceFile::get_containing_function in Rust");
+
+        let location_ref = env.create_reference(location)?;
+        for func in &self.functions {
+            let location = env.get_reference_value::<JsObject>(&location_ref)?;
+
+            // This is actually calling our own method but we only have a handle
+            // to JsObject, so first let's see if it works and then make sure
+            // it works without crossing the JS side redundantly.
+            let func_location = func.location(env)?;
+            let contains = func_location
+                .get_named_property::<JsFunction>("contains")?
+                .apply1::<Object, Object, JsBoolean>(func_location, location)?
+                .get_value()?;
+            neprintln!("Contains: {:?}", contains);
+
+            if contains {
+                return Ok(Either::A(func.as_inner(env)?));
+            }
+        }
+
+        return Ok(Either::B(()));
+    }
+}
 
 #[derive(Clone)]
 /// Wraps the original `SourceFile` class instance.
@@ -43,6 +141,7 @@ impl SourceFileRef {
         location: JsObject,
         env: Env,
     ) -> napi::Result<Either<JsObject, Undefined>> {
+        neprintln!("SourceFileRef::get_containing_function in Rust");
         let obj = self.as_inner(env)?;
         let result = obj
             .get_named_property::<JsFunction>("getContainingFunction")?
@@ -52,6 +151,7 @@ impl SourceFileRef {
     }
 
     fn equals(&self, other: &SourceFileRef, env: Env) -> napi::Result<bool> {
+        neprintln!("SourceFileRef::equals in Rust");
         let obj = self.as_inner(env)?;
         let other_obj = other.as_inner(env)?;
 
@@ -74,6 +174,7 @@ pub struct SourceLocation {
 impl SourceLocation {
     #[napi(constructor)]
     pub fn new(file: JsObject, offset: u32, length: u32, env: Env) -> napi::Result<SourceLocation> {
+        neprintln!("SourceLocation::new in Rust");
         Ok(SourceLocation {
             line: OnceCell::new(),
             file: SourceFileRef::from_obj(file, env)?,
@@ -86,6 +187,7 @@ impl SourceLocation {
     // by napi-rs, so we use a getter, instead
     #[napi(getter, ts_return_type = "any")]
     pub fn file(&self, env: Env) -> napi::Result<JsObject> {
+        neprintln!("SourceLocation::file in Rust");
         self.file.as_inner(env)
     }
 
@@ -113,6 +215,7 @@ impl SourceLocation {
     // NOTE: This is the actual return type of the function in JS land for now
     #[napi(ts_return_type = "ContractFunction | undefined")]
     pub fn get_containing_function(&self, env: Env) -> napi::Result<Either<JsObject, Undefined>> {
+        neprintln!("SourceLocation::get_containing_function in Rust");
         // 1. Create a SourceLocation JS object that will be then
         // called natively in JS by SourceFile.getContainingFunction
         // 2. It will be then passed as an argument inside the function
@@ -129,6 +232,7 @@ impl SourceLocation {
 
     #[napi]
     pub fn contains(&self, other: &SourceLocation, env: Env) -> bool {
+        neprintln!("SourceLocation::contains in Rust");
         // TODO: In JS this compares the references
         if !self
             .file
@@ -146,6 +250,7 @@ impl SourceLocation {
     }
     #[napi]
     pub fn equals(&self, other: &SourceLocation, env: Env) -> bool {
+        neprintln!("SourceLocation::equals in Rust");
         self.file.equals(&other.file, env).expect("TODO")
             && self.offset == other.offset
             && self.length == other.length
