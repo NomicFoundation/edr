@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub(super) struct CheckGasLimitArgs<'a> {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -70,7 +70,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
 }
 
 pub(super) struct BinarySearchEstimationArgs<'a> {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -155,7 +155,7 @@ fn min_difference(lower_bound: u64) -> u64 {
 
 /// Compute miner rewards for percentiles.
 pub(super) fn compute_rewards<LoggerErrorT: Debug>(
-    block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError>,
+    block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
     reward_percentiles: &[RewardPercentile],
 ) -> Result<Vec<U256>, ProviderError<LoggerErrorT>> {
     if block.transactions().is_empty() {

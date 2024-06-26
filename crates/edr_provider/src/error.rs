@@ -52,11 +52,11 @@ pub enum ProviderError<LoggerErrorT> {
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(#[from] BlockchainError),
+    Blockchain(#[from] BlockchainError<L1ChainSpec>),
     #[error(transparent)]
     Creation(#[from] CreationError),
     #[error(transparent)]
-    DebugTrace(#[from] DebugTraceError<L1ChainSpec, BlockchainError, StateError>),
+    DebugTrace(#[from] DebugTraceError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
     #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
     Eip4844CallRequestUnsupported,
     #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
@@ -122,10 +122,12 @@ pub enum ProviderError<LoggerErrorT> {
     MemPoolUpdate(StateError),
     /// An error occurred while mining a block.
     #[error(transparent)]
-    MineBlock(#[from] MineBlockError<L1ChainSpec, BlockchainError, StateError>),
+    MineBlock(#[from] MineBlockError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
-    MineTransaction(#[from] MineTransactionError<L1ChainSpec, BlockchainError, StateError>),
+    MineTransaction(
+        #[from] MineTransactionError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
+    ),
     /// Rpc client error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -134,7 +136,7 @@ pub enum ProviderError<LoggerErrorT> {
     RpcVersion(jsonrpc::Version),
     /// Error while running a transaction
     #[error(transparent)]
-    RunTransaction(#[from] TransactionError<L1ChainSpec, BlockchainError, StateError>),
+    RunTransaction(#[from] TransactionError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
     #[error("hardhat_setMinGasPrice is not supported when EIP-1559 is active")]

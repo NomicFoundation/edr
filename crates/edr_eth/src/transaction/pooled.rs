@@ -74,17 +74,17 @@ impl alloy_rlp::Decodable for PooledTransaction {
         let first = buf.first().ok_or(alloy_rlp::Error::InputTooShort)?;
 
         match *first {
-            0x01 => {
+            Eip2930::TYPE => {
                 buf.advance(1);
 
                 Ok(PooledTransaction::Eip2930(Eip2930::decode(buf)?))
             }
-            0x02 => {
+            Eip1559::TYPE => {
                 buf.advance(1);
 
                 Ok(PooledTransaction::Eip1559(Eip1559::decode(buf)?))
             }
-            0x03 => {
+            Eip4844::TYPE => {
                 buf.advance(1);
 
                 Ok(PooledTransaction::Eip4844(Eip4844::decode(buf)?))

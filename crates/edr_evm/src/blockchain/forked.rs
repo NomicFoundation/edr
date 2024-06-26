@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, num::NonZeroU64, str::FromStr, sync::Arc};
 
+use derive_where::derive_where;
 use edr_eth::{
     beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
@@ -27,10 +28,9 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    chain_spec::SyncChainSpec,
+    chain_spec::{ChainSpec, SyncChainSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, LocalBlock, RandomHashGenerator, RemoteBlockCreationError,
-    SyncBlock,
+    Block, BlockAndTotalDifficulty, LocalBlock, RandomHashGenerator, SyncBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -60,11 +60,12 @@ pub enum CreationError {
 }
 
 /// Error type for [`ForkedBlockchain`].
-#[derive(Debug, thiserror::Error)]
-pub enum ForkedBlockchainError {
+#[derive(thiserror::Error)]
+#[derive_where(Debug; ChainSpecT::RpcBlockConversionError)]
+pub enum ForkedBlockchainError<ChainSpecT: ChainSpec> {
     /// Remote block creation error
     #[error(transparent)]
-    BlockCreation(#[from] RemoteBlockCreationError),
+    BlockCreation(ChainSpecT::RpcBlockConversionError),
     /// Remote blocks cannot be deleted
     #[error("Cannot delete remote block.")]
     CannotDeleteRemote,
@@ -89,12 +90,15 @@ where
     ChainSpecT: SyncChainSpec,
 {
     local_storage: ReservableSparseBlockchainStorage<
-        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
+        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
         ChainSpecT,
     >,
     // We can force caching here because we only fork from a safe block number.
-    remote:
-        RemoteBlockchain<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>, ChainSpecT, true>,
+    remote: RemoteBlockchain<
+        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
+        ChainSpecT,
+        true,
+    >,
     state_root_generator: Arc<Mutex<RandomHashGenerator>>,
     fork_block_number: u64,
     /// The chan id of the forked blockchain is either the local chain id
@@ -256,7 +260,7 @@ impl<ChainSpecT> BlockHashRef for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
 {
-    type Error = BlockchainError;
+    type Error = BlockchainError<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {
@@ -278,7 +282,7 @@ impl<ChainSpecT> Blockchain<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
 {
-    type BlockchainError = BlockchainError;
+    type BlockchainError = BlockchainError<ChainSpecT>;
 
     type StateError = StateError;
 
@@ -535,7 +539,7 @@ impl<ChainSpecT> BlockchainMut<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
 {
-    type Error = BlockchainError;
+    type Error = BlockchainError<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_block(

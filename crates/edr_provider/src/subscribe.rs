@@ -13,7 +13,7 @@ pub struct SubscriptionEvent {
 #[derive(Clone, Debug)]
 pub enum SubscriptionEventData {
     Logs(Vec<LogOutput>),
-    NewHeads(BlockAndTotalDifficulty<L1ChainSpec, BlockchainError>),
+    NewHeads(BlockAndTotalDifficulty<L1ChainSpec, BlockchainError<L1ChainSpec>>),
     NewPendingTransactions(B256),
 }
 

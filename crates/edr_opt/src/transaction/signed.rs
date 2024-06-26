@@ -4,10 +4,14 @@ mod deposited;
 
 use std::sync::OnceLock;
 
-use alloy_rlp::RlpEncodable;
+use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
 pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Legacy};
 use edr_eth::{
-    transaction::{SignedTransaction, Transaction, TransactionMut, TransactionValidation, TxKind},
+    transaction::{
+        SignedTransaction, Transaction, TransactionMut, TransactionValidation, TxKind,
+        INVALID_TX_TYPE_ERROR_MESSAGE,
+    },
+    utils::enveloped,
     Address, Bytes, B256, U256,
 };
 use revm::optimism::InvalidOptimismTransaction;
@@ -17,9 +21,10 @@ use super::Signed;
 /// Deposited transaction.
 ///
 /// For details, see <https://specs.optimism.io/protocol/deposits.html#the-deposited-transaction-type>.
-#[derive(Clone, Debug, Eq, serde::Deserialize, RlpEncodable)]
+#[derive(Clone, Debug, Eq, serde::Deserialize, RlpDecodable, RlpEncodable)]
 #[serde(rename_all = "camelCase")]
 pub struct Deposited {
+    // The order of these fields determines encoding order.
     /// Hash that uniquely identifies the origin of the deposit.
     pub source_hash: B256,
     /// The address of the sender account.
@@ -28,7 +33,7 @@ pub struct Deposited {
     /// if the deposited transaction is a contract creation.
     pub to: TxKind,
     /// The ETH value to mint on L2.
-    #[serde(deserialize_with = "edr_eth::serde::optional_to_default")]
+    // #[serde(with = "edr_eth::serde::optional_u128")]
     pub mint: u128,
     ///  The ETH value to send to the recipient account.
     pub value: U256,
@@ -36,15 +41,72 @@ pub struct Deposited {
     #[serde(rename = "gas")]
     pub gas_limit: u64,
     /// Field indicating if this transaction is exempt from the L2 gas limit.
-    #[serde(rename = "isSystemTx")]
-    pub is_system_transaction: bool,
+    pub is_system_tx: bool,
     #[serde(alias = "input")]
     /// The calldata
     pub data: Bytes,
     /// Cached transaction hash
+    #[rlp(default)]
     #[rlp(skip)]
     #[serde(skip)]
     pub hash: OnceLock<B256>,
+}
+
+impl alloy_rlp::Decodable for Signed {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        match edr_eth::transaction::Signed::decode(buf) {
+            Ok(transaction) => Ok(transaction.into()),
+            Err(alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE)) => {
+                let first = buf.first().ok_or(alloy_rlp::Error::InputTooShort)?;
+
+                match *first {
+                    Deposited::TYPE => {
+                        buf.advance(1);
+
+                        Ok(Signed::Deposited(Deposited::decode(buf)?))
+                    }
+                    _ => Err(alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE)),
+                }
+            }
+            Err(error) => Err(error),
+        }
+    }
+}
+
+impl alloy_rlp::Encodable for Signed {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.encode(out),
+            Signed::PostEip155Legacy(tx) => tx.encode(out),
+            Signed::Eip2930(tx) => enveloped(Eip2930::TYPE, tx, out),
+            Signed::Eip1559(tx) => enveloped(Eip1559::TYPE, tx, out),
+            Signed::Eip4844(tx) => enveloped(Eip4844::TYPE, tx, out),
+            Signed::Deposited(tx) => enveloped(Deposited::TYPE, tx, out),
+        }
+    }
+
+    fn length(&self) -> usize {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.length(),
+            Signed::PostEip155Legacy(tx) => tx.length(),
+            Signed::Eip2930(tx) => tx.length() + 1,
+            Signed::Eip1559(tx) => tx.length() + 1,
+            Signed::Eip4844(tx) => tx.length() + 1,
+            Signed::Deposited(tx) => tx.length() + 1,
+        }
+    }
+}
+
+impl From<edr_eth::transaction::Signed> for Signed {
+    fn from(value: edr_eth::transaction::Signed) -> Self {
+        match value {
+            edr_eth::transaction::Signed::PreEip155Legacy(tx) => Self::PreEip155Legacy(tx),
+            edr_eth::transaction::Signed::PostEip155Legacy(tx) => Self::PostEip155Legacy(tx),
+            edr_eth::transaction::Signed::Eip2930(tx) => Self::Eip2930(tx),
+            edr_eth::transaction::Signed::Eip1559(tx) => Self::Eip1559(tx),
+            edr_eth::transaction::Signed::Eip4844(tx) => Self::Eip4844(tx),
+        }
+    }
 }
 
 impl SignedTransaction for Signed {
@@ -81,7 +143,7 @@ impl SignedTransaction for Signed {
         }
     }
 
-    fn transaction_type(&self) -> edr_eth::transaction::TransactionType {
+    fn transaction_type(&self) -> edr_eth::transaction::Type {
         todo!()
     }
 }
@@ -237,4 +299,24 @@ impl TransactionMut for Signed {
 
 impl TransactionValidation for Signed {
     type ValidationError = InvalidOptimismTransaction;
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy_rlp::Decodable as _;
+    use edr_eth::hex;
+
+    use super::*;
+
+    #[test]
+    fn signed_transaction_encoding_round_trip_deposited() -> anyhow::Result<()> {
+        let bytes = Bytes::from_static(&hex!("7ef9015aa044bae9d41b8380d781187b426c6fe43df5fb2fb57bd4466ef6a701e1f01e015694deaddeaddeaddeaddeaddeaddeaddeaddead000194420000000000000000000000000000000000001580808408f0d18001b90104015d8eb900000000000000000000000000000000000000000000000000000000008057650000000000000000000000000000000000000000000000000000000063d96d10000000000000000000000000000000000000000000000000000000000009f35273d89754a1e0387b89520d989d3be9c37c1f32495a88faf1ea05c61121ab0d1900000000000000000000000000000000000000000000000000000000000000010000000000000000000000002d679b567db6187c0c8323fa982cfb88b74dbcc7000000000000000000000000000000000000000000000000000000000000083400000000000000000000000000000000000000000000000000000000000f4240"));
+
+        let decoded = Signed::decode(&mut &bytes[..])?;
+        let encoded = alloy_rlp::encode(&decoded);
+
+        assert_eq!(encoded, bytes);
+
+        Ok(())
+    }
 }

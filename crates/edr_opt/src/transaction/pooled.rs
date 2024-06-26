@@ -2,6 +2,7 @@ pub use edr_eth::transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Legacy
 
 use super::{Pooled, Signed};
 
+/// An Optimism deposited pooled transaction.
 pub type Deposited = super::signed::Deposited;
 
 impl Pooled {

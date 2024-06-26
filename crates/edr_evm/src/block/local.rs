@@ -112,7 +112,7 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
 }
 
 impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
-    type Error = BlockchainError;
+    type Error = BlockchainError<ChainSpecT>;
 
     fn hash(&self) -> &B256 {
         &self.hash
@@ -206,7 +206,7 @@ fn transaction_to_block_receipts(
 }
 
 impl<ChainSpecT> From<LocalBlock<ChainSpecT>>
-    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
+    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>
 where
     ChainSpecT: SyncChainSpec,
 {

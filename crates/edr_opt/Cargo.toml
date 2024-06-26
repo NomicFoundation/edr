@@ -11,6 +11,7 @@ edr_rpc_eth = { path = "../edr_rpc_eth" }
 log = { version = "0.4.17", default-features = false }
 revm = { git = "https://github.com/NomicFoundation/revm", rev = "14945e92", version = "10.0", default-features = false, features = ["c-kzg", "dev", "optimism", "serde", "std"] }
 serde = { version = "1.0.147", default-features = false, features = ["derive", "std"] }
+thiserror = { version = "1.0.37", default-features = false }
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 
 [dev-dependencies]

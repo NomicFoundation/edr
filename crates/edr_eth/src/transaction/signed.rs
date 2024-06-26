@@ -15,10 +15,7 @@ pub use self::{
     eip4844::Eip4844,
     legacy::{Legacy, PreOrPostEip155},
 };
-use super::{
-    Signed, SignedTransaction, TransactionMut, TransactionType, TxKind,
-    INVALID_TX_TYPE_ERROR_MESSAGE,
-};
+use super::{Signed, SignedTransaction, TransactionMut, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE};
 use crate::{
     signature::{Fakeable, Signature},
     utils::enveloped,
@@ -77,26 +74,26 @@ impl Signed {
 impl alloy_rlp::Decodable for Signed {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         fn is_list(byte: u8) -> bool {
-            byte >= 0xc0
+            byte >= alloy_rlp::EMPTY_LIST_CODE
         }
 
         let first = buf.first().ok_or(alloy_rlp::Error::InputTooShort)?;
 
         match *first {
-            0x01 => {
+            Eip2930::TYPE => {
                 buf.advance(1);
 
-                Ok(Signed::Eip2930(self::eip2930::Eip2930::decode(buf)?))
+                Ok(Signed::Eip2930(Eip2930::decode(buf)?))
             }
-            0x02 => {
+            Eip1559::TYPE => {
                 buf.advance(1);
 
-                Ok(Signed::Eip1559(self::eip1559::Eip1559::decode(buf)?))
+                Ok(Signed::Eip1559(Eip1559::decode(buf)?))
             }
-            0x03 => {
+            Eip4844::TYPE => {
                 buf.advance(1);
 
-                Ok(Signed::Eip4844(self::eip4844::Eip4844::decode(buf)?))
+                Ok(Signed::Eip4844(Eip4844::decode(buf)?))
             }
             byte if is_list(byte) => {
                 let transaction = PreOrPostEip155::decode(buf)?;
@@ -224,12 +221,12 @@ impl SignedTransaction for Signed {
         }
     }
 
-    fn transaction_type(&self) -> TransactionType {
+    fn transaction_type(&self) -> super::Type {
         match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => TransactionType::Legacy,
-            Signed::Eip2930(_) => TransactionType::Eip2930,
-            Signed::Eip1559(_) => TransactionType::Eip1559,
-            Signed::Eip4844(_) => TransactionType::Eip4844,
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => super::Type::Legacy,
+            Signed::Eip2930(_) => super::Type::Eip2930,
+            Signed::Eip1559(_) => super::Type::Eip1559,
+            Signed::Eip4844(_) => super::Type::Eip4844,
         }
     }
 }
@@ -430,8 +427,6 @@ mod tests {
 
                         let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0]).expect("Failed to parse secret key");
                         let transaction = request.sign(&secret_key)?;
-
-                        println!("signature: {:?}", transaction.signature);
 
                         let transaction = Signed::from(transaction);
 

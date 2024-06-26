@@ -21,7 +21,7 @@ pub(super) struct RunCallArgs<'a, 'evm, DebugDataT>
 where
     'a: 'evm,
 {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -33,7 +33,7 @@ where
         DebugContext<
             'evm,
             L1ChainSpec,
-            BlockchainError,
+            BlockchainError<L1ChainSpec>,
             DebugDataT,
             StateRefOverrider<'a, &'evm dyn SyncState<StateError>>,
         >,

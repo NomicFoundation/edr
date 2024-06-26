@@ -2,24 +2,22 @@ use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::{BlobGas, Header},
-    receipt::BlockReceipt,
-    transaction::{self, SignedTransaction},
-    withdrawal::Withdrawal,
-    B256, U256,
+    block::Header, receipt::BlockReceipt, transaction::SignedTransaction as _,
+    withdrawal::Withdrawal, B256, U256,
 };
-use edr_rpc_eth::{client::EthRpcClient, TransactionConversionError};
+use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 
 use crate::{
     blockchain::{BlockchainError, ForkedBlockchainError},
-    chain_spec::{ChainSpec, L1ChainSpec, SyncChainSpec},
-    Block, SyncBlock,
+    chain_spec::{ChainSpec, SyncChainSpec},
+    Block, EthBlockData, SyncBlock,
 };
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
-#[derive(Debug, thiserror::Error)]
-pub enum CreationError {
+#[derive(thiserror::Error)]
+#[derive_where(Debug; ChainSpecT::RpcTransactionConversionError)]
+pub enum ConversionError<ChainSpecT: ChainSpec> {
     /// Missing hash
     #[error("Missing hash")]
     MissingHash,
@@ -37,7 +35,7 @@ pub enum CreationError {
     MissingNumber,
     /// Transaction conversion error
     #[error(transparent)]
-    TransactionConversionError(#[from] TransactionConversionError),
+    TransactionConversionError(ChainSpecT::RpcTransactionConversionError),
 }
 
 /// A remote block, which lazily loads receipts.
@@ -60,8 +58,31 @@ pub struct RemoteBlock<ChainSpecT: ChainSpec> {
     runtime: runtime::Handle,
 }
 
+impl<ChainSpecT: ChainSpec> RemoteBlock<ChainSpecT> {
+    /// Tries to construct a new instance from a JSON-RPC block.
+    pub fn new(
+        block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
+        rpc_client: Arc<EthRpcClient<ChainSpecT>>,
+        runtime: runtime::Handle,
+    ) -> Result<Self, ChainSpecT::RpcBlockConversionError> {
+        let block = TryInto::<EthBlockData<ChainSpecT>>::try_into(block)?;
+
+        Ok(Self {
+            header: block.header,
+            transactions: block.transactions,
+            receipts: OnceLock::new(),
+            ommer_hashes: block.ommer_hashes,
+            withdrawals: block.withdrawals,
+            hash: block.hash,
+            size: block.rlp_size,
+            rpc_client,
+            runtime,
+        })
+    }
+}
+
 impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
-    type Error = BlockchainError;
+    type Error = BlockchainError<ChainSpecT>;
 
     fn hash(&self) -> &B256 {
         &self.hash
@@ -118,7 +139,7 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
 }
 
 impl<ChainSpecT> From<RemoteBlock<ChainSpecT>>
-    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
+    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>
 where
     ChainSpecT: SyncChainSpec,
 {
@@ -145,73 +166,5 @@ impl<TransactionT> EthRpcBlock for edr_rpc_eth::Block<TransactionT> {
 
     fn total_difficulty(&self) -> Option<&U256> {
         self.total_difficulty.as_ref()
-    }
-}
-
-/// Trait for types that can be converted into a remote Ethereum block.
-pub trait IntoRemoteBlock<ChainSpecT: ChainSpec> {
-    /// Converts the instance into a `RemoteBlock` with the provided JSON-RPC
-    /// client and tokio runtime.
-    fn into_remote_block(
-        self,
-        rpc_client: Arc<EthRpcClient<ChainSpecT>>,
-        runtime: runtime::Handle,
-    ) -> Result<RemoteBlock<ChainSpecT>, CreationError>;
-}
-
-impl IntoRemoteBlock<L1ChainSpec> for edr_rpc_eth::Block<edr_rpc_eth::Transaction> {
-    fn into_remote_block(
-        self,
-        rpc_client: Arc<EthRpcClient<L1ChainSpec>>,
-        runtime: runtime::Handle,
-    ) -> Result<RemoteBlock<L1ChainSpec>, CreationError> {
-        let header = Header {
-            parent_hash: self.parent_hash,
-            ommers_hash: self.sha3_uncles,
-            beneficiary: self.miner.ok_or(CreationError::MissingMiner)?,
-            state_root: self.state_root,
-            transactions_root: self.transactions_root,
-            receipts_root: self.receipts_root,
-            logs_bloom: self.logs_bloom,
-            difficulty: self.difficulty,
-            number: self.number.ok_or(CreationError::MissingNumber)?,
-            gas_limit: self.gas_limit,
-            gas_used: self.gas_used,
-            timestamp: self.timestamp,
-            extra_data: self.extra_data,
-            // TODO don't accept remote blocks with missing mix hash,
-            // see https://github.com/NomicFoundation/edr/issues/518
-            mix_hash: self.mix_hash.unwrap_or_default(),
-            nonce: self.nonce.ok_or(CreationError::MissingNonce)?,
-            base_fee_per_gas: self.base_fee_per_gas,
-            withdrawals_root: self.withdrawals_root,
-            blob_gas: self.blob_gas_used.and_then(|gas_used| {
-                self.excess_blob_gas.map(|excess_gas| BlobGas {
-                    gas_used,
-                    excess_gas,
-                })
-            }),
-            parent_beacon_block_root: self.parent_beacon_block_root,
-        };
-
-        let transactions = self
-            .transactions
-            .into_iter()
-            .map(transaction::Signed::try_from)
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let hash = self.hash.ok_or(CreationError::MissingHash)?;
-
-        Ok(RemoteBlock {
-            header,
-            transactions,
-            receipts: OnceLock::new(),
-            ommer_hashes: self.uncles,
-            withdrawals: self.withdrawals,
-            hash,
-            rpc_client,
-            size: self.size,
-            runtime,
-        })
     }
 }

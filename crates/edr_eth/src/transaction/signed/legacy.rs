@@ -30,6 +30,9 @@ pub struct Legacy {
 }
 
 impl Legacy {
+    /// The type identifier for a pre-EIP-155 legacy transaction.
+    pub const TYPE: u8 = transaction::request::Legacy::TYPE;
+
     /// Returns the caller/signer of the transaction.
     pub fn caller(&self) -> &Address {
         self.signature.caller()

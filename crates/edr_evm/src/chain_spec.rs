@@ -5,10 +5,15 @@ use edr_eth::{
     transaction::{self, SignedTransaction},
     B256,
 };
-use edr_rpc_eth::spec::{EthRpcSpec, RpcSpec};
+use edr_rpc_eth::{
+    spec::{EthRpcSpec, RpcSpec},
+    TransactionConversionError,
+};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{transaction::remote::EthRpcTransaction, EthRpcBlock, IntoRemoteBlock};
+use crate::{
+    transaction::remote::EthRpcTransaction, EthBlockData, EthRpcBlock, RemoteBlockConversionError,
+};
 
 /// A trait for defining a chain's associated types.
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
@@ -16,12 +21,31 @@ use crate::{transaction::remote::EthRpcTransaction, EthRpcBlock, IntoRemoteBlock
 pub trait ChainSpec:
     alloy_rlp::Encodable
     + revm::primitives::ChainSpec<
-        Transaction: alloy_rlp::Encodable + Clone + Debug + PartialEq + Eq + SignedTransaction,
+        Transaction: alloy_rlp::Encodable
+                         + Clone
+                         + Debug
+                         + PartialEq
+                         + Eq
+                         + SignedTransaction
+                         + TryFrom<
+            <Self as RpcSpec>::RpcTransaction,
+            Error = Self::RpcTransactionConversionError,
+        >,
     > + RpcSpec<
-        RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock + IntoRemoteBlock<Self>,
+        RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
+                                                         + TryInto<
+            EthBlockData<Self>,
+            Error = Self::RpcBlockConversionError,
+        >,
         RpcTransaction: EthRpcTransaction,
     > + RpcSpec<RpcBlock<B256>: EthRpcBlock>
 {
+    /// Type representing an error that occurs when converting an RPC block.
+    type RpcBlockConversionError: Debug + std::error::Error;
+
+    /// Type representing an error that occurs when converting an RPC
+    /// transaction.
+    type RpcTransactionConversionError: Debug + std::error::Error;
 }
 
 /// A supertrait for [`ChainSpec`] that is safe to send between threads.
@@ -46,7 +70,10 @@ impl revm::primitives::ChainSpec for L1ChainSpec {
     type Transaction = transaction::Signed;
 }
 
-impl ChainSpec for L1ChainSpec {}
+impl ChainSpec for L1ChainSpec {
+    type RpcBlockConversionError = RemoteBlockConversionError<Self>;
+    type RpcTransactionConversionError = TransactionConversionError;
+}
 
 impl RpcSpec for L1ChainSpec {
     type RpcBlock<Data> = <EthRpcSpec as RpcSpec>::RpcBlock<Data> where Data: Default + DeserializeOwned + Serialize;

@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::Context;
-use edr_evm::blockchain::BlockchainError;
+use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec};
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use flate2::bufread::GzDecoder;
@@ -169,7 +169,7 @@ async fn load_json(scenario_path: &Path) -> anyhow::Result<(ScenarioConfig, Vec<
 struct DisabledLogger;
 
 impl Logger for DisabledLogger {
-    type BlockchainError = BlockchainError;
+    type BlockchainError = BlockchainError<L1ChainSpec>;
 
     type LoggerError = Infallible;
 

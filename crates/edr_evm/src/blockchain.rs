@@ -7,6 +7,7 @@ pub mod storage;
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
+use derive_where::derive_where;
 use edr_eth::{
     log::FilterLog, receipt::BlockReceipt, spec::HardforkActivations, Address, B256, U256,
 };
@@ -28,11 +29,12 @@ use crate::{
 };
 
 /// Combinatorial error for the blockchain API.
-#[derive(Debug, thiserror::Error)]
-pub enum BlockchainError {
+#[derive(thiserror::Error)]
+#[derive_where(Debug; ChainSpecT::RpcBlockConversionError)]
+pub enum BlockchainError<ChainSpecT: ChainSpec> {
     /// Forked blockchain error
     #[error(transparent)]
-    Forked(#[from] ForkedBlockchainError),
+    Forked(#[from] ForkedBlockchainError<ChainSpecT>),
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
     Insert(#[from] storage::InsertError),
@@ -261,9 +263,9 @@ fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: ChainSp
 /// Validates whether a block is a valid next block.
 fn validate_next_block<ChainSpecT: ChainSpec>(
     spec_id: SpecId,
-    last_block: &dyn Block<ChainSpecT, Error = BlockchainError>,
-    next_block: &dyn Block<ChainSpecT, Error = BlockchainError>,
-) -> Result<(), BlockchainError> {
+    last_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+    next_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+) -> Result<(), BlockchainError<ChainSpecT>> {
     let last_header = last_block.header();
     let next_header = next_block.header();
 

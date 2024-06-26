@@ -23,6 +23,9 @@ pub struct Eip155 {
 }
 
 impl Eip155 {
+    /// The type identifier for a post-EIP-155 transaction.
+    pub const TYPE: u8 = super::Legacy::TYPE;
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         keccak256(alloy_rlp::encode(self))

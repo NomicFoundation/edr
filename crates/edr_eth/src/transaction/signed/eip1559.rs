@@ -36,6 +36,9 @@ pub struct Eip1559 {
 }
 
 impl Eip1559 {
+    /// The type identifier for an EIP-1559 transaction.
+    pub const TYPE: u8 = transaction::request::Eip1559::TYPE;
+
     /// Returns the caller/signer of the transaction.
     pub fn caller(&self) -> &Address {
         self.signature.caller()

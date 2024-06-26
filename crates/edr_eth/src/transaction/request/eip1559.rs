@@ -26,6 +26,9 @@ pub struct Eip1559 {
 }
 
 impl Eip1559 {
+    /// The type identifier for an EIP-1559 transaction.
+    pub const TYPE: u8 = 2;
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         let encoded = alloy_rlp::encode(self);

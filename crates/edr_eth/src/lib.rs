@@ -44,7 +44,7 @@ pub mod withdrawal;
 pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 pub use revm_primitives::{
     address,
-    alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64},
+    alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
     db, env, hex, hex_literal, result, AccessList, AccessListItem, AccountInfo, Address, Bytecode,
     Bytes, HashMap, HashSet, SpecId, B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
 };

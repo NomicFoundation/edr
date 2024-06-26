@@ -81,7 +81,7 @@ where
     ChainSpecT: SyncChainSpec,
 {
     storage: ReservableSparseBlockchainStorage<
-        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>,
+        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
         ChainSpecT,
     >,
     chain_id: u64,
@@ -197,7 +197,7 @@ where
         chain_id: u64,
         spec_id: SpecId,
     ) -> Self {
-        let genesis_block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>> =
+        let genesis_block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>> =
             Arc::new(genesis_block);
 
         let total_difficulty = genesis_block.header().difficulty;
@@ -219,7 +219,7 @@ impl<ChainSpecT> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
 {
-    type BlockchainError = BlockchainError;
+    type BlockchainError = BlockchainError<ChainSpecT>;
 
     type StateError = StateError;
 
@@ -340,7 +340,7 @@ impl<ChainSpecT> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
 {
-    type Error = BlockchainError;
+    type Error = BlockchainError<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_block(
@@ -410,7 +410,7 @@ impl<ChainSpecT> BlockHashRef for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
 {
-    type Error = BlockchainError;
+    type Error = BlockchainError<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {

@@ -17,8 +17,8 @@ use edr_evm::{
     chain_spec::L1ChainSpec,
     evm::handler::CfgEnvWithChainSpec,
     state::IrregularState,
-    Block, BlockBuilder, DebugContext, ExecutionResultWithContext, IntoRemoteBlock,
-    RandomHashGenerator,
+    Block, BlockBuilder, DebugContext, ExecutionResultWithContext, RandomHashGenerator,
+    RemoteBlock,
 };
 use edr_rpc_eth::client::EthRpcClient;
 
@@ -148,7 +148,7 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(block_number))
             .await?;
 
-        block.into_remote_block(Arc::new(rpc_client), runtime.clone())?
+        RemoteBlock::new(block, Arc::new(rpc_client), runtime.clone())?
     };
 
     let rpc_client =

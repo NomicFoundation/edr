@@ -1,10 +1,8 @@
-mod block;
+use std::sync::OnceLock;
 
-use std::ops::Deref;
-
-use edr_eth::{signature, B256, U128};
+use edr_eth::{B256, U128};
 use edr_evm::transaction::{remote::EthRpcTransaction, TxKind};
-use edr_rpc_eth::TransactionConversionError;
+use edr_rpc_eth::TransactionConversionError as L1ConversionError;
 
 use crate::transaction;
 
@@ -29,16 +27,7 @@ pub struct Transaction {
 impl Transaction {
     /// Returns whether the transaction is a legacy transaction.
     pub fn is_legacy(&self) -> bool {
-        matches!(self.transaction_type, None | Some(0)) && matches!(self.v, 27 | 28)
-    }
-}
-
-
-impl Deref for Transaction {
-    type Target = edr_rpc_eth::Transaction;
-
-    fn deref(&self) -> &Self::Target {
-        &self.l1
+        matches!(self.l1.transaction_type, None | Some(0)) && matches!(self.l1.v, 27 | 28)
     }
 }
 
@@ -48,58 +37,77 @@ impl EthRpcTransaction for Transaction {
     }
 }
 
-impl TryFrom<Transaction> for transaction::Signed {
-    type Error = TransactionConversionError;
+impl TryFrom<Transaction> for transaction::signed::Deposited {
+    type Error = ConversionError;
 
     fn try_from(value: Transaction) -> Result<Self, Self::Error> {
+        let transaction = Self {
+            source_hash: value.source_hash.ok_or(ConversionError::SourceHash)?,
+            from: value.l1.from,
+            to: if let Some(to) = value.l1.to {
+                TxKind::Call(to)
+            } else {
+                TxKind::Create
+            },
+            mint: value.mint.map_or(0, |mint| mint.to()),
+            value: value.l1.value,
+            gas_limit: value.l1.gas.to(),
+            is_system_tx: value.is_system_tx.unwrap_or(false),
+            data: value.l1.input,
+            hash: OnceLock::new(),
+        };
 
-        let transaction_type = match value.transaction_type.map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from) {
+        Ok(transaction)
+    }
+}
+
+impl TryFrom<Transaction> for transaction::Signed {
+    type Error = ConversionError;
+
+    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
+        let transaction_type = match value
+            .l1
+            .transaction_type
+            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
+        {
             Ok(r#type) => r#type,
             Err(r#type) => {
                 log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction");
-    
+
+                // As the transaction type is not 0 or `None`, this will always result in a
+                // post-EIP 155 legacy transaction.
                 transaction::Type::Legacy
             }
         };
-        
-        let kind = if let Some(to) = &value.to {
-            TxKind::Call(*to)
-        } else {
-            TxKind::Create
-        };
 
         let transaction = match transaction_type {
-            transaction::Type::Legacy =>  {
+            transaction::Type::Legacy => {
                 if value.is_legacy() {
-                    transaction::Signed::PreEip155Legacy(value.into())
+                    Self::PreEip155Legacy(value.l1.into())
                 } else {
-                    transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
-                        nonce: value.nonce,
-                        gas_price: value.gas_price,
-                        gas_limit: value.gas.to(),
-                        kind,
-                        value: value.value,
-                        input: value.input,
-                        // SAFETY: The `from` field represents the caller address of the signed
-                        // transaction.
-                        signature: unsafe {
-                            signature::Fakeable::with_address_unchecked(
-                                signature::SignatureWithRecoveryId {
-                                    r: value.r,
-                                    s: value.s,
-                                    v: value.v,
-                                },
-                                value.from,
-                            )
-                        },
-                        hash: OnceLock::from(value.hash),
-                    })
+                    Self::PostEip155Legacy(value.l1.into())
                 }
-            },
-            transaction::Type::Eip2930 => todo!(),
-            transaction::Type::Eip1559 => todo!(),
-            transaction::Type::Eip4844 => todo!(),
-            transaction::Type::Deposited => todo!(),
-        }
+            }
+            transaction::Type::Eip2930 => Self::Eip2930(value.l1.try_into()?),
+            transaction::Type::Eip1559 => Self::Eip1559(value.l1.try_into()?),
+            transaction::Type::Eip4844 => Self::Eip4844(value.l1.try_into()?),
+            transaction::Type::Deposited => Self::Deposited(value.try_into()?),
+        };
+
+        Ok(transaction)
     }
+}
+
+/// Error that occurs when trying to convert the JSON-RPC `Transaction` type.
+#[derive(Debug, thiserror::Error)]
+pub enum ConversionError {
+    /// L1 conversion error
+    #[error(transparent)]
+    L1(#[from] L1ConversionError),
+    /// Missing mint
+    #[error("Missing mint")]
+    Mint,
+    /// Missing source hash
+    #[error("Missing source hash")]
+    SourceHash,
 }

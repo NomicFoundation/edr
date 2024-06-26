@@ -112,6 +112,37 @@ pub mod sequence {
     }
 }
 
+/// Helper module for (de)serializing an [`Option<std::primitive::u128>`] from a
+/// `0x`-prefixed hexadecimal string.
+pub mod optional_u128 {
+    use super::{Deserialize, Deserializer, Serialize, Serializer};
+    use crate::U128;
+
+    /// Helper function for deserializing an [`Option<std::primitive::u64>`]
+    /// from a `0x`-prefixed hexadecimal string.
+    pub fn deserialize<'de, DeserializerT>(
+        deserializer: DeserializerT,
+    ) -> Result<Option<u128>, DeserializerT::Error>
+    where
+        DeserializerT: Deserializer<'de>,
+    {
+        let value: Option<U128> = Deserialize::deserialize(deserializer)?;
+        Ok(value.map(|value| value.to()))
+    }
+
+    /// Helper function for serializing a [`Option<std::primitive::u64>`] into a
+    /// `0x`-prefixed hexadecimal string.
+    pub fn serialize<SerializerT>(
+        value: &Option<u128>,
+        s: SerializerT,
+    ) -> Result<SerializerT::Ok, SerializerT::Error>
+    where
+        SerializerT: Serializer,
+    {
+        Serialize::serialize(&value.map(U128::from), s)
+    }
+}
+
 /// Helper module for (de)serializing [`std::primitive::u64`]s from and into
 /// `0x`-prefixed hexadecimal strings.
 pub mod u64 {
@@ -201,6 +232,37 @@ pub mod u8 {
     }
 }
 
+/// Helper module for (de)serializing an [`Option<std::primitive::u8>`] from a
+/// `0x`-prefixed hexadecimal string.
+pub mod optional_u8 {
+    use super::{Deserialize, Deserializer, Serialize, Serializer};
+    use crate::U8;
+
+    /// Helper function for deserializing an [`Option<std::primitive::u64>`]
+    /// from a `0x`-prefixed hexadecimal string.
+    pub fn deserialize<'de, DeserializerT>(
+        deserializer: DeserializerT,
+    ) -> Result<Option<u8>, DeserializerT::Error>
+    where
+        DeserializerT: Deserializer<'de>,
+    {
+        let value: Option<U8> = Deserialize::deserialize(deserializer)?;
+        Ok(value.map(|value| value.to()))
+    }
+
+    /// Helper function for serializing a [`Option<std::primitive::u64>`] into a
+    /// `0x`-prefixed hexadecimal string.
+    pub fn serialize<SerializerT>(
+        value: &Option<u8>,
+        s: SerializerT,
+    ) -> Result<SerializerT::Ok, SerializerT::Error>
+    where
+        SerializerT: Serializer,
+    {
+        Serialize::serialize(&value.map(U8::from), s)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -211,6 +273,8 @@ mod tests {
     struct TestStructSerde {
         #[serde(with = "u8")]
         u8: u8,
+        #[serde(with = "optional_u8")]
+        optional_u8: Option<u8>,
         #[serde(with = "u64")]
         u64: u64,
         #[serde(with = "optional_u64")]
@@ -221,6 +285,7 @@ mod tests {
         fn json() -> serde_json::Value {
             json!({
                 "u8": "0x01",
+                "optional_u8": "0x14",
                 // 2 bytes (too large for u8)
                 "u64": "0x1234",
                 "optional_u64": "0x1234",

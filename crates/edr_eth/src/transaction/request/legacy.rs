@@ -22,6 +22,9 @@ pub struct Legacy {
 }
 
 impl Legacy {
+    /// The type identifier for a pre-EIP-155 legacy transaction.
+    pub const TYPE: u8 = 0;
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         keccak256(alloy_rlp::encode(self))

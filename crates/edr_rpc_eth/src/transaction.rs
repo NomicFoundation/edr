@@ -65,9 +65,9 @@ pub struct Transaction {
         rename = "type",
         default,
         skip_serializing_if = "Option::is_none",
-        with = "edr_eth::serde::optional_u64"
+        with = "edr_eth::serde::optional_u8"
     )]
-    pub transaction_type: Option<u64>,
+    pub transaction_type: Option<u8>,
     /// access list
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub access_list: Option<Vec<AccessListItem>>,
@@ -99,176 +99,6 @@ impl Transaction {
     }
 }
 
-impl TryFrom<Transaction> for transaction::Signed {
-    type Error = ConversionError;
-
-    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
-        let kind = if let Some(to) = &value.to {
-            TxKind::Call(*to)
-        } else {
-            TxKind::Create
-        };
-
-        let transaction = match value.transaction_type {
-            Some(0) | None => {
-                if value.is_legacy() {
-                    transaction::Signed::PreEip155Legacy(transaction::signed::Legacy {
-                        nonce: value.nonce,
-                        gas_price: value.gas_price,
-                        gas_limit: value.gas.to(),
-                        kind,
-                        value: value.value,
-                        input: value.input,
-                        // SAFETY: The `from` field represents the caller address of the signed
-                        // transaction.
-                        signature: unsafe {
-                            signature::Fakeable::with_address_unchecked(
-                                signature::SignatureWithRecoveryId {
-                                    r: value.r,
-                                    s: value.s,
-                                    v: value.v,
-                                },
-                                value.from,
-                            )
-                        },
-                        hash: OnceLock::from(value.hash),
-                    })
-                } else {
-                    transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
-                        nonce: value.nonce,
-                        gas_price: value.gas_price,
-                        gas_limit: value.gas.to(),
-                        kind,
-                        value: value.value,
-                        input: value.input,
-                        // SAFETY: The `from` field represents the caller address of the signed
-                        // transaction.
-                        signature: unsafe {
-                            signature::Fakeable::with_address_unchecked(
-                                signature::SignatureWithRecoveryId {
-                                    r: value.r,
-                                    s: value.s,
-                                    v: value.v,
-                                },
-                                value.from,
-                            )
-                        },
-                        hash: OnceLock::from(value.hash),
-                    })
-                }
-            }
-            Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
-                // SAFETY: The `from` field represents the caller address of the signed
-                // transaction.
-                signature: unsafe {
-                    signature::Fakeable::with_address_unchecked(
-                        signature::SignatureWithYParity {
-                            y_parity: value.odd_y_parity(),
-                            r: value.r,
-                            s: value.s,
-                        },
-                        value.from,
-                    )
-                },
-                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
-                nonce: value.nonce,
-                gas_price: value.gas_price,
-                gas_limit: value.gas.to(),
-                kind,
-                value: value.value,
-                input: value.input,
-                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(2) => transaction::Signed::Eip1559(transaction::signed::Eip1559 {
-                // SAFETY: The `from` field represents the caller address of the signed
-                // transaction.
-                signature: unsafe {
-                    signature::Fakeable::with_address_unchecked(
-                        signature::SignatureWithYParity {
-                            y_parity: value.odd_y_parity(),
-                            r: value.r,
-                            s: value.s,
-                        },
-                        value.from,
-                    )
-                },
-                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
-                nonce: value.nonce,
-                max_priority_fee_per_gas: value
-                    .max_priority_fee_per_gas
-                    .ok_or(ConversionError::MaxPriorityFeePerGas)?,
-                max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
-                gas_limit: value.gas.to(),
-                kind,
-                value: value.value,
-                input: value.input,
-                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(3) => transaction::Signed::Eip4844(transaction::signed::Eip4844 {
-                // SAFETY: The `from` field represents the caller address of the signed
-                // transaction.
-                signature: unsafe {
-                    signature::Fakeable::with_address_unchecked(
-                        signature::SignatureWithYParity {
-                            r: value.r,
-                            s: value.s,
-                            y_parity: value.odd_y_parity(),
-                        },
-                        value.from,
-                    )
-                },
-                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
-                nonce: value.nonce,
-                max_priority_fee_per_gas: value
-                    .max_priority_fee_per_gas
-                    .ok_or(ConversionError::MaxPriorityFeePerGas)?,
-                max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
-                max_fee_per_blob_gas: value
-                    .max_fee_per_blob_gas
-                    .ok_or(ConversionError::MaxFeePerBlobGas)?,
-                gas_limit: value.gas.to(),
-                to: value.to.ok_or(ConversionError::ReceiverAddress)?,
-                value: value.value,
-                input: value.input,
-                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
-                blob_hashes: value
-                    .blob_versioned_hashes
-                    .ok_or(ConversionError::BlobHashes)?,
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(r#type) => {
-                log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction", );
-
-                transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {
-                    nonce: value.nonce,
-                    gas_price: value.gas_price,
-                    gas_limit: value.gas.to(),
-                    kind,
-                    value: value.value,
-                    input: value.input,
-                    // SAFETY: The `from` field represents the caller address of the signed
-                    // transaction.
-                    signature: unsafe {
-                        signature::Fakeable::with_address_unchecked(
-                            signature::SignatureWithRecoveryId {
-                                r: value.r,
-                                s: value.s,
-                                v: value.v,
-                            },
-                            value.from,
-                        )
-                    },
-                    hash: OnceLock::from(value.hash),
-                })
-            }
-        };
-
-        Ok(transaction)
-    }
-}
-
 impl From<Transaction> for transaction::signed::Legacy {
     fn from(value: Transaction) -> Self {
         Self {
@@ -296,6 +126,187 @@ impl From<Transaction> for transaction::signed::Legacy {
             },
             hash: OnceLock::from(value.hash),
         }
+    }
+}
+
+impl From<Transaction> for transaction::signed::Eip155 {
+    fn from(value: Transaction) -> Self {
+        Self {
+            nonce: value.nonce,
+            gas_price: value.gas_price,
+            gas_limit: value.gas.to(),
+            kind: if let Some(to) = value.to {
+                TxKind::Call(to)
+            } else {
+                TxKind::Create
+            },
+            value: value.value,
+            input: value.input,
+            // SAFETY: The `from` field represents the caller address of the signed
+            // transaction.
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
+                        r: value.r,
+                        s: value.s,
+                        v: value.v,
+                    },
+                    value.from,
+                )
+            },
+            hash: OnceLock::from(value.hash),
+        }
+    }
+}
+
+impl TryFrom<Transaction> for transaction::signed::Eip2930 {
+    type Error = ConversionError;
+
+    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
+        let transaction = Self {
+            // SAFETY: The `from` field represents the caller address of the signed
+            // transaction.
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithYParity {
+                        y_parity: value.odd_y_parity(),
+                        r: value.r,
+                        s: value.s,
+                    },
+                    value.from,
+                )
+            },
+            chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+            nonce: value.nonce,
+            gas_price: value.gas_price,
+            gas_limit: value.gas.to(),
+            kind: if let Some(to) = value.to {
+                TxKind::Call(to)
+            } else {
+                TxKind::Create
+            },
+            value: value.value,
+            input: value.input,
+            access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+            hash: OnceLock::from(value.hash),
+        };
+
+        Ok(transaction)
+    }
+}
+
+impl TryFrom<Transaction> for transaction::signed::Eip1559 {
+    type Error = ConversionError;
+
+    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
+        let transaction = Self {
+            // SAFETY: The `from` field represents the caller address of the signed
+            // transaction.
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithYParity {
+                        y_parity: value.odd_y_parity(),
+                        r: value.r,
+                        s: value.s,
+                    },
+                    value.from,
+                )
+            },
+            chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+            nonce: value.nonce,
+            max_priority_fee_per_gas: value
+                .max_priority_fee_per_gas
+                .ok_or(ConversionError::MaxPriorityFeePerGas)?,
+            max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+            gas_limit: value.gas.to(),
+            kind: if let Some(to) = value.to {
+                TxKind::Call(to)
+            } else {
+                TxKind::Create
+            },
+            value: value.value,
+            input: value.input,
+            access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+            hash: OnceLock::from(value.hash),
+        };
+
+        Ok(transaction)
+    }
+}
+
+impl TryFrom<Transaction> for transaction::signed::Eip4844 {
+    type Error = ConversionError;
+
+    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
+        let transaction = Self {
+            // SAFETY: The `from` field represents the caller address of the signed
+            // transaction.
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithYParity {
+                        r: value.r,
+                        s: value.s,
+                        y_parity: value.odd_y_parity(),
+                    },
+                    value.from,
+                )
+            },
+            chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+            nonce: value.nonce,
+            max_priority_fee_per_gas: value
+                .max_priority_fee_per_gas
+                .ok_or(ConversionError::MaxPriorityFeePerGas)?,
+            max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+            max_fee_per_blob_gas: value
+                .max_fee_per_blob_gas
+                .ok_or(ConversionError::MaxFeePerBlobGas)?,
+            gas_limit: value.gas.to(),
+            to: value.to.ok_or(ConversionError::ReceiverAddress)?,
+            value: value.value,
+            input: value.input,
+            access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+            blob_hashes: value
+                .blob_versioned_hashes
+                .ok_or(ConversionError::BlobHashes)?,
+            hash: OnceLock::from(value.hash),
+        };
+
+        Ok(transaction)
+    }
+}
+
+impl TryFrom<Transaction> for transaction::Signed {
+    type Error = ConversionError;
+
+    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
+        let transaction_type = match value
+            .transaction_type
+            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
+        {
+            Ok(r#type) => r#type,
+            Err(r#type) => {
+                log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction");
+
+                // As the transaction type is not 0 or `None`, this will always result in a
+                // post-EIP 155 legacy transaction.
+                transaction::Type::Legacy
+            }
+        };
+
+        let transaction = match transaction_type {
+            transaction::Type::Legacy => {
+                if value.is_legacy() {
+                    Self::PreEip155Legacy(value.into())
+                } else {
+                    Self::PostEip155Legacy(value.into())
+                }
+            }
+            transaction::Type::Eip2930 => Self::Eip2930(value.try_into()?),
+            transaction::Type::Eip1559 => Self::Eip1559(value.try_into()?),
+            transaction::Type::Eip4844 => Self::Eip4844(value.try_into()?),
+        };
+
+        Ok(transaction)
     }
 }
 

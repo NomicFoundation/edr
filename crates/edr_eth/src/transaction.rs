@@ -11,12 +11,10 @@ pub mod pooled;
 pub mod request;
 /// Types for signed transactions.
 pub mod signed;
-mod r#type;
 
 use revm_primitives::B256;
 pub use revm_primitives::{alloy_primitives::TxKind, Transaction, TransactionValidation};
 
-pub use self::r#type::TransactionType;
 use crate::{AccessListItem, Address, Bytes, U256};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
@@ -52,6 +50,40 @@ pub enum Signed {
     Eip4844(signed::Eip4844),
 }
 
+/// The type of transaction.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Type {
+    /// Legacy transaction
+    Legacy = signed::Legacy::TYPE,
+    /// EIP-2930 transaction
+    Eip2930 = signed::Eip2930::TYPE,
+    /// EIP-1559 transaction
+    Eip1559 = signed::Eip1559::TYPE,
+    /// EIP-4844 transaction
+    Eip4844 = signed::Eip4844::TYPE,
+}
+
+impl From<Type> for u8 {
+    fn from(t: Type) -> u8 {
+        t as u8
+    }
+}
+
+impl TryFrom<u8> for Type {
+    type Error = u8;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            signed::Legacy::TYPE => Ok(Self::Legacy),
+            signed::Eip2930::TYPE => Ok(Self::Eip2930),
+            signed::Eip1559::TYPE => Ok(Self::Eip1559),
+            signed::Eip4844::TYPE => Ok(Self::Eip4844),
+            value => Err(value),
+        }
+    }
+}
+
 pub trait SignedTransaction: Transaction {
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee.
@@ -69,7 +101,7 @@ pub trait SignedTransaction: Transaction {
     fn transaction_hash(&self) -> &B256;
 
     /// The type of the transaction.
-    fn transaction_type(&self) -> TransactionType;
+    fn transaction_type(&self) -> Type;
 }
 
 pub trait TransactionMut {
@@ -124,9 +156,9 @@ pub struct EthTransactionRequest {
     /// EIP-2718 type
     #[cfg_attr(
         feature = "serde",
-        serde(default, rename = "type", with = "crate::serde::optional_u64")
+        serde(default, rename = "type", with = "crate::serde::optional_u8")
     )]
-    pub transaction_type: Option<u64>,
+    pub transaction_type: Option<u8>,
     /// Blobs (EIP-4844)
     pub blobs: Option<Vec<Bytes>>,
     /// Blob versioned hashes (EIP-4844)

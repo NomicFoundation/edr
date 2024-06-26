@@ -6,7 +6,7 @@ use edr_eth::{
     rlp::Decodable,
     transaction::{
         pooled::PooledTransaction, request::TransactionRequestAndSender, EthTransactionRequest,
-        SignedTransaction, Transaction as _, TransactionType, TxKind,
+        SignedTransaction, Transaction as _, TxKind,
     },
     Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
@@ -60,7 +60,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         // Pending block requested
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>> =
+            let block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>> =
                 Arc::new(result.block);
             Some((block, true))
         }
@@ -131,7 +131,7 @@ pub fn handle_get_transaction_receipt<LoggerErrorT: Debug, TimerT: Clone + TimeS
 }
 
 fn transaction_from_block(
-    block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
+    block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>,
     transaction_index: usize,
     is_pending: bool,
 ) -> Option<TransactionAndBlock> {
@@ -154,7 +154,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
 ) -> Result<edr_rpc_eth::Transaction, ProviderError<LoggerErrorT>> {
     fn gas_price_for_post_eip1559(
         signed_transaction: &transaction::Signed,
-        block: Option<&Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>>,
+        block: Option<&Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>>,
     ) -> U256 {
         let max_fee_per_gas = signed_transaction
             .max_fee_per_gas()
@@ -204,7 +204,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     };
 
     let show_transaction_type = spec_id >= FIRST_HARDFORK_WITH_TRANSACTION_TYPE;
-    let is_typed_transaction = transaction.transaction_type() > TransactionType::Legacy;
+    let is_typed_transaction = transaction.transaction_type() > transaction::Type::Legacy;
     let transaction_type = if show_transaction_type || is_typed_transaction {
         Some(transaction.transaction_type())
     } else {
@@ -226,13 +226,13 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         block_data.as_ref().map(|bd| bd.transaction_index)
     };
 
-    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
+    let access_list = if transaction.transaction_type() >= transaction::Type::Eip2930 {
         Some(transaction.access_list().to_vec())
     } else {
         None
     };
 
-    let blob_versioned_hashes = if transaction.transaction_type() == TransactionType::Eip4844 {
+    let blob_versioned_hashes = if transaction.transaction_type() == transaction::Type::Eip4844 {
         Some(transaction.blob_hashes().to_vec())
     } else {
         None
@@ -256,7 +256,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         r: signature.r(),
         s: signature.s(),
         chain_id,
-        transaction_type: transaction_type.map(u64::from),
+        transaction_type: transaction_type.map(u8::from),
         access_list,
         max_fee_per_gas: transaction.max_fee_per_gas(),
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas().cloned(),
@@ -312,7 +312,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
     fn calculate_max_fee_per_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
         data: &ProviderData<LoggerErrorT, TimerT>,
         max_priority_fee_per_gas: U256,
-    ) -> Result<U256, BlockchainError> {
+    ) -> Result<U256, BlockchainError<L1ChainSpec>> {
         let base_fee_per_gas = data
             .next_block_base_fee_per_gas()?
             .expect("We already validated that the block is post-London.");
@@ -489,7 +489,7 @@ fn validate_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSi
     }
 
     if let Some(transaction_type) = request.transaction_type {
-        if transaction_type == u64::from(TransactionType::Eip4844) {
+        if transaction_type == u8::from(transaction::Type::Eip4844) {
             return Err(ProviderError::Eip4844TransactionUnsupported);
         }
     }

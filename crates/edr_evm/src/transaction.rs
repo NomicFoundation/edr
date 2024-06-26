@@ -10,7 +10,7 @@ use edr_eth::{SpecId, U256};
 use revm::{
     db::DatabaseComponentError,
     interpreter::gas::validate_initial_tx_gas,
-    primitives::{EVMError, EVMErrorForChain, TransactionValidation},
+    primitives::{EVMError, EVMErrorForChain},
 };
 
 pub use self::detailed::*;

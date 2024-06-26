@@ -1,10 +1,10 @@
 use alloy_rlp::RlpEncodable;
-use edr_evm::chain_spec::ChainSpec;
+use edr_evm::{chain_spec::ChainSpec, RemoteBlockConversionError};
 use edr_rpc_eth::spec::RpcSpec;
 use revm::optimism::{OptimismHaltReason, OptimismSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::transaction;
+use crate::{rpc, transaction};
 
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
@@ -25,4 +25,8 @@ impl revm::primitives::ChainSpec for OptimismChainSpec {
     type HaltReason = OptimismHaltReason;
 }
 
-impl ChainSpec for OptimismChainSpec {}
+impl ChainSpec for OptimismChainSpec {
+    type RpcBlockConversionError = RemoteBlockConversionError<Self>;
+
+    type RpcTransactionConversionError = rpc::ConversionError;
+}

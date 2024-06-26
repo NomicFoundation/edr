@@ -7,7 +7,7 @@ use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     log::{add_log_to_bloom, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::{self, SignedTransaction as _, TransactionType},
+    transaction::{self, SignedTransaction as _},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
@@ -376,7 +376,7 @@ impl BlockBuilder {
                 logs_bloom,
                 logs,
                 data: match transaction.transaction_type() {
-                    TransactionType::Legacy => {
+                    transaction::Type::Legacy => {
                         if spec_id < SpecId::BYZANTIUM {
                             TypedReceiptData::PreEip658Legacy {
                                 state_root: state
@@ -387,9 +387,9 @@ impl BlockBuilder {
                             TypedReceiptData::PostEip658Legacy { status }
                         }
                     }
-                    TransactionType::Eip2930 => TypedReceiptData::Eip2930 { status },
-                    TransactionType::Eip1559 => TypedReceiptData::Eip1559 { status },
-                    TransactionType::Eip4844 => TypedReceiptData::Eip4844 { status },
+                    transaction::Type::Eip2930 => TypedReceiptData::Eip2930 { status },
+                    transaction::Type::Eip1559 => TypedReceiptData::Eip1559 { status },
+                    transaction::Type::Eip4844 => TypedReceiptData::Eip4844 { status },
                 },
                 spec_id,
             },
