@@ -375,15 +375,28 @@ export interface CallMessageTrace {
   address: Uint8Array
   codeAddress: Uint8Array
 }
+export const enum ContractFunctionType {
+  CONSTRUCTOR = 0,
+  FUNCTION = 1,
+  FALLBACK = 2,
+  RECEIVE = 3,
+  GETTER = 4,
+  MODIFIER = 5,
+  FREE_FUNCTION = 6
+}
+export const enum ContractFunctionVisibility {
+  PRIVATE = 0,
+  INTERNAL = 1,
+  PUBLIC = 2,
+  EXTERNAL = 3
+}
 export interface ContractFunction {
   readonly name: string
-  /** TODO: Replace with `ContractFunctionType` */
-  readonly type: number
+  readonly type: ContractFunctionType
   readonly location: SourceLocation
   /** TODO: Replace with `Contract` */
   readonly contract: any
-  /** TODO: Replace with `ContractFunctionVisibility` */
-  readonly visibility?: number
+  readonly visibility?: ContractFunctionVisibility
   readonly isPayable?: boolean
   /** Fixed up by `Contract.correctSelector` */
   selector?: Uint8Array

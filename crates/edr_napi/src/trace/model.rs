@@ -224,22 +224,40 @@ impl SourceLocation {
     }
 }
 
+#[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
+#[napi]
+pub enum ContractFunctionType {
+    CONSTRUCTOR,
+    FUNCTION,
+    FALLBACK,
+    RECEIVE,
+    GETTER,
+    MODIFIER,
+    FREE_FUNCTION,
+}
+
+#[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
+#[napi]
+pub enum ContractFunctionVisibility {
+    PRIVATE,
+    INTERNAL,
+    PUBLIC,
+    EXTERNAL,
+}
+
 #[napi(object)]
 pub struct ContractFunction {
     #[napi(readonly)]
     pub name: String,
-    /// TODO: Replace with `ContractFunctionType`
     #[napi(readonly, js_name = "type")]
-    pub r#type: u8, // enum but can't use since ts enums are not structurally typed
-    // location: Reference<SourceLocation>,
+    pub r#type: ContractFunctionType,
     #[napi(readonly)]
     pub location: ClassInstance<SourceLocation>,
     /// TODO: Replace with `Contract`
     #[napi(readonly, ts_type = "any")]
     pub contract: Object,
-    /// TODO: Replace with `ContractFunctionVisibility`
     #[napi(readonly)]
-    pub visibility: Option<u8>,
+    pub visibility: Option<ContractFunctionVisibility>,
     #[napi(readonly)]
     pub is_payable: Option<bool>,
     /// Fixed up by `Contract.correctSelector`
