@@ -11,6 +11,7 @@ use crate::result::ExecutionResult;
 
 mod exit;
 mod message_trace;
+mod model;
 mod vm_tracer;
 
 #[napi(object)]

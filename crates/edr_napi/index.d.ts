@@ -375,6 +375,21 @@ export interface CallMessageTrace {
   address: Uint8Array
   codeAddress: Uint8Array
 }
+export interface ContractFunction {
+  readonly name: string
+  /** TODO: Replace with `ContractFunctionType` */
+  readonly type: number
+  /** TODO: Replace with `SourceLocation`` */
+  readonly location: any
+  /** TODO: Replace with `Contract` */
+  readonly contract: any
+  /** TODO: Replace with `ContractFunctionVisibility` */
+  readonly visibility?: number
+  readonly isPayable?: boolean
+  /** Fixed up by `Contract.correctSelector` */
+  selector?: Uint8Array
+  readonly paramTypes?: Array<any>
+}
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
