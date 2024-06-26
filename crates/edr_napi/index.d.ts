@@ -514,13 +514,13 @@ export class SourceFile {
   readonly content: string
   constructor(sourceName: string, content: string)
   addFunction(contractFunction: object): void
-  getContainingFunction(location: object): object | undefined
+  getContainingFunction(location: SourceLocation): object | undefined
 }
 export class SourceLocation {
   offset: number
   length: number
-  constructor(file: object, offset: number, length: number)
-  get file(): any
+  constructor(file: SourceFile, offset: number, length: number)
+  get file(): SourceFile
   getStartingLineNumber(): number
   getContainingFunction(): ContractFunction | undefined
   contains(other: SourceLocation): boolean
