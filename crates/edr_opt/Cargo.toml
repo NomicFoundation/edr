@@ -4,11 +4,14 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
+alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
 edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
-revm-primitives = { git = "https://github.com/NomicFoundation/revm", rev = "cc64e26", version = "3.1", default-features = false, features = ["c-kzg", "hashbrown", "optimism", "rand", "serde", "std"] }
+log = { version = "0.4.17", default-features = false }
+revm = { git = "https://github.com/NomicFoundation/revm", rev = "14945e92", version = "10.0", default-features = false, features = ["c-kzg", "dev", "optimism", "serde", "std"] }
 serde = { version = "1.0.147", default-features = false, features = ["derive", "std"] }
+tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 
 [dev-dependencies]
 anyhow = "1.0.75"

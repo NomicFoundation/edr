@@ -1,5 +1,6 @@
 use std::{fmt::Debug, path::PathBuf};
 
+use derive_where::derive_where;
 use edr_eth::{
     account::KECCAK_EMPTY,
     fee_history::FeeHistoryResult,
@@ -28,7 +29,7 @@ const MAX_PARALLEL_REQUESTS: usize = 20;
 //     RpcSpecT::Block<RpcSpecT::Transaction>: Send + Sync,
 //     RpcSpecT::Transaction: Send + Sync,
 
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct EthRpcClient<RpcSpecT: RpcSpec> {
     inner: RpcClient<RequestMethod>,
     _phantom: std::marker::PhantomData<RpcSpecT>,

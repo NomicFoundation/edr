@@ -1,5 +1,6 @@
 use std::sync::{Arc, OnceLock};
 
+use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, Header},
     receipt::BlockReceipt,
@@ -40,7 +41,7 @@ pub enum CreationError {
 }
 
 /// A remote block, which lazily loads receipts.
-#[derive(Clone, Debug)]
+#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
 pub struct RemoteBlock<ChainSpecT: ChainSpec> {
     header: Header,
     transactions: Vec<ChainSpecT::Transaction>,

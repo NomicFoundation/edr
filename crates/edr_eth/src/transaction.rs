@@ -14,7 +14,7 @@ pub mod signed;
 mod r#type;
 
 use revm_primitives::B256;
-pub use revm_primitives::{alloy_primitives::TxKind, Transaction};
+pub use revm_primitives::{alloy_primitives::TxKind, Transaction, TransactionValidation};
 
 pub use self::r#type::TransactionType;
 use crate::{AccessListItem, Address, Bytes, U256};

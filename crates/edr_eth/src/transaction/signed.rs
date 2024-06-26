@@ -216,11 +216,11 @@ impl SignedTransaction for Signed {
 
     fn transaction_hash(&self) -> &B256 {
         match self {
-            Signed::PreEip155Legacy(t) => t.hash(),
-            Signed::PostEip155Legacy(t) => t.hash(),
-            Signed::Eip2930(t) => t.hash(),
-            Signed::Eip1559(t) => t.hash(),
-            Signed::Eip4844(t) => t.hash(),
+            Signed::PreEip155Legacy(t) => t.transaction_hash(),
+            Signed::PostEip155Legacy(t) => t.transaction_hash(),
+            Signed::Eip2930(t) => t.transaction_hash(),
+            Signed::Eip1559(t) => t.transaction_hash(),
+            Signed::Eip4844(t) => t.transaction_hash(),
         }
     }
 

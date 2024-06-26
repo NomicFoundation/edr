@@ -194,7 +194,7 @@ mod tests {
 
         let expected_hash: B256 =
             "bcdd3230665912079522dfbfe605e70443c81bf78db768a688a8d8007accf14b".parse()?;
-        assert_eq!(signed.hash(), &expected_hash);
+        assert_eq!(signed.transaction_hash(), &expected_hash);
 
         Ok(())
     }

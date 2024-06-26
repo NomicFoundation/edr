@@ -269,6 +269,36 @@ impl TryFrom<Transaction> for transaction::Signed {
     }
 }
 
+impl From<Transaction> for transaction::signed::Legacy {
+    fn from(value: Transaction) -> Self {
+        Self {
+            nonce: value.nonce,
+            gas_price: value.gas_price,
+            gas_limit: value.gas.to(),
+            kind: if let Some(to) = value.to {
+                TxKind::Call(to)
+            } else {
+                TxKind::Create
+            },
+            value: value.value,
+            input: value.input,
+            // SAFETY: The `from` field represents the caller address of the signed
+            // transaction.
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
+                        r: value.r,
+                        s: value.s,
+                        v: value.v,
+                    },
+                    value.from,
+                )
+            },
+            hash: OnceLock::from(value.hash),
+        }
+    }
+}
+
 /// Error that occurs when trying to convert the JSON-RPC `Transaction` type.
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {

@@ -1,3 +1,4 @@
+use derive_where::derive_where;
 use edr_eth::{Address, B256, U256};
 use edr_rpc_eth::spec::RpcSpec;
 use revm::{
@@ -9,7 +10,7 @@ use super::RemoteState;
 use crate::state::{account::EdrAccount, StateError};
 
 /// A cached version of [`RemoteState`].
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct CachedRemoteState<ChainSpecT: RpcSpec> {
     remote: RemoteState<ChainSpecT>,
     /// Mapping of block numbers to cached accounts

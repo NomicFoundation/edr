@@ -41,7 +41,7 @@ impl Eip1559 {
         self.signature.caller()
     }
 
-    pub fn hash(&self) -> &B256 {
+    pub fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| {
             let encoded = alloy_rlp::encode(self);
             let enveloped = envelop_bytes(2, &encoded);
@@ -185,7 +185,7 @@ mod tests {
         let request = dummy_request();
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

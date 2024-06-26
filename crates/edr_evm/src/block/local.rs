@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
+use derive_where::derive_where;
 use edr_eth::{
     block::{self, Header, PartialHeader},
     log::{FilterLog, FullBlockLog, Log, ReceiptLog},
@@ -20,7 +21,8 @@ use crate::{
 };
 
 /// A locally mined block, which contains complete information.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
+#[derive(PartialEq, Eq, RlpEncodable)]
+#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
 #[rlp(trailing)]
 pub struct LocalBlock<ChainSpecT: ChainSpec> {
     header: block::Header,

@@ -47,7 +47,7 @@ impl Eip4844 {
         &self.nonce
     }
 
-    pub fn hash(&self) -> &B256 {
+    pub fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| {
             let encoded = alloy_rlp::encode(self);
             let enveloped = envelop_bytes(3, &encoded);
@@ -215,7 +215,7 @@ mod tests {
                 .unwrap();
 
         let signed = dummy_transaction();
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

@@ -14,8 +14,7 @@ use crate::{transaction::remote::EthRpcTransaction, EthRpcBlock, IntoRemoteBlock
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
 #[allow(clippy::trait_duplication_in_bounds)]
 pub trait ChainSpec:
-    Debug
-    + alloy_rlp::Encodable
+    alloy_rlp::Encodable
     + revm::primitives::ChainSpec<
         Transaction: alloy_rlp::Encodable + Clone + Debug + PartialEq + Eq + SignedTransaction,
     > + RpcSpec<

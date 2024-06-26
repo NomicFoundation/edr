@@ -3,6 +3,7 @@ mod cached;
 use std::sync::Arc;
 
 pub use cached::CachedRemoteState;
+use derive_where::derive_where;
 use edr_eth::{Address, BlockSpec, PreEip1898BlockSpec, B256, U256};
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -18,7 +19,7 @@ use super::StateError;
 use crate::{chain_spec::ChainSpec, EthRpcBlock as _};
 
 /// A state backed by a remote Ethereum node
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct RemoteState<ChainSpecT: RpcSpec> {
     client: Arc<EthRpcClient<ChainSpecT>>,
     runtime: runtime::Handle,
