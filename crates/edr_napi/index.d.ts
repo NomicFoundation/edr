@@ -472,6 +472,16 @@ export class Exit {
   isError(): boolean
   getReason(): string
 }
+export class SourceLocation {
+  offset: number
+  length: number
+  constructor(file: object, offset: number, length: number)
+  get file(): any
+  getStartingLineNumber(): number
+  getContainingFunction(): ContractFunction | undefined
+  contains(other: SourceLocation): boolean
+  equals(other: SourceLocation): boolean
+}
 export type VMTracer = VmTracer
 /** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
 export class VmTracer {
