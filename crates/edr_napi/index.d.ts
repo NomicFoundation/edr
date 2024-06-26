@@ -390,6 +390,44 @@ export interface ContractFunction {
   selector?: Uint8Array
   readonly paramTypes?: Array<any>
 }
+export const enum JumpType {
+  NotJump = 0,
+  IntoFunction = 1,
+  OutOfFunction = 2,
+  InternalJump = 3
+}
+export const enum Opcode {
+  Stop = 0,
+  Iszero = 21,
+  Codesize = 56,
+  Extcodesize = 59,
+  Jump = 86,
+  Jumpi = 87,
+  Jumpdest = 91,
+  Push1 = 96,
+  Push32 = 127,
+  Create = 240,
+  Call = 241,
+  Callcode = 242,
+  Return = 243,
+  Delegatecall = 244,
+  Create2 = 245,
+  Staticcall = 250,
+  Revert = 253,
+  Invalid = 254,
+  Selfdestruct = 255
+}
+export interface Instruction {
+  readonly pc: number
+  readonly opcode: number
+  readonly jumpType: number
+  readonly pushData?: Buffer
+  readonly location?: any
+}
+export interface ImmutableReference {
+  readonly start: number
+  readonly length: number
+}
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
@@ -481,6 +519,19 @@ export class SourceLocation {
   getContainingFunction(): ContractFunction | undefined
   contains(other: SourceLocation): boolean
   equals(other: SourceLocation): boolean
+}
+export class Bytecode {
+  /** Internal field, do not use. */
+  readonly _pcToInstruction: any
+  readonly contract: any
+  readonly isDeployment: boolean
+  readonly normalizedCode: Buffer
+  readonly instructions: Array<Instruction>
+  readonly libraryAddressPositions: Array<number>
+  readonly immutableReferences: Array<ImmutableReference>
+  readonly compilerVersion: string
+  getInstruction(pc: number): Instruction
+  hasInstruction(pc: number): boolean
 }
 export type VMTracer = VmTracer
 /** N-API bindings for the Rust port of `VMTracer` from Hardhat. */

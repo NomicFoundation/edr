@@ -176,3 +176,116 @@ pub struct ContractFunction {
     #[napi(readonly)]
     pub param_types: Option<Vec<Value>>,
 }
+
+// WIP area below:
+use napi::bindgen_prelude::Buffer;
+
+#[napi]
+pub enum JumpType {
+    NotJump,
+    IntoFunction,
+    OutOfFunction,
+    InternalJump,
+}
+
+#[napi]
+pub enum Opcode {
+    // Only listing the opcodes that are used in the stack tracing logic
+    Stop = 0x00,
+
+    Iszero = 0x15,
+    Codesize = 0x38,
+    Extcodesize = 0x3b,
+
+    Jump = 0x56,
+    Jumpi = 0x57,
+    Jumpdest = 0x5b,
+
+    Push1 = 0x60,
+    //...
+    Push32 = 0x7f,
+
+    Create = 0xf0,
+    Call = 0xf1,
+    Callcode = 0xf2,
+    Return = 0xf3,
+    Delegatecall = 0xf4,
+    Create2 = 0xf5,
+
+    Staticcall = 0xfa,
+
+    Revert = 0xfd,
+    Invalid = 0xfe,
+    Selfdestruct = 0xFF,
+}
+
+#[derive(Clone)]
+#[napi(object)]
+pub struct Instruction {
+    #[napi(readonly)]
+    pub pc: u32,
+    // Should be an enum but TypeScript type system does not follow structural
+    // typing for enums, so we can't define our own type and we use a number instead.
+    #[napi(readonly)]
+    pub opcode: u8,
+    // Should be an enum but TypeScript type system does not follow structural
+    // typing for enums, so we can't define our own type and we use a number instead.
+    #[napi(readonly)]
+    pub jump_type: u8,
+    #[napi(readonly)]
+    pub push_data: Option<Buffer>,
+    #[napi(readonly)]
+    pub location: Option<Value>,
+}
+
+#[derive(Clone)]
+#[napi(object)]
+pub struct ImmutableReference {
+    #[napi(readonly)]
+    pub start: u32,
+    #[napi(readonly)]
+    pub length: u32,
+}
+
+#[napi]
+pub struct Bytecode {
+    // Emit a fake field to appease TypeScript's type system to be backwards
+    // compatible with the existing `Bytecode` interface.
+    // Originally, this property is marked as `private` but napi-rs does not
+    // support private fields and we can't use ES6 `#`-private fields because
+    // it's also considered incompatible by the TypeScript compiler.
+    /// Internal field, do not use.
+    #[napi(readonly, js_name = "_pcToInstruction", ts_type = "any")]
+    pub _appease_typescript: (),
+
+    #[napi(readonly)]
+    pub contract: Value,
+    #[napi(readonly)]
+    pub is_deployment: bool,
+    #[napi(readonly)]
+    pub normalized_code: Buffer,
+    #[napi(readonly)]
+    pub instructions: Vec<Instruction>,
+    #[napi(readonly)]
+    pub library_address_positions: Vec<u32>,
+    #[napi(readonly)]
+    pub immutable_references: Vec<ImmutableReference>,
+    #[napi(readonly)]
+    pub compiler_version: String,
+}
+
+#[napi]
+impl Bytecode {
+    #[napi]
+    pub fn get_instruction(&self, pc: u32) -> napi::Result<Instruction> {
+        self.instructions
+            .get(pc as usize)
+            .cloned()
+            .ok_or_else(|| napi::Error::from_reason(format!("Instruction at PC {} not found", pc)))
+    }
+
+    #[napi]
+    pub fn has_instruction(&self, pc: u32) -> bool {
+        self.instructions.get(pc as usize).is_some()
+    }
+}
