@@ -1,7 +1,4 @@
-use std::sync::OnceLock;
-
-use alloy_rlp::{Buf as _, Encodable as _};
-use edr_eth::{transaction::TxKind, utils::envelop_bytes, Address, Bytes, B256, U256};
+use edr_eth::{utils::envelop_bytes, B256};
 use revm::primitives::keccak256;
 
 use super::Deposited;
@@ -13,81 +10,13 @@ impl Deposited {
     /// Returns the transaction's hash.
     pub fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| {
-            keccak256({
-                let encoded = alloy_rlp::encode(self);
-                let enveloped = envelop_bytes(Self::TYPE, &encoded);
+            let encoded = alloy_rlp::encode(self);
+            let enveloped = envelop_bytes(Self::TYPE, &encoded);
 
-                keccak256(enveloped)
-            })
+            keccak256(enveloped)
         })
     }
-
-    // fn rlp_payload_length(&self) -> usize {
-    //     self.source_hash.length()
-    //         + self.from.length()
-    //         + self.to.length()
-    //         + self.mint.map_or(1, |mint| mint.length())
-    //         + self.value.length()
-    //         + self.gas_limit.length()
-    //         + self.is_system_tx.length()
-    //         + self.data.0.length()
-    // }
 }
-
-// // Custom implementation of `Decodable` to handle `mint`
-// impl alloy_rlp::Decodable for Deposited {
-//     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-//         let transaction = Self {
-//             source_hash: B256::decode(buf)?,
-//             from: Address::decode(buf)?,
-//             to: TxKind::decode(buf)?,
-//             mint: if *buf.first().ok_or(alloy_rlp::Error::InputTooShort)?
-//                 == alloy_rlp::EMPTY_STRING_CODE
-//             {
-//                 buf.advance(1);
-//                 None
-//             } else {
-//                 Some(u128::decode(buf)?)
-//             },
-//             value: U256::decode(buf)?,
-//             gas_limit: u64::decode(buf)?,
-//             is_system_tx: bool::decode(buf)?,
-//             data: Bytes::decode(buf)?,
-//             hash: OnceLock::new(),
-//         };
-
-//         Ok(transaction)
-//     }
-// }
-
-// // Custom implementation of `Encodable` to handle `mint`
-// impl alloy_rlp::Encodable for Deposited {
-//     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-//         alloy_rlp::Header {
-//             list: true,
-//             payload_length: self.rlp_payload_length(),
-//         }
-//         .encode(out);
-
-//         self.source_hash.encode(out);
-//         self.from.encode(out);
-//         self.to.encode(out);
-//         if let Some(mint) = self.mint {
-//             mint.encode(out);
-//         } else {
-//             out.put_u8(alloy_rlp::EMPTY_STRING_CODE);
-//         }
-//         self.value.encode(out);
-//         self.gas_limit.encode(out);
-//         self.is_system_tx.encode(out);
-//         self.data.encode(out);
-//     }
-
-//     fn length(&self) -> usize {
-//         let payload_length = self.rlp_payload_length();
-//         alloy_rlp::length_of_length(payload_length)
-//     }
-// }
 
 impl PartialEq for Deposited {
     fn eq(&self, other: &Self) -> bool {
@@ -109,7 +38,7 @@ mod tests {
 
     use edr_eth::{
         address,
-        transaction::{SignedTransaction, TxKind},
+        transaction::{SignedTransaction as _, TxKind},
         Bytes, U256,
     };
     use revm::primitives::b256;
