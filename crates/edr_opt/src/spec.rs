@@ -4,7 +4,7 @@ use edr_rpc_eth::spec::RpcSpec;
 use revm::optimism::{OptimismHaltReason, OptimismSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{rpc, transaction};
+use crate::{hardfork, rpc, transaction};
 
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
@@ -29,4 +29,14 @@ impl ChainSpec for OptimismChainSpec {
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
 
     type RpcTransactionConversionError = rpc::ConversionError;
+
+    fn chain_hardfork_activations(
+        chain_id: u64,
+    ) -> Option<&'static edr_evm::hardfork::Activations<Self>> {
+        hardfork::chain_hardfork_activations(chain_id)
+    }
+
+    fn chain_name(chain_id: u64) -> Option<&'static str> {
+        hardfork::chain_name(chain_id)
+    }
 }

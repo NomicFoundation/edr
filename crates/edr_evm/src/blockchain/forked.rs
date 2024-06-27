@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, num::NonZeroU64, str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, str::FromStr, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
@@ -6,8 +6,7 @@ use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     log::FilterLog,
     receipt::BlockReceipt,
-    spec::{chain_hardfork_activations, chain_name, HardforkActivations},
-    AccountInfo, Address, BlockSpec, Bytes, B256, U256,
+    AccountInfo, Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -28,14 +27,19 @@ use super::{
     BlockchainMut,
 };
 use crate::{
+    block::EthRpcBlock,
     chain_spec::{ChainSpec, SyncChainSpec},
+    hardfork::Activations,
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, LocalBlock, RandomHashGenerator, SyncBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError {
+pub enum CreationError<ChainSpecT>
+where
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
+{
     /// JSON-RPC error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -55,7 +59,7 @@ pub enum CreationError {
         /// Chain name
         chain_name: String,
         /// Detected hardfork
-        hardfork: SpecId,
+        hardfork: ChainSpecT::Hardfork,
     },
 }
 
@@ -108,12 +112,12 @@ where
     remote_chain_id: u64,
     network_id: u64,
     spec_id: ChainSpecT::Hardfork,
-    hardfork_activations: Option<HardforkActivations>,
+    hardfork_activations: Option<Activations<ChainSpecT>>,
 }
 
 impl<ChainSpecT> ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncChainSpec<Hardfork: Debug>,
 {
     /// Constructs a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -126,8 +130,8 @@ where
         fork_block_number: Option<u64>,
         irregular_state: &mut IrregularState,
         state_root_generator: Arc<Mutex<RandomHashGenerator>>,
-        hardfork_activation_overrides: &HashMap<ChainId, HardforkActivations>,
-    ) -> Result<Self, CreationError> {
+        hardfork_activation_overrides: &HashMap<ChainId, Activations<ChainSpecT>>,
+    ) -> Result<Self, CreationError<ChainSpecT>> {
         let ForkMetadata {
             chain_id: remote_chain_id,
             network_id,
@@ -161,9 +165,13 @@ where
             recommended_block_number
         };
 
+        // Dispatch block timestamp request
+        let fork_timestamp_future =
+            rpc_client.get_block_by_number(PreEip1898BlockSpec::Number(fork_block_number));
+
         let hardfork_activations = hardfork_activation_overrides
             .get(&remote_chain_id)
-            .or_else(|| chain_hardfork_activations(remote_chain_id))
+            .or_else(|| ChainSpecT::chain_hardfork_activations(remote_chain_id))
             .and_then(|hardfork_activations| {
                 // Ignore empty hardfork activations
                 if hardfork_activations.is_empty() {
@@ -173,22 +181,28 @@ where
                 }
             });
 
-        if let Some(hardfork) = hardfork_activations
-            .as_ref()
-            .and_then(|hardfork_activations| {
-                hardfork_activations.hardfork_at_block_number(fork_block_number)
-            })
+        let fork_timestamp = fork_timestamp_future
+            .await?
+            .expect("Block must exist since block number is less than the latest block number.")
+            .timestamp();
+
+        if let Some(remote_hardfork) =
+            hardfork_activations
+                .as_ref()
+                .and_then(|hardfork_activations| {
+                    hardfork_activations.hardfork_at_block(fork_block_number, fork_timestamp)
+                })
         {
-            if hardfork < SpecId::SPURIOUS_DRAGON {
+            if remote_hardfork.into() < SpecId::SPURIOUS_DRAGON {
                 return Err(CreationError::InvalidHardfork {
-                    chain_name: chain_name(remote_chain_id)
+                    chain_name: ChainSpecT::chain_name(remote_chain_id)
                         .map_or_else(|| "unknown".to_string(), ToString::to_string),
                     fork_block_number,
-                    hardfork,
+                    hardfork: remote_hardfork,
                 });
             }
 
-            if hardfork < SpecId::CANCUN && Into::<SpecId>::into(spec_id) >= SpecId::CANCUN {
+            if remote_hardfork.into() < SpecId::CANCUN && spec_id.into() >= SpecId::CANCUN {
                 let beacon_roots_address =
                     Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
                 let beacon_roots_contract = Bytecode::new_raw(
@@ -258,7 +272,7 @@ where
 
 impl<ChainSpecT> BlockHashRef for ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncChainSpec<Hardfork: Debug>,
 {
     type Error = BlockchainError<ChainSpecT>;
 
@@ -280,7 +294,7 @@ where
 
 impl<ChainSpecT> Blockchain<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncChainSpec<Hardfork: Debug>,
 {
     type BlockchainError = BlockchainError<ChainSpecT>;
 
@@ -449,8 +463,9 @@ where
             .map_err(BlockchainError::Forked)
             .and_then(|block| {
                 if let Some(hardfork_activations) = &self.hardfork_activations {
+                    let header = block.header();
                     hardfork_activations
-                        .hardfork_at_block_number(block.header().number)
+                        .hardfork_at_block(header.number, header.timestamp)
                         .ok_or(BlockchainError::UnknownBlockSpec {
                             block_number,
                             hardfork_activations: hardfork_activations.clone(),
@@ -540,7 +555,7 @@ where
 
 impl<ChainSpecT> BlockchainMut<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncChainSpec<Hardfork: Debug>,
 {
     type Error = BlockchainError<ChainSpecT>;
 

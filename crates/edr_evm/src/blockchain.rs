@@ -8,9 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use derive_where::derive_where;
-use edr_eth::{
-    log::FilterLog, receipt::BlockReceipt, spec::HardforkActivations, Address, B256, U256,
-};
+use edr_eth::{log::FilterLog, receipt::BlockReceipt, Address, B256, U256};
 use revm::{
     db::BlockHashRef,
     primitives::{HashSet, SpecId},
@@ -24,13 +22,14 @@ pub use self::{
 };
 use crate::{
     chain_spec::{ChainSpec, SyncChainSpec},
+    hardfork::Activations,
     state::{StateDiff, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
 };
 
 /// Combinatorial error for the blockchain API.
 #[derive(thiserror::Error)]
-#[derive_where(Debug; ChainSpecT::RpcBlockConversionError)]
+#[derive_where(Debug; ChainSpecT::Hardfork, ChainSpecT::RpcBlockConversionError)]
 pub enum BlockchainError<ChainSpecT: ChainSpec> {
     /// Forked blockchain error
     #[error(transparent)]
@@ -76,7 +75,7 @@ pub enum BlockchainError<ChainSpecT: ChainSpec> {
         /// Block number
         block_number: u64,
         /// Hardfork activation history
-        hardfork_activations: HardforkActivations,
+        hardfork_activations: Activations<ChainSpecT>,
     },
 }
 
@@ -287,7 +286,7 @@ fn validate_next_block<ChainSpecT: ChainSpec>(
         });
     }
 
-    if Into::<SpecId>::into(spec_id) >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if spec_id.into() >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 

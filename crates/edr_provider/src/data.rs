@@ -37,10 +37,12 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
-    chain_spec::L1ChainSpec,
+    chain_spec::{ChainSpec, L1ChainSpec},
     debug_trace_transaction,
     evm::handler::CfgEnvWithChainSpec,
-    execution_result_to_debug_result, mempool, mine_block, mine_block_with_single_transaction,
+    execution_result_to_debug_result,
+    hardfork::ForkCondition,
+    mempool, mine_block, mine_block_with_single_transaction,
     register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
@@ -145,13 +147,16 @@ impl From<SendTransactionResult> for (B256, Vec<Trace<L1ChainSpec>>) {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError {
+pub enum CreationError<ChainSpecT>
+where
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
+{
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainError<L1ChainSpec>),
     /// An error that occurred while constructing a forked blockchain.
     #[error(transparent)]
-    ForkedBlockchainCreation(#[from] ForkedCreationError),
+    ForkedBlockchainCreation(#[from] ForkedCreationError<ChainSpecT>),
     #[error("Invalid HTTP header name: {0}")]
     InvalidHttpHeaders(HttpError),
     /// Invalid initial date
@@ -223,7 +228,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         call_override: Option<Arc<dyn SyncCallOverride>>,
         config: ProviderConfig,
         timer: TimerT,
-    ) -> Result<Self, CreationError> {
+    ) -> Result<Self, CreationError<L1ChainSpec>> {
         let InitialAccounts {
             local_accounts,
             genesis_accounts,
@@ -269,7 +274,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let dao_activation_block = config
             .chains
             .get(&config.chain_id)
-            .and_then(|config| config.hardfork_activation(SpecId::DAO_FORK));
+            .and_then(|config| config.hardfork_activation(SpecId::DAO_FORK))
+            .and_then(|condition| {
+                if let ForkCondition::Block(number) = condition {
+                    Some(number)
+                } else {
+                    None
+                }
+            });
 
         let parent_beacon_block_root_generator = if let Some(initial_parent_beacon_block_root) =
             &config.initial_parent_beacon_block_root
@@ -321,7 +333,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.call_override = call_override;
     }
 
-    pub fn reset(&mut self, fork_config: Option<ForkConfig>) -> Result<(), CreationError> {
+    pub fn reset(
+        &mut self,
+        fork_config: Option<ForkConfig>,
+    ) -> Result<(), CreationError<L1ChainSpec>> {
         let mut config = self.initial_config.clone();
         config.fork = fork_config;
 
@@ -2371,7 +2386,7 @@ impl StateId {
 fn block_time_offset_seconds(
     config: &ProviderConfig,
     timer: &impl TimeSinceEpoch,
-) -> Result<i64, CreationError> {
+) -> Result<i64, CreationError<L1ChainSpec>> {
     config.initial_date.map_or(Ok(0), |initial_date| {
         let initial_timestamp = i64::try_from(
             initial_date
@@ -2404,7 +2419,7 @@ fn create_blockchain_and_state(
     config: &ProviderConfig,
     timer: &impl TimeSinceEpoch,
     mut genesis_accounts: HashMap<Address, Account>,
-) -> Result<BlockchainAndState, CreationError> {
+) -> Result<BlockchainAndState, CreationError<L1ChainSpec>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
     if let Some(fork_config) = &config.fork {
@@ -2425,7 +2440,7 @@ fn create_blockchain_and_state(
         )?);
 
         let (blockchain, mut irregular_state) =
-            tokio::task::block_in_place(|| -> Result<_, ForkedCreationError> {
+            tokio::task::block_in_place(|| -> Result<_, ForkedCreationError<L1ChainSpec>> {
                 let mut irregular_state = IrregularState::default();
                 let blockchain = runtime.block_on(ForkedBlockchain::<L1ChainSpec>::new(
                     runtime.clone(),

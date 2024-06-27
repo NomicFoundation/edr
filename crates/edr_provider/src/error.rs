@@ -54,7 +54,7 @@ pub enum ProviderError<LoggerErrorT> {
     #[error(transparent)]
     Blockchain(#[from] BlockchainError<L1ChainSpec>),
     #[error(transparent)]
-    Creation(#[from] CreationError),
+    Creation(#[from] CreationError<L1ChainSpec>),
     #[error(transparent)]
     DebugTrace(#[from] DebugTraceError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
     #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]

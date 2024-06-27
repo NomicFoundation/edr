@@ -6,7 +6,6 @@ use edr_eth::{
     env::CfgEnv,
     receipt::BlockReceipt,
     signature::secret_key_from_str,
-    spec::chain_hardfork_activations,
     transaction::EthTransactionRequest,
     trie::KECCAK_NULL_RLP,
     withdrawal::Withdrawal,
@@ -16,6 +15,7 @@ use edr_evm::{
     blockchain::{Blockchain as _, ForkedBlockchain},
     chain_spec::L1ChainSpec,
     evm::handler::CfgEnvWithChainSpec,
+    hardfork,
     state::IrregularState,
     Block, BlockBuilder, DebugContext, ExecutionResultWithContext, RandomHashGenerator,
     RemoteBlock,
@@ -134,43 +134,37 @@ where
 /// block.
 pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Handle::current();
-    let default_config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: url.clone(),
-        block_number: Some(block_number - 1),
-        http_headers: None,
-    }));
+
+    let rpc_client = EthRpcClient::<L1ChainSpec>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
+    let rpc_client = Arc::new(rpc_client);
 
     let replay_block = {
-        let rpc_client =
-            EthRpcClient::<L1ChainSpec>::new(&url, default_config.cache_dir.clone(), None)?;
-
         let block = rpc_client
             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(block_number))
             .await?;
 
-        RemoteBlock::new(block, Arc::new(rpc_client), runtime.clone())?
+        RemoteBlock::new(block, rpc_client.clone(), runtime.clone())?
     };
 
-    let rpc_client =
-        EthRpcClient::<L1ChainSpec>::new(&url, default_config.cache_dir.clone(), None)?;
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(parking_lot::Mutex::new(RandomHashGenerator::with_seed(
         edr_defaults::STATE_ROOT_HASH_SEED,
     )));
     let hardfork_activation_overrides = HashMap::new();
 
-    let hardfork_activations =
-        chain_hardfork_activations(chain_id).ok_or(anyhow!("Unsupported chain id"))?;
+    let hardfork_activations = hardfork::l1::chain_hardfork_activations(chain_id)
+        .ok_or(anyhow!("Unsupported chain id"))?;
 
+    let replay_header = replay_block.header();
     let spec_id = hardfork_activations
-        .hardfork_at_block_number(block_number)
+        .hardfork_at_block(block_number, replay_header.timestamp)
         .ok_or(anyhow!("Unsupported block number"))?;
 
     let blockchain = ForkedBlockchain::new(
         runtime.clone(),
         Some(chain_id),
         spec_id,
-        Arc::new(rpc_client),
+        rpc_client,
         Some(block_number - 1),
         &mut irregular_state,
         state_root_generator,
@@ -185,7 +179,6 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
     let cfg = CfgEnvWithChainSpec::<L1ChainSpec>::new(cfg, spec_id);
 
     let parent = blockchain.last_block()?;
-    let replay_header = replay_block.header();
 
     let mut builder = BlockBuilder::new(
         cfg,

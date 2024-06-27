@@ -29,8 +29,6 @@ pub mod rlp;
 pub mod serde;
 /// Ethereum signature types
 pub mod signature;
-/// Specification of hardforks
-pub mod spec;
 /// Ethereum state types and functions
 pub mod state;
 /// Ethereum transaction types

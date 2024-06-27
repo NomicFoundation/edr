@@ -8,6 +8,10 @@
 /// Optimism RPC types
 pub mod rpc;
 
+/// Optimism harforks.
+pub mod hardfork;
+/// Types for Optimism receipts.
+pub mod receipt;
 mod spec;
 pub use self::spec::OptimismChainSpec;
 

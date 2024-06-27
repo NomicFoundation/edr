@@ -40,7 +40,7 @@ pub struct LocalBlock<ChainSpecT: ChainSpec> {
 impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
     /// Constructs an empty block, i.e. no transactions.
     pub fn empty(spec_id: ChainSpecT::Hardfork, partial_header: PartialHeader) -> Self {
-        let withdrawals = if Into::<SpecId>::into(spec_id) >= SpecId::SHANGHAI {
+        let withdrawals = if spec_id.into() >= SpecId::SHANGHAI {
             Some(Vec::default())
         } else {
             None

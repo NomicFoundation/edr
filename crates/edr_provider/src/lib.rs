@@ -121,7 +121,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         config: ProviderConfig,
         timer: TimerT,
-    ) -> Result<Self, CreationError> {
+    ) -> Result<Self, CreationError<L1ChainSpec>> {
         let data = ProviderData::new(
             runtime.clone(),
             logger,

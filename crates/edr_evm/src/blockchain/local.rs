@@ -105,7 +105,8 @@ where
     ) -> Result<Self, CreationError> {
         const EXTRA_DATA: &[u8] = b"\x12\x34";
 
-        if Into::<SpecId>::into(spec_id) >= SpecId::CANCUN {
+        let evm_spec_id = spec_id.into();
+        if evm_spec_id >= SpecId::CANCUN {
             let beacon_roots_address =
                 Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
             let beacon_roots_contract = Bytecode::new_raw(
@@ -125,7 +126,7 @@ where
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
 
-        if spec_id >= SpecId::MERGE && options.mix_hash.is_none() {
+        if evm_spec_id >= SpecId::MERGE && options.mix_hash.is_none() {
             return Err(CreationError::MissingPrevrandao);
         }
 
@@ -147,7 +148,7 @@ where
 
         options.extra_data = Some(Bytes::from(EXTRA_DATA));
 
-        let partial_header = PartialHeader::new(spec_id, options, None);
+        let partial_header = PartialHeader::new(evm_spec_id, options, None);
         Ok(unsafe {
             Self::with_genesis_block_unchecked(
                 LocalBlock::empty(spec_id, partial_header),
@@ -176,7 +177,7 @@ where
             });
         }
 
-        if spec_id >= SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
+        if spec_id.into() >= SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InsertBlockError::MissingWithdrawals);
         }
 
@@ -342,7 +343,7 @@ where
 
 impl<ChainSpecT> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncChainSpec<Hardfork: Debug>,
 {
     type Error = BlockchainError<ChainSpecT>;
 
