@@ -3,12 +3,12 @@
 use std::sync::Arc;
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{PreEip1898BlockSpec, B256};
-use edr_evm::RemoteBlock;
+use edr_eth::{HashMap, PreEip1898BlockSpec, B256};
+use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator, RemoteBlock};
 use edr_opt::{transaction, OptimismChainSpec};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;
-use revm::primitives::b256;
+use revm::{optimism::OptimismSpecId, primitives::b256};
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -34,17 +34,40 @@ async fn block_with_transactions() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn block_with_deposit_transaction() -> anyhow::Result<()> {
     const BLOCK_NUMBER_WITH_DEPOSIT: u64 = 121_874_088;
+    const CHAIN_ID: u64 = 10;
+    const SPEC_ID: OptimismSpecId = OptimismSpecId::ECOTONE;
+    
+    let runtime = tokio::runtime::Handle::current();
 
     let url = get_alchemy_url().replace("eth-", "opt-");
     let rpc_client = EthRpcClient::<OptimismChainSpec>::new(&url, CACHE_DIR.into(), None)?;
+    let rpc_client = Arc::new(rpc_client);
 
-    let block = rpc_client
-        .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(
-            BLOCK_NUMBER_WITH_DEPOSIT,
-        ))
-        .await?;
+    let replay_block = {
+        let block = rpc_client
+            .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(
+                BLOCK_NUMBER_WITH_DEPOSIT,
+            ))
+            .await?;
 
-    let block = RemoteBlock::new(block, Arc::new(rpc_client), runtime::Handle::current())?;
+        RemoteBlock::new(block, rpc_client.clone(), runtime.clone())?
+    };
+    
+    let mut irregular_state = IrregularState::default();
+    let state_root_generator = Arc::new(parking_lot::Mutex::new(RandomHashGenerator::with_seed(
+        edr_defaults::STATE_ROOT_HASH_SEED,
+    )));
+    let hardfork_activation_overrides = HashMap::new();
+
+    let blockchain = ForkedBlockchain::new(
+        runtime.clone(),
+        None,
+        SPEC_ID, 
+        rpc_client.clone(),
+        Some(BLOCK_NUMBER_WITH_DEPOSIT - 1),
+        
+
+    )
 
     Ok(())
 }

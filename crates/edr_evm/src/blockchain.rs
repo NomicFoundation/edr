@@ -155,10 +155,13 @@ where
 
     /// Retrieves the hardfork specification of the block at the provided
     /// number.
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError>;
+    fn spec_at_block_number(
+        &self,
+        block_number: u64,
+    ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification used for new blocks.
-    fn spec_id(&self) -> SpecId;
+    fn spec_id(&self) -> ChainSpecT::Hardfork;
 
     /// Retrieves the state at a given block.
     ///
@@ -262,7 +265,7 @@ fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: ChainSp
 
 /// Validates whether a block is a valid next block.
 fn validate_next_block<ChainSpecT: ChainSpec>(
-    spec_id: SpecId,
+    spec_id: ChainSpecT::Hardfork,
     last_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     next_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
 ) -> Result<(), BlockchainError<ChainSpecT>> {
@@ -284,7 +287,7 @@ fn validate_next_block<ChainSpecT: ChainSpec>(
         });
     }
 
-    if spec_id >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if Into::<SpecId>::into(spec_id) >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 

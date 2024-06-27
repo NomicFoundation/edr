@@ -7,6 +7,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use derive_where::derive_where;
 use edr_eth::{
     beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
     block::{BlobGas, BlockOptions, PartialHeader},
@@ -75,7 +76,7 @@ impl From<GenesisBlockOptions> for BlockOptions {
 }
 
 /// A blockchain consisting of locally created blocks.
-#[derive(Debug)]
+#[derive_where(Debug; ChainSpecT::Hardfork)]
 pub struct LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
@@ -85,7 +86,7 @@ where
         ChainSpecT,
     >,
     chain_id: u64,
-    spec_id: SpecId,
+    spec_id: ChainSpecT::Hardfork,
 }
 
 impl<ChainSpecT> LocalBlockchain<ChainSpecT>
@@ -99,12 +100,12 @@ where
     pub fn new(
         mut genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: SpecId,
+        spec_id: ChainSpecT::Hardfork,
         options: GenesisBlockOptions,
     ) -> Result<Self, CreationError> {
         const EXTRA_DATA: &[u8] = b"\x12\x34";
 
-        if spec_id >= SpecId::CANCUN {
+        if Into::<SpecId>::into(spec_id) >= SpecId::CANCUN {
             let beacon_roots_address =
                 Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
             let beacon_roots_contract = Bytecode::new_raw(
@@ -164,7 +165,7 @@ where
         genesis_block: LocalBlock<ChainSpecT>,
         genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: SpecId,
+        spec_id: ChainSpecT::Hardfork,
     ) -> Result<Self, InsertBlockError> {
         let genesis_header = genesis_block.header();
 
@@ -195,7 +196,7 @@ where
         genesis_block: LocalBlock<ChainSpecT>,
         genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: SpecId,
+        spec_id: ChainSpecT::Hardfork,
     ) -> Self {
         let genesis_block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>> =
             Arc::new(genesis_block);
@@ -302,7 +303,10 @@ where
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError> {
+    fn spec_at_block_number(
+        &self,
+        block_number: u64,
+    ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError> {
         if block_number > self.last_block_number() {
             return Err(BlockchainError::UnknownBlockNumber);
         }
@@ -310,7 +314,7 @@ where
         Ok(self.spec_id)
     }
 
-    fn spec_id(&self) -> SpecId {
+    fn spec_id(&self) -> ChainSpecT::Hardfork {
         self.spec_id
     }
 

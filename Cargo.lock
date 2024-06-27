@@ -1186,6 +1186,7 @@ dependencies = [
  "edr_rpc_eth",
  "edr_test_utils",
  "log",
+ "parking_lot 0.12.1",
  "revm",
  "serde",
  "thiserror",

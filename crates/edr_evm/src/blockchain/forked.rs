@@ -107,7 +107,7 @@ where
     /// The chain id of the remote blockchain. It might deviate from `chain_id`.
     remote_chain_id: u64,
     network_id: u64,
-    spec_id: SpecId,
+    spec_id: ChainSpecT::Hardfork,
     hardfork_activations: Option<HardforkActivations>,
 }
 
@@ -121,7 +121,7 @@ where
     pub async fn new(
         runtime: runtime::Handle,
         chain_id_override: Option<u64>,
-        spec_id: SpecId,
+        spec_id: ChainSpecT::Hardfork,
         rpc_client: Arc<EthRpcClient<ChainSpecT>>,
         fork_block_number: Option<u64>,
         irregular_state: &mut IrregularState,
@@ -188,7 +188,7 @@ where
                 });
             }
 
-            if hardfork < SpecId::CANCUN && spec_id >= SpecId::CANCUN {
+            if hardfork < SpecId::CANCUN && Into::<SpecId>::into(spec_id) >= SpecId::CANCUN {
                 let beacon_roots_address =
                     Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
                 let beacon_roots_contract = Bytecode::new_raw(
@@ -433,7 +433,10 @@ where
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError> {
+    fn spec_at_block_number(
+        &self,
+        block_number: u64,
+    ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError> {
         if block_number > self.last_block_number() {
             return Err(BlockchainError::UnknownBlockNumber);
         }
@@ -465,7 +468,7 @@ where
         }
     }
 
-    fn spec_id(&self) -> SpecId {
+    fn spec_id(&self) -> ChainSpecT::Hardfork {
         self.spec_id
     }
 

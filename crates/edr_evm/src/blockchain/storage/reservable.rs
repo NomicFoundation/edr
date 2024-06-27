@@ -1,6 +1,7 @@
 use std::{marker::PhantomData, num::NonZeroU64, sync::Arc};
 
-use edr_eth::{block::PartialHeader, receipt::BlockReceipt, Address, SpecId, B256, U256};
+use derive_where::derive_where;
+use edr_eth::{block::PartialHeader, receipt::BlockReceipt, Address, B256, U256};
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use revm::primitives::{HashMap, HashSet};
 
@@ -9,8 +10,8 @@ use crate::{chain_spec::ChainSpec, state::StateDiff, Block, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
-#[derive(Debug)]
-struct Reservation {
+#[derive_where(Debug; ChainSpecT::Hardfork)]
+struct Reservation<ChainSpecT: ChainSpec> {
     first_number: u64,
     last_number: u64,
     interval: u64,
@@ -18,18 +19,18 @@ struct Reservation {
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
-    spec_id: SpecId,
+    spec_id: ChainSpecT::Hardfork,
 }
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory,
 /// while lazily loading blocks that have been reserved.
-#[derive(Debug)]
+#[derive_where(Debug; BlockT, ChainSpecT::Hardfork)]
 pub struct ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone + ?Sized,
     ChainSpecT: ChainSpec,
 {
-    reservations: RwLock<Vec<Reservation>>,
+    reservations: RwLock<Vec<Reservation<ChainSpecT>>>,
     storage: RwLock<SparseBlockchainStorage<BlockT, ChainSpecT>>,
     // We can store the state diffs contiguously, as reservations don't contain any diffs.
     // Diffs are a mapping from one state to the next, so the genesis block contains the initial
@@ -150,7 +151,7 @@ where
         previous_base_fee: Option<U256>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        spec_id: SpecId,
+        spec_id: ChainSpecT::Hardfork,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,
@@ -336,8 +337,8 @@ where
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 fn calculate_timestamp_for_reserved_block<BlockT, ChainSpecT>(
     storage: &SparseBlockchainStorage<BlockT, ChainSpecT>,
-    reservations: &Vec<Reservation>,
-    reservation: &Reservation,
+    reservations: &Vec<Reservation<ChainSpecT>>,
+    reservation: &Reservation<ChainSpecT>,
     block_number: u64,
 ) -> u64
 where
@@ -364,7 +365,10 @@ where
     previous_timestamp + reservation.interval * (block_number - reservation.first_number + 1)
 }
 
-fn find_reservation(reservations: &[Reservation], number: u64) -> Option<&Reservation> {
+fn find_reservation<ChainSpecT: ChainSpec>(
+    reservations: &[Reservation<ChainSpecT>],
+    number: u64,
+) -> Option<&Reservation<ChainSpecT>> {
     reservations
         .iter()
         .find(|reservation| reservation.first_number <= number && number <= reservation.last_number)
