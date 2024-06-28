@@ -322,6 +322,15 @@ pub enum JumpType {
     INTERNAL_JUMP,
 }
 
+#[derive(Clone)]
+#[napi(object)]
+struct ImmutableReference {
+    #[napi(readonly)]
+    pub start: u32,
+    #[napi(readonly)]
+    pub length: u32,
+}
+
 #[napi]
 impl Instruction {
     #[napi(constructor)]
@@ -364,15 +373,6 @@ impl Instruction {
 
 // WIP area below:
 use napi::bindgen_prelude::Buffer;
-
-#[derive(Clone)]
-#[napi(object)]
-pub struct ImmutableReference {
-    #[napi(readonly)]
-    pub start: u32,
-    #[napi(readonly)]
-    pub length: u32,
-}
 
 // #[napi]
 // pub struct Bytecode {
