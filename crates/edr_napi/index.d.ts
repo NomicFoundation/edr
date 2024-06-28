@@ -539,6 +539,12 @@ export class SourceLocation {
   contains(other: SourceLocation): boolean
   equals(other: SourceLocation): boolean
 }
+export class CustomError {
+  readonly selector: Uint8Array
+  readonly name: string
+  readonly paramTypes: Array<any>
+  static fromABI(name: string, inputs: Array<any>): CustomError | undefined
+}
 export class Bytecode {
   /** Internal field, do not use. */
   readonly _pcToInstruction: any

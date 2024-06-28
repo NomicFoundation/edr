@@ -1231,8 +1231,10 @@ dependencies = [
 name = "edr_solidity"
 version = "0.3.5"
 dependencies = [
+ "alloy-json-abi",
  "edr_eth",
  "edr_evm",
+ "serde_json",
 ]
 
 [[package]]

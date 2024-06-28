@@ -13,3 +13,5 @@ mod opcodes;
 pub mod exit;
 pub mod message_trace;
 pub mod vm_tracer;
+
+pub mod utils;

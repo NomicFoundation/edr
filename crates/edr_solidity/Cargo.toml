@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm" }
+alloy-json-abi = { version = "0.7.4" }
+serde_json = { version = "1.0.89" }
 
 [lints]
 workspace = true

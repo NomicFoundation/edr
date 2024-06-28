@@ -5,7 +5,7 @@ use napi::{
     Either, Env, JsObject,
 };
 use napi_derive::napi;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 const ENABLE_DEBUG: bool = false;
 
@@ -264,6 +264,37 @@ pub struct ContractFunction {
     pub selector: Option<Uint8Array>,
     #[napi(readonly)]
     pub param_types: Option<Vec<Value>>,
+}
+
+#[napi]
+pub struct CustomError {
+    #[napi(readonly)]
+    pub selector: Uint8Array,
+    #[napi(readonly)]
+    pub name: String,
+    #[napi(readonly)]
+    pub param_types: Vec<Value>,
+}
+
+#[napi]
+impl CustomError {
+    #[napi(js_name = "fromABI")]
+    pub fn from_abi(name: String, inputs: Vec<Value>) -> Either<CustomError, Undefined> {
+        let selector = edr_solidity::utils::json_abi_error_selector(&json!({
+          "name": name,
+          "inputs": inputs
+        }));
+        let selector = match selector {
+            Ok(selector) => selector,
+            Err(_) => return Either::B(()),
+        };
+
+        Either::A(CustomError {
+            selector: Uint8Array::from(&selector),
+            name,
+            param_types: inputs,
+        })
+    }
 }
 
 // WIP area below:
