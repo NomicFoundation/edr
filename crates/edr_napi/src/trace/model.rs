@@ -1,8 +1,8 @@
-use std::{cell::OnceCell, rc::Rc};
+use std::{cell::OnceCell, collections::HashMap, rc::Rc};
 
 use napi::{
-    bindgen_prelude::{ClassInstance, Object, Uint8Array, Undefined},
-    Either, Env, JsObject,
+    bindgen_prelude::{Buffer, ClassInstance, Object, Uint8Array, Undefined},
+    Either, Env, JsNumber, JsObject,
 };
 use napi_derive::napi;
 use serde_json::{json, Value};
@@ -324,7 +324,7 @@ pub enum JumpType {
 
 #[derive(Clone)]
 #[napi(object)]
-struct ImmutableReference {
+pub struct ImmutableReference {
     #[napi(readonly)]
     pub start: u32,
     #[napi(readonly)]
@@ -371,48 +371,75 @@ impl Instruction {
     }
 }
 
-// WIP area below:
-use napi::bindgen_prelude::Buffer;
+#[napi]
+pub struct Bytecode {
+    pc_to_instruction: HashMap<u32, napi::Ref<()>>,
 
-// #[napi]
-// pub struct Bytecode {
-//     // Emit a fake field to appease TypeScript's type system to be backwards
-//     // compatible with the existing `Bytecode` interface.
-//     // Originally, this property is marked as `private` but napi-rs does not
-//     // support private fields and we can't use ES6 `#`-private fields because
-//     // it's also considered incompatible by the TypeScript compiler.
-//     /// Internal field, do not use.
-//     #[napi(readonly, js_name = "_pcToInstruction", ts_type = "any")]
-//     pub _appease_typescript: (),
+    contract: napi::Ref<()>,
+    #[napi(readonly)]
+    pub is_deployment: bool,
+    #[napi(readonly)]
+    pub normalized_code: Buffer,
+    #[napi(readonly)]
+    pub library_address_positions: Vec<u32>,
+    #[napi(readonly)]
+    pub immutable_references: Vec<ImmutableReference>,
+    #[napi(readonly)]
+    pub compiler_version: String,
+}
 
-//     #[napi(readonly)]
-//     pub contract: Value,
-//     #[napi(readonly)]
-//     pub is_deployment: bool,
-//     #[napi(readonly)]
-//     pub normalized_code: Buffer,
-//     #[napi(readonly)]
-//     pub instructions: Vec<Instruction>,
-//     #[napi(readonly)]
-//     pub library_address_positions: Vec<u32>,
-//     #[napi(readonly)]
-//     pub immutable_references: Vec<ImmutableReference>,
-//     #[napi(readonly)]
-//     pub compiler_version: String,
-// }
+#[napi]
+impl Bytecode {
+    #[napi(constructor)]
+    pub fn new(
+        contract: Object,
+        is_deployment: bool,
+        normalized_code: Buffer,
+        instructions: Vec<Object>,
+        library_address_positions: Vec<u32>,
+        immutable_references: Vec<ImmutableReference>,
+        compiler_version: String,
+        env: Env,
+    ) -> napi::Result<Bytecode> {
+        let contract_ref = env.create_reference(contract)?;
 
-// #[napi]
-// impl Bytecode {
-//     #[napi]
-//     pub fn get_instruction(&self, pc: u32) -> napi::Result<Instruction> {
-//         self.instructions
-//             .get(pc as usize)
-//             .cloned()
-//             .ok_or_else(|| napi::Error::from_reason(format!("Instruction at PC {} not found", pc)))
-//     }
+        let mut pc_to_instruction = HashMap::new();
+        for inst in instructions {
+            let pc = inst.get_named_property::<JsNumber>("pc")?;
+            let pc = pc.get_uint32()?;
+            let r#ref = env.create_reference(inst)?;
 
-//     #[napi]
-//     pub fn has_instruction(&self, pc: u32) -> bool {
-//         self.instructions.get(pc as usize).is_some()
-//     }
-// }
+            pc_to_instruction.insert(pc, r#ref);
+        }
+
+        Ok(Bytecode {
+            pc_to_instruction,
+            contract: contract_ref,
+            is_deployment,
+            normalized_code,
+            library_address_positions,
+            immutable_references,
+            compiler_version,
+        })
+    }
+
+    #[napi(ts_return_type = "Instruction")]
+    pub fn get_instruction(&self, pc: u32, env: Env) -> napi::Result<Object> {
+        let obj = self.pc_to_instruction.get(&pc).ok_or_else(|| {
+            napi::Error::from_reason(format!("Instruction at PC {} not found", pc))
+        })?;
+
+        Ok(env.get_reference_value::<Object>(obj)?)
+    }
+
+    #[napi]
+    pub fn has_instruction(&self, pc: u32) -> bool {
+        self.pc_to_instruction.contains_key(&pc)
+    }
+
+    // TODO: Change the types to Contract once we port it
+    #[napi(getter, ts_return_type = "any")]
+    pub fn contract(&self, env: Env) -> napi::Result<Object> {
+        env.get_reference_value::<Object>(&self.contract)
+    }
+}

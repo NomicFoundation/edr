@@ -525,6 +525,17 @@ export class Instruction {
   constructor(pc: number, opcode: opcodes.Opcode, jumpType: JumpType, pushData?: Buffer | undefined | null, location?: SourceLocation | undefined | null)
   get location(): SourceLocation | undefined
 }
+export class Bytecode {
+  readonly isDeployment: boolean
+  readonly normalizedCode: Buffer
+  readonly libraryAddressPositions: Array<number>
+  readonly immutableReferences: Array<ImmutableReference>
+  readonly compilerVersion: string
+  constructor(contract: object, isDeployment: boolean, normalizedCode: Buffer, instructions: Array<object>, libraryAddressPositions: Array<number>, immutableReferences: Array<ImmutableReference>, compilerVersion: string)
+  getInstruction(pc: number): Instruction
+  hasInstruction(pc: number): boolean
+  get contract(): any
+}
 export type VMTracer = VmTracer
 /** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
 export class VmTracer {
