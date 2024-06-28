@@ -40,7 +40,6 @@ impl alloy_rlp::Encodable for BlockReceipt {
 #[cfg(all(test, feature = "serde"))]
 mod test {
     use assert_json_diff::assert_json_eq;
-    use revm_primitives::SpecId;
     use serde_json::json;
 
     use super::*;
@@ -58,7 +57,6 @@ mod test {
                     logs_bloom: Bloom::default(),
                     logs: vec![],
                     data: TypedReceiptData::Eip1559 { status: 1 },
-                    spec_id: SpecId::LATEST,
                 },
                 transaction_hash: B256::default(),
                 transaction_index: 5,

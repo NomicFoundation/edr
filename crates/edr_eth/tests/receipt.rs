@@ -56,7 +56,7 @@ mod remote {
                     #[tokio::test]
                     async fn [<receipt_rlp_encoding_ $name>]() {
                         use alloy_rlp::Decodable;
-                        use edr_eth::{log::Log, receipt::TypedReceipt, B256, SpecId};
+                        use edr_eth::{log::Log, receipt::TypedReceipt, B256};
                         use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
                         use edr_test_utils::env::get_alchemy_url;
                         use tempfile::TempDir;
@@ -80,7 +80,6 @@ mod remote {
                         let decoded = TypedReceipt::<Log>::decode(&mut expected.as_slice()).unwrap();
                         let receipt = TypedReceipt {
                             data: receipt.inner.inner.data,
-                            spec_id: SpecId::LATEST,
                             cumulative_gas_used: receipt.inner.inner.cumulative_gas_used,
                             logs_bloom: receipt.inner.inner.logs_bloom,
                             logs: receipt.inner.inner.logs.into_iter().map(|log| {

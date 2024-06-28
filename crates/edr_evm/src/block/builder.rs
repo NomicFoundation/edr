@@ -391,7 +391,6 @@ impl BlockBuilder {
                     transaction::Type::Eip1559 => TypedReceiptData::Eip1559 { status },
                     transaction::Type::Eip4844 => TypedReceiptData::Eip4844 { status },
                 },
-                spec_id,
             },
             transaction_hash: *transaction.transaction_hash(),
             transaction_index: self.transactions.len() as u64,

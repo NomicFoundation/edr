@@ -188,7 +188,6 @@ fn insert_dummy_block_with_transaction(
                 Log::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
             ],
             data: TypedReceiptData::PostEip658Legacy { status: 1 },
-            spec_id: blockchain.spec_id(),
         },
         transaction_hash: *transaction.transaction_hash(),
         transaction_index: 0,

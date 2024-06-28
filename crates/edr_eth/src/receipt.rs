@@ -10,7 +10,6 @@ mod block;
 mod transaction;
 
 use alloy_rlp::{Buf, BufMut, Decodable, Encodable};
-use revm_primitives::SpecId;
 #[cfg(feature = "serde")]
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 
@@ -20,7 +19,7 @@ use crate::U64;
 use crate::{Bloom, B256};
 
 /// Typed receipt that's generated after execution of a transaction.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TypedReceipt<LogT> {
     /// Cumulative gas used in block after this transaction was executed
     pub cumulative_gas_used: u64,
@@ -32,23 +31,7 @@ pub struct TypedReceipt<LogT> {
     /// - `root` field (before Byzantium) or `status` field (after Byzantium)
     /// - `type` field after Berlin
     pub data: TypedReceiptData,
-    /// The currently active hardfork in the local blockchain. Hack for
-    /// serialization. Not included in the serialized representation.
-    /// Assumes remote runs latest hardfork.
-    pub spec_id: SpecId,
 }
-
-impl<LogT: PartialEq> PartialEq for TypedReceipt<LogT> {
-    fn eq(&self, other: &Self) -> bool {
-        // Ignoring spec id as that's just a hack for serialization.
-        self.cumulative_gas_used == other.cumulative_gas_used
-            && self.logs_bloom == other.logs_bloom
-            && self.logs == other.logs
-            && self.data == other.data
-    }
-}
-
-impl<LogT: Eq> Eq for TypedReceipt<LogT> {}
 
 #[cfg(feature = "serde")]
 impl<LogT: serde::Serialize> Serialize for TypedReceipt<LogT> {
@@ -56,8 +39,17 @@ impl<LogT: serde::Serialize> Serialize for TypedReceipt<LogT> {
     where
         S: Serializer,
     {
-        let num_fields = if self.spec_id >= SpecId::BERLIN { 5 } else { 4 };
+        // Pre-EIP-2178 receipts have no type field.
+        // <https://eips.ethereum.org/EIPS/eip-2718>
+        let tx_type = self.transaction_type();
+        let has_type = self.transaction_type() >= 1;
+        let num_fields = if has_type { 5 } else { 4 };
+
         let mut state = serializer.serialize_struct("TypedReceipt", num_fields)?;
+
+        if has_type {
+            state.serialize_field("type", &U64::from(tx_type))?;
+        }
 
         state.serialize_field("cumulativeGasUsed", &U64::from(self.cumulative_gas_used))?;
         state.serialize_field("logsBloom", &self.logs_bloom)?;
@@ -73,11 +65,6 @@ impl<LogT: serde::Serialize> Serialize for TypedReceipt<LogT> {
             | TypedReceiptData::Eip4844 { status } => {
                 state.serialize_field("status", &format!("0x{status}"))?;
             }
-        }
-
-        if self.spec_id >= SpecId::BERLIN {
-            let tx_type = self.transaction_type();
-            state.serialize_field("type", &U64::from(tx_type))?;
         }
 
         state.end()
@@ -283,7 +270,6 @@ where
                     logs_bloom,
                     logs,
                     data,
-                    spec_id: SpecId::LATEST,
                 })
             }
         }
@@ -358,7 +344,6 @@ where
                 logs_bloom: Bloom::decode(buf)?,
                 logs: Vec::<LogT>::decode(buf)?,
                 data,
-                spec_id: SpecId::LATEST,
             };
 
             let consumed = started_len - buf.len();
@@ -474,7 +459,6 @@ mod tests {
                                 Log::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                             ],
                             data: $receipt_data,
-                            spec_id: SpecId::LATEST,
                         }
                     }
 
@@ -491,15 +475,13 @@ mod tests {
                         let receipt = [<typed_receipt_dummy_ $name>]();
 
                         let serialized = serde_json::to_string(&receipt).unwrap();
-                        let mut deserialized: TypedReceipt<Log> = serde_json::from_str(&serialized).unwrap();
-                        deserialized.spec_id = receipt.spec_id;
+                        let deserialized: TypedReceipt<Log> = serde_json::from_str(&serialized).unwrap();
                         assert_eq!(receipt, deserialized);
 
                         // This is necessary to ensure that the deser implementation doesn't expect a
                         // &str where a String can be passed.
                         let serialized = serde_json::to_value(&receipt).unwrap();
-                        let mut deserialized: TypedReceipt<Log> = serde_json::from_value(serialized).unwrap();
-                        deserialized.spec_id = receipt.spec_id;
+                        let deserialized: TypedReceipt<Log> = serde_json::from_value(serialized).unwrap();
 
                         assert_eq!(receipt, deserialized);
                     }

@@ -15,7 +15,7 @@ pub mod signed;
 use revm_primitives::B256;
 pub use revm_primitives::{alloy_primitives::TxKind, Transaction, TransactionValidation};
 
-use crate::{AccessListItem, Address, Bytes, U256};
+use crate::{AccessListItem, Address, Bytes, U256, U8};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 

@@ -188,7 +188,6 @@ fn transaction_to_block_receipts(
                             })
                             .collect(),
                         data: receipt.inner.data,
-                        spec_id: receipt.inner.spec_id,
                     },
                     transaction_hash: receipt.transaction_hash,
                     transaction_index,
