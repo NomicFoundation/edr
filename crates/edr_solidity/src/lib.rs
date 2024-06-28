@@ -15,3 +15,5 @@ pub mod message_trace;
 pub mod vm_tracer;
 
 pub mod utils;
+
+pub mod artifacts;

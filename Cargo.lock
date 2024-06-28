@@ -1234,6 +1234,7 @@ dependencies = [
  "alloy-json-abi",
  "edr_eth",
  "edr_evm",
+ "serde",
  "serde_json",
 ]
 

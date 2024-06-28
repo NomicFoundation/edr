@@ -337,6 +337,8 @@ export interface SubscriptionEvent {
   filterId: bigint
   result: any
 }
+export function deserializeCompilerInput(value: any): void
+export function deserializeCompilerOutput(value: any): void
 export interface EvmStep {
   pc: number
 }
