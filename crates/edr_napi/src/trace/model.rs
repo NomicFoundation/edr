@@ -3,7 +3,7 @@ use std::{cell::OnceCell, collections::HashMap, rc::Rc};
 use edr_evm::hex;
 use napi::{
     bindgen_prelude::{Buffer, ClassInstance, FromNapiValue, Object, This, Uint8Array, Undefined},
-    Either, Env, JsNumber, JsObject,
+    Either, Env, JsObject,
 };
 use napi_derive::napi;
 use serde_json::{json, Value};
@@ -283,9 +283,8 @@ pub struct ContractFunction {
     pub r#type: ContractFunctionType,
     #[napi(readonly)]
     pub location: ClassInstance<SourceLocation>,
-    /// TODO: Replace with `Contract`
-    #[napi(readonly, ts_type = "any")]
-    pub contract: Object,
+    #[napi(readonly)]
+    pub contract: ClassInstance<Contract>,
     #[napi(readonly)]
     pub visibility: Option<ContractFunctionVisibility>,
     #[napi(readonly)]
@@ -421,10 +420,10 @@ pub struct Bytecode {
 impl Bytecode {
     #[napi(constructor)]
     pub fn new(
-        contract: Object,
+        contract: ClassInstance<Contract>,
         is_deployment: bool,
         normalized_code: Buffer,
-        instructions: Vec<Object>,
+        instructions: Vec<ClassInstance<Instruction>>,
         library_address_positions: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
         compiler_version: String,
@@ -434,8 +433,8 @@ impl Bytecode {
 
         let mut pc_to_instruction = HashMap::new();
         for inst in instructions {
-            let pc = inst.get_named_property::<JsNumber>("pc")?;
-            let pc = pc.get_uint32()?;
+            let pc = inst.pc;
+            let inst = inst.as_object(env);
             let r#ref = env.create_reference(inst)?;
 
             pc_to_instruction.insert(pc, r#ref);
@@ -467,7 +466,7 @@ impl Bytecode {
     }
 
     // TODO: Change the types to Contract once we port it
-    #[napi(getter, ts_return_type = "any")]
+    #[napi(getter, ts_return_type = "Contract")]
     pub fn contract(&self, env: Env) -> napi::Result<Object> {
         env.get_reference_value::<Object>(&self.contract)
     }
@@ -491,8 +490,8 @@ pub struct Contract {
 
     #[napi(readonly)]
     pub name: String,
-    #[napi(readonly)]
-    pub contract_type: ContractType,
+    #[napi(readonly, js_name = "type")]
+    pub r#type: ContractType,
     location: napi::Ref<()>, /* SourceLocation */
 }
 
@@ -516,7 +515,7 @@ impl Contract {
             local_functions: Vec::new(),
             selector_hex_to_function: HashMap::new(),
             name,
-            contract_type,
+            r#type: contract_type,
             location: location_ref,
         })
     }
@@ -604,7 +603,11 @@ impl Contract {
     }
 
     #[napi]
-    pub fn add_custom_error(&mut self, custom_error: JsObject, env: Env) -> napi::Result<()> {
+    pub fn add_custom_error(
+        &mut self,
+        custom_error: ClassInstance<CustomError>,
+        env: Env,
+    ) -> napi::Result<()> {
         let r#ref = env.create_reference(custom_error)?;
         self.custom_errors.push(r#ref);
         Ok(())

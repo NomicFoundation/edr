@@ -394,8 +394,7 @@ export interface ContractFunction {
   readonly name: string
   readonly type: ContractFunctionType
   readonly location: SourceLocation
-  /** TODO: Replace with `Contract` */
-  readonly contract: any
+  readonly contract: Contract
   readonly visibility?: ContractFunctionVisibility
   readonly isPayable?: boolean
   /** Fixed up by `Contract.correctSelector` */
@@ -535,14 +534,14 @@ export class Bytecode {
   readonly libraryAddressPositions: Array<number>
   readonly immutableReferences: Array<ImmutableReference>
   readonly compilerVersion: string
-  constructor(contract: object, isDeployment: boolean, normalizedCode: Buffer, instructions: Array<object>, libraryAddressPositions: Array<number>, immutableReferences: Array<ImmutableReference>, compilerVersion: string)
+  constructor(contract: Contract, isDeployment: boolean, normalizedCode: Buffer, instructions: Array<Instruction>, libraryAddressPositions: Array<number>, immutableReferences: Array<ImmutableReference>, compilerVersion: string)
   getInstruction(pc: number): Instruction
   hasInstruction(pc: number): boolean
-  get contract(): any
+  get contract(): Contract
 }
 export class Contract {
   readonly name: string
-  readonly contractType: ContractType
+  readonly type: ContractType
   constructor(name: string, contractType: ContractType, location: SourceLocation)
   get location(): SourceLocation
   get customErrors(): CustomError[]
@@ -550,7 +549,7 @@ export class Contract {
   get fallback(): ContractFunction | undefined
   get receive(): ContractFunction | undefined
   addLocalFunction(this: object, func: object): void
-  addCustomError(customError: object): void
+  addCustomError(customError: CustomError): void
   addNextLinearizedBaseContract(baseContract: Contract): void
   getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined
   /**
