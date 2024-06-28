@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, Exit, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, CustomError, JumpType, Opcode, Bytecode, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, Exit, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, CustomError, Instruction, JumpType, VmTracer, RawTrace, opcodes } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -325,8 +325,8 @@ module.exports.SourceLocation = SourceLocation
 module.exports.ContractFunctionType = ContractFunctionType
 module.exports.ContractFunctionVisibility = ContractFunctionVisibility
 module.exports.CustomError = CustomError
+module.exports.Instruction = Instruction
 module.exports.JumpType = JumpType
-module.exports.Opcode = Opcode
-module.exports.Bytecode = Bytecode
 module.exports.VmTracer = VmTracer
 module.exports.RawTrace = RawTrace
+module.exports.opcodes = opcodes

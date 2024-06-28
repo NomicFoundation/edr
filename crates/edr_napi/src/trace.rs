@@ -14,6 +14,8 @@ mod message_trace;
 mod model;
 mod vm_tracer;
 
+mod opcodes;
+
 #[napi(object)]
 pub struct TracingMessage {
     /// Sender address
