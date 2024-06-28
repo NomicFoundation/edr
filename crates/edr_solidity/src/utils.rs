@@ -32,5 +32,12 @@ mod tests {
             json_abi_error_selector(&value),
             Ok([0xec, 0xcc, 0x91, 0xab])
         );
+
+        let value = json!({ "type": "error", "name": "Unauthorized", "inputs": [] });
+
+        assert_eq!(
+            json_abi_error_selector(&value),
+            Ok([0x82, 0xb4, 0x29, 0x00])
+        );
     }
 }

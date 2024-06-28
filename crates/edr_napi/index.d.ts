@@ -412,6 +412,10 @@ export interface ImmutableReference {
   readonly start: number
   readonly length: number
 }
+export const enum ContractType {
+  CONTRACT = 0,
+  LIBRARY = 1
+}
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
@@ -535,6 +539,34 @@ export class Bytecode {
   getInstruction(pc: number): Instruction
   hasInstruction(pc: number): boolean
   get contract(): any
+}
+export class Contract {
+  readonly name: string
+  readonly contractType: ContractType
+  constructor(name: string, contractType: ContractType, location: SourceLocation)
+  get location(): SourceLocation
+  get customErrors(): CustomError[]
+  get constructorFunction(): ContractFunction | undefined
+  get fallback(): ContractFunction | undefined
+  get receive(): ContractFunction | undefined
+  addLocalFunction(this: object, func: object): void
+  addCustomError(customError: object): void
+  addNextLinearizedBaseContract(baseContract: Contract): void
+  getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined
+  /**
+  * We compute selectors manually, which is particularly hard. We do this
+  * because we need to map selectors to AST nodes, and it seems easier to start
+  * from the AST node. This is surprisingly super hard: things like inherited
+  * enums, structs and ABIv2 complicate it.
+  *
+  * As we know that that can fail, we run a heuristic that tries to correct
+  * incorrect selectors. What it does is checking the `evm.methodIdentifiers`
+  * compiler output, and detect missing selectors. Then we take those and
+  * find contract functions with the same name. If there are multiple of those
+  * we can't do anything. If there is a single one, it must have an incorrect
+  * selector, so we update it with the `evm.methodIdentifiers`'s value.
+  */
+  correctSelector(functionName: string, selector: Uint8Array): boolean
 }
 export type VMTracer = VmTracer
 /** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
