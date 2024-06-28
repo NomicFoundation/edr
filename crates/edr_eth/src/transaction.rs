@@ -84,6 +84,25 @@ impl TryFrom<u8> for Type {
     }
 }
 
+impl<'deserializer> serde::Deserialize<'deserializer> for Type {
+    fn deserialize<D>(deserializer: D) -> Result<Type, D::Error>
+    where
+        D: serde::Deserializer<'deserializer>,
+    {
+        let value = U8::deserialize(deserializer)?;
+        Type::try_from(value.to::<u8>()).map_err(serde::de::Error::custom)
+    }
+}
+
+impl serde::Serialize for Type {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        U8::serialize(&U8::from(u8::from(*self)), serializer)
+    }
+}
+
 pub trait SignedTransaction: Transaction {
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee.
