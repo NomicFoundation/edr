@@ -5,7 +5,7 @@ use std::sync::Arc;
 use edr_eth::{
     block::PartialHeader,
     log::{FilterLog, Log},
-    receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
+    receipt::{TransactionReceipt, TypedData, TypedReceipt},
     transaction::{SignedTransaction as _, Transaction as _},
     Address, Bloom, Bytes, HashSet, SpecId, B256, U256,
 };
@@ -187,7 +187,7 @@ fn insert_dummy_block_with_transaction(
                 Log::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
                 Log::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
             ],
-            data: TypedReceiptData::PostEip658Legacy { status: 1 },
+            data: TypedData::PostEip658Legacy { status: 1 },
         },
         transaction_hash: *transaction.transaction_hash(),
         transaction_index: 0,

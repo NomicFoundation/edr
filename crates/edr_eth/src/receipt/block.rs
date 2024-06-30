@@ -44,7 +44,7 @@ mod test {
 
     use super::*;
     use crate::{
-        receipt::{TypedReceipt, TypedReceiptData},
+        receipt::{TypedData, TypedReceipt},
         Address, Bloom, U256,
     };
 
@@ -56,7 +56,7 @@ mod test {
                     cumulative_gas_used: 1,
                     logs_bloom: Bloom::default(),
                     logs: vec![],
-                    data: TypedReceiptData::Eip1559 { status: 1 },
+                    data: TypedData::Eip1559 { status: 1 },
                 },
                 transaction_hash: B256::default(),
                 transaction_index: 5,
