@@ -1,5 +1,6 @@
 use std::{cell::OnceCell, collections::HashMap, rc::Rc};
 
+use crate::utils::ClassInstanceRef;
 use edr_evm::hex;
 use napi::{
     bindgen_prelude::{Buffer, ClassInstance, FromNapiValue, Object, This, Uint8Array, Undefined},
@@ -128,45 +129,10 @@ impl SourceFile {
 }
 
 #[derive(Clone)]
-/// Wraps the original `SourceFile` class instance.
-struct SourceFileRef {
-    r#ref: Rc<napi::Ref<()>>,
-    instance: Rc<ClassInstance<SourceFile>>,
-}
-
-impl SourceFileRef {
-    /// Creates a reference from the external `Object`.
-    fn from_obj(instance: ClassInstance<SourceFile>, env: Env) -> napi::Result<SourceFileRef> {
-        let obj = instance.as_object(env);
-        let r#ref = env.create_reference(obj)?;
-
-        Ok(SourceFileRef {
-            r#ref: Rc::new(r#ref),
-            instance: Rc::new(instance),
-        })
-    }
-
-    /// Returns the inner `Object` from the reference.
-    fn as_inner(&self, env: Env) -> napi::Result<Object> {
-        // NOTE: It's important to return the original object rather than the
-        // one from `ClassInstance::as_object`
-        env.get_reference_value::<Object>(&self.r#ref)
-    }
-
-    fn equals(&self, other: &SourceFileRef, env: Env) -> napi::Result<bool> {
-        neprintln!("SourceFileRef::equals in Rust");
-        let obj = self.as_inner(env)?;
-        let other_obj = other.as_inner(env)?;
-
-        env.strict_equals(obj, other_obj)
-    }
-}
-
-#[derive(Clone)]
 #[napi]
 pub struct SourceLocation {
     line: OnceCell<u32>,
-    file: SourceFileRef,
+    file: Rc<ClassInstanceRef<SourceFile>>,
     pub offset: u32,
     pub length: u32,
 }
@@ -183,7 +149,7 @@ impl SourceLocation {
         neprintln!("SourceLocation::new in Rust");
         Ok(SourceLocation {
             line: OnceCell::new(),
-            file: SourceFileRef::from_obj(file, env)?,
+            file: Rc::new(ClassInstanceRef::from_obj(file, env)?),
             offset,
             length,
         })
@@ -191,19 +157,19 @@ impl SourceLocation {
 
     // It's impossible to have a `Reference` be a property as it's not supported
     // by napi-rs, so we use a getter, instead
-    #[napi(getter, ts_return_type = "SourceFile")]
-    pub fn file(&self, env: Env) -> napi::Result<JsObject> {
+    #[napi(getter)]
+    pub fn file(&self, env: Env) -> napi::Result<ClassInstance<SourceFile>> {
         neprintln!("SourceLocation::file in Rust");
-        self.file.as_inner(env)
+        self.file.as_instance(env)
     }
 
     #[napi]
-    pub fn get_starting_line_number(&self) -> napi::Result<u32> {
+    pub fn get_starting_line_number(&self, env: Env) -> napi::Result<u32> {
         if let Some(line) = self.line.get() {
             return Ok(*line);
         }
 
-        let contents = &self.file.instance.content;
+        let contents = &self.file.as_instance(env)?.content;
 
         Ok(*self.line.get_or_init(move || {
             let mut line = 1;
@@ -223,7 +189,9 @@ impl SourceLocation {
     pub fn get_containing_function(&self, env: Env) -> napi::Result<Either<JsObject, Undefined>> {
         neprintln!("SourceLocation::get_containing_function in Rust");
 
-        self.file.instance.get_containing_function(self, env)
+        self.file
+            .as_instance(env)?
+            .get_containing_function(self, env)
     }
 
     #[napi]
@@ -231,7 +199,7 @@ impl SourceLocation {
         neprintln!("SourceLocation::contains in Rust");
         if !self
             .file
-            .equals(&other.file, env)
+            .ref_equals(&other.file, env)
             .expect("Failed to compare files")
         {
             return false;
@@ -246,7 +214,7 @@ impl SourceLocation {
     #[napi]
     pub fn equals(&self, other: &SourceLocation, env: Env) -> bool {
         neprintln!("SourceLocation::equals in Rust");
-        self.file.equals(&other.file, env).expect("TODO")
+        self.file.ref_equals(&other.file, env).expect("TODO")
             && self.offset == other.offset
             && self.length == other.length
     }
@@ -337,7 +305,7 @@ pub struct Instruction {
     #[napi(readonly)]
     pub push_data: Option<Buffer>,
     // #[napi(readonly, ts_type = "SourceLocation | undefined")]
-    location: Option<napi::Ref<()>>,
+    location: Option<ClassInstanceRef<SourceLocation>>,
 }
 
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
@@ -370,30 +338,26 @@ impl Instruction {
         location: Option<ClassInstance<SourceLocation>>,
         env: Env,
     ) -> napi::Result<Instruction> {
-        let loc_ref = match location {
-            Some(loc) => {
-                let loc_ref = env.create_reference(loc)?;
-                Some(loc_ref)
-            }
-            None => None,
-        };
+        let location = location
+            .map(|loc| ClassInstanceRef::from_obj(loc, env))
+            .transpose()?;
 
         Ok(Instruction {
             pc,
             opcode,
             jump_type,
             push_data,
-            location: loc_ref,
+            location,
         })
     }
 
-    #[napi(getter, ts_return_type = "SourceLocation | undefined")]
-    pub fn location(&self, env: Env) -> napi::Result<Either<Object, Undefined>> {
+    #[napi(getter)]
+    pub fn location(
+        &self,
+        env: Env,
+    ) -> napi::Result<Either<ClassInstance<SourceLocation>, Undefined>> {
         match &self.location {
-            Some(loc) => {
-                let loc = env.get_reference_value::<Object>(loc)?;
-                Ok(Either::A(loc))
-            }
+            Some(loc) => loc.as_instance(env).map(Either::A),
             None => Ok(Either::B(())),
         }
     }
@@ -401,9 +365,9 @@ impl Instruction {
 
 #[napi]
 pub struct Bytecode {
-    pc_to_instruction: HashMap<u32, napi::Ref<()>>,
+    pc_to_instruction: HashMap<u32, ClassInstanceRef<Instruction>>,
 
-    contract: napi::Ref<()>,
+    contract: ClassInstanceRef<Contract>,
     #[napi(readonly)]
     pub is_deployment: bool,
     #[napi(readonly)]
@@ -429,20 +393,19 @@ impl Bytecode {
         compiler_version: String,
         env: Env,
     ) -> napi::Result<Bytecode> {
-        let contract_ref = env.create_reference(contract)?;
+        let contract = ClassInstanceRef::from_obj(contract, env)?;
 
         let mut pc_to_instruction = HashMap::new();
         for inst in instructions {
             let pc = inst.pc;
-            let inst = inst.as_object(env);
-            let r#ref = env.create_reference(inst)?;
+            let inst = ClassInstanceRef::from_obj(inst, env)?;
 
-            pc_to_instruction.insert(pc, r#ref);
+            pc_to_instruction.insert(pc, inst);
         }
 
         Ok(Bytecode {
             pc_to_instruction,
-            contract: contract_ref,
+            contract,
             is_deployment,
             normalized_code,
             library_address_positions,
@@ -451,13 +414,13 @@ impl Bytecode {
         })
     }
 
-    #[napi(ts_return_type = "Instruction")]
-    pub fn get_instruction(&self, pc: u32, env: Env) -> napi::Result<Object> {
-        let obj = self.pc_to_instruction.get(&pc).ok_or_else(|| {
+    #[napi]
+    pub fn get_instruction(&self, pc: u32, env: Env) -> napi::Result<ClassInstance<Instruction>> {
+        let instruction = self.pc_to_instruction.get(&pc).ok_or_else(|| {
             napi::Error::from_reason(format!("Instruction at PC {} not found", pc))
         })?;
 
-        Ok(env.get_reference_value::<Object>(obj)?)
+        instruction.as_instance(env)
     }
 
     #[napi]
@@ -465,10 +428,9 @@ impl Bytecode {
         self.pc_to_instruction.contains_key(&pc)
     }
 
-    // TODO: Change the types to Contract once we port it
-    #[napi(getter, ts_return_type = "Contract")]
-    pub fn contract(&self, env: Env) -> napi::Result<Object> {
-        env.get_reference_value::<Object>(&self.contract)
+    #[napi(getter)]
+    pub fn contract(&self, env: Env) -> napi::Result<ClassInstance<Contract>> {
+        self.contract.as_instance(env)
     }
 }
 
@@ -481,7 +443,7 @@ pub enum ContractType {
 
 #[napi]
 pub struct Contract {
-    custom_errors: Vec<napi::Ref<()>>,
+    custom_errors: Vec<ClassInstanceRef<CustomError>>,
     constructor: Option<ContractFunctionRef>,
     fallback: Option<ContractFunctionRef>,
     receive: Option<ContractFunctionRef>,
@@ -492,7 +454,7 @@ pub struct Contract {
     pub name: String,
     #[napi(readonly, js_name = "type")]
     pub r#type: ContractType,
-    location: napi::Ref<()>, /* SourceLocation */
+    location: ClassInstanceRef<SourceLocation>,
 }
 
 #[napi]
@@ -504,8 +466,7 @@ impl Contract {
         location: ClassInstance<SourceLocation>,
         env: Env,
     ) -> napi::Result<Contract> {
-        let location_obj = location.as_object(env);
-        let location_ref = env.create_reference(location_obj)?;
+        let location = ClassInstanceRef::from_obj(location, env)?;
 
         Ok(Contract {
             custom_errors: Vec::new(),
@@ -516,20 +477,20 @@ impl Contract {
             selector_hex_to_function: HashMap::new(),
             name,
             r#type: contract_type,
-            location: location_ref,
+            location,
         })
     }
 
-    #[napi(getter, ts_return_type = "SourceLocation")]
-    pub fn location(&self, env: Env) -> napi::Result<Object> {
-        env.get_reference_value::<Object>(&self.location)
+    #[napi(getter)]
+    pub fn location(&self, env: Env) -> napi::Result<ClassInstance<SourceLocation>> {
+        self.location.as_instance(env)
     }
 
-    #[napi(getter, ts_return_type = "CustomError[]")]
-    pub fn custom_errors(&self, env: Env) -> napi::Result<Vec<Object>> {
+    #[napi(getter)]
+    pub fn custom_errors(&self, env: Env) -> napi::Result<Vec<ClassInstance<CustomError>>> {
         self.custom_errors
             .iter()
-            .map(|r#ref| env.get_reference_value::<Object>(r#ref))
+            .map(|value| value.as_instance(env))
             .collect()
     }
 
@@ -605,10 +566,10 @@ impl Contract {
     #[napi]
     pub fn add_custom_error(
         &mut self,
-        custom_error: ClassInstance<CustomError>,
+        value: ClassInstance<CustomError>,
         env: Env,
     ) -> napi::Result<()> {
-        let r#ref = env.create_reference(custom_error)?;
+        let r#ref = ClassInstanceRef::from_obj(value, env)?;
         self.custom_errors.push(r#ref);
         Ok(())
     }

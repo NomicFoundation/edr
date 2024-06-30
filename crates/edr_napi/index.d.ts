@@ -546,12 +546,12 @@ export class Contract {
   readonly type: ContractType
   constructor(name: string, contractType: ContractType, location: SourceLocation)
   get location(): SourceLocation
-  get customErrors(): CustomError[]
+  get customErrors(): Array<CustomError>
   get constructorFunction(): ContractFunction | undefined
   get fallback(): ContractFunction | undefined
   get receive(): ContractFunction | undefined
   addLocalFunction(this: object, func: object): void
-  addCustomError(customError: CustomError): void
+  addCustomError(value: CustomError): void
   addNextLinearizedBaseContract(baseContract: Contract): void
   getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined
   /**
