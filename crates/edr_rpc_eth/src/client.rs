@@ -399,7 +399,9 @@ mod tests {
     mod alchemy {
         use std::{fs::File, path::PathBuf};
 
-        use edr_eth::{filter::OneOrMore, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256};
+        use edr_eth::{
+            filter::OneOrMore, transaction, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256,
+        };
         use edr_test_utils::env::get_alchemy_url;
         use walkdir::WalkDir;
 
@@ -862,7 +864,7 @@ mod tests {
             );
             assert_eq!(receipt.transaction_hash, hash);
             assert_eq!(receipt.transaction_index, 136);
-            assert_eq!(receipt.transaction_type(), 0);
+            assert_eq!(receipt.transaction_type(), transaction::Type::Legacy);
         }
 
         #[tokio::test]

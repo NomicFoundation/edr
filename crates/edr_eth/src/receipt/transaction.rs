@@ -62,7 +62,7 @@ impl<L> TransactionReceipt<L> {
     }
 
     /// Returns the transaction type of the receipt.
-    pub fn transaction_type(&self) -> u64 {
+    pub fn transaction_type(&self) -> crate::transaction::Type {
         self.inner.transaction_type()
     }
 }

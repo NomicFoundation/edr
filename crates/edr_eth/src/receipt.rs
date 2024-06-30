@@ -10,18 +10,20 @@ mod block;
 mod transaction;
 
 use alloy_rlp::{Buf, BufMut, Decodable, Encodable};
-#[cfg(feature = "serde")]
-use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 pub use self::{block::BlockReceipt, transaction::TransactionReceipt};
-#[cfg(feature = "serde")]
-use crate::U64;
 use crate::{Bloom, B256};
 
 /// Typed receipt that's generated after execution of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(rename_all = "camelCase")
+)]
 pub struct TypedReceipt<LogT> {
     /// Cumulative gas used in block after this transaction was executed
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub cumulative_gas_used: u64,
     /// Bloom filter of the logs generated within this transaction
     pub logs_bloom: Bloom,
@@ -30,55 +32,8 @@ pub struct TypedReceipt<LogT> {
     /// The typed receipt data.
     /// - `root` field (before Byzantium) or `status` field (after Byzantium)
     /// - `type` field after Berlin
+    #[cfg_attr(feature = "serde", serde(flatten))]
     pub data: TypedReceiptData,
-}
-
-#[cfg(feature = "serde")]
-impl<LogT: serde::Serialize> Serialize for TypedReceipt<LogT> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // Pre-EIP-2178 receipts have no type field.
-        // <https://eips.ethereum.org/EIPS/eip-2718>
-        let tx_type = self.transaction_type();
-        let has_type = self.transaction_type() >= 1;
-        let num_fields = if has_type { 5 } else { 4 };
-
-        let mut state = serializer.serialize_struct("TypedReceipt", num_fields)?;
-
-        if has_type {
-            state.serialize_field("type", &U64::from(tx_type))?;
-        }
-
-        state.serialize_field("cumulativeGasUsed", &U64::from(self.cumulative_gas_used))?;
-        state.serialize_field("logsBloom", &self.logs_bloom)?;
-        state.serialize_field("logs", &self.logs)?;
-
-        match &self.data {
-            TypedReceiptData::PreEip658Legacy { state_root } => {
-                state.serialize_field("root", state_root)?;
-            }
-            TypedReceiptData::PostEip658Legacy { status }
-            | TypedReceiptData::Eip2930 { status }
-            | TypedReceiptData::Eip1559 { status }
-            | TypedReceiptData::Eip4844 { status } => {
-                state.serialize_field("status", &format!("0x{status}"))?;
-            }
-        }
-
-        state.end()
-    }
-}
-
-/// Data of a typed receipt.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TypedReceiptData {
-    PreEip658Legacy { state_root: B256 },
-    PostEip658Legacy { status: u8 },
-    Eip2930 { status: u8 },
-    Eip1559 { status: u8 },
-    Eip4844 { status: u8 },
 }
 
 impl<LogT> TypedReceipt<LogT> {
@@ -102,14 +57,8 @@ impl<LogT> TypedReceipt<LogT> {
     }
 
     /// Returns the transaction type of the receipt.
-    pub fn transaction_type(&self) -> u64 {
-        match &self.data {
-            TypedReceiptData::PreEip658Legacy { .. }
-            | TypedReceiptData::PostEip658Legacy { .. } => 0u64,
-            TypedReceiptData::Eip2930 { .. } => 1u64,
-            TypedReceiptData::Eip1559 { .. } => 2u64,
-            TypedReceiptData::Eip4844 { .. } => 3u64,
-        }
+    pub fn transaction_type(&self) -> crate::transaction::Type {
+        self.data.transaction_type()
     }
 }
 
@@ -133,17 +82,35 @@ where
     }
 }
 
+/// Data of a typed receipt.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TypedReceiptData {
+    PreEip658Legacy { state_root: B256 },
+    PostEip658Legacy { status: u8 },
+    Eip2930 { status: u8 },
+    Eip1559 { status: u8 },
+    Eip4844 { status: u8 },
+}
+
+impl TypedReceiptData {
+    /// Returns the transaction type of the receipt.
+    pub fn transaction_type(&self) -> crate::transaction::Type {
+        match &self {
+            TypedReceiptData::PreEip658Legacy { .. }
+            | TypedReceiptData::PostEip658Legacy { .. } => crate::transaction::Type::Legacy,
+            TypedReceiptData::Eip2930 { .. } => crate::transaction::Type::Eip2930,
+            TypedReceiptData::Eip1559 { .. } => crate::transaction::Type::Eip1559,
+            TypedReceiptData::Eip4844 { .. } => crate::transaction::Type::Eip4844,
+        }
+    }
+}
+
 #[cfg(feature = "serde")]
-impl<'deserializer, LogT> serde::Deserialize<'deserializer> for TypedReceipt<LogT>
-where
-    LogT: serde::Deserialize<'deserializer>,
-{
+impl<'deserializer> serde::Deserialize<'deserializer> for TypedReceiptData {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'deserializer>,
     {
-        use core::marker::PhantomData;
-
         use serde::de::Visitor;
 
         #[derive(serde::Deserialize)]
@@ -152,24 +119,16 @@ where
             Type,
             Root,
             Status,
-            CumulativeGasUsed,
-            LogsBloom,
-            Logs,
             Unknown(String),
         }
 
-        struct TypedReceiptVisitor<LogT> {
-            phantom: PhantomData<LogT>,
-        }
+        struct TypedReceiptDataVisitor;
 
-        impl<'deserializer, LogT> Visitor<'deserializer> for TypedReceiptVisitor<LogT>
-        where
-            LogT: serde::Deserialize<'deserializer>,
-        {
-            type Value = TypedReceipt<LogT>;
+        impl<'deserializer> Visitor<'deserializer> for TypedReceiptDataVisitor {
+            type Value = TypedReceiptData;
 
             fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                formatter.write_str("a valid receipt")
+                formatter.write_str("valid receipt data")
             }
 
             fn visit_map<MapAccessT>(
@@ -185,9 +144,6 @@ where
                 let mut transaction_type: Option<String> = None;
                 let mut status_code: Option<String> = None;
                 let mut state_root = None;
-                let mut cumulative_gas_used: Option<U64> = None;
-                let mut logs_bloom = None;
-                let mut logs = None;
 
                 while let Some(key) = map.next_key()? {
                     match key {
@@ -200,43 +156,28 @@ where
                         Field::Root => {
                             if state_root.is_some() {
                                 return Err(Error::duplicate_field("root"));
+                            } else if status_code.is_some() {
+                                return Err(Error::custom(
+                                    "root and status cannot be present together",
+                                ));
                             }
                             state_root = Some(map.next_value()?);
                         }
                         Field::Status => {
                             if status_code.is_some() {
                                 return Err(Error::duplicate_field("status"));
+                            } else if state_root.is_some() {
+                                return Err(Error::custom(
+                                    "root and status cannot be present together",
+                                ));
                             }
                             status_code = Some(map.next_value()?);
-                        }
-                        Field::CumulativeGasUsed => {
-                            if cumulative_gas_used.is_some() {
-                                return Err(Error::duplicate_field("cumulativeGasUsed"));
-                            }
-                            cumulative_gas_used = Some(map.next_value()?);
-                        }
-                        Field::LogsBloom => {
-                            if logs_bloom.is_some() {
-                                return Err(Error::duplicate_field("logsBloom"));
-                            }
-                            logs_bloom = Some(map.next_value()?);
-                        }
-                        Field::Logs => {
-                            if logs.is_some() {
-                                return Err(Error::duplicate_field("logs"));
-                            }
-                            logs = Some(map.next_value()?);
                         }
                         Field::Unknown(field) => {
                             log::warn!("Unsupported receipt field: {field}");
                         }
                     }
                 }
-
-                let cumulative_gas_used =
-                    cumulative_gas_used.ok_or_else(|| Error::missing_field("cumulativeGasUsed"))?;
-                let logs_bloom = logs_bloom.ok_or_else(|| Error::missing_field("logsBloom"))?;
-                let logs = logs.ok_or_else(|| Error::missing_field("logs"))?;
 
                 let data = if let Some(state_root) = state_root {
                     TypedReceiptData::PreEip658Legacy { state_root }
@@ -265,18 +206,49 @@ where
                     return Err(Error::missing_field("root or status"));
                 };
 
-                Ok(TypedReceipt {
-                    cumulative_gas_used: cumulative_gas_used.as_limbs()[0],
-                    logs_bloom,
-                    logs,
-                    data,
-                })
+                Ok(data)
             }
         }
 
-        deserializer.deserialize_map(TypedReceiptVisitor {
-            phantom: PhantomData,
-        })
+        deserializer.deserialize_map(TypedReceiptDataVisitor)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for TypedReceiptData {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        use crate::U8;
+
+        // Pre-EIP-2178 receipts have no type field.
+        // <https://eips.ethereum.org/EIPS/eip-2718>
+        let tx_type = self.transaction_type();
+        let should_serialize_type = self.transaction_type() >= crate::transaction::Type::Legacy;
+        let num_fields = if should_serialize_type { 2 } else { 1 };
+
+        let mut state = serializer.serialize_struct("TypedReceipt", num_fields)?;
+
+        if should_serialize_type {
+            state.serialize_field("type", &U8::from(u8::from(tx_type)))?;
+        }
+
+        match &self {
+            TypedReceiptData::PreEip658Legacy { state_root } => {
+                state.serialize_field("root", state_root)?;
+            }
+            TypedReceiptData::PostEip658Legacy { status }
+            | TypedReceiptData::Eip2930 { status }
+            | TypedReceiptData::Eip1559 { status }
+            | TypedReceiptData::Eip4844 { status } => {
+                state.serialize_field("status", &format!("0x{status}"))?;
+            }
+        }
+
+        state.end()
     }
 }
 
