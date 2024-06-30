@@ -23,8 +23,9 @@ use edr_evm::{
 /// <https://github.com/NomicFoundation/edr/issues/284>
 #[derive(Debug)]
 pub(crate) struct BlockchainWithPending<'blockchain> {
-    blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
-    pending_block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
+    blockchain:
+        &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
+    pending_block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>,
     pending_state_diff: StateDiff,
 }
 
@@ -32,7 +33,11 @@ impl<'blockchain> BlockchainWithPending<'blockchain> {
     /// Constructs a new instance with the provided blockchain and pending
     /// block.
     pub fn new(
-        blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+        blockchain: &'blockchain dyn SyncBlockchain<
+            L1ChainSpec,
+            BlockchainError<L1ChainSpec>,
+            StateError,
+        >,
         pending_block: LocalBlock<L1ChainSpec>,
         pending_state_diff: StateDiff,
     ) -> Self {
@@ -45,7 +50,7 @@ impl<'blockchain> BlockchainWithPending<'blockchain> {
 }
 
 impl<'blockchain> Blockchain<L1ChainSpec> for BlockchainWithPending<'blockchain> {
-    type BlockchainError = BlockchainError;
+    type BlockchainError = BlockchainError<L1ChainSpec>;
 
     type StateError = StateError;
 
@@ -197,7 +202,7 @@ impl<'blockchain> Blockchain<L1ChainSpec> for BlockchainWithPending<'blockchain>
 }
 
 impl<'blockchain> BlockchainMut<L1ChainSpec> for BlockchainWithPending<'blockchain> {
-    type Error = BlockchainError;
+    type Error = BlockchainError<L1ChainSpec>;
 
     fn insert_block(
         &mut self,
@@ -217,7 +222,7 @@ impl<'blockchain> BlockchainMut<L1ChainSpec> for BlockchainWithPending<'blockcha
 }
 
 impl<'blockchain> BlockHashRef for BlockchainWithPending<'blockchain> {
-    type Error = BlockchainError;
+    type Error = BlockchainError<L1ChainSpec>;
 
     fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {
         if number == self.pending_block.header().number {

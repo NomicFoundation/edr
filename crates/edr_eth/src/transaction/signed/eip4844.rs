@@ -38,6 +38,9 @@ pub struct Eip4844 {
 }
 
 impl Eip4844 {
+    /// The type identifier for an EIP-4844 transaction.
+    pub const TYPE: u8 = transaction::request::Eip4844::TYPE;
+
     /// Returns the caller/signer of the transaction.
     pub fn caller(&self) -> &Address {
         self.signature.caller()
@@ -47,7 +50,7 @@ impl Eip4844 {
         &self.nonce
     }
 
-    pub fn hash(&self) -> &B256 {
+    pub fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| {
             let encoded = alloy_rlp::encode(self);
             let enveloped = envelop_bytes(3, &encoded);
@@ -215,7 +218,7 @@ mod tests {
                 .unwrap();
 
         let signed = dummy_transaction();
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

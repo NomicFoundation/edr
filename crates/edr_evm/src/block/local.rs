@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
+use derive_where::derive_where;
 use edr_eth::{
     block::{self, Header, PartialHeader},
     log::{FilterLog, FullBlockLog, Log, ReceiptLog},
@@ -20,7 +21,8 @@ use crate::{
 };
 
 /// A locally mined block, which contains complete information.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
+#[derive(PartialEq, Eq, RlpEncodable)]
+#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
 #[rlp(trailing)]
 pub struct LocalBlock<ChainSpecT: ChainSpec> {
     header: block::Header,
@@ -37,8 +39,8 @@ pub struct LocalBlock<ChainSpecT: ChainSpec> {
 
 impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
     /// Constructs an empty block, i.e. no transactions.
-    pub fn empty(spec_id: SpecId, partial_header: PartialHeader) -> Self {
-        let withdrawals = if spec_id >= SpecId::SHANGHAI {
+    pub fn empty(spec_id: ChainSpecT::Hardfork, partial_header: PartialHeader) -> Self {
+        let withdrawals = if spec_id.into() >= SpecId::SHANGHAI {
             Some(Vec::default())
         } else {
             None
@@ -110,7 +112,7 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
 }
 
 impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
-    type Error = BlockchainError;
+    type Error = BlockchainError<ChainSpecT>;
 
     fn hash(&self) -> &B256 {
         &self.hash
@@ -186,7 +188,6 @@ fn transaction_to_block_receipts(
                             })
                             .collect(),
                         data: receipt.inner.data,
-                        spec_id: receipt.inner.spec_id,
                     },
                     transaction_hash: receipt.transaction_hash,
                     transaction_index,
@@ -204,7 +205,7 @@ fn transaction_to_block_receipts(
 }
 
 impl<ChainSpecT> From<LocalBlock<ChainSpecT>>
-    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
+    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>
 where
     ChainSpecT: SyncChainSpec,
 {

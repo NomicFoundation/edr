@@ -36,12 +36,15 @@ pub struct Eip1559 {
 }
 
 impl Eip1559 {
+    /// The type identifier for an EIP-1559 transaction.
+    pub const TYPE: u8 = transaction::request::Eip1559::TYPE;
+
     /// Returns the caller/signer of the transaction.
     pub fn caller(&self) -> &Address {
         self.signature.caller()
     }
 
-    pub fn hash(&self) -> &B256 {
+    pub fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| {
             let encoded = alloy_rlp::encode(self);
             let enveloped = envelop_bytes(2, &encoded);
@@ -185,7 +188,7 @@ mod tests {
         let request = dummy_request();
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

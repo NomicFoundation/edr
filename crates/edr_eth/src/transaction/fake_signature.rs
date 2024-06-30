@@ -11,8 +11,8 @@ pub(super) mod tests {
                 let signed_transaction_one = transaction_request.clone().fake_sign(sender);
                 let signed_transaction_two = transaction_request.fake_sign(sender);
 
-                let hash_one = signed_transaction_one.hash();
-                let hash_two = signed_transaction_two.hash();
+                let hash_one = signed_transaction_one.transaction_hash();
+                let hash_two = signed_transaction_two.transaction_hash();
 
                 assert_eq!(hash_one, hash_two);
             }
@@ -27,8 +27,8 @@ pub(super) mod tests {
                 let signed_transaction_one = transaction_request.clone().fake_sign(sender_one);
                 let signed_transaction_two = transaction_request.fake_sign(sender_two);
 
-                let hash_one = signed_transaction_one.hash();
-                let hash_two = signed_transaction_two.hash();
+                let hash_one = signed_transaction_one.transaction_hash();
+                let hash_two = signed_transaction_two.transaction_hash();
 
                 assert_ne!(hash_one, hash_two);
             }

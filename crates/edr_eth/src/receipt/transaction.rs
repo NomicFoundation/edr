@@ -2,16 +2,22 @@ use std::ops::Deref;
 
 use alloy_rlp::BufMut;
 
-use super::TypedReceipt;
+use super::{TypedReceipt, TypedReceiptData};
 use crate::{Address, Bloom, B256, U256};
 
 /// Type for a receipt that's created when processing a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct TransactionReceipt<L> {
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct TransactionReceipt<LogT, TypedDataT>
+where
+    TypedDataT: TypedReceiptData,
+{
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub inner: TypedReceipt<L>,
+    pub inner: TypedReceipt<LogT, TypedDataT>,
     /// Hash of the transaction
     pub transaction_hash: B256,
     /// Index of the transaction in the block
@@ -36,7 +42,10 @@ pub struct TransactionReceipt<L> {
     pub effective_gas_price: Option<U256>,
 }
 
-impl<L> TransactionReceipt<L> {
+impl<LogT, TypedDataT> TransactionReceipt<LogT, TypedDataT>
+where
+    TypedDataT: TypedReceiptData,
+{
     /// Returns the gas used by the transactions up until this point.
     pub fn cumulative_gas_used(&self) -> u64 {
         self.inner.cumulative_gas_used
@@ -48,36 +57,26 @@ impl<L> TransactionReceipt<L> {
     }
 
     /// Returns the transaction's logs.
-    pub fn logs(&self) -> &[L] {
+    pub fn logs(&self) -> &[LogT] {
         &self.inner.logs
-    }
-    /// Returns the status code of the receipt, if any.
-    pub fn status_code(&self) -> Option<u8> {
-        self.inner.status_code()
-    }
-
-    /// Returns the state root of the receipt, if any.
-    pub fn state_root(&self) -> Option<&B256> {
-        self.inner.state_root()
-    }
-
-    /// Returns the transaction type of the receipt.
-    pub fn transaction_type(&self) -> u64 {
-        self.inner.transaction_type()
     }
 }
 
-impl<L> Deref for TransactionReceipt<L> {
-    type Target = TypedReceipt<L>;
+impl<LogT, TypedDataT> Deref for TransactionReceipt<LogT, TypedDataT>
+where
+    TypedDataT: TypedReceiptData,
+{
+    type Target = TypedReceipt<LogT, TypedDataT>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<LogT> alloy_rlp::Encodable for TransactionReceipt<LogT>
+impl<LogT, TypedDataT> alloy_rlp::Encodable for TransactionReceipt<LogT, TypedDataT>
 where
     LogT: alloy_rlp::Encodable,
+    TypedDataT: TypedReceiptData,
 {
     fn encode(&self, out: &mut dyn BufMut) {
         self.inner.encode(out);
@@ -90,10 +89,8 @@ where
 
 #[cfg(all(test, feature = "serde"))]
 mod test {
-    use revm_primitives::SpecId;
-
     use super::*;
-    use crate::receipt::TypedReceiptData;
+    use crate::receipt::TypedData;
 
     #[test]
     fn test_transaction_receipt_serde() {
@@ -102,8 +99,7 @@ mod test {
                 cumulative_gas_used: 100,
                 logs_bloom: Bloom::default(),
                 logs: vec![],
-                data: TypedReceiptData::Eip1559 { status: 1 },
-                spec_id: SpecId::LATEST,
+                data: TypedData::Eip1559 { status: 1 },
             },
             transaction_hash: B256::default(),
             transaction_index: 5,

@@ -28,6 +28,9 @@ pub struct Eip4844 {
 }
 
 impl Eip4844 {
+    /// The type identifier for an EIP-4844 transaction.
+    pub const TYPE: u8 = 3;
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         let encoded = alloy_rlp::encode(self);

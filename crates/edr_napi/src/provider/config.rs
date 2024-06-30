@@ -221,15 +221,16 @@ impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig {
                                  spec_id,
                              }| {
                                 let block_number = block_number.try_cast()?;
-                                let spec_id = spec_id.into();
+                                let condition =
+                                    edr_evm::hardfork::ForkCondition::Block(block_number);
 
-                                Ok((block_number, spec_id))
+                                Ok((condition, spec_id.into()))
                             },
                         )
                         .collect::<napi::Result<Vec<_>>>()?;
 
                     let chain_id = chain_id.try_cast()?;
-                    Ok((chain_id, edr_eth::spec::HardforkActivations::new(hardforks)))
+                    Ok((chain_id, edr_evm::hardfork::Activations::new(hardforks)))
                 },
             )
             .collect::<napi::Result<_>>()?;

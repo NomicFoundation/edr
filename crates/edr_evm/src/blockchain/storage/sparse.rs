@@ -1,5 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
+use derive_where::derive_where;
 use edr_eth::{
     log::{matches_address_filter, matches_topics_filter},
     receipt::BlockReceipt,
@@ -12,7 +13,7 @@ use super::InsertError;
 use crate::{chain_spec::ChainSpec, Block};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
-#[derive(Debug)]
+#[derive_where(Debug; BlockT)]
 pub struct SparseBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone + ?Sized,

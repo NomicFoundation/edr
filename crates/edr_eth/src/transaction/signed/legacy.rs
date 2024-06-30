@@ -24,19 +24,21 @@ pub struct Legacy {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithRecoveryId>,
     /// Cached transaction hash
-    #[rlp(default)]
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
 }
 
 impl Legacy {
+    /// The type identifier for a pre-EIP-155 legacy transaction.
+    pub const TYPE: u8 = transaction::request::Legacy::TYPE;
+
     /// Returns the caller/signer of the transaction.
     pub fn caller(&self) -> &Address {
         self.signature.caller()
     }
 
-    pub fn hash(&self) -> &B256 {
+    pub fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
     }
 }
@@ -195,7 +197,7 @@ mod tests {
         let request = dummy_request();
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

@@ -112,11 +112,16 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
     /// Constructs a new instance.
     pub fn new(
         runtime: runtime::Handle,
-        logger: Box<dyn SyncLogger<BlockchainError = BlockchainError, LoggerError = LoggerErrorT>>,
+        logger: Box<
+            dyn SyncLogger<
+                BlockchainError = BlockchainError<L1ChainSpec>,
+                LoggerError = LoggerErrorT,
+            >,
+        >,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         config: ProviderConfig,
         timer: TimerT,
-    ) -> Result<Self, CreationError> {
+    ) -> Result<Self, CreationError<L1ChainSpec>> {
         let data = ProviderData::new(
             runtime.clone(),
             logger,

@@ -1,5 +1,6 @@
 use std::{fmt::Debug, path::PathBuf};
 
+use derive_where::derive_where;
 use edr_eth::{
     account::KECCAK_EMPTY,
     fee_history::FeeHistoryResult,
@@ -28,7 +29,7 @@ const MAX_PARALLEL_REQUESTS: usize = 20;
 //     RpcSpecT::Block<RpcSpecT::Transaction>: Send + Sync,
 //     RpcSpecT::Transaction: Send + Sync,
 
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct EthRpcClient<RpcSpecT: RpcSpec> {
     inner: RpcClient<RequestMethod>,
     _phantom: std::marker::PhantomData<RpcSpecT>,
@@ -398,7 +399,9 @@ mod tests {
     mod alchemy {
         use std::{fs::File, path::PathBuf};
 
-        use edr_eth::{filter::OneOrMore, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256};
+        use edr_eth::{
+            filter::OneOrMore, transaction, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256,
+        };
         use edr_test_utils::env::get_alchemy_url;
         use walkdir::WalkDir;
 
@@ -861,7 +864,7 @@ mod tests {
             );
             assert_eq!(receipt.transaction_hash, hash);
             assert_eq!(receipt.transaction_index, 136);
-            assert_eq!(receipt.transaction_type(), 0);
+            assert_eq!(receipt.transaction_type(), transaction::Type::Legacy);
         }
 
         #[tokio::test]
