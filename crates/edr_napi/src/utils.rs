@@ -1,9 +1,27 @@
 //! Convenience utilities for working with N-API objects.
 
 use napi::{
-    bindgen_prelude::{ClassInstance, FromNapiValue, Object},
+    bindgen_prelude::{ClassInstance, FromNapiValue, Object, Undefined},
     Env, NapiRaw,
 };
+
+pub trait ExplicitEitherIntoOption
+where
+    Self: Sized,
+{
+    type Output;
+    fn into_option(self) -> Option<Self::Output>;
+}
+
+impl<T> ExplicitEitherIntoOption for napi::Either<T, Undefined> {
+    type Output = T;
+    fn into_option(self) -> Option<T> {
+        match self {
+            napi::Either::A(value) => Some(value),
+            napi::Either::B(()) => None,
+        }
+    }
+}
 
 /// A convenience wrapper around the original [`ClassInstance`]
 /// that holds the reference to the original object and allows
@@ -50,4 +68,3 @@ impl<T> ClassInstanceRef<T> {
         env.strict_equals(obj, other_obj)
     }
 }
-

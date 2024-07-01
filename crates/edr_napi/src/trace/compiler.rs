@@ -6,7 +6,52 @@ use napi::{
 };
 use napi_derive::napi;
 
-use super::model::{Bytecode, SourceFile, SourceLocation};
+use super::model::{
+    Bytecode, Contract, ContractFunction, ContractFunctionType, SourceFile, SourceLocation,
+};
+use crate::utils::{ClassInstanceRef, ExplicitEitherIntoOption as _};
+
+#[napi]
+pub fn process_modifier_definition_ast_node(
+    node: serde_json::Value,
+    #[napi(ts_arg_type = "Map<number, SourceFile>")] file_id_to_source_file: Object,
+    contract: ClassInstance<Contract>,
+    mut file: ClassInstance<SourceFile>,
+    env: Env,
+) -> napi::Result<()> {
+    let function_location = ast_src_to_source_location(
+        node["src"].as_str().unwrap().to_string(),
+        file_id_to_source_file,
+        env,
+    )?
+    .into_option()
+    .expect("The original JS code always asserts that");
+
+    let contract = ClassInstanceRef::from_obj(contract, env)?;
+
+    let contract_func = ContractFunction::new(
+        node["name"].as_str().unwrap().to_string(),
+        ContractFunctionType::MODIFIER,
+        function_location,
+        Some(contract.as_instance(env)?),
+        None,
+        None,
+        None,
+        None,
+        env,
+    )?
+    .into_instance(env)?;
+
+    let contract_func = ClassInstanceRef::from_obj(contract_func, env)?;
+    contract.as_instance(env)?.add_local_function(
+        contract_func.as_instance(env)?,
+        contract.as_inner(env)?,
+        env,
+    )?;
+    file.add_function(contract_func.as_instance(env)?, env)?;
+
+    Ok(())
+}
 
 #[napi]
 pub fn ast_src_to_source_location(
