@@ -394,17 +394,6 @@ export const enum ContractFunctionVisibility {
   PUBLIC = 2,
   EXTERNAL = 3
 }
-export interface ContractFunction {
-  readonly name: string
-  readonly type: ContractFunctionType
-  readonly location: SourceLocation
-  readonly contract: Contract
-  readonly visibility?: ContractFunctionVisibility
-  readonly isPayable?: boolean
-  /** Fixed up by `Contract.correctSelector` */
-  selector?: Uint8Array
-  readonly paramTypes?: Array<any>
-}
 export enum JumpType {
   NOT_JUMP = 0,
   INTO_FUNCTION = 1,
@@ -505,7 +494,7 @@ export class SourceFile {
   readonly sourceName: string
   readonly content: string
   constructor(sourceName: string, content: string)
-  addFunction(contractFunction: object): void
+  addFunction(contractFunction: ContractFunction): void
   getContainingFunction(location: SourceLocation): object | undefined
 }
 export class SourceLocation {
@@ -517,6 +506,18 @@ export class SourceLocation {
   getContainingFunction(): ContractFunction | undefined
   contains(other: SourceLocation): boolean
   equals(other: SourceLocation): boolean
+}
+export class ContractFunction {
+  readonly name: string
+  readonly type: ContractFunctionType
+  readonly visibility?: ContractFunctionVisibility
+  readonly isPayable?: boolean
+  /** Fixed up by `Contract.correctSelector` */
+  selector?: Uint8Array
+  readonly paramTypes?: Array<any>
+  constructor(name: string, type: ContractFunctionType, location: SourceLocation, contract?: Contract | undefined | null, visibility?: ContractFunctionVisibility | undefined | null, isPayable?: boolean | undefined | null, selector?: Uint8Array | undefined | null, paramTypes?: Array<any> | undefined | null)
+  get location(): SourceLocation
+  get contract(): Contract | undefined
 }
 export class CustomError {
   readonly selector: Uint8Array
@@ -552,7 +553,7 @@ export class Contract {
   get constructorFunction(): ContractFunction | undefined
   get fallback(): ContractFunction | undefined
   get receive(): ContractFunction | undefined
-  addLocalFunction(this: object, func: object): void
+  addLocalFunction(this: object, func: ContractFunction): void
   addCustomError(value: CustomError): void
   addNextLinearizedBaseContract(baseContract: Contract): void
   getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined

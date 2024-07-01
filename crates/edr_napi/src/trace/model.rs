@@ -3,7 +3,7 @@ use std::{cell::OnceCell, collections::HashMap, rc::Rc};
 use crate::utils::ClassInstanceRef;
 use edr_evm::hex;
 use napi::{
-    bindgen_prelude::{Buffer, ClassInstance, FromNapiValue, Object, This, Uint8Array, Undefined},
+    bindgen_prelude::{Buffer, ClassInstance, Object, This, Uint8Array, Undefined},
     Either, Env, JsObject,
 };
 use napi_derive::napi;
@@ -23,57 +23,10 @@ macro_rules! neprintln {
     };
 }
 
-#[derive(Clone)]
-struct ContractFunctionRef {
-    r#ref: Rc<napi::Ref<()>>,
-}
-
-impl ContractFunctionRef {
-    fn from_obj(obj: Object, env: Env) -> napi::Result<ContractFunctionRef> {
-        let r#ref = env.create_reference(obj)?;
-        let r#ref = Rc::new(r#ref);
-        Ok(ContractFunctionRef { r#ref })
-    }
-
-    fn as_inner(&self, env: Env) -> napi::Result<Object> {
-        env.get_reference_value::<Object>(&self.r#ref)
-    }
-
-    fn name(&self, env: Env) -> napi::Result<String> {
-        let obj = self.as_inner(env)?;
-        obj.get_named_property::<String>("name")
-    }
-
-    fn location(&self, env: Env) -> napi::Result<ClassInstance<SourceLocation>> {
-        let obj = self.as_inner(env)?;
-        obj.get_named_property::<ClassInstance<SourceLocation>>("location")
-    }
-
-    fn r#type(&self, env: Env) -> napi::Result<ContractFunctionType> {
-        let obj = self.as_inner(env)?;
-        obj.get_named_property::<ContractFunctionType>("type")
-    }
-
-    fn visibility(&self, env: Env) -> napi::Result<Option<ContractFunctionVisibility>> {
-        let obj = self.as_inner(env)?;
-        obj.get_named_property::<Option<ContractFunctionVisibility>>("visibility")
-    }
-
-    fn selector(&self, env: Env) -> napi::Result<Option<Uint8Array>> {
-        let obj = self.as_inner(env)?;
-        obj.get_named_property::<Option<Uint8Array>>("selector")
-    }
-
-    fn set_selector(&self, selector: Uint8Array, env: Env) -> napi::Result<()> {
-        let mut obj = self.as_inner(env)?;
-        obj.set_named_property("selector", selector)
-    }
-}
-
 #[napi]
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
-    functions: Vec<ContractFunctionRef>,
+    functions: Vec<ClassInstanceRef<ContractFunction>>,
 
     #[napi(readonly)]
     pub source_name: String,
@@ -95,9 +48,13 @@ impl SourceFile {
     }
 
     #[napi]
-    pub fn add_function(&mut self, contract_function: JsObject, env: Env) -> napi::Result<()> {
+    pub fn add_function(
+        &mut self,
+        contract_function: ClassInstance<ContractFunction>,
+        env: Env,
+    ) -> napi::Result<()> {
         neprintln!("SourceFile::add_function in Rust");
-        let contract_function = ContractFunctionRef::from_obj(contract_function, env)?;
+        let contract_function = ClassInstanceRef::from_obj(contract_function, env)?;
 
         self.functions.push(contract_function);
         Ok(())
@@ -115,7 +72,7 @@ impl SourceFile {
             // This is actually calling our own method but we only have a handle
             // to JsObject, so first let's see if it works and then make sure
             // it works without crossing the JS side redundantly.
-            let func_location = func.location(env)?;
+            let func_location = func.as_instance(env)?.location.as_instance(env)?;
             let contains = func_location.contains(&location, env);
             neprintln!("Contains: {:?}", contains);
 
@@ -243,16 +200,14 @@ pub enum ContractFunctionVisibility {
     EXTERNAL,
 }
 
-#[napi(object)]
+#[napi]
 pub struct ContractFunction {
     #[napi(readonly)]
     pub name: String,
     #[napi(readonly, js_name = "type")]
     pub r#type: ContractFunctionType,
-    #[napi(readonly)]
-    pub location: ClassInstance<SourceLocation>,
-    #[napi(readonly)]
-    pub contract: ClassInstance<Contract>,
+    location: ClassInstanceRef<SourceLocation>,
+    contract: Option<ClassInstanceRef<Contract>>,
     #[napi(readonly)]
     pub visibility: Option<ContractFunctionVisibility>,
     #[napi(readonly)]
@@ -261,6 +216,49 @@ pub struct ContractFunction {
     pub selector: Option<Uint8Array>,
     #[napi(readonly)]
     pub param_types: Option<Vec<Value>>,
+}
+#[napi]
+impl ContractFunction {
+    #[napi(constructor)]
+    pub fn new(
+        name: String,
+        type_: ContractFunctionType,
+        location: ClassInstance<SourceLocation>,
+        contract: Option<ClassInstance<Contract>>,
+        visibility: Option<ContractFunctionVisibility>,
+        is_payable: Option<bool>,
+        selector: Option<Uint8Array>,
+        param_types: Option<Vec<Value>>,
+        env: Env,
+    ) -> napi::Result<ContractFunction> {
+        let contract = contract
+            .map(|c| ClassInstanceRef::from_obj(c, env))
+            .transpose()?;
+
+        Ok(ContractFunction {
+            name,
+            r#type: type_,
+            location: ClassInstanceRef::from_obj(location, env)?,
+            contract,
+            visibility,
+            is_payable,
+            selector,
+            param_types,
+        })
+    }
+
+    #[napi(getter)]
+    pub fn location(&self, env: Env) -> napi::Result<ClassInstance<SourceLocation>> {
+        self.location.as_instance(env)
+    }
+
+    #[napi(getter)]
+    pub fn contract(&self, env: Env) -> napi::Result<Either<ClassInstance<Contract>, Undefined>> {
+        match &self.contract {
+            Some(contract) => contract.as_instance(env).map(Either::A),
+            None => Ok(Either::B(())),
+        }
+    }
 }
 
 #[napi]
@@ -444,11 +442,11 @@ pub enum ContractType {
 #[napi]
 pub struct Contract {
     custom_errors: Vec<ClassInstanceRef<CustomError>>,
-    constructor: Option<ContractFunctionRef>,
-    fallback: Option<ContractFunctionRef>,
-    receive: Option<ContractFunctionRef>,
-    local_functions: Vec<ContractFunctionRef>,
-    selector_hex_to_function: HashMap<String, ContractFunctionRef>,
+    constructor: Option<Rc<ClassInstanceRef<ContractFunction>>>,
+    fallback: Option<Rc<ClassInstanceRef<ContractFunction>>>,
+    receive: Option<Rc<ClassInstanceRef<ContractFunction>>>,
+    local_functions: Vec<Rc<ClassInstanceRef<ContractFunction>>>,
+    selector_hex_to_function: HashMap<String, Rc<ClassInstanceRef<ContractFunction>>>,
 
     #[napi(readonly)]
     pub name: String,
@@ -520,17 +518,19 @@ impl Contract {
     #[napi]
     pub fn add_local_function(
         &mut self,
-        func: JsObject,
+        func: ClassInstance<ContractFunction>,
         this: This<JsObject>,
         env: Env,
     ) -> napi::Result<()> {
-        let func_contract = func.get_named_property::<Object>("contract")?;
-        if !env.strict_equals(this, &func_contract)? {
-            return Err(napi::Error::from_reason("Function isn't local"));
+        if let Some(contract) = &func.contract {
+            let func_contract = contract.as_inner(env)?;
+            if !env.strict_equals(this, &func_contract)? {
+                return Err(napi::Error::from_reason("Function isn't local"));
+            }
         }
 
-        let r#ref = ContractFunctionRef::from_obj(func, env)?;
-        let func = ContractFunction::from_unknown(r#ref.as_inner(env)?.into_unknown())?;
+        let r#ref = Rc::new(ClassInstanceRef::from_obj(func, env)?);
+        let func = r#ref.as_instance(env)?;
 
         if matches!(
             func.visibility,
@@ -588,25 +588,27 @@ impl Contract {
         }
 
         for base_contract_function in &base_contract.local_functions {
-            if base_contract_function.r#type(env)? != ContractFunctionType::GETTER
-                && base_contract_function.r#type(env)? != ContractFunctionType::FUNCTION
+            let base_contract_function_clone = base_contract_function.clone();
+            let base_contract_function = base_contract_function.as_instance(env)?;
+
+            if base_contract_function.r#type != ContractFunctionType::GETTER
+                && base_contract_function.r#type != ContractFunctionType::FUNCTION
             {
                 continue;
             }
 
-            if base_contract_function.visibility(env)? != Some(ContractFunctionVisibility::PUBLIC)
-                && base_contract_function.visibility(env)?
-                    != Some(ContractFunctionVisibility::EXTERNAL)
+            if base_contract_function.visibility != Some(ContractFunctionVisibility::PUBLIC)
+                && base_contract_function.visibility != Some(ContractFunctionVisibility::EXTERNAL)
             {
                 continue;
             }
 
-            let selector = base_contract_function.selector(env)?.clone().unwrap();
+            let selector = base_contract_function.selector.clone().unwrap();
             let selector_hex = hex::encode(&*selector);
 
             if !self.selector_hex_to_function.contains_key(&selector_hex) {
                 self.selector_hex_to_function
-                    .insert(selector_hex, base_contract_function.clone());
+                    .insert(selector_hex, base_contract_function_clone);
             }
         }
 
@@ -650,24 +652,30 @@ impl Contract {
         let functions = self
             .selector_hex_to_function
             .values()
-            .filter_map(|cf| match cf.name(env) {
-                Ok(name) if name == function_name => Some(Ok(cf.clone())),
-                Ok(_) => None,
-                Err(e) => Some(Err(e)),
-            })
-            .collect::<napi::Result<Vec<ContractFunctionRef>>>()?;
+            .filter_map(
+                |cf| match cf.as_instance(env).map(|x| x.name == function_name) {
+                    Ok(true) => Some(Ok(cf.clone())),
+                    Ok(false) => None,
+                    Err(e) => Some(Err(e)),
+                },
+            )
+            .collect::<napi::Result<Vec<Rc<ClassInstanceRef<ContractFunction>>>>>()?;
 
         let function_to_correct = match functions.split_first() {
             Some((function_to_correct, [])) => function_to_correct,
             _ => return Ok(false),
         };
 
-        if let Some(selector) = &function_to_correct.selector(env)? {
-            let selector_hex = hex::encode(&*selector);
-            self.selector_hex_to_function.remove(&selector_hex);
+        {
+            let mut instance = function_to_correct.as_instance(env)?;
+            if let Some(selector) = &instance.selector {
+                let selector_hex = hex::encode(&*selector);
+                self.selector_hex_to_function.remove(&selector_hex);
+            }
+
+            instance.selector = Some(selector.clone());
         }
 
-        function_to_correct.set_selector(selector.clone(), env)?;
         let selector_hex = hex::encode(&*selector);
         self.selector_hex_to_function
             .insert(selector_hex, function_to_correct.clone());
