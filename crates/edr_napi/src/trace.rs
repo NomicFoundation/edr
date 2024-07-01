@@ -10,6 +10,7 @@ use napi_derive::napi;
 use crate::result::ExecutionResult;
 
 mod artifacts;
+mod compiler;
 mod exit;
 mod message_trace;
 mod model;

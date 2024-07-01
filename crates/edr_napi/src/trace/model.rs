@@ -132,7 +132,7 @@ impl SourceFile {
 #[napi]
 pub struct SourceLocation {
     line: OnceCell<u32>,
-    file: Rc<ClassInstanceRef<SourceFile>>,
+    pub(crate) file: Rc<ClassInstanceRef<SourceFile>>,
     pub offset: u32,
     pub length: u32,
 }
@@ -367,7 +367,7 @@ impl Instruction {
 pub struct Bytecode {
     pc_to_instruction: HashMap<u32, ClassInstanceRef<Instruction>>,
 
-    contract: ClassInstanceRef<Contract>,
+    pub(crate) contract: ClassInstanceRef<Contract>,
     #[napi(readonly)]
     pub is_deployment: bool,
     #[napi(readonly)]
@@ -454,7 +454,7 @@ pub struct Contract {
     pub name: String,
     #[napi(readonly, js_name = "type")]
     pub r#type: ContractType,
-    location: ClassInstanceRef<SourceLocation>,
+    pub(crate) location: ClassInstanceRef<SourceLocation>,
 }
 
 #[napi]

@@ -1,5 +1,6 @@
 //! Represents artifacts of the Solidity compiler input and output in the
 //! Standard JSON format.
+#![allow(missing_docs)]
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -83,23 +84,23 @@ pub struct MetadataSettings {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CompilerOutput {
     sources: HashMap<String, CompilerOutputSource>,
-    contracts: HashMap<String, HashMap<String, CompilerOutputContract>>,
+    pub contracts: HashMap<String, HashMap<String, CompilerOutputContract>>,
 }
 
 /// The output of a contract compilation.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CompilerOutputContract {
-    abi: serde_json::Value,
-    evm: CompilerOutputEvm,
+    pub abi: serde_json::Value,
+    pub evm: CompilerOutputEvm,
 }
 
 /// The EVM-specific output of a contract compilation.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilerOutputEvm {
-    bytecode: CompilerOutputBytecode,
-    deployed_bytecode: CompilerOutputBytecode,
-    method_identifiers: HashMap<String, String>,
+    pub bytecode: CompilerOutputBytecode,
+    pub deployed_bytecode: CompilerOutputBytecode,
+    pub method_identifiers: HashMap<String, String>,
 }
 
 /// The ID and the AST of the compiled sources.
