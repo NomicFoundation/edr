@@ -339,6 +339,7 @@ export interface SubscriptionEvent {
 }
 export function deserializeCompilerInput(value: any): void
 export function deserializeCompilerOutput(value: any): void
+export function astSrcToSourceLocation(src: string, fileIdToSourceFile: Map<number, SourceFile>): SourceLocation | undefined
 export function correctSelectors(bytecodes: Array<Bytecode>, compilerOutput: any): void
 export interface EvmStep {
   pc: number
