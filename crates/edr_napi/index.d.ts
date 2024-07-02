@@ -339,7 +339,19 @@ export interface SubscriptionEvent {
 }
 export function deserializeCompilerInput(value: any): void
 export function deserializeCompilerOutput(value: any): void
+export interface ContractAbiEntry {
+  name?: string
+  inputs?: Array<ContractAbiEntryInput>
+}
+export interface ContractAbiEntryInput {
+  type: string
+}
 export function processModifierDefinitionAstNode(node: any, fileIdToSourceFile: Map<number, SourceFile>, contract: Contract, file: SourceFile): void
+export function processVariableDeclarationAstNode(node: any, fileIdToSourceFile: Map<number, SourceFile>, contract: Contract, file: SourceFile, getterAbi?: ContractAbiEntry | undefined | null): void
+export function astVisibilityToVisibility(visibility: string): ContractFunctionVisibility
+export function isContractType(param: any): boolean
+export function isEnumType(param: any): boolean
+export function toCanonicalAbiType(type: string): string
 export function astSrcToSourceLocation(src: string, fileIdToSourceFile: Map<number, SourceFile>): SourceLocation | undefined
 export function correctSelectors(bytecodes: Array<Bytecode>, compilerOutput: any): void
 export interface EvmStep {

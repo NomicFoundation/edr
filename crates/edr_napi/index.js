@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, deserializeCompilerInput, deserializeCompilerOutput, processModifierDefinitionAstNode, astSrcToSourceLocation, correctSelectors, Exit, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, Bytecode, ContractType, Contract, VmTracer, RawTrace, opcodes } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, deserializeCompilerInput, deserializeCompilerOutput, processModifierDefinitionAstNode, processVariableDeclarationAstNode, astVisibilityToVisibility, isContractType, isEnumType, toCanonicalAbiType, astSrcToSourceLocation, correctSelectors, Exit, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, Bytecode, ContractType, Contract, VmTracer, RawTrace, opcodes } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -322,6 +322,11 @@ module.exports.ExceptionalHalt = ExceptionalHalt
 module.exports.deserializeCompilerInput = deserializeCompilerInput
 module.exports.deserializeCompilerOutput = deserializeCompilerOutput
 module.exports.processModifierDefinitionAstNode = processModifierDefinitionAstNode
+module.exports.processVariableDeclarationAstNode = processVariableDeclarationAstNode
+module.exports.astVisibilityToVisibility = astVisibilityToVisibility
+module.exports.isContractType = isContractType
+module.exports.isEnumType = isEnumType
+module.exports.toCanonicalAbiType = toCanonicalAbiType
 module.exports.astSrcToSourceLocation = astSrcToSourceLocation
 module.exports.correctSelectors = correctSelectors
 module.exports.Exit = Exit
