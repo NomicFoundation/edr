@@ -9,6 +9,10 @@ use napi_derive::napi;
 
 use crate::result::ExecutionResult;
 
+mod exit;
+mod message_trace;
+mod vm_tracer;
+
 #[napi(object)]
 pub struct TracingMessage {
     /// Sender address
@@ -151,7 +155,7 @@ pub struct TracingMessageResult {
 
 #[napi]
 pub struct RawTrace {
-    inner: Arc<edr_evm::trace::Trace>,
+    pub(crate) inner: Arc<edr_evm::trace::Trace>,
 }
 
 impl RawTrace {

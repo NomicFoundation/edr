@@ -9,3 +9,7 @@ pub mod build_model;
 pub mod contracts_identifier;
 
 mod opcodes;
+
+pub mod exit;
+pub mod message_trace;
+pub mod vm_tracer;
