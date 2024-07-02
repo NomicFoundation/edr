@@ -7,6 +7,8 @@
   "scripts": {
     "benchmark": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 index.js benchmark",
     "prebenchmark": "cd ../../../edr_napi/ && pnpm build",
+    "soltests": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 index.js solidity-tests",
+    "presoltests": "cd ../../../edr_napi/ && pnpm build",
     "verify": "node index.js verify",
     "report": "node index.js report",
     "test": "mocha --recursive \"test/**/*.js\"",
@@ -16,11 +18,13 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@nomicfoundation/edr": "workspace:^",
     "argparse": "^2.0.1",
     "chai": "^4.2.0",
     "hardhat": "2.22.5",
     "lodash": "^4.17.11",
     "mocha": "^10.0.0",
+    "simple-git": "^3.25.0",
     "tsx": "^4.7.1"
   }
 }
