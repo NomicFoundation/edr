@@ -30,6 +30,7 @@ alloy-transport.workspace = true
 alloy-transport-http = { workspace = true, features = ["reqwest", "reqwest-rustls-tls"] }
 alloy-transport-ws.workspace = true
 alloy-transport-ipc.workspace = true
+foundry-fork-db.workspace = true
 
 revm = { workspace = true, features = [
     "std",

@@ -177,6 +177,7 @@ foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 # solc & compilation utilities
 foundry-block-explorers = { version = "=0.2.7", default-features = false }
 foundry-compilers = { version = "0.4.3", features = ["full"] }
+foundry-fork-db = "=0.1.0"
 
 ## revm
 # no default features to avoid c-kzg

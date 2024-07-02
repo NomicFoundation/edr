@@ -4,15 +4,9 @@ use revm::primitives::Env;
 
 use super::opts::EvmOpts;
 
-mod backend;
-pub use backend::{BackendHandler, SharedBackend};
-
 mod init;
-pub use init::environment;
-
-mod cache;
 use alloy_chains::Chain;
-pub use cache::{BlockchainDb, BlockchainDbMeta, JsonBlockCacheDB, MemDb};
+pub use init::environment;
 
 pub mod database;
 

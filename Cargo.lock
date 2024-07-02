@@ -2508,6 +2508,7 @@ dependencies = [
  "eyre",
  "foundry-cheatcodes-spec",
  "foundry-compilers",
+ "foundry-fork-db",
  "futures",
  "itertools 0.12.1",
  "once_cell",
@@ -2590,6 +2591,30 @@ dependencies = [
  "tokio",
  "tracing",
  "yansi",
+]
+
+[[package]]
+name = "foundry-fork-db"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba3f9c9e02b19933218eb39c7234dcb0cc20e461258ced030f6fd6ac254a8637"
+dependencies = [
+ "alloy-primitives 0.7.7",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-serde 0.1.4",
+ "alloy-transport",
+ "eyre",
+ "futures",
+ "parking_lot 0.12.3",
+ "revm 10.0.0",
+ "rustc-hash 2.0.0",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -4846,6 +4871,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c669c9b105dbb41133c17bf7f34d29368e358a7fee8fcc289e90dbfb024dfc4"
 dependencies = [
  "aurora-engine-modexp",
+ "blst",
  "c-kzg",
  "k256",
  "once_cell",

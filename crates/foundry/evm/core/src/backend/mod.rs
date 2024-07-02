@@ -10,6 +10,7 @@ use alloy_primitives::{address, b256, keccak256, Address, B256, U256};
 use alloy_rpc_types::{Block, BlockNumberOrTag, BlockTransactions, Transaction};
 use alloy_serde::WithOtherFields;
 use eyre::Context;
+pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     db::{CacheDB, DatabaseRef},
     inspectors::NoOpInspector,
@@ -23,7 +24,7 @@ use revm::{
 
 use crate::{
     constants::{CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, TEST_CONTRACT_ADDRESS},
-    fork::{CreateFork, ForkId, MultiFork, SharedBackend},
+    fork::{CreateFork, ForkId, MultiFork},
     snapshot::Snapshots,
     utils::configure_tx_env,
     InspectorExt,
@@ -33,7 +34,7 @@ mod diagnostic;
 pub use diagnostic::RevertDiagnostic;
 
 mod error;
-pub use error::{DatabaseError, DatabaseResult};
+pub use error::{BackendError, BackendResult, DatabaseError, DatabaseResult};
 
 mod cow;
 pub use cow::CowBackend;
@@ -293,7 +294,7 @@ pub trait DatabaseExt: Database<Error = DatabaseError> {
         &mut self,
         allocs: &BTreeMap<Address, GenesisAccount>,
         journaled_state: &mut JournaledState,
-    ) -> Result<(), DatabaseError>;
+    ) -> Result<(), BackendError>;
 
     /// Returns true if the given account is currently marked as persistent.
     fn is_persistent(&self, acc: &Address) -> bool;
@@ -340,16 +341,16 @@ pub trait DatabaseExt: Database<Error = DatabaseError> {
     /// Ensures that `account` is allowed to execute cheatcodes
     ///
     /// Returns an error if [`Self::has_cheatcode_access`] returns `false`
-    fn ensure_cheatcode_access(&self, account: &Address) -> Result<(), DatabaseError> {
+    fn ensure_cheatcode_access(&self, account: &Address) -> Result<(), BackendError> {
         if !self.has_cheatcode_access(account) {
-            return Err(DatabaseError::NoCheats(*account));
+            return Err(BackendError::NoCheats(*account));
         }
         Ok(())
     }
 
     /// Same as [`Self::ensure_cheatcode_access()`] but only enforces it if the
     /// backend is currently in forking mode
-    fn ensure_cheatcode_access_forking_mode(&self, account: &Address) -> Result<(), DatabaseError> {
+    fn ensure_cheatcode_access_forking_mode(&self, account: &Address) -> Result<(), BackendError> {
         if self.is_forked_mode() {
             return self.ensure_cheatcode_access(account);
         }
@@ -536,19 +537,11 @@ impl Backend {
         slot: U256,
         value: U256,
     ) -> Result<(), DatabaseError> {
-        let ret = if let Some(db) = self.active_fork_db_mut() {
+        if let Some(db) = self.active_fork_db_mut() {
             db.insert_account_storage(address, slot, value)
         } else {
             self.mem_db.insert_account_storage(address, slot, value)
-        };
-
-        // We don't apply any mutations here, so it's ok to optimize out.
-        #[allow(clippy::debug_assert_with_mut_call)]
-        {
-            debug_assert!(self.storage(address, slot).unwrap() == value);
         }
-
-        ret
     }
 
     /// Completely replace an account's storage without overriding account info.
@@ -876,7 +869,7 @@ impl Backend {
     /// This account data then would not match the account data of a fork if it
     /// exists. So when the first fork is initialized we replace these
     /// accounts with the actual account as it exists on the fork.
-    fn prepare_init_journal_state(&mut self) -> Result<(), DatabaseError> {
+    fn prepare_init_journal_state(&mut self) -> Result<(), BackendError> {
         let loaded_accounts = self
             .fork_init_journaled_state
             .state
@@ -907,7 +900,7 @@ impl Backend {
                 // otherwise we need to replace the account's info with the one from the fork's
                 // database
                 let fork_account = Database::basic(&mut fork.db, loaded_account)?
-                    .ok_or(DatabaseError::MissingAccount(loaded_account))?;
+                    .ok_or(BackendError::MissingAccount(loaded_account))?;
                 init_account.info = fork_account;
             }
             fork.journaled_state = journaled_state;
@@ -938,7 +931,7 @@ impl Backend {
             let number = block
                 .header
                 .number
-                .ok_or_else(|| DatabaseError::BlockNotFound(BlockNumberOrTag::Latest.into()))?;
+                .ok_or_else(|| BackendError::msg("missing block number"))?;
 
             Ok((number, block))
         }
@@ -1152,7 +1145,7 @@ impl DatabaseExt for Backend {
                 // Initialize caller with its fork info
                 if let Some(mut acc) = caller_account {
                     let fork_account = Database::basic(&mut target_fork.db, caller)?
-                        .ok_or(DatabaseError::MissingAccount(caller))?;
+                        .ok_or(BackendError::MissingAccount(caller))?;
 
                     acc.info = fork_account;
                     target_fork.journaled_state.state.insert(caller, acc);
@@ -1414,7 +1407,7 @@ impl DatabaseExt for Backend {
         &mut self,
         allocs: &BTreeMap<Address, GenesisAccount>,
         journaled_state: &mut JournaledState,
-    ) -> Result<(), DatabaseError> {
+    ) -> Result<(), BackendError> {
         // Loop through all of the allocs defined in the map and commit them to the
         // journal.
         for (addr, acc) in allocs.iter() {
@@ -2041,4 +2034,83 @@ fn apply_state_changeset(
 #[inline]
 fn is_known_system_sender(sender: Address) -> bool {
     [ARBITRUM_SENDER, OPTIMISM_SYSTEM_ADDRESS].contains(&sender)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use alloy_chains::NamedChain;
+    use alloy_primitives::{Address, U256};
+    use alloy_provider::Provider;
+    use edr_test_utils::env::get_alchemy_url;
+    use foundry_fork_db::cache::{BlockchainDb, BlockchainDbMeta};
+    use revm::DatabaseRef;
+    use tempfile::tempdir;
+
+    use crate::{
+        backend::Backend,
+        fork::{provider::get_http_provider, CreateFork},
+        opts::EvmOpts,
+    };
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn can_read_write_cache() {
+        let endpoint = get_alchemy_url();
+        let cache_dir = tempdir().expect("Should create tempdir");
+
+        let provider = get_http_provider(&endpoint);
+
+        let block_num = provider.get_block_number().await.unwrap();
+
+        let evm_opts = EvmOpts {
+            fork_block_number: Some(block_num),
+            ..EvmOpts::default()
+        };
+
+        let (env, _block) = evm_opts.fork_evm_env(&endpoint).await.unwrap();
+
+        let fork = CreateFork {
+            rpc_cache_path: Some(cache_dir.path().into()),
+            url: endpoint,
+            env: env.clone(),
+            evm_opts,
+        };
+
+        let backend = Backend::spawn(Some(fork.clone()));
+
+        // some rng contract from etherscan
+        let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();
+
+        let idx = U256::from(0u64);
+        let _value = backend.storage_ref(address, idx);
+        let _account = backend.basic_ref(address);
+
+        // fill some slots
+        let num_slots = 10u64;
+        for idx in 1..num_slots {
+            let _ = backend.storage_ref(address, U256::from(idx));
+        }
+        drop(backend);
+
+        let meta = BlockchainDbMeta {
+            cfg_env: env.cfg,
+            block_env: env.block,
+            hosts: BTreeSet::default(),
+        };
+
+        let db = BlockchainDb::new(
+            meta,
+            Some(
+                fork.block_cache_dir(NamedChain::Mainnet, block_num)
+                    .expect("Rpc cache path should be set"),
+            ),
+        );
+        assert!(db.accounts().read().contains_key(&address));
+        assert!(db.storage().read().contains_key(&address));
+        assert_eq!(
+            db.storage().read().get(&address).unwrap().len(),
+            num_slots as usize
+        );
+    }
 }

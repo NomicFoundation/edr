@@ -5,7 +5,7 @@ use alloy_signer::Error as SignerError;
 use alloy_signer_local::LocalSignerError;
 use alloy_sol_types::SolError;
 use edr_common::errors::FsPathError;
-use foundry_evm_core::backend::DatabaseError;
+use foundry_evm_core::backend::{BackendError, DatabaseError};
 use k256::ecdsa::signature::Error as SignatureError;
 use revm::primitives::EVMError;
 
@@ -299,6 +299,7 @@ impl_from!(
     FsPathError,
     hex::FromHexError,
     eyre::Error,
+    BackendError,
     DatabaseError,
     jsonpath_lib::JsonPathError,
     serde_json::Error,
@@ -311,10 +312,10 @@ impl_from!(
     SignerError,
 );
 
-impl From<EVMError<DatabaseError>> for Error {
+impl<T: Into<BackendError>> From<EVMError<T>> for Error {
     #[inline]
-    fn from(err: EVMError<DatabaseError>) -> Self {
-        Self::display(DatabaseError::from(err))
+    fn from(err: EVMError<T>) -> Self {
+        Self::display(BackendError::from(err))
     }
 }
 

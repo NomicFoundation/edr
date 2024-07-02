@@ -14,7 +14,7 @@ use alloy_json_abi::Function;
 use alloy_primitives::{Address, Bytes, Log, U256};
 use alloy_sol_types::{sol, SolCall};
 use foundry_evm_core::{
-    backend::{Backend, CowBackend, DatabaseError, DatabaseExt, DatabaseResult},
+    backend::{Backend, BackendError, BackendResult, CowBackend, DatabaseExt},
     constants::{
         CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, DEFAULT_CREATE2_DEPLOYER_CODE,
     },
@@ -117,7 +117,7 @@ impl Executor {
         let create2_deployer_account = self
             .backend
             .basic_ref(DEFAULT_CREATE2_DEPLOYER)?
-            .ok_or_else(|| DatabaseError::MissingAccount(DEFAULT_CREATE2_DEPLOYER))?;
+            .ok_or_else(|| BackendError::MissingAccount(DEFAULT_CREATE2_DEPLOYER))?;
 
         // if the deployer is not currently deployed, deploy the default one
         if create2_deployer_account
@@ -146,7 +146,7 @@ impl Executor {
     }
 
     /// Set the balance of an account.
-    pub fn set_balance(&mut self, address: Address, amount: U256) -> DatabaseResult<&mut Self> {
+    pub fn set_balance(&mut self, address: Address, amount: U256) -> BackendResult<&mut Self> {
         trace!(?address, ?amount, "setting account balance");
         let mut account = self.backend.basic_ref(address)?.unwrap_or_default();
         account.balance = amount;
@@ -156,7 +156,7 @@ impl Executor {
     }
 
     /// Gets the balance of an account
-    pub fn get_balance(&self, address: Address) -> DatabaseResult<U256> {
+    pub fn get_balance(&self, address: Address) -> BackendResult<U256> {
         Ok(self
             .backend
             .basic_ref(address)?
@@ -165,7 +165,7 @@ impl Executor {
     }
 
     /// Set the nonce of an account.
-    pub fn set_nonce(&mut self, address: Address, nonce: u64) -> DatabaseResult<&mut Self> {
+    pub fn set_nonce(&mut self, address: Address, nonce: u64) -> BackendResult<&mut Self> {
         let mut account = self.backend.basic_ref(address)?.unwrap_or_default();
         account.nonce = nonce;
 
@@ -174,7 +174,7 @@ impl Executor {
     }
 
     /// Gets the nonce of an account
-    pub fn get_nonce(&self, address: Address) -> DatabaseResult<u64> {
+    pub fn get_nonce(&self, address: Address) -> BackendResult<u64> {
         Ok(self
             .backend
             .basic_ref(address)?
@@ -183,7 +183,7 @@ impl Executor {
     }
 
     /// Returns true if account has no code.
-    pub fn is_empty_code(&self, address: Address) -> DatabaseResult<bool> {
+    pub fn is_empty_code(&self, address: Address) -> BackendResult<bool> {
         Ok(self
             .backend
             .basic_ref(address)?
@@ -511,7 +511,7 @@ impl Executor {
         reverted: bool,
         state_changeset: Cow<'_, StateChangeset>,
         should_fail: bool,
-    ) -> Result<bool, DatabaseError> {
+    ) -> Result<bool, BackendError> {
         if self.backend.has_snapshot_failure() {
             // a failure occurred in a reverted snapshot, which is considered a failed test
             return Ok(should_fail);
