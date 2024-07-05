@@ -176,6 +176,9 @@ importers:
       ethers:
         specifier: ^6.1.0
         version: 6.12.0
+      fs-extra:
+        specifier: ^7.0.1
+        version: 7.0.1
       hardhat:
         specifier: 2.22.5
         version: 2.22.5(ts-node@9.1.1(typescript@5.0.4))(typescript@5.0.4)
@@ -188,6 +191,9 @@ importers:
       rimraf:
         specifier: ^3.0.2
         version: 3.0.2
+      semver:
+        specifier: ^6.3.0
+        version: 6.3.1
       sinon:
         specifier: ^9.0.0
         version: 9.2.4
