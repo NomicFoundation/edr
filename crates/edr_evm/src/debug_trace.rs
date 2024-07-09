@@ -9,14 +9,14 @@ use revm::{
     db::DatabaseComponents,
     handler::register::EvmHandler,
     interpreter::{
-        opcode::{self, BoxedInstruction, InstructionTables, OpCode},
-        InstructionResult, Interpreter, InterpreterResult,
+        opcode::{self, DynInstruction, OpCode},
+        Interpreter, InterpreterResult,
     },
     primitives::{
         hex, Address, BlockEnv, Bytes, CfgEnvWithHandlerCfg, ExecutionResult, ResultAndState,
         SpecId, U256,
     },
-    Database, Evm, EvmContext, JournalEntry,
+    Context, Database, Evm, EvmContext, JournalEntry,
 };
 
 use crate::{
@@ -278,26 +278,10 @@ pub fn register_eip_3155_tracer_handles<
 ) {
     // Every instruction inside flat table that is going to be wrapped by tracer
     // calls.
-    let table = handler
-        .instruction_table
-        .take()
-        .expect("Handler must have instruction table");
+    let table = &mut handler.instruction_table;
 
-    let table = match table {
-        InstructionTables::Plain(table) => table
-            .into_iter()
-            .map(|i| instruction_handler(i))
-            .collect::<Vec<_>>(),
-        InstructionTables::Boxed(table) => table
-            .into_iter()
-            .map(|i| instruction_handler(i))
-            .collect::<Vec<_>>(),
-    };
-
-    // cast vector to array.
-    handler.instruction_table = Some(InstructionTables::Boxed(
-        table.try_into().unwrap_or_else(|_| unreachable!()),
-    ));
+    // Update all instructions to call the instruction handler.
+    table.update_all(instruction_handler);
 
     // call outcome
     let old_handle = handler.execution.insert_call_outcome.clone();
@@ -319,37 +303,29 @@ pub fn register_eip_3155_tracer_handles<
 }
 
 /// Outer closure that calls tracer for every instruction.
-fn instruction_handler<
-    'a,
+fn instruction_handler<ContextT, DatabaseT>(
+    prev: &DynInstruction<'_, Context<ContextT, DatabaseT>>,
+    interpreter: &mut Interpreter,
+    host: &mut Context<ContextT, DatabaseT>,
+) where
     ContextT: GetContextData<TracerEip3155>,
     DatabaseT: Database,
-    Instruction: Fn(&mut Interpreter, &mut Evm<'a, ContextT, DatabaseT>) + 'a,
->(
-    instruction: Instruction,
-) -> BoxedInstruction<'a, Evm<'a, ContextT, DatabaseT>> {
-    Box::new(
-        move |interpreter: &mut Interpreter, host: &mut Evm<'a, ContextT, DatabaseT>| {
-            // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
-            // the old Inspector behavior.
-            interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
+{
+    // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
+    // the old Inspector behavior.
+    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
 
-            host.context.external.get_context_data().step(interpreter);
-            if interpreter.instruction_result != InstructionResult::Continue {
-                return;
-            }
+    host.external.get_context_data().step(interpreter);
 
-            // return PC to old value
-            interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.add(1) };
+    // Reset PC to previous value.
+    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.add(1) };
 
-            // execute instruction.
-            instruction(interpreter, host);
+    // Execute instruction.
+    prev(interpreter, host);
 
-            host.context
-                .external
-                .get_context_data()
-                .step_end(interpreter, &mut host.context.evm);
-        },
-    )
+    host.external
+        .get_context_data()
+        .step_end(interpreter, &mut host.evm);
 }
 
 /// An EIP-3155 compatible EVM tracer.
@@ -437,7 +413,11 @@ impl TracerEip3155 {
                     .journal
                     .last()
                     .and_then(|v| v.last());
-                if let Some(JournalEntry::StorageChange { address, key, .. }) = last_entry {
+                if let Some(
+                    JournalEntry::StorageChanged { address, key, .. }
+                    | JournalEntry::StorageWarmed { address, key },
+                ) = last_entry
+                {
                     let value = context.journaled_state.state[address].storage[key].present_value();
                     let contract_storage = self.storage.entry(self.contract_address).or_default();
                     contract_storage.insert(u256_to_padded_hex(key), u256_to_padded_hex(&value));

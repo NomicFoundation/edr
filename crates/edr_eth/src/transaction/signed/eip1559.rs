@@ -1,7 +1,6 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use hashbrown::HashMap;
 use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
@@ -69,8 +68,6 @@ impl From<Eip1559> for TxEnv {
             gas_priority_fee: Some(value.max_priority_fee_per_gas),
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
-            eof_initcodes: Vec::new(),
-            eof_initcodes_hashed: HashMap::new(),
         }
     }
 }

@@ -44,8 +44,8 @@ use edr_evm::{
     transaction::{self, SignedTransaction as _},
     Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
     Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
-    DebugTraceResultWithTraces, Eip3155AndRawTracers, ExecutionResult, HashMap, HashSet, MemPool,
-    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, StorageSlot, SyncBlock,
+    DebugTraceResultWithTraces, Eip3155AndRawTracers, EvmStorageSlot, ExecutionResult, HashMap,
+    HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, SyncBlock,
     TxEnv, KECCAK_EMPTY,
 };
 use edr_rpc_eth::{
@@ -1756,7 +1756,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let mut modified_state = (*self.current_state()?).clone();
         let old_value = modified_state.set_account_storage_slot(address, index, value)?;
 
-        let slot = StorageSlot::new_changed(old_value, value);
+        let slot = EvmStorageSlot::new_changed(old_value, value);
         let account_info = modified_state.basic(address).and_then(|mut account_info| {
             // Retrieve the code if it's not empty. This is needed for the irregular state.
             if let Some(account_info) = &mut account_info {
