@@ -4,12 +4,12 @@ use edr_eth::{Address, Bytes, U256};
 use revm::{
     handler::register::EvmHandler,
     interpreter::{
-        opcode::{self, BoxedInstruction, InstructionTables},
+        opcode::{self, DynInstruction},
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         InstructionResult, Interpreter, SuccessOrHalt,
     },
     primitives::{Bytecode, EVMError, ExecutionResult, Output},
-    Database, Evm, EvmContext, FrameOrResult, FrameResult,
+    Context, Database, EvmContext, FrameOrResult, FrameResult,
 };
 
 use crate::debug::GetContextData;
@@ -23,28 +23,10 @@ pub fn register_trace_collector_handles<
 ) where
     DatabaseT::Error: Debug,
 {
-    // Every instruction inside flat table that is going to be wrapped by tracer
-    // calls.
-    let table = handler
-        .instruction_table
-        .take()
-        .expect("Handler must have instruction table");
+    let table = &mut handler.instruction_table;
 
-    let table = match table {
-        InstructionTables::Plain(table) => table
-            .into_iter()
-            .map(|i| instruction_handler(i))
-            .collect::<Vec<_>>(),
-        InstructionTables::Boxed(table) => table
-            .into_iter()
-            .map(|i| instruction_handler(i))
-            .collect::<Vec<_>>(),
-    };
-
-    // cast vector to array.
-    handler.instruction_table = Some(InstructionTables::Boxed(
-        table.try_into().unwrap_or_else(|_| unreachable!()),
-    ));
+    // Update all instructions to call the instruction handler.
+    table.update_all(instruction_handler);
 
     // call and create input stack shared between handlers. They are used to share
     // inputs in *_end Inspector calls.
@@ -128,32 +110,27 @@ pub fn register_trace_collector_handles<
 }
 
 /// Outer closure that calls tracer for every instruction.
-fn instruction_handler<
-    'a,
+fn instruction_handler<ContextT, DatabaseT>(
+    prev: &DynInstruction<'_, Context<ContextT, DatabaseT>>,
+    interpreter: &mut Interpreter,
+    host: &mut Context<ContextT, DatabaseT>,
+) where
     ContextT: GetContextData<TraceCollector>,
     DatabaseT: Database,
-    Instruction: Fn(&mut Interpreter, &mut Evm<'a, ContextT, DatabaseT>) + 'a,
->(
-    instruction: Instruction,
-) -> BoxedInstruction<'a, Evm<'a, ContextT, DatabaseT>> {
-    Box::new(
-        move |interpreter: &mut Interpreter, host: &mut Evm<'a, ContextT, DatabaseT>| {
-            // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
-            // the old Inspector behavior.
-            interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
+{
+    // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
+    // the old Inspector behavior.
+    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
 
-            host.context
-                .external
-                .get_context_data()
-                .step(interpreter, &host.context.evm);
+    host.external
+        .get_context_data()
+        .step(interpreter, &host.evm);
 
-            // return PC to old value
-            interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.add(1) };
+    // Reset PC to previous value.
+    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.add(1) };
 
-            // execute instruction.
-            instruction(interpreter, host);
-        },
-    )
+    // Execute instruction.
+    prev(interpreter, host);
 }
 
 /// Stack tracing message
@@ -415,7 +392,7 @@ impl TraceCollector {
                 reason,
                 gas_used: outcome.gas().limit(),
             },
-            SuccessOrHalt::InternalContinue | SuccessOrHalt::InternalCallOrCreate => {
+            SuccessOrHalt::Internal(_) => {
                 panic!("Internal error: {safe_ret:?}")
             }
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
@@ -482,7 +459,7 @@ impl TraceCollector {
                 reason,
                 gas_used: outcome.gas().limit(),
             },
-            SuccessOrHalt::InternalContinue | SuccessOrHalt::InternalCallOrCreate => {
+            SuccessOrHalt::Internal(_) => {
                 panic!("Internal error: {safe_ret:?}")
             }
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),

@@ -16,6 +16,7 @@ pub enum SuccessReason {
     Return,
     /// The opcode `SELFDESTRUCT` was called
     SelfDestruct,
+    EofReturnContract,
 }
 
 impl From<edr_evm::SuccessReason> for SuccessReason {
@@ -24,6 +25,7 @@ impl From<edr_evm::SuccessReason> for SuccessReason {
             edr_evm::SuccessReason::Stop => Self::Stop,
             edr_evm::SuccessReason::Return => Self::Return,
             edr_evm::SuccessReason::SelfDestruct => Self::SelfDestruct,
+            edr_evm::SuccessReason::EofReturnContract => Self::EofReturnContract,
         }
     }
 }
@@ -34,6 +36,7 @@ impl From<SuccessReason> for edr_evm::SuccessReason {
             SuccessReason::Stop => Self::Stop,
             SuccessReason::Return => Self::Return,
             SuccessReason::SelfDestruct => Self::SelfDestruct,
+            SuccessReason::EofReturnContract => Self::EofReturnContract,
         }
     }
 }
@@ -82,7 +85,7 @@ pub struct RevertResult {
 pub enum ExceptionalHalt {
     OutOfGas,
     OpcodeNotFound,
-    InvalidFEOpcode,
+    InvalidEFOpcode,
     InvalidJump,
     NotActivated,
     StackUnderflow,
@@ -97,6 +100,12 @@ pub enum ExceptionalHalt {
     CreateContractStartingWithEF,
     /// EIP-3860: Limit and meter initcode. Initcode size limit exceeded.
     CreateInitCodeSizeLimit,
+    /// Aux data overflow, new aux data is larger tha u16 max size.
+    EofAuxDataOverflow,
+    /// Aud data is smaller then already present data size.
+    EofAuxDataTooSmall,
+    /// EOF Subroutine stack overflow
+    EOFFunctionStackOverflow,
 }
 
 impl From<edr_evm::HaltReason> for ExceptionalHalt {
@@ -104,7 +113,7 @@ impl From<edr_evm::HaltReason> for ExceptionalHalt {
         match halt {
             edr_evm::HaltReason::OutOfGas(..) => ExceptionalHalt::OutOfGas,
             edr_evm::HaltReason::OpcodeNotFound => ExceptionalHalt::OpcodeNotFound,
-            edr_evm::HaltReason::InvalidFEOpcode => ExceptionalHalt::InvalidFEOpcode,
+            edr_evm::HaltReason::InvalidEFOpcode => ExceptionalHalt::InvalidEFOpcode,
             edr_evm::HaltReason::InvalidJump => ExceptionalHalt::InvalidJump,
             edr_evm::HaltReason::NotActivated => ExceptionalHalt::NotActivated,
             edr_evm::HaltReason::StackUnderflow => ExceptionalHalt::StackUnderflow,
@@ -122,6 +131,11 @@ impl From<edr_evm::HaltReason> for ExceptionalHalt {
             edr_evm::HaltReason::CreateInitCodeSizeLimit => {
                 ExceptionalHalt::CreateInitCodeSizeLimit
             }
+            edr_evm::HaltReason::EofAuxDataOverflow => ExceptionalHalt::EofAuxDataOverflow,
+            edr_evm::HaltReason::EofAuxDataTooSmall => ExceptionalHalt::EofAuxDataTooSmall,
+            edr_evm::HaltReason::EOFFunctionStackOverflow => {
+                ExceptionalHalt::EOFFunctionStackOverflow
+            }
             edr_evm::HaltReason::OverflowPayment
             | edr_evm::HaltReason::StateChangeDuringStaticCall
             | edr_evm::HaltReason::CallNotAllowedInsideStatic
@@ -138,7 +152,7 @@ impl From<ExceptionalHalt> for edr_evm::HaltReason {
         match value {
             ExceptionalHalt::OutOfGas => Self::OutOfGas(edr_evm::OutOfGasError::Basic),
             ExceptionalHalt::OpcodeNotFound => Self::OpcodeNotFound,
-            ExceptionalHalt::InvalidFEOpcode => Self::InvalidFEOpcode,
+            ExceptionalHalt::InvalidEFOpcode => Self::InvalidEFOpcode,
             ExceptionalHalt::InvalidJump => Self::InvalidJump,
             ExceptionalHalt::NotActivated => Self::NotActivated,
             ExceptionalHalt::StackUnderflow => Self::StackUnderflow,
@@ -150,6 +164,9 @@ impl From<ExceptionalHalt> for edr_evm::HaltReason {
             ExceptionalHalt::CreateContractSizeLimit => Self::CreateContractSizeLimit,
             ExceptionalHalt::CreateContractStartingWithEF => Self::CreateContractStartingWithEF,
             ExceptionalHalt::CreateInitCodeSizeLimit => Self::CreateInitCodeSizeLimit,
+            ExceptionalHalt::EofAuxDataOverflow => Self::EofAuxDataOverflow,
+            ExceptionalHalt::EofAuxDataTooSmall => Self::EofAuxDataTooSmall,
+            ExceptionalHalt::EOFFunctionStackOverflow => Self::EOFFunctionStackOverflow,
         }
     }
 }

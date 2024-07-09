@@ -34,6 +34,9 @@ pub enum TransactionError<BE, SE> {
     /// config is on a post-merge hardfork.
     #[error("Post-merge transaction is missing prevrandao")]
     MissingPrevrandao,
+    /// Precompile errors
+    #[error("{0}")]
+    Precompile(String),
     /// State errors
     #[error(transparent)]
     State(SE),
@@ -53,6 +56,7 @@ where
             EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
             EVMError::Database(DatabaseComponentError::BlockHash(e)) => Self::Blockchain(e),
             EVMError::Custom(error) => Self::Custom(error),
+            EVMError::Precompile(error) => Self::Precompile(error),
         }
     }
 }
@@ -107,8 +111,6 @@ pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
         access_list
             .as_ref()
             .map_or(&[], |access_list| access_list.as_slice()),
-        // TODO: https://github.com/NomicFoundation/edr/issues/427
-        &[],
     )
 }
 

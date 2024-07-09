@@ -70,6 +70,9 @@ pub enum BlockTransactionError<BE, SE> {
     /// Corrupt transaction data
     #[error("Invalid transaction: {0:?}")]
     InvalidTransaction(InvalidTransaction),
+    /// Precompile errors
+    #[error("{0}")]
+    Precompile(String),
     /// State errors
     #[error(transparent)]
     State(SE),
@@ -99,6 +102,7 @@ where
                 error @ (InvalidHeader::ExcessBlobGasNotSet | InvalidHeader::PrevrandaoNotSet),
             ) => Self::Custom(error.to_string()),
             EVMError::Custom(error) => Self::Custom(error),
+            EVMError::Precompile(error) => Self::Precompile(error),
         }
     }
 }
