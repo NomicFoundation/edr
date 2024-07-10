@@ -94,7 +94,7 @@ jobs:
           echo "Number of build jobs: ${{ strategy.job-total }}"
           echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Setup node
@@ -174,7 +174,7 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Setup node
@@ -208,7 +208,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Setup node
@@ -244,7 +244,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Setup node
@@ -280,7 +280,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Download artifacts
@@ -324,7 +324,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Download artifacts
@@ -395,7 +395,7 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Setup node

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt};
+use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
 use forge::result::TestStatus;
@@ -138,15 +138,13 @@ test_repro!(3347, false, None, |res| {
     assert_eq!(test.logs.len(), 1);
     let event = Event::parse("event log2(uint256, uint256)").unwrap();
     let decoded = event.decode_log(&test.logs[0].data, false).unwrap();
+    assert!(decoded.indexed.is_empty());
     assert_eq!(
-        decoded,
-        DecodedEvent {
-            indexed: vec![],
-            body: vec![
-                DynSolValue::Uint(U256::from(1), 256),
-                DynSolValue::Uint(U256::from(2), 256)
-            ]
-        }
+        decoded.body,
+        vec![
+            DynSolValue::Uint(U256::from(1), 256),
+            DynSolValue::Uint(U256::from(2), 256)
+        ]
     );
 });
 
