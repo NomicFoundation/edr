@@ -8,12 +8,6 @@ on:
     branches:
       - "**"
       - "!feat/solidity-tests"
-    paths:
-      - ".github/workflows/edr-benchmark.yml"
-      - "rust-toolchain"
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "crates/**"
   workflow_dispatch:
 
 defaults:
