@@ -4,21 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - ".github/workflows/edr-ci.yml"
-      - "rust-toolchain"
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "crates/**"
   pull_request:
     branches:
       - "**"
-    paths:
-      - ".github/workflows/edr-ci.yml"
-      - "rust-toolchain"
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "crates/**"
   workflow_dispatch:
 
 env:
