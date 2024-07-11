@@ -85,6 +85,7 @@ pub struct ProviderConfig {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, HardforkActivations>,
     pub coinbase: Address,
+    pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     // Genesis accounts in addition to accounts. Useful for adding impersonated accounts for tests.
     pub genesis_accounts: HashMap<Address, AccountInfo>,

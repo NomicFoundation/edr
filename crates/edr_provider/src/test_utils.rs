@@ -65,6 +65,7 @@ pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig 
         chain_id: 123,
         chains: HashMap::new(),
         coinbase: Address::from(U160::from(1)),
+        enable_rip_7212: false,
         fork,
         genesis_accounts: HashMap::new(),
         hardfork: SpecId::LATEST,

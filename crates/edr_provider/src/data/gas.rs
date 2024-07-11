@@ -6,13 +6,14 @@ use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
     chain_spec::L1ChainSpec,
     state::{StateError, StateOverrides, SyncState},
-    trace::{register_trace_collector_handles, TraceCollector},
+    trace::TraceCollector,
     CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, SyncBlock, TxEnv,
 };
 use itertools::Itertools;
 
 use crate::{
     data::call::{self, RunCallArgs},
+    handler::register_trace_collector_and_precompile,
     ProviderError,
 };
 
@@ -30,7 +31,7 @@ pub(super) struct CheckGasLimitArgs<'a> {
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
-pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
+pub(super) fn check_gas_limit<const ENABLE_RIP_7212: bool, LoggerErrorT: Debug>(
     args: CheckGasLimitArgs<'_>,
 ) -> Result<bool, ProviderError<LoggerErrorT>> {
     let CheckGasLimitArgs {
@@ -55,7 +56,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         tx_env,
         debug_context: Some(DebugContext {
             data: trace_collector,
-            register_handles_fn: register_trace_collector_handles,
+            register_handles_fn: register_trace_collector_and_precompile::<ENABLE_RIP_7212, _, _>,
         }),
     })?;
 
@@ -77,7 +78,7 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
-pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
+pub(super) fn binary_search_estimation<const ENABLE_RIP_7212: bool, LoggerErrorT: Debug>(
     args: BinarySearchEstimationArgs<'_>,
 ) -> Result<u64, ProviderError<LoggerErrorT>> {
     const MAX_ITERATIONS: usize = 20;
@@ -105,7 +106,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
             mid = cmp::min(mid, initial_mid);
         }
 
-        let success = check_gas_limit(CheckGasLimitArgs {
+        let success = check_gas_limit::<ENABLE_RIP_7212, _>(CheckGasLimitArgs {
             blockchain,
             header,
             state,

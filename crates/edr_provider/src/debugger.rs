@@ -12,7 +12,7 @@ use crate::{
     mock::{register_mocking_handles, Mocker},
 };
 
-/// Registers the EIP-3155 tracer handles.
+/// Registers debugger handles.
 pub fn register_debugger_handles<DatabaseT, ContextT>(
     handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
 ) where
