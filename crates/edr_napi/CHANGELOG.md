@@ -1,5 +1,12 @@
 # @nomicfoundation/edr
 
+## 0.4.2
+
+### Patch Changes
+
+- b056511: Fixes restriction to disallow remote blocks without a nonce
+- e650c9e: Upgraded revm to v37
+
 ## 0.4.1
 
 ### Patch Changes
