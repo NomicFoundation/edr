@@ -244,13 +244,13 @@ function medianOfResults(results) {
 }
 
 async function benchmarkScenario(scenarioFileName, useAnvil) {
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
   let { config, requests } = await loadScenario(scenarioFileName);
   const name = path.basename(scenarioFileName).split(".")[0];
   console.error(`Running ${name} scenario`);
 
   const start = performance.now();
+
+  await new Promise((resolve) => setTimeout(resolve, 5000));
 
   let provider;
   if (useAnvil) {
