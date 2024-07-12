@@ -113,7 +113,7 @@ impl From<edr_evm::HaltReason> for ExceptionalHalt {
         match halt {
             edr_evm::HaltReason::OutOfGas(..) => ExceptionalHalt::OutOfGas,
             edr_evm::HaltReason::OpcodeNotFound => ExceptionalHalt::OpcodeNotFound,
-            edr_evm::HaltReason::InvalidEFOpcode => ExceptionalHalt::InvalidFEOpcode,
+            edr_evm::HaltReason::InvalidFEOpcode => ExceptionalHalt::InvalidFEOpcode,
             edr_evm::HaltReason::InvalidJump => ExceptionalHalt::InvalidJump,
             edr_evm::HaltReason::NotActivated => ExceptionalHalt::NotActivated,
             edr_evm::HaltReason::StackUnderflow => ExceptionalHalt::StackUnderflow,
@@ -152,7 +152,7 @@ impl From<ExceptionalHalt> for edr_evm::HaltReason {
         match value {
             ExceptionalHalt::OutOfGas => Self::OutOfGas(edr_evm::OutOfGasError::Basic),
             ExceptionalHalt::OpcodeNotFound => Self::OpcodeNotFound,
-            ExceptionalHalt::InvalidFEOpcode => Self::InvalidEFOpcode,
+            ExceptionalHalt::InvalidFEOpcode => Self::InvalidFEOpcode,
             ExceptionalHalt::InvalidJump => Self::InvalidJump,
             ExceptionalHalt::NotActivated => Self::NotActivated,
             ExceptionalHalt::StackUnderflow => Self::StackUnderflow,

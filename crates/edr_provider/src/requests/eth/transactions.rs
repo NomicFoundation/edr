@@ -226,6 +226,12 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         block_data.as_ref().map(|bd| bd.transaction_index)
     };
 
+    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
+        Some(transaction.access_list().to_vec())
+    } else {
+        None
+    };
+
     Ok(edr_rpc_eth::Transaction {
         hash: *transaction.transaction_hash(),
         nonce: transaction.nonce(),
@@ -245,9 +251,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         s: signature.s(),
         chain_id,
         transaction_type: transaction_type.map(u64::from),
-        access_list: transaction
-            .access_list()
-            .map(|access_list| access_list.clone().into()),
+        access_list,
         max_fee_per_gas: transaction.max_fee_per_gas(),
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
         max_fee_per_blob_gas: transaction.max_fee_per_blob_gas(),

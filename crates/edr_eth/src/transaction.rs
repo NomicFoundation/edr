@@ -17,10 +17,7 @@ pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
 pub use self::r#type::TransactionType;
-use crate::{
-    access_list::{AccessList, AccessListItem},
-    Address, Bytes, U256,
-};
+use crate::{AccessListItem, Address, Bytes, U256};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -63,7 +60,7 @@ pub trait SignedTransaction: Transaction {
 
 pub trait Transaction {
     /// Returns the access list of the transaction, if any.
-    fn access_list(&self) -> Option<&AccessList>;
+    fn access_list(&self) -> &[AccessListItem];
 
     /// Returns the input data of the transaction.
     fn data(&self) -> &Bytes;

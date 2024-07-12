@@ -35,7 +35,7 @@ use edr_evm::{
     chain_spec::L1ChainSpec,
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
-    mine_block_with_single_transaction,
+    mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
@@ -45,8 +45,8 @@ use edr_evm::{
     Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
     Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
     DebugTraceResultWithTraces, Eip3155AndRawTracers, EvmStorageSlot, ExecutionResult, HashMap,
-    HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, SyncBlock,
-    TxEnv, KECCAK_EMPTY,
+    HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, Precompile, RandomHashGenerator,
+    SyncBlock, TxEnv, KECCAK_EMPTY,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -56,6 +56,7 @@ use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
+use revm_precompile::secp256r1;
 use rpds::HashTrieMapSync;
 use tokio::runtime;
 
@@ -66,10 +67,9 @@ use crate::{
         gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
     },
     debug_mine::{DebugMineBlockResult, DebugMineBlockResultAndState},
-    debugger::Debugger,
+    debugger::{register_debugger_handles, Debugger},
     error::{EstimateGasFailure, TransactionFailure, TransactionFailureWithTraces},
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
-    handler::{register_debugger_and_precompile, register_eip_3155_and_raw_tracers_and_precompile},
     logger::SyncLogger,
     mock::{Mocker, SyncCallOverride},
     pending::BlockchainWithPending,
@@ -169,6 +169,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     pub irregular_state: IrregularState,
     mem_pool: MemPool,
     beneficiary: Address,
+    custom_precompiles: HashMap<Address, Precompile>,
     dao_activation_block: Option<u64>,
     min_gas_price: U256,
     parent_beacon_block_root_generator: RandomHashGenerator,
@@ -267,6 +268,17 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
         };
 
+        let custom_precompiles = {
+            let mut precompiles = HashMap::new();
+
+            if config.enable_rip_7212 {
+                // EIP-7212: secp256r1 P256verify
+                precompiles.insert(secp256r1::P256VERIFY.0, secp256r1::P256VERIFY.1);
+            }
+
+            precompiles
+        };
+
         Ok(Self {
             runtime_handle,
             initial_config: config,
@@ -274,6 +286,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
             beneficiary,
+            custom_precompiles,
             dao_activation_block,
             min_gas_price,
             parent_beacon_block_root_generator,
@@ -651,8 +664,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let tx_env: TxEnv = transaction.into();
 
         let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
+        let precompiles = self.custom_precompiles.clone();
 
-        let enable_rip_7212 = self.initial_config.enable_rip_7212;
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let result = run_call(RunCallArgs {
                 blockchain,
@@ -661,13 +674,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state_overrides: &StateOverrides::default(),
                 cfg_env: cfg_env.clone(),
                 tx_env: tx_env.clone(),
+                precompiles: &precompiles,
                 debug_context: Some(DebugContext {
                     data: &mut tracer,
-                    register_handles_fn: if enable_rip_7212 {
-                        register_eip_3155_and_raw_tracers_and_precompile::<true, _, _>
-                    } else {
-                        register_eip_3155_and_raw_tracers_and_precompile::<false, _, _>
-                    },
+                    register_handles_fn: register_eip_3155_and_raw_tracers_handles,
                 }),
             })?;
 
@@ -694,7 +704,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.verbose_tracing,
         );
 
-        let enable_rip_7212 = self.initial_config.enable_rip_7212;
+        let precompiles = self.custom_precompiles.clone();
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
 
@@ -708,13 +718,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
                 tx_env: tx_env.clone(),
+                precompiles: &precompiles,
                 debug_context: Some(DebugContext {
                     data: &mut debugger,
-                    register_handles_fn: if enable_rip_7212 {
-                        register_debugger_and_precompile::<true, _, _>
-                    } else {
-                        register_debugger_and_precompile::<false, _, _>
-                    },
+                    register_handles_fn: register_debugger_handles,
                 }),
             })?;
 
@@ -759,19 +766,17 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             }
 
             // Test if the transaction would be successful with the initial estimation
-            let success = Self::check_gas_limit(
-                CheckGasLimitArgs {
-                    blockchain,
-                    header,
-                    state,
-                    state_overrides: &state_overrides,
-                    cfg_env: cfg_env.clone(),
-                    tx_env: tx_env.clone(),
-                    gas_limit: initial_estimation,
-                    trace_collector: &mut trace_collector,
-                },
-                enable_rip_7212,
-            )?;
+            let success = gas::check_gas_limit(CheckGasLimitArgs {
+                blockchain,
+                header,
+                state,
+                state_overrides: &state_overrides,
+                cfg_env: cfg_env.clone(),
+                tx_env: tx_env.clone(),
+                gas_limit: initial_estimation,
+                precompiles: &precompiles,
+                trace_collector: &mut trace_collector,
+            })?;
 
             // Return the initial estimation if it was successful
             if success {
@@ -784,20 +789,18 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             // Correct the initial estimation if the transaction failed with the actually
             // used gas limit. This can happen if the execution logic is based
             // on the available gas.
-            let estimation = Self::binary_search_estimation(
-                BinarySearchEstimationArgs {
-                    blockchain,
-                    header,
-                    state,
-                    state_overrides: &state_overrides,
-                    cfg_env: cfg_env.clone(),
-                    tx_env: tx_env.clone(),
-                    lower_bound: initial_estimation,
-                    upper_bound: header.gas_limit,
-                    trace_collector: &mut trace_collector,
-                },
-                enable_rip_7212,
-            )?;
+            let estimation = gas::binary_search_estimation(BinarySearchEstimationArgs {
+                blockchain,
+                header,
+                state,
+                state_overrides: &state_overrides,
+                cfg_env: cfg_env.clone(),
+                tx_env: tx_env.clone(),
+                lower_bound: initial_estimation,
+                upper_bound: header.gas_limit,
+                precompiles: &precompiles,
+                trace_collector: &mut trace_collector,
+            })?;
 
             let traces = trace_collector.into_traces();
             Ok(EstimateGasResult { estimation, traces })
@@ -1427,7 +1430,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.verbose_tracing,
         );
 
-        let enable_rip_7212 = self.initial_config.enable_rip_7212;
+        let precompiles = self.custom_precompiles.clone();
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let execution_result = call::run_call(RunCallArgs {
                 blockchain,
@@ -1436,13 +1439,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state_overrides,
                 cfg_env,
                 tx_env,
+                precompiles: &precompiles,
                 debug_context: Some(DebugContext {
                     data: &mut debugger,
-                    register_handles_fn: if enable_rip_7212 {
-                        register_debugger_and_precompile::<true, _, _>
-                    } else {
-                        register_debugger_and_precompile::<false, _, _>
-                    },
+                    register_handles_fn: register_debugger_handles,
                 }),
             })?;
 
@@ -1909,17 +1909,6 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(transaction_hash)
     }
 
-    fn check_gas_limit(
-        args: CheckGasLimitArgs<'_>,
-        enable_rip_7212: bool,
-    ) -> Result<bool, ProviderError<LoggerErrorT>> {
-        if enable_rip_7212 {
-            gas::check_gas_limit::<true, _>(args)
-        } else {
-            gas::check_gas_limit::<false, _>(args)
-        }
-    }
-
     /// Creates a configuration, taking into the hardfork at the provided
     /// `BlockSpec`. If none is provided, assumes the hardfork for newly
     /// mined blocks.
@@ -1948,17 +1937,6 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         cfg_env.disable_eip3607 = true;
 
         Ok(CfgEnvWithHandlerCfg::new_with_spec_id(cfg_env, spec_id))
-    }
-
-    fn binary_search_estimation(
-        args: BinarySearchEstimationArgs<'_>,
-        enable_rip_7212: bool,
-    ) -> Result<u64, ProviderError<LoggerErrorT>> {
-        if enable_rip_7212 {
-            gas::binary_search_estimation::<true, _>(args)
-        } else {
-            gas::binary_search_estimation::<false, _>(args)
-        }
     }
 
     fn execute_in_block_context<T>(
@@ -2070,11 +2048,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.dao_activation_block,
             Some(DebugContext {
                 data: debugger,
-                register_handles_fn: if self.initial_config.enable_rip_7212 {
-                    register_debugger_and_precompile::<true, _, _>
-                } else {
-                    register_debugger_and_precompile::<false, _, _>
-                },
+                register_handles_fn: register_debugger_handles,
             }),
         )?;
 
@@ -2100,11 +2074,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.dao_activation_block,
             Some(DebugContext {
                 data: debugger,
-                register_handles_fn: if self.initial_config.enable_rip_7212 {
-                    register_debugger_and_precompile::<true, _, _>
-                } else {
-                    register_debugger_and_precompile::<false, _, _>
-                },
+                register_handles_fn: register_debugger_handles,
             }),
         )?;
 

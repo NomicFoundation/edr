@@ -1,19 +1,21 @@
 use core::fmt::Debug;
 use std::cmp;
 
-use edr_eth::{block::Header, reward_percentile::RewardPercentile, transaction::Transaction, U256};
+use edr_eth::{
+    block::Header, reward_percentile::RewardPercentile, transaction::Transaction, Address, HashMap,
+    U256,
+};
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
     chain_spec::L1ChainSpec,
     state::{StateError, StateOverrides, SyncState},
-    trace::TraceCollector,
-    CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, SyncBlock, TxEnv,
+    trace::{register_trace_collector_handles, TraceCollector},
+    CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, Precompile, SyncBlock, TxEnv,
 };
 use itertools::Itertools;
 
 use crate::{
     data::call::{self, RunCallArgs},
-    handler::register_trace_collector_and_precompile,
     ProviderError,
 };
 
@@ -25,13 +27,14 @@ pub(super) struct CheckGasLimitArgs<'a> {
     pub cfg_env: CfgEnvWithHandlerCfg,
     pub tx_env: TxEnv,
     pub gas_limit: u64,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
-pub(super) fn check_gas_limit<const ENABLE_RIP_7212: bool, LoggerErrorT: Debug>(
+pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
     args: CheckGasLimitArgs<'_>,
 ) -> Result<bool, ProviderError<LoggerErrorT>> {
     let CheckGasLimitArgs {
@@ -42,6 +45,7 @@ pub(super) fn check_gas_limit<const ENABLE_RIP_7212: bool, LoggerErrorT: Debug>(
         cfg_env,
         mut tx_env,
         gas_limit,
+        precompiles,
         trace_collector,
     } = args;
 
@@ -54,9 +58,10 @@ pub(super) fn check_gas_limit<const ENABLE_RIP_7212: bool, LoggerErrorT: Debug>(
         state_overrides,
         cfg_env,
         tx_env,
+        precompiles,
         debug_context: Some(DebugContext {
             data: trace_collector,
-            register_handles_fn: register_trace_collector_and_precompile::<ENABLE_RIP_7212, _, _>,
+            register_handles_fn: register_trace_collector_handles,
         }),
     })?;
 
@@ -72,13 +77,14 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
     pub tx_env: TxEnv,
     pub lower_bound: u64,
     pub upper_bound: u64,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
-pub(super) fn binary_search_estimation<const ENABLE_RIP_7212: bool, LoggerErrorT: Debug>(
+pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
     args: BinarySearchEstimationArgs<'_>,
 ) -> Result<u64, ProviderError<LoggerErrorT>> {
     const MAX_ITERATIONS: usize = 20;
@@ -92,6 +98,7 @@ pub(super) fn binary_search_estimation<const ENABLE_RIP_7212: bool, LoggerErrorT
         tx_env,
         mut lower_bound,
         mut upper_bound,
+        precompiles,
         trace_collector,
     } = args;
 
@@ -106,7 +113,7 @@ pub(super) fn binary_search_estimation<const ENABLE_RIP_7212: bool, LoggerErrorT
             mid = cmp::min(mid, initial_mid);
         }
 
-        let success = check_gas_limit::<ENABLE_RIP_7212, _>(CheckGasLimitArgs {
+        let success = check_gas_limit(CheckGasLimitArgs {
             blockchain,
             header,
             state,
@@ -114,6 +121,7 @@ pub(super) fn binary_search_estimation<const ENABLE_RIP_7212: bool, LoggerErrorT
             cfg_env: cfg_env.clone(),
             tx_env: tx_env.clone(),
             gas_limit: mid,
+            precompiles,
             trace_collector,
         })?;
 

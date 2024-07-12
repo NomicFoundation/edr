@@ -1,10 +1,9 @@
 use std::sync::OnceLock;
 
 use edr_eth::{
-    access_list::AccessListItem,
     signature,
     transaction::{self, TxKind},
-    Address, Bytes, B256, U256,
+    AccessListItem, Address, Bytes, B256, U256,
 };
 
 /// RPC transaction
