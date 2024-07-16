@@ -41,7 +41,7 @@ pub(super) fn build_runner(
         contracts: test_suites.into_iter().collect(),
         evm_opts,
         env: evm_env,
-        evm_spec: SpecId::MERGE,
+        evm_spec: SpecId::CANCUN,
         sender,
         revert_decoder,
         fork: None,
