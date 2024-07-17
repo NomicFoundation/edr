@@ -72,9 +72,15 @@ impl SolidityTestRunner {
                 results.push(name_and_suite_result.clone());
                 // Blocking mode won't block in our case because the function was created with
                 // unlimited queue size https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md#blockingcall--nonblockingcall
-                callback_fn.call(
+                let call_status = callback_fn.call(
                     Ok(name_and_suite_result.into()),
                     ThreadsafeFunctionCallMode::Blocking,
+                );
+                // This should always succeed since we're using an unbounded queue. We add an
+                // assertion for completeness.
+                assert!(
+                    matches!(call_status, napi::Status::Ok),
+                    "Failed to call callback with status {call_status:?}"
                 );
             }
 
