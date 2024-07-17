@@ -40,6 +40,7 @@ mod debug_trace;
 /// Types for managing Ethereum mem pool
 pub mod mempool;
 mod miner;
+mod precompiles;
 pub(crate) mod random;
 mod runtime;
 /// Utilities for testing

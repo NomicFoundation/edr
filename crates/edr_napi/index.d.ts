@@ -223,6 +223,8 @@ export interface ProviderConfig {
   chains: Array<ChainConfig>
   /** The address of the coinbase */
   coinbase: Buffer
+  /** Enables RIP-7212 */
+  enableRip7212: boolean
   /**
    * The configuration for forking a blockchain. If not provided, a local
    * blockchain will be created
@@ -260,7 +262,8 @@ export const enum SuccessReason {
   /** The opcode `RETURN` was called */
   Return = 1,
   /** The opcode `SELFDESTRUCT` was called */
-  SelfDestruct = 2
+  SelfDestruct = 2,
+  EofReturnContract = 3
 }
 export interface CallOutput {
   /** Return value */
@@ -313,7 +316,13 @@ export const enum ExceptionalHalt {
   /** Error on created contract that begins with EF */
   CreateContractStartingWithEF = 12,
   /** EIP-3860: Limit and meter initcode. Initcode size limit exceeded. */
-  CreateInitCodeSizeLimit = 13
+  CreateInitCodeSizeLimit = 13,
+  /** Aux data overflow, new aux data is larger tha u16 max size. */
+  EofAuxDataOverflow = 14,
+  /** Aud data is smaller then already present data size. */
+  EofAuxDataTooSmall = 15,
+  /** EOF Subroutine stack overflow */
+  EOFFunctionStackOverflow = 16
 }
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {

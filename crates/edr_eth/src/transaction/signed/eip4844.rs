@@ -4,11 +4,10 @@ use alloy_rlp::{RlpDecodable, RlpEncodable};
 use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
 
 use crate::{
-    access_list::AccessList,
     signature::{self, Fakeable},
     transaction,
     utils::envelop_bytes,
-    Address, Bytes, B256, U256,
+    AccessList, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -78,6 +77,7 @@ impl From<Eip4844> for TxEnv {
             gas_priority_fee: Some(value.max_priority_fee_per_gas),
             blob_hashes: value.blob_hashes,
             max_fee_per_blob_gas: Some(value.max_fee_per_blob_gas),
+            authorization_list: None,
         }
     }
 }

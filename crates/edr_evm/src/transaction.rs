@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{Address, SpecId, U256};
+use edr_eth::{SpecId, U256};
 use revm::{
     db::DatabaseComponentError,
     interpreter::gas::validate_initial_tx_gas,
@@ -99,24 +99,18 @@ pub fn validate<TransactionT: Transaction>(
 
 /// Calculates the initial cost of a transaction.
 pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
-    let access_list = transaction
-        .access_list()
-        .cloned()
-        .map(Vec::<(Address, Vec<U256>)>::from);
-
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),
         transaction.kind() == TxKind::Create,
-        access_list
-            .as_ref()
-            .map_or(&[], |access_list| access_list.as_slice()),
+        transaction.access_list(),
+        0,
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction, Bytes};
+    use edr_eth::{transaction, Address, Bytes};
 
     use super::*;
 

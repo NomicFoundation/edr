@@ -100,6 +100,8 @@ pub struct ProviderConfig {
     pub chains: Vec<ChainConfig>,
     /// The address of the coinbase
     pub coinbase: Buffer,
+    /// Enables RIP-7212
+    pub enable_rip_7212: bool,
     /// The configuration for forking a blockchain. If not provided, a local
     /// blockchain will be created
     pub fork: Option<ForkConfig>,
@@ -261,6 +263,7 @@ impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig {
             chain_id: value.chain_id.try_cast()?,
             chains,
             coinbase: value.coinbase.try_cast()?,
+            enable_rip_7212: value.enable_rip_7212,
             fork: value.fork.map(TryInto::try_into).transpose()?,
             genesis_accounts: HashMap::new(),
             hardfork: value.hardfork.into(),

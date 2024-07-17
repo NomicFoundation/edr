@@ -45,8 +45,8 @@ use edr_evm::{
     Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
     Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
     DebugTraceResultWithTraces, Eip3155AndRawTracers, EvmStorageSlot, ExecutionResult, HashMap,
-    HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, SyncBlock,
-    TxEnv, KECCAK_EMPTY,
+    HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, Precompile, RandomHashGenerator,
+    SyncBlock, TxEnv, KECCAK_EMPTY,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -56,6 +56,7 @@ use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
+use revm_precompile::secp256r1;
 use rpds::HashTrieMapSync;
 use tokio::runtime;
 
@@ -168,6 +169,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     pub irregular_state: IrregularState,
     mem_pool: MemPool,
     beneficiary: Address,
+    custom_precompiles: HashMap<Address, Precompile>,
     dao_activation_block: Option<u64>,
     min_gas_price: U256,
     parent_beacon_block_root_generator: RandomHashGenerator,
@@ -266,6 +268,17 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
         };
 
+        let custom_precompiles = {
+            let mut precompiles = HashMap::new();
+
+            if config.enable_rip_7212 {
+                // EIP-7212: secp256r1 P256verify
+                precompiles.insert(secp256r1::P256VERIFY.0, secp256r1::P256VERIFY.1);
+            }
+
+            precompiles
+        };
+
         Ok(Self {
             runtime_handle,
             initial_config: config,
@@ -273,6 +286,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
             beneficiary,
+            custom_precompiles,
             dao_activation_block,
             min_gas_price,
             parent_beacon_block_root_generator,
@@ -650,6 +664,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let tx_env: TxEnv = transaction.into();
 
         let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
+        let precompiles = self.custom_precompiles.clone();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let result = run_call(RunCallArgs {
@@ -659,6 +674,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state_overrides: &StateOverrides::default(),
                 cfg_env: cfg_env.clone(),
                 tx_env: tx_env.clone(),
+                precompiles: &precompiles,
                 debug_context: Some(DebugContext {
                     data: &mut tracer,
                     register_handles_fn: register_eip_3155_and_raw_tracers_handles,
@@ -688,6 +704,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.verbose_tracing,
         );
 
+        let precompiles = self.custom_precompiles.clone();
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
 
@@ -701,6 +718,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
                 tx_env: tx_env.clone(),
+                precompiles: &precompiles,
                 debug_context: Some(DebugContext {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
@@ -756,6 +774,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 cfg_env: cfg_env.clone(),
                 tx_env: tx_env.clone(),
                 gas_limit: initial_estimation,
+                precompiles: &precompiles,
                 trace_collector: &mut trace_collector,
             })?;
 
@@ -779,6 +798,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 tx_env: tx_env.clone(),
                 lower_bound: initial_estimation,
                 upper_bound: header.gas_limit,
+                precompiles: &precompiles,
                 trace_collector: &mut trace_collector,
             })?;
 
@@ -1410,6 +1430,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.verbose_tracing,
         );
 
+        let precompiles = self.custom_precompiles.clone();
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let execution_result = call::run_call(RunCallArgs {
                 blockchain,
@@ -1418,6 +1439,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 state_overrides,
                 cfg_env,
                 tx_env,
+                precompiles: &precompiles,
                 debug_context: Some(DebugContext {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
