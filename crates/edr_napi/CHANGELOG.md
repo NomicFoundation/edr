@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.5.0
+
+### Minor Changes
+
+- 07c7667: Added support for RIP-7212 by enabling it in the provider configuration
+
 ## 0.4.2
 
 ### Patch Changes
