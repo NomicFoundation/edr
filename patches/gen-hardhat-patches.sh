@@ -16,6 +16,8 @@ pnpm patch hardhat --edit-dir $temp_dir
 cd $temp_dir
 
 COMMITS=(
+  # Adapt to the EDR v0.5 breaking changes (drop when Hardhat v2.22.7 releases)
+  f944cd54eb65d78f6ce54248fb5c573aadc7281c
 )
 
 for commit in "${COMMITS[@]}"; do
