@@ -17,7 +17,7 @@ pub(super) fn build_runner(
 
     let SolidityTestsConfig {
         evm_opts,
-        project_paths_config,
+        project_root,
         cheats_config_options,
         fuzz,
         invariant,
@@ -36,7 +36,7 @@ pub(super) fn build_runner(
     let evm_env = evm_opts.local_evm_env();
 
     Ok(MultiContractRunner {
-        project_paths_config: Arc::new(project_paths_config),
+        project_root,
         cheats_config_opts: Arc::new(cheats_config_options),
         contracts: test_suites.into_iter().collect(),
         evm_opts,

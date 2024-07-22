@@ -7,7 +7,7 @@ use std::{
 
 use alloy_primitives::Address;
 use foundry_common::{fs::normalize_path, ContractsByArtifact};
-use foundry_compilers::{utils::canonicalize, ProjectPathsConfig};
+use foundry_compilers::utils::canonicalize;
 use foundry_config::{
     cache::StorageCachingConfig, fs_permissions::FsAccessKind, Config, FsPermissions,
     ResolvedRpcEndpoints, RpcEndpoints,
@@ -36,14 +36,10 @@ pub struct CheatsConfig {
     pub rpc_storage_caching: StorageCachingConfig,
     /// All known endpoints and their aliases
     pub rpc_endpoints: ResolvedRpcEndpoints,
-    /// Project's paths as configured
-    pub paths: ProjectPathsConfig,
     /// Filesystem permissions for cheatcodes like `writeFile`, `readFile`
     pub fs_permissions: FsPermissions,
     /// Project root
-    pub root: PathBuf,
-    /// Paths (directories) where file reading/writing is allowed
-    pub allowed_paths: Vec<PathBuf>,
+    pub project_root: PathBuf,
     /// How the evm was configured by the user
     pub evm_opts: EvmOpts,
     /// Address labels from config
@@ -94,7 +90,7 @@ impl From<Config> for CheatsConfigOptions {
 impl CheatsConfig {
     /// Extracts the necessary settings from the Config
     pub fn new(
-        paths: ProjectPathsConfig,
+        project_root: PathBuf,
         config: CheatsConfigOptions,
         evm_opts: EvmOpts,
         available_artifacts: Option<Arc<ContractsByArtifact>>,
@@ -119,9 +115,7 @@ impl CheatsConfig {
             available_artifacts
         };
 
-        let fs_permissions = fs_permissions.joined(&paths.root);
-        let root = paths.root.clone();
-        let allowed_paths = paths.allowed_paths.clone().into_iter().collect();
+        let fs_permissions = fs_permissions.joined(&project_root);
 
         Self {
             ffi: evm_opts.ffi,
@@ -129,10 +123,8 @@ impl CheatsConfig {
             prompt_timeout: Duration::from_secs(prompt_timeout),
             rpc_storage_caching,
             rpc_endpoints,
-            paths,
             fs_permissions,
-            root,
-            allowed_paths,
+            project_root,
             evm_opts,
             labels,
             available_artifacts,
@@ -145,7 +137,7 @@ impl CheatsConfig {
     /// Canonicalization fails for non-existing paths, in which case we just
     /// normalize the path.
     pub fn normalized_path(&self, path: impl AsRef<Path>) -> PathBuf {
-        let path = self.root.join(path);
+        let path = self.project_root.join(path);
         canonicalize(&path).unwrap_or_else(|_err| normalize_path(&path))
     }
 
@@ -179,7 +171,7 @@ impl CheatsConfig {
             self.is_normalized_path_allowed(&normalized, kind),
             "the path {} is not allowed to be accessed for {kind} operations",
             normalized
-                .strip_prefix(&self.root)
+                .strip_prefix(&self.project_root)
                 .unwrap_or(path)
                 .display()
         );
@@ -195,7 +187,7 @@ impl CheatsConfig {
         // filesystem. to make this case-sensitive we convert the underlying
         // `OssStr` to lowercase checking that `path` and `foundry.toml` are the
         // same file by comparing the FD, because it may not exist
-        let foundry_toml = self.root.join(Config::FILE_NAME);
+        let foundry_toml = self.project_root.join(Config::FILE_NAME);
         Path::new(&foundry_toml.to_string_lossy().to_lowercase())
             .starts_with(Path::new(&path.as_ref().to_string_lossy().to_lowercase()))
     }
@@ -270,10 +262,8 @@ impl Default for CheatsConfig {
             prompt_timeout: Duration::from_secs(120),
             rpc_storage_caching: StorageCachingConfig::default(),
             rpc_endpoints: ResolvedRpcEndpoints::default(),
-            paths: ProjectPathsConfig::builder().build_with_root("./"),
             fs_permissions: FsPermissions::default(),
-            root: PathBuf::default(),
-            allowed_paths: vec![],
+            project_root: PathBuf::default(),
             evm_opts: EvmOpts::default(),
             labels: HashMap::default(),
             available_artifacts: Option::default(),
@@ -299,7 +289,7 @@ mod tests {
         let cheats_config_options = CheatsConfigOptions::from(config);
 
         CheatsConfig::new(
-            project_paths_config,
+            project_paths_config.root,
             cheats_config_options,
             EvmOpts::default(),
             None,
@@ -309,30 +299,49 @@ mod tests {
 
     #[test]
     fn test_allowed_paths() {
+        fn test_cases(config: CheatsConfig) {
+            assert!(config
+                .ensure_path_allowed("./t.txt", FsAccessKind::Read)
+                .is_ok());
+            assert!(config
+                .ensure_path_allowed("./t.txt", FsAccessKind::Write)
+                .is_ok());
+            assert!(config
+                .ensure_path_allowed("../root/t.txt", FsAccessKind::Read)
+                .is_ok());
+            assert!(config
+                .ensure_path_allowed("../root/t.txt", FsAccessKind::Write)
+                .is_ok());
+            assert!(config
+                .ensure_path_allowed("../../root/t.txt", FsAccessKind::Read)
+                .is_err());
+            assert!(config
+                .ensure_path_allowed("../../root/t.txt", FsAccessKind::Write)
+                .is_err());
+
+            assert!(config
+                .ensure_path_allowed("/my/project/root/t.txt", FsAccessKind::Read)
+                .is_ok());
+            assert!(config
+                .ensure_path_allowed("/my/project/root/../root/t.txt", FsAccessKind::Write)
+                .is_ok());
+
+            assert!(config
+                .ensure_path_allowed("/other/project/root/t.txt", FsAccessKind::Read)
+                .is_err());
+        }
+
         let root = "/my/project/root/";
-        let config = config(
+
+        test_cases(config(
             root,
             FsPermissions::new(vec![PathPermission::read_write("./")]),
-        );
+        ));
 
-        assert!(config
-            .ensure_path_allowed("./t.txt", FsAccessKind::Read)
-            .is_ok());
-        assert!(config
-            .ensure_path_allowed("./t.txt", FsAccessKind::Write)
-            .is_ok());
-        assert!(config
-            .ensure_path_allowed("../root/t.txt", FsAccessKind::Read)
-            .is_ok());
-        assert!(config
-            .ensure_path_allowed("../root/t.txt", FsAccessKind::Write)
-            .is_ok());
-        assert!(config
-            .ensure_path_allowed("../../root/t.txt", FsAccessKind::Read)
-            .is_err());
-        assert!(config
-            .ensure_path_allowed("../../root/t.txt", FsAccessKind::Write)
-            .is_err());
+        test_cases(config(
+            root,
+            FsPermissions::new(vec![PathPermission::read_write("/my/project/root")]),
+        ));
     }
 
     #[test]

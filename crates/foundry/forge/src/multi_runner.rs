@@ -1,14 +1,18 @@
 //! Forge test runner for multiple contracts.
 
-use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Instant};
+use std::{
+    collections::BTreeMap,
+    fmt::Debug,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Instant,
+};
 
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Bytes, U256};
 use eyre::Result;
 use foundry_common::{get_contract_name, ContractsByArtifact, TestFunctionExt};
-use foundry_compilers::{
-    artifacts::Libraries, Artifact, ArtifactId, ProjectCompileOutput, ProjectPathsConfig,
-};
+use foundry_compilers::{artifacts::Libraries, Artifact, ArtifactId, ProjectCompileOutput};
 use foundry_config::Config;
 use foundry_evm::{
     backend::Backend,
@@ -39,8 +43,8 @@ pub type DeployableContracts = BTreeMap<ArtifactId, TestContract>;
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
 pub struct MultiContractRunner {
-    /// Project paths config.
-    pub project_paths_config: Arc<ProjectPathsConfig>,
+    /// The project root directory.
+    pub project_root: PathBuf,
     /// Cheats config.
     pub cheats_config_opts: Arc<CheatsConfigOptions>,
     /// Mapping of contract name to `JsonAbi`, creation bytecode and library
@@ -260,7 +264,7 @@ impl MultiContractRunner {
         let mut span_name = identifier.as_str();
 
         let linker = Linker::new(
-            &self.project_paths_config.root,
+            &self.project_root,
             self.output.as_ref().unwrap().artifact_ids().collect(),
         );
         let linked_contracts = linker
@@ -269,7 +273,7 @@ impl MultiContractRunner {
         let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
 
         let cheats_config = CheatsConfig::new(
-            (*self.project_paths_config).clone(),
+            self.project_root.clone(),
             (*self.cheats_config_opts).clone(),
             self.evm_opts.clone(),
             Some(known_contracts.clone()),
@@ -336,7 +340,7 @@ impl MultiContractRunner {
         let known_contracts = Arc::new(ContractsByArtifact::new(Vec::default()));
 
         let cheats_config = CheatsConfig::new(
-            (*self.project_paths_config).clone(),
+            self.project_root.clone(),
             (*self.cheats_config_opts).clone(),
             self.evm_opts.clone(),
             Some(known_contracts.clone()),
@@ -540,7 +544,7 @@ impl MultiContractRunnerBuilder {
             sender: self.sender,
             revert_decoder,
             fork: self.fork,
-            project_paths_config: Arc::new(project_paths_config),
+            project_root: project_paths_config.root,
             cheats_config_opts: Arc::new(cheats_config_opts),
             coverage: self.coverage,
             debug: self.debug,

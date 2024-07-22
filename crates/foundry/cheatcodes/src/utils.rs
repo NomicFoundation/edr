@@ -142,7 +142,7 @@ mod tests {
     fn cheats() -> Cheatcodes {
         let config = CheatsConfig {
             ffi: true,
-            root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
+            project_root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
             ..Default::default()
         };
         Cheatcodes {
