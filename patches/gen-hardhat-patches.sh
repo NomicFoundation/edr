@@ -18,6 +18,8 @@ cd $temp_dir
 COMMITS=(
   # Adapt to the EDR v0.5 breaking changes (drop when Hardhat v2.22.7 releases)
   f944cd54eb65d78f6ce54248fb5c573aadc7281c
+  # refactor: Remove dead code and hide unnecessarily public properties
+  5739893bf382b4e937b44995ca7917cbbd39de12
 )
 
 for commit in "${COMMITS[@]}"; do
