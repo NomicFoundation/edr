@@ -20,6 +20,8 @@ COMMITS=(
   f944cd54eb65d78f6ce54248fb5c573aadc7281c
   # refactor: Remove dead code and hide unnecessarily public properties
   5739893bf382b4e937b44995ca7917cbbd39de12
+  # refactor: Re-use the compiler to model and opcodes logic from EDR
+  49c66b6947283d9c9414f5e6faf2f94dcf05cc58
 )
 
 for commit in "${COMMITS[@]}"; do
