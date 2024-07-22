@@ -315,7 +315,7 @@ test_repro!(6538);
 
 // https://github.com/foundry-rs/foundry/issues/6554
 test_repro!(6554; |config| {
-    let path = config.runner.project_paths_config.root.join("out/default/Issue6554.t.sol");
+    let path = config.runner.project_root.join("out/default/Issue6554.t.sol");
 
     let cheats_config_opts = Arc::get_mut(&mut config.runner.cheats_config_opts).unwrap();
     cheats_config_opts.fs_permissions.add(PathPermission::read_write(path));

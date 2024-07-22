@@ -89,7 +89,7 @@ impl Cheatcode for isFileCall {
 impl Cheatcode for projectRootCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
-        Ok(state.config.root.display().to_string().abi_encode())
+        Ok(state.config.project_root.display().to_string().abi_encode())
     }
 }
 
@@ -547,7 +547,7 @@ fn ffi(state: &Cheatcodes, input: &[String]) -> Result<FfiResult> {
     debug!(target: "cheatcodes", ?cmd, "invoking ffi");
 
     let output = cmd
-        .current_dir(&state.config.root)
+        .current_dir(&state.config.project_root)
         .output()
         .map_err(|err| fmt_err!("failed to execute command {cmd:?}: {err}"))?;
 
@@ -612,7 +612,7 @@ mod tests {
     fn cheats() -> Cheatcodes {
         let config = CheatsConfig {
             ffi: true,
-            root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
+            project_root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
             ..Default::default()
         };
         Cheatcodes {

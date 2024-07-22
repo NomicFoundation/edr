@@ -15,8 +15,8 @@ use foundry_config::{
 /// Solidity tests configuration
 #[derive(Clone, Debug)]
 pub(super) struct SolidityTestsConfig {
-    /// Project paths configuration
-    pub project_paths_config: ProjectPathsConfig,
+    /// Project root directory
+    pub project_root: PathBuf,
     /// Cheats configuration options
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options
@@ -67,7 +67,8 @@ impl SolidityTestsConfig {
         ));
 
         // TODO https://github.com/NomicFoundation/edr/issues/487
-        let project_paths_config = ProjectPathsConfig::builder().build_with_root(project_root);
+        let project_paths_config: ProjectPathsConfig<foundry_compilers::Solc> =
+            ProjectPathsConfig::builder().build_with_root(project_root.clone());
 
         let artifacts: PathBuf = project_paths_config
             .artifacts
@@ -89,7 +90,7 @@ impl SolidityTestsConfig {
         };
 
         Self {
-            project_paths_config,
+            project_root,
             cheats_config_options,
             evm_opts,
             fuzz,
