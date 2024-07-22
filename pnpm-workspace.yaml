@@ -3,3 +3,4 @@ packages:
   - "crates/tools/js/benchmark"
   - "hardhat-tests"
   - "hardhat-tests/integration/*"
+  - "hardhat-solidity-tests"
