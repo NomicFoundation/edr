@@ -102,6 +102,15 @@ importers:
         specifier: ^5.5.3
         version: 5.5.3
 
+  hardhat-solidity-tests/example:
+    dependencies:
+      hardhat:
+        specifier: ^2.22.6
+        version: 2.22.6(patch_hash=46xqq2jqpyv7s7uwk7ku3nraji)(ts-node@10.9.2(typescript@5.5.3))(typescript@5.5.3)
+      hardhat-solidity-tests:
+        specifier: workspace:*
+        version: link:..
+
   hardhat-tests:
     devDependencies:
       '@metamask/eth-sig-util':

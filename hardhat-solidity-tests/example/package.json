@@ -1,0 +1,14 @@
+{
+  "name": "hardhat-solidity-tests-example",
+  "version": "0.0.1",
+  "author": "Nomic Foundation",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "hardhat test:solidity"
+  },
+  "dependencies": {
+    "hardhat": "^2.22.6",
+    "hardhat-solidity-tests": "workspace:*"
+  }
+}
