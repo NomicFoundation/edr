@@ -5,11 +5,10 @@ use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
 use crate::{
-    access_list::AccessList,
     signature::{self, Fakeable},
     transaction::{self, TxKind},
     utils::envelop_bytes,
-    Address, Bytes, B256, U256,
+    AccessList, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -67,6 +66,7 @@ impl From<Eip2930> for TxEnv {
             gas_priority_fee: None,
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
+            authorization_list: None,
         }
     }
 }
@@ -145,7 +145,7 @@ mod tests {
     use k256::SecretKey;
 
     use super::*;
-    use crate::{access_list::AccessListItem, signature::secret_key_from_str};
+    use crate::{signature::secret_key_from_str, AccessListItem};
 
     fn dummy_request() -> transaction::request::Eip2930 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();

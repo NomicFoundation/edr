@@ -413,10 +413,7 @@ where
     type Error = BlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn block_hash(&self, number: U256) -> Result<B256, Self::Error> {
-        let number =
-            u64::try_from(number).map_err(|_error| BlockchainError::BlockNumberTooLarge)?;
-
+    fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {
         self.storage
             .block_by_number(number)?
             .map(|block| *block.hash())

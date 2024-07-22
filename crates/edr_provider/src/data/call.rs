@@ -2,14 +2,15 @@ use core::fmt::Debug;
 
 use edr_eth::{
     block::{BlobGas, Header},
-    SpecId, U256,
+    Address, HashMap, SpecId, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
     chain_spec::L1ChainSpec,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
-    BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, TxEnv,
+    BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, DebugContext, ExecutionResult,
+    Precompile, TxEnv,
 };
 
 use crate::ProviderError;
@@ -24,6 +25,7 @@ where
     pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnvWithHandlerCfg,
     pub tx_env: TxEnv,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     // `DebugContext` cannot be simplified further
     #[allow(clippy::type_complexity)]
     pub debug_context: Option<
@@ -51,6 +53,7 @@ where
         state_overrides,
         cfg_env,
         tx_env,
+        precompiles,
         debug_context,
     } = args;
 
@@ -79,6 +82,7 @@ where
         cfg_env,
         tx_env,
         block,
+        precompiles,
         debug_context,
     )
     .map_or_else(

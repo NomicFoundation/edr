@@ -376,7 +376,7 @@ impl TransactionFailure {
 
     pub fn halt(halt: HaltReason, tx_hash: Option<B256>, solidity_trace: Trace) -> Self {
         let reason = match halt {
-            HaltReason::OpcodeNotFound | HaltReason::InvalidEFOpcode => {
+            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
                 TransactionFailureReason::OpcodeNotFound
             }
             HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),

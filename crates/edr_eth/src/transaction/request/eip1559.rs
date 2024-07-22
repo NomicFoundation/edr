@@ -5,11 +5,10 @@ use k256::SecretKey;
 use revm_primitives::keccak256;
 
 use crate::{
-    access_list::AccessListItem,
     signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     utils::envelop_bytes,
-    Address, Bytes, B256, U256,
+    AccessListItem, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpDecodable, RlpEncodable)]

@@ -1,4 +1,4 @@
-use edr_eth::{access_list::AccessListItem, Address, Bytes, B256, U256};
+use edr_eth::{AccessListItem, Address, Bytes, B256, U256};
 
 /// For specifying input to methods requiring a transaction object, like
 /// `eth_call` and `eth_estimateGas`

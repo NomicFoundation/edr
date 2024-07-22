@@ -217,8 +217,8 @@ impl<'blockchain> BlockchainMut<L1ChainSpec> for BlockchainWithPending<'blockcha
 impl<'blockchain> BlockHashRef for BlockchainWithPending<'blockchain> {
     type Error = BlockchainError;
 
-    fn block_hash(&self, number: U256) -> Result<B256, Self::Error> {
-        if number == U256::from(self.pending_block.header().number) {
+    fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {
+        if number == self.pending_block.header().number {
             Ok(*self.pending_block.hash())
         } else {
             self.blockchain.block_hash(number)

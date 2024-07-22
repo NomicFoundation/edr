@@ -5,11 +5,10 @@ use revm_primitives::{keccak256, TxEnv};
 
 use super::kind_to_transact_to;
 use crate::{
-    access_list::AccessList,
     signature::{self, Fakeable},
     transaction::{self, TxKind},
     utils::envelop_bytes,
-    Address, Bytes, B256, U256,
+    AccessList, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -68,6 +67,7 @@ impl From<Eip1559> for TxEnv {
             gas_priority_fee: Some(value.max_priority_fee_per_gas),
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
+            authorization_list: None,
         }
     }
 }
@@ -151,8 +151,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        access_list::AccessListItem,
         signature::{secret_key_from_str, secret_key_to_address},
+        AccessListItem,
     };
 
     const DUMMY_SECRET_KEY: &str =

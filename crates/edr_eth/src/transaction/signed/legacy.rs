@@ -57,6 +57,7 @@ impl From<Legacy> for TxEnv {
             gas_priority_fee: None,
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
+            authorization_list: None,
         }
     }
 }

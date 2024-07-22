@@ -1,13 +1,16 @@
 use core::fmt::Debug;
 use std::cmp;
 
-use edr_eth::{block::Header, reward_percentile::RewardPercentile, transaction::Transaction, U256};
+use edr_eth::{
+    block::Header, reward_percentile::RewardPercentile, transaction::Transaction, Address, HashMap,
+    U256,
+};
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
     chain_spec::L1ChainSpec,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, SyncBlock, TxEnv,
+    CfgEnvWithHandlerCfg, DebugContext, ExecutionResult, Precompile, SyncBlock, TxEnv,
 };
 use itertools::Itertools;
 
@@ -24,6 +27,7 @@ pub(super) struct CheckGasLimitArgs<'a> {
     pub cfg_env: CfgEnvWithHandlerCfg,
     pub tx_env: TxEnv,
     pub gas_limit: u64,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector,
 }
 
@@ -41,6 +45,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         cfg_env,
         mut tx_env,
         gas_limit,
+        precompiles,
         trace_collector,
     } = args;
 
@@ -53,6 +58,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         state_overrides,
         cfg_env,
         tx_env,
+        precompiles,
         debug_context: Some(DebugContext {
             data: trace_collector,
             register_handles_fn: register_trace_collector_handles,
@@ -71,6 +77,7 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
     pub tx_env: TxEnv,
     pub lower_bound: u64,
     pub upper_bound: u64,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector,
 }
 
@@ -91,6 +98,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
         tx_env,
         mut lower_bound,
         mut upper_bound,
+        precompiles,
         trace_collector,
     } = args;
 
@@ -113,6 +121,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
             cfg_env: cfg_env.clone(),
             tx_env: tx_env.clone(),
             gas_limit: mid,
+            precompiles,
             trace_collector,
         })?;
 
