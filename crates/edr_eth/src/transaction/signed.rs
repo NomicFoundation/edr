@@ -5,7 +5,7 @@ mod eip4844;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut};
-use revm_primitives::{TransactTo, TxEnv};
+use revm_primitives::{AccessListItem, TransactTo, TxEnv};
 
 pub use self::{
     eip155::Eip155,
@@ -17,9 +17,7 @@ pub use self::{
 use super::{
     Signed, SignedTransaction, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
-use crate::{
-    access_list::AccessList, signature::Signature, utils::enveloped, Address, Bytes, B256, U256,
-};
+use crate::{signature::Signature, utils::enveloped, Address, Bytes, B256, U256};
 
 /// Converts a `TxKind` to a `TransactTo`.
 fn kind_to_transact_to(kind: TxKind) -> TransactTo {
@@ -219,12 +217,12 @@ impl SignedTransaction for Signed {
 }
 
 impl Transaction for Signed {
-    fn access_list(&self) -> Option<&AccessList> {
+    fn access_list(&self) -> &[AccessListItem] {
         match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => None,
-            Signed::Eip2930(tx) => Some(&tx.access_list),
-            Signed::Eip1559(tx) => Some(&tx.access_list),
-            Signed::Eip4844(tx) => Some(&tx.access_list),
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => &[],
+            Signed::Eip2930(tx) => &tx.access_list,
+            Signed::Eip1559(tx) => &tx.access_list,
+            Signed::Eip4844(tx) => &tx.access_list,
         }
     }
 
@@ -362,7 +360,7 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{signature, transaction, Bytes};
+    use crate::{signature, transaction, AccessList, Bytes};
 
     #[test]
     fn can_recover_sender() {

@@ -1,18 +1,20 @@
 use std::fmt::Debug;
 
+use edr_eth::{Address, HashMap};
 use revm::{
     db::{DatabaseComponents, StateRef},
     primitives::{
-        BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, ExecutionResult, ResultAndState, SpecId,
-        TxEnv,
+        BlockEnv, CfgEnvWithHandlerCfg, EnvWithHandlerCfg, ExecutionResult, Precompile,
+        ResultAndState, SpecId, TxEnv,
     },
-    DatabaseCommit, Evm,
+    ContextPrecompile, DatabaseCommit, Evm,
 };
 
 use crate::{
     blockchain::SyncBlockchain,
     chain_spec::L1ChainSpec,
     debug::DebugContext,
+    precompiles::register_precompiles_handles,
     state::{StateOverrides, StateRefOverrider, SyncState},
     transaction::TransactionError,
 };
@@ -26,7 +28,7 @@ pub type SyncDatabase<'blockchain, 'state, ChainSpecT, BlockchainErrorT, StateEr
 
 /// Runs a transaction without committing the state.
 // `DebugContext` cannot be simplified further
-#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErrorT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
@@ -35,6 +37,7 @@ pub fn dry_run<'blockchain, 'evm, 'overrides, 'state, DebugDataT, BlockchainErro
     cfg: CfgEnvWithHandlerCfg,
     transaction: TxEnv,
     block: BlockEnv,
+    custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<
         DebugContext<
             'evm,
@@ -62,16 +65,30 @@ where
             block_hash: blockchain,
         });
 
+        let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
+            .iter()
+            .map(|(address, precompile)| (*address, ContextPrecompile::from(precompile.clone())))
+            .collect();
+
         if let Some(debug_context) = debug_context {
             let mut evm = evm_builder
                 .with_external_context(debug_context.data)
                 .with_env_with_handler_cfg(env)
                 .append_handler_register(debug_context.register_handles_fn)
+                .append_handler_register_box(Box::new(move |handler| {
+                    register_precompiles_handles(handler, precompiles.clone());
+                }))
                 .build();
 
             evm.transact()
         } else {
-            let mut evm = evm_builder.with_env_with_handler_cfg(env).build();
+            let mut evm = evm_builder
+                .with_env_with_handler_cfg(env)
+                .append_handler_register_box(Box::new(move |handler| {
+                    register_precompiles_handles(handler, precompiles.clone());
+                }))
+                .build();
+
             evm.transact()
         }
     };
@@ -82,7 +99,7 @@ where
 /// Runs a transaction without committing the state, while disabling balance
 /// checks and creating accounts for new addresses.
 // `DebugContext` cannot be simplified further
-#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn guaranteed_dry_run<
     'blockchain,
@@ -99,6 +116,7 @@ pub fn guaranteed_dry_run<
     mut cfg: CfgEnvWithHandlerCfg,
     mut transaction: TxEnv,
     block: BlockEnv,
+    custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<
         DebugContext<
             'evm,
@@ -125,6 +143,7 @@ where
         cfg,
         transaction,
         block,
+        custom_precompiles,
         debug_context,
     )
 }
@@ -137,6 +156,7 @@ pub fn run<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT>(
     cfg: CfgEnvWithHandlerCfg,
     transaction: TxEnv,
     block: BlockEnv,
+    custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<ExecutionResult, TransactionError<BlockchainErrorT, StateT::Error>>
 where
@@ -153,16 +173,29 @@ where
         block_hash: blockchain,
     });
 
+    let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
+        .iter()
+        .map(|(address, precompile)| (*address, ContextPrecompile::from(precompile.clone())))
+        .collect();
+
     let result = if let Some(debug_context) = debug_context {
         let mut evm = evm_builder
             .with_external_context(debug_context.data)
             .with_env_with_handler_cfg(env)
             .append_handler_register(debug_context.register_handles_fn)
+            .append_handler_register_box(Box::new(move |handler| {
+                register_precompiles_handles(handler, precompiles.clone());
+            }))
             .build();
 
         evm.transact_commit()
     } else {
-        let mut evm = evm_builder.with_env_with_handler_cfg(env).build();
+        let mut evm = evm_builder
+            .with_env_with_handler_cfg(env)
+            .append_handler_register_box(Box::new(move |handler| {
+                register_precompiles_handles(handler, precompiles.clone());
+            }))
+            .build();
 
         evm.transact_commit()
     }?;
