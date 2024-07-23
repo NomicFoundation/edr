@@ -22,6 +22,8 @@ COMMITS=(
   5739893bf382b4e937b44995ca7917cbbd39de12
   # refactor: Re-use the compiler to model and opcodes logic from EDR
   49c66b6947283d9c9414f5e6faf2f94dcf05cc58
+  # refactor: Re-use MessageTrace and VmTracer from EDR now
+  3aeeb564394349824221ea9814f49cb5f8002d78
 )
 
 for commit in "${COMMITS[@]}"; do
