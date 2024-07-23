@@ -18,7 +18,7 @@ k256 = { version = "0.13.1", default-features = false, features = ["arithmetic",
 log = { version = "0.4.17", default-features = false }
 once_cell = { version = "1.18.0", default-features = false, features = ["alloc", "race", "std"] }
 revm = { git = "https://github.com/NomicFoundation/revm", rev = "da8175a2", version = "12.1", default-features = false, features = ["c-kzg", "dev", "serde"] }
-revm-primitives = { git = "https://github.com/NomicFoundation/revm", rev = "da8175a2", version = "7.0", default-features = false, features = ["c-kzg", "hashbrown"] }
+revm-primitives = { git = "https://github.com/NomicFoundation/revm", rev = "da8175a2", version = "7.1", default-features = false, features = ["c-kzg", "hashbrown"] }
 serde = { version = "1.0.147", default-features = false, features = ["derive"], optional = true }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }

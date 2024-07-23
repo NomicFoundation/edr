@@ -382,10 +382,13 @@ mod tests {
     use std::sync::OnceLock;
 
     use alloy_rlp::Decodable as _;
-    use revm_primitives::{AccessList, Transaction as _};
 
     use super::*;
-    use crate::{signature, transaction, Bytes};
+    use crate::{
+        signature,
+        transaction::{self, Transaction as _},
+        AccessList, Bytes,
+    };
 
     #[test]
     fn can_recover_sender() {

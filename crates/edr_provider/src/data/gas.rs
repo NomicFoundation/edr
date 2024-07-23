@@ -7,7 +7,7 @@ use edr_eth::{
     result::ExecutionResult,
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut as _},
-    U256,
+    Address, HashMap, Precompile, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
@@ -31,6 +31,7 @@ pub(super) struct CheckGasLimitArgs<'a> {
     pub cfg_env: CfgEnvWithChainSpec<L1ChainSpec>,
     pub transaction: transaction::Signed,
     pub gas_limit: u64,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector<L1ChainSpec>,
 }
 
@@ -48,6 +49,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         cfg_env,
         mut transaction,
         gas_limit,
+        precompiles,
         trace_collector,
     } = args;
 
@@ -60,6 +62,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         state_overrides,
         cfg_env,
         transaction,
+        precompiles,
         debug_context: Some(DebugContext {
             data: trace_collector,
             register_handles_fn: register_trace_collector_handles,
@@ -78,6 +81,7 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
     pub transaction: transaction::Signed,
     pub lower_bound: u64,
     pub upper_bound: u64,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector<L1ChainSpec>,
 }
 
@@ -98,6 +102,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
         transaction,
         mut lower_bound,
         mut upper_bound,
+        precompiles,
         trace_collector,
     } = args;
 
@@ -120,6 +125,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
             cfg_env: cfg_env.clone(),
             transaction: transaction.clone(),
             gas_limit: mid,
+            precompiles,
             trace_collector,
         })?;
 

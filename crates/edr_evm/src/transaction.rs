@@ -126,7 +126,7 @@ pub fn validate<TransactionT: SignedTransaction>(
 }
 
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl SignedTransaction, spec_id: SpecId) -> u64 {
+pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),

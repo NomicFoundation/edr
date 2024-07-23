@@ -4,21 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - ".github/workflows/edr-ci.yml"
-      - "rust-toolchain"
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "crates/**"
   pull_request:
     branches:
       - "**"
-    paths:
-      - ".github/workflows/edr-ci.yml"
-      - "rust-toolchain"
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "crates/**"
   workflow_dispatch:
 
 env:
@@ -178,7 +166,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Install Node
@@ -192,3 +180,26 @@ jobs:
 
       - name: Run prettier
         run: pnpm run prettier
+
+  edr-napi-typings-file:
+    name: Check that edr_napi typings file is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Install Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install package
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build edr_napi
+        run: cd crates/edr_napi && pnpm build
+
+      - name: Check that there are no uncommitted changes
+        run: git diff --exit-code

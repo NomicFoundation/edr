@@ -223,6 +223,8 @@ export interface ProviderConfig {
   chains: Array<ChainConfig>
   /** The address of the coinbase */
   coinbase: Buffer
+  /** Enables RIP-7212 */
+  enableRip7212: boolean
   /**
    * The configuration for forking a blockchain. If not provided, a local
    * blockchain will be created
