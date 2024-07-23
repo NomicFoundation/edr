@@ -30,8 +30,6 @@ pub enum ExitCode {
     CODESIZE_EXCEEDS_MAXIMUM,
     /// Create collision.
     CREATE_COLLISION,
-    /// Static state change.
-    STATIC_STATE_CHANGE,
 }
 
 impl fmt::Display for ExitCode {
@@ -45,7 +43,6 @@ impl fmt::Display for ExitCode {
             ExitCode::STACK_UNDERFLOW => write!(f, "Stack underflow"),
             ExitCode::CODESIZE_EXCEEDS_MAXIMUM => write!(f, "Codesize exceeds maximum"),
             ExitCode::CREATE_COLLISION => write!(f, "Create collision"),
-            ExitCode::STATIC_STATE_CHANGE => write!(f, "Static state change"),
         }
     }
 }

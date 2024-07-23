@@ -670,9 +670,7 @@ export const enum ExitCode {
   /** Create init code size exceeds limit (runtime). */
   CODESIZE_EXCEEDS_MAXIMUM = 6,
   /** Create collision. */
-  CREATE_COLLISION = 7,
-  /** Static state change. */
-  STATIC_STATE_CHANGE = 8
+  CREATE_COLLISION = 7
 }
 export interface EvmStep {
   pc: number
