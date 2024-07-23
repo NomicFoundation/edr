@@ -3,8 +3,20 @@
 use std::{cell::RefCell, rc::Rc};
 
 use edr_eth::{Address, Bytes, U256};
+use edr_evm::HaltReason;
 
-use crate::{contracts_identifier::Bytecode, exit::ExitCode};
+use crate::contracts_identifier::Bytecode;
+
+/// Represents the exit code of the EVM.
+#[derive(Clone, Debug)]
+pub enum ExitCode {
+    /// Execution was successful.
+    Success,
+    /// Execution was reverted.
+    Revert,
+    /// Indicates that the EVM has experienced an exceptional halt.
+    Halt(HaltReason),
+}
 
 /// Represents a message trace. Naive Rust port of the `MessageTrace` from
 /// Hardhat.

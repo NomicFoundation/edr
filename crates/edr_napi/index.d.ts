@@ -653,6 +653,27 @@ export function getPushLength(opcode: Opcode): number
 export function getOpcodeLength(opcode: Opcode): number
 export function isCall(opcode: Opcode): boolean
 export function isCreate(opcode: Opcode): boolean
+/** Represents the exit code of the EVM. */
+export const enum ExitCode {
+  /** Execution was successful. */
+  SUCCESS = 0,
+  /** Execution was reverted. */
+  REVERT = 1,
+  /** Execution ran out of gas. */
+  OUT_OF_GAS = 2,
+  /** Execution encountered an internal error. */
+  INTERNAL_ERROR = 3,
+  /** Execution encountered an invalid opcode. */
+  INVALID_OPCODE = 4,
+  /** Execution encountered a stack underflow. */
+  STACK_UNDERFLOW = 5,
+  /** Create init code size exceeds limit (runtime). */
+  CODESIZE_EXCEEDS_MAXIMUM = 6,
+  /** Create collision. */
+  CREATE_COLLISION = 7,
+  /** Static state change. */
+  STATIC_STATE_CHANGE = 8
+}
 export interface EvmStep {
   pc: number
 }

@@ -9,12 +9,9 @@ use edr_evm::{
     ExecutionResult,
 };
 
-use crate::{
-    exit::ExitCode,
-    message_trace::{
-        BaseEvmMessageTrace, BaseMessageTrace, CallMessageTrace, CreateMessageTrace, EvmStep,
-        MessageTrace, MessageTraceStep, PrecompileMessageTrace,
-    },
+use crate::message_trace::{
+    BaseEvmMessageTrace, BaseMessageTrace, CallMessageTrace, CreateMessageTrace, EvmStep, ExitCode,
+    MessageTrace, MessageTraceStep, PrecompileMessageTrace,
 };
 
 type MessageTraceRefCell = Rc<RefCell<MessageTrace>>;
@@ -256,7 +253,7 @@ impl VmTracer {
                     }
                 }
                 ExecutionResult::Halt { reason, .. } => {
-                    trace.base().exit = ExitCode::from(reason);
+                    trace.base().exit = ExitCode::Halt(reason);
                     trace.base().return_data = Bytes::new();
                 }
                 ExecutionResult::Revert { output, .. } => {

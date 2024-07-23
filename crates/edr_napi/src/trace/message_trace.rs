@@ -1,8 +1,8 @@
 //! Bridging type for the existing `MessageTrace` interface in Hardhat.
 
 use napi::{
-    bindgen_prelude::{BigInt, Either3, Either4, Uint8Array, Undefined},
-    Either,
+    bindgen_prelude::{BigInt, ClassInstance, Either3, Either4, Uint8Array, Undefined},
+    Either, Env,
 };
 use napi_derive::napi;
 use serde_json::Value;
@@ -19,7 +19,7 @@ pub struct PrecompileMessageTrace {
     // `BaseMessageTrace`
     pub value: BigInt,
     pub return_data: Uint8Array,
-    pub exit: Exit,
+    pub exit: ClassInstance<Exit>,
     pub gas_used: BigInt,
     pub depth: u32,
     // `PrecompileMessageTrace`
@@ -32,7 +32,7 @@ pub struct CreateMessageTrace {
     // `BaseMessageTrace`
     pub value: BigInt,
     pub return_data: Uint8Array,
-    pub exit: Exit,
+    pub exit: ClassInstance<Exit>,
     pub gas_used: BigInt,
     pub depth: u32,
     // `BaseEvmMessageTrace`
@@ -53,7 +53,7 @@ pub struct CallMessageTrace {
     // `BaseMessageTrace`
     pub value: BigInt,
     pub return_data: Uint8Array,
-    pub exit: Exit,
+    pub exit: ClassInstance<Exit>,
     pub gas_used: BigInt,
     pub depth: u32,
     // `BaseEvmMessageTrace`
@@ -76,6 +76,7 @@ pub struct CallMessageTrace {
 /// This function will panic if the value is mutably borrowed.
 pub fn message_trace_step_to_napi(
     value: edr_solidity::message_trace::MessageTraceStep,
+    env: Env,
 ) -> Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace> {
     match value {
         edr_solidity::message_trace::MessageTraceStep::Evm(step) => {
@@ -84,7 +85,7 @@ pub fn message_trace_step_to_napi(
         edr_solidity::message_trace::MessageTraceStep::Message(msg) => {
             // Immediately drop the borrow lock as it may be
             let owned = msg.borrow().clone();
-            match message_trace_to_napi(owned) {
+            match message_trace_to_napi(owned, env) {
                 Either3::A(precompile) => Either4::B(precompile),
                 Either3::B(create) => Either4::C(create),
                 Either3::C(call) => Either4::D(call),
@@ -97,6 +98,7 @@ pub fn message_trace_step_to_napi(
 /// representation.
 pub fn message_trace_to_napi(
     value: edr_solidity::message_trace::MessageTrace,
+    env: Env,
 ) -> Either3<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace> {
     match value {
         edr_solidity::message_trace::MessageTrace::Precompile(precompile) => {
@@ -106,7 +108,9 @@ pub fn message_trace_to_napi(
                     words: precompile.base.value.as_limbs().to_vec(),
                 },
                 return_data: Uint8Array::from(precompile.base.return_data.as_ref()),
-                exit: Exit(precompile.base.exit),
+                exit: Exit(precompile.base.exit.into())
+                    .into_instance(env)
+                    .expect("napi glue to register the Exit class constructor"),
                 gas_used: BigInt::from(precompile.base.gas_used),
                 depth: precompile.base.depth as u32,
 
@@ -121,7 +125,9 @@ pub fn message_trace_to_napi(
                     words: create.base.base.value.as_limbs().to_vec(),
                 },
                 return_data: Uint8Array::from(create.base.base.return_data.as_ref()),
-                exit: Exit(create.base.base.exit),
+                exit: Exit(create.base.base.exit.into())
+                    .into_instance(env)
+                    .expect("napi glue to register the Exit class constructor"),
                 gas_used: BigInt::from(create.base.base.gas_used),
                 depth: create.base.base.depth as u32,
                 code: Uint8Array::from(create.base.code.as_ref()),
@@ -129,7 +135,7 @@ pub fn message_trace_to_napi(
                     .base
                     .steps
                     .into_iter()
-                    .map(message_trace_step_to_napi)
+                    .map(|step| message_trace_step_to_napi(step, env))
                     .collect(),
                 // NOTE: We specifically use None as that will be later filled on the JS side
                 bytecode: None,
@@ -147,7 +153,9 @@ pub fn message_trace_to_napi(
                 words: call.base.base.value.as_limbs().to_vec(),
             },
             return_data: Uint8Array::from(call.base.base.return_data.as_ref()),
-            exit: Exit(call.base.base.exit),
+            exit: Exit(call.base.base.exit.into())
+                .into_instance(env)
+                .expect("napi glue to register the Exit class constructor"),
             gas_used: BigInt::from(call.base.base.gas_used),
             depth: call.base.base.depth as u32,
             code: Uint8Array::from(call.base.code.as_ref()),
@@ -155,7 +163,7 @@ pub fn message_trace_to_napi(
                 .base
                 .steps
                 .into_iter()
-                .map(message_trace_step_to_napi)
+                .map(|step| message_trace_step_to_napi(step, env))
                 .collect(),
             // NOTE: We specifically use None as that will be later filled on the JS side
             bytecode: None,

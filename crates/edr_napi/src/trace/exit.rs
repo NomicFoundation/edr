@@ -1,23 +1,72 @@
-use napi::{
-    bindgen_prelude::FromNapiValue,
-    sys::{napi_env__, napi_value__},
-};
+//! Naive rewrite of `hardhat-network/provider/vm/exit.ts` from Hardhat.
+//! Used together with `VmTracer`.
+
+use std::fmt;
+
+use edr_evm::HaltReason;
 use napi_derive::napi;
 
 #[napi]
-pub struct Exit(pub(crate) edr_solidity::exit::ExitCode);
+pub struct Exit(pub(crate) ExitCode);
 
-impl FromNapiValue for Exit {
-    unsafe fn from_napi_value(
-        env: *mut napi_env__,
-        napi_val: *mut napi_value__,
-    ) -> napi::Result<Self> {
-        let value = u8::from_napi_value(env, napi_val)?;
+#[napi]
+/// Represents the exit code of the EVM.
+#[derive(Debug)]
+#[allow(clippy::upper_case_acronyms, non_camel_case_types)] // These are exported and mapped 1:1 to existing JS enum
+pub enum ExitCode {
+    /// Execution was successful.
+    SUCCESS = 0,
+    /// Execution was reverted.
+    REVERT,
+    /// Execution ran out of gas.
+    OUT_OF_GAS,
+    /// Execution encountered an internal error.
+    INTERNAL_ERROR,
+    /// Execution encountered an invalid opcode.
+    INVALID_OPCODE,
+    /// Execution encountered a stack underflow.
+    STACK_UNDERFLOW,
+    /// Create init code size exceeds limit (runtime).
+    CODESIZE_EXCEEDS_MAXIMUM,
+    /// Create collision.
+    CREATE_COLLISION,
+    /// Static state change.
+    STATIC_STATE_CHANGE,
+}
 
-        let code = edr_solidity::exit::ExitCode::try_from(value)
-            .map_err(|_err| napi::Error::from_reason("Invalid exit code"))?;
+impl fmt::Display for ExitCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExitCode::SUCCESS => write!(f, "Success"),
+            ExitCode::REVERT => write!(f, "Reverted"),
+            ExitCode::OUT_OF_GAS => write!(f, "Out of gas"),
+            ExitCode::INTERNAL_ERROR => write!(f, "Internal error"),
+            ExitCode::INVALID_OPCODE => write!(f, "Invalid opcode"),
+            ExitCode::STACK_UNDERFLOW => write!(f, "Stack underflow"),
+            ExitCode::CODESIZE_EXCEEDS_MAXIMUM => write!(f, "Codesize exceeds maximum"),
+            ExitCode::CREATE_COLLISION => write!(f, "Create collision"),
+            ExitCode::STATIC_STATE_CHANGE => write!(f, "Static state change"),
+        }
+    }
+}
 
-        Ok(Exit(code))
+#[allow(clippy::fallible_impl_from)] // naively ported for now
+impl From<edr_solidity::message_trace::ExitCode> for ExitCode {
+    fn from(code: edr_solidity::message_trace::ExitCode) -> Self {
+        use edr_solidity::message_trace::ExitCode;
+
+        match code {
+            ExitCode::Success => Self::SUCCESS,
+            ExitCode::Revert => Self::REVERT,
+            ExitCode::Halt(HaltReason::OutOfGas(_)) => Self::OUT_OF_GAS,
+            ExitCode::Halt(HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode
+              // Returned when an opcode is not implemented for the hardfork
+              | HaltReason::NotActivated) => Self::INVALID_OPCODE,
+            ExitCode::Halt(HaltReason::StackUnderflow) => Self::STACK_UNDERFLOW,
+            ExitCode::Halt(HaltReason::CreateContractSizeLimit) => Self::CODESIZE_EXCEEDS_MAXIMUM,
+            ExitCode::Halt(HaltReason::CreateCollision) => Self::CREATE_COLLISION,
+            halt @ ExitCode::Halt(_) => panic!("Unmatched EDR exceptional halt: {halt:?}"),
+        }
     }
 }
 
@@ -30,7 +79,7 @@ impl Exit {
 
     #[napi]
     pub fn is_error(&self) -> bool {
-        self.0.is_error()
+        !matches!(self.0, ExitCode::SUCCESS)
     }
 
     #[napi]
