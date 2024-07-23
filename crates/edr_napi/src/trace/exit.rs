@@ -70,8 +70,8 @@ impl From<edr_solidity::message_trace::ExitCode> for ExitCode {
 #[napi]
 impl Exit {
     #[napi(getter)]
-    pub fn kind(&self) -> u8 {
-        self.0 as u8
+    pub fn kind(&self) -> ExitCode {
+        self.0
     }
 
     #[napi]

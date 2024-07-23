@@ -842,7 +842,7 @@ export class Contract {
   getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined
 }
 export class Exit {
-  get kind(): number
+  get kind(): ExitCode
   isError(): boolean
   getReason(): string
 }

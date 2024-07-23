@@ -77,21 +77,22 @@ pub struct CallMessageTrace {
 pub fn message_trace_step_to_napi(
     value: edr_solidity::message_trace::MessageTraceStep,
     env: Env,
-) -> Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace> {
-    match value {
+) -> napi::Result<Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>> {
+    Ok(match value {
         edr_solidity::message_trace::MessageTraceStep::Evm(step) => {
             Either4::A(EvmStep { pc: step.pc as u32 })
         }
         edr_solidity::message_trace::MessageTraceStep::Message(msg) => {
-            // Immediately drop the borrow lock as it may be
+            // Immediately drop the borrow lock to err on the safe side as we
+            // may be recursing.
             let owned = msg.borrow().clone();
-            match message_trace_to_napi(owned, env) {
+            match message_trace_to_napi(owned, env)? {
                 Either3::A(precompile) => Either4::B(precompile),
                 Either3::B(create) => Either4::C(create),
                 Either3::C(call) => Either4::D(call),
             }
         }
-    }
+    })
 }
 
 /// Converts the Rust representation of a `MessageTrace` to the N-API
@@ -99,8 +100,8 @@ pub fn message_trace_step_to_napi(
 pub fn message_trace_to_napi(
     value: edr_solidity::message_trace::MessageTrace,
     env: Env,
-) -> Either3<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace> {
-    match value {
+) -> napi::Result<Either3<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>> {
+    Ok(match value {
         edr_solidity::message_trace::MessageTrace::Precompile(precompile) => {
             Either3::A(PrecompileMessageTrace {
                 value: BigInt {
@@ -108,9 +109,7 @@ pub fn message_trace_to_napi(
                     words: precompile.base.value.as_limbs().to_vec(),
                 },
                 return_data: Uint8Array::from(precompile.base.return_data.as_ref()),
-                exit: Exit(precompile.base.exit.into())
-                    .into_instance(env)
-                    .expect("napi glue to register the Exit class constructor"),
+                exit: Exit(precompile.base.exit.into()).into_instance(env)?,
                 gas_used: BigInt::from(precompile.base.gas_used),
                 depth: precompile.base.depth as u32,
 
@@ -125,9 +124,7 @@ pub fn message_trace_to_napi(
                     words: create.base.base.value.as_limbs().to_vec(),
                 },
                 return_data: Uint8Array::from(create.base.base.return_data.as_ref()),
-                exit: Exit(create.base.base.exit.into())
-                    .into_instance(env)
-                    .expect("napi glue to register the Exit class constructor"),
+                exit: Exit(create.base.base.exit.into()).into_instance(env)?,
                 gas_used: BigInt::from(create.base.base.gas_used),
                 depth: create.base.base.depth as u32,
                 code: Uint8Array::from(create.base.code.as_ref()),
@@ -136,7 +133,7 @@ pub fn message_trace_to_napi(
                     .steps
                     .into_iter()
                     .map(|step| message_trace_step_to_napi(step, env))
-                    .collect(),
+                    .collect::<napi::Result<Vec<_>>>()?,
                 // NOTE: We specifically use None as that will be later filled on the JS side
                 bytecode: None,
 
@@ -153,9 +150,7 @@ pub fn message_trace_to_napi(
                 words: call.base.base.value.as_limbs().to_vec(),
             },
             return_data: Uint8Array::from(call.base.base.return_data.as_ref()),
-            exit: Exit(call.base.base.exit.into())
-                .into_instance(env)
-                .expect("napi glue to register the Exit class constructor"),
+            exit: Exit(call.base.base.exit.into()).into_instance(env)?,
             gas_used: BigInt::from(call.base.base.gas_used),
             depth: call.base.base.depth as u32,
             code: Uint8Array::from(call.base.code.as_ref()),
@@ -164,7 +159,7 @@ pub fn message_trace_to_napi(
                 .steps
                 .into_iter()
                 .map(|step| message_trace_step_to_napi(step, env))
-                .collect(),
+                .collect::<napi::Result<Vec<_>>>()?,
             // NOTE: We specifically use None as that will be later filled on the JS side
             bytecode: None,
             number_of_subtraces: call.base.number_of_subtraces,
@@ -173,5 +168,5 @@ pub fn message_trace_to_napi(
             calldata: Uint8Array::from(call.calldata.as_ref()),
             code_address: Uint8Array::from(call.code_address.as_slice()),
         }),
-    }
+    })
 }

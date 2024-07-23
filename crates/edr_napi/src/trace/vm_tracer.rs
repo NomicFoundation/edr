@@ -36,22 +36,27 @@ impl VMTracer {
     pub fn get_last_top_level_message_trace(
         &self,
         env: Env,
-    ) -> Either4<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace, Undefined> {
-        match self
-            .0
-            .get_last_top_level_message_trace_ref()
-            .map(|x| {
-                x.try_borrow()
-                    .expect("cannot be executed concurrently with `VMTracer::observe`")
-                    .clone()
-            })
-            .map(|msg| message_trace_to_napi(msg, env))
-        {
-            Some(Either3::A(precompile)) => Either4::A(precompile),
-            Some(Either3::B(create)) => Either4::B(create),
-            Some(Either3::C(call)) => Either4::C(call),
-            None => Either4::D(()),
-        }
+    ) -> napi::Result<
+        Either4<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace, Undefined>,
+    > {
+        Ok(
+            match self
+                .0
+                .get_last_top_level_message_trace_ref()
+                .map(|x| {
+                    x.try_borrow()
+                        .expect("cannot be executed concurrently with `VMTracer::observe`")
+                        .clone()
+                })
+                .map(|msg| message_trace_to_napi(msg, env))
+                .transpose()?
+            {
+                Some(Either3::A(precompile)) => Either4::A(precompile),
+                Some(Either3::B(create)) => Either4::B(create),
+                Some(Either3::C(call)) => Either4::C(call),
+                None => Either4::D(()),
+            },
+        )
     }
 
     // Explicitly return undefined as `Option<T>` by default returns `null` in JS
