@@ -391,6 +391,8 @@ export interface SourceMap {
   location: SourceMapLocation
   jumpType: JumpType
 }
+/** Returns true if the lastByte is placed right when the metadata starts or after it. */
+export function isMatchingMetadata(code: Uint8Array, lastByte: number): boolean
 /** Represents the exit code of the EVM. */
 export const enum ExitCode {
   /** Execution was successful. */
@@ -709,8 +711,6 @@ export const enum Opcode {
 export function opcodeToString(opcode: Opcode): string
 export function isPush(opcode: Opcode): boolean
 export function isJump(opcode: Opcode): boolean
-export function getPushLength(opcode: Opcode): number
-export function getOpcodeLength(opcode: Opcode): number
 export function isCall(opcode: Opcode): boolean
 export function isCreate(opcode: Opcode): boolean
 export interface TracingMessage {

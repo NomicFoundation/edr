@@ -6,7 +6,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use super::model::Bytecode;
+use super::{model::Bytecode, opcodes::Opcode};
 use crate::utils::ClassInstanceRef;
 
 // TODO: Remove me once we do not need to surface this to JS
@@ -153,4 +153,25 @@ impl BytecodeTrie {
             None => Ok(Either::B(())),
         }
     }
+}
+
+/// Returns true if the lastByte is placed right when the metadata starts or
+/// after it.
+#[napi]
+pub fn is_matching_metadata(code: Uint8Array, last_byte: u32) -> bool {
+    let mut byte = 0;
+    while byte < last_byte {
+        let opcode = Opcode::from_repr(code[byte as usize]).unwrap();
+        let next = code
+            .get(byte as usize + 1)
+            .and_then(|x| Opcode::from_repr(*x));
+
+        if opcode == Opcode::REVERT && next == Some(Opcode::INVALID) {
+            return true;
+        }
+
+        byte += u32::from(opcode.len());
+    }
+
+    false
 }

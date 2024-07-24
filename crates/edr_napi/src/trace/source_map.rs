@@ -9,7 +9,7 @@ use super::model::{SourceFile, SourceLocation};
 use crate::{
     trace::{
         model::{Instruction, JumpType},
-        opcodes::{get_opcode_length, get_push_length, is_jump, is_push, Opcode},
+        opcodes::{is_jump, is_push, Opcode},
     },
     utils::ClassInstanceRef,
 };
@@ -113,8 +113,8 @@ fn add_unmapped_instructions(
         let opcode = Opcode::from_repr(bytecode[bytes_index]).expect("Invalid opcode");
 
         let push_data: Option<Buffer> = if is_push(opcode) {
-            let push_data = &bytecode
-                [(bytes_index + 1)..(bytes_index + 1 + (get_push_length(opcode) as usize))];
+            let push_data =
+                &bytecode[(bytes_index + 1)..(bytes_index + 1 + (opcode.push_len() as usize))];
 
             Some(Buffer::from(push_data))
         } else {
@@ -131,7 +131,7 @@ fn add_unmapped_instructions(
 
         instructions.push(instruction);
 
-        bytes_index += get_opcode_length(opcode) as usize;
+        bytes_index += opcode.len() as usize;
     }
 
     Ok(())
@@ -157,7 +157,7 @@ pub fn decode_instructions(
         let opcode = Opcode::from_repr(bytecode[pc]).expect("Invalid opcode");
 
         let push_data = if is_push(opcode) {
-            let length = get_push_length(opcode);
+            let length = opcode.push_len();
             let push_data = &bytecode[(bytes_index + 1)..(bytes_index + 1 + (length as usize))];
 
             Some(Buffer::from(push_data))
@@ -194,7 +194,7 @@ pub fn decode_instructions(
 
         instructions.push(instruction);
 
-        bytes_index += get_opcode_length(opcode) as usize;
+        bytes_index += opcode.len() as usize;
     }
 
     if is_deployment {

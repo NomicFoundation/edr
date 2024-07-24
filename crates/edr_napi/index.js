@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, getLibraryAddressPositions, linkHexStringBytecode, zeroOutAddresses, zeroOutSlices, normalizeLibraryRuntimeBytecodeIfNecessary, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, BytecodeTrie, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, getPushLength, getOpcodeLength, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, getLibraryAddressPositions, linkHexStringBytecode, zeroOutAddresses, zeroOutSlices, normalizeLibraryRuntimeBytecodeIfNecessary, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, BytecodeTrie, isMatchingMetadata, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -338,14 +338,13 @@ module.exports.Bytecode = Bytecode
 module.exports.ContractType = ContractType
 module.exports.Contract = Contract
 module.exports.BytecodeTrie = BytecodeTrie
+module.exports.isMatchingMetadata = isMatchingMetadata
 module.exports.Exit = Exit
 module.exports.ExitCode = ExitCode
 module.exports.Opcode = Opcode
 module.exports.opcodeToString = opcodeToString
 module.exports.isPush = isPush
 module.exports.isJump = isJump
-module.exports.getPushLength = getPushLength
-module.exports.getOpcodeLength = getOpcodeLength
 module.exports.isCall = isCall
 module.exports.isCreate = isCreate
 module.exports.VmTracer = VmTracer

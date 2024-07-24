@@ -313,6 +313,22 @@ pub enum Opcode {
     SELFDESTRUCT = 0xff,
 }
 
+impl Opcode {
+    /// Returns the length of the opcode in bytes.
+    pub fn len(self) -> u8 {
+        if self >= Opcode::PUSH1 && self <= Opcode::PUSH32 {
+            return 1 + self.push_len();
+        }
+
+        1
+    }
+
+    /// Returns how much data will be pushed onto the stack by the opcode.
+    pub fn push_len(self) -> u8 {
+        self as u8 - Opcode::PUSH1 as u8 + 1
+    }
+}
+
 #[napi]
 pub fn opcode_to_string(opcode: Opcode) -> &'static str {
     opcode.into()
@@ -326,20 +342,6 @@ pub fn is_push(opcode: Opcode) -> bool {
 #[napi]
 pub fn is_jump(opcode: Opcode) -> bool {
     opcode == Opcode::JUMP || opcode == Opcode::JUMPI
-}
-
-#[napi]
-pub fn get_push_length(opcode: Opcode) -> u8 {
-    opcode as u8 - Opcode::PUSH1 as u8 + 1
-}
-
-#[napi]
-pub fn get_opcode_length(opcode: Opcode) -> u8 {
-    if !is_push(opcode) {
-        return 1;
-    }
-
-    1 + get_push_length(opcode)
 }
 
 #[napi]
@@ -358,10 +360,10 @@ fn is_create(opcode: Opcode) -> bool {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_get_push_length() {
-        use super::get_push_length;
-        assert_eq!(get_push_length(super::Opcode::PUSH1), 1);
-        assert_eq!(get_push_length(super::Opcode::PUSH2), 2);
-        assert_eq!(get_push_length(super::Opcode::PUSH32), 32);
+    fn test_len() {
+        use super::Opcode;
+        assert_eq!(Opcode::PUSH1.len(), 1);
+        assert_eq!(Opcode::PUSH2.len(), 2);
+        assert_eq!(Opcode::PUSH32.len(), 32);
     }
 }
