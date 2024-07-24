@@ -209,6 +209,7 @@ fn insert_dummy_block_with_transaction(
         &execution_result,
         0,
         U256::ZERO,
+        blockchain.spec_id(),
     );
 
     let block = LocalBlock::new(

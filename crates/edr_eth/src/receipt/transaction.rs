@@ -220,6 +220,7 @@ mod test {
             &execution_result,
             0,
             U256::ZERO,
+            SpecId::LATEST,
         );
 
         let serialized = serde_json::to_string(&receipt).unwrap();

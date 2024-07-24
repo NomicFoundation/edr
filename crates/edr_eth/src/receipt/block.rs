@@ -57,7 +57,7 @@ mod test {
         result::{ExecutionResult, Output, SuccessReason},
         signature::Fakeable,
         transaction::{self, TxKind},
-        AccessList, Address, Bloom, Bytes, U256,
+        AccessList, Address, Bloom, Bytes, SpecId, U256,
     };
 
     #[test]
@@ -99,6 +99,7 @@ mod test {
                 &execution_result,
                 0,
                 U256::ZERO,
+                SpecId::LATEST,
             ),
             block_hash: B256::default(),
             block_number: 1,
