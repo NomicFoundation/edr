@@ -424,6 +424,7 @@ where
             &result,
             self.transactions.len() as u64,
             self.header.base_fee.unwrap_or(U256::ZERO),
+            spec_id,
         );
         self.receipts.push(receipt);
 

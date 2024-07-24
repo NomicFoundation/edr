@@ -38,13 +38,17 @@ where
     TypeT: Copy + Into<u8>,
 {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        out.put_u8(self.transaction_type.into());
+        let transaction_type: u8 = self.transaction_type.into();
+        if transaction_type > 0 {
+            out.put_u8(transaction_type);
+        }
 
         Encodable::from(self).encode(out);
     }
 
     fn length(&self) -> usize {
-        1 + Encodable::from(self).length()
+        let type_length = usize::from(self.transaction_type.into() > 0u8);
+        type_length + Encodable::from(self).length()
     }
 }
 

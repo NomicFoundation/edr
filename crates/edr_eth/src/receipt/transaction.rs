@@ -4,7 +4,7 @@ use alloy_rlp::BufMut;
 use revm_primitives::{ChainSpec, ExecutionResult, Output};
 
 use super::{MapReceiptLogs, Receipt};
-use crate::{transaction::SignedTransaction, Address, Bloom, B256, U256};
+use crate::{transaction::SignedTransaction, Address, Bloom, SpecId, B256, U256};
 
 /// Type for a receipt that's created when processing a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -63,6 +63,7 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
         result: &ExecutionResult<ChainSpecT>,
         transaction_index: u64,
         block_base_fee: U256,
+        hardfork: ChainSpecT::Hardfork,
     ) -> Self
     where
         ChainSpecT: ChainSpec,
@@ -77,6 +78,16 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
             None
         };
 
+        let effective_gas_price = if hardfork.into() >= SpecId::LONDON {
+            Some(
+                transaction
+                    .effective_gas_price(block_base_fee)
+                    .unwrap_or_else(|| *transaction.gas_price()),
+            )
+        } else {
+            None
+        };
+
         Self {
             inner: execution_receipt,
             transaction_hash: *transaction.transaction_hash(),
@@ -85,7 +96,7 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
             to: transaction.kind().to().copied(),
             contract_address,
             gas_used: result.gas_used(),
-            effective_gas_price: transaction.effective_gas_price(block_base_fee),
+            effective_gas_price,
             phantom: PhantomData,
         }
     }

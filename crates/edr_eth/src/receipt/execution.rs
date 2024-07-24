@@ -186,21 +186,13 @@ impl ExecutionReceiptBuilder<L1ChainSpec> for Builder {
         let logs_bloom = crate::log::logs_to_bloom(&logs);
 
         if hardfork >= SpecId::BERLIN {
-            match transaction.transaction_type() {
-                transaction::Type::Legacy => Execution::Eip658(Eip658 {
-                    status: result.is_success(),
-                    cumulative_gas_used: header.gas_used,
-                    logs_bloom,
-                    logs,
-                }),
-                transaction_type => Execution::Eip2718(Eip2718 {
-                    status: result.is_success(),
-                    cumulative_gas_used: header.gas_used,
-                    logs_bloom,
-                    logs,
-                    transaction_type,
-                }),
-            }
+            Execution::Eip2718(Eip2718 {
+                status: result.is_success(),
+                cumulative_gas_used: header.gas_used,
+                logs_bloom,
+                logs,
+                transaction_type: transaction.transaction_type(),
+            })
         } else if hardfork >= SpecId::BYZANTIUM {
             Execution::Eip658(Eip658 {
                 status: result.is_success(),

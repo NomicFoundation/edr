@@ -158,7 +158,10 @@ impl SignedTransaction for Signed {
 
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
         match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
+            Signed::PreEip155Legacy(_)
+            | Signed::PostEip155Legacy(_)
+            | Signed::Eip2930(_)
+            | Signed::Deposit(_) => None,
             Signed::Eip1559(tx) => Some(
                 tx.max_fee_per_gas
                     .min(block_base_fee + tx.max_priority_fee_per_gas),
@@ -167,7 +170,6 @@ impl SignedTransaction for Signed {
                 tx.max_fee_per_gas
                     .min(block_base_fee + tx.max_priority_fee_per_gas),
             ),
-            Signed::Deposit(_) => Some(U256::ZERO),
         }
     }
 
