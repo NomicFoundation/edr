@@ -841,6 +841,24 @@ export class Contract {
   get receive(): ContractFunction | undefined
   getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined
 }
+/**
+ * This class represent a somewhat special Trie of bytecodes.
+ *
+ * What makes it special is that every node has a set of all of its descendants and its depth.
+ */
+export class BytecodeTrie {
+  readonly depth: number
+  constructor(depth: number)
+  get descendants(): Array<Bytecode>
+  get match(): Bytecode | undefined
+  add(bytecode: Bytecode): void
+  /**
+   * Searches for a bytecode. If it's an exact match, it is returned. If there's no match, but a
+   * prefix of the code is found in the trie, the node of the longest prefix is returned. If the
+   * entire code is covered by the trie, and there's no match, we return undefined.
+   */
+  search(code: Uint8Array, currentCodeByte: number): Bytecode | BytecodeTrie | undefined
+}
 export class Exit {
   get kind(): ExitCode
   isError(): boolean

@@ -21,6 +21,7 @@ mod library_utils;
 mod model;
 mod source_map;
 
+mod contracts_identifier;
 mod exit;
 mod message_trace;
 mod opcodes;
