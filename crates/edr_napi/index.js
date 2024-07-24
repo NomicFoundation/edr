@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, getLibraryAddressPositions, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, BytecodeTrie, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, getPushLength, getOpcodeLength, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, getLibraryAddressPositions, linkHexStringBytecode, zeroOutAddresses, zeroOutSlices, normalizeLibraryRuntimeBytecodeIfNecessary, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, BytecodeTrie, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, getPushLength, getOpcodeLength, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -322,6 +322,9 @@ module.exports.ExceptionalHalt = ExceptionalHalt
 module.exports.createModelsAndDecodeBytecodes = createModelsAndDecodeBytecodes
 module.exports.getLibraryAddressPositions = getLibraryAddressPositions
 module.exports.linkHexStringBytecode = linkHexStringBytecode
+module.exports.zeroOutAddresses = zeroOutAddresses
+module.exports.zeroOutSlices = zeroOutSlices
+module.exports.normalizeLibraryRuntimeBytecodeIfNecessary = normalizeLibraryRuntimeBytecodeIfNecessary
 module.exports.SourceFile = SourceFile
 module.exports.SourceLocation = SourceLocation
 module.exports.ContractFunctionType = ContractFunctionType
