@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use edr_eth::Address;
 use edr_evm::hex;
 use napi::{
-    bindgen_prelude::{ClassInstance, Either3, Object, Uint8Array, Undefined},
+    bindgen_prelude::{ClassInstance, Uint8Array, Undefined},
     Either, Env, JsObject,
 };
 use napi_derive::napi;
@@ -14,36 +14,20 @@ use super::{
 };
 use crate::utils::ClassInstanceRef;
 
-// TODO: Remove me once we do not need to surface this to JS
-/// A cursor that differentiates between the Rust root trie and the JS leaf
-/// trie.
-enum BytecodeTrieCursor<'a> {
-    Root(&'a mut BytecodeTrie),
-    Leaf(Rc<ClassInstanceRef<BytecodeTrie>>),
-}
-
-enum BytecodeTrieCursorRef<'a> {
-    Root(&'a BytecodeTrie),
-    Leaf(Rc<ClassInstanceRef<BytecodeTrie>>),
-}
-
 /// This class represent a somewhat special Trie of bytecodes.
 ///
 /// What makes it special is that every node has a set of all of its descendants
 /// and its depth.
-#[napi]
+#[derive(Clone)]
 pub struct BytecodeTrie {
-    child_nodes: HashMap<u8, Rc<ClassInstanceRef<BytecodeTrie>>>,
+    child_nodes: HashMap<u8, Box<BytecodeTrie>>,
     descendants: Vec<Rc<ClassInstanceRef<Bytecode>>>,
     match_: Option<Rc<ClassInstanceRef<Bytecode>>>,
-    #[napi(readonly)]
-    pub depth: u32,
+    depth: Option<u32>,
 }
 
-#[napi]
 impl BytecodeTrie {
-    #[napi(constructor)]
-    pub fn new(depth: u32) -> BytecodeTrie {
+    pub fn new(depth: Option<u32>) -> BytecodeTrie {
         BytecodeTrie {
             child_nodes: HashMap::new(),
             descendants: Vec::new(),
@@ -52,70 +36,28 @@ impl BytecodeTrie {
         }
     }
 
-    #[napi(getter, ts_return_type = "Array<Bytecode>")]
-    pub fn descendants(&self, env: Env) -> napi::Result<Vec<Object>> {
-        self.descendants
-            .iter()
-            .map(|descendant| descendant.as_object(env))
-            .collect()
-    }
-
-    #[napi(getter, js_name = "match", ts_return_type = "Bytecode | undefined")]
-    pub fn match_(&self, env: Env) -> napi::Result<Either<Object, Undefined>> {
-        match &self.match_ {
-            Some(match_) => match_.as_object(env).map(Either::A),
-            None => Ok(Either::B(())),
-        }
-    }
-
-    #[napi]
     pub fn add(&mut self, bytecode: ClassInstance<Bytecode>, env: Env) -> napi::Result<()> {
         let bytecode = Rc::new(ClassInstanceRef::from_obj(bytecode, env)?);
 
-        // TODO: Get rid of the cursor once we don't need to differentiate between Rust
-        // and JS objects
-        let mut cursor = BytecodeTrieCursor::Root(self);
+        let mut cursor = self;
 
         let bytecode_normalized_code = &bytecode.borrow(env)?.normalized_code;
         for (index, byte) in bytecode_normalized_code.iter().enumerate() {
-            // Add a descendant
-            match &mut cursor {
-                BytecodeTrieCursor::Root(trie) => trie.descendants.push(bytecode.clone()),
-                BytecodeTrieCursor::Leaf(trie) => {
-                    trie.borrow_mut(env)?.descendants.push(bytecode.clone());
-                }
-            }
+            cursor.descendants.push(bytecode.clone());
 
-            // Get or insert the child node
-            let node = {
-                let child_nodes = match &mut cursor {
-                    BytecodeTrieCursor::Root(trie) => &mut trie.child_nodes,
-                    BytecodeTrieCursor::Leaf(trie) => &mut trie.borrow_mut(env)?.child_nodes,
-                };
+            let node = cursor
+                .child_nodes
+                .entry(*byte)
+                .or_insert_with(|| Box::new(BytecodeTrie::new(Some(index as u32))));
 
-                match child_nodes.entry(*byte) {
-                    std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
-                    std::collections::hash_map::Entry::Vacant(entry) => {
-                        let inst = BytecodeTrie::new(index as u32).into_instance(env)?;
-                        let inst_ref = Rc::new(ClassInstanceRef::from_obj(inst, env)?);
-                        entry.insert(inst_ref)
-                    }
-                }
-                .clone()
-            };
-
-            cursor = BytecodeTrieCursor::Leaf(node);
+            cursor = node;
         }
 
         // If multiple contracts with the exact same bytecode are added we keep the last
         // of them. Note that this includes the metadata hash, so the chances of
         // happening are pretty remote, except in super artificial cases that we
         // have in our test suite.
-        let match_ = match &mut cursor {
-            BytecodeTrieCursor::Root(trie) => &mut trie.match_,
-            BytecodeTrieCursor::Leaf(trie) => &mut trie.borrow_mut(env)?.match_,
-        };
-        *match_ = Some(bytecode.clone());
+        cursor.match_ = Some(bytecode.clone());
 
         Ok(())
     }
@@ -124,92 +66,37 @@ impl BytecodeTrie {
     /// there's no match, but a prefix of the code is found in the trie, the
     /// node of the longest prefix is returned. If the entire code is
     /// covered by the trie, and there's no match, we return undefined.
-    #[napi(ts_return_type = "Bytecode | BytecodeTrie | undefined")]
     pub fn search(
-        &mut self,
-        code: Uint8Array,
-        current_code_byte: u32,
-        env: Env,
-    ) -> napi::Result<Either<JsObject, Undefined>> {
-        if current_code_byte > code.len() as u32 {
-            return Ok(Either::B(()));
-        }
-
-        let mut cursor = BytecodeTrieCursor::Root(self);
-        for byte in code.iter().skip(current_code_byte as usize) {
-            let child_node = match &mut cursor {
-                BytecodeTrieCursor::Root(trie) => trie.child_nodes.get(byte).cloned(),
-                BytecodeTrieCursor::Leaf(trie) => {
-                    trie.borrow_mut(env)?.child_nodes.get(byte).cloned()
-                }
-            };
-
-            if let Some(node) = child_node {
-                cursor = BytecodeTrieCursor::Leaf(node);
-            } else {
-                return match &mut cursor {
-                    BytecodeTrieCursor::Root(..) => Ok(Either::B(())),
-                    BytecodeTrieCursor::Leaf(trie) => trie.as_object(env).map(Either::A),
-                };
-            }
-        }
-
-        let match_ = match cursor {
-            BytecodeTrieCursor::Root(trie) => &trie.match_,
-            BytecodeTrieCursor::Leaf(ref trie) => &trie.borrow_mut(env)?.match_,
-        };
-        match match_ {
-            Some(bytecode) => Ok(Either::A(bytecode.as_object(env)?)),
-            None => Ok(Either::B(())),
-        }
-    }
-
-    pub fn search_inner(
         &self,
         code: &Uint8Array,
         current_code_byte: u32,
-        env: Env,
-    ) -> napi::Result<
-        Either3<Rc<ClassInstanceRef<Bytecode>>, Rc<ClassInstanceRef<BytecodeTrie>>, Undefined>,
-    > {
+    ) -> Option<Either<Rc<ClassInstanceRef<Bytecode>>, &Self>> {
         if current_code_byte > code.len() as u32 {
-            return Ok(Either3::C(()));
+            return None;
         }
 
-        let mut cursor = BytecodeTrieCursorRef::Root(self);
+        let mut cursor = self;
+
         for byte in code.iter().skip(current_code_byte as usize) {
-            let child_node = match &mut cursor {
-                BytecodeTrieCursorRef::Root(trie) => trie.child_nodes.get(byte).cloned(),
-                BytecodeTrieCursorRef::Leaf(trie) => {
-                    trie.borrow_mut(env)?.child_nodes.get(byte).cloned()
-                }
-            };
+            let child_node = cursor.child_nodes.get(byte);
 
             if let Some(node) = child_node {
-                cursor = BytecodeTrieCursorRef::Leaf(node);
+                cursor = node;
             } else {
-                return Ok(match &mut cursor {
-                    BytecodeTrieCursorRef::Root(..) => Either3::C(()),
-                    BytecodeTrieCursorRef::Leaf(trie) => Either3::B(trie.clone()),
-                });
+                return Some(Either::B(cursor));
             }
         }
 
-        let match_ = match cursor {
-            BytecodeTrieCursorRef::Root(trie) => &trie.match_,
-            BytecodeTrieCursorRef::Leaf(ref trie) => &trie.borrow_mut(env)?.match_,
-        };
-        match match_ {
-            Some(bytecode) => Ok(Either3::A(bytecode.clone())),
-            None => Ok(Either3::C(())),
-        }
+        cursor
+            .match_
+            .as_ref()
+            .map(|bytecode| Either::A(bytecode.clone()))
     }
 }
 
 /// Returns true if the lastByte is placed right when the metadata starts or
 /// after it.
-#[napi]
-pub fn is_matching_metadata(code: Uint8Array, last_byte: u32) -> bool {
+fn is_matching_metadata(code: Uint8Array, last_byte: u32) -> bool {
     let mut byte = 0;
     while byte < last_byte {
         let opcode = Opcode::from_repr(code[byte as usize]).unwrap();
@@ -229,7 +116,7 @@ pub fn is_matching_metadata(code: Uint8Array, last_byte: u32) -> bool {
 
 #[napi]
 pub struct ContractsIdentifier {
-    trie: Rc<ClassInstanceRef<BytecodeTrie>>,
+    trie: BytecodeTrie,
     cache: HashMap<String, Rc<ClassInstanceRef<Bytecode>>>,
     enable_cache: bool,
 }
@@ -237,17 +124,11 @@ pub struct ContractsIdentifier {
 #[napi]
 impl ContractsIdentifier {
     #[napi(constructor)]
-    pub fn new(enable_cache: Option<bool>, env: Env) -> ContractsIdentifier {
+    pub fn new(enable_cache: Option<bool>) -> ContractsIdentifier {
         let enable_cache = enable_cache.unwrap_or(true);
 
-        // TODO: This shouldn't be necessary once we do not need to call it via JS in
-        // `fn search` TODO: Does it really matter that it's -1 in the JS
-        // implementation?
-        let trie = BytecodeTrie::new(0).into_instance(env).unwrap();
-        let trie = Rc::new(ClassInstanceRef::from_obj(trie, env).unwrap());
-
         ContractsIdentifier {
-            trie,
+            trie: BytecodeTrie::new(None),
             cache: HashMap::new(),
             enable_cache,
         }
@@ -259,7 +140,7 @@ impl ContractsIdentifier {
         bytecode: ClassInstance<Bytecode>,
         env: Env,
     ) -> napi::Result<()> {
-        self.trie.borrow_mut(env)?.add(bytecode, env)?;
+        self.trie.add(bytecode, env)?;
         self.cache.clear();
 
         Ok(())
@@ -270,16 +151,13 @@ impl ContractsIdentifier {
         is_create: bool,
         code: Uint8Array,
         normalize_libraries: Option<bool>,
-        trie: Option<ClassInstance<BytecodeTrie>>,
+        trie: Option<&BytecodeTrie>,
         first_byte_to_search: Option<u32>,
         env: Env,
     ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
         let normalize_libraries = normalize_libraries.unwrap_or(true);
         let first_byte_to_search = first_byte_to_search.unwrap_or(0);
-        let trie = trie
-            .map(|trie| ClassInstanceRef::from_obj(trie, env))
-            .transpose()?
-            .map_or_else(|| self.trie.clone(), Rc::new);
+        let trie = trie.unwrap_or(&self.trie);
 
         Self::search_bytecode_inner(
             is_create,
@@ -295,21 +173,15 @@ impl ContractsIdentifier {
         is_create: bool,
         code: Uint8Array,
         normalize_libraries: bool,
-        trie: Rc<ClassInstanceRef<BytecodeTrie>>,
+        trie: &BytecodeTrie,
         first_byte_to_search: u32,
         env: Env,
     ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
-        let search_result = trie
-            .borrow(env)?
-            .search_inner(&code, first_byte_to_search, env)?;
-
-        let search_result = match search_result {
-            Either3::A(bytecode) => return Ok(Some(bytecode.clone())),
-            Either3::B(trie) => trie,
-            Either3::C(()) => return Ok(None),
+        let search_result = match trie.search(&code, first_byte_to_search) {
+            None => return Ok(None),
+            Some(Either::A(bytecode)) => return Ok(Some(bytecode.clone())),
+            Some(Either::B(trie)) => trie,
         };
-
-        let search_result_ref = search_result.borrow(env)?;
 
         // Deployment messages have their abi-encoded arguments at the end of the
         // bytecode.
@@ -326,8 +198,8 @@ impl ContractsIdentifier {
         // its metadata hash, which will differ.
         //
         // We take advantage of this last observation, and just return the bytecode that
-        // exactly matched the searchResult (sub)trie that we got.
-        match &search_result_ref.match_ {
+        // exactly matched the search_result (sub)trie that we got.
+        match &search_result.match_ {
             Some(bytecode) if is_create && bytecode.borrow(env)?.is_deployment => {
                 return Ok(Some(bytecode.clone()));
             }
@@ -335,7 +207,7 @@ impl ContractsIdentifier {
         };
 
         if normalize_libraries {
-            for bytecode_with_libraries in &search_result_ref.descendants {
+            for bytecode_with_libraries in &search_result.descendants {
                 let bytecode_with_libraries = bytecode_with_libraries.borrow(env)?;
 
                 if bytecode_with_libraries.library_address_positions.is_empty()
@@ -360,8 +232,8 @@ impl ContractsIdentifier {
                     is_create,
                     normalized_code,
                     false,
-                    search_result.clone(),
-                    search_result_ref.depth + 1,
+                    search_result,
+                    search_result.depth.map_or(0, |depth| depth + 1),
                     env,
                 );
 
@@ -381,12 +253,12 @@ impl ContractsIdentifier {
         //
         // The reason this works is because there's no chance that Solidity includes an
         // entire bytecode (i.e. with metadata), as a prefix of another one.
-        if is_matching_metadata(code, search_result_ref.depth)
-            && !search_result_ref.descendants.is_empty()
-        {
-            return Ok(Some(
-                search_result_ref.descendants[search_result_ref.descendants.len() - 1].clone(),
-            ));
+        if let Some(search_depth) = search_result.depth {
+            if is_matching_metadata(code, search_depth) && !search_result.descendants.is_empty() {
+                return Ok(Some(
+                    search_result.descendants[search_result.descendants.len() - 1].clone(),
+                ));
+            }
         }
 
         Ok(None)

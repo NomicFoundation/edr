@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, BytecodeTrie, isMatchingMetadata, ContractsIdentifier, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -333,8 +333,6 @@ module.exports.jumpTypeToString = jumpTypeToString
 module.exports.Bytecode = Bytecode
 module.exports.ContractType = ContractType
 module.exports.Contract = Contract
-module.exports.BytecodeTrie = BytecodeTrie
-module.exports.isMatchingMetadata = isMatchingMetadata
 module.exports.ContractsIdentifier = ContractsIdentifier
 module.exports.Exit = Exit
 module.exports.ExitCode = ExitCode
