@@ -362,8 +362,15 @@ mod tests {
     #[test]
     fn test_len() {
         use super::Opcode;
-        assert_eq!(Opcode::PUSH1.len(), 1);
-        assert_eq!(Opcode::PUSH2.len(), 2);
-        assert_eq!(Opcode::PUSH32.len(), 32);
+        assert_eq!(Opcode::ADD.len(), 1);
+        assert_eq!(Opcode::BALANCE.len(), 1);
+
+        assert_eq!(Opcode::PUSH1.len(), 2);
+        assert_eq!(Opcode::PUSH2.len(), 3);
+        assert_eq!(Opcode::PUSH32.len(), 33);
+
+        assert_eq!(Opcode::PUSH1.push_len(), 1);
+        assert_eq!(Opcode::PUSH2.push_len(), 2);
+        assert_eq!(Opcode::PUSH32.push_len(), 32);
     }
 }
