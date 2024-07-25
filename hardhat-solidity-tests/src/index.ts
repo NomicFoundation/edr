@@ -1,9 +1,9 @@
-import type { SuiteResult } from "@nomicfoundation/edr";
+import { SuiteResult, TestSuite } from "@nomicfoundation/edr";
 const { task } = require("hardhat/config");
 
 task("test:solidity").setAction(async (_: any, hre: any) => {
   await hre.run("compile", { quiet: true });
-  const { SolidityTestRunner } = await import("@nomicfoundation/edr");
+  const { runSolidityTests } = await import("@nomicfoundation/edr");
   const { spec } = require("node:test/reporters");
 
   const specReporter = new spec();
@@ -13,32 +13,7 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
   let totalTests = 0;
   let failedTests = 0;
 
-  const solidityTestRunner = new SolidityTestRunner(
-    false,
-    (_: any, suiteResult: SuiteResult) => {
-      for (const testResult of suiteResult.testResults) {
-        let name = suiteResult.name + " | " + testResult.name;
-        if ('runs' in testResult?.kind) {
-          name += ` (${testResult.kind.runs} runs)`;
-        }
-
-        let failed = testResult.status === "Failure";
-        totalTests++;
-        if (failed) {
-          failedTests++;
-        }
-
-        specReporter.write({
-          type: failed ? "test:fail" : "test:pass",
-          data: {
-            name,
-          },
-        });
-      }
-    }
-  );
-
-  const tests = [];
+  const tests: TestSuite[] = [];
   const fqns = await hre.artifacts.getAllFullyQualifiedNames();
 
   for (const fqn of fqns) {
@@ -74,10 +49,35 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
     tests.push(test);
   }
 
-  await solidityTestRunner.runTests(tests);
+  await new Promise<void>((resolve) => {
+    const gasReport = false;
 
-  // wait for the reporter to finish handling the callbacks
-  await new Promise((resolve) => setTimeout(resolve, 100));
+    runSolidityTests(tests, gasReport, (suiteResult: SuiteResult) => {
+      for (const testResult of suiteResult.testResults) {
+        let name = suiteResult.name + " | " + testResult.name;
+        if ("runs" in testResult?.kind) {
+          name += ` (${testResult.kind.runs} runs)`;
+        }
+
+        let failed = testResult.status === "Failure";
+        totalTests++;
+        if (failed) {
+          failedTests++;
+        }
+
+        specReporter.write({
+          type: failed ? "test:fail" : "test:pass",
+          data: {
+            name,
+          },
+        });
+      }
+
+      if (totalTests === tests.length) {
+        resolve();
+      }
+    });
+  });
 
   console.log(`\n${totalTests} tests found, ${failedTests} failed`);
 
