@@ -347,7 +347,6 @@ export interface SubscriptionEvent {
   result: any
 }
 export function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<Bytecode>
-export function getLibraryAddressPositions(bytecodeOutput: any): Array<number>
 export function linkHexStringBytecode(code: string, address: string, position: number): string
 export const enum ContractFunctionType {
   CONSTRUCTOR = 0,
