@@ -24,6 +24,10 @@ COMMITS=(
   49c66b6947283d9c9414f5e6faf2f94dcf05cc58
   # refactor: Re-use MessageTrace and VmTracer from EDR now
   3aeeb564394349824221ea9814f49cb5f8002d78
+  # refactor: Simplify BytecodeTrie logic
+  dd34257cec2ceddc4e7065aa9147378d8f75da98
+  # refactor: Re-use the ContractsIdentifier from EDR
+  0bdc767826aba3b7ae2c4de02687d1743fb05813
 )
 
 for commit in "${COMMITS[@]}"; do
