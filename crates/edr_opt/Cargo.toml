@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 alloy-eips = { version = "0.2", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
+alloy-serde = { version = "0.2.0", default-features = false, features = ["std"] }
 edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }

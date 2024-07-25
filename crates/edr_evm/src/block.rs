@@ -11,7 +11,7 @@ use edr_eth::{
     withdrawal::Withdrawal,
     B256, U256,
 };
-use edr_rpc_eth::spec::BlockReceipt;
+use edr_rpc_eth::spec::RpcSpec;
 
 pub use self::{
     builder::{
@@ -22,6 +22,11 @@ pub use self::{
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
 };
 use crate::chain_spec::ChainSpec;
+
+/// A block receipt with filter logs for the specified RPC specification.
+pub type BlockReceipt<RpcSpecT> = edr_eth::receipt::BlockReceipt<
+    <RpcSpecT as RpcSpec>::ExecutionReceipt<edr_eth::log::FilterLog>,
+>;
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]

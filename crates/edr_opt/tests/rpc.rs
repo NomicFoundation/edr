@@ -4,13 +4,11 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use edr_defaults::CACHE_DIR;
-use edr_eth::{
-    receipt::Receipt as _, transaction::SignedTransaction as _, HashMap, PreEip1898BlockSpec, B256,
-};
+use edr_eth::{transaction::TransactionType as _, HashMap, PreEip1898BlockSpec, B256};
 use edr_evm::{
     blockchain::ForkedBlockchain, state::IrregularState, Block, RandomHashGenerator, RemoteBlock,
 };
-use edr_opt::{hardfork, receipt, transaction, OptimismChainSpec};
+use edr_opt::{hardfork, transaction, OptimismChainSpec};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;
 use revm::primitives::b256;
@@ -106,7 +104,7 @@ async fn transaction_and_receipt_pre_bedrock() -> anyhow::Result<()> {
         .await?
         .expect("Receipt must exist");
 
-    assert_eq!(receipt.transaction_type(), None);
+    assert_eq!(receipt.transaction_type, None);
 
     Ok(())
 }
@@ -132,12 +130,11 @@ async fn transaction_and_receipt_regolith() -> anyhow::Result<()> {
         .await?
         .expect("Receipt must exist");
 
-    assert_eq!(receipt.transaction_type(), Some(transaction::Type::Deposit));
-    if let receipt::Execution::Deposit(deposit) = receipt.inner.into_execution_receipt() {
-        assert!(deposit.deposit_receipt_version.is_none());
-    } else {
-        unreachable!("Receipt must be a deposit receipt")
-    }
+    assert_eq!(
+        receipt.transaction_type,
+        Some(transaction::Type::Deposit.into())
+    );
+    assert!(receipt.deposit_receipt_version.is_none());
 
     Ok(())
 }
@@ -163,12 +160,11 @@ async fn transaction_and_receipt_canyon() -> anyhow::Result<()> {
         .await?
         .expect("Receipt must exist");
 
-    assert_eq!(receipt.transaction_type(), Some(transaction::Type::Deposit));
-    if let receipt::Execution::Deposit(deposit) = receipt.inner.into_execution_receipt() {
-        assert_eq!(deposit.deposit_receipt_version, Some(1));
-    } else {
-        unreachable!("Receipt must be a deposit receipt")
-    }
+    assert_eq!(
+        receipt.transaction_type,
+        Some(transaction::Type::Deposit.into())
+    );
+    assert_eq!(receipt.deposit_receipt_version, Some(1));
 
     Ok(())
 }
@@ -194,12 +190,11 @@ async fn transaction_and_receipt_ecotone() -> anyhow::Result<()> {
         .await?
         .expect("Receipt must exist");
 
-    assert_eq!(receipt.transaction_type(), Some(transaction::Type::Deposit));
-    if let receipt::Execution::Deposit(deposit) = receipt.inner.into_execution_receipt() {
-        assert_eq!(deposit.deposit_receipt_version, Some(1));
-    } else {
-        unreachable!("Receipt must be a deposit receipt")
-    }
+    assert_eq!(
+        receipt.transaction_type,
+        Some(transaction::Type::Deposit.into())
+    );
+    assert_eq!(receipt.deposit_receipt_version, Some(1));
 
     Ok(())
 }

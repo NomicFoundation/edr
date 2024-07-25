@@ -18,16 +18,17 @@ use revm::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{hardfork, rpc, transaction};
+use crate::{eip2718::TypedEnvelope, hardfork, receipt, rpc, transaction};
 
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct OptimismChainSpec;
 
 impl RpcSpec for OptimismChainSpec {
-    type ExecutionReceipt<Log> = crate::receipt::Execution<Log> where Log: DeserializeOwned + Serialize;
+    type ExecutionReceipt<Log> = TypedEnvelope<receipt::Execution<Log>>;
     type RpcBlock<Data> = edr_rpc_eth::Block<Data> where Data: Default + DeserializeOwned + Serialize;
-    type RpcTransaction = crate::rpc::Transaction;
+    type RpcReceipt = rpc::BlockReceipt;
+    type RpcTransaction = rpc::Transaction;
 }
 
 impl revm::primitives::ChainSpec for OptimismChainSpec {
@@ -77,9 +78,10 @@ impl BlockEnvConstructor<OptimismChainSpec> for revm::primitives::BlockEnv {
 }
 
 impl ChainSpec for OptimismChainSpec {
+    type ReceiptBuilder = receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
-
-    type RpcTransactionConversionError = rpc::ConversionError;
+    type RpcReceiptConversionError = rpc::receipt::ConversionError;
+    type RpcTransactionConversionError = rpc::transaction::ConversionError;
 
     fn chain_hardfork_activations(
         chain_id: u64,

@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use edr_eth::{
     block::PartialHeader,
     chain_spec::L1ChainSpec,
+    eips::eip2718::TypedEnvelope,
     log::{ExecutionLog, FilterLog},
     receipt::{self, ExecutionReceiptBuilder, Receipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
@@ -160,7 +161,8 @@ fn create_dummy_block_with_header(
 struct DummyBlockAndTransaction {
     block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>,
     transaction_hash: B256,
-    transaction_receipt: TransactionReceipt<receipt::Execution<ExecutionLog>, ExecutionLog>,
+    transaction_receipt:
+        TransactionReceipt<TypedEnvelope<receipt::Execution<ExecutionLog>>, ExecutionLog>,
 }
 
 /// Returns the transaction's hash.

@@ -1200,6 +1200,7 @@ version = "0.3.5"
 dependencies = [
  "alloy-eips",
  "alloy-rlp",
+ "alloy-serde",
  "anyhow",
  "edr_defaults",
  "edr_eth",
@@ -1286,7 +1287,9 @@ dependencies = [
 name = "edr_rpc_eth"
 version = "0.3.5"
 dependencies = [
+ "alloy-serde",
  "anyhow",
+ "assert-json-diff",
  "derive-where",
  "edr_eth",
  "edr_rpc_client",

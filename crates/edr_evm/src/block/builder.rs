@@ -6,9 +6,7 @@ use std::{
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     log::ExecutionLog,
-    receipt::{
-        ExecutionReceiptBuilder as _, ExecutionReceiptFactory, Receipt as _, TransactionReceipt,
-    },
+    receipt::{ExecutionReceiptBuilder as _, Receipt as _, TransactionReceipt},
     result::InvalidTransaction,
     transaction::SignedTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
@@ -303,9 +301,7 @@ where
         let block = ChainSpecT::Block::new_block_env(&self.header, spec_id);
 
         let receipt_builder = {
-            let builder = <ChainSpecT::ExecutionReceipt<ExecutionLog> as ExecutionReceiptFactory<
-                ChainSpecT,
-            >>::Builder::new_receipt_builder(&state, &transaction);
+            let builder = ChainSpecT::ReceiptBuilder::new_receipt_builder(&state, &transaction);
 
             match builder {
                 Ok(builder) => builder,

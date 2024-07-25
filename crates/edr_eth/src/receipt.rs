@@ -21,9 +21,10 @@ use crate::{block::PartialHeader, Bloom, B256};
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(untagged))]
 pub enum Execution<LogT> {
+    /// Legacy receipt.
     Legacy(self::execution::Legacy<LogT>),
+    /// EIP-658 receipt.
     Eip658(self::execution::Eip658<LogT>),
-    Eip2718(self::execution::Eip2718<LogT, crate::transaction::Type>),
 }
 
 /// Trait for a builder that constructs an execution receipt.
@@ -47,12 +48,6 @@ pub trait ExecutionReceiptBuilder<ChainSpecT: ChainSpec>: Sized {
     ) -> Self::Receipt;
 }
 
-/// Trait for a factory method that associates a builder with a receipt type.
-pub trait ExecutionReceiptFactory<ChainSpecT: ChainSpec> {
-    /// The associated builder type.
-    type Builder: ExecutionReceiptBuilder<ChainSpecT, Receipt = Self>;
-}
-
 /// Type representing either the state root (pre-EIP-658) or the status code
 /// (post-EIP-658).
 #[derive(Debug, PartialEq, Eq)]
@@ -65,9 +60,6 @@ pub enum RootOrStatus<'root> {
 
 /// Trait for a receipt that's generated after execution of a transaction.
 pub trait Receipt<LogT> {
-    /// Type of the transaction.
-    type Type;
-
     /// Returns the cumulative gas used in the block after this transaction was
     /// executed.
     fn cumulative_gas_used(&self) -> u64;
@@ -78,8 +70,6 @@ pub trait Receipt<LogT> {
     /// Returns the state root (pre-EIP-658) or status (post-EIP-658) of the
     /// receipt.
     fn root_or_status(&self) -> RootOrStatus<'_>;
-    /// Returns the type of the transaction, if known.
-    fn transaction_type(&self) -> Option<Self::Type>;
 }
 
 pub trait MapReceiptLogs<OldLogT, NewLogT, OutputT> {

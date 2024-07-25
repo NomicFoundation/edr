@@ -15,7 +15,10 @@ pub use self::{
     eip4844::Eip4844,
     legacy::{Legacy, PreOrPostEip155},
 };
-use super::{Signed, SignedTransaction, TransactionMut, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE};
+use super::{
+    Signed, SignedTransaction, TransactionMut, TransactionType, TxKind,
+    INVALID_TX_TYPE_ERROR_MESSAGE,
+};
 use crate::{
     signature::{Fakeable, Signature},
     AccessListItem, Address, Bytes, B256, U256,
@@ -177,8 +180,6 @@ impl From<PreOrPostEip155> for Signed {
 }
 
 impl SignedTransaction for Signed {
-    type Type = super::Type;
-
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
         match self {
             Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
@@ -225,15 +226,6 @@ impl SignedTransaction for Signed {
             Signed::Eip2930(t) => t.transaction_hash(),
             Signed::Eip1559(t) => t.transaction_hash(),
             Signed::Eip4844(t) => t.transaction_hash(),
-        }
-    }
-
-    fn transaction_type(&self) -> Self::Type {
-        match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => super::Type::Legacy,
-            Signed::Eip2930(_) => super::Type::Eip2930,
-            Signed::Eip1559(_) => super::Type::Eip1559,
-            Signed::Eip4844(_) => super::Type::Eip4844,
         }
     }
 }
@@ -369,6 +361,19 @@ impl TransactionMut for Signed {
             Signed::Eip2930(tx) => tx.gas_limit = gas_limit,
             Signed::Eip1559(tx) => tx.gas_limit = gas_limit,
             Signed::Eip4844(tx) => tx.gas_limit = gas_limit,
+        }
+    }
+}
+
+impl TransactionType for Signed {
+    type Type = super::Type;
+
+    fn transaction_type(&self) -> Self::Type {
+        match self {
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => super::Type::Legacy,
+            Signed::Eip2930(_) => super::Type::Eip2930,
+            Signed::Eip1559(_) => super::Type::Eip1559,
+            Signed::Eip4844(_) => super::Type::Eip4844,
         }
     }
 }

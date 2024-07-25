@@ -8,6 +8,8 @@
 /// Optimism RPC types
 pub mod rpc;
 
+/// Types for Optimism's EIP-2718 envelope.
+pub mod eip2718;
 /// Optimism harforks.
 pub mod hardfork;
 /// Types for Optimism receipts.

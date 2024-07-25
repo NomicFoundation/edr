@@ -163,6 +163,7 @@ pub async fn run_full_block<
             Block: Default,
             Hardfork: Debug + Send + Sync,
             RpcBlockConversionError: Send + Sync,
+            RpcReceiptConversionError: Send + Sync,
             ExecutionReceipt<FilterLog>: PartialEq,
             Transaction: Default
                              + TransactionValidation<

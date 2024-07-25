@@ -29,7 +29,10 @@ use edr_eth::{
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
     state::{Account, EvmStorageSlot},
-    transaction::{request::TransactionRequestAndSender, SignedTransaction as _, Transaction as _},
+    transaction::{
+        request::TransactionRequestAndSender, SignedTransaction as _, Transaction as _,
+        TransactionType as _,
+    },
     AccountInfo, Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet,
     Precompile, SpecId, B256, KECCAK_EMPTY, U256,
 };
@@ -48,14 +51,13 @@ use edr_evm::{
         SyncState,
     },
     trace::Trace,
-    transaction, Block as _, BlockAndTotalDifficulty, DebugContext, DebugTraceConfig,
+    transaction, Block as _, BlockAndTotalDifficulty, BlockReceipt, DebugContext, DebugTraceConfig,
     DebugTraceResultWithTraces, Eip3155AndRawTracers, MemPool, MineBlockResultAndState,
     OrderedTransaction, RandomHashGenerator, SyncBlock,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
     error::HttpError,
-    spec::BlockReceipt,
 };
 use gas::gas_used_ratio;
 use indexmap::IndexMap;

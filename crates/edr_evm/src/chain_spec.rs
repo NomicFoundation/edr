@@ -5,7 +5,7 @@ use edr_eth::{
     chain_spec::{EthHeaderConstants, L1ChainSpec},
     env::{BlobExcessGasAndPrice, BlockEnv},
     log::{ExecutionLog, FilterLog},
-    receipt::{ExecutionReceiptFactory, MapReceiptLogs},
+    receipt::{ExecutionReceiptBuilder, MapReceiptLogs},
     transaction::SignedTransaction,
     SpecId, B256, U256,
 };
@@ -14,7 +14,7 @@ use edr_rpc_eth::{spec::RpcSpec, TransactionConversionError};
 use crate::{
     hardfork::{self, Activations},
     transaction::remote::EthRpcTransaction,
-    EthBlockData, EthRpcBlock, RemoteBlockConversionError,
+    BlockReceipt, EthBlockData, EthRpcBlock, RemoteBlockConversionError,
 };
 
 /// A trait for defining a chain's associated types.
@@ -42,10 +42,10 @@ pub trait ChainSpec:
             EthBlockData<Self>,
             Error = Self::RpcBlockConversionError,
         >,
+        RpcReceipt: Debug + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
         RpcTransaction: EthRpcTransaction,
     > + RpcSpec<
         ExecutionReceipt<ExecutionLog>: alloy_rlp::Encodable
-                                            + ExecutionReceiptFactory<Self>
                                             + MapReceiptLogs<
             ExecutionLog,
             FilterLog,
@@ -54,8 +54,17 @@ pub trait ChainSpec:
         RpcBlock<B256>: EthRpcBlock,
     >
 {
+    /// Type representing a builder that constructs an execution receipt.
+    type ReceiptBuilder: ExecutionReceiptBuilder<
+        Self,
+        Receipt = Self::ExecutionReceipt<ExecutionLog>,
+    >;
+
     /// Type representing an error that occurs when converting an RPC block.
     type RpcBlockConversionError: Debug + std::error::Error;
+
+    /// Type representing an error that occurs when converting an RPC receipt.
+    type RpcReceiptConversionError: Debug + std::error::Error;
 
     /// Type representing an error that occurs when converting an RPC
     /// transaction.
@@ -116,7 +125,9 @@ impl<ChainSpecT> SyncChainSpec for ChainSpecT where
 }
 
 impl ChainSpec for L1ChainSpec {
+    type ReceiptBuilder = edr_eth::receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
+    type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;
     type RpcTransactionConversionError = TransactionConversionError;
 
     fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self>> {

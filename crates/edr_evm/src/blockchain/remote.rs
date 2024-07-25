@@ -4,14 +4,15 @@ use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use edr_eth::{
     filter::OneOrMore, log::FilterLog, Address, BlockSpec, PreEip1898BlockSpec, B256, U256,
 };
-use edr_rpc_eth::{client::EthRpcClient, spec::BlockReceipt};
+use edr_rpc_eth::client::EthRpcClient;
 use revm::primitives::HashSet;
 use tokio::runtime;
 
 use super::storage::SparseBlockchainStorage;
 use crate::{
     blockchain::ForkedBlockchainError, chain_spec::ChainSpec,
-    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, RemoteBlock,
+    transaction::remote::EthRpcTransaction as _, Block, BlockReceipt, EthRpcBlock as _,
+    RemoteBlock,
 };
 
 #[derive(Debug)]
@@ -180,6 +181,10 @@ where
             .get_transaction_receipt(*transaction_hash)
             .await?
         {
+            let receipt = receipt
+                .try_into()
+                .map_err(ForkedBlockchainError::ReceiptConversion)?;
+
             Ok(Some({
                 let mut cache = RwLockUpgradableReadGuard::upgrade(cache).await;
                 cache.insert_receipt(receipt)?.clone()

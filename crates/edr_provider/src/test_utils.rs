@@ -1,9 +1,8 @@
 use std::{convert::Infallible, num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas, log::FilterLog, receipt::BlockReceipt, signature::secret_key_from_str,
-    transaction::EthTransactionRequest, trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, SpecId,
-    B256, U160, U256,
+    block::BlobGas, signature::secret_key_from_str, transaction::EthTransactionRequest,
+    trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, SpecId, B256, U160, U256,
 };
 use edr_evm::Block;
 
@@ -110,8 +109,7 @@ where
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: BlockReceipt<edr_eth::receipt::Execution<FilterLog>> =
-        serde_json::from_value(result.result)?;
+    let receipt: edr_rpc_eth::receipt::Block = serde_json::from_value(result.result)?;
     let contract_address = receipt.contract_address.expect("Call must create contract");
 
     Ok(contract_address)

@@ -8,6 +8,8 @@ pub mod client;
 /// Types related to forking a remote blockchain.
 pub mod fork;
 mod r#override;
+/// Types for Ethereum JSON-RPC API receipts.
+pub mod receipt;
 mod request_methods;
 /// Types for Ethereum JSON-RPC API specification.
 pub mod spec;

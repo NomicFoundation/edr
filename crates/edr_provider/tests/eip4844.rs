@@ -8,7 +8,7 @@ use edr_eth::{
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
         self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction as _,
-        Transaction as _,
+        Transaction as _, TransactionType as _,
     },
     AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
     KECCAK_EMPTY, U256,

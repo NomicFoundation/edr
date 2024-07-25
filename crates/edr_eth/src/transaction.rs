@@ -148,10 +148,7 @@ impl serde::Serialize for Type {
     }
 }
 
-pub trait SignedTransaction: Transaction {
-    /// Type of the transaction.
-    type Type;
-
+pub trait SignedTransaction: Transaction + TransactionType {
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256>;
@@ -169,14 +166,19 @@ pub trait SignedTransaction: Transaction {
 
     /// The hash of the transaction.
     fn transaction_hash(&self) -> &B256;
-
-    /// The type of the transaction.
-    fn transaction_type(&self) -> Self::Type;
 }
 
 pub trait TransactionMut {
     /// Sets the gas limit of the transaction.
     fn set_gas_limit(&mut self, gas_limit: u64);
+}
+
+pub trait TransactionType {
+    /// Type of the transaction.
+    type Type;
+
+    /// Returns the type of the transaction.
+    fn transaction_type(&self) -> Self::Type;
 }
 
 pub fn max_cost(transaction: &impl SignedTransaction) -> U256 {

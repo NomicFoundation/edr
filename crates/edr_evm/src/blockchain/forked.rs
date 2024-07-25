@@ -10,7 +10,6 @@ use edr_eth::{
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
-    spec::BlockReceipt,
 };
 use parking_lot::Mutex;
 use revm::{
@@ -31,7 +30,7 @@ use crate::{
     chain_spec::{ChainSpec, SyncChainSpec},
     hardfork::Activations,
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, LocalBlock, RandomHashGenerator, SyncBlock,
+    Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, RandomHashGenerator, SyncBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -65,7 +64,7 @@ where
 
 /// Error type for [`ForkedBlockchain`].
 #[derive(thiserror::Error)]
-#[derive_where(Debug; ChainSpecT::RpcBlockConversionError)]
+#[derive_where(Debug; ChainSpecT::RpcBlockConversionError, ChainSpecT::RpcReceiptConversionError)]
 pub enum ForkedBlockchainError<ChainSpecT: ChainSpec> {
     /// Remote block creation error
     #[error(transparent)]
@@ -85,6 +84,9 @@ pub enum ForkedBlockchainError<ChainSpecT: ChainSpec> {
         /// The block hash
         block_hash: B256,
     },
+    /// An error occurred when converting an RPC receipt to an internal type.
+    #[error(transparent)]
+    ReceiptConversion(ChainSpecT::RpcReceiptConversionError),
 }
 
 /// A blockchain that forked from a remote blockchain.

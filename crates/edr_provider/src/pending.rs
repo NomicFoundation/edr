@@ -1,17 +1,13 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use edr_eth::{
-    chain_spec::L1ChainSpec,
-    db::BlockHashRef,
-    log::FilterLog,
-    receipt::{self, BlockReceipt},
-    transaction::SignedTransaction as _,
-    HashSet, SpecId, B256, U256,
+    chain_spec::L1ChainSpec, db::BlockHashRef, transaction::SignedTransaction as _, HashSet,
+    SpecId, B256, U256,
 };
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     state::{StateDiff, StateError, StateOverride, SyncState},
-    BlockAndTotalDifficulty, LocalBlock, SyncBlock,
+    BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
 
 /// A blockchain with a pending block.
@@ -137,8 +133,7 @@ impl<'blockchain> Blockchain<L1ChainSpec> for BlockchainWithPending<'blockchain>
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt<receipt::Execution<FilterLog>>>>, Self::BlockchainError>
-    {
+    ) -> Result<Option<Arc<BlockReceipt<L1ChainSpec>>>, Self::BlockchainError> {
         let pending_receipt = self
             .pending_block
             .transaction_receipts()?

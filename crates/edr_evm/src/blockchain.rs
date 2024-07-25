@@ -9,7 +9,6 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 use auto_impl::auto_impl;
 use derive_where::derive_where;
 use edr_eth::{log::FilterLog, Address, B256, U256};
-use edr_rpc_eth::spec::BlockReceipt;
 use revm::{
     db::BlockHashRef,
     primitives::{HashSet, SpecId},
@@ -25,7 +24,7 @@ use crate::{
     chain_spec::{ChainSpec, SyncChainSpec},
     hardfork::Activations,
     state::{StateDiff, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
+    Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
 
 /// Combinatorial error for the blockchain API.

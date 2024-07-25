@@ -2,11 +2,10 @@ use alloy_rlp::{RlpDecodable, RlpEncodable};
 use edr_eth::{receipt::MapReceiptLogs, Bloom};
 
 use super::{Deposit, Execution};
-use crate::transaction;
 
 #[derive(RlpDecodable)]
 #[rlp(trailing)]
-pub(super) struct Eip2718OrDeposit<LogT> {
+pub(super) struct Eip658OrDeposit<LogT> {
     status: bool,
     cumulative_gas_used: u64,
     logs_bloom: Bloom,
@@ -15,26 +14,23 @@ pub(super) struct Eip2718OrDeposit<LogT> {
     deposit_receipt_version: Option<u8>,
 }
 
-impl<LogT> Eip2718OrDeposit<LogT> {
-    /// Converts the instance into an execution receipt.
-    pub fn into_execution_receipt(self, transaction_type: transaction::Type) -> Execution<LogT> {
-        if let Some(deposit_none) = self.deposit_nonce {
+impl<LogT> From<Eip658OrDeposit<LogT>> for Execution<LogT> {
+    fn from(value: Eip658OrDeposit<LogT>) -> Self {
+        if let Some(deposit_nonce) = value.deposit_nonce {
             Execution::Deposit(Deposit {
-                status: self.status,
-                cumulative_gas_used: self.cumulative_gas_used,
-                logs_bloom: self.logs_bloom,
-                logs: self.logs,
-                transaction_type,
-                deposit_nonce: deposit_none,
-                deposit_receipt_version: self.deposit_receipt_version,
+                status: value.status,
+                cumulative_gas_used: value.cumulative_gas_used,
+                logs_bloom: value.logs_bloom,
+                logs: value.logs,
+                deposit_nonce,
+                deposit_receipt_version: value.deposit_receipt_version,
             })
         } else {
-            Execution::Eip2718(super::Eip2718 {
-                status: self.status,
-                cumulative_gas_used: self.cumulative_gas_used,
-                logs_bloom: self.logs_bloom,
-                logs: self.logs,
-                transaction_type,
+            Execution::Eip658(super::Eip658 {
+                status: value.status,
+                cumulative_gas_used: value.cumulative_gas_used,
+                logs_bloom: value.logs_bloom,
+                logs: value.logs,
             })
         }
     }
@@ -77,13 +73,11 @@ where
     LogT: alloy_rlp::Encodable,
 {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        out.put_u8(self.transaction_type.into());
-
         Encodable::from(self).encode(out);
     }
 
     fn length(&self) -> usize {
-        1 + Encodable::from(self).length()
+        Encodable::from(self).length()
     }
 }
 
@@ -95,7 +89,6 @@ impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Deposit<NewLogT>> for Deposit<
             cumulative_gas_used: self.cumulative_gas_used,
             logs_bloom: self.logs_bloom,
             logs: self.logs.into_iter().map(map_fn).collect(),
-            transaction_type: self.transaction_type,
             deposit_nonce: self.deposit_nonce,
             deposit_receipt_version: self.deposit_receipt_version,
         }

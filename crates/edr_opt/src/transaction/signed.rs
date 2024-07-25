@@ -9,8 +9,8 @@ pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Legacy
 use edr_eth::{
     signature::Fakeable,
     transaction::{
-        SignedTransaction, Transaction, TransactionMut, TransactionValidation, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
+        SignedTransaction, Transaction, TransactionMut, TransactionType, TransactionValidation,
+        TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Address, Bytes, B256, U256,
 };
@@ -154,8 +154,6 @@ impl OptimismTransaction for Signed {
 }
 
 impl SignedTransaction for Signed {
-    type Type = super::Type;
-
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
         match self {
             Signed::PreEip155Legacy(_)
@@ -210,16 +208,6 @@ impl SignedTransaction for Signed {
             Signed::Eip1559(tx) => tx.transaction_hash(),
             Signed::Eip4844(tx) => tx.transaction_hash(),
             Signed::Deposit(tx) => tx.transaction_hash(),
-        }
-    }
-
-    fn transaction_type(&self) -> Self::Type {
-        match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => super::Type::Legacy,
-            Signed::Eip2930(_) => super::Type::Eip2930,
-            Signed::Eip1559(_) => super::Type::Eip1559,
-            Signed::Eip4844(_) => super::Type::Eip4844,
-            Signed::Deposit(_) => super::Type::Deposit,
         }
     }
 }
@@ -373,6 +361,20 @@ impl TransactionMut for Signed {
             Signed::Eip1559(tx) => tx.gas_limit = gas_limit,
             Signed::Eip4844(tx) => tx.gas_limit = gas_limit,
             Signed::Deposit(tx) => tx.gas_limit = gas_limit,
+        }
+    }
+}
+
+impl TransactionType for Signed {
+    type Type = super::Type;
+
+    fn transaction_type(&self) -> Self::Type {
+        match self {
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => super::Type::Legacy,
+            Signed::Eip2930(_) => super::Type::Eip2930,
+            Signed::Eip1559(_) => super::Type::Eip1559,
+            Signed::Eip4844(_) => super::Type::Eip4844,
+            Signed::Deposit(_) => super::Type::Deposit,
         }
     }
 }

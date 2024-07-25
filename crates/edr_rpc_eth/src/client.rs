@@ -16,17 +16,12 @@ use futures::StreamExt;
 use crate::{
     fork::ForkMetadata,
     request_methods::RequestMethod,
-    spec::{BlockReceipt, GetBlockNumber, RpcSpec},
+    spec::{GetBlockNumber, RpcSpec},
 };
 
 // Constrain parallel requests to avoid rate limiting on transport level and
 // thundering herd during backoff.
 const MAX_PARALLEL_REQUESTS: usize = 20;
-
-// where
-//     RpcSpecT::Block<B256>: Send + Sync,
-//     RpcSpecT::Block<RpcSpecT::Transaction>: Send + Sync,
-//     RpcSpecT::Transaction: Send + Sync,
 
 #[derive_where(Debug)]
 pub struct EthRpcClient<RpcSpecT: RpcSpec> {
@@ -265,7 +260,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
-    ) -> Result<Option<BlockReceipt<RpcSpecT>>, RpcClientError> {
+    ) -> Result<Option<RpcSpecT::RpcReceipt>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetTransactionReceipt(tx_hash))
             .await
@@ -277,7 +272,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_transaction_receipts(
         &self,
         hashes: impl IntoIterator<Item = &B256> + Debug,
-    ) -> Result<Option<Vec<BlockReceipt<RpcSpecT>>>, RpcClientError> {
+    ) -> Result<Option<Vec<RpcSpecT::RpcReceipt>>, RpcClientError> {
         let requests = hashes
             .into_iter()
             .map(|transaction_hash| self.get_transaction_receipt(*transaction_hash))
@@ -285,7 +280,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
 
         futures::stream::iter(requests)
             .buffered(MAX_PARALLEL_REQUESTS)
-            .collect::<Vec<Result<Option<BlockReceipt<RpcSpecT>>, RpcClientError>>>()
+            .collect::<Vec<Result<Option<RpcSpecT::RpcReceipt>, RpcClientError>>>()
             .await
             .into_iter()
             .collect()
@@ -398,11 +393,7 @@ mod tests {
     mod alchemy {
         use std::{fs::File, path::PathBuf};
 
-        use edr_eth::{
-            filter::OneOrMore,
-            receipt::{Receipt, RootOrStatus},
-            Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256,
-        };
+        use edr_eth::{filter::OneOrMore, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256};
         use edr_test_utils::env::get_alchemy_url;
         use walkdir::WalkDir;
 
@@ -839,7 +830,7 @@ mod tests {
             );
             assert_eq!(receipt.block_number, 0xa74fde);
             assert_eq!(receipt.contract_address, None);
-            assert_eq!(receipt.cumulative_gas_used(), 0x56c81b);
+            assert_eq!(receipt.cumulative_gas_used, 0x56c81b);
             assert_eq!(
                 receipt.effective_gas_price,
                 Some(U256::from_str_radix("1e449a99b8", 16).expect("couldn't parse data"))
@@ -853,8 +844,9 @@ mod tests {
                 receipt.gas_used,
                 u64::from_str_radix("a0f9", 16).expect("couldn't parse data")
             );
-            assert_eq!(receipt.logs().len(), 1);
-            assert_eq!(receipt.root_or_status(), RootOrStatus::Status(true));
+            assert_eq!(receipt.logs.len(), 1);
+            assert_eq!(receipt.state_root, None);
+            assert_eq!(receipt.status, Some(true));
             assert_eq!(
                 receipt.to,
                 Some(
@@ -864,7 +856,7 @@ mod tests {
             );
             assert_eq!(receipt.transaction_hash, hash);
             assert_eq!(receipt.transaction_index, 136);
-            assert_eq!(receipt.transaction_type(), None);
+            assert_eq!(receipt.transaction_type, Some(0));
         }
 
         #[tokio::test]

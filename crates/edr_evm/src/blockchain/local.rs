@@ -14,7 +14,6 @@ use edr_eth::{
     log::FilterLog,
     AccountInfo, Address, Bytes, B256, U256,
 };
-use edr_rpc_eth::spec::BlockReceipt;
 use revm::{
     db::BlockHashRef,
     primitives::{Bytecode, HashSet, SpecId},
@@ -28,7 +27,7 @@ use super::{
 use crate::{
     chain_spec::SyncChainSpec,
     state::{StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState},
-    Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
+    Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].

@@ -4,9 +4,10 @@ use derive_where::derive_where;
 use edr_eth::{
     block::Header, transaction::SignedTransaction as _, withdrawal::Withdrawal, B256, U256,
 };
-use edr_rpc_eth::{client::EthRpcClient, spec::BlockReceipt};
+use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 
+use super::BlockReceipt;
 use crate::{
     blockchain::{BlockchainError, ForkedBlockchainError},
     chain_spec::{ChainSpec, SyncChainSpec},
@@ -122,8 +123,9 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
             block_hash: *self.hash(),
         })?
         .into_iter()
-        .map(Arc::new)
-        .collect();
+        .map(|receipt| receipt.try_into().map(Arc::new))
+        .collect::<Result<_, _>>()
+        .map_err(ForkedBlockchainError::ReceiptConversion)?;
 
         self.receipts
             .set(receipts.clone())

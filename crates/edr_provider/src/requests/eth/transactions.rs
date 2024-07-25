@@ -6,12 +6,12 @@ use edr_eth::{
     rlp::Decodable,
     transaction::{
         pooled::PooledTransaction, request::TransactionRequestAndSender, EthTransactionRequest,
-        SignedTransaction, Transaction as _, TxKind,
+        SignedTransaction, Transaction as _, TransactionType as _, TxKind,
     },
     Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{blockchain::BlockchainError, trace::Trace, transaction, SyncBlock};
-use edr_rpc_eth::spec::BlockReceipt;
+use edr_rpc_eth::receipt::ToRpcReceipt;
 
 use crate::{
     data::{BlockDataForTransaction, ProviderData, TransactionAndBlock},
@@ -108,21 +108,22 @@ pub fn handle_get_transaction_by_hash<LoggerErrorT: Debug, TimerT: Clone + TimeS
 pub fn handle_get_transaction_receipt<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &ProviderData<LoggerErrorT, TimerT>,
     transaction_hash: B256,
-) -> Result<Option<Arc<BlockReceipt<L1ChainSpec>>>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::receipt::Block>, ProviderError<LoggerErrorT>> {
     let receipt = data.transaction_receipt(&transaction_hash)?;
 
-    // The JSON-RPC layer should not return the gas price as effective gas price for
-    // receipts in pre-London hardforks.
-    if let Some(receipt) = receipt.as_ref() {
-        if data.spec_id() < SpecId::LONDON && receipt.effective_gas_price.is_some() {
-            let mut receipt = (**receipt).clone();
-            receipt.inner.effective_gas_price = None;
+    Ok(receipt.map(|receipt| receipt.to_rpc_receipt(data.spec_id())))
 
-            return Ok(Some(Arc::new(receipt)));
-        }
-    }
+    // The JSON-RPC layer should not return the gas price as effective gas price
+    // for receipts in pre-London hardforks.
+    // if let Some(receipt) = receipt.as_ref() {
+    //     if data.spec_id() < SpecId::LONDON &&
+    // receipt.effective_gas_price.is_some() {         let mut receipt =
+    // (**receipt).clone();         receipt.inner.effective_gas_price =
+    // None;
 
-    Ok(receipt)
+    //         return Ok(Some(Arc::new(receipt)));
+    //     }
+    // }
 }
 
 fn transaction_from_block(

@@ -2,12 +2,11 @@ use std::{marker::PhantomData, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{block::PartialHeader, Address, B256, U256};
-use edr_rpc_eth::spec::BlockReceipt;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use revm::primitives::{HashMap, HashSet};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{chain_spec::ChainSpec, state::StateDiff, Block, LocalBlock};
+use crate::{chain_spec::ChainSpec, state::StateDiff, Block, BlockReceipt, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.

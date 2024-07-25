@@ -1,13 +1,98 @@
-use std::sync::OnceLock;
+/// Types for Optimism RPC receipt.
+pub mod receipt;
+/// Types for Optimism RPC transaction.
+pub mod transaction;
 
-use edr_eth::{B256, U128};
-use edr_evm::transaction::{remote::EthRpcTransaction, TxKind};
-use edr_rpc_eth::TransactionConversionError as L1ConversionError;
+use edr_eth::{env::SignedAuthorization, log::FilterLog, Address, Bloom, B256, U128, U256};
+use serde::{Deserialize, Serialize};
 
-use crate::transaction;
+/// Transaction receipt
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockReceipt {
+    /// Hash of the block this transaction was included within.
+    pub block_hash: B256,
+    /// Number of the block this transaction was included within.
+    #[serde(default, with = "alloy_serde::quantity")]
+    pub block_number: u64,
+    /// Transaction Hash.
+    pub transaction_hash: B256,
+    /// Index within the block.
+    #[serde(default, with = "alloy_serde::quantity")]
+    pub transaction_index: u64,
+    /// Transaction type.
+    #[serde(default, with = "alloy_serde::quantity::opt", rename = "type")]
+    pub transaction_type: Option<u8>,
+    /// Address of the sender
+    pub from: Address,
+    /// Address of the receiver. None when its a contract creation transaction.
+    pub to: Option<Address>,
+    /// The sum of gas used by this transaction and all preceding transactions
+    /// in the same block.
+    #[serde(with = "alloy_serde::quantity")]
+    pub cumulative_gas_used: u64,
+    /// Gas used by this transaction alone.
+    #[serde(with = "alloy_serde::quantity")]
+    pub gas_used: u64,
+    /// Contract address created, or None if not a deployment.
+    pub contract_address: Option<Address>,
+    /// Logs generated within this transaction
+    pub logs: Vec<FilterLog>,
+    /// Bloom filter of the logs generated within this transaction
+    pub logs_bloom: Bloom,
+    /// The post-transaction stateroot (pre-Byzantium)
+    ///
+    /// EIP98 makes this optional field, if it's missing then skip serializing
+    /// it
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "root")]
+    pub state_root: Option<B256>,
+    /// Status code indicating whether the transaction executed successfully
+    /// (post-Byzantium)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub status: Option<bool>,
+    /// The price paid post-execution by the transaction (i.e. base fee +
+    /// priority fee). Both fields in 1559-style transactions are maximums
+    /// (max fee + max priority fee), the amount that's actually paid by
+    /// users can only be determined post-execution
+    // #[serde(with = "alloy_serde::quantity::opt")]
+    pub effective_gas_price: Option<U256>,
+    /// Deposit nonce for Optimism deposit transactions.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub deposit_nonce: Option<u64>,
+    /// Deposit receipt version for Optimism deposit transactions
+    ///
+    /// The deposit receipt version was introduced in Canyon to indicate an
+    /// update to how receipt hashes should be computed when set. The state
+    /// transition process ensures this is only set for post-Canyon deposit
+    /// transactions.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub deposit_receipt_version: Option<u8>,
+    // /// The post-transaction stateroot (pre Byzantium)
+    // ///
+    // /// EIP98 makes this optional field, if it's missing then skip serializing it
+    // #[serde(skip_serializing_if = "Option::is_none", rename = "root")]
+    // pub state_root: Option<B256>,
+    /// The authorization list is a list of tuples that store the address to
+    /// code which the signer desires to execute in the context of their
+    /// EOA.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_list: Option<Vec<SignedAuthorization>>,
+}
 
 /// Optimism RPC transaction.
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {
     #[serde(flatten)]
@@ -22,93 +107,4 @@ pub struct Transaction {
     /// therefore exempt from the L2 gas limit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_system_tx: Option<bool>,
-}
-
-impl Transaction {
-    /// Returns whether the transaction is a legacy transaction.
-    pub fn is_legacy(&self) -> bool {
-        matches!(self.l1.transaction_type, None | Some(0)) && matches!(self.l1.v, 27 | 28)
-    }
-}
-
-impl EthRpcTransaction for Transaction {
-    fn block_hash(&self) -> Option<&B256> {
-        self.l1.block_hash()
-    }
-}
-
-impl TryFrom<Transaction> for transaction::signed::Deposit {
-    type Error = ConversionError;
-
-    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
-        let transaction = Self {
-            source_hash: value.source_hash.ok_or(ConversionError::SourceHash)?,
-            from: value.l1.from,
-            to: if let Some(to) = value.l1.to {
-                TxKind::Call(to)
-            } else {
-                TxKind::Create
-            },
-            mint: value.mint.map_or(0, |mint| mint.to()),
-            value: value.l1.value,
-            gas_limit: value.l1.gas.to(),
-            is_system_tx: value.is_system_tx.unwrap_or(false),
-            data: value.l1.input,
-            hash: OnceLock::new(),
-            rlp_encoding: OnceLock::new(),
-        };
-
-        Ok(transaction)
-    }
-}
-
-impl TryFrom<Transaction> for transaction::Signed {
-    type Error = ConversionError;
-
-    fn try_from(value: Transaction) -> Result<Self, Self::Error> {
-        let transaction_type = match value
-            .l1
-            .transaction_type
-            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
-        {
-            Ok(r#type) => r#type,
-            Err(r#type) => {
-                log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction");
-
-                // As the transaction type is not 0 or `None`, this will always result in a
-                // post-EIP 155 legacy transaction.
-                transaction::Type::Legacy
-            }
-        };
-
-        let transaction = match transaction_type {
-            transaction::Type::Legacy => {
-                if value.is_legacy() {
-                    Self::PreEip155Legacy(value.l1.into())
-                } else {
-                    Self::PostEip155Legacy(value.l1.into())
-                }
-            }
-            transaction::Type::Eip2930 => Self::Eip2930(value.l1.try_into()?),
-            transaction::Type::Eip1559 => Self::Eip1559(value.l1.try_into()?),
-            transaction::Type::Eip4844 => Self::Eip4844(value.l1.try_into()?),
-            transaction::Type::Deposit => Self::Deposit(value.try_into()?),
-        };
-
-        Ok(transaction)
-    }
-}
-
-/// Error that occurs when trying to convert the JSON-RPC `Transaction` type.
-#[derive(Debug, thiserror::Error)]
-pub enum ConversionError {
-    /// L1 conversion error
-    #[error(transparent)]
-    L1(#[from] L1ConversionError),
-    /// Missing mint
-    #[error("Missing mint")]
-    Mint,
-    /// Missing source hash
-    #[error("Missing source hash")]
-    SourceHash,
 }
