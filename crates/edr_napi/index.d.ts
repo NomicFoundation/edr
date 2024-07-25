@@ -707,6 +707,11 @@ export function isPush(opcode: Opcode): boolean
 export function isJump(opcode: Opcode): boolean
 export function isCall(opcode: Opcode): boolean
 export function isCreate(opcode: Opcode): boolean
+export interface ContractAndFunctionName {
+  contractName: string
+  functionName: string | undefined
+}
+export function initializeVmTraceDecoder(vmTraceDecoder: VmTraceDecoder, tracingConfig: any): void
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
@@ -847,6 +852,13 @@ export class Exit {
   get kind(): ExitCode
   isError(): boolean
   getReason(): string
+}
+export class VmTraceDecoder {
+  constructor(contractsIdentifier: ContractsIdentifier)
+  addBytecode(bytecode: Bytecode): void
+  getBytecodeForCall(code: Uint8Array, isCreate: boolean): Bytecode | undefined
+  tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace): PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace
+  getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName
 }
 export type VMTracer = VmTracer
 /** N-API bindings for the Rust port of `VMTracer` from Hardhat. */

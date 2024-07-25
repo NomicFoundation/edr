@@ -25,6 +25,7 @@ mod contracts_identifier;
 mod exit;
 mod message_trace;
 mod opcodes;
+mod vm_trace_decoder;
 mod vm_tracer;
 
 #[napi(object)]

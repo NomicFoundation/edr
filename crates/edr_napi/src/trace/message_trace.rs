@@ -1,7 +1,7 @@
 //! Bridging type for the existing `MessageTrace` interface in Hardhat.
 
 use napi::{
-    bindgen_prelude::{BigInt, ClassInstance, Either3, Either4, Uint8Array, Undefined},
+    bindgen_prelude::{BigInt, ClassInstance, Either3, Either4, Object, Uint8Array, Undefined},
     Either, Env,
 };
 use napi_derive::napi;
@@ -40,7 +40,8 @@ pub struct CreateMessageTrace {
     pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>>,
     // TODO: Will be later filled on the JS side but we should port to ContractsIdentifier in Rust
     // This is explicitly `any` on the JS side to side-step the type-checking until we port
-    pub bytecode: Option<Value>,
+    #[napi(ts_type = "any")]
+    pub bytecode: Option<Object>,
     pub number_of_subtraces: u32,
     // `CreateMessageTrace`
     // NOTE: we can't use Option<T> as this is converted to an optional property,
@@ -61,7 +62,8 @@ pub struct CallMessageTrace {
     pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>>,
     // TODO: Will be later filled on the JS side but we should port to ContractsIdentifier in Rust
     // This is explicitly `any` on the JS side to side-step the type-checking until we port
-    pub bytecode: Option<Value>,
+    #[napi(ts_type = "any")]
+    pub bytecode: Option<Object>,
     pub number_of_subtraces: u32,
     // `CallMessageTrace`
     pub calldata: Uint8Array,

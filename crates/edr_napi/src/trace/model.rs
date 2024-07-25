@@ -535,12 +535,19 @@ impl Contract {
         selector: Uint8Array,
         env: Env,
     ) -> napi::Result<Either<JsObject, Undefined>> {
-        let selector_hex = hex::encode(&*selector);
-
-        match self.selector_hex_to_function.get(&selector_hex) {
+        match self.get_function_from_selector_inner(selector.as_ref()) {
             Some(func) => func.as_object(env).map(Either::A),
             None => Ok(Either::B(())),
         }
+    }
+
+    pub fn get_function_from_selector_inner(
+        &self,
+        selector: &[u8],
+    ) -> Option<&Rc<ClassInstanceRef<ContractFunction>>> {
+        let selector_hex = hex::encode(selector);
+
+        self.selector_hex_to_function.get(&selector_hex)
     }
 
     /// We compute selectors manually, which is particularly hard. We do this
