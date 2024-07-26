@@ -10,7 +10,7 @@ use self::radix_tree::RadixNode;
 use crate::opcodes::opcode_length;
 
 /// Temporary stub
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum BytecodeType {
     /// Temporary stub
     Runtime,
@@ -19,14 +19,14 @@ pub enum BytecodeType {
 }
 
 /// Temporary stub
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ImmutableReference {
     offset: usize,
     length: usize,
 }
 
 /// Temporary stub
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Bytecode {
     normalized_code: Bytes,
     bytecode_type: BytecodeType,

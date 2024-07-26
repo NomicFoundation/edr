@@ -54,6 +54,7 @@ pub struct LoggerConfig {
     #[napi(ts_type = "(inputs: Buffer[]) => string[]")]
     pub decode_console_log_inputs_callback: JsFunction,
     #[napi(ts_type = "(code: Buffer, calldata?: Buffer) => ContractAndFunctionName")]
+    /// Used to resolve the contract and function name when logging.
     pub get_contract_and_function_name_callback: JsFunction,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
     pub print_line_callback: JsFunction,
