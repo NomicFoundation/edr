@@ -21,7 +21,6 @@ pub struct VmTracer {
     tracing_steps: Vec<Step>,
     message_traces: Vec<MessageTraceRefCell>,
     last_error: Option<&'static str>,
-    max_precompile_number: u64,
 }
 
 impl Default for VmTracer {
@@ -30,17 +29,19 @@ impl Default for VmTracer {
     }
 }
 
+// Temporarily hardcoded to remove the need of using ethereumjs' common and evm
+// TODO(#565): We should be using a more robust check by checking the hardfork
+// config (and potentially other config like optional support for RIP precompiles,
+// which start at 0x100).
+const MAX_PRECOMPILE_NUMBER: u16 = 10;
+
 impl VmTracer {
     /// Creates a new [`VmTracer`].
     pub const fn new() -> Self {
-        // TODO: temporarily hardcoded to remove the need of using ethereumjs' common
-        // and evm here
-        let max_precompile_number = 10;
         VmTracer {
             tracing_steps: vec![],
             message_traces: vec![],
             last_error: None,
-            max_precompile_number,
         }
     }
 
@@ -123,7 +124,11 @@ impl VmTracer {
             let to = message.to.unwrap();
             let to_as_bigint = U160::from_be_bytes(**to);
 
-            if to_as_bigint <= U160::from(self.max_precompile_number) {
+            if to_as_bigint <= U160::from(MAX_PRECOMPILE_NUMBER) {
+                let precompile: u32 = to_as_bigint
+                    .try_into()
+                    .expect("MAX_PRECOMPILE_NUMBER is of type u16 so it fits");
+
                 let precompile_trace = PrecompileMessageTrace {
                     base: BaseMessageTrace {
                         value: message.value,
@@ -132,8 +137,7 @@ impl VmTracer {
                         depth: message.depth,
                         gas_used: 0,
                     },
-                    // The max precompile number is 10, so we can safely unwrap here
-                    precompile: to_as_bigint.as_limbs()[0] as u32,
+                    precompile,
                     calldata: message.data,
                 };
 

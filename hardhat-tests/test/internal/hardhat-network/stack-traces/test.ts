@@ -533,8 +533,8 @@ async function runTest(
 
     compareConsoleLogs(logger.lines, tx.consoleLogs);
 
-    // @ts-ignore - this is a private field but don't `as any` for go-to-def to work
-    const vmTraceDecoder = provider._vmTraceDecoder as VmTraceDecoder;
+    // eslint-disable-next-line @typescript-eslint/dot-notation
+    const vmTraceDecoder = provider["_vmTraceDecoder"] as VmTraceDecoder;
     const decodedTrace = vmTraceDecoder.tryToDecodeMessageTrace(trace);
 
     try {
