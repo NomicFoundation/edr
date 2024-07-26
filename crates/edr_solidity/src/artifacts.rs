@@ -13,12 +13,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildInfo {
-    _format: String,
-    id: String,
-    solc_version: String,
-    solc_long_version: String,
-    input: CompilerInput,
-    output: CompilerOutput,
+    #[serde(rename = "_format")]
+    pub _format: String,
+    pub id: String,
+    pub solc_version: String,
+    pub solc_long_version: String,
+    pub input: CompilerInput,
+    pub output: CompilerOutput,
 }
 
 /// References: of source name -> library name -> link references.
