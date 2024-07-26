@@ -149,6 +149,7 @@ export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
   decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
+  /** Used to resolve the contract and function name when logging. */
   getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
   printLineCallback: (message: string, replace: boolean) => void
 }
@@ -386,6 +387,63 @@ export interface SourceMapLocation {
 export interface SourceMap {
   location: SourceMapLocation
   jumpType: JumpType
+}
+/** Represents the exit code of the EVM. */
+export const enum ExitCode {
+  /** Execution was successful. */
+  SUCCESS = 0,
+  /** Execution was reverted. */
+  REVERT = 1,
+  /** Execution ran out of gas. */
+  OUT_OF_GAS = 2,
+  /** Execution encountered an internal error. */
+  INTERNAL_ERROR = 3,
+  /** Execution encountered an invalid opcode. */
+  INVALID_OPCODE = 4,
+  /** Execution encountered a stack underflow. */
+  STACK_UNDERFLOW = 5,
+  /** Create init code size exceeds limit (runtime). */
+  CODESIZE_EXCEEDS_MAXIMUM = 6,
+  /** Create collision. */
+  CREATE_COLLISION = 7
+}
+export interface EvmStep {
+  pc: number
+}
+export interface PrecompileMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  precompile: number
+  calldata: Uint8Array
+}
+export interface CreateMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  code: Uint8Array
+  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
+  bytecode?: any
+  numberOfSubtraces: number
+  deployedContract: Uint8Array | undefined
+}
+export interface CallMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  code: Uint8Array
+  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
+  bytecode?: any
+  numberOfSubtraces: number
+  calldata: Uint8Array
+  address: Uint8Array
+  codeAddress: Uint8Array
 }
 export const enum Opcode {
   STOP = 0,
@@ -782,6 +840,20 @@ export class Contract {
   get fallback(): ContractFunction | undefined
   get receive(): ContractFunction | undefined
   getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined
+}
+export class Exit {
+  get kind(): ExitCode
+  isError(): boolean
+  getReason(): string
+}
+export type VMTracer = VmTracer
+/** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
+export class VmTracer {
+  constructor()
+  /** Observes a trace, collecting information about the execution of the EVM. */
+  observe(trace: RawTrace): void
+  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace | undefined
+  getLastError(): Error | undefined
 }
 export class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
