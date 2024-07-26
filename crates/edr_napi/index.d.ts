@@ -347,7 +347,6 @@ export interface SubscriptionEvent {
   result: any
 }
 export function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<Bytecode>
-export function getLibraryAddressPositions(bytecodeOutput: any): Array<number>
 export function linkHexStringBytecode(code: string, address: string, position: number): string
 export const enum ContractFunctionType {
   CONSTRUCTOR = 0,
@@ -706,8 +705,6 @@ export const enum Opcode {
 export function opcodeToString(opcode: Opcode): string
 export function isPush(opcode: Opcode): boolean
 export function isJump(opcode: Opcode): boolean
-export function getPushLength(opcode: Opcode): number
-export function getOpcodeLength(opcode: Opcode): number
 export function isCall(opcode: Opcode): boolean
 export function isCreate(opcode: Opcode): boolean
 export interface TracingMessage {
@@ -840,6 +837,11 @@ export class Contract {
   get fallback(): ContractFunction | undefined
   get receive(): ContractFunction | undefined
   getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined
+}
+export class ContractsIdentifier {
+  constructor(enableCache?: boolean | undefined | null)
+  addBytecode(bytecode: Bytecode): void
+  getBytecodeForCall(code: Uint8Array, isCreate: boolean): Bytecode | undefined
 }
 export class Exit {
   get kind(): ExitCode

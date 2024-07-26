@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, getLibraryAddressPositions, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, getPushLength, getOpcodeLength, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -320,7 +320,6 @@ module.exports.Response = Response
 module.exports.SuccessReason = SuccessReason
 module.exports.ExceptionalHalt = ExceptionalHalt
 module.exports.createModelsAndDecodeBytecodes = createModelsAndDecodeBytecodes
-module.exports.getLibraryAddressPositions = getLibraryAddressPositions
 module.exports.linkHexStringBytecode = linkHexStringBytecode
 module.exports.SourceFile = SourceFile
 module.exports.SourceLocation = SourceLocation
@@ -334,14 +333,13 @@ module.exports.jumpTypeToString = jumpTypeToString
 module.exports.Bytecode = Bytecode
 module.exports.ContractType = ContractType
 module.exports.Contract = Contract
+module.exports.ContractsIdentifier = ContractsIdentifier
 module.exports.Exit = Exit
 module.exports.ExitCode = ExitCode
 module.exports.Opcode = Opcode
 module.exports.opcodeToString = opcodeToString
 module.exports.isPush = isPush
 module.exports.isJump = isJump
-module.exports.getPushLength = getPushLength
-module.exports.getOpcodeLength = getOpcodeLength
 module.exports.isCall = isCall
 module.exports.isCreate = isCreate
 module.exports.VmTracer = VmTracer

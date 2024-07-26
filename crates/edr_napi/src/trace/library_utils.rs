@@ -1,16 +1,8 @@
 //! Port of the hardhat-network's `library-utils.ts` to Rust.
 
 use edr_evm::hex;
-use edr_solidity::{artifacts::CompilerOutputBytecode, library_utils};
 use napi::bindgen_prelude::Buffer;
 use napi_derive::napi;
-
-#[napi]
-pub fn get_library_address_positions(bytecode_output: serde_json::Value) -> Vec<u32> {
-    let bytecode_output: CompilerOutputBytecode = serde_json::from_value(bytecode_output).unwrap();
-
-    library_utils::get_library_address_positions(&bytecode_output)
-}
 
 /// Normalizes the compiler output bytecode by replacing the library addresses
 /// with zeros.
