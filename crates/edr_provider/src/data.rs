@@ -591,6 +591,21 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.blockchain.chain_id()
     }
 
+    pub fn chain_id_at_block_spec(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderError<LoggerErrorT>> {
+        let block_number = self.block_number_by_block_spec(block_spec)?;
+
+        let chain_id = if let Some(block_number) = block_number {
+            self.blockchain.chain_id_at_block_number(block_number)?
+        } else {
+            self.blockchain.chain_id()
+        };
+
+        Ok(chain_id)
+    }
+
     pub fn coinbase(&self) -> Address {
         self.beneficiary
     }
@@ -1909,9 +1924,9 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(transaction_hash)
     }
 
-    /// Creates a configuration, taking into the hardfork at the provided
-    /// `BlockSpec`. If none is provided, assumes the hardfork for newly
-    /// mined blocks.
+    /// Creates a configuration, taking into the hardfork and chain id at the
+    /// provided `BlockSpec`. If none is provided, assumes the hardfork for
+    /// newly mined blocks.
     fn create_evm_config(
         &self,
         block_spec: Option<&BlockSpec>,
@@ -1927,8 +1942,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.blockchain.spec_id()
         };
 
+        let chain_id = if let Some(block_number) = block_number {
+            self.blockchain.chain_id_at_block_number(block_number)?
+        } else {
+            self.blockchain.chain_id()
+        };
+
         let mut cfg_env = CfgEnv::default();
-        cfg_env.chain_id = self.blockchain.chain_id();
+        cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
             Some(usize::MAX)
         } else {
@@ -2978,6 +2999,11 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
         assert_eq!(chain_id, fixture.config.chain_id);
+
+        let chain_id_at_block = fixture
+            .provider_data
+            .chain_id_at_block_spec(&BlockSpec::Number(1))?;
+        assert_eq!(chain_id_at_block, 1);
 
         Ok(())
     }

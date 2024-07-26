@@ -124,6 +124,14 @@ where
     /// Retrieves the instances chain ID.
     fn chain_id(&self) -> u64;
 
+    /// Retrieves the chain ID of the block at the provided number.
+    /// The chain ID can be different in fork mode pre- and post-fork block
+    /// number.
+    fn chain_id_at_block_number(&self, _block_number: u64) -> Result<u64, Self::BlockchainError> {
+        // Chain id only depends on the block number in fork mode
+        Ok(self.chain_id())
+    }
+
     /// Retrieves the last block in the blockchain.
     fn last_block(
         &self,
