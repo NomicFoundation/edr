@@ -41,9 +41,7 @@ pub struct CreateMessageTrace {
     // `BaseEvmMessageTrace`
     pub code: Uint8Array,
     pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>>,
-    // TODO: Will be later filled on the JS side but we should port to ContractsIdentifier in Rust
-    // This is explicitly `any` on the JS side to side-step the type-checking until we port
-    #[napi(ts_type = "any")]
+    #[napi(ts_type = "Bytecode")]
     pub bytecode: Option<Object>,
     pub number_of_subtraces: u32,
     // `CreateMessageTrace`
@@ -68,9 +66,7 @@ pub struct CallMessageTrace {
     // `BaseEvmMessageTrace`
     pub code: Uint8Array,
     pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>>,
-    // TODO: Will be later filled on the JS side but we should port to ContractsIdentifier in Rust
-    // This is explicitly `any` on the JS side to side-step the type-checking until we port
-    #[napi(ts_type = "any")]
+    #[napi(ts_type = "Bytecode")]
     pub bytecode: Option<Object>,
     pub number_of_subtraces: u32,
     // `CallMessageTrace`

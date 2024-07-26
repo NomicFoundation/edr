@@ -426,7 +426,7 @@ export interface CreateMessageTrace {
   depth: number
   code: Uint8Array
   steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
-  bytecode?: any
+  bytecode?: Bytecode
   numberOfSubtraces: number
   deployedContract?: Uint8Array | undefined
 }
@@ -438,7 +438,7 @@ export interface CallMessageTrace {
   depth: number
   code: Uint8Array
   steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
-  bytecode?: any
+  bytecode?: Bytecode
   numberOfSubtraces: number
   calldata: Uint8Array
   address: Uint8Array
