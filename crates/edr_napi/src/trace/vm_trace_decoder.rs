@@ -64,55 +64,16 @@ impl VmTraceDecoder {
             .get_bytecode_for_call(code, is_create, env)
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn try_to_decode_message_trace(
         &self,
-        message_trace: Either3<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>,
+        message_trace: Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>,
         env: Env,
-    ) -> napi::Result<Either3<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>> {
+    ) -> napi::Result<Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>> {
         match message_trace {
             precompile @ Either3::A(..) => Ok(precompile),
             // NOTE: The branches below are the same with the difference of `is_create`
-            Either3::B(mut create) => {
-                let is_create = true;
-
-                let bytecode = self
-                    .contracts_identifier
-                    .borrow_mut(env)?
-                    .get_bytecode_for_call(create.code.clone(), is_create, env)?;
-
-                let steps: Vec<_> = create
-                    .steps
-                    .into_iter()
-                    .map(|step| {
-                        let trace = match step {
-                            Either4::A(step) => return Ok(Either4::A(step)),
-                            Either4::B(precompile) => Either3::A(precompile),
-                            Either4::C(create) => Either3::B(create),
-                            Either4::D(call) => Either3::C(call),
-                        };
-
-                        Ok(match self.try_to_decode_message_trace(trace, env)? {
-                            Either3::A(precompile) => Either4::B(precompile),
-                            Either3::B(create) => Either4::C(create),
-                            Either3::C(call) => Either4::D(call),
-                        })
-                    })
-                    .collect::<napi::Result<_>>()?;
-
-                match bytecode {
-                    Either::A(bytecode) => {
-                        create.bytecode = Some(bytecode);
-                    }
-                    Either::B(()) => {
-                        create.bytecode = None;
-                    }
-                }
-                create.steps = steps;
-
-                Ok(Either3::B(create))
-            }
-            Either3::C(mut call) => {
+            Either3::B(mut call) => {
                 let is_create = false;
 
                 let bytecode = self
@@ -149,7 +110,46 @@ impl VmTraceDecoder {
                 }
                 call.steps = steps;
 
-                Ok(Either3::C(call))
+                Ok(Either3::B(call))
+            }
+            Either3::C(mut create @ CreateMessageTrace { .. }) => {
+                let is_create = true;
+
+                let bytecode = self
+                    .contracts_identifier
+                    .borrow_mut(env)?
+                    .get_bytecode_for_call(create.code.clone(), is_create, env)?;
+
+                let steps: Vec<_> = create
+                    .steps
+                    .into_iter()
+                    .map(|step| {
+                        let trace = match step {
+                            Either4::A(step) => return Ok(Either4::A(step)),
+                            Either4::B(precompile) => Either3::A(precompile),
+                            Either4::C(create) => Either3::B(create),
+                            Either4::D(call) => Either3::C(call),
+                        };
+
+                        Ok(match self.try_to_decode_message_trace(trace, env)? {
+                            Either3::A(precompile) => Either4::B(precompile),
+                            Either3::B(create) => Either4::C(create),
+                            Either3::C(call) => Either4::D(call),
+                        })
+                    })
+                    .collect::<napi::Result<_>>()?;
+
+                match bytecode {
+                    Either::A(bytecode) => {
+                        create.bytecode = Some(bytecode);
+                    }
+                    Either::B(()) => {
+                        create.bytecode = None;
+                    }
+                }
+                create.steps = steps;
+
+                Ok(Either3::C(create))
             }
         }
     }

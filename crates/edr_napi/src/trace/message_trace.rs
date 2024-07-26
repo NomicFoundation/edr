@@ -27,6 +27,10 @@ pub struct PrecompileMessageTrace {
     pub calldata: Uint8Array,
 }
 
+// NOTE: Because of the hack below for `deployed_contract`, now the `CallMessageTrace`
+// is a strict superset of `CreateMessageTrace`, so we need to take care to keep
+// the order consistent from most-specific to least-specific in the `Either{3,4}` type
+// when converting to or from N-API.
 #[napi(object)]
 pub struct CreateMessageTrace {
     // `BaseMessageTrace`
@@ -37,16 +41,21 @@ pub struct CreateMessageTrace {
     pub depth: u32,
     // `BaseEvmMessageTrace`
     pub code: Uint8Array,
-    pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>>,
+    pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>>,
     // TODO: Will be later filled on the JS side but we should port to ContractsIdentifier in Rust
     // This is explicitly `any` on the JS side to side-step the type-checking until we port
     #[napi(ts_type = "any")]
     pub bytecode: Option<Object>,
     pub number_of_subtraces: u32,
     // `CreateMessageTrace`
-    // NOTE: we can't use Option<T> as this is converted to an optional property,
-    // which is not backwards compatible with the current JS interface
-    pub deployed_contract: Either<Uint8Array, Undefined>,
+    // HACK: It seems that `Either<Uint8Array, Undefined>` means exactly what we
+    // want (a required property but can be explicitly `undefined`) but internally
+    // the napi-rs treats an encountered `Undefined` like a missing property
+    // and it throws a validation error. While not 100% backwards compatible, we
+    // work around using an optional type.
+    // See https://github.com/napi-rs/napi-rs/issues/1986 for context on the PR
+    // that introduced this behavior.
+    pub deployed_contract: Option<Either<Uint8Array, Undefined>>,
 }
 
 #[napi(object)]
@@ -59,7 +68,7 @@ pub struct CallMessageTrace {
     pub depth: u32,
     // `BaseEvmMessageTrace`
     pub code: Uint8Array,
-    pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>>,
+    pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>>,
     // TODO: Will be later filled on the JS side but we should port to ContractsIdentifier in Rust
     // This is explicitly `any` on the JS side to side-step the type-checking until we port
     #[napi(ts_type = "any")]
@@ -79,7 +88,7 @@ pub struct CallMessageTrace {
 pub fn message_trace_step_to_napi(
     value: edr_solidity::message_trace::MessageTraceStep,
     env: Env,
-) -> napi::Result<Either4<EvmStep, PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>> {
+) -> napi::Result<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>> {
     Ok(match value {
         edr_solidity::message_trace::MessageTraceStep::Evm(step) => {
             Either4::A(EvmStep { pc: step.pc as u32 })
@@ -90,8 +99,8 @@ pub fn message_trace_step_to_napi(
             let owned = msg.borrow().clone();
             match message_trace_to_napi(owned, env)? {
                 Either3::A(precompile) => Either4::B(precompile),
-                Either3::B(create) => Either4::C(create),
-                Either3::C(call) => Either4::D(call),
+                Either3::B(call) => Either4::C(call),
+                Either3::C(create) => Either4::D(create),
             }
         }
     })
@@ -102,7 +111,7 @@ pub fn message_trace_step_to_napi(
 pub fn message_trace_to_napi(
     value: edr_solidity::message_trace::MessageTrace,
     env: Env,
-) -> napi::Result<Either3<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace>> {
+) -> napi::Result<Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>> {
     Ok(match value {
         edr_solidity::message_trace::MessageTrace::Precompile(precompile) => {
             Either3::A(PrecompileMessageTrace {
@@ -119,34 +128,7 @@ pub fn message_trace_to_napi(
                 calldata: Uint8Array::from(precompile.calldata.as_ref()),
             })
         }
-        edr_solidity::message_trace::MessageTrace::Create(create) => {
-            Either3::B(CreateMessageTrace {
-                value: BigInt {
-                    sign_bit: false,
-                    words: create.base.base.value.as_limbs().to_vec(),
-                },
-                return_data: Uint8Array::from(create.base.base.return_data.as_ref()),
-                exit: Exit(create.base.base.exit.into()).into_instance(env)?,
-                gas_used: BigInt::from(create.base.base.gas_used),
-                depth: create.base.base.depth as u32,
-                code: Uint8Array::from(create.base.code.as_ref()),
-                steps: create
-                    .base
-                    .steps
-                    .into_iter()
-                    .map(|step| message_trace_step_to_napi(step, env))
-                    .collect::<napi::Result<Vec<_>>>()?,
-                // NOTE: We specifically use None as that will be later filled on the JS side
-                bytecode: None,
-
-                number_of_subtraces: create.base.number_of_subtraces,
-                deployed_contract: match create.deployed_contract {
-                    Some(contract) => Either::A(Uint8Array::from(contract.as_ref())),
-                    None => Either::B(()),
-                },
-            })
-        }
-        edr_solidity::message_trace::MessageTrace::Call(call) => Either3::C(CallMessageTrace {
+        edr_solidity::message_trace::MessageTrace::Call(call) => Either3::B(CallMessageTrace {
             value: BigInt {
                 sign_bit: false,
                 words: call.base.base.value.as_limbs().to_vec(),
@@ -170,5 +152,31 @@ pub fn message_trace_to_napi(
             calldata: Uint8Array::from(call.calldata.as_ref()),
             code_address: Uint8Array::from(call.code_address.as_slice()),
         }),
+        edr_solidity::message_trace::MessageTrace::Create(create) => {
+            Either3::C(CreateMessageTrace {
+                value: BigInt {
+                    sign_bit: false,
+                    words: create.base.base.value.as_limbs().to_vec(),
+                },
+                return_data: Uint8Array::from(create.base.base.return_data.as_ref()),
+                exit: Exit(create.base.base.exit.into()).into_instance(env)?,
+                gas_used: BigInt::from(create.base.base.gas_used),
+                depth: create.base.base.depth as u32,
+                code: Uint8Array::from(create.base.code.as_ref()),
+                steps: create
+                    .base
+                    .steps
+                    .into_iter()
+                    .map(|step| message_trace_step_to_napi(step, env))
+                    .collect::<napi::Result<Vec<_>>>()?,
+                // NOTE: We specifically use None as that will be later filled on the JS side
+                bytecode: None,
+
+                number_of_subtraces: create.base.number_of_subtraces,
+                deployed_contract: create
+                    .deployed_contract
+                    .map(|contract| Either::A(Uint8Array::from(contract.as_ref()))),
+            })
+        }
     })
 }

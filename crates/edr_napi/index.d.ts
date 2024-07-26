@@ -425,10 +425,10 @@ export interface CreateMessageTrace {
   gasUsed: bigint
   depth: number
   code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
+  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
   bytecode?: any
   numberOfSubtraces: number
-  deployedContract: Uint8Array | undefined
+  deployedContract?: Uint8Array | undefined
 }
 export interface CallMessageTrace {
   value: bigint
@@ -437,7 +437,7 @@ export interface CallMessageTrace {
   gasUsed: bigint
   depth: number
   code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
+  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
   bytecode?: any
   numberOfSubtraces: number
   calldata: Uint8Array
@@ -857,7 +857,7 @@ export class VmTraceDecoder {
   constructor(contractsIdentifier: ContractsIdentifier)
   addBytecode(bytecode: Bytecode): void
   getBytecodeForCall(code: Uint8Array, isCreate: boolean): Bytecode | undefined
-  tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace): PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace
+  tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
   getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName
 }
 export type VMTracer = VmTracer
@@ -866,7 +866,7 @@ export class VmTracer {
   constructor()
   /** Observes a trace, collecting information about the execution of the EVM. */
   observe(trace: RawTrace): void
-  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace | undefined
+  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
   getLastError(): Error | undefined
 }
 export class RawTrace {
