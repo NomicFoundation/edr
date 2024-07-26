@@ -31,8 +31,8 @@ impl Default for VmTracer {
 
 // Temporarily hardcoded to remove the need of using ethereumjs' common and evm
 // TODO(#565): We should be using a more robust check by checking the hardfork
-// config (and potentially other config like optional support for RIP precompiles,
-// which start at 0x100).
+// config (and potentially other config like optional support for RIP
+// precompiles, which start at 0x100).
 const MAX_PRECOMPILE_NUMBER: u16 = 10;
 
 impl VmTracer {
