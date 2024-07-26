@@ -264,13 +264,12 @@ impl ContractsIdentifier {
         Ok(None)
     }
 
-    #[napi(ts_return_type = "Bytecode | undefined")]
     pub fn get_bytecode_for_call(
         &mut self,
         code: Uint8Array,
         is_create: bool,
         env: Env,
-    ) -> napi::Result<Either<JsObject, Undefined>> {
+    ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
         let mut normalized_code = code.clone();
         normalize_library_runtime_bytecode_if_necessary(&mut normalized_code);
 
@@ -279,7 +278,7 @@ impl ContractsIdentifier {
             let cached = self.cache.get(&normalized_code_hex);
 
             if let Some(cached) = cached {
-                return Ok(Either::A(cached.as_object(env)?));
+                return Ok(Some(cached.clone()));
             }
         }
 
@@ -291,42 +290,7 @@ impl ContractsIdentifier {
             }
         }
 
-        match result {
-            Some(bytecode) => Ok(Either::A(bytecode.as_object(env)?)),
-            None => Ok(Either::B(())),
-        }
-    }
-
-    pub fn get_bytecode_for_call_inner(
-        &mut self,
-        code: Uint8Array,
-        is_create: bool,
-        env: Env,
-    ) -> napi::Result<Either<Rc<ClassInstanceRef<Bytecode>>, Undefined>> {
-        let mut normalized_code = code.clone();
-        normalize_library_runtime_bytecode_if_necessary(&mut normalized_code);
-
-        let normalized_code_hex = hex::encode(normalized_code.as_ref());
-        if self.enable_cache {
-            let cached = self.cache.get(&normalized_code_hex);
-
-            if let Some(cached) = cached {
-                return Ok(Either::A(cached.clone()));
-            }
-        }
-
-        let result = self.search_bytecode(is_create, normalized_code, None, None, None, env)?;
-
-        if self.enable_cache {
-            if let Some(result) = &result {
-                self.cache.insert(normalized_code_hex, result.clone());
-            }
-        }
-
-        match result {
-            Some(bytecode) => Ok(Either::A(bytecode)),
-            None => Ok(Either::B(())),
-        }
+        Ok(result)
     }
 }
 

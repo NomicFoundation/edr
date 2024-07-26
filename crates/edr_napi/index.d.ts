@@ -846,7 +846,6 @@ export class Contract {
 export class ContractsIdentifier {
   constructor(enableCache?: boolean | undefined | null)
   addBytecode(bytecode: Bytecode): void
-  getBytecodeForCall(code: Uint8Array, isCreate: boolean): Bytecode | undefined
 }
 export class Exit {
   get kind(): ExitCode
@@ -856,7 +855,6 @@ export class Exit {
 export class VmTraceDecoder {
   constructor(contractsIdentifier: ContractsIdentifier)
   addBytecode(bytecode: Bytecode): void
-  getBytecodeForCall(code: Uint8Array, isCreate: boolean): Bytecode | undefined
   tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
   getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName
 }

@@ -1,7 +1,7 @@
 use edr_solidity::artifacts::BuildInfo;
 use napi::{
     bindgen_prelude::{ClassInstance, Either3, Either4, Uint8Array, Undefined},
-    Either, Env, JsObject,
+    Either, Env,
 };
 use napi_derive::napi;
 use serde::{Deserialize, Serialize};
@@ -52,19 +52,7 @@ impl VmTraceDecoder {
             .add_bytecode(bytecode, env)
     }
 
-    #[napi(ts_return_type = "Bytecode | undefined")]
-    pub fn get_bytecode_for_call(
-        &mut self,
-        code: Uint8Array,
-        is_create: bool,
-        env: Env,
-    ) -> napi::Result<Either<JsObject, Undefined>> {
-        self.contracts_identifier
-            .borrow_mut(env)?
-            .get_bytecode_for_call(code, is_create, env)
-    }
-
-    #[napi(catch_unwind)]
+    #[napi]
     pub fn try_to_decode_message_trace(
         &self,
         message_trace: Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>,
@@ -100,14 +88,7 @@ impl VmTraceDecoder {
                     })
                     .collect::<napi::Result<_>>()?;
 
-                match bytecode {
-                    Either::A(bytecode) => {
-                        call.bytecode = Some(bytecode);
-                    }
-                    Either::B(()) => {
-                        call.bytecode = None;
-                    }
-                }
+                call.bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
                 call.steps = steps;
 
                 Ok(Either3::B(call))
@@ -139,14 +120,7 @@ impl VmTraceDecoder {
                     })
                     .collect::<napi::Result<_>>()?;
 
-                match bytecode {
-                    Either::A(bytecode) => {
-                        create.bytecode = Some(bytecode);
-                    }
-                    Either::B(()) => {
-                        create.bytecode = None;
-                    }
-                }
+                create.bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
                 create.steps = steps;
 
                 Ok(Either3::C(create))
@@ -165,11 +139,11 @@ impl VmTraceDecoder {
         let bytecode = self
             .contracts_identifier
             .borrow_mut(env)?
-            .get_bytecode_for_call_inner(code, is_create, env)?;
+            .get_bytecode_for_call(code, is_create, env)?;
 
         let contract = match bytecode {
-            Either::A(bytecode) => Some(bytecode.borrow(env)?.contract.clone()),
-            Either::B(()) => None,
+            Some(bytecode) => Some(bytecode.borrow(env)?.contract.clone()),
+            None => None,
         };
         let contract = contract.as_ref().map(|c| c.borrow(env)).transpose()?;
 
