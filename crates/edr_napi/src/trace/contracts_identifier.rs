@@ -3,8 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 use edr_eth::Address;
 use edr_evm::hex;
 use napi::{
-    bindgen_prelude::{ClassInstance, Uint8Array, Undefined},
-    Either, Env, JsObject,
+    bindgen_prelude::{ClassInstance, Uint8Array},
+    Either, Env,
 };
 use napi_derive::napi;
 

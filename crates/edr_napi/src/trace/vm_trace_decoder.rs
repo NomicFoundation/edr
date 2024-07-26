@@ -6,14 +6,13 @@ use napi::{
 use napi_derive::napi;
 use serde::{Deserialize, Serialize};
 
-use crate::{trace::model::ContractFunctionType, utils::ClassInstanceRef};
-
 use super::{
     compiler::create_models_and_decode_bytecodes_inner,
     contracts_identifier::ContractsIdentifier,
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},
     model::Bytecode,
 };
+use crate::{trace::model::ContractFunctionType, utils::ClassInstanceRef};
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

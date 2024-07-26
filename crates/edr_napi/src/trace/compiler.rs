@@ -11,7 +11,7 @@ use edr_solidity::{
 use indexmap::IndexMap;
 use napi::{
     bindgen_prelude::{ClassInstance, Uint8Array},
-    Either, Env,
+    Env,
 };
 use napi_derive::napi;
 

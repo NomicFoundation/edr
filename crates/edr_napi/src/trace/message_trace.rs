@@ -5,7 +5,6 @@ use napi::{
     Either, Env,
 };
 use napi_derive::napi;
-use serde_json::Value;
 
 use super::exit::Exit;
 
@@ -27,10 +26,10 @@ pub struct PrecompileMessageTrace {
     pub calldata: Uint8Array,
 }
 
-// NOTE: Because of the hack below for `deployed_contract`, now the `CallMessageTrace`
-// is a strict superset of `CreateMessageTrace`, so we need to take care to keep
-// the order consistent from most-specific to least-specific in the `Either{3,4}` type
-// when converting to or from N-API.
+// NOTE: Because of the hack below for `deployed_contract`, now the
+// `CallMessageTrace` is a strict superset of `CreateMessageTrace`, so we need
+// to take care to keep the order consistent from most-specific to
+// least-specific in the `Either{3,4}` type when converting to or from N-API.
 #[napi(object)]
 pub struct CreateMessageTrace {
     // `BaseMessageTrace`
