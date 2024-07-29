@@ -469,7 +469,7 @@ export interface TestContract {
  * It is up to the caller to track how many times the callback is called to
  * know when all tests are done.
  */
-export function runSolidityTests(test_suites: Array<TestSuite>, gas_report: boolean, progress_callback: (result: SuiteResult) => void): void
+export function runSolidityTests(testSuites: Array<TestSuite>, gasReport: boolean, progressCallback: (result: SuiteResult) => void): void
 export interface SubscriptionEvent {
   filterId: bigint
   result: any

@@ -28,13 +28,11 @@ use crate::solidity_tests::{
 /// know when all tests are done.
 // False positive from Clippy. The function is exposed through the FFI.
 #[allow(dead_code)]
-#[napi(
-    ts_args_type = "test_suites: Array<TestSuite>, gas_report: boolean, progress_callback: (result: SuiteResult) => void"
-)]
+#[napi]
 pub fn run_solidity_tests(
     test_suites: Vec<TestSuite>,
     gas_report: bool,
-    progress_callback: JsFunction,
+    #[napi(ts_arg_type = "(result: SuiteResult) => void")] progress_callback: JsFunction,
 ) -> napi::Result<()> {
     let results_callback_fn: ThreadsafeFunction<_, ErrorStrategy::Fatal> = progress_callback
         .create_threadsafe_function(
