@@ -192,6 +192,9 @@ impl MultiContractRunner {
 
     /// Executes _all_ tests that match the given `filter`.
     ///
+    /// The method will immediately return and send the results to the given
+    /// channel as they're ready.
+    ///
     /// This will create the runtime based on the configured `evm` ops and
     /// create the `Backend` before executing all contracts and their tests
     /// in _parallel_.
@@ -202,7 +205,6 @@ impl MultiContractRunner {
         filter: Arc<impl TestFilter + 'static>,
         tx: tokio::sync::mpsc::UnboundedSender<(String, SuiteResult)>,
     ) {
-        let handle = tokio::runtime::Handle::current();
         trace!("running all tests");
 
         // The DB backend that serves all the data.
@@ -226,29 +228,28 @@ impl MultiContractRunner {
             .into_iter()
             .zip(std::iter::repeat((this, db, filter, tx)));
 
-        tokio::task::block_in_place(move || {
-            handle.block_on(async {
-                futures::stream::iter(args)
-                    .for_each_concurrent(
-                        Some(num_cpus::get()),
-                        |((id, contract), (this, db, filter, tx))| async move {
-                            tokio::task::spawn_blocking(move || {
-                                let handle = tokio::runtime::Handle::current();
-                                let result = this.run_tests_hardhat(
-                                    &id,
-                                    &contract,
-                                    db.clone(),
-                                    filter.as_ref(),
-                                    &handle,
-                                );
-                                let _ = tx.send((id.identifier(), result));
-                            })
-                            .await
-                            .expect("failed to join task");
-                        },
-                    )
-                    .await;
-            });
+        let handle = tokio::runtime::Handle::current();
+        handle.spawn(async {
+            futures::stream::iter(args)
+                .for_each_concurrent(
+                    Some(num_cpus::get()),
+                    |((id, contract), (this, db, filter, tx))| async move {
+                        tokio::task::spawn_blocking(move || {
+                            let handle = tokio::runtime::Handle::current();
+                            let result = this.run_tests_hardhat(
+                                &id,
+                                &contract,
+                                db.clone(),
+                                filter.as_ref(),
+                                &handle,
+                            );
+                            let _ = tx.send((id.identifier(), result));
+                        })
+                        .await
+                        .expect("failed to join task");
+                    },
+                )
+                .await;
         });
     }
 

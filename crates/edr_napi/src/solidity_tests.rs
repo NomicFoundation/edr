@@ -12,7 +12,7 @@ use napi::{
     },
     tokio,
     tokio::runtime,
-    Env, JsFunction,
+    JsFunction,
 };
 use napi_derive::napi;
 
@@ -20,87 +20,57 @@ use crate::solidity_tests::{
     runner::build_runner, test_results::SuiteResult, test_suite::TestSuite,
 };
 
-/// Executes solidity tests.
+/// Executes Solidity tests.
+///
+/// The function will return as soon as test execution is started.
+/// The progress callback will be called with the results of each test suite.
+/// It is up to the caller to track how many times the callback is called to
+/// know when all tests are done.
+// False positive from Clippy. The function is exposed through the FFI.
+#[allow(dead_code)]
 #[napi]
-pub struct SolidityTestRunner {
-    /// The callback to call with the results as they become available.
-    results_callback_fn: ThreadsafeFunction<SuiteResult>,
+pub fn run_solidity_tests(
+    test_suites: Vec<TestSuite>,
     gas_report: bool,
-}
+    #[napi(ts_arg_type = "(result: SuiteResult) => void")] progress_callback: JsFunction,
+) -> napi::Result<()> {
+    let results_callback_fn: ThreadsafeFunction<_, ErrorStrategy::Fatal> = progress_callback
+        .create_threadsafe_function(
+            // Unbounded queue size
+            0,
+            |ctx: ThreadSafeCallContext<SuiteResult>| Ok(vec![ctx.value]),
+        )?;
 
-// The callback has to be passed in the constructor because it's not `Send`.
-#[napi]
-impl SolidityTestRunner {
-    #[doc = "Creates a new instance of the SolidityTestRunner. The callback function will be called with suite results as they finish."]
-    #[napi(constructor)]
-    pub fn new(env: Env, gas_report: bool, results_callback: JsFunction) -> napi::Result<Self> {
-        let mut results_callback_fn: ThreadsafeFunction<_, ErrorStrategy::CalleeHandled> =
-            results_callback.create_threadsafe_function(
-                // Unbounded queue size
-                0,
-                |ctx: ThreadSafeCallContext<SuiteResult>| Ok(vec![ctx.value]),
-            )?;
+    let test_suites = test_suites
+        .into_iter()
+        .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
+        .collect::<Result<Vec<_>, napi::Error>>()?;
+    let runner = build_runner(test_suites, gas_report)?;
 
-        // Allow the event loop to exit before the function is destroyed
-        results_callback_fn.unref(&env)?;
+    let (tx_results, mut rx_results) =
+        tokio::sync::mpsc::unbounded_channel::<(String, forge::result::SuiteResult)>();
 
-        Ok(Self {
-            results_callback_fn,
-            gas_report,
-        })
-    }
+    let runtime = runtime::Handle::current();
+    runtime.spawn(async move {
+        while let Some(name_and_suite_result) = rx_results.recv().await {
+            let callback_arg = name_and_suite_result.into();
+            // Blocking mode won't block in our case because the function was created with
+            // unlimited queue size https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md#blockingcall--nonblockingcall
+            let call_status =
+                results_callback_fn.call(callback_arg, ThreadsafeFunctionCallMode::Blocking);
+            // This should always succeed since we're using an unbounded queue. We add an
+            // assertion for completeness.
+            assert!(
+                matches!(call_status, napi::Status::Ok),
+                "Failed to call callback with status {call_status:?}"
+            );
+        }
+    });
 
-    #[doc = "Runs the given test suites."]
-    #[napi]
-    pub async fn run_tests(&self, test_suites: Vec<TestSuite>) -> napi::Result<Vec<SuiteResult>> {
-        let test_suites = test_suites
-            .into_iter()
-            .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
-            .collect::<Result<Vec<_>, napi::Error>>()?;
-        let runner = build_runner(test_suites, self.gas_report)?;
+    // Returns immediately after test suite execution is started
+    runner.test_hardhat(Arc::new(EverythingFilter), tx_results);
 
-        let (tx_results, mut rx_results) =
-            tokio::sync::mpsc::unbounded_channel::<(String, forge::result::SuiteResult)>();
-        let (tx_end_result, rx_end_result) = tokio::sync::oneshot::channel();
-
-        let callback_fn = self.results_callback_fn.clone();
-        let runtime = runtime::Handle::current();
-        runtime.spawn(async move {
-            let mut results = Vec::<(String, forge::result::SuiteResult)>::new();
-
-            while let Some(name_and_suite_result) = rx_results.recv().await {
-                results.push(name_and_suite_result.clone());
-                // Blocking mode won't block in our case because the function was created with
-                // unlimited queue size https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md#blockingcall--nonblockingcall
-                let call_status = callback_fn.call(
-                    Ok(name_and_suite_result.into()),
-                    ThreadsafeFunctionCallMode::Blocking,
-                );
-                // This should always succeed since we're using an unbounded queue. We add an
-                // assertion for completeness.
-                assert!(
-                    matches!(call_status, napi::Status::Ok),
-                    "Failed to call callback with status {call_status:?}"
-                );
-            }
-
-            let js_suite_results = results
-                .into_iter()
-                .map(Into::into)
-                .collect::<Vec<SuiteResult>>();
-            tx_end_result
-                .send(js_suite_results)
-                .expect("Failed to send end result");
-        });
-
-        runner.test_hardhat(Arc::new(EverythingFilter), tx_results);
-
-        let results = rx_end_result.await.map_err(|_err| {
-            napi::Error::new(napi::Status::GenericFailure, "Failed to receive end result")
-        })?;
-
-        Ok(results)
-    }
+    Ok(())
 }
 
 struct EverythingFilter;

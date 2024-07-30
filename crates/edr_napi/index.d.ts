@@ -461,6 +461,15 @@ export interface TestContract {
    */
   libraries: Array<string>
 }
+/**
+ * Executes Solidity tests.
+ *
+ * The function will return as soon as test execution is started.
+ * The progress callback will be called with the results of each test suite.
+ * It is up to the caller to track how many times the callback is called to
+ * know when all tests are done.
+ */
+export function runSolidityTests(testSuites: Array<TestSuite>, gasReport: boolean, progressCallback: (result: SuiteResult) => void): void
 export interface SubscriptionEvent {
   filterId: bigint
   result: any
@@ -541,13 +550,6 @@ export class Response {
   get json(): string
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
-}
-/** Executes solidity tests. */
-export class SolidityTestRunner {
-  /**Creates a new instance of the SolidityTestRunner. The callback function will be called with suite results as they finish. */
-  constructor(gasReport: boolean, resultsCallback: (...args: any[]) => any)
-  /**Runs the given test suites. */
-  runTests(testSuites: Array<TestSuite>): Promise<Array<SuiteResult>>
 }
 export class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>

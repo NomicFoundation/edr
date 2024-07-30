@@ -6,7 +6,7 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 const path = require("path");
 const simpleGit = require("simple-git");
-const { SolidityTestRunner } = require("@nomicfoundation/edr");
+const { runSolidityTests } = require("@nomicfoundation/edr");
 
 const EXCLUDED_TEST_SUITES = new Set([
   "StdChainsTest",
@@ -61,10 +61,18 @@ async function runForgeStdTests(forgeStdRepoPath) {
     .map(loadContract.bind(null, hardhatConfig))
     .filter((ts) => !EXCLUDED_TEST_SUITES.has(ts.id.name));
 
-  const runner = new SolidityTestRunner(gasReport, (...args) => {
-    console.error(`${args[1].name} took ${elapsedSec(start)} seconds`);
+  const results = await new Promise((resolve) => {
+    const resultsFromCallback = [];
+
+    runSolidityTests(testSuites, gasReport, (result) => {
+      console.error(`${result.name} took ${elapsedSec(start)} seconds`);
+
+      resultsFromCallback.push(result);
+      if (resultsFromCallback.length === testSuites.length) {
+        resolve(resultsFromCallback);
+      }
+    });
   });
-  const results = await runner.runTests(testSuites);
   console.error("elapsed (s)", elapsedSec(start));
 
   if (results.length !== EXPECTED_RESULTS) {

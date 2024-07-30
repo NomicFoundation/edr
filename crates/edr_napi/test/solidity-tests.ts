@@ -1,14 +1,11 @@
 import { assert } from "chai";
-import { mkdtemp } from "fs/promises";
-import { tmpdir } from "os";
-import path from "path";
 
 import {
-  SolidityTestRunner,
   TestSuite,
   TestContract,
   ArtifactId,
   SuiteResult,
+  runSolidityTests,
 } from "..";
 
 describe("Solidity Tests", () => {
@@ -18,18 +15,21 @@ describe("Solidity Tests", () => {
       loadContract("./artifacts/PaymentFailureTest.json"),
     ];
 
-    const gasReport = false;
+    const results: Array<SuiteResult> = await new Promise((resolve) => {
+      const gasReport = false;
+      const resultsFromCallback: Array<SuiteResult> = [];
 
-    const resultsFromCallback: Array<SuiteResult> = [];
-    const runner = new SolidityTestRunner(gasReport, (...args) => {
-      resultsFromCallback.push(args[1] as SuiteResult);
+      runSolidityTests(testSuites, gasReport, (result: SuiteResult) => {
+        resultsFromCallback.push(result);
+        if (resultsFromCallback.length === testSuites.length) {
+          resolve(resultsFromCallback);
+        }
+      });
     });
 
-    const result = await runner.runTests(testSuites);
-    assert.equal(resultsFromCallback.length, testSuites.length);
-    assert.equal(resultsFromCallback.length, result.length);
+    assert.equal(results.length, testSuites.length);
 
-    for (let res of result) {
+    for (let res of results) {
       if (res.name.includes("SetupConsistencyCheck")) {
         assert.equal(res.testResults.length, 2);
         assert.equal(res.testResults[0].status, "Success");
