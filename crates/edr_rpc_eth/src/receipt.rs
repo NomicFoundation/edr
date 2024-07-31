@@ -77,7 +77,46 @@ pub struct Block {
 }
 
 pub trait ToRpcReceipt<RpcReceiptT> {
-    fn to_rpc_receipt(&self, hardfork: SpecId) -> RpcReceiptT;
+    type Hardfork;
+
+    fn to_rpc_receipt(&self, hardfork: Self::Hardfork) -> RpcReceiptT;
+}
+
+impl ToRpcReceipt<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>> {
+    type Hardfork = SpecId;
+
+    fn to_rpc_receipt(&self, hardfork: Self::Hardfork) -> Block {
+        let transaction_type = if hardfork >= SpecId::BERLIN {
+            Some(u8::from(self.inner.transaction_type()))
+        } else {
+            None
+        };
+
+        Block {
+            block_hash: self.block_hash,
+            block_number: self.block_number,
+            transaction_hash: self.inner.transaction_hash,
+            transaction_index: self.inner.transaction_index,
+            transaction_type,
+            from: self.inner.from,
+            to: self.inner.to,
+            cumulative_gas_used: self.inner.cumulative_gas_used(),
+            gas_used: self.inner.gas_used,
+            contract_address: self.inner.contract_address,
+            logs: self.inner.logs().to_vec(),
+            logs_bloom: *self.inner.logs_bloom(),
+            state_root: match self.inner.as_execution_receipt().data() {
+                Execution::Legacy(receipt) => Some(receipt.root),
+                Execution::Eip658(_) => None,
+            },
+            status: match self.inner.as_execution_receipt().data() {
+                Execution::Legacy(_) => None,
+                Execution::Eip658(receipt) => Some(receipt.status),
+            },
+            effective_gas_price: self.inner.effective_gas_price,
+            authorization_list: None,
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -146,47 +185,13 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
     }
 }
 
-impl ToRpcReceipt<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>> {
-    fn to_rpc_receipt(&self, hardfork: SpecId) -> Block {
-        let transaction_type = if hardfork >= SpecId::BERLIN {
-            Some(u8::from(self.inner.transaction_type()))
-        } else {
-            None
-        };
-
-        Block {
-            block_hash: self.block_hash,
-            block_number: self.block_number,
-            transaction_hash: self.inner.transaction_hash,
-            transaction_index: self.inner.transaction_index,
-            transaction_type,
-            from: self.inner.from,
-            to: self.inner.to,
-            cumulative_gas_used: self.inner.cumulative_gas_used(),
-            gas_used: self.inner.gas_used,
-            contract_address: self.inner.contract_address,
-            logs: self.inner.logs().to_vec(),
-            logs_bloom: *self.inner.logs_bloom(),
-            state_root: match self.inner.as_execution_receipt().data() {
-                Execution::Legacy(receipt) => Some(receipt.root),
-                Execution::Eip658(_) => None,
-            },
-            status: match self.inner.as_execution_receipt().data() {
-                Execution::Legacy(_) => None,
-                Execution::Eip658(receipt) => Some(receipt.status),
-            },
-            effective_gas_price: self.inner.effective_gas_price,
-            authorization_list: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use assert_json_diff::assert_json_eq;
+    use edr_eth::{eips::eip2718::TypedEnvelope, log::ExecutionLog, Bloom, Bytes};
     use serde_json::json;
 
-    use crate::receipt;
+    use crate::{impl_execution_receipt_tests, receipt};
 
     #[test]
     fn test_matches_hardhat_serialization() -> anyhow::Result<()> {
@@ -233,59 +238,8 @@ mod test {
         Ok(())
     }
 
-    macro_rules! impl_execution_receipt_tests {
-        ($(
-            $name:ident => $receipt:expr,
-        )+) => {
-            $(
-                paste::item! {
-
-
-                    #[test]
-                    fn [<typed_receipt_rpc_receipt_roundtrip_ $name>]() -> anyhow::Result<()> {
-                        let receipt = $receipt;
-
-                        let serialized = serde_json::to_string(&receipt).unwrap();
-                        let deserialized: Execution<ExecutionLog> = serde_json::from_str(&serialized).unwrap();
-                        assert_eq!(receipt, deserialized);
-
-                        // This is necessary to ensure that the deser implementation doesn't expect a
-                        // &str where a String can be passed.
-                        let serialized = serde_json::to_value(&receipt).unwrap();
-                        let deserialized: Execution<ExecutionLog> = serde_json::from_value(serialized).unwrap();
-
-                        assert_eq!(receipt, deserialized);
-
-                        let encoded = alloy_rlp::encode(&receipt);
-                        let decoded = TypedEnvelope::<Execution::<ExecutionLog>>::decode(&mut encoded.as_slice())?;
-                        assert_eq!(decoded, receipt);
-
-                        Ok(())
-                    }
-
-                    // #[cfg(feature = "serde")]
-                    // #[test]
-                    // fn [<typed_receipt_serde_ $name>]() {
-                    //     let receipt = $receipt;
-
-                    //     let serialized = serde_json::to_string(&receipt).unwrap();
-                    //     let deserialized: Execution<ExecutionLog> = serde_json::from_str(&serialized).unwrap();
-                    //     assert_eq!(receipt, deserialized);
-
-                    //     // This is necessary to ensure that the deser implementation doesn't expect a
-                    //     // &str where a String can be passed.
-                    //     let serialized = serde_json::to_value(&receipt).unwrap();
-                    //     let deserialized: Execution<ExecutionLog> = serde_json::from_value(serialized).unwrap();
-
-                    //     assert_eq!(receipt, deserialized);
-                    // }
-                }
-            )+
-        };
-    }
-
     impl_execution_receipt_tests! {
-        legacy => TypedEnvelope::Legacy(Execution::Legacy(Legacy {
+        legacy => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
             root: B256::random(),
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -294,7 +248,7 @@ mod test {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip2930 => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
+        eip658_eip2930 => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -303,7 +257,7 @@ mod test {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip1559 => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
+        eip658_eip1559 => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -312,7 +266,7 @@ mod test {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip4844 => TypedEnvelope::Eip4844(Execution::Eip658(Eip658 {
+        eip658_eip4844 => TypedEnvelope::Eip4844(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),

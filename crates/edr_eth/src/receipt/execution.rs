@@ -211,23 +211,6 @@ mod tests {
 
                         Ok(())
                     }
-
-                    // #[cfg(feature = "serde")]
-                    // #[test]
-                    // fn [<typed_receipt_serde_ $name>]() {
-                    //     let receipt = $receipt;
-
-                    //     let serialized = serde_json::to_string(&receipt).unwrap();
-                    //     let deserialized: Execution<ExecutionLog> = serde_json::from_str(&serialized).unwrap();
-                    //     assert_eq!(receipt, deserialized);
-
-                    //     // This is necessary to ensure that the deser implementation doesn't expect a
-                    //     // &str where a String can be passed.
-                    //     let serialized = serde_json::to_value(&receipt).unwrap();
-                    //     let deserialized: Execution<ExecutionLog> = serde_json::from_value(serialized).unwrap();
-
-                    //     assert_eq!(receipt, deserialized);
-                    // }
                 }
             )+
         };

@@ -20,9 +20,11 @@ tokio = { version = "1.21.2", default-features = false, features = ["macros", "r
 anyhow = "1.0.75"
 edr_defaults = { path = "../edr_defaults" }
 edr_evm = { path = "../edr_evm", features = ["test-utils"] }
+edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }
 edr_test_utils = { path = "../edr_test_utils" }
 parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
+serde_json = { version = "1.0.89" }
 serial_test = "2.0.0"
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 
