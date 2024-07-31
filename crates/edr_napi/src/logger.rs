@@ -164,7 +164,7 @@ impl edr_provider::Logger for Logger {
     fn log_interval_mined(
         &mut self,
         spec_id: edr_eth::SpecId,
-        mining_result: &edr_provider::DebugMineBlockResult<Self::BlockchainError>,
+        mining_result: &edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>,
     ) -> Result<(), Self::LoggerError> {
         self.collector.log_interval_mined(spec_id, mining_result)
     }
@@ -172,7 +172,7 @@ impl edr_provider::Logger for Logger {
     fn log_mined_block(
         &mut self,
         spec_id: edr_eth::SpecId,
-        mining_results: &[edr_provider::DebugMineBlockResult<Self::BlockchainError>],
+        mining_results: &[edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         self.collector.log_mined_blocks(spec_id, mining_results);
 
@@ -183,7 +183,7 @@ impl edr_provider::Logger for Logger {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &edr_evm::transaction::Signed,
-        mining_results: &[edr_provider::DebugMineBlockResult<Self::BlockchainError>],
+        mining_results: &[edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         self.collector
             .log_send_transaction(spec_id, transaction, mining_results);
@@ -423,7 +423,10 @@ impl LogCollector {
     pub fn log_mined_blocks(
         &mut self,
         spec_id: edr_eth::SpecId,
-        mining_results: &[edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>],
+        mining_results: &[edr_provider::DebugMineBlockResult<
+            L1ChainSpec,
+            BlockchainError<L1ChainSpec>,
+        >],
     ) {
         let num_results = mining_results.len();
         for (idx, mining_result) in mining_results.iter().enumerate() {
@@ -452,7 +455,10 @@ impl LogCollector {
     pub fn log_interval_mined(
         &mut self,
         spec_id: edr_eth::SpecId,
-        mining_result: &edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>,
+        mining_result: &edr_provider::DebugMineBlockResult<
+            L1ChainSpec,
+            BlockchainError<L1ChainSpec>,
+        >,
     ) -> Result<(), LoggerError> {
         let block_header = mining_result.block.header();
         let block_number = block_header.number;
@@ -498,7 +504,10 @@ impl LogCollector {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &edr_evm::transaction::Signed,
-        mining_results: &[edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>],
+        mining_results: &[edr_provider::DebugMineBlockResult<
+            L1ChainSpec,
+            BlockchainError<L1ChainSpec>,
+        >],
     ) {
         if !mining_results.is_empty() {
             self.state = LoggingState::Empty;
@@ -625,7 +634,7 @@ impl LogCollector {
     fn log_auto_mined_block_results(
         &mut self,
         spec_id: edr_eth::SpecId,
-        results: &[edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>],
+        results: &[edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>],
         sent_transaction_hash: &B256,
     ) {
         for result in results {
@@ -642,7 +651,7 @@ impl LogCollector {
     fn log_block_from_auto_mine(
         &mut self,
         spec_id: edr_eth::SpecId,
-        result: &edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>,
+        result: &edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
         transaction_hash_to_highlight: &edr_eth::B256,
     ) {
         let edr_provider::DebugMineBlockResult {
@@ -943,7 +952,7 @@ impl LogCollector {
     fn log_interval_mined_block(
         &mut self,
         spec_id: edr_eth::SpecId,
-        result: &edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>,
+        result: &edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
     ) {
         let edr_provider::DebugMineBlockResult {
             block,
@@ -990,7 +999,7 @@ impl LogCollector {
     fn log_hardhat_mined_block(
         &mut self,
         spec_id: edr_eth::SpecId,
-        result: &edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>,
+        result: &edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
     ) {
         let edr_provider::DebugMineBlockResult {
             block,
@@ -1071,7 +1080,10 @@ impl LogCollector {
     fn log_currently_sent_transaction(
         &mut self,
         spec_id: edr_eth::SpecId,
-        block_result: &edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>,
+        block_result: &edr_provider::DebugMineBlockResult<
+            L1ChainSpec,
+            BlockchainError<L1ChainSpec>,
+        >,
         transaction: &transaction::Signed,
         transaction_result: &edr_eth::result::ExecutionResult<L1ChainSpec>,
         trace: &edr_evm::trace::Trace<L1ChainSpec>,
@@ -1093,7 +1105,7 @@ impl LogCollector {
     fn log_single_transaction_mining_result(
         &mut self,
         spec_id: edr_eth::SpecId,
-        result: &edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>,
+        result: &edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
         transaction: &transaction::Signed,
     ) {
         let trace = result
@@ -1112,7 +1124,10 @@ impl LogCollector {
     fn log_transaction(
         &mut self,
         spec_id: edr_eth::SpecId,
-        block_result: &edr_provider::DebugMineBlockResult<BlockchainError<L1ChainSpec>>,
+        block_result: &edr_provider::DebugMineBlockResult<
+            L1ChainSpec,
+            BlockchainError<L1ChainSpec>,
+        >,
         transaction: &transaction::Signed,
         transaction_result: &edr_eth::result::ExecutionResult<L1ChainSpec>,
         trace: &edr_evm::trace::Trace<L1ChainSpec>,
