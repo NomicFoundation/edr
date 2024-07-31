@@ -11,7 +11,7 @@ use edr_eth::{
     Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{blockchain::BlockchainError, trace::Trace, transaction, SyncBlock};
-use edr_rpc_eth::receipt::ToRpcReceipt;
+use edr_rpc_eth::receipt::ToRpcReceipt as _;
 
 use crate::{
     data::{BlockDataForTransaction, ProviderData, TransactionAndBlock},
