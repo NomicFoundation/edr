@@ -257,6 +257,7 @@ describe("Debug module", function () {
           forkCachePath: FORK_TESTS_CACHE_PATH,
           allowBlocksWithSameTimestamp: false,
           enableTransientStorage: false,
+          enableRip7212: false,
         },
         {
           enabled: false,
@@ -382,6 +383,7 @@ describe("Debug module", function () {
           forkCachePath: FORK_TESTS_CACHE_PATH,
           allowBlocksWithSameTimestamp: false,
           enableTransientStorage: false,
+          enableRip7212: false,
         },
         {
           enabled: false,
