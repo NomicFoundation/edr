@@ -25,6 +25,7 @@ mod contracts_identifier;
 mod exit;
 mod message_trace;
 mod opcodes;
+mod return_data;
 mod solidity_stack_trace;
 mod vm_trace_decoder;
 mod vm_tracer;
