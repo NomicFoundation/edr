@@ -21,7 +21,12 @@ pub struct BlockReceipt {
     #[serde(default, with = "alloy_serde::quantity")]
     pub transaction_index: u64,
     /// Transaction type.
-    #[serde(default, with = "alloy_serde::quantity::opt", rename = "type")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt",
+        rename = "type"
+    )]
     pub transaction_type: Option<u8>,
     /// Address of the sender
     pub from: Address,
@@ -59,6 +64,7 @@ pub struct BlockReceipt {
     /// (max fee + max priority fee), the amount that's actually paid by
     /// users can only be determined post-execution
     // #[serde(with = "alloy_serde::quantity::opt")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub effective_gas_price: Option<U256>,
     /// Deposit nonce for Optimism deposit transactions.
     #[serde(
@@ -79,11 +85,6 @@ pub struct BlockReceipt {
         with = "alloy_serde::quantity::opt"
     )]
     pub deposit_receipt_version: Option<u8>,
-    // /// The post-transaction stateroot (pre Byzantium)
-    // ///
-    // /// EIP98 makes this optional field, if it's missing then skip serializing it
-    // #[serde(skip_serializing_if = "Option::is_none", rename = "root")]
-    // pub state_root: Option<B256>,
     /// The authorization list is a list of tuples that store the address to
     /// code which the signer desires to execute in the context of their
     /// EOA.
