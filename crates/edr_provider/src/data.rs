@@ -107,7 +107,7 @@ pub struct EstimateGasResult {
 
 pub struct SendTransactionResult {
     pub transaction_hash: B256,
-    pub mining_results: Vec<DebugMineBlockResult<BlockchainError<L1ChainSpec>>>,
+    pub mining_results: Vec<DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>>,
 }
 
 impl SendTransactionResult {
@@ -1139,8 +1139,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn mine_and_commit_block(
         &mut self,
         options: BlockOptions,
-    ) -> Result<DebugMineBlockResult<BlockchainError<L1ChainSpec>>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<
+        DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
+        ProviderError<LoggerErrorT>,
+    > {
         self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
     }
 
@@ -1156,8 +1158,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             ProviderError<LoggerErrorT>,
         >,
         mut options: BlockOptions,
-    ) -> Result<DebugMineBlockResult<BlockchainError<L1ChainSpec>>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<
+        DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
+        ProviderError<LoggerErrorT>,
+    > {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
         options.timestamp = Some(block_timestamp);
 
@@ -1206,8 +1210,10 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         number_of_blocks: u64,
         interval: u64,
-    ) -> Result<Vec<DebugMineBlockResult<BlockchainError<L1ChainSpec>>>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<
+        Vec<DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>>,
+        ProviderError<LoggerErrorT>,
+    > {
         // There should be at least 2 blocks left for the reservation to work,
         // because we always mine a block after it. But here we use a bigger
         // number to err on the side of safety.
@@ -1217,27 +1223,28 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             return Ok(Vec::new());
         }
 
-        let mine_block_with_interval =
-            |data: &mut ProviderData<LoggerErrorT, TimerT>,
-             mined_blocks: &mut Vec<DebugMineBlockResult<BlockchainError<L1ChainSpec>>>|
-             -> Result<(), ProviderError<LoggerErrorT>> {
-                let previous_timestamp = mined_blocks
-                    .last()
-                    .expect("at least one block was mined")
-                    .block
-                    .header()
-                    .timestamp;
+        let mine_block_with_interval = |data: &mut ProviderData<LoggerErrorT, TimerT>,
+                                        mined_blocks: &mut Vec<
+            DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
+        >|
+         -> Result<(), ProviderError<LoggerErrorT>> {
+            let previous_timestamp = mined_blocks
+                .last()
+                .expect("at least one block was mined")
+                .block
+                .header()
+                .timestamp;
 
-                let options = BlockOptions {
-                    timestamp: Some(previous_timestamp + interval),
-                    ..BlockOptions::default()
-                };
-
-                let mined_block = data.mine_and_commit_block(options)?;
-                mined_blocks.push(mined_block);
-
-                Ok(())
+            let options = BlockOptions {
+                timestamp: Some(previous_timestamp + interval),
+                ..BlockOptions::default()
             };
+
+            let mined_block = data.mine_and_commit_block(options)?;
+            mined_blocks.push(mined_block);
+
+            Ok(())
+        };
 
         // Limit the pre-allocated capacity based on the minimum reservable number of
         // blocks to avoid too large allocations.
@@ -2018,7 +2025,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             ProviderError<LoggerErrorT>,
         >,
         mut options: BlockOptions,
-    ) -> Result<DebugMineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugMineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>>
+    {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
@@ -2110,7 +2118,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// Mines a pending block, without modifying any values.
     pub fn mine_pending_block(
         &mut self,
-    ) -> Result<DebugMineBlockResultAndState<StateError>, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugMineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>>
+    {
         let (block_timestamp, _new_offset) = self.next_block_timestamp(None)?;
 
         // Mining a pending block shouldn't affect the mix hash.

@@ -1,5 +1,6 @@
 use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
+use derive_where::derive_where;
 use edr_eth::{Address, Bytes, U256};
 use revm::{
     handler::register::EvmHandler,
@@ -144,6 +145,7 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
 
 /// Stack tracing message
 #[derive(Debug)]
+#[derive_where(Clone; ChainSpecT::HaltReason)]
 pub enum TraceMessage<ChainSpecT: revm::primitives::EvmWiring> {
     /// Event that occurs before a call or create message.
     Before(BeforeMessage),
@@ -151,16 +153,6 @@ pub enum TraceMessage<ChainSpecT: revm::primitives::EvmWiring> {
     Step(Step),
     /// Event that occurs after a call or create message.
     After(AfterMessage<ChainSpecT>),
-}
-
-impl<ChainSpecT: revm::primitives::EvmWiring> Clone for TraceMessage<ChainSpecT> {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Before(message) => Self::Before(message.clone()),
-            Self::Step(step) => Self::Step(step.clone()),
-            Self::After(message) => Self::After(message.clone()),
-        }
-    }
 }
 
 /// Temporary before message type for handling traces
@@ -188,6 +180,7 @@ pub struct BeforeMessage {
 
 /// Event that occurs after a call or create message.
 #[derive(Debug)]
+#[derive_where(Clone; ChainSpecT::HaltReason)]
 pub struct AfterMessage<ChainSpecT: revm::primitives::EvmWiring> {
     /// The execution result
     pub execution_result: ExecutionResult<ChainSpecT>,
@@ -196,17 +189,10 @@ pub struct AfterMessage<ChainSpecT: revm::primitives::EvmWiring> {
     pub contract_address: Option<Address>,
 }
 
-impl<ChainSpecT: revm::primitives::EvmWiring> Clone for AfterMessage<ChainSpecT> {
-    fn clone(&self) -> Self {
-        Self {
-            execution_result: self.execution_result.clone(),
-            contract_address: self.contract_address,
-        }
-    }
-}
-
 /// A trace for an EVM call.
 #[derive(Debug)]
+#[derive_where(Clone; ChainSpecT::HaltReason)]
+#[derive_where(Default)]
 pub struct Trace<ChainSpecT: revm::primitives::EvmWiring> {
     // /// The individual steps of the call
     // pub steps: Vec<Step>,
@@ -214,24 +200,6 @@ pub struct Trace<ChainSpecT: revm::primitives::EvmWiring> {
     pub messages: Vec<TraceMessage<ChainSpecT>>,
     /// The return value of the call
     pub return_value: Bytes,
-}
-
-impl<ChainSpecT: revm::primitives::EvmWiring> Clone for Trace<ChainSpecT> {
-    fn clone(&self) -> Self {
-        Self {
-            messages: self.messages.clone(),
-            return_value: self.return_value.clone(),
-        }
-    }
-}
-
-impl<ChainSpecT: revm::primitives::EvmWiring> Default for Trace<ChainSpecT> {
-    fn default() -> Self {
-        Self {
-            messages: Vec::new(),
-            return_value: Bytes::new(),
-        }
-    }
 }
 
 /// A single EVM step.
