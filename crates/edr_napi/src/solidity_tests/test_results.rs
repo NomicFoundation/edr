@@ -6,13 +6,16 @@ use napi::{
 };
 use napi_derive::napi;
 
+use crate::solidity_tests::artifact::ArtifactId;
+
 /// See [forge::result::SuiteResult]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct SuiteResult {
-    /// See [forge::result::SuiteResult::name]
+    /// The artifact id can be used to match input to result in the progress
+    /// callback
     #[napi(readonly)]
-    pub name: String,
+    pub id: ArtifactId,
     /// See [forge::result::SuiteResult::duration]
     #[napi(readonly)]
     pub duration_ms: BigInt,
@@ -24,10 +27,10 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
 }
 
-impl From<(String, forge::result::SuiteResult)> for SuiteResult {
-    fn from((name, suite_result): (String, forge::result::SuiteResult)) -> Self {
+impl From<(foundry_common::ArtifactId, forge::result::SuiteResult)> for SuiteResult {
+    fn from((id, suite_result): (foundry_common::ArtifactId, forge::result::SuiteResult)) -> Self {
         Self {
-            name,
+            id: id.into(),
             duration_ms: BigInt::from(suite_result.duration.as_millis()),
             test_results: suite_result
                 .test_results

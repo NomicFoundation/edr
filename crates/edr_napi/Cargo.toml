@@ -35,7 +35,7 @@ mimalloc = { version = "0.1.39", default-features = false, features = ["local_dy
 # Solidity tests
 alloy-primitives = { workspace = true, features = ["serde"] }
 forge.workspace = true
-foundry-compilers = { workspace = true, features = ["full"] }
+foundry-common.workspace = true
 foundry-config.workspace = true
 tempfile = "3.10.1"
 

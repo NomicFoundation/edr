@@ -56,19 +56,25 @@ async function runForgeStdTests(forgeStdRepoPath) {
     path.join(forgeStdRepoPath, "hardhat.config.js"),
   );
 
-  const testSuites = listFilesRecursively(artifactsDir)
-    .filter((p) => !p.endsWith(".dbg.json") && p.includes(".t.sol"))
-    .map(loadContract.bind(null, hardhatConfig))
-    .filter((ts) => !EXCLUDED_TEST_SUITES.has(ts.id.name));
+  const artifacts = listFilesRecursively(artifactsDir)
+    .filter((p) => !p.endsWith(".dbg.json") && !p.includes("build-info"))
+    .map(loadArtifact.bind(null, hardhatConfig));
+
+  const testSuiteIds = artifacts
+    .filter(
+      (a) =>
+        a.id.source.includes(".t.sol") && !EXCLUDED_TEST_SUITES.has(a.id.name),
+    )
+    .map((a) => a.id);
 
   const results = await new Promise((resolve) => {
     const resultsFromCallback = [];
 
-    runSolidityTests(testSuites, gasReport, (result) => {
-      console.error(`${result.name} took ${elapsedSec(start)} seconds`);
+    runSolidityTests(artifacts, testSuiteIds, gasReport, (result) => {
+      console.error(`${result.id.name} took ${elapsedSec(start)} seconds`);
 
       resultsFromCallback.push(result);
-      if (resultsFromCallback.length === testSuites.length) {
+      if (resultsFromCallback.length === artifacts.length) {
         resolve(resultsFromCallback);
       }
     });
@@ -116,13 +122,11 @@ function listFilesRecursively(dir, fileList = []) {
   return fileList;
 }
 
-// Load a contract built with Hardhat into a test suite
-function loadContract(hardhatConfig, artifactPath) {
+// Load a contract built with Hardhat
+function loadArtifact(hardhatConfig, artifactPath) {
   const compiledContract = require(artifactPath);
 
   const artifactId = {
-    // Artifact cache path is ignored
-    artifactCachePath: "./none",
     name: compiledContract.contractName,
     solcVersion: hardhatConfig.solidity.version,
     source: compiledContract.sourceName,
@@ -131,8 +135,7 @@ function loadContract(hardhatConfig, artifactPath) {
   const testContract = {
     abi: JSON.stringify(compiledContract.abi),
     bytecode: compiledContract.bytecode,
-    libsToDeploy: [],
-    libraries: [],
+    deployedBytecode: compiledContract.deployedBytecode,
   };
 
   return {

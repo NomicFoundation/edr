@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
-/// Based on `crates/foundry/forge/tests/it/test_helpers.rs`.
 use forge::{
-    decode::RevertDecoder, multi_runner::TestContract, revm::primitives::SpecId,
+    decode::RevertDecoder,
+    multi_runner::{DeployableContracts, TestContract},
+    revm::primitives::SpecId,
     MultiContractRunner, TestOptionsBuilder,
 };
-use foundry_compilers::ArtifactId;
+use foundry_common::ContractsByArtifact;
 
 use crate::solidity_tests::config::SolidityTestsConfig;
 
 pub(super) fn build_runner(
-    test_suites: Vec<(ArtifactId, TestContract)>,
+    known_contracts: &ContractsByArtifact,
+    test_suites: Vec<foundry_common::ArtifactId>,
     gas_report: bool,
 ) -> napi::Result<MultiContractRunner> {
     let config = SolidityTestsConfig::new(gas_report);
@@ -29,8 +31,35 @@ pub(super) fn build_runner(
         .build_hardhat()
         .map_err(|e| napi::Error::new(napi::Status::GenericFailure, format!("{e:?}")))?;
 
-    let abis = test_suites.iter().map(|(_, contract)| &contract.abi);
+    // Build revert decoder from ABIs of all artifacts.
+    let abis = known_contracts.iter().map(|(_, contract)| &contract.abi);
     let revert_decoder = RevertDecoder::new().with_abis(abis);
+
+    let contracts = test_suites
+        .iter()
+        .map(|artifact_id| {
+            let contract_data = known_contracts.get(artifact_id).ok_or_else(|| {
+                napi::Error::new(
+                    napi::Status::GenericFailure,
+                    format!("Unknown contract: {}", artifact_id.identifier()),
+                )
+            })?;
+
+            let bytecode = contract_data.bytecode.clone().ok_or_else(|| {
+                napi::Error::new(
+                    napi::Status::GenericFailure,
+                    format!(
+                        "No bytecode for test suite contract: {}",
+                        artifact_id.identifier()
+                    ),
+                )
+            })?;
+
+            let test_contract = TestContract::new_hardhat(contract_data.abi.clone(), bytecode);
+
+            Ok((artifact_id.clone(), test_contract))
+        })
+        .collect::<napi::Result<DeployableContracts>>()?;
 
     let sender = Some(evm_opts.sender);
     let evm_env = evm_opts.local_evm_env();
@@ -38,7 +67,7 @@ pub(super) fn build_runner(
     Ok(MultiContractRunner {
         project_root,
         cheats_config_opts: Arc::new(cheats_config_options),
-        contracts: test_suites.into_iter().collect(),
+        contracts,
         evm_opts,
         env: evm_env,
         evm_spec: SpecId::CANCUN,

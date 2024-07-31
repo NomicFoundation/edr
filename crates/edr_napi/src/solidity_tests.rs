@@ -1,11 +1,13 @@
+mod artifact;
 mod config;
 mod runner;
 mod test_results;
-mod test_suite;
 
 use std::{path::Path, sync::Arc};
 
+use artifact::Artifact;
 use forge::TestFilter;
+use foundry_common::ContractsByArtifact;
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -17,7 +19,7 @@ use napi::{
 use napi_derive::napi;
 
 use crate::solidity_tests::{
-    runner::build_runner, test_results::SuiteResult, test_suite::TestSuite,
+    artifact::ArtifactId, runner::build_runner, test_results::SuiteResult,
 };
 
 /// Executes Solidity tests.
@@ -30,7 +32,8 @@ use crate::solidity_tests::{
 #[allow(dead_code)]
 #[napi]
 pub fn run_solidity_tests(
-    test_suites: Vec<TestSuite>,
+    artifacts: Vec<Artifact>,
+    test_suites: Vec<ArtifactId>,
     gas_report: bool,
     #[napi(ts_arg_type = "(result: SuiteResult) => void")] progress_callback: JsFunction,
 ) -> napi::Result<()> {
@@ -41,14 +44,23 @@ pub fn run_solidity_tests(
             |ctx: ThreadSafeCallContext<SuiteResult>| Ok(vec![ctx.value]),
         )?;
 
-    let test_suites = test_suites
+    let artifacts = artifacts
         .into_iter()
         .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
-        .collect::<Result<Vec<_>, napi::Error>>()?;
-    let runner = build_runner(test_suites, gas_report)?;
+        .collect::<Result<_, napi::Error>>()?;
+    let known_contracts = ContractsByArtifact::new(artifacts);
 
-    let (tx_results, mut rx_results) =
-        tokio::sync::mpsc::unbounded_channel::<(String, forge::result::SuiteResult)>();
+    let test_suites = test_suites
+        .into_iter()
+        .map(TryInto::try_into)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let runner = build_runner(&known_contracts, test_suites, gas_report)?;
+
+    let (tx_results, mut rx_results) = tokio::sync::mpsc::unbounded_channel::<(
+        foundry_common::ArtifactId,
+        forge::result::SuiteResult,
+    )>();
 
     let runtime = runtime::Handle::current();
     runtime.spawn(async move {
@@ -68,7 +80,11 @@ pub fn run_solidity_tests(
     });
 
     // Returns immediately after test suite execution is started
-    runner.test_hardhat(Arc::new(EverythingFilter), tx_results);
+    runner.test_hardhat(
+        Arc::new(known_contracts),
+        Arc::new(EverythingFilter),
+        tx_results,
+    );
 
     Ok(())
 }
