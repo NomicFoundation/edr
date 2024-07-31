@@ -591,6 +591,20 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.blockchain.chain_id()
     }
 
+    pub fn chain_id_at_block_spec(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderError<LoggerErrorT>> {
+        let block_number = self.block_number_by_block_spec(block_spec)?;
+
+        let chain_id = if let Some(block_number) = block_number {
+            self.chain_id_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.chain_id()
+        };
+
+        Ok(chain_id)
+    }
     pub fn coinbase(&self) -> Address {
         self.beneficiary
     }
@@ -607,9 +621,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             .ok_or_else(|| ProviderError::InvalidTransactionHash(*transaction_hash))?;
 
         let header = block.header();
-        let block_spec = Some(BlockSpec::Number(header.number));
 
-        let cfg_env = self.create_evm_config(block_spec.as_ref())?;
+        let cfg_env = self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
 
         let transactions = block.transactions().to_vec();
 
@@ -659,7 +672,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
     ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let tx_env: TxEnv = transaction.into();
 
@@ -691,7 +704,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         transaction: transaction::Signed,
         block_spec: &BlockSpec,
     ) -> Result<EstimateGasResult, ProviderError<LoggerErrorT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
         let minimum_cost = transaction::initial_cost(&transaction, self.spec_id());
@@ -1422,7 +1435,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult, ProviderError<LoggerErrorT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         let tx_env = transaction.into();
 
         let mut debugger = Debugger::with_mocker(
@@ -1909,26 +1922,32 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(transaction_hash)
     }
 
-    /// Creates a configuration, taking into the hardfork at the provided
-    /// `BlockSpec`. If none is provided, assumes the hardfork for newly
-    /// mined blocks.
+    /// Wrapper over `Blockchain::chain_id_at_block_number` that handles error
+    /// conversion.
+    fn chain_id_at_block_number(
+        &self,
+        block_number: u64,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderError<LoggerErrorT>> {
+        self.blockchain
+            .chain_id_at_block_number(block_number)
+            .map_err(|err| match err {
+                BlockchainError::UnknownBlockNumber => ProviderError::InvalidBlockNumberOrHash {
+                    block_spec: block_spec.clone(),
+                    latest_block_number: self.blockchain.last_block_number(),
+                },
+                _ => ProviderError::Blockchain(err),
+            })
+    }
+
+    /// Creates an EVM configuration with the provided hardfork and chain id
     fn create_evm_config(
         &self,
-        block_spec: Option<&BlockSpec>,
+        spec_id: SpecId,
+        chain_id: u64,
     ) -> Result<CfgEnvWithHandlerCfg, ProviderError<LoggerErrorT>> {
-        let block_number = block_spec
-            .map(|block_spec| self.block_number_by_block_spec(block_spec))
-            .transpose()?
-            .flatten();
-
-        let spec_id = if let Some(block_number) = block_number {
-            self.blockchain.spec_at_block_number(block_number)?
-        } else {
-            self.blockchain.spec_id()
-        };
-
         let mut cfg_env = CfgEnv::default();
-        cfg_env.chain_id = self.blockchain.chain_id();
+        cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
             Some(usize::MAX)
         } else {
@@ -1937,6 +1956,29 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         cfg_env.disable_eip3607 = true;
 
         Ok(CfgEnvWithHandlerCfg::new_with_spec_id(cfg_env, spec_id))
+    }
+
+    /// Creates a configuration, taking into the hardfork and chain id at the
+    /// provided `BlockSpec`.
+    fn create_evm_config_at_block_spec(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<CfgEnvWithHandlerCfg, ProviderError<LoggerErrorT>> {
+        let block_number = self.block_number_by_block_spec(block_spec)?;
+
+        let spec_id = if let Some(block_number) = block_number {
+            self.spec_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.spec_id()
+        };
+
+        let chain_id = if let Some(block_number) = block_number {
+            self.chain_id_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.chain_id()
+        };
+
+        self.create_evm_config(spec_id, chain_id)
     }
 
     fn execute_in_block_context<T>(
@@ -1995,7 +2037,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
-        let evm_config = self.create_evm_config(None)?;
+        let evm_config =
+            self.create_evm_config(self.blockchain.spec_id(), self.blockchain.chain_id())?;
 
         if options.mix_hash.is_none() && evm_config.handler_cfg.spec_id >= SpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
@@ -2226,6 +2269,24 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         } else {
             false
         }
+    }
+
+    /// Wrapper over `Blockchain::spec_at_block_number` that handles error
+    /// conversion.
+    fn spec_at_block_number(
+        &self,
+        block_number: u64,
+        block_spec: &BlockSpec,
+    ) -> Result<SpecId, ProviderError<LoggerErrorT>> {
+        self.blockchain
+            .spec_at_block_number(block_number)
+            .map_err(|err| match err {
+                BlockchainError::UnknownBlockNumber => ProviderError::InvalidBlockNumberOrHash {
+                    block_spec: block_spec.clone(),
+                    latest_block_number: self.blockchain.last_block_number(),
+                },
+                _ => ProviderError::Blockchain(err),
+            })
     }
 
     pub fn sign_transaction_request(
@@ -2978,6 +3039,11 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
         assert_eq!(chain_id, fixture.config.chain_id);
+
+        let chain_id_at_block = fixture
+            .provider_data
+            .chain_id_at_block_spec(&BlockSpec::Number(1))?;
+        assert_eq!(chain_id_at_block, 1);
 
         Ok(())
     }
