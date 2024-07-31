@@ -176,7 +176,7 @@ where
 
 pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = CurrentTime> {
     runtime_handle: runtime::Handle,
-    initial_config: ProviderConfig,
+    initial_config: ProviderConfig<L1ChainSpec>,
     blockchain: Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool,
@@ -228,7 +228,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         >,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         call_override: Option<Arc<dyn SyncCallOverride>>,
-        config: ProviderConfig,
+        config: ProviderConfig<L1ChainSpec>,
         timer: TimerT,
     ) -> Result<Self, CreationError<L1ChainSpec>> {
         let InitialAccounts {
@@ -2395,7 +2395,7 @@ impl StateId {
 }
 
 fn block_time_offset_seconds(
-    config: &ProviderConfig,
+    config: &ProviderConfig<L1ChainSpec>,
     timer: &impl TimeSinceEpoch,
 ) -> Result<i64, CreationError<L1ChainSpec>> {
     config.initial_date.map_or(Ok(0), |initial_date| {
@@ -2427,7 +2427,7 @@ struct BlockchainAndState {
 
 fn create_blockchain_and_state(
     runtime: runtime::Handle,
-    config: &ProviderConfig,
+    config: &ProviderConfig<L1ChainSpec>,
     timer: &impl TimeSinceEpoch,
     mut genesis_accounts: HashMap<Address, Account>,
 ) -> Result<BlockchainAndState, CreationError<L1ChainSpec>> {
@@ -2652,7 +2652,7 @@ pub(crate) mod test_utils {
 
     pub(crate) struct ProviderTestFixture {
         _runtime: runtime::Runtime,
-        pub config: ProviderConfig,
+        pub config: ProviderConfig<L1ChainSpec>,
         pub provider_data: ProviderData<Infallible>,
         pub impersonated_account: Address,
     }
@@ -2693,7 +2693,7 @@ pub(crate) mod test_utils {
 
         pub fn new(
             runtime: tokio::runtime::Runtime,
-            mut config: ProviderConfig,
+            mut config: ProviderConfig<L1ChainSpec>,
         ) -> anyhow::Result<Self> {
             let logger = Box::<NoopLogger>::default();
             let subscription_callback_noop = Box::new(|_| ());

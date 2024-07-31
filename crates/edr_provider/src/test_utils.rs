@@ -19,7 +19,7 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
-pub fn create_test_config() -> ProviderConfig {
+pub fn create_test_config() -> ProviderConfig<L1ChainSpec> {
     create_test_config_with_fork(None)
 }
 
@@ -27,7 +27,7 @@ pub fn one_ether() -> U256 {
     U256::from(10).pow(U256::from(18))
 }
 
-pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig {
+pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig<L1ChainSpec> {
     ProviderConfig {
         accounts: vec![
             AccountConfig {
