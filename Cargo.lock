@@ -1227,6 +1227,7 @@ dependencies = [
  "anyhow",
  "auto_impl",
  "cargo_toml",
+ "derive-where",
  "dyn-clone",
  "edr_defaults",
  "edr_eth",

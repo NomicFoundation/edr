@@ -1,4 +1,5 @@
 use edr_eth::{
+    chain_spec::L1ChainSpec,
     signature::public_key_to_address,
     state::{Account, AccountStatus},
     AccountInfo, Address, HashMap, KECCAK_EMPTY,
@@ -12,7 +13,7 @@ pub(super) struct InitialAccounts {
     pub genesis_accounts: HashMap<Address, Account>,
 }
 
-pub(super) fn create_accounts(config: &ProviderConfig) -> InitialAccounts {
+pub(super) fn create_accounts(config: &ProviderConfig<L1ChainSpec>) -> InitialAccounts {
     let mut local_accounts = IndexMap::default();
 
     let genesis_accounts = config

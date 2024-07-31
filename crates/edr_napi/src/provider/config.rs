@@ -4,7 +4,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use edr_eth::HashMap;
+use edr_eth::{chain_spec::L1ChainSpec, HashMap};
 use edr_provider::AccountConfig;
 use napi::{
     bindgen_prelude::{BigInt, Buffer},
@@ -203,7 +203,7 @@ impl TryFrom<MiningConfig> for edr_provider::MiningConfig {
     }
 }
 
-impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig {
+impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig<L1ChainSpec> {
     type Error = napi::Error;
 
     fn try_from(value: ProviderConfig) -> Result<Self, Self::Error> {
