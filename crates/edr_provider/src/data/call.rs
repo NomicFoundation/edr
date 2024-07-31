@@ -9,7 +9,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    evm::handler::CfgEnvWithChainSpec,
+    evm::handler::CfgEnvWithEvmWiring,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
     transaction, DebugContext,
@@ -25,7 +25,7 @@ where
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithChainSpec<L1ChainSpec>,
+    pub cfg_env: CfgEnvWithEvmWiring<L1ChainSpec>,
     pub transaction: transaction::Signed,
     pub precompiles: &'a HashMap<Address, Precompile>,
     // `DebugContext` cannot be simplified further

@@ -15,7 +15,7 @@ use edr_eth::{
 };
 use revm::{
     db::{DatabaseComponents, StateRef},
-    handler::{CfgEnvWithChainSpec, EnvWithChainSpec},
+    handler::{CfgEnvWithEvmWiring, EnvWithEvmWiring},
     primitives::{
         ExecutionResult, ResultAndState, SpecId, Transaction as _, TransactionValidation,
         MAX_BLOB_GAS_PER_BLOCK,
@@ -48,7 +48,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::primitives::EvmWiring,
 {
     /// Transaction has higher gas limit than is remaining in block
     #[error("Transaction has a higher gas limit than the remaining gas in the block")]
@@ -71,7 +71,7 @@ pub struct ExecutionResultWithContext<
     DebugDataT,
     StateT: StateRef,
 > where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     /// The result of executing the transaction.
     pub result: Result<
@@ -92,7 +92,7 @@ pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
 
 /// A builder for constructing Ethereum blocks.
 pub struct BlockBuilder<ChainSpecT: ChainSpec> {
-    cfg: CfgEnvWithChainSpec<ChainSpecT>,
+    cfg: CfgEnvWithEvmWiring<ChainSpecT>,
     header: PartialHeader,
     transactions: Vec<ChainSpecT::Transaction>,
     state_diff: StateDiff,
@@ -108,7 +108,7 @@ where
     /// Creates an intance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new<BlockchainErrorT>(
-        cfg: CfgEnvWithChainSpec<ChainSpecT>,
+        cfg: CfgEnvWithEvmWiring<ChainSpecT>,
         parent: &dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>,
         mut options: BlockOptions,
     ) -> Result<Self, BlockBuilderCreationError<ChainSpecT>> {
@@ -148,7 +148,7 @@ where
 
 impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
     /// Retrieves the config of the block builder.
-    pub fn config(&self) -> &CfgEnvWithChainSpec<ChainSpecT> {
+    pub fn config(&self) -> &CfgEnvWithEvmWiring<ChainSpecT> {
         &self.cfg
     }
 
@@ -317,7 +317,7 @@ where
             }
         };
 
-        let env = EnvWithChainSpec::new_with_cfg_env(self.cfg.clone(), block, transaction.clone());
+        let env = EnvWithEvmWiring::new_with_cfg_env(self.cfg.clone(), block, transaction.clone());
 
         let db = DatabaseComponents {
             state,
