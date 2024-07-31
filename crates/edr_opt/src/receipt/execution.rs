@@ -206,95 +206,82 @@ impl<LogT> Receipt<LogT> for Execution<LogT> {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use alloy_rlp::Decodable as _;
+    use edr_eth::{log::ExecutionLog, Address, Bytes, B256};
 
-// #[cfg(test)]
-// mod tests {
-//     use alloy_rlp::Decodable as _;
-//     use edr_eth::{log::ExecutionLog, Address, Bytes, B256};
+    use super::*;
+    use crate::eip2718::TypedEnvelope;
 
-//     use super::*;
+    macro_rules! impl_execution_receipt_tests {
+        ($(
+            $name:ident => $receipt:expr,
+        )+) => {
+            $(
+                paste::item! {
+                    #[test]
+                    fn [<typed_receipt_rlp_encoding_ $name>]() -> anyhow::Result<()> {
+                        let receipt = $receipt;
 
-//     macro_rules! impl_execution_receipt_tests {
-//         ($(
-//             $name:ident => $receipt:expr,
-//         )+) => {
-//             $(
-//                 paste::item! {
-//                     #[test]
-//                     fn [<typed_receipt_rlp_encoding_ $name>]() {
-//                         let receipt = $receipt;
-//                         let encoded = alloy_rlp::encode(&receipt);
-//                         assert_eq!(Execution::<ExecutionLog>::decode(&mut
-// encoded.as_slice()).unwrap(), receipt);                     }
+                        let encoded = alloy_rlp::encode(&receipt);
+                        let decoded = TypedEnvelope::<Execution::<ExecutionLog>>::decode(&mut encoded.as_slice())?;
+                        assert_eq!(decoded, receipt);
 
-//                     #[cfg(feature = "serde")]
-//                     #[test]
-//                     fn [<typed_receipt_serde_ $name>]() {
-//                         let receipt = $receipt;
+                        Ok(())
+                    }
+                }
+            )+
+        };
+    }
 
-//                         let serialized =
-// serde_json::to_string(&receipt).unwrap();                         let
-// deserialized: Execution<ExecutionLog> =
-// serde_json::from_str(&serialized).unwrap();
-// assert_eq!(receipt, deserialized);
-
-//                         // This is necessary to ensure that the deser
-// implementation doesn't expect a                         // &str where a
-// String can be passed.                         let serialized =
-// serde_json::to_value(&receipt).unwrap();                         let
-// deserialized: Execution<ExecutionLog> =
-// serde_json::from_value(serialized).unwrap();
-
-//                         assert_eq!(receipt, deserialized);
-//                     }
-//                 }
-//             )+
-//         };
-//     }
-
-//     impl_execution_receipt_tests! {
-//         legacy => Execution::Legacy(Legacy {
-//             root: B256::random(),
-//             cumulative_gas_used: 0xffff,
-//             logs_bloom: Bloom::random(),
-//             logs: vec![
-//                 ExecutionLog::new_unchecked(Address::random(),
-// vec![B256::random(), B256::random()], Bytes::new()),
-// ExecutionLog::new_unchecked(Address::random(), Vec::new(),
-// Bytes::from_static(b"test"))             ],
-//         }),
-//         eip658 => Execution::Eip658(Eip658 {
-//             status: true,
-//             cumulative_gas_used: 0xffff,
-//             logs_bloom: Bloom::random(),
-//             logs: vec![
-//                 ExecutionLog::new_unchecked(Address::random(),
-// vec![B256::random(), B256::random()], Bytes::new()),
-// ExecutionLog::new_unchecked(Address::random(), Vec::new(),
-// Bytes::from_static(b"test"))             ],
-//         }),
-//         eip2718 => Execution::Eip2718(Eip2718 {
-//             status: true,
-//             cumulative_gas_used: 0xffff,
-//             logs_bloom: Bloom::random(),
-//             logs: vec![
-//                 ExecutionLog::new_unchecked(Address::random(),
-// vec![B256::random(), B256::random()], Bytes::new()),
-// ExecutionLog::new_unchecked(Address::random(), Vec::new(),
-// Bytes::from_static(b"test"))             ],
-//             transaction_type: crate::transaction::Type::Eip1559,
-//         }),
-//         deposit => Execution::Deposit(Deposit {
-//             status: true,
-//             cumulative_gas_used: 0xffff,
-//             logs_bloom: Bloom::random(),
-//             logs: vec![
-//                 ExecutionLog::new_unchecked(Address::random(),
-// vec![B256::random(), B256::random()], Bytes::new()),
-// ExecutionLog::new_unchecked(Address::random(), Vec::new(),
-// Bytes::from_static(b"test"))             ],
-//             deposit_nonce: 0x1234,
-//             deposit_receipt_version: Some(0x01),
-//         }),
-//     }
-// }
+    impl_execution_receipt_tests! {
+        legacy => TypedEnvelope::Legacy(Execution::Legacy(Legacy {
+            root: B256::random(),
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        })),
+        eip658_eip2930 => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        })),
+        eip658_eip1559 => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        })),
+        eip658_eip4844 => TypedEnvelope::Eip4844(Execution::Eip658(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        })),
+        deposit => TypedEnvelope::Deposit(Execution::Deposit(Deposit {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(),Bytes::from_static(b"test")),
+            ],
+            deposit_nonce: 0x1234,
+            deposit_receipt_version: Some(0x01),
+        })),
+    }
+}
