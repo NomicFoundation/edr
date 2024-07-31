@@ -425,10 +425,10 @@ export interface CreateMessageTrace {
   gasUsed: bigint
   depth: number
   code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
-  bytecode?: any
+  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
+  bytecode?: Bytecode
   numberOfSubtraces: number
-  deployedContract: Uint8Array | undefined
+  deployedContract?: Uint8Array | undefined
 }
 export interface CallMessageTrace {
   value: bigint
@@ -437,8 +437,8 @@ export interface CallMessageTrace {
   gasUsed: bigint
   depth: number
   code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace>
-  bytecode?: any
+  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
+  bytecode?: Bytecode
   numberOfSubtraces: number
   calldata: Uint8Array
   address: Uint8Array
@@ -707,6 +707,11 @@ export function isPush(opcode: Opcode): boolean
 export function isJump(opcode: Opcode): boolean
 export function isCall(opcode: Opcode): boolean
 export function isCreate(opcode: Opcode): boolean
+export interface ContractAndFunctionName {
+  contractName: string
+  functionName: string | undefined
+}
+export function initializeVmTraceDecoder(vmTraceDecoder: VmTraceDecoder, tracingConfig: any): void
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
@@ -841,12 +846,17 @@ export class Contract {
 export class ContractsIdentifier {
   constructor(enableCache?: boolean | undefined | null)
   addBytecode(bytecode: Bytecode): void
-  getBytecodeForCall(code: Uint8Array, isCreate: boolean): Bytecode | undefined
 }
 export class Exit {
   get kind(): ExitCode
   isError(): boolean
   getReason(): string
+}
+export class VmTraceDecoder {
+  constructor(contractsIdentifier: ContractsIdentifier)
+  addBytecode(bytecode: Bytecode): void
+  tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName
 }
 export type VMTracer = VmTracer
 /** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
@@ -854,7 +864,7 @@ export class VmTracer {
   constructor()
   /** Observes a trace, collecting information about the execution of the EVM. */
   observe(trace: RawTrace): void
-  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CreateMessageTrace | CallMessageTrace | undefined
+  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
   getLastError(): Error | undefined
 }
 export class RawTrace {

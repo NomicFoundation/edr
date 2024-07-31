@@ -28,6 +28,8 @@ COMMITS=(
   dd34257cec2ceddc4e7065aa9147378d8f75da98
   # refactor: Re-use the ContractsIdentifier from EDR
   0bdc767826aba3b7ae2c4de02687d1743fb05813
+  # refactor: Port the VmTraceDecoder from Hardhat
+  137cfb33a8868329ae4d3d3903f4c7bf8838a50f
 )
 
 for commit in "${COMMITS[@]}"; do

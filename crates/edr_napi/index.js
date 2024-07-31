@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -342,5 +342,7 @@ module.exports.isPush = isPush
 module.exports.isJump = isJump
 module.exports.isCall = isCall
 module.exports.isCreate = isCreate
+module.exports.VmTraceDecoder = VmTraceDecoder
+module.exports.initializeVmTraceDecoder = initializeVmTraceDecoder
 module.exports.VmTracer = VmTracer
 module.exports.RawTrace = RawTrace

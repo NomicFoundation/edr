@@ -11,7 +11,7 @@ use edr_solidity::{
 use indexmap::IndexMap;
 use napi::{
     bindgen_prelude::{ClassInstance, Uint8Array},
-    Either, Env,
+    Env,
 };
 use napi_derive::napi;
 
@@ -26,7 +26,7 @@ use super::{
 use crate::utils::ClassInstanceRef;
 
 #[napi]
-fn create_models_and_decode_bytecodes(
+pub fn create_models_and_decode_bytecodes(
     solc_version: String,
     compiler_input: serde_json::Value,
     compiler_output: serde_json::Value,
@@ -35,12 +35,21 @@ fn create_models_and_decode_bytecodes(
     let compiler_input: CompilerInput = serde_json::from_value(compiler_input)?;
     let compiler_output: CompilerOutput = serde_json::from_value(compiler_output)?;
 
+    create_models_and_decode_bytecodes_inner(solc_version, &compiler_input, &compiler_output, env)
+}
+
+pub fn create_models_and_decode_bytecodes_inner(
+    solc_version: String,
+    compiler_input: &CompilerInput,
+    compiler_output: &CompilerOutput,
+    env: Env,
+) -> napi::Result<Vec<ClassInstance<Bytecode>>> {
     let mut file_id_to_source_file = HashMap::new();
     let mut contract_id_to_contract = IndexMap::new();
 
     create_sources_model_from_ast(
-        &compiler_output,
-        &compiler_input,
+        compiler_output,
+        compiler_input,
         &mut file_id_to_source_file,
         &mut contract_id_to_contract,
         env,
@@ -48,13 +57,13 @@ fn create_models_and_decode_bytecodes(
 
     let bytecodes = decode_bytecodes(
         solc_version,
-        &compiler_output,
+        compiler_output,
         &file_id_to_source_file,
         &contract_id_to_contract,
         env,
     )?;
 
-    correct_selectors(&bytecodes, &compiler_output, env)?;
+    correct_selectors(&bytecodes, compiler_output, env)?;
 
     Ok(bytecodes)
 }
@@ -691,10 +700,9 @@ fn correct_selectors(
             let selector = hex::decode(hex_selector)
                 .map_err(|e| napi::Error::from_reason(format!("Failed to decode hex: {e:?}")))?;
 
-            let contract_function =
-                contract.get_function_from_selector(selector.clone().into(), env)?;
+            let contract_function = contract.get_function_from_selector_inner(&selector);
 
-            if let Either::A(_) = contract_function {
+            if contract_function.is_some() {
                 continue;
             }
 

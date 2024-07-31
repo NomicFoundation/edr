@@ -673,7 +673,7 @@ async function runDeploymentTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
-  if (!("deployedContract" in trace)) {
+  if ("precompile" in trace || "calldata" in trace) {
     assert.fail("Expected trace to be a deployment trace");
   }
 

@@ -3,8 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 use edr_eth::Address;
 use edr_evm::hex;
 use napi::{
-    bindgen_prelude::{ClassInstance, Uint8Array, Undefined},
-    Either, Env, JsObject,
+    bindgen_prelude::{ClassInstance, Uint8Array},
+    Either, Env,
 };
 use napi_derive::napi;
 
@@ -264,13 +264,12 @@ impl ContractsIdentifier {
         Ok(None)
     }
 
-    #[napi(ts_return_type = "Bytecode | undefined")]
     pub fn get_bytecode_for_call(
         &mut self,
         code: Uint8Array,
         is_create: bool,
         env: Env,
-    ) -> napi::Result<Either<JsObject, Undefined>> {
+    ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
         let mut normalized_code = code.clone();
         normalize_library_runtime_bytecode_if_necessary(&mut normalized_code);
 
@@ -279,7 +278,7 @@ impl ContractsIdentifier {
             let cached = self.cache.get(&normalized_code_hex);
 
             if let Some(cached) = cached {
-                return Ok(Either::A(cached.as_object(env)?));
+                return Ok(Some(cached.clone()));
             }
         }
 
@@ -291,10 +290,7 @@ impl ContractsIdentifier {
             }
         }
 
-        match result {
-            Some(bytecode) => Ok(Either::A(bytecode.as_object(env)?)),
-            None => Ok(Either::B(())),
-        }
+        Ok(result)
     }
 }
 

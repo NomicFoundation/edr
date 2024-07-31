@@ -2657,38 +2657,144 @@ index 8aa9ffe76723470f68ffd824d9cac39de6494962..a13cd7177df2df7f7f3ae0abcdbd9db3
 \ No newline at end of file
 +{"version":3,"file":"solidityTracer.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/stack-traces/solidityTracer.ts"],"names":[],"mappings":"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"}
 \ No newline at end of file
+diff --git a/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts b/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts
+index 9ab9469708c0ddcded9aed839acf9c5f0c260543..4d0acc22312db19e8b3b731d6bb9063c778d81c8 100644
+--- a/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts
++++ b/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts
+@@ -1,17 +1,5 @@
+-/// <reference types="node" />
++import { VmTraceDecoder } from "@nomicfoundation/edr";
+ import { TracingConfig } from "../provider/node-types";
+-import { ContractsIdentifier } from "./contracts-identifier";
+-import { MessageTrace } from "./message-trace";
+-import { Bytecode } from "./model";
+-export declare class VmTraceDecoder {
+-    private readonly _contractsIdentifier;
+-    constructor(_contractsIdentifier: ContractsIdentifier);
+-    getContractAndFunctionNamesForCall(code: Buffer, calldata?: Buffer): {
+-        contractName: string;
+-        functionName?: string;
+-    };
+-    tryToDecodeMessageTrace(messageTrace: MessageTrace): MessageTrace;
+-    addBytecode(bytecode: Bytecode): void;
+-}
+-export declare function initializeVmTraceDecoder(vmTraceDecoder: VmTraceDecoder, tracingConfig: TracingConfig): void;
++declare function initializeVmTraceDecoderWrapper(vmTraceDecoder: VmTraceDecoder, tracingConfig: TracingConfig): void;
++export { VmTraceDecoder, initializeVmTraceDecoderWrapper as initializeVmTraceDecoder, };
+ //# sourceMappingURL=vm-trace-decoder.d.ts.map
+\ No newline at end of file
+diff --git a/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts.map b/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts.map
+index 708695c850760ec2fa7c4dacb8fcc2bc4556bade..00ae430c09396a2254d98bc104d514ef7ffe5c2c 100644
+--- a/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts.map
++++ b/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"vm-trace-decoder.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts"],"names":[],"mappings":";AAGA,OAAO,EAAE,aAAa,EAAE,MAAM,wBAAwB,CAAC;AAEvD,OAAO,EAAE,mBAAmB,EAAE,MAAM,wBAAwB,CAAC;AAC7D,OAAO,EAIL,YAAY,EACb,MAAM,iBAAiB,CAAC;AACzB,OAAO,EAAE,QAAQ,EAAwB,MAAM,SAAS,CAAC;AAUzD,qBAAa,cAAc;IACb,OAAO,CAAC,QAAQ,CAAC,oBAAoB;gBAApB,oBAAoB,EAAE,mBAAmB;IAE/D,kCAAkC,CACvC,IAAI,EAAE,MAAM,EACZ,QAAQ,CAAC,EAAE,MAAM,GAChB;QAAE,YAAY,EAAE,MAAM,CAAC;QAAC,YAAY,CAAC,EAAE,MAAM,CAAA;KAAE;IAyC3C,uBAAuB,CAAC,YAAY,EAAE,YAAY,GAAG,YAAY;IAiBjE,WAAW,CAAC,QAAQ,EAAE,QAAQ;CAGtC;AAED,wBAAgB,wBAAwB,CACtC,cAAc,EAAE,cAAc,EAC9B,aAAa,EAAE,aAAa,QAyC7B"}
+\ No newline at end of file
++{"version":3,"file":"vm-trace-decoder.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts"],"names":[],"mappings":"AAEA,OAAO,EAAE,cAAc,EAA4B,MAAM,sBAAsB,CAAC;AAEhF,OAAO,EAAE,aAAa,EAAE,MAAM,wBAAwB,CAAC;AAIvD,iBAAS,+BAA+B,CACtC,cAAc,EAAE,cAAc,EAC9B,aAAa,EAAE,aAAa,QAoB7B;AAED,OAAO,EACL,cAAc,EACd,+BAA+B,IAAI,wBAAwB,GAC5D,CAAC"}
+\ No newline at end of file
 diff --git a/internal/hardhat-network/stack-traces/vm-trace-decoder.js b/internal/hardhat-network/stack-traces/vm-trace-decoder.js
-index 4d344963203e4ddb9e0ce4eddc2c08797847547b..0f78fe89d0d4028a04b3a5bae38d45f65e6ab939 100644
+index 4d344963203e4ddb9e0ce4eddc2c08797847547b..2ab199eb81dc6e8cee8b8b27437bd7f29f134539 100644
 --- a/internal/hardhat-network/stack-traces/vm-trace-decoder.js
 +++ b/internal/hardhat-network/stack-traces/vm-trace-decoder.js
-@@ -9,7 +9,6 @@ const debug_1 = __importDefault(require("debug"));
+@@ -6,78 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.initializeVmTraceDecoder = exports.VmTraceDecoder = void 0;
+ const chalk_1 = __importDefault(require("chalk"));
+ const debug_1 = __importDefault(require("debug"));
++const edr_1 = require("@nomicfoundation/edr");
++Object.defineProperty(exports, "VmTraceDecoder", { enumerable: true, get: function () { return edr_1.VmTraceDecoder; } });
  const reporter_1 = require("../../sentry/reporter");
- const compiler_to_model_1 = require("./compiler-to-model");
- const message_trace_1 = require("./message-trace");
+-const compiler_to_model_1 = require("./compiler-to-model");
+-const message_trace_1 = require("./message-trace");
 -const model_1 = require("./model");
- const solidity_stack_trace_1 = require("./solidity-stack-trace");
+-const solidity_stack_trace_1 = require("./solidity-stack-trace");
  const log = (0, debug_1.default)("hardhat:core:hardhat-network:node");
- class VmTraceDecoder {
-@@ -36,9 +35,9 @@ class VmTraceDecoder {
-                 const func = bytecode.contract.getFunctionFromSelector(calldata.slice(0, 4));
-                 const functionName = func === undefined
-                     ? solidity_stack_trace_1.UNRECOGNIZED_FUNCTION_NAME
+-class VmTraceDecoder {
+-    constructor(_contractsIdentifier) {
+-        this._contractsIdentifier = _contractsIdentifier;
+-    }
+-    getContractAndFunctionNamesForCall(code, calldata) {
+-        const isCreate = calldata === undefined;
+-        const bytecode = this._contractsIdentifier.getBytecodeForCall(code, isCreate);
+-        const contractName = bytecode?.contract.name ?? solidity_stack_trace_1.UNRECOGNIZED_CONTRACT_NAME;
+-        if (isCreate) {
+-            return {
+-                contractName,
+-            };
+-        }
+-        else {
+-            if (bytecode === undefined) {
+-                return {
+-                    contractName,
+-                    functionName: "",
+-                };
+-            }
+-            else {
+-                const func = bytecode.contract.getFunctionFromSelector(calldata.slice(0, 4));
+-                const functionName = func === undefined
+-                    ? solidity_stack_trace_1.UNRECOGNIZED_FUNCTION_NAME
 -                    : func.type === model_1.ContractFunctionType.FALLBACK
-+                    : func.type === 2 /* ContractFunctionType.FALLBACK */
-                         ? solidity_stack_trace_1.FALLBACK_FUNCTION_NAME
+-                        ? solidity_stack_trace_1.FALLBACK_FUNCTION_NAME
 -                        : func.type === model_1.ContractFunctionType.RECEIVE
-+                        : func.type === 3 /* ContractFunctionType.RECEIVE */
-                             ? solidity_stack_trace_1.RECEIVE_FUNCTION_NAME
-                             : func.name;
-                 return {
+-                            ? solidity_stack_trace_1.RECEIVE_FUNCTION_NAME
+-                            : func.name;
+-                return {
+-                    contractName,
+-                    functionName,
+-                };
+-            }
+-        }
+-    }
+-    tryToDecodeMessageTrace(messageTrace) {
+-        if ((0, message_trace_1.isPrecompileTrace)(messageTrace)) {
+-            return messageTrace;
+-        }
+-        return {
+-            ...messageTrace,
+-            bytecode: this._contractsIdentifier.getBytecodeForCall(messageTrace.code, (0, message_trace_1.isCreateTrace)(messageTrace)),
+-            steps: messageTrace.steps.map((s) => (0, message_trace_1.isEvmStep)(s) ? s : this.tryToDecodeMessageTrace(s)),
+-        };
+-    }
+-    addBytecode(bytecode) {
+-        this._contractsIdentifier.addBytecode(bytecode);
+-    }
+-}
+-exports.VmTraceDecoder = VmTraceDecoder;
+-function initializeVmTraceDecoder(vmTraceDecoder, tracingConfig) {
+-    if (tracingConfig.buildInfos === undefined) {
+-        return;
+-    }
++function initializeVmTraceDecoderWrapper(vmTraceDecoder, tracingConfig) {
+     try {
+-        for (const buildInfo of tracingConfig.buildInfos) {
+-            const bytecodes = (0, compiler_to_model_1.createModelsAndDecodeBytecodes)(buildInfo.solcVersion, buildInfo.input, buildInfo.output);
+-            for (const bytecode of bytecodes) {
+-                if (tracingConfig.ignoreContracts === true &&
+-                    bytecode.contract.name.startsWith("Ignored")) {
+-                    continue;
+-                }
+-                vmTraceDecoder.addBytecode(bytecode);
+-            }
+-        }
++        (0, edr_1.initializeVmTraceDecoder)(vmTraceDecoder, tracingConfig);
+     }
+     catch (error) {
+         console.warn(chalk_1.default.yellow("The Hardhat Network tracing engine could not be initialized. Run Hardhat with --verbose to learn more."));
+@@ -87,5 +22,5 @@ function initializeVmTraceDecoder(vmTraceDecoder, tracingConfig) {
+         }
+     }
+ }
+-exports.initializeVmTraceDecoder = initializeVmTraceDecoder;
++exports.initializeVmTraceDecoder = initializeVmTraceDecoderWrapper;
+ //# sourceMappingURL=vm-trace-decoder.js.map
+\ No newline at end of file
 diff --git a/internal/hardhat-network/stack-traces/vm-trace-decoder.js.map b/internal/hardhat-network/stack-traces/vm-trace-decoder.js.map
-index 445c3d5dd155afa63e92ca1bc586e86b2edc2f1e..dc762aedbfaaa335080d1335d0afe771be636cf9 100644
+index 445c3d5dd155afa63e92ca1bc586e86b2edc2f1e..109dc83807b6535e6ac313eed7f3dbefe6130a9e 100644
 --- a/internal/hardhat-network/stack-traces/vm-trace-decoder.js.map
 +++ b/internal/hardhat-network/stack-traces/vm-trace-decoder.js.map
 @@ -1 +1 @@
 -{"version":3,"file":"vm-trace-decoder.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts"],"names":[],"mappings":"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"}
 \ No newline at end of file
-+{"version":3,"file":"vm-trace-decoder.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts"],"names":[],"mappings":"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"}
++{"version":3,"file":"vm-trace-decoder.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts"],"names":[],"mappings":";;;;;;AAAA,kDAA0B;AAC1B,kDAA0B;AAC1B,8CAAgF;AA+B9E,+FA/BO,oBAAc,OA+BP;AA9BhB,oDAAiD;AAGjD,MAAM,GAAG,GAAG,IAAA,eAAK,EAAC,mCAAmC,CAAC,CAAC;AAEvD,SAAS,+BAA+B,CACtC,cAA8B,EAC9B,aAA4B;IAE5B,IAAI;QACF,IAAA,8BAAwB,EAAC,cAAc,EAAE,aAAa,CAAC,CAAC;KACzD;IAAC,OAAO,KAAK,EAAE;QACd,OAAO,CAAC,IAAI,CACV,eAAK,CAAC,MAAM,CACV,wGAAwG,CACzG,CACF,CAAC;QAEF,GAAG,CACD,kIAAkI,EAClI,KAAK,CACN,CAAC;QAEF,IAAI,KAAK,YAAY,KAAK,EAAE;YAC1B,mBAAQ,CAAC,WAAW,CAAC,KAAK,CAAC,CAAC;SAC7B;KACF;AACH,CAAC;AAIoC,mEAAwB"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/stack-traces/vm-tracer.d.ts b/internal/hardhat-network/stack-traces/vm-tracer.d.ts
 index b70c116300e0b3c2da6b458fc8126de65717eb8b..966c475a4c2b7a8ed3b0b19c6a17cfa8b1268841 100644
@@ -5062,6 +5168,144 @@ index e0602c17fb8c0c48b740d5e6bb8925cfaba67740..54329f2587d8cb398d7567840ce7295f
 diff --git a/src/internal/hardhat-network/stack-traces/source-maps.ts b/src/internal/hardhat-network/stack-traces/source-maps.ts
 deleted file mode 100644
 index 8ff03b3c7337cb0da035004844c850bf89745669..0000000000000000000000000000000000000000
+diff --git a/src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts b/src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts
+index 738427290fa82e7e861ae984c4785eaedbe8e2fb..3c19f367cba0a87de065531df95f2e8d83ee2bac 100644
+--- a/src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts
++++ b/src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts
+@@ -1,121 +1,17 @@
+ import chalk from "chalk";
+ import debug from "debug";
++import { VmTraceDecoder, initializeVmTraceDecoder } from "@nomicfoundation/edr";
+ import { Reporter } from "../../sentry/reporter";
+ import { TracingConfig } from "../provider/node-types";
+-import { createModelsAndDecodeBytecodes } from "./compiler-to-model";
+-import { ContractsIdentifier } from "./contracts-identifier";
+-import {
+-  isCreateTrace,
+-  isEvmStep,
+-  isPrecompileTrace,
+-  MessageTrace,
+-} from "./message-trace";
+-import { Bytecode, ContractFunctionType } from "./model";
+-import {
+-  FALLBACK_FUNCTION_NAME,
+-  RECEIVE_FUNCTION_NAME,
+-  UNRECOGNIZED_CONTRACT_NAME,
+-  UNRECOGNIZED_FUNCTION_NAME,
+-} from "./solidity-stack-trace";
+ 
+ const log = debug("hardhat:core:hardhat-network:node");
+ 
+-export class VmTraceDecoder {
+-  constructor(private readonly _contractsIdentifier: ContractsIdentifier) {}
+-
+-  public getContractAndFunctionNamesForCall(
+-    code: Buffer,
+-    calldata?: Buffer
+-  ): { contractName: string; functionName?: string } {
+-    const isCreate = calldata === undefined;
+-    const bytecode = this._contractsIdentifier.getBytecodeForCall(
+-      code,
+-      isCreate
+-    );
+-
+-    const contractName = bytecode?.contract.name ?? UNRECOGNIZED_CONTRACT_NAME;
+-
+-    if (isCreate) {
+-      return {
+-        contractName,
+-      };
+-    } else {
+-      if (bytecode === undefined) {
+-        return {
+-          contractName,
+-          functionName: "",
+-        };
+-      } else {
+-        const func = bytecode.contract.getFunctionFromSelector(
+-          calldata.slice(0, 4)
+-        );
+-
+-        const functionName: string =
+-          func === undefined
+-            ? UNRECOGNIZED_FUNCTION_NAME
+-            : func.type === ContractFunctionType.FALLBACK
+-            ? FALLBACK_FUNCTION_NAME
+-            : func.type === ContractFunctionType.RECEIVE
+-            ? RECEIVE_FUNCTION_NAME
+-            : func.name;
+-
+-        return {
+-          contractName,
+-          functionName,
+-        };
+-      }
+-    }
+-  }
+-
+-  public tryToDecodeMessageTrace(messageTrace: MessageTrace): MessageTrace {
+-    if (isPrecompileTrace(messageTrace)) {
+-      return messageTrace;
+-    }
+-
+-    return {
+-      ...messageTrace,
+-      bytecode: this._contractsIdentifier.getBytecodeForCall(
+-        messageTrace.code,
+-        isCreateTrace(messageTrace)
+-      ),
+-      steps: messageTrace.steps.map((s) =>
+-        isEvmStep(s) ? s : this.tryToDecodeMessageTrace(s)
+-      ),
+-    };
+-  }
+-
+-  public addBytecode(bytecode: Bytecode) {
+-    this._contractsIdentifier.addBytecode(bytecode);
+-  }
+-}
+-
+-export function initializeVmTraceDecoder(
++function initializeVmTraceDecoderWrapper(
+   vmTraceDecoder: VmTraceDecoder,
+   tracingConfig: TracingConfig
+ ) {
+-  if (tracingConfig.buildInfos === undefined) {
+-    return;
+-  }
+-
+   try {
+-    for (const buildInfo of tracingConfig.buildInfos) {
+-      const bytecodes = createModelsAndDecodeBytecodes(
+-        buildInfo.solcVersion,
+-        buildInfo.input,
+-        buildInfo.output
+-      );
+-
+-      for (const bytecode of bytecodes) {
+-        if (
+-          tracingConfig.ignoreContracts === true &&
+-          bytecode.contract.name.startsWith("Ignored")
+-        ) {
+-          continue;
+-        }
+-
+-        vmTraceDecoder.addBytecode(bytecode);
+-      }
+-    }
++    initializeVmTraceDecoder(vmTraceDecoder, tracingConfig);
+   } catch (error) {
+     console.warn(
+       chalk.yellow(
+@@ -133,3 +29,8 @@ export function initializeVmTraceDecoder(
+     }
+   }
+ }
++
++export {
++  VmTraceDecoder,
++  initializeVmTraceDecoderWrapper as initializeVmTraceDecoder,
++};
 diff --git a/src/internal/hardhat-network/stack-traces/vm-tracer.ts b/src/internal/hardhat-network/stack-traces/vm-tracer.ts
 index 520573ab34cbc0d421af7ddccd2ff90f46f345e9..6785ccae843cc9f04a5056ef3bd02a3955c386e7 100644
 --- a/src/internal/hardhat-network/stack-traces/vm-tracer.ts

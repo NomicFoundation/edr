@@ -37,7 +37,7 @@ impl VMTracer {
         &self,
         env: Env,
     ) -> napi::Result<
-        Either4<PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace, Undefined>,
+        Either4<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace, Undefined>,
     > {
         Ok(
             match self
@@ -52,8 +52,8 @@ impl VMTracer {
                 .transpose()?
             {
                 Some(Either3::A(precompile)) => Either4::A(precompile),
-                Some(Either3::B(create)) => Either4::B(create),
-                Some(Either3::C(call)) => Either4::C(call),
+                Some(Either3::B(call)) => Either4::B(call),
+                Some(Either3::C(create)) => Either4::C(create),
                 None => Either4::D(()),
             },
         )
