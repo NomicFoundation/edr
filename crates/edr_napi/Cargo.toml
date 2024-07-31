@@ -7,6 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
 ansi_term = { version = "0.12.1", default-features = false }
 crossbeam-channel = { version = "0.5.6", default-features = false }
 itertools = { version = "0.12.0", default-features = false }
