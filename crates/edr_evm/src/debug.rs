@@ -20,7 +20,7 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
 /// `EvmBuilder`.
 pub struct DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
     StateT: StateRef,
 {
     /// The contextual data.
@@ -31,7 +31,7 @@ where
 
 pub struct EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
     StateT: StateRef,
 {
     pub debug: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,

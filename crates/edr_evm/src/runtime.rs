@@ -7,7 +7,7 @@ use edr_eth::{
     Address, HashMap, Precompile, SpecId,
 };
 use revm::{
-    handler::{CfgEnvWithChainSpec, EnvWithChainSpec},
+    handler::{CfgEnvWithEvmWiring, EnvWithEvmWiring},
     ContextPrecompile, DatabaseCommit, Evm,
 };
 
@@ -44,7 +44,7 @@ pub fn dry_run<
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
-    cfg: CfgEnvWithChainSpec<ChainSpecT>,
+    cfg: CfgEnvWithEvmWiring<ChainSpecT>,
     transaction: ChainSpecT::Transaction,
     block: ChainSpecT::Block,
     custom_precompiles: &HashMap<Address, Precompile>,
@@ -72,7 +72,7 @@ where
 
     let state_overrider = StateRefOverrider::new(state_overrides, state);
 
-    let env = EnvWithChainSpec::new_with_cfg_env(cfg, block, transaction);
+    let env = EnvWithEvmWiring::new_with_cfg_env(cfg, block, transaction);
     let result = {
         let evm_builder = Evm::builder().with_ref_db(DatabaseComponents {
             state: state_overrider,
@@ -130,7 +130,7 @@ pub fn guaranteed_dry_run<
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: &'state dyn SyncState<StateErrorT>,
     state_overrides: &'overrides StateOverrides,
-    mut cfg: CfgEnvWithChainSpec<ChainSpecT>,
+    mut cfg: CfgEnvWithEvmWiring<ChainSpecT>,
     transaction: ChainSpecT::Transaction,
     block: ChainSpecT::Block,
     custom_precompiles: &HashMap<Address, Precompile>,
@@ -174,7 +174,7 @@ where
 pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
     state: StateT,
-    cfg: CfgEnvWithChainSpec<ChainSpecT>,
+    cfg: CfgEnvWithEvmWiring<ChainSpecT>,
     transaction: ChainSpecT::Transaction,
     block: ChainSpecT::Block,
     custom_precompiles: &HashMap<Address, Precompile>,
@@ -198,7 +198,7 @@ where
         &transaction,
     )?;
 
-    let env = EnvWithChainSpec::new_with_cfg_env(cfg, block, transaction);
+    let env = EnvWithEvmWiring::new_with_cfg_env(cfg, block, transaction);
     let evm_builder = Evm::builder().with_ref_db(DatabaseComponents {
         state,
         block_hash: blockchain,

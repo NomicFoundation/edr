@@ -19,7 +19,7 @@ pub use self::detailed::*;
 #[derive(thiserror::Error)]
 pub enum TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::primitives::EvmWiring,
 {
     /// Blockchain errors
     #[error(transparent)]
@@ -48,7 +48,7 @@ impl<ChainSpecT, BlockchainErrorT, StateErrorT> Debug
     for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
     ChainSpecT:
-        revm::primitives::ChainSpec<Transaction: TransactionValidation<ValidationError: Debug>>,
+        revm::primitives::EvmWiring<Transaction: TransactionValidation<ValidationError: Debug>>,
     BlockchainErrorT: Debug,
     StateErrorT: Debug,
 {
@@ -71,7 +71,7 @@ impl<ChainSpecT, BlockchainErrorT, StateErrorT>
     From<EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>>
     for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::primitives::EvmWiring,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {

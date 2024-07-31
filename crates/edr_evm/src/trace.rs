@@ -16,7 +16,7 @@ use crate::debug::GetContextData;
 
 /// Registers trace collector handles to the EVM handler.
 pub fn register_trace_collector_handles<
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
     DatabaseT: Database,
     ContextT: GetContextData<TraceCollector<ChainSpecT>>,
 >(
@@ -123,7 +123,7 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
     interpreter: &mut Interpreter,
     host: &mut Context<ChainSpecT, ContextT, DatabaseT>,
 ) where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
     ContextT: GetContextData<TraceCollector<ChainSpecT>>,
     DatabaseT: Database,
 {
@@ -144,7 +144,7 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
 
 /// Stack tracing message
 #[derive(Debug)]
-pub enum TraceMessage<ChainSpecT: revm::primitives::ChainSpec> {
+pub enum TraceMessage<ChainSpecT: revm::primitives::EvmWiring> {
     /// Event that occurs before a call or create message.
     Before(BeforeMessage),
     /// Event that occurs every step of a call or create message.
@@ -153,7 +153,7 @@ pub enum TraceMessage<ChainSpecT: revm::primitives::ChainSpec> {
     After(AfterMessage<ChainSpecT>),
 }
 
-impl<ChainSpecT: revm::primitives::ChainSpec> Clone for TraceMessage<ChainSpecT> {
+impl<ChainSpecT: revm::primitives::EvmWiring> Clone for TraceMessage<ChainSpecT> {
     fn clone(&self) -> Self {
         match self {
             Self::Before(message) => Self::Before(message.clone()),
@@ -188,7 +188,7 @@ pub struct BeforeMessage {
 
 /// Event that occurs after a call or create message.
 #[derive(Debug)]
-pub struct AfterMessage<ChainSpecT: revm::primitives::ChainSpec> {
+pub struct AfterMessage<ChainSpecT: revm::primitives::EvmWiring> {
     /// The execution result
     pub execution_result: ExecutionResult<ChainSpecT>,
     /// The newly created contract address if it's a create tx. `None`
@@ -196,7 +196,7 @@ pub struct AfterMessage<ChainSpecT: revm::primitives::ChainSpec> {
     pub contract_address: Option<Address>,
 }
 
-impl<ChainSpecT: revm::primitives::ChainSpec> Clone for AfterMessage<ChainSpecT> {
+impl<ChainSpecT: revm::primitives::EvmWiring> Clone for AfterMessage<ChainSpecT> {
     fn clone(&self) -> Self {
         Self {
             execution_result: self.execution_result.clone(),
@@ -207,7 +207,7 @@ impl<ChainSpecT: revm::primitives::ChainSpec> Clone for AfterMessage<ChainSpecT>
 
 /// A trace for an EVM call.
 #[derive(Debug)]
-pub struct Trace<ChainSpecT: revm::primitives::ChainSpec> {
+pub struct Trace<ChainSpecT: revm::primitives::EvmWiring> {
     // /// The individual steps of the call
     // pub steps: Vec<Step>,
     /// Messages
@@ -216,7 +216,7 @@ pub struct Trace<ChainSpecT: revm::primitives::ChainSpec> {
     pub return_value: Bytes,
 }
 
-impl<ChainSpecT: revm::primitives::ChainSpec> Clone for Trace<ChainSpecT> {
+impl<ChainSpecT: revm::primitives::EvmWiring> Clone for Trace<ChainSpecT> {
     fn clone(&self) -> Self {
         Self {
             messages: self.messages.clone(),
@@ -225,7 +225,7 @@ impl<ChainSpecT: revm::primitives::ChainSpec> Clone for Trace<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: revm::primitives::ChainSpec> Default for Trace<ChainSpecT> {
+impl<ChainSpecT: revm::primitives::EvmWiring> Default for Trace<ChainSpecT> {
     fn default() -> Self {
         Self {
             messages: Vec::new(),
@@ -285,7 +285,7 @@ impl Stack {
     }
 }
 
-impl<ChainSpecT: revm::primitives::ChainSpec> Trace<ChainSpecT> {
+impl<ChainSpecT: revm::primitives::EvmWiring> Trace<ChainSpecT> {
     /// Adds a before message
     pub fn add_before(&mut self, message: BeforeMessage) {
         self.messages.push(TraceMessage::Before(message));
@@ -305,14 +305,14 @@ impl<ChainSpecT: revm::primitives::ChainSpec> Trace<ChainSpecT> {
 /// Object that gathers trace information during EVM execution and can be turned
 /// into a trace upon completion.
 #[derive(Debug)]
-pub struct TraceCollector<ChainSpecT: revm::primitives::ChainSpec> {
+pub struct TraceCollector<ChainSpecT: revm::primitives::EvmWiring> {
     traces: Vec<Trace<ChainSpecT>>,
     pending_before: Option<BeforeMessage>,
     is_new_trace: bool,
     verbose: bool,
 }
 
-impl<ChainSpecT: revm::ChainSpec> TraceCollector<ChainSpecT> {
+impl<ChainSpecT: revm::EvmWiring> TraceCollector<ChainSpecT> {
     /// Create a trace collector. If verbose is `true` full stack and memory
     /// will be recorded.
     pub fn new(verbose: bool) -> Self {
@@ -580,7 +580,7 @@ impl<ChainSpecT: revm::ChainSpec> TraceCollector<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: revm::primitives::ChainSpec> GetContextData<TraceCollector<ChainSpecT>>
+impl<ChainSpecT: revm::primitives::EvmWiring> GetContextData<TraceCollector<ChainSpecT>>
     for TraceCollector<ChainSpecT>
 {
     fn get_context_data(&mut self) -> &mut TraceCollector<ChainSpecT> {
