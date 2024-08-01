@@ -1,0 +1,19 @@
+name: Check Author Association
+
+on:
+  push:
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: gh api repos/NomicFoundation/edr/pulls/571 | jq -r '.author_association'
+      - if: github.event_name == 'pull_request'
+        run: echo '${{ github.event.pull_request.author_association }}'
