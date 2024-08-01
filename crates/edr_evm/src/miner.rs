@@ -66,7 +66,7 @@ where
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<L1ChainSpec>>,
+    pub transaction_results: Vec<ExecutionResult<ChainSpecT>>,
 }
 
 /// The type of ordering to use when selecting blocks to mine.

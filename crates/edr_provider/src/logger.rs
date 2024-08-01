@@ -49,7 +49,7 @@ pub trait Logger {
     fn log_interval_mined(
         &mut self,
         spec_id: edr_eth::SpecId,
-        result: &DebugMineBlockResult<Self::BlockchainError>,
+        result: &DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>,
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _result = result;
@@ -60,7 +60,7 @@ pub trait Logger {
     fn log_mined_block(
         &mut self,
         spec_id: edr_eth::SpecId,
-        results: &[DebugMineBlockResult<Self::BlockchainError>],
+        results: &[DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _results = results;
@@ -72,7 +72,7 @@ pub trait Logger {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
-        mining_results: &[DebugMineBlockResult<Self::BlockchainError>],
+        mining_results: &[DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _transaction = transaction;
