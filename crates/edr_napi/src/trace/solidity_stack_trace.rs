@@ -62,6 +62,7 @@ pub const PRECOMPILE_FUNCTION_NAME: &str = "<precompile>";
 pub const UNRECOGNIZED_CONTRACT_NAME: &str = "<UnrecognizedContract>";
 
 #[napi(object)]
+#[derive(Clone, PartialEq)]
 pub struct SourceReference {
     pub source_name: String,
     pub source_content: String,
@@ -79,6 +80,7 @@ pub struct SourceReference {
 /// when defining the N-API bindings.
 // NOTE: It's currently not possible to use an enum as const generic parameter,
 // so we use the underlying `u8` repr used by the enum.
+#[derive(Clone, Copy)]
 pub struct StackTraceEntryTypeConst<const ENTRY_TYPE: u8>;
 impl<const ENTRY_TYPE: u8> FromNapiValue for StackTraceEntryTypeConst<ENTRY_TYPE> {
     unsafe fn from_napi_value(
@@ -103,6 +105,16 @@ impl<const ENTRY_TYPE: u8> ToNapiValue for StackTraceEntryTypeConst<ENTRY_TYPE> 
         _val: Self,
     ) -> napi::Result<napi::sys::napi_value> {
         u8::to_napi_value(env, ENTRY_TYPE)
+    }
+}
+
+impl<const ENTRY_TYPE: u8> StackTraceEntryTypeConst<ENTRY_TYPE> {
+    #[allow(clippy::unused_self)] // less verbose than <value as ...>::as_value()
+    const fn as_value(&self) -> StackTraceEntryType {
+        match StackTraceEntryType::from_repr(ENTRY_TYPE) {
+            Some(val) => val,
+            None => panic!("Invalid StackTraceEntryType value"),
+        }
     }
 }
 
@@ -293,6 +305,7 @@ pub struct UnrecognizedCreateErrorStackTraceEntry {
         ts_type = "StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR"
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::UNRECOGNIZED_CREATE_ERROR as u8 }>,
+    #[napi(ts_type = "ReturnData")]
     pub message: ClassInstance<ReturnData>,
     pub source_reference: Option<Undefined>,
     pub is_invalid_opcode_error: bool,
@@ -385,6 +398,72 @@ pub type SolidityStackTraceEntry = Either24<
 >;
 
 pub type SolidityStackTrace = Vec<SolidityStackTraceEntry>;
+
+pub trait SolidityStackTraceEntryExt {
+    fn type_(&self) -> StackTraceEntryType;
+    fn source_reference(&self) -> Option<&SourceReference>;
+}
+
+impl SolidityStackTraceEntryExt for SolidityStackTraceEntry {
+    fn type_(&self) -> StackTraceEntryType {
+        match self {
+            Either24::A(entry) => entry.type_.as_value(),
+            Either24::B(entry) => entry.type_.as_value(),
+            Either24::C(entry) => entry.type_.as_value(),
+            Either24::D(entry) => entry.type_.as_value(),
+            Either24::E(entry) => entry.type_.as_value(),
+            Either24::F(entry) => entry.type_.as_value(),
+            Either24::G(entry) => entry.type_.as_value(),
+            Either24::H(entry) => entry.type_.as_value(),
+            Either24::I(entry) => entry.type_.as_value(),
+            Either24::J(entry) => entry.type_.as_value(),
+            Either24::K(entry) => entry.type_.as_value(),
+            Either24::L(entry) => entry.type_.as_value(),
+            Either24::M(entry) => entry.type_.as_value(),
+            Either24::N(entry) => entry.type_.as_value(),
+            Either24::O(entry) => entry.type_.as_value(),
+            Either24::P(entry) => entry.type_.as_value(),
+            Either24::Q(entry) => entry.type_.as_value(),
+            Either24::R(entry) => entry.type_.as_value(),
+            Either24::S(entry) => entry.type_.as_value(),
+            Either24::T(entry) => entry.type_.as_value(),
+            Either24::U(entry) => entry.type_.as_value(),
+            Either24::V(entry) => entry.type_.as_value(),
+            Either24::W(entry) => entry.type_.as_value(),
+            Either24::X(entry) => entry.type_.as_value(),
+        }
+    }
+
+    #[allow(clippy::unnecessary_lazy_evaluations)] // guards against potential variant reordering
+    fn source_reference(&self) -> Option<&SourceReference> {
+        match self {
+            Either24::A(entry) => Some(&entry.source_reference),
+            Either24::B(entry) => entry.source_reference.and_then(|_: ()| None),
+            Either24::C(entry) => entry.source_reference.and_then(|_: ()| None),
+            Either24::D(entry) => entry.source_reference.and_then(|_: ()| None),
+            Either24::E(entry) => Some(&entry.source_reference),
+            Either24::F(entry) => entry.source_reference.as_ref(),
+            Either24::G(entry) => Some(&entry.source_reference),
+            Either24::H(entry) => Some(&entry.source_reference),
+            Either24::I(entry) => Some(&entry.source_reference),
+            Either24::J(entry) => Some(&entry.source_reference),
+            Either24::K(entry) => Some(&entry.source_reference),
+            Either24::L(entry) => Some(&entry.source_reference),
+            Either24::M(entry) => Some(&entry.source_reference),
+            Either24::N(entry) => Some(&entry.source_reference),
+            Either24::O(entry) => Some(&entry.source_reference),
+            Either24::P(entry) => Some(&entry.source_reference),
+            Either24::Q(entry) => Some(&entry.source_reference),
+            Either24::R(entry) => entry.source_reference.and_then(|_: ()| None),
+            Either24::S(entry) => entry.source_reference.and_then(|_: ()| None),
+            Either24::T(entry) => entry.source_reference.as_ref(),
+            Either24::U(entry) => entry.source_reference.as_ref(),
+            Either24::V(entry) => entry.source_reference.as_ref(),
+            Either24::W(entry) => Some(&entry.source_reference),
+            Either24::X(entry) => entry.source_reference.as_ref(),
+        }
+    }
+}
 
 const _: () = {
     const fn assert_to_from_napi_value<T: FromNapiValue + ToNapiValue>() {}

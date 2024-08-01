@@ -1001,6 +1001,9 @@ export class ContractsIdentifier {
   constructor(enableCache?: boolean | undefined | null)
   addBytecode(bytecode: Bytecode): void
 }
+export class ErrorInferrer {
+  static filterRedundantFrames(stacktrace: SolidityStackTrace): SolidityStackTrace
+}
 export class Exit {
   get kind(): ExitCode
   isError(): boolean

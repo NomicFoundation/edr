@@ -22,6 +22,7 @@ mod model;
 mod source_map;
 
 mod contracts_identifier;
+mod error_inferrer;
 mod exit;
 mod message_trace;
 mod opcodes;
