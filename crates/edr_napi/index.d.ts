@@ -387,6 +387,7 @@ export interface SourceMap {
   location: SourceMapLocation
   jumpType: JumpType
 }
+export function sourceLocationToSourceReference(bytecode: Bytecode, location: SourceLocation | undefined): SourceReference | undefined
 /** Represents the exit code of the EVM. */
 export const enum ExitCode {
   /** Execution was successful. */
@@ -1000,6 +1001,9 @@ export class Contract {
 export class ContractsIdentifier {
   constructor(enableCache?: boolean | undefined | null)
   addBytecode(bytecode: Bytecode): void
+}
+export class ErrorInferrer {
+  static filterRedundantFrames(stacktrace: SolidityStackTrace): SolidityStackTrace
 }
 export class Exit {
   get kind(): ExitCode
