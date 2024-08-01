@@ -1016,6 +1016,10 @@ export class ReturnData {
   decodeError(): string
   decodePanic(): bigint
 }
+export class SolidityTracer {
+  constructor()
+  getLastSubtrace(trace: CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
+}
 export class VmTraceDecoder {
   constructor(contractsIdentifier: ContractsIdentifier)
   addBytecode(bytecode: Bytecode): void
