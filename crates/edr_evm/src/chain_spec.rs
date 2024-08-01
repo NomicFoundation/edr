@@ -10,6 +10,7 @@ use edr_eth::{
     SpecId, B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, TransactionConversionError};
+pub use revm::EvmWiring;
 
 use crate::{
     hardfork::{self, Activations},
@@ -23,7 +24,7 @@ use crate::{
 pub trait ChainSpec:
     alloy_rlp::Encodable
     + EthHeaderConstants
-    + revm::EvmWiring<
+    + EvmWiring<
         Block: BlockEnvConstructor<Self>,
         Transaction: alloy_rlp::Encodable
                          + Clone

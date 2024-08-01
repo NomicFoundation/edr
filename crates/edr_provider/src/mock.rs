@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
-use edr_eth::{chain_spec::L1ChainSpec, db::Database, result::EVMErrorForChain, Address, Bytes};
+use edr_eth::{db::Database, result::EVMErrorForChain, Address, Bytes};
 use edr_evm::{
     evm::{handler::register::EvmHandler, FrameOrResult, FrameResult},
     interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
@@ -28,14 +28,18 @@ impl<F> SyncCallOverride for F where
 dyn_clone::clone_trait_object!(SyncCallOverride);
 
 /// Registers the `Mocker`'s handles.
-pub fn register_mocking_handles<DatabaseT: Database, ContextT: GetContextData<Mocker>>(
-    handler: &mut EvmHandler<'_, L1ChainSpec, ContextT, DatabaseT>,
+pub fn register_mocking_handles<
+    ChainSpecT: edr_evm::chain_spec::EvmWiring,
+    DatabaseT: Database,
+    ContextT: GetContextData<Mocker>,
+>(
+    handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
 ) {
     let old_handle = handler.execution.call.clone();
     handler.execution.call = Arc::new(
         move |ctx,
               inputs|
-              -> Result<FrameOrResult, EVMErrorForChain<DatabaseT::Error, L1ChainSpec>> {
+              -> Result<FrameOrResult, EVMErrorForChain<DatabaseT::Error, ChainSpecT>> {
             let mocker = ctx.external.get_context_data();
             if let Some(CallOverrideResult {
                 output,
