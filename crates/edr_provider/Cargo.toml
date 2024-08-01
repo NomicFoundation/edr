@@ -8,6 +8,7 @@ alloy-dyn-abi = { version = "0.7.6", features = ["eip712"] }
 alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
 anyhow = { version = "1.0.75", optional = true }
 auto_impl = { version = "1.2", default-features = false }
+derive-where = { version = "1.2.7", default-features = false }
 dyn-clone = { version = "1.0.13", default-features = false }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["rand"] }

@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use edr_eth::chain_spec::L1ChainSpec;
 use edr_provider::ProviderRequest;
 use napi::tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
 use rand::{distributions::Alphanumeric, Rng};
@@ -9,12 +10,12 @@ const SCENARIO_FILE_PREFIX: &str = "EDR_SCENARIO_PREFIX";
 
 #[derive(Clone, Debug, Serialize)]
 struct ScenarioConfig<'a> {
-    provider_config: &'a edr_provider::ProviderConfig,
+    provider_config: &'a edr_provider::ProviderConfig<L1ChainSpec>,
     logger_enabled: bool,
 }
 
 pub(crate) async fn scenario_file(
-    provider_config: &edr_provider::ProviderConfig,
+    provider_config: &edr_provider::ProviderConfig<L1ChainSpec>,
     logger_enabled: bool,
 ) -> Result<Option<Mutex<File>>, napi::Error> {
     if let Ok(scenario_prefix) = std::env::var(SCENARIO_FILE_PREFIX) {

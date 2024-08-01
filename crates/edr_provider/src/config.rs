@@ -1,12 +1,10 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
-use edr_eth::{
-    block::BlobGas, chain_spec::L1ChainSpec, AccountInfo, Address, ChainId, HashMap, SpecId, B256,
-    U256,
-};
-use edr_evm::{hardfork, MineOrdering};
+use derive_where::derive_where;
+use edr_eth::{block::BlobGas, AccountInfo, Address, ChainId, HashMap, SpecId, B256, U256};
+use edr_evm::{chain_spec::ChainSpec, hardfork, MineOrdering};
 use rand::Rng;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::requests::{hardhat::rpc_types::ForkConfig, IntervalConfig as IntervalConfigRequest};
 
@@ -72,8 +70,13 @@ pub struct MiningConfig {
 }
 
 /// Configuration for the provider
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ProviderConfig {
+#[derive_where(Clone, Debug; ChainSpecT::Hardfork)]
+#[derive(Deserialize, Serialize)]
+#[serde(bound(
+    deserialize = "ChainSpecT::Hardfork: DeserializeOwned",
+    serialize = "ChainSpecT::Hardfork: Serialize"
+))]
+pub struct ProviderConfig<ChainSpecT: ChainSpec> {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
     pub accounts: Vec<AccountConfig>,
@@ -84,7 +87,7 @@ pub struct ProviderConfig {
     pub block_gas_limit: NonZeroU64,
     pub cache_dir: PathBuf,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, hardfork::Activations<L1ChainSpec>>,
+    pub chains: HashMap<ChainId, hardfork::Activations<ChainSpecT>>,
     pub coinbase: Address,
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
