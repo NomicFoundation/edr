@@ -125,7 +125,7 @@ impl Logger {
     }
 }
 
-impl edr_provider::Logger for Logger {
+impl edr_provider::Logger<L1ChainSpec> for Logger {
     type BlockchainError = BlockchainError<L1ChainSpec>;
 
     type LoggerError = LoggerError;

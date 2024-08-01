@@ -4,6 +4,7 @@ use std::{convert::Infallible, str::FromStr};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
+    chain_spec::L1ChainSpec,
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
@@ -223,7 +224,7 @@ fn fake_transaction_request() -> EthTransactionRequest {
 async fn call_unsupported() -> anyhow::Result<()> {
     let request = fake_call_request()?;
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.hardfork = SpecId::SHANGHAI;
@@ -254,7 +255,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
 async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     let request = fake_call_request()?;
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.hardfork = SpecId::SHANGHAI;
@@ -285,7 +286,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
 async fn send_transaction_unsupported() -> anyhow::Result<()> {
     let transaction = fake_transaction_request();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = transaction.chain_id.expect("Blob transaction has chain ID");
@@ -318,7 +319,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
 
     let expected = fake_transaction();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
@@ -357,7 +358,7 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     let expected = fake_transaction();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
@@ -402,7 +403,7 @@ async fn get_transaction() -> anyhow::Result<()> {
 async fn block_header() -> anyhow::Result<()> {
     let raw_eip4844_transaction = fake_raw_transaction();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = fake_transaction()
@@ -587,7 +588,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         bytecode: Bytes,
     }
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = fake_transaction()

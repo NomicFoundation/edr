@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use edr_eth::{
-    transaction::EthTransactionRequest, AccountInfo, Address, SpecId, KECCAK_EMPTY, U256,
+    chain_spec::L1ChainSpec, transaction::EthTransactionRequest, AccountInfo, Address, SpecId,
+    KECCAK_EMPTY, U256,
 };
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
@@ -13,7 +14,7 @@ use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_326() -> anyhow::Result<()> {
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);

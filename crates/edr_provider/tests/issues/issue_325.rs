@@ -1,6 +1,6 @@
 use edr_eth::{
-    transaction::EthTransactionRequest, AccountInfo, Address, PreEip1898BlockSpec, SpecId, B256,
-    KECCAK_EMPTY,
+    chain_spec::L1ChainSpec, transaction::EthTransactionRequest, AccountInfo, Address,
+    PreEip1898BlockSpec, SpecId, B256, KECCAK_EMPTY,
 };
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
@@ -11,7 +11,7 @@ use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_325() -> anyhow::Result<()> {
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
