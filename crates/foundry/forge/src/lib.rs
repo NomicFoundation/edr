@@ -96,7 +96,7 @@ impl TestOptions {
         })
     }
 
-    /// Create a new test options configuration for Hardhat.
+    /// Creates a new test options configuration for Hardhat.
     /// As opposed to Foundry, Hardhat doesn't support inline configuration.
     pub fn new_hardhat(
         base_fuzz: FuzzConfig,

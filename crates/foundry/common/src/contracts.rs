@@ -65,11 +65,6 @@ type ArtifactWithContractRef<'a> = (&'a ArtifactId, &'a ContractData);
 pub struct ContractsByArtifact(BTreeMap<ArtifactId, ContractData>);
 
 impl ContractsByArtifact {
-    /// Creates a new instance with the given map.
-    pub fn new(values: BTreeMap<ArtifactId, ContractData>) -> Self {
-        Self(values)
-    }
-
     /// Creates a new instance by collecting all artifacts with present bytecode
     /// from an iterator.
     ///
@@ -161,6 +156,12 @@ impl ContractsByArtifact {
         }
 
         Ok(contracts.first().cloned())
+    }
+}
+
+impl From<BTreeMap<ArtifactId, ContractData>> for ContractsByArtifact {
+    fn from(value: BTreeMap<ArtifactId, ContractData>) -> Self {
+        Self(value)
     }
 }
 

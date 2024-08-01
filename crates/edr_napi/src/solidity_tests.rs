@@ -3,11 +3,11 @@ mod config;
 mod runner;
 mod test_results;
 
-use std::{path::Path, sync::Arc};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use artifact::Artifact;
 use forge::TestFilter;
-use foundry_common::ContractsByArtifact;
+use foundry_common::{ContractData, ContractsByArtifact};
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -44,11 +44,11 @@ pub fn run_solidity_tests(
             |ctx: ThreadSafeCallContext<SuiteResult>| Ok(vec![ctx.value]),
         )?;
 
-    let artifacts = artifacts
+    let known_contracts: ContractsByArtifact = artifacts
         .into_iter()
         .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
-        .collect::<Result<_, napi::Error>>()?;
-    let known_contracts = ContractsByArtifact::new(artifacts);
+        .collect::<Result<BTreeMap<foundry_common::ArtifactId, ContractData>, napi::Error>>()?
+        .into();
 
     let test_suites = test_suites
         .into_iter()
