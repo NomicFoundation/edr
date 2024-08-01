@@ -114,6 +114,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
         runtime: runtime::Handle,
         logger: Box<
             dyn SyncLogger<
+                L1ChainSpec,
                 BlockchainError = BlockchainError<L1ChainSpec>,
                 LoggerError = LoggerErrorT,
             >,

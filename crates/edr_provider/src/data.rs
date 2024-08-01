@@ -204,7 +204,11 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     filters: HashMap<U256, Filter>,
     last_filter_id: U256,
     logger: Box<
-        dyn SyncLogger<BlockchainError = BlockchainError<L1ChainSpec>, LoggerError = LoggerErrorT>,
+        dyn SyncLogger<
+            L1ChainSpec,
+            BlockchainError = BlockchainError<L1ChainSpec>,
+            LoggerError = LoggerErrorT,
+        >,
     >,
     impersonated_accounts: HashSet<Address>,
     subscriber_callback: Box<dyn SyncSubscriberCallback>,
@@ -222,6 +226,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         runtime_handle: runtime::Handle,
         logger: Box<
             dyn SyncLogger<
+                L1ChainSpec,
                 BlockchainError = BlockchainError<L1ChainSpec>,
                 LoggerError = LoggerErrorT,
             >,
@@ -1093,6 +1098,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn logger_mut(
         &mut self,
     ) -> &mut dyn SyncLogger<
+        L1ChainSpec,
         BlockchainError = BlockchainError<L1ChainSpec>,
         LoggerError = LoggerErrorT,
     > {
@@ -2704,7 +2710,7 @@ pub(crate) mod test_utils {
             runtime: tokio::runtime::Runtime,
             mut config: ProviderConfig<L1ChainSpec>,
         ) -> anyhow::Result<Self> {
-            let logger = Box::<NoopLogger>::default();
+            let logger = Box::<NoopLogger<L1ChainSpec>>::default();
             let subscription_callback_noop = Box::new(|_| ());
 
             let impersonated_account = Address::random();

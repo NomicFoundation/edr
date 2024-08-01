@@ -1,3 +1,4 @@
+use edr_eth::chain_spec::L1ChainSpec;
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
@@ -9,7 +10,7 @@ use tokio::runtime;
 async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
     const BLOCK_NUMBER: u64 = 22_587_773;
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let config = create_test_config_with_fork(Some(ForkConfig {
