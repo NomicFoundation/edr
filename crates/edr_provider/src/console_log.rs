@@ -54,9 +54,14 @@ pub(crate) mod tests {
     use anyhow::Context;
     use edr_eth::{
         hex,
-        transaction::{self, request::TransactionRequestAndSender, TxKind},
+        result::InvalidTransaction,
+        transaction::{
+            self, request::TransactionRequestAndSender, IsEip4844, TransactionType,
+            TransactionValidation, TxKind,
+        },
         Bytes, U256,
     };
+    use edr_evm::chain_spec::SyncChainSpec;
 
     use crate::{data::ProviderData, time::TimeSinceEpoch};
 
@@ -66,10 +71,19 @@ pub(crate) mod tests {
     }
 
     pub fn deploy_console_log_contract<
+        ChainSpecT: SyncChainSpec<
+            Block: Default,
+            Hardfork: Debug,
+            Transaction: Default
+                             + TransactionType<Type: IsEip4844>
+                             + TransactionValidation<
+                ValidationError: From<InvalidTransaction> + PartialEq,
+            >,
+        >,
         LoggerErrorT: Debug + Send + Sync + 'static,
         TimerT: Clone + TimeSinceEpoch,
     >(
-        provider_data: &mut ProviderData<LoggerErrorT, TimerT>,
+        provider_data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     ) -> anyhow::Result<ConsoleLogTransaction> {
         // Compiled with solc 0.8.17, without optimizations
         /*

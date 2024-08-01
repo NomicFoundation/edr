@@ -193,7 +193,7 @@ pub struct AfterMessage<ChainSpecT: revm::primitives::EvmWiring> {
 #[derive(Debug)]
 #[derive_where(Clone; ChainSpecT::HaltReason)]
 #[derive_where(Default)]
-pub struct Trace<ChainSpecT: revm::primitives::EvmWiring> {
+pub struct Trace<ChainSpecT: edr_eth::chain_spec::EvmWiring> {
     // /// The individual steps of the call
     // pub steps: Vec<Step>,
     /// Messages

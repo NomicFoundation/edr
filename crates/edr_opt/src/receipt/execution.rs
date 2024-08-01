@@ -190,7 +190,7 @@ impl<LogT> Receipt<LogT> for Execution<LogT> {
         }
     }
 
-    fn logs(&self) -> &[LogT] {
+    fn transaction_logs(&self) -> &[LogT] {
         match self {
             Execution::Legacy(receipt) => &receipt.logs,
             Execution::Eip658(receipt) => &receipt.logs,

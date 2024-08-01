@@ -120,8 +120,8 @@ impl<DataT: Receipt<LogT>, LogT> Receipt<LogT> for TypedEnvelope<DataT> {
         self.data().logs_bloom()
     }
 
-    fn logs(&self) -> &[LogT] {
-        self.data().logs()
+    fn transaction_logs(&self) -> &[LogT] {
+        self.data().transaction_logs()
     }
 
     fn root_or_status(&self) -> receipt::RootOrStatus<'_> {

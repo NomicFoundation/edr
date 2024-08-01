@@ -72,6 +72,12 @@ impl From<Type> for u8 {
     }
 }
 
+impl IsEip4844 for Type {
+    fn is_eip4844(&self) -> bool {
+        *self == Type::Eip4844
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
     #[error("{0}")]
@@ -168,17 +174,25 @@ pub trait SignedTransaction: Transaction + TransactionType {
     fn transaction_hash(&self) -> &B256;
 }
 
+/// Trait for mutable transactions.
 pub trait TransactionMut {
     /// Sets the gas limit of the transaction.
     fn set_gas_limit(&mut self, gas_limit: u64);
 }
 
+/// Trait for determining the type of a transaction.
 pub trait TransactionType {
     /// Type of the transaction.
     type Type;
 
     /// Returns the type of the transaction.
     fn transaction_type(&self) -> Self::Type;
+}
+
+/// Trait for determining whether a transaction is an EIP-4844 transaction.
+pub trait IsEip4844 {
+    /// Returns whether the transaction is an EIP-4844 transaction.
+    fn is_eip4844(&self) -> bool;
 }
 
 pub fn max_cost(transaction: &impl SignedTransaction) -> U256 {

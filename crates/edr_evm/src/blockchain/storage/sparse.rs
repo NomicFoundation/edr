@@ -259,7 +259,7 @@ where
         if let Some(block) = storage.block_by_number(block_number) {
             let receipts = block.transaction_receipts()?;
             for receipt in receipts {
-                let filtered_logs = receipt.logs().iter().filter(|log| {
+                let filtered_logs = receipt.transaction_logs().iter().filter(|log| {
                     matches_address_filter(&log.address, &addresses)
                         && matches_topics_filter(log.topics(), topics_filter)
                 });

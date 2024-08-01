@@ -1,10 +1,13 @@
 use core::fmt::Debug;
 
 use edr_eth::{
-    chain_spec::L1ChainSpec, fee_history::FeeHistoryResult, reward_percentile::RewardPercentile,
-    transaction, BlockSpec, SpecId, U256, U64,
+    fee_history::FeeHistoryResult,
+    result::InvalidTransaction,
+    reward_percentile::RewardPercentile,
+    transaction::{TransactionMut, TransactionValidation},
+    BlockSpec, SpecId, U256, U64,
 };
-use edr_evm::{state::StateOverrides, trace::Trace};
+use edr_evm::{chain_spec::SyncChainSpec, state::StateOverrides, trace::Trace};
 use edr_rpc_eth::CallRequest;
 
 use super::resolve_call_request_inner;
@@ -12,28 +15,41 @@ use crate::{
     data::ProviderData,
     requests::validation::{validate_call_request, validate_post_merge_block_tags},
     time::TimeSinceEpoch,
-    ProviderError,
+    ProviderError, TransactionFailureReason,
 };
 
-pub fn handle_estimate_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_estimate_gas<
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionMut
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    LoggerErrorT: Debug,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     call_request: CallRequest,
     block_spec: Option<BlockSpec>,
-) -> Result<(U64, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(U64, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT, LoggerErrorT>> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
 
-    validate_call_request(data.spec_id(), &call_request, &block_spec)?;
+    let evm_spec_id = data.evm_spec_id();
+    validate_call_request(evm_spec_id, &call_request, &block_spec)?;
 
     let transaction =
         resolve_estimate_gas_request(data, call_request, &block_spec, &StateOverrides::default())?;
 
     let result = data.estimate_gas(transaction.clone(), &block_spec);
     if let Err(ProviderError::EstimateGasTransactionFailure(failure)) = result {
-        let spec_id = data.spec_id();
         data.logger_mut()
-            .log_estimate_gas_failure(spec_id, &transaction, &failure)
+            .log_estimate_gas_failure(evm_spec_id, &transaction, &failure)
             .map_err(ProviderError::Logger)?;
 
         Err(ProviderError::TransactionFailed(
@@ -45,13 +61,24 @@ pub fn handle_estimate_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     }
 }
 
-pub fn handle_fee_history<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_fee_history<
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    LoggerErrorT: Debug,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     block_count: U256,
     newest_block: BlockSpec,
     reward_percentiles: Option<Vec<f64>>,
-) -> Result<FeeHistoryResult, ProviderError<LoggerErrorT>> {
-    if data.spec_id() < SpecId::LONDON {
+) -> Result<FeeHistoryResult, ProviderError<ChainSpecT, LoggerErrorT>> {
+    if data.evm_spec_id() < SpecId::LONDON {
         return Err(ProviderError::InvalidInput(
             "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
                 .into(),
@@ -72,7 +99,7 @@ pub fn handle_fee_history<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
         ));
     }
 
-    validate_post_merge_block_tags(data.spec_id(), &newest_block)?;
+    validate_post_merge_block_tags(data.evm_spec_id(), &newest_block)?;
 
     let reward_percentiles = reward_percentiles.map(|percentiles| {
         let mut validated_percentiles = Vec::with_capacity(percentiles.len());
@@ -98,12 +125,23 @@ The reward percentiles should be in non-decreasing order, but the percentile num
     data.fee_history(block_count, &newest_block, reward_percentiles)
 }
 
-fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+fn resolve_estimate_gas_request<
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    LoggerErrorT: Debug,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
+) -> Result<ChainSpecT::Transaction, ProviderError<ChainSpecT, LoggerErrorT>> {
     resolve_call_request_inner(
         data,
         request,
@@ -123,7 +161,7 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
             });
 
             let max_fee_per_gas = max_fee_per_gas.map_or_else(
-                || -> Result<U256, ProviderError<LoggerErrorT>> {
+                || -> Result<U256, ProviderError<ChainSpecT, LoggerErrorT>> {
                     let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
                         max_priority_fee_per_gas
                             + block.header().base_fee_per_gas.unwrap_or(U256::ZERO)

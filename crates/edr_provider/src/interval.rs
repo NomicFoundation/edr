@@ -1,6 +1,8 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
+use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
+use edr_evm::chain_spec::{ChainSpec, SyncChainSpec};
 use tokio::{
     runtime,
     sync::{oneshot, Mutex},
@@ -11,23 +13,34 @@ use tokio::{
 use crate::{data::ProviderData, time::TimeSinceEpoch, IntervalConfig, ProviderError};
 
 /// Type for interval mining on a separate thread.
-pub struct IntervalMiner<LoggerErrorT: Debug> {
-    inner: Option<Inner<LoggerErrorT>>,
+pub struct IntervalMiner<ChainSpecT: ChainSpec<Hardfork: Debug>, LoggerErrorT: Debug> {
+    inner: Option<Inner<ChainSpecT, LoggerErrorT>>,
     runtime: runtime::Handle,
 }
 
 /// Inner type for interval mining on a separate thread, required for
 /// implementation of `Drop`.
-struct Inner<LoggerErrorT: Debug> {
+struct Inner<ChainSpecT: ChainSpec<Hardfork: Debug>, LoggerErrorT: Debug> {
     cancellation_sender: oneshot::Sender<()>,
-    background_task: JoinHandle<Result<(), ProviderError<LoggerErrorT>>>,
+    background_task: JoinHandle<Result<(), ProviderError<ChainSpecT, LoggerErrorT>>>,
 }
 
-impl<LoggerErrorT: Debug + Send + Sync + 'static> IntervalMiner<LoggerErrorT> {
+impl<
+        ChainSpecT: SyncChainSpec<
+            Block: Default,
+            Hardfork: Debug,
+            Transaction: Default
+                             + TransactionValidation<
+                ValidationError: From<InvalidTransaction> + PartialEq,
+            >,
+        >,
+        LoggerErrorT: Debug + Send + Sync + 'static,
+    > IntervalMiner<ChainSpecT, LoggerErrorT>
+{
     pub fn new<TimerT: Clone + TimeSinceEpoch>(
         runtime: runtime::Handle,
         config: IntervalConfig,
-        data: Arc<Mutex<ProviderData<LoggerErrorT, TimerT>>>,
+        data: Arc<Mutex<ProviderData<ChainSpecT, LoggerErrorT, TimerT>>>,
     ) -> Self {
         let (cancellation_sender, cancellation_receiver) = oneshot::channel();
         let background_task = runtime
@@ -45,13 +58,21 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static> IntervalMiner<LoggerErrorT> {
 
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 async fn interval_mining_loop<
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
     LoggerErrorT: Debug + Send + Sync + 'static,
     TimerT: Clone + TimeSinceEpoch,
 >(
     config: IntervalConfig,
-    data: Arc<Mutex<ProviderData<LoggerErrorT, TimerT>>>,
+    data: Arc<Mutex<ProviderData<ChainSpecT, LoggerErrorT, TimerT>>>,
     mut cancellation_receiver: oneshot::Receiver<()>,
-) -> Result<(), ProviderError<LoggerErrorT>> {
+) -> Result<(), ProviderError<ChainSpecT, LoggerErrorT>> {
     let mut now = Instant::now();
     loop {
         let delay = config.generate_interval();
@@ -71,7 +92,7 @@ async fn interval_mining_loop<
                             return Err(error);
                         }
 
-                        Result::<(), ProviderError<LoggerErrorT>>::Ok(())
+                        Result::<(), ProviderError<ChainSpecT, LoggerErrorT>>::Ok(())
                     }
                 }
             },
@@ -79,7 +100,9 @@ async fn interval_mining_loop<
     }
 }
 
-impl<LoggerErrorT: Debug> Drop for IntervalMiner<LoggerErrorT> {
+impl<ChainSpecT: ChainSpec<Hardfork: Debug>, LoggerErrorT: Debug> Drop
+    for IntervalMiner<ChainSpecT, LoggerErrorT>
+{
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn drop(&mut self) {
         if let Some(Inner {

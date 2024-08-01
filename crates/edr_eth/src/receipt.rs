@@ -66,7 +66,7 @@ pub trait Receipt<LogT> {
     /// Returns the bloom filter of the logs generated within this transaction.
     fn logs_bloom(&self) -> &Bloom;
     /// Returns the logs generated within this transaction.
-    fn logs(&self) -> &[LogT];
+    fn transaction_logs(&self) -> &[LogT];
     /// Returns the state root (pre-EIP-658) or status (post-EIP-658) of the
     /// receipt.
     fn root_or_status(&self) -> RootOrStatus<'_>;

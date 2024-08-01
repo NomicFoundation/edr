@@ -131,8 +131,8 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> Receipt<LogT>
         self.inner.logs_bloom()
     }
 
-    fn logs(&self) -> &[LogT] {
-        self.inner.logs()
+    fn transaction_logs(&self) -> &[LogT] {
+        self.inner.transaction_logs()
     }
 
     fn root_or_status(&self) -> super::RootOrStatus<'_> {

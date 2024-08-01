@@ -12,6 +12,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::BlockchainError,
+    chain_spec::ChainSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
@@ -24,7 +25,10 @@ use serde::Serialize;
 use crate::{data::CreationError, IntervalConfigConversionError};
 
 #[derive(Debug, thiserror::Error)]
-pub enum ProviderError<LoggerErrorT> {
+pub enum ProviderError<ChainSpecT, LoggerErrorT>
+where
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
+{
     /// Account override conversion error.
     #[error(transparent)]
     AccountOverrideConversionError(#[from] AccountOverrideConversionError),
@@ -54,11 +58,11 @@ pub enum ProviderError<LoggerErrorT> {
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(#[from] BlockchainError<L1ChainSpec>),
+    Blockchain(#[from] BlockchainError<ChainSpecT>),
     #[error(transparent)]
-    Creation(#[from] CreationError<L1ChainSpec>),
+    Creation(#[from] CreationError<ChainSpecT>),
     #[error(transparent)]
-    DebugTrace(#[from] DebugTraceError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
+    DebugTrace(#[from] DebugTraceError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
     #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
     Eip4844CallRequestUnsupported,
     #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
@@ -69,7 +73,7 @@ pub enum ProviderError<LoggerErrorT> {
     Eip712Error(#[from] alloy_dyn_abi::Error),
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
-    EstimateGasTransactionFailure(#[from] EstimateGasFailure<L1ChainSpec>),
+    EstimateGasTransactionFailure(#[from] EstimateGasFailure<ChainSpecT>),
     #[error("{0}")]
     InvalidArgument(String),
     /// Block number or hash doesn't exist in blockchain
@@ -124,11 +128,11 @@ pub enum ProviderError<LoggerErrorT> {
     MemPoolUpdate(StateError),
     /// An error occurred while mining a block.
     #[error(transparent)]
-    MineBlock(#[from] MineBlockError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
+    MineBlock(#[from] MineBlockError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
     MineTransaction(
-        #[from] MineTransactionError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
+        #[from] MineTransactionError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     ),
     /// Rpc client error
     #[error(transparent)]
@@ -138,7 +142,7 @@ pub enum ProviderError<LoggerErrorT> {
     RpcVersion(jsonrpc::Version),
     /// Error while running a transaction
     #[error(transparent)]
-    RunTransaction(#[from] TransactionError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
+    RunTransaction(#[from] TransactionError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
     #[error("hardhat_setMinGasPrice is not supported when EIP-1559 is active")]
@@ -183,7 +187,7 @@ pub enum ProviderError<LoggerErrorT> {
     /// `eth_sendTransaction` failed and
     /// [`crate::config::ProviderConfig::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(#[from] TransactionFailureWithTraces<L1ChainSpec>),
+    TransactionFailed(#[from] TransactionFailureWithTraces<ChainSpecT>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -215,8 +219,12 @@ pub enum ProviderError<LoggerErrorT> {
     UnsupportedMethod { method_name: String },
 }
 
-impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
-    fn from(value: ProviderError<LoggerErrorT>) -> Self {
+impl<ChainSpecT, LoggerErrorT> From<ProviderError<ChainSpecT, LoggerErrorT>> for jsonrpc::Error
+where
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    LoggerErrorT: Debug,
+{
+    fn from(value: ProviderError<ChainSpecT, LoggerErrorT>) -> Self {
         const INVALID_INPUT: i16 = -32000;
         const INTERNAL_ERROR: i16 = -32603;
         const INVALID_PARAMS: i16 = -32602;
@@ -334,7 +342,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
 
 /// Failure that occurred while estimating gas.
 #[derive(thiserror::Error)]
-#[derive_where(Debug; ChainSpecT, ChainSpecT::Hardfork)]
+#[derive_where(Debug; ChainSpecT, ChainSpecT::HaltReason)]
 pub struct EstimateGasFailure<ChainSpecT: EvmWiring> {
     pub console_log_inputs: Vec<Bytes>,
     pub transaction_failure: TransactionFailureWithTraces<ChainSpecT>,
@@ -351,7 +359,7 @@ impl<ChainSpecT: EvmWiring> std::fmt::Display for EstimateGasFailure<ChainSpecT>
 #[derive_where(Debug; ChainSpecT, ChainSpecT::HaltReason)]
 pub struct TransactionFailureWithTraces<ChainSpecT: EvmWiring> {
     pub failure: TransactionFailure<ChainSpecT>,
-    pub traces: Vec<Trace<L1ChainSpec>>,
+    pub traces: Vec<Trace<ChainSpecT>>,
 }
 
 impl<ChainSpecT: EvmWiring<HaltReason: Debug>> std::fmt::Display
@@ -367,7 +375,7 @@ impl<ChainSpecT: EvmWiring<HaltReason: Debug>> std::fmt::Display
 #[derive(thiserror::Error, Serialize)]
 #[derive_where(Clone; ChainSpecT::HaltReason)]
 #[derive_where(Debug; ChainSpecT, ChainSpecT::HaltReason)]
-#[serde(bound = "ChainSpecT::Hardfork: Serialize", rename_all = "camelCase")]
+#[serde(bound = "ChainSpecT::HaltReason: Serialize", rename_all = "camelCase")]
 pub struct TransactionFailure<ChainSpecT: EvmWiring> {
     pub reason: TransactionFailureReason<ChainSpecT>,
     pub data: String,
@@ -451,7 +459,7 @@ impl<ChainSpecT: EvmWiring<HaltReason: Debug>> std::fmt::Display
 
 #[derive_where(Clone, Debug; ChainSpecT::HaltReason)]
 #[derive(Serialize)]
-#[serde(bound = "ChainSpecT::Hardfork: Serialize")]
+#[serde(bound = "ChainSpecT::HaltReason: Serialize")]
 pub enum TransactionFailureReason<ChainSpecT: EvmWiring> {
     Inner(ChainSpecT::HaltReason),
     OpcodeNotFound,

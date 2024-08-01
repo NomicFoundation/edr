@@ -1,4 +1,4 @@
-use edr_eth::B256;
+use edr_eth::{chain_spec::L1ChainSpec, B256};
 use napi::{
     bindgen_prelude::BigInt,
     threadsafe_function::{
@@ -10,14 +10,14 @@ use napi_derive::napi;
 
 #[derive(Clone)]
 pub struct SubscriberCallback {
-    inner: ThreadsafeFunction<edr_provider::SubscriptionEvent, ErrorStrategy::Fatal>,
+    inner: ThreadsafeFunction<edr_provider::SubscriptionEvent<L1ChainSpec>, ErrorStrategy::Fatal>,
 }
 
 impl SubscriberCallback {
     pub fn new(env: &Env, subscription_event_callback: JsFunction) -> napi::Result<Self> {
         let mut callback = subscription_event_callback.create_threadsafe_function(
             0,
-            |ctx: ThreadSafeCallContext<edr_provider::SubscriptionEvent>| {
+            |ctx: ThreadSafeCallContext<edr_provider::SubscriptionEvent<L1ChainSpec>>| {
                 // SubscriptionEvent
                 let mut event = ctx.env.create_object()?;
 
@@ -49,7 +49,7 @@ impl SubscriberCallback {
         Ok(Self { inner: callback })
     }
 
-    pub fn call(&self, event: edr_provider::SubscriptionEvent) {
+    pub fn call(&self, event: edr_provider::SubscriptionEvent<L1ChainSpec>) {
         // This is blocking because it's important that the subscription events are
         // in-order
         self.inner.call(event, ThreadsafeFunctionCallMode::Blocking);

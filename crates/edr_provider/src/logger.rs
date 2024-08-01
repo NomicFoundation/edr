@@ -3,14 +3,13 @@ use std::{convert::Infallible, marker::PhantomData};
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_eth::{chain_spec::L1ChainSpec, transaction};
 use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec};
 
 use crate::{
     data::CallResult, debug_mine::DebugMineBlockResult, error::EstimateGasFailure, ProviderError,
 };
 
-pub trait Logger<ChainSpecT: ChainSpec> {
+pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
     type BlockchainError;
 
     type LoggerError: Debug;
@@ -24,8 +23,8 @@ pub trait Logger<ChainSpecT: ChainSpec> {
     fn log_call(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        result: &CallResult,
+        transaction: &ChainSpecT::Transaction,
+        result: &CallResult<ChainSpecT>,
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _transaction = transaction;
@@ -37,8 +36,8 @@ pub trait Logger<ChainSpecT: ChainSpec> {
     fn log_estimate_gas_failure(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        result: &EstimateGasFailure<L1ChainSpec>,
+        transaction: &ChainSpecT::Transaction,
+        result: &EstimateGasFailure<ChainSpecT>,
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _transaction = transaction;
@@ -72,7 +71,7 @@ pub trait Logger<ChainSpecT: ChainSpec> {
     fn log_send_transaction(
         &mut self,
         spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
+        transaction: &ChainSpecT::Transaction,
         mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
@@ -89,20 +88,23 @@ pub trait Logger<ChainSpecT: ChainSpec> {
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderError<Self::LoggerError>>,
+        error: Option<&ProviderError<ChainSpecT, Self::LoggerError>>,
     ) -> Result<(), Self::LoggerError>;
 }
 
-pub trait SyncLogger<ChainSpecT: ChainSpec>: Logger<ChainSpecT> + DynClone + Send + Sync {}
+pub trait SyncLogger<ChainSpecT: ChainSpec<Hardfork: Debug>>:
+    Logger<ChainSpecT> + DynClone + Send + Sync
+{
+}
 
 impl<ChainSpecT, T> SyncLogger<ChainSpecT> for T
 where
-    ChainSpecT: ChainSpec,
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
     T: Logger<ChainSpecT> + DynClone + Send + Sync,
 {
 }
 
-impl<ChainSpecT: ChainSpec, BlockchainErrorT, LoggerErrorT> Clone
+impl<ChainSpecT: ChainSpec<Hardfork: Debug>, BlockchainErrorT, LoggerErrorT> Clone
     for Box<
         dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorT, LoggerError = LoggerErrorT>,
     >
@@ -118,7 +120,7 @@ pub struct NoopLogger<ChainSpecT: ChainSpec> {
     _phantom: PhantomData<ChainSpecT>,
 }
 
-impl<ChainSpecT: ChainSpec> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
+impl<ChainSpecT: ChainSpec<Hardfork: Debug>> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
     type BlockchainError = BlockchainError<ChainSpecT>;
 
     type LoggerError = Infallible;
@@ -132,7 +134,7 @@ impl<ChainSpecT: ChainSpec> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderError<Infallible>>,
+        _error: Option<&ProviderError<ChainSpecT, Infallible>>,
     ) -> Result<(), Infallible> {
         Ok(())
     }

@@ -1,22 +1,39 @@
 use core::fmt::Debug;
 
-use edr_eth::{chain_spec::L1ChainSpec, BlockSpec, Bytes, SpecId, U256};
-use edr_evm::{state::StateOverrides, trace::Trace, transaction};
+use edr_eth::{
+    result::InvalidTransaction, transaction::TransactionValidation, BlockSpec, Bytes, SpecId, U256,
+};
+use edr_evm::{chain_spec::SyncChainSpec, state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::{CallRequest, StateOverrideOptions};
 
 use crate::{
     data::ProviderData, requests::validation::validate_call_request, time::TimeSinceEpoch,
-    ProviderError, TransactionFailure,
+    ProviderError, TransactionFailure, TransactionFailureReason,
 };
 
-pub fn handle_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_call_request<
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
+        Hardfork: Debug,
+        Transaction: Clone
+                         + Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    LoggerErrorT: Debug,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     request: CallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace<L1ChainSpec>), ProviderError<LoggerErrorT>> {
+) -> Result<(Bytes, Trace<ChainSpecT>), ProviderError<ChainSpecT, LoggerErrorT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
-    validate_call_request(data.spec_id(), &request, &block_spec)?;
+
+    let evm_spec_id = data.evm_spec_id();
+    validate_call_request(evm_spec_id, &request, &block_spec)?;
 
     let state_overrides =
         state_overrides.map_or(Ok(StateOverrides::default()), StateOverrides::try_from)?;
@@ -24,9 +41,8 @@ pub fn handle_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
     let result = data.run_call(transaction.clone(), &block_spec, &state_overrides)?;
 
-    let spec_id = data.spec_id();
     data.logger_mut()
-        .log_call(spec_id, &transaction, &result)
+        .log_call(evm_spec_id, &transaction, &result)
         .map_err(ProviderError::Logger)?;
 
     if data.bail_on_call_failure() {
@@ -50,12 +66,23 @@ pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>)
     block_spec.unwrap_or_else(BlockSpec::latest)
 }
 
-pub(crate) fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub(crate) fn resolve_call_request<
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    LoggerErrorT: Debug,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
+) -> Result<ChainSpecT::Transaction, ProviderError<ChainSpecT, LoggerErrorT>> {
     resolve_call_request_inner(
         data,
         request,
@@ -74,22 +101,33 @@ pub(crate) fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinc
     )
 }
 
-pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub(crate) fn resolve_call_request_inner<
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    LoggerErrorT: Debug,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
     default_gas_price_fn: impl FnOnce(
-        &ProviderData<LoggerErrorT, TimerT>,
-    ) -> Result<U256, ProviderError<LoggerErrorT>>,
+        &ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
+    ) -> Result<U256, ProviderError<ChainSpecT, LoggerErrorT>>,
     max_fees_fn: impl FnOnce(
-        &ProviderData<LoggerErrorT, TimerT>,
+        &ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
         // max_fee_per_gas
         Option<U256>,
         // max_priority_fee_per_gas
         Option<U256>,
-    ) -> Result<(U256, U256), ProviderError<LoggerErrorT>>,
-) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
+    ) -> Result<(U256, U256), ProviderError<ChainSpecT, LoggerErrorT>>,
+) -> Result<ChainSpecT::Transaction, ProviderError<ChainSpecT, LoggerErrorT>> {
     let CallRequest {
         from,
         to,
@@ -110,10 +148,11 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
     let nonce = data.nonce(&from, Some(block_spec), state_overrides)?;
     let value = value.unwrap_or(U256::ZERO);
 
-    let transaction = if data.spec_id() < SpecId::LONDON || gas_price.is_some() {
+    let evm_spec_id = data.evm_spec_id();
+    let transaction = if evm_spec_id < SpecId::LONDON || gas_price.is_some() {
         let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
         match access_list {
-            Some(access_list) if data.spec_id() >= SpecId::BERLIN => {
+            Some(access_list) if evm_spec_id >= SpecId::BERLIN => {
                 transaction::Request::Eip2930(transaction::request::Eip2930 {
                     nonce,
                     gas_price,

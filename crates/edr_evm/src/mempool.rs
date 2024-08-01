@@ -173,7 +173,7 @@ impl<ChainSpecT: ChainSpec> OrderedTransaction<ChainSpecT> {
 }
 
 /// The mempool contains transactions pending inclusion in the blockchain.
-#[derive(Clone, Debug)]
+#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
 pub struct MemPool<ChainSpecT: ChainSpec> {
     /// The block's gas limit
     block_gas_limit: NonZeroU64,

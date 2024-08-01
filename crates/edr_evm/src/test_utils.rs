@@ -323,7 +323,11 @@ pub async fn run_full_block<
             replay_block.transactions()[expected.transaction_index as usize]
         );
         if expected.logs_bloom() != actual.logs_bloom() {
-            for (expected, actual) in expected.logs().iter().zip(actual.logs().iter()) {
+            for (expected, actual) in expected
+                .transaction_logs()
+                .iter()
+                .zip(actual.transaction_logs().iter())
+            {
                 debug_assert_eq!(
                     expected.inner.address,
                     actual.inner.address,

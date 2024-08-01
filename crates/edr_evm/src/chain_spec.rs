@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use edr_eth::{
-    block::{BlobGas, PartialHeader},
+    block::{self, BlobGas, PartialHeader},
     chain_spec::{EthHeaderConstants, L1ChainSpec},
     env::{BlobExcessGasAndPrice, BlockEnv},
     log::{ExecutionLog, FilterLog},
@@ -9,7 +9,8 @@ use edr_eth::{
     transaction::SignedTransaction,
     SpecId, B256, U256,
 };
-use edr_rpc_eth::{spec::RpcSpec, TransactionConversionError};
+use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
+use revm::primitives::TransactionValidation;
 pub use revm::EvmWiring;
 
 use crate::{
@@ -25,7 +26,7 @@ pub trait ChainSpec:
     alloy_rlp::Encodable
     + EthHeaderConstants
     + EvmWiring<
-        Block: BlockEnvConstructor<Self>,
+        Block: BlockEnvConstructor<Self, block::Header> + BlockEnvConstructor<Self, PartialHeader>,
         Transaction: alloy_rlp::Encodable
                          + Clone
                          + Debug
@@ -43,7 +44,9 @@ pub trait ChainSpec:
             EthBlockData<Self>,
             Error = Self::RpcBlockConversionError,
         >,
-        RpcReceipt: Debug + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
+        RpcReceipt: Debug
+                        + RpcTypeFrom<BlockReceipt<Self>, Hardfork = Self::Hardfork>
+                        + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
         RpcTransaction: EthRpcTransaction,
     > + RpcSpec<
         ExecutionReceipt<ExecutionLog>: alloy_rlp::Encodable
@@ -81,12 +84,12 @@ pub trait ChainSpec:
 }
 
 /// A trait for constructing a block a [`PartialHeader`] into an EVM block.
-pub trait BlockEnvConstructor<ChainSpecT: ChainSpec> {
+pub trait BlockEnvConstructor<ChainSpecT: ChainSpec, HeaderT> {
     /// Converts the instance into an EVM block.
-    fn new_block_env(header: &PartialHeader, hardfork: ChainSpecT::Hardfork) -> Self;
+    fn new_block_env(header: &HeaderT, hardfork: ChainSpecT::Hardfork) -> Self;
 }
 
-impl BlockEnvConstructor<L1ChainSpec> for BlockEnv {
+impl BlockEnvConstructor<L1ChainSpec, PartialHeader> for BlockEnv {
     fn new_block_env(header: &PartialHeader, hardfork: SpecId) -> Self {
         Self {
             number: U256::from(header.number),
@@ -108,18 +111,52 @@ impl BlockEnvConstructor<L1ChainSpec> for BlockEnv {
     }
 }
 
+impl BlockEnvConstructor<L1ChainSpec, block::Header> for BlockEnv {
+    fn new_block_env(header: &block::Header, hardfork: SpecId) -> Self {
+        Self {
+            number: U256::from(header.number),
+            coinbase: header.beneficiary,
+            timestamp: U256::from(header.timestamp),
+            difficulty: header.difficulty,
+            basefee: header.base_fee_per_gas.unwrap_or(U256::ZERO),
+            gas_limit: U256::from(header.gas_limit),
+            prevrandao: if hardfork >= SpecId::MERGE {
+                Some(header.mix_hash)
+            } else {
+                None
+            },
+            blob_excess_gas_and_price: header
+                .blob_gas
+                .as_ref()
+                .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
+        }
+    }
+}
+
 /// A supertrait for [`ChainSpec`] that is safe to send between threads.
 pub trait SyncChainSpec:
-    ChainSpec<ExecutionReceipt<FilterLog>: Send + Sync, Transaction: Send + Sync>
-    + Send
+    ChainSpec<
+        ExecutionReceipt<FilterLog>: Send + Sync,
+        HaltReason: Send + Sync,
+        Hardfork: Send + Sync,
+        RpcBlockConversionError: Send + Sync,
+        RpcReceiptConversionError: Send + Sync,
+        Transaction: TransactionValidation<ValidationError: Send + Sync> + Send + Sync,
+    > + Send
     + Sync
     + 'static
 {
 }
 
 impl<ChainSpecT> SyncChainSpec for ChainSpecT where
-    ChainSpecT: ChainSpec<ExecutionReceipt<FilterLog>: Send + Sync, Transaction: Send + Sync>
-        + Send
+    ChainSpecT: ChainSpec<
+            ExecutionReceipt<FilterLog>: Send + Sync,
+            HaltReason: Send + Sync,
+            Hardfork: Send + Sync,
+            RpcBlockConversionError: Send + Sync,
+            RpcReceiptConversionError: Send + Sync,
+            Transaction: TransactionValidation<ValidationError: Send + Sync> + Send + Sync,
+        > + Send
         + Sync
         + 'static
 {

@@ -1,7 +1,12 @@
 use core::fmt::Debug;
 
-use edr_eth::{chain_spec::L1ChainSpec, BlockSpec, B256};
-use edr_evm::{state::StateOverrides, trace::Trace, DebugTraceResult, DebugTraceResultWithTraces};
+use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation, BlockSpec, B256};
+use edr_evm::{
+    chain_spec::{ChainSpec, SyncChainSpec},
+    state::StateOverrides,
+    trace::Trace,
+    DebugTraceResult, DebugTraceResultWithTraces,
+};
 use edr_rpc_eth::CallRequest;
 use serde::{Deserialize, Deserializer};
 
@@ -15,11 +20,22 @@ use crate::{
     ProviderError,
 };
 
-pub fn handle_debug_trace_transaction<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_debug_trace_transaction<
+    ChainSpecT: SyncChainSpec<
+        Block: Clone + Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    LoggerErrorT: Debug,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     transaction_hash: B256,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(DebugTraceResult, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT, LoggerErrorT>> {
     let DebugTraceResultWithTraces { result, traces } = data
         .debug_trace_transaction(
             &transaction_hash,
@@ -35,14 +51,26 @@ pub fn handle_debug_trace_transaction<LoggerErrorT: Debug, TimerT: Clone + TimeS
     Ok((result, traces))
 }
 
-pub fn handle_debug_trace_call<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_debug_trace_call<ChainSpecT, LoggerErrorT, TimerT>(
+    data: &mut ProviderData<ChainSpecT, LoggerErrorT, TimerT>,
     call_request: CallRequest,
     block_spec: Option<BlockSpec>,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(DebugTraceResult, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT, LoggerErrorT>>
+where
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    LoggerErrorT: Debug,
+    TimerT: Clone + TimeSinceEpoch,
+{
     let block_spec = resolve_block_spec_for_call_request(block_spec);
-    validate_call_request(data.spec_id(), &call_request, &block_spec)?;
+    validate_call_request(data.evm_spec_id(), &call_request, &block_spec)?;
 
     let transaction =
         resolve_call_request(data, call_request, &block_spec, &StateOverrides::default())?;
