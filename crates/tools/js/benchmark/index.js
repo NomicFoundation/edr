@@ -383,6 +383,7 @@ function preprocessConfig(config) {
   }
 
   config.providerConfig.minGasPrice = BigInt(config.providerConfig.minGasPrice);
+  config.providerConfig.enableRip7212 = false;
 
   return config;
 }

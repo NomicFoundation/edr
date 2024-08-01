@@ -1,5 +1,22 @@
 import { TracingMessage, TracingMessageResult, TracingStep } from "..";
 
+function getEnv(key: string): string | undefined {
+  const variable = process.env[key];
+  if (variable === undefined || variable === "") {
+    return undefined;
+  }
+
+  const trimmed = variable.trim();
+
+  return trimmed.length === 0 ? undefined : trimmed;
+}
+
+export const ALCHEMY_URL = getEnv("ALCHEMY_URL");
+
+export function isCI(): boolean {
+  return getEnv("CI") === "true";
+}
+
 /**
  * Given a trace, return only its steps.
  */
