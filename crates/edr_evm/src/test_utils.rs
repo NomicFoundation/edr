@@ -16,7 +16,7 @@ use edr_rpc_eth::client::EthRpcClient;
 use crate::{
     blockchain::{Blockchain as _, ForkedBlockchain},
     chain_spec::SyncChainSpec,
-    evm::handler::CfgEnvWithChainSpec,
+    evm::handler::CfgEnvWithEvmWiring,
     state::{AccountTrie, IrregularState, StateError, TrieState},
     transaction, Block, BlockBuilder, DebugContext, ExecutionResultWithContext, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
@@ -218,7 +218,7 @@ pub async fn run_full_block<
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 
-    let cfg = CfgEnvWithChainSpec::<ChainSpecT>::new(cfg, hardfork);
+    let cfg = CfgEnvWithEvmWiring::<ChainSpecT>::new(cfg, hardfork);
 
     let parent = blockchain.last_block()?;
 

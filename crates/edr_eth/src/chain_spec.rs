@@ -9,7 +9,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct L1ChainSpec;
 
-impl revm::primitives::ChainSpec for L1ChainSpec {
+impl revm::primitives::EvmWiring for L1ChainSpec {
     type Block = revm_primitives::BlockEnv;
 
     type Hardfork = revm_primitives::SpecId;
@@ -19,7 +19,7 @@ impl revm::primitives::ChainSpec for L1ChainSpec {
     type Transaction = transaction::Signed;
 }
 
-impl revm::ChainSpec for L1ChainSpec {
+impl revm::EvmWiring for L1ChainSpec {
     type Context = ();
 
     fn handler<'evm, EXT, DB>(hardfork: Self::Hardfork) -> revm::EvmHandler<'evm, Self, EXT, DB>
@@ -31,7 +31,7 @@ impl revm::ChainSpec for L1ChainSpec {
 }
 
 /// Constants for constructing Ethereum headers.
-pub trait EthHeaderConstants: revm_primitives::ChainSpec<Hardfork: PartialOrd> {
+pub trait EthHeaderConstants: revm_primitives::EvmWiring<Hardfork: PartialOrd> {
     /// Parameters for the EIP-1559 base fee calculation.
     const BASE_FEE_PARAMS: BaseFeeParams<Self>;
 

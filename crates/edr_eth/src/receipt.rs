@@ -12,7 +12,7 @@ pub mod execution;
 mod transaction;
 
 use revm::db::StateRef;
-use revm_primitives::ChainSpec;
+use revm_primitives::EvmWiring;
 
 pub use self::{block::BlockReceipt, transaction::TransactionReceipt};
 use crate::{block::PartialHeader, Bloom, B256};
@@ -28,7 +28,7 @@ pub enum Execution<LogT> {
 }
 
 /// Trait for a builder that constructs an execution receipt.
-pub trait ExecutionReceiptBuilder<ChainSpecT: ChainSpec>: Sized {
+pub trait ExecutionReceiptBuilder<ChainSpecT: EvmWiring>: Sized {
     /// The receipt type that the builder constructs.
     type Receipt;
 

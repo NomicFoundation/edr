@@ -8,7 +8,7 @@ pub fn register_precompiles_handles<ChainSpecT, DatabaseT, ContextT>(
     handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
     precompiles: HashMap<Address, ContextPrecompile<ChainSpecT, DatabaseT>>,
 ) where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
     DatabaseT: Database<Error: Debug>,
 {
     let old_handle = handler.pre_execution.load_precompiles();

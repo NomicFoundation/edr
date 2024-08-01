@@ -11,7 +11,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    evm::handler::CfgEnvWithChainSpec,
+    evm::handler::CfgEnvWithEvmWiring,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
     transaction, DebugContext, SyncBlock,
@@ -28,7 +28,7 @@ pub(super) struct CheckGasLimitArgs<'a> {
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithChainSpec<L1ChainSpec>,
+    pub cfg_env: CfgEnvWithEvmWiring<L1ChainSpec>,
     pub transaction: transaction::Signed,
     pub gas_limit: u64,
     pub precompiles: &'a HashMap<Address, Precompile>,
@@ -77,7 +77,7 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithChainSpec<L1ChainSpec>,
+    pub cfg_env: CfgEnvWithEvmWiring<L1ChainSpec>,
     pub transaction: transaction::Signed,
     pub lower_bound: u64,
     pub upper_bound: u64,
