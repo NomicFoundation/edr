@@ -1,13 +1,15 @@
 use std::{
     convert::Infallible,
+    marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
 };
 
 use anyhow::Context;
+use derive_where::derive_where;
 use edr_eth::chain_spec::L1ChainSpec;
-use edr_evm::blockchain::BlockchainError;
+use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec};
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use flate2::bufread::GzDecoder;
@@ -30,7 +32,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         anyhow::bail!("This scenario expects logging, but logging is not yet implemented")
     }
 
-    let logger = Box::<DisabledLogger>::default();
+    let logger = Box::<DisabledLogger<L1ChainSpec>>::default();
     let subscription_callback = Box::new(|_| ());
 
     #[cfg(feature = "tracing")]
@@ -166,10 +168,12 @@ async fn load_json(scenario_path: &Path) -> anyhow::Result<(ScenarioConfig, Vec<
     Ok((config, requests))
 }
 
-#[derive(Clone, Default)]
-struct DisabledLogger;
+#[derive_where(Clone, Default)]
+struct DisabledLogger<ChainSpecT: ChainSpec> {
+    _phantom: PhantomData<ChainSpecT>,
+}
 
-impl Logger for DisabledLogger {
+impl<ChainSpecT: ChainSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
     type BlockchainError = BlockchainError<L1ChainSpec>;
 
     type LoggerError = Infallible;

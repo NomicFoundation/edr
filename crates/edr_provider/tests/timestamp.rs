@@ -2,7 +2,7 @@
 
 use std::{convert::Infallible, sync::Arc};
 
-use edr_eth::{PreEip1898BlockSpec, B256};
+use edr_eth::{chain_spec::L1ChainSpec, PreEip1898BlockSpec, B256};
 use edr_provider::{
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
@@ -17,7 +17,7 @@ struct TimestampFixture {
 
 impl TimestampFixture {
     fn new(allow_blocks_with_same_timestamp: bool) -> anyhow::Result<Self> {
-        let logger = Box::<NoopLogger>::default();
+        let logger = Box::<NoopLogger<L1ChainSpec>>::default();
         let subscription_callback_noop = Box::new(|_| ());
 
         let mut config = create_test_config();
