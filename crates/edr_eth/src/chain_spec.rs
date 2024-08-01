@@ -1,4 +1,5 @@
 use alloy_rlp::RlpEncodable;
+pub use revm_primitives::EvmWiring;
 
 use crate::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
@@ -9,7 +10,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct L1ChainSpec;
 
-impl revm::primitives::EvmWiring for L1ChainSpec {
+impl EvmWiring for L1ChainSpec {
     type Block = revm_primitives::BlockEnv;
 
     type Hardfork = revm_primitives::SpecId;
