@@ -1,23 +1,55 @@
 //! Commonly used contract types and functions.
 
-use std::{
-    collections::BTreeMap,
-    ops::{Deref, DerefMut},
-};
+use std::{collections::BTreeMap, path::PathBuf};
 
-use alloy_json_abi::{Event, Function, JsonAbi};
-use alloy_primitives::{Address, Bytes, Selector, B256};
+use alloy_json_abi::JsonAbi;
+use alloy_primitives::{Address, Bytes};
 use eyre::Result;
-use foundry_compilers::{
-    artifacts::{CompactContractBytecode, ContractBytecodeSome},
-    ArtifactId,
-};
+use foundry_compilers::artifacts::{CompactContractBytecode, ContractBytecodeSome};
+use semver::Version;
+use serde::{Deserialize, Serialize};
+
+// Adapted from <https://github.com/foundry-rs/compilers/blob/ea346377deaf18dc1f972a06fad76df3d9aed8d9/crates/compilers/src/artifact_output/mod.rs#L45>
+/// Represents compilation artifact output
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct ArtifactId {
+    /// The name of the contract
+    pub name: String,
+    /// Original source file path
+    pub source: PathBuf,
+    /// `solc` version that produced this artifact
+    pub version: Version,
+}
+
+impl ArtifactId {
+    // Copied from <https://github.com/foundry-rs/compilers/blob/ea346377deaf18dc1f972a06fad76df3d9aed8d9/crates/compilers/src/artifact_output/mod.rs#L45>
+    /// Returns a `<source path>:<name>` slug that uniquely identifies an
+    /// artifact
+    pub fn identifier(&self) -> String {
+        format!("{}:{}", self.source.to_string_lossy(), self.name)
+    }
+}
+
+impl From<foundry_compilers::ArtifactId> for ArtifactId {
+    fn from(value: foundry_compilers::ArtifactId) -> Self {
+        let foundry_compilers::ArtifactId {
+            path: _,
+            name,
+            source,
+            version,
+        } = value;
+
+        Self {
+            name,
+            source,
+            version,
+        }
+    }
+}
 
 /// Container for commonly used contract data.
 #[derive(Debug, Clone)]
 pub struct ContractData {
-    /// Contract name.
-    pub name: String,
     /// Contract ABI.
     pub abi: JsonAbi,
     /// Contract creation code.
@@ -30,7 +62,7 @@ type ArtifactWithContractRef<'a> = (&'a ArtifactId, &'a ContractData);
 
 /// Wrapper type that maps an artifact to a contract ABI and bytecode.
 #[derive(Clone, Default, Debug)]
-pub struct ContractsByArtifact(pub BTreeMap<ArtifactId, ContractData>);
+pub struct ContractsByArtifact(BTreeMap<ArtifactId, ContractData>);
 
 impl ContractsByArtifact {
     /// Creates a new instance by collecting all artifacts with present bytecode
@@ -38,12 +70,13 @@ impl ContractsByArtifact {
     ///
     /// It is recommended to use this method with an output of
     /// [`foundry_linking::Linker::get_linked_artifacts`].
-    pub fn new(artifacts: impl IntoIterator<Item = (ArtifactId, CompactContractBytecode)>) -> Self {
+    pub fn new_from_foundry_linker(
+        artifacts: impl IntoIterator<Item = (foundry_compilers::ArtifactId, CompactContractBytecode)>,
+    ) -> Self {
         Self(
             artifacts
                 .into_iter()
                 .filter_map(|(id, artifact)| {
-                    let name = id.name.clone();
                     let bytecode = artifact
                         .bytecode
                         .and_then(foundry_compilers::artifacts::CompactBytecode::into_bytes)?;
@@ -59,9 +92,8 @@ impl ContractsByArtifact {
                     let abi = artifact.abi?;
 
                     Some((
-                        id,
+                        id.into(),
                         ContractData {
-                            name,
                             abi,
                             bytecode,
                             deployed_bytecode,
@@ -72,15 +104,29 @@ impl ContractsByArtifact {
         )
     }
 
-    /// Finds a contract which has a similar bytecode as `code`.
-    pub fn find_by_creation_code(&self, code: &[u8]) -> Option<ArtifactWithContractRef<'_>> {
-        self.iter().find(|(_, contract)| {
-            if let Some(bytecode) = &contract.bytecode {
-                bytecode_diff_score(bytecode.as_ref(), code) <= 0.1
-            } else {
-                false
-            }
-        })
+    /// Returns an iterator over all ids and contracts.
+    pub fn iter(&self) -> impl Iterator<Item = ArtifactWithContractRef<'_>> {
+        self.0.iter()
+    }
+
+    /// Get a contract by its id.
+    pub fn get(&self, id: &ArtifactId) -> Option<&ContractData> {
+        self.0.get(id)
+    }
+
+    /// Returns the number of contracts.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns `true` if there are no contracts.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Iterate over the contracts.
+    pub fn values(&self) -> impl Iterator<Item = &ContractData> {
+        self.0.values()
     }
 
     /// Finds a contract which has a similar deployed bytecode as `code`.
@@ -111,42 +157,11 @@ impl ContractsByArtifact {
 
         Ok(contracts.first().cloned())
     }
-
-    /// Flattens the contracts into functions, events and errors.
-    pub fn flatten(&self) -> (BTreeMap<Selector, Function>, BTreeMap<B256, Event>, JsonAbi) {
-        let mut funcs = BTreeMap::new();
-        let mut events = BTreeMap::new();
-        let mut errors_abi = JsonAbi::new();
-        for (_name, contract) in self.iter() {
-            for func in contract.abi.functions() {
-                funcs.insert(func.selector(), func.clone());
-            }
-            for event in contract.abi.events() {
-                events.insert(event.selector(), event.clone());
-            }
-            for error in contract.abi.errors() {
-                errors_abi
-                    .errors
-                    .entry(error.name.clone())
-                    .or_default()
-                    .push(error.clone());
-            }
-        }
-        (funcs, events, errors_abi)
-    }
 }
 
-impl Deref for ContractsByArtifact {
-    type Target = BTreeMap<ArtifactId, ContractData>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for ContractsByArtifact {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+impl From<BTreeMap<ArtifactId, ContractData>> for ContractsByArtifact {
+    fn from(value: BTreeMap<ArtifactId, ContractData>) -> Self {
+        Self(value)
     }
 }
 

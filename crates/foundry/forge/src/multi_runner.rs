@@ -11,8 +11,8 @@ use std::{
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Bytes, U256};
 use eyre::Result;
-use foundry_common::{get_contract_name, ContractsByArtifact, TestFunctionExt};
-use foundry_compilers::{artifacts::Libraries, Artifact, ArtifactId, ProjectCompileOutput};
+use foundry_common::{get_contract_name, ArtifactId, ContractsByArtifact, TestFunctionExt};
+use foundry_compilers::{artifacts::Libraries, Artifact, ProjectCompileOutput};
 use foundry_config::Config;
 use foundry_evm::{
     backend::Backend,
@@ -36,6 +36,19 @@ pub struct TestContract {
     pub bytecode: Bytes,
     pub libs_to_deploy: Vec<Bytes>,
     pub libraries: Libraries,
+}
+
+impl TestContract {
+    /// Creates a new test contract with the given ABI and bytecode.
+    /// Library linking isn't supported for Hardhat test suites
+    pub fn new_hardhat(abi: JsonAbi, bytecode: Bytes) -> Self {
+        Self {
+            abi,
+            bytecode,
+            libs_to_deploy: vec![],
+            libraries: Libraries::default(),
+        }
+    }
 }
 
 pub type DeployableContracts = BTreeMap<ArtifactId, TestContract>;
@@ -202,8 +215,9 @@ impl MultiContractRunner {
     /// Each Executor gets its own instance of the `Backend`.
     pub fn test_hardhat(
         mut self,
+        known_contracts: Arc<ContractsByArtifact>,
         filter: Arc<impl TestFilter + 'static>,
-        tx: tokio::sync::mpsc::UnboundedSender<(String, SuiteResult)>,
+        tx: tokio::sync::mpsc::UnboundedSender<(ArtifactId, SuiteResult)>,
     ) {
         trace!("running all tests");
 
@@ -224,26 +238,28 @@ impl MultiContractRunner {
         );
 
         let this = Arc::new(self);
-        let args = contracts
-            .into_iter()
-            .zip(std::iter::repeat((this, db, filter, tx)));
+        let args =
+            contracts
+                .into_iter()
+                .zip(std::iter::repeat((this, db, filter, known_contracts, tx)));
 
         let handle = tokio::runtime::Handle::current();
         handle.spawn(async {
             futures::stream::iter(args)
                 .for_each_concurrent(
                     Some(num_cpus::get()),
-                    |((id, contract), (this, db, filter, tx))| async move {
+                    |((id, contract), (this, db, filter, known_contracts, tx))| async move {
                         tokio::task::spawn_blocking(move || {
                             let handle = tokio::runtime::Handle::current();
                             let result = this.run_tests_hardhat(
                                 &id,
                                 &contract,
+                                known_contracts,
                                 db.clone(),
                                 filter.as_ref(),
                                 &handle,
                             );
-                            let _ = tx.send((id.identifier(), result));
+                            let _ = tx.send((id, result));
                         })
                         .await
                         .expect("failed to join task");
@@ -271,7 +287,9 @@ impl MultiContractRunner {
         let linked_contracts = linker
             .get_linked_artifacts(&contract.libraries)
             .unwrap_or_default();
-        let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
+        let known_contracts = Arc::new(ContractsByArtifact::new_from_foundry_linker(
+            linked_contracts,
+        ));
 
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
@@ -321,24 +339,13 @@ impl MultiContractRunner {
         &self,
         artifact_id: &ArtifactId,
         contract: &TestContract,
+        known_contracts: Arc<ContractsByArtifact>,
         db: Backend,
         filter: &dyn TestFilter,
         handle: &tokio::runtime::Handle,
     ) -> SuiteResult {
         let identifier = artifact_id.identifier();
         let mut span_name = identifier.as_str();
-
-        // TODO make sure these are passed in
-        // https://github.com/NomicFoundation/edr/issues/487
-        // let linker = Linker::new(
-        //     self.config.project_paths().root,
-        //     self.output.artifact_ids().collect(),
-        // );
-        // let linked_contracts = linker
-        //     .get_linked_artifacts(&contract.libraries)
-        //     .unwrap_or_default();
-        // let known_contracts = Arc::new(ContractsByArtifact::new(linked_contracts));
-        let known_contracts = Arc::new(ContractsByArtifact::new(Vec::default()));
 
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
@@ -523,7 +530,7 @@ impl MultiContractRunnerBuilder {
                 };
 
                 deployable_contracts.insert(
-                    id.clone(),
+                    id.clone().into(),
                     TestContract {
                         abi: abi.clone().into_owned(),
                         bytecode,

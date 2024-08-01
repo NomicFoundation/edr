@@ -6,10 +6,9 @@ use forge::{
     inspectors::cheatcodes::CheatsConfigOptions,
     opts::{Env as EvmEnv, EvmOpts},
 };
-use foundry_compilers::ProjectPathsConfig;
 use foundry_config::{
-    cache::StorageCachingConfig, fs_permissions::PathPermission, FsPermissions, FuzzConfig,
-    GasLimit, InvariantConfig, RpcEndpoint, RpcEndpoints,
+    cache::StorageCachingConfig, FsPermissions, FuzzConfig, GasLimit, InvariantConfig, RpcEndpoint,
+    RpcEndpoints,
 };
 
 /// Solidity tests configuration
@@ -66,16 +65,6 @@ impl SolidityTestsConfig {
             "/../../crates/foundry/testdata"
         ));
 
-        // TODO https://github.com/NomicFoundation/edr/issues/487
-        let project_paths_config: ProjectPathsConfig<foundry_compilers::Solc> =
-            ProjectPathsConfig::builder().build_with_root(project_root.clone());
-
-        let artifacts: PathBuf = project_paths_config
-            .artifacts
-            .file_name()
-            .expect("artifacts are not relative")
-            .into();
-
         // Matches Foundry config defaults
         let cheats_config_options = CheatsConfigOptions {
             rpc_endpoints: RpcEndpoints::new([(
@@ -85,7 +74,8 @@ impl SolidityTestsConfig {
             unchecked_cheatcode_artifacts: false,
             prompt_timeout: 0,
             rpc_storage_caching: StorageCachingConfig::default(),
-            fs_permissions: FsPermissions::new([PathPermission::read(artifacts)]),
+            // Hardhat doesn't support loading artifacts from disk
+            fs_permissions: FsPermissions::new(vec![]),
             labels: HashMap::default(),
         };
 

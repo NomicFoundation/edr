@@ -341,10 +341,44 @@ export interface ExecutionResult {
   /** Optional contract address if the transaction created a new contract. */
   contractAddress?: Buffer
 }
+/** A compilation artifact. */
+export interface Artifact {
+  /** The identifier of the artifact. */
+  id: ArtifactId
+  /** The test contract. */
+  contract: ContractData
+}
+/** The identifier of a Solidity contract. */
+export interface ArtifactId {
+  /** The name of the contract. */
+  name: string
+  /** Original source file path. */
+  source: string
+  /** The solc semver string. */
+  solcVersion: string
+}
+/** A test contract to execute. */
+export interface ContractData {
+  /** Contract ABI as json string. */
+  abi: string
+  /**
+   * Contract creation code as hex string. It can be missing if the contract
+   * is ABI only.
+   */
+  bytecode?: string
+  /**
+   * Contract runtime code as hex string. It can be missing if the contract
+   * is ABI only.
+   */
+  deployedBytecode?: string
+}
 /** See [forge::result::SuiteResult] */
 export interface SuiteResult {
-  /** See [forge::result::SuiteResult::name] */
-  readonly name: string
+  /**
+   * The artifact id can be used to match input to result in the progress
+   * callback
+   */
+  readonly id: ArtifactId
   /** See [forge::result::SuiteResult::duration] */
   readonly durationMs: bigint
   /** See [forge::result::SuiteResult::test_results] */
@@ -427,40 +461,6 @@ export interface BaseCounterExample {
   /** See [forge::fuzz::BaseCounterExample::args] */
   readonly args?: string
 }
-/** A test suite is a contract and its test methods. */
-export interface TestSuite {
-  /** The identifier of the test suite. */
-  id: ArtifactId
-  /** The test contract. */
-  contract: TestContract
-}
-/** The identifier of a Solidity test contract. */
-export interface ArtifactId {
-  /** The name of the contract. */
-  name: string
-  /** Original source file path. */
-  source: string
-  /** The solc semver string. */
-  solcVersion: string
-  /** The artifact cache path. Currently unused. */
-  artifactCachePath: string
-}
-/** A test contract to execute. */
-export interface TestContract {
-  /** The contract ABI as a JSON string. */
-  abi: string
-  /** The contract bytecode including all libraries as a hex string. */
-  bytecode: string
-  /** Vector of library bytecodes to deploy as hex string. */
-  libsToDeploy: Array<string>
-  /**
-   * Vector of library specifications of the form corresponding to libs to
-   * deploy, example item:
-   * `"src/DssSpell.sol:DssExecLib:
-   * 0xfD88CeE74f7D78697775aBDAE53f9Da1559728E4"`
-   */
-  libraries: Array<string>
-}
 /**
  * Executes Solidity tests.
  *
@@ -469,7 +469,7 @@ export interface TestContract {
  * It is up to the caller to track how many times the callback is called to
  * know when all tests are done.
  */
-export function runSolidityTests(testSuites: Array<TestSuite>, gasReport: boolean, progressCallback: (result: SuiteResult) => void): void
+export function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, gasReport: boolean, progressCallback: (result: SuiteResult) => void): void
 export interface SubscriptionEvent {
   filterId: bigint
   result: any
