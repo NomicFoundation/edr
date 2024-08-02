@@ -1,6 +1,8 @@
 use edr_solidity::artifacts::BuildInfo;
 use napi::{
-    bindgen_prelude::{ClassInstance, Either3, Either4, Uint8Array, Undefined},
+    bindgen_prelude::{
+        ClassInstance, Either3, Either4, FromNapiValue, Reference, Uint8Array, Undefined,
+    },
     Either, Env,
 };
 use napi_derive::napi;
@@ -91,7 +93,16 @@ impl VmTraceDecoder {
                     })
                     .collect::<napi::Result<_>>()?;
 
-                call.bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
+                let bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
+                let bytecode: Option<Reference<Bytecode>> = bytecode
+                    .map(|b| unsafe {
+                        use napi::NapiRaw;
+
+                        FromNapiValue::from_napi_value(env.raw(), b.raw())
+                    })
+                    .transpose()?;
+
+                call.bytecode = bytecode;
                 call.steps = steps;
 
                 Ok(Either3::B(call))
@@ -123,7 +134,16 @@ impl VmTraceDecoder {
                     })
                     .collect::<napi::Result<_>>()?;
 
-                create.bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
+                let bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
+                let bytecode: Option<Reference<Bytecode>> = bytecode
+                    .map(|b| unsafe {
+                        use napi::NapiRaw;
+
+                        FromNapiValue::from_napi_value(env.raw(), b.raw())
+                    })
+                    .transpose()?;
+
+                create.bytecode = bytecode;
                 create.steps = steps;
 
                 Ok(Either3::C(create))
