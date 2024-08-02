@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, ErrorInferrer, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, ErrorInferrer, sourceLocationToSourceReference, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -335,6 +335,7 @@ module.exports.ContractType = ContractType
 module.exports.Contract = Contract
 module.exports.ContractsIdentifier = ContractsIdentifier
 module.exports.ErrorInferrer = ErrorInferrer
+module.exports.sourceLocationToSourceReference = sourceLocationToSourceReference
 module.exports.Exit = Exit
 module.exports.ExitCode = ExitCode
 module.exports.Opcode = Opcode

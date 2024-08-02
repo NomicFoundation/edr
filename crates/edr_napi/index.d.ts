@@ -387,6 +387,7 @@ export interface SourceMap {
   location: SourceMapLocation
   jumpType: JumpType
 }
+export function sourceLocationToSourceReference(bytecode: Bytecode, location: SourceLocation | undefined): SourceReference | undefined
 /** Represents the exit code of the EVM. */
 export const enum ExitCode {
   /** Execution was successful. */

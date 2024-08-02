@@ -43,7 +43,7 @@ impl SourceFile {
         &self,
         location: &SourceLocation,
         env: Env,
-    ) -> napi::Result<Option<&ClassInstanceRef<ContractFunction>>> {
+    ) -> napi::Result<Option<&Rc<ClassInstanceRef<ContractFunction>>>> {
         for func in &self.functions {
             let contains = func
                 .borrow(env)?
@@ -109,8 +109,18 @@ impl SourceLocation {
     // NOTE: This is the actual return type of the function in JS land for now
     #[napi(ts_return_type = "ContractFunction | undefined")]
     pub fn get_containing_function(&self, env: Env) -> napi::Result<Either<JsObject, Undefined>> {
+        match self.get_containing_function_inner(env)? {
+            Either::A(func) => func.as_object(env).map(Either::A),
+            Either::B(()) => Ok(Either::B(())),
+        }
+    }
+
+    pub fn get_containing_function_inner(
+        &self,
+        env: Env,
+    ) -> napi::Result<Either<Rc<ClassInstanceRef<ContractFunction>>, Undefined>> {
         match self.file.borrow(env)?.get_containing_function(self, env)? {
-            Some(func) => func.as_object(env).map(Either::A),
+            Some(func) => Ok(Either::A(func.clone())),
             None => Ok(Either::B(())),
         }
     }

@@ -1,12 +1,25 @@
 use std::collections::HashSet;
 
-use napi::bindgen_prelude::Either24;
+use napi::{
+    bindgen_prelude::{Either24, Undefined},
+    Either, Env,
+};
 use napi_derive::napi;
 
-use crate::trace::solidity_stack_trace::ReturndataSizeErrorStackTraceEntry;
+use crate::trace::{
+    model::ContractFunctionType,
+    solidity_stack_trace::{
+        ReturndataSizeErrorStackTraceEntry, CONSTRUCTOR_FUNCTION_NAME, FALLBACK_FUNCTION_NAME,
+        RECEIVE_FUNCTION_NAME,
+    },
+};
 
-use super::solidity_stack_trace::{
-    CallstackEntryStackTraceEntry, SolidityStackTrace, SolidityStackTraceEntryExt,
+use super::{
+    model::{Bytecode, SourceLocation},
+    solidity_stack_trace::{
+        CallstackEntryStackTraceEntry, SolidityStackTrace, SolidityStackTraceEntryExt,
+        SourceReference,
+    },
 };
 
 #[napi]
@@ -93,4 +106,47 @@ impl ErrorInferrer {
             .map(|(_, frame)| frame)
             .collect())
     }
+}
+
+#[napi]
+pub fn source_location_to_source_reference(
+    bytecode: &Bytecode,
+    location: Either<&SourceLocation, Undefined>,
+    env: Env,
+) -> napi::Result<Either<SourceReference, Undefined>> {
+    let Either::A(location) = location else {
+        return Ok(Either::B(()));
+    };
+
+    let func = location.get_containing_function_inner(env)?;
+
+    let Either::A(func) = func else {
+        return Ok(Either::B(()));
+    };
+
+    let mut func = func.borrow_mut(env)?;
+
+    if func.r#type == ContractFunctionType::CONSTRUCTOR {
+        func.name = CONSTRUCTOR_FUNCTION_NAME.to_string();
+    } else if func.r#type == ContractFunctionType::FALLBACK {
+        func.name = FALLBACK_FUNCTION_NAME.to_string();
+    } else if func.r#type == ContractFunctionType::RECEIVE {
+        func.name = RECEIVE_FUNCTION_NAME.to_string();
+    }
+
+    let func_location = func.location.borrow(env)?;
+    let func_location_file = func_location.file.borrow(env)?;
+
+    Ok(Either::A(SourceReference {
+        function: Some(func.name.clone()),
+        contract: if func.r#type == ContractFunctionType::FREE_FUNCTION {
+            None
+        } else {
+            Some(bytecode.contract.borrow(env)?.name.clone())
+        },
+        source_name: func_location_file.source_name.clone(),
+        source_content: func_location_file.content.clone(),
+        line: location.get_starting_line_number(env)?,
+        range: [location.offset, location.offset + location.length].to_vec(),
+    }))
 }
