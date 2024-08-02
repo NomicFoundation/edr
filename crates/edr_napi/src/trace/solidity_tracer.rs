@@ -6,16 +6,12 @@ use napi_derive::napi;
 
 use super::message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace};
 
-#[napi]
+#[napi(constructor)]
 pub struct SolidityTracer;
 
 #[napi]
 impl SolidityTracer {
-    #[napi(constructor)]
-    pub fn new() -> Self {
-        Self
-    }
-
+    #[allow(clippy::unused_self)] // we allow this for convenience for now
     #[napi]
     pub fn _get_last_subtrace(
         &self,

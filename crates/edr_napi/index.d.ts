@@ -1021,6 +1021,7 @@ export class ReturnData {
   decodePanic(): bigint
 }
 export class SolidityTracer {
+  
   constructor()
   getLastSubtrace(trace: CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
 }
