@@ -53,9 +53,6 @@ pub struct EvmOpts {
     /// non-broadcasting scripts.
     pub always_use_create_2_factory: bool,
 
-    /// Verbosity mode of EVM output as number of occurrences.
-    pub verbosity: u8,
-
     /// The memory limit per EVM execution in bytes.
     /// If this limit is exceeded, a `MemoryLimitOOG` result is thrown.
     pub memory_limit: u64,

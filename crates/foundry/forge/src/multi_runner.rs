@@ -77,6 +77,8 @@ pub struct MultiContractRunner {
     pub fork: Option<CreateFork>,
     /// Whether to collect coverage info
     pub coverage: bool,
+    /// Whether to collect traces
+    pub trace: bool,
     /// Whether to collect debug info
     pub debug: bool,
     /// Settings related to fuzz and/or invariant tests
@@ -303,7 +305,7 @@ impl MultiContractRunner {
             .inspectors(|stack| {
                 stack
                     .cheatcodes(Arc::new(cheats_config))
-                    .trace(self.evm_opts.verbosity >= 3 || self.debug)
+                    .trace(self.trace || self.debug)
                     .debug(self.debug)
                     .coverage(self.coverage)
                     .enable_isolation(self.isolation)
@@ -359,7 +361,7 @@ impl MultiContractRunner {
             .inspectors(|stack| {
                 stack
                     .cheatcodes(Arc::new(cheats_config))
-                    .trace(self.evm_opts.verbosity >= 3 || self.debug)
+                    .trace(self.trace || self.debug)
                     .debug(self.debug)
                     .coverage(self.coverage)
                     .enable_isolation(self.isolation)
@@ -411,6 +413,8 @@ pub struct MultiContractRunnerBuilder {
     pub coverage: bool,
     /// Whether or not to collect debug info
     pub debug: bool,
+    /// Whether or not to collect traces
+    pub trace: bool,
     /// Whether to enable call isolation
     pub isolation: bool,
     /// Settings related to fuzz and/or invariant tests
@@ -426,6 +430,7 @@ impl MultiContractRunnerBuilder {
             evm_spec: None,
             fork: None,
             coverage: false,
+            trace: false,
             debug: false,
             isolation: false,
             test_options: None,
@@ -464,6 +469,11 @@ impl MultiContractRunnerBuilder {
 
     pub fn set_debug(mut self, enable: bool) -> Self {
         self.debug = enable;
+        self
+    }
+
+    pub fn set_trace(mut self, enable: bool) -> Self {
+        self.trace = enable;
         self
     }
 
@@ -556,6 +566,7 @@ impl MultiContractRunnerBuilder {
             cheats_config_opts: Arc::new(cheats_config_opts),
             coverage: self.coverage,
             debug: self.debug,
+            trace: self.trace,
             test_options: self.test_options.unwrap_or_default(),
             isolation: self.isolation,
             output: Some(output),

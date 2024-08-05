@@ -129,7 +129,6 @@ impl ForgeTestProfile {
             sender: CALLER,
             initial_balance: U256::MAX,
             ffi: true,
-            verbosity: 3,
             memory_limit: 1 << 26,
             ..Default::default()
         }
@@ -196,6 +195,7 @@ impl ForgeTestData {
     pub fn base_runner(&self) -> MultiContractRunnerBuilder {
         init_tracing();
         let mut runner = MultiContractRunnerBuilder::new(self.config.clone())
+            .set_trace(true)
             .sender(self.evm_opts.sender)
             .with_test_options(self.test_opts.clone());
         if self.profile.is_cancun() {
@@ -245,8 +245,7 @@ impl ForgeTestData {
 
     /// Builds a tracing runner
     pub fn tracing_runner(&self) -> MultiContractRunner {
-        let mut opts = self.evm_opts.clone();
-        opts.verbosity = 5;
+        let opts = self.evm_opts.clone();
         self.base_runner()
             .build(
                 self.project.root(),

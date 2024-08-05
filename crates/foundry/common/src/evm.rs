@@ -1,6 +1,6 @@
 //! cli arguments for configuring the evm settings
 use alloy_primitives::{Address, B256, U256};
-use clap::{ArgAction, Parser};
+use clap::Parser;
 use eyre::ContextCompat;
 use foundry_config::{
     figment::{
@@ -104,20 +104,6 @@ pub struct EvmArgs {
     #[serde(skip)]
     pub always_use_create_2_factory: bool,
 
-    /// Verbosity of the EVM.
-    ///
-    /// Pass multiple times to increase the verbosity (e.g. -v, -vv, -vvv).
-    ///
-    /// Verbosity levels:
-    /// - 2: Print logs for all tests
-    /// - 3: Print execution traces for failing tests
-    /// - 4: Print execution traces for all tests, and setup traces for failing
-    ///   tests
-    /// - 5: Print execution and setup traces for all tests
-    #[arg(long, short, verbatim_doc_comment, action = ArgAction::Count)]
-    #[serde(skip)]
-    pub verbosity: u8,
-
     /// Sets the number of assumed available compute units per second for this
     /// provider
     ///
@@ -169,11 +155,6 @@ impl Provider for EvmArgs {
         let value = Value::serialize(self)?;
         let error = InvalidType(value.to_actual(), "map".into());
         let mut dict = value.into_dict().ok_or(error)?;
-
-        if self.verbosity > 0 {
-            // need to merge that manually otherwise `from_occurrences` does not work
-            dict.insert("verbosity".to_string(), self.verbosity.into());
-        }
 
         if self.ffi {
             dict.insert("ffi".to_string(), self.ffi.into());
