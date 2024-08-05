@@ -420,7 +420,6 @@ export class Provider {
 export class Response {
   /** Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
-  get json(): string | any
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
 }
