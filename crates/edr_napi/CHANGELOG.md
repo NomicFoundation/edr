@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.5.2
+
+### Patch Changes
+
+- 66ca796: fix: added `json` alias property in provider response to fix breaking change in v0.5.1
+
 ## 0.5.1
 
 ### Patch Changes
