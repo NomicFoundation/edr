@@ -126,6 +126,12 @@ pub struct CallstackEntryStackTraceEntry {
     pub function_type: ContractFunctionType,
 }
 
+impl From<CallstackEntryStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: CallstackEntryStackTraceEntry) -> Self {
+        Either24::A(val)
+    }
+}
+
 #[napi(object)]
 pub struct UnrecognizedCreateCallstackEntryStackTraceEntry {
     #[napi(
@@ -136,6 +142,12 @@ pub struct UnrecognizedCreateCallstackEntryStackTraceEntry {
         { StackTraceEntryType::UNRECOGNIZED_CREATE_CALLSTACK_ENTRY as u8 },
     >,
     pub source_reference: Option<Undefined>,
+}
+
+impl From<UnrecognizedCreateCallstackEntryStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: UnrecognizedCreateCallstackEntryStackTraceEntry) -> Self {
+        Either24::B(val)
+    }
 }
 
 #[napi(object)]
@@ -151,12 +163,24 @@ pub struct UnrecognizedContractCallstackEntryStackTraceEntry {
     pub source_reference: Option<Undefined>,
 }
 
+impl From<UnrecognizedContractCallstackEntryStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: UnrecognizedContractCallstackEntryStackTraceEntry) -> Self {
+        Either24::C(val)
+    }
+}
+
 #[napi(object)]
 pub struct PrecompileErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.PRECOMPILE_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::PRECOMPILE_ERROR as u8 }>,
     pub precompile: u32,
     pub source_reference: Option<Undefined>,
+}
+
+impl From<PrecompileErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: PrecompileErrorStackTraceEntry) -> Self {
+        Either24::D(val)
+    }
 }
 
 #[napi(object)]
@@ -168,12 +192,24 @@ pub struct RevertErrorStackTraceEntry {
     pub is_invalid_opcode_error: bool,
 }
 
+impl From<RevertErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: RevertErrorStackTraceEntry) -> Self {
+        Either24::E(val)
+    }
+}
+
 #[napi(object)]
 pub struct PanicErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.PANIC_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::PANIC_ERROR as u8 }>,
     pub error_code: BigInt,
     pub source_reference: Option<SourceReference>,
+}
+
+impl From<PanicErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: PanicErrorStackTraceEntry) -> Self {
+        Either24::F(val)
+    }
 }
 
 #[napi(object)]
@@ -185,15 +221,10 @@ pub struct CustomErrorStackTraceEntry {
     pub source_reference: SourceReference,
 }
 
-#[napi(object)]
-pub struct UnmappedSolc063RevertErrorStackTraceEntry {
-    #[napi(
-        js_name = "type",
-        ts_type = "StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR"
-    )]
-    pub type_:
-        StackTraceEntryTypeConst<{ StackTraceEntryType::UNMAPPED_SOLC_0_6_3_REVERT_ERROR as u8 }>,
-    pub source_reference: Option<SourceReference>,
+impl From<CustomErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: CustomErrorStackTraceEntry) -> Self {
+        Either24::G(val)
+    }
 }
 
 #[napi(object)]
@@ -207,11 +238,23 @@ pub struct FunctionNotPayableErrorStackTraceEntry {
     pub source_reference: SourceReference,
 }
 
+impl From<FunctionNotPayableErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: FunctionNotPayableErrorStackTraceEntry) -> Self {
+        Either24::H(val)
+    }
+}
+
 #[napi(object)]
 pub struct InvalidParamsErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.INVALID_PARAMS_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::INVALID_PARAMS_ERROR as u8 }>,
     pub source_reference: SourceReference,
+}
+
+impl From<InvalidParamsErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: InvalidParamsErrorStackTraceEntry) -> Self {
+        Either24::I(val)
+    }
 }
 
 #[napi(object)]
@@ -223,6 +266,12 @@ pub struct FallbackNotPayableErrorStackTraceEntry {
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::FALLBACK_NOT_PAYABLE_ERROR as u8 }>,
     pub value: BigInt,
     pub source_reference: SourceReference,
+}
+
+impl From<FallbackNotPayableErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: FallbackNotPayableErrorStackTraceEntry) -> Self {
+        Either24::J(val)
+    }
 }
 
 #[napi(object)]
@@ -238,6 +287,12 @@ pub struct FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
     pub source_reference: SourceReference,
 }
 
+impl From<FallbackNotPayableAndNoReceiveErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: FallbackNotPayableAndNoReceiveErrorStackTraceEntry) -> Self {
+        Either24::K(val)
+    }
+}
+
 #[napi(object)]
 pub struct UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
     #[napi(
@@ -248,6 +303,12 @@ pub struct UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
         { StackTraceEntryType::UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR as u8 },
     >,
     pub source_reference: SourceReference,
+}
+
+impl From<UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry) -> Self {
+        Either24::L(val)
+    }
 }
 
 #[napi(object)]
@@ -261,6 +322,12 @@ pub struct MissingFallbackOrReceiveErrorStackTraceEntry {
     pub source_reference: SourceReference,
 }
 
+impl From<MissingFallbackOrReceiveErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: MissingFallbackOrReceiveErrorStackTraceEntry) -> Self {
+        Either24::M(val)
+    }
+}
+
 #[napi(object)]
 pub struct ReturndataSizeErrorStackTraceEntry {
     #[napi(
@@ -269,6 +336,12 @@ pub struct ReturndataSizeErrorStackTraceEntry {
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::RETURNDATA_SIZE_ERROR as u8 }>,
     pub source_reference: SourceReference,
+}
+
+impl From<ReturndataSizeErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: ReturndataSizeErrorStackTraceEntry) -> Self {
+        Either24::N(val)
+    }
 }
 
 #[napi(object)]
@@ -282,12 +355,25 @@ pub struct NonContractAccountCalledErrorStackTraceEntry {
     pub source_reference: SourceReference,
 }
 
+impl From<NonContractAccountCalledErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: NonContractAccountCalledErrorStackTraceEntry) -> Self {
+        Either24::O(val)
+    }
+}
+
 #[napi(object)]
 pub struct CallFailedErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.CALL_FAILED_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CALL_FAILED_ERROR as u8 }>,
     pub source_reference: SourceReference,
 }
+
+impl From<CallFailedErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: CallFailedErrorStackTraceEntry) -> Self {
+        Either24::P(val)
+    }
+}
+
 #[napi(object)]
 pub struct DirectLibraryCallErrorStackTraceEntry {
     #[napi(
@@ -298,6 +384,12 @@ pub struct DirectLibraryCallErrorStackTraceEntry {
     pub source_reference: SourceReference,
 }
 
+impl From<DirectLibraryCallErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: DirectLibraryCallErrorStackTraceEntry) -> Self {
+        Either24::Q(val)
+    }
+}
+
 #[napi(object)]
 pub struct UnrecognizedCreateErrorStackTraceEntry {
     #[napi(
@@ -305,10 +397,15 @@ pub struct UnrecognizedCreateErrorStackTraceEntry {
         ts_type = "StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR"
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::UNRECOGNIZED_CREATE_ERROR as u8 }>,
-    #[napi(ts_type = "ReturnData")]
     pub message: ClassInstance<ReturnData>,
     pub source_reference: Option<Undefined>,
     pub is_invalid_opcode_error: bool,
+}
+
+impl From<UnrecognizedCreateErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: UnrecognizedCreateErrorStackTraceEntry) -> Self {
+        Either24::R(val)
+    }
 }
 
 #[napi(object)]
@@ -324,6 +421,12 @@ pub struct UnrecognizedContractErrorStackTraceEntry {
     pub is_invalid_opcode_error: bool,
 }
 
+impl From<UnrecognizedContractErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: UnrecognizedContractErrorStackTraceEntry) -> Self {
+        Either24::S(val)
+    }
+}
+
 #[napi(object)]
 pub struct OtherExecutionErrorStackTraceEntry {
     #[napi(
@@ -334,6 +437,29 @@ pub struct OtherExecutionErrorStackTraceEntry {
     pub source_reference: Option<SourceReference>,
 }
 
+impl From<OtherExecutionErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: OtherExecutionErrorStackTraceEntry) -> Self {
+        Either24::T(val)
+    }
+}
+
+#[napi(object)]
+pub struct UnmappedSolc063RevertErrorStackTraceEntry {
+    #[napi(
+        js_name = "type",
+        ts_type = "StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR"
+    )]
+    pub type_:
+        StackTraceEntryTypeConst<{ StackTraceEntryType::UNMAPPED_SOLC_0_6_3_REVERT_ERROR as u8 }>,
+    pub source_reference: Option<SourceReference>,
+}
+
+impl From<UnmappedSolc063RevertErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: UnmappedSolc063RevertErrorStackTraceEntry) -> Self {
+        Either24::U(val)
+    }
+}
+
 #[napi(object)]
 pub struct ContractTooLargeErrorStackTraceEntry {
     #[napi(
@@ -342,6 +468,12 @@ pub struct ContractTooLargeErrorStackTraceEntry {
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CONTRACT_TOO_LARGE_ERROR as u8 }>,
     pub source_reference: Option<SourceReference>,
+}
+
+impl From<ContractTooLargeErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: ContractTooLargeErrorStackTraceEntry) -> Self {
+        Either24::V(val)
+    }
 }
 
 #[napi(object)]
@@ -356,6 +488,12 @@ pub struct InternalFunctionCallStackEntry {
     pub source_reference: SourceReference,
 }
 
+impl From<InternalFunctionCallStackEntry> for SolidityStackTraceEntry {
+    fn from(val: InternalFunctionCallStackEntry) -> Self {
+        Either24::W(val)
+    }
+}
+
 #[napi(object)]
 pub struct ContractCallRunOutOfGasError {
     #[napi(
@@ -365,6 +503,12 @@ pub struct ContractCallRunOutOfGasError {
     pub type_:
         StackTraceEntryTypeConst<{ StackTraceEntryType::CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR as u8 }>,
     pub source_reference: Option<SourceReference>,
+}
+
+impl From<ContractCallRunOutOfGasError> for SolidityStackTraceEntry {
+    fn from(val: ContractCallRunOutOfGasError) -> Self {
+        Either24::X(val)
+    }
 }
 
 // NOTE: This ported directly from JS for completeness, however the type must be

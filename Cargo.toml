@@ -8,6 +8,9 @@ resolver = "2"
 rpath = true
 
 [profile.release]
+lto = "thin"
+incremental = true
+codegen-units = 8
 rpath = true
 
 [workspace.lints.rust]

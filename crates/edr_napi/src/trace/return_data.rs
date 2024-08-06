@@ -37,9 +37,9 @@ impl ReturnData {
         self.value.is_empty()
     }
 
-    #[napi]
-    pub fn matches_selector(&self, selector: Uint8Array) -> bool {
-        self.selector.map_or(false, |value| value == selector[..])
+    pub fn matches_selector(&self, selector: impl AsRef<[u8]>) -> bool {
+        self.selector
+            .map_or(false, |value| value == selector.as_ref())
     }
 
     #[napi]
