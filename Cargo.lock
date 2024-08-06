@@ -1153,6 +1153,8 @@ dependencies = [
 name = "edr_napi"
 version = "0.3.5"
 dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
  "alloy-sol-types 0.5.4",
  "ansi_term",
  "crossbeam-channel",
@@ -1174,6 +1176,7 @@ dependencies = [
  "openssl-sys",
  "parking_lot 0.12.1",
  "rand",
+ "semver 1.0.22",
  "serde",
  "serde_json",
  "strum",
