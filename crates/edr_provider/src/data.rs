@@ -179,7 +179,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     initial_config: ProviderConfig<L1ChainSpec>,
     blockchain: Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>>,
     pub irregular_state: IrregularState,
-    mem_pool: MemPool,
+    mem_pool: MemPool<L1ChainSpec>,
     beneficiary: Address,
     custom_precompiles: HashMap<Address, Precompile>,
     min_gas_price: U256,
@@ -195,7 +195,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     next_block_base_fee_per_gas: Option<U256>,
     next_block_timestamp: Option<u64>,
     next_snapshot_id: u64,
-    snapshots: BTreeMap<u64, Snapshot>,
+    snapshots: BTreeMap<u64, Snapshot<L1ChainSpec>>,
     allow_blocks_with_same_timestamp: bool,
     allow_unlimited_contract_size: bool,
     verbose_tracing: bool,
@@ -1408,7 +1408,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn remove_pending_transaction(
         &mut self,
         transaction_hash: &B256,
-    ) -> Option<OrderedTransaction> {
+    ) -> Option<OrderedTransaction<L1ChainSpec>> {
         self.mem_pool.remove_transaction(transaction_hash)
     }
 

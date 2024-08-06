@@ -110,7 +110,7 @@ where
 pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
     mut state: Box<dyn SyncState<StateErrorT>>,
-    mem_pool: &MemPool,
+    mem_pool: &MemPool<L1ChainSpec>,
     cfg: &CfgEnvWithEvmWiring<L1ChainSpec>,
     options: BlockOptions,
     min_gas_price: U256,
@@ -141,8 +141,8 @@ where
     let mut block_builder = BlockBuilder::new(cfg.clone(), &parent_block, options)?;
 
     let mut pending_transactions = {
-        type MineOrderComparator =
-            dyn Fn(&OrderedTransaction, &OrderedTransaction) -> Ordering + Send;
+        type MineOrderComparator = dyn Fn(&OrderedTransaction<L1ChainSpec>, &OrderedTransaction<L1ChainSpec>) -> Ordering
+            + Send;
 
         let base_fee = block_builder.header().base_fee;
         let comparator: Box<MineOrderComparator> = match mine_ordering {
@@ -423,13 +423,16 @@ fn effective_miner_fee(transaction: &transaction::Signed, base_fee: Option<U256>
     })
 }
 
-fn first_in_first_out_comparator(lhs: &OrderedTransaction, rhs: &OrderedTransaction) -> Ordering {
+fn first_in_first_out_comparator(
+    lhs: &OrderedTransaction<L1ChainSpec>,
+    rhs: &OrderedTransaction<L1ChainSpec>,
+) -> Ordering {
     lhs.order_id().cmp(&rhs.order_id())
 }
 
 fn priority_comparator(
-    lhs: &OrderedTransaction,
-    rhs: &OrderedTransaction,
+    lhs: &OrderedTransaction<L1ChainSpec>,
+    rhs: &OrderedTransaction<L1ChainSpec>,
     base_fee: Option<U256>,
 ) -> Ordering {
     let effective_miner_fee =
