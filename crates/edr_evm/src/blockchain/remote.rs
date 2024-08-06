@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
+use derive_where::derive_where;
 use edr_eth::{
     filter::OneOrMore, log::FilterLog, Address, BlockSpec, PreEip1898BlockSpec, B256, U256,
 };
@@ -15,7 +16,7 @@ use crate::{
     RemoteBlock,
 };
 
-#[derive(Debug)]
+#[derive_where(Debug; BlockT)]
 pub struct RemoteBlockchain<BlockT, ChainSpecT, const FORCE_CACHING: bool>
 where
     BlockT: Block<ChainSpecT> + Clone,
