@@ -27,6 +27,7 @@ mod exit;
 mod message_trace;
 mod opcodes;
 mod return_data;
+mod solidity_errors;
 mod solidity_stack_trace;
 mod solidity_tracer;
 mod vm_trace_decoder;

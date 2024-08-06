@@ -713,6 +713,7 @@ export function isPush(opcode: Opcode): boolean
 export function isJump(opcode: Opcode): boolean
 export function isCall(opcode: Opcode): boolean
 export function isCreate(opcode: Opcode): boolean
+export function getMessageFromStackTraceEntry(entry: SolidityStackTraceEntry): string | undefined
 export const enum StackTraceEntryType {
   CALLSTACK_ENTRY = 0,
   UNRECOGNIZED_CREATE_CALLSTACK_ENTRY = 1,
