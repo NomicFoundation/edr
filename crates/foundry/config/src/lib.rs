@@ -211,8 +211,6 @@ pub struct Config {
     pub optimizer_details: Option<OptimizerDetails>,
     /// Model checker settings.
     pub model_checker: Option<ModelCheckerSettings>,
-    /// verbosity to use
-    pub verbosity: u8,
     /// url of the rpc server that should be used for any rpc calls
     pub eth_rpc_url: Option<String>,
     /// JWT secret that should be used for any rpc calls
@@ -2111,7 +2109,6 @@ impl Default for Config {
             eth_rpc_url: None,
             eth_rpc_jwt: None,
             etherscan_api_key: None,
-            verbosity: 0,
             remappings: vec![],
             auto_detect_remappings: true,
             libraries: vec![],
@@ -3795,7 +3792,6 @@ mod tests {
                 out = "some-out"
                 cache = true
                 eth_rpc_url = "https://example.com/"
-                verbosity = 3
                 remappings = ["ds-test=lib/ds-test/"]
                 via_ir = true
                 rpc_storage_caching = { chains = [1, "optimism", 999999], endpoints = "all"}
@@ -3824,7 +3820,6 @@ mod tests {
                     cache: true,
                     eth_rpc_url: Some("https://example.com/".to_string()),
                     remappings: vec![Remapping::from_str("ds-test=lib/ds-test/").unwrap().into()],
-                    verbosity: 3,
                     via_ir: true,
                     rpc_storage_caching: StorageCachingConfig {
                         chains: CachedChains::Chains(vec![
@@ -3939,7 +3934,6 @@ mod tests {
                 src = 'src'
                 test = 'test'
                 tx_origin = '0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38'
-                verbosity = 0
                 via_ir = false
                 
                 [profile.default.rpc_storage_caching]
@@ -4148,7 +4142,6 @@ mod tests {
                 [profile.default]
                 src = "mysrc"
                 out = "myout"
-                verbosity = 3
             "#,
             )?;
 
@@ -4158,7 +4151,6 @@ mod tests {
                 Config {
                     src: "mysrc".into(),
                     out: "myout".into(),
-                    verbosity: 3,
                     ..Config::default()
                 }
             );
@@ -4170,7 +4162,6 @@ mod tests {
                 Config {
                     src: "other-src".into(),
                     out: "myout".into(),
-                    verbosity: 3,
                     ..Config::default()
                 }
             );
@@ -4192,7 +4183,6 @@ mod tests {
                 [profile.default]
                 src = "mysrc"
                 out = "myout"
-                verbosity = 3
                 evm_version = 'berlin'
 
                 [profile.other]

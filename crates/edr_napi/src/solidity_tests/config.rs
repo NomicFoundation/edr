@@ -48,7 +48,6 @@ impl SolidityTestsConfig {
             sender: DEFAULT_SENDER,
             initial_balance: U256::from(0xffffffffffffffffffffffffu128),
             ffi: false,
-            verbosity: 0,
             memory_limit: 1 << 27, // 2**27 = 128MiB = 134_217_728 bytes
             ..EvmOpts::default()
         };

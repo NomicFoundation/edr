@@ -75,6 +75,7 @@ pub(super) fn build_runner(
         revert_decoder,
         fork: None,
         coverage: false,
+        trace: false,
         debug: false,
         test_options,
         isolation: false,

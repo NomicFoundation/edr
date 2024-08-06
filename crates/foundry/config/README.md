@@ -88,7 +88,6 @@ model_checker = { contracts = { 'a.sol' = [
     'assert',
     'outOfBounds',
 ], timeout = 10000 }
-verbosity = 0
 eth_rpc_url = "https://example.com/"
 # Setting this option enables decoding of error traces from mainnet deployed / verfied contracts via etherscan
 etherscan_api_key = "YOURETHERSCANAPIKEY"

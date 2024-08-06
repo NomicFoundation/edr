@@ -72,13 +72,6 @@ impl CallTraceDecoderBuilder {
         self.with_known_contracts(identifier.contracts())
     }
 
-    /// Sets the verbosity level of the decoder.
-    #[inline]
-    pub fn with_verbosity(mut self, level: u8) -> Self {
-        self.decoder.verbosity = level;
-        self
-    }
-
     /// Sets the signature identifier for events and functions.
     #[inline]
     pub fn with_signature_identifier(mut self, identifier: SingleSignaturesIdentifier) -> Self {
@@ -120,8 +113,10 @@ pub struct CallTraceDecoder {
 
     /// A signature identifier for events and functions.
     pub signature_identifier: Option<SingleSignaturesIdentifier>,
-    /// Verbosity level
-    pub verbosity: u8,
+    /// Whether to include values in cheatcode decoding instead of placeholders.
+    /// Since cheatcodes are used to load large files, values are hidden by
+    /// default.
+    pub verbose_cheatcode_decoding: bool,
 }
 
 impl CallTraceDecoder {
@@ -187,7 +182,7 @@ impl CallTraceDecoder {
             revert_decoder: RevertDecoder::default(),
 
             signature_identifier: None,
-            verbosity: 0,
+            verbose_cheatcode_decoding: false,
         }
     }
 
@@ -493,7 +488,7 @@ impl CallTraceDecoder {
             "serializeBytes32" |
             "serializeString" |
             "serializeBytes" => {
-                if self.verbosity >= 5 {
+                if self.verbose_cheatcode_decoding {
                     None
                 } else {
                     let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..], false).ok()?;
@@ -511,7 +506,7 @@ impl CallTraceDecoder {
                 }
             }
             s if s.contains("Toml") => {
-                if self.verbosity >= 5 {
+                if self.verbose_cheatcode_decoding {
                     None
                 } else {
                     let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..], false).ok()?;
@@ -574,8 +569,8 @@ impl CallTraceDecoder {
             s if s.starts_with("env") => Some("<env var value>"),
             "createWallet" | "deriveKey" => Some("<pk>"),
             "promptSecret" => Some("<secret>"),
-            "parseJson" if self.verbosity < 5 => Some("<encoded JSON value>"),
-            "readFile" if self.verbosity < 5 => Some("<file>"),
+            "parseJson" if !self.verbose_cheatcode_decoding => Some("<encoded JSON value>"),
+            "readFile" if !self.verbose_cheatcode_decoding => Some("<file>"),
             _ => None,
         }
         .map(Into::into)
