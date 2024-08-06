@@ -1,5 +1,19 @@
 # @nomicfoundation/edr
 
+## 0.5.2
+
+### Patch Changes
+
+- 66ca796: fix: added `json` alias property in provider response to fix breaking change in v0.5.1
+
+## 0.5.1
+
+### Patch Changes
+
+- 0bba027: Fixed a bug in fork mode where the locally overridden chain id was used instead of the remote chain id when simulating transactions in pre-fork blocks.
+- e02eb22: Fixed a bug in the JSON-RPC where we previously allowed a null value for storage keys of an access list
+- 8ae31b9: Fixed crash when returning large JSON responses
+
 ## 0.5.0
 
 ### Minor Changes
