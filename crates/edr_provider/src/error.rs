@@ -2,8 +2,9 @@ use core::fmt::Debug;
 use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
+use derive_where::derive_where;
 use edr_eth::{
-    chain_spec::L1ChainSpec,
+    chain_spec::{EvmWiring, L1ChainSpec},
     filter::SubscriptionType,
     hex,
     result::{ExecutionResult, HaltReason, InvalidTransaction, OutOfGasError},
@@ -18,6 +19,7 @@ use edr_evm::{
     MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
+use serde::Serialize;
 
 use crate::{data::CreationError, IntervalConfigConversionError};
 
@@ -67,7 +69,7 @@ pub enum ProviderError<LoggerErrorT> {
     Eip712Error(#[from] alloy_dyn_abi::Error),
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
-    EstimateGasTransactionFailure(#[from] EstimateGasFailure),
+    EstimateGasTransactionFailure(#[from] EstimateGasFailure<L1ChainSpec>),
     #[error("{0}")]
     InvalidArgument(String),
     /// Block number or hash doesn't exist in blockchain
@@ -181,7 +183,7 @@ pub enum ProviderError<LoggerErrorT> {
     /// `eth_sendTransaction` failed and
     /// [`crate::config::ProviderConfig::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(#[from] TransactionFailureWithTraces),
+    TransactionFailed(#[from] TransactionFailureWithTraces<L1ChainSpec>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -331,25 +333,30 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
 }
 
 /// Failure that occurred while estimating gas.
-#[derive(Debug, thiserror::Error)]
-pub struct EstimateGasFailure {
+#[derive(thiserror::Error)]
+#[derive_where(Debug; ChainSpecT, ChainSpecT::Hardfork)]
+pub struct EstimateGasFailure<ChainSpecT: EvmWiring> {
     pub console_log_inputs: Vec<Bytes>,
-    pub transaction_failure: TransactionFailureWithTraces,
+    pub transaction_failure: TransactionFailureWithTraces<ChainSpecT>,
 }
 
-impl std::fmt::Display for EstimateGasFailure {
+impl<ChainSpecT: EvmWiring> std::fmt::Display for EstimateGasFailure<ChainSpecT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.transaction_failure)
     }
 }
 
-#[derive(Clone, Debug, thiserror::Error)]
-pub struct TransactionFailureWithTraces {
-    pub failure: TransactionFailure,
+#[derive(thiserror::Error)]
+#[derive_where(Clone; ChainSpecT::HaltReason)]
+#[derive_where(Debug; ChainSpecT, ChainSpecT::HaltReason)]
+pub struct TransactionFailureWithTraces<ChainSpecT: EvmWiring> {
+    pub failure: TransactionFailure<ChainSpecT>,
     pub traces: Vec<Trace<L1ChainSpec>>,
 }
 
-impl std::fmt::Display for TransactionFailureWithTraces {
+impl<ChainSpecT: EvmWiring<HaltReason: Debug>> std::fmt::Display
+    for TransactionFailureWithTraces<ChainSpecT>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
     }
@@ -357,41 +364,23 @@ impl std::fmt::Display for TransactionFailureWithTraces {
 
 /// Wrapper around [`edr_eth::result::HaltReason`] to convert error messages to
 /// match Hardhat.
-#[derive(Clone, Debug, thiserror::Error, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TransactionFailure {
-    pub reason: TransactionFailureReason,
+#[derive(thiserror::Error, Serialize)]
+#[derive_where(Clone; ChainSpecT::HaltReason)]
+#[derive_where(Debug; ChainSpecT, ChainSpecT::HaltReason)]
+#[serde(bound = "ChainSpecT::Hardfork: Serialize", rename_all = "camelCase")]
+pub struct TransactionFailure<ChainSpecT: EvmWiring> {
+    pub reason: TransactionFailureReason<ChainSpecT>,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: Trace<L1ChainSpec>,
+    pub solidity_trace: Trace<ChainSpecT>,
     pub transaction_hash: Option<B256>,
 }
 
-impl TransactionFailure {
-    pub fn from_execution_result(
-        execution_result: &ExecutionResult<L1ChainSpec>,
-        transaction_hash: Option<&B256>,
-        solidity_trace: &Trace<L1ChainSpec>,
-    ) -> Option<Self> {
-        match execution_result {
-            ExecutionResult::Success { .. } => None,
-            ExecutionResult::Revert { output, .. } => Some(Self::revert(
-                output.clone(),
-                transaction_hash.copied(),
-                solidity_trace.clone(),
-            )),
-            ExecutionResult::Halt { reason, .. } => Some(Self::halt(
-                *reason,
-                transaction_hash.copied(),
-                solidity_trace.clone(),
-            )),
-        }
-    }
-
+impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
-        solidity_trace: Trace<L1ChainSpec>,
+        solidity_trace: Trace<ChainSpecT>,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         Self {
@@ -401,22 +390,40 @@ impl TransactionFailure {
             transaction_hash,
         }
     }
+}
 
+impl<ChainSpecT: EvmWiring<HaltReason: Into<TransactionFailureReason<ChainSpecT>>>>
+    TransactionFailure<ChainSpecT>
+{
+    /// Constructs a transaction failure from an execution result.
+    pub fn from_execution_result(
+        execution_result: &ExecutionResult<ChainSpecT>,
+        transaction_hash: Option<&B256>,
+        solidity_trace: &Trace<ChainSpecT>,
+    ) -> Option<Self> {
+        match execution_result {
+            ExecutionResult::Success { .. } => None,
+            ExecutionResult::Revert { output, .. } => Some(Self::revert(
+                output.clone(),
+                transaction_hash.copied(),
+                solidity_trace.clone(),
+            )),
+            ExecutionResult::Halt { reason, .. } => Some(Self::halt(
+                reason.clone(),
+                transaction_hash.copied(),
+                solidity_trace.clone(),
+            )),
+        }
+    }
+
+    /// Constructs a halt transaction failure.
     pub fn halt(
-        halt: HaltReason,
+        halt: ChainSpecT::HaltReason,
         tx_hash: Option<B256>,
-        solidity_trace: Trace<L1ChainSpec>,
+        solidity_trace: Trace<ChainSpecT>,
     ) -> Self {
-        let reason = match halt {
-            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
-                TransactionFailureReason::OpcodeNotFound
-            }
-            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
-            halt => TransactionFailureReason::Inner(halt),
-        };
-
         Self {
-            reason,
+            reason: halt.into(),
             data: "0x".to_string(),
             solidity_trace,
             transaction_hash: tx_hash,
@@ -424,7 +431,9 @@ impl TransactionFailure {
     }
 }
 
-impl std::fmt::Display for TransactionFailure {
+impl<ChainSpecT: EvmWiring<HaltReason: Debug>> std::fmt::Display
+    for TransactionFailure<ChainSpecT>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.reason {
             TransactionFailureReason::Inner(halt) => write!(f, "{halt:?}"),
@@ -440,9 +449,11 @@ impl std::fmt::Display for TransactionFailure {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
-pub enum TransactionFailureReason {
-    Inner(HaltReason),
+#[derive_where(Clone, Debug; ChainSpecT::HaltReason)]
+#[derive(Serialize)]
+#[serde(bound = "ChainSpecT::Hardfork: Serialize")]
+pub enum TransactionFailureReason<ChainSpecT: EvmWiring> {
+    Inner(ChainSpecT::HaltReason),
     OpcodeNotFound,
     OutOfGas(OutOfGasError),
     Revert(Bytes),
@@ -483,6 +494,18 @@ fn revert_error(output: &Bytes) -> String {
                 "Internal: Since we are not validating, this error should not occur: {decode_error:?}"
             ),
         },
+    }
+}
+
+impl From<HaltReason> for TransactionFailureReason<L1ChainSpec> {
+    fn from(value: HaltReason) -> Self {
+        match value {
+            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+                TransactionFailureReason::OpcodeNotFound
+            }
+            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+            value => TransactionFailureReason::Inner(value),
+        }
     }
 }
 

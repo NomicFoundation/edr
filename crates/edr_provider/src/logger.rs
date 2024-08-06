@@ -3,7 +3,7 @@ use std::{convert::Infallible, marker::PhantomData};
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_eth::transaction;
+use edr_eth::{chain_spec::L1ChainSpec, transaction};
 use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec};
 
 use crate::{
@@ -38,7 +38,7 @@ pub trait Logger<ChainSpecT: ChainSpec> {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
-        result: &EstimateGasFailure,
+        result: &EstimateGasFailure<L1ChainSpec>,
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _transaction = transaction;
