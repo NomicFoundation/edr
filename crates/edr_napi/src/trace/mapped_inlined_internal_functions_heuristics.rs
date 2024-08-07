@@ -20,12 +20,10 @@ use napi::{
     bindgen_prelude::{Either24, Either4},
     Either, Env,
 };
-use napi_derive::napi;
 
 use semver::Version;
 
 use super::{
-    error_inferrer::AsEitherRef as _,
     message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep},
     opcodes::Opcode,
     solidity_stack_trace::{
@@ -36,11 +34,10 @@ use super::{
 
 const FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS: Version = Version::new(0, 6, 9);
 
-#[napi]
 pub fn stack_trace_may_require_adjustments(
-    stacktrace: SolidityStackTrace,
-    decoded_trace: Either<CallMessageTrace, CreateMessageTrace>,
-) -> napi::Result<bool> {
+    stacktrace: &SolidityStackTrace,
+    decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+) -> bool {
     let bytecode = match &decoded_trace {
         Either::A(create) => &create.bytecode,
         Either::B(call) => &call.bytecode,
@@ -48,31 +45,28 @@ pub fn stack_trace_may_require_adjustments(
     let bytecode = bytecode.as_ref().expect("JS code asserts");
 
     let Some(last_frame) = stacktrace.last() else {
-        return Ok(false);
+        return false;
     };
 
     if let Either24::E(last_frame @ RevertErrorStackTraceEntry { .. }) = last_frame {
-        return Ok(!last_frame.is_invalid_opcode_error
+        return !last_frame.is_invalid_opcode_error
             && last_frame.return_data.is_empty()
             && Version::parse(&bytecode.compiler_version)
                 .map(|version| version >= FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS)
-                .unwrap_or(false));
+                .unwrap_or(false);
     }
 
-    Ok(false)
+    false
 }
 
-#[napi]
-fn adjust_stack_trace(
+pub fn adjust_stack_trace(
     mut stacktrace: SolidityStackTrace,
-    decoded_trace: Either<CallMessageTrace, CreateMessageTrace>,
+    decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
     env: Env,
 ) -> napi::Result<SolidityStackTrace> {
     let Some(Either24::E(revert @ RevertErrorStackTraceEntry { .. })) = stacktrace.last() else {
         unreachable!("JS code asserts that; it's only used immediately after we check with `stack_trace_may_require_adjustments` that the last frame is a revert frame");
     };
-
-    let decoded_trace = decoded_trace.as_ref();
 
     // Replace the last revert frame with an adjusted frame if needed
     if is_non_contract_account_called_error(decoded_trace, env)? {

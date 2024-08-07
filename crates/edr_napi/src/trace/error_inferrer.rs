@@ -110,6 +110,16 @@ pub struct SubmessageData {
     pub step_index: u32,
 }
 
+/// Port of `SubmessageData` from Hardhat to Rust
+// However, it borrows the traces (instead of copying them) because the traces
+// do not implement `Clone` due to inner references
+pub struct SubmessageDataRef<'a> {
+    pub message_trace:
+        Either3<&'a PrecompileMessageTrace, &'a CallMessageTrace, &'a CreateMessageTrace>,
+    pub stacktrace: SolidityStackTrace,
+    pub step_index: u32,
+}
+#[derive(Default)]
 #[napi(constructor)]
 pub struct ErrorInferrer;
 
@@ -206,6 +216,93 @@ impl ErrorInferrer {
         Ok(Either::B(()))
     }
 
+    pub fn infer_before_tracing_call_message_inner(
+        &self,
+        trace: &CallMessageTrace,
+        env: Env,
+    ) -> napi::Result<Option<SolidityStackTrace>> {
+        if Self::is_direct_library_call(trace, env)? {
+            return Ok(Some(Self::get_direct_library_call_error_stack_trace(
+                trace, env,
+            )?));
+        }
+
+        let bytecode = trace
+            .bytecode
+            .as_ref()
+            .expect("The TS code type-checks this to always have bytecode");
+        let contract = bytecode.contract.borrow(env)?;
+
+        let called_function = contract.get_function_from_selector_inner(
+            trace.calldata.get(..4).unwrap_or(&trace.calldata[..]),
+        );
+
+        if let Some(called_function) = called_function {
+            let called_function = called_function.borrow(env)?;
+
+            if Self::is_function_not_payable_error(trace, &called_function, env)? {
+                return Ok(Some(vec![FunctionNotPayableErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: Self::get_function_start_source_reference(
+                        Either::A(trace),
+                        &called_function,
+                        env,
+                    )?,
+                    value: trace.value.clone(),
+                }
+                .into()]));
+            }
+        }
+
+        let called_function = called_function.map(|x| x.borrow(env)).transpose()?;
+        let called_function = called_function.as_deref();
+
+        if Self::is_missing_function_and_fallback_error(trace, called_function, env)? {
+            let source_reference =
+                Self::get_contract_start_without_function_source_reference(Either::A(trace), env)?;
+
+            if Self::empty_calldata_and_no_receive(trace, env)? {
+                return Ok(Some(vec![MissingFallbackOrReceiveErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference,
+                }
+                .into()]));
+            }
+
+            return Ok(Some(vec![
+                UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference,
+                }
+                .into(),
+            ]));
+        }
+
+        if Self::is_fallback_not_payable_error(trace, called_function, env)? {
+            let source_reference = Self::get_fallback_start_source_reference(trace, env)?;
+
+            if Self::empty_calldata_and_no_receive(trace, env)? {
+                return Ok(Some(vec![
+                    FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
+                        type_: StackTraceEntryTypeConst,
+                        source_reference,
+                        value: trace.value.clone(),
+                    }
+                    .into(),
+                ]));
+            }
+
+            return Ok(Some(vec![FallbackNotPayableErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference,
+                value: trace.value.clone(),
+            }
+            .into()]));
+        }
+
+        Ok(None)
+    }
+
     #[napi]
     pub fn infer_before_tracing_create_message(
         &self,
@@ -232,6 +329,31 @@ impl ErrorInferrer {
         Ok(Either::B(()))
     }
 
+    pub fn infer_before_tracing_create_message_inner(
+        &self,
+        trace: &CreateMessageTrace,
+        env: Env,
+    ) -> napi::Result<Option<SolidityStackTrace>> {
+        if Self::is_constructor_not_payable_error(trace, env)? {
+            return Ok(Some(vec![FunctionNotPayableErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: Self::get_constructor_start_source_reference(trace, env)?,
+                value: trace.value.clone(),
+            }
+            .into()]));
+        }
+
+        if Self::is_constructor_invalid_arguments_error(trace, env)? {
+            return Ok(Some(vec![InvalidParamsErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: Self::get_constructor_start_source_reference(trace, env)?,
+            }
+            .into()]));
+        }
+
+        Ok(None)
+    }
+
     #[napi]
     pub fn infer_after_tracing(
         &self,
@@ -254,12 +376,30 @@ impl ErrorInferrer {
 
         let trace = trace.as_ref();
 
-        let result = Self::check_last_submessage(
-            trace,
-            stacktrace,
-            last_submessage_data.into_option(),
-            env,
-        )?;
+        // Convert SubmessageData to SubmessageDataRef by using a separate
+        // binding for message_trace to borrow from, as we can't clone nor move it
+        let (last_sub_msg_trace, last_sub_data) = match last_submessage_data {
+            Either::A(data) => (
+                Some(data.message_trace),
+                Some((data.stacktrace, data.step_index)),
+            ),
+            Either::B(()) => (None, None),
+        };
+        let last_sub_msg_trace = last_sub_msg_trace.as_ref();
+        let last_submessage_data = match (last_sub_msg_trace, last_sub_data) {
+            (Some(message_trace), Some((stacktrace, step_index))) => Some(SubmessageDataRef {
+                message_trace: match message_trace {
+                    Either3::A(precompile) => Either3::A(precompile),
+                    Either3::B(call) => Either3::B(call),
+                    Either3::C(create) => Either3::C(create),
+                },
+                stacktrace,
+                step_index,
+            }),
+            _ => None,
+        };
+
+        let result = Self::check_last_submessage(trace, stacktrace, last_submessage_data, env)?;
         let stacktrace = return_if_hit!(result);
 
         let result = Self::check_failed_last_call(trace, stacktrace, env)?;
@@ -269,6 +409,54 @@ impl ErrorInferrer {
             trace,
             stacktrace,
             &function_jumpdests,
+            jumped_into_function,
+            env,
+        )?;
+        let stacktrace = return_if_hit!(result);
+
+        let result = Self::check_non_contract_called(trace, stacktrace, env)?;
+        let stacktrace = return_if_hit!(result);
+
+        let result = Self::check_solidity_0_6_3_unmapped_revert(trace, stacktrace, env)?;
+        let stacktrace = return_if_hit!(result);
+
+        if let Some(result) = Self::check_contract_too_large(trace, env)? {
+            return Ok(result);
+        }
+
+        let stacktrace = Self::other_execution_error_stacktrace(trace, stacktrace, env)?;
+        Ok(stacktrace)
+    }
+
+    pub fn infer_after_tracing_inner(
+        &self,
+        trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+        stacktrace: SolidityStackTrace,
+        function_jumpdests: &[&Instruction],
+        jumped_into_function: bool,
+        last_submessage_data: Option<SubmessageDataRef<'_>>,
+        env: Env,
+    ) -> napi::Result<SolidityStackTrace> {
+        /// Convenience macro to early return the result if a heuristic hits.
+        macro_rules! return_if_hit {
+            ($heuristic: expr) => {
+                match $heuristic {
+                    Heuristic::Hit(stacktrace) => return Ok(stacktrace),
+                    Heuristic::Miss(stacktrace) => stacktrace,
+                }
+            };
+        }
+
+        let result = Self::check_last_submessage(trace, stacktrace, last_submessage_data, env)?;
+        let stacktrace = return_if_hit!(result);
+
+        let result = Self::check_failed_last_call(trace, stacktrace, env)?;
+        let stacktrace = return_if_hit!(result);
+
+        let result = Self::check_last_instruction(
+            trace,
+            stacktrace,
+            function_jumpdests,
             jumped_into_function,
             env,
         )?;
@@ -603,7 +791,7 @@ impl ErrorInferrer {
     fn check_last_submessage(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
-        last_submessage_data: Option<SubmessageData>,
+        last_submessage_data: Option<SubmessageDataRef<'_>>,
         env: Env,
     ) -> napi::Result<Heuristic> {
         let (bytecode, steps) = match &trace {
@@ -636,9 +824,9 @@ impl ErrorInferrer {
         };
 
         let last_message_failed = match last_submessage_data.message_trace {
-            Either3::A(ref precompile) => precompile.exit.is_error(),
-            Either3::B(ref call) => call.exit.is_error(),
-            Either3::C(ref create) => create.exit.is_error(),
+            Either3::A(precompile) => precompile.exit.is_error(),
+            Either3::B(call) => call.exit.is_error(),
+            Either3::C(create) => create.exit.is_error(),
         };
         if last_message_failed {
             // add the call/create that generated the message to the stack trace

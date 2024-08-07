@@ -412,8 +412,6 @@ export const enum ExitCode {
   /** Create collision. */
   CREATE_COLLISION = 7
 }
-export function stackTraceMayRequireAdjustments(stacktrace: SolidityStackTrace, decodedTrace: CallMessageTrace | CreateMessageTrace): boolean
-export function adjustStackTrace(stacktrace: SolidityStackTrace, decodedTrace: CallMessageTrace | CreateMessageTrace): SolidityStackTrace
 export interface EvmStep {
   pc: number
 }
@@ -1034,7 +1032,7 @@ export class ReturnData {
 export class SolidityTracer {
   
   constructor()
-  getLastSubtrace(trace: CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
+  getStackTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): SolidityStackTrace
 }
 export class VmTraceDecoder {
   constructor(contractsIdentifier: ContractsIdentifier)
