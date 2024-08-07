@@ -53,7 +53,7 @@ pub fn stack_trace_may_require_adjustments(
 
     if let Either24::E(last_frame @ RevertErrorStackTraceEntry { .. }) = last_frame {
         return Ok(!last_frame.is_invalid_opcode_error
-            && last_frame.message.is_empty()
+            && last_frame.return_data.is_empty()
             && Version::parse(&bytecode.compiler_version)
                 .map(|version| version >= FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS)
                 .unwrap_or(false));

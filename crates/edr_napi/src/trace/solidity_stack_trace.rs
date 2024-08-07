@@ -1,12 +1,10 @@
 //! Naive rewrite of `hardhat-network/stack-traces/solidity-stack-traces.ts`
 //! from Hardhat.
 
-use napi::bindgen_prelude::{
-    BigInt, ClassInstance, Either24, FromNapiValue, ToNapiValue, Uint8Array, Undefined,
-};
+use napi::bindgen_prelude::{BigInt, Either24, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
 use napi_derive::napi;
 
-use super::{model::ContractFunctionType, return_data::ReturnData};
+use super::model::ContractFunctionType;
 
 #[napi]
 #[repr(u8)]
@@ -191,7 +189,7 @@ impl From<PrecompileErrorStackTraceEntry> for SolidityStackTraceEntry {
 pub struct RevertErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.REVERT_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::REVERT_ERROR as u8 }>,
-    pub message: ClassInstance<ReturnData>,
+    pub return_data: Uint8Array,
     pub source_reference: SourceReference,
     pub is_invalid_opcode_error: bool,
 }
@@ -401,7 +399,7 @@ pub struct UnrecognizedCreateErrorStackTraceEntry {
         ts_type = "StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR"
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::UNRECOGNIZED_CREATE_ERROR as u8 }>,
-    pub message: ClassInstance<ReturnData>,
+    pub return_data: Uint8Array,
     pub source_reference: Option<Undefined>,
     pub is_invalid_opcode_error: bool,
 }
@@ -420,7 +418,7 @@ pub struct UnrecognizedContractErrorStackTraceEntry {
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::UNRECOGNIZED_CONTRACT_ERROR as u8 }>,
     pub address: Uint8Array,
-    pub message: ClassInstance<ReturnData>,
+    pub return_data: Uint8Array,
     pub source_reference: Option<Undefined>,
     pub is_invalid_opcode_error: bool,
 }

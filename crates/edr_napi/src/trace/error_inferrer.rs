@@ -1153,7 +1153,6 @@ impl ErrorInferrer {
 
                     inferred_stacktrace.push(frame.into());
                 } else {
-                    let message = ReturnData::new(return_data.clone()).into_instance(env)?;
                     let is_invalid_opcode_error = last_instruction.opcode == Opcode::INVALID;
 
                     match &trace {
@@ -1181,7 +1180,7 @@ impl ErrorInferrer {
                                     &function,
                                     env,
                                 )?,
-                                message,
+                                return_data: return_data.clone(),
                                 is_invalid_opcode_error,
                             };
 
@@ -1193,7 +1192,7 @@ impl ErrorInferrer {
                                 type_: StackTraceEntryTypeConst,
                                 source_reference:
                                     Self::get_constructor_start_source_reference_inner(trace, env)?,
-                                message,
+                                return_data: return_data.clone(),
                                 is_invalid_opcode_error,
                             };
 
@@ -1216,7 +1215,7 @@ impl ErrorInferrer {
                     trace.as_ref(),
                     env,
                 )?,
-                message: ReturnData::new(return_data.clone()).into_instance(env)?,
+                return_data: return_data.clone(),
                 is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
             };
 
@@ -1318,7 +1317,6 @@ impl ErrorInferrer {
 
                     inferred_stacktrace.push(frame.into());
                 } else {
-                    let message = ReturnData::new(return_data.clone()).into_instance(env)?;
                     let is_invalid_opcode_error = last_instruction.opcode == Opcode::INVALID;
 
                     match &trace {
@@ -1344,7 +1342,7 @@ impl ErrorInferrer {
                                 source_reference: Self::get_function_start_source_reference_inner(
                                     trace, &function, env,
                                 )?,
-                                message,
+                                return_data: return_data.clone(),
                                 is_invalid_opcode_error,
                             };
 
@@ -1356,7 +1354,7 @@ impl ErrorInferrer {
                                 type_: StackTraceEntryTypeConst,
                                 source_reference:
                                     Self::get_constructor_start_source_reference_inner(trace, env)?,
-                                message,
+                                return_data: return_data.clone(),
                                 is_invalid_opcode_error,
                             };
 
@@ -1378,7 +1376,7 @@ impl ErrorInferrer {
                 source_reference: Self::get_contract_start_without_function_source_reference_inner(
                     trace, env,
                 )?,
-                message: ReturnData::new(return_data.clone()).into_instance(env)?,
+                return_data: return_data.clone(),
                 is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
             };
 
@@ -1464,7 +1462,7 @@ impl ErrorInferrer {
                         &failing_function,
                         env,
                     )?,
-                    message: ReturnData::new(trace.return_data.clone()).into_instance(env)?,
+                    return_data: trace.return_data.clone(),
                     is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
                 };
 
@@ -1595,7 +1593,7 @@ impl ErrorInferrer {
                         &failing_function,
                         env,
                     )?,
-                    message: ReturnData::new(trace.return_data.clone()).into_instance(env)?,
+                    return_data: trace.return_data.clone(),
                     is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
                 };
 
@@ -2675,7 +2673,7 @@ impl ErrorInferrer {
             type_: StackTraceEntryTypeConst,
             source_reference,
             is_invalid_opcode_error: inst.opcode == Opcode::INVALID,
-            message: ReturnData::new(return_data.clone()).into_instance(env)?,
+            return_data: return_data.clone(),
         })
     }
 

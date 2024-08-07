@@ -778,7 +778,7 @@ export interface PrecompileErrorStackTraceEntry {
 }
 export interface RevertErrorStackTraceEntry {
   type: StackTraceEntryType.REVERT_ERROR
-  message: ReturnData
+  returnData: Uint8Array
   sourceReference: SourceReference
   isInvalidOpcodeError: boolean
 }
@@ -837,14 +837,14 @@ export interface DirectLibraryCallErrorStackTraceEntry {
 }
 export interface UnrecognizedCreateErrorStackTraceEntry {
   type: StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR
-  message: ReturnData
+  returnData: Uint8Array
   sourceReference?: undefined
   isInvalidOpcodeError: boolean
 }
 export interface UnrecognizedContractErrorStackTraceEntry {
   type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_ERROR
   address: Uint8Array
-  message: ReturnData
+  returnData: Uint8Array
   sourceReference?: undefined
   isInvalidOpcodeError: boolean
 }
