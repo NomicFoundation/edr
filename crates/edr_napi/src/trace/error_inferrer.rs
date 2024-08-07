@@ -41,7 +41,7 @@ use super::{
     },
 };
 
-trait AsEitherRef {
+pub(crate) trait AsEitherRef {
     type Left;
     type Right;
 
