@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.6.0
+
+### Minor Changes
+
+- a417e19: Renamed `json` field in response to `data` and changed its type to `string | object` (specified as `string | any` due to an napi-rs limitation).
+
 ## 0.5.2
 
 ### Patch Changes
