@@ -1010,22 +1010,12 @@ export class ContractsIdentifier {
   addBytecode(bytecode: Bytecode): void
 }
 export class ErrorInferrer {
-  static inferBeforeTracingCallMessage(trace: CallMessageTrace): SolidityStackTrace | undefined
-  static inferBeforeTracingCreateMessage(trace: CreateMessageTrace): SolidityStackTrace | undefined
-  static inferAfterTracing(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, functionJumpdests: Array<Instruction>, jumpedIntoFunction: boolean, lastSubmessageData: SubmessageData | undefined): SolidityStackTrace | undefined
-  static filterRedundantFrames(stacktrace: SolidityStackTrace): SolidityStackTrace
-  static checkContractTooLarge(trace: CallMessageTrace | CreateMessageTrace): SolidityStackTrace | undefined
-  /** Check if the last call/create that was done failed. */
-  static checkFailedLastCall(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace | undefined
-  static checkSolidity063UnmappedRevert(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace | undefined
-  static checkNonContractCalled(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace | undefined
-  /** Check if the last submessage can be used to generate the stack trace. */
-  static checkLastSubmessage(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, lastSubmessageData: SubmessageData | undefined): SolidityStackTrace | undefined
-  /** Check if the execution stopped with a revert or an invalid opcode. */
-  static checkRevertOrInvalidOpcode(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, lastInstruction: Instruction, functionJumpdests: Array<Instruction>, jumpedIntoFunction: boolean): SolidityStackTrace | undefined
-  /** Check last instruction to try to infer the error. */
-  static checkLastInstruction(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, functionJumpdests: Array<Instruction>, jumpedIntoFunction: boolean): SolidityStackTrace | undefined
-  static otherExecutionErrorStacktrace(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace
+  
+  constructor()
+  inferBeforeTracingCallMessage(trace: CallMessageTrace): SolidityStackTrace | undefined
+  inferBeforeTracingCreateMessage(trace: CreateMessageTrace): SolidityStackTrace | undefined
+  inferAfterTracing(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, functionJumpdests: Array<Instruction>, jumpedIntoFunction: boolean, lastSubmessageData: SubmessageData | undefined): SolidityStackTrace
+  filterRedundantFrames(stacktrace: SolidityStackTrace): SolidityStackTrace
 }
 export class Exit {
   get kind(): ExitCode

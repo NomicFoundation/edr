@@ -111,19 +111,20 @@ impl SourceLocation {
     #[napi(ts_return_type = "ContractFunction | undefined")]
     pub fn get_containing_function(&self, env: Env) -> napi::Result<Either<JsObject, Undefined>> {
         match self.get_containing_function_inner(env)? {
-            Either::A(func) => func.as_object(env).map(Either::A),
-            Either::B(()) => Ok(Either::B(())),
+            Some(func) => func.as_object(env).map(Either::A),
+            None => Ok(Either::B(())),
         }
     }
 
     pub fn get_containing_function_inner(
         &self,
         env: Env,
-    ) -> napi::Result<Either<Rc<ClassInstanceRef<ContractFunction>>, Undefined>> {
-        match self.file.borrow(env)?.get_containing_function(self, env)? {
-            Some(func) => Ok(Either::A(func.clone())),
-            None => Ok(Either::B(())),
-        }
+    ) -> napi::Result<Option<Rc<ClassInstanceRef<ContractFunction>>>> {
+        Ok(self
+            .file
+            .borrow(env)?
+            .get_containing_function(self, env)?
+            .cloned())
     }
 
     #[napi]

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
@@ -60,17 +61,16 @@ impl<A, B> AsEitherRef for Either<A, B> {
     }
 }
 
-pub enum ModifiedStackTrace {
-    Yes(SolidityStackTrace),
-    No(SolidityStackTrace),
-}
-
-impl ModifiedStackTrace {
-    pub fn into_inner(self) -> SolidityStackTrace {
-        match self {
-            ModifiedStackTrace::No(stack) | ModifiedStackTrace::Yes(stack) => stack,
-        }
-    }
+/// Specifies whether a heuristic was applied and modified the stack trace.
+///
+/// Think of it as happy [`Result`] - the [`Heuristic::Hit`] should be propagated
+/// to the caller.
+#[must_use]
+pub enum Heuristic {
+    /// The heuristic was applied and modified the stack trace.
+    Hit(SolidityStackTrace),
+    /// The heuristic did not apply; the stack trace is unchanged.
+    Miss(SolidityStackTrace),
 }
 
 trait IntoEither<T> {
@@ -110,13 +110,15 @@ pub struct SubmessageData {
     pub step_index: u32,
 }
 
-#[napi]
+#[napi(constructor)]
 pub struct ErrorInferrer;
 
+#[allow(clippy::unused_self)] // we allow this for convenience and parity with the JS version
 #[napi]
 impl ErrorInferrer {
     #[napi]
     pub fn infer_before_tracing_call_message(
+        &self,
         trace: CallMessageTrace,
         env: Env,
     ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
@@ -206,6 +208,7 @@ impl ErrorInferrer {
 
     #[napi]
     pub fn infer_before_tracing_create_message(
+        &self,
         trace: CreateMessageTrace,
         env: Env,
     ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
@@ -231,69 +234,63 @@ impl ErrorInferrer {
 
     #[napi]
     pub fn infer_after_tracing(
+        &self,
         trace: Either<CallMessageTrace, CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
         function_jumpdests: Vec<&Instruction>,
         jumped_into_function: bool,
         last_submessage_data: Either<SubmessageData, Undefined>,
         env: Env,
-    ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
-        macro_rules! propagate_stacktrace {
-            ($stacktrace:ident, $res: ident) => {
-                let $stacktrace = match $res {
-                    ModifiedStackTrace::Yes(stacktrace) => return Ok(Either::A(stacktrace)),
-                    ModifiedStackTrace::No(stacktrace) => stacktrace,
-                };
+    ) -> napi::Result<SolidityStackTrace> {
+        /// Convenience macro to early return the result if a heuristic hits.
+        macro_rules! return_if_hit {
+            ($heuristic: expr) => {
+                match $heuristic {
+                    Heuristic::Hit(stacktrace) => return Ok(stacktrace),
+                    Heuristic::Miss(stacktrace) => stacktrace,
+                }
             };
         }
-        // FIXME: Calling these in JS somehow works, because it seems that it's
-        // copying the values around between passes?
-        // We need to make this work in Rust as well; if we stop needing
-        // to export return data from the trace objects, then we can make this
-        // clonable and just clone it here
-        // OR: we probably need to wrap all of these frames in Rc and clone it
-        // this way
-        let owned_trace = trace;
-        let trace = owned_trace.as_ref();
 
-        let res = Self::check_last_submessage_inner(
+        let trace = trace.as_ref();
+
+        let result = Self::check_last_submessage(
             trace,
             stacktrace,
             last_submessage_data.into_option(),
             env,
         )?;
-        propagate_stacktrace!(stacktrace, res);
+        let stacktrace = return_if_hit!(result);
 
-        let res = Self::check_failed_last_call_inner(trace, stacktrace, env)?;
-        propagate_stacktrace!(stacktrace, res);
+        let result = Self::check_failed_last_call(trace, stacktrace, env)?;
+        let stacktrace = return_if_hit!(result);
 
-        let res = Self::check_last_instruction_inner(
+        let result = Self::check_last_instruction(
             trace,
             stacktrace,
             &function_jumpdests,
             jumped_into_function,
             env,
         )?;
-        propagate_stacktrace!(stacktrace, res);
+        let stacktrace = return_if_hit!(result);
 
-        let res = Self::check_non_contract_called_inner(trace, stacktrace, env)?;
-        propagate_stacktrace!(stacktrace, res);
+        let result = Self::check_non_contract_called(trace, stacktrace, env)?;
+        let stacktrace = return_if_hit!(result);
 
-        let res = Self::check_solidity_0_6_3_unmapped_revert_inner(trace, stacktrace, env)?;
-        propagate_stacktrace!(stacktrace, res);
+        let result = Self::check_solidity_0_6_3_unmapped_revert(trace, stacktrace, env)?;
+        let stacktrace = return_if_hit!(result);
 
-        // NOTE: We added the stacktrace for context threading here
-        let res = Self::check_contract_too_large_inner(trace, stacktrace, env)?;
-        propagate_stacktrace!(stacktrace, res);
+        if let Some(result) = Self::check_contract_too_large(trace, env)? {
+            return Ok(result);
+        }
 
-        let res = Self::other_execution_error_stacktrace(owned_trace, stacktrace, env)?;
-        let res = Either::A(res);
-
-        Ok(res)
+        let stacktrace = Self::other_execution_error_stacktrace(trace, stacktrace, env)?;
+        Ok(stacktrace)
     }
 
     #[napi]
     pub fn filter_redundant_frames(
+        &self,
         stacktrace: SolidityStackTrace,
     ) -> napi::Result<SolidityStackTrace> {
         // To work around the borrow checker, we'll collect the indices of the frames we want to keep
@@ -325,8 +322,6 @@ impl ErrorInferrer {
                             source_reference, ..
                         }),
                         Some(Either24::N(ReturndataSizeErrorStackTraceEntry {
-                            // TODO: JS also checked that it's not undefined but it seems it never is?
-                            // looking at the types
                             source_reference: next_next_source_reference,
                             ..
                         })),
@@ -374,38 +369,15 @@ impl ErrorInferrer {
 
     // Heuristics
 
-    #[napi]
-    pub fn check_contract_too_large(
-        trace: Either<CallMessageTrace, CreateMessageTrace>,
-        env: Env,
-    ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
-        Ok(match trace {
-            Either::B(create @ CreateMessageTrace { .. })
-                if create.exit.kind() == ExitCode::CODESIZE_EXCEEDS_MAXIMUM =>
-            {
-                Either::A(vec![ContractTooLargeErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: Some(Self::get_constructor_start_source_reference(
-                        &create, env,
-                    )?),
-                }
-                .into()])
-            }
-
-            _ => Either::B(()),
-        })
-    }
-
-    fn check_contract_too_large_inner(
+    fn check_contract_too_large(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        stacktrace: SolidityStackTrace,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Option<SolidityStackTrace>> {
         Ok(match trace {
             Either::B(create @ CreateMessageTrace { .. })
                 if create.exit.kind() == ExitCode::CODESIZE_EXCEEDS_MAXIMUM =>
             {
-                ModifiedStackTrace::Yes(vec![ContractTooLargeErrorStackTraceEntry {
+                Some(vec![ContractTooLargeErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
                     source_reference: Some(Self::get_constructor_start_source_reference(
                         create, env,
@@ -414,31 +386,15 @@ impl ErrorInferrer {
                 .into()])
             }
 
-            _ => ModifiedStackTrace::No(stacktrace),
+            _ => None,
         })
     }
-
     /// Check if the last call/create that was done failed.
-    #[napi]
-    pub fn check_failed_last_call(
-        trace: Either<CallMessageTrace, CreateMessageTrace>,
-        stacktrace: SolidityStackTrace,
-        env: Env,
-    ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
-        let res = Self::check_failed_last_call_inner(trace.as_ref(), stacktrace, env)?;
-
-        match res {
-            ModifiedStackTrace::Yes(stacktrace) => Ok(Either::A(stacktrace)),
-            ModifiedStackTrace::No(_) => Ok(Either::B(())),
-        }
-    }
-
-    /// Check if the last call/create that was done failed.
-    fn check_failed_last_call_inner(
+    fn check_failed_last_call(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Heuristic> {
         let (bytecode, steps) = match &trace {
             Either::A(call) => (&call.bytecode, &call.steps),
             Either::B(create) => (&create.bytecode, &create.steps),
@@ -449,7 +405,7 @@ impl ErrorInferrer {
         for step_index in (0..steps.len() - 1).rev() {
             let (step, next_step) = match &steps[step_index..][..2] {
                 &[Either4::A(ref step), ref next_step] => (step, next_step),
-                _ => return Ok(ModifiedStackTrace::No(stacktrace)),
+                _ => return Ok(Heuristic::Miss(stacktrace)),
             };
 
             let inst = bytecode.get_instruction_inner(step.pc)?;
@@ -459,22 +415,24 @@ impl ErrorInferrer {
                 (inst.opcode, next_step)
             {
                 if Self::is_call_failed_error(trace, step_index as u32, &inst, env)? {
-                    let mut stacktrace = stacktrace;
-                    stacktrace.push(
+                    let mut inferred_stacktrace = stacktrace.clone();
+                    inferred_stacktrace.push(
                         Self::call_instruction_to_call_failed_to_execute_stack_trace_entry(
                             bytecode, &inst, env,
                         )?
                         .into(),
                     );
 
-                    return Ok(ModifiedStackTrace::Yes(Self::fix_initial_modifier(
-                        trace, stacktrace, env,
+                    return Ok(Heuristic::Hit(Self::fix_initial_modifier(
+                        trace,
+                        inferred_stacktrace,
+                        env,
                     )?));
                 }
             }
         }
 
-        Ok(ModifiedStackTrace::No(stacktrace))
+        Ok(Heuristic::Miss(stacktrace))
     }
 
     /// Check if the trace reverted with a panic error.
@@ -483,7 +441,7 @@ impl ErrorInferrer {
         mut stacktrace: SolidityStackTrace,
         last_instruction: &Instruction,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Heuristic> {
         let return_data = ReturnData::new(
             match &trace {
                 Either::A(call) => &call.return_data,
@@ -493,7 +451,7 @@ impl ErrorInferrer {
         );
 
         if !return_data.is_panic_return_data() {
-            return Ok(ModifiedStackTrace::No(stacktrace));
+            return Ok(Heuristic::Miss(stacktrace));
         }
 
         // If the last frame is an internal function, it means that the trace
@@ -522,7 +480,7 @@ impl ErrorInferrer {
             .into(),
         );
 
-        Self::fix_initial_modifier(trace, stacktrace, env).map(ModifiedStackTrace::Yes)
+        Self::fix_initial_modifier(trace, stacktrace, env).map(Heuristic::Hit)
     }
 
     fn check_custom_errors_inner(
@@ -530,7 +488,7 @@ impl ErrorInferrer {
         stacktrace: SolidityStackTrace,
         last_instruction: &Instruction,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Heuristic> {
         let (bytecode, return_data) = match &trace {
             Either::A(call) => (&call.bytecode, &call.return_data),
             Either::B(create) => (&create.bytecode, &create.return_data),
@@ -544,7 +502,7 @@ impl ErrorInferrer {
         if return_data.is_empty() || return_data.is_error_return_data() {
             // if there is no return data, or if it's a Error(string),
             // then it can't be a custom error
-            return Ok(ModifiedStackTrace::No(stacktrace));
+            return Ok(Heuristic::Miss(stacktrace));
         }
 
         let raw_return_data = hex::encode(&*return_data.value);
@@ -592,95 +550,41 @@ impl ErrorInferrer {
             .into(),
         );
 
-        Self::fix_initial_modifier(trace, stacktrace, env).map(ModifiedStackTrace::Yes)
+        Self::fix_initial_modifier(trace, stacktrace, env).map(Heuristic::Hit)
     }
 
-    #[napi]
-    pub fn check_solidity_0_6_3_unmapped_revert(
-        trace: Either<CallMessageTrace, CreateMessageTrace>,
-        mut stacktrace: SolidityStackTrace,
-        env: Env,
-    ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
-        if Self::solidity_0_6_3_maybe_unmapped_revert(trace.as_ref(), env)? {
-            let revert_frame = Self::solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
-                trace.as_ref(),
-                env,
-            )?;
-
-            if let Either::A(revert_frame) = revert_frame {
-                stacktrace.push(revert_frame.into());
-
-                return Ok(Either::A(stacktrace));
-            }
-
-            return Ok(Either::A(stacktrace));
-        }
-
-        Ok(Either::B(()))
-    }
-
-    fn check_solidity_0_6_3_unmapped_revert_inner(
+    fn check_solidity_0_6_3_unmapped_revert(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Heuristic> {
         if Self::solidity_0_6_3_maybe_unmapped_revert(trace, env)? {
             let revert_frame =
                 Self::solidity_0_6_3_get_frame_for_unmapped_revert_within_function(trace, env)?;
 
-            if let Either::A(revert_frame) = revert_frame {
+            if let Some(revert_frame) = revert_frame {
                 stacktrace.push(revert_frame.into());
 
-                return Ok(ModifiedStackTrace::Yes(stacktrace));
+                return Ok(Heuristic::Hit(stacktrace));
             }
 
-            return Ok(ModifiedStackTrace::Yes(stacktrace));
+            return Ok(Heuristic::Hit(stacktrace));
         }
 
-        Ok(ModifiedStackTrace::No(stacktrace))
+        Ok(Heuristic::Miss(stacktrace))
     }
 
-    #[napi(catch_unwind)]
-    pub fn check_non_contract_called(
-        trace: Either<CallMessageTrace, CreateMessageTrace>,
-        mut stacktrace: SolidityStackTrace,
-        env: Env,
-    ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
-        if Self::is_called_non_contract_account_error(trace.as_ref(), env)? {
-            let source_reference = Self::get_last_source_reference(trace.as_ref(), env)?;
-
-            // We are sure this is not undefined because there was at least a call instruction
-            let source_reference = match source_reference {
-                Either::A(source_reference) => source_reference,
-                Either::B(_) => panic!("Expected source reference to be defined"),
-            };
-
-            let non_contract_called_frame = NonContractAccountCalledErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                source_reference,
-            };
-
-            stacktrace.push(non_contract_called_frame.into());
-
-            Ok(Either::A(stacktrace))
-        } else {
-            Ok(Either::B(()))
-        }
-    }
-
-    fn check_non_contract_called_inner(
+    fn check_non_contract_called(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Heuristic> {
         if Self::is_called_non_contract_account_error(trace, env)? {
             let source_reference = Self::get_last_source_reference(trace, env)?;
 
             // We are sure this is not undefined because there was at least a call instruction
-            let source_reference = match source_reference {
-                Either::A(source_reference) => source_reference,
-                Either::B(_) => panic!("Expected source reference to be defined"),
-            };
+            let source_reference =
+                source_reference.expect("Expected source reference to be defined");
 
             let non_contract_called_frame = NonContractAccountCalledErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
@@ -689,40 +593,19 @@ impl ErrorInferrer {
 
             stacktrace.push(non_contract_called_frame.into());
 
-            Ok(ModifiedStackTrace::Yes(stacktrace))
+            Ok(Heuristic::Hit(stacktrace))
         } else {
-            Ok(ModifiedStackTrace::No(stacktrace))
+            Ok(Heuristic::Miss(stacktrace))
         }
     }
 
     /// Check if the last submessage can be used to generate the stack trace.
-    #[napi]
-    pub fn check_last_submessage(
-        trace: Either<CallMessageTrace, CreateMessageTrace>,
-        stacktrace: SolidityStackTrace,
-        last_submessage_data: Either<SubmessageData, Undefined>,
-        env: Env,
-    ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
-        let res = Self::check_last_submessage_inner(
-            trace.as_ref(),
-            stacktrace,
-            last_submessage_data.into_option(),
-            env,
-        )?;
-
-        match res {
-            ModifiedStackTrace::Yes(stacktrace) => Ok(Either::A(stacktrace)),
-            ModifiedStackTrace::No(_) => Ok(Either::B(())),
-        }
-    }
-
-    /// Check if the last submessage can be used to generate the stack trace.
-    fn check_last_submessage_inner(
+    fn check_last_submessage(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        mut stacktrace: SolidityStackTrace,
+        stacktrace: SolidityStackTrace,
         last_submessage_data: Option<SubmessageData>,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Heuristic> {
         let (bytecode, steps) = match &trace {
             Either::A(call) => (&call.bytecode, &call.steps),
             Either::B(create) => (&create.bytecode, &create.steps),
@@ -731,8 +614,10 @@ impl ErrorInferrer {
         let bytecode = bytecode.as_ref().expect("JS code asserts");
 
         let Some(last_submessage_data) = last_submessage_data else {
-            return Ok(ModifiedStackTrace::No(stacktrace));
+            return Ok(Heuristic::Miss(stacktrace));
         };
+
+        let mut inferred_stacktrace = Cow::from(&stacktrace);
 
         // get the instruction before the submessage and add it to the stack trace
         let call_step = match steps.get(last_submessage_data.step_index as usize - 1) {
@@ -757,25 +642,25 @@ impl ErrorInferrer {
         };
         if last_message_failed {
             // add the call/create that generated the message to the stack trace
-
-            stacktrace.push(call_stack_frame);
+            let inferred_stacktrace = inferred_stacktrace.to_mut();
+            inferred_stacktrace.push(call_stack_frame);
 
             if Self::is_subtrace_error_propagated(trace, last_submessage_data.step_index, env)?
                 || Self::is_proxy_error_propagated(trace, last_submessage_data.step_index, env)?
             {
-                stacktrace.extend(last_submessage_data.stacktrace);
+                inferred_stacktrace.extend(last_submessage_data.stacktrace);
 
                 if Self::is_contract_call_run_out_of_gas_error(
                     trace,
                     last_submessage_data.step_index,
                     env,
                 )? {
-                    let last_frame = match stacktrace.pop() {
+                    let last_frame = match inferred_stacktrace.pop() {
                         Some(frame) => frame,
                         _ => panic!("Expected inferred stack trace to have at least one frame"),
                     };
 
-                    stacktrace.push(
+                    inferred_stacktrace.push(
                         ContractCallRunOutOfGasError {
                             type_: StackTraceEntryTypeConst,
                             source_reference: last_frame.source_reference().cloned(),
@@ -784,14 +669,14 @@ impl ErrorInferrer {
                     );
                 }
 
-                return Self::fix_initial_modifier(trace, stacktrace, env)
-                    .map(ModifiedStackTrace::Yes);
+                return Self::fix_initial_modifier(trace, inferred_stacktrace.to_owned(), env)
+                    .map(Heuristic::Hit);
             }
         } else {
             let is_return_data_size_error =
                 Self::fails_right_after_call(trace, last_submessage_data.step_index, env)?;
             if is_return_data_size_error {
-                stacktrace.push(
+                inferred_stacktrace.to_mut().push(
                     ReturndataSizeErrorStackTraceEntry {
                         type_: StackTraceEntryTypeConst,
                         source_reference: call_stack_frame_source_reference,
@@ -799,37 +684,12 @@ impl ErrorInferrer {
                     .into(),
                 );
 
-                return Self::fix_initial_modifier(trace, stacktrace, env)
-                    .map(ModifiedStackTrace::Yes);
+                return Self::fix_initial_modifier(trace, inferred_stacktrace.into_owned(), env)
+                    .map(Heuristic::Hit);
             }
         }
 
-        Ok(ModifiedStackTrace::No(stacktrace))
-    }
-
-    /// Check if the execution stopped with a revert or an invalid opcode.
-    #[napi]
-    pub fn check_revert_or_invalid_opcode(
-        trace: Either<CallMessageTrace, CreateMessageTrace>,
-        stacktrace: SolidityStackTrace,
-        last_instruction: &Instruction,
-        function_jumpdests: Vec<&Instruction>,
-        jumped_into_function: bool,
-        env: Env,
-    ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
-        let res = Self::check_revert_or_invalid_opcode_inner(
-            trace.as_ref(),
-            stacktrace,
-            last_instruction,
-            &function_jumpdests,
-            jumped_into_function,
-            env,
-        )?;
-
-        match res {
-            ModifiedStackTrace::Yes(stacktrace) => Ok(Either::A(stacktrace)),
-            ModifiedStackTrace::No(_) => Ok(Either::B(())),
-        }
+        Ok(Heuristic::Miss(stacktrace))
     }
 
     /// Check if the execution stopped with a revert or an invalid opcode.
@@ -840,10 +700,10 @@ impl ErrorInferrer {
         function_jumpdests: &[&Instruction],
         jumped_into_function: bool,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Heuristic> {
         match last_instruction.opcode {
             Opcode::REVERT | Opcode::INVALID => {}
-            _ => return Ok(ModifiedStackTrace::No(stacktrace)),
+            _ => return Ok(Heuristic::Miss(stacktrace)),
         }
 
         let (bytecode, return_data) = match &trace {
@@ -852,7 +712,7 @@ impl ErrorInferrer {
         };
         let bytecode = bytecode.as_ref().expect("JS code asserts");
 
-        let mut inferred_stacktrace = stacktrace;
+        let mut inferred_stacktrace = stacktrace.clone();
 
         if let Some(location) = &last_instruction.location {
             if jumped_into_function || matches!(trace, Either::B(CreateMessageTrace { .. })) {
@@ -866,7 +726,7 @@ impl ErrorInferrer {
                 let failing_function = location.get_containing_function_inner(env)?;
 
                 // If the failure is in a modifier we add an entry with the function/constructor
-                match failing_function.into_option() {
+                match failing_function {
                     Some(func) if func.borrow(env)?.r#type == ContractFunctionType::MODIFIER => {
                         let frame = Self::get_entry_before_failure_in_modifier(
                             trace,
@@ -887,15 +747,15 @@ impl ErrorInferrer {
         let panic_stacktrace =
             Self::check_panic_inner(trace, inferred_stacktrace, last_instruction, env)?;
         let inferred_stacktrace = match panic_stacktrace {
-            yes @ ModifiedStackTrace::Yes(..) => return Ok(yes),
-            ModifiedStackTrace::No(stacktrace) => stacktrace,
+            hit @ Heuristic::Hit(..) => return Ok(hit),
+            Heuristic::Miss(stacktrace) => stacktrace,
         };
 
         let custom_error_stacktrace =
             Self::check_custom_errors_inner(trace, inferred_stacktrace, last_instruction, env)?;
         let mut inferred_stacktrace = match custom_error_stacktrace {
-            yes @ ModifiedStackTrace::Yes(..) => return Ok(yes),
-            ModifiedStackTrace::No(stacktrace) => stacktrace,
+            hit @ Heuristic::Hit(..) => return Ok(hit),
+            Heuristic::Miss(stacktrace) => stacktrace,
         };
 
         if let Some(location) = &last_instruction.location {
@@ -903,7 +763,7 @@ impl ErrorInferrer {
                 let location = location.borrow(env)?;
                 let failing_function = location.get_containing_function_inner(env)?;
 
-                if failing_function.into_option().is_some() {
+                if failing_function.is_some() {
                     let frame = Self::instruction_within_function_to_revert_stack_trace_entry(
                         trace,
                         last_instruction,
@@ -927,7 +787,7 @@ impl ErrorInferrer {
                             // "optimizerSteps": "u" is used, and the called function is fallback or
                             // receive
                             let Some(function_selector) = function_selector else {
-                                return Ok(ModifiedStackTrace::No(inferred_stacktrace));
+                                return Ok(Heuristic::Miss(inferred_stacktrace));
                             };
 
                             let function = function_selector.borrow(env)?;
@@ -960,7 +820,7 @@ impl ErrorInferrer {
                 }
 
                 return Self::fix_initial_modifier(trace, inferred_stacktrace, env)
-                    .map(ModifiedStackTrace::Yes);
+                    .map(Heuristic::Hit);
             }
         }
 
@@ -978,43 +838,19 @@ impl ErrorInferrer {
 
             inferred_stacktrace.push(revert_frame.into());
 
-            return Self::fix_initial_modifier(trace, inferred_stacktrace, env)
-                .map(ModifiedStackTrace::Yes);
+            return Self::fix_initial_modifier(trace, inferred_stacktrace, env).map(Heuristic::Hit);
         }
 
-        Ok(ModifiedStackTrace::No(inferred_stacktrace))
+        Ok(Heuristic::Miss(stacktrace))
     }
 
-    /// Check last instruction to try to infer the error.
-    #[napi]
-    pub fn check_last_instruction(
-        trace: Either<CallMessageTrace, CreateMessageTrace>,
-        stacktrace: SolidityStackTrace,
-        function_jumpdests: Vec<&Instruction>,
-        jumped_into_function: bool,
-        env: Env,
-    ) -> napi::Result<Either<SolidityStackTrace, Undefined>> {
-        let res = Self::check_last_instruction_inner(
-            trace.as_ref(),
-            stacktrace,
-            &function_jumpdests,
-            jumped_into_function,
-            env,
-        )?;
-
-        match res {
-            ModifiedStackTrace::Yes(stacktrace) => Ok(Either::A(stacktrace)),
-            ModifiedStackTrace::No(_) => Ok(Either::B(())),
-        }
-    }
-
-    fn check_last_instruction_inner(
+    fn check_last_instruction(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
         function_jumpdests: &[&Instruction],
         jumped_into_function: bool,
         env: Env,
-    ) -> napi::Result<ModifiedStackTrace> {
+    ) -> napi::Result<Heuristic> {
         let (bytecode, steps) = match &trace {
             Either::A(call) => (&call.bytecode, &call.steps),
             Either::B(create) => (&create.bytecode, &create.steps),
@@ -1022,7 +858,7 @@ impl ErrorInferrer {
         let bytecode = bytecode.as_ref().expect("JS code asserts");
 
         if steps.is_empty() {
-            return Ok(ModifiedStackTrace::No(stacktrace));
+            return Ok(Heuristic::Miss(stacktrace));
         }
 
         let last_step = match steps.last() {
@@ -1041,14 +877,14 @@ impl ErrorInferrer {
             env,
         )?;
         let stacktrace = match revert_or_invalid_stacktrace {
-            yes @ ModifiedStackTrace::Yes(..) => return Ok(yes),
-            ModifiedStackTrace::No(stacktrace) => stacktrace,
+            hit @ Heuristic::Hit(..) => return Ok(hit),
+            Heuristic::Miss(stacktrace) => stacktrace,
         };
 
         let (Either::A(trace @ CallMessageTrace { ref calldata, .. }), false) =
             (&trace, jumped_into_function)
         else {
-            return Ok(ModifiedStackTrace::No(stacktrace));
+            return Ok(Heuristic::Miss(stacktrace));
         };
 
         let last_instruction = last_instruction.borrow(env)?;
@@ -1062,7 +898,7 @@ impl ErrorInferrer {
                 env,
             )?;
 
-            return Ok(ModifiedStackTrace::Yes(vec![frame.into()]));
+            return Ok(Heuristic::Hit(vec![frame.into()]));
         }
 
         // Sometimes we do fail inside of a function but there's no jump into
@@ -1070,7 +906,7 @@ impl ErrorInferrer {
             let location = location.borrow(env)?;
             let failing_function = location.get_containing_function_inner(env)?;
 
-            if let Some(failing_function) = failing_function.into_option() {
+            if let Some(failing_function) = failing_function {
                 let failing_function = failing_function.borrow(env)?;
 
                 let frame = RevertErrorStackTraceEntry {
@@ -1084,7 +920,7 @@ impl ErrorInferrer {
                     is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
                 };
 
-                return Ok(ModifiedStackTrace::Yes(vec![frame.into()]));
+                return Ok(Heuristic::Hit(vec![frame.into()]));
             }
         }
 
@@ -1118,7 +954,7 @@ impl ErrorInferrer {
                     )?,
                 };
 
-                return Ok(ModifiedStackTrace::Yes(vec![frame.into()]));
+                return Ok(Heuristic::Hit(vec![frame.into()]));
             }
         }
 
@@ -1126,14 +962,14 @@ impl ErrorInferrer {
             let revert_frame =
                 Self::solidity_0_6_3_get_frame_for_unmapped_revert_before_function(trace, env)?;
 
-            if let Some(revert_frame) = revert_frame.into_option() {
-                return Ok(ModifiedStackTrace::Yes(vec![revert_frame.into()]));
+            if let Some(revert_frame) = revert_frame {
+                return Ok(Heuristic::Hit(vec![revert_frame.into()]));
             }
         }
 
         let frame = Self::get_other_error_before_called_function_stack_trace_entry(trace, env)?;
 
-        Ok(ModifiedStackTrace::Yes(vec![frame.into()]))
+        Ok(Heuristic::Hit(vec![frame.into()]))
     }
 
     // Helpers
@@ -1498,18 +1334,14 @@ impl ErrorInferrer {
         Ok(last_inst.borrow(env)?.opcode == Opcode::REVERT)
     }
 
-    #[napi]
-    pub fn other_execution_error_stacktrace(
-        trace: Either<CallMessageTrace, CreateMessageTrace>,
+    fn other_execution_error_stacktrace(
+        trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
         env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let other_execution_error_frame = OtherExecutionErrorStackTraceEntry {
             type_: StackTraceEntryTypeConst,
-            source_reference: match Self::get_last_source_reference(trace.as_ref(), env)? {
-                Either::A(source_reference) => Some(source_reference),
-                Either::B(_) => None,
-            },
+            source_reference: Self::get_last_source_reference(trace, env)?,
         };
 
         stacktrace.push(other_execution_error_frame.into());
@@ -1869,7 +1701,7 @@ impl ErrorInferrer {
     fn get_last_source_reference(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         env: Env,
-    ) -> napi::Result<Either<SourceReference, Undefined>> {
+    ) -> napi::Result<Option<SourceReference>> {
         let (bytecode, steps) = match trace {
             Either::A(create) => (&create.bytecode, &create.steps),
             Either::B(call) => (&call.bytecode, &call.steps),
@@ -1897,11 +1729,11 @@ impl ErrorInferrer {
                 source_location_to_source_reference(bytecode, Some(&*location), env)?;
 
             if let Some(source_reference) = source_reference {
-                return Ok(Either::A(source_reference));
+                return Ok(Some(source_reference));
             }
         }
 
-        Ok(Either::B(()))
+        Ok(None)
     }
 
     fn has_failed_inside_the_fallback_function(
@@ -2046,7 +1878,7 @@ impl ErrorInferrer {
 
         let source_reference = source_location_to_source_reference(bytecode, inst_location, env)?;
 
-        let source_reference = source_reference.or(last_source_reference.into_option());
+        let source_reference = source_reference.or(last_source_reference);
 
         Ok(PanicErrorStackTraceEntry {
             type_: StackTraceEntryTypeConst,
@@ -2062,10 +1894,8 @@ impl ErrorInferrer {
         env: Env,
     ) -> napi::Result<CustomErrorStackTraceEntry> {
         let last_source_reference = Self::get_last_source_reference(trace, env)?;
-        let last_source_reference = match last_source_reference {
-            Either::A(source_reference) => source_reference,
-            Either::B(_) => panic!("Expected source reference to be defined"),
-        };
+        let last_source_reference =
+            last_source_reference.expect("Expected source reference to be defined");
 
         let bytecode = match &trace {
             Either::A(create) => &create.bytecode,
@@ -2127,7 +1957,7 @@ impl ErrorInferrer {
     fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function(
         trace: &CallMessageTrace,
         env: Env,
-    ) -> napi::Result<Either<UnmappedSolc063RevertErrorStackTraceEntry, Undefined>> {
+    ) -> napi::Result<Option<UnmappedSolc063RevertErrorStackTraceEntry>> {
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
         let contract = bytecode.contract.borrow(env)?;
 
@@ -2136,7 +1966,7 @@ impl ErrorInferrer {
             env,
         )?;
 
-        let revert_frame = match revert_frame.into_option() {
+        let revert_frame = match revert_frame {
             None
             | Some(UnmappedSolc063RevertErrorStackTraceEntry {
                 source_reference: None,
@@ -2194,13 +2024,13 @@ impl ErrorInferrer {
             Some(revert_frame) => Some(revert_frame),
         };
 
-        Ok(revert_frame.into_either())
+        Ok(revert_frame)
     }
 
     fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         env: Env,
-    ) -> napi::Result<Either<UnmappedSolc063RevertErrorStackTraceEntry, Undefined>> {
+    ) -> napi::Result<Option<UnmappedSolc063RevertErrorStackTraceEntry>> {
         let (bytecode, steps) = match &trace {
             Either::A(create) => (&create.bytecode, &create.steps),
             Either::B(call) => (&call.bytecode, &call.steps),
@@ -2215,7 +2045,7 @@ impl ErrorInferrer {
         // If we are within a function there's a last valid location. It may
         // be the entire contract.
         let prev_inst = Self::get_last_instruction_with_valid_location(trace, env)?;
-        let prev_inst = prev_inst.into_option().map(|x| x.borrow(env)).transpose()?;
+        let prev_inst = prev_inst.map(|x| x.borrow(env)).transpose()?;
         let last_step = match steps.last() {
             Some(Either4::A(step)) => step,
             _ => panic!("JS code asserts this is always an EvmStep"),
@@ -2242,13 +2072,13 @@ impl ErrorInferrer {
                 .as_ref()
                 .map(|l| l.get_containing_function_inner(env))
                 .transpose()?
-                .and_then(IntoOption::into_option);
+                .flatten();
 
             let next_func = next_loc
                 .as_ref()
                 .map(|l| l.get_containing_function_inner(env))
                 .transpose()?
-                .and_then(IntoOption::into_option);
+                .flatten();
 
             // This is probably a require. This means that we have the exact
             // line, but the stack trace may be degraded (e.g. missing our
@@ -2256,7 +2086,7 @@ impl ErrorInferrer {
             // add this frame as UNMAPPED_SOLC_0_6_3_REVERT_ERROR
             match (&prev_func, &next_loc, &prev_loc) {
                 (Some(_), Some(next_loc), Some(prev_loc)) if prev_loc.equals(next_loc, env) => {
-                    return Ok(Either::A(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
+                    return Ok(Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 &next_inst,
                 env,
@@ -2265,27 +2095,23 @@ impl ErrorInferrer {
                 _ => {}
             }
 
-            let mut revert_frame: Either<UnmappedSolc063RevertErrorStackTraceEntry, Undefined> =
-                Either::B(());
-
-            if prev_func.is_some() && prev_inst.is_some() {
-                revert_frame = Either::A(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
+            let revert_frame = if prev_func.is_some() && prev_inst.is_some() {
+                Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 prev_inst.as_ref().unwrap(),
                 env,
-              )?);
+              )?)
             } else if next_func.is_some() {
-                revert_frame = Either::A(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
+                Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 &next_inst,
                 env,
-              )?);
-            }
+              )?)
+            } else {
+                None
+            };
 
-            return Ok(revert_frame
-                .into_option()
-                .map(Self::solidity_0_6_3_correct_line_number)
-                .into_either());
+            return Ok(revert_frame.map(Self::solidity_0_6_3_correct_line_number));
         }
 
         if matches!(trace, Either::B(CreateMessageTrace { .. })) && prev_inst.is_some() {
@@ -2328,17 +2154,17 @@ impl ErrorInferrer {
                     Self::solidity_0_6_3_correct_line_number(constructor_revert_frame);
             }
 
-            return Ok(Either::A(constructor_revert_frame));
+            return Ok(Some(constructor_revert_frame));
         }
 
-        if prev_inst.is_some() {
+        if let Some(prev_inst) = prev_inst {
             // We may as well just be in a function or modifier and just happen
             // to be at the last instruction of the runtime bytecode.
             // In this case we just return whatever the last mapped intruction
             // points to.
             let mut latest_instruction_revert_frame = Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
-                prev_inst.as_ref().unwrap(),
+                &prev_inst,
                 env,
             )?;
 
@@ -2346,10 +2172,10 @@ impl ErrorInferrer {
                 latest_instruction_revert_frame =
                     Self::solidity_0_6_3_correct_line_number(latest_instruction_revert_frame);
             }
-            return Ok(Either::A(latest_instruction_revert_frame));
+            return Ok(Some(latest_instruction_revert_frame));
         }
 
-        Ok(Either::B(()))
+        Ok(None)
     }
 
     fn solidity_0_6_3_correct_line_number(
@@ -2414,7 +2240,7 @@ impl ErrorInferrer {
 
         let last_index = Self::get_last_instruction_with_valid_location_step_index(trace, env)?;
 
-        let last_index = match last_index.into_option() {
+        let last_index = match last_index {
             None | Some(0) => return Ok(false),
             Some(last_index) => last_index as usize,
         };
@@ -2445,7 +2271,7 @@ impl ErrorInferrer {
     fn get_last_instruction_with_valid_location_step_index(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         env: Env,
-    ) -> napi::Result<Either<u32, Undefined>> {
+    ) -> napi::Result<Option<u32>> {
         let (bytecode, steps) = match &trace {
             Either::A(create) => (&create.bytecode, &create.steps),
             Either::B(call) => (&call.bytecode, &call.steps),
@@ -2458,30 +2284,29 @@ impl ErrorInferrer {
         for (i, step) in steps.iter().enumerate().rev() {
             let step = match step {
                 Either4::A(step) => step,
-                _ => return Ok(Either::B(())),
+                _ => return Ok(None),
             };
 
             let inst = bytecode.get_instruction_inner(step.pc)?;
 
             let inst = inst.borrow(env)?;
             if inst.location.is_some() {
-                return Ok(Either::A(i as u32));
+                return Ok(Some(i as u32));
             }
         }
 
-        Ok(Either::B(()))
+        Ok(None)
     }
 
     fn get_last_instruction_with_valid_location<'a>(
         trace: Either<&'a CallMessageTrace, &'a CreateMessageTrace>,
         env: Env,
-    ) -> napi::Result<Either<&'a ClassInstanceRef<Instruction>, Undefined>> {
+    ) -> napi::Result<Option<&'a ClassInstanceRef<Instruction>>> {
         let last_location_index =
             Self::get_last_instruction_with_valid_location_step_index(trace, env)?;
 
-        let last_location_index = match last_location_index {
-            Either::A(last_location_index) => last_location_index,
-            Either::B(_) => return Ok(Either::B(())),
+        let Some(last_location_index) = last_location_index else {
+            return Ok(None);
         };
 
         let (bytecode, steps) = match &trace {
@@ -2497,9 +2322,9 @@ impl ErrorInferrer {
             Some(Either4::A(step)) => {
                 let inst = bytecode.get_instruction_inner(step.pc)?;
 
-                Ok(Either::A(inst))
+                Ok(Some(inst))
             }
-            _ => Ok(Either::B(())),
+            _ => Ok(None),
         }
     }
 }
@@ -2515,7 +2340,7 @@ fn source_location_to_source_reference(
 
     let func = location.get_containing_function_inner(env)?;
 
-    let Either::A(func) = func else {
+    let Some(func) = func else {
         return Ok(None);
     };
 
@@ -2579,7 +2404,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
 
     let func = inst_location.get_containing_function_inner(env)?;
 
-    if let Some(func) = func.into_option() {
+    if let Some(func) = func {
         let func = func.borrow(env)?;
 
         let source_reference =
@@ -2613,6 +2438,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
     }))
 }
 
+// Rewrite of `AbiHelpers.formatValues` from Hardhat
 fn format_dyn_sol_value(val: &DynSolValue) -> String {
     match val {
         // print nested values as [value1, value2, ...]

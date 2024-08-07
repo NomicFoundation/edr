@@ -121,6 +121,7 @@ impl<const ENTRY_TYPE: u8> StackTraceEntryTypeConst<ENTRY_TYPE> {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct CallstackEntryStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.CALLSTACK_ENTRY")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CALLSTACK_ENTRY as u8 }>,
@@ -135,6 +136,7 @@ impl From<CallstackEntryStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct UnrecognizedCreateCallstackEntryStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -153,6 +155,7 @@ impl From<UnrecognizedCreateCallstackEntryStackTraceEntry> for SolidityStackTrac
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct UnrecognizedContractCallstackEntryStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -172,6 +175,7 @@ impl From<UnrecognizedContractCallstackEntryStackTraceEntry> for SolidityStackTr
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct PrecompileErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.PRECOMPILE_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::PRECOMPILE_ERROR as u8 }>,
@@ -186,6 +190,7 @@ impl From<PrecompileErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct RevertErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.REVERT_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::REVERT_ERROR as u8 }>,
@@ -201,6 +206,7 @@ impl From<RevertErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct PanicErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.PANIC_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::PANIC_ERROR as u8 }>,
@@ -215,6 +221,7 @@ impl From<PanicErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct CustomErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.CUSTOM_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CUSTOM_ERROR as u8 }>,
@@ -230,6 +237,7 @@ impl From<CustomErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct FunctionNotPayableErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -247,6 +255,7 @@ impl From<FunctionNotPayableErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct InvalidParamsErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.INVALID_PARAMS_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::INVALID_PARAMS_ERROR as u8 }>,
@@ -260,6 +269,7 @@ impl From<InvalidParamsErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct FallbackNotPayableErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -277,6 +287,7 @@ impl From<FallbackNotPayableErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -296,6 +307,7 @@ impl From<FallbackNotPayableAndNoReceiveErrorStackTraceEntry> for SolidityStackT
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -314,6 +326,7 @@ impl From<UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry> for SolidityS
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct MissingFallbackOrReceiveErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -331,6 +344,7 @@ impl From<MissingFallbackOrReceiveErrorStackTraceEntry> for SolidityStackTraceEn
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct ReturndataSizeErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -347,6 +361,7 @@ impl From<ReturndataSizeErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct NonContractAccountCalledErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -364,6 +379,7 @@ impl From<NonContractAccountCalledErrorStackTraceEntry> for SolidityStackTraceEn
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct CallFailedErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.CALL_FAILED_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CALL_FAILED_ERROR as u8 }>,
@@ -377,6 +393,7 @@ impl From<CallFailedErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct DirectLibraryCallErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -393,6 +410,7 @@ impl From<DirectLibraryCallErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct UnrecognizedCreateErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -411,6 +429,7 @@ impl From<UnrecognizedCreateErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct UnrecognizedContractErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -430,6 +449,7 @@ impl From<UnrecognizedContractErrorStackTraceEntry> for SolidityStackTraceEntry 
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct OtherExecutionErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -446,6 +466,7 @@ impl From<OtherExecutionErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct UnmappedSolc063RevertErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -463,6 +484,7 @@ impl From<UnmappedSolc063RevertErrorStackTraceEntry> for SolidityStackTraceEntry
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct ContractTooLargeErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -479,6 +501,7 @@ impl From<ContractTooLargeErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct InternalFunctionCallStackEntry {
     #[napi(
         js_name = "type",
@@ -497,6 +520,7 @@ impl From<InternalFunctionCallStackEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
+#[derive(Clone)]
 pub struct ContractCallRunOutOfGasError {
     #[napi(
         js_name = "type",
