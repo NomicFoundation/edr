@@ -341,6 +341,135 @@ export interface ExecutionResult {
   /** Optional contract address if the transaction created a new contract. */
   contractAddress?: Buffer
 }
+/** A compilation artifact. */
+export interface Artifact {
+  /** The identifier of the artifact. */
+  id: ArtifactId
+  /** The test contract. */
+  contract: ContractData
+}
+/** The identifier of a Solidity contract. */
+export interface ArtifactId {
+  /** The name of the contract. */
+  name: string
+  /** Original source file path. */
+  source: string
+  /** The solc semver string. */
+  solcVersion: string
+}
+/** A test contract to execute. */
+export interface ContractData {
+  /** Contract ABI as json string. */
+  abi: string
+  /**
+   * Contract creation code as hex string. It can be missing if the contract
+   * is ABI only.
+   */
+  bytecode?: string
+  /**
+   * Contract runtime code as hex string. It can be missing if the contract
+   * is ABI only.
+   */
+  deployedBytecode?: string
+}
+/** See [forge::result::SuiteResult] */
+export interface SuiteResult {
+  /**
+   * The artifact id can be used to match input to result in the progress
+   * callback
+   */
+  readonly id: ArtifactId
+  /** See [forge::result::SuiteResult::duration] */
+  readonly durationMs: bigint
+  /** See [forge::result::SuiteResult::test_results] */
+  readonly testResults: Array<TestResult>
+  /** See [forge::result::SuiteResult::warnings] */
+  readonly warnings: Array<string>
+}
+/** See [forge::result::TestResult] */
+export interface TestResult {
+  /** The name of the test. */
+  readonly name: string
+  /** See [forge::result::TestResult::status] */
+  readonly status: TestStatus
+  /** See [forge::result::TestResult::reason] */
+  readonly reason?: string
+  /** See [forge::result::TestResult::counterexample] */
+  readonly counterexample?: BaseCounterExample | Array<BaseCounterExample>
+  /** See [forge::result::TestResult::decoded_logs] */
+  readonly decodedLogs: Array<string>
+  /** See [forge::result::TestResult::kind] */
+  readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
+  /** See [forge::result::TestResult::duration] */
+  readonly durationMs: bigint
+}
+/**The result of a test execution. */
+export const enum TestStatus {
+  /**Test success */
+  Success = 'Success',
+  /**Test failure */
+  Failure = 'Failure',
+  /**Test skipped */
+  Skipped = 'Skipped'
+}
+/** See [forge::result::TestKind::Standard] */
+export interface StandardTestKind {
+  /** The gas consumed by the test. */
+  readonly consumedGas: bigint
+}
+/** See [forge::result::TestKind::Fuzz] */
+export interface FuzzTestKind {
+  /** See [forge::result::TestKind::Fuzz] */
+  readonly firstCase: FuzzCase
+  /** See [forge::result::TestKind::Fuzz] */
+  readonly runs: bigint
+  /** See [forge::result::TestKind::Fuzz] */
+  readonly meanGas: bigint
+  /** See [forge::result::TestKind::Fuzz] */
+  readonly medianGas: bigint
+}
+/** See [forge::fuzz::FuzzCase] */
+export interface FuzzCase {
+  /** The calldata used for this fuzz test */
+  readonly calldata: Buffer
+  /** Consumed gas */
+  readonly gas: bigint
+  /** The initial gas stipend for the transaction */
+  readonly stipend: bigint
+}
+/** See [forge::result::TestKind::Invariant] */
+export interface InvariantTestKind {
+  /** See [forge::result::TestKind::Invariant] */
+  readonly runs: bigint
+  /** See [forge::result::TestKind::Invariant] */
+  readonly calls: bigint
+  /** See [forge::result::TestKind::Invariant] */
+  readonly reverts: bigint
+}
+/** See [forge::fuzz::BaseCounterExample] */
+export interface BaseCounterExample {
+  /** See [forge::fuzz::BaseCounterExample::sender] */
+  readonly sender?: Buffer
+  /** See [forge::fuzz::BaseCounterExample::addr] */
+  readonly address?: Buffer
+  /** See [forge::fuzz::BaseCounterExample::calldata] */
+  readonly calldata: Buffer
+  /** See [forge::fuzz::BaseCounterExample::contract_name] */
+  readonly contractName?: string
+  /** See [forge::fuzz::BaseCounterExample::signature] */
+  readonly signature?: string
+  /** See [forge::fuzz::BaseCounterExample::args] */
+  readonly args?: string
+}
+/**
+ * Executes Solidity tests.
+ *
+ * The function will return as soon as test execution is started.
+ * The progress callback will be called with the results of each test suite.
+ * It is up to the caller to track how many times the callback is called to
+ * know when all tests are done.
+ */
+export function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, gasReport: boolean, progressCallback: (result: SuiteResult) => void): void
 export interface SubscriptionEvent {
   filterId: bigint
   result: any

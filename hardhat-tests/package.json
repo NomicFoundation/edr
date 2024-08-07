@@ -15,7 +15,7 @@
     "test:integration": "bash run-integration-tests.sh",
     "test:ci": "pnpm test && pnpm test:integration",
     "build": "tsc --build --force --incremental .",
-    "build:edr": "cd ../crates/edr_napi && pnpm build",
+    "build:edr": "cd ../crates/edr_napi && pnpm build:test",
     "clean": "rimraf build-test tsconfig.tsbuildinfo test/internal/hardhat-network/provider/.hardhat_node_test_cache test/internal/hardhat-network/stack-traces/test-files/artifacts"
   },
   "devDependencies": {

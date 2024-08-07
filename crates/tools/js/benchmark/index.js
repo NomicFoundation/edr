@@ -13,6 +13,7 @@ const {
   createHardhatNetworkProvider,
 } = require("hardhat/internal/hardhat-network/provider/provider");
 const { HttpProvider } = require("hardhat/internal/core/providers/http");
+const { runForgeStdTests, setupForgeStdRepo } = require("./solidity-tests");
 
 const SCENARIOS_DIR = "../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
@@ -24,7 +25,7 @@ async function main() {
     description: "Scenario benchmark runner",
   });
   parser.add_argument("command", {
-    choices: ["benchmark", "verify", "report"],
+    choices: ["benchmark", "verify", "report", "solidity-tests"],
     help: "Whether to run a benchmark, verify that there are no regressions or create a report for `github-action-benchmark`",
   });
   parser.add_argument("-g", "--grep", {
@@ -61,6 +62,9 @@ async function main() {
   } else if (args.command === "report") {
     await report(args.benchmark_output);
     await flushStdout();
+  } else if (args.command === "solidity-tests") {
+    const repoPath = await setupForgeStdRepo();
+    await runForgeStdTests(repoPath);
   }
 }
 
