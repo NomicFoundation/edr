@@ -1017,9 +1017,6 @@ export class ErrorInferrer {
   static checkContractTooLarge(trace: CallMessageTrace | CreateMessageTrace): SolidityStackTrace | undefined
   /** Check if the last call/create that was done failed. */
   static checkFailedLastCall(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace | undefined
-  /** Check if the trace reverted with a panic error. */
-  static checkPanic(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, lastInstruction: Instruction): SolidityStackTrace | undefined
-  static checkCustomErrors(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, lastInstruction: Instruction): SolidityStackTrace | undefined
   static checkSolidity063UnmappedRevert(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace | undefined
   static checkNonContractCalled(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace | undefined
   /** Check if the last submessage can be used to generate the stack trace. */
@@ -1028,32 +1025,7 @@ export class ErrorInferrer {
   static checkRevertOrInvalidOpcode(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, lastInstruction: Instruction, functionJumpdests: Array<Instruction>, jumpedIntoFunction: boolean): SolidityStackTrace | undefined
   /** Check last instruction to try to infer the error. */
   static checkLastInstruction(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, functionJumpdests: Array<Instruction>, jumpedIntoFunction: boolean): SolidityStackTrace | undefined
-  static fixInitialModifier(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace
-  static callInstructionToCallFailedToExecuteStackTraceEntry(bytecode: Bytecode, callInst: Instruction): CallFailedErrorStackTraceEntry
-  static getEntryBeforeFailureInModifier(trace: CallMessageTrace | CreateMessageTrace, functionJumpdests: Array<Instruction>): CallstackEntryStackTraceEntry | InternalFunctionCallStackEntry
-  static failsRightAfterCall(trace: CallMessageTrace | CreateMessageTrace, callSubtraceStepIndex: number): boolean
-  static isSubtraceErrorPropagated(trace: CallMessageTrace | CreateMessageTrace, callSubtraceStepIndex: number): boolean
-  static isContractCallRunOutOfGasError(trace: CallMessageTrace | CreateMessageTrace, callStepIndex: number): boolean
-  static isProxyErrorPropagated(trace: CallMessageTrace | CreateMessageTrace, callSubtraceStepIndex: number): boolean
   static otherExecutionErrorStacktrace(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace): SolidityStackTrace
-  static getFunctionStartSourceReference(trace: CallMessageTrace | CreateMessageTrace, func: ContractFunction): SourceReference
-  static getFallbackStartSourceReference(trace: CallMessageTrace): SourceReference
-  /** Returns a source reference pointing to the constructor if it exists, or to the contract otherwise. */
-  static getConstructorStartSourceReference(trace: CreateMessageTrace): SourceReference
-  static getContractStartWithoutFunctionSourceReference(trace: CallMessageTrace | CreateMessageTrace): SourceReference
-  static getLastSourceReference(trace: CallMessageTrace | CreateMessageTrace): SourceReference | undefined
-  static hasFailedInsideTheFallbackFunction(trace: CallMessageTrace): boolean
-  static hasFailedInsideTheReceiveFunction(trace: CallMessageTrace): boolean
-  static instructionWithinFunctionToRevertStackTraceEntry(trace: CallMessageTrace | CreateMessageTrace, inst: Instruction): RevertErrorStackTraceEntry
-  static instructionWithinFunctionToUnmappedSolc063RevertErrorStackTraceEntry(trace: CallMessageTrace | CreateMessageTrace, inst: Instruction): UnmappedSolc063RevertErrorStackTraceEntry
-  static instructionWithinFunctionToPanicStackTraceEntry(trace: CallMessageTrace | CreateMessageTrace, inst: Instruction, errorCode: bigint): PanicErrorStackTraceEntry
-  static instructionWithinFunctionToCustomErrorStackTraceEntry(trace: CallMessageTrace | CreateMessageTrace, inst: Instruction, message: string): CustomErrorStackTraceEntry
-  static solidity063MaybeUnmappedRevert(trace: CallMessageTrace | CreateMessageTrace): boolean
-  static solidity063GetFrameForUnmappedRevertBeforeFunction(trace: CallMessageTrace): UnmappedSolc063RevertErrorStackTraceEntry | undefined
-  static solidity063GetFrameForUnmappedRevertWithinFunction(trace: CallMessageTrace | CreateMessageTrace): UnmappedSolc063RevertErrorStackTraceEntry | undefined
-  static solidity063CorrectLineNumber(revertFrame: UnmappedSolc063RevertErrorStackTraceEntry): UnmappedSolc063RevertErrorStackTraceEntry
-  static getOtherErrorBeforeCalledFunctionStackTraceEntry(trace: CallMessageTrace): OtherExecutionErrorStackTraceEntry
-  static isPanicReturnData(returnData: Uint8Array): boolean
 }
 export class Exit {
   get kind(): ExitCode
