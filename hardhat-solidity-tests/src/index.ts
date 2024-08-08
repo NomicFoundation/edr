@@ -52,13 +52,15 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
     }
   }
 
-  await new Promise<void>((resolve) => {
-    const gasReport = false;
+  await new Promise<void>((resolve, reject) => {
+    const config = {
+      projectRoot: hre.config.paths.root,
+    };
 
     runSolidityTests(
       artifacts,
       testSuiteIds,
-      gasReport,
+      config,
       (suiteResult: SuiteResult) => {
         for (const testResult of suiteResult.testResults) {
           let name = suiteResult.id.name + " | " + testResult.name;
@@ -84,6 +86,7 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
           resolve();
         }
       },
+      reject,
     );
   });
 

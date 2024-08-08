@@ -40,7 +40,7 @@ impl Default for FuzzConfig {
             max_test_rejects: 65536,
             seed: None,
             dictionary: FuzzDictionaryConfig::default(),
-            gas_report_samples: 256,
+            gas_report_samples: 0,
             failure_persist_dir: None,
             failure_persist_file: None,
         }
@@ -56,7 +56,7 @@ impl FuzzConfig {
             max_test_rejects: 65536,
             seed: None,
             dictionary: FuzzDictionaryConfig::default(),
-            gas_report_samples: 256,
+            gas_report_samples: 0,
             failure_persist_dir: Some(cache_dir),
             failure_persist_file: Some("failures".to_string()),
         }

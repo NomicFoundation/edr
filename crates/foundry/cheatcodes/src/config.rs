@@ -57,19 +57,19 @@ pub struct CheatsConfig {
 pub struct CheatsConfigOptions {
     /// Multiple rpc endpoints and their aliases
     pub rpc_endpoints: RpcEndpoints,
+    /// RPC storage caching settings determines what chains and endpoints to
+    /// cache
+    pub rpc_storage_caching: StorageCachingConfig,
     /// Whether to enable safety checks for `vm.getCode` and
     /// `vm.getDeployedCode` invocations. If disabled, it is possible to
     /// access artifacts which were not recompiled or cached.
     pub unchecked_cheatcode_artifacts: bool,
-    /// Sets a timeout in seconds for vm.prompt cheatcodes
-    pub prompt_timeout: u64,
-    /// RPC storage caching settings determines what chains and endpoints to
-    /// cache
-    pub rpc_storage_caching: StorageCachingConfig,
     /// Configures the permissions of cheat codes that touch the file system.
     ///
     /// This includes what operations can be executed (read, write)
     pub fs_permissions: FsPermissions,
+    /// Sets a timeout in seconds for vm.prompt cheatcodes
+    pub prompt_timeout: u64,
     /// Address labels
     pub labels: HashMap<Address, String>,
 }
