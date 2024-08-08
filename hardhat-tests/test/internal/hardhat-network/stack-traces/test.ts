@@ -21,6 +21,7 @@ import {
 import {
   SolidityStackTraceEntry,
   StackTraceEntryType,
+  stackTraceEntryTypeToString,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
 import { SolidityTracer } from "hardhat/internal/hardhat-network/stack-traces/solidityTracer";
 import { VmTraceDecoder } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
@@ -280,9 +281,15 @@ function compareStackTraces(
 
   // if IR is enabled, we ignore callstack entries in the comparison
   if (isViaIR) {
-    trace = trace.filter(
-      (frame) => frame.type !== StackTraceEntryType.CALLSTACK_ENTRY
-    );
+    trace = trace.filter((frame) => {
+      // FIXME: For some reason, the const enum from napi-rs is not picked up by TS
+      // and we get undefined instead of the actual value. Just use the number.
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      function assertCallstackEntry<_T extends 0>() {}
+      assertCallstackEntry<StackTraceEntryType.CALLSTACK_ENTRY>();
+
+      return frame.type !== 0;
+    });
     description = description.filter(
       (frame) => frame.type !== "CALLSTACK_ENTRY"
     );
@@ -303,7 +310,7 @@ function compareStackTraces(
     const actual = trace[i];
     const expected = description[i];
 
-    const actualErrorType = StackTraceEntryType[actual.type];
+    const actualErrorType = stackTraceEntryTypeToString(actual.type);
     const expectedErrorType = expected.type;
 
     if (

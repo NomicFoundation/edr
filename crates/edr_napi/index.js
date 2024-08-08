@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -342,6 +342,16 @@ module.exports.isPush = isPush
 module.exports.isJump = isJump
 module.exports.isCall = isCall
 module.exports.isCreate = isCreate
+module.exports.ReturnData = ReturnData
+module.exports.StackTraceEntryType = StackTraceEntryType
+module.exports.stackTraceEntryTypeToString = stackTraceEntryTypeToString
+module.exports.FALLBACK_FUNCTION_NAME = FALLBACK_FUNCTION_NAME
+module.exports.RECEIVE_FUNCTION_NAME = RECEIVE_FUNCTION_NAME
+module.exports.CONSTRUCTOR_FUNCTION_NAME = CONSTRUCTOR_FUNCTION_NAME
+module.exports.UNRECOGNIZED_FUNCTION_NAME = UNRECOGNIZED_FUNCTION_NAME
+module.exports.UNKNOWN_FUNCTION_NAME = UNKNOWN_FUNCTION_NAME
+module.exports.PRECOMPILE_FUNCTION_NAME = PRECOMPILE_FUNCTION_NAME
+module.exports.UNRECOGNIZED_CONTRACT_NAME = UNRECOGNIZED_CONTRACT_NAME
 module.exports.VmTraceDecoder = VmTraceDecoder
 module.exports.initializeVmTraceDecoder = initializeVmTraceDecoder
 module.exports.VmTracer = VmTracer

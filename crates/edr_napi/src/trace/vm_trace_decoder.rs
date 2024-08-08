@@ -11,6 +11,10 @@ use super::{
     contracts_identifier::ContractsIdentifier,
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},
     model::Bytecode,
+    solidity_stack_trace::{
+        FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME,
+        UNRECOGNIZED_FUNCTION_NAME,
+    },
 };
 use crate::{trace::model::ContractFunctionType, utils::ClassInstanceRef};
 
@@ -197,11 +201,6 @@ impl VmTraceDecoder {
         }
     }
 }
-
-const UNRECOGNIZED_CONTRACT_NAME: &str = "<UnrecognizedContract>";
-const UNRECOGNIZED_FUNCTION_NAME: &str = "<unrecognized-selector>";
-const FALLBACK_FUNCTION_NAME: &str = "<fallback>";
-const RECEIVE_FUNCTION_NAME: &str = "<receive>";
 
 #[napi(object)]
 pub struct ContractAndFunctionName {
