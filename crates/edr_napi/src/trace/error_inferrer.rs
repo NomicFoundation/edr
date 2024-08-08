@@ -73,32 +73,6 @@ pub enum Heuristic {
     Miss(SolidityStackTrace),
 }
 
-trait IntoEither<T> {
-    fn into_either(self) -> Either<T, Undefined>;
-}
-
-impl<T> IntoEither<T> for Option<T> {
-    fn into_either(self) -> Either<T, Undefined> {
-        match self {
-            Some(a) => Either::A(a),
-            None => Either::B(()),
-        }
-    }
-}
-
-trait IntoOption<T> {
-    fn into_option(self) -> Option<T>;
-}
-
-impl<T> IntoOption<T> for Either<T, Undefined> {
-    fn into_option(self) -> Option<T> {
-        match self {
-            Either::A(a) => Some(a),
-            Either::B(_) => None,
-        }
-    }
-}
-
 const FIRST_SOLC_VERSION_CREATE_PARAMS_VALIDATION: Version = Version::new(0, 5, 9);
 const FIRST_SOLC_VERSION_RECEIVE_FUNCTION: Version = Version::new(0, 6, 0);
 const FIRST_SOLC_VERSION_WITH_UNMAPPED_REVERTS: &str = "0.6.3";
