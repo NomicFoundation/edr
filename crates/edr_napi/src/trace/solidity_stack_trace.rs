@@ -1,4 +1,5 @@
-//! Naive rewrite of `hardhat-network/stack-traces/solidity-stack-traces.ts` from Hardhat.
+//! Naive rewrite of `hardhat-network/stack-traces/solidity-stack-traces.ts`
+//! from Hardhat.
 
 use napi::bindgen_prelude::{
     BigInt, ClassInstance, Either24, FromNapiValue, ToNapiValue, Uint8Array, Undefined,
@@ -24,7 +25,9 @@ pub enum StackTraceEntryType {
     INVALID_PARAMS_ERROR,
     FALLBACK_NOT_PAYABLE_ERROR,
     FALLBACK_NOT_PAYABLE_AND_NO_RECEIVE_ERROR,
-    UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR, // TODO: Should trying to call a private/internal be a special case of this?
+    UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR, /* TODO: Should trying to call a
+                                                   * private/internal be a special case of
+                                                   * this? */
     MISSING_FALLBACK_OR_RECEIVE_ERROR,
     RETURNDATA_SIZE_ERROR,
     NONCONTRACT_ACCOUNT_CALLED_ERROR,
@@ -72,7 +75,8 @@ pub struct SourceReference {
     pub range: Vec<u32>,
 }
 
-/// A [`StackTraceEntryType`] constant that is convertible to/from a `napi_value`.
+/// A [`StackTraceEntryType`] constant that is convertible to/from a
+/// `napi_value`.
 ///
 /// Since Rust does not allow constants directly as members, we use this wrapper
 /// to allow the `StackTraceEntryType` to be used as a member of an interface

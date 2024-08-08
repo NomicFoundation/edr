@@ -1,7 +1,6 @@
 //! Rewrite of `hardhat-network/provider/return-data.ts` from Hardhat.
 
 use alloy_sol_types::SolError;
-
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
