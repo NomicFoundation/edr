@@ -21,6 +21,7 @@ import {
 import {
   SolidityStackTraceEntry,
   StackTraceEntryType,
+  stackTraceEntryTypeToString,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
 import { SolidityTracer } from "hardhat/internal/hardhat-network/stack-traces/solidityTracer";
 import { VmTraceDecoder } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
@@ -303,7 +304,7 @@ function compareStackTraces(
     const actual = trace[i];
     const expected = description[i];
 
-    const actualErrorType = StackTraceEntryType[actual.type];
+    const actualErrorType = stackTraceEntryTypeToString(actual.type);
     const expectedErrorType = expected.type;
 
     if (

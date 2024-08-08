@@ -30,6 +30,10 @@ COMMITS=(
   0bdc767826aba3b7ae2c4de02687d1743fb05813
   # refactor: Port the VmTraceDecoder from Hardhat
   137cfb33a8868329ae4d3d3903f4c7bf8838a50f
+  # refactor: Port solidity-stack-trace.ts
+  dc28ac9fcfa1f7096677f800226bad5f801fe89a
+  # refactor: Port return-data.ts
+  b65376b10590219711309df2aabc9f02e62a9b50
 )
 
 for commit in "${COMMITS[@]}"; do
