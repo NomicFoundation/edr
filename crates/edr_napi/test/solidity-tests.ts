@@ -18,20 +18,20 @@ describe("Solidity Tests", () => {
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
 
-    const results: Array<SuiteResult> = await new Promise((resolve) => {
-      const gasReport = false;
+    const results: Array<SuiteResult> = await new Promise((resolve, reject) => {
       const resultsFromCallback: Array<SuiteResult> = [];
 
       runSolidityTests(
         artifacts,
         testSuites,
-        gasReport,
+        { projectRoot: __dirname },
         (result: SuiteResult) => {
           resultsFromCallback.push(result);
           if (resultsFromCallback.length === artifacts.length) {
             resolve(resultsFromCallback);
           }
         },
+        reject,
       );
     });
 
