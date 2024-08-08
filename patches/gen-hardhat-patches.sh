@@ -34,6 +34,19 @@ COMMITS=(
   dc28ac9fcfa1f7096677f800226bad5f801fe89a
   # refactor: Port return-data.ts
   b65376b10590219711309df2aabc9f02e62a9b50
+  # Start porting SolidityTracer
+  fc7f3ab32e51fed39a41c943923368ade43a9fba
+  # Start porting ErrorInferrer
+  ab8e8cedfe399f687d19e32344b0f316f21c125f
+  # Port 99% of the ErrorInferrer
+  c9ec023d08e25ff11b899f721dcc845daa428a38
+  # Prune StackTraceEntry.message to make it clonable
+  243b2a76be55f9ac90bc0522f4c4100b60b0d192
+  # Port mapped-inlined-internal-functions-heuristics.ts
+  cc0ff8069444a8c98b014bc72191e5b0ec8fbac3
+  # Finish porting ErrorInferrer and SolidityTracer
+  cb1e10ff142964e0afaecf4753bc82398810195f
+
 )
 
 for commit in "${COMMITS[@]}"; do
