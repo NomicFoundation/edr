@@ -16,7 +16,7 @@ use crate::debug::GetContextData;
 
 /// Registers trace collector handles to the EVM handler.
 pub fn register_trace_collector_handles<
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
     DatabaseT: Database,
     ContextT: GetContextData<TraceCollector<ChainSpecT>>,
 >(
@@ -123,7 +123,7 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
     interpreter: &mut Interpreter,
     host: &mut Context<ChainSpecT, ContextT, DatabaseT>,
 ) where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
     ContextT: GetContextData<TraceCollector<ChainSpecT>>,
     DatabaseT: Database,
 {
@@ -312,7 +312,7 @@ pub struct TraceCollector<ChainSpecT: revm::primitives::ChainSpec> {
     verbose: bool,
 }
 
-impl<ChainSpecT: revm::primitives::ChainSpec> TraceCollector<ChainSpecT> {
+impl<ChainSpecT: revm::ChainSpec> TraceCollector<ChainSpecT> {
     /// Create a trace collector. If verbose is `true` full stack and memory
     /// will be recorded.
     pub fn new(verbose: bool) -> Self {

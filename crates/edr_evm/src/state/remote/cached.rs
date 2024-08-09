@@ -1,3 +1,4 @@
+use derive_where::derive_where;
 use edr_eth::{Address, B256, U256};
 use edr_rpc_eth::spec::RpcSpec;
 use revm::{
@@ -9,7 +10,7 @@ use super::RemoteState;
 use crate::state::{account::EdrAccount, StateError};
 
 /// A cached version of [`RemoteState`].
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct CachedRemoteState<ChainSpecT: RpcSpec> {
     remote: RemoteState<ChainSpecT>,
     /// Mapping of block numbers to cached accounts
@@ -133,7 +134,8 @@ fn fetch_remote_account<ChainSpecT: RpcSpec>(
 mod tests {
     use std::{str::FromStr, sync::Arc};
 
-    use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
+    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use tokio::runtime;
 
@@ -143,9 +145,12 @@ mod tests {
     async fn no_cache_for_unsafe_block_number() {
         let tempdir = tempfile::tempdir().expect("can create tempdir");
 
-        let rpc_client =
-            EthRpcClient::<EthRpcSpec>::new(&get_alchemy_url(), tempdir.path().to_path_buf(), None)
-                .expect("url ok");
+        let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+            &get_alchemy_url(),
+            tempdir.path().to_path_buf(),
+            None,
+        )
+        .expect("url ok");
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");

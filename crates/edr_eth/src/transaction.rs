@@ -11,13 +11,13 @@ pub mod pooled;
 pub mod request;
 /// Types for signed transactions.
 pub mod signed;
-mod r#type;
 
-use revm_primitives::B256;
-pub use revm_primitives::{alloy_primitives::TxKind, Transaction};
+use std::str::FromStr;
 
-pub use self::r#type::TransactionType;
-use crate::{AccessListItem, Address, Bytes, U256};
+pub use revm_primitives::{alloy_primitives::TxKind, Transaction, TransactionValidation};
+use revm_primitives::{ruint, B256};
+
+use crate::{AccessListItem, Address, Bytes, U256, U8};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -52,14 +52,113 @@ pub enum Signed {
     Eip4844(signed::Eip4844),
 }
 
-pub trait SignedTransaction: Transaction {
+/// The type of transaction.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Type {
+    /// Legacy transaction
+    Legacy = signed::Legacy::TYPE,
+    /// EIP-2930 transaction
+    Eip2930 = signed::Eip2930::TYPE,
+    /// EIP-1559 transaction
+    Eip1559 = signed::Eip1559::TYPE,
+    /// EIP-4844 transaction
+    Eip4844 = signed::Eip4844::TYPE,
+}
+
+impl From<Type> for u8 {
+    fn from(t: Type) -> u8 {
+        t as u8
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("{0}")]
+    BaseConvertError(ruint::BaseConvertError),
+    #[error("Invalid digit: {0}")]
+    InvalidDigit(char),
+    #[error("Invalid radix. Only hexadecimal is supported.")]
+    InvalidRadix,
+    #[error("Unknown transaction type: {0}")]
+    UnknownType(u8),
+}
+
+impl From<ruint::ParseError> for ParseError {
+    fn from(error: ruint::ParseError) -> Self {
+        match error {
+            ruint::ParseError::InvalidDigit(c) => ParseError::InvalidDigit(c),
+            ruint::ParseError::InvalidRadix(_) => ParseError::InvalidRadix,
+            ruint::ParseError::BaseConvertError(error) => ParseError::BaseConvertError(error),
+        }
+    }
+}
+
+impl FromStr for Type {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_char_boundary(2) {
+            let (prefix, rest) = s.split_at(2);
+            if prefix == "0x" {
+                let value = U8::from_str_radix(rest, 16)?;
+
+                Type::try_from(value.to::<u8>()).map_err(ParseError::UnknownType)
+            } else {
+                Err(ParseError::InvalidRadix)
+            }
+        } else {
+            Err(ParseError::InvalidRadix)
+        }
+    }
+}
+
+impl TryFrom<u8> for Type {
+    type Error = u8;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            signed::Legacy::TYPE => Ok(Self::Legacy),
+            signed::Eip2930::TYPE => Ok(Self::Eip2930),
+            signed::Eip1559::TYPE => Ok(Self::Eip1559),
+            signed::Eip4844::TYPE => Ok(Self::Eip4844),
+            value => Err(value),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'deserializer> serde::Deserialize<'deserializer> for Type {
+    fn deserialize<D>(deserializer: D) -> Result<Type, D::Error>
+    where
+        D: serde::Deserializer<'deserializer>,
+    {
+        let value = U8::deserialize(deserializer)?;
+        Type::try_from(value.to::<u8>()).map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Type {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        U8::serialize(&U8::from(u8::from(*self)), serializer)
+    }
+}
+
+pub trait SignedTransaction: Transaction + TransactionType {
     /// The effective gas price of the transaction, calculated using the
-    /// provided block base fee.
-    fn effective_gas_price(&self, block_base_fee: U256) -> U256;
+    /// provided block base fee. Only applicable for post-EIP-1559 transactions.
+    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256>;
 
     /// The maximum fee per gas the sender is willing to pay. Only applicable
     /// for post-EIP-1559 transactions.
     fn max_fee_per_gas(&self) -> Option<U256>;
+
+    /// The enveloped (EIP-2718) RLP-encoding of the transaction.
+    fn rlp_encoding(&self) -> &Bytes;
 
     /// The total amount of blob gas used by the transaction. Only applicable
     /// for EIP-4844 transactions.
@@ -67,14 +166,19 @@ pub trait SignedTransaction: Transaction {
 
     /// The hash of the transaction.
     fn transaction_hash(&self) -> &B256;
-
-    /// The type of the transaction.
-    fn transaction_type(&self) -> TransactionType;
 }
 
 pub trait TransactionMut {
     /// Sets the gas limit of the transaction.
     fn set_gas_limit(&mut self, gas_limit: u64);
+}
+
+pub trait TransactionType {
+    /// Type of the transaction.
+    type Type;
+
+    /// Returns the type of the transaction.
+    fn transaction_type(&self) -> Self::Type;
 }
 
 pub fn max_cost(transaction: &impl SignedTransaction) -> U256 {
@@ -124,9 +228,9 @@ pub struct EthTransactionRequest {
     /// EIP-2718 type
     #[cfg_attr(
         feature = "serde",
-        serde(default, rename = "type", with = "crate::serde::optional_u64")
+        serde(default, rename = "type", with = "crate::serde::optional_u8")
     )]
-    pub transaction_type: Option<u64>,
+    pub transaction_type: Option<u8>,
     /// Blobs (EIP-4844)
     pub blobs: Option<Vec<Bytes>>,
     /// Blob versioned hashes (EIP-4844)

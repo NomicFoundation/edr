@@ -3,14 +3,14 @@ use std::cmp;
 
 use edr_eth::{
     block::Header,
+    chain_spec::L1ChainSpec,
     result::ExecutionResult,
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut as _},
-    U256,
+    Address, HashMap, Precompile, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    chain_spec::L1ChainSpec,
     evm::handler::CfgEnvWithChainSpec,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
@@ -24,13 +24,14 @@ use crate::{
 };
 
 pub(super) struct CheckGasLimitArgs<'a> {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnvWithChainSpec<L1ChainSpec>,
     pub transaction: transaction::Signed,
     pub gas_limit: u64,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector<L1ChainSpec>,
 }
 
@@ -48,6 +49,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         cfg_env,
         mut transaction,
         gas_limit,
+        precompiles,
         trace_collector,
     } = args;
 
@@ -60,6 +62,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
         state_overrides,
         cfg_env,
         transaction,
+        precompiles,
         debug_context: Some(DebugContext {
             data: trace_collector,
             register_handles_fn: register_trace_collector_handles,
@@ -70,7 +73,7 @@ pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
 }
 
 pub(super) struct BinarySearchEstimationArgs<'a> {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -78,6 +81,7 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
     pub transaction: transaction::Signed,
     pub lower_bound: u64,
     pub upper_bound: u64,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector<L1ChainSpec>,
 }
 
@@ -98,6 +102,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
         transaction,
         mut lower_bound,
         mut upper_bound,
+        precompiles,
         trace_collector,
     } = args;
 
@@ -120,6 +125,7 @@ pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
             cfg_env: cfg_env.clone(),
             transaction: transaction.clone(),
             gas_limit: mid,
+            precompiles,
             trace_collector,
         })?;
 
@@ -155,7 +161,7 @@ fn min_difference(lower_bound: u64) -> u64 {
 
 /// Compute miner rewards for percentiles.
 pub(super) fn compute_rewards<LoggerErrorT: Debug>(
-    block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError>,
+    block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
     reward_percentiles: &[RewardPercentile],
 ) -> Result<Vec<U256>, ProviderError<LoggerErrorT>> {
     if block.transactions().is_empty() {

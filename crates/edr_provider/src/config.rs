@@ -1,10 +1,10 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas, spec::HardforkActivations, AccountInfo, Address, ChainId, HashMap, SpecId,
-    B256, U256,
+    block::BlobGas, chain_spec::L1ChainSpec, AccountInfo, Address, ChainId, HashMap, SpecId, B256,
+    U256,
 };
-use edr_evm::MineOrdering;
+use edr_evm::{hardfork, MineOrdering};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -84,8 +84,9 @@ pub struct ProviderConfig {
     pub block_gas_limit: NonZeroU64,
     pub cache_dir: PathBuf,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, HardforkActivations>,
+    pub chains: HashMap<ChainId, hardfork::Activations<L1ChainSpec>>,
     pub coinbase: Address,
+    pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     // Genesis accounts in addition to accounts. Useful for adding impersonated accounts for tests.
     pub genesis_accounts: HashMap<Address, AccountInfo>,

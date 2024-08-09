@@ -1,0 +1,24 @@
+diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
+index 6564b3c6687c6371e422eaacd76a6ef6e7fd8a36..c08257afe197482cd3b86f840364693a5a5943ae 100644
+--- a/internal/hardhat-network/provider/provider.js
++++ b/internal/hardhat-network/provider/provider.js
+@@ -152,6 +152,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             }),
+             cacheDir: config.forkCachePath,
+             coinbase: Buffer.from(coinbase.slice(2), "hex"),
++            enableRip7212: false,
+             fork,
+             hardfork: (0, convertToEdr_1.ethereumsjsHardforkToEdrSpecId)(hardforkName),
+             genesisAccounts: config.genesisAccounts.map((account) => {
+diff --git a/src/internal/hardhat-network/provider/provider.ts b/src/internal/hardhat-network/provider/provider.ts
+index 4f1197ec3e27c8e0584276629b6783add9687573..e53dc2b3e13e900f04886187f970ed56d7a654dd 100644
+--- a/src/internal/hardhat-network/provider/provider.ts
++++ b/src/internal/hardhat-network/provider/provider.ts
+@@ -256,6 +256,7 @@ export class EdrProviderWrapper
+         }),
+         cacheDir: config.forkCachePath,
+         coinbase: Buffer.from(coinbase.slice(2), "hex"),
++        enableRip7212: false,
+         fork,
+         hardfork: ethereumsjsHardforkToEdrSpecId(hardforkName),
+         genesisAccounts: config.genesisAccounts.map((account) => {

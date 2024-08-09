@@ -2,13 +2,13 @@ use core::fmt::Debug;
 
 use edr_eth::{
     block::{BlobGas, Header},
+    chain_spec::L1ChainSpec,
     env::{BlobExcessGasAndPrice, BlockEnv},
     result::ExecutionResult,
-    SpecId, U256,
+    Address, HashMap, Precompile, SpecId, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    chain_spec::L1ChainSpec,
     evm::handler::CfgEnvWithChainSpec,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
@@ -21,19 +21,20 @@ pub(super) struct RunCallArgs<'a, 'evm, DebugDataT>
 where
     'a: 'evm,
 {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnvWithChainSpec<L1ChainSpec>,
     pub transaction: transaction::Signed,
+    pub precompiles: &'a HashMap<Address, Precompile>,
     // `DebugContext` cannot be simplified further
     #[allow(clippy::type_complexity)]
     pub debug_context: Option<
         DebugContext<
             'evm,
             L1ChainSpec,
-            BlockchainError,
+            BlockchainError<L1ChainSpec>,
             DebugDataT,
             StateRefOverrider<'a, &'evm dyn SyncState<StateError>>,
         >,
@@ -54,6 +55,7 @@ where
         state_overrides,
         cfg_env,
         transaction: tx_env,
+        precompiles,
         debug_context,
     } = args;
 
@@ -82,6 +84,7 @@ where
         cfg_env,
         tx_env,
         block,
+        precompiles,
         debug_context,
     )
     .map_or_else(

@@ -1,8 +1,7 @@
 use core::fmt::Debug;
 
-use edr_eth::db::Database;
+use edr_eth::{chain_spec::L1ChainSpec, db::Database};
 use edr_evm::{
-    chain_spec::L1ChainSpec,
     evm::handler::register::EvmHandler,
     trace::{register_trace_collector_handles, TraceCollector},
     GetContextData,
@@ -13,7 +12,7 @@ use crate::{
     mock::{register_mocking_handles, Mocker},
 };
 
-/// Registers the EIP-3155 tracer handles.
+/// Registers debugger handles.
 pub fn register_debugger_handles<DatabaseT, ContextT>(
     handler: &mut EvmHandler<'_, L1ChainSpec, ContextT, DatabaseT>,
 ) where

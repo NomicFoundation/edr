@@ -4,6 +4,8 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
+alloy-serde = { version = "0.2.0", default-features = false, features = ["std"] }
+derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_rpc_client = { version = "0.3.5", path = "../edr_rpc_client" }
 futures = { version = "0.3.28", default-features = false, features = ["std"] }
@@ -16,14 +18,17 @@ tracing = { version = "0.1.37", default-features = false, features = ["attribute
 
 [dev-dependencies]
 anyhow = { version = "1.0.75", default-features = false, features = ["std"] }
+assert-json-diff = "2.0.2"
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 mockito = { version = "1.0.2", default-features = false }
+paste = { version = "1.0.14", default-features = false }
 reqwest = { version = "0.11", default-features = false, features = ["blocking", "json"] }
 serde_json = { version = "1.0.89" }
 tempfile = { version = "3.7.1", default-features = false }
 walkdir = { version = "2.3.3", default-features = false }
 
 [features]
+test-utils = []
 test-remote = []
 tracing = ["dep:tracing", "edr_rpc_client/tracing"]
 

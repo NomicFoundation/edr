@@ -37,6 +37,7 @@ describe("Provider", () => {
     chainId: 123n,
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
+    enableRip7212: false,
     genesisAccounts: [
       {
         secretKey:

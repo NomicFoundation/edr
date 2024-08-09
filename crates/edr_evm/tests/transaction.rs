@@ -9,14 +9,15 @@ mod alchemy {
                     #[tokio::test]
                     async fn [<transaction_remote_ $name _hash>]() {
                         use edr_eth::{
+                            chain_spec::L1ChainSpec,
                             transaction::{self, SignedTransaction as _},
                             PreEip1898BlockSpec,
                             B256
                         };
-                        use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
+                        use edr_rpc_eth::client::EthRpcClient;
                         use edr_test_utils::env::get_alchemy_url;
 
-                        let client = EthRpcClient::<EthRpcSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
+                        let client = EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
 
                         let block = client
                             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number($block_number))

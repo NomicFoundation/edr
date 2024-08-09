@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use edr_evm::{chain_spec::L1ChainSpec, interpreter::OpCode, trace::BeforeMessage};
+use edr_eth::chain_spec::L1ChainSpec;
+use edr_evm::{interpreter::OpCode, trace::BeforeMessage};
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Env, JsBuffer, JsBufferValue,

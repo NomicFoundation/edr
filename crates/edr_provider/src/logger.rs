@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::convert::Infallible;
 
 use dyn_clone::DynClone;
-use edr_eth::transaction;
+use edr_eth::{chain_spec::L1ChainSpec, transaction};
 use edr_evm::blockchain::BlockchainError;
 
 use crate::{
@@ -109,7 +109,7 @@ impl<BlockchainErrorT, LoggerErrorT> Clone
 pub struct NoopLogger;
 
 impl Logger for NoopLogger {
-    type BlockchainError = BlockchainError;
+    type BlockchainError = BlockchainError<L1ChainSpec>;
 
     type LoggerError = Infallible;
 

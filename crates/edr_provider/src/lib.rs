@@ -21,8 +21,8 @@ pub mod time;
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::HashSet;
-use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, trace::Trace};
+use edr_eth::{chain_spec::L1ChainSpec, HashSet};
+use edr_evm::{blockchain::BlockchainError, trace::Trace};
 use lazy_static::lazy_static;
 use logger::SyncLogger;
 use mock::SyncCallOverride;
@@ -112,11 +112,16 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
     /// Constructs a new instance.
     pub fn new(
         runtime: runtime::Handle,
-        logger: Box<dyn SyncLogger<BlockchainError = BlockchainError, LoggerError = LoggerErrorT>>,
+        logger: Box<
+            dyn SyncLogger<
+                BlockchainError = BlockchainError<L1ChainSpec>,
+                LoggerError = LoggerErrorT,
+            >,
+        >,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         config: ProviderConfig,
         timer: TimerT,
-    ) -> Result<Self, CreationError> {
+    ) -> Result<Self, CreationError<L1ChainSpec>> {
         let data = ProviderData::new(
             runtime.clone(),
             logger,

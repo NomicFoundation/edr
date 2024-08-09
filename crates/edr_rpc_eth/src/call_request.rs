@@ -26,8 +26,8 @@ pub struct CallRequest {
     /// warm storage access pre-payment
     pub access_list: Option<Vec<AccessListItem>>,
     /// EIP-2718 type
-    #[serde(default, rename = "type")]
-    pub transaction_type: Option<U256>,
+    #[serde(default, rename = "type", with = "edr_eth::serde::optional_u8")]
+    pub transaction_type: Option<u8>,
     /// Blobs (EIP-4844)
     pub blobs: Option<Vec<Bytes>>,
     /// Blob versioned hashes (EIP-4844)
