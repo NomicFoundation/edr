@@ -392,7 +392,6 @@ export interface SubmessageData {
   stacktrace: SolidityStackTrace
   stepIndex: number
 }
-export function instructionToCallstackStackTraceEntry(bytecode: Bytecode, inst: Instruction): CallstackEntryStackTraceEntry | InternalFunctionCallStackEntry
 /** Represents the exit code of the EVM. */
 export const enum ExitCode {
   /** Execution was successful. */
@@ -1006,14 +1005,6 @@ export class Contract {
 export class ContractsIdentifier {
   constructor(enableCache?: boolean | undefined | null)
   addBytecode(bytecode: Bytecode): void
-}
-export class ErrorInferrer {
-  
-  constructor()
-  inferBeforeTracingCallMessage(trace: CallMessageTrace): SolidityStackTrace | undefined
-  inferBeforeTracingCreateMessage(trace: CreateMessageTrace): SolidityStackTrace | undefined
-  inferAfterTracing(trace: CallMessageTrace | CreateMessageTrace, stacktrace: SolidityStackTrace, functionJumpdests: Array<Instruction>, jumpedIntoFunction: boolean, lastSubmessageData: SubmessageData | undefined): SolidityStackTrace
-  filterRedundantFrames(stacktrace: SolidityStackTrace): SolidityStackTrace
 }
 export class Exit {
   get kind(): ExitCode

@@ -123,7 +123,7 @@ impl SolidityTracer {
         trace: &CreateMessageTrace,
         env: Env,
     ) -> napi::Result<SolidityStackTrace> {
-        let inferred_error = ErrorInferrer.infer_before_tracing_create_message_inner(trace, env)?;
+        let inferred_error = ErrorInferrer::infer_before_tracing_create_message(trace, env)?;
 
         if let Some(inferred_error) = inferred_error {
             return Ok(inferred_error);
@@ -137,7 +137,7 @@ impl SolidityTracer {
         trace: &CallMessageTrace,
         env: Env,
     ) -> napi::Result<SolidityStackTrace> {
-        let inferred_error = ErrorInferrer.infer_before_tracing_call_message_inner(trace, env)?;
+        let inferred_error = ErrorInferrer::infer_before_tracing_call_message(trace, env)?;
 
         if let Some(inferred_error) = inferred_error {
             return Ok(inferred_error);
@@ -328,7 +328,7 @@ impl SolidityTracer {
             .collect::<Result<Vec<_>, _>>()?;
         let function_jumpdests = function_jumpdests.iter().map(|x| &**x).collect::<Vec<_>>();
 
-        let stacktrace_with_inferred_error = ErrorInferrer.infer_after_tracing_inner(
+        let stacktrace_with_inferred_error = ErrorInferrer::infer_after_tracing(
             trace,
             stacktrace,
             &function_jumpdests,
@@ -337,6 +337,6 @@ impl SolidityTracer {
             env,
         )?;
 
-        ErrorInferrer.filter_redundant_frames(stacktrace_with_inferred_error)
+        ErrorInferrer::filter_redundant_frames(stacktrace_with_inferred_error)
     }
 }
