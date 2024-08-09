@@ -61,14 +61,14 @@ pub trait ChainSpec:
     >;
 
     /// Type representing an error that occurs when converting an RPC block.
-    type RpcBlockConversionError: Debug + std::error::Error;
+    type RpcBlockConversionError: std::error::Error;
 
     /// Type representing an error that occurs when converting an RPC receipt.
-    type RpcReceiptConversionError: Debug + std::error::Error;
+    type RpcReceiptConversionError: std::error::Error;
 
     /// Type representing an error that occurs when converting an RPC
     /// transaction.
-    type RpcTransactionConversionError: Debug + std::error::Error;
+    type RpcTransactionConversionError: std::error::Error;
 
     /// Returns the hardfork activations corresponding to the provided chain ID,
     /// if it is associated with this chain specification.
