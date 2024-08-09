@@ -28,6 +28,9 @@ pub struct Eip4844 {
 }
 
 impl Eip4844 {
+    /// The type identifier for an EIP-4844 transaction.
+    pub const TYPE: u8 = 3;
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         let encoded = alloy_rlp::encode(self);
@@ -74,6 +77,7 @@ impl Eip4844 {
             blob_hashes: self.blob_hashes,
             signature: Fakeable::with_address_unchecked(signature, caller),
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         })
     }
 
@@ -92,6 +96,7 @@ impl Eip4844 {
             blob_hashes: self.blob_hashes,
             signature: signature::Fakeable::fake(address, None),
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         }
     }
 }

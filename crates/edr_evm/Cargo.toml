@@ -4,10 +4,12 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
+anyhow = { version = "1.0.75", optional = true }
 alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
 async-rwlock = { version = "1.3.0", default-features = false }
 auto_impl = { version = "1.2", default-features = false }
 cita_trie = { version = "4.0.0", default-features = false }
+derive-where = { version = "1.2.7", default-features = false }
 dyn-clone = { version = "1.0.13", default-features = false }
 futures = { version = "0.3.28", features = ["alloc", "async-await", "executor", "std"] }
 hasher = { version = "0.1.4", default-features = false, features = ["hash-keccak"] }
@@ -19,7 +21,7 @@ parking_lot = { version = "0.12.1", default-features = false }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["rand", "serde"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
-revm = { git = "https://github.com/NomicFoundation/revm", rev = "14945e92", version = "10.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
+revm = { git = "https://github.com/NomicFoundation/revm", rev = "da8175a2", version = "12.1", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { version = "1.0.158", default-features = false, features = ["std"] }
 serde_json = { version = "1.0.94", default-features = false, features = ["std"] }
@@ -38,7 +40,7 @@ tempfile = "3.7.1"
 
 [features]
 test-remote = []
-test-utils = []
+test-utils = ["dep:anyhow"]
 tracing = ["dep:tracing", "edr_eth/tracing"]
 
 [lints]

@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use edr_eth::{address, db::Database, result::EVMErrorForChain, Address, Bytes};
+use edr_eth::{
+    address, chain_spec::L1ChainSpec, db::Database, result::EVMErrorForChain, Address, Bytes,
+};
 use edr_evm::{
-    chain_spec::L1ChainSpec,
     evm::{handler::register::EvmHandler, FrameOrResult},
     GetContextData,
 };

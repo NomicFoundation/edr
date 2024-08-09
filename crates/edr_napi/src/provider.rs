@@ -2,7 +2,7 @@ mod config;
 
 use std::sync::Arc;
 
-use edr_evm::chain_spec::L1ChainSpec;
+use edr_eth::chain_spec::L1ChainSpec;
 use edr_provider::{time::CurrentTime, InvalidRequestReason};
 use edr_rpc_eth::jsonrpc;
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};

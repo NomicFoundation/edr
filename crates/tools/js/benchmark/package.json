@@ -18,7 +18,7 @@
   "devDependencies": {
     "argparse": "^2.0.1",
     "chai": "^4.2.0",
-    "hardhat": "2.22.5",
+    "hardhat": "2.22.6",
     "lodash": "^4.17.11",
     "mocha": "^10.0.0",
     "tsx": "^4.7.1"

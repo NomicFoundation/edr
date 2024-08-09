@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::receipt::BlockReceipt;
+use edr_eth::{log::FilterLog, receipt::BlockReceipt};
 
 use crate::chain_spec::ChainSpec;
 
@@ -9,5 +9,5 @@ pub struct DetailedTransaction<'transaction, ChainSpecT: ChainSpec> {
     /// The transaction
     pub transaction: &'transaction ChainSpecT::Transaction,
     /// The transaction's receipt
-    pub receipt: &'transaction Arc<BlockReceipt>,
+    pub receipt: &'transaction Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>,
 }

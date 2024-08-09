@@ -1,5 +1,26 @@
 # @nomicfoundation/edr
 
+## 0.5.0
+
+### Minor Changes
+
+- 07c7667: Added support for RIP-7212 by enabling it in the provider configuration
+
+## 0.4.2
+
+### Patch Changes
+
+- b056511: Fixes restriction to disallow remote blocks without a nonce
+- e650c9e: Upgraded revm to v37
+
+## 0.4.1
+
+### Patch Changes
+
+- 245fd07: Provide a more helpful message when passing a timestamp bigger than 2^64 via JSON-RPC
+- d87a8c4: Fixed a problem that prevented forking chains without mix hash fields in their blocks
+- 5984f11: Fixed missing remote contract code when setting storage
+
 ## 0.4.0
 
 ### Minor Changes

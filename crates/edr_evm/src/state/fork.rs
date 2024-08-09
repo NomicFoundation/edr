@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use derive_where::derive_where;
 use edr_eth::{trie::KECCAK_NULL_RLP, Address, B256, U256};
 use edr_rpc_eth::{client::EthRpcClient, spec::RpcSpec};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
@@ -15,7 +16,7 @@ use crate::random::RandomHashGenerator;
 
 /// A database integrating the state from a remote node and the state from a
 /// local layered database.
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct ForkState<ChainSpecT: RpcSpec> {
     local_state: TrieState,
     remote_state: Arc<Mutex<CachedRemoteState<ChainSpecT>>>,
@@ -227,11 +228,10 @@ mod tests {
         str::FromStr,
     };
 
-    use edr_eth::PreEip1898BlockSpec;
+    use edr_eth::{chain_spec::L1ChainSpec, PreEip1898BlockSpec};
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
-    use crate::chain_spec::L1ChainSpec;
 
     const FORK_BLOCK: u64 = 16220843;
 

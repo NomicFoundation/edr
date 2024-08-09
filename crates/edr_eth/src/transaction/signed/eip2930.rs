@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
-use alloy_rlp::{RlpDecodable, RlpEncodable};
+use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 use revm_primitives::keccak256;
 
 use crate::{
     signature::{self, Fakeable},
     transaction::{self, TxKind},
-    utils::envelop_bytes,
+    utils::enveloped,
     AccessList, Address, Bytes, B256, U256,
 };
 
@@ -32,21 +32,33 @@ pub struct Eip2930 {
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
+    /// Cached RLP-encoding
+    #[rlp(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub rlp_encoding: OnceLock<Bytes>,
 }
 
 impl Eip2930 {
+    /// The type identifier for an EIP-2930 transaction.
+    pub const TYPE: u8 = transaction::request::Eip2930::TYPE;
+
     /// Returns the caller/signer of the transaction.
     pub fn caller(&self) -> &Address {
         self.signature.caller()
     }
 
-    pub fn hash(&self) -> &B256 {
-        self.hash.get_or_init(|| {
-            let encoded = alloy_rlp::encode(self);
-            let enveloped = envelop_bytes(1, &encoded);
-
-            keccak256(enveloped)
+    /// Returns the (cached) RLP-encoding of the transaction.
+    pub fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
         })
+    }
+
+    /// Returns the (cached) hash of the transaction.
+    pub fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
     }
 }
 
@@ -97,6 +109,7 @@ impl alloy_rlp::Decodable for Eip2930 {
             access_list: transaction.access_list,
             signature,
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         })
     }
 }
@@ -174,7 +187,7 @@ mod tests {
         let request = dummy_request();
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

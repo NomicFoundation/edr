@@ -3,6 +3,7 @@ mod cached;
 use std::sync::Arc;
 
 pub use cached::CachedRemoteState;
+use derive_where::derive_where;
 use edr_eth::{Address, BlockSpec, PreEip1898BlockSpec, B256, U256};
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -18,7 +19,7 @@ use super::StateError;
 use crate::{chain_spec::ChainSpec, EthRpcBlock as _};
 
 /// A state backed by a remote Ethereum node
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct RemoteState<ChainSpecT: RpcSpec> {
     client: Arc<EthRpcClient<ChainSpecT>>,
     runtime: runtime::Handle,
@@ -111,7 +112,7 @@ impl<ChainSpecT: RpcSpec> StateRef for RemoteState<ChainSpecT> {
 mod tests {
     use std::str::FromStr;
 
-    use edr_rpc_eth::spec::EthRpcSpec;
+    use edr_eth::chain_spec::L1ChainSpec;
     use tokio::runtime;
 
     use super::*;
@@ -126,7 +127,7 @@ mod tests {
             .expect("couldn't convert OsString into a String");
 
         let rpc_client =
-            EthRpcClient::<EthRpcSpec>::new(&alchemy_url, tempdir.path().to_path_buf(), None)
+            EthRpcClient::<L1ChainSpec>::new(&alchemy_url, tempdir.path().to_path_buf(), None)
                 .expect("url ok");
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")

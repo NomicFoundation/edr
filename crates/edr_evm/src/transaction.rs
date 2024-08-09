@@ -10,7 +10,7 @@ use edr_eth::{SpecId, U256};
 use revm::{
     db::DatabaseComponentError,
     interpreter::gas::validate_initial_tx_gas,
-    primitives::{EVMError, EVMErrorForChain, TransactionValidation},
+    primitives::{EVMError, EVMErrorForChain},
 };
 
 pub use self::detailed::*;
@@ -126,12 +126,13 @@ pub fn validate<TransactionT: SignedTransaction>(
 }
 
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl SignedTransaction, spec_id: SpecId) -> u64 {
+pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),
         transaction.kind() == TxKind::Create,
         transaction.access_list(),
+        0,
     )
 }
 

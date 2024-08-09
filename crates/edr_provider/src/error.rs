@@ -3,6 +3,7 @@ use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
+    chain_spec::L1ChainSpec,
     filter::SubscriptionType,
     hex,
     result::{ExecutionResult, HaltReason, InvalidTransaction, OutOfGasError},
@@ -10,7 +11,6 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::BlockchainError,
-    chain_spec::L1ChainSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
@@ -52,11 +52,11 @@ pub enum ProviderError<LoggerErrorT> {
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(#[from] BlockchainError),
+    Blockchain(#[from] BlockchainError<L1ChainSpec>),
     #[error(transparent)]
-    Creation(#[from] CreationError),
+    Creation(#[from] CreationError<L1ChainSpec>),
     #[error(transparent)]
-    DebugTrace(#[from] DebugTraceError<L1ChainSpec, BlockchainError, StateError>),
+    DebugTrace(#[from] DebugTraceError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
     #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
     Eip4844CallRequestUnsupported,
     #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
@@ -122,10 +122,12 @@ pub enum ProviderError<LoggerErrorT> {
     MemPoolUpdate(StateError),
     /// An error occurred while mining a block.
     #[error(transparent)]
-    MineBlock(#[from] MineBlockError<L1ChainSpec, BlockchainError, StateError>),
+    MineBlock(#[from] MineBlockError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
-    MineTransaction(#[from] MineTransactionError<L1ChainSpec, BlockchainError, StateError>),
+    MineTransaction(
+        #[from] MineTransactionError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
+    ),
     /// Rpc client error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -134,7 +136,7 @@ pub enum ProviderError<LoggerErrorT> {
     RpcVersion(jsonrpc::Version),
     /// Error while running a transaction
     #[error(transparent)]
-    RunTransaction(#[from] TransactionError<L1ChainSpec, BlockchainError, StateError>),
+    RunTransaction(#[from] TransactionError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
     #[error("hardhat_setMinGasPrice is not supported when EIP-1559 is active")]
@@ -406,7 +408,7 @@ impl TransactionFailure {
         solidity_trace: Trace<L1ChainSpec>,
     ) -> Self {
         let reason = match halt {
-            HaltReason::OpcodeNotFound | HaltReason::InvalidEFOpcode => {
+            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
                 TransactionFailureReason::OpcodeNotFound
             }
             HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),

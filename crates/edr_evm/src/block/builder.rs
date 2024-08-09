@@ -5,9 +5,10 @@ use std::{
 
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
-    log::{add_log_to_bloom, Log},
-    receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::{self, SignedTransaction as _, TransactionType},
+    log::ExecutionLog,
+    receipt::{ExecutionReceiptBuilder as _, Receipt as _, TransactionReceipt},
+    result::InvalidTransaction,
+    transaction::SignedTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
@@ -16,8 +17,8 @@ use revm::{
     db::{DatabaseComponents, StateRef},
     handler::{CfgEnvWithChainSpec, EnvWithChainSpec},
     primitives::{
-        BlobExcessGasAndPrice, BlockEnv, ExecutionResult, Output, ResultAndState, SpecId,
-        Transaction as _, MAX_BLOB_GAS_PER_BLOCK,
+        ExecutionResult, ResultAndState, SpecId, Transaction as _, TransactionValidation,
+        MAX_BLOB_GAS_PER_BLOCK,
     },
     Context, DatabaseCommit, Evm, InnerEvmContext,
 };
@@ -25,24 +26,22 @@ use revm::{
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::{ChainSpec, L1ChainSpec},
+    chain_spec::{BlockEnvConstructor, ChainSpec},
     debug::{DebugContext, EvmContext},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
     transaction::TransactionError,
     SyncBlock,
 };
 
-const DAO_EXTRA_DATA: &[u8] = b"dao-hard-fork";
-
 /// An error caused during construction of a block builder.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockBuilderCreationError {
-    /// The extra data is invalid for a DAO hardfork.
-    #[error("extraData should be dao-hard-fork")]
-    DaoHardforkInvalidData,
+pub enum BlockBuilderCreationError<ChainSpecT>
+where
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
+{
     /// Unsupported hardfork. Hardforks older than Byzantium are not supported
     #[error("Unsupported hardfork: {0:?}. Hardforks older than Byzantium are not supported.")]
-    UnsupportedHardfork(SpecId),
+    UnsupportedHardfork(ChainSpecT::Hardfork),
 }
 
 /// An error caused during execution of a transaction while building a block.
@@ -72,7 +71,7 @@ pub struct ExecutionResultWithContext<
     DebugDataT,
     StateT: StateRef,
 > where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::ChainSpec,
 {
     /// The result of executing the transaction.
     pub result: Result<
@@ -80,7 +79,7 @@ pub struct ExecutionResultWithContext<
         BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
     >,
     /// The context in which the transaction was executed.
-    pub evm_context: EvmContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
+    pub evm_context: EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>,
 }
 
 /// The result of building a block, using the [`BlockBuilder`].
@@ -92,26 +91,28 @@ pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
 }
 
 /// A builder for constructing Ethereum blocks.
-pub struct BlockBuilder {
-    cfg: CfgEnvWithChainSpec<L1ChainSpec>,
+pub struct BlockBuilder<ChainSpecT: ChainSpec> {
+    cfg: CfgEnvWithChainSpec<ChainSpecT>,
     header: PartialHeader,
-    transactions: Vec<transaction::Signed>,
+    transactions: Vec<ChainSpecT::Transaction>,
     state_diff: StateDiff,
-    receipts: Vec<TransactionReceipt<Log>>,
+    receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>>,
     parent_gas_limit: Option<u64>,
     withdrawals: Option<Vec<Withdrawal>>,
 }
 
-impl BlockBuilder {
+impl<ChainSpecT> BlockBuilder<ChainSpecT>
+where
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
+{
     /// Creates an intance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new<BlockchainErrorT>(
-        cfg: CfgEnvWithChainSpec<L1ChainSpec>,
-        parent: &dyn SyncBlock<L1ChainSpec, Error = BlockchainErrorT>,
+        cfg: CfgEnvWithChainSpec<ChainSpecT>,
+        parent: &dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>,
         mut options: BlockOptions,
-        dao_hardfork_activation_block: Option<u64>,
-    ) -> Result<Self, BlockBuilderCreationError> {
-        if cfg.spec_id < SpecId::BYZANTIUM {
+    ) -> Result<Self, BlockBuilderCreationError<ChainSpecT>> {
+        if cfg.spec_id.into() < SpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec_id));
         }
 
@@ -123,7 +124,7 @@ impl BlockBuilder {
         };
 
         let withdrawals = std::mem::take(&mut options.withdrawals).or_else(|| {
-            if cfg.spec_id >= SpecId::SHANGHAI {
+            if cfg.spec_id.into() >= SpecId::SHANGHAI {
                 Some(Vec::new())
             } else {
                 None
@@ -131,19 +132,7 @@ impl BlockBuilder {
         });
 
         options.parent_hash = Some(*parent.hash());
-        let header = PartialHeader::new(cfg.spec_id, options, Some(parent_header));
-
-        if let Some(dao_hardfork_activation_block) = dao_hardfork_activation_block {
-            const DAO_FORCE_EXTRA_DATA_RANGE: u64 = 9;
-
-            let drift = header.number - dao_hardfork_activation_block;
-            if cfg.spec_id >= SpecId::DAO_FORK
-                && drift <= DAO_FORCE_EXTRA_DATA_RANGE
-                && *header.extra_data != DAO_EXTRA_DATA
-            {
-                return Err(BlockBuilderCreationError::DaoHardforkInvalidData);
-            }
-        }
+        let header = PartialHeader::new::<ChainSpecT>(cfg.spec_id, options, Some(parent_header));
 
         Ok(Self {
             cfg,
@@ -155,9 +144,11 @@ impl BlockBuilder {
             withdrawals,
         })
     }
+}
 
+impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
     /// Retrieves the config of the block builder.
-    pub fn config(&self) -> &CfgEnvWithChainSpec<L1ChainSpec> {
+    pub fn config(&self) -> &CfgEnvWithChainSpec<ChainSpecT> {
         &self.cfg
     }
 
@@ -176,19 +167,96 @@ impl BlockBuilder {
         &self.header
     }
 
+    /// Finalizes the block, returning the block and the callers of the
+    /// transactions.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn finalize<StateT, StateErrorT>(
+        mut self,
+        state: &mut StateT,
+        rewards: Vec<(Address, U256)>,
+    ) -> Result<BuildBlockResult<ChainSpecT>, StateErrorT>
+    where
+        StateT: SyncState<StateErrorT> + ?Sized,
+        StateErrorT: Debug + Send,
+    {
+        for (address, reward) in rewards {
+            if reward > U256::ZERO {
+                let account_info = state.modify_account(
+                    address,
+                    AccountModifierFn::new(Box::new(move |balance, _nonce, _code| {
+                        *balance += reward;
+                    })),
+                )?;
+
+                self.state_diff.apply_account_change(address, account_info);
+            }
+        }
+
+        if let Some(gas_limit) = self.parent_gas_limit {
+            self.header.gas_limit = gas_limit;
+        }
+
+        self.header.logs_bloom = {
+            let mut logs_bloom = Bloom::ZERO;
+            self.receipts.iter().for_each(|receipt| {
+                logs_bloom.accrue_bloom(receipt.logs_bloom());
+            });
+            logs_bloom
+        };
+
+        self.header.receipts_root = ordered_trie_root(self.receipts.iter().map(alloy_rlp::encode));
+
+        // Only set the state root if it wasn't specified during construction
+        if self.header.state_root == KECCAK_NULL_RLP {
+            self.header.state_root = state
+                .state_root()
+                .expect("Must be able to calculate state root");
+        }
+
+        // Only set the timestamp if it wasn't specified during construction
+        if self.header.timestamp == 0 {
+            self.header.timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("Current time must be after unix epoch")
+                .as_secs();
+        }
+
+        // TODO: handle ommers
+        let block = LocalBlock::new(
+            self.header,
+            self.transactions,
+            self.receipts,
+            Vec::new(),
+            self.withdrawals,
+        );
+
+        Ok(BuildBlockResult {
+            block,
+            state_diff: self.state_diff,
+        })
+    }
+}
+
+impl<ChainSpecT> BlockBuilder<ChainSpecT>
+where
+    ChainSpecT: ChainSpec<
+        Block: Default,
+        Transaction: Clone
+                         + Default
+                         + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+{
     /// Adds a pending transaction to
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn add_transaction<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT, StateErrorT>(
         &mut self,
-        blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
+        blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: StateT,
-        transaction: transaction::Signed,
-        debug_context: Option<
-            DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
-        >,
+        transaction: ChainSpecT::Transaction,
+        debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
     ) -> ExecutionResultWithContext<
         'evm,
-        L1ChainSpec,
+        ChainSpecT,
         BlockchainErrorT,
         StateErrorT,
         DebugDataT,
@@ -230,31 +298,26 @@ impl BlockBuilder {
         }
 
         let spec_id = self.cfg.spec_id;
+        let block = ChainSpecT::Block::new_block_env(&self.header, spec_id);
 
-        let block = BlockEnv {
-            number: U256::from(self.header.number),
-            coinbase: self.header.beneficiary,
-            timestamp: U256::from(self.header.timestamp),
-            difficulty: self.header.difficulty,
-            basefee: self.header.base_fee.unwrap_or(U256::ZERO),
-            gas_limit: U256::from(self.header.gas_limit),
-            prevrandao: if spec_id >= SpecId::MERGE {
-                Some(self.header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: self
-                .header
-                .blob_gas
-                .as_ref()
-                .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
+        let receipt_builder = {
+            let builder = ChainSpecT::ReceiptBuilder::new_receipt_builder(&state, &transaction);
+
+            match builder {
+                Ok(builder) => builder,
+                Err(error) => {
+                    return ExecutionResultWithContext {
+                        result: Err(TransactionError::State(error).into()),
+                        evm_context: EvmContext {
+                            debug: debug_context,
+                            state,
+                        },
+                    };
+                }
+            }
         };
 
-        let env = EnvWithChainSpec::new_with_cfg_env(
-            self.cfg.clone(),
-            block.clone(),
-            transaction.clone(),
-        );
+        let env = EnvWithChainSpec::new_with_cfg_env(self.cfg.clone(), block, transaction.clone());
 
         let db = DatabaseComponents {
             state,
@@ -270,7 +333,7 @@ impl BlockBuilder {
         ) = {
             if let Some(debug_context) = debug_context {
                 let mut evm = Evm::builder()
-                    .with_chain_spec::<L1ChainSpec>()
+                    .with_chain_spec::<ChainSpecT>()
                     .with_ref_db(db)
                     .with_external_context(debug_context.data)
                     .with_env_with_handler_cfg(env)
@@ -306,7 +369,7 @@ impl BlockBuilder {
                 }
             } else {
                 let mut evm = Evm::builder()
-                    .with_chain_spec::<L1ChainSpec>()
+                    .with_chain_spec::<ChainSpecT>()
                     .with_ref_db(db)
                     .with_env_with_handler_cfg(env)
                     .build();
@@ -350,57 +413,15 @@ impl BlockBuilder {
             *gas_used += blob_gas_used;
         }
 
-        let logs = result.logs().to_vec();
-        let logs_bloom = {
-            let mut bloom = Bloom::ZERO;
-            for log in &logs {
-                add_log_to_bloom(log, &mut bloom);
-            }
-            bloom
-        };
-
-        let status = u8::from(result.is_success());
-        let contract_address = if let ExecutionResult::Success {
-            output: Output::Create(_, address),
-            ..
-        } = &result
-        {
-            *address
-        } else {
-            None
-        };
-
-        let receipt = TransactionReceipt {
-            inner: TypedReceipt {
-                cumulative_gas_used: self.header.gas_used,
-                logs_bloom,
-                logs,
-                data: match transaction.transaction_type() {
-                    TransactionType::Legacy => {
-                        if spec_id < SpecId::BYZANTIUM {
-                            TypedReceiptData::PreEip658Legacy {
-                                state_root: state
-                                    .state_root()
-                                    .expect("Must be able to calculate state root"),
-                            }
-                        } else {
-                            TypedReceiptData::PostEip658Legacy { status }
-                        }
-                    }
-                    TransactionType::Eip2930 => TypedReceiptData::Eip2930 { status },
-                    TransactionType::Eip1559 => TypedReceiptData::Eip1559 { status },
-                    TransactionType::Eip4844 => TypedReceiptData::Eip4844 { status },
-                },
-                spec_id,
-            },
-            transaction_hash: *transaction.transaction_hash(),
-            transaction_index: self.transactions.len() as u64,
-            from: *transaction.caller(),
-            to: transaction.kind().to().copied(),
-            contract_address,
-            gas_used: result.gas_used(),
-            effective_gas_price: Some(transaction.effective_gas_price(block.basefee)),
-        };
+        let receipt = receipt_builder.build_receipt(&self.header, &transaction, &result, spec_id);
+        let receipt = TransactionReceipt::new(
+            receipt,
+            &transaction,
+            &result,
+            self.transactions.len() as u64,
+            self.header.base_fee.unwrap_or(U256::ZERO),
+            spec_id,
+        );
         self.receipts.push(receipt);
 
         self.transactions.push(transaction);
@@ -409,153 +430,5 @@ impl BlockBuilder {
             result: Ok(result),
             evm_context,
         }
-    }
-
-    /// Finalizes the block, returning the block and the callers of the
-    /// transactions.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn finalize<StateT, StateErrorT>(
-        mut self,
-        state: &mut StateT,
-        rewards: Vec<(Address, U256)>,
-    ) -> Result<BuildBlockResult<L1ChainSpec>, StateErrorT>
-    where
-        StateT: SyncState<StateErrorT> + ?Sized,
-        StateErrorT: Debug + Send,
-    {
-        for (address, reward) in rewards {
-            if reward > U256::ZERO {
-                let account_info = state.modify_account(
-                    address,
-                    AccountModifierFn::new(Box::new(move |balance, _nonce, _code| {
-                        *balance += reward;
-                    })),
-                )?;
-
-                self.state_diff.apply_account_change(address, account_info);
-            }
-        }
-
-        if let Some(gas_limit) = self.parent_gas_limit {
-            self.header.gas_limit = gas_limit;
-        }
-
-        self.header.logs_bloom = {
-            let mut logs_bloom = Bloom::ZERO;
-            self.receipts.iter().for_each(|receipt| {
-                logs_bloom.accrue_bloom(receipt.logs_bloom());
-            });
-            logs_bloom
-        };
-
-        self.header.receipts_root = ordered_trie_root(
-            self.receipts
-                .iter()
-                .map(|receipt| alloy_rlp::encode(&**receipt)),
-        );
-
-        // Only set the state root if it wasn't specified during construction
-        if self.header.state_root == KECCAK_NULL_RLP {
-            self.header.state_root = state
-                .state_root()
-                .expect("Must be able to calculate state root");
-        }
-
-        // Only set the timestamp if it wasn't specified during construction
-        if self.header.timestamp == 0 {
-            self.header.timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Current time must be after unix epoch")
-                .as_secs();
-        }
-
-        // TODO: handle ommers
-        let block = LocalBlock::new(
-            self.header,
-            self.transactions,
-            self.receipts,
-            Vec::new(),
-            self.withdrawals,
-        );
-
-        Ok(BuildBlockResult {
-            block,
-            state_diff: self.state_diff,
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use edr_eth::Bytes;
-    use revm::primitives::CfgEnv;
-
-    #[test]
-    fn dao_hardfork_has_extra_data() {
-        use edr_eth::block::BlockOptions;
-
-        use super::*;
-
-        const DUMMY_DAO_HARDFORK_BLOCK_NUMBER: u64 = 3;
-
-        // Create a random block header
-        let partial_header = PartialHeader {
-            number: DUMMY_DAO_HARDFORK_BLOCK_NUMBER - 1,
-            ..PartialHeader::default()
-        };
-
-        let spec_id = SpecId::BYZANTIUM;
-        let parent = LocalBlock::empty(spec_id, partial_header);
-
-        let cfg = CfgEnvWithChainSpec::<L1ChainSpec>::new(CfgEnv::default(), spec_id);
-        let block_options = BlockOptions {
-            number: Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),
-            extra_data: Some(Bytes::from(DAO_EXTRA_DATA)),
-            ..BlockOptions::default()
-        };
-
-        let block_builder = BlockBuilder::new(
-            cfg,
-            &parent,
-            block_options,
-            Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),
-        );
-        assert!(block_builder.is_ok());
-    }
-
-    #[test]
-    fn dao_hardfork_missing_extra_data() {
-        use edr_eth::block::BlockOptions;
-
-        use super::*;
-
-        const DUMMY_DAO_HARDFORK_BLOCK_NUMBER: u64 = 3;
-
-        // Create a random block header
-        let partial_header = PartialHeader {
-            number: DUMMY_DAO_HARDFORK_BLOCK_NUMBER - 1,
-            ..PartialHeader::default()
-        };
-
-        let spec_id = SpecId::BYZANTIUM;
-        let parent = LocalBlock::empty(spec_id, partial_header);
-
-        let cfg = CfgEnvWithChainSpec::<L1ChainSpec>::new(CfgEnv::default(), spec_id);
-
-        let block_options = BlockOptions {
-            number: Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),
-            ..BlockOptions::default()
-        };
-
-        let block_builder = BlockBuilder::new(
-            cfg,
-            &parent,
-            block_options,
-            Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),
-        );
-        assert!(matches!(
-            block_builder,
-            Err(BlockBuilderCreationError::DaoHardforkInvalidData)
-        ));
     }
 }

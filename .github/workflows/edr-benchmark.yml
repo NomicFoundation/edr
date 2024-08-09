@@ -4,21 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - ".github/workflows/edr-benchmark.yml"
-      - "rust-toolchain"
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "crates/**"
   pull_request:
     branches:
       - "**"
-    paths:
-      - ".github/workflows/edr-benchmark.yml"
-      - "rust-toolchain"
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "crates/**"
   workflow_dispatch:
 
 defaults:
@@ -40,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Install Node

@@ -16,6 +16,9 @@
   "pnpm": {
     "overrides": {
       "hardhat>@nomicfoundation/edr": "workspace:*"
+    },
+    "patchedDependencies": {
+      "hardhat@2.22.6": "patches/hardhat@2.22.6.patch"
     }
   },
   "engines": {

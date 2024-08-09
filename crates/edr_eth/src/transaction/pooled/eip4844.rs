@@ -33,6 +33,9 @@ pub enum CreationError {
 }
 
 impl Eip4844 {
+    /// The type identifier for an EIP-4844 transaction.
+    pub const TYPE: u8 = transaction::signed::Eip4844::TYPE;
+
     /// Creates a new EIP-4844 pooled transaction, if the provided blobs,
     /// commitments, and proofs are valid.
     pub fn new(

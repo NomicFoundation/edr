@@ -3,10 +3,9 @@
 use std::{str::FromStr, sync::Arc};
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{Address, HashMap, SpecId, U256};
+use edr_eth::{chain_spec::L1ChainSpec, Address, HashMap, SpecId, U256};
 use edr_evm::{
     blockchain::ForkedBlockchain,
-    chain_spec::L1ChainSpec,
     precompile::{self, Precompiles},
     state::{AccountModifierFn, ForkState, IrregularState, StateDebug},
     RandomHashGenerator,

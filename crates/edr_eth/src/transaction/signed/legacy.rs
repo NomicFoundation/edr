@@ -24,20 +24,33 @@ pub struct Legacy {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithRecoveryId>,
     /// Cached transaction hash
-    #[rlp(default)]
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
+    /// Cached RLP-encoding
+    #[rlp(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub rlp_encoding: OnceLock<Bytes>,
 }
 
 impl Legacy {
+    /// The type identifier for a pre-EIP-155 legacy transaction.
+    pub const TYPE: u8 = transaction::request::Legacy::TYPE;
+
     /// Returns the caller/signer of the transaction.
     pub fn caller(&self) -> &Address {
         self.signature.caller()
     }
 
-    pub fn hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
+    /// Returns the (cached) RLP-encoding of the transaction.
+    pub fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding
+            .get_or_init(|| alloy_rlp::encode(self).into())
+    }
+
+    /// Returns the (cached) hash of the transaction.
+    pub fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
     }
 }
 
@@ -120,6 +133,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
                 input: transaction.input,
                 signature,
                 hash: OnceLock::new(),
+                rlp_encoding: OnceLock::new(),
             })
         } else {
             let request = transaction::request::Legacy::from(&transaction);
@@ -136,6 +150,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
                 input: request.input,
                 signature,
                 hash: OnceLock::new(),
+                rlp_encoding: OnceLock::new(),
             })
         };
 
@@ -195,7 +210,7 @@ mod tests {
         let request = dummy_request();
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

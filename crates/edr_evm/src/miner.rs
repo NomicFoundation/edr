@@ -2,6 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
+    chain_spec::L1ChainSpec,
     signature::SignatureError,
     transaction::{self, SignedTransaction},
     U256,
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
-    chain_spec::{ChainSpec, L1ChainSpec},
+    chain_spec::ChainSpec,
     debug::DebugContext,
     mempool::OrderedTransaction,
     state::{StateDiff, SyncState},
@@ -81,11 +82,11 @@ pub enum MineOrdering {
 #[derive(Debug, thiserror::Error)]
 pub enum MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
-    BlockBuilderCreation(#[from] BlockBuilderCreationError),
+    BlockBuilderCreation(#[from] BlockBuilderCreationError<ChainSpecT>),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
@@ -115,7 +116,6 @@ pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     min_gas_price: U256,
     mine_ordering: MineOrdering,
     reward: U256,
-    dao_hardfork_activation_block: Option<u64>,
     mut debug_context: Option<
         DebugContext<
             'evm,
@@ -138,12 +138,7 @@ where
         .last_block()
         .map_err(MineBlockError::Blockchain)?;
 
-    let mut block_builder = BlockBuilder::new(
-        cfg.clone(),
-        &parent_block,
-        options,
-        dao_hardfork_activation_block,
-    )?;
+    let mut block_builder = BlockBuilder::new(cfg.clone(), &parent_block, options)?;
 
     let mut pending_transactions = {
         type MineOrderComparator =
@@ -215,11 +210,11 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
-    BlockBuilderCreation(#[from] BlockBuilderCreationError),
+    BlockBuilderCreation(#[from] BlockBuilderCreationError<ChainSpecT>),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
@@ -309,7 +304,6 @@ pub fn mine_block_with_single_transaction<
     options: BlockOptions,
     min_gas_price: U256,
     reward: U256,
-    dao_hardfork_activation_block: Option<u64>,
     debug_context: Option<
         DebugContext<
             'evm,
@@ -394,12 +388,7 @@ where
         }
     }
 
-    let mut block_builder = BlockBuilder::new(
-        cfg.clone(),
-        parent_block.as_ref(),
-        options,
-        dao_hardfork_activation_block,
-    )?;
+    let mut block_builder = BlockBuilder::new(cfg.clone(), parent_block.as_ref(), options)?;
 
     let ExecutionResultWithContext {
         result,
