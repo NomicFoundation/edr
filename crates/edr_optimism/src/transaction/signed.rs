@@ -7,10 +7,11 @@ use std::sync::OnceLock;
 use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
 pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Legacy};
 use edr_eth::{
-    signature::Fakeable,
+    signature::{Fakeable, Signature},
     transaction::{
-        SignedTransaction, Transaction, TransactionMut, TransactionType, TransactionValidation,
-        TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+        ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, MaybeSignedTransaction,
+        Transaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
+        INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Address, Bytes, B256, U256,
 };
@@ -125,6 +126,43 @@ impl From<edr_eth::transaction::Signed> for Signed {
     }
 }
 
+impl HasAccessList for Signed {
+    fn has_access_list(&self) -> bool {
+        match self {
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Deposit(_) => false,
+            Signed::Eip2930(_) | Signed::Eip1559(_) | Signed::Eip4844(_) => true,
+        }
+    }
+}
+
+impl IsEip4844 for Signed {
+    fn is_eip4844(&self) -> bool {
+        matches!(self, Signed::Eip4844(_))
+    }
+}
+
+impl IsLegacy for Signed {
+    fn is_legacy(&self) -> bool {
+        matches!(
+            self,
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_)
+        )
+    }
+}
+
+impl MaybeSignedTransaction for Signed {
+    fn maybe_signature(&self) -> Option<&dyn Signature> {
+        match self {
+            Signed::PreEip155Legacy(tx) => Some(&tx.signature),
+            Signed::PostEip155Legacy(tx) => Some(&tx.signature),
+            Signed::Eip2930(tx) => Some(&tx.signature),
+            Signed::Eip1559(tx) => Some(&tx.signature),
+            Signed::Eip4844(tx) => Some(&tx.signature),
+            Signed::Deposit(_) => None,
+        }
+    }
+}
+
 impl OptimismTransaction for Signed {
     fn source_hash(&self) -> Option<&B256> {
         match self {
@@ -153,7 +191,7 @@ impl OptimismTransaction for Signed {
     }
 }
 
-impl SignedTransaction for Signed {
+impl ExecutableTransaction for Signed {
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
         match self {
             Signed::PreEip155Legacy(_)

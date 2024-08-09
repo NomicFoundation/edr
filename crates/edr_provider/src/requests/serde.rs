@@ -6,6 +6,7 @@ use std::{
 
 use alloy_dyn_abi::TypedData;
 use edr_eth::{Address, Bytes, U256, U64};
+use edr_evm::chain_spec::ChainSpec;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::ProviderError;
@@ -103,7 +104,9 @@ impl<'a> InvalidRequestReason<'a> {
     }
 
     /// Converts the invalid request reason into a provider error.
-    pub fn provider_error(&self) -> Option<(String, ProviderError)> {
+    pub fn provider_error<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+        &self,
+    ) -> Option<(String, ProviderError<ChainSpecT>)> {
         match self {
             InvalidRequestReason::InvalidJson { .. } => None,
             InvalidRequestReason::InvalidStorageKey {

@@ -9,7 +9,7 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{self, ExecutionReceiptBuilder, Receipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
-    transaction::SignedTransaction as _,
+    transaction::ExecutableTransaction as _,
     Address, Bytes, HashSet, SpecId, B256, U256,
 };
 use edr_evm::{
@@ -540,9 +540,9 @@ async fn logs_local() -> anyhow::Result<()> {
             &[],
         )?;
 
-        assert_eq_logs(&filtered_logs, transaction_receipt.logs());
+        assert_eq_logs(&filtered_logs, transaction_receipt.transaction_logs());
 
-        let logs = transaction_receipt.logs().iter();
+        let logs = transaction_receipt.transaction_logs().iter();
         let DummyBlockAndTransaction {
             block: two,
             transaction_receipt,
@@ -550,7 +550,7 @@ async fn logs_local() -> anyhow::Result<()> {
         } = insert_dummy_block_with_transaction(blockchain.as_mut())?;
 
         let logs: Vec<ExecutionLog> = logs
-            .chain(transaction_receipt.logs().iter())
+            .chain(transaction_receipt.transaction_logs().iter())
             .cloned()
             .collect();
 

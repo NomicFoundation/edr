@@ -8,7 +8,7 @@ use edr_eth::{
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
-        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction as _,
+        self, pooled::PooledTransaction, EthTransactionRequest, ExecutableTransaction as _,
         Transaction as _, TransactionType as _,
     },
     AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
@@ -391,7 +391,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: edr_rpc_eth::Transaction = serde_json::from_value(result.result)?;
+    let transaction: edr_rpc_eth::TransactionWithSignature = serde_json::from_value(result.result)?;
     let transaction = transaction::Signed::try_from(transaction)?;
 
     assert_eq!(transaction, expected);

@@ -8,7 +8,7 @@ use edr_eth::{
     log::ExecutionLog,
     receipt::{ExecutionReceiptBuilder as _, Receipt as _, TransactionReceipt},
     result::InvalidTransaction,
-    transaction::SignedTransaction as _,
+    transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,

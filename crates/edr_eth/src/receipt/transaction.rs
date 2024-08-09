@@ -5,7 +5,7 @@ use revm_primitives::{EvmWiring, ExecutionResult, Output};
 
 use super::{MapReceiptLogs, Receipt};
 use crate::{
-    transaction::{SignedTransaction, TransactionType},
+    transaction::{Transaction, ExecutableTransaction, TransactionType},
     Address, Bloom, SpecId, B256, U256,
 };
 
@@ -52,7 +52,7 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
     /// transaction
     pub fn new<ChainSpecT>(
         execution_receipt: ExecutionReceiptT,
-        transaction: &impl SignedTransaction,
+        transaction: &(impl Transaction + ExecutableTransaction),
         result: &ExecutionResult<ChainSpecT>,
         transaction_index: u64,
         block_base_fee: U256,
@@ -131,8 +131,8 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> Receipt<LogT>
         self.inner.logs_bloom()
     }
 
-    fn logs(&self) -> &[LogT] {
-        self.inner.logs()
+    fn transaction_logs(&self) -> &[LogT] {
+        self.inner.transaction_logs()
     }
 
     fn root_or_status(&self) -> super::RootOrStatus<'_> {

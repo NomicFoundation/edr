@@ -11,6 +11,8 @@ mod mock;
 mod pending;
 mod requests;
 mod snapshot;
+/// Types for provider-related chain specification.
+pub mod spec;
 mod subscribe;
 /// Utilities for testing
 #[cfg(any(test, feature = "test-utils"))]
@@ -21,8 +23,12 @@ pub mod time;
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::{chain_spec::L1ChainSpec, HashSet};
-use edr_evm::{blockchain::BlockchainError, trace::Trace};
+use edr_eth::{
+    result::InvalidTransaction,
+    transaction::{IsEip4844, TransactionMut, TransactionType, TransactionValidation},
+    HashSet,
+};
+use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec, trace::Trace};
 use lazy_static::lazy_static;
 use logger::SyncLogger;
 use mock::SyncCallOverride;
@@ -42,6 +48,7 @@ pub use self::{
         hardhat::rpc_types as hardhat_rpc_types, IntervalConfig as IntervalConfigRequest,
         InvalidRequestReason, MethodInvocation, ProviderRequest, Timestamp,
     },
+    spec::{ProviderSpec, SyncProviderSpec},
     subscribe::*,
 };
 use self::{
@@ -62,9 +69,9 @@ lazy_static! {
 }
 
 #[derive(Clone, Debug)]
-pub struct ResponseWithTraces {
+pub struct ResponseWithTraces<ChainSpecT: edr_eth::chain_spec::EvmWiring> {
     pub result: serde_json::Value,
-    pub traces: Vec<Trace<L1ChainSpec>>,
+    pub traces: Vec<Trace<ChainSpecT>>,
 }
 
 /// A JSON-RPC provider for Ethereum.
@@ -84,7 +91,7 @@ pub struct ResponseWithTraces {
 ///
 /// fn to_response(
 ///     id: jsonrpc::Id,
-///     result: Result<serde_json::Value, ProviderError,
+///     result: Result<serde_json::Value, ProviderError<ChainSpecT>,
 /// ) -> jsonrpc::Response<serde_json::Value> { let data = match result {
 ///   Ok(result) => jsonrpc::ResponseData::Success { result }, Err(error) =>
 ///   jsonrpc::ResponseData::Error { error: jsonrpc::Error { code: -32000,
@@ -97,24 +104,66 @@ pub struct ResponseWithTraces {
 ///     }
 /// }
 /// ```
-pub struct Provider<TimerT: Clone + TimeSinceEpoch = CurrentTime> {
-    data: Arc<AsyncMutex<ProviderData<TimerT>>>,
+pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch = CurrentTime>
+{
+    data: Arc<AsyncMutex<ProviderData<ChainSpecT, TimerT>>>,
     /// Interval miner runs in the background, if enabled. It holds the data
     /// mutex, so it needs to internally check for cancellation/self-destruction
     /// while async-awaiting the lock to avoid a deadlock.
-    interval_miner: Arc<Mutex<Option<IntervalMiner>>>,
+    interval_miner: Arc<Mutex<Option<IntervalMiner<ChainSpecT, TimerT>>>>,
     runtime: runtime::Handle,
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> Provider<TimerT> {
+impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
+    Provider<ChainSpecT, TimerT>
+{
+    pub fn set_call_override_callback(&self, call_override: Option<Arc<dyn SyncCallOverride>>) {
+        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+        data.set_call_override_callback(call_override);
+    }
+
+    /// Set to `true` to make the traces returned with `eth_call`,
+    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
+    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
+    /// `false` to disable this.
+    pub fn set_verbose_tracing(&self, verbose_tracing: bool) {
+        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+        data.set_verbose_tracing(verbose_tracing);
+    }
+
+    /// Blocking method to log a failed deserialization.
+    pub fn log_failed_deserialization(
+        &self,
+        method_name: &str,
+        error: &ProviderError<ChainSpecT>,
+    ) -> Result<(), ProviderError<ChainSpecT>> {
+        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+        data.logger_mut()
+            .print_method_logs(method_name, Some(error))
+            .map_err(ProviderError::Logger)
+    }
+}
+
+impl<
+        ChainSpecT: SyncProviderSpec<
+            TimerT,
+            Block: Default,
+            Transaction: Default
+                             + TransactionValidation<
+                ValidationError: From<InvalidTransaction> + PartialEq,
+            >,
+        >,
+        TimerT: Clone + TimeSinceEpoch,
+    > Provider<ChainSpecT, TimerT>
+{
     /// Constructs a new instance.
     pub fn new(
         runtime: runtime::Handle,
-        logger: Box<dyn SyncLogger<L1ChainSpec, BlockchainError = BlockchainError<L1ChainSpec>>>,
-        subscriber_callback: Box<dyn SyncSubscriberCallback>,
-        config: ProviderConfig<L1ChainSpec>,
+        logger: Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainError<ChainSpecT>>>,
+        subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
+        config: ProviderConfig<ChainSpecT>,
         timer: TimerT,
-    ) -> Result<Self, CreationError<L1ChainSpec>> {
+    ) -> Result<Self, CreationError<ChainSpecT>> {
         let data = ProviderData::new(
             runtime.clone(),
             logger,
@@ -139,26 +188,28 @@ impl<TimerT: Clone + TimeSinceEpoch> Provider<TimerT> {
             runtime,
         })
     }
+}
 
-    pub fn set_call_override_callback(&self, call_override: Option<Arc<dyn SyncCallOverride>>) {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-        data.set_call_override_callback(call_override);
-    }
-
-    /// Set to `true` to make the traces returned with `eth_call`,
-    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
-    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
-    /// `false` to disable this.
-    pub fn set_verbose_tracing(&self, verbose_tracing: bool) {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-        data.set_verbose_tracing(verbose_tracing);
-    }
-
+impl<
+        ChainSpecT: SyncProviderSpec<
+            TimerT,
+            Block: Clone + Default,
+            HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
+            Transaction: Default
+                             + TransactionMut
+                             + TransactionType<Type: IsEip4844>
+                             + TransactionValidation<
+                ValidationError: From<InvalidTransaction> + PartialEq,
+            >,
+        >,
+        TimerT: Clone + TimeSinceEpoch,
+    > Provider<ChainSpecT, TimerT>
+{
     /// Blocking method to handle a request.
     pub fn handle_request(
         &self,
-        request: ProviderRequest,
-    ) -> Result<ResponseWithTraces, ProviderError> {
+        request: ProviderRequest<ChainSpecT>,
+    ) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
 
         match request {
@@ -167,24 +218,12 @@ impl<TimerT: Clone + TimeSinceEpoch> Provider<TimerT> {
         }
     }
 
-    /// Blocking method to log a failed deserialization.
-    pub fn log_failed_deserialization(
-        &self,
-        method_name: &str,
-        error: &ProviderError,
-    ) -> Result<(), ProviderError> {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-        data.logger_mut()
-            .print_method_logs(method_name, Some(error))
-            .map_err(ProviderError::Logger)
-    }
-
     /// Handles a batch of JSON requests for an execution provider.
     fn handle_batch_request(
         &self,
-        data: &mut ProviderData<TimerT>,
-        request: Vec<MethodInvocation>,
-    ) -> Result<ResponseWithTraces, ProviderError> {
+        data: &mut ProviderData<ChainSpecT, TimerT>,
+        request: Vec<MethodInvocation<ChainSpecT>>,
+    ) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
         let mut results = Vec::new();
         let mut traces = Vec::new();
 
@@ -200,9 +239,9 @@ impl<TimerT: Clone + TimeSinceEpoch> Provider<TimerT> {
 
     fn handle_single_request(
         &self,
-        data: &mut ProviderData<TimerT>,
-        request: MethodInvocation,
-    ) -> Result<ResponseWithTraces, ProviderError> {
+        data: &mut ProviderData<ChainSpecT, TimerT>,
+        request: MethodInvocation<ChainSpecT>,
+    ) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
         let method_name = if data.logger_mut().is_enabled() {
             let method_name = request.method_name();
             if PRIVATE_RPC_METHODS.contains(method_name) {
@@ -463,9 +502,9 @@ impl<TimerT: Clone + TimeSinceEpoch> Provider<TimerT> {
 
     fn reset(
         &self,
-        data: &mut ProviderData<TimerT>,
+        data: &mut ProviderData<ChainSpecT, TimerT>,
         config: Option<ResetProviderConfig>,
-    ) -> Result<bool, ProviderError> {
+    ) -> Result<bool, ProviderError<ChainSpecT>> {
         let mut interval_miner = self.interval_miner.lock();
         interval_miner.take();
 
@@ -479,7 +518,9 @@ impl<TimerT: Clone + TimeSinceEpoch> Provider<TimerT> {
     }
 }
 
-fn to_json<T: serde::Serialize>(value: T) -> Result<ResponseWithTraces, ProviderError> {
+fn to_json<T: serde::Serialize, ChainSpecT: ChainSpec<Hardfork: Debug>>(
+    value: T,
+) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
@@ -488,9 +529,9 @@ fn to_json<T: serde::Serialize>(value: T) -> Result<ResponseWithTraces, Provider
     })
 }
 
-fn to_json_with_trace<T: serde::Serialize>(
-    value: (T, Trace<L1ChainSpec>),
-) -> Result<ResponseWithTraces, ProviderError> {
+fn to_json_with_trace<T: serde::Serialize, ChainSpecT: ChainSpec<Hardfork: Debug>>(
+    value: (T, Trace<ChainSpecT>),
+) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
@@ -499,9 +540,9 @@ fn to_json_with_trace<T: serde::Serialize>(
     })
 }
 
-fn to_json_with_traces<T: serde::Serialize>(
-    value: (T, Vec<Trace<L1ChainSpec>>),
-) -> Result<ResponseWithTraces, ProviderError> {
+fn to_json_with_traces<T: serde::Serialize, ChainSpecT: ChainSpec<Hardfork: Debug>>(
+    value: (T, Vec<Trace<ChainSpecT>>),
+) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {

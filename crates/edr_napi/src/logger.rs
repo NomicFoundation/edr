@@ -4,7 +4,7 @@ use ansi_term::{Color, Style};
 use edr_eth::{
     chain_spec::L1ChainSpec,
     result::ExecutionResult,
-    transaction::{self, SignedTransaction},
+    transaction::{self, ExecutableTransaction},
     Bytes, B256, U256,
 };
 use edr_evm::{

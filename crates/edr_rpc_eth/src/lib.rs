@@ -1,10 +1,12 @@
-/// Types for Ethereum JSON-RPC blocks
+/// Types for Ethereum JSON-RPC blocks.
 mod block;
 mod cacheable_method_invocation;
-/// Input type for `eth_call` and `eth_estimateGas`
+/// Input type for `eth_call` and `debug_traceCall`.
 mod call_request;
-/// Types related to the Ethereum JSON-RPC API
+/// Types related to the Ethereum JSON-RPC API.
 pub mod client;
+/// Input type for `eth_estimateGas`.
+mod estimate_gas;
 /// Types related to forking a remote blockchain.
 pub mod fork;
 mod r#override;
@@ -22,7 +24,19 @@ pub use edr_rpc_client::{error, header, jsonrpc, HeaderMap};
 pub use self::{
     block::Block,
     call_request::CallRequest,
+    estimate_gas::EstimateGasRequest,
     r#override::*,
     request_methods::RequestMethod,
-    transaction::{ConversionError as TransactionConversionError, Transaction},
+    transaction::{
+        ConversionError as TransactionConversionError, Transaction, TransactionWithSignature,
+    },
 };
+
+/// Trait for constructing an RPC type from an internal type.
+pub trait RpcTypeFrom<InputT> {
+    /// The hardfork type.
+    type Hardfork;
+
+    /// Constructs an RPC type from the provided internal value.
+    fn rpc_type_from(value: &InputT, hardfork: Self::Hardfork) -> Self;
+}

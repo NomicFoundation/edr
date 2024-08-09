@@ -49,9 +49,9 @@ impl ConsoleLogCollector {
 
 #[cfg(test)]
 pub(crate) mod tests {
-
     use anyhow::Context;
     use edr_eth::{
+        chain_spec::L1ChainSpec,
         hex,
         transaction::{self, request::TransactionRequestAndSender, TxKind},
         Bytes, U256,
@@ -60,12 +60,12 @@ pub(crate) mod tests {
     use crate::{data::ProviderData, time::TimeSinceEpoch};
 
     pub struct ConsoleLogTransaction {
-        pub transaction: TransactionRequestAndSender,
+        pub transaction: TransactionRequestAndSender<transaction::Request>,
         pub expected_call_data: Bytes,
     }
 
     pub fn deploy_console_log_contract<TimerT: Clone + TimeSinceEpoch>(
-        provider_data: &mut ProviderData<TimerT>,
+        provider_data: &mut ProviderData<L1ChainSpec, TimerT>,
     ) -> anyhow::Result<ConsoleLogTransaction> {
         // Compiled with solc 0.8.17, without optimizations
         /*

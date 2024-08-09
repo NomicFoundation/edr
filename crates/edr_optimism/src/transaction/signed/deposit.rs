@@ -43,7 +43,7 @@ mod tests {
 
     use edr_eth::{
         address,
-        transaction::{SignedTransaction as _, TxKind},
+        transaction::{ExecutableTransaction as _, TxKind},
         Bytes, U256,
     };
     use revm::primitives::b256;

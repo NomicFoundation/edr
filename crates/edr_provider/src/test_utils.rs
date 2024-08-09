@@ -1,8 +1,11 @@
 use std::{num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas, signature::secret_key_from_str, transaction::EthTransactionRequest,
-    trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, SpecId, B256, U160, U256,
+    block::BlobGas,
+    signature::secret_key_from_str,
+    transaction::{EthTransactionRequest, IsEip4844, TransactionType},
+    trie::KECCAK_NULL_RLP,
+    Address, Bytes, HashMap, B256, U160, U256,
 };
 use edr_evm::Block;
 
@@ -19,7 +22,7 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
-pub fn create_test_config() -> ProviderConfig<L1ChainSpec> {
+pub fn create_test_config<ChainSpecT: ChainSpec>() -> ProviderConfig<ChainSpecT> {
     create_test_config_with_fork(None)
 }
 
@@ -27,7 +30,9 @@ pub fn one_ether() -> U256 {
     U256::from(10).pow(U256::from(18))
 }
 
-pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig<L1ChainSpec> {
+pub fn create_test_config_with_fork<ChainSpecT: ChainSpec>(
+    fork: Option<ForkConfig>,
+) -> ProviderConfig<ChainSpecT> {
     ProviderConfig {
         accounts: vec![
             AccountConfig {
@@ -53,7 +58,7 @@ pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig<
         enable_rip_7212: false,
         fork,
         genesis_accounts: HashMap::new(),
-        hardfork: SpecId::LATEST,
+        hardfork: ChainSpecT::Hardfork::default(),
         initial_base_fee_per_gas: Some(U256::from(1000000000)),
         initial_blob_gas: Some(BlobGas {
             gas_used: 0,
@@ -69,7 +74,19 @@ pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig<
 }
 
 /// Retrieves the pending base fee per gas from the provider data.
-pub fn pending_base_fee(data: &mut ProviderData) -> Result<U256, ProviderError> {
+pub fn pending_base_fee<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
+        Block: Default,
+        Transaction: Default
+                         + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
+) -> Result<U256, ProviderError<ChainSpecT>> {
     let block = data.mine_pending_block()?.block;
 
     let base_fee = block
@@ -82,13 +99,25 @@ pub fn pending_base_fee(data: &mut ProviderData) -> Result<U256, ProviderError> 
 
 /// Deploys a contract with the provided code. Returns the address of the
 /// contract.
-pub fn deploy_contract<TimerT>(
-    provider: &Provider<TimerT>,
+pub fn deploy_contract<ChainSpecT, TimerT>(
+    provider: &Provider<ChainSpecT, TimerT>,
     caller: Address,
     code: Bytes,
 ) -> anyhow::Result<Address>
 where
     TimerT: Clone + TimeSinceEpoch,
+    ChainSpecT: Debug
+        + SyncProviderSpec<
+            TimerT,
+            Block: Clone + Default,
+            HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
+            Transaction: Default
+                             + TransactionMut
+                             + TransactionType<Type: IsEip4844>
+                             + TransactionValidation<
+                ValidationError: From<InvalidTransaction> + PartialEq,
+            >,
+        >,
 {
     let deploy_transaction = EthTransactionRequest {
         from: caller,

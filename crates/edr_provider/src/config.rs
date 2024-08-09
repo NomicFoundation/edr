@@ -93,7 +93,7 @@ pub struct ProviderConfig<ChainSpecT: ChainSpec> {
     pub fork: Option<ForkConfig>,
     // Genesis accounts in addition to accounts. Useful for adding impersonated accounts for tests.
     pub genesis_accounts: HashMap<Address, AccountInfo>,
-    pub hardfork: SpecId,
+    pub hardfork: ChainSpecT::Hardfork,
     pub initial_base_fee_per_gas: Option<U256>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,

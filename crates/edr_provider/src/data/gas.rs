@@ -1,19 +1,19 @@
-use std::cmp;
+use core::{cmp, fmt::Debug};
 
 use edr_eth::{
     block::Header,
-    chain_spec::L1ChainSpec,
-    result::ExecutionResult,
+    result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
-    transaction::{Transaction as _, TransactionMut as _},
+    transaction::{Transaction as _, TransactionMut, TransactionValidation},
     Address, HashMap, Precompile, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
+    chain_spec::{ChainSpec, SyncChainSpec},
     evm::handler::CfgEnvWithEvmWiring,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    transaction, DebugContext, SyncBlock,
+    DebugContext, SyncBlock,
 };
 use itertools::Itertools;
 
@@ -22,22 +22,33 @@ use crate::{
     ProviderError,
 };
 
-pub(super) struct CheckGasLimitArgs<'a> {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
+pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncChainSpec> {
+    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithEvmWiring<L1ChainSpec>,
-    pub transaction: transaction::Signed,
+    pub cfg_env: CfgEnvWithEvmWiring<ChainSpecT>,
+    pub transaction: ChainSpecT::Transaction,
     pub gas_limit: u64,
     pub precompiles: &'a HashMap<Address, Precompile>,
-    pub trace_collector: &'a mut TraceCollector<L1ChainSpec>,
+    pub trace_collector: &'a mut TraceCollector<ChainSpecT>,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
-pub(super) fn check_gas_limit(args: CheckGasLimitArgs<'_>) -> Result<bool, ProviderError> {
+pub(super) fn check_gas_limit<ChainSpecT>(
+    args: CheckGasLimitArgs<'_, ChainSpecT>,
+) -> Result<bool, ProviderError<ChainSpecT>>
+where
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionMut
+                         + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+{
     let CheckGasLimitArgs {
         blockchain,
         header,
@@ -69,25 +80,34 @@ pub(super) fn check_gas_limit(args: CheckGasLimitArgs<'_>) -> Result<bool, Provi
     Ok(matches!(result, ExecutionResult::Success { .. }))
 }
 
-pub(super) struct BinarySearchEstimationArgs<'a> {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
+pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncChainSpec> {
+    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithEvmWiring<L1ChainSpec>,
-    pub transaction: transaction::Signed,
+    pub cfg_env: CfgEnvWithEvmWiring<ChainSpecT>,
+    pub transaction: ChainSpecT::Transaction,
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub precompiles: &'a HashMap<Address, Precompile>,
-    pub trace_collector: &'a mut TraceCollector<L1ChainSpec>,
+    pub trace_collector: &'a mut TraceCollector<ChainSpecT>,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
-pub(super) fn binary_search_estimation(
-    args: BinarySearchEstimationArgs<'_>,
-) -> Result<u64, ProviderError> {
+pub(super) fn binary_search_estimation<ChainSpecT>(
+    args: BinarySearchEstimationArgs<'_, ChainSpecT>,
+) -> Result<u64, ProviderError<ChainSpecT>>
+where
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default
+                         + TransactionMut
+                         + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+{
     const MAX_ITERATIONS: usize = 20;
 
     let BinarySearchEstimationArgs {
@@ -157,10 +177,10 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards(
-    block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
+pub(super) fn compute_rewards<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+    block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     reward_percentiles: &[RewardPercentile],
-) -> Result<Vec<U256>, ProviderError> {
+) -> Result<Vec<U256>, ProviderError<ChainSpecT>> {
     if block.transactions().is_empty() {
         return Ok(reward_percentiles.iter().map(|_| U256::ZERO).collect());
     }

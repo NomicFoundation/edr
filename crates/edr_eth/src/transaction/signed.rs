@@ -7,6 +7,7 @@ mod legacy;
 use std::sync::OnceLock;
 
 use alloy_rlp::{Buf, BufMut};
+use k256::SecretKey;
 
 pub use self::{
     eip155::Eip155,
@@ -16,17 +17,43 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    Signed, SignedTransaction, TransactionMut, TransactionType, TxKind,
-    INVALID_TX_TYPE_ERROR_MESSAGE,
+    ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, Signed, SignedTransaction,
+    TransactionMut, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
-    signature::{Fakeable, Signature},
+    signature::{Fakeable, Signature, SignatureError},
     AccessListItem, Address, Bytes, B256, U256,
 };
 
+/// Trait for signing a transaction request with a fake signature.
+pub trait FakeSign {
+    /// The type of the signed transaction.
+    type Signed;
+
+    /// Signs the transaction with a fake signature.
+    fn fake_sign(self, sender: Address) -> Self::Signed;
+}
+
+pub trait Sign {
+    /// The type of the signed transaction.
+    type Signed;
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided sender's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<Self::Signed, SignatureError>;
+}
+
 impl Signed {
     /// Whether this is a legacy (pre-EIP-155) transaction.
-    pub fn is_legacy(&self) -> bool {
+    pub fn is_pre_eip155(&self) -> bool {
         matches!(self, Signed::PreEip155Legacy(_))
     }
 
@@ -45,26 +72,10 @@ impl Signed {
         matches!(self, Signed::Eip2930(_))
     }
 
-    /// Whether this is an EIP-4844 transaction.
-    pub fn is_eip4844(&self) -> bool {
-        matches!(self, Signed::Eip4844(_))
-    }
-
     pub fn as_legacy(&self) -> Option<&self::legacy::Legacy> {
         match self {
             Signed::PreEip155Legacy(tx) => Some(tx),
             _ => None,
-        }
-    }
-
-    /// Returns the [`Signature`] of the transaction
-    pub fn signature(&self) -> &dyn Signature {
-        match self {
-            Signed::PreEip155Legacy(tx) => &tx.signature,
-            Signed::PostEip155Legacy(tx) => &tx.signature,
-            Signed::Eip2930(tx) => &tx.signature,
-            Signed::Eip1559(tx) => &tx.signature,
-            Signed::Eip4844(tx) => &tx.signature,
         }
     }
 
@@ -179,7 +190,31 @@ impl From<PreOrPostEip155> for Signed {
     }
 }
 
-impl SignedTransaction for Signed {
+impl HasAccessList for Signed {
+    fn has_access_list(&self) -> bool {
+        match self {
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => false,
+            Signed::Eip2930(_) | Signed::Eip1559(_) | Signed::Eip4844(_) => true,
+        }
+    }
+}
+
+impl IsEip4844 for Signed {
+    fn is_eip4844(&self) -> bool {
+        matches!(self, Signed::Eip4844(_))
+    }
+}
+
+impl IsLegacy for Signed {
+    fn is_legacy(&self) -> bool {
+        matches!(
+            self,
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_)
+        )
+    }
+}
+
+impl ExecutableTransaction for Signed {
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
         match self {
             Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
@@ -226,6 +261,18 @@ impl SignedTransaction for Signed {
             Signed::Eip2930(t) => t.transaction_hash(),
             Signed::Eip1559(t) => t.transaction_hash(),
             Signed::Eip4844(t) => t.transaction_hash(),
+        }
+    }
+}
+
+impl SignedTransaction for Signed {
+    fn signature(&self) -> &dyn Signature {
+        match self {
+            Signed::PreEip155Legacy(tx) => &tx.signature,
+            Signed::PostEip155Legacy(tx) => &tx.signature,
+            Signed::Eip2930(tx) => &tx.signature,
+            Signed::Eip1559(tx) => &tx.signature,
+            Signed::Eip4844(tx) => &tx.signature,
         }
     }
 }

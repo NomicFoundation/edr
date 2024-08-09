@@ -106,7 +106,7 @@ pub enum CreationError {
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: SignedTransaction>(
+pub fn validate<TransactionT: ExecutableTransaction>(
     transaction: TransactionT,
     spec_id: SpecId,
 ) -> Result<TransactionT, CreationError> {

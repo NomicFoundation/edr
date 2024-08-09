@@ -17,7 +17,7 @@ use std::str::FromStr;
 pub use revm_primitives::{alloy_primitives::TxKind, Transaction, TransactionValidation};
 use revm_primitives::{ruint, B256};
 
-use crate::{AccessListItem, Address, Bytes, U256, U8};
+use crate::{signature::Signature, AccessListItem, Address, Bytes, U256, U8};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -69,6 +69,18 @@ pub enum Type {
 impl From<Type> for u8 {
     fn from(t: Type) -> u8 {
         t as u8
+    }
+}
+
+impl IsEip4844 for Type {
+    fn is_eip4844(&self) -> bool {
+        matches!(self, Type::Eip4844)
+    }
+}
+
+impl IsLegacy for Type {
+    fn is_legacy(&self) -> bool {
+        matches!(self, Type::Legacy)
     }
 }
 
@@ -148,7 +160,8 @@ impl serde::Serialize for Type {
     }
 }
 
-pub trait SignedTransaction: Transaction + TransactionType {
+/// Trait for information about executable transactions.
+pub trait ExecutableTransaction: Transaction + TransactionType {
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256>;
@@ -168,24 +181,62 @@ pub trait SignedTransaction: Transaction + TransactionType {
     fn transaction_hash(&self) -> &B256;
 }
 
+/// Trait for transactions that may be signed.
+pub trait MaybeSignedTransaction {
+    /// Returns the [`Signature`] of the transaction, if any.
+    fn maybe_signature(&self) -> Option<&dyn Signature>;
+}
+
+/// Trait for transactions that have been signed.
+pub trait SignedTransaction {
+    /// Returns the [`Signature`] of the transaction.
+    fn signature(&self) -> &dyn Signature;
+}
+
+impl<TransactionT: SignedTransaction> MaybeSignedTransaction for TransactionT {
+    fn maybe_signature(&self) -> Option<&dyn Signature> {
+        Some(self.signature())
+    }
+}
+
+/// Trait for mutable transactions.
 pub trait TransactionMut {
     /// Sets the gas limit of the transaction.
     fn set_gas_limit(&mut self, gas_limit: u64);
 }
 
+/// Trait for determining the type of a transaction.
 pub trait TransactionType {
     /// Type of the transaction.
-    type Type;
+    type Type: Into<u8>;
 
     /// Returns the type of the transaction.
     fn transaction_type(&self) -> Self::Type;
 }
 
-pub fn max_cost(transaction: &impl SignedTransaction) -> U256 {
+/// Trait for determining whether a transaction has an access list.
+pub trait HasAccessList {
+    /// Whether the transaction has an access list.
+    fn has_access_list(&self) -> bool;
+}
+
+/// Trait for determining whether a transaction is an EIP-4844 transaction.
+pub trait IsEip4844 {
+    /// Whether the transaction is an EIP-4844 transaction.
+    fn is_eip4844(&self) -> bool;
+}
+
+/// Trait for determining whether a transaction is a legacy transaction.
+pub trait IsLegacy {
+    /// Whether the transaction is a legacy transaction.
+    fn is_legacy(&self) -> bool;
+}
+
+pub fn max_cost(transaction: &impl Transaction) -> U256 {
     U256::from(transaction.gas_limit()).saturating_mul(*transaction.gas_price())
 }
 
-pub fn upfront_cost(transaction: &impl SignedTransaction) -> U256 {
+pub fn upfront_cost(transaction: &impl Transaction) -> U256 {
     max_cost(transaction).saturating_add(*transaction.value())
 }
 

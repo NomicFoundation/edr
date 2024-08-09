@@ -2,8 +2,9 @@ use core::fmt::Debug;
 use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
+use derive_where::derive_where;
 use edr_eth::{
-    chain_spec::L1ChainSpec,
+    chain_spec::EvmWiring,
     filter::SubscriptionType,
     hex,
     result::{ExecutionResult, HaltReason, InvalidTransaction, OutOfGasError},
@@ -11,6 +12,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::BlockchainError,
+    chain_spec::ChainSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
@@ -18,11 +20,15 @@ use edr_evm::{
     MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
+use serde::Serialize;
 
 use crate::{data::CreationError, IntervalConfigConversionError};
 
 #[derive(Debug, thiserror::Error)]
-pub enum ProviderError {
+pub enum ProviderError<ChainSpecT>
+where
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
+{
     /// Account override conversion error.
     #[error(transparent)]
     AccountOverrideConversionError(#[from] AccountOverrideConversionError),
@@ -52,11 +58,11 @@ pub enum ProviderError {
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(#[from] BlockchainError<L1ChainSpec>),
+    Blockchain(#[from] BlockchainError<ChainSpecT>),
     #[error(transparent)]
-    Creation(#[from] CreationError<L1ChainSpec>),
+    Creation(#[from] CreationError<ChainSpecT>),
     #[error(transparent)]
-    DebugTrace(#[from] DebugTraceError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
+    DebugTrace(#[from] DebugTraceError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
     #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
     Eip4844CallRequestUnsupported,
     #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
@@ -67,7 +73,7 @@ pub enum ProviderError {
     Eip712Error(#[from] alloy_dyn_abi::Error),
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
-    EstimateGasTransactionFailure(#[from] EstimateGasFailure),
+    EstimateGasTransactionFailure(#[from] EstimateGasFailure<ChainSpecT>),
     #[error("{0}")]
     InvalidArgument(String),
     /// Block number or hash doesn't exist in blockchain
@@ -122,11 +128,11 @@ pub enum ProviderError {
     MemPoolUpdate(StateError),
     /// An error occurred while mining a block.
     #[error(transparent)]
-    MineBlock(#[from] MineBlockError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
+    MineBlock(#[from] MineBlockError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
     MineTransaction(
-        #[from] MineTransactionError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
+        #[from] MineTransactionError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     ),
     /// Rpc client error
     #[error(transparent)]
@@ -136,7 +142,7 @@ pub enum ProviderError {
     RpcVersion(jsonrpc::Version),
     /// Error while running a transaction
     #[error(transparent)]
-    RunTransaction(#[from] TransactionError<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>),
+    RunTransaction(#[from] TransactionError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
     #[error("hardhat_setMinGasPrice is not supported when EIP-1559 is active")]
@@ -181,7 +187,7 @@ pub enum ProviderError {
     /// `eth_sendTransaction` failed and
     /// [`crate::config::ProviderConfig::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(#[from] TransactionFailureWithTraces),
+    TransactionFailed(#[from] TransactionFailureWithTraces<ChainSpecT>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -213,8 +219,11 @@ pub enum ProviderError {
     UnsupportedMethod { method_name: String },
 }
 
-impl From<ProviderError> for jsonrpc::Error {
-    fn from(value: ProviderError) -> Self {
+impl<ChainSpecT> From<ProviderError<ChainSpecT>> for jsonrpc::Error
+where
+    ChainSpecT: ChainSpec<Hardfork: Debug>,
+{
+    fn from(value: ProviderError<ChainSpecT>) -> Self {
         const INVALID_INPUT: i16 = -32000;
         const INTERNAL_ERROR: i16 = -32603;
         const INVALID_PARAMS: i16 = -32602;
@@ -331,25 +340,28 @@ impl From<ProviderError> for jsonrpc::Error {
 }
 
 /// Failure that occurred while estimating gas.
-#[derive(Debug, thiserror::Error)]
-pub struct EstimateGasFailure {
+#[derive(thiserror::Error)]
+#[derive_where(Debug; ChainSpecT, ChainSpecT::HaltReason)]
+pub struct EstimateGasFailure<ChainSpecT: EvmWiring> {
     pub console_log_inputs: Vec<Bytes>,
-    pub transaction_failure: TransactionFailureWithTraces,
+    pub transaction_failure: TransactionFailureWithTraces<ChainSpecT>,
 }
 
-impl std::fmt::Display for EstimateGasFailure {
+impl<ChainSpecT: EvmWiring> std::fmt::Display for EstimateGasFailure<ChainSpecT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.transaction_failure)
     }
 }
 
-#[derive(Clone, Debug, thiserror::Error)]
-pub struct TransactionFailureWithTraces {
-    pub failure: TransactionFailure,
-    pub traces: Vec<Trace<L1ChainSpec>>,
+#[derive(thiserror::Error)]
+#[derive_where(Clone; ChainSpecT::HaltReason)]
+#[derive_where(Debug; ChainSpecT, ChainSpecT::HaltReason)]
+pub struct TransactionFailureWithTraces<ChainSpecT: EvmWiring> {
+    pub failure: TransactionFailure<ChainSpecT>,
+    pub traces: Vec<Trace<ChainSpecT>>,
 }
 
-impl std::fmt::Display for TransactionFailureWithTraces {
+impl<ChainSpecT: EvmWiring> std::fmt::Display for TransactionFailureWithTraces<ChainSpecT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
     }
@@ -357,21 +369,23 @@ impl std::fmt::Display for TransactionFailureWithTraces {
 
 /// Wrapper around [`edr_eth::result::HaltReason`] to convert error messages to
 /// match Hardhat.
-#[derive(Clone, Debug, thiserror::Error, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TransactionFailure {
-    pub reason: TransactionFailureReason,
+#[derive(thiserror::Error, Serialize)]
+#[derive_where(Clone; ChainSpecT::HaltReason)]
+#[derive_where(Debug; ChainSpecT, ChainSpecT::HaltReason)]
+#[serde(bound = "ChainSpecT::HaltReason: Serialize", rename_all = "camelCase")]
+pub struct TransactionFailure<ChainSpecT: EvmWiring> {
+    pub reason: TransactionFailureReason<ChainSpecT>,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: Trace<L1ChainSpec>,
+    pub solidity_trace: Trace<ChainSpecT>,
     pub transaction_hash: Option<B256>,
 }
 
-impl TransactionFailure {
+impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
     pub fn from_execution_result(
-        execution_result: &ExecutionResult<L1ChainSpec>,
+        execution_result: &ExecutionResult<ChainSpecT>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &Trace<L1ChainSpec>,
+        solidity_trace: &Trace<ChainSpecT>,
     ) -> Option<Self> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
@@ -381,7 +395,7 @@ impl TransactionFailure {
                 solidity_trace.clone(),
             )),
             ExecutionResult::Halt { reason, .. } => Some(Self::halt(
-                *reason,
+                reason.clone(),
                 transaction_hash.copied(),
                 solidity_trace.clone(),
             )),
@@ -391,7 +405,7 @@ impl TransactionFailure {
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
-        solidity_trace: Trace<L1ChainSpec>,
+        solidity_trace: Trace<ChainSpecT>,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         Self {
@@ -403,9 +417,9 @@ impl TransactionFailure {
     }
 
     pub fn halt(
-        halt: HaltReason,
+        halt: ChainSpecT::HaltReason,
         tx_hash: Option<B256>,
-        solidity_trace: Trace<L1ChainSpec>,
+        solidity_trace: Trace<ChainSpecT>,
     ) -> Self {
         let reason = match halt {
             HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
@@ -424,7 +438,7 @@ impl TransactionFailure {
     }
 }
 
-impl std::fmt::Display for TransactionFailure {
+impl<ChainSpecT: EvmWiring> std::fmt::Display for TransactionFailure<ChainSpecT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.reason {
             TransactionFailureReason::Inner(halt) => write!(f, "{halt:?}"),
@@ -440,9 +454,11 @@ impl std::fmt::Display for TransactionFailure {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
-pub enum TransactionFailureReason {
-    Inner(HaltReason),
+#[derive_where(Clone, Debug; ChainSpecT::HaltReason)]
+#[derive(Serialize)]
+#[serde(bound = "ChainSpecT::HaltReason: Serialize")]
+pub enum TransactionFailureReason<ChainSpecT: EvmWiring> {
+    Inner(ChainSpecT::HaltReason),
     OpcodeNotFound,
     OutOfGas(OutOfGasError),
     Revert(Bytes),

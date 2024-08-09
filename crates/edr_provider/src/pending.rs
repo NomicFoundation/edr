@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{db::BlockHashRef, transaction::SignedTransaction as _, HashSet, B256, U256};
+use edr_eth::{db::BlockHashRef, transaction::ExecutableTransaction as _, HashSet, B256, U256};
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     chain_spec::SyncChainSpec,

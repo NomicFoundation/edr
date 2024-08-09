@@ -6,7 +6,7 @@ use edr_eth::{
     block::{self, Header, PartialHeader},
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     receipt::{BlockReceipt, MapReceiptLogs as _, TransactionReceipt},
-    transaction::SignedTransaction,
+    transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
     SpecId, B256,
@@ -69,7 +69,7 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
         let ommer_hashes = ommers.iter().map(Header::hash).collect::<Vec<_>>();
         let ommers_hash = keccak256(alloy_rlp::encode(&ommers));
         let transactions_root =
-            trie::ordered_trie_root(transactions.iter().map(SignedTransaction::rlp_encoding));
+            trie::ordered_trie_root(transactions.iter().map(ExecutableTransaction::rlp_encoding));
 
         let withdrawals_root = withdrawals
             .as_ref()

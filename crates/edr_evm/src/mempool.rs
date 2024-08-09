@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use derive_where::derive_where;
 use edr_eth::{
-    transaction::{upfront_cost, SignedTransaction},
+    transaction::{upfront_cost, ExecutableTransaction},
     Address, B256, U256,
 };
 use indexmap::{map::Entry, IndexMap};
@@ -173,7 +173,7 @@ impl<ChainSpecT: ChainSpec> OrderedTransaction<ChainSpecT> {
 }
 
 /// The mempool contains transactions pending inclusion in the blockchain.
-#[derive(Clone, Debug)]
+#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
 pub struct MemPool<ChainSpecT: ChainSpec> {
     /// The block's gas limit
     block_gas_limit: NonZeroU64,
@@ -396,7 +396,7 @@ impl<ChainSpecT: ChainSpec> MemPool<ChainSpecT> {
         S::Error: Debug,
     {
         fn is_valid_tx(
-            transaction: &impl SignedTransaction,
+            transaction: &impl ExecutableTransaction,
             block_gas_limit: NonZeroU64,
             sender: &AccountInfo,
         ) -> bool {

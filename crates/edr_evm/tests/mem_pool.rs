@@ -2,7 +2,7 @@
 
 use std::num::NonZeroU64;
 
-use edr_eth::{transaction::SignedTransaction, AccountInfo, Address, U256};
+use edr_eth::{transaction::ExecutableTransaction, AccountInfo, Address, U256};
 use edr_evm::{
     state::{AccountModifierFn, StateDebug},
     test_utils::{

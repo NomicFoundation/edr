@@ -1,6 +1,6 @@
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
-    block::{BlobGas, PartialHeader},
+    block::{self, BlobGas, PartialHeader},
     chain_spec::EthHeaderConstants,
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     env::{BlobExcessGasAndPrice, BlockEnv},
@@ -27,6 +27,8 @@ pub struct OptimismChainSpec;
 impl RpcSpec for OptimismChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<receipt::Execution<Log>>;
     type RpcBlock<Data> = edr_rpc_eth::Block<Data> where Data: Default + DeserializeOwned + Serialize;
+    type RpcCallRequest = edr_rpc_eth::CallRequest;
+    type RpcEstimateGasRequest = edr_rpc_eth::EstimateGasRequest;
     type RpcReceipt = rpc::BlockReceipt;
     type RpcTransaction = rpc::Transaction;
 }
@@ -55,7 +57,7 @@ impl revm::EvmWiring for OptimismChainSpec {
     }
 }
 
-impl BlockEnvConstructor<OptimismChainSpec> for revm::primitives::BlockEnv {
+impl BlockEnvConstructor<OptimismChainSpec, PartialHeader> for revm::primitives::BlockEnv {
     fn new_block_env(header: &PartialHeader, hardfork: OptimismSpecId) -> Self {
         BlockEnv {
             number: U256::from(header.number),
@@ -63,6 +65,28 @@ impl BlockEnvConstructor<OptimismChainSpec> for revm::primitives::BlockEnv {
             timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee.unwrap_or(U256::ZERO),
+            gas_limit: U256::from(header.gas_limit),
+            prevrandao: if hardfork >= OptimismSpecId::MERGE {
+                Some(header.mix_hash)
+            } else {
+                None
+            },
+            blob_excess_gas_and_price: header
+                .blob_gas
+                .as_ref()
+                .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
+        }
+    }
+}
+
+impl BlockEnvConstructor<OptimismChainSpec, block::Header> for revm::primitives::BlockEnv {
+    fn new_block_env(header: &block::Header, hardfork: OptimismSpecId) -> Self {
+        BlockEnv {
+            number: U256::from(header.number),
+            coinbase: header.beneficiary,
+            timestamp: U256::from(header.timestamp),
+            difficulty: header.difficulty,
+            basefee: header.base_fee_per_gas.unwrap_or(U256::ZERO),
             gas_limit: U256::from(header.gas_limit),
             prevrandao: if hardfork >= OptimismSpecId::MERGE {
                 Some(header.mix_hash)
