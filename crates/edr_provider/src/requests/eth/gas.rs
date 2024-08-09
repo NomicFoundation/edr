@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{
     chain_spec::L1ChainSpec, fee_history::FeeHistoryResult, reward_percentile::RewardPercentile,
     transaction, BlockSpec, SpecId, U256, U64,
@@ -15,11 +13,11 @@ use crate::{
     ProviderError,
 };
 
-pub fn handle_estimate_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_estimate_gas<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     call_request: CallRequest,
     block_spec: Option<BlockSpec>,
-) -> Result<(U64, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(U64, Vec<Trace<L1ChainSpec>>), ProviderError> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
@@ -45,12 +43,12 @@ pub fn handle_estimate_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     }
 }
 
-pub fn handle_fee_history<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_fee_history<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     block_count: U256,
     newest_block: BlockSpec,
     reward_percentiles: Option<Vec<f64>>,
-) -> Result<FeeHistoryResult, ProviderError<LoggerErrorT>> {
+) -> Result<FeeHistoryResult, ProviderError> {
     if data.spec_id() < SpecId::LONDON {
         return Err(ProviderError::InvalidInput(
             "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
@@ -98,12 +96,12 @@ The reward percentiles should be in non-decreasing order, but the percentile num
     data.fee_history(block_count, &newest_block, reward_percentiles)
 }
 
-fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+fn resolve_estimate_gas_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
+) -> Result<transaction::Signed, ProviderError> {
     resolve_call_request_inner(
         data,
         request,
@@ -123,7 +121,7 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
             });
 
             let max_fee_per_gas = max_fee_per_gas.map_or_else(
-                || -> Result<U256, ProviderError<LoggerErrorT>> {
+                || -> Result<U256, ProviderError> {
                     let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
                         max_priority_fee_per_gas
                             + block.header().base_fee_per_gas.unwrap_or(U256::ZERO)

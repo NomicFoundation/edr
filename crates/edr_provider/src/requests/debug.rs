@@ -15,11 +15,11 @@ use crate::{
     ProviderError,
 };
 
-pub fn handle_debug_trace_transaction<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_debug_trace_transaction<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     transaction_hash: B256,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(DebugTraceResult, Vec<Trace<L1ChainSpec>>), ProviderError> {
     let DebugTraceResultWithTraces { result, traces } = data
         .debug_trace_transaction(
             &transaction_hash,
@@ -35,12 +35,12 @@ pub fn handle_debug_trace_transaction<LoggerErrorT: Debug, TimerT: Clone + TimeS
     Ok((result, traces))
 }
 
-pub fn handle_debug_trace_call<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_debug_trace_call<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     call_request: CallRequest,
     block_spec: Option<BlockSpec>,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(DebugTraceResult, Vec<Trace<L1ChainSpec>>), ProviderError> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
     validate_call_request(data.spec_id(), &call_request, &block_spec)?;
 

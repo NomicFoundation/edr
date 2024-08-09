@@ -12,7 +12,7 @@ use self::config::ProviderConfig;
 use crate::{
     call_override::CallOverrideCallback,
     context::EdrContext,
-    logger::{Logger, LoggerConfig, LoggerError},
+    logger::{Logger, LoggerConfig},
     subscribe::SubscriberCallback,
     trace::RawTrace,
 };
@@ -20,7 +20,7 @@ use crate::{
 /// A JSON-RPC provider for Ethereum.
 #[napi]
 pub struct Provider {
-    provider: Arc<edr_provider::Provider<LoggerError>>,
+    provider: Arc<edr_provider::Provider>,
     runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,

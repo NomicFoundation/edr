@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::sync::Arc;
 
 use tokio::{
@@ -11,23 +10,23 @@ use tokio::{
 use crate::{data::ProviderData, time::TimeSinceEpoch, IntervalConfig, ProviderError};
 
 /// Type for interval mining on a separate thread.
-pub struct IntervalMiner<LoggerErrorT: Debug> {
-    inner: Option<Inner<LoggerErrorT>>,
+pub struct IntervalMiner {
+    inner: Option<Inner>,
     runtime: runtime::Handle,
 }
 
 /// Inner type for interval mining on a separate thread, required for
 /// implementation of `Drop`.
-struct Inner<LoggerErrorT: Debug> {
+struct Inner {
     cancellation_sender: oneshot::Sender<()>,
-    background_task: JoinHandle<Result<(), ProviderError<LoggerErrorT>>>,
+    background_task: JoinHandle<Result<(), ProviderError>>,
 }
 
-impl<LoggerErrorT: Debug + Send + Sync + 'static> IntervalMiner<LoggerErrorT> {
+impl IntervalMiner {
     pub fn new<TimerT: Clone + TimeSinceEpoch>(
         runtime: runtime::Handle,
         config: IntervalConfig,
-        data: Arc<Mutex<ProviderData<LoggerErrorT, TimerT>>>,
+        data: Arc<Mutex<ProviderData<TimerT>>>,
     ) -> Self {
         let (cancellation_sender, cancellation_receiver) = oneshot::channel();
         let background_task = runtime
@@ -44,14 +43,11 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static> IntervalMiner<LoggerErrorT> {
 }
 
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-async fn interval_mining_loop<
-    LoggerErrorT: Debug + Send + Sync + 'static,
-    TimerT: Clone + TimeSinceEpoch,
->(
+async fn interval_mining_loop<TimerT: Clone + TimeSinceEpoch>(
     config: IntervalConfig,
-    data: Arc<Mutex<ProviderData<LoggerErrorT, TimerT>>>,
+    data: Arc<Mutex<ProviderData<TimerT>>>,
     mut cancellation_receiver: oneshot::Receiver<()>,
-) -> Result<(), ProviderError<LoggerErrorT>> {
+) -> Result<(), ProviderError> {
     let mut now = Instant::now();
     loop {
         let delay = config.generate_interval();
@@ -71,7 +67,7 @@ async fn interval_mining_loop<
                             return Err(error);
                         }
 
-                        Result::<(), ProviderError<LoggerErrorT>>::Ok(())
+                        Result::<(), ProviderError>::Ok(())
                     }
                 }
             },
@@ -79,7 +75,7 @@ async fn interval_mining_loop<
     }
 }
 
-impl<LoggerErrorT: Debug> Drop for IntervalMiner<LoggerErrorT> {
+impl Drop for IntervalMiner {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn drop(&mut self) {
         if let Some(Inner {

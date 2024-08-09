@@ -84,7 +84,7 @@ pub struct ResponseWithTraces {
 ///
 /// fn to_response(
 ///     id: jsonrpc::Id,
-///     result: Result<serde_json::Value, ProviderError<LoggerErrorT>,
+///     result: Result<serde_json::Value, ProviderError,
 /// ) -> jsonrpc::Response<serde_json::Value> { let data = match result {
 ///   Ok(result) => jsonrpc::ResponseData::Success { result }, Err(error) =>
 ///   jsonrpc::ResponseData::Error { error: jsonrpc::Error { code: -32000,
@@ -97,28 +97,20 @@ pub struct ResponseWithTraces {
 ///     }
 /// }
 /// ```
-pub struct Provider<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = CurrentTime> {
-    data: Arc<AsyncMutex<ProviderData<LoggerErrorT, TimerT>>>,
+pub struct Provider<TimerT: Clone + TimeSinceEpoch = CurrentTime> {
+    data: Arc<AsyncMutex<ProviderData<TimerT>>>,
     /// Interval miner runs in the background, if enabled. It holds the data
     /// mutex, so it needs to internally check for cancellation/self-destruction
     /// while async-awaiting the lock to avoid a deadlock.
-    interval_miner: Arc<Mutex<Option<IntervalMiner<LoggerErrorT>>>>,
+    interval_miner: Arc<Mutex<Option<IntervalMiner>>>,
     runtime: runtime::Handle,
 }
 
-impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch>
-    Provider<LoggerErrorT, TimerT>
-{
+impl<TimerT: Clone + TimeSinceEpoch> Provider<TimerT> {
     /// Constructs a new instance.
     pub fn new(
         runtime: runtime::Handle,
-        logger: Box<
-            dyn SyncLogger<
-                L1ChainSpec,
-                BlockchainError = BlockchainError<L1ChainSpec>,
-                LoggerError = LoggerErrorT,
-            >,
-        >,
+        logger: Box<dyn SyncLogger<L1ChainSpec, BlockchainError = BlockchainError<L1ChainSpec>>>,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         config: ProviderConfig<L1ChainSpec>,
         timer: TimerT,
@@ -166,7 +158,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
     pub fn handle_request(
         &self,
         request: ProviderRequest,
-    ) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {
+    ) -> Result<ResponseWithTraces, ProviderError> {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
 
         match request {
@@ -179,8 +171,8 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
     pub fn log_failed_deserialization(
         &self,
         method_name: &str,
-        error: &ProviderError<LoggerErrorT>,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+        error: &ProviderError,
+    ) -> Result<(), ProviderError> {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
         data.logger_mut()
             .print_method_logs(method_name, Some(error))
@@ -190,9 +182,9 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
     /// Handles a batch of JSON requests for an execution provider.
     fn handle_batch_request(
         &self,
-        data: &mut ProviderData<LoggerErrorT, TimerT>,
+        data: &mut ProviderData<TimerT>,
         request: Vec<MethodInvocation>,
-    ) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {
+    ) -> Result<ResponseWithTraces, ProviderError> {
         let mut results = Vec::new();
         let mut traces = Vec::new();
 
@@ -208,9 +200,9 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
 
     fn handle_single_request(
         &self,
-        data: &mut ProviderData<LoggerErrorT, TimerT>,
+        data: &mut ProviderData<TimerT>,
         request: MethodInvocation,
-    ) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {
+    ) -> Result<ResponseWithTraces, ProviderError> {
         let method_name = if data.logger_mut().is_enabled() {
             let method_name = request.method_name();
             if PRIVATE_RPC_METHODS.contains(method_name) {
@@ -471,9 +463,9 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
 
     fn reset(
         &self,
-        data: &mut ProviderData<LoggerErrorT, TimerT>,
+        data: &mut ProviderData<TimerT>,
         config: Option<ResetProviderConfig>,
-    ) -> Result<bool, ProviderError<LoggerErrorT>> {
+    ) -> Result<bool, ProviderError> {
         let mut interval_miner = self.interval_miner.lock();
         interval_miner.take();
 
@@ -487,9 +479,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
     }
 }
 
-fn to_json<T: serde::Serialize, LoggerErrorT: Debug>(
-    value: T,
-) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {
+fn to_json<T: serde::Serialize>(value: T) -> Result<ResponseWithTraces, ProviderError> {
     let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
@@ -498,9 +488,9 @@ fn to_json<T: serde::Serialize, LoggerErrorT: Debug>(
     })
 }
 
-fn to_json_with_trace<T: serde::Serialize, LoggerErrorT: Debug>(
+fn to_json_with_trace<T: serde::Serialize>(
     value: (T, Trace<L1ChainSpec>),
-) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {
+) -> Result<ResponseWithTraces, ProviderError> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
@@ -509,9 +499,9 @@ fn to_json_with_trace<T: serde::Serialize, LoggerErrorT: Debug>(
     })
 }
 
-fn to_json_with_traces<T: serde::Serialize, LoggerErrorT: Debug>(
+fn to_json_with_traces<T: serde::Serialize>(
     value: (T, Vec<Trace<L1ChainSpec>>),
-) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {
+) -> Result<ResponseWithTraces, ProviderError> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {

@@ -1,6 +1,6 @@
 #![cfg(feature = "test-utils")]
 
-use std::{convert::Infallible, sync::Arc};
+use std::sync::Arc;
 
 use edr_eth::{chain_spec::L1ChainSpec, PreEip1898BlockSpec, B256};
 use edr_provider::{
@@ -11,7 +11,7 @@ use edr_provider::{
 use tokio::runtime;
 
 struct TimestampFixture {
-    provider: Provider<Infallible, Arc<MockTime>>,
+    provider: Provider<Arc<MockTime>>,
     mock_timer: Arc<MockTime>,
 }
 

@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::num::NonZeroU64;
 
 use edr_eth::{block::BlockOptions, chain_spec::L1ChainSpec, U64};
@@ -6,20 +5,20 @@ use edr_evm::trace::Trace;
 
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, Timestamp};
 
-pub fn handle_increase_time_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_increase_time_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     increment: Timestamp,
-) -> Result<String, ProviderError<LoggerErrorT>> {
+) -> Result<String, ProviderError> {
     let new_block_time = data.increase_block_time(increment.into());
 
     // This RPC call is an exception: it returns a number as a string decimal
     Ok(new_block_time.to_string())
 }
 
-pub fn handle_mine_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_mine_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     timestamp: Option<Timestamp>,
-) -> Result<(String, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(String, Vec<Trace<L1ChainSpec>>), ProviderError> {
     let mine_block_result = data.mine_and_commit_block(BlockOptions {
         timestamp: timestamp.map(Into::into),
         ..BlockOptions::default()
@@ -36,26 +35,26 @@ pub fn handle_mine_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     Ok((result, traces))
 }
 
-pub fn handle_revert_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_revert_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     snapshot_id: U64,
-) -> Result<bool, ProviderError<LoggerErrorT>> {
+) -> Result<bool, ProviderError> {
     Ok(data.revert_to_snapshot(snapshot_id.as_limbs()[0]))
 }
 
-pub fn handle_set_automine_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_set_automine_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     automine: bool,
-) -> Result<bool, ProviderError<LoggerErrorT>> {
+) -> Result<bool, ProviderError> {
     data.set_auto_mining(automine);
 
     Ok(true)
 }
 
-pub fn handle_set_block_gas_limit_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_set_block_gas_limit_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     gas_limit: U64,
-) -> Result<bool, ProviderError<LoggerErrorT>> {
+) -> Result<bool, ProviderError> {
     let gas_limit = NonZeroU64::new(gas_limit.as_limbs()[0])
         .ok_or(ProviderError::SetBlockGasLimitMustBeGreaterThanZero)?;
 
@@ -64,22 +63,19 @@ pub fn handle_set_block_gas_limit_request<LoggerErrorT: Debug, TimerT: Clone + T
     Ok(true)
 }
 
-pub fn handle_set_next_block_timestamp_request<
-    LoggerErrorT: Debug,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_set_next_block_timestamp_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     timestamp: Timestamp,
-) -> Result<String, ProviderError<LoggerErrorT>> {
+) -> Result<String, ProviderError> {
     let new_timestamp = data.set_next_block_timestamp(timestamp.into())?;
 
     // This RPC call is an exception: it returns a number as a string decimal
     Ok(new_timestamp.to_string())
 }
 
-pub fn handle_snapshot_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
-) -> Result<U64, ProviderError<LoggerErrorT>> {
+pub fn handle_snapshot_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
+) -> Result<U64, ProviderError> {
     let snapshot_id = data.make_snapshot();
 
     Ok(U64::from(snapshot_id))

@@ -1,5 +1,4 @@
 use std::{
-    convert::Infallible,
     marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
@@ -176,8 +175,6 @@ struct DisabledLogger<ChainSpecT: ChainSpec> {
 impl<ChainSpecT: ChainSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
     type BlockchainError = BlockchainError<L1ChainSpec>;
 
-    type LoggerError = Infallible;
-
     fn is_enabled(&self) -> bool {
         false
     }
@@ -187,8 +184,8 @@ impl<ChainSpecT: ChainSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderError<Infallible>>,
-    ) -> Result<(), Infallible> {
+        _error: Option<&ProviderError>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }
 }

@@ -49,7 +49,6 @@ impl ConsoleLogCollector {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use core::fmt::Debug;
 
     use anyhow::Context;
     use edr_eth::{
@@ -65,11 +64,8 @@ pub(crate) mod tests {
         pub expected_call_data: Bytes,
     }
 
-    pub fn deploy_console_log_contract<
-        LoggerErrorT: Debug + Send + Sync + 'static,
-        TimerT: Clone + TimeSinceEpoch,
-    >(
-        provider_data: &mut ProviderData<LoggerErrorT, TimerT>,
+    pub fn deploy_console_log_contract<TimerT: Clone + TimeSinceEpoch>(
+        provider_data: &mut ProviderData<TimerT>,
     ) -> anyhow::Result<ConsoleLogTransaction> {
         // Compiled with solc 0.8.17, without optimizations
         /*

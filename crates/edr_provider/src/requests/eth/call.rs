@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{chain_spec::L1ChainSpec, BlockSpec, Bytes, SpecId, U256};
 use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::{CallRequest, StateOverrideOptions};
@@ -9,12 +7,12 @@ use crate::{
     ProviderError, TransactionFailure,
 };
 
-pub fn handle_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_call_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     request: CallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace<L1ChainSpec>), ProviderError<LoggerErrorT>> {
+) -> Result<(Bytes, Trace<L1ChainSpec>), ProviderError> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
     validate_call_request(data.spec_id(), &request, &block_spec)?;
 
@@ -50,12 +48,12 @@ pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>)
     block_spec.unwrap_or_else(BlockSpec::latest)
 }
 
-pub(crate) fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub(crate) fn resolve_call_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
+) -> Result<transaction::Signed, ProviderError> {
     resolve_call_request_inner(
         data,
         request,
@@ -74,22 +72,20 @@ pub(crate) fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinc
     )
 }
 
-pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub(crate) fn resolve_call_request_inner<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     request: CallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-    default_gas_price_fn: impl FnOnce(
-        &ProviderData<LoggerErrorT, TimerT>,
-    ) -> Result<U256, ProviderError<LoggerErrorT>>,
+    default_gas_price_fn: impl FnOnce(&ProviderData<TimerT>) -> Result<U256, ProviderError>,
     max_fees_fn: impl FnOnce(
-        &ProviderData<LoggerErrorT, TimerT>,
+        &ProviderData<TimerT>,
         // max_fee_per_gas
         Option<U256>,
         // max_priority_fee_per_gas
         Option<U256>,
-    ) -> Result<(U256, U256), ProviderError<LoggerErrorT>>,
-) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
+    ) -> Result<(U256, U256), ProviderError>,
+) -> Result<transaction::Signed, ProviderError> {
     let CallRequest {
         from,
         to,

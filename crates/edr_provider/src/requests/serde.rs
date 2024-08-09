@@ -103,9 +103,7 @@ impl<'a> InvalidRequestReason<'a> {
     }
 
     /// Converts the invalid request reason into a provider error.
-    pub fn provider_error<LoggerErrorT: Debug>(
-        &self,
-    ) -> Option<(String, ProviderError<LoggerErrorT>)> {
+    pub fn provider_error(&self) -> Option<(String, ProviderError)> {
         match self {
             InvalidRequestReason::InvalidJson { .. } => None,
             InvalidRequestReason::InvalidStorageKey {

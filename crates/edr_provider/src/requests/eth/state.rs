@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{utils::u256_to_padded_hex, Address, BlockSpec, Bytes, U256};
 
 use crate::{
@@ -7,11 +5,11 @@ use crate::{
     ProviderError,
 };
 
-pub fn handle_get_balance_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_balance_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     address: Address,
     block_spec: Option<BlockSpec>,
-) -> Result<U256, ProviderError<LoggerErrorT>> {
+) -> Result<U256, ProviderError> {
     if let Some(block_spec) = block_spec.as_ref() {
         validate_post_merge_block_tags(data.spec_id(), block_spec)?;
     }
@@ -19,11 +17,11 @@ pub fn handle_get_balance_request<LoggerErrorT: Debug, TimerT: Clone + TimeSince
     data.balance(address, block_spec.as_ref())
 }
 
-pub fn handle_get_code_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_code_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     address: Address,
     block_spec: Option<BlockSpec>,
-) -> Result<Bytes, ProviderError<LoggerErrorT>> {
+) -> Result<Bytes, ProviderError> {
     if let Some(block_spec) = block_spec.as_ref() {
         validate_post_merge_block_tags(data.spec_id(), block_spec)?;
     }
@@ -31,12 +29,12 @@ pub fn handle_get_code_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
     data.get_code(address, block_spec.as_ref())
 }
 
-pub fn handle_get_storage_at_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_storage_at_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     address: Address,
     index: U256,
     block_spec: Option<BlockSpec>,
-) -> Result<String, ProviderError<LoggerErrorT>> {
+) -> Result<String, ProviderError> {
     if let Some(block_spec) = block_spec.as_ref() {
         validate_post_merge_block_tags(data.spec_id(), block_spec)?;
     }

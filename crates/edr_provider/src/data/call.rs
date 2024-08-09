@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{
     block::{BlobGas, Header},
     chain_spec::L1ChainSpec,
@@ -42,9 +40,9 @@ where
 }
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<'a, 'evm, DebugDataT, LoggerErrorT: Debug>(
+pub(super) fn run_call<'a, 'evm, DebugDataT>(
     args: RunCallArgs<'a, 'evm, DebugDataT>,
-) -> Result<ExecutionResult<L1ChainSpec>, ProviderError<LoggerErrorT>>
+) -> Result<ExecutionResult<L1ChainSpec>, ProviderError>
 where
     'a: 'evm,
 {
