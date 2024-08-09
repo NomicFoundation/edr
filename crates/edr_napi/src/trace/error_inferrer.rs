@@ -1,5 +1,4 @@
-use std::borrow::Cow;
-use std::collections::HashSet;
+use std::{borrow::Cow, collections::HashSet};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_evm::hex;
@@ -10,6 +9,20 @@ use napi::{
 use napi_derive::napi;
 use semver::{Version, VersionReq};
 
+use super::{
+    exit::ExitCode,
+    message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
+    model::{Bytecode, ContractFunction, ContractType, SourceLocation},
+    opcodes::Opcode,
+    return_data::ReturnData,
+    solidity_stack_trace::{
+        CallFailedErrorStackTraceEntry, CallstackEntryStackTraceEntry, CustomErrorStackTraceEntry,
+        FallbackNotPayableErrorStackTraceEntry, InternalFunctionCallStackEntry,
+        InvalidParamsErrorStackTraceEntry, NonContractAccountCalledErrorStackTraceEntry,
+        PanicErrorStackTraceEntry, SolidityStackTrace, SolidityStackTraceEntry,
+        SolidityStackTraceEntryExt, SourceReference, UnmappedSolc063RevertErrorStackTraceEntry,
+    },
+};
 use crate::{
     trace::{
         model::{ContractFunctionType, Instruction, JumpType},
@@ -25,21 +38,6 @@ use crate::{
         },
     },
     utils::ClassInstanceRef,
-};
-
-use super::{
-    exit::ExitCode,
-    message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
-    model::{Bytecode, ContractFunction, ContractType, SourceLocation},
-    opcodes::Opcode,
-    return_data::ReturnData,
-    solidity_stack_trace::{
-        CallFailedErrorStackTraceEntry, CallstackEntryStackTraceEntry, CustomErrorStackTraceEntry,
-        FallbackNotPayableErrorStackTraceEntry, InternalFunctionCallStackEntry,
-        InvalidParamsErrorStackTraceEntry, NonContractAccountCalledErrorStackTraceEntry,
-        PanicErrorStackTraceEntry, SolidityStackTrace, SolidityStackTraceEntry,
-        SolidityStackTraceEntryExt, SourceReference, UnmappedSolc063RevertErrorStackTraceEntry,
-    },
 };
 
 pub(crate) trait AsEitherRef {
@@ -63,8 +61,8 @@ impl<A, B> AsEitherRef for Either<A, B> {
 
 /// Specifies whether a heuristic was applied and modified the stack trace.
 ///
-/// Think of it as happy [`Result`] - the [`Heuristic::Hit`] should be propagated
-/// to the caller.
+/// Think of it as happy [`Result`] - the [`Heuristic::Hit`] should be
+/// propagated to the caller.
 #[must_use]
 pub enum Heuristic {
     /// The heuristic was applied and modified the stack trace.
@@ -455,8 +453,9 @@ impl ErrorInferrer {
         &self,
         stacktrace: SolidityStackTrace,
     ) -> napi::Result<SolidityStackTrace> {
-        // To work around the borrow checker, we'll collect the indices of the frames we want to keep
-        // We can't clone the frames, because some of them contain non-Clone `ClassInstance`s`
+        // To work around the borrow checker, we'll collect the indices of the frames we
+        // want to keep We can't clone the frames, because some of them contain
+        // non-Clone `ClassInstance`s`
         let retained_indices: HashSet<_> = stacktrace
             .iter()
             .enumerate()
@@ -744,7 +743,8 @@ impl ErrorInferrer {
         if Self::is_called_non_contract_account_error(trace, env)? {
             let source_reference = Self::get_last_source_reference(trace, env)?;
 
-            // We are sure this is not undefined because there was at least a call instruction
+            // We are sure this is not undefined because there was at least a call
+            // instruction
             let source_reference =
                 source_reference.expect("Expected source reference to be defined");
 
@@ -878,12 +878,14 @@ impl ErrorInferrer {
 
         if let Some(location) = &last_instruction.location {
             if jumped_into_function || matches!(trace, Either::B(CreateMessageTrace { .. })) {
-                // There should always be a function here, but that's not the case with optimizations.
+                // There should always be a function here, but that's not the case with
+                // optimizations.
                 //
-                // If this is a create trace, we already checked args and nonpayable failures before
-                // calling this function.
+                // If this is a create trace, we already checked args and nonpayable failures
+                // before calling this function.
                 //
-                // If it's a call trace, we already jumped into a function. But optimizations can happen.
+                // If it's a call trace, we already jumped into a function. But optimizations
+                // can happen.
                 let location = location.borrow(env)?;
                 let failing_function = location.get_containing_function_inner(env)?;
 
@@ -1234,7 +1236,8 @@ impl ErrorInferrer {
         };
         let bytecode = bytecode.as_ref().expect("JS code asserts");
 
-        // If there's a jumpdest, this modifier belongs to the last function that it represents
+        // If there's a jumpdest, this modifier belongs to the last function that it
+        // represents
         if let Some(last_jumpdest) = function_jumpdests.last() {
             let entry = instruction_to_callstack_stack_trace_entry(bytecode, last_jumpdest, env)?;
 
@@ -1474,7 +1477,8 @@ impl ErrorInferrer {
             let inst = subtrace_bytecode.get_instruction_inner(step.pc)?;
             let inst = inst.borrow(env)?;
 
-            // All the remaining locations should be valid, as they are part of the inline asm
+            // All the remaining locations should be valid, as they are part of the inline
+            // asm
             if inst.location.is_none() {
                 return Ok(false);
             }
@@ -1688,8 +1692,9 @@ impl ErrorInferrer {
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
         let contract = bytecode.contract.borrow(env)?;
 
-        // This function is only matters with contracts that have constructors defined. The ones that
-        // don't are abstract contracts, or their constructor doesn't take any argument.
+        // This function is only matters with contracts that have constructors defined.
+        // The ones that don't are abstract contracts, or their constructor
+        // doesn't take any argument.
         let constructor = match &contract.constructor {
             Some(constructor) => constructor,
             None => return Ok(false),
@@ -1705,7 +1710,8 @@ impl ErrorInferrer {
         Ok(constructor.is_payable != Some(true))
     }
 
-    /// Returns a source reference pointing to the constructor if it exists, or to the contract otherwise.
+    /// Returns a source reference pointing to the constructor if it exists, or
+    /// to the contract otherwise.
     fn get_constructor_start_source_reference(
         trace: &CreateMessageTrace,
         env: Env,
@@ -1751,8 +1757,9 @@ impl ErrorInferrer {
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
         let contract = bytecode.contract.borrow(env)?;
 
-        // This function is only matters with contracts that have constructors defined. The ones that
-        // don't are abstract contracts, or their constructor doesn't take any argument.
+        // This function is only matters with contracts that have constructors defined.
+        // The ones that don't are abstract contracts, or their constructor
+        // doesn't take any argument.
         let Some(constructor) = &contract.constructor else {
             return Ok(false);
         };
@@ -2388,8 +2395,9 @@ impl ErrorInferrer {
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         env: Env,
     ) -> napi::Result<bool> {
-        // We could change this to checking that the last valid location maps to a call, but
-        // it's way more complex as we need to get the ast node from that location.
+        // We could change this to checking that the last valid location maps to a call,
+        // but it's way more complex as we need to get the ast node from that
+        // location.
 
         let (bytecode, steps) = match &trace {
             Either::A(create) => (&create.bytecode, &create.steps),

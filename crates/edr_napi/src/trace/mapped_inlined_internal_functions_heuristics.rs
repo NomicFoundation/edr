@@ -1,5 +1,5 @@
-//!  This file includes Solidity tracing heuristics for solc starting with version
-//!  0.6.9.
+//!  This file includes Solidity tracing heuristics for solc starting with
+//! version  0.6.9.
 //!
 //!  This solc version introduced a significant change to how sourcemaps are
 //!  handled for inline yul/internal functions. These were mapped to the
@@ -12,15 +12,14 @@
 //!  run. In fact, this heuristics were first introduced because of unmapped
 //!  reverts.
 //!
-//!  Instead of synthetically completing stack traces when unmapped reverts occur,
-//!  we now start from complete stack traces and adjust them if we can provide
-//!  more meaningful errors.
+//!  Instead of synthetically completing stack traces when unmapped reverts
+//! occur,  we now start from complete stack traces and adjust them if we can
+//! provide  more meaningful errors.
 
 use napi::{
     bindgen_prelude::{Either24, Either4},
     Either, Env,
 };
-
 use semver::Version;
 
 use super::{

@@ -4,6 +4,18 @@ use napi::{
 };
 use napi_derive::napi;
 
+use super::{
+    error_inferrer::{
+        instruction_to_callstack_stack_trace_entry, ErrorInferrer, SubmessageDataRef,
+    },
+    mapped_inlined_internal_functions_heuristics::{
+        adjust_stack_trace, stack_trace_may_require_adjustments,
+    },
+    message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
+    model::{Instruction, JumpType},
+    opcodes::Opcode,
+    solidity_stack_trace::{PrecompileErrorStackTraceEntry, SolidityStackTrace},
+};
 use crate::{
     trace::{
         exit::ExitCode,
@@ -16,19 +28,6 @@ use crate::{
         },
     },
     utils::ClassInstanceRef,
-};
-
-use super::{
-    error_inferrer::{
-        instruction_to_callstack_stack_trace_entry, ErrorInferrer, SubmessageDataRef,
-    },
-    mapped_inlined_internal_functions_heuristics::{
-        adjust_stack_trace, stack_trace_may_require_adjustments,
-    },
-    message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
-    model::{Instruction, JumpType},
-    opcodes::Opcode,
-    solidity_stack_trace::{PrecompileErrorStackTraceEntry, SolidityStackTrace},
 };
 
 #[napi(constructor)]
@@ -168,8 +167,9 @@ impl SolidityTracer {
                 Either3::C(create) => (create.exit.is_error(), create.return_data.clone()),
             };
 
-            // This is not a very exact heuristic, but most of the time it will be right, as solidity
-            // reverts if a call fails, and most contracts are in solidity
+            // This is not a very exact heuristic, but most of the time it will be right, as
+            // solidity reverts if a call fails, and most contracts are in
+            // solidity
             if is_error && trace_return_data.as_ref() == return_data.as_ref() {
                 let unrecognized_entry: SolidityStackTraceEntry = match trace {
                     Either::A(CallMessageTrace { address, .. }) => {
