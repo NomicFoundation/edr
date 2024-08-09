@@ -387,7 +387,7 @@ export interface SourceMap {
   location: SourceMapLocation
   jumpType: JumpType
 }
-export function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth: number): void
+export function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
 export function printStackTrace(trace: SolidityStackTrace): void
 export interface SubmessageData {
   messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace

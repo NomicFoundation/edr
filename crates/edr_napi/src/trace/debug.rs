@@ -20,7 +20,7 @@ const MARGIN_SPACE: usize = 6;
 #[napi]
 fn print_message_trace(
     trace: Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>,
-    depth: u32,
+    depth: Option<u32>,
     env: Env,
 ) -> napi::Result<()> {
     let trace = match &trace {
@@ -28,6 +28,8 @@ fn print_message_trace(
         Either3::B(call) => Either3::B(call),
         Either3::C(create) => Either3::C(create),
     };
+
+    let depth = depth.unwrap_or(0);
 
     print_message_trace_inner(trace, depth, env)
 }
