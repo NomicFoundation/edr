@@ -91,7 +91,16 @@ impl VmTraceDecoder {
                     })
                     .collect::<napi::Result<_>>()?;
 
-                call.bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
+                let bytecode = bytecode
+                    .map(|b| {
+                        // SAFETY: the call is safe but the use may not be.
+                        // We only ever immutably access the bytecode, so it's safe,
+                        // see the comment in `as_unsafe_napi_reference` for more.
+                        unsafe { b.as_unsafe_napi_reference(env) }
+                    })
+                    .transpose()?;
+
+                call.bytecode = bytecode;
                 call.steps = steps;
 
                 Ok(Either3::B(call))
@@ -123,7 +132,15 @@ impl VmTraceDecoder {
                     })
                     .collect::<napi::Result<_>>()?;
 
-                create.bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
+                let bytecode = bytecode
+                    .map(|b| {
+                        // SAFETY: the call is safe but the use may not be.
+                        // We only ever immutably access the bytecode, so it's safe,
+                        // see the comment in `as_unsafe_napi_reference` for more.
+                        unsafe { b.as_unsafe_napi_reference(env) }
+                    })
+                    .transpose()?;
+                create.bytecode = bytecode;
                 create.steps = steps;
 
                 Ok(Either3::C(create))

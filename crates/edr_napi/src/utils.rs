@@ -6,7 +6,7 @@ use std::{
 };
 
 use napi::{
-    bindgen_prelude::{ClassInstance, FromNapiValue, Object},
+    bindgen_prelude::{ClassInstance, FromNapiValue, Object, Reference},
     Env, NapiRaw,
 };
 
@@ -111,11 +111,78 @@ impl<T> ClassInstanceRef<T> {
     }
 
     /// Unwraps the inner value as the original [`ClassInstance`] object.
+    ///
+    /// # Safety
+    ///
+    /// Holding a `ClassInstance` reference is unsafe, as it unconditionally
+    /// stores a `&'static mut T` value, which may introduce UB as it's possible
+    /// to manifest a duplicate `ClassInstance` value via re-entrancy through
+    /// the napi glue code.
+    ///
+    /// The caller has to ensure that there are no other references to the
+    /// underlying `T` value at the time of calling this method and that the
+    /// other references are not manifested through re-entrancy.
     unsafe fn as_instance(&self, env: Env) -> napi::Result<ClassInstance<T>> {
         let inner = self.as_object(env)?;
         // SAFETY: We are only constructed from valid `ClassInstance` objects
         // and this does the opposite. Uses the wrapped object that's refcounted,
         // so alive.
+        unsafe {
+            let raw = inner.raw();
+            FromNapiValue::from_napi_value(env.raw(), raw)
+        }
+    }
+
+    /// Leaks the underlying `ClassInstance` and converts it into
+    /// `napi-rs`-managed [`Reference`].
+    ///
+    /// # Safety
+    ///
+    /// The `napi-rs` crate internally manages ref-counting of the class
+    /// instances via a global reference counting scheme[^1] and also accounts
+    /// for it when creating new instances via [`Reference::add_ref`][^2] in
+    /// the `napi-rs` glue code, so we can always safely call this method.
+    ///
+    /// *However*, **using** the `Reference` is a different kind of dangerous
+    /// than `ClassInstance`.
+    ///
+    /// While it does not unconditionally store a "duplicable" `&'static mut T`,
+    /// it implements unguarded mutable access via `DerefMut` to the underlying
+    /// `T` value, while also implementing cloning via [`Reference::clone`].
+    ///
+    /// As such, the caller has to ensure that any *uses* of the `Reference` are
+    /// safe, i.e. follow the Rust aliasing XOR mutability rules:
+    /// - there may be no other references alive to the underlying `T` value
+    ///   while the `Reference` is mutably borrowed via `DerefMut`
+    /// - there can only be immutable references to the underlying `T` value
+    ///   while the `Reference` is borrowed via `Deref`
+    ///
+    ///
+    /// # Notes
+    /// Why even allow this in the first place? Because we need a way to store
+    /// a reference to a class in an `[napi(object)]` field, which means it
+    /// would have to implement `FromNapiValue` and `ToNapiValue`.
+    ///
+    /// To safely implement `FromNapiValue` for our safe
+    /// `Rc<ClassInstanceRef<T>>` wrappers, we would have to mimick what
+    /// `napi-rs` already does for the `Reference`, i.e. hold a thread local
+    /// map from the napi value pointers to our `Rc<ClassInstanceRef<T>>`
+    /// wrappers.
+    ///
+    /// This seems more trouble than it's worth and would basically reimplement
+    /// the `Reference` type with but with guarded access (probably should be
+    /// done upstream in `napi-rs` instead) and we only need the JS interface
+    /// for the duration of the Solidity stack trace port[^3].
+    ///
+    /// [^1]: <https://docs.rs/napi/latest/src/napi/bindgen_runtime/js_values/value_ref.rs.html#18>
+    /// [^2]: <https://docs.rs/napi/latest/src/napi/bindgen_runtime/js_values/value_ref.rs.html#62>
+    /// [^3]: <https://github.com/NomicFoundation/edr/milestone/18>
+    pub unsafe fn as_unsafe_napi_reference(&self, env: Env) -> napi::Result<Reference<T>> {
+        let inner = self.as_object(env)?;
+        // SAFETY: `Reference<T>` is convertible from the same object that
+        // represents `ClassInstance<T>` and its `FromNapiValue` implementation
+        // takes care to correctly ref-count the class instances, making sure
+        // the underlying `T` value is alive for the lifetime of the reference.
         unsafe {
             let raw = inner.raw();
             FromNapiValue::from_napi_value(env.raw(), raw)

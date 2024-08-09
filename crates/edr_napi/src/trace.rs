@@ -22,11 +22,14 @@ mod model;
 mod source_map;
 
 mod contracts_identifier;
+mod error_inferrer;
 mod exit;
+mod mapped_inlined_internal_functions_heuristics;
 mod message_trace;
 mod opcodes;
 mod return_data;
 mod solidity_stack_trace;
+mod solidity_tracer;
 mod vm_trace_decoder;
 mod vm_tracer;
 

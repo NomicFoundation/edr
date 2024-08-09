@@ -387,6 +387,11 @@ export interface SourceMap {
   location: SourceMapLocation
   jumpType: JumpType
 }
+export interface SubmessageData {
+  messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  stacktrace: SolidityStackTrace
+  stepIndex: number
+}
 /** Represents the exit code of the EVM. */
 export const enum ExitCode {
   /** Execution was successful. */
@@ -770,7 +775,7 @@ export interface PrecompileErrorStackTraceEntry {
 }
 export interface RevertErrorStackTraceEntry {
   type: StackTraceEntryType.REVERT_ERROR
-  message: ReturnData
+  returnData: Uint8Array
   sourceReference: SourceReference
   isInvalidOpcodeError: boolean
 }
@@ -783,10 +788,6 @@ export interface CustomErrorStackTraceEntry {
   type: StackTraceEntryType.CUSTOM_ERROR
   message: string
   sourceReference: SourceReference
-}
-export interface UnmappedSolc063RevertErrorStackTraceEntry {
-  type: StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR
-  sourceReference?: SourceReference
 }
 export interface FunctionNotPayableErrorStackTraceEntry {
   type: StackTraceEntryType.FUNCTION_NOT_PAYABLE_ERROR
@@ -833,19 +834,23 @@ export interface DirectLibraryCallErrorStackTraceEntry {
 }
 export interface UnrecognizedCreateErrorStackTraceEntry {
   type: StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR
-  message: ReturnData
+  returnData: Uint8Array
   sourceReference?: undefined
   isInvalidOpcodeError: boolean
 }
 export interface UnrecognizedContractErrorStackTraceEntry {
   type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_ERROR
   address: Uint8Array
-  message: ReturnData
+  returnData: Uint8Array
   sourceReference?: undefined
   isInvalidOpcodeError: boolean
 }
 export interface OtherExecutionErrorStackTraceEntry {
   type: StackTraceEntryType.OTHER_EXECUTION_ERROR
+  sourceReference?: SourceReference
+}
+export interface UnmappedSolc063RevertErrorStackTraceEntry {
+  type: StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR
   sourceReference?: SourceReference
 }
 export interface ContractTooLargeErrorStackTraceEntry {
@@ -1010,11 +1015,15 @@ export class ReturnData {
   readonly value: Uint8Array
   constructor(value: Uint8Array)
   isEmpty(): boolean
-  matchesSelector(selector: Uint8Array): boolean
   isErrorReturnData(): boolean
   isPanicReturnData(): boolean
   decodeError(): string
   decodePanic(): bigint
+}
+export class SolidityTracer {
+  
+  constructor()
+  getStackTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): SolidityStackTrace
 }
 export class VmTraceDecoder {
   constructor(contractsIdentifier: ContractsIdentifier)

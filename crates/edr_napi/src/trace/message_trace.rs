@@ -1,12 +1,12 @@
 //! Bridging type for the existing `MessageTrace` interface in Hardhat.
 
 use napi::{
-    bindgen_prelude::{BigInt, ClassInstance, Either3, Either4, Object, Uint8Array, Undefined},
+    bindgen_prelude::{BigInt, ClassInstance, Either3, Either4, Reference, Uint8Array, Undefined},
     Either, Env,
 };
 use napi_derive::napi;
 
-use super::exit::Exit;
+use super::{exit::Exit, model::Bytecode};
 
 #[napi(object)]
 pub struct EvmStep {
@@ -41,8 +41,7 @@ pub struct CreateMessageTrace {
     // `BaseEvmMessageTrace`
     pub code: Uint8Array,
     pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>>,
-    #[napi(ts_type = "Bytecode")]
-    pub bytecode: Option<Object>,
+    pub bytecode: Option<Reference<Bytecode>>,
     pub number_of_subtraces: u32,
     // `CreateMessageTrace`
     // HACK: It seems that `Either<Uint8Array, Undefined>` means exactly what we
@@ -66,8 +65,7 @@ pub struct CallMessageTrace {
     // `BaseEvmMessageTrace`
     pub code: Uint8Array,
     pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>>,
-    #[napi(ts_type = "Bytecode")]
-    pub bytecode: Option<Object>,
+    pub bytecode: Option<Reference<Bytecode>>,
     pub number_of_subtraces: u32,
     // `CallMessageTrace`
     pub calldata: Uint8Array,
