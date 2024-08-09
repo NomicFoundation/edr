@@ -1,5 +1,5 @@
 [package]
-name = "edr_opt"
+name = "edr_optimism"
 version = "0.3.5"
 edition = "2021"
 
