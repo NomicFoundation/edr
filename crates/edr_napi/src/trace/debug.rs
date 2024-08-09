@@ -8,12 +8,11 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::trace::{model::JumpType, return_data::ReturnData};
-
 use super::{
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},
     solidity_stack_trace::{RevertErrorStackTraceEntry, SolidityStackTrace},
 };
+use crate::trace::{model::JumpType, return_data::ReturnData};
 
 const MARGIN_SPACE: usize = 6;
 
@@ -153,7 +152,8 @@ fn print_create_trace(trace: &CreateMessageTrace, depth: u32, env: Env) -> napi:
 
     if trace.exit.is_error() {
         println!("{margin} error: {}", trace.exit.get_reason());
-        // The return data is the deployed-bytecode if there was no error, so we don't show it
+        // The return data is the deployed-bytecode if there was no error, so we don't
+        // show it
         println!(
             "{margin} returnData: {}",
             hex::encode_prefixed(&*trace.return_data)
