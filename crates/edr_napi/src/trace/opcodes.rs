@@ -327,21 +327,33 @@ impl Opcode {
     pub fn push_len(self) -> u8 {
         self as u8 - Opcode::PUSH1 as u8 + 1
     }
+
+    pub fn is_jump(self) -> bool {
+        matches!(self, Opcode::JUMP | Opcode::JUMPI)
+    }
+
+    pub fn is_push(self) -> bool {
+        self >= Opcode::PUSH1 && self <= Opcode::PUSH32
+    }
+
+    pub fn into_static_str(self) -> &'static str {
+        self.into()
+    }
 }
 
 #[napi]
 pub fn opcode_to_string(opcode: Opcode) -> &'static str {
-    opcode.into()
+    opcode.into_static_str()
 }
 
 #[napi]
 pub fn is_push(opcode: Opcode) -> bool {
-    opcode >= Opcode::PUSH1 && opcode <= Opcode::PUSH32
+    opcode.is_push()
 }
 
 #[napi]
 pub fn is_jump(opcode: Opcode) -> bool {
-    opcode == Opcode::JUMP || opcode == Opcode::JUMPI
+    opcode.is_jump()
 }
 
 #[napi]

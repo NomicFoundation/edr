@@ -1,8 +1,11 @@
 //! Naive rewrite of `hardhat-network/stack-traces/solidity-stack-traces.ts`
 //! from Hardhat.
 
+use edr_eth::U256;
+use edr_evm::hex;
 use napi::bindgen_prelude::{BigInt, Either24, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
 use napi_derive::napi;
+use serde::{Serialize, Serializer};
 
 use super::model::ContractFunctionType;
 
@@ -10,7 +13,7 @@ use super::model::ContractFunctionType;
 #[repr(u8)]
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
 #[allow(clippy::upper_case_acronyms)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, strum::FromRepr, strum::IntoStaticStr)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, strum::FromRepr, strum::IntoStaticStr, Serialize)]
 pub enum StackTraceEntryType {
     CALLSTACK_ENTRY = 0,
     UNRECOGNIZED_CREATE_CALLSTACK_ENTRY,
@@ -63,7 +66,7 @@ pub const PRECOMPILE_FUNCTION_NAME: &str = "<precompile>";
 pub const UNRECOGNIZED_CONTRACT_NAME: &str = "<UnrecognizedContract>";
 
 #[napi(object)]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize)]
 pub struct SourceReference {
     pub source_name: String,
     pub source_content: String,
@@ -120,8 +123,21 @@ impl<const ENTRY_TYPE: u8> StackTraceEntryTypeConst<ENTRY_TYPE> {
     }
 }
 
+impl<const ENTRY_TYPE: u8> Serialize for StackTraceEntryTypeConst<ENTRY_TYPE> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let inner = StackTraceEntryType::from_repr(ENTRY_TYPE).ok_or_else(|| {
+            serde::ser::Error::custom(format!("Invalid StackTraceEntryType value: {ENTRY_TYPE}"))
+        })?;
+
+        inner.serialize(serializer)
+    }
+}
+
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct CallstackEntryStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.CALLSTACK_ENTRY")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CALLSTACK_ENTRY as u8 }>,
@@ -136,7 +152,7 @@ impl From<CallstackEntryStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct UnrecognizedCreateCallstackEntryStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -155,7 +171,7 @@ impl From<UnrecognizedCreateCallstackEntryStackTraceEntry> for SolidityStackTrac
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct UnrecognizedContractCallstackEntryStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -164,6 +180,7 @@ pub struct UnrecognizedContractCallstackEntryStackTraceEntry {
     pub type_: StackTraceEntryTypeConst<
         { StackTraceEntryType::UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY as u8 },
     >,
+    #[serde(serialize_with = "serialize_uint8array_to_hex")]
     pub address: Uint8Array,
     pub source_reference: Option<Undefined>,
 }
@@ -175,7 +192,7 @@ impl From<UnrecognizedContractCallstackEntryStackTraceEntry> for SolidityStackTr
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct PrecompileErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.PRECOMPILE_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::PRECOMPILE_ERROR as u8 }>,
@@ -190,10 +207,11 @@ impl From<PrecompileErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct RevertErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.REVERT_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::REVERT_ERROR as u8 }>,
+    #[serde(serialize_with = "serialize_uint8array_to_hex")]
     pub return_data: Uint8Array,
     pub source_reference: SourceReference,
     pub is_invalid_opcode_error: bool,
@@ -206,10 +224,11 @@ impl From<RevertErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct PanicErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.PANIC_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::PANIC_ERROR as u8 }>,
+    #[serde(serialize_with = "serialize_evm_value_bigint_using_u256")]
     pub error_code: BigInt,
     pub source_reference: Option<SourceReference>,
 }
@@ -221,7 +240,7 @@ impl From<PanicErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct CustomErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.CUSTOM_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CUSTOM_ERROR as u8 }>,
@@ -237,13 +256,14 @@ impl From<CustomErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct FunctionNotPayableErrorStackTraceEntry {
     #[napi(
         js_name = "type",
         ts_type = "StackTraceEntryType.FUNCTION_NOT_PAYABLE_ERROR"
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::FUNCTION_NOT_PAYABLE_ERROR as u8 }>,
+    #[serde(serialize_with = "serialize_evm_value_bigint_using_u256")]
     pub value: BigInt,
     pub source_reference: SourceReference,
 }
@@ -255,7 +275,7 @@ impl From<FunctionNotPayableErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct InvalidParamsErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.INVALID_PARAMS_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::INVALID_PARAMS_ERROR as u8 }>,
@@ -269,13 +289,14 @@ impl From<InvalidParamsErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct FallbackNotPayableErrorStackTraceEntry {
     #[napi(
         js_name = "type",
         ts_type = "StackTraceEntryType.FALLBACK_NOT_PAYABLE_ERROR"
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::FALLBACK_NOT_PAYABLE_ERROR as u8 }>,
+    #[serde(serialize_with = "serialize_evm_value_bigint_using_u256")]
     pub value: BigInt,
     pub source_reference: SourceReference,
 }
@@ -287,7 +308,7 @@ impl From<FallbackNotPayableErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -296,6 +317,7 @@ pub struct FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
     pub type_: StackTraceEntryTypeConst<
         { StackTraceEntryType::FALLBACK_NOT_PAYABLE_AND_NO_RECEIVE_ERROR as u8 },
     >,
+    #[serde(serialize_with = "serialize_evm_value_bigint_using_u256")]
     pub value: BigInt,
     pub source_reference: SourceReference,
 }
@@ -307,7 +329,7 @@ impl From<FallbackNotPayableAndNoReceiveErrorStackTraceEntry> for SolidityStackT
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -326,7 +348,7 @@ impl From<UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry> for SolidityS
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct MissingFallbackOrReceiveErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -344,7 +366,7 @@ impl From<MissingFallbackOrReceiveErrorStackTraceEntry> for SolidityStackTraceEn
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct ReturndataSizeErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -361,7 +383,7 @@ impl From<ReturndataSizeErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct NonContractAccountCalledErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -379,7 +401,7 @@ impl From<NonContractAccountCalledErrorStackTraceEntry> for SolidityStackTraceEn
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct CallFailedErrorStackTraceEntry {
     #[napi(js_name = "type", ts_type = "StackTraceEntryType.CALL_FAILED_ERROR")]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CALL_FAILED_ERROR as u8 }>,
@@ -393,7 +415,7 @@ impl From<CallFailedErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct DirectLibraryCallErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -410,13 +432,14 @@ impl From<DirectLibraryCallErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct UnrecognizedCreateErrorStackTraceEntry {
     #[napi(
         js_name = "type",
         ts_type = "StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR"
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::UNRECOGNIZED_CREATE_ERROR as u8 }>,
+    #[serde(serialize_with = "serialize_uint8array_to_hex")]
     pub return_data: Uint8Array,
     pub source_reference: Option<Undefined>,
     pub is_invalid_opcode_error: bool,
@@ -429,14 +452,16 @@ impl From<UnrecognizedCreateErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct UnrecognizedContractErrorStackTraceEntry {
     #[napi(
         js_name = "type",
         ts_type = "StackTraceEntryType.UNRECOGNIZED_CONTRACT_ERROR"
     )]
     pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::UNRECOGNIZED_CONTRACT_ERROR as u8 }>,
+    #[serde(serialize_with = "serialize_uint8array_to_hex")]
     pub address: Uint8Array,
+    #[serde(serialize_with = "serialize_uint8array_to_hex")]
     pub return_data: Uint8Array,
     pub source_reference: Option<Undefined>,
     pub is_invalid_opcode_error: bool,
@@ -449,7 +474,7 @@ impl From<UnrecognizedContractErrorStackTraceEntry> for SolidityStackTraceEntry 
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct OtherExecutionErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -466,7 +491,7 @@ impl From<OtherExecutionErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct UnmappedSolc063RevertErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -484,7 +509,7 @@ impl From<UnmappedSolc063RevertErrorStackTraceEntry> for SolidityStackTraceEntry
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct ContractTooLargeErrorStackTraceEntry {
     #[napi(
         js_name = "type",
@@ -501,7 +526,7 @@ impl From<ContractTooLargeErrorStackTraceEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct InternalFunctionCallStackEntry {
     #[napi(
         js_name = "type",
@@ -520,7 +545,7 @@ impl From<InternalFunctionCallStackEntry> for SolidityStackTraceEntry {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct ContractCallRunOutOfGasError {
     #[napi(
         js_name = "type",
@@ -648,3 +673,22 @@ const _: () = {
     const fn assert_to_from_napi_value<T: FromNapiValue + ToNapiValue>() {}
     assert_to_from_napi_value::<SolidityStackTraceEntry>();
 };
+
+/// Serializes a [`BigInt`] that represents an EVM value as a [`edr_eth::U256`].
+fn serialize_evm_value_bigint_using_u256<S>(bigint: &BigInt, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let val = U256::from_limbs_slice(&bigint.words);
+
+    val.serialize(s)
+}
+
+fn serialize_uint8array_to_hex<S>(uint8array: &Uint8Array, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let hex = hex::encode(uint8array.as_ref());
+
+    hex.serialize(s)
+}

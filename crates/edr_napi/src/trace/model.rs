@@ -10,6 +10,7 @@ use napi::{
     Either, Env, JsObject,
 };
 use napi_derive::napi;
+use serde::Serialize;
 use serde_json::Value;
 
 use super::opcodes::Opcode;
@@ -153,7 +154,7 @@ impl SourceLocation {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Serialize)]
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
 #[allow(clippy::upper_case_acronyms)]
 #[napi]
@@ -294,6 +295,12 @@ pub enum JumpType {
     INTO_FUNCTION,
     OUTOF_FUNCTION,
     INTERNAL_JUMP,
+}
+
+impl JumpType {
+    pub fn into_static_str(self) -> &'static str {
+        self.into()
+    }
 }
 
 #[napi]
