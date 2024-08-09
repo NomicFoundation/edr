@@ -1,8 +1,6 @@
 use edr_solidity::artifacts::BuildInfo;
 use napi::{
-    bindgen_prelude::{
-        ClassInstance, Either3, Either4, FromNapiValue, Reference, Uint8Array, Undefined,
-    },
+    bindgen_prelude::{ClassInstance, Either3, Either4, Uint8Array, Undefined},
     Either, Env,
 };
 use napi_derive::napi;
@@ -93,12 +91,12 @@ impl VmTraceDecoder {
                     })
                     .collect::<napi::Result<_>>()?;
 
-                let bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
-                let bytecode: Option<Reference<Bytecode>> = bytecode
-                    .map(|b| unsafe {
-                        use napi::NapiRaw;
-
-                        FromNapiValue::from_napi_value(env.raw(), b.raw())
+                let bytecode = bytecode
+                    .map(|b| {
+                        // SAFETY: the call is safe but the use may not be.
+                        // We only ever immutably access the bytecode, so it's safe,
+                        // see the comment in `as_unsafe_napi_reference` for more.
+                        unsafe { b.as_unsafe_napi_reference(env) }
                     })
                     .transpose()?;
 
@@ -134,15 +132,14 @@ impl VmTraceDecoder {
                     })
                     .collect::<napi::Result<_>>()?;
 
-                let bytecode = bytecode.map(|b| b.as_object(env)).transpose()?;
-                let bytecode: Option<Reference<Bytecode>> = bytecode
-                    .map(|b| unsafe {
-                        use napi::NapiRaw;
-
-                        FromNapiValue::from_napi_value(env.raw(), b.raw())
+                let bytecode = bytecode
+                    .map(|b| {
+                        // SAFETY: the call is safe but the use may not be.
+                        // We only ever immutably access the bytecode, so it's safe,
+                        // see the comment in `as_unsafe_napi_reference` for more.
+                        unsafe { b.as_unsafe_napi_reference(env) }
                     })
                     .transpose()?;
-
                 create.bytecode = bytecode;
                 create.steps = steps;
 
