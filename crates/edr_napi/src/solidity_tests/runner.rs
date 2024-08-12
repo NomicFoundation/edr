@@ -29,8 +29,6 @@ pub(super) async fn build_runner(
         invariant,
     } = config;
 
-    dbg!(&fuzz);
-
     let test_options = TestOptionsBuilder::default()
         .fuzz(fuzz)
         .invariant(invariant)

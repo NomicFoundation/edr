@@ -357,11 +357,22 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             include_push_bytes,
         } = value;
 
-        let mut fuzz = FuzzConfig::default();
+        let failure_persist_dir = Some(failure_persist_dir.into());
+        let failure_persist_file = Some(failure_persist_file.unwrap_or("failures".to_string()));
+        let seed = seed
+            .map(|s| {
+                s.parse().map_err(|_err| {
+                    napi::Error::new(Status::InvalidArg, format!("Invalid seed value: {s}"))
+                })
+            })
+            .transpose()?;
 
-        fuzz.failure_persist_dir = Some(failure_persist_dir.into());
-
-        fuzz.failure_persist_file = Some(failure_persist_file.unwrap_or("failures".to_string()));
+        let mut fuzz = FuzzConfig {
+            seed,
+            failure_persist_dir,
+            failure_persist_file,
+            ..FuzzConfig::default()
+        };
 
         if let Some(runs) = runs {
             fuzz.runs = runs;
@@ -370,14 +381,6 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
         if let Some(max_test_rejects) = max_test_rejects {
             fuzz.max_test_rejects = max_test_rejects;
         }
-
-        fuzz.seed = seed
-            .map(|s| {
-                s.parse().map_err(|_| {
-                    napi::Error::new(Status::InvalidArg, format!("Invalid seed value: {s}"))
-                })
-            })
-            .transpose()?;
 
         if let Some(dictionary_weight) = dictionary_weight {
             fuzz.dictionary.dictionary_weight = dictionary_weight;
@@ -485,9 +488,12 @@ impl From<InvariantConfigArgs> for InvariantConfig {
             shrink_run_limit,
         } = value;
 
-        let mut invariant = InvariantConfig::default();
+        let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
 
-        invariant.failure_persist_dir = failure_persist_dir.map(PathBuf::from);
+        let mut invariant = InvariantConfig {
+            failure_persist_dir,
+            ..InvariantConfig::default()
+        };
 
         if let Some(runs) = runs {
             invariant.runs = runs;
