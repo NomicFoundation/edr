@@ -2960,7 +2960,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "12.1.0"
-source = "git+https://github.com/NomicFoundation/revm?rev=da8175a2#da8175a27a2cc126ab91ce394c650c07ab15e130"
+source = "git+https://github.com/Wodann/revm?rev=6d479da#6d479da35cf431da4276f374a39291cc3872b336"
 dependencies = [
  "auto_impl",
  "derive-where",
@@ -2975,7 +2975,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "8.1.0"
-source = "git+https://github.com/NomicFoundation/revm?rev=da8175a2#da8175a27a2cc126ab91ce394c650c07ab15e130"
+source = "git+https://github.com/Wodann/revm?rev=6d479da#6d479da35cf431da4276f374a39291cc3872b336"
 dependencies = [
  "derive-where",
  "revm-primitives",
@@ -2985,7 +2985,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "9.2.0"
-source = "git+https://github.com/NomicFoundation/revm?rev=da8175a2#da8175a27a2cc126ab91ce394c650c07ab15e130"
+source = "git+https://github.com/Wodann/revm?rev=6d479da#6d479da35cf431da4276f374a39291cc3872b336"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -3003,7 +3003,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "7.1.0"
-source = "git+https://github.com/NomicFoundation/revm?rev=da8175a2#da8175a27a2cc126ab91ce394c650c07ab15e130"
+source = "git+https://github.com/Wodann/revm?rev=6d479da#6d479da35cf431da4276f374a39291cc3872b336"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.7.7",

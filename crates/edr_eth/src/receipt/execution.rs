@@ -2,7 +2,7 @@ mod eip658;
 mod legacy;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::ChainSpec;
+use revm_primitives::EvmWiring;
 
 use super::{Execution, ExecutionReceiptBuilder, MapReceiptLogs, Receipt};
 use crate::{
@@ -123,7 +123,7 @@ impl ExecutionReceiptBuilder<L1ChainSpec> for Builder {
 
     fn new_receipt_builder<StateT: revm::db::StateRef>(
         _pre_execution_state: StateT,
-        _transaction: &<L1ChainSpec as ChainSpec>::Transaction,
+        _transaction: &<L1ChainSpec as EvmWiring>::Transaction,
     ) -> Result<Self, StateT::Error> {
         Ok(Self)
     }

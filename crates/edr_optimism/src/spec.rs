@@ -31,14 +31,14 @@ impl RpcSpec for OptimismChainSpec {
     type RpcTransaction = rpc::Transaction;
 }
 
-impl revm::primitives::ChainSpec for OptimismChainSpec {
+impl revm::primitives::EvmWiring for OptimismChainSpec {
     type Block = edr_eth::env::BlockEnv;
     type Transaction = transaction::Signed;
     type Hardfork = OptimismSpecId;
     type HaltReason = OptimismHaltReason;
 }
 
-impl revm::ChainSpec for OptimismChainSpec {
+impl revm::EvmWiring for OptimismChainSpec {
     type Context = revm::optimism::Context;
 
     fn handler<'evm, EXT, DB>(hardfork: Self::Hardfork) -> EvmHandler<'evm, Self, EXT, DB>

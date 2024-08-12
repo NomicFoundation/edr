@@ -123,9 +123,9 @@ impl ExecutionReceiptBuilder<OptimismChainSpec> for Builder {
     fn build_receipt(
         self,
         header: &edr_eth::block::PartialHeader,
-        transaction: &<OptimismChainSpec as revm::primitives::ChainSpec>::Transaction,
+        transaction: &<OptimismChainSpec as revm::primitives::EvmWiring>::Transaction,
         result: &revm::primitives::ExecutionResult<OptimismChainSpec>,
-        hardfork: <OptimismChainSpec as revm::primitives::ChainSpec>::Hardfork,
+        hardfork: <OptimismChainSpec as revm::primitives::EvmWiring>::Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = edr_eth::log::logs_to_bloom(&logs);

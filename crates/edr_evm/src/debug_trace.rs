@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 use edr_eth::{transaction::SignedTransaction as _, utils::u256_to_padded_hex, B256};
 use revm::{
     db::DatabaseComponents,
-    handler::{register::EvmHandler, CfgEnvWithChainSpec},
+    handler::{register::EvmHandler, CfgEnvWithEvmWiring},
     interpreter::{
         opcode::{self, DynInstruction, OpCode},
         Interpreter, InterpreterResult,
@@ -27,7 +27,7 @@ use crate::{
 /// EIP-3155 and raw tracers.
 pub struct Eip3155AndRawTracers<ChainSpecT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     eip3155: TracerEip3155<ChainSpecT>,
     raw: TraceCollector<ChainSpecT>,
@@ -35,7 +35,7 @@ where
 
 impl<ChainSpecT> Eip3155AndRawTracers<ChainSpecT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     /// Creates a new instance.
     pub fn new(config: DebugTraceConfig, verbose_tracing: bool) -> Self {
@@ -48,7 +48,7 @@ where
 
 impl<ChainSpecT> GetContextData<TraceCollector<ChainSpecT>> for Eip3155AndRawTracers<ChainSpecT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     fn get_context_data(&mut self) -> &mut TraceCollector<ChainSpecT> {
         &mut self.raw
@@ -57,7 +57,7 @@ where
 
 impl<ChainSpecT> GetContextData<TracerEip3155<ChainSpecT>> for Eip3155AndRawTracers<ChainSpecT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     fn get_context_data(&mut self) -> &mut TracerEip3155<ChainSpecT> {
         &mut self.eip3155
@@ -66,7 +66,7 @@ where
 
 /// Register EIP-3155 and trace collector handles.
 pub fn register_eip_3155_and_raw_tracers_handles<
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
     DatabaseT: Database,
     ContextT: GetContextData<TraceCollector<ChainSpecT>> + GetContextData<TracerEip3155<ChainSpecT>>,
 >(
@@ -85,7 +85,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn SyncState<StateErrorT>>,
-    evm_config: CfgEnvWithChainSpec<ChainSpecT>,
+    evm_config: CfgEnvWithEvmWiring<ChainSpecT>,
     trace_config: DebugTraceConfig,
     block: ChainSpecT::Block,
     transactions: Vec<ChainSpecT::Transaction>,
@@ -165,7 +165,7 @@ pub fn execution_result_to_debug_result<ChainSpecT>(
     tracer: Eip3155AndRawTracers<ChainSpecT>,
 ) -> DebugTraceResultWithTraces<ChainSpecT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     let Eip3155AndRawTracers { eip3155, raw } = tracer;
     let traces = raw.into_traces();
@@ -211,7 +211,7 @@ pub struct DebugTraceConfig {
 #[derive(Debug, thiserror::Error)]
 pub enum DebugTraceError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     /// Invalid hardfork spec argument.
     #[error("Invalid spec id: {spec_id:?}. `debug_traceTransaction` is not supported prior to Spurious Dragon")]
@@ -248,7 +248,7 @@ pub struct DebugTraceResult {
 }
 
 /// Result of a `debug_traceTransaction` call with traces.
-pub struct DebugTraceResultWithTraces<ChainSpecT: revm::primitives::ChainSpec> {
+pub struct DebugTraceResultWithTraces<ChainSpecT: revm::EvmWiring> {
     /// The result of the transaction.
     pub result: DebugTraceResult,
     /// The raw traces of the debugged transaction.
@@ -293,7 +293,7 @@ pub struct DebugTraceLogItem {
 
 /// Register EIP-3155 tracer handles.
 pub fn register_eip_3155_tracer_handles<
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
     DatabaseT: Database,
     ContextT: GetContextData<TracerEip3155<ChainSpecT>>,
 >(
@@ -329,7 +329,7 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
     interpreter: &mut Interpreter,
     host: &mut Context<ChainSpecT, ContextT, DatabaseT>,
 ) where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
     ContextT: GetContextData<TracerEip3155<ChainSpecT>>,
     DatabaseT: Database,
 {
@@ -354,7 +354,7 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
 #[derive(Debug)]
 pub struct TracerEip3155<ChainSpecT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     config: DebugTraceConfig,
     logs: Vec<DebugTraceLogItem>,
@@ -372,7 +372,7 @@ where
 
 impl<ChainSpecT> TracerEip3155<ChainSpecT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     /// Create a new tracer.
     pub fn new(config: DebugTraceConfig) -> Self {
@@ -502,7 +502,7 @@ where
 
 impl<ChainSpecT> GetContextData<TracerEip3155<ChainSpecT>> for TracerEip3155<ChainSpecT>
 where
-    ChainSpecT: revm::ChainSpec,
+    ChainSpecT: revm::EvmWiring,
 {
     fn get_context_data(&mut self) -> &mut TracerEip3155<ChainSpecT> {
         self

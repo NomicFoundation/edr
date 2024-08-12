@@ -23,7 +23,7 @@ use crate::{
 pub trait ChainSpec:
     alloy_rlp::Encodable
     + EthHeaderConstants
-    + revm::ChainSpec<
+    + revm::EvmWiring<
         Block: BlockEnvConstructor<Self>,
         Transaction: alloy_rlp::Encodable
                          + Clone
