@@ -16,7 +16,7 @@ use napi_derive::napi;
 
 use crate::cast::TryCast;
 
-/// Default address for `tx.origin` for Foundry
+/// Default address of `tx.origin` in Foundry
 ///
 /// `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`
 const DEFAULT_SENDER: Address = address!("1804c8AB1F12E6bbf3894d4083f33e07309d1f38");
