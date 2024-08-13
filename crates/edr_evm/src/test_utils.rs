@@ -3,6 +3,7 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 use anyhow::anyhow;
 use edr_eth::{
     block::{miner_reward, BlockOptions},
+    chain_spec::L1ChainSpec,
     env::CfgEnv,
     log::FilterLog,
     receipt::Receipt as _,
@@ -25,7 +26,7 @@ use crate::{
 /// A test fixture for `MemPool`.
 pub struct MemPoolTestFixture {
     /// The mem pool.
-    pub mem_pool: MemPool,
+    pub mem_pool: MemPool<L1ChainSpec>,
     /// The state.
     pub state: TrieState,
 }
