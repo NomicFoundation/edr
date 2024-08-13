@@ -19,7 +19,7 @@ use tracing_subscriber::{prelude::*, Registry};
 
 #[derive(Clone, Debug, Deserialize)]
 struct ScenarioConfig {
-    provider_config: edr_provider::ProviderConfig,
+    provider_config: edr_provider::ProviderConfig<L1ChainSpec>,
     logger_enabled: bool,
 }
 
