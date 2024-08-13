@@ -3787,6 +3787,7 @@ dependencies = [
  "anyhow",
  "cfg-if",
  "clap",
+ "derive-where",
  "difference",
  "edr_defaults",
  "edr_eth",

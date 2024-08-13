@@ -1,15 +1,16 @@
 use core::fmt::Debug;
-use std::convert::Infallible;
+use std::{convert::Infallible, marker::PhantomData};
 
+use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_eth::{chain_spec::L1ChainSpec, transaction};
-use edr_evm::blockchain::BlockchainError;
+use edr_eth::transaction;
+use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec};
 
 use crate::{
     data::CallResult, debug_mine::DebugMineBlockResult, error::EstimateGasFailure, ProviderError,
 };
 
-pub trait Logger {
+pub trait Logger<ChainSpecT: ChainSpec> {
     type BlockchainError;
 
     type LoggerError: Debug;
@@ -49,7 +50,7 @@ pub trait Logger {
     fn log_interval_mined(
         &mut self,
         spec_id: edr_eth::SpecId,
-        result: &DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>,
+        result: &DebugMineBlockResult<ChainSpecT, Self::BlockchainError>,
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _result = result;
@@ -60,7 +61,7 @@ pub trait Logger {
     fn log_mined_block(
         &mut self,
         spec_id: edr_eth::SpecId,
-        results: &[DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
+        results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _results = results;
@@ -72,7 +73,7 @@ pub trait Logger {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
-        mining_results: &[DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
+        mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Self::LoggerError> {
         let _spec_id = spec_id;
         let _transaction = transaction;
@@ -92,12 +93,19 @@ pub trait Logger {
     ) -> Result<(), Self::LoggerError>;
 }
 
-pub trait SyncLogger: Logger + DynClone + Send + Sync {}
+pub trait SyncLogger<ChainSpecT: ChainSpec>: Logger<ChainSpecT> + DynClone + Send + Sync {}
 
-impl<T> SyncLogger for T where T: Logger + DynClone + Send + Sync {}
+impl<ChainSpecT, T> SyncLogger<ChainSpecT> for T
+where
+    ChainSpecT: ChainSpec,
+    T: Logger<ChainSpecT> + DynClone + Send + Sync,
+{
+}
 
-impl<BlockchainErrorT, LoggerErrorT> Clone
-    for Box<dyn SyncLogger<BlockchainError = BlockchainErrorT, LoggerError = LoggerErrorT>>
+impl<ChainSpecT: ChainSpec, BlockchainErrorT, LoggerErrorT> Clone
+    for Box<
+        dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorT, LoggerError = LoggerErrorT>,
+    >
 {
     fn clone(&self) -> Self {
         dyn_clone::clone_box(&**self)
@@ -105,11 +113,13 @@ impl<BlockchainErrorT, LoggerErrorT> Clone
 }
 
 /// A logger that does nothing.
-#[derive(Clone, Default)]
-pub struct NoopLogger;
+#[derive_where(Clone, Default)]
+pub struct NoopLogger<ChainSpecT: ChainSpec> {
+    _phantom: PhantomData<ChainSpecT>,
+}
 
-impl Logger for NoopLogger {
-    type BlockchainError = BlockchainError<L1ChainSpec>;
+impl<ChainSpecT: ChainSpec> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
+    type BlockchainError = BlockchainError<ChainSpecT>;
 
     type LoggerError = Infallible;
 

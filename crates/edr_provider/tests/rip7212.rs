@@ -1,6 +1,6 @@
 #![cfg(feature = "test-utils")]
 
-use edr_eth::{bytes, Bytes};
+use edr_eth::{bytes, chain_spec::L1ChainSpec, Bytes};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -18,7 +18,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.enable_rip_7212 = false;
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -48,7 +48,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.enable_rip_7212 = true;
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let provider = Provider::new(
         runtime::Handle::current(),
