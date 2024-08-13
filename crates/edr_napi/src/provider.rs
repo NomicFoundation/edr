@@ -243,12 +243,6 @@ impl Response {
         self.data.clone()
     }
 
-    // Temporary alias for data to prevent breaking change
-    #[napi(getter)]
-    pub fn json(&self) -> Either<String, serde_json::Value> {
-        self.data.clone()
-    }
-
     #[napi(getter)]
     pub fn solidity_trace(&self) -> Option<RawTrace> {
         self.solidity_trace
