@@ -13,7 +13,7 @@ use revm::{
     Context, Database, EvmContext, FrameOrResult, FrameResult,
 };
 
-use crate::debug::GetContextData;
+use crate::{chain_spec::EvmWiring, debug::GetContextData};
 
 /// Registers trace collector handles to the EVM handler.
 pub fn register_trace_collector_handles<
@@ -273,14 +273,14 @@ impl<ChainSpecT: revm::primitives::EvmWiring> Trace<ChainSpecT> {
 /// Object that gathers trace information during EVM execution and can be turned
 /// into a trace upon completion.
 #[derive(Debug)]
-pub struct TraceCollector<ChainSpecT: revm::primitives::EvmWiring> {
+pub struct TraceCollector<ChainSpecT: EvmWiring> {
     traces: Vec<Trace<ChainSpecT>>,
     pending_before: Option<BeforeMessage>,
     is_new_trace: bool,
     verbose: bool,
 }
 
-impl<ChainSpecT: revm::EvmWiring> TraceCollector<ChainSpecT> {
+impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
     /// Create a trace collector. If verbose is `true` full stack and memory
     /// will be recorded.
     pub fn new(verbose: bool) -> Self {
@@ -548,7 +548,7 @@ impl<ChainSpecT: revm::EvmWiring> TraceCollector<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: revm::primitives::EvmWiring> GetContextData<TraceCollector<ChainSpecT>>
+impl<ChainSpecT: EvmWiring> GetContextData<TraceCollector<ChainSpecT>>
     for TraceCollector<ChainSpecT>
 {
     fn get_context_data(&mut self) -> &mut TraceCollector<ChainSpecT> {

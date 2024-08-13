@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-use edr_eth::{chain_spec::L1ChainSpec, db::Database};
+use edr_eth::db::Database;
 use edr_evm::{
     evm::handler::register::EvmHandler,
     trace::{register_trace_collector_handles, TraceCollector},
@@ -13,27 +13,27 @@ use crate::{
 };
 
 /// Registers debugger handles.
-pub fn register_debugger_handles<DatabaseT, ContextT>(
-    handler: &mut EvmHandler<'_, L1ChainSpec, ContextT, DatabaseT>,
+pub fn register_debugger_handles<ChainSpecT: edr_evm::chain_spec::EvmWiring, DatabaseT, ContextT>(
+    handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
 ) where
     DatabaseT: Database,
     DatabaseT::Error: Debug,
     ContextT: GetContextData<ConsoleLogCollector>
         + GetContextData<Mocker>
-        + GetContextData<TraceCollector<L1ChainSpec>>,
+        + GetContextData<TraceCollector<ChainSpecT>>,
 {
     register_console_log_handles(handler);
     register_mocking_handles(handler);
     register_trace_collector_handles(handler);
 }
 
-pub struct Debugger {
+pub struct Debugger<ChainSpecT: edr_evm::chain_spec::EvmWiring> {
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
-    pub trace_collector: TraceCollector<L1ChainSpec>,
+    pub trace_collector: TraceCollector<ChainSpecT>,
 }
 
-impl Debugger {
+impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> Debugger<ChainSpecT> {
     /// Creates a new instance with the provided mocker.
     /// If verbose is true, full stack and memory will be recorded for each
     /// step.
@@ -46,20 +46,24 @@ impl Debugger {
     }
 }
 
-impl GetContextData<ConsoleLogCollector> for Debugger {
+impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> GetContextData<ConsoleLogCollector>
+    for Debugger<ChainSpecT>
+{
     fn get_context_data(&mut self) -> &mut ConsoleLogCollector {
         &mut self.console_logger
     }
 }
 
-impl GetContextData<Mocker> for Debugger {
+impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> GetContextData<Mocker> for Debugger<ChainSpecT> {
     fn get_context_data(&mut self) -> &mut Mocker {
         &mut self.mocker
     }
 }
 
-impl GetContextData<TraceCollector<L1ChainSpec>> for Debugger {
-    fn get_context_data(&mut self) -> &mut TraceCollector<L1ChainSpec> {
+impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> GetContextData<TraceCollector<ChainSpecT>>
+    for Debugger<ChainSpecT>
+{
+    fn get_context_data(&mut self) -> &mut TraceCollector<ChainSpecT> {
         &mut self.trace_collector
     }
 }

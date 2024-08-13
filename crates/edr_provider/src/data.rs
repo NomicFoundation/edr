@@ -1158,7 +1158,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             &mut ProviderData<LoggerErrorT, TimerT>,
             &CfgEnvWithEvmWiring<L1ChainSpec>,
             BlockOptions,
-            &mut Debugger,
+            &mut Debugger<L1ChainSpec>,
         ) -> Result<
             MineBlockResultAndState<L1ChainSpec, StateError>,
             ProviderError<LoggerErrorT>,
@@ -2025,7 +2025,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             &mut ProviderData<LoggerErrorT, TimerT>,
             &CfgEnvWithEvmWiring<L1ChainSpec>,
             BlockOptions,
-            &mut Debugger,
+            &mut Debugger<L1ChainSpec>,
         ) -> Result<
             MineBlockResultAndState<L1ChainSpec, StateError>,
             ProviderError<LoggerErrorT>,
@@ -2075,7 +2075,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         config: &CfgEnvWithEvmWiring<L1ChainSpec>,
         options: BlockOptions,
-        debugger: &mut Debugger,
+        debugger: &mut Debugger<L1ChainSpec>,
     ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block(
@@ -2101,7 +2101,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         config: &CfgEnvWithEvmWiring<L1ChainSpec>,
         options: BlockOptions,
         transaction: transaction::Signed,
-        debugger: &mut Debugger,
+        debugger: &mut Debugger<L1ChainSpec>,
     ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block_with_single_transaction(
