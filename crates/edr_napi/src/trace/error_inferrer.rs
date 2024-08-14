@@ -238,7 +238,7 @@ impl ErrorInferrer {
         stacktrace: SolidityStackTrace,
     ) -> napi::Result<SolidityStackTrace> {
         // To work around the borrow checker, we'll collect the indices of the frames we
-        // want to keep We can't clone the frames, because some of them contain
+        // want to keep. We can't clone the frames, because some of them contain
         // non-Clone `ClassInstance`s`
         let retained_indices: HashSet<_> = stacktrace
             .iter()
