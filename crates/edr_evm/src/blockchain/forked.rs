@@ -90,7 +90,7 @@ pub enum ForkedBlockchainError<ChainSpecT: ChainSpec> {
 }
 
 /// A blockchain that forked from a remote blockchain.
-#[derive(Debug)]
+#[derive_where(Debug; ChainSpecT::Hardfork)]
 pub struct ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncChainSpec,
