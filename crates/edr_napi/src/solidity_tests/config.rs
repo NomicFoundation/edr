@@ -96,7 +96,7 @@ pub struct SolidityTestRunnerConfigArgs {
     /// `$HOME/.foundry/cache/<chain id>/<block number>`.
     /// Defaults to false.
     pub no_storage_caching: Option<bool>,
-    /// If set, all tests are ran in fork mode using this url or remote name.
+    /// If set, all tests are run in fork mode using this url or remote name.
     /// Defaults to none.
     pub eth_rpc_url: Option<String>,
     /// Pins the block number for the global state fork.
