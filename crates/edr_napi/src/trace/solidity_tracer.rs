@@ -31,7 +31,7 @@ use crate::{
 };
 
 #[napi(constructor)]
-pub struct SolidityTracer();
+pub struct SolidityTracer;
 
 #[allow(clippy::unused_self)] // we allow this for convenience for now
 #[napi]

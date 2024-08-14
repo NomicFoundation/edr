@@ -170,7 +170,7 @@ impl<T> ClassInstanceRef<T> {
     /// wrappers.
     ///
     /// This seems more trouble than it's worth and would basically reimplement
-    /// the `Reference` type with but with guarded access (probably should be
+    /// the `Reference` type but with guarded access (probably should be
     /// done upstream in `napi-rs` instead) and we only need the JS interface
     /// for the duration of the Solidity stack trace port[^3].
     ///

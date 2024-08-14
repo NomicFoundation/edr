@@ -482,7 +482,6 @@ impl ErrorInferrer {
                 break;
             }
         }
-        drop(contract);
 
         let mut stacktrace = stacktrace;
         stacktrace.push(
@@ -882,7 +881,7 @@ impl ErrorInferrer {
         if let Some(called_function) = called_function {
             let called_function = called_function.borrow(env)?;
 
-            let abi = called_function.to_alloy().map_err(|e| {
+            let abi = alloy_json_abi::Function::try_from(&*called_function).map_err(|e| {
                 napi::Error::from_reason(format!("Error converting to alloy ABI: {e}"))
             })?;
 

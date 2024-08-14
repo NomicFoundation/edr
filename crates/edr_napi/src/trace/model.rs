@@ -153,7 +153,7 @@ impl SourceLocation {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
 #[allow(clippy::upper_case_acronyms)]
 #[napi]
@@ -209,22 +209,25 @@ impl ContractFunction {
             None => Ok(Either::B(())),
         }
     }
+}
 
-    pub fn to_alloy(&self) -> Result<alloy_json_abi::Function, Box<str>> {
-        let inputs = self
+impl<'a> TryFrom<&'a ContractFunction> for alloy_json_abi::Function {
+    type Error = serde_json::Error;
+
+    fn try_from(value: &'a ContractFunction) -> Result<Self, Self::Error> {
+        let inputs = value
             .param_types
             .clone()
             .unwrap_or_default()
             .into_iter()
             .map(serde_json::from_value)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string().into_boxed_str())?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(alloy_json_abi::Function {
-            name: self.name.clone(),
+            name: value.name.clone(),
             inputs,
             outputs: vec![],
-            state_mutability: match self.is_payable {
+            state_mutability: match value.is_payable {
                 Some(true) => alloy_json_abi::StateMutability::Payable,
                 _ => alloy_json_abi::StateMutability::default(),
             },

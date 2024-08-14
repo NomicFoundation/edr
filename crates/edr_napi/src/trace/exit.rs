@@ -11,7 +11,7 @@ pub struct Exit(pub(crate) ExitCode);
 
 #[napi]
 /// Represents the exit code of the EVM.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms, non_camel_case_types)] // These are exported and mapped 1:1 to existing JS enum
 pub enum ExitCode {
     /// Execution was successful.

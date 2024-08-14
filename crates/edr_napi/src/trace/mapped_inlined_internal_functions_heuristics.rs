@@ -9,12 +9,12 @@
 //!  This change is a very positive change, as errors would point to the correct
 //!  line by default. The only problem is that we used to rely very heavily on
 //!  unmapped reverts to decide when our error detection heuristics were to be
-//!  run. In fact, this heuristics were first introduced because of unmapped
+//!  run. In fact, these heuristics were first introduced because of unmapped
 //!  reverts.
 //!
 //!  Instead of synthetically completing stack traces when unmapped reverts
-//! occur,  we now start from complete stack traces and adjust them if we can
-//! provide  more meaningful errors.
+//! occur, we now start from complete stack traces and adjust them if we can
+//! provide more meaningful errors.
 
 use napi::{
     bindgen_prelude::{Either24, Either4},
