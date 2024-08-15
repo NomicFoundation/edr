@@ -2339,7 +2339,6 @@ where
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
         Transaction: Default
                          + TransactionMut
                          + TransactionValidation<

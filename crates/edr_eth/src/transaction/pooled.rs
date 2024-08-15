@@ -3,7 +3,7 @@ mod eip4844;
 pub use self::eip4844::Eip4844;
 use crate::{
     transaction::{
-        signed::PreOrPostEip155, ExecutableTransaction, Signed, Transaction, TxKind,
+        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, Signed, Transaction, TxKind,
         INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     utils::enveloped,
@@ -217,6 +217,12 @@ impl From<PreOrPostEip155> for PooledTransaction {
 impl From<PooledTransaction> for Signed {
     fn from(value: PooledTransaction) -> Self {
         value.into_payload()
+    }
+}
+
+impl IsEip155 for PooledTransaction {
+    fn is_eip155(&self) -> bool {
+        matches!(self, PooledTransaction::PostEip155Legacy(_))
     }
 }
 

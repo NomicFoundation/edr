@@ -6,7 +6,7 @@ use edr_eth::{
     rlp::Decodable,
     transaction::{
         request::TransactionRequestAndSender, IsEip155, IsEip4844, Transaction as _,
-        TransactionType, TransactionValidation, TxKind,
+        TransactionType, TransactionValidation,
     },
     Bytes, PreEip1898BlockSpec, B256, U256,
 };
@@ -17,7 +17,7 @@ use edr_evm::{
     trace::Trace,
     transaction, SyncBlock,
 };
-use edr_rpc_eth::{RpcTypeFrom as _, TransactionRequest};
+use edr_rpc_eth::RpcTypeFrom as _;
 
 use crate::{
     data::ProviderData,
@@ -28,7 +28,7 @@ use crate::{
     },
     spec::{ResolveRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, TransactionFailure, TransactionFailureReason,
+    ProviderError, TransactionFailure,
 };
 
 pub fn handle_get_transaction_by_block_hash_and_index<
@@ -170,7 +170,6 @@ pub fn handle_send_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
         Transaction: Default
                          + TransactionType<Type: IsEip4844>
                          + TransactionValidation<
@@ -197,7 +196,6 @@ pub fn handle_send_raw_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
         Transaction: Default
                          + TransactionType<Type: IsEip4844>
                          + TransactionValidation<
@@ -233,7 +231,6 @@ fn send_raw_transaction_and_log<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
         Transaction: Default
                          + TransactionType<Type: IsEip4844>
                          + TransactionValidation<
@@ -320,7 +317,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 mod tests {
     use anyhow::Context;
     use edr_eth::{Address, Bytes, U256};
-    use transaction::signed::FakeSign as _;
+    use transaction::{signed::FakeSign as _, TxKind};
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::one_ether};

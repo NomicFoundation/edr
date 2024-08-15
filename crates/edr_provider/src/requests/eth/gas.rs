@@ -19,7 +19,6 @@ pub fn handle_estimate_gas<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
         Transaction: Default
                          + TransactionMut
                          + TransactionValidation<

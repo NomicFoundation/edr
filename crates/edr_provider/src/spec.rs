@@ -18,11 +18,12 @@ use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
     data::ProviderData, requests::validation::HardforkValidationData, time::TimeSinceEpoch,
-    ProviderError,
+    ProviderError, TransactionFailureReason,
 };
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     ChainSpec<
+    HaltReason: Into<TransactionFailureReason<Self>>,
     Hardfork: Debug,
     RpcCallRequest: MaybeSender
                         + for<'context> ResolveRpcType<

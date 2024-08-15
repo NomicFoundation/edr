@@ -194,7 +194,6 @@ impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
             Block: Clone + Default,
-            HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
             PooledTransaction: IsEip155,
             Transaction: Default
                              + TransactionMut

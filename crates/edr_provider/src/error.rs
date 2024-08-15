@@ -4,7 +4,7 @@ use std::num::TryFromIntError;
 use alloy_sol_types::{ContractError, SolInterface};
 use derive_where::derive_where;
 use edr_eth::{
-    chain_spec::EvmWiring,
+    chain_spec::{EvmWiring, L1ChainSpec},
     filter::SubscriptionType,
     hex,
     result::{ExecutionResult, HaltReason, InvalidTransaction, OutOfGasError},
@@ -421,16 +421,8 @@ impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
         tx_hash: Option<B256>,
         solidity_trace: Trace<ChainSpecT>,
     ) -> Self {
-        let reason = match halt {
-            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
-                TransactionFailureReason::OpcodeNotFound
-            }
-            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
-            halt => TransactionFailureReason::Inner(halt),
-        };
-
         Self {
-            reason,
+            reason: halt.into(),
             data: "0x".to_string(),
             solidity_trace,
             transaction_hash: tx_hash,
@@ -458,10 +450,26 @@ impl<ChainSpecT: EvmWiring> std::fmt::Display for TransactionFailure<ChainSpecT>
 #[derive(Serialize)]
 #[serde(bound = "ChainSpecT::HaltReason: Serialize")]
 pub enum TransactionFailureReason<ChainSpecT: EvmWiring> {
+    CreateContractSizeLimit,
     Inner(ChainSpecT::HaltReason),
     OpcodeNotFound,
     OutOfGas(OutOfGasError),
     Revert(Bytes),
+}
+
+impl From<HaltReason> for TransactionFailureReason<L1ChainSpec> {
+    fn from(value: HaltReason) -> Self {
+        match value {
+            HaltReason::CreateContractSizeLimit => {
+                TransactionFailureReason::CreateContractSizeLimit
+            }
+            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+                TransactionFailureReason::OpcodeNotFound
+            }
+            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+            halt => TransactionFailureReason::Inner(halt),
+        }
+    }
 }
 
 fn revert_error(output: &Bytes) -> String {

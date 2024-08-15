@@ -17,7 +17,6 @@ pub fn handle_call_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
         Transaction: Clone
                          + Default
                          + TransactionValidation<
