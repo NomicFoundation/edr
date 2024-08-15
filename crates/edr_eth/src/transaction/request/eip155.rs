@@ -137,6 +137,8 @@ impl Encodable for Eip155 {
 mod tests {
     use std::str::FromStr;
 
+    use transaction::ExecutableTransaction as _;
+
     use super::*;
     use crate::transaction::fake_signature::tests::test_fake_sign_properties;
 

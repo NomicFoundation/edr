@@ -1,13 +1,11 @@
 use std::{num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas,
-    signature::secret_key_from_str,
-    transaction::{EthTransactionRequest, IsEip4844, TransactionType},
-    trie::KECCAK_NULL_RLP,
+    block::BlobGas, chain_spec::L1ChainSpec, signature::secret_key_from_str, trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, U160, U256,
 };
 use edr_evm::Block;
+use edr_rpc_eth::TransactionRequest;
 
 use super::*;
 use crate::{config::MiningConfig, requests::hardhat::rpc_types::ForkConfig};
@@ -99,30 +97,18 @@ pub fn pending_base_fee<
 
 /// Deploys a contract with the provided code. Returns the address of the
 /// contract.
-pub fn deploy_contract<ChainSpecT, TimerT>(
-    provider: &Provider<ChainSpecT, TimerT>,
+pub fn deploy_contract<TimerT>(
+    provider: &Provider<L1ChainSpec, TimerT>,
     caller: Address,
     code: Bytes,
 ) -> anyhow::Result<Address>
 where
     TimerT: Clone + TimeSinceEpoch,
-    ChainSpecT: Debug
-        + SyncProviderSpec<
-            TimerT,
-            Block: Clone + Default,
-            HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
-            Transaction: Default
-                             + TransactionMut
-                             + TransactionType<Type: IsEip4844>
-                             + TransactionValidation<
-                ValidationError: From<InvalidTransaction> + PartialEq,
-            >,
-        >,
 {
-    let deploy_transaction = EthTransactionRequest {
+    let deploy_transaction = TransactionRequest {
         from: caller,
         data: Some(code),
-        ..EthTransactionRequest::default()
+        ..TransactionRequest::default()
     };
 
     let result = provider.handle_request(ProviderRequest::Single(

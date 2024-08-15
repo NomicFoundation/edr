@@ -10,7 +10,7 @@ use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use crate::{
     data::ProviderData,
     requests::validation::validate_post_merge_block_tags,
-    spec::{MaybeSender as _, ResolveRpcType as _, SyncProviderSpec},
+    spec::{CallContext, MaybeSender as _, ResolveRpcType as _, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailureReason,
 };
@@ -29,7 +29,7 @@ pub fn handle_estimate_gas<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-    request: ChainSpecT::RpcEstimateGasRequest,
+    request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
 ) -> Result<(U64, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
@@ -131,7 +131,7 @@ fn resolve_estimate_gas_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-    request: ChainSpecT::RpcEstimateGasRequest,
+    request: ChainSpecT::RpcCallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
 ) -> Result<ChainSpecT::Transaction, ProviderError<ChainSpecT>> {
@@ -140,7 +140,47 @@ fn resolve_estimate_gas_request<
         .copied()
         .unwrap_or_else(|| data.default_caller());
 
-    let request = request.resolve_rpc_type(data, block_spec, state_overrides)?;
+    let context = CallContext {
+        data,
+        block_spec,
+        state_overrides,
+        default_gas_price_fn: ProviderData::gas_price,
+        max_fees_fn: |data, block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
+            let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or_else(|| {
+                const DEFAULT: u64 = 1_000_000_000;
+                let default = U256::from(DEFAULT);
+
+                if let Some(max_fee_per_gas) = max_fee_per_gas {
+                    default.min(max_fee_per_gas)
+                } else {
+                    default
+                }
+            });
+
+            let max_fee_per_gas = max_fee_per_gas.map_or_else(
+                || -> Result<U256, ProviderError<ChainSpecT>> {
+                    let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
+                        max_priority_fee_per_gas
+                            + block.header().base_fee_per_gas.unwrap_or(U256::ZERO)
+                    } else {
+                        // Pending block
+                        let base_fee = data
+                            .next_block_base_fee_per_gas()?
+                            .expect("This function can only be called for post-EIP-1559 blocks");
+
+                        U256::from(2) * base_fee + max_priority_fee_per_gas
+                    };
+
+                    Ok(base_fee)
+                },
+                Ok,
+            )?;
+
+            Ok((max_fee_per_gas, max_priority_fee_per_gas))
+        },
+    };
+
+    let request = request.resolve_rpc_type(context)?;
     let transaction = request.fake_sign(sender);
 
     transaction::validate(transaction, SpecId::LATEST)

@@ -25,7 +25,7 @@ use std::sync::Arc;
 
 use edr_eth::{
     result::InvalidTransaction,
-    transaction::{IsEip4844, TransactionMut, TransactionType, TransactionValidation},
+    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
     HashSet,
 };
 use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec, trace::Trace};
@@ -195,6 +195,7 @@ impl<
             TimerT,
             Block: Clone + Default,
             HaltReason: Into<TransactionFailureReason<ChainSpecT>>,
+            PooledTransaction: IsEip155,
             Transaction: Default
                              + TransactionMut
                              + TransactionType<Type: IsEip4844>

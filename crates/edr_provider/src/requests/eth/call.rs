@@ -1,14 +1,14 @@
 use edr_eth::{
     result::InvalidTransaction,
     transaction::{signed::FakeSign as _, TransactionValidation},
-    BlockSpec, Bytes, SpecId,
+    BlockSpec, Bytes, SpecId, U256,
 };
 use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::StateOverrideOptions;
 
 use crate::{
     data::ProviderData,
-    spec::{MaybeSender as _, ResolveRpcType, SyncProviderSpec},
+    spec::{CallContext, MaybeSender as _, ResolveRpcType, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure, TransactionFailureReason,
 };
@@ -86,7 +86,23 @@ pub(crate) fn resolve_call_request<
         .copied()
         .unwrap_or_else(|| data.default_caller());
 
-    let request = request.resolve_rpc_type(data, block_spec, state_overrides)?;
+    let context = CallContext {
+        data,
+        block_spec,
+        state_overrides,
+        default_gas_price_fn: |_data| Ok(U256::ZERO),
+        max_fees_fn: |_data, _block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
+            let max_fee_per_gas = max_fee_per_gas
+                .or(max_priority_fee_per_gas)
+                .unwrap_or(U256::ZERO);
+
+            let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or(U256::ZERO);
+
+            Ok((max_fee_per_gas, max_priority_fee_per_gas))
+        },
+    };
+
+    let request = request.resolve_rpc_type(context)?;
     let transaction = request.fake_sign(sender);
 
     transaction::validate(transaction, SpecId::LATEST)

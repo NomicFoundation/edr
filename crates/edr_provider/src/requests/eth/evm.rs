@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::num::NonZeroU64;
 
 use edr_eth::{
@@ -7,8 +6,8 @@ use edr_eth::{
 use edr_evm::trace::Trace;
 
 use crate::{
-    spec::{ProviderSpec, SyncProviderSpec},
     data::ProviderData,
+    spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, Timestamp,
 };

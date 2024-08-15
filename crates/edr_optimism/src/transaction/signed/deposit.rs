@@ -1,5 +1,10 @@
 use alloy_rlp::Encodable;
-use edr_eth::{utils::enveloped, Bytes, B256};
+use edr_eth::{
+    env::AuthorizationList,
+    transaction::{ExecutableTransaction, Transaction, TxKind},
+    utils::enveloped,
+    AccessListItem, Address, Bytes, B256, U256,
+};
 use revm::primitives::keccak256;
 
 use super::Deposit;
@@ -7,9 +12,18 @@ use super::Deposit;
 impl Deposit {
     /// The type identifier for a deposit transaction.
     pub const TYPE: u8 = 0x7E;
+}
 
-    /// Returns the (cached) RLP-encoding of the transaction.
-    pub fn rlp_encoding(&self) -> &Bytes {
+impl ExecutableTransaction for Deposit {
+    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
+        None
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&U256> {
+        None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
         self.rlp_encoding.get_or_init(|| {
             let mut encoded = Vec::with_capacity(1 + self.length());
             enveloped(Self::TYPE, self, &mut encoded);
@@ -17,8 +31,11 @@ impl Deposit {
         })
     }
 
-    /// Returns the (cached) hash of the transaction.
-    pub fn transaction_hash(&self) -> &B256 {
+    fn total_blob_gas(&self) -> Option<u64> {
+        None
+    }
+
+    fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
     }
 }
@@ -34,6 +51,67 @@ impl PartialEq for Deposit {
             && self.gas_limit == other.gas_limit
             && self.is_system_tx == other.is_system_tx
             && self.data == other.data
+    }
+}
+
+impl Transaction for Deposit {
+    fn caller(&self) -> &Address {
+        &self.from
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
+    }
+
+    fn gas_price(&self) -> &U256 {
+        // No gas is refunded as ETH. (either by not refunding or utilizing the fact the
+        // gas-price of the deposit is 0)
+        &U256::ZERO
+    }
+
+    fn kind(&self) -> TxKind {
+        self.to
+    }
+
+    fn value(&self) -> &U256 {
+        &self.value
+    }
+
+    fn data(&self) -> &Bytes {
+        &self.data
+    }
+
+    fn nonce(&self) -> u64 {
+        // Before Regolith: the nonce is always 0
+        // With Regolith: the nonce is set to the depositNonce attribute of the corresponding
+        // transaction receipt.
+        0
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        None
+    }
+
+    fn access_list(&self) -> &[AccessListItem] {
+        &[]
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+        // No transaction priority fee is charged. No payment is made to the block
+        // fee-recipient.
+        Some(&U256::ZERO)
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        &[]
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+        None
+    }
+
+    fn authorization_list(&self) -> Option<&AuthorizationList> {
+        None
     }
 }
 

@@ -16,7 +16,7 @@ pub use revm::EvmWiring;
 use crate::{
     block::transaction::TransactionAndBlock,
     hardfork::{self, Activations},
-    transaction::remote::EthRpcTransaction,
+    transaction::{remote::EthRpcTransaction, Transaction, TransactionType},
     BlockReceipt, EthBlockData, EthRpcBlock, RemoteBlockConversionError,
 };
 
@@ -34,6 +34,8 @@ pub trait ChainSpec:
                          + PartialEq
                          + Eq
                          + ExecutableTransaction
+                         + Transaction
+                         + TransactionType
                          + TryFrom<
             <Self as RpcSpec>::RpcTransaction,
             Error = Self::RpcTransactionConversionError,

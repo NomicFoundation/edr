@@ -1,7 +1,14 @@
-use revm_primitives::{EnvKzgSettings, B256, VERSIONED_HASH_VERSION_KZG};
+use std::sync::OnceLock;
+
+use alloy_rlp::Encodable as _;
+use revm_primitives::{AuthorizationList, EnvKzgSettings, VERSIONED_HASH_VERSION_KZG};
 use sha2::Digest;
 
-use crate::{transaction, Blob, Bytes48};
+use crate::{
+    transaction::{self, ExecutableTransaction, Transaction, TxKind},
+    utils::enveloped,
+    AccessListItem, Address, Blob, Bytes, Bytes48, B256, U256,
+};
 
 /// An EIP-4844 pooled transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -10,6 +17,7 @@ pub struct Eip4844 {
     blobs: Vec<Blob>,
     commitments: Vec<Bytes48>,
     proofs: Vec<Bytes48>,
+    rlp_encoding: OnceLock<Bytes>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -107,11 +115,17 @@ impl Eip4844 {
             blobs,
             commitments,
             proofs,
+            rlp_encoding: OnceLock::new(),
         })
     }
 
     /// Returns the blobs of the pooled transaction.
     pub fn blobs(&self) -> &[Blob] {
+        &self.blobs
+    }
+
+    /// Returns a reference to the blobs of the pooled transaction.
+    pub fn blobs_ref(&self) -> &Vec<Blob> {
         &self.blobs
     }
 
@@ -170,6 +184,86 @@ impl Eip4844 {
             + alloy_rlp::length_of_length(commitments_payload)
             + proofs_payload
             + alloy_rlp::length_of_length(proofs_payload)
+    }
+}
+
+impl ExecutableTransaction for Eip4844 {
+    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
+        self.payload.effective_gas_price(block_base_fee)
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&U256> {
+        self.payload.max_fee_per_gas()
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
+        })
+    }
+
+    fn total_blob_gas(&self) -> Option<u64> {
+        self.payload.total_blob_gas()
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.payload.transaction_hash()
+    }
+}
+
+impl Transaction for Eip4844 {
+    fn caller(&self) -> &Address {
+        self.payload.caller()
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.payload.gas_limit()
+    }
+
+    fn gas_price(&self) -> &U256 {
+        self.payload.gas_price()
+    }
+
+    fn kind(&self) -> TxKind {
+        self.payload.kind()
+    }
+
+    fn value(&self) -> &U256 {
+        self.payload.value()
+    }
+
+    fn data(&self) -> &Bytes {
+        self.payload.data()
+    }
+
+    fn nonce(&self) -> u64 {
+        self.payload.nonce()
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        self.payload.chain_id()
+    }
+
+    fn access_list(&self) -> &[AccessListItem] {
+        self.payload.access_list()
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+        self.payload.max_priority_fee_per_gas()
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        self.payload.blob_hashes()
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+        self.payload.max_fee_per_blob_gas()
+    }
+
+    fn authorization_list(&self) -> Option<&AuthorizationList> {
+        self.payload.authorization_list()
     }
 }
 

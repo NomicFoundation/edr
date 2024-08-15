@@ -17,7 +17,7 @@ use std::str::FromStr;
 pub use revm_primitives::{alloy_primitives::TxKind, Transaction, TransactionValidation};
 use revm_primitives::{ruint, B256};
 
-use crate::{signature::Signature, AccessListItem, Address, Bytes, U256, U8};
+use crate::{signature::Signature, Bytes, U256, U8};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -161,14 +161,14 @@ impl serde::Serialize for Type {
 }
 
 /// Trait for information about executable transactions.
-pub trait ExecutableTransaction: Transaction + TransactionType {
+pub trait ExecutableTransaction {
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256>;
 
     /// The maximum fee per gas the sender is willing to pay. Only applicable
     /// for post-EIP-1559 transactions.
-    fn max_fee_per_gas(&self) -> Option<U256>;
+    fn max_fee_per_gas(&self) -> Option<&U256>;
 
     /// The enveloped (EIP-2718) RLP-encoding of the transaction.
     fn rlp_encoding(&self) -> &Bytes;
@@ -220,6 +220,12 @@ pub trait HasAccessList {
     fn has_access_list(&self) -> bool;
 }
 
+/// Trait for determining whether a transaction is an EIP-155 transaction.
+pub trait IsEip155 {
+    /// Whether the transaction is an EIP-155 transaction.
+    fn is_eip155(&self) -> bool;
+}
+
 /// Trait for determining whether a transaction is an EIP-4844 transaction.
 pub trait IsEip4844 {
     /// Whether the transaction is an EIP-4844 transaction.
@@ -238,52 +244,4 @@ pub fn max_cost(transaction: &impl Transaction) -> U256 {
 
 pub fn upfront_cost(transaction: &impl Transaction) -> U256 {
     max_cost(transaction).saturating_add(*transaction.value())
-}
-
-/// Represents _all_ transaction requests received from RPC
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct EthTransactionRequest {
-    /// from address
-    pub from: Address,
-    /// to address
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub to: Option<Address>,
-    /// legacy, gas Price
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub gas_price: Option<U256>,
-    /// max base fee per gas sender is willing to pay
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub max_fee_per_gas: Option<U256>,
-    /// miner tip
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub max_priority_fee_per_gas: Option<U256>,
-    /// gas
-    #[cfg_attr(feature = "serde", serde(default, with = "crate::serde::optional_u64"))]
-    pub gas: Option<u64>,
-    /// value of th tx in wei
-    pub value: Option<U256>,
-    /// Any additional data sent
-    #[cfg_attr(feature = "serde", serde(alias = "input"))]
-    pub data: Option<Bytes>,
-    /// Transaction nonce
-    #[cfg_attr(feature = "serde", serde(default, with = "crate::serde::optional_u64"))]
-    pub nonce: Option<u64>,
-    /// Chain ID
-    #[cfg_attr(feature = "serde", serde(default, with = "crate::serde::optional_u64"))]
-    pub chain_id: Option<u64>,
-    /// warm storage access pre-payment
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub access_list: Option<Vec<AccessListItem>>,
-    /// EIP-2718 type
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, rename = "type", with = "crate::serde::optional_u8")
-    )]
-    pub transaction_type: Option<u8>,
-    /// Blobs (EIP-4844)
-    pub blobs: Option<Vec<Bytes>>,
-    /// Blob versioned hashes (EIP-4844)
-    pub blob_hashes: Option<Vec<B256>>,
 }

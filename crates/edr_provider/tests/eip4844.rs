@@ -8,8 +8,8 @@ use edr_eth::{
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
-        self, pooled::PooledTransaction, EthTransactionRequest, ExecutableTransaction as _,
-        Transaction as _, TransactionType as _,
+        self, pooled::PooledTransaction, ExecutableTransaction as _, Transaction as _,
+        TransactionType as _,
     },
     AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
     KECCAK_EMPTY, U256,
@@ -20,7 +20,7 @@ use edr_provider::{
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
+use edr_rpc_eth::{CallRequest, TransactionRequest};
 use tokio::runtime;
 
 /// Helper struct to modify the pooled transaction from the value in
@@ -178,7 +178,7 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
     })
 }
 
-fn fake_transaction_request() -> EthTransactionRequest {
+fn fake_transaction_request() -> TransactionRequest {
     let transaction = fake_pooled_transaction();
     let blobs = transaction.blobs().map(|blobs| {
         blobs
@@ -202,7 +202,7 @@ fn fake_transaction_request() -> EthTransactionRequest {
         None
     };
 
-    EthTransactionRequest {
+    TransactionRequest {
         from,
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas(),
@@ -216,7 +216,7 @@ fn fake_transaction_request() -> EthTransactionRequest {
         transaction_type: Some(transaction.transaction_type().into()),
         blobs,
         blob_hashes,
-        ..EthTransactionRequest::default()
+        ..TransactionRequest::default()
     }
 }
 

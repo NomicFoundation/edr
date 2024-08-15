@@ -28,9 +28,9 @@ impl RpcSpec for OptimismChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<receipt::Execution<Log>>;
     type RpcBlock<Data> = edr_rpc_eth::Block<Data> where Data: Default + DeserializeOwned + Serialize;
     type RpcCallRequest = edr_rpc_eth::CallRequest;
-    type RpcEstimateGasRequest = edr_rpc_eth::EstimateGasRequest;
     type RpcReceipt = rpc::BlockReceipt;
     type RpcTransaction = rpc::Transaction;
+    type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
 }
 
 impl revm::primitives::EvmWiring for OptimismChainSpec {

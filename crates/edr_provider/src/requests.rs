@@ -6,13 +6,13 @@ pub mod hardhat;
 mod methods;
 mod resolve;
 mod serde;
-mod validation;
+pub(crate) mod validation;
 
 use std::{fmt, marker::PhantomData};
 
 use ::serde::{
     de::{self, MapAccess, SeqAccess, Visitor},
-    Deserialize, Deserializer, Serialize,
+    Deserialize, Deserializer,
 };
 use derive_where::derive_where;
 use edr_rpc_eth::spec::RpcSpec;
@@ -23,9 +23,7 @@ pub use crate::requests::{
 };
 
 /// JSON-RPC request for the provider.
-#[derive(Serialize)]
-#[derive_where(Clone, Debug; ChainSpecT::RpcCallRequest, ChainSpecT::RpcEstimateGasRequest)]
-#[serde(bound = "ChainSpecT::RpcCallRequest: Serialize", untagged)]
+#[derive_where(Clone, Debug; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
 pub enum ProviderRequest<ChainSpecT: RpcSpec> {
     /// A single JSON-RPC request
     Single(MethodInvocation<ChainSpecT>),

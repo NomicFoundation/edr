@@ -3,7 +3,6 @@ use derive_where::derive_where;
 use edr_eth::{
     filter::{LogFilterOptions, SubscriptionType},
     serde::{optional_single_to_sequence, sequence_to_optional_single},
-    transaction::EthTransactionRequest,
     Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
@@ -28,13 +27,9 @@ mod optional_block_spec {
 }
 
 /// for an invoking a method on a remote ethereum node
-#[derive(Deserialize, Serialize)]
-#[derive_where(Clone, Debug, PartialEq; ChainSpecT::RpcCallRequest, ChainSpecT::RpcEstimateGasRequest)]
-#[serde(
-    bound = "ChainSpecT::RpcCallRequest: DeserializeOwned + Serialize",
-    tag = "method",
-    content = "params"
-)]
+#[derive(Deserialize)]
+#[derive_where(Clone, Debug, PartialEq; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
+#[serde(bound = "ChainSpecT: RpcSpec", tag = "method", content = "params")]
 pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     /// `eth_accounts`
     #[serde(rename = "eth_accounts", with = "edr_eth::serde::empty_params")]
@@ -65,7 +60,7 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     /// `eth_estimateGas`
     #[serde(rename = "eth_estimateGas")]
     EstimateGas(
-        ChainSpecT::RpcEstimateGasRequest,
+        ChainSpecT::RpcCallRequest,
         #[serde(
             skip_serializing_if = "Option::is_none",
             default = "optional_block_spec::pending"
@@ -227,7 +222,7 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     SendRawTransaction(Bytes),
     /// `eth_sendTransaction`
     #[serde(rename = "eth_sendTransaction", with = "edr_eth::serde::sequence")]
-    SendTransaction(EthTransactionRequest),
+    SendTransaction(ChainSpecT::RpcTransactionRequest),
     /// `personal_sign`
     #[serde(rename = "personal_sign")]
     PersonalSign(

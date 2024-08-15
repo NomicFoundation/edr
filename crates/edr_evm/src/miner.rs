@@ -351,10 +351,10 @@ where
 
     if let Some(base_fee_per_gas) = options.base_fee {
         if let Some(max_fee_per_gas) = transaction.max_fee_per_gas() {
-            if max_fee_per_gas < base_fee_per_gas {
+            if *max_fee_per_gas < base_fee_per_gas {
                 return Err(MineTransactionError::MaxFeePerGasTooLow {
                     expected: base_fee_per_gas,
-                    actual: max_fee_per_gas,
+                    actual: *max_fee_per_gas,
                 });
             }
         } else {

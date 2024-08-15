@@ -1469,10 +1469,10 @@ where
 
         if let Some(next_block_base_fee) = self.next_block_base_fee_per_gas()? {
             if let Some(max_fee_per_gas) = transaction.max_fee_per_gas() {
-                if max_fee_per_gas < next_block_base_fee {
+                if *max_fee_per_gas < next_block_base_fee {
                     return Err(ProviderError::AutoMineMaxFeePerGasTooLow {
                         expected: next_block_base_fee,
-                        actual: max_fee_per_gas,
+                        actual: *max_fee_per_gas,
                     });
                 }
             } else {

@@ -5,10 +5,10 @@ use edr_eth::{
     result::InvalidTransaction,
     rlp::Decodable,
     transaction::{
-        pooled::PooledTransaction, request::TransactionRequestAndSender, EthTransactionRequest,
-        IsEip4844, Transaction as _, TransactionType, TransactionValidation, TxKind,
+        request::TransactionRequestAndSender, IsEip155, IsEip4844, Transaction as _,
+        TransactionType, TransactionValidation, TxKind,
     },
-    Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
+    Bytes, PreEip1898BlockSpec, B256, U256,
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
@@ -17,7 +17,7 @@ use edr_evm::{
     trace::Trace,
     transaction, SyncBlock,
 };
-use edr_rpc_eth::RpcTypeFrom as _;
+use edr_rpc_eth::{RpcTypeFrom as _, TransactionRequest};
 
 use crate::{
     data::ProviderData,
@@ -26,7 +26,7 @@ use crate::{
         validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
         validate_transaction_and_call_request,
     },
-    spec::SyncProviderSpec,
+    spec::{ResolveRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure, TransactionFailureReason,
 };
@@ -180,12 +180,15 @@ pub fn handle_send_transaction_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-    transaction_request: EthTransactionRequest,
+    request: ChainSpecT::RpcTransactionRequest,
 ) -> Result<(B256, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
-    validate_send_transaction_request(data, &transaction_request)?;
+    let sender = *request.sender();
 
-    let transaction_request = resolve_transaction_request(data, transaction_request)?;
-    let signed_transaction = data.sign_transaction_request(transaction_request)?;
+    let context = TransactionContext { data };
+    let request = request.resolve_rpc_type(context)?;
+
+    let request = TransactionRequestAndSender { request, sender };
+    let signed_transaction = data.sign_transaction_request(request)?;
 
     send_raw_transaction_and_log(data, signed_transaction)
 }
@@ -200,6 +203,7 @@ pub fn handle_send_raw_transaction_request<
                          + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
+        PooledTransaction: IsEip155,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -208,7 +212,7 @@ pub fn handle_send_raw_transaction_request<
 ) -> Result<(B256, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
-    PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
+    ChainSpecT::PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
             edr_eth::rlp::Error::Custom(message) if transaction::Signed::is_invalid_transaction_type_error(message) => {
                 let type_id = *raw_transaction.first().expect("We already validated that the transaction is not empty if it's an invalid transaction type error.");
                 ProviderError::InvalidTransactionType(type_id)
@@ -216,147 +220,13 @@ pub fn handle_send_raw_transaction_request<
             err => ProviderError::InvalidArgument(err.to_string()),
         })?;
 
-    let signed_transaction = pooled_transaction.into_payload();
-    validate_send_raw_transaction_request(data, &signed_transaction)?;
+    validate_send_raw_transaction_request(data, &pooled_transaction)?;
+    let signed_transaction = pooled_transaction.into();
 
     let signed_transaction = transaction::validate(signed_transaction, data.evm_spec_id())
         .map_err(ProviderError::TransactionCreationError)?;
 
     send_raw_transaction_and_log(data, signed_transaction)
-}
-
-fn resolve_transaction_request<
-    ChainSpecT: SyncProviderSpec<TimerT>,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &mut ProviderData<ChainSpecT, TimerT>,
-    transaction_request: EthTransactionRequest,
-) -> Result<TransactionRequestAndSender<ChainSpecT::TransactionRequest>, ProviderError<ChainSpecT>>
-{
-    const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
-
-    /// # Panics
-    ///
-    /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
-    fn calculate_max_fee_per_gas<
-        ChainSpecT: SyncProviderSpec<TimerT>,
-        TimerT: Clone + TimeSinceEpoch,
-    >(
-        data: &ProviderData<ChainSpecT, TimerT>,
-        max_priority_fee_per_gas: U256,
-    ) -> Result<U256, BlockchainError<ChainSpecT>> {
-        let base_fee_per_gas = data
-            .next_block_base_fee_per_gas()?
-            .expect("We already validated that the block is post-London.");
-        Ok(U256::from(2) * base_fee_per_gas + max_priority_fee_per_gas)
-    }
-
-    let EthTransactionRequest {
-        from,
-        to,
-        gas_price,
-        max_fee_per_gas,
-        max_priority_fee_per_gas,
-        gas,
-        value,
-        data: input,
-        nonce,
-        chain_id,
-        access_list,
-        // We ignore the transaction type
-        transaction_type: _transaction_type,
-        blobs: _blobs,
-        blob_hashes: _blob_hashes,
-    } = transaction_request;
-
-    let chain_id = chain_id.unwrap_or_else(|| data.chain_id());
-    let gas_limit = gas.unwrap_or_else(|| data.block_gas_limit());
-    let input = input.map_or(Bytes::new(), Into::into);
-    let nonce = nonce.map_or_else(|| data.account_next_nonce(&from), Ok)?;
-    let value = value.unwrap_or(U256::ZERO);
-
-    let request = match (
-        gas_price,
-        max_fee_per_gas,
-        max_priority_fee_per_gas,
-        access_list,
-    ) {
-        (gas_price, max_fee_per_gas, max_priority_fee_per_gas, access_list)
-            if data.evm_spec_id() >= SpecId::LONDON
-                && (gas_price.is_none()
-                    || max_fee_per_gas.is_some()
-                    || max_priority_fee_per_gas.is_some()) =>
-        {
-            let (max_fee_per_gas, max_priority_fee_per_gas) =
-                match (max_fee_per_gas, max_priority_fee_per_gas) {
-                    (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) => {
-                        (max_fee_per_gas, max_priority_fee_per_gas)
-                    }
-                    (Some(max_fee_per_gas), None) => (
-                        max_fee_per_gas,
-                        max_fee_per_gas.min(U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS)),
-                    ),
-                    (None, Some(max_priority_fee_per_gas)) => {
-                        let max_fee_per_gas =
-                            calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
-                        (max_fee_per_gas, max_priority_fee_per_gas)
-                    }
-                    (None, None) => {
-                        let max_priority_fee_per_gas = U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS);
-                        let max_fee_per_gas =
-                            calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
-                        (max_fee_per_gas, max_priority_fee_per_gas)
-                    }
-                };
-
-            transaction::Request::Eip1559(transaction::request::Eip1559 {
-                nonce,
-                max_priority_fee_per_gas,
-                max_fee_per_gas,
-                gas_limit,
-                value,
-                input,
-                kind: match to {
-                    Some(to) => TxKind::Call(to),
-                    None => TxKind::Create,
-                },
-                chain_id,
-                access_list: access_list.unwrap_or_default(),
-            })
-        }
-        (gas_price, _, _, Some(access_list)) => {
-            transaction::Request::Eip2930(transaction::request::Eip2930 {
-                nonce,
-                gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
-                gas_limit,
-                value,
-                input,
-                kind: match to {
-                    Some(to) => TxKind::Call(to),
-                    None => TxKind::Create,
-                },
-                chain_id,
-                access_list,
-            })
-        }
-        (gas_price, _, _, _) => transaction::Request::Eip155(transaction::request::Eip155 {
-            nonce,
-            gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
-            gas_limit,
-            value,
-            input,
-            kind: match to {
-                Some(to) => TxKind::Call(to),
-                None => TxKind::Create,
-            },
-            chain_id,
-        }),
-    };
-
-    Ok(TransactionRequestAndSender {
-        request,
-        sender: from,
-    })
 }
 
 fn send_raw_transaction_and_log<
@@ -405,60 +275,12 @@ fn send_raw_transaction_and_log<
     Ok(result.into())
 }
 
-fn validate_send_transaction_request<
-    ChainSpecT: SyncProviderSpec<TimerT>,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &ProviderData<ChainSpecT, TimerT>,
-    request: &EthTransactionRequest,
-) -> Result<(), ProviderError<ChainSpecT>> {
-    if let Some(chain_id) = request.chain_id {
-        let expected = data.chain_id();
-        if chain_id != expected {
-            return Err(ProviderError::InvalidChainId {
-                expected,
-                actual: chain_id,
-            });
-        }
-    }
-
-    if let Some(request_data) = &request.data {
-        validate_eip3860_max_initcode_size(
-            data.evm_spec_id(),
-            data.allow_unlimited_initcode_size(),
-            request.to.as_ref(),
-            request_data,
-        )?;
-    }
-
-    if request.blob_hashes.is_some() || request.blobs.is_some() {
-        return Err(ProviderError::Eip4844TransactionUnsupported);
-    }
-
-    if let Some(transaction_type) = request.transaction_type {
-        if transaction_type == u8::from(transaction::Type::Eip4844) {
-            return Err(ProviderError::Eip4844TransactionUnsupported);
-        }
-    }
-
-    validate_transaction_and_call_request(data.evm_spec_id(), request).map_err(|err| match err {
-        ProviderError::UnsupportedEIP1559Parameters {
-            minimum_hardfork, ..
-        } => ProviderError::InvalidArgument(format!("\
-EIP-1559 style fee params (maxFeePerGas or maxPriorityFeePerGas) received but they are not supported by the current hardfork.
-
-You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later.
-        ")),
-        err => err,
-    })
-}
-
 fn validate_send_raw_transaction_request<
-    ChainSpecT: SyncProviderSpec<TimerT>,
+    ChainSpecT: SyncProviderSpec<TimerT, PooledTransaction: IsEip155>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
-    transaction: &transaction::Signed,
+    transaction: &ChainSpecT::PooledTransaction,
 ) -> Result<(), ProviderError<ChainSpecT>> {
     if let Some(tx_chain_id) = transaction.chain_id() {
         let expected = data.chain_id();

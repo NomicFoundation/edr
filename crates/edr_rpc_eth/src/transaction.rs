@@ -1,12 +1,16 @@
+mod request;
+
 use std::{ops::Deref, sync::OnceLock};
 
 use edr_eth::{
     block, signature,
     transaction::{
-        self, ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, SignedTransaction, TxKind,
+        self, ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, TransactionType, TxKind,
     },
     AccessListItem, Address, Bytes, SpecId, B256, U256,
 };
+
+pub use self::request::TransactionRequest;
 
 /// RPC transaction
 #[derive(Clone, Debug, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
@@ -75,7 +79,12 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn new(
-        transaction: &(impl ExecutableTransaction + HasAccessList + IsEip4844 + IsLegacy),
+        transaction: &(impl ExecutableTransaction
+              + edr_eth::transaction::Transaction
+              + TransactionType
+              + HasAccessList
+              + IsEip4844
+              + IsLegacy),
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
         hardfork: SpecId,
@@ -139,7 +148,7 @@ impl Transaction {
             chain_id,
             transaction_type: transaction_type.map(Into::<u8>::into),
             access_list,
-            max_fee_per_gas: transaction.max_fee_per_gas(),
+            max_fee_per_gas: transaction.max_fee_per_gas().copied(),
             max_priority_fee_per_gas: transaction.max_priority_fee_per_gas().cloned(),
             max_fee_per_blob_gas: transaction.max_fee_per_blob_gas().cloned(),
             blob_versioned_hashes,

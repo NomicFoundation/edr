@@ -1,12 +1,13 @@
 use edr_eth::{
-    chain_spec::L1ChainSpec, filter::LogFilterOptions, transaction::EthTransactionRequest,
-    AccountInfo, Address, BlockSpec, SpecId, KECCAK_EMPTY,
+    chain_spec::L1ChainSpec, filter::LogFilterOptions, AccountInfo, Address, BlockSpec, SpecId,
+    KECCAK_EMPTY,
 };
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
+use edr_rpc_eth::TransactionRequest;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -41,10 +42,10 @@ async fn issue_361() -> anyhow::Result<()> {
     ))?;
 
     provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-        EthTransactionRequest {
+        TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
-            ..EthTransactionRequest::default()
+            ..TransactionRequest::default()
         },
     )))?;
 

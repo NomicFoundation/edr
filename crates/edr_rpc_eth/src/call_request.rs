@@ -1,4 +1,4 @@
-use edr_eth::{AccessListItem, Address, Bytes, B256, U256};
+use edr_eth::{AccessListItem, Address, Blob, Bytes, B256, U256};
 
 /// For specifying input to methods requiring a transaction object, like
 /// `eth_call` and `eth_estimateGas`
@@ -29,7 +29,7 @@ pub struct CallRequest {
     #[serde(default, rename = "type", with = "edr_eth::serde::optional_u8")]
     pub transaction_type: Option<u8>,
     /// Blobs (EIP-4844)
-    pub blobs: Option<Vec<Bytes>>,
+    pub blobs: Option<Vec<Blob>>,
     /// Blob versioned hashes (EIP-4844)
     pub blob_hashes: Option<Vec<B256>>,
 }

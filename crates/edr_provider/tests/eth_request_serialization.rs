@@ -2,11 +2,10 @@ mod common;
 
 use edr_eth::{
     filter::{LogFilterOptions, LogOutput, OneOrMore},
-    transaction::EthTransactionRequest,
     Address, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U160, U256,
 };
 use edr_provider::{IntervalConfigRequest, MethodInvocation, Timestamp};
-use edr_rpc_eth::CallRequest;
+use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::common::{
     help_test_method_invocation_serde, help_test_method_invocation_serde_with_expected,
@@ -322,7 +321,7 @@ fn test_serde_eth_send_raw_transaction() {
 
 #[test]
 fn test_serde_eth_send_transaction() {
-    help_test_method_invocation_serde(MethodInvocation::SendTransaction(EthTransactionRequest {
+    help_test_method_invocation_serde(MethodInvocation::SendTransaction(TransactionRequest {
         from: Address::from(U160::from(1)),
         to: Some(Address::from(U160::from(2))),
         gas: Some(3_u64),

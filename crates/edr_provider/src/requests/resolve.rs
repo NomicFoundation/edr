@@ -1,137 +1,208 @@
-use edr_eth::{chain_spec::L1ChainSpec, BlockSpec, Bytes, SpecId, U256};
-use edr_evm::{state::StateOverrides, transaction};
-use edr_rpc_eth::{CallRequest, EstimateGasRequest};
+use edr_eth::{chain_spec::L1ChainSpec, Bytes, SpecId, U256};
+use edr_evm::{blockchain::BlockchainError, transaction};
+use edr_rpc_eth::{CallRequest, TransactionRequest};
 
-use crate::{data::ProviderData, spec::ResolveRpcType, time::TimeSinceEpoch, ProviderError};
+use crate::{
+    data::ProviderData,
+    requests::validation::validate_send_transaction_request,
+    spec::{CallContext, ResolveRpcType, TransactionContext},
+    time::TimeSinceEpoch,
+    ProviderError,
+};
 
 use super::validation::validate_call_request;
 
-impl<TimerT: Clone + TimeSinceEpoch> ResolveRpcType<L1ChainSpec, TimerT, transaction::Request>
-    for CallRequest
-{
-    fn resolve_rpc_type(
+impl<TimerT: Clone + TimeSinceEpoch> ResolveRpcType<TimerT, transaction::Request> for CallRequest {
+    type Context<'context> = CallContext<'context, L1ChainSpec, TimerT>;
+
+    type Error = ProviderError<L1ChainSpec>;
+
+    fn resolve_rpc_type<'context>(
         self,
-        data: &mut ProviderData<L1ChainSpec, TimerT>,
-        block_spec: &BlockSpec,
-        state_overrides: &StateOverrides,
+        context: Self::Context<'context>,
     ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
-        resolve_call_request(
+        let CallContext {
             data,
-            self,
             block_spec,
             state_overrides,
-            |_data| Ok(U256::ZERO),
-            |_, max_fee_per_gas, max_priority_fee_per_gas| {
-                let max_fee_per_gas = max_fee_per_gas
-                    .or(max_priority_fee_per_gas)
-                    .unwrap_or(U256::ZERO);
+            default_gas_price_fn,
+            max_fees_fn,
+        } = context;
 
-                let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or(U256::ZERO);
+        validate_call_request(data.evm_spec_id(), &self, &block_spec)?;
 
-                Ok((max_fee_per_gas, max_priority_fee_per_gas))
-            },
-        )
-    }
-}
+        let CallRequest {
+            from,
+            to,
+            gas,
+            gas_price,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
+            value,
+            data: input,
+            access_list,
+            ..
+        } = self;
 
-impl<TimerT: Clone + TimeSinceEpoch> ResolveRpcType<L1ChainSpec, TimerT, transaction::Request>
-    for EstimateGasRequest
-{
-    fn resolve_rpc_type(
-        self,
-        data: &mut ProviderData<L1ChainSpec, TimerT>,
-        block_spec: &BlockSpec,
-        state_overrides: &StateOverrides,
-    ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
-        resolve_call_request(
-            data,
-            self.inner,
-            block_spec,
-            state_overrides,
-            ProviderData::gas_price,
-            |data, max_fee_per_gas, max_priority_fee_per_gas| {
-                let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or_else(|| {
-                    const DEFAULT: u64 = 1_000_000_000;
-                    let default = U256::from(DEFAULT);
+        let chain_id = data.chain_id();
+        let sender = from.unwrap_or_else(|| data.default_caller());
+        let gas_limit = gas.unwrap_or_else(|| data.block_gas_limit());
+        let input = input.map_or(Bytes::new(), Bytes::from);
+        let nonce = data.nonce(&sender, Some(block_spec), state_overrides)?;
+        let value = value.unwrap_or(U256::ZERO);
 
-                    if let Some(max_fee_per_gas) = max_fee_per_gas {
-                        default.min(max_fee_per_gas)
-                    } else {
-                        default
-                    }
-                });
-
-                let max_fee_per_gas = max_fee_per_gas.map_or_else(
-                    || -> Result<U256, ProviderError<L1ChainSpec>> {
-                        let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
-                            max_priority_fee_per_gas
-                                + block.header().base_fee_per_gas.unwrap_or(U256::ZERO)
-                        } else {
-                            // Pending block
-                            let base_fee = data.next_block_base_fee_per_gas()?.expect(
-                                "This function can only be called for post-EIP-1559 blocks",
-                            );
-
-                            U256::from(2) * base_fee + max_priority_fee_per_gas
-                        };
-
-                        Ok(base_fee)
-                    },
-                    Ok,
-                )?;
-
-                Ok((max_fee_per_gas, max_priority_fee_per_gas))
-            },
-        )
-    }
-}
-
-fn resolve_call_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<L1ChainSpec, TimerT>,
-    request: CallRequest,
-    block_spec: &BlockSpec,
-    state_overrides: &StateOverrides,
-    default_gas_price_fn: impl FnOnce(
-        &ProviderData<L1ChainSpec, TimerT>,
-    ) -> Result<U256, ProviderError<L1ChainSpec>>,
-    max_fees_fn: impl FnOnce(
-        &ProviderData<L1ChainSpec, TimerT>,
-        // max_fee_per_gas
-        Option<U256>,
-        // max_priority_fee_per_gas
-        Option<U256>,
-    ) -> Result<(U256, U256), ProviderError<L1ChainSpec>>,
-) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
-    validate_call_request(data.evm_spec_id(), &request, &block_spec)?;
-
-    let CallRequest {
-        from,
-        to,
-        gas,
-        gas_price,
-        max_fee_per_gas,
-        max_priority_fee_per_gas,
-        value,
-        data: input,
-        access_list,
-        ..
-    } = request;
-
-    let chain_id = data.chain_id();
-    let sender = from.unwrap_or_else(|| data.default_caller());
-    let gas_limit = gas.unwrap_or_else(|| data.block_gas_limit());
-    let input = input.map_or(Bytes::new(), Bytes::from);
-    let nonce = data.nonce(&sender, Some(block_spec), state_overrides)?;
-    let value = value.unwrap_or(U256::ZERO);
-
-    let evm_spec_id = data.evm_spec_id();
-    let request = if evm_spec_id < SpecId::LONDON || gas_price.is_some() {
-        let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
-        match access_list {
-            Some(access_list) if evm_spec_id >= SpecId::BERLIN => {
-                transaction::Request::Eip2930(transaction::request::Eip2930 {
+        let evm_spec_id = data.evm_spec_id();
+        let request = if evm_spec_id < SpecId::LONDON || gas_price.is_some() {
+            let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
+            match access_list {
+                Some(access_list) if evm_spec_id >= SpecId::BERLIN => {
+                    transaction::Request::Eip2930(transaction::request::Eip2930 {
+                        nonce,
+                        gas_price,
+                        gas_limit,
+                        value,
+                        input,
+                        kind: to.into(),
+                        chain_id,
+                        access_list,
+                    })
+                }
+                _ => transaction::Request::Eip155(transaction::request::Eip155 {
                     nonce,
                     gas_price,
+                    gas_limit,
+                    kind: to.into(),
+                    value,
+                    input,
+                    chain_id,
+                }),
+            }
+        } else {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                max_fees_fn(data, block_spec, max_fee_per_gas, max_priority_fee_per_gas)?;
+
+            transaction::Request::Eip1559(transaction::request::Eip1559 {
+                chain_id,
+                nonce,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+                gas_limit,
+                kind: to.into(),
+                value,
+                input,
+                access_list: access_list.unwrap_or_default(),
+            })
+        };
+
+        Ok(request)
+    }
+}
+
+impl<TimerT: Clone + TimeSinceEpoch> ResolveRpcType<TimerT, transaction::Request>
+    for TransactionRequest
+{
+    type Context<'context> = TransactionContext<'context, L1ChainSpec, TimerT>;
+
+    type Error = ProviderError<L1ChainSpec>;
+
+    fn resolve_rpc_type<'context>(
+        self,
+        context: Self::Context<'context>,
+    ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
+        const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
+
+        /// # Panics
+        ///
+        /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
+        fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
+            data: &ProviderData<L1ChainSpec, TimerT>,
+            max_priority_fee_per_gas: U256,
+        ) -> Result<U256, BlockchainError<L1ChainSpec>> {
+            let base_fee_per_gas = data
+                .next_block_base_fee_per_gas()?
+                .expect("We already validated that the block is post-London.");
+            Ok(U256::from(2) * base_fee_per_gas + max_priority_fee_per_gas)
+        }
+
+        let TransactionContext { data } = context;
+
+        validate_send_transaction_request(data, &self)?;
+
+        let TransactionRequest {
+            from,
+            to,
+            gas_price,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
+            gas,
+            value,
+            data: input,
+            nonce,
+            chain_id,
+            access_list,
+            // We ignore the transaction type
+            transaction_type: _transaction_type,
+            blobs: _blobs,
+            blob_hashes: _blob_hashes,
+        } = self;
+
+        let chain_id = chain_id.unwrap_or_else(|| data.chain_id());
+        let gas_limit = gas.unwrap_or_else(|| data.block_gas_limit());
+        let input = input.map_or(Bytes::new(), Into::into);
+        let nonce = nonce.map_or_else(|| data.account_next_nonce(&from), Ok)?;
+        let value = value.unwrap_or(U256::ZERO);
+
+        let request = match (
+            gas_price,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
+            access_list,
+        ) {
+            (gas_price, max_fee_per_gas, max_priority_fee_per_gas, access_list)
+                if data.evm_spec_id() >= SpecId::LONDON
+                    && (gas_price.is_none()
+                        || max_fee_per_gas.is_some()
+                        || max_priority_fee_per_gas.is_some()) =>
+            {
+                let (max_fee_per_gas, max_priority_fee_per_gas) =
+                    match (max_fee_per_gas, max_priority_fee_per_gas) {
+                        (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) => {
+                            (max_fee_per_gas, max_priority_fee_per_gas)
+                        }
+                        (Some(max_fee_per_gas), None) => (
+                            max_fee_per_gas,
+                            max_fee_per_gas.min(U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS)),
+                        ),
+                        (None, Some(max_priority_fee_per_gas)) => {
+                            let max_fee_per_gas =
+                                calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
+                            (max_fee_per_gas, max_priority_fee_per_gas)
+                        }
+                        (None, None) => {
+                            let max_priority_fee_per_gas =
+                                U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS);
+                            let max_fee_per_gas =
+                                calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
+                            (max_fee_per_gas, max_priority_fee_per_gas)
+                        }
+                    };
+
+                transaction::Request::Eip1559(transaction::request::Eip1559 {
+                    nonce,
+                    max_priority_fee_per_gas,
+                    max_fee_per_gas,
+                    gas_limit,
+                    value,
+                    input,
+                    kind: to.into(),
+                    chain_id,
+                    access_list: access_list.unwrap_or_default(),
+                })
+            }
+            (gas_price, _, _, Some(access_list)) => {
+                transaction::Request::Eip2930(transaction::request::Eip2930 {
+                    nonce,
+                    gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                     gas_limit,
                     value,
                     input,
@@ -140,37 +211,25 @@ fn resolve_call_request<TimerT: Clone + TimeSinceEpoch>(
                     access_list,
                 })
             }
-            _ => transaction::Request::Eip155(transaction::request::Eip155 {
+            (gas_price, _, _, _) => transaction::Request::Eip155(transaction::request::Eip155 {
                 nonce,
-                gas_price,
+                gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
-                kind: to.into(),
                 value,
                 input,
+                kind: to.into(),
                 chain_id,
             }),
-        }
-    } else {
-        let (max_fee_per_gas, max_priority_fee_per_gas) =
-            max_fees_fn(data, max_fee_per_gas, max_priority_fee_per_gas)?;
-        transaction::Request::Eip1559(transaction::request::Eip1559 {
-            chain_id,
-            nonce,
-            max_fee_per_gas,
-            max_priority_fee_per_gas,
-            gas_limit,
-            kind: to.into(),
-            value,
-            input,
-            access_list: access_list.unwrap_or_default(),
-        })
-    };
+        };
 
-    Ok(request)
+        Ok(request)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use edr_eth::BlockSpec;
+    use edr_evm::state::StateOverrides;
     use edr_rpc_eth::CallRequest;
 
     use super::*;
@@ -189,14 +248,15 @@ mod tests {
             ..CallRequest::default()
         };
 
-        let resolved = resolve_call_request(
-            &mut fixture.provider_data,
-            request,
-            &BlockSpec::pending(),
-            &StateOverrides::default(),
-            |_data| unreachable!("gas_price is set"),
-            |_, _, _| unreachable!("gas_price is set"),
-        )?;
+        let context = CallContext {
+            data: &mut fixture.provider_data,
+            block_spec: &BlockSpec::pending(),
+            state_overrides: &StateOverrides::default(),
+            default_gas_price_fn: |_data| unreachable!("gas_price is set"),
+            max_fees_fn: |_, _, _, _| unreachable!("gas_price is set"),
+        };
+
+        let resolved = request.resolve_rpc_type(context)?;
 
         assert_eq!(*resolved.gas_price(), pending_base_fee);
 
@@ -218,19 +278,20 @@ mod tests {
             ..CallRequest::default()
         };
 
-        let resolved = resolve_call_request(
-            &mut fixture.provider_data,
-            request,
-            &BlockSpec::pending(),
-            &StateOverrides::default(),
-            |_data| unreachable!("max fees are set"),
-            |_, max_fee_per_gas, max_priority_fee_per_gas| {
+        let context = CallContext {
+            data: &mut fixture.provider_data,
+            block_spec: &BlockSpec::pending(),
+            state_overrides: &StateOverrides::default(),
+            default_gas_price_fn: |_data| unreachable!("max fees are set"),
+            max_fees_fn: |_data, _block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
                 Ok((
                     max_fee_per_gas.expect("max fee is set"),
                     max_priority_fee_per_gas.expect("max priority fee is set"),
                 ))
             },
-        )?;
+        };
+
+        let resolved = request.resolve_rpc_type(context)?;
 
         assert_eq!(*resolved.gas_price(), max_fee_per_gas);
         assert_eq!(

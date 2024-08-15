@@ -1,15 +1,12 @@
 use std::str::FromStr;
 
-use edr_eth::{
-    chain_spec::L1ChainSpec, transaction::EthTransactionRequest, AccountInfo, Address, SpecId,
-    KECCAK_EMPTY, U256,
-};
+use edr_eth::{chain_spec::L1ChainSpec, AccountInfo, Address, SpecId, KECCAK_EMPTY, U256};
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
     MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
+use edr_rpc_eth::{CallRequest, TransactionRequest};
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -51,12 +48,12 @@ async fn issue_326() -> anyhow::Result<()> {
     provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
 
     provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-        EthTransactionRequest {
+        TransactionRequest {
             from: impersonated_account,
             to: Some(impersonated_account),
             nonce: Some(0),
             max_fee_per_gas: Some(U256::from_str("0xA").unwrap()),
-            ..EthTransactionRequest::default()
+            ..TransactionRequest::default()
         },
     )))?;
 

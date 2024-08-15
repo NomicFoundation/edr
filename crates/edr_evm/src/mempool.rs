@@ -396,7 +396,7 @@ impl<ChainSpecT: ChainSpec> MemPool<ChainSpecT> {
         S::Error: Debug,
     {
         fn is_valid_tx(
-            transaction: &impl ExecutableTransaction,
+            transaction: &impl Transaction,
             block_gas_limit: NonZeroU64,
             sender: &AccountInfo,
         ) -> bool {
