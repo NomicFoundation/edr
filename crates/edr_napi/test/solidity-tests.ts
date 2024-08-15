@@ -28,8 +28,7 @@ async function executeSolidityTests(
           resolve(resultsFromCallback);
         }
       },
-      reject,
-    );
+    ).catch(reject);
   });
 }
 
