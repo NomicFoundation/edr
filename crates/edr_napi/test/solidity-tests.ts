@@ -10,6 +10,29 @@ import {
 } from "..";
 
 // This throws an error if the tests fail
+async function executeSolidityTestsAsyncExecutor(
+  artifacts: Array<Artifact>,
+  testSuites: Array<ArtifactId>,
+  configArgs: SolidityTestRunnerConfigArgs,
+): Promise<Array<SuiteResult>> {
+  return await new Promise(async (resolve, reject) => {
+    const resultsFromCallback: Array<SuiteResult> = [];
+
+    runSolidityTests(
+      artifacts,
+      testSuites,
+      configArgs,
+      (result: SuiteResult) => {
+        resultsFromCallback.push(result);
+        if (resultsFromCallback.length === artifacts.length) {
+          resolve(resultsFromCallback);
+        }
+      },
+    ).catch(reject);
+  });
+}
+
+// This throws an error if the tests fail
 async function executeSolidityTests(
   artifacts: Array<Artifact>,
   testSuites: Array<ArtifactId>,
@@ -77,6 +100,25 @@ describe("Solidity Tests", () => {
 
     await assert.isRejected(
       executeSolidityTests(artifacts, testSuites, config),
+      Error,
+    );
+  });
+
+  it("throws errors async executor", async function () {
+    const artifacts = [
+      loadContract("./artifacts/SetupConsistencyCheck.json"),
+      loadContract("./artifacts/PaymentFailureTest.json"),
+    ];
+    // All artifacts are test suites.
+    const testSuites = artifacts.map((artifact) => artifact.id);
+    const config = {
+      projectRoot: __dirname,
+      // Memory limit is too large
+      memoryLimit: 2n ** 65n,
+    };
+
+    await assert.isRejected(
+      executeSolidityTestsAsyncExecutor(artifacts, testSuites, config),
       Error,
     );
   });
