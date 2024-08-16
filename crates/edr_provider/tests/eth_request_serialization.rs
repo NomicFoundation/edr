@@ -3,7 +3,8 @@ mod common;
 use edr_eth::{
     chain_spec::L1ChainSpec,
     filter::{LogFilterOptions, LogOutput, OneOrMore},
-    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U160, U256,
+    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, BYTES_PER_BLOB, U160,
+    U256,
 };
 use edr_provider::{IntervalConfigRequest, MethodInvocation, Timestamp};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
@@ -23,7 +24,7 @@ fn test_serde_eth_block_number() {
 }
 
 #[test]
-fn test_serde_eth_call() -> anyhow::Result<()> {
+fn test_serde_eth_call() {
     let tx = CallRequest {
         from: Some(Address::from(U160::from(1))),
         to: Some(Address::from(U160::from(2))),
@@ -35,7 +36,7 @@ fn test_serde_eth_call() -> anyhow::Result<()> {
         data: Some(Bytes::from(&b"whatever"[..])),
         access_list: None,
         transaction_type: None,
-        blobs: Some(vec![Blob::from_hex("0x1234")?]),
+        blobs: Some(vec![Blob::new([1u8; BYTES_PER_BLOB])]),
         blob_hashes: Some(vec![B256::from(U256::from(1))]),
     };
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::Call(
@@ -47,8 +48,6 @@ fn test_serde_eth_call() -> anyhow::Result<()> {
         MethodInvocation::<L1ChainSpec>::Call(tx.clone(), None, None),
         MethodInvocation::<L1ChainSpec>::Call(tx, Some(BlockSpec::latest()), None),
     );
-
-    Ok(())
 }
 
 #[test]
@@ -347,7 +346,7 @@ fn test_serde_eth_send_raw_transaction() {
 }
 
 #[test]
-fn test_serde_eth_send_transaction() -> anyhow::Result<()> {
+fn test_serde_eth_send_transaction() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::SendTransaction(
         TransactionRequest {
             from: Address::from(U160::from(1)),
@@ -362,12 +361,10 @@ fn test_serde_eth_send_transaction() -> anyhow::Result<()> {
             access_list: None,
             max_priority_fee_per_gas: None,
             transaction_type: None,
-            blobs: Some(vec![Blob::from_hex("0x1234")?]),
+            blobs: Some(vec![Blob::new([1u8; BYTES_PER_BLOB])]),
             blob_hashes: Some(vec![B256::from(U256::from(1))]),
         },
     ));
-
-    Ok(())
 }
 
 #[test]
