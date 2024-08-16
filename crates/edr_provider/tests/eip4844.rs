@@ -1,6 +1,6 @@
 #![cfg(feature = "test-utils")]
 
-use std::{convert::Infallible, str::FromStr};
+use std::str::FromStr;
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
@@ -538,7 +538,7 @@ async fn block_header() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn blob_hash_opcode() -> anyhow::Result<()> {
     fn assert_blob_hash_opcodes(
-        provider: &Provider<Infallible>,
+        provider: &Provider,
         contract_address: &Address,
         num_blobs: usize,
         nonce: u64,

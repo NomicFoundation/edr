@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
@@ -26,14 +25,11 @@ use crate::{
 
 const FIRST_HARDFORK_WITH_TRANSACTION_TYPE: SpecId = SpecId::BERLIN;
 
-pub fn handle_get_transaction_by_block_hash_and_index<
-    LoggerErrorT: Debug,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_transaction_by_block_hash_and_index<TimerT: Clone + TimeSinceEpoch>(
+    data: &ProviderData<TimerT>,
     block_hash: B256,
     index: U256,
-) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError> {
     let index = rpc_index_to_usize(&index)?;
 
     data.block_by_hash(&block_hash)?
@@ -42,14 +38,11 @@ pub fn handle_get_transaction_by_block_hash_and_index<
         .transpose()
 }
 
-pub fn handle_get_transaction_by_block_spec_and_index<
-    LoggerErrorT: Debug,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_transaction_by_block_spec_and_index<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     block_spec: PreEip1898BlockSpec,
     index: U256,
-) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError> {
     validate_post_merge_block_tags(data.spec_id(), &block_spec)?;
 
     let index = rpc_index_to_usize(&index)?;
@@ -72,9 +65,9 @@ pub fn handle_get_transaction_by_block_spec_and_index<
     .transpose()
 }
 
-pub fn handle_pending_transactions<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &ProviderData<LoggerErrorT, TimerT>,
-) -> Result<Vec<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
+pub fn handle_pending_transactions<TimerT: Clone + TimeSinceEpoch>(
+    data: &ProviderData<TimerT>,
+) -> Result<Vec<edr_rpc_eth::Transaction>, ProviderError> {
     let spec_id = data.spec_id();
     data.pending_transactions()
         .map(|pending_transaction| {
@@ -88,27 +81,25 @@ pub fn handle_pending_transactions<LoggerErrorT: Debug, TimerT: Clone + TimeSinc
         .collect()
 }
 
-fn rpc_index_to_usize<LoggerErrorT: Debug>(
-    index: &U256,
-) -> Result<usize, ProviderError<LoggerErrorT>> {
+fn rpc_index_to_usize(index: &U256) -> Result<usize, ProviderError> {
     index
         .try_into()
         .map_err(|_err| ProviderError::InvalidTransactionIndex(*index))
 }
 
-pub fn handle_get_transaction_by_hash<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_transaction_by_hash<TimerT: Clone + TimeSinceEpoch>(
+    data: &ProviderData<TimerT>,
     transaction_hash: B256,
-) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::Transaction>, ProviderError> {
     data.transaction_by_hash(&transaction_hash)?
         .map(|tx| transaction_to_rpc_result(tx, data.spec_id()))
         .transpose()
 }
 
-pub fn handle_get_transaction_receipt<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_transaction_receipt<TimerT: Clone + TimeSinceEpoch>(
+    data: &ProviderData<TimerT>,
     transaction_hash: B256,
-) -> Result<Option<edr_rpc_eth::receipt::Block>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<edr_rpc_eth::receipt::Block>, ProviderError> {
     let receipt = data.transaction_receipt(&transaction_hash)?;
 
     Ok(receipt.map(|receipt| receipt.to_rpc_receipt(data.spec_id())))
@@ -144,10 +135,10 @@ fn transaction_from_block(
         })
 }
 
-pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
+pub fn transaction_to_rpc_result(
     transaction_and_block: TransactionAndBlock,
     spec_id: SpecId,
-) -> Result<edr_rpc_eth::Transaction, ProviderError<LoggerErrorT>> {
+) -> Result<edr_rpc_eth::Transaction, ProviderError> {
     fn gas_price_for_post_eip1559(
         signed_transaction: &transaction::Signed,
         block: Option<&Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>>,
@@ -261,10 +252,10 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
     })
 }
 
-pub fn handle_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_send_transaction_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     transaction_request: EthTransactionRequest,
-) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError> {
     validate_send_transaction_request(data, &transaction_request)?;
 
     let transaction_request = resolve_transaction_request(data, transaction_request)?;
@@ -273,10 +264,10 @@ pub fn handle_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + Time
     send_raw_transaction_and_log(data, signed_transaction)
 }
 
-pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_send_raw_transaction_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     raw_transaction: Bytes,
-) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError> {
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
@@ -296,17 +287,17 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
     send_raw_transaction_and_log(data, signed_transaction)
 }
 
-fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+fn resolve_transaction_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     transaction_request: EthTransactionRequest,
-) -> Result<TransactionRequestAndSender, ProviderError<LoggerErrorT>> {
+) -> Result<TransactionRequestAndSender, ProviderError> {
     const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
 
     /// # Panics
     ///
     /// Panics if `data.spec_id()` is less than `SpecId::LONDON`.
-    fn calculate_max_fee_per_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-        data: &ProviderData<LoggerErrorT, TimerT>,
+    fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
+        data: &ProviderData<TimerT>,
         max_priority_fee_per_gas: U256,
     ) -> Result<U256, BlockchainError<L1ChainSpec>> {
         let base_fee_per_gas = data
@@ -423,10 +414,10 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
     })
 }
 
-fn send_raw_transaction_and_log<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+fn send_raw_transaction_and_log<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     signed_transaction: transaction::Signed,
-) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(B256, Vec<Trace<L1ChainSpec>>), ProviderError> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
     let spec_id = data.spec_id();
@@ -457,10 +448,10 @@ fn send_raw_transaction_and_log<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
     Ok(result.into())
 }
 
-fn validate_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &ProviderData<LoggerErrorT, TimerT>,
+fn validate_send_transaction_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &ProviderData<TimerT>,
     request: &EthTransactionRequest,
-) -> Result<(), ProviderError<LoggerErrorT>> {
+) -> Result<(), ProviderError> {
     if let Some(chain_id) = request.chain_id {
         let expected = data.chain_id();
         if chain_id != expected {
@@ -502,10 +493,10 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-fn validate_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &ProviderData<LoggerErrorT, TimerT>,
+fn validate_send_raw_transaction_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &ProviderData<TimerT>,
     transaction: &transaction::Signed,
-) -> Result<(), ProviderError<LoggerErrorT>> {
+) -> Result<(), ProviderError> {
     if let Some(tx_chain_id) = transaction.chain_id() {
         let expected = data.chain_id();
         if tx_chain_id != expected {

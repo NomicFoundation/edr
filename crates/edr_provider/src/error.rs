@@ -22,7 +22,7 @@ use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 use crate::{data::CreationError, IntervalConfigConversionError};
 
 #[derive(Debug, thiserror::Error)]
-pub enum ProviderError<LoggerErrorT> {
+pub enum ProviderError {
     /// Account override conversion error.
     #[error(transparent)]
     AccountOverrideConversionError(#[from] AccountOverrideConversionError),
@@ -112,8 +112,8 @@ pub enum ProviderError<LoggerErrorT> {
     #[error("Invalid transaction type {0}.")]
     InvalidTransactionType(u8),
     /// An error occurred while logging.
-    #[error("Failed to log: {0:?}")]
-    Logger(LoggerErrorT),
+    #[error("Failed to log: {0}")]
+    Logger(Box<dyn std::error::Error + Send + Sync>),
     /// An error occurred while adding a pending transaction to the mem pool.
     #[error(transparent)]
     MemPoolAddTransaction(#[from] MemPoolAddTransactionError<StateError>),
@@ -213,8 +213,8 @@ pub enum ProviderError<LoggerErrorT> {
     UnsupportedMethod { method_name: String },
 }
 
-impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
-    fn from(value: ProviderError<LoggerErrorT>) -> Self {
+impl From<ProviderError> for jsonrpc::Error {
+    fn from(value: ProviderError) -> Self {
         const INVALID_INPUT: i16 = -32000;
         const INTERNAL_ERROR: i16 = -32603;
         const INVALID_PARAMS: i16 = -32602;

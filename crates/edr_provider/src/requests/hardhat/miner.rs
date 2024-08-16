@@ -1,21 +1,19 @@
-use core::fmt::Debug;
-
 use edr_eth::chain_spec::L1ChainSpec;
 use edr_evm::trace::Trace;
 
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError};
 
-pub fn handle_interval_mine_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
-) -> Result<bool, ProviderError<LoggerErrorT>> {
+pub fn handle_interval_mine_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
+) -> Result<bool, ProviderError> {
     data.interval_mine()
 }
 
-pub fn handle_mine<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_mine<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     number_of_blocks: Option<u64>,
     interval: Option<u64>,
-) -> Result<(bool, Vec<Trace<L1ChainSpec>>), ProviderError<LoggerErrorT>> {
+) -> Result<(bool, Vec<Trace<L1ChainSpec>>), ProviderError> {
     let number_of_blocks = number_of_blocks.unwrap_or(1);
     let interval = interval.unwrap_or(1);
 

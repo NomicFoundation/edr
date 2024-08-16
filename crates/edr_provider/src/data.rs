@@ -174,7 +174,7 @@ where
     RpcClient(#[from] RpcClientError),
 }
 
-pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = CurrentTime> {
+pub struct ProviderData<TimerT: Clone + TimeSinceEpoch = CurrentTime> {
     runtime_handle: runtime::Handle,
     initial_config: ProviderConfig<L1ChainSpec>,
     blockchain: Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>>,
@@ -203,13 +203,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     local_accounts: IndexMap<Address, k256::SecretKey>,
     filters: HashMap<U256, Filter>,
     last_filter_id: U256,
-    logger: Box<
-        dyn SyncLogger<
-            L1ChainSpec,
-            BlockchainError = BlockchainError<L1ChainSpec>,
-            LoggerError = LoggerErrorT,
-        >,
-    >,
+    logger: Box<dyn SyncLogger<L1ChainSpec, BlockchainError = BlockchainError<L1ChainSpec>>>,
     impersonated_accounts: HashSet<Address>,
     subscriber_callback: Box<dyn SyncSubscriberCallback>,
     timer: TimerT,
@@ -221,16 +215,10 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     block_number_to_state_id: HashTrieMapSync<u64, StateId>,
 }
 
-impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErrorT, TimerT> {
+impl<TimerT: Clone + TimeSinceEpoch> ProviderData<TimerT> {
     pub fn new(
         runtime_handle: runtime::Handle,
-        logger: Box<
-            dyn SyncLogger<
-                L1ChainSpec,
-                BlockchainError = BlockchainError<L1ChainSpec>,
-                LoggerError = LoggerErrorT,
-            >,
-        >,
+        logger: Box<dyn SyncLogger<L1ChainSpec, BlockchainError = BlockchainError<L1ChainSpec>>>,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         call_override: Option<Arc<dyn SyncCallOverride>>,
         config: ProviderConfig<L1ChainSpec>,
@@ -362,10 +350,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     /// Retrieves the last pending nonce of the account corresponding to the
     /// provided address, if it exists.
-    pub fn account_next_nonce(
-        &mut self,
-        address: &Address,
-    ) -> Result<u64, ProviderError<LoggerErrorT>> {
+    pub fn account_next_nonce(&mut self, address: &Address) -> Result<u64, ProviderError> {
         let state = self.current_state()?;
         mempool::account_next_nonce(&self.mem_pool, &*state, address).map_err(Into::into)
     }
@@ -387,8 +372,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         address: Address,
         block_spec: Option<&BlockSpec>,
-    ) -> Result<U256, ProviderError<LoggerErrorT>> {
-        self.execute_in_block_context::<Result<U256, ProviderError<LoggerErrorT>>>(
+    ) -> Result<U256, ProviderError> {
+        self.execute_in_block_context::<Result<U256, ProviderError>>(
             block_spec,
             move |_blockchain, _block, state| {
                 Ok(state
@@ -433,9 +418,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     }
 
     /// Adds a filter for new blocks to the provider.
-    pub fn add_block_filter<const IS_SUBSCRIPTION: bool>(
-        &mut self,
-    ) -> Result<U256, ProviderError<LoggerErrorT>> {
+    pub fn add_block_filter<const IS_SUBSCRIPTION: bool>(&mut self) -> Result<U256, ProviderError> {
         let block_hash = *self.last_block()?.hash();
 
         let filter_id = self.next_filter_id();
@@ -451,7 +434,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn add_log_filter<const IS_SUBSCRIPTION: bool>(
         &mut self,
         criteria: LogFilter,
-    ) -> Result<U256, ProviderError<LoggerErrorT>> {
+    ) -> Result<U256, ProviderError> {
         let logs = self
             .blockchain
             .logs(
@@ -507,7 +490,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         block_spec: &BlockSpec,
     ) -> Result<
         Option<Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>>,
-        ProviderError<LoggerErrorT>,
+        ProviderError,
     > {
         let result = match block_spec {
             BlockSpec::Number(block_number) => Some(
@@ -563,7 +546,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn block_number_by_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<Option<u64>, ProviderError<LoggerErrorT>> {
+    ) -> Result<Option<u64>, ProviderError> {
         let block_number = match block_spec {
             BlockSpec::Number(number) => Some(*number),
             BlockSpec::Tag(BlockTag::Earliest) => Some(0),
@@ -603,7 +586,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         block_hash: &B256,
     ) -> Result<
         Option<Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>>,
-        ProviderError<LoggerErrorT>,
+        ProviderError,
     > {
         self.blockchain
             .block_by_hash(block_hash)
@@ -623,7 +606,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithTraces<L1ChainSpec>, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugTraceResultWithTraces<L1ChainSpec>, ProviderError> {
         let block = self
             .blockchain
             .block_by_transaction_hash(transaction_hash)?
@@ -681,7 +664,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         transaction: transaction::Signed,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithTraces<L1ChainSpec>, ProviderError<LoggerErrorT>> {
+    ) -> Result<DebugTraceResultWithTraces<L1ChainSpec>, ProviderError> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
 
         let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
@@ -711,7 +694,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         transaction: transaction::Signed,
         block_spec: &BlockSpec,
-    ) -> Result<EstimateGasResult, ProviderError<LoggerErrorT>> {
+    ) -> Result<EstimateGasResult, ProviderError> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
@@ -833,7 +816,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         block_count: u64,
         newest_block_spec: &BlockSpec,
         percentiles: Option<Vec<RewardPercentile>>,
-    ) -> Result<FeeHistoryResult, ProviderError<LoggerErrorT>> {
+    ) -> Result<FeeHistoryResult, ProviderError> {
         if self.spec_id() < SpecId::LONDON {
             return Err(ProviderError::UnmetHardfork {
                 actual: self.spec_id(),
@@ -985,7 +968,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(result)
     }
 
-    pub fn gas_price(&self) -> Result<U256, ProviderError<LoggerErrorT>> {
+    pub fn gas_price(&self) -> Result<U256, ProviderError> {
         const PRE_EIP_1559_GAS_PRICE: u64 = 8_000_000_000;
         const SUGGESTED_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
 
@@ -1001,7 +984,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         address: Address,
         block_spec: Option<&BlockSpec>,
-    ) -> Result<Bytes, ProviderError<LoggerErrorT>> {
+    ) -> Result<Bytes, ProviderError> {
         self.execute_in_block_context(block_spec, move |_blockchain, _block, state| {
             let code = state
                 .basic(address)?
@@ -1025,7 +1008,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn get_filter_logs(
         &mut self,
         filter_id: &U256,
-    ) -> Result<Option<Vec<LogOutput>>, ProviderError<LoggerErrorT>> {
+    ) -> Result<Option<Vec<LogOutput>>, ProviderError> {
         self.filters
             .get_mut(filter_id)
             .map(|filter| {
@@ -1047,8 +1030,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         address: Address,
         index: U256,
         block_spec: Option<&BlockSpec>,
-    ) -> Result<U256, ProviderError<LoggerErrorT>> {
-        self.execute_in_block_context::<Result<U256, ProviderError<LoggerErrorT>>>(
+    ) -> Result<U256, ProviderError> {
+        self.execute_in_block_context::<Result<U256, ProviderError>>(
             block_spec,
             move |_blockchain, _block, state| Ok(state.storage(address, index)?),
         )?
@@ -1058,8 +1041,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         address: Address,
         block_spec: Option<&BlockSpec>,
-    ) -> Result<u64, ProviderError<LoggerErrorT>> {
-        self.execute_in_block_context::<Result<u64, ProviderError<LoggerErrorT>>>(
+    ) -> Result<u64, ProviderError> {
+        self.execute_in_block_context::<Result<u64, ProviderError>>(
             block_spec,
             move |_blockchain, _block, state| {
                 let nonce = state
@@ -1085,7 +1068,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn interval_mine(&mut self) -> Result<bool, ProviderError<LoggerErrorT>> {
+    pub fn interval_mine(&mut self) -> Result<bool, ProviderError> {
         let result = self.mine_and_commit_block(BlockOptions::default())?;
 
         self.logger
@@ -1097,15 +1080,11 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
     pub fn logger_mut(
         &mut self,
-    ) -> &mut dyn SyncLogger<
-        L1ChainSpec,
-        BlockchainError = BlockchainError<L1ChainSpec>,
-        LoggerError = LoggerErrorT,
-    > {
+    ) -> &mut dyn SyncLogger<L1ChainSpec, BlockchainError = BlockchainError<L1ChainSpec>> {
         &mut *self.logger
     }
 
-    pub fn logs(&self, filter: LogFilter) -> Result<Vec<FilterLog>, ProviderError<LoggerErrorT>> {
+    pub fn logs(&self, filter: LogFilter) -> Result<Vec<FilterLog>, ProviderError> {
         self.blockchain
             .logs(
                 filter.from_block,
@@ -1145,29 +1124,23 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn mine_and_commit_block(
         &mut self,
         options: BlockOptions,
-    ) -> Result<
-        DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
-        ProviderError<LoggerErrorT>,
-    > {
+    ) -> Result<DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>, ProviderError>
+    {
         self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
     }
 
     fn mine_and_commit_block_impl(
         &mut self,
         mine_fn: impl FnOnce(
-            &mut ProviderData<LoggerErrorT, TimerT>,
+            &mut ProviderData<TimerT>,
             &CfgEnvWithEvmWiring<L1ChainSpec>,
             BlockOptions,
             &mut Debugger<L1ChainSpec>,
-        ) -> Result<
-            MineBlockResultAndState<L1ChainSpec, StateError>,
-            ProviderError<LoggerErrorT>,
-        >,
+        )
+            -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError>,
         mut options: BlockOptions,
-    ) -> Result<
-        DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
-        ProviderError<LoggerErrorT>,
-    > {
+    ) -> Result<DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>, ProviderError>
+    {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
         options.timestamp = Some(block_timestamp);
 
@@ -1216,10 +1189,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &mut self,
         number_of_blocks: u64,
         interval: u64,
-    ) -> Result<
-        Vec<DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>>,
-        ProviderError<LoggerErrorT>,
-    > {
+    ) -> Result<Vec<DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>>, ProviderError>
+    {
         // There should be at least 2 blocks left for the reservation to work,
         // because we always mine a block after it. But here we use a bigger
         // number to err on the side of safety.
@@ -1229,11 +1200,11 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             return Ok(Vec::new());
         }
 
-        let mine_block_with_interval = |data: &mut ProviderData<LoggerErrorT, TimerT>,
+        let mine_block_with_interval = |data: &mut ProviderData<TimerT>,
                                         mined_blocks: &mut Vec<
             DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
         >|
-         -> Result<(), ProviderError<LoggerErrorT>> {
+         -> Result<(), ProviderError> {
             let previous_timestamp = mined_blocks
                 .last()
                 .expect("at least one block was mined")
@@ -1367,7 +1338,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         address: &Address,
         block_spec: Option<&BlockSpec>,
         state_overrides: &StateOverrides,
-    ) -> Result<u64, ProviderError<LoggerErrorT>> {
+    ) -> Result<u64, ProviderError> {
         state_overrides
             .account_override(address)
             .and_then(|account_override| account_override.nonce)
@@ -1463,7 +1434,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         transaction: transaction::Signed,
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
-    ) -> Result<CallResult, ProviderError<LoggerErrorT>> {
+    ) -> Result<CallResult, ProviderError> {
         let cfg_env = self.create_evm_config(Some(block_spec))?;
 
         let mut debugger = Debugger::with_mocker(
@@ -1508,16 +1479,13 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn transaction_receipt(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt<L1ChainSpec>>>, ProviderError<LoggerErrorT>> {
+    ) -> Result<Option<Arc<BlockReceipt<L1ChainSpec>>>, ProviderError> {
         self.blockchain
             .receipt_by_transaction_hash(transaction_hash)
             .map_err(ProviderError::Blockchain)
     }
 
-    pub fn set_min_gas_price(
-        &mut self,
-        min_gas_price: U256,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    pub fn set_min_gas_price(&mut self, min_gas_price: U256) -> Result<(), ProviderError> {
         if self.spec_id() >= SpecId::LONDON {
             return Err(ProviderError::SetMinGasPriceUnsupported);
         }
@@ -1534,7 +1502,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn send_transaction(
         &mut self,
         transaction: transaction::Signed,
-    ) -> Result<SendTransactionResult, ProviderError<LoggerErrorT>> {
+    ) -> Result<SendTransactionResult, ProviderError> {
         if transaction.transaction_type() == transaction::Type::Eip4844 {
             if !self.is_auto_mining || mempool::has_transactions(&self.mem_pool) {
                 return Err(ProviderError::BlobMemPoolUnsupported);
@@ -1582,7 +1550,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         let mut mining_results = Vec::new();
         snapshot_id
-            .map(|snapshot_id| -> Result<(), ProviderError<LoggerErrorT>> {
+            .map(|snapshot_id| -> Result<(), ProviderError> {
                 loop {
                     let result = self
                         .mine_and_commit_block(BlockOptions::default())
@@ -1630,11 +1598,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.is_auto_mining = enabled;
     }
 
-    pub fn set_balance(
-        &mut self,
-        address: Address,
-        balance: U256,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    pub fn set_balance(&mut self, address: Address, balance: U256) -> Result<(), ProviderError> {
         let mut modified_state = (*self.current_state()?).clone();
         let account_info = modified_state.modify_account(
             address,
@@ -1660,21 +1624,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     }
 
     /// Sets the gas limit used for mining new blocks.
-    pub fn set_block_gas_limit(
-        &mut self,
-        gas_limit: NonZeroU64,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    pub fn set_block_gas_limit(&mut self, gas_limit: NonZeroU64) -> Result<(), ProviderError> {
         let state = self.current_state()?;
         self.mem_pool
             .set_block_gas_limit(&*state, gas_limit)
             .map_err(ProviderError::State)
     }
 
-    pub fn set_code(
-        &mut self,
-        address: Address,
-        code: Bytes,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    pub fn set_code(&mut self, address: Address, code: Bytes) -> Result<(), ProviderError> {
         let code = Bytecode::new_raw(code.clone());
         let irregular_code = code.clone();
 
@@ -1714,7 +1671,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn set_next_block_base_fee_per_gas(
         &mut self,
         base_fee_per_gas: U256,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    ) -> Result<(), ProviderError> {
         let spec_id = self.spec_id();
         if spec_id < SpecId::LONDON {
             return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { spec_id });
@@ -1726,10 +1683,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     }
 
     /// Set the next block timestamp.
-    pub fn set_next_block_timestamp(
-        &mut self,
-        timestamp: u64,
-    ) -> Result<u64, ProviderError<LoggerErrorT>> {
+    pub fn set_next_block_timestamp(&mut self, timestamp: u64) -> Result<u64, ProviderError> {
         let latest_block = self.blockchain.last_block()?;
         let latest_block_header = latest_block.header();
 
@@ -1751,10 +1705,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     }
 
     /// Sets the next block's prevrandao.
-    pub fn set_next_prev_randao(
-        &mut self,
-        prev_randao: B256,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    pub fn set_next_prev_randao(&mut self, prev_randao: B256) -> Result<(), ProviderError> {
         let spec_id = self.spec_id();
         if spec_id < SpecId::MERGE {
             return Err(ProviderError::SetNextPrevRandaoUnsupported { spec_id });
@@ -1765,11 +1716,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(())
     }
 
-    pub fn set_nonce(
-        &mut self,
-        address: Address,
-        nonce: u64,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    pub fn set_nonce(&mut self, address: Address, nonce: u64) -> Result<(), ProviderError> {
         if mempool::has_transactions(&self.mem_pool) {
             return Err(ProviderError::SetAccountNonceWithPendingTransactions);
         }
@@ -1814,7 +1761,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         address: Address,
         index: U256,
         value: U256,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    ) -> Result<(), ProviderError> {
         // We clone to automatically revert in case of subsequent errors.
         let mut modified_state = (*self.current_state()?).clone();
         let old_value = modified_state.set_account_storage_slot(address, index, value)?;
@@ -1849,7 +1796,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         address: &Address,
         message: Bytes,
-    ) -> Result<signature::SignatureWithRecoveryId, ProviderError<LoggerErrorT>> {
+    ) -> Result<signature::SignatureWithRecoveryId, ProviderError> {
         match self.local_accounts.get(address) {
             Some(secret_key) => Ok(signature::SignatureWithRecoveryId::new(
                 &message[..],
@@ -1863,7 +1810,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         address: &Address,
         message: &TypedData,
-    ) -> Result<signature::SignatureWithRecoveryId, ProviderError<LoggerErrorT>> {
+    ) -> Result<signature::SignatureWithRecoveryId, ProviderError> {
         match self.local_accounts.get(address) {
             Some(secret_key) => {
                 let hash = message.eip712_signing_hash()?;
@@ -1884,10 +1831,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.impersonated_accounts.remove(&address)
     }
 
-    pub fn total_difficulty_by_hash(
-        &self,
-        hash: &B256,
-    ) -> Result<Option<U256>, ProviderError<LoggerErrorT>> {
+    pub fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, ProviderError> {
         self.blockchain
             .total_difficulty_by_hash(hash)
             .map_err(ProviderError::Blockchain)
@@ -1898,7 +1842,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn transaction_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<TransactionAndBlock>, ProviderError<LoggerErrorT>> {
+    ) -> Result<Option<TransactionAndBlock>, ProviderError> {
         let transaction = if let Some(tx) = self.mem_pool.transaction_by_hash(hash) {
             Some(TransactionAndBlock {
                 transaction: tx.pending().clone(),
@@ -1938,7 +1882,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn add_pending_transaction(
         &mut self,
         transaction: transaction::Signed,
-    ) -> Result<B256, ProviderError<LoggerErrorT>> {
+    ) -> Result<B256, ProviderError> {
         let transaction_hash = *transaction.transaction_hash();
 
         let state = self.current_state()?;
@@ -1956,7 +1900,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn create_evm_config(
         &self,
         block_spec: Option<&BlockSpec>,
-    ) -> Result<CfgEnvWithEvmWiring<L1ChainSpec>, ProviderError<LoggerErrorT>> {
+    ) -> Result<CfgEnvWithEvmWiring<L1ChainSpec>, ProviderError> {
         let block_number = block_spec
             .map(|block_spec| self.block_number_by_block_spec(block_spec))
             .transpose()?
@@ -1988,7 +1932,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             &Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>,
             &Box<dyn SyncState<StateError>>,
         ) -> T,
-    ) -> Result<T, ProviderError<LoggerErrorT>> {
+    ) -> Result<T, ProviderError> {
         let block = if let Some(block_spec) = block_spec {
             self.block_by_block_spec(block_spec)?
         } else {
@@ -2022,17 +1966,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn mine_block(
         &mut self,
         mine_fn: impl FnOnce(
-            &mut ProviderData<LoggerErrorT, TimerT>,
+            &mut ProviderData<TimerT>,
             &CfgEnvWithEvmWiring<L1ChainSpec>,
             BlockOptions,
             &mut Debugger<L1ChainSpec>,
-        ) -> Result<
-            MineBlockResultAndState<L1ChainSpec, StateError>,
-            ProviderError<LoggerErrorT>,
-        >,
+        )
+            -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError>,
         mut options: BlockOptions,
-    ) -> Result<DebugMineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<DebugMineBlockResultAndState<L1ChainSpec, StateError>, ProviderError> {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
@@ -2076,7 +2017,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         config: &CfgEnvWithEvmWiring<L1ChainSpec>,
         options: BlockOptions,
         debugger: &mut Debugger<L1ChainSpec>,
-    ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
+    ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block(
             self.blockchain.as_ref(),
@@ -2102,7 +2043,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         options: BlockOptions,
         transaction: transaction::Signed,
         debugger: &mut Debugger<L1ChainSpec>,
-    ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
+    ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
@@ -2124,8 +2065,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// Mines a pending block, without modifying any values.
     pub fn mine_pending_block(
         &mut self,
-    ) -> Result<DebugMineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>>
-    {
+    ) -> Result<DebugMineBlockResultAndState<L1ChainSpec, StateError>, ProviderError> {
         let (block_timestamp, _new_offset) = self.next_block_timestamp(None)?;
 
         // Mining a pending block shouldn't affect the mix hash.
@@ -2147,7 +2087,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn next_block_timestamp(
         &self,
         timestamp: Option<u64>,
-    ) -> Result<(u64, Option<i64>), ProviderError<LoggerErrorT>> {
+    ) -> Result<(u64, Option<i64>), ProviderError> {
         let latest_block = self.blockchain.last_block()?;
         let latest_block_header = latest_block.header();
 
@@ -2275,7 +2215,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     pub fn sign_transaction_request(
         &self,
         transaction_request: TransactionRequestAndSender,
-    ) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
+    ) -> Result<transaction::Signed, ProviderError> {
         let TransactionRequestAndSender { request, sender } = transaction_request;
 
         if self.impersonated_accounts.contains(&sender) {
@@ -2301,7 +2241,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     fn validate_auto_mine_transaction(
         &mut self,
         transaction: &transaction::Signed,
-    ) -> Result<(), ProviderError<LoggerErrorT>> {
+    ) -> Result<(), ProviderError> {
         let next_nonce = { self.account_next_nonce(transaction.caller())? };
 
         match transaction.nonce().cmp(&next_nonce) {
@@ -2353,16 +2293,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(())
     }
 
-    fn current_state(
-        &mut self,
-    ) -> Result<Arc<Box<dyn SyncState<StateError>>>, ProviderError<LoggerErrorT>> {
+    fn current_state(&mut self) -> Result<Arc<Box<dyn SyncState<StateError>>>, ProviderError> {
         self.get_or_compute_state(self.last_block_number())
     }
 
     fn get_or_compute_state(
         &mut self,
         block_number: u64,
-    ) -> Result<Arc<Box<dyn SyncState<StateError>>>, ProviderError<LoggerErrorT>> {
+    ) -> Result<Arc<Box<dyn SyncState<StateError>>>, ProviderError> {
         if let Some(state_id) = self.block_number_to_state_id.get(&block_number) {
             // We cannot use `LruCache::try_get_or_insert`, because it needs &mut self, but
             // we would need &self in the callback to reference the blockchain.
@@ -2654,8 +2592,6 @@ pub struct BlockDataForTransaction {
 
 #[cfg(test)]
 pub(crate) mod test_utils {
-    use std::convert::Infallible;
-
     use anyhow::anyhow;
     use edr_eth::transaction::{self, TxKind};
 
@@ -2668,7 +2604,7 @@ pub(crate) mod test_utils {
     pub(crate) struct ProviderTestFixture {
         _runtime: runtime::Runtime,
         pub config: ProviderConfig<L1ChainSpec>,
-        pub provider_data: ProviderData<Infallible>,
+        pub provider_data: ProviderData,
         pub impersonated_account: Address,
     }
 
@@ -2797,8 +2733,6 @@ pub(crate) mod test_utils {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::Infallible;
-
     use anyhow::Context;
     use edr_eth::{hex, transaction::SignedTransaction as _};
     use edr_evm::MineOrdering;
@@ -2997,7 +2931,7 @@ mod tests {
                 .provider_data
                 .execute_in_block_context(block_spec.as_ref(), |_, _, _| {
                     value += 1;
-                    Ok::<(), ProviderError<Infallible>>(())
+                    Ok::<(), ProviderError>(())
                 })?;
 
         assert_eq!(value, 1);
@@ -3840,10 +3774,10 @@ mod tests {
             ///
             /// Should return a string `"Hello World"`.
             fn call_hello_world_contract(
-                data: &mut ProviderData<Infallible>,
+                data: &mut ProviderData,
                 block_spec: BlockSpec,
                 request: CallRequest,
-            ) -> Result<CallResult, ProviderError<Infallible>> {
+            ) -> Result<CallResult, ProviderError> {
                 let state_overrides = StateOverrides::default();
 
                 let transaction =

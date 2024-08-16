@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::cmp;
 
 use edr_eth::{
@@ -38,9 +37,7 @@ pub(super) struct CheckGasLimitArgs<'a> {
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
-pub(super) fn check_gas_limit<LoggerErrorT: Debug>(
-    args: CheckGasLimitArgs<'_>,
-) -> Result<bool, ProviderError<LoggerErrorT>> {
+pub(super) fn check_gas_limit(args: CheckGasLimitArgs<'_>) -> Result<bool, ProviderError> {
     let CheckGasLimitArgs {
         blockchain,
         header,
@@ -88,9 +85,9 @@ pub(super) struct BinarySearchEstimationArgs<'a> {
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
-pub(super) fn binary_search_estimation<LoggerErrorT: Debug>(
+pub(super) fn binary_search_estimation(
     args: BinarySearchEstimationArgs<'_>,
-) -> Result<u64, ProviderError<LoggerErrorT>> {
+) -> Result<u64, ProviderError> {
     const MAX_ITERATIONS: usize = 20;
 
     let BinarySearchEstimationArgs {
@@ -160,10 +157,10 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<LoggerErrorT: Debug>(
+pub(super) fn compute_rewards(
     block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
     reward_percentiles: &[RewardPercentile],
-) -> Result<Vec<U256>, ProviderError<LoggerErrorT>> {
+) -> Result<Vec<U256>, ProviderError> {
     if block.transactions().is_empty() {
         return Ok(reward_percentiles.iter().map(|_| U256::ZERO).collect());
     }

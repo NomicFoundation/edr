@@ -1,4 +1,4 @@
-use std::{convert::Infallible, num::NonZeroU64, time::SystemTime};
+use std::{num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{
     block::BlobGas, signature::secret_key_from_str, transaction::EthTransactionRequest,
@@ -69,9 +69,7 @@ pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig<
 }
 
 /// Retrieves the pending base fee per gas from the provider data.
-pub fn pending_base_fee(
-    data: &mut ProviderData<Infallible>,
-) -> Result<U256, ProviderError<Infallible>> {
+pub fn pending_base_fee(data: &mut ProviderData) -> Result<U256, ProviderError> {
     let block = data.mine_pending_block()?.block;
 
     let base_fee = block
@@ -84,13 +82,12 @@ pub fn pending_base_fee(
 
 /// Deploys a contract with the provided code. Returns the address of the
 /// contract.
-pub fn deploy_contract<LoggerErrorT, TimerT>(
-    provider: &Provider<LoggerErrorT, TimerT>,
+pub fn deploy_contract<TimerT>(
+    provider: &Provider<TimerT>,
     caller: Address,
     code: Bytes,
 ) -> anyhow::Result<Address>
 where
-    LoggerErrorT: Debug + Send + Sync + 'static,
     TimerT: Clone + TimeSinceEpoch,
 {
     let deploy_transaction = EthTransactionRequest {

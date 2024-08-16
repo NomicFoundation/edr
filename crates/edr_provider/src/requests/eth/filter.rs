@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::iter;
 
 use edr_eth::{
@@ -11,24 +10,24 @@ use crate::{
     time::TimeSinceEpoch, ProviderError,
 };
 
-pub fn handle_get_filter_changes_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_filter_changes_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     filter_id: U256,
-) -> Result<Option<FilteredEvents>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<FilteredEvents>, ProviderError> {
     Ok(data.get_filter_changes(&filter_id))
 }
 
-pub fn handle_get_filter_logs_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_filter_logs_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     filter_id: U256,
-) -> Result<Option<Vec<LogOutput>>, ProviderError<LoggerErrorT>> {
+) -> Result<Option<Vec<LogOutput>>, ProviderError> {
     data.get_filter_logs(&filter_id)
 }
 
-pub fn handle_get_logs_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_get_logs_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &ProviderData<TimerT>,
     filter_options: LogFilterOptions,
-) -> Result<Vec<LogOutput>, ProviderError<LoggerErrorT>> {
+) -> Result<Vec<LogOutput>, ProviderError> {
     // Hardhat integration tests expect validation in this order.
     if let Some(from_block) = &filter_options.from_block {
         validate_post_merge_block_tags(data.spec_id(), from_block)?;
@@ -37,47 +36,42 @@ pub fn handle_get_logs_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
         validate_post_merge_block_tags(data.spec_id(), to_block)?;
     }
 
-    let filter = validate_filter_criteria::<true, LoggerErrorT, TimerT>(data, filter_options)?;
+    let filter = validate_filter_criteria::<true, TimerT>(data, filter_options)?;
     data.logs(filter)
         .map(|logs| logs.iter().map(LogOutput::from).collect())
 }
 
-pub fn handle_new_block_filter_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
-) -> Result<U256, ProviderError<LoggerErrorT>> {
+pub fn handle_new_block_filter_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
+) -> Result<U256, ProviderError> {
     data.add_block_filter::<false>()
 }
 
-pub fn handle_new_log_filter_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_new_log_filter_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     filter_criteria: LogFilterOptions,
-) -> Result<U256, ProviderError<LoggerErrorT>> {
-    let filter_criteria =
-        validate_filter_criteria::<false, LoggerErrorT, TimerT>(data, filter_criteria)?;
+) -> Result<U256, ProviderError> {
+    let filter_criteria = validate_filter_criteria::<false, TimerT>(data, filter_criteria)?;
     data.add_log_filter::<false>(filter_criteria)
 }
 
-pub fn handle_new_pending_transaction_filter_request<
-    LoggerErrorT: Debug,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
-) -> Result<U256, ProviderError<LoggerErrorT>> {
+pub fn handle_new_pending_transaction_filter_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
+) -> Result<U256, ProviderError> {
     Ok(data.add_pending_transaction_filter::<false>())
 }
 
-pub fn handle_subscribe_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_subscribe_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     subscription_type: SubscriptionType,
     filter_criteria: Option<LogFilterOptions>,
-) -> Result<U256, ProviderError<LoggerErrorT>> {
+) -> Result<U256, ProviderError> {
     match subscription_type {
         SubscriptionType::Logs => {
             let filter_criteria = filter_criteria.ok_or_else(|| {
                 ProviderError::InvalidArgument("Missing params argument".to_string())
             })?;
-            let filter_criteria =
-                validate_filter_criteria::<false, LoggerErrorT, TimerT>(data, filter_criteria)?;
+            let filter_criteria = validate_filter_criteria::<false, TimerT>(data, filter_criteria)?;
             data.add_log_filter::<true>(filter_criteria)
         }
         SubscriptionType::NewHeads => data.add_block_filter::<true>(),
@@ -87,32 +81,28 @@ pub fn handle_subscribe_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
     }
 }
 
-pub fn handle_uninstall_filter_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_uninstall_filter_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     filter_id: U256,
-) -> Result<bool, ProviderError<LoggerErrorT>> {
+) -> Result<bool, ProviderError> {
     Ok(data.remove_filter(&filter_id))
 }
 
-pub fn handle_unsubscribe_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_unsubscribe_request<TimerT: Clone + TimeSinceEpoch>(
+    data: &mut ProviderData<TimerT>,
     filter_id: U256,
-) -> Result<bool, ProviderError<LoggerErrorT>> {
+) -> Result<bool, ProviderError> {
     Ok(data.remove_subscription(&filter_id))
 }
 
-fn validate_filter_criteria<
-    const SHOULD_RESOLVE_LATEST: bool,
-    LoggerErrorT: Debug,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &ProviderData<LoggerErrorT, TimerT>,
+fn validate_filter_criteria<const SHOULD_RESOLVE_LATEST: bool, TimerT: Clone + TimeSinceEpoch>(
+    data: &ProviderData<TimerT>,
     filter: LogFilterOptions,
-) -> Result<LogFilter, ProviderError<LoggerErrorT>> {
-    fn normalize_block_spec<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-        data: &ProviderData<LoggerErrorT, TimerT>,
+) -> Result<LogFilter, ProviderError> {
+    fn normalize_block_spec<TimerT: Clone + TimeSinceEpoch>(
+        data: &ProviderData<TimerT>,
         block_spec: Option<BlockSpec>,
-    ) -> Result<Option<u64>, ProviderError<LoggerErrorT>> {
+    ) -> Result<Option<u64>, ProviderError> {
         if let Some(block_spec) = &block_spec {
             validate_post_merge_block_tags(data.spec_id(), block_spec)?;
         }

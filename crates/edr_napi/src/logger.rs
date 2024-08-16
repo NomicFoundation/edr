@@ -128,8 +128,6 @@ impl Logger {
 impl edr_provider::Logger<L1ChainSpec> for Logger {
     type BlockchainError = BlockchainError<L1ChainSpec>;
 
-    type LoggerError = LoggerError;
-
     fn is_enabled(&self) -> bool {
         self.collector.is_enabled
     }
@@ -143,7 +141,7 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
         result: &edr_provider::CallResult,
-    ) -> Result<(), Self::LoggerError> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector.log_call(spec_id, transaction, result);
 
         Ok(())
@@ -154,7 +152,7 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
         failure: &edr_provider::EstimateGasFailure,
-    ) -> Result<(), Self::LoggerError> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
             .log_estimate_gas(spec_id, transaction, failure);
 
@@ -165,15 +163,19 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
         &mut self,
         spec_id: edr_eth::SpecId,
         mining_result: &edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>,
-    ) -> Result<(), Self::LoggerError> {
-        self.collector.log_interval_mined(spec_id, mining_result)
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.collector
+            .log_interval_mined(spec_id, mining_result)
+            .map_err(Box::new)?;
+
+        Ok(())
     }
 
     fn log_mined_block(
         &mut self,
         spec_id: edr_eth::SpecId,
         mining_results: &[edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
-    ) -> Result<(), Self::LoggerError> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector.log_mined_blocks(spec_id, mining_results);
 
         Ok(())
@@ -184,7 +186,7 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
         spec_id: edr_eth::SpecId,
         transaction: &edr_evm::transaction::Signed,
         mining_results: &[edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
-    ) -> Result<(), Self::LoggerError> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
             .log_send_transaction(spec_id, transaction, mining_results);
 
@@ -194,8 +196,8 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderError<LoggerError>>,
-    ) -> Result<(), Self::LoggerError> {
+        error: Option<&ProviderError>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(error) = error {
             self.collector.state = LoggingState::Empty;
 
