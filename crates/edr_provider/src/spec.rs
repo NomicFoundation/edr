@@ -7,7 +7,7 @@ use edr_eth::{
         signed::{FakeSign, Sign},
         Transaction,
     },
-    Address, BlockSpec, U256,
+    AccessListItem, Address, Blob, BlockSpec, B256, U256,
 };
 use edr_evm::{
     chain_spec::{ChainSpec, SyncChainSpec},
@@ -16,10 +16,7 @@ use edr_evm::{
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
-use crate::{
-    data::ProviderData, requests::validation::HardforkValidationData, time::TimeSinceEpoch,
-    ProviderError, TransactionFailureReason,
-};
+use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, TransactionFailureReason};
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     ChainSpec<
@@ -53,6 +50,31 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
     type PooledTransaction = transaction::pooled::PooledTransaction;
     type TransactionRequest = transaction::Request;
+}
+
+/// Trait with data used for validating a transaction complies with a
+/// [`SpecId`].
+pub trait HardforkValidationData {
+    /// Returns the `to` address of the transaction.
+    fn to(&self) -> Option<&Address>;
+
+    /// Returns the gas price of the transaction.
+    fn gas_price(&self) -> Option<&U256>;
+
+    /// Returns the max fee per gas of the transaction.
+    fn max_fee_per_gas(&self) -> Option<&U256>;
+
+    /// Returns the max priority fee per gas of the transaction.
+    fn max_priority_fee_per_gas(&self) -> Option<&U256>;
+
+    /// Returns the access list of the transaction.
+    fn access_list(&self) -> Option<&Vec<AccessListItem>>;
+
+    /// Returns the blobs of the transaction.
+    fn blobs(&self) -> Option<&Vec<Blob>>;
+
+    /// Returns the blob hashes of the transaction.
+    fn blob_hashes(&self) -> Option<&Vec<B256>>;
 }
 
 /// Trait for retrieving the sender of a request, if any.

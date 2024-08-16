@@ -11,32 +11,10 @@ use edr_evm::{
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
-use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, SyncProviderSpec};
-
-/// Trait with data used for validating a transaction complies with a
-/// [`SpecId`].
-pub trait HardforkValidationData {
-    /// Returns the `to` address of the transaction.
-    fn to(&self) -> Option<&Address>;
-
-    /// Returns the gas price of the transaction.
-    fn gas_price(&self) -> Option<&U256>;
-
-    /// Returns the max fee per gas of the transaction.
-    fn max_fee_per_gas(&self) -> Option<&U256>;
-
-    /// Returns the max priority fee per gas of the transaction.
-    fn max_priority_fee_per_gas(&self) -> Option<&U256>;
-
-    /// Returns the access list of the transaction.
-    fn access_list(&self) -> Option<&Vec<AccessListItem>>;
-
-    /// Returns the blobs of the transaction.
-    fn blobs(&self) -> Option<&Vec<Blob>>;
-
-    /// Returns the blob hashes of the transaction.
-    fn blob_hashes(&self) -> Option<&Vec<B256>>;
-}
+use crate::{
+    data::ProviderData, spec::HardforkValidationData, time::TimeSinceEpoch, ProviderError,
+    SyncProviderSpec,
+};
 
 impl HardforkValidationData for TransactionRequest {
     fn to(&self) -> Option<&Address> {
@@ -104,7 +82,12 @@ impl HardforkValidationData for PooledTransaction {
     }
 
     fn gas_price(&self) -> Option<&U256> {
-        Some(Transaction::gas_price(self))
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => Some(&tx.gas_price),
+            PooledTransaction::PostEip155Legacy(tx) => Some(&tx.gas_price),
+            PooledTransaction::Eip2930(tx) => Some(&tx.gas_price),
+            PooledTransaction::Eip1559(_) | PooledTransaction::Eip4844(_) => None,
+        }
     }
 
     fn max_fee_per_gas(&self) -> Option<&U256> {

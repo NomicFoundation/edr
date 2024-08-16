@@ -166,11 +166,11 @@ impl ExecutableTransaction for PooledTransaction {
 
     fn transaction_hash(&self) -> &B256 {
         match self {
-            PooledTransaction::PreEip155Legacy(t) => t.transaction_hash(),
-            PooledTransaction::PostEip155Legacy(t) => t.transaction_hash(),
-            PooledTransaction::Eip2930(t) => t.transaction_hash(),
-            PooledTransaction::Eip1559(t) => t.transaction_hash(),
-            PooledTransaction::Eip4844(t) => t.transaction_hash(),
+            PooledTransaction::PreEip155Legacy(tx) => tx.transaction_hash(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.transaction_hash(),
+            PooledTransaction::Eip2930(tx) => tx.transaction_hash(),
+            PooledTransaction::Eip1559(tx) => tx.transaction_hash(),
+            PooledTransaction::Eip4844(tx) => tx.transaction_hash(),
         }
     }
 }

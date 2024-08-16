@@ -140,17 +140,9 @@ fn fake_transaction() -> transaction::Signed {
     fake_pooled_transaction().into_payload()
 }
 
-fn fake_call_request() -> anyhow::Result<CallRequest> {
+fn fake_call_request() -> CallRequest {
     let transaction = fake_pooled_transaction();
-    let blobs = transaction
-        .blobs()
-        .map(|blobs| {
-            blobs
-                .iter()
-                .map(|blob| Blob::from_bytes(blob.as_ref()))
-                .collect()
-        })
-        .transpose()?;
+    let blobs = transaction.blobs().map(<[Blob]>::to_vec);
     let transaction = transaction.into_payload();
     let from = transaction.caller();
 
@@ -166,7 +158,7 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
         None
     };
 
-    Ok(CallRequest {
+    CallRequest {
         from: Some(*from),
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas().copied(),
@@ -178,20 +170,12 @@ fn fake_call_request() -> anyhow::Result<CallRequest> {
         blobs,
         blob_hashes,
         ..CallRequest::default()
-    })
+    }
 }
 
-fn fake_transaction_request() -> anyhow::Result<TransactionRequest> {
+fn fake_transaction_request() -> TransactionRequest {
     let transaction = fake_pooled_transaction();
-    let blobs = transaction
-        .blobs()
-        .map(|blobs| {
-            blobs
-                .iter()
-                .map(|blob| Blob::from_bytes(blob.as_ref()))
-                .collect()
-        })
-        .transpose()?;
+    let blobs = transaction.blobs().map(<[edr_eth::Blob]>::to_vec);
 
     let transaction = transaction.into_payload();
     let from = *transaction.caller();
@@ -208,7 +192,7 @@ fn fake_transaction_request() -> anyhow::Result<TransactionRequest> {
         None
     };
 
-    Ok(TransactionRequest {
+    TransactionRequest {
         from,
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas().copied(),
@@ -223,12 +207,12 @@ fn fake_transaction_request() -> anyhow::Result<TransactionRequest> {
         blobs,
         blob_hashes,
         ..TransactionRequest::default()
-    })
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn call_unsupported() -> anyhow::Result<()> {
-    let request = fake_call_request()?;
+    let request = fake_call_request();
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
@@ -259,7 +243,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas_unsupported() -> anyhow::Result<()> {
-    let request = fake_call_request()?;
+    let request = fake_call_request();
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
@@ -290,7 +274,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction_unsupported() -> anyhow::Result<()> {
-    let transaction = fake_transaction_request()?;
+    let transaction = fake_transaction_request();
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
