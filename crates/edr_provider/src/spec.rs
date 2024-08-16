@@ -53,7 +53,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
 }
 
 /// Trait with data used for validating a transaction complies with a
-/// [`SpecId`].
+/// [`edr_eth::SpecId`].
 pub trait HardforkValidationData {
     /// Returns the `to` address of the transaction.
     fn to(&self) -> Option<&Address>;
