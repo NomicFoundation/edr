@@ -483,7 +483,7 @@ export interface SolidityTestRunnerConfigArgs {
    */
   noStorageCaching?: boolean
   /**
-   * If set, all tests are ran in fork mode using this url or remote name.
+   * If set, all tests are run in fork mode using this url or remote name.
    * Defaults to none.
    */
   ethRpcUrl?: string
