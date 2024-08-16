@@ -65,7 +65,7 @@ async function runForgeStdTests(forgeStdRepoPath) {
     )
     .map((a) => a.id);
 
-  const results = await new Promise(async (resolve) => {
+  const results = await new Promise(async (resolve, reject) => {
     const resultsFromCallback = [];
     const configs = {
       projectRoot: forgeStdRepoPath,
@@ -74,14 +74,14 @@ async function runForgeStdTests(forgeStdRepoPath) {
       },
     };
 
-    await runSolidityTests(artifacts, testSuiteIds, configs, (result) => {
+    runSolidityTests(artifacts, testSuiteIds, configs, (result) => {
       console.error(`${result.id.name} took ${elapsedSec(start)} seconds`);
 
       resultsFromCallback.push(result);
       if (resultsFromCallback.length === artifacts.length) {
         resolve(resultsFromCallback);
       }
-    });
+    }).catch(reject);
   });
   console.error("elapsed (s)", elapsedSec(start));
 
