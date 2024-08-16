@@ -4,7 +4,7 @@ use napi_derive::napi;
 #[repr(u8)]
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
 #[allow(clippy::upper_case_acronyms)]
-#[derive(PartialEq, PartialOrd, strum::FromRepr, strum::IntoStaticStr)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, strum::FromRepr, strum::IntoStaticStr)]
 pub enum Opcode {
     // Arithmetic operations
     STOP = 0x00,

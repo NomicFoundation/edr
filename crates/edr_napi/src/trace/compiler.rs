@@ -326,14 +326,8 @@ fn process_function_definition_ast_node(
 
     let param_types = matching_function_abi
         .as_ref()
-        .and_then(|matching_function_abi| {
-            matching_function_abi.inputs.as_ref().map(|inputs| {
-                inputs
-                    .iter()
-                    .map(|input| input["type"].as_str().unwrap())
-                    .collect::<Vec<_>>()
-            })
-        });
+        .and_then(|abi| abi.inputs.as_ref())
+        .cloned();
 
     let contract_func = ContractFunction {
         name: node["name"].as_str().unwrap().to_string(),
@@ -343,7 +337,7 @@ fn process_function_definition_ast_node(
         visibility: Some(visibility),
         is_payable: Some(node["stateMutability"].as_str().unwrap() == "payable"),
         selector: selector.map(Uint8Array::from),
-        param_types: Some(param_types.into_iter().map(Into::into).collect()),
+        param_types,
     }
     .into_instance(env)?;
     let contract_func = Rc::new(ClassInstanceRef::from_obj(contract_func, env)?);
@@ -414,13 +408,8 @@ fn process_variable_declaration_ast_node(
 
     let param_types = getter_abi
         .as_ref()
-        .and_then(|getter_abi| getter_abi.inputs.as_ref())
-        .map(|inputs| {
-            inputs
-                .iter()
-                .map(|input| input["type"].as_str().unwrap())
-                .collect::<Vec<_>>()
-        });
+        .and_then(|abi| abi.inputs.as_ref())
+        .cloned();
 
     let contract_func = ContractFunction {
         name: node["name"].as_str().unwrap().to_string(),
@@ -432,7 +421,7 @@ fn process_variable_declaration_ast_node(
         selector: Some(Uint8Array::from(
             get_public_variable_selector_from_declaration_ast_node(node)?,
         )),
-        param_types: Some(param_types.into_iter().map(Into::into).collect()),
+        param_types,
     }
     .into_instance(env)?;
     let contract_func = Rc::new(ClassInstanceRef::from_obj(contract_func, env)?);

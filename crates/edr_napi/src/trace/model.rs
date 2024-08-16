@@ -2,6 +2,7 @@
 
 use std::{cell::OnceCell, collections::HashMap, rc::Rc};
 
+use alloy_dyn_abi::ErrorExt;
 use edr_evm::hex;
 use edr_solidity::artifacts::ContractAbiEntry;
 use napi::{
@@ -43,7 +44,7 @@ impl SourceFile {
         &self,
         location: &SourceLocation,
         env: Env,
-    ) -> napi::Result<Option<&ClassInstanceRef<ContractFunction>>> {
+    ) -> napi::Result<Option<&Rc<ClassInstanceRef<ContractFunction>>>> {
         for func in &self.functions {
             let contains = func
                 .borrow(env)?
@@ -109,10 +110,21 @@ impl SourceLocation {
     // NOTE: This is the actual return type of the function in JS land for now
     #[napi(ts_return_type = "ContractFunction | undefined")]
     pub fn get_containing_function(&self, env: Env) -> napi::Result<Either<JsObject, Undefined>> {
-        match self.file.borrow(env)?.get_containing_function(self, env)? {
+        match self.get_containing_function_inner(env)? {
             Some(func) => func.as_object(env).map(Either::A),
             None => Ok(Either::B(())),
         }
+    }
+
+    pub fn get_containing_function_inner(
+        &self,
+        env: Env,
+    ) -> napi::Result<Option<Rc<ClassInstanceRef<ContractFunction>>>> {
+        Ok(self
+            .file
+            .borrow(env)?
+            .get_containing_function(self, env)?
+            .cloned())
     }
 
     #[napi]
@@ -141,7 +153,7 @@ impl SourceLocation {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
 #[allow(clippy::upper_case_acronyms)]
 #[napi]
@@ -199,6 +211,30 @@ impl ContractFunction {
     }
 }
 
+impl<'a> TryFrom<&'a ContractFunction> for alloy_json_abi::Function {
+    type Error = serde_json::Error;
+
+    fn try_from(value: &'a ContractFunction) -> Result<Self, Self::Error> {
+        let inputs = value
+            .param_types
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(serde_json::from_value)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(alloy_json_abi::Function {
+            name: value.name.clone(),
+            inputs,
+            outputs: vec![],
+            state_mutability: match value.is_payable {
+                Some(true) => alloy_json_abi::StateMutability::Payable,
+                _ => alloy_json_abi::StateMutability::default(),
+            },
+        })
+    }
+}
+
 #[napi]
 pub struct CustomError {
     #[napi(readonly)]
@@ -207,20 +243,33 @@ pub struct CustomError {
     pub name: String,
     #[napi(readonly)]
     pub param_types: Vec<Value>,
+
+    def: alloy_json_abi::Error,
 }
 
+#[napi]
 impl CustomError {
     pub fn from_abi(entry: ContractAbiEntry) -> Result<CustomError, Box<str>> {
         // This is wasteful; to fix that we'd have to implement tighter deserialization
         // for the contract ABI entries.
         let json = serde_json::to_value(&entry).expect("ContractAbiEntry to be round-trippable");
+
         let selector = edr_solidity::utils::json_abi_error_selector(&json)?;
 
         Ok(CustomError {
             selector: Uint8Array::from(&selector),
             name: entry.name.expect("ABI errors to always have names"),
             param_types: entry.inputs.unwrap_or_default(),
+            def: serde_json::from_value(json).map_err(|e| e.to_string().into_boxed_str())?,
         })
+    }
+
+    /// Decodes the error data (*with* selector).
+    pub fn decode_error_data(
+        &self,
+        data: &[u8],
+    ) -> alloy_dyn_abi::Result<alloy_dyn_abi::DecodedError> {
+        self.def.decode_error(data)
     }
 }
 
@@ -234,7 +283,7 @@ pub struct Instruction {
     pub jump_type: JumpType,
     #[napi(readonly)]
     pub push_data: Option<Buffer>,
-    location: Option<ClassInstanceRef<SourceLocation>>,
+    pub(crate) location: Option<ClassInstanceRef<SourceLocation>>,
 }
 
 #[derive(strum::IntoStaticStr, PartialEq)]
@@ -348,12 +397,16 @@ impl Bytecode {
 
     #[napi(ts_return_type = "Instruction")]
     pub fn get_instruction(&self, pc: u32, env: Env) -> napi::Result<Object> {
+        self.get_instruction_inner(pc)?.as_object(env)
+    }
+
+    pub fn get_instruction_inner(&self, pc: u32) -> napi::Result<&ClassInstanceRef<Instruction>> {
         let instruction = self
             .pc_to_instruction
             .get(&pc)
             .ok_or_else(|| napi::Error::from_reason(format!("Instruction at PC {pc} not found")))?;
 
-        instruction.as_object(env)
+        Ok(instruction)
     }
 
     #[napi]
@@ -370,6 +423,7 @@ impl Bytecode {
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
 #[allow(clippy::upper_case_acronyms)]
 #[napi]
+#[derive(PartialEq)]
 pub enum ContractType {
     CONTRACT,
     LIBRARY,
@@ -377,10 +431,10 @@ pub enum ContractType {
 
 #[napi]
 pub struct Contract {
-    custom_errors: Vec<ClassInstanceRef<CustomError>>,
-    constructor: Option<Rc<ClassInstanceRef<ContractFunction>>>,
-    fallback: Option<Rc<ClassInstanceRef<ContractFunction>>>,
-    receive: Option<Rc<ClassInstanceRef<ContractFunction>>>,
+    pub(crate) custom_errors: Vec<ClassInstanceRef<CustomError>>,
+    pub(crate) constructor: Option<Rc<ClassInstanceRef<ContractFunction>>>,
+    pub(crate) fallback: Option<Rc<ClassInstanceRef<ContractFunction>>>,
+    pub(crate) receive: Option<Rc<ClassInstanceRef<ContractFunction>>>,
     local_functions: Vec<Rc<ClassInstanceRef<ContractFunction>>>,
     selector_hex_to_function: HashMap<String, Rc<ClassInstanceRef<ContractFunction>>>,
 
