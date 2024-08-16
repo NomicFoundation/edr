@@ -47,8 +47,6 @@ async function setupForgeStdRepo() {
 }
 
 async function runForgeStdTests(forgeStdRepoPath) {
-  const gasReport = false;
-
   const start = performance.now();
 
   const artifactsDir = path.join(forgeStdRepoPath, "artifacts");
@@ -67,17 +65,29 @@ async function runForgeStdTests(forgeStdRepoPath) {
     )
     .map((a) => a.id);
 
-  const results = await new Promise((resolve) => {
+  const results = await new Promise((resolve, reject) => {
     const resultsFromCallback = [];
+    const configs = {
+      projectRoot: forgeStdRepoPath,
+      fuzz: {
+        failurePersistDir: path.join(forgeStdRepoPath, "failures"),
+      },
+    };
 
-    runSolidityTests(artifacts, testSuiteIds, gasReport, (result) => {
-      console.error(`${result.id.name} took ${elapsedSec(start)} seconds`);
+    runSolidityTests(
+      artifacts,
+      testSuiteIds,
+      configs,
+      (result) => {
+        console.error(`${result.id.name} took ${elapsedSec(start)} seconds`);
 
-      resultsFromCallback.push(result);
-      if (resultsFromCallback.length === artifacts.length) {
-        resolve(resultsFromCallback);
-      }
-    });
+        resultsFromCallback.push(result);
+        if (resultsFromCallback.length === artifacts.length) {
+          resolve(resultsFromCallback);
+        }
+      },
+      reject,
+    );
   });
   console.error("elapsed (s)", elapsedSec(start));
 

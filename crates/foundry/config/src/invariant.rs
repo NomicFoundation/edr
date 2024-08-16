@@ -42,7 +42,7 @@ impl Default for InvariantConfig {
     fn default() -> Self {
         InvariantConfig {
             runs: 256,
-            depth: 15,
+            depth: 500,
             fail_on_revert: false,
             call_override: false,
             dictionary: FuzzDictionaryConfig {
@@ -63,7 +63,7 @@ impl InvariantConfig {
     pub fn new(cache_dir: PathBuf) -> Self {
         InvariantConfig {
             runs: 256,
-            depth: 15,
+            depth: 500,
             fail_on_revert: false,
             call_override: false,
             dictionary: FuzzDictionaryConfig {

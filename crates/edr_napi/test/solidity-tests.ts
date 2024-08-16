@@ -6,7 +6,32 @@ import {
   SuiteResult,
   runSolidityTests,
   Artifact,
+  SolidityTestRunnerConfigArgs,
 } from "..";
+
+// This throws an error if the tests fail
+async function executeSolidityTests(
+  artifacts: Array<Artifact>,
+  testSuites: Array<ArtifactId>,
+  configArgs: SolidityTestRunnerConfigArgs,
+): Promise<Array<SuiteResult>> {
+  return await new Promise((resolve, reject) => {
+    const resultsFromCallback: Array<SuiteResult> = [];
+
+    runSolidityTests(
+      artifacts,
+      testSuites,
+      configArgs,
+      (result: SuiteResult) => {
+        resultsFromCallback.push(result);
+        if (resultsFromCallback.length === artifacts.length) {
+          resolve(resultsFromCallback);
+        }
+      },
+      reject,
+    );
+  });
+}
 
 describe("Solidity Tests", () => {
   it("executes basic tests", async function () {
@@ -14,26 +39,13 @@ describe("Solidity Tests", () => {
       loadContract("./artifacts/SetupConsistencyCheck.json"),
       loadContract("./artifacts/PaymentFailureTest.json"),
     ];
-
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
+    const config = {
+      projectRoot: __dirname,
+    };
 
-    const results: Array<SuiteResult> = await new Promise((resolve) => {
-      const gasReport = false;
-      const resultsFromCallback: Array<SuiteResult> = [];
-
-      runSolidityTests(
-        artifacts,
-        testSuites,
-        gasReport,
-        (result: SuiteResult) => {
-          resultsFromCallback.push(result);
-          if (resultsFromCallback.length === artifacts.length) {
-            resolve(resultsFromCallback);
-          }
-        },
-      );
-    });
+    const results = await executeSolidityTests(artifacts, testSuites, config);
 
     assert.equal(results.length, artifacts.length);
 
@@ -49,6 +61,25 @@ describe("Solidity Tests", () => {
         assert.fail("Unexpected test suite name: " + res.id.name);
       }
     }
+  });
+
+  it("throws errors", async function () {
+    const artifacts = [
+      loadContract("./artifacts/SetupConsistencyCheck.json"),
+      loadContract("./artifacts/PaymentFailureTest.json"),
+    ];
+    // All artifacts are test suites.
+    const testSuites = artifacts.map((artifact) => artifact.id);
+    const config = {
+      projectRoot: __dirname,
+      // Memory limit is too large
+      memoryLimit: 2n ** 65n,
+    };
+
+    await assert.isRejected(
+      executeSolidityTests(artifacts, testSuites, config),
+      Error,
+    );
   });
 });
 
