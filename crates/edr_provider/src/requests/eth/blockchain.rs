@@ -3,8 +3,8 @@ use edr_eth::{
 };
 
 use crate::{
-    spec::SyncProviderSpec, data::ProviderData,
-    requests::validation::validate_post_merge_block_tags, time::TimeSinceEpoch, ProviderError,
+    data::ProviderData, requests::validation::validate_post_merge_block_tags,
+    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
 };
 
 pub fn handle_block_number_request<

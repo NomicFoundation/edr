@@ -8,8 +8,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    chain_spec::BlockEnvConstructor as _,
-    chain_spec::{ChainSpec, SyncChainSpec},
+    chain_spec::{BlockEnvConstructor as _, ChainSpec, SyncChainSpec},
     evm::handler::CfgEnvWithEvmWiring,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},

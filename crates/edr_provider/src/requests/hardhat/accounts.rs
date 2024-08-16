@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::Address;
 
 use crate::{data::ProviderData, spec::ProviderSpec, time::TimeSinceEpoch, ProviderError};

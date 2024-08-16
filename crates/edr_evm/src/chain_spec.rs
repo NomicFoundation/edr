@@ -6,6 +6,7 @@ use edr_eth::{
     env::{BlobExcessGasAndPrice, BlockEnv},
     log::{ExecutionLog, FilterLog},
     receipt::{ExecutionReceiptBuilder, MapReceiptLogs},
+    result::InvalidTransaction,
     transaction::ExecutableTransaction,
     SpecId, B256, U256,
 };
@@ -16,7 +17,7 @@ pub use revm::EvmWiring;
 use crate::{
     block::transaction::TransactionAndBlock,
     hardfork::{self, Activations},
-    transaction::{remote::EthRpcTransaction, Transaction, TransactionType},
+    transaction::{remote::EthRpcTransaction, Transaction, TransactionError, TransactionType},
     BlockReceipt, EthBlockData, EthRpcBlock, RemoteBlockConversionError,
 };
 
@@ -77,6 +78,14 @@ pub trait ChainSpec:
     /// Type representing an error that occurs when converting an RPC
     /// transaction.
     type RpcTransactionConversionError: std::error::Error;
+
+    /// Casts a transaction validation error into a `TransactionError`.
+    ///
+    /// This is implemented as an associated function to avoid problems when
+    /// implementing type conversions for third-party types.
+    fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
+        error: <Self::Transaction as TransactionValidation>::ValidationError,
+    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT>;
 
     /// Returns the hardfork activations corresponding to the provided chain ID,
     /// if it is associated with this chain specification.
@@ -171,6 +180,17 @@ impl ChainSpec for L1ChainSpec {
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
     type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;
     type RpcTransactionConversionError = TransactionConversionError;
+
+    fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
+        error: <Self::Transaction as TransactionValidation>::ValidationError,
+    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
+        match error {
+            InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+                TransactionError::LackOfFundForMaxFee { fee, balance }
+            }
+            remainder => TransactionError::InvalidTransaction(remainder),
+        }
+    }
 
     fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self>> {
         hardfork::l1::chain_hardfork_activations(chain_id)

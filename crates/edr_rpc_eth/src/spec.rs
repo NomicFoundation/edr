@@ -23,7 +23,7 @@ pub trait RpcSpec: Sized {
     type RpcTransaction: Default + DeserializeOwned + Serialize;
 
     /// Type representing an RPC `eth_sendTransaction` request.
-    type RpcTransactionRequest: DeserializeOwned;
+    type RpcTransactionRequest: DeserializeOwned + Serialize;
 }
 
 pub trait GetBlockNumber {

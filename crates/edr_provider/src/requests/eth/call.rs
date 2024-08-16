@@ -10,7 +10,7 @@ use crate::{
     data::ProviderData,
     spec::{CallContext, MaybeSender as _, ResolveRpcType, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, TransactionFailure, TransactionFailureReason,
+    ProviderError, TransactionFailure,
 };
 
 pub fn handle_call_request<

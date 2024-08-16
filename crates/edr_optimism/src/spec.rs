@@ -4,16 +4,18 @@ use edr_eth::{
     chain_spec::EthHeaderConstants,
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     env::{BlobExcessGasAndPrice, BlockEnv},
+    result::InvalidTransaction,
     U256,
 };
 use edr_evm::{
     chain_spec::{BlockEnvConstructor, ChainSpec},
+    transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };
 use edr_rpc_eth::spec::RpcSpec;
 use revm::{
     handler::register::HandleRegisters,
-    optimism::{OptimismHaltReason, OptimismSpecId},
+    optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId},
     EvmHandler,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -106,6 +108,18 @@ impl ChainSpec for OptimismChainSpec {
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
     type RpcReceiptConversionError = rpc::receipt::ConversionError;
     type RpcTransactionConversionError = rpc::transaction::ConversionError;
+
+    fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
+        error: <Self::Transaction as TransactionValidation>::ValidationError,
+    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
+        match error {
+            OptimismInvalidTransaction::Base(InvalidTransaction::LackOfFundForMaxFee {
+                fee,
+                balance,
+            }) => TransactionError::LackOfFundForMaxFee { fee, balance },
+            remainder => TransactionError::InvalidTransaction(remainder),
+        }
+    }
 
     fn chain_hardfork_activations(
         chain_id: u64,

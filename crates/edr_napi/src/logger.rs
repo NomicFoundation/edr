@@ -140,7 +140,7 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
-        result: &edr_provider::CallResult,
+        result: &edr_provider::CallResult<L1ChainSpec>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector.log_call(spec_id, transaction, result);
 
@@ -151,7 +151,7 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
-        failure: &edr_provider::EstimateGasFailure,
+        failure: &edr_provider::EstimateGasFailure<L1ChainSpec>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
             .log_estimate_gas(spec_id, transaction, failure);
@@ -196,7 +196,7 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderError>,
+        error: Option<&ProviderError<L1ChainSpec>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(error) = error {
             self.collector.state = LoggingState::Empty;
@@ -344,7 +344,7 @@ impl LogCollector {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
-        result: &edr_provider::CallResult,
+        result: &edr_provider::CallResult<L1ChainSpec>,
     ) {
         let edr_provider::CallResult {
             console_log_inputs,
@@ -379,7 +379,7 @@ impl LogCollector {
         &mut self,
         spec_id: edr_eth::SpecId,
         transaction: &transaction::Signed,
-        result: &edr_provider::EstimateGasFailure,
+        result: &edr_provider::EstimateGasFailure<L1ChainSpec>,
     ) {
         let edr_provider::EstimateGasFailure {
             console_log_inputs,
@@ -406,7 +406,7 @@ impl LogCollector {
         });
     }
 
-    fn log_transaction_failure(&mut self, failure: &edr_provider::TransactionFailure) {
+    fn log_transaction_failure(&mut self, failure: &edr_provider::TransactionFailure<L1ChainSpec>) {
         let is_revert_error = matches!(
             failure.reason,
             edr_provider::TransactionFailureReason::Revert(_)

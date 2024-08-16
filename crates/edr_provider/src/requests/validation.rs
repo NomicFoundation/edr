@@ -13,7 +13,8 @@ use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, SyncProviderSpec};
 
-/// Trait with data used for validating a transaction complies with a [`SpecId`].
+/// Trait with data used for validating a transaction complies with a
+/// [`SpecId`].
 pub trait HardforkValidationData {
     /// Returns the `to` address of the transaction.
     fn to(&self) -> Option<&Address>;
@@ -125,7 +126,7 @@ impl HardforkValidationData for PooledTransaction {
 
     fn blobs(&self) -> Option<&Vec<Blob>> {
         match self {
-            PooledTransaction::Eip4844(tx) => Some(&tx.blobs_ref()),
+            PooledTransaction::Eip4844(tx) => Some(tx.blobs_ref()),
             _ => None,
         }
     }
@@ -391,7 +392,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, (&mixed_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -403,7 +404,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, (&mixed_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -415,7 +416,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, (&request_with_too_low_max_fee).into()),
+            validate_transaction_spec::<L1ChainSpec>(spec, &request_with_too_low_max_fee),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
     }
@@ -428,7 +429,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, (&eip_1559_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(spec, &eip_1559_request),
             Err(ProviderError::UnsupportedEIP1559Parameters { .. })
         ));
 
@@ -439,7 +440,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, (&eip_1559_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(spec, &eip_1559_request),
             Err(ProviderError::UnsupportedEIP1559Parameters { .. })
         ));
     }
@@ -452,7 +453,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, (&eip_4844_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(spec, &eip_4844_request),
             Err(ProviderError::UnsupportedEIP4844Parameters { .. })
         ));
 
@@ -463,7 +464,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, (&eip_4844_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(spec, &eip_4844_request),
             Err(ProviderError::UnsupportedEIP4844Parameters { .. })
         ));
     }
@@ -477,9 +478,7 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(
-            validate_transaction_spec::<L1ChainSpec>(eip155_spec, (&valid_request).into()).is_ok()
-        );
+        assert!(validate_transaction_spec::<L1ChainSpec>(eip155_spec, &valid_request).is_ok());
 
         let eip_2930_request = TransactionRequest {
             from: Address::ZERO,
@@ -488,7 +487,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip155_spec, (&eip_2930_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(eip155_spec, &eip_2930_request),
             Err(ProviderError::UnsupportedAccessListParameter { .. })
         ));
 
@@ -506,9 +505,7 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(
-            validate_transaction_spec::<L1ChainSpec>(eip2930_spec, (&valid_request).into()).is_ok()
-        );
+        assert!(validate_transaction_spec::<L1ChainSpec>(eip2930_spec, &valid_request).is_ok());
 
         assert_unsupported_eip_1559_parameters(eip2930_spec);
         assert_unsupported_eip_4844_parameters(eip2930_spec);
@@ -525,9 +522,7 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(
-            validate_transaction_spec::<L1ChainSpec>(eip1559_spec, (&valid_request).into()).is_ok()
-        );
+        assert!(validate_transaction_spec::<L1ChainSpec>(eip1559_spec, &valid_request).is_ok());
 
         assert_unsupported_eip_4844_parameters(eip1559_spec);
         assert_mixed_eip_1559_parameters(eip1559_spec);
@@ -547,9 +542,7 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(
-            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, (&valid_request).into()).is_ok()
-        );
+        assert!(validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &valid_request).is_ok());
         assert_mixed_eip_1559_parameters(eip4844_spec);
 
         let mixed_request = TransactionRequest {
@@ -560,7 +553,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, (&mixed_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -572,7 +565,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, (&mixed_request).into()),
+            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -583,10 +576,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(
-                eip4844_spec,
-                (&missing_receiver_request).into()
-            ),
+            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &missing_receiver_request),
             Err(ProviderError::Eip4844TransactionMissingReceiver)
         ));
 
@@ -597,10 +587,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(
-                eip4844_spec,
-                (&missing_receiver_request).into()
-            ),
+            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &missing_receiver_request),
             Err(ProviderError::Eip4844TransactionMissingReceiver)
         ));
     }

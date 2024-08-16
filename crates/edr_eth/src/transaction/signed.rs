@@ -447,11 +447,7 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{
-        signature,
-        transaction::{self, Transaction as _},
-        AccessList, Bytes,
-    };
+    use crate::{signature, transaction, AccessList, Bytes};
 
     #[test]
     fn can_recover_sender() {

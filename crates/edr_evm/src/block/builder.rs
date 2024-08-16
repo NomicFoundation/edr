@@ -1,5 +1,6 @@
 use std::{
     fmt::Debug,
+    marker::PhantomData,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -91,7 +92,7 @@ pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
 }
 
 /// A builder for constructing Ethereum blocks.
-pub struct BlockBuilder<ChainSpecT: ChainSpec> {
+pub struct BlockBuilder<ChainSpecT: ChainSpec, BlockchainErrorT, StateErrorT> {
     cfg: CfgEnvWithEvmWiring<ChainSpecT>,
     header: PartialHeader,
     transactions: Vec<ChainSpecT::Transaction>,
@@ -99,15 +100,17 @@ pub struct BlockBuilder<ChainSpecT: ChainSpec> {
     receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>>,
     parent_gas_limit: Option<u64>,
     withdrawals: Option<Vec<Withdrawal>>,
+    phantom: PhantomData<(BlockchainErrorT, StateErrorT)>,
 }
 
-impl<ChainSpecT> BlockBuilder<ChainSpecT>
+impl<ChainSpecT, BlockchainErrorT, StateErrorT>
+    BlockBuilder<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
     ChainSpecT: ChainSpec<Hardfork: Debug>,
 {
     /// Creates an intance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn new<BlockchainErrorT>(
+    pub fn new(
         cfg: CfgEnvWithEvmWiring<ChainSpecT>,
         parent: &dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>,
         mut options: BlockOptions,
@@ -142,11 +145,14 @@ where
             receipts: Vec::new(),
             parent_gas_limit,
             withdrawals,
+            phantom: PhantomData,
         })
     }
 }
 
-impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
+impl<ChainSpecT: ChainSpec, BlockchainErrorT, StateErrorT>
+    BlockBuilder<ChainSpecT, BlockchainErrorT, StateErrorT>
+{
     /// Retrieves the config of the block builder.
     pub fn config(&self) -> &CfgEnvWithEvmWiring<ChainSpecT> {
         &self.cfg
@@ -166,18 +172,21 @@ impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
     pub fn header(&self) -> &PartialHeader {
         &self.header
     }
+}
 
+impl<ChainSpecT: ChainSpec, BlockchainErrorT, StateErrorT: Debug + Send>
+    BlockBuilder<ChainSpecT, BlockchainErrorT, StateErrorT>
+{
     /// Finalizes the block, returning the block and the callers of the
     /// transactions.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn finalize<StateT, StateErrorT>(
+    pub fn finalize<StateT>(
         mut self,
         state: &mut StateT,
         rewards: Vec<(Address, U256)>,
     ) -> Result<BuildBlockResult<ChainSpecT>, StateErrorT>
     where
         StateT: SyncState<StateErrorT> + ?Sized,
-        StateErrorT: Debug + Send,
     {
         for (address, reward) in rewards {
             if reward > U256::ZERO {
@@ -237,7 +246,8 @@ impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT> BlockBuilder<ChainSpecT>
+impl<ChainSpecT, BlockchainErrorT, StateErrorT>
+    BlockBuilder<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
     ChainSpecT: ChainSpec<
         Block: Default,
@@ -248,7 +258,7 @@ where
 {
     /// Adds a pending transaction to
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT, StateErrorT>(
+    pub fn add_transaction<'blockchain, 'evm, DebugDataT, StateT>(
         &mut self,
         blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: StateT,
@@ -264,9 +274,7 @@ where
     >
     where
         'blockchain: 'evm,
-        BlockchainErrorT: Debug + Send,
         StateT: StateRef<Error = StateErrorT> + DatabaseCommit + StateDebug<Error = StateErrorT>,
-        StateErrorT: Debug + Send,
     {
         // The transaction's gas limit cannot be greater than the remaining gas in the
         // block

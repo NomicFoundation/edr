@@ -1,3 +1,4 @@
+use core::fmt::Debug;
 use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
@@ -104,7 +105,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
 
 async fn load_requests(
     scenario_path: &Path,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<L1ChainSpec>>)> {
     println!("Loading requests from {scenario_path:?}");
 
     match load_gzipped_json(scenario_path.to_path_buf()).await {
@@ -116,7 +117,7 @@ async fn load_requests(
 
 async fn load_gzipped_json(
     scenario_path: PathBuf,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<L1ChainSpec>>)> {
     use std::{
         fs::File,
         io::{BufRead, BufReader},
@@ -135,11 +136,11 @@ async fn load_gzipped_json(
                 .context("Invalid gzip")?;
             let config: ScenarioConfig = serde_json::from_str(&first_line)?;
 
-            let mut requests: Vec<ProviderRequest> = Vec::new();
+            let mut requests: Vec<ProviderRequest<L1ChainSpec>> = Vec::new();
 
             for gzipped_line in lines {
                 let line = gzipped_line.context("Invalid gzip")?;
-                let request: ProviderRequest = serde_json::from_str(&line)?;
+                let request: ProviderRequest<L1ChainSpec> = serde_json::from_str(&line)?;
                 requests.push(request);
             }
 
@@ -148,7 +149,9 @@ async fn load_gzipped_json(
         .await?
 }
 
-async fn load_json(scenario_path: &Path) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest>)> {
+async fn load_json(
+    scenario_path: &Path,
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<L1ChainSpec>>)> {
     use tokio::io::AsyncBufReadExt;
 
     let reader = tokio::io::BufReader::new(tokio::fs::File::open(scenario_path).await?);
@@ -157,10 +160,10 @@ async fn load_json(scenario_path: &Path) -> anyhow::Result<(ScenarioConfig, Vec<
     let first_line = lines.next_line().await?.context("Scenario file is empty")?;
     let config: ScenarioConfig = serde_json::from_str(&first_line)?;
 
-    let mut requests: Vec<ProviderRequest> = Vec::new();
+    let mut requests: Vec<ProviderRequest<L1ChainSpec>> = Vec::new();
 
     while let Some(line) = lines.next_line().await? {
-        let request: ProviderRequest = serde_json::from_str(&line)?;
+        let request: ProviderRequest<L1ChainSpec> = serde_json::from_str(&line)?;
         requests.push(request);
     }
 
@@ -172,7 +175,7 @@ struct DisabledLogger<ChainSpecT: ChainSpec> {
     _phantom: PhantomData<ChainSpecT>,
 }
 
-impl<ChainSpecT: ChainSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
+impl<ChainSpecT: ChainSpec<Hardfork: Debug>> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
     type BlockchainError = BlockchainError<L1ChainSpec>;
 
     fn is_enabled(&self) -> bool {
@@ -184,7 +187,7 @@ impl<ChainSpecT: ChainSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderError>,
+        _error: Option<&ProviderError<ChainSpecT>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }

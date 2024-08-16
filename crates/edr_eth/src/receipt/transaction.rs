@@ -5,7 +5,7 @@ use revm_primitives::{EvmWiring, ExecutionResult, Output};
 
 use super::{MapReceiptLogs, Receipt};
 use crate::{
-    transaction::{Transaction, ExecutableTransaction, TransactionType},
+    transaction::{ExecutableTransaction, Transaction, TransactionType},
     Address, Bloom, SpecId, B256, U256,
 };
 

@@ -87,7 +87,7 @@ use crate::{
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
     MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
-    SyncSubscriberCallback, TransactionFailureReason,
+    SyncSubscriberCallback,
 };
 
 const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u64 = 1_000_000_000;

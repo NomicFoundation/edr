@@ -12,7 +12,7 @@ use crate::{
     requests::validation::validate_post_merge_block_tags,
     spec::{CallContext, MaybeSender as _, ResolveRpcType as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, TransactionFailureReason,
+    ProviderError,
 };
 
 pub fn handle_estimate_gas<
@@ -210,7 +210,7 @@ mod tests {
 
         let resolved = resolve_estimate_gas_request(
             &mut fixture.provider_data,
-            request.into(),
+            request,
             &BlockSpec::pending(),
             &StateOverrides::default(),
         )?;
@@ -244,7 +244,7 @@ mod tests {
 
         let resolved = resolve_estimate_gas_request(
             &mut fixture.provider_data,
-            request.into(),
+            request,
             &BlockSpec::pending(),
             &StateOverrides::default(),
         )?;
@@ -285,7 +285,7 @@ mod tests {
 
         let resolved = resolve_estimate_gas_request(
             &mut fixture.provider_data,
-            request.into(),
+            request,
             &BlockSpec::Tag(BlockTag::Latest),
             &StateOverrides::default(),
         )?;
@@ -323,7 +323,7 @@ mod tests {
 
         let resolved = resolve_estimate_gas_request(
             &mut fixture.provider_data,
-            request.into(),
+            request,
             &BlockSpec::pending(),
             &StateOverrides::default(),
         )?;

@@ -6,7 +6,7 @@ use edr_eth::{
     Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};
 use crate::requests::{
@@ -27,9 +27,9 @@ mod optional_block_spec {
 }
 
 /// for an invoking a method on a remote ethereum node
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[derive_where(Clone, Debug, PartialEq; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
-#[serde(bound = "ChainSpecT: RpcSpec", tag = "method", content = "params")]
+#[serde(bound = "", tag = "method", content = "params")]
 pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     /// `eth_accounts`
     #[serde(rename = "eth_accounts", with = "edr_eth::serde::empty_params")]

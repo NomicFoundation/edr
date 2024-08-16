@@ -1,7 +1,7 @@
 use edr_eth::{AccessListItem, Address, Blob, Bytes, B256, U256};
 
 /// Represents _all_ transaction requests received from RPC
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionRequest {
     /// from address

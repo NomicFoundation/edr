@@ -83,8 +83,8 @@ impl Transaction for Deposit {
 
     fn nonce(&self) -> u64 {
         // Before Regolith: the nonce is always 0
-        // With Regolith: the nonce is set to the depositNonce attribute of the corresponding
-        // transaction receipt.
+        // With Regolith: the nonce is set to the depositNonce attribute of the
+        // corresponding transaction receipt.
         0
     }
 

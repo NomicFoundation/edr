@@ -89,10 +89,7 @@ pub trait ResolveRpcType<TimerT: Clone + TimeSinceEpoch, OutputT> {
     /// Type of error that can occur during resolution.
     type Error;
 
-    fn resolve_rpc_type<'context>(
-        self,
-        context: Self::Context<'context>,
-    ) -> Result<OutputT, Self::Error>;
+    fn resolve_rpc_type(self, context: Self::Context<'_>) -> Result<OutputT, Self::Error>;
 }
 
 pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:
@@ -105,6 +102,19 @@ impl<ProviderSpecT: ProviderSpec<TimerT> + SyncChainSpec, TimerT: Clone + TimeSi
 {
 }
 
+pub type DefaultGasPriceFn<ChainSpecT, TimerT> =
+    fn(&ProviderData<ChainSpecT, TimerT>) -> Result<U256, ProviderError<ChainSpecT>>;
+
+pub type MaxFeesFn<ChainSpecT, TimerT> = fn(
+    &ProviderData<ChainSpecT, TimerT>,
+    // block_spec
+    &BlockSpec,
+    // max_fee_per_gas
+    Option<U256>,
+    // max_priority_fee_per_gas
+    Option<U256>,
+) -> Result<(U256, U256), ProviderError<ChainSpecT>>;
+
 pub struct CallContext<
     'context,
     ChainSpecT: ProviderSpec<TimerT, Hardfork: Debug>,
@@ -113,17 +123,8 @@ pub struct CallContext<
     pub data: &'context mut ProviderData<ChainSpecT, TimerT>,
     pub block_spec: &'context BlockSpec,
     pub state_overrides: &'context StateOverrides,
-    pub default_gas_price_fn:
-        fn(&ProviderData<ChainSpecT, TimerT>) -> Result<U256, ProviderError<ChainSpecT>>,
-    pub max_fees_fn: fn(
-        &ProviderData<ChainSpecT, TimerT>,
-        // block_spec
-        &BlockSpec,
-        // max_fee_per_gas
-        Option<U256>,
-        // max_priority_fee_per_gas
-        Option<U256>,
-    ) -> Result<(U256, U256), ProviderError<ChainSpecT>>,
+    pub default_gas_price_fn: DefaultGasPriceFn<ChainSpecT, TimerT>,
+    pub max_fees_fn: MaxFeesFn<ChainSpecT, TimerT>,
 }
 
 pub struct TransactionContext<

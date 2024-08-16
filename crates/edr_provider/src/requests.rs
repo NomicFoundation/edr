@@ -12,7 +12,7 @@ use std::{fmt, marker::PhantomData};
 
 use ::serde::{
     de::{self, MapAccess, SeqAccess, Visitor},
-    Deserialize, Deserializer,
+    Deserialize, Deserializer, Serialize,
 };
 use derive_where::derive_where;
 use edr_rpc_eth::spec::RpcSpec;
@@ -23,7 +23,9 @@ pub use crate::requests::{
 };
 
 /// JSON-RPC request for the provider.
+#[derive(Serialize)]
 #[derive_where(Clone, Debug; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
+#[serde(bound = "")]
 pub enum ProviderRequest<ChainSpecT: RpcSpec> {
     /// A single JSON-RPC request
     Single(MethodInvocation<ChainSpecT>),

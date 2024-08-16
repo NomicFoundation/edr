@@ -11,7 +11,7 @@ use edr_provider::{
 use tokio::runtime;
 
 struct TimestampFixture {
-    provider: Provider<Arc<MockTime>>,
+    provider: Provider<L1ChainSpec, Arc<MockTime>>,
     mock_timer: Arc<MockTime>,
 }
 

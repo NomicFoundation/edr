@@ -2,6 +2,7 @@ use edr_eth::{chain_spec::L1ChainSpec, Bytes, SpecId, U256};
 use edr_evm::{blockchain::BlockchainError, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
+use super::validation::validate_call_request;
 use crate::{
     data::ProviderData,
     requests::validation::validate_send_transaction_request,
@@ -10,16 +11,14 @@ use crate::{
     ProviderError,
 };
 
-use super::validation::validate_call_request;
-
 impl<TimerT: Clone + TimeSinceEpoch> ResolveRpcType<TimerT, transaction::Request> for CallRequest {
     type Context<'context> = CallContext<'context, L1ChainSpec, TimerT>;
 
     type Error = ProviderError<L1ChainSpec>;
 
-    fn resolve_rpc_type<'context>(
+    fn resolve_rpc_type(
         self,
-        context: Self::Context<'context>,
+        context: Self::Context<'_>,
     ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
         let CallContext {
             data,
@@ -29,7 +28,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ResolveRpcType<TimerT, transaction::Request
             max_fees_fn,
         } = context;
 
-        validate_call_request(data.evm_spec_id(), &self, &block_spec)?;
+        validate_call_request(data.evm_spec_id(), &self, block_spec)?;
 
         let CallRequest {
             from,
@@ -105,9 +104,9 @@ impl<TimerT: Clone + TimeSinceEpoch> ResolveRpcType<TimerT, transaction::Request
 
     type Error = ProviderError<L1ChainSpec>;
 
-    fn resolve_rpc_type<'context>(
+    fn resolve_rpc_type(
         self,
-        context: Self::Context<'context>,
+        context: Self::Context<'_>,
     ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
         const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
 

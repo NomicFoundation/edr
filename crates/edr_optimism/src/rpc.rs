@@ -3,10 +3,7 @@ pub mod receipt;
 /// Types for Optimism RPC transaction.
 pub mod transaction;
 
-use edr_eth::{
-    env::SignedAuthorization, log::FilterLog, AccessListItem, Address, Bloom, Bytes, B256, U128,
-    U256,
-};
+use edr_eth::{env::SignedAuthorization, log::FilterLog, Address, Bloom, B256, U256};
 use serde::{Deserialize, Serialize};
 
 /// Transaction receipt

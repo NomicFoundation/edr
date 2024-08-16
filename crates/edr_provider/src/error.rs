@@ -7,7 +7,7 @@ use edr_eth::{
     chain_spec::{EvmWiring, L1ChainSpec},
     filter::SubscriptionType,
     hex,
-    result::{ExecutionResult, HaltReason, InvalidTransaction, OutOfGasError},
+    result::{ExecutionResult, HaltReason, OutOfGasError},
     Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256,
 };
 use edr_evm::{
@@ -16,8 +16,7 @@ use edr_evm::{
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
-    BlockTransactionError, DebugTraceError, MemPoolAddTransactionError, MineBlockError,
-    MineTransactionError,
+    DebugTraceError, MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 use serde::Serialize;
@@ -302,34 +301,7 @@ where
             _ => None,
         };
 
-        let message = match &value {
-            ProviderError::DebugTrace(DebugTraceError::TransactionError(error))
-            | ProviderError::MineBlock(MineBlockError::BlockTransaction(
-                BlockTransactionError::Transaction(error),
-            ))
-            | ProviderError::MineTransaction(MineTransactionError::BlockTransaction(
-                BlockTransactionError::Transaction(error),
-            ))
-            | ProviderError::RunTransaction(error) => {
-                if let TransactionError::InvalidTransaction(
-                    InvalidTransaction::LackOfFundForMaxFee { fee, balance },
-                ) = error
-                {
-                    format!("Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}.")
-                } else {
-                    value.to_string()
-                }
-            }
-            ProviderError::TransactionFailed(inner)
-                if matches!(
-                    inner.failure.reason,
-                    TransactionFailureReason::Inner(HaltReason::CreateContractSizeLimit)
-                ) =>
-            {
-                "Transaction reverted: trying to deploy a contract whose code is too large".into()
-            }
-            _ => value.to_string(),
-        };
+        let message = value.to_string();
 
         Self {
             code,
@@ -381,7 +353,9 @@ pub struct TransactionFailure<ChainSpecT: EvmWiring> {
     pub transaction_hash: Option<B256>,
 }
 
-impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
+impl<ChainSpecT: EvmWiring<HaltReason: Into<TransactionFailureReason<ChainSpecT>>>>
+    TransactionFailure<ChainSpecT>
+{
     pub fn from_execution_result(
         execution_result: &ExecutionResult<ChainSpecT>,
         transaction_hash: Option<&B256>,
@@ -402,20 +376,6 @@ impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
         }
     }
 
-    pub fn revert(
-        output: Bytes,
-        transaction_hash: Option<B256>,
-        solidity_trace: Trace<ChainSpecT>,
-    ) -> Self {
-        let data = format!("0x{}", hex::encode(output.as_ref()));
-        Self {
-            reason: TransactionFailureReason::Revert(output),
-            data,
-            solidity_trace,
-            transaction_hash,
-        }
-    }
-
     pub fn halt(
         halt: ChainSpecT::HaltReason,
         tx_hash: Option<B256>,
@@ -430,9 +390,31 @@ impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
     }
 }
 
+impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
+    pub fn revert(
+        output: Bytes,
+        transaction_hash: Option<B256>,
+        solidity_trace: Trace<ChainSpecT>,
+    ) -> Self {
+        let data = format!("0x{}", hex::encode(output.as_ref()));
+        Self {
+            reason: TransactionFailureReason::Revert(output),
+            data,
+            solidity_trace,
+            transaction_hash,
+        }
+    }
+}
+
 impl<ChainSpecT: EvmWiring> std::fmt::Display for TransactionFailure<ChainSpecT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.reason {
+            TransactionFailureReason::CreateContractSizeLimit => {
+                write!(
+                    f,
+                    "Transaction reverted: trying to deploy a contract whose code is too large"
+                )
+            }
             TransactionFailureReason::Inner(halt) => write!(f, "{halt:?}"),
             TransactionFailureReason::OpcodeNotFound => {
                 write!(

@@ -15,11 +15,8 @@ use edr_evm::{
 use edr_rpc_eth::RpcTypeFrom as _;
 
 use crate::{
-    spec::{ProviderSpec, SyncProviderSpec},
-    data::ProviderData,
-    requests::validation::validate_post_merge_block_tags,
-    time::TimeSinceEpoch,
-    ProviderError,
+    data::ProviderData, requests::validation::validate_post_merge_block_tags,
+    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]

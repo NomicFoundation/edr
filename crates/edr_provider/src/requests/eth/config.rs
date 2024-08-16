@@ -4,8 +4,8 @@ use edr_eth::{Address, U256, U64};
 use edr_evm::chain_spec::ChainSpec;
 
 use crate::{
-    spec::{ProviderSpec, SyncProviderSpec},
     data::ProviderData,
+    spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError,
 };
