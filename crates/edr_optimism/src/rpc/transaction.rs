@@ -144,6 +144,7 @@ impl RpcTypeFrom<TransactionAndBlock<OptimismChainSpec>> for Transaction {
             &value.transaction,
             header,
             transaction_index,
+            value.is_pending,
             hardfork.into(),
         );
 

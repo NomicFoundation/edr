@@ -87,6 +87,7 @@ impl Transaction {
               + IsLegacy),
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
+        is_pending: bool,
         hardfork: SpecId,
     ) -> Self {
         let base_fee = header.and_then(|header| header.base_fee_per_gas);
@@ -118,8 +119,13 @@ impl Transaction {
             None
         };
 
-        let (block_hash, block_number) =
-            header.map(|header| (header.hash(), header.number)).unzip();
+        let (block_hash, block_number) = if is_pending {
+            (None, None)
+        } else {
+            header.map(|header| (header.hash(), header.number)).unzip()
+        };
+
+        let transaction_index = if is_pending { None } else { transaction_index };
 
         let access_list = if transaction.has_access_list() {
             Some(transaction.access_list().to_vec())

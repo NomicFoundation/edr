@@ -42,8 +42,13 @@ impl RpcTypeFrom<TransactionAndBlock<L1ChainSpec>> for edr_rpc_eth::TransactionW
             )
             .unzip();
 
-        let transaction =
-            edr_rpc_eth::Transaction::new(&value.transaction, header, transaction_index, hardfork);
+        let transaction = edr_rpc_eth::Transaction::new(
+            &value.transaction,
+            header,
+            transaction_index,
+            value.is_pending,
+            hardfork,
+        );
         let signature = value.transaction.signature();
 
         edr_rpc_eth::TransactionWithSignature::new(
