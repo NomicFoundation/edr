@@ -46,7 +46,8 @@ COMMITS=(
   cc0ff8069444a8c98b014bc72191e5b0ec8fbac3
   # Finish porting ErrorInferrer and SolidityTracer
   cb1e10ff142964e0afaecf4753bc82398810195f
-
+  # Port debug.ts
+  ebff4c53e0d4c290e7e2f11f2559c6d1b79ee628
 )
 
 for commit in "${COMMITS[@]}"; do

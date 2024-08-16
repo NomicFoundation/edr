@@ -22,6 +22,7 @@ mod model;
 mod source_map;
 
 mod contracts_identifier;
+mod debug;
 mod error_inferrer;
 mod exit;
 mod mapped_inlined_internal_functions_heuristics;
