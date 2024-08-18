@@ -199,7 +199,7 @@ fn trace_steps(
         let pc = format!("{:>5}", format!("{:03}", step.pc));
 
         if let Some(bytecode) = bytecode {
-            let inst = bytecode.get_instruction_inner(step.pc)?;
+            let inst = bytecode.get_instruction(step.pc)?;
             let inst = inst.borrow(env)?;
 
             let location = inst
@@ -243,16 +243,13 @@ fn trace_steps(
                     format!("({})", inst.jump_type.into_static_str())
                 };
 
-                let entry = format!(
-                    "{margin}  {pc}   {opcode} {jump}",
-                    opcode = inst.opcode.into_static_str()
-                );
+                let entry = format!("{margin}  {pc}   {opcode} {jump}", opcode = inst.opcode);
 
                 println!("{entry:<50}{location}");
             } else if inst.opcode.is_push() {
                 let entry = format!(
                     "{margin}  {pc}   {opcode} {push_data}",
-                    opcode = inst.opcode.into_static_str(),
+                    opcode = inst.opcode,
                     push_data = inst
                         .push_data
                         .as_deref()
@@ -262,10 +259,7 @@ fn trace_steps(
 
                 println!("{entry:<50}{location}");
             } else {
-                let entry = format!(
-                    "{margin}  {pc}   {opcode}",
-                    opcode = inst.opcode.into_static_str()
-                );
+                let entry = format!("{margin}  {pc}   {opcode}", opcode = inst.opcode);
 
                 println!("{entry:<50}{location}");
             }

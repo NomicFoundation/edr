@@ -268,7 +268,7 @@ impl SolidityTracer {
         let mut iter = steps.iter().enumerate().peekable();
         while let Some((step_index, step)) = iter.next() {
             if let Either4::A(EvmStep { pc }) = step {
-                let inst = bytecode.get_instruction_inner(*pc)?;
+                let inst = bytecode.get_instruction(*pc)?;
                 let inst = inst.borrow(env)?;
 
                 if inst.jump_type == JumpType::INTO_FUNCTION && iter.peek().is_some() {
@@ -276,7 +276,7 @@ impl SolidityTracer {
                     let Either4::A(next_evm_step) = next_step else {
                         unreachable!("JS code asserted that");
                     };
-                    let next_inst = bytecode.get_instruction_inner(next_evm_step.pc)?;
+                    let next_inst = bytecode.get_instruction(next_evm_step.pc)?;
                     let next_inst_borrowed = next_inst.borrow(env)?;
 
                     if next_inst_borrowed.opcode == Opcode::JUMPDEST {

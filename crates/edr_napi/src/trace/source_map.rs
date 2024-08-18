@@ -3,19 +3,17 @@
 use std::{collections::HashMap, rc::Rc};
 
 use napi::{bindgen_prelude::Buffer, Env};
-use napi_derive::napi;
 
 use super::model::{SourceFile, SourceLocation};
 use crate::{
     trace::{
         model::{Instruction, JumpType},
-        opcodes::{is_jump, is_push, Opcode},
+        opcodes::Opcode,
     },
     utils::ClassInstanceRef,
 };
 
 // See https://docs.soliditylang.org/en/latest/internals/source_mappings.html
-#[napi(object)]
 pub struct SourceMapLocation {
     // Only -1 if the information is missing, the values are non-negative otherwise
     pub offset: i32,
@@ -23,7 +21,6 @@ pub struct SourceMapLocation {
     pub file: i32,
 }
 
-#[napi(object)]
 pub struct SourceMap {
     pub location: SourceMapLocation,
     pub jump_type: JumpType,
@@ -112,7 +109,7 @@ fn add_unmapped_instructions(
     while bytecode.get(bytes_index) != Some(Opcode::INVALID as u8).as_ref() {
         let opcode = Opcode::from_repr(bytecode[bytes_index]).expect("Invalid opcode");
 
-        let push_data: Option<Buffer> = if is_push(opcode) {
+        let push_data: Option<Buffer> = if opcode.is_push() {
             let push_data =
                 &bytecode[(bytes_index + 1)..(bytes_index + 1 + (opcode.push_len() as usize))];
 
@@ -121,8 +118,8 @@ fn add_unmapped_instructions(
             None
         };
 
-        let jump_type = if is_jump(opcode) {
-            JumpType::INTERNAL_JUMP
+        let jump_type = if opcode.is_jump() {
+            JumpType::InternalJump
         } else {
             JumpType::NOT_JUMP
         };
@@ -156,7 +153,7 @@ pub fn decode_instructions(
         let pc = bytes_index;
         let opcode = Opcode::from_repr(bytecode[pc]).expect("Invalid opcode");
 
-        let push_data = if is_push(opcode) {
+        let push_data = if opcode.is_push() {
             let length = opcode.push_len();
             let push_data = &bytecode[(bytes_index + 1)..(bytes_index + 1 + (length as usize))];
 
@@ -165,8 +162,8 @@ pub fn decode_instructions(
             None
         };
 
-        let jump_type = if is_jump(opcode) && source_map.jump_type == JumpType::NOT_JUMP {
-            JumpType::INTERNAL_JUMP
+        let jump_type = if opcode.is_jump() && source_map.jump_type == JumpType::NotJump {
+            JumpType::InternalJump
         } else {
             source_map.jump_type
         };

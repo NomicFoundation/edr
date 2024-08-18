@@ -335,38 +335,6 @@ impl Opcode {
     pub fn is_push(self) -> bool {
         self >= Opcode::PUSH1 && self <= Opcode::PUSH32
     }
-
-    pub fn into_static_str(self) -> &'static str {
-        self.into()
-    }
-}
-
-#[napi]
-pub fn opcode_to_string(opcode: Opcode) -> &'static str {
-    opcode.into_static_str()
-}
-
-#[napi]
-pub fn is_push(opcode: Opcode) -> bool {
-    opcode.is_push()
-}
-
-#[napi]
-pub fn is_jump(opcode: Opcode) -> bool {
-    opcode.is_jump()
-}
-
-#[napi]
-fn is_call(opcode: Opcode) -> bool {
-    opcode == Opcode::CALL
-        || opcode == Opcode::CALLCODE
-        || opcode == Opcode::DELEGATECALL
-        || opcode == Opcode::STATICCALL
-}
-
-#[napi]
-fn is_create(opcode: Opcode) -> bool {
-    opcode == Opcode::CREATE || opcode == Opcode::CREATE2
 }
 
 #[cfg(test)]

@@ -175,7 +175,7 @@ fn match_opcodes(
             return Ok(false);
         };
 
-        let instruction = bytecode.get_instruction_inner(*pc)?;
+        let instruction = bytecode.get_instruction(*pc)?;
         let instruction = instruction.borrow(env)?;
 
         if instruction.opcode != *opcode {

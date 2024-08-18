@@ -134,8 +134,7 @@ impl ContractsIdentifier {
         }
     }
 
-    #[napi]
-    pub fn add_bytecode(
+    pub(crate) fn add_bytecode(
         &mut self,
         bytecode: ClassInstance<Bytecode>,
         env: Env,

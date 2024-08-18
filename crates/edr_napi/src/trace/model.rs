@@ -402,12 +402,7 @@ impl Bytecode {
         })
     }
 
-    #[napi(ts_return_type = "Instruction")]
-    pub fn get_instruction(&self, pc: u32, env: Env) -> napi::Result<Object> {
-        self.get_instruction_inner(pc)?.as_object(env)
-    }
-
-    pub fn get_instruction_inner(&self, pc: u32) -> napi::Result<&ClassInstanceRef<Instruction>> {
+    pub fn get_instruction(&self, pc: u32) -> napi::Result<&ClassInstanceRef<Instruction>> {
         let instruction = self
             .pc_to_instruction
             .get(&pc)
@@ -416,7 +411,6 @@ impl Bytecode {
         Ok(instruction)
     }
 
-    #[napi]
     pub fn has_instruction(&self, pc: u32) -> bool {
         self.pc_to_instruction.contains_key(&pc)
     }
