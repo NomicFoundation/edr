@@ -2405,7 +2405,7 @@ where
                         .clone(),
                 )),
                 ExecutionResult::Halt { reason, .. } => Err(TransactionFailure::halt(
-                    reason,
+                    ChainSpecT::cast_halt_reason(reason),
                     None,
                     trace_collector
                         .traces()

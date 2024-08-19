@@ -20,7 +20,7 @@ impl ExecutableTransaction for Deposit {
     }
 
     fn max_fee_per_gas(&self) -> Option<&U256> {
-        None
+        Some(self.gas_price())
     }
 
     fn rlp_encoding(&self) -> &Bytes {

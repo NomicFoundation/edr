@@ -10,7 +10,7 @@ use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use crate::{
     data::ProviderData,
     requests::validation::validate_post_merge_block_tags,
-    spec::{CallContext, MaybeSender as _, ResolveRpcType as _, SyncProviderSpec},
+    spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError,
 };
@@ -179,7 +179,7 @@ fn resolve_estimate_gas_request<
         },
     };
 
-    let request = request.resolve_rpc_type(context)?;
+    let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
     transaction::validate(transaction, SpecId::LATEST)

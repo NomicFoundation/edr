@@ -1,25 +1,69 @@
-use edr_eth::{chain_spec::L1ChainSpec, Bytes, SpecId, U256};
-use edr_evm::{blockchain::BlockchainError, transaction};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
-
-use super::validation::validate_call_request;
-use crate::{
-    data::ProviderData,
-    requests::validation::validate_send_transaction_request,
+pub use edr_eth::transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Legacy};
+use edr_eth::{
+    signature::{SecretKey, SignatureError},
+    transaction::signed::{FakeSign, Sign},
+    Address, Bytes, SpecId, U256,
+};
+use edr_evm::blockchain::BlockchainError;
+use edr_provider::{
+    requests::validation::{validate_call_request, validate_send_transaction_request},
     spec::{CallContext, FromRpcType, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError,
+    ProviderData, ProviderError,
 };
+use edr_rpc_eth::{CallRequest, TransactionRequest};
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transaction::Request {
-    type Context<'context> = CallContext<'context, L1ChainSpec, TimerT>;
+use super::{Request, Signed};
+use crate::OptimismChainSpec;
 
-    type Error = ProviderError<L1ChainSpec>;
+impl FakeSign for Request {
+    type Signed = Signed;
 
-    fn from_rpc_type(
-        value: CallRequest,
-        context: Self::Context<'_>,
-    ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
+    fn fake_sign(self, sender: Address) -> Signed {
+        match self {
+            Request::Legacy(transaction) => transaction.fake_sign(sender).into(),
+            Request::Eip155(transaction) => transaction.fake_sign(sender).into(),
+            Request::Eip2930(transaction) => transaction.fake_sign(sender).into(),
+            Request::Eip1559(transaction) => transaction.fake_sign(sender).into(),
+            Request::Eip4844(transaction) => transaction.fake_sign(sender).into(),
+        }
+    }
+}
+
+impl Sign for Request {
+    type Signed = Signed;
+
+    unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<Signed, SignatureError> {
+        Ok(match self {
+            Request::Legacy(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+            Request::Eip155(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+            Request::Eip2930(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+            Request::Eip1559(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+            Request::Eip4844(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
+        })
+    }
+}
+
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Request {
+    type Context<'context> = CallContext<'context, OptimismChainSpec, TimerT>;
+
+    type Error = ProviderError<OptimismChainSpec>;
+
+    fn from_rpc_type(value: CallRequest, context: Self::Context<'_>) -> Result<Self, Self::Error> {
         let CallContext {
             data,
             block_spec,
@@ -54,19 +98,17 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
         let request = if evm_spec_id < SpecId::LONDON || gas_price.is_some() {
             let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
             match access_list {
-                Some(access_list) if evm_spec_id >= SpecId::BERLIN => {
-                    transaction::Request::Eip2930(transaction::request::Eip2930 {
-                        nonce,
-                        gas_price,
-                        gas_limit,
-                        value,
-                        input,
-                        kind: to.into(),
-                        chain_id,
-                        access_list,
-                    })
-                }
-                _ => transaction::Request::Eip155(transaction::request::Eip155 {
+                Some(access_list) if evm_spec_id >= SpecId::BERLIN => Request::Eip2930(Eip2930 {
+                    nonce,
+                    gas_price,
+                    gas_limit,
+                    value,
+                    input,
+                    kind: to.into(),
+                    chain_id,
+                    access_list,
+                }),
+                _ => Request::Eip155(Eip155 {
                     nonce,
                     gas_price,
                     gas_limit,
@@ -80,7 +122,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 max_fees_fn(data, block_spec, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            transaction::Request::Eip1559(transaction::request::Eip1559 {
+            Request::Eip1559(Eip1559 {
                 chain_id,
                 nonce,
                 max_fee_per_gas,
@@ -97,26 +139,24 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
     }
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
-    for transaction::Request
-{
-    type Context<'context> = TransactionContext<'context, L1ChainSpec, TimerT>;
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for Request {
+    type Context<'context> = TransactionContext<'context, OptimismChainSpec, TimerT>;
 
-    type Error = ProviderError<L1ChainSpec>;
+    type Error = ProviderError<OptimismChainSpec>;
 
     fn from_rpc_type(
         value: TransactionRequest,
         context: Self::Context<'_>,
-    ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
+    ) -> Result<Request, ProviderError<OptimismChainSpec>> {
         const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
 
         /// # Panics
         ///
         /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
         fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
-            data: &ProviderData<L1ChainSpec, TimerT>,
+            data: &ProviderData<OptimismChainSpec, TimerT>,
             max_priority_fee_per_gas: U256,
-        ) -> Result<U256, BlockchainError<L1ChainSpec>> {
+        ) -> Result<U256, BlockchainError<OptimismChainSpec>> {
             let base_fee_per_gas = data
                 .next_block_base_fee_per_gas()?
                 .expect("We already validated that the block is post-London.");
@@ -186,7 +226,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
                         }
                     };
 
-                transaction::Request::Eip1559(transaction::request::Eip1559 {
+                Request::Eip1559(Eip1559 {
                     nonce,
                     max_priority_fee_per_gas,
                     max_fee_per_gas,
@@ -198,19 +238,17 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
                     access_list: access_list.unwrap_or_default(),
                 })
             }
-            (gas_price, _, _, Some(access_list)) => {
-                transaction::Request::Eip2930(transaction::request::Eip2930 {
-                    nonce,
-                    gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
-                    gas_limit,
-                    value,
-                    input,
-                    kind: to.into(),
-                    chain_id,
-                    access_list,
-                })
-            }
-            (gas_price, _, _, _) => transaction::Request::Eip155(transaction::request::Eip155 {
+            (gas_price, _, _, Some(access_list)) => Request::Eip2930(Eip2930 {
+                nonce,
+                gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
+                gas_limit,
+                value,
+                input,
+                kind: to.into(),
+                chain_id,
+                access_list,
+            }),
+            (gas_price, _, _, _) => Request::Eip155(Eip155 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
@@ -222,81 +260,5 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
         };
 
         Ok(request)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use edr_eth::BlockSpec;
-    use edr_evm::state::StateOverrides;
-    use edr_rpc_eth::CallRequest;
-
-    use super::*;
-    use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};
-
-    #[test]
-    fn resolve_call_request_with_gas_price() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
-
-        let pending_base_fee = pending_base_fee(&mut fixture.provider_data)?;
-
-        let request = CallRequest {
-            from: Some(fixture.nth_local_account(0)?),
-            to: Some(fixture.nth_local_account(1)?),
-            gas_price: Some(pending_base_fee),
-            ..CallRequest::default()
-        };
-
-        let context = CallContext {
-            data: &mut fixture.provider_data,
-            block_spec: &BlockSpec::pending(),
-            state_overrides: &StateOverrides::default(),
-            default_gas_price_fn: |_data| unreachable!("gas_price is set"),
-            max_fees_fn: |_, _, _, _| unreachable!("gas_price is set"),
-        };
-
-        let resolved = transaction::Request::from_rpc_type(request, context)?;
-        assert_eq!(*resolved.gas_price(), pending_base_fee);
-
-        Ok(())
-    }
-
-    #[test]
-    fn resolve_call_request_inner_with_max_fee_and_max_priority_fee() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
-
-        let max_fee_per_gas = pending_base_fee(&mut fixture.provider_data)?;
-        let max_priority_fee_per_gas = Some(max_fee_per_gas / U256::from(2));
-
-        let request = CallRequest {
-            from: Some(fixture.nth_local_account(0)?),
-            to: Some(fixture.nth_local_account(1)?),
-            max_fee_per_gas: Some(max_fee_per_gas),
-            max_priority_fee_per_gas,
-            ..CallRequest::default()
-        };
-
-        let context = CallContext {
-            data: &mut fixture.provider_data,
-            block_spec: &BlockSpec::pending(),
-            state_overrides: &StateOverrides::default(),
-            default_gas_price_fn: |_data| unreachable!("max fees are set"),
-            max_fees_fn: |_data, _block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
-                Ok((
-                    max_fee_per_gas.expect("max fee is set"),
-                    max_priority_fee_per_gas.expect("max priority fee is set"),
-                ))
-            },
-        };
-
-        let resolved = transaction::Request::from_rpc_type(request, context)?;
-
-        assert_eq!(*resolved.gas_price(), max_fee_per_gas);
-        assert_eq!(
-            resolved.max_priority_fee_per_gas().cloned(),
-            max_priority_fee_per_gas
-        );
-
-        Ok(())
     }
 }

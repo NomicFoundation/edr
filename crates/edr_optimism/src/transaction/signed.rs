@@ -183,6 +183,42 @@ impl From<edr_eth::transaction::Signed> for Signed {
     }
 }
 
+impl From<Deposit> for Signed {
+    fn from(transaction: Deposit) -> Self {
+        Self::Deposit(transaction)
+    }
+}
+
+impl From<Eip155> for Signed {
+    fn from(transaction: Eip155) -> Self {
+        Self::PostEip155Legacy(transaction)
+    }
+}
+
+impl From<Eip2930> for Signed {
+    fn from(transaction: Eip2930) -> Self {
+        Self::Eip2930(transaction)
+    }
+}
+
+impl From<Eip1559> for Signed {
+    fn from(transaction: Eip1559) -> Self {
+        Self::Eip1559(transaction)
+    }
+}
+
+impl From<Eip4844> for Signed {
+    fn from(transaction: Eip4844) -> Self {
+        Self::Eip4844(transaction)
+    }
+}
+
+impl From<Legacy> for Signed {
+    fn from(transaction: Legacy) -> Self {
+        Self::PreEip155Legacy(transaction)
+    }
+}
+
 impl HasAccessList for Signed {
     fn has_access_list(&self) -> bool {
         match self {

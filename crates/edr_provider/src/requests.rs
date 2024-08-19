@@ -1,12 +1,13 @@
-pub mod debug;
+pub(crate) mod debug;
 /// Ethereum RPC request types
-pub mod eth;
+pub(crate) mod eth;
 /// Hardhat RPC request types
-pub mod hardhat;
+pub(crate) mod hardhat;
 mod methods;
 mod resolve;
 mod serde;
-pub(crate) mod validation;
+/// Types and functions for validating JSON-RPC requests.
+pub mod validation;
 
 use std::{fmt, marker::PhantomData};
 

@@ -21,7 +21,9 @@ use edr_evm::{
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 use serde::Serialize;
 
-use crate::{data::CreationError, IntervalConfigConversionError};
+use crate::{
+    data::CreationError, time::TimeSinceEpoch, IntervalConfigConversionError, ProviderSpec,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError<ChainSpecT>
@@ -353,44 +355,45 @@ pub struct TransactionFailure<ChainSpecT: EvmWiring> {
     pub transaction_hash: Option<B256>,
 }
 
-impl<ChainSpecT: EvmWiring<HaltReason: Into<TransactionFailureReason<ChainSpecT>>>>
-    TransactionFailure<ChainSpecT>
-{
-    pub fn from_execution_result(
-        execution_result: &ExecutionResult<ChainSpecT>,
+impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
+    pub fn from_execution_result<
+        NewChainSpecT: ProviderSpec<TimerT>,
+        TimerT: Clone + TimeSinceEpoch,
+    >(
+        execution_result: &ExecutionResult<NewChainSpecT>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &Trace<ChainSpecT>,
-    ) -> Option<Self> {
+        solidity_trace: &Trace<NewChainSpecT>,
+    ) -> Option<TransactionFailure<NewChainSpecT>> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
-            ExecutionResult::Revert { output, .. } => Some(Self::revert(
+            ExecutionResult::Revert { output, .. } => Some(TransactionFailure::revert(
                 output.clone(),
                 transaction_hash.copied(),
                 solidity_trace.clone(),
             )),
-            ExecutionResult::Halt { reason, .. } => Some(Self::halt(
-                reason.clone(),
+            ExecutionResult::Halt { reason, .. } => Some(TransactionFailure::halt(
+                NewChainSpecT::cast_halt_reason(reason.clone()),
                 transaction_hash.copied(),
                 solidity_trace.clone(),
             )),
-        }
-    }
-
-    pub fn halt(
-        halt: ChainSpecT::HaltReason,
-        tx_hash: Option<B256>,
-        solidity_trace: Trace<ChainSpecT>,
-    ) -> Self {
-        Self {
-            reason: halt.into(),
-            data: "0x".to_string(),
-            solidity_trace,
-            transaction_hash: tx_hash,
         }
     }
 }
 
 impl<ChainSpecT: EvmWiring> TransactionFailure<ChainSpecT> {
+    pub fn halt(
+        reason: TransactionFailureReason<ChainSpecT>,
+        tx_hash: Option<B256>,
+        solidity_trace: Trace<ChainSpecT>,
+    ) -> Self {
+        Self {
+            reason,
+            data: "0x".to_string(),
+            solidity_trace,
+            transaction_hash: tx_hash,
+        }
+    }
+
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
