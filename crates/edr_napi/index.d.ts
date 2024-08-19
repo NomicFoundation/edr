@@ -363,13 +363,6 @@ export const enum ContractFunctionVisibility {
   PUBLIC = 2,
   EXTERNAL = 3
 }
-export const enum JumpType {
-  NOT_JUMP = 0,
-  INTO_FUNCTION = 1,
-  OUTOF_FUNCTION = 2,
-  INTERNAL_JUMP = 3
-}
-export function jumpTypeToString(jumpType: JumpType): string
 export interface ImmutableReference {
   readonly start: number
   readonly length: number

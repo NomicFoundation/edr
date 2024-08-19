@@ -1250,7 +1250,7 @@ impl ErrorInferrer {
 
             if matches!(
                 inst.jump_type,
-                JumpType::INTO_FUNCTION | JumpType::OUTOF_FUNCTION
+                JumpType::IntoFunction | JumpType::OutofFunction
             ) {
                 return Ok(false);
             }

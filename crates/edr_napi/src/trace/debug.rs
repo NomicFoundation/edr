@@ -236,10 +236,10 @@ fn trace_steps(
                 .unwrap_or_default();
 
             if inst.opcode.is_jump() {
-                let jump = if inst.jump_type == JumpType::NOT_JUMP {
+                let jump = if inst.jump_type == JumpType::NotJump {
                     "".to_string()
                 } else {
-                    format!("({})", inst.jump_type.into_static_str())
+                    format!("({})", inst.jump_type)
                 };
 
                 let entry = format!("{margin}  {pc}   {opcode} {jump}", opcode = inst.opcode);

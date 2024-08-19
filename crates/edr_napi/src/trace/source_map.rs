@@ -28,9 +28,9 @@ pub struct SourceMap {
 
 fn jump_letter_to_jump_type(letter: &str) -> JumpType {
     match letter {
-        "i" => JumpType::INTO_FUNCTION,
-        "o" => JumpType::OUTOF_FUNCTION,
-        _ => JumpType::NOT_JUMP,
+        "i" => JumpType::IntoFunction,
+        "o" => JumpType::OutofFunction,
+        _ => JumpType::NotJump,
     }
 }
 
@@ -52,7 +52,7 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
         // // See: https://github.com/nomiclabs/hardhat/issues/593
         if i == 0 && !has_every_part {
             mappings.push(SourceMap {
-                jump_type: JumpType::NOT_JUMP,
+                jump_type: JumpType::NotJump,
                 location: SourceMapLocation {
                     file: -1,
                     offset: 0,
@@ -121,7 +121,7 @@ fn add_unmapped_instructions(
         let jump_type = if opcode.is_jump() {
             JumpType::InternalJump
         } else {
-            JumpType::NOT_JUMP
+            JumpType::NotJump
         };
 
         let instruction = Instruction::new(bytes_index as u32, opcode, jump_type, push_data, None)?;

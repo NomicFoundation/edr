@@ -266,7 +266,7 @@ impl SolidityTracer {
             if let Either4::A(EvmStep { pc }) = step {
                 let inst = bytecode.get_instruction(*pc)?;
 
-                if inst.jump_type == JumpType::INTO_FUNCTION && iter.peek().is_some() {
+                if inst.jump_type == JumpType::IntoFunction && iter.peek().is_some() {
                     let (_, next_step) = iter.peek().unwrap();
                     let Either4::A(next_evm_step) = next_step else {
                         unreachable!("JS code asserted that");
@@ -286,7 +286,7 @@ impl SolidityTracer {
                         }
                         function_jumpdests.push(next_inst);
                     }
-                } else if inst.jump_type == JumpType::OUTOF_FUNCTION {
+                } else if inst.jump_type == JumpType::OutofFunction {
                     stacktrace.pop();
                     function_jumpdests.pop();
                 }

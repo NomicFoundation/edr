@@ -284,21 +284,10 @@ pub struct Instruction {
 
 #[derive(Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::Display)]
 pub enum JumpType {
-    NOT_JUMP,
-    INTO_FUNCTION,
-    OUTOF_FUNCTION,
-    INTERNAL_JUMP,
-}
-
-impl JumpType {
-    pub fn into_static_str(self) -> &'static str {
-        self.into()
-    }
-}
-
-#[napi]
-pub fn jump_type_to_string(jump_type: JumpType) -> &'static str {
-    jump_type.into()
+    NotJump,
+    IntoFunction,
+    OutofFunction,
+    InternalJump,
 }
 
 #[derive(Clone)]
