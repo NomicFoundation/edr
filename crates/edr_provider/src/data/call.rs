@@ -4,7 +4,7 @@ use edr_eth::{
     block::Header,
     result::{ExecutionResult, InvalidTransaction},
     transaction::TransactionValidation,
-    Address, HashMap, Precompile,
+    Address, HashMap, Precompile, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
@@ -64,7 +64,11 @@ where
         debug_context,
     } = args;
 
-    let block = ChainSpecT::Block::new_block_env(header, cfg_env.spec_id);
+    // `eth_call` uses a base fee of zero to mimick geth's behavior
+    let mut header = header.clone();
+    header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
+
+    let block = ChainSpecT::Block::new_block_env(&header, cfg_env.spec_id);
 
     guaranteed_dry_run(
         blockchain,
