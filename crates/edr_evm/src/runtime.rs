@@ -155,7 +155,6 @@ where
     StateErrorT: Debug + Send,
 {
     cfg.disable_balance_check = true;
-    cfg.disable_base_fee = true;
     cfg.disable_block_gas_limit = true;
     cfg.disable_nonce_check = true;
     dry_run(

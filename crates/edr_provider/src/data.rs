@@ -2049,9 +2049,13 @@ where
 
         let precompiles = self.custom_precompiles.clone();
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
+            // `eth_call` uses a base fee of zero to mimick geth's behavior
+            let mut header = block.header().clone();
+            header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
+
             let execution_result = call::run_call(RunCallArgs {
                 blockchain,
-                header: block.header(),
+                header: &header,
                 state,
                 state_overrides,
                 cfg_env,
