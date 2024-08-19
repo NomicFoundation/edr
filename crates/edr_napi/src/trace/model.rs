@@ -149,7 +149,7 @@ pub struct ContractFunction {
     pub name: String,
     pub r#type: ContractFunctionType,
     pub(crate) location: Rc<SourceLocation>,
-    pub(crate) contract: Option<Rc<ClassInstanceRef<Contract>>>,
+    pub(crate) contract_name: Option<String>,
     pub(crate) visibility: Option<ContractFunctionVisibility>,
     pub is_payable: Option<bool>,
     /// Fixed up by `Contract.correctSelector`

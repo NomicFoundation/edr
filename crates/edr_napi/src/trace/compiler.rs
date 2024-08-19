@@ -330,7 +330,11 @@ fn process_function_definition_ast_node(
         name: node["name"].as_str().unwrap().to_string(),
         r#type: function_type,
         location: function_location,
-        contract: contract.clone(),
+        contract_name: contract
+            .as_ref()
+            .map(|c| c.borrow(env))
+            .transpose()?
+            .map(|c| c.name.clone()),
         visibility: Some(visibility),
         is_payable: Some(node["stateMutability"].as_str().unwrap() == "payable"),
         selector: RefCell::new(selector),
@@ -366,7 +370,7 @@ fn process_modifier_definition_ast_node(
         name: node["name"].as_str().unwrap().to_string(),
         r#type: ContractFunctionType::MODIFIER,
         location: function_location,
-        contract: Some(contract.clone()),
+        contract_name: Some(contract.borrow(env)?.name.clone()),
         visibility: None,
         is_payable: None,
         selector: RefCell::new(None),
@@ -414,7 +418,7 @@ fn process_variable_declaration_ast_node(
         name: node["name"].as_str().unwrap().to_string(),
         r#type: ContractFunctionType::GETTER,
         location: function_location,
-        contract: Some(contract.clone()),
+        contract_name: Some(contract.borrow(env)?.name.clone()),
         visibility: Some(visibility),
         is_payable: Some(false), // Getters aren't payable
         selector: RefCell::new(Some(

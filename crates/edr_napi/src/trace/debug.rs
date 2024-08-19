@@ -223,15 +223,10 @@ fn trace_steps(
                             .try_borrow()
                             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-                        let contract_name = func
-                            .contract
+                        let source_name = func
+                            .contract_name
                             .as_ref()
-                            .map(|contract| -> napi::Result<_> {
-                                Ok(contract.borrow(env)?.name.clone())
-                            })
-                            .transpose()?;
-
-                        let source_name = contract_name.unwrap_or_else(|| file.source_name.clone());
+                            .unwrap_or_else(|| &file.source_name);
 
                         location_str += &format!(":{source_name}:{}", func.name);
                     }
