@@ -765,10 +765,6 @@ fn decode_evm_bytecode(
         is_deployment,
         env,
     )?;
-    let instructions = instructions
-        .into_iter()
-        .map(|i| i.into_instance(env))
-        .collect::<Result<Vec<_>, _>>()?;
 
     Bytecode::new(
         contract,
@@ -778,7 +774,6 @@ fn decode_evm_bytecode(
         library_address_positions,
         immutable_references,
         solc_version,
-        env,
     )?
     .into_instance(env)
 }

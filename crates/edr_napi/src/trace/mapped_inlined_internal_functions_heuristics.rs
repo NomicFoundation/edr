@@ -18,7 +18,7 @@
 
 use napi::{
     bindgen_prelude::{Either24, Either4},
-    Either, Env,
+    Either,
 };
 use semver::Version;
 
@@ -61,14 +61,13 @@ pub fn stack_trace_may_require_adjustments(
 pub fn adjust_stack_trace(
     mut stacktrace: SolidityStackTrace,
     decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-    env: Env,
 ) -> napi::Result<SolidityStackTrace> {
     let Some(Either24::E(revert @ RevertErrorStackTraceEntry { .. })) = stacktrace.last() else {
         unreachable!("JS code asserts that; it's only used immediately after we check with `stack_trace_may_require_adjustments` that the last frame is a revert frame");
     };
 
     // Replace the last revert frame with an adjusted frame if needed
-    if is_non_contract_account_called_error(decoded_trace, env)? {
+    if is_non_contract_account_called_error(decoded_trace)? {
         let last_revert_frame_source_reference = revert.source_reference.clone();
         stacktrace.pop();
         stacktrace.push(
@@ -81,7 +80,7 @@ pub fn adjust_stack_trace(
         return Ok(stacktrace);
     }
 
-    if is_constructor_invalid_params_error(decoded_trace, env)? {
+    if is_constructor_invalid_params_error(decoded_trace)? {
         let last_revert_frame_source_reference = revert.source_reference.clone();
         stacktrace.pop();
         stacktrace.push(
@@ -94,7 +93,7 @@ pub fn adjust_stack_trace(
         return Ok(stacktrace);
     }
 
-    if is_call_invalid_params_error(decoded_trace, env)? {
+    if is_call_invalid_params_error(decoded_trace)? {
         let last_revert_frame_source_reference = revert.source_reference.clone();
         stacktrace.pop();
         stacktrace.push(
@@ -113,7 +112,6 @@ pub fn adjust_stack_trace(
 
 fn is_non_contract_account_called_error(
     decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-    env: Env,
 ) -> napi::Result<bool> {
     match_opcodes(
         decoded_trace,
@@ -124,34 +122,28 @@ fn is_non_contract_account_called_error(
             Opcode::DUP1,
             Opcode::ISZERO,
         ],
-        env,
     )
 }
 
 fn is_constructor_invalid_params_error(
     decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-    env: Env,
 ) -> napi::Result<bool> {
-    Ok(match_opcodes(decoded_trace, -20, &[Opcode::CODESIZE], env)?
-        && match_opcodes(decoded_trace, -15, &[Opcode::CODECOPY], env)?
-        && match_opcodes(decoded_trace, -7, &[Opcode::LT, Opcode::ISZERO], env)?)
+    Ok(match_opcodes(decoded_trace, -20, &[Opcode::CODESIZE])?
+        && match_opcodes(decoded_trace, -15, &[Opcode::CODECOPY])?
+        && match_opcodes(decoded_trace, -7, &[Opcode::LT, Opcode::ISZERO])?)
 }
 
 fn is_call_invalid_params_error(
     decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-    env: Env,
 ) -> napi::Result<bool> {
-    Ok(
-        match_opcodes(decoded_trace, -11, &[Opcode::CALLDATASIZE], env)?
-            && match_opcodes(decoded_trace, -7, &[Opcode::LT, Opcode::ISZERO], env)?,
-    )
+    Ok(match_opcodes(decoded_trace, -11, &[Opcode::CALLDATASIZE])?
+        && match_opcodes(decoded_trace, -7, &[Opcode::LT, Opcode::ISZERO])?)
 }
 
 fn match_opcodes(
     decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
     first_step_index: i32,
     opcodes: &[Opcode],
-    env: Env,
 ) -> napi::Result<bool> {
     let (bytecode, steps) = match &decoded_trace {
         Either::A(call) => (&call.bytecode, &call.steps),
@@ -176,7 +168,6 @@ fn match_opcodes(
         };
 
         let instruction = bytecode.get_instruction(*pc)?;
-        let instruction = instruction.borrow(env)?;
 
         if instruction.opcode != *opcode {
             return Ok(false);

@@ -16,18 +16,14 @@ use super::{
     opcodes::Opcode,
     solidity_stack_trace::{PrecompileErrorStackTraceEntry, SolidityStackTrace},
 };
-use crate::{
-    trace::{
-        exit::ExitCode,
-        solidity_stack_trace::{
-            ContractTooLargeErrorStackTraceEntry, SolidityStackTraceEntry,
-            StackTraceEntryTypeConst, UnrecognizedContractCallstackEntryStackTraceEntry,
-            UnrecognizedContractErrorStackTraceEntry,
-            UnrecognizedCreateCallstackEntryStackTraceEntry,
-            UnrecognizedCreateErrorStackTraceEntry,
-        },
+use crate::trace::{
+    exit::ExitCode,
+    solidity_stack_trace::{
+        ContractTooLargeErrorStackTraceEntry, SolidityStackTraceEntry, StackTraceEntryTypeConst,
+        UnrecognizedContractCallstackEntryStackTraceEntry,
+        UnrecognizedContractErrorStackTraceEntry, UnrecognizedCreateCallstackEntryStackTraceEntry,
+        UnrecognizedCreateErrorStackTraceEntry,
     },
-    utils::ClassInstanceRef,
 };
 
 #[napi(constructor)]
@@ -237,7 +233,7 @@ impl SolidityTracer {
         let stack_trace = self.raw_trace_evm_execution(trace, env)?;
 
         if stack_trace_may_require_adjustments(&stack_trace, trace) {
-            return adjust_stack_trace(stack_trace, trace, env);
+            return adjust_stack_trace(stack_trace, trace);
         }
 
         Ok(stack_trace)
@@ -261,7 +257,7 @@ impl SolidityTracer {
         // There was a jump into a function according to the sourcemaps
         let mut jumped_into_function = false;
 
-        let mut function_jumpdests: Vec<&ClassInstanceRef<Instruction>> = vec![];
+        let mut function_jumpdests: Vec<&Instruction> = vec![];
 
         let mut last_submessage_data: Option<SubmessageDataRef<'_>> = None;
 
@@ -269,7 +265,6 @@ impl SolidityTracer {
         while let Some((step_index, step)) = iter.next() {
             if let Either4::A(EvmStep { pc }) = step {
                 let inst = bytecode.get_instruction(*pc)?;
-                let inst = inst.borrow(env)?;
 
                 if inst.jump_type == JumpType::INTO_FUNCTION && iter.peek().is_some() {
                     let (_, next_step) = iter.peek().unwrap();
@@ -277,11 +272,11 @@ impl SolidityTracer {
                         unreachable!("JS code asserted that");
                     };
                     let next_inst = bytecode.get_instruction(next_evm_step.pc)?;
-                    let next_inst_borrowed = next_inst.borrow(env)?;
+                    let next_inst_borrowed = &next_inst;
 
                     if next_inst_borrowed.opcode == Opcode::JUMPDEST {
                         let frame =
-                            instruction_to_callstack_stack_trace_entry(bytecode, &inst, env)?;
+                            instruction_to_callstack_stack_trace_entry(bytecode, inst, env)?;
                         stacktrace.push(match frame {
                             Either::A(frame) => frame.into(),
                             Either::B(frame) => frame.into(),
@@ -319,14 +314,6 @@ impl SolidityTracer {
                 });
             }
         }
-
-        // Borrow the classes at the same time to keep it alive for the duration
-        // of the call below
-        let function_jumpdests = function_jumpdests
-            .into_iter()
-            .map(|x| x.borrow(env))
-            .collect::<Result<Vec<_>, _>>()?;
-        let function_jumpdests = function_jumpdests.iter().map(|x| &**x).collect::<Vec<_>>();
 
         let stacktrace_with_inferred_error = ErrorInferrer::infer_after_tracing(
             trace,

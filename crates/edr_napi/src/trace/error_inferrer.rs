@@ -22,21 +22,17 @@ use super::{
         SolidityStackTraceEntryExt, SourceReference, UnmappedSolc063RevertErrorStackTraceEntry,
     },
 };
-use crate::{
-    trace::{
-        model::{ContractFunctionType, Instruction, JumpType},
-        solidity_stack_trace::{
-            ContractCallRunOutOfGasError, ContractTooLargeErrorStackTraceEntry,
-            DirectLibraryCallErrorStackTraceEntry,
-            FallbackNotPayableAndNoReceiveErrorStackTraceEntry,
-            FunctionNotPayableErrorStackTraceEntry, MissingFallbackOrReceiveErrorStackTraceEntry,
-            OtherExecutionErrorStackTraceEntry, ReturndataSizeErrorStackTraceEntry,
-            RevertErrorStackTraceEntry, StackTraceEntryTypeConst,
-            UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry, CONSTRUCTOR_FUNCTION_NAME,
-            FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME,
-        },
+use crate::trace::{
+    model::{ContractFunctionType, Instruction, JumpType},
+    solidity_stack_trace::{
+        ContractCallRunOutOfGasError, ContractTooLargeErrorStackTraceEntry,
+        DirectLibraryCallErrorStackTraceEntry, FallbackNotPayableAndNoReceiveErrorStackTraceEntry,
+        FunctionNotPayableErrorStackTraceEntry, MissingFallbackOrReceiveErrorStackTraceEntry,
+        OtherExecutionErrorStackTraceEntry, ReturndataSizeErrorStackTraceEntry,
+        RevertErrorStackTraceEntry, StackTraceEntryTypeConst,
+        UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry, CONSTRUCTOR_FUNCTION_NAME,
+        FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME,
     },
-    utils::ClassInstanceRef,
 };
 
 /// Specifies whether a heuristic was applied and modified the stack trace.
@@ -349,16 +345,15 @@ impl ErrorInferrer {
             };
 
             let inst = bytecode.get_instruction(step.pc)?;
-            let inst = inst.borrow(env)?;
 
             if let (Opcode::CALL | Opcode::CREATE, Either4::A(EvmStep { .. })) =
                 (inst.opcode, next_step)
             {
-                if Self::is_call_failed_error(trace, step_index as u32, &inst, env)? {
+                if Self::is_call_failed_error(trace, step_index as u32, inst, env)? {
                     let mut inferred_stacktrace = stacktrace.clone();
                     inferred_stacktrace.push(
                         Self::call_instruction_to_call_failed_to_execute_stack_trace_entry(
-                            bytecode, &inst, env,
+                            bytecode, inst, env,
                         )?
                         .into(),
                     );
@@ -497,7 +492,7 @@ impl ErrorInferrer {
         mut stacktrace: SolidityStackTrace,
         env: Env,
     ) -> napi::Result<Heuristic> {
-        if Self::solidity_0_6_3_maybe_unmapped_revert(trace, env)? {
+        if Self::solidity_0_6_3_maybe_unmapped_revert(trace)? {
             let revert_frame =
                 Self::solidity_0_6_3_get_frame_for_unmapped_revert_within_function(trace, env)?;
 
@@ -518,7 +513,7 @@ impl ErrorInferrer {
         mut stacktrace: SolidityStackTrace,
         env: Env,
     ) -> napi::Result<Heuristic> {
-        if Self::is_called_non_contract_account_error(trace, env)? {
+        if Self::is_called_non_contract_account_error(trace)? {
             let source_reference = Self::get_last_source_reference(trace, env)?;
 
             // We are sure this is not undefined because there was at least a call
@@ -566,9 +561,8 @@ impl ErrorInferrer {
         };
 
         let call_inst = bytecode.get_instruction(call_step.pc)?;
-        let call_inst = call_inst.borrow(env)?;
         let call_stack_frame =
-            instruction_to_callstack_stack_trace_entry(bytecode, &call_inst, env)?;
+            instruction_to_callstack_stack_trace_entry(bytecode, call_inst, env)?;
 
         let (call_stack_frame_source_reference, call_stack_frame) = match call_stack_frame {
             Either::A(frame) => (frame.source_reference.clone(), frame.into()),
@@ -813,7 +807,7 @@ impl ErrorInferrer {
         let revert_or_invalid_stacktrace = Self::check_revert_or_invalid_opcode_inner(
             trace,
             stacktrace,
-            &*last_instruction.borrow(env)?,
+            last_instruction,
             function_jumpdests,
             jumped_into_function,
             env,
@@ -829,14 +823,12 @@ impl ErrorInferrer {
             return Ok(Heuristic::Miss(stacktrace));
         };
 
-        let last_instruction = last_instruction.borrow(env)?;
-
         if Self::has_failed_inside_the_fallback_function(trace, env)?
             || Self::has_failed_inside_the_receive_function(trace, env)?
         {
             let frame = Self::instruction_within_function_to_revert_stack_trace_entry(
                 Either::A(trace),
-                &last_instruction,
+                last_instruction,
                 env,
             )?;
 
@@ -900,7 +892,7 @@ impl ErrorInferrer {
             }
         }
 
-        if Self::solidity_0_6_3_maybe_unmapped_revert(Either::A(trace), env)? {
+        if Self::solidity_0_6_3_maybe_unmapped_revert(Either::A(trace))? {
             let revert_frame =
                 Self::solidity_0_6_3_get_frame_for_unmapped_revert_before_function(trace, env)?;
 
@@ -1052,7 +1044,6 @@ impl ErrorInferrer {
         };
 
         let last_inst = bytecode.get_instruction(last_step.pc)?;
-        let last_inst = last_inst.borrow(env)?;
         if last_inst.opcode != Opcode::REVERT {
             return Ok(false);
         }
@@ -1063,7 +1054,6 @@ impl ErrorInferrer {
             _ => panic!("JS code asserts this is always an EvmStep"),
         };
         let call_inst = bytecode.get_instruction(call_opcode_step.pc)?;
-        let call_inst = call_inst.borrow(env)?;
 
         // Calls are always made from within functions
         let call_inst_location = call_inst
@@ -1114,7 +1104,6 @@ impl ErrorInferrer {
             };
 
             let step_inst = bytecode.get_instruction(step.pc)?;
-            let step_inst = step_inst.borrow(env)?;
 
             if let Some(step_inst_location) = &step_inst.location {
                 let step_inst_location = step_inst_location.borrow(env)?;
@@ -1212,7 +1201,6 @@ impl ErrorInferrer {
         };
 
         let call_inst = bytecode.get_instruction(call_step.pc)?;
-        let call_inst = call_inst.borrow(env)?;
 
         if call_inst.opcode != Opcode::DELEGATECALL {
             return Ok(false);
@@ -1253,7 +1241,6 @@ impl ErrorInferrer {
             };
 
             let inst = subtrace_bytecode.get_instruction(step.pc)?;
-            let inst = inst.borrow(env)?;
 
             // All the remaining locations should be valid, as they are part of the inline
             // asm
@@ -1275,7 +1262,7 @@ impl ErrorInferrer {
         };
         let last_inst = bytecode.get_instruction(last_step.pc)?;
 
-        Ok(last_inst.borrow(env)?.opcode == Opcode::REVERT)
+        Ok(last_inst.opcode == Opcode::REVERT)
     }
 
     fn other_execution_error_stacktrace(
@@ -1555,7 +1542,6 @@ impl ErrorInferrer {
         };
 
         let last_inst = bytecode.get_instruction(last_step.pc)?;
-        let last_inst = last_inst.borrow(env)?;
 
         if last_inst.opcode != Opcode::REVERT || last_inst.location.is_some() {
             return Ok(false);
@@ -1573,7 +1559,6 @@ impl ErrorInferrer {
             };
 
             let inst = bytecode.get_instruction(step.pc)?;
-            let inst = inst.borrow(env)?;
             let inst_location = inst.location.as_ref().map(|x| x.borrow(env)).transpose()?;
 
             if let Some(inst_location) = inst_location {
@@ -1666,8 +1651,7 @@ impl ErrorInferrer {
 
             let inst = bytecode.get_instruction(step.pc)?;
 
-            let location = &inst.borrow(env)?.location;
-            let Some(location) = location else {
+            let Some(location) = &inst.location else {
                 continue;
             };
             let location = location.borrow(env)?;
@@ -1732,7 +1716,6 @@ impl ErrorInferrer {
             .expect("The TS code type-checks this to always have bytecode")
             .get_instruction(last_step.pc)?;
 
-        let last_instruction = last_instruction.borrow(env)?;
         let last_instruction_location = last_instruction
             .location
             .as_ref()
@@ -1867,7 +1850,6 @@ impl ErrorInferrer {
 
     fn solidity_0_6_3_maybe_unmapped_revert(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<bool> {
         let (bytecode, steps) = match &trace {
             Either::A(create) => (&create.bytecode, &create.steps),
@@ -1896,7 +1878,7 @@ impl ErrorInferrer {
         let req = VersionReq::parse(&format!("^{FIRST_SOLC_VERSION_WITH_UNMAPPED_REVERTS}"))
             .expect("valid semver");
 
-        Ok(req.matches(&version) && last_instruction.borrow(env)?.opcode == Opcode::REVERT)
+        Ok(req.matches(&version) && last_instruction.opcode == Opcode::REVERT)
     }
 
     // Solidity 0.6.3 unmapped reverts special handling
@@ -1991,8 +1973,7 @@ impl ErrorInferrer {
 
         // If we are within a function there's a last valid location. It may
         // be the entire contract.
-        let prev_inst = Self::get_last_instruction_with_valid_location(trace, env)?;
-        let prev_inst = prev_inst.map(|x| x.borrow(env)).transpose()?;
+        let prev_inst = Self::get_last_instruction_with_valid_location(trace)?;
         let last_step = match steps.last() {
             Some(Either4::A(step)) => step,
             _ => panic!("JS code asserts this is always an EvmStep"),
@@ -2002,7 +1983,6 @@ impl ErrorInferrer {
 
         if has_next_inst {
             let next_inst = bytecode.get_instruction(next_inst_pc)?;
-            let next_inst = next_inst.borrow(env)?;
 
             let prev_loc = prev_inst
                 .as_ref()
@@ -2035,7 +2015,7 @@ impl ErrorInferrer {
                 (Some(_), Some(next_loc), Some(prev_loc)) if prev_loc.equals(next_loc, env) => {
                     return Ok(Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
-                &next_inst,
+                next_inst,
                 env,
               )?));
                 }
@@ -2051,7 +2031,7 @@ impl ErrorInferrer {
             } else if next_func.is_some() {
                 Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
-                &next_inst,
+                next_inst,
                 env,
               )?)
             } else {
@@ -2111,7 +2091,7 @@ impl ErrorInferrer {
             // points to.
             let mut latest_instruction_revert_frame = Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
-                &prev_inst,
+                prev_inst,
                 env,
             )?;
 
@@ -2171,7 +2151,6 @@ impl ErrorInferrer {
 
     fn is_called_non_contract_account_error(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<bool> {
         // We could change this to checking that the last valid location maps to a call,
         // but it's way more complex as we need to get the ast node from that
@@ -2186,7 +2165,7 @@ impl ErrorInferrer {
             .as_ref()
             .expect("JS code only accepted variants that had bytecode defined");
 
-        let last_index = Self::get_last_instruction_with_valid_location_step_index(trace, env)?;
+        let last_index = Self::get_last_instruction_with_valid_location_step_index(trace)?;
 
         let last_index = match last_index {
             None | Some(0) => return Ok(false),
@@ -2199,7 +2178,6 @@ impl ErrorInferrer {
         };
 
         let last_inst = bytecode.get_instruction(last_step.pc)?;
-        let last_inst = last_inst.borrow(env)?;
 
         if last_inst.opcode != Opcode::ISZERO {
             return Ok(false);
@@ -2211,14 +2189,12 @@ impl ErrorInferrer {
         };
 
         let prev_inst = bytecode.get_instruction(prev_step.pc)?;
-        let prev_inst = prev_inst.borrow(env)?;
 
         Ok(prev_inst.opcode == Opcode::EXTCODESIZE)
     }
 
     fn get_last_instruction_with_valid_location_step_index(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<Option<u32>> {
         let (bytecode, steps) = match &trace {
             Either::A(create) => (&create.bytecode, &create.steps),
@@ -2237,7 +2213,6 @@ impl ErrorInferrer {
 
             let inst = bytecode.get_instruction(step.pc)?;
 
-            let inst = inst.borrow(env)?;
             if inst.location.is_some() {
                 return Ok(Some(i as u32));
             }
@@ -2248,10 +2223,8 @@ impl ErrorInferrer {
 
     fn get_last_instruction_with_valid_location<'a>(
         trace: Either<&'a CallMessageTrace, &'a CreateMessageTrace>,
-        env: Env,
-    ) -> napi::Result<Option<&'a ClassInstanceRef<Instruction>>> {
-        let last_location_index =
-            Self::get_last_instruction_with_valid_location_step_index(trace, env)?;
+    ) -> napi::Result<Option<&'a Instruction>> {
+        let last_location_index = Self::get_last_instruction_with_valid_location_step_index(trace)?;
 
         let Some(last_location_index) = last_location_index else {
             return Ok(None);

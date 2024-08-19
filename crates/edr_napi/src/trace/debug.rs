@@ -200,7 +200,6 @@ fn trace_steps(
 
         if let Some(bytecode) = bytecode {
             let inst = bytecode.get_instruction(step.pc)?;
-            let inst = inst.borrow(env)?;
 
             let location = inst
                 .location

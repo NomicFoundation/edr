@@ -1,10 +1,7 @@
-use napi_derive::napi;
-
-#[napi]
 #[repr(u8)]
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
 #[allow(clippy::upper_case_acronyms)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, strum::FromRepr, strum::IntoStaticStr)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum::FromRepr, strum::Display)]
 pub enum Opcode {
     // Arithmetic operations
     STOP = 0x00,

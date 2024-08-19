@@ -6,7 +6,7 @@ use alloy_dyn_abi::ErrorExt;
 use edr_evm::hex;
 use edr_solidity::artifacts::ContractAbiEntry;
 use napi::{
-    bindgen_prelude::{Buffer, ClassInstance, Object, Uint8Array, Undefined},
+    bindgen_prelude::{Buffer, Object, Uint8Array, Undefined},
     Either, Env, JsObject,
 };
 use napi_derive::napi;
@@ -274,22 +274,15 @@ impl CustomError {
     }
 }
 
-#[napi]
 pub struct Instruction {
-    #[napi(readonly)]
     pub pc: u32,
-    #[napi(readonly, ts_type = "opcodes.Opcode")]
     pub opcode: Opcode,
-    #[napi(readonly)]
     pub jump_type: JumpType,
-    #[napi(readonly)]
     pub push_data: Option<Buffer>,
     pub(crate) location: Option<ClassInstanceRef<SourceLocation>>,
 }
 
-#[derive(strum::IntoStaticStr, PartialEq)]
-#[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
-#[napi]
+#[derive(Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::Display)]
 pub enum JumpType {
     NOT_JUMP,
     INTO_FUNCTION,
@@ -326,7 +319,6 @@ impl From<edr_solidity::artifacts::ImmutableReference> for ImmutableReference {
     }
 }
 
-#[napi]
 impl Instruction {
     pub fn new(
         pc: u32,
@@ -343,19 +335,11 @@ impl Instruction {
             location,
         })
     }
-
-    #[napi(getter, ts_return_type = "SourceLocation | undefined")]
-    pub fn location(&self, env: Env) -> napi::Result<Either<Object, Undefined>> {
-        match &self.location {
-            Some(loc) => loc.as_object(env).map(Either::A),
-            None => Ok(Either::B(())),
-        }
-    }
 }
 
 #[napi]
 pub struct Bytecode {
-    pc_to_instruction: HashMap<u32, ClassInstanceRef<Instruction>>,
+    pc_to_instruction: HashMap<u32, Instruction>,
 
     pub(crate) contract: Rc<ClassInstanceRef<Contract>>,
     #[napi(readonly)]
@@ -377,18 +361,15 @@ impl Bytecode {
         contract: Rc<ClassInstanceRef<Contract>>,
         is_deployment: bool,
         normalized_code: Buffer,
-        instructions: Vec<ClassInstance<Instruction>>,
+        instructions: Vec<Instruction>,
         library_address_positions: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
         compiler_version: String,
-        env: Env,
+        // env: Env,
     ) -> napi::Result<Bytecode> {
         let mut pc_to_instruction = HashMap::new();
         for inst in instructions {
-            let pc = inst.pc;
-            let inst = ClassInstanceRef::from_obj(inst, env)?;
-
-            pc_to_instruction.insert(pc, inst);
+            pc_to_instruction.insert(inst.pc, inst);
         }
 
         Ok(Bytecode {
@@ -402,7 +383,7 @@ impl Bytecode {
         })
     }
 
-    pub fn get_instruction(&self, pc: u32) -> napi::Result<&ClassInstanceRef<Instruction>> {
+    pub fn get_instruction(&self, pc: u32) -> napi::Result<&Instruction> {
         let instruction = self
             .pc_to_instruction
             .get(&pc)
