@@ -163,7 +163,7 @@ fn apply_contracts_inheritance(
 
             if cid != base_id {
                 let base_contract = &base_contract.borrow(env)?;
-                contract.add_next_linearized_base_contract(base_contract, env)?;
+                contract.add_next_linearized_base_contract(base_contract)?;
             }
         }
     }
@@ -333,15 +333,14 @@ fn process_function_definition_ast_node(
         contract: contract.clone(),
         visibility: Some(visibility),
         is_payable: Some(node["stateMutability"].as_str().unwrap() == "payable"),
-        selector,
+        selector: RefCell::new(selector),
         param_types,
-    }
-    .into_instance(env)?;
-    let contract_func = Rc::new(ClassInstanceRef::from_obj(contract_func, env)?);
+    };
+    let contract_func = Rc::new(contract_func);
 
     if let Some(contract) = contract {
         let mut contract = contract.borrow_mut(env)?;
-        contract.add_local_function(contract_func.clone(), env)?;
+        contract.add_local_function(contract_func.clone())?;
     }
 
     let mut file = file
@@ -370,19 +369,18 @@ fn process_modifier_definition_ast_node(
         contract: Some(contract.clone()),
         visibility: None,
         is_payable: None,
-        selector: None,
+        selector: RefCell::new(None),
         param_types: None,
-    }
-    .into_instance(env)?;
+    };
 
-    let contract_func = Rc::new(ClassInstanceRef::from_obj(contract_func, env)?);
+    let contract_func = Rc::new(contract_func);
 
     let mut contract = contract.borrow_mut(env)?;
     let mut file = file
         .try_borrow_mut()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    contract.add_local_function(contract_func.clone(), env)?;
+    contract.add_local_function(contract_func.clone())?;
     file.add_function(contract_func.clone());
 
     Ok(())
@@ -419,20 +417,19 @@ fn process_variable_declaration_ast_node(
         contract: Some(contract.clone()),
         visibility: Some(visibility),
         is_payable: Some(false), // Getters aren't payable
-        selector: Some(get_public_variable_selector_from_declaration_ast_node(
-            node,
-        )?),
+        selector: RefCell::new(Some(
+            get_public_variable_selector_from_declaration_ast_node(node)?,
+        )),
         param_types,
-    }
-    .into_instance(env)?;
-    let contract_func = Rc::new(ClassInstanceRef::from_obj(contract_func, env)?);
+    };
+    let contract_func = Rc::new(contract_func);
 
     let mut contract = contract.borrow_mut(env)?;
     let mut file = file
         .try_borrow_mut()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    contract.add_local_function(contract_func.clone(), env)?;
+    contract.add_local_function(contract_func.clone())?;
     file.add_function(contract_func);
 
     Ok(())
@@ -703,7 +700,7 @@ fn correct_selectors(
             // let's remove it if/when we adapt our model to also properly
             // support ABI v2.
             let fixed_selector =
-                contract.correct_selector(function_name.to_string(), selector.clone(), env)?;
+                contract.correct_selector(function_name.to_string(), selector.clone())?;
 
             if !fixed_selector {
                 return Err(napi::Error::from_reason(format!(

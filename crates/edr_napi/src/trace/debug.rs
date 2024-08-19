@@ -216,8 +216,7 @@ fn trace_steps(
 
                     let mut location_str = file.source_name.clone();
 
-                    if let Some(func) = inst_location.get_containing_function(env)? {
-                        let func = func.borrow(env)?;
+                    if let Some(func) = inst_location.get_containing_function()? {
                         let file = func
                             .location
                             .file

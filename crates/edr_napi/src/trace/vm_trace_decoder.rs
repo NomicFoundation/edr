@@ -196,16 +196,11 @@ impl VmTraceDecoder {
                     let func = contract.get_function_from_selector(selector);
 
                     let function_name = match func {
-                        Some(func) => {
-                            let func = func.borrow(env)?;
-                            match func.r#type {
-                                ContractFunctionType::FALLBACK => {
-                                    FALLBACK_FUNCTION_NAME.to_string()
-                                }
-                                ContractFunctionType::RECEIVE => RECEIVE_FUNCTION_NAME.to_string(),
-                                _ => func.name.clone(),
-                            }
-                        }
+                        Some(func) => match func.r#type {
+                            ContractFunctionType::FALLBACK => FALLBACK_FUNCTION_NAME.to_string(),
+                            ContractFunctionType::RECEIVE => RECEIVE_FUNCTION_NAME.to_string(),
+                            _ => func.name.clone(),
+                        },
                         None => UNRECOGNIZED_FUNCTION_NAME.to_string(),
                     };
 

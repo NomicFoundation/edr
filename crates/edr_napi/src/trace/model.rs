@@ -9,7 +9,7 @@ use std::{
 use alloy_dyn_abi::ErrorExt;
 use edr_evm::hex;
 use edr_solidity::artifacts::ContractAbiEntry;
-use napi::{bindgen_prelude::Buffer, Env};
+use napi::bindgen_prelude::Buffer;
 use napi_derive::napi;
 use serde::Serialize;
 use serde_json::Value;
@@ -19,7 +19,7 @@ use crate::utils::ClassInstanceRef;
 
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
-    functions: Vec<Rc<ClassInstanceRef<ContractFunction>>>,
+    functions: Vec<Rc<ContractFunction>>,
 
     pub source_name: String,
     pub content: String,
@@ -35,19 +35,16 @@ impl SourceFile {
         }
     }
 
-    pub fn add_function(&mut self, contract_function: Rc<ClassInstanceRef<ContractFunction>>) {
+    pub fn add_function(&mut self, contract_function: Rc<ContractFunction>) {
         self.functions.push(contract_function);
     }
 
     pub fn get_containing_function(
         &self,
         location: &SourceLocation,
-        env: Env,
-    ) -> napi::Result<Option<&Rc<ClassInstanceRef<ContractFunction>>>> {
+    ) -> napi::Result<Option<&Rc<ContractFunction>>> {
         for func in &self.functions {
-            let contains = func.borrow(env)?.location.contains(location);
-
-            if contains {
+            if func.location.contains(location) {
                 return Ok(Some(func));
             }
         }
@@ -98,15 +95,12 @@ impl SourceLocation {
         }))
     }
 
-    pub fn get_containing_function(
-        &self,
-        env: Env,
-    ) -> napi::Result<Option<Rc<ClassInstanceRef<ContractFunction>>>> {
+    pub fn get_containing_function(&self) -> napi::Result<Option<Rc<ContractFunction>>> {
         Ok(self
             .file
             .try_borrow()
             .map_err(|e| napi::Error::from_reason(e.to_string()))?
-            .get_containing_function(self, env)?
+            .get_containing_function(self)?
             .cloned())
     }
 
@@ -151,20 +145,15 @@ pub enum ContractFunctionVisibility {
     External,
 }
 
-#[napi]
 pub struct ContractFunction {
-    #[napi(readonly)]
     pub name: String,
-    #[napi(readonly, js_name = "type")]
     pub r#type: ContractFunctionType,
     pub(crate) location: Rc<SourceLocation>,
     pub(crate) contract: Option<Rc<ClassInstanceRef<Contract>>>,
     pub(crate) visibility: Option<ContractFunctionVisibility>,
-    #[napi(readonly)]
     pub is_payable: Option<bool>,
     /// Fixed up by `Contract.correctSelector`
-    pub(crate) selector: Option<Vec<u8>>,
-    #[napi(readonly)]
+    pub(crate) selector: RefCell<Option<Vec<u8>>>,
     pub param_types: Option<Vec<Value>>,
 }
 
@@ -323,11 +312,11 @@ pub enum ContractKind {
 #[napi]
 pub struct Contract {
     pub(crate) custom_errors: Vec<CustomError>,
-    pub(crate) constructor: Option<Rc<ClassInstanceRef<ContractFunction>>>,
-    pub(crate) fallback: Option<Rc<ClassInstanceRef<ContractFunction>>>,
-    pub(crate) receive: Option<Rc<ClassInstanceRef<ContractFunction>>>,
-    local_functions: Vec<Rc<ClassInstanceRef<ContractFunction>>>,
-    selector_hex_to_function: HashMap<String, Rc<ClassInstanceRef<ContractFunction>>>,
+    pub(crate) constructor: Option<Rc<ContractFunction>>,
+    pub(crate) fallback: Option<Rc<ContractFunction>>,
+    pub(crate) receive: Option<Rc<ContractFunction>>,
+    local_functions: Vec<Rc<ContractFunction>>,
+    selector_hex_to_function: HashMap<String, Rc<ContractFunction>>,
 
     #[napi(readonly)]
     pub name: String,
@@ -355,41 +344,36 @@ impl Contract {
         })
     }
 
-    pub fn add_local_function(
-        &mut self,
-        func_ref: Rc<ClassInstanceRef<ContractFunction>>,
-        env: Env,
-    ) -> napi::Result<()> {
-        let func = func_ref.borrow(env)?;
-
+    pub fn add_local_function(&mut self, func: Rc<ContractFunction>) -> napi::Result<()> {
         if matches!(
             func.visibility,
             Some(ContractFunctionVisibility::Public | ContractFunctionVisibility::External)
         ) {
             match func.r#type {
                 ContractFunctionType::FUNCTION | ContractFunctionType::GETTER => {
+                    let selector = func.selector.try_borrow().expect(
+                        "Function selector to be corrected later after creating the source model",
+                    );
                     // The original code unwrapped here
-                    let selector = func.selector.as_ref().unwrap();
+                    let selector = selector.as_ref().unwrap();
                     let selector = hex::encode(selector);
 
-                    self.selector_hex_to_function
-                        .insert(selector, func_ref.clone());
+                    self.selector_hex_to_function.insert(selector, func.clone());
                 }
                 ContractFunctionType::CONSTRUCTOR => {
-                    self.constructor = Some(func_ref.clone());
+                    self.constructor = Some(func.clone());
                 }
                 ContractFunctionType::FALLBACK => {
-                    self.fallback = Some(func_ref.clone());
+                    self.fallback = Some(func.clone());
                 }
                 ContractFunctionType::RECEIVE => {
-                    self.receive = Some(func_ref.clone());
+                    self.receive = Some(func.clone());
                 }
                 _ => {}
             }
         }
 
-        drop(func);
-        self.local_functions.push(func_ref);
+        self.local_functions.push(func);
 
         Ok(())
     }
@@ -401,7 +385,6 @@ impl Contract {
     pub fn add_next_linearized_base_contract(
         &mut self,
         base_contract: &Contract,
-        env: Env,
     ) -> napi::Result<()> {
         if self.fallback.is_none() && base_contract.fallback.is_some() {
             self.fallback.clone_from(&base_contract.fallback);
@@ -412,7 +395,6 @@ impl Contract {
 
         for base_contract_function in &base_contract.local_functions {
             let base_contract_function_clone = base_contract_function.clone();
-            let base_contract_function = base_contract_function.borrow(env)?;
 
             if base_contract_function.r#type != ContractFunctionType::GETTER
                 && base_contract_function.r#type != ContractFunctionType::FUNCTION
@@ -426,7 +408,12 @@ impl Contract {
                 continue;
             }
 
-            let selector = base_contract_function.selector.clone().unwrap();
+            let selector = base_contract_function
+                .selector
+                .try_borrow()
+                .expect("Function selector to be corrected later after creating the source model")
+                .clone()
+                .unwrap();
             let selector_hex = hex::encode(&*selector);
 
             self.selector_hex_to_function
@@ -437,10 +424,7 @@ impl Contract {
         Ok(())
     }
 
-    pub fn get_function_from_selector(
-        &self,
-        selector: &[u8],
-    ) -> Option<&Rc<ClassInstanceRef<ContractFunction>>> {
+    pub fn get_function_from_selector(&self, selector: &[u8]) -> Option<&Rc<ContractFunction>> {
         let selector_hex = hex::encode(selector);
 
         self.selector_hex_to_function.get(&selector_hex)
@@ -462,17 +446,13 @@ impl Contract {
         &mut self,
         function_name: String,
         selector: Vec<u8>,
-        env: Env,
     ) -> napi::Result<bool> {
         let functions = self
             .selector_hex_to_function
             .values()
-            .filter_map(|cf| match cf.borrow(env).map(|x| x.name == function_name) {
-                Ok(true) => Some(Ok(cf.clone())),
-                Ok(false) => None,
-                Err(e) => Some(Err(e)),
-            })
-            .collect::<napi::Result<Vec<_>>>()?;
+            .filter(|cf| cf.name == function_name)
+            .cloned()
+            .collect::<Vec<_>>();
 
         let function_to_correct = match functions.split_first() {
             Some((function_to_correct, [])) => function_to_correct,
@@ -480,13 +460,16 @@ impl Contract {
         };
 
         {
-            let mut instance = function_to_correct.borrow_mut(env)?;
-            if let Some(selector) = &instance.selector {
+            let mut selector_to_be_corrected = function_to_correct
+                .selector
+                .try_borrow_mut()
+                .expect("Function selector to only be corrected after creating the source model");
+            if let Some(selector) = &*selector_to_be_corrected {
                 let selector_hex = hex::encode(selector);
                 self.selector_hex_to_function.remove(&selector_hex);
             }
 
-            instance.selector = Some(selector.clone());
+            *selector_to_be_corrected = Some(selector.clone());
         }
 
         let selector_hex = hex::encode(&*selector);

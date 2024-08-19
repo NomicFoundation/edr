@@ -653,12 +653,6 @@ export class Response {
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
 }
-export class ContractFunction {
-  readonly name: string
-  readonly type: ContractFunctionType
-  readonly isPayable?: boolean
-  readonly paramTypes?: Array<any>
-}
 export class Bytecode {
   readonly isDeployment: boolean
   readonly normalizedCode: Buffer

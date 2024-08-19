@@ -84,14 +84,12 @@ impl ErrorInferrer {
             .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
         if let Some(called_function) = called_function {
-            let called_function = called_function.borrow(env)?;
-
-            if Self::is_function_not_payable_error(trace, &called_function, env)? {
+            if Self::is_function_not_payable_error(trace, called_function, env)? {
                 return Ok(Some(vec![FunctionNotPayableErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
                     source_reference: Self::get_function_start_source_reference(
                         Either::A(trace),
-                        &called_function,
+                        called_function,
                         env,
                     )?,
                     value: trace.value.clone(),
@@ -100,8 +98,7 @@ impl ErrorInferrer {
             }
         }
 
-        let called_function = called_function.map(|x| x.borrow(env)).transpose()?;
-        let called_function = called_function.as_deref();
+        let called_function = called_function.map(AsRef::as_ref);
 
         if Self::is_missing_function_and_fallback_error(trace, called_function, env)? {
             let source_reference =
@@ -654,11 +651,11 @@ impl ErrorInferrer {
                 //
                 // If it's a call trace, we already jumped into a function. But optimizations
                 // can happen.
-                let failing_function = location.get_containing_function(env)?;
+                let failing_function = location.get_containing_function()?;
 
                 // If the failure is in a modifier we add an entry with the function/constructor
                 match failing_function {
-                    Some(func) if func.borrow(env)?.r#type == ContractFunctionType::MODIFIER => {
+                    Some(func) if func.r#type == ContractFunctionType::MODIFIER => {
                         let frame = Self::get_entry_before_failure_in_modifier(
                             trace,
                             function_jumpdests,
@@ -691,7 +688,7 @@ impl ErrorInferrer {
 
         if let Some(location) = &last_instruction.location {
             if jumped_into_function || matches!(trace, Either::B(CreateMessageTrace { .. })) {
-                let failing_function = location.get_containing_function(env)?;
+                let failing_function = location.get_containing_function()?;
 
                 if failing_function.is_some() {
                     let frame = Self::instruction_within_function_to_revert_stack_trace_entry(
@@ -709,23 +706,21 @@ impl ErrorInferrer {
                             let contract = bytecode.contract.borrow(env)?;
 
                             // This is here because of the optimizations
-                            let function_selector = contract.get_function_from_selector(
+                            let function_from_selector = contract.get_function_from_selector(
                                 calldata.get(..4).unwrap_or(&calldata[..]),
                             );
 
                             // in general this shouldn't happen, but it does when viaIR is enabled,
                             // "optimizerSteps": "u" is used, and the called function is fallback or
                             // receive
-                            let Some(function_selector) = function_selector else {
+                            let Some(function) = function_from_selector else {
                                 return Ok(Heuristic::Miss(inferred_stacktrace));
                             };
-
-                            let function = function_selector.borrow(env)?;
 
                             let frame = RevertErrorStackTraceEntry {
                                 type_: StackTraceEntryTypeConst,
                                 source_reference: Self::get_function_start_source_reference(
-                                    trace, &function, env,
+                                    trace, function, env,
                                 )?,
                                 return_data: return_data.clone(),
                                 is_invalid_opcode_error,
@@ -831,11 +826,9 @@ impl ErrorInferrer {
 
         // Sometimes we do fail inside of a function but there's no jump into
         if let Some(location) = &last_instruction.location {
-            let failing_function = location.get_containing_function(env)?;
+            let failing_function = location.get_containing_function()?;
 
             if let Some(failing_function) = failing_function {
-                let failing_function = failing_function.borrow(env)?;
-
                 let frame = RevertErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
                     source_reference: Self::get_function_start_source_reference(
@@ -859,9 +852,7 @@ impl ErrorInferrer {
         let called_function = contract.get_function_from_selector(selector);
 
         if let Some(called_function) = called_function {
-            let called_function = called_function.borrow(env)?;
-
-            let abi = alloy_json_abi::Function::try_from(&*called_function).map_err(|e| {
+            let abi = alloy_json_abi::Function::try_from(&**called_function).map_err(|e| {
                 napi::Error::from_reason(format!("Error converting to alloy ABI: {e}"))
             })?;
 
@@ -876,7 +867,7 @@ impl ErrorInferrer {
                     type_: StackTraceEntryTypeConst,
                     source_reference: Self::get_function_start_source_reference(
                         Either::A(trace),
-                        &called_function,
+                        called_function,
                         env,
                     )?,
                 };
@@ -941,9 +932,6 @@ impl ErrorInferrer {
 
         let called_function = contract
             .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
-
-        let called_function = called_function.map(|x| x.borrow(env)).transpose()?;
-        let called_function = called_function.as_deref();
 
         let source_reference = match called_function {
             Some(called_function) => {
@@ -1270,9 +1258,8 @@ impl ErrorInferrer {
         let func = contract
             .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
-        let func = func.map(|f| f.borrow(env)).transpose()?;
         let source_reference = match func {
-            Some(func) => Self::get_function_start_source_reference(Either::A(trace), &func, env)?,
+            Some(func) => Self::get_function_start_source_reference(Either::A(trace), func, env)?,
             None => {
                 Self::get_contract_start_without_function_source_reference(Either::A(trace), env)?
             }
@@ -1386,12 +1373,8 @@ impl ErrorInferrer {
         let contract = bytecode.contract.borrow(env)?;
 
         match &contract.fallback {
+            Some(fallback) => Ok(fallback.is_payable != Some(true)),
             None => Ok(false),
-            Some(fallback) => {
-                let fallback = fallback.borrow(env)?;
-
-                Ok(fallback.is_payable != Some(true))
-            }
         }
     }
 
@@ -1407,7 +1390,6 @@ impl ErrorInferrer {
           None => panic!("This shouldn't happen: trying to get fallback source reference from a contract without fallback"),
         };
 
-        let func = func.borrow(env)?;
         let location = &func.location;
         let file = location
             .file
@@ -1444,8 +1426,6 @@ impl ErrorInferrer {
             None => return Ok(false),
         };
 
-        let constructor = constructor.borrow(env)?;
-
         let (neg, value, _) = trace.value.get_u64();
         if neg || value == 0 {
             return Ok(false);
@@ -1465,11 +1445,7 @@ impl ErrorInferrer {
         let contract_location = &contract.location;
 
         let line = match &contract.constructor {
-            Some(constructor) => {
-                let constructor = constructor.borrow(env)?;
-
-                constructor.location.get_starting_line_number()?
-            }
+            Some(constructor) => constructor.location.get_starting_line_number()?,
             None => contract_location.get_starting_line_number()?,
         };
 
@@ -1527,8 +1503,6 @@ impl ErrorInferrer {
         if last_inst.opcode != Opcode::REVERT || last_inst.location.is_some() {
             return Ok(false);
         }
-
-        let constructor = constructor.borrow(env)?;
 
         let mut has_read_deployment_code_size = false;
         for step in &trace.steps {
@@ -1655,10 +1629,7 @@ impl ErrorInferrer {
         let contract = contract.borrow(env)?;
 
         match &contract.fallback {
-            Some(fallback) => {
-                let fallback = fallback.borrow(env)?;
-                Self::has_failed_inside_function(trace, &fallback)
-            }
+            Some(fallback) => Self::has_failed_inside_function(trace, fallback),
             None => Ok(false),
         }
     }
@@ -1671,10 +1642,7 @@ impl ErrorInferrer {
         let contract = contract.borrow(env)?;
 
         match &contract.receive {
-            Some(receive) => {
-                let receive = receive.borrow(env)?;
-                Self::has_failed_inside_function(trace, &receive)
-            }
+            Some(receive) => Self::has_failed_inside_function(trace, receive),
             None => Ok(false),
         }
     }
@@ -1866,7 +1834,6 @@ impl ErrorInferrer {
                 if contract.receive.is_none() || trace.calldata.len() > 0 {
                     // Failed within the fallback
                     if let Some(fallback) = &contract.fallback {
-                        let fallback = fallback.borrow(env)?;
                         let location = &fallback.location;
                         let file = location
                             .file
@@ -1896,7 +1863,6 @@ impl ErrorInferrer {
                         .as_ref()
                         .expect("None always hits branch above");
 
-                    let receive = receive.borrow(env)?;
                     let location = &receive.location;
                     let file = location
                         .file
@@ -1957,13 +1923,13 @@ impl ErrorInferrer {
 
             let prev_func = prev_loc
                 .as_ref()
-                .map(|l| l.get_containing_function(env))
+                .map(|l| l.get_containing_function())
                 .transpose()?
                 .flatten();
 
             let next_func = next_loc
                 .as_ref()
-                .map(|l| l.get_containing_function(env))
+                .map(|l| l.get_containing_function())
                 .transpose()?
                 .flatten();
 
@@ -2031,10 +1997,8 @@ impl ErrorInferrer {
                 };
 
                 if let Some(constructor) = &contract.constructor {
-                    default_source_reference.line = constructor
-                        .borrow(env)?
-                        .location
-                        .get_starting_line_number()?;
+                    default_source_reference.line =
+                        constructor.location.get_starting_line_number()?;
                 }
 
                 constructor_revert_frame.source_reference = Some(default_source_reference);
@@ -2221,13 +2185,11 @@ fn source_location_to_source_reference(
         return Ok(None);
     };
 
-    let func = location.get_containing_function(env)?;
+    let func = location.get_containing_function()?;
 
     let Some(func) = func else {
         return Ok(None);
     };
-
-    let func = func.borrow(env)?;
 
     let func_name = match func.r#type {
         ContractFunctionType::CONSTRUCTOR => CONSTRUCTOR_FUNCTION_NAME.to_string(),
@@ -2290,11 +2252,9 @@ pub fn instruction_to_callstack_stack_trace_entry(
         Some(inst_location) => inst_location,
     };
 
-    let func = inst_location.get_containing_function(env)?;
+    let func = inst_location.get_containing_function()?;
 
     if let Some(func) = func {
-        let func = func.borrow(env)?;
-
         let source_reference =
             source_location_to_source_reference(bytecode, Some(inst_location), env)?
                 .expect("Expected source reference to be defined");
