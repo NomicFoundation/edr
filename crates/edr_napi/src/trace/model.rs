@@ -1,6 +1,10 @@
 //! Ported from `hardhat-network/stack-traces/model.ts`.
 
-use std::{cell::OnceCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::{OnceCell, RefCell},
+    collections::HashMap,
+    rc::Rc,
+};
 
 use alloy_dyn_abi::ErrorExt;
 use edr_evm::hex;
@@ -16,14 +20,11 @@ use serde_json::Value;
 use super::opcodes::Opcode;
 use crate::utils::ClassInstanceRef;
 
-#[napi]
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
     functions: Vec<Rc<ClassInstanceRef<ContractFunction>>>,
 
-    #[napi(readonly)]
     pub source_name: String,
-    #[napi(readonly)]
     pub content: String,
 }
 
@@ -47,11 +48,7 @@ impl SourceFile {
         env: Env,
     ) -> napi::Result<Option<&Rc<ClassInstanceRef<ContractFunction>>>> {
         for func in &self.functions {
-            let contains = func
-                .borrow(env)?
-                .location
-                .borrow(env)?
-                .contains(location, env);
+            let contains = func.borrow(env)?.location.borrow(env)?.contains(location);
 
             if contains {
                 return Ok(Some(func));
@@ -66,14 +63,14 @@ impl SourceFile {
 #[napi]
 pub struct SourceLocation {
     line: OnceCell<u32>,
-    pub(crate) file: Rc<ClassInstanceRef<SourceFile>>,
+    pub(crate) file: Rc<RefCell<SourceFile>>,
     pub offset: u32,
     pub length: u32,
 }
 
 #[napi]
 impl SourceLocation {
-    pub fn new(file: Rc<ClassInstanceRef<SourceFile>>, offset: u32, length: u32) -> SourceLocation {
+    pub fn new(file: Rc<RefCell<SourceFile>>, offset: u32, length: u32) -> SourceLocation {
         SourceLocation {
             line: OnceCell::new(),
             file,
@@ -82,18 +79,17 @@ impl SourceLocation {
         }
     }
 
-    #[napi(getter, ts_return_type = "SourceFile")]
-    pub fn file(&self, env: Env) -> napi::Result<Object> {
-        self.file.as_object(env)
-    }
-
     #[napi]
-    pub fn get_starting_line_number(&self, env: Env) -> napi::Result<u32> {
+    pub fn get_starting_line_number(&self) -> napi::Result<u32> {
         if let Some(line) = self.line.get() {
             return Ok(*line);
         }
 
-        let contents = &self.file.borrow(env)?.content;
+        let contents = &self
+            .file
+            .try_borrow()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?
+            .content;
 
         Ok(*self.line.get_or_init(move || {
             let mut line = 1;
@@ -123,18 +119,15 @@ impl SourceLocation {
     ) -> napi::Result<Option<Rc<ClassInstanceRef<ContractFunction>>>> {
         Ok(self
             .file
-            .borrow(env)?
+            .try_borrow()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?
             .get_containing_function(self, env)?
             .cloned())
     }
 
     #[napi]
-    pub fn contains(&self, other: &SourceLocation, env: Env) -> bool {
-        if !self
-            .file
-            .ref_equals(&other.file, env)
-            .expect("Failed to compare files")
-        {
+    pub fn contains(&self, other: &SourceLocation) -> bool {
+        if !Rc::ptr_eq(&self.file, &other.file) {
             return false;
         }
 
@@ -145,10 +138,8 @@ impl SourceLocation {
         other.offset + other.length <= self.offset + self.length
     }
     #[napi]
-    pub fn equals(&self, other: &SourceLocation, env: Env) -> bool {
-        self.file
-            .ref_equals(&other.file, env)
-            .expect("Can't compare references")
+    pub fn equals(&self, other: &SourceLocation) -> bool {
+        Rc::ptr_eq(&self.file, &other.file)
             && self.offset == other.offset
             && self.length == other.length
     }

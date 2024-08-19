@@ -1,6 +1,6 @@
 //! Ported from `hardhat-network/stack-traces/source-maps.ts`.
 
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use napi::{bindgen_prelude::Buffer, Env};
 
@@ -137,7 +137,7 @@ fn add_unmapped_instructions(
 pub fn decode_instructions(
     bytecode: &[u8],
     compressed_sourcemaps: &str,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     is_deployment: bool,
     env: Env,
 ) -> napi::Result<Vec<Instruction>> {

@@ -653,14 +653,9 @@ export class Response {
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
 }
-export class SourceFile {
-  readonly sourceName: string
-  readonly content: string
-}
 export class SourceLocation {
   offset: number
   length: number
-  get file(): SourceFile
   getStartingLineNumber(): number
   getContainingFunction(): ContractFunction | undefined
   contains(other: SourceLocation): boolean

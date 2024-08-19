@@ -1106,7 +1106,7 @@ impl ErrorInferrer {
             if let Some(step_inst_location) = &step_inst.location {
                 let step_inst_location = step_inst_location.borrow(env)?;
 
-                if !step_inst_location.equals(location, env) {
+                if !step_inst_location.equals(location) {
                     return Ok(false);
                 }
             }
@@ -1324,7 +1324,10 @@ impl ErrorInferrer {
         let contract = contract.borrow(env)?;
 
         let location = func.location.borrow(env)?;
-        let file = location.file.borrow(env)?;
+        let file = location
+            .file
+            .try_borrow()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
         let location = func.location.borrow(env)?;
 
@@ -1334,7 +1337,7 @@ impl ErrorInferrer {
             contract: Some(contract.name.clone()),
 
             function: Some(func.name.clone()),
-            line: location.get_starting_line_number(env).unwrap(),
+            line: location.get_starting_line_number().unwrap(),
             range: [location.offset, location.offset + location.length].to_vec(),
         })
     }
@@ -1431,14 +1434,17 @@ impl ErrorInferrer {
 
         let func = func.borrow(env)?;
         let location = func.location.borrow(env)?;
-        let file = location.file.borrow(env)?;
+        let file = location
+            .file
+            .try_borrow()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
         Ok(SourceReference {
             source_name: file.source_name.clone(),
             source_content: file.content.clone(),
             contract: Some(contract.name.clone()),
             function: Some(FALLBACK_FUNCTION_NAME.to_string()),
-            line: location.get_starting_line_number(env).unwrap(),
+            line: location.get_starting_line_number().unwrap(),
             range: [location.offset, location.offset + location.length].to_vec(),
         })
     }
@@ -1488,12 +1494,15 @@ impl ErrorInferrer {
                 let constructor = constructor.borrow(env)?;
                 let location = constructor.location.borrow(env)?;
 
-                location.get_starting_line_number(env)?
+                location.get_starting_line_number()?
             }
-            None => contract_location.get_starting_line_number(env)?,
+            None => contract_location.get_starting_line_number()?,
         };
 
-        let file = contract_location.file.borrow(env)?;
+        let file = contract_location
+            .file
+            .try_borrow()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
         Ok(SourceReference {
             source_name: file.source_name.clone(),
@@ -1560,8 +1569,8 @@ impl ErrorInferrer {
             let inst_location = inst.location.as_ref().map(|x| x.borrow(env)).transpose()?;
 
             if let Some(inst_location) = inst_location {
-                if !contract_location.equals(&inst_location, env)
-                    && !constructor_location.equals(&inst_location, env)
+                if !contract_location.equals(&inst_location)
+                    && !constructor_location.equals(&inst_location)
                 {
                     return Ok(false);
                 }
@@ -1589,7 +1598,10 @@ impl ErrorInferrer {
         let contract = contract.borrow(env)?;
 
         let location = contract.location.borrow(env)?;
-        let file = location.file.borrow(env)?;
+        let file = location
+            .file
+            .try_borrow()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
         Ok(SourceReference {
             source_name: file.source_name.clone(),
@@ -1597,7 +1609,7 @@ impl ErrorInferrer {
             contract: Some(contract.name.clone()),
 
             function: None,
-            line: location.get_starting_line_number(env).unwrap(),
+            line: location.get_starting_line_number().unwrap(),
             range: [location.offset, location.offset + location.length].to_vec(),
         })
     }
@@ -1726,7 +1738,7 @@ impl ErrorInferrer {
                     && func
                         .location
                         .borrow(env)?
-                        .contains(&last_instruction_location, env)
+                        .contains(&last_instruction_location)
             }
             _ => false,
         })
@@ -1904,7 +1916,10 @@ impl ErrorInferrer {
                     if let Some(fallback) = &contract.fallback {
                         let fallback = fallback.borrow(env)?;
                         let location = fallback.location.borrow(env)?;
-                        let file = location.file.borrow(env)?;
+                        let file = location
+                            .file
+                            .try_borrow()
+                            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
                         let revert_frame = UnmappedSolc063RevertErrorStackTraceEntry {
                             type_: StackTraceEntryTypeConst,
@@ -1913,7 +1928,7 @@ impl ErrorInferrer {
                                 function: Some(FALLBACK_FUNCTION_NAME.to_string()),
                                 source_name: file.source_name.clone(),
                                 source_content: file.content.clone(),
-                                line: location.get_starting_line_number(env).unwrap(),
+                                line: location.get_starting_line_number().unwrap(),
                                 range: [location.offset, location.offset + location.length]
                                     .to_vec(),
                             }),
@@ -1931,7 +1946,10 @@ impl ErrorInferrer {
 
                     let receive = receive.borrow(env)?;
                     let location = receive.location.borrow(env)?;
-                    let file = location.file.borrow(env)?;
+                    let file = location
+                        .file
+                        .try_borrow()
+                        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
                     let revert_frame = UnmappedSolc063RevertErrorStackTraceEntry {
                         type_: StackTraceEntryTypeConst,
@@ -1940,7 +1958,7 @@ impl ErrorInferrer {
                             function: Some(RECEIVE_FUNCTION_NAME.to_string()),
                             source_name: file.source_name.clone(),
                             source_content: file.content.clone(),
-                            line: location.get_starting_line_number(env).unwrap(),
+                            line: location.get_starting_line_number().unwrap(),
                             range: [location.offset, location.offset + location.length].to_vec(),
                         }),
                     };
@@ -2010,7 +2028,7 @@ impl ErrorInferrer {
             // synthetic call frames when failing in a modifier) so we still
             // add this frame as UNMAPPED_SOLC_0_6_3_REVERT_ERROR
             match (&prev_func, &next_loc, &prev_loc) {
-                (Some(_), Some(next_loc), Some(prev_loc)) if prev_loc.equals(next_loc, env) => {
+                (Some(_), Some(next_loc), Some(prev_loc)) if prev_loc.equals(next_loc) => {
                     return Ok(Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 next_inst,
@@ -2054,14 +2072,17 @@ impl ErrorInferrer {
             // some default sourceReference to show to the user
             if constructor_revert_frame.source_reference.is_none() {
                 let location = contract.location.borrow(env)?;
-                let file = location.file.borrow(env)?;
+                let file = location
+                    .file
+                    .try_borrow()
+                    .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
                 let mut default_source_reference = SourceReference {
                     function: Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
                     contract: Some(contract.name.clone()),
                     source_name: file.source_name.clone(),
                     source_content: file.content.clone(),
-                    line: location.get_starting_line_number(env)?,
+                    line: location.get_starting_line_number()?,
                     range: [location.offset, location.offset + location.length].to_vec(),
                 };
 
@@ -2070,7 +2091,7 @@ impl ErrorInferrer {
                         .borrow(env)?
                         .location
                         .borrow(env)?
-                        .get_starting_line_number(env)?;
+                        .get_starting_line_number()?;
                 }
 
                 constructor_revert_frame.source_reference = Some(default_source_reference);
@@ -2273,7 +2294,10 @@ fn source_location_to_source_reference(
     };
 
     let func_location = func.location.borrow(env)?;
-    let func_location_file = func_location.file.borrow(env)?;
+    let func_location_file = func_location
+        .file
+        .try_borrow()
+        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
     Ok(Some(SourceReference {
         function: Some(func_name.clone()),
@@ -2284,7 +2308,7 @@ fn source_location_to_source_reference(
         },
         source_name: func_location_file.source_name.clone(),
         source_content: func_location_file.content.clone(),
-        line: location.get_starting_line_number(env)?,
+        line: location.get_starting_line_number()?,
         range: [location.offset, location.offset + location.length].to_vec(),
     }))
 }
@@ -2302,7 +2326,10 @@ pub fn instruction_to_callstack_stack_trace_entry(
     let inst_location = match &inst.location {
         None => {
             let location = contract.location.borrow(env)?;
-            let file = location.file.borrow(env)?;
+            let file = location
+                .file
+                .try_borrow()
+                .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
             return Ok(Either::B(InternalFunctionCallStackEntry {
                 type_: StackTraceEntryTypeConst,
@@ -2312,7 +2339,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
                     source_content: file.content.clone(),
                     contract: Some(contract.name.clone()),
                     function: None,
-                    line: location.get_starting_line_number(env)?,
+                    line: location.get_starting_line_number()?,
                     range: [location.offset, location.offset + location.length].to_vec(),
                 },
             }));
@@ -2336,7 +2363,10 @@ pub fn instruction_to_callstack_stack_trace_entry(
         }));
     };
 
-    let file = inst_location.file.borrow(env)?;
+    let file = inst_location
+        .file
+        .try_borrow()
+        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
     Ok(Either::A(CallstackEntryStackTraceEntry {
         type_: StackTraceEntryTypeConst,
@@ -2345,7 +2375,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
             contract: Some(contract.name.clone()),
             source_name: file.source_name.clone(),
             source_content: file.content.clone(),
-            line: inst_location.get_starting_line_number(env)?,
+            line: inst_location.get_starting_line_number()?,
             range: [
                 inst_location.offset,
                 inst_location.offset + inst_location.length,

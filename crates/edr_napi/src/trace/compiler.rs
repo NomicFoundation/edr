@@ -1,6 +1,7 @@
 //! Processes the AST and compiler input and creates the source model.
 //! Ported from `hardhat-network/stack-traces/compiler-to-model.ts`.
 
+use std::cell::RefCell;
 use std::str::FromStr;
 use std::{collections::HashMap, rc::Rc};
 
@@ -72,7 +73,7 @@ pub fn create_models_and_decode_bytecodes_inner(
 fn create_sources_model_from_ast(
     compiler_output: &CompilerOutput,
     compiler_input: &CompilerInput,
-    file_id_to_source_file: &mut HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &mut HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_id_to_contract: &mut IndexMap<u32, Rc<ClassInstanceRef<Contract>>>,
     env: Env,
 ) -> napi::Result<()> {
@@ -82,9 +83,8 @@ fn create_sources_model_from_ast(
         let file = SourceFile::new(
             source_name.to_string(),
             compiler_input.sources[source_name].content.clone(),
-        )?
-        .into_instance(env)?;
-        let file = Rc::new(ClassInstanceRef::from_obj(file, env)?);
+        )?;
+        let file = Rc::new(RefCell::new(file));
 
         file_id_to_source_file.insert(source.id, file.clone());
 
@@ -176,9 +176,9 @@ fn apply_contracts_inheritance(
 
 #[allow(clippy::too_many_arguments)] // mimick the original code
 fn process_contract_ast_node(
-    file: Rc<ClassInstanceRef<SourceFile>>,
+    file: Rc<RefCell<SourceFile>>,
     contract_node: &serde_json::Value,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_type: ContractKind,
     contract_id_to_contract: &mut IndexMap<u32, Rc<ClassInstanceRef<Contract>>>,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
@@ -267,9 +267,9 @@ fn process_contract_ast_node(
 
 fn process_function_definition_ast_node(
     node: &serde_json::Value,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract: Option<Rc<ClassInstanceRef<Contract>>>,
-    file: Rc<ClassInstanceRef<SourceFile>>,
+    file: Rc<RefCell<SourceFile>>,
     function_abis: Option<Vec<&ContractAbiEntry>>,
     env: Env,
 ) -> napi::Result<()> {
@@ -348,7 +348,9 @@ fn process_function_definition_ast_node(
         contract.add_local_function(contract_func.clone(), env)?;
     }
 
-    let mut file = file.borrow_mut(env)?;
+    let mut file = file
+        .try_borrow_mut()
+        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
     file.add_function(contract_func);
 
     Ok(())
@@ -356,9 +358,9 @@ fn process_function_definition_ast_node(
 
 fn process_modifier_definition_ast_node(
     node: &serde_json::Value,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract: Rc<ClassInstanceRef<Contract>>,
-    file: Rc<ClassInstanceRef<SourceFile>>,
+    file: Rc<RefCell<SourceFile>>,
     env: Env,
 ) -> napi::Result<()> {
     let function_location =
@@ -380,7 +382,9 @@ fn process_modifier_definition_ast_node(
     let contract_func = Rc::new(ClassInstanceRef::from_obj(contract_func, env)?);
 
     let mut contract = contract.borrow_mut(env)?;
-    let mut file = file.borrow_mut(env)?;
+    let mut file = file
+        .try_borrow_mut()
+        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
     contract.add_local_function(contract_func.clone(), env)?;
     file.add_function(contract_func.clone());
@@ -390,9 +394,9 @@ fn process_modifier_definition_ast_node(
 
 fn process_variable_declaration_ast_node(
     node: &serde_json::Value,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract: Rc<ClassInstanceRef<Contract>>,
-    file: Rc<ClassInstanceRef<SourceFile>>,
+    file: Rc<RefCell<SourceFile>>,
     getter_abi: Option<&ContractAbiEntry>,
     env: Env,
 ) -> napi::Result<()> {
@@ -428,7 +432,9 @@ fn process_variable_declaration_ast_node(
     let contract_func = Rc::new(ClassInstanceRef::from_obj(contract_func, env)?);
 
     let mut contract = contract.borrow_mut(env)?;
-    let mut file = file.borrow_mut(env)?;
+    let mut file = file
+        .try_borrow_mut()
+        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
     contract.add_local_function(contract_func.clone(), env)?;
     file.add_function(contract_func);
@@ -632,7 +638,7 @@ fn to_canonical_abi_type(type_: &str) -> String {
 
 fn ast_src_to_source_location(
     src: &str,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     env: Env,
 ) -> napi::Result<Option<ClassInstance<SourceLocation>>> {
     let parts: Vec<&str> = src.split(':').collect();
@@ -669,7 +675,15 @@ fn correct_selectors(
         // Fetch the method identifiers for the contract from the compiler output
         let method_identifiers = match compiler_output
             .contracts
-            .get(&contract.location.borrow(env)?.file.borrow(env)?.source_name)
+            .get(
+                &contract
+                    .location
+                    .borrow(env)?
+                    .file
+                    .try_borrow()
+                    .map_err(|e| napi::Error::from_reason(e.to_string()))?
+                    .source_name,
+            )
             .and_then(|file| file.get(&contract.name))
             .map(|contract| &contract.evm.method_identifiers)
         {
@@ -729,7 +743,7 @@ fn decode_evm_bytecode(
     solc_version: String,
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     env: Env,
 ) -> napi::Result<ClassInstance<Bytecode>> {
     let library_address_positions = get_library_address_positions(compiler_bytecode);
@@ -774,7 +788,7 @@ fn decode_evm_bytecode(
 fn decode_bytecodes(
     solc_version: String,
     compiler_output: &CompilerOutput,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_id_to_contract: &IndexMap<u32, Rc<ClassInstanceRef<Contract>>>,
     env: Env,
 ) -> napi::Result<Vec<ClassInstance<Bytecode>>> {
@@ -789,7 +803,8 @@ fn decode_bytecodes(
             .location
             .borrow(env)?
             .file
-            .borrow(env)?
+            .try_borrow()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?
             .source_name
             .clone();
         let contract_evm_output = &compiler_output.contracts[contract_file][&contract.name].evm;
