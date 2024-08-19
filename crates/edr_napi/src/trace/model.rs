@@ -48,7 +48,7 @@ impl SourceFile {
         env: Env,
     ) -> napi::Result<Option<&Rc<ClassInstanceRef<ContractFunction>>>> {
         for func in &self.functions {
-            let contains = func.borrow(env)?.location.borrow(env)?.contains(location);
+            let contains = func.borrow(env)?.location.contains(location);
 
             if contains {
                 return Ok(Some(func));
@@ -60,7 +60,6 @@ impl SourceFile {
 }
 
 #[derive(Clone)]
-#[napi]
 pub struct SourceLocation {
     line: OnceCell<u32>,
     pub(crate) file: Rc<RefCell<SourceFile>>,
@@ -68,7 +67,6 @@ pub struct SourceLocation {
     pub length: u32,
 }
 
-#[napi]
 impl SourceLocation {
     pub fn new(file: Rc<RefCell<SourceFile>>, offset: u32, length: u32) -> SourceLocation {
         SourceLocation {
@@ -79,7 +77,6 @@ impl SourceLocation {
         }
     }
 
-    #[napi]
     pub fn get_starting_line_number(&self) -> napi::Result<u32> {
         if let Some(line) = self.line.get() {
             return Ok(*line);
@@ -104,16 +101,7 @@ impl SourceLocation {
         }))
     }
 
-    // NOTE: This is the actual return type of the function in JS land for now
-    #[napi(ts_return_type = "ContractFunction | undefined")]
-    pub fn get_containing_function(&self, env: Env) -> napi::Result<Either<JsObject, Undefined>> {
-        match self.get_containing_function_inner(env)? {
-            Some(func) => func.as_object(env).map(Either::A),
-            None => Ok(Either::B(())),
-        }
-    }
-
-    pub fn get_containing_function_inner(
+    pub fn get_containing_function(
         &self,
         env: Env,
     ) -> napi::Result<Option<Rc<ClassInstanceRef<ContractFunction>>>> {
@@ -125,7 +113,6 @@ impl SourceLocation {
             .cloned())
     }
 
-    #[napi]
     pub fn contains(&self, other: &SourceLocation) -> bool {
         if !Rc::ptr_eq(&self.file, &other.file) {
             return false;
@@ -137,7 +124,7 @@ impl SourceLocation {
 
         other.offset + other.length <= self.offset + self.length
     }
-    #[napi]
+
     pub fn equals(&self, other: &SourceLocation) -> bool {
         Rc::ptr_eq(&self.file, &other.file)
             && self.offset == other.offset
@@ -173,7 +160,7 @@ pub struct ContractFunction {
     pub name: String,
     #[napi(readonly, js_name = "type")]
     pub r#type: ContractFunctionType,
-    pub(crate) location: ClassInstanceRef<SourceLocation>,
+    pub(crate) location: Rc<SourceLocation>,
     pub(crate) contract: Option<Rc<ClassInstanceRef<Contract>>>,
     pub(crate) visibility: Option<ContractFunctionVisibility>,
     #[napi(readonly)]
@@ -185,11 +172,6 @@ pub struct ContractFunction {
 }
 #[napi]
 impl ContractFunction {
-    #[napi(getter, ts_return_type = "SourceLocation")]
-    pub fn location(&self, env: Env) -> napi::Result<Object> {
-        self.location.as_object(env)
-    }
-
     #[napi(getter, ts_return_type = "Contract | undefined")]
     pub fn contract(&self, env: Env) -> napi::Result<Either<Object, Undefined>> {
         match &self.contract {
@@ -262,7 +244,7 @@ pub struct Instruction {
     pub opcode: Opcode,
     pub jump_type: JumpType,
     pub push_data: Option<Buffer>,
-    pub(crate) location: Option<ClassInstanceRef<SourceLocation>>,
+    pub(crate) location: Option<Rc<SourceLocation>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::Display)]
@@ -294,7 +276,7 @@ impl Instruction {
         opcode: Opcode,
         jump_type: JumpType,
         push_data: Option<Buffer>,
-        location: Option<ClassInstanceRef<SourceLocation>>,
+        location: Option<Rc<SourceLocation>>,
     ) -> napi::Result<Instruction> {
         Ok(Instruction {
             pc,
@@ -387,7 +369,7 @@ pub struct Contract {
     #[napi(readonly)]
     pub name: String,
     pub(crate) r#type: ContractKind,
-    pub(crate) location: ClassInstanceRef<SourceLocation>,
+    pub(crate) location: Rc<SourceLocation>,
 }
 
 #[napi]
@@ -395,7 +377,7 @@ impl Contract {
     pub fn new(
         name: String,
         contract_type: ContractKind,
-        location: ClassInstanceRef<SourceLocation>,
+        location: Rc<SourceLocation>,
     ) -> napi::Result<Contract> {
         Ok(Contract {
             custom_errors: Vec::new(),
@@ -408,11 +390,6 @@ impl Contract {
             r#type: contract_type,
             location,
         })
-    }
-
-    #[napi(getter, ts_return_type = "SourceLocation")]
-    pub fn location(&self, env: Env) -> napi::Result<Object> {
-        self.location.as_object(env)
     }
 
     #[napi(getter, ts_return_type = "ContractFunction | undefined")]

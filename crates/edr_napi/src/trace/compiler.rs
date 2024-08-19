@@ -188,14 +188,13 @@ fn process_contract_ast_node(
     let contract_location = ast_src_to_source_location(
         contract_node["src"].as_str().unwrap(),
         file_id_to_source_file,
-        env,
     )?
     .expect("The original JS code always asserts that");
 
     let contract = Contract::new(
         contract_node["name"].as_str().unwrap().to_string(),
         contract_type,
-        ClassInstanceRef::from_obj(contract_location, env)?,
+        contract_location,
     )?
     .into_instance(env)?;
     let contract = ClassInstanceRef::from_obj(contract, env)?;
@@ -280,7 +279,7 @@ fn process_function_definition_ast_node(
     let function_type = function_definition_kind_to_function_type(node["kind"].as_str());
 
     let function_location =
-        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file, env)?
+        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
             .expect("The original JS code always asserts that");
 
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
@@ -333,7 +332,7 @@ fn process_function_definition_ast_node(
     let contract_func = ContractFunction {
         name: node["name"].as_str().unwrap().to_string(),
         r#type: function_type,
-        location: ClassInstanceRef::from_obj(function_location, env)?,
+        location: function_location,
         contract: contract.clone(),
         visibility: Some(visibility),
         is_payable: Some(node["stateMutability"].as_str().unwrap() == "payable"),
@@ -364,13 +363,13 @@ fn process_modifier_definition_ast_node(
     env: Env,
 ) -> napi::Result<()> {
     let function_location =
-        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file, env)?
+        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
             .expect("The original JS code always asserts that");
 
     let contract_func = ContractFunction {
         name: node["name"].as_str().unwrap().to_string(),
         r#type: ContractFunctionType::MODIFIER,
-        location: ClassInstanceRef::from_obj(function_location, env)?,
+        location: function_location,
         contract: Some(contract.clone()),
         visibility: None,
         is_payable: None,
@@ -408,7 +407,7 @@ fn process_variable_declaration_ast_node(
     }
 
     let function_location =
-        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file, env)?
+        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
             .expect("The original JS code always asserts that");
 
     let param_types = getter_abi
@@ -419,7 +418,7 @@ fn process_variable_declaration_ast_node(
     let contract_func = ContractFunction {
         name: node["name"].as_str().unwrap().to_string(),
         r#type: ContractFunctionType::GETTER,
-        location: ClassInstanceRef::from_obj(function_location, env)?,
+        location: function_location,
         contract: Some(contract.clone()),
         visibility: Some(visibility),
         is_payable: Some(false), // Getters aren't payable
@@ -639,8 +638,7 @@ fn to_canonical_abi_type(type_: &str) -> String {
 fn ast_src_to_source_location(
     src: &str,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    env: Env,
-) -> napi::Result<Option<ClassInstance<SourceLocation>>> {
+) -> napi::Result<Option<Rc<SourceLocation>>> {
     let parts: Vec<&str> = src.split(':').collect();
     if parts.len() != 3 {
         return Ok(None);
@@ -660,9 +658,11 @@ fn ast_src_to_source_location(
         .get(&file_id)
         .ok_or_else(|| napi::Error::from_reason("Failed to find file by ID"))?;
 
-    SourceLocation::new(file.clone(), offset, length)
-        .into_instance(env)
-        .map(Some)
+    Ok(Some(Rc::new(SourceLocation::new(
+        file.clone(),
+        offset,
+        length,
+    ))))
 }
 
 fn correct_selectors(
@@ -678,7 +678,6 @@ fn correct_selectors(
             .get(
                 &contract
                     .location
-                    .borrow(env)?
                     .file
                     .try_borrow()
                     .map_err(|e| napi::Error::from_reason(e.to_string()))?
@@ -770,7 +769,6 @@ fn decode_evm_bytecode(
         &compiler_bytecode.source_map,
         file_id_to_source_file,
         is_deployment,
-        env,
     )?;
 
     Bytecode::new(
@@ -801,7 +799,6 @@ fn decode_bytecodes(
 
         let contract_file = &contract
             .location
-            .borrow(env)?
             .file
             .try_borrow()
             .map_err(|e| napi::Error::from_reason(e.to_string()))?

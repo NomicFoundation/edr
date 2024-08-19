@@ -2,15 +2,12 @@
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use napi::{bindgen_prelude::Buffer, Env};
+use napi::bindgen_prelude::Buffer;
 
 use super::model::{SourceFile, SourceLocation};
-use crate::{
-    trace::{
-        model::{Instruction, JumpType},
-        opcodes::Opcode,
-    },
-    utils::ClassInstanceRef,
+use crate::trace::{
+    model::{Instruction, JumpType},
+    opcodes::Opcode,
 };
 
 // See https://docs.soliditylang.org/en/latest/internals/source_mappings.html
@@ -139,7 +136,6 @@ pub fn decode_instructions(
     compressed_sourcemaps: &str,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     is_deployment: bool,
-    env: Env,
 ) -> napi::Result<Vec<Instruction>> {
     let source_maps = uncompress_sourcemaps(compressed_sourcemaps);
 
@@ -171,19 +167,15 @@ pub fn decode_instructions(
         let location = if source_map.location.file == -1 {
             None
         } else {
-            match file_id_to_source_file.get(&(source_map.location.file as u32)) {
-                Some(file) => {
-                    let location = SourceLocation::new(
+            file_id_to_source_file
+                .get(&(source_map.location.file as u32))
+                .map(|file| {
+                    Rc::new(SourceLocation::new(
                         file.clone(),
                         source_map.location.offset as u32,
                         source_map.location.length as u32,
-                    )
-                    .into_instance(env)?;
-
-                    Some(ClassInstanceRef::from_obj(location, env)?)
-                }
-                None => None,
-            }
+                    ))
+                })
         };
 
         let instruction =

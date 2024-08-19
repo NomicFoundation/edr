@@ -82,8 +82,8 @@ fn print_call_trace(trace: &CallMessageTrace, depth: u32, env: Env) -> napi::Res
 
     if let Some(bytecode) = &trace.bytecode {
         let contract = bytecode.contract.borrow(env)?;
-        let location = contract.location.borrow(env)?;
-        let file = location
+        let file = contract
+            .location
             .file
             .try_borrow()
             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
@@ -208,7 +208,7 @@ fn trace_steps(
                 .location
                 .as_ref()
                 .map(|inst_location| {
-                    let inst_location = inst_location.borrow(env)?;
+                    let inst_location = &inst_location;
                     let file = inst_location
                         .file
                         .try_borrow()
@@ -216,10 +216,10 @@ fn trace_steps(
 
                     let mut location_str = file.source_name.clone();
 
-                    if let Some(func) = inst_location.get_containing_function_inner(env)? {
+                    if let Some(func) = inst_location.get_containing_function(env)? {
                         let func = func.borrow(env)?;
-                        let location = func.location.borrow(env)?;
-                        let file = location
+                        let file = func
+                            .location
                             .file
                             .try_borrow()
                             .map_err(|e| napi::Error::from_reason(e.to_string()))?;

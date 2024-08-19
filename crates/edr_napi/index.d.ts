@@ -653,20 +653,11 @@ export class Response {
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
 }
-export class SourceLocation {
-  offset: number
-  length: number
-  getStartingLineNumber(): number
-  getContainingFunction(): ContractFunction | undefined
-  contains(other: SourceLocation): boolean
-  equals(other: SourceLocation): boolean
-}
 export class ContractFunction {
   readonly name: string
   readonly type: ContractFunctionType
   readonly isPayable?: boolean
   readonly paramTypes?: Array<any>
-  get location(): SourceLocation
   get contract(): Contract | undefined
 }
 export class Bytecode {
@@ -678,7 +669,6 @@ export class Bytecode {
 }
 export class Contract {
   readonly name: string
-  get location(): SourceLocation
   get constructorFunction(): ContractFunction | undefined
   get fallback(): ContractFunction | undefined
   get receive(): ContractFunction | undefined
