@@ -193,7 +193,7 @@ impl VmTraceDecoder {
 
                     let selector = &calldata.get(..4).unwrap_or(&calldata[..]);
 
-                    let func = contract.get_function_from_selector_inner(selector);
+                    let func = contract.get_function_from_selector(selector);
 
                     let function_name = match func {
                         Some(func) => {

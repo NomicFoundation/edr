@@ -692,7 +692,7 @@ fn correct_selectors(
             let selector = hex::decode(hex_selector)
                 .map_err(|e| napi::Error::from_reason(format!("Failed to decode hex: {e:?}")))?;
 
-            let contract_function = contract.get_function_from_selector_inner(&selector);
+            let contract_function = contract.get_function_from_selector(&selector);
 
             if contract_function.is_some() {
                 continue;
@@ -763,7 +763,7 @@ fn decode_evm_bytecode(
         &compiler_bytecode.source_map,
         file_id_to_source_file,
         is_deployment,
-    )?;
+    );
 
     Bytecode::new(
         contract,

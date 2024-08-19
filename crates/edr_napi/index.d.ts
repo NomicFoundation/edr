@@ -658,21 +658,15 @@ export class ContractFunction {
   readonly type: ContractFunctionType
   readonly isPayable?: boolean
   readonly paramTypes?: Array<any>
-  get contract(): Contract | undefined
 }
 export class Bytecode {
   readonly isDeployment: boolean
   readonly normalizedCode: Buffer
   readonly libraryAddressPositions: Array<number>
   readonly compilerVersion: string
-  get contract(): Contract
 }
 export class Contract {
   readonly name: string
-  get constructorFunction(): ContractFunction | undefined
-  get fallback(): ContractFunction | undefined
-  get receive(): ContractFunction | undefined
-  getFunctionFromSelector(selector: Uint8Array): ContractFunction | undefined
 }
 export class ContractsIdentifier {
   constructor(enableCache?: boolean | undefined | null)

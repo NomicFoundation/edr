@@ -9,10 +9,7 @@ use std::{
 use alloy_dyn_abi::ErrorExt;
 use edr_evm::hex;
 use edr_solidity::artifacts::ContractAbiEntry;
-use napi::{
-    bindgen_prelude::{Buffer, Object, Uint8Array, Undefined},
-    Either, Env, JsObject,
-};
+use napi::{bindgen_prelude::Buffer, Env};
 use napi_derive::napi;
 use serde::Serialize;
 use serde_json::Value;
@@ -170,16 +167,6 @@ pub struct ContractFunction {
     #[napi(readonly)]
     pub param_types: Option<Vec<Value>>,
 }
-#[napi]
-impl ContractFunction {
-    #[napi(getter, ts_return_type = "Contract | undefined")]
-    pub fn contract(&self, env: Env) -> napi::Result<Either<Object, Undefined>> {
-        match &self.contract {
-            Some(contract) => contract.as_object(env).map(Either::A),
-            None => Ok(Either::B(())),
-        }
-    }
-}
 
 impl<'a> TryFrom<&'a ContractFunction> for alloy_json_abi::Function {
     type Error = serde_json::Error;
@@ -242,7 +229,7 @@ pub struct Instruction {
     pub pc: u32,
     pub opcode: Opcode,
     pub jump_type: JumpType,
-    pub push_data: Option<Buffer>,
+    pub push_data: Option<Vec<u8>>,
     pub(crate) location: Option<Rc<SourceLocation>>,
 }
 
@@ -266,24 +253,6 @@ impl From<edr_solidity::artifacts::ImmutableReference> for ImmutableReference {
             start: ir.start,
             length: ir.length,
         }
-    }
-}
-
-impl Instruction {
-    pub fn new(
-        pc: u32,
-        opcode: Opcode,
-        jump_type: JumpType,
-        push_data: Option<Buffer>,
-        location: Option<Rc<SourceLocation>>,
-    ) -> napi::Result<Instruction> {
-        Ok(Instruction {
-            pc,
-            opcode,
-            jump_type,
-            push_data,
-            location,
-        })
     }
 }
 
@@ -342,11 +311,6 @@ impl Bytecode {
     pub fn has_instruction(&self, pc: u32) -> bool {
         self.pc_to_instruction.contains_key(&pc)
     }
-
-    #[napi(getter, ts_return_type = "Contract")]
-    pub fn contract(&self, env: Env) -> napi::Result<Object> {
-        self.contract.as_object(env)
-    }
 }
 
 #[derive(PartialEq, strum::EnumString)]
@@ -389,29 +353,6 @@ impl Contract {
             r#type: contract_type,
             location,
         })
-    }
-
-    #[napi(getter, ts_return_type = "ContractFunction | undefined")]
-    pub fn constructor_function(&self, env: Env) -> napi::Result<Either<Object, Undefined>> {
-        match &self.constructor {
-            Some(a) => a.as_object(env).map(Either::A),
-            None => Ok(Either::B(())),
-        }
-    }
-
-    #[napi(getter, ts_return_type = "ContractFunction | undefined")]
-    pub fn fallback(&self, env: Env) -> napi::Result<Either<Object, Undefined>> {
-        match &self.fallback {
-            Some(a) => a.as_object(env).map(Either::A),
-            None => Ok(Either::B(())),
-        }
-    }
-    #[napi(getter, ts_return_type = "ContractFunction | undefined")]
-    pub fn receive(&self, env: Env) -> napi::Result<Either<Object, Undefined>> {
-        match &self.receive {
-            Some(a) => a.as_object(env).map(Either::A),
-            None => Ok(Either::B(())),
-        }
     }
 
     pub fn add_local_function(
@@ -496,19 +437,7 @@ impl Contract {
         Ok(())
     }
 
-    #[napi(ts_return_type = "ContractFunction | undefined")]
     pub fn get_function_from_selector(
-        &self,
-        selector: Uint8Array,
-        env: Env,
-    ) -> napi::Result<Either<JsObject, Undefined>> {
-        match self.get_function_from_selector_inner(selector.as_ref()) {
-            Some(func) => func.as_object(env).map(Either::A),
-            None => Ok(Either::B(())),
-        }
-    }
-
-    pub fn get_function_from_selector_inner(
         &self,
         selector: &[u8],
     ) -> Option<&Rc<ClassInstanceRef<ContractFunction>>> {

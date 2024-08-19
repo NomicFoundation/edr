@@ -80,9 +80,8 @@ impl ErrorInferrer {
             .expect("The TS code type-checks this to always have bytecode");
         let contract = bytecode.contract.borrow(env)?;
 
-        let called_function = contract.get_function_from_selector_inner(
-            trace.calldata.get(..4).unwrap_or(&trace.calldata[..]),
-        );
+        let called_function = contract
+            .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
         if let Some(called_function) = called_function {
             let called_function = called_function.borrow(env)?;
@@ -371,7 +370,7 @@ impl ErrorInferrer {
     }
 
     /// Check if the trace reverted with a panic error.
-    fn check_panic_inner(
+    fn check_panic(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
         last_instruction: &Instruction,
@@ -418,7 +417,7 @@ impl ErrorInferrer {
         Self::fix_initial_modifier(trace, stacktrace, env).map(Heuristic::Hit)
     }
 
-    fn check_custom_errors_inner(
+    fn check_custom_errors(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
         last_instruction: &Instruction,
@@ -624,7 +623,7 @@ impl ErrorInferrer {
     }
 
     /// Check if the execution stopped with a revert or an invalid opcode.
-    fn check_revert_or_invalid_opcode_inner(
+    fn check_revert_or_invalid_opcode(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
         last_instruction: &Instruction,
@@ -677,14 +676,14 @@ impl ErrorInferrer {
         }
 
         let panic_stacktrace =
-            Self::check_panic_inner(trace, inferred_stacktrace, last_instruction, env)?;
+            Self::check_panic(trace, inferred_stacktrace, last_instruction, env)?;
         let inferred_stacktrace = match panic_stacktrace {
             hit @ Heuristic::Hit(..) => return Ok(hit),
             Heuristic::Miss(stacktrace) => stacktrace,
         };
 
         let custom_error_stacktrace =
-            Self::check_custom_errors_inner(trace, inferred_stacktrace, last_instruction, env)?;
+            Self::check_custom_errors(trace, inferred_stacktrace, last_instruction, env)?;
         let mut inferred_stacktrace = match custom_error_stacktrace {
             hit @ Heuristic::Hit(..) => return Ok(hit),
             Heuristic::Miss(stacktrace) => stacktrace,
@@ -710,7 +709,7 @@ impl ErrorInferrer {
                             let contract = bytecode.contract.borrow(env)?;
 
                             // This is here because of the optimizations
-                            let function_selector = contract.get_function_from_selector_inner(
+                            let function_selector = contract.get_function_from_selector(
                                 calldata.get(..4).unwrap_or(&calldata[..]),
                             );
 
@@ -799,7 +798,7 @@ impl ErrorInferrer {
 
         let last_instruction = bytecode.get_instruction(last_step.pc)?;
 
-        let revert_or_invalid_stacktrace = Self::check_revert_or_invalid_opcode_inner(
+        let revert_or_invalid_stacktrace = Self::check_revert_or_invalid_opcode(
             trace,
             stacktrace,
             last_instruction,
@@ -857,7 +856,7 @@ impl ErrorInferrer {
         let selector = calldata.get(..4).unwrap_or(&calldata[..]);
         let calldata = &calldata.get(4..).unwrap_or(&[]);
 
-        let called_function = contract.get_function_from_selector_inner(selector);
+        let called_function = contract.get_function_from_selector(selector);
 
         if let Some(called_function) = called_function {
             let called_function = called_function.borrow(env)?;
@@ -940,9 +939,8 @@ impl ErrorInferrer {
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
         let contract = bytecode.contract.borrow(env)?;
 
-        let called_function = contract.get_function_from_selector_inner(
-            trace.calldata.get(..4).unwrap_or(&trace.calldata[..]),
-        );
+        let called_function = contract
+            .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
         let called_function = called_function.map(|x| x.borrow(env)).transpose()?;
         let called_function = called_function.as_deref();
@@ -1269,9 +1267,8 @@ impl ErrorInferrer {
         let contract = &trace.bytecode.as_ref().expect("JS code asserts").contract;
         let contract = contract.borrow(env)?;
 
-        let func = contract.get_function_from_selector_inner(
-            trace.calldata.get(..4).unwrap_or(&trace.calldata[..]),
-        );
+        let func = contract
+            .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
         let func = func.map(|f| f.borrow(env)).transpose()?;
         let source_reference = match func {

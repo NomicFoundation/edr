@@ -2,8 +2,6 @@
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use napi::bindgen_prelude::Buffer;
-
 use super::model::{SourceFile, SourceLocation};
 use crate::trace::{
     model::{Instruction, JumpType},
@@ -95,10 +93,7 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
     mappings
 }
 
-fn add_unmapped_instructions(
-    instructions: &mut Vec<Instruction>,
-    bytecode: &[u8],
-) -> napi::Result<()> {
+fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8]) {
     let last_instr_pc = instructions.last().map_or(0, |instr| instr.pc);
 
     let mut bytes_index = (last_instr_pc + 1) as usize;
@@ -106,11 +101,11 @@ fn add_unmapped_instructions(
     while bytecode.get(bytes_index) != Some(Opcode::INVALID as u8).as_ref() {
         let opcode = Opcode::from_repr(bytecode[bytes_index]).expect("Invalid opcode");
 
-        let push_data: Option<Buffer> = if opcode.is_push() {
+        let push_data = if opcode.is_push() {
             let push_data =
                 &bytecode[(bytes_index + 1)..(bytes_index + 1 + (opcode.push_len() as usize))];
 
-            Some(Buffer::from(push_data))
+            Some(push_data.to_vec())
         } else {
             None
         };
@@ -121,14 +116,18 @@ fn add_unmapped_instructions(
             JumpType::NotJump
         };
 
-        let instruction = Instruction::new(bytes_index as u32, opcode, jump_type, push_data, None)?;
+        let instruction = Instruction {
+            pc: bytes_index as u32,
+            opcode,
+            jump_type,
+            push_data,
+            location: None,
+        };
 
         instructions.push(instruction);
 
         bytes_index += opcode.len() as usize;
     }
-
-    Ok(())
 }
 
 pub fn decode_instructions(
@@ -136,7 +135,7 @@ pub fn decode_instructions(
     compressed_sourcemaps: &str,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     is_deployment: bool,
-) -> napi::Result<Vec<Instruction>> {
+) -> Vec<Instruction> {
     let source_maps = uncompress_sourcemaps(compressed_sourcemaps);
 
     let mut instructions = Vec::new();
@@ -153,7 +152,7 @@ pub fn decode_instructions(
             let length = opcode.push_len();
             let push_data = &bytecode[(bytes_index + 1)..(bytes_index + 1 + (length as usize))];
 
-            Some(Buffer::from(push_data))
+            Some(push_data.to_vec())
         } else {
             None
         };
@@ -178,8 +177,13 @@ pub fn decode_instructions(
                 })
         };
 
-        let instruction =
-            Instruction::new(bytes_index as u32, opcode, jump_type, push_data, location)?;
+        let instruction = Instruction {
+            pc: bytes_index as u32,
+            opcode,
+            jump_type,
+            push_data,
+            location,
+        };
 
         instructions.push(instruction);
 
@@ -187,8 +191,8 @@ pub fn decode_instructions(
     }
 
     if is_deployment {
-        add_unmapped_instructions(&mut instructions, bytecode)?;
+        add_unmapped_instructions(&mut instructions, bytecode);
     }
 
-    Ok(instructions)
+    instructions
 }
