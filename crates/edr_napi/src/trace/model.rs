@@ -213,7 +213,6 @@ pub struct CustomError {
     def: alloy_json_abi::Error,
 }
 
-#[napi]
 impl CustomError {
     pub fn from_abi(entry: ContractAbiEntry) -> Result<CustomError, Box<str>> {
         // This is wasteful; to fix that we'd have to implement tighter deserialization
