@@ -1222,7 +1222,7 @@ impl ErrorInferrer {
             None => return Ok(false),
         };
 
-        if subtrace_bytecode.contract.borrow(env)?.r#type == ContractType::LIBRARY {
+        if subtrace_bytecode.contract.borrow(env)?.r#type == ContractType::Library {
             return Ok(false);
         }
 
@@ -1283,7 +1283,7 @@ impl ErrorInferrer {
         let contract = &trace.bytecode.as_ref().expect("JS code asserts").contract;
         let contract = contract.borrow(env)?;
 
-        Ok(trace.depth == 0 && contract.r#type == ContractType::LIBRARY)
+        Ok(trace.depth == 0 && contract.r#type == ContractType::Library)
     }
 
     fn get_direct_library_call_error_stack_trace(
@@ -1623,7 +1623,7 @@ impl ErrorInferrer {
         let contract = bytecode.contract.borrow(env)?;
 
         // Libraries don't have a nonpayable check
-        if contract.r#type == ContractType::LIBRARY {
+        if contract.r#type == ContractType::Library {
             return Ok(false);
         }
 

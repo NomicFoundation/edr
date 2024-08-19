@@ -361,10 +361,6 @@ export interface ImmutableReference {
   readonly start: number
   readonly length: number
 }
-export const enum ContractType {
-  CONTRACT = 0,
-  LIBRARY = 1
-}
 export function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
 export function printStackTrace(trace: SolidityStackTrace): void
 /** Represents the exit code of the EVM. */
@@ -697,7 +693,6 @@ export class Bytecode {
 }
 export class Contract {
   readonly name: string
-  readonly type: ContractType
   get location(): SourceLocation
   get customErrors(): Array<CustomError>
   get constructorFunction(): ContractFunction | undefined

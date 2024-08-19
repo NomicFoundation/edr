@@ -1,6 +1,7 @@
 //! Processes the AST and compiler input and creates the source model.
 //! Ported from `hardhat-network/stack-traces/compiler-to-model.ts`.
 
+use std::str::FromStr;
 use std::{collections::HashMap, rc::Rc};
 
 use edr_evm::{alloy_primitives::keccak256, hex};
@@ -90,8 +91,8 @@ fn create_sources_model_from_ast(
         for node in source.ast["nodes"].as_array().unwrap() {
             match node["nodeType"].as_str().unwrap() {
                 "ContractDefinition" => {
-                    let contract_type =
-                        contract_kind_to_contract_type(node["contractKind"].as_str());
+                    let contract_kind = node["contractKind"].as_str();
+                    let contract_type = contract_kind.and_then(|k| ContractType::from_str(k).ok());
 
                     let contract_type = match contract_type {
                         Some(contract_type) => contract_type,
@@ -551,14 +552,6 @@ fn canonical_abi_type_for_elementary_or_user_defined_types(
     }
 
     None
-}
-
-pub fn contract_kind_to_contract_type(contract_kind: Option<&str>) -> Option<ContractType> {
-    match contract_kind {
-        Some("library") => Some(ContractType::LIBRARY),
-        Some("contract") => Some(ContractType::CONTRACT),
-        _ => None,
-    }
 }
 
 fn function_definition_kind_to_function_type(kind: Option<&str>) -> ContractFunctionType {

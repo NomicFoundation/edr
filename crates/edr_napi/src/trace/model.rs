@@ -387,13 +387,11 @@ impl Bytecode {
     }
 }
 
-#[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
-#[allow(clippy::upper_case_acronyms)]
-#[napi]
-#[derive(PartialEq)]
+#[derive(PartialEq, strum::EnumString)]
+#[strum(serialize_all = "camelCase")]
 pub enum ContractType {
-    CONTRACT,
-    LIBRARY,
+    Contract,
+    Library,
 }
 
 #[napi]
@@ -407,8 +405,7 @@ pub struct Contract {
 
     #[napi(readonly)]
     pub name: String,
-    #[napi(readonly, js_name = "type")]
-    pub r#type: ContractType,
+    pub(crate) r#type: ContractType,
     pub(crate) location: ClassInstanceRef<SourceLocation>,
 }
 
