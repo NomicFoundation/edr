@@ -1,11 +1,7 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
 use edr_eth::Address;
-use edr_evm::hex;
-use napi::{
-    bindgen_prelude::{ClassInstance, Uint8Array},
-    Either, Env,
-};
+use napi::{bindgen_prelude::ClassInstance, Either, Env};
 use napi_derive::napi;
 
 use super::{
@@ -68,7 +64,7 @@ impl BytecodeTrie {
     /// covered by the trie, and there's no match, we return undefined.
     pub fn search(
         &self,
-        code: &Uint8Array,
+        code: &[u8],
         current_code_byte: u32,
     ) -> Option<Either<Rc<ClassInstanceRef<Bytecode>>, &Self>> {
         if current_code_byte > code.len() as u32 {
@@ -96,7 +92,7 @@ impl BytecodeTrie {
 
 /// Returns true if the lastByte is placed right when the metadata starts or
 /// after it.
-fn is_matching_metadata(code: Uint8Array, last_byte: u32) -> bool {
+fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
     let mut byte = 0;
     while byte < last_byte {
         let opcode = Opcode::from_repr(code[byte as usize]).unwrap();
@@ -117,7 +113,7 @@ fn is_matching_metadata(code: Uint8Array, last_byte: u32) -> bool {
 #[napi]
 pub struct ContractsIdentifier {
     trie: BytecodeTrie,
-    cache: HashMap<String, Rc<ClassInstanceRef<Bytecode>>>,
+    cache: HashMap<Vec<u8>, Rc<ClassInstanceRef<Bytecode>>>,
     enable_cache: bool,
 }
 
@@ -148,7 +144,7 @@ impl ContractsIdentifier {
     fn search_bytecode(
         &mut self,
         is_create: bool,
-        code: Uint8Array,
+        code: &[u8],
         normalize_libraries: Option<bool>,
         trie: Option<&BytecodeTrie>,
         first_byte_to_search: Option<u32>,
@@ -170,13 +166,13 @@ impl ContractsIdentifier {
 
     fn search_bytecode_inner(
         is_create: bool,
-        code: Uint8Array,
+        code: &[u8],
         normalize_libraries: bool,
         trie: &BytecodeTrie,
         first_byte_to_search: u32,
         env: Env,
     ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
-        let search_result = match trie.search(&code, first_byte_to_search) {
+        let search_result = match trie.search(code, first_byte_to_search) {
             None => return Ok(None),
             Some(Either::A(bytecode)) => return Ok(Some(bytecode.clone())),
             Some(Either::B(trie)) => trie,
@@ -215,7 +211,7 @@ impl ContractsIdentifier {
                     continue;
                 }
 
-                let mut normalized_code = code.clone();
+                let mut normalized_code = code.to_vec();
                 // zero out addresses
                 for pos in &bytecode_with_libraries.library_address_positions {
                     if (*pos as usize + Address::len_bytes()) > normalized_code.len() {
@@ -235,7 +231,7 @@ impl ContractsIdentifier {
 
                 let normalized_result = Self::search_bytecode_inner(
                     is_create,
-                    normalized_code,
+                    &normalized_code,
                     false,
                     search_result,
                     search_result.depth.map_or(0, |depth| depth + 1),
@@ -271,27 +267,27 @@ impl ContractsIdentifier {
 
     pub fn get_bytecode_for_call(
         &mut self,
-        code: Uint8Array,
+        code: &[u8],
         is_create: bool,
         env: Env,
     ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
-        let mut normalized_code = code.clone();
-        normalize_library_runtime_bytecode_if_necessary(&mut normalized_code);
+        let normalized_code = normalize_library_runtime_bytecode_if_necessary(code);
 
-        let normalized_code_hex = hex::encode(normalized_code.as_ref());
         if self.enable_cache {
-            let cached = self.cache.get(&normalized_code_hex);
+            let cached = self.cache.get(&*normalized_code);
 
             if let Some(cached) = cached {
                 return Ok(Some(cached.clone()));
             }
         }
 
-        let result = self.search_bytecode(is_create, normalized_code, None, None, None, env)?;
+        let result = self.search_bytecode(is_create, &normalized_code, None, None, None, env)?;
 
         if self.enable_cache {
             if let Some(result) = &result {
-                self.cache.insert(normalized_code_hex, result.clone());
+                if !self.cache.contains_key(&*normalized_code) {
+                    self.cache.insert(normalized_code.to_vec(), result.clone());
+                }
             }
         }
 
@@ -299,7 +295,9 @@ impl ContractsIdentifier {
     }
 }
 
-fn normalize_library_runtime_bytecode_if_necessary(code: &mut Uint8Array) {
+fn normalize_library_runtime_bytecode_if_necessary(code: &[u8]) -> Cow<'_, [u8]> {
+    let mut code = Cow::Borrowed(code);
+
     // Libraries' protection normalization:
     // Solidity 0.4.20 introduced a protection to prevent libraries from being
     // called directly. This is done by modifying the code on deployment, and
@@ -307,6 +305,8 @@ fn normalize_library_runtime_bytecode_if_necessary(code: &mut Uint8Array) {
     // the address, which we zero-out as a way of normalizing it. Note that it's
     // also zeroed-out in the compiler output.
     if code.first().copied() == Some(Opcode::PUSH20 as u8) {
-        code[1..][..Address::len_bytes()].fill(0);
+        code.to_mut()[1..][..Address::len_bytes()].fill(0);
     }
+
+    code
 }

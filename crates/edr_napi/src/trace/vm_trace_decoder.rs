@@ -70,7 +70,7 @@ impl VmTraceDecoder {
                 let bytecode = self
                     .contracts_identifier
                     .borrow_mut(env)?
-                    .get_bytecode_for_call(call.code.clone(), is_create, env)?;
+                    .get_bytecode_for_call(call.code.as_ref(), is_create, env)?;
 
                 let steps: Vec<_> = call
                     .steps
@@ -111,7 +111,7 @@ impl VmTraceDecoder {
                 let bytecode = self
                     .contracts_identifier
                     .borrow_mut(env)?
-                    .get_bytecode_for_call(create.code.clone(), is_create, env)?;
+                    .get_bytecode_for_call(create.code.as_ref(), is_create, env)?;
 
                 let steps: Vec<_> = create
                     .steps
@@ -159,7 +159,7 @@ impl VmTraceDecoder {
         let bytecode = self
             .contracts_identifier
             .borrow_mut(env)?
-            .get_bytecode_for_call(code, is_create, env)?;
+            .get_bytecode_for_call(code.as_ref(), is_create, env)?;
 
         let contract = match bytecode {
             Some(bytecode) => Some(bytecode.borrow(env)?.contract.clone()),
