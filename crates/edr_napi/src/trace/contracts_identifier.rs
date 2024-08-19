@@ -2,7 +2,6 @@ use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
 use edr_eth::Address;
 use napi::{bindgen_prelude::ClassInstance, Either, Env};
-use napi_derive::napi;
 
 use super::{
     model::{Bytecode, ImmutableReference},
@@ -110,16 +109,13 @@ fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
     false
 }
 
-#[napi]
 pub struct ContractsIdentifier {
     trie: BytecodeTrie,
     cache: HashMap<Vec<u8>, Rc<ClassInstanceRef<Bytecode>>>,
     enable_cache: bool,
 }
 
-#[napi]
 impl ContractsIdentifier {
-    #[napi(constructor)]
     pub fn new(enable_cache: Option<bool>) -> ContractsIdentifier {
         let enable_cache = enable_cache.unwrap_or(true);
 

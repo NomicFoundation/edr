@@ -16,7 +16,7 @@ use super::{
         UNRECOGNIZED_FUNCTION_NAME,
     },
 };
-use crate::{trace::model::ContractFunctionType, utils::ClassInstanceRef};
+use crate::trace::model::ContractFunctionType;
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,21 +27,22 @@ pub struct TracingConfig {
 
 #[napi]
 pub struct VmTraceDecoder {
-    contracts_identifier: ClassInstanceRef<ContractsIdentifier>,
+    contracts_identifier: ContractsIdentifier,
+}
+
+impl Default for VmTraceDecoder {
+    fn default() -> Self {
+        Self {
+            contracts_identifier: ContractsIdentifier::new(None),
+        }
+    }
 }
 
 #[napi]
 impl VmTraceDecoder {
     #[napi(constructor)]
-    pub fn new(
-        contracts_identifier: ClassInstance<ContractsIdentifier>,
-        env: Env,
-    ) -> napi::Result<Self> {
-        let contracts_identifier = ClassInstanceRef::from_obj(contracts_identifier, env)?;
-
-        Ok(Self {
-            contracts_identifier,
-        })
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[napi]
@@ -50,14 +51,12 @@ impl VmTraceDecoder {
         bytecode: ClassInstance<Bytecode>,
         env: Env,
     ) -> napi::Result<()> {
-        self.contracts_identifier
-            .borrow_mut(env)?
-            .add_bytecode(bytecode, env)
+        self.contracts_identifier.add_bytecode(bytecode, env)
     }
 
     #[napi]
     pub fn try_to_decode_message_trace(
-        &self,
+        &mut self,
         message_trace: Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>,
         env: Env,
     ) -> napi::Result<Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>> {
@@ -67,10 +66,11 @@ impl VmTraceDecoder {
             Either3::B(mut call) => {
                 let is_create = false;
 
-                let bytecode = self
-                    .contracts_identifier
-                    .borrow_mut(env)?
-                    .get_bytecode_for_call(call.code.as_ref(), is_create, env)?;
+                let bytecode = self.contracts_identifier.get_bytecode_for_call(
+                    call.code.as_ref(),
+                    is_create,
+                    env,
+                )?;
 
                 let steps: Vec<_> = call
                     .steps
@@ -108,10 +108,11 @@ impl VmTraceDecoder {
             Either3::C(mut create @ CreateMessageTrace { .. }) => {
                 let is_create = true;
 
-                let bytecode = self
-                    .contracts_identifier
-                    .borrow_mut(env)?
-                    .get_bytecode_for_call(create.code.as_ref(), is_create, env)?;
+                let bytecode = self.contracts_identifier.get_bytecode_for_call(
+                    create.code.as_ref(),
+                    is_create,
+                    env,
+                )?;
 
                 let steps: Vec<_> = create
                     .steps
@@ -150,16 +151,15 @@ impl VmTraceDecoder {
 
     #[napi]
     pub fn get_contract_and_function_names_for_call(
-        &self,
+        &mut self,
         code: Uint8Array,
         calldata: Either<Uint8Array, Undefined>,
         env: Env,
     ) -> napi::Result<ContractAndFunctionName> {
         let is_create = matches!(calldata, Either::B(()));
-        let bytecode = self
-            .contracts_identifier
-            .borrow_mut(env)?
-            .get_bytecode_for_call(code.as_ref(), is_create, env)?;
+        let bytecode =
+            self.contracts_identifier
+                .get_bytecode_for_call(code.as_ref(), is_create, env)?;
 
         let contract = match bytecode {
             Some(bytecode) => Some(bytecode.borrow(env)?.contract.clone()),

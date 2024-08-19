@@ -661,9 +661,6 @@ export class Bytecode {
 export class Contract {
   readonly name: string
 }
-export class ContractsIdentifier {
-  constructor(enableCache?: boolean | undefined | null)
-}
 export class Exit {
   get kind(): ExitCode
   isError(): boolean
@@ -684,7 +681,7 @@ export class SolidityTracer {
   getStackTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): SolidityStackTrace
 }
 export class VmTraceDecoder {
-  constructor(contractsIdentifier: ContractsIdentifier)
+  constructor()
   addBytecode(bytecode: Bytecode): void
   tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
   getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName

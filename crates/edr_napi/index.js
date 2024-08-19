@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, ContractFunctionType, Bytecode, Contract, ContractsIdentifier, printMessageTrace, printStackTrace, Exit, ExitCode, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, ContractFunctionType, Bytecode, Contract, printMessageTrace, printStackTrace, Exit, ExitCode, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -324,7 +324,6 @@ module.exports.linkHexStringBytecode = linkHexStringBytecode
 module.exports.ContractFunctionType = ContractFunctionType
 module.exports.Bytecode = Bytecode
 module.exports.Contract = Contract
-module.exports.ContractsIdentifier = ContractsIdentifier
 module.exports.printMessageTrace = printMessageTrace
 module.exports.printStackTrace = printStackTrace
 module.exports.Exit = Exit
