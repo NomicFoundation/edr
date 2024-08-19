@@ -9,7 +9,6 @@ use std::{
 use alloy_dyn_abi::ErrorExt;
 use edr_evm::hex;
 use edr_solidity::artifacts::ContractAbiEntry;
-use napi::bindgen_prelude::Buffer;
 use napi_derive::napi;
 use serde::Serialize;
 use serde_json::Value;
@@ -252,8 +251,7 @@ pub struct Bytecode {
     pub(crate) contract: Rc<ClassInstanceRef<Contract>>,
     #[napi(readonly)]
     pub is_deployment: bool,
-    #[napi(readonly)]
-    pub normalized_code: Buffer,
+    pub(crate) normalized_code: Vec<u8>,
     #[napi(readonly)]
     pub library_address_positions: Vec<u32>,
     pub(crate) immutable_references: Vec<ImmutableReference>,
@@ -266,7 +264,7 @@ impl Bytecode {
     pub fn new(
         contract: Rc<ClassInstanceRef<Contract>>,
         is_deployment: bool,
-        normalized_code: Buffer,
+        normalized_code: Vec<u8>,
         instructions: Vec<Instruction>,
         library_address_positions: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,

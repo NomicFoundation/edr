@@ -757,7 +757,8 @@ fn decode_evm_bytecode(
     let normalized_code = normalize_compiler_output_bytecode(
         compiler_bytecode.object.clone(),
         &library_address_positions,
-    )?;
+    )
+    .map_err(|e| napi::Error::from_reason(format!("Failed to decode hex: {e:?}")))?;
 
     let instructions = decode_instructions(
         &normalized_code,

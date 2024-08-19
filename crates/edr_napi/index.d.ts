@@ -655,7 +655,6 @@ export class Response {
 }
 export class Bytecode {
   readonly isDeployment: boolean
-  readonly normalizedCode: Buffer
   readonly libraryAddressPositions: Array<number>
   readonly compilerVersion: string
 }
