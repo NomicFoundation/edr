@@ -389,7 +389,7 @@ impl Bytecode {
 
 #[derive(PartialEq, strum::EnumString)]
 #[strum(serialize_all = "camelCase")]
-pub enum ContractType {
+pub enum ContractKind {
     Contract,
     Library,
 }
@@ -405,7 +405,7 @@ pub struct Contract {
 
     #[napi(readonly)]
     pub name: String,
-    pub(crate) r#type: ContractType,
+    pub(crate) r#type: ContractKind,
     pub(crate) location: ClassInstanceRef<SourceLocation>,
 }
 
@@ -413,7 +413,7 @@ pub struct Contract {
 impl Contract {
     pub fn new(
         name: String,
-        contract_type: ContractType,
+        contract_type: ContractKind,
         location: ClassInstanceRef<SourceLocation>,
     ) -> napi::Result<Contract> {
         Ok(Contract {

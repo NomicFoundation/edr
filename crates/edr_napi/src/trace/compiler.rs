@@ -20,7 +20,7 @@ use super::{
     library_utils::normalize_compiler_output_bytecode,
     model::{
         Bytecode, Contract, ContractFunction, ContractFunctionType, ContractFunctionVisibility,
-        ContractType, CustomError, SourceFile, SourceLocation,
+        ContractKind, CustomError, SourceFile, SourceLocation,
     },
     source_map::decode_instructions,
 };
@@ -92,7 +92,7 @@ fn create_sources_model_from_ast(
             match node["nodeType"].as_str().unwrap() {
                 "ContractDefinition" => {
                     let contract_kind = node["contractKind"].as_str();
-                    let contract_type = contract_kind.and_then(|k| ContractType::from_str(k).ok());
+                    let contract_type = contract_kind.and_then(|k| ContractKind::from_str(k).ok());
 
                     let contract_type = match contract_type {
                         Some(contract_type) => contract_type,
@@ -179,7 +179,7 @@ fn process_contract_ast_node(
     file: Rc<ClassInstanceRef<SourceFile>>,
     contract_node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
-    contract_type: ContractType,
+    contract_type: ContractKind,
     contract_id_to_contract: &mut IndexMap<u32, Rc<ClassInstanceRef<Contract>>>,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_abi: Option<&[ContractAbiEntry]>,
