@@ -1,6 +1,6 @@
 use napi::{
     bindgen_prelude::{Either3, Either4},
-    Either, Env,
+    Either,
 };
 use napi_derive::napi;
 
@@ -36,7 +36,6 @@ impl SolidityTracer {
     pub fn get_stack_trace(
         &self,
         trace: Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let trace = match &trace {
             Either3::A(precompile) => Either3::A(precompile),
@@ -44,13 +43,12 @@ impl SolidityTracer {
             Either3::C(create) => Either3::C(create),
         };
 
-        self.get_stack_trace_inner(trace, env)
+        self.get_stack_trace_inner(trace)
     }
 
     pub fn get_stack_trace_inner(
         &self,
         trace: Either3<&PrecompileMessageTrace, &CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let exit = match &trace {
             Either3::A(precompile) => &precompile.exit,
@@ -65,18 +63,14 @@ impl SolidityTracer {
         match trace {
             Either3::A(precompile) => Ok(self.get_precompile_message_stack_trace(precompile)?),
             Either3::B(call) if call.bytecode.is_some() => {
-                Ok(self.get_call_message_stack_trace(call, env)?)
+                Ok(self.get_call_message_stack_trace(call)?)
             }
             Either3::C(create) if create.bytecode.is_some() => {
-                Ok(self.get_create_message_stack_trace(create, env)?)
+                Ok(self.get_create_message_stack_trace(create)?)
             }
             // No bytecode is present
-            Either3::B(call) => {
-                Ok(self.get_unrecognized_message_stack_trace(Either::A(call), env)?)
-            }
-            Either3::C(create) => {
-                Ok(self.get_unrecognized_message_stack_trace(Either::B(create), env)?)
-            }
+            Either3::B(call) => Ok(self.get_unrecognized_message_stack_trace(Either::A(call))?),
+            Either3::C(create) => Ok(self.get_unrecognized_message_stack_trace(Either::B(create))?),
         }
     }
 
@@ -117,7 +111,6 @@ impl SolidityTracer {
     fn get_create_message_stack_trace(
         &self,
         trace: &CreateMessageTrace,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let inferred_error = ErrorInferrer::infer_before_tracing_create_message(trace)?;
 
@@ -125,13 +118,12 @@ impl SolidityTracer {
             return Ok(inferred_error);
         }
 
-        self.trace_evm_execution(Either::B(trace), env)
+        self.trace_evm_execution(Either::B(trace))
     }
 
     fn get_call_message_stack_trace(
         &self,
         trace: &CallMessageTrace,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let inferred_error = ErrorInferrer::infer_before_tracing_call_message(trace)?;
 
@@ -139,13 +131,12 @@ impl SolidityTracer {
             return Ok(inferred_error);
         }
 
-        self.trace_evm_execution(Either::A(trace), env)
+        self.trace_evm_execution(Either::A(trace))
     }
 
     fn get_unrecognized_message_stack_trace(
         &self,
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let (trace_exit_kind, trace_return_data) = match &trace {
             Either::A(call) => (call.exit.kind(), &call.return_data),
@@ -186,7 +177,7 @@ impl SolidityTracer {
                 };
 
                 let mut stacktrace = vec![unrecognized_entry];
-                stacktrace.extend(self.get_stack_trace_inner(subtrace, env)?);
+                stacktrace.extend(self.get_stack_trace_inner(subtrace)?);
 
                 return Ok(stacktrace);
             }
@@ -228,9 +219,8 @@ impl SolidityTracer {
     fn trace_evm_execution(
         &self,
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
-        let stack_trace = self.raw_trace_evm_execution(trace, env)?;
+        let stack_trace = self.raw_trace_evm_execution(trace)?;
 
         if stack_trace_may_require_adjustments(&stack_trace, trace) {
             return adjust_stack_trace(stack_trace, trace);
@@ -242,7 +232,6 @@ impl SolidityTracer {
     fn raw_trace_evm_execution(
         &self,
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let (bytecode, steps, number_of_subtraces) = match &trace {
             Either::A(call) => (&call.bytecode, &call.steps, call.number_of_subtraces),
@@ -304,7 +293,7 @@ impl SolidityTracer {
                     continue;
                 }
 
-                let submessage_trace = self.get_stack_trace_inner(message_trace, env)?;
+                let submessage_trace = self.get_stack_trace_inner(message_trace)?;
 
                 last_submessage_data = Some(SubmessageDataRef {
                     message_trace,
