@@ -22,7 +22,6 @@ use super::{
     },
     source_map::decode_instructions,
 };
-use crate::utils::ClassInstanceRef;
 
 #[napi]
 pub fn create_models_and_decode_bytecodes(
@@ -51,7 +50,6 @@ pub fn create_models_and_decode_bytecodes_inner(
         compiler_input,
         &mut file_id_to_source_file,
         &mut contract_id_to_contract,
-        env,
     )?;
 
     let bytecodes = decode_bytecodes(
@@ -62,7 +60,7 @@ pub fn create_models_and_decode_bytecodes_inner(
         env,
     )?;
 
-    correct_selectors(&bytecodes, compiler_output, env)?;
+    correct_selectors(&bytecodes, compiler_output)?;
 
     Ok(bytecodes)
 }
@@ -71,8 +69,7 @@ fn create_sources_model_from_ast(
     compiler_output: &CompilerOutput,
     compiler_input: &CompilerInput,
     file_id_to_source_file: &mut HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract_id_to_contract: &mut IndexMap<u32, Rc<ClassInstanceRef<Contract>>>,
-    env: Env,
+    contract_id_to_contract: &mut IndexMap<u32, Rc<RefCell<Contract>>>,
 ) -> napi::Result<()> {
     let mut contract_id_to_linearized_base_contract_ids = HashMap::new();
 
@@ -114,7 +111,6 @@ fn create_sources_model_from_ast(
                         contract_id_to_contract,
                         &mut contract_id_to_linearized_base_contract_ids,
                         contract_abi.map(Vec::as_slice),
-                        env,
                     )?;
                 }
                 // top-level functions
@@ -125,7 +121,6 @@ fn create_sources_model_from_ast(
                         None,
                         file.clone(),
                         None,
-                        env,
                     )?;
                 }
                 _ => {}
@@ -136,19 +131,17 @@ fn create_sources_model_from_ast(
     apply_contracts_inheritance(
         contract_id_to_contract,
         &contract_id_to_linearized_base_contract_ids,
-        env,
     )?;
 
     Ok(())
 }
 
 fn apply_contracts_inheritance(
-    contract_id_to_contract: &IndexMap<u32, Rc<ClassInstanceRef<Contract>>>,
+    contract_id_to_contract: &IndexMap<u32, Rc<RefCell<Contract>>>,
     contract_id_to_linearized_base_contract_ids: &HashMap<u32, Vec<u32>>,
-    env: Env,
 ) -> napi::Result<()> {
     for (cid, contract) in contract_id_to_contract {
-        let mut contract = contract.borrow_mut(env)?;
+        let mut contract = contract.borrow_mut();
 
         let inheritance_ids = &contract_id_to_linearized_base_contract_ids[cid];
 
@@ -162,7 +155,7 @@ fn apply_contracts_inheritance(
             };
 
             if cid != base_id {
-                let base_contract = &base_contract.borrow(env)?;
+                let base_contract = &base_contract.borrow();
                 contract.add_next_linearized_base_contract(base_contract)?;
             }
         }
@@ -177,10 +170,9 @@ fn process_contract_ast_node(
     contract_node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_type: ContractKind,
-    contract_id_to_contract: &mut IndexMap<u32, Rc<ClassInstanceRef<Contract>>>,
+    contract_id_to_contract: &mut IndexMap<u32, Rc<RefCell<Contract>>>,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_abi: Option<&[ContractAbiEntry]>,
-    env: Env,
 ) -> napi::Result<()> {
     let contract_location = ast_src_to_source_location(
         contract_node["src"].as_str().unwrap(),
@@ -192,10 +184,8 @@ fn process_contract_ast_node(
         contract_node["name"].as_str().unwrap().to_string(),
         contract_type,
         contract_location,
-    )?
-    .into_instance(env)?;
-    let contract = ClassInstanceRef::from_obj(contract, env)?;
-    let contract = Rc::new(contract);
+    )?;
+    let contract = Rc::new(RefCell::new(contract));
 
     let contract_id = contract_node["id"].as_u64().unwrap() as u32;
     contract_id_to_contract.insert(contract_id, contract.clone());
@@ -226,7 +216,6 @@ fn process_contract_ast_node(
                     Some(contract.clone()),
                     file.clone(),
                     function_abis,
-                    env,
                 )?;
             }
             "ModifierDefinition" => {
@@ -235,7 +224,6 @@ fn process_contract_ast_node(
                     file_id_to_source_file,
                     contract.clone(),
                     file.clone(),
-                    env,
                 )?;
             }
             "VariableDeclaration" => {
@@ -251,7 +239,6 @@ fn process_contract_ast_node(
                     contract.clone(),
                     file.clone(),
                     getter_abi,
-                    env,
                 )?;
             }
             _ => {}
@@ -264,10 +251,9 @@ fn process_contract_ast_node(
 fn process_function_definition_ast_node(
     node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract: Option<Rc<ClassInstanceRef<Contract>>>,
+    contract: Option<Rc<RefCell<Contract>>>,
     file: Rc<RefCell<SourceFile>>,
     function_abis: Option<Vec<&ContractAbiEntry>>,
-    env: Env,
 ) -> napi::Result<()> {
     if node.get("implemented").and_then(serde_json::Value::as_bool) == Some(false) {
         return Ok(());
@@ -332,8 +318,7 @@ fn process_function_definition_ast_node(
         location: function_location,
         contract_name: contract
             .as_ref()
-            .map(|c| c.borrow(env))
-            .transpose()?
+            .map(|c| c.borrow())
             .map(|c| c.name.clone()),
         visibility: Some(visibility),
         is_payable: Some(node["stateMutability"].as_str().unwrap() == "payable"),
@@ -343,7 +328,7 @@ fn process_function_definition_ast_node(
     let contract_func = Rc::new(contract_func);
 
     if let Some(contract) = contract {
-        let mut contract = contract.borrow_mut(env)?;
+        let mut contract = contract.borrow_mut();
         contract.add_local_function(contract_func.clone())?;
     }
 
@@ -358,9 +343,8 @@ fn process_function_definition_ast_node(
 fn process_modifier_definition_ast_node(
     node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract: Rc<ClassInstanceRef<Contract>>,
+    contract: Rc<RefCell<Contract>>,
     file: Rc<RefCell<SourceFile>>,
-    env: Env,
 ) -> napi::Result<()> {
     let function_location =
         ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
@@ -370,7 +354,7 @@ fn process_modifier_definition_ast_node(
         name: node["name"].as_str().unwrap().to_string(),
         r#type: ContractFunctionType::MODIFIER,
         location: function_location,
-        contract_name: Some(contract.borrow(env)?.name.clone()),
+        contract_name: Some(contract.borrow().name.clone()),
         visibility: None,
         is_payable: None,
         selector: RefCell::new(None),
@@ -379,7 +363,7 @@ fn process_modifier_definition_ast_node(
 
     let contract_func = Rc::new(contract_func);
 
-    let mut contract = contract.borrow_mut(env)?;
+    let mut contract = contract.borrow_mut();
     let mut file = file
         .try_borrow_mut()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
@@ -393,10 +377,9 @@ fn process_modifier_definition_ast_node(
 fn process_variable_declaration_ast_node(
     node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract: Rc<ClassInstanceRef<Contract>>,
+    contract: Rc<RefCell<Contract>>,
     file: Rc<RefCell<SourceFile>>,
     getter_abi: Option<&ContractAbiEntry>,
-    env: Env,
 ) -> napi::Result<()> {
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
 
@@ -418,7 +401,7 @@ fn process_variable_declaration_ast_node(
         name: node["name"].as_str().unwrap().to_string(),
         r#type: ContractFunctionType::GETTER,
         location: function_location,
-        contract_name: Some(contract.borrow(env)?.name.clone()),
+        contract_name: Some(contract.borrow().name.clone()),
         visibility: Some(visibility),
         is_payable: Some(false), // Getters aren't payable
         selector: RefCell::new(Some(
@@ -428,7 +411,7 @@ fn process_variable_declaration_ast_node(
     };
     let contract_func = Rc::new(contract_func);
 
-    let mut contract = contract.borrow_mut(env)?;
+    let mut contract = contract.borrow_mut();
     let mut file = file
         .try_borrow_mut()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
@@ -666,10 +649,9 @@ fn ast_src_to_source_location(
 fn correct_selectors(
     bytecodes: &[ClassInstance<Bytecode>],
     compiler_output: &CompilerOutput,
-    env: Env,
 ) -> napi::Result<()> {
     for bytecode in bytecodes.iter().filter(|b| !b.is_deployment) {
-        let mut contract = bytecode.contract.borrow_mut(env)?;
+        let mut contract = bytecode.contract.borrow_mut();
         // Fetch the method identifiers for the contract from the compiler output
         let method_identifiers = match compiler_output
             .contracts
@@ -733,7 +715,7 @@ fn abi_method_id(name: &str, param_types: Vec<impl AsRef<str>>) -> Vec<u8> {
 }
 
 fn decode_evm_bytecode(
-    contract: Rc<ClassInstanceRef<Contract>>,
+    contract: Rc<RefCell<Contract>>,
     solc_version: String,
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
@@ -783,7 +765,7 @@ fn decode_bytecodes(
     solc_version: String,
     compiler_output: &CompilerOutput,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract_id_to_contract: &IndexMap<u32, Rc<ClassInstanceRef<Contract>>>,
+    contract_id_to_contract: &IndexMap<u32, Rc<RefCell<Contract>>>,
     env: Env,
 ) -> napi::Result<Vec<ClassInstance<Bytecode>>> {
     let mut bytecodes = Vec::new();
@@ -791,7 +773,7 @@ fn decode_bytecodes(
     for contract in contract_id_to_contract.values() {
         let contract_rc = contract.clone();
 
-        let mut contract = contract.borrow_mut(env)?;
+        let mut contract = contract.borrow_mut();
 
         let contract_file = &contract
             .location

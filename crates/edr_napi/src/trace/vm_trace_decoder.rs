@@ -165,7 +165,7 @@ impl VmTraceDecoder {
             Some(bytecode) => Some(bytecode.borrow(env)?.contract.clone()),
             None => None,
         };
-        let contract = contract.as_ref().map(|c| c.borrow(env)).transpose()?;
+        let contract = contract.as_ref().map(|c| c.borrow());
 
         let contract_name = contract.as_ref().map_or_else(
             || UNRECOGNIZED_CONTRACT_NAME.to_string(),
@@ -244,7 +244,7 @@ pub fn initialize_vm_trace_decoder(
 
         for bytecode in bytecodes {
             if config.ignore_contracts == Some(true)
-                && bytecode.contract.borrow(env)?.name.starts_with("Ignored")
+                && bytecode.contract.borrow().name.starts_with("Ignored")
             {
                 continue;
             }

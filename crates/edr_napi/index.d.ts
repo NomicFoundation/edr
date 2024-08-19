@@ -658,9 +658,6 @@ export class Bytecode {
   readonly libraryAddressPositions: Array<number>
   readonly compilerVersion: string
 }
-export class Contract {
-  readonly name: string
-}
 export class Exit {
   get kind(): ExitCode
   isError(): boolean

@@ -4,7 +4,7 @@ use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_evm::hex;
 use napi::{
     bindgen_prelude::{BigInt, Either24, Either3, Either4},
-    Either, Env,
+    Either,
 };
 use semver::{Version, VersionReq};
 
@@ -66,11 +66,10 @@ pub struct ErrorInferrer;
 impl ErrorInferrer {
     pub fn infer_before_tracing_call_message(
         trace: &CallMessageTrace,
-        env: Env,
     ) -> napi::Result<Option<SolidityStackTrace>> {
-        if Self::is_direct_library_call(trace, env)? {
+        if Self::is_direct_library_call(trace)? {
             return Ok(Some(Self::get_direct_library_call_error_stack_trace(
-                trace, env,
+                trace,
             )?));
         }
 
@@ -78,19 +77,18 @@ impl ErrorInferrer {
             .bytecode
             .as_ref()
             .expect("The TS code type-checks this to always have bytecode");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         let called_function = contract
             .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
         if let Some(called_function) = called_function {
-            if Self::is_function_not_payable_error(trace, called_function, env)? {
+            if Self::is_function_not_payable_error(trace, called_function)? {
                 return Ok(Some(vec![FunctionNotPayableErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
                     source_reference: Self::get_function_start_source_reference(
                         Either::A(trace),
                         called_function,
-                        env,
                     )?,
                     value: trace.value.clone(),
                 }
@@ -100,11 +98,11 @@ impl ErrorInferrer {
 
         let called_function = called_function.map(AsRef::as_ref);
 
-        if Self::is_missing_function_and_fallback_error(trace, called_function, env)? {
+        if Self::is_missing_function_and_fallback_error(trace, called_function)? {
             let source_reference =
-                Self::get_contract_start_without_function_source_reference(Either::A(trace), env)?;
+                Self::get_contract_start_without_function_source_reference(Either::A(trace))?;
 
-            if Self::empty_calldata_and_no_receive(trace, env)? {
+            if Self::empty_calldata_and_no_receive(trace)? {
                 return Ok(Some(vec![MissingFallbackOrReceiveErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
                     source_reference,
@@ -121,10 +119,10 @@ impl ErrorInferrer {
             ]));
         }
 
-        if Self::is_fallback_not_payable_error(trace, called_function, env)? {
-            let source_reference = Self::get_fallback_start_source_reference(trace, env)?;
+        if Self::is_fallback_not_payable_error(trace, called_function)? {
+            let source_reference = Self::get_fallback_start_source_reference(trace)?;
 
-            if Self::empty_calldata_and_no_receive(trace, env)? {
+            if Self::empty_calldata_and_no_receive(trace)? {
                 return Ok(Some(vec![
                     FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
                         type_: StackTraceEntryTypeConst,
@@ -148,21 +146,20 @@ impl ErrorInferrer {
 
     pub fn infer_before_tracing_create_message(
         trace: &CreateMessageTrace,
-        env: Env,
     ) -> napi::Result<Option<SolidityStackTrace>> {
-        if Self::is_constructor_not_payable_error(trace, env)? {
+        if Self::is_constructor_not_payable_error(trace)? {
             return Ok(Some(vec![FunctionNotPayableErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
-                source_reference: Self::get_constructor_start_source_reference(trace, env)?,
+                source_reference: Self::get_constructor_start_source_reference(trace)?,
                 value: trace.value.clone(),
             }
             .into()]));
         }
 
-        if Self::is_constructor_invalid_arguments_error(trace, env)? {
+        if Self::is_constructor_invalid_arguments_error(trace)? {
             return Ok(Some(vec![InvalidParamsErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
-                source_reference: Self::get_constructor_start_source_reference(trace, env)?,
+                source_reference: Self::get_constructor_start_source_reference(trace)?,
             }
             .into()]));
         }
@@ -176,7 +173,6 @@ impl ErrorInferrer {
         function_jumpdests: &[&Instruction],
         jumped_into_function: bool,
         last_submessage_data: Option<SubmessageDataRef<'_>>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         /// Convenience macro to early return the result if a heuristic hits.
         macro_rules! return_if_hit {
@@ -188,10 +184,10 @@ impl ErrorInferrer {
             };
         }
 
-        let result = Self::check_last_submessage(trace, stacktrace, last_submessage_data, env)?;
+        let result = Self::check_last_submessage(trace, stacktrace, last_submessage_data)?;
         let stacktrace = return_if_hit!(result);
 
-        let result = Self::check_failed_last_call(trace, stacktrace, env)?;
+        let result = Self::check_failed_last_call(trace, stacktrace)?;
         let stacktrace = return_if_hit!(result);
 
         let result = Self::check_last_instruction(
@@ -199,21 +195,20 @@ impl ErrorInferrer {
             stacktrace,
             function_jumpdests,
             jumped_into_function,
-            env,
         )?;
         let stacktrace = return_if_hit!(result);
 
-        let result = Self::check_non_contract_called(trace, stacktrace, env)?;
+        let result = Self::check_non_contract_called(trace, stacktrace)?;
         let stacktrace = return_if_hit!(result);
 
-        let result = Self::check_solidity_0_6_3_unmapped_revert(trace, stacktrace, env)?;
+        let result = Self::check_solidity_0_6_3_unmapped_revert(trace, stacktrace)?;
         let stacktrace = return_if_hit!(result);
 
-        if let Some(result) = Self::check_contract_too_large(trace, env)? {
+        if let Some(result) = Self::check_contract_too_large(trace)? {
             return Ok(result);
         }
 
-        let stacktrace = Self::other_execution_error_stacktrace(trace, stacktrace, env)?;
+        let stacktrace = Self::other_execution_error_stacktrace(trace, stacktrace)?;
         Ok(stacktrace)
     }
 
@@ -299,7 +294,6 @@ impl ErrorInferrer {
 
     fn check_contract_too_large(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<Option<SolidityStackTrace>> {
         Ok(match trace {
             Either::B(create @ CreateMessageTrace { .. })
@@ -307,9 +301,7 @@ impl ErrorInferrer {
             {
                 Some(vec![ContractTooLargeErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
-                    source_reference: Some(Self::get_constructor_start_source_reference(
-                        create, env,
-                    )?),
+                    source_reference: Some(Self::get_constructor_start_source_reference(create)?),
                 }
                 .into()])
             }
@@ -321,7 +313,6 @@ impl ErrorInferrer {
     fn check_failed_last_call(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
-        env: Env,
     ) -> napi::Result<Heuristic> {
         let (bytecode, steps) = match &trace {
             Either::A(call) => (&call.bytecode, &call.steps),
@@ -349,7 +340,7 @@ impl ErrorInferrer {
                     let mut inferred_stacktrace = stacktrace.clone();
                     inferred_stacktrace.push(
                         Self::call_instruction_to_call_failed_to_execute_stack_trace_entry(
-                            bytecode, inst, env,
+                            bytecode, inst,
                         )?
                         .into(),
                     );
@@ -357,7 +348,6 @@ impl ErrorInferrer {
                     return Ok(Heuristic::Hit(Self::fix_initial_modifier(
                         trace,
                         inferred_stacktrace,
-                        env,
                     )?));
                 }
             }
@@ -371,7 +361,6 @@ impl ErrorInferrer {
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
         last_instruction: &Instruction,
-        env: Env,
     ) -> napi::Result<Heuristic> {
         let return_data = ReturnData::new(
             match &trace {
@@ -406,19 +395,17 @@ impl ErrorInferrer {
                 trace,
                 last_instruction,
                 error_code,
-                env,
             )?
             .into(),
         );
 
-        Self::fix_initial_modifier(trace, stacktrace, env).map(Heuristic::Hit)
+        Self::fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit)
     }
 
     fn check_custom_errors(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
         last_instruction: &Instruction,
-        env: Env,
     ) -> napi::Result<Heuristic> {
         let (bytecode, return_data) = match &trace {
             Either::A(call) => (&call.bytecode, &call.return_data),
@@ -426,7 +413,7 @@ impl ErrorInferrer {
         };
 
         let bytecode = bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         let return_data = ReturnData::new(return_data.clone());
 
@@ -473,22 +460,20 @@ impl ErrorInferrer {
                 trace,
                 last_instruction,
                 error_message,
-                env,
             )?
             .into(),
         );
 
-        Self::fix_initial_modifier(trace, stacktrace, env).map(Heuristic::Hit)
+        Self::fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit)
     }
 
     fn check_solidity_0_6_3_unmapped_revert(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
-        env: Env,
     ) -> napi::Result<Heuristic> {
         if Self::solidity_0_6_3_maybe_unmapped_revert(trace)? {
             let revert_frame =
-                Self::solidity_0_6_3_get_frame_for_unmapped_revert_within_function(trace, env)?;
+                Self::solidity_0_6_3_get_frame_for_unmapped_revert_within_function(trace)?;
 
             if let Some(revert_frame) = revert_frame {
                 stacktrace.push(revert_frame.into());
@@ -505,10 +490,9 @@ impl ErrorInferrer {
     fn check_non_contract_called(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
-        env: Env,
     ) -> napi::Result<Heuristic> {
         if Self::is_called_non_contract_account_error(trace)? {
-            let source_reference = Self::get_last_source_reference(trace, env)?;
+            let source_reference = Self::get_last_source_reference(trace)?;
 
             // We are sure this is not undefined because there was at least a call
             // instruction
@@ -533,7 +517,6 @@ impl ErrorInferrer {
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         stacktrace: SolidityStackTrace,
         last_submessage_data: Option<SubmessageDataRef<'_>>,
-        env: Env,
     ) -> napi::Result<Heuristic> {
         let (bytecode, steps) = match &trace {
             Either::A(call) => (&call.bytecode, &call.steps),
@@ -555,8 +538,7 @@ impl ErrorInferrer {
         };
 
         let call_inst = bytecode.get_instruction(call_step.pc)?;
-        let call_stack_frame =
-            instruction_to_callstack_stack_trace_entry(bytecode, call_inst, env)?;
+        let call_stack_frame = instruction_to_callstack_stack_trace_entry(bytecode, call_inst)?;
 
         let (call_stack_frame_source_reference, call_stack_frame) = match call_stack_frame {
             Either::A(frame) => (frame.source_reference.clone(), frame.into()),
@@ -574,7 +556,7 @@ impl ErrorInferrer {
             inferred_stacktrace.push(call_stack_frame);
 
             if Self::is_subtrace_error_propagated(trace, last_submessage_data.step_index)?
-                || Self::is_proxy_error_propagated(trace, last_submessage_data.step_index, env)?
+                || Self::is_proxy_error_propagated(trace, last_submessage_data.step_index)?
             {
                 inferred_stacktrace.extend(last_submessage_data.stacktrace);
 
@@ -596,7 +578,7 @@ impl ErrorInferrer {
                     );
                 }
 
-                return Self::fix_initial_modifier(trace, inferred_stacktrace.to_owned(), env)
+                return Self::fix_initial_modifier(trace, inferred_stacktrace.to_owned())
                     .map(Heuristic::Hit);
             }
         } else {
@@ -611,7 +593,7 @@ impl ErrorInferrer {
                     .into(),
                 );
 
-                return Self::fix_initial_modifier(trace, inferred_stacktrace.into_owned(), env)
+                return Self::fix_initial_modifier(trace, inferred_stacktrace.into_owned())
                     .map(Heuristic::Hit);
             }
         }
@@ -626,7 +608,6 @@ impl ErrorInferrer {
         last_instruction: &Instruction,
         function_jumpdests: &[&Instruction],
         jumped_into_function: bool,
-        env: Env,
     ) -> napi::Result<Heuristic> {
         match last_instruction.opcode {
             Opcode::REVERT | Opcode::INVALID => {}
@@ -656,11 +637,8 @@ impl ErrorInferrer {
                 // If the failure is in a modifier we add an entry with the function/constructor
                 match failing_function {
                     Some(func) if func.r#type == ContractFunctionType::MODIFIER => {
-                        let frame = Self::get_entry_before_failure_in_modifier(
-                            trace,
-                            function_jumpdests,
-                            env,
-                        )?;
+                        let frame =
+                            Self::get_entry_before_failure_in_modifier(trace, function_jumpdests)?;
 
                         inferred_stacktrace.push(match frame {
                             Either::A(frame) => frame.into(),
@@ -672,15 +650,14 @@ impl ErrorInferrer {
             }
         }
 
-        let panic_stacktrace =
-            Self::check_panic(trace, inferred_stacktrace, last_instruction, env)?;
+        let panic_stacktrace = Self::check_panic(trace, inferred_stacktrace, last_instruction)?;
         let inferred_stacktrace = match panic_stacktrace {
             hit @ Heuristic::Hit(..) => return Ok(hit),
             Heuristic::Miss(stacktrace) => stacktrace,
         };
 
         let custom_error_stacktrace =
-            Self::check_custom_errors(trace, inferred_stacktrace, last_instruction, env)?;
+            Self::check_custom_errors(trace, inferred_stacktrace, last_instruction)?;
         let mut inferred_stacktrace = match custom_error_stacktrace {
             hit @ Heuristic::Hit(..) => return Ok(hit),
             Heuristic::Miss(stacktrace) => stacktrace,
@@ -694,7 +671,6 @@ impl ErrorInferrer {
                     let frame = Self::instruction_within_function_to_revert_stack_trace_entry(
                         trace,
                         last_instruction,
-                        env,
                     )?;
 
                     inferred_stacktrace.push(frame.into());
@@ -703,7 +679,7 @@ impl ErrorInferrer {
 
                     match &trace {
                         Either::A(CallMessageTrace { calldata, .. }) => {
-                            let contract = bytecode.contract.borrow(env)?;
+                            let contract = bytecode.contract.borrow();
 
                             // This is here because of the optimizations
                             let function_from_selector = contract.get_function_from_selector(
@@ -720,7 +696,7 @@ impl ErrorInferrer {
                             let frame = RevertErrorStackTraceEntry {
                                 type_: StackTraceEntryTypeConst,
                                 source_reference: Self::get_function_start_source_reference(
-                                    trace, function, env,
+                                    trace, function,
                                 )?,
                                 return_data: return_data.clone(),
                                 is_invalid_opcode_error,
@@ -733,7 +709,7 @@ impl ErrorInferrer {
                             let frame = RevertErrorStackTraceEntry {
                                 type_: StackTraceEntryTypeConst,
                                 source_reference: Self::get_constructor_start_source_reference(
-                                    trace, env,
+                                    trace,
                                 )?,
                                 return_data: return_data.clone(),
                                 is_invalid_opcode_error,
@@ -744,8 +720,7 @@ impl ErrorInferrer {
                     }
                 }
 
-                return Self::fix_initial_modifier(trace, inferred_stacktrace, env)
-                    .map(Heuristic::Hit);
+                return Self::fix_initial_modifier(trace, inferred_stacktrace).map(Heuristic::Hit);
             }
         }
 
@@ -755,7 +730,7 @@ impl ErrorInferrer {
             let revert_frame = RevertErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
                 source_reference: Self::get_contract_start_without_function_source_reference(
-                    trace, env,
+                    trace,
                 )?,
                 return_data: return_data.clone(),
                 is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
@@ -763,7 +738,7 @@ impl ErrorInferrer {
 
             inferred_stacktrace.push(revert_frame.into());
 
-            return Self::fix_initial_modifier(trace, inferred_stacktrace, env).map(Heuristic::Hit);
+            return Self::fix_initial_modifier(trace, inferred_stacktrace).map(Heuristic::Hit);
         }
 
         Ok(Heuristic::Miss(stacktrace))
@@ -774,7 +749,6 @@ impl ErrorInferrer {
         stacktrace: SolidityStackTrace,
         function_jumpdests: &[&Instruction],
         jumped_into_function: bool,
-        env: Env,
     ) -> napi::Result<Heuristic> {
         let (bytecode, steps) = match &trace {
             Either::A(call) => (&call.bytecode, &call.steps),
@@ -799,7 +773,6 @@ impl ErrorInferrer {
             last_instruction,
             function_jumpdests,
             jumped_into_function,
-            env,
         )?;
         let stacktrace = match revert_or_invalid_stacktrace {
             hit @ Heuristic::Hit(..) => return Ok(hit),
@@ -812,13 +785,12 @@ impl ErrorInferrer {
             return Ok(Heuristic::Miss(stacktrace));
         };
 
-        if Self::has_failed_inside_the_fallback_function(trace, env)?
-            || Self::has_failed_inside_the_receive_function(trace, env)?
+        if Self::has_failed_inside_the_fallback_function(trace)?
+            || Self::has_failed_inside_the_receive_function(trace)?
         {
             let frame = Self::instruction_within_function_to_revert_stack_trace_entry(
                 Either::A(trace),
                 last_instruction,
-                env,
             )?;
 
             return Ok(Heuristic::Hit(vec![frame.into()]));
@@ -834,7 +806,6 @@ impl ErrorInferrer {
                     source_reference: Self::get_function_start_source_reference(
                         Either::A(trace),
                         &failing_function,
-                        env,
                     )?,
                     return_data: trace.return_data.clone(),
                     is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
@@ -844,7 +815,7 @@ impl ErrorInferrer {
             }
         }
 
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         let selector = calldata.get(..4).unwrap_or(&calldata[..]);
         let calldata = &calldata.get(4..).unwrap_or(&[]);
@@ -868,7 +839,6 @@ impl ErrorInferrer {
                     source_reference: Self::get_function_start_source_reference(
                         Either::A(trace),
                         called_function,
-                        env,
                     )?,
                 };
 
@@ -878,14 +848,14 @@ impl ErrorInferrer {
 
         if Self::solidity_0_6_3_maybe_unmapped_revert(Either::A(trace))? {
             let revert_frame =
-                Self::solidity_0_6_3_get_frame_for_unmapped_revert_before_function(trace, env)?;
+                Self::solidity_0_6_3_get_frame_for_unmapped_revert_before_function(trace)?;
 
             if let Some(revert_frame) = revert_frame {
                 return Ok(Heuristic::Hit(vec![revert_frame.into()]));
             }
         }
 
-        let frame = Self::get_other_error_before_called_function_stack_trace_entry(trace, env)?;
+        let frame = Self::get_other_error_before_called_function_stack_trace_entry(trace)?;
 
         Ok(Heuristic::Hit(vec![frame.into()]))
     }
@@ -895,7 +865,6 @@ impl ErrorInferrer {
     fn fix_initial_modifier(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         if let Some(Either24::A(CallstackEntryStackTraceEntry {
             function_type: ContractFunctionType::MODIFIER,
@@ -903,7 +872,7 @@ impl ErrorInferrer {
         })) = stacktrace.first()
         {
             let entry_before_initial_modifier =
-                Self::get_entry_before_initial_modifier_callstack_entry(trace, env)?;
+                Self::get_entry_before_initial_modifier_callstack_entry(trace)?;
 
             stacktrace.insert(0, entry_before_initial_modifier);
         }
@@ -913,13 +882,12 @@ impl ErrorInferrer {
 
     fn get_entry_before_initial_modifier_callstack_entry(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTraceEntry> {
         let trace = match trace {
             Either::B(create) => {
                 return Ok(CallstackEntryStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
-                    source_reference: Self::get_constructor_start_source_reference(create, env)?,
+                    source_reference: Self::get_constructor_start_source_reference(create)?,
                     function_type: ContractFunctionType::CONSTRUCTOR,
                 }
                 .into())
@@ -928,16 +896,16 @@ impl ErrorInferrer {
         };
 
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         let called_function = contract
             .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
         let source_reference = match called_function {
             Some(called_function) => {
-                Self::get_function_start_source_reference(Either::A(trace), called_function, env)?
+                Self::get_function_start_source_reference(Either::A(trace), called_function)?
             }
-            None => Self::get_fallback_start_source_reference(trace, env)?,
+            None => Self::get_fallback_start_source_reference(trace)?,
         };
 
         let function_type = match called_function {
@@ -956,11 +924,10 @@ impl ErrorInferrer {
     fn call_instruction_to_call_failed_to_execute_stack_trace_entry(
         bytecode: &Bytecode,
         call_inst: &Instruction,
-        env: Env,
     ) -> napi::Result<CallFailedErrorStackTraceEntry> {
         let location = call_inst.location.as_deref();
 
-        let source_reference = source_location_to_source_reference(bytecode, location, env)?;
+        let source_reference = source_location_to_source_reference(bytecode, location)?;
         let source_reference = source_reference.expect("Expected source reference to be defined");
 
         // Calls only happen within functions
@@ -973,7 +940,6 @@ impl ErrorInferrer {
     fn get_entry_before_failure_in_modifier(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         function_jumpdests: &[&Instruction],
-        env: Env,
     ) -> napi::Result<Either<CallstackEntryStackTraceEntry, InternalFunctionCallStackEntry>> {
         let bytecode = match &trace {
             Either::A(call) => &call.bytecode,
@@ -984,7 +950,7 @@ impl ErrorInferrer {
         // If there's a jumpdest, this modifier belongs to the last function that it
         // represents
         if let Some(last_jumpdest) = function_jumpdests.last() {
-            let entry = instruction_to_callstack_stack_trace_entry(bytecode, last_jumpdest, env)?;
+            let entry = instruction_to_callstack_stack_trace_entry(bytecode, last_jumpdest)?;
 
             return Ok(entry);
         }
@@ -997,7 +963,7 @@ impl ErrorInferrer {
         // If there's no jump dest, we point to the constructor.
         Ok(Either::A(CallstackEntryStackTraceEntry {
             type_: StackTraceEntryTypeConst,
-            source_reference: Self::get_constructor_start_source_reference(trace, env)?,
+            source_reference: Self::get_constructor_start_source_reference(trace)?,
             function_type: ContractFunctionType::CONSTRUCTOR,
         }))
     }
@@ -1148,7 +1114,6 @@ impl ErrorInferrer {
     fn is_proxy_error_propagated(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         call_subtrace_step_index: u32,
-        env: Env,
     ) -> napi::Result<bool> {
         let trace = match &trace {
             Either::A(call) => call,
@@ -1184,7 +1149,7 @@ impl ErrorInferrer {
             None => return Ok(false),
         };
 
-        if subtrace_bytecode.contract.borrow(env)?.r#type == ContractKind::Library {
+        if subtrace_bytecode.contract.borrow().r#type == ContractKind::Library {
             return Ok(false);
         }
 
@@ -1230,39 +1195,35 @@ impl ErrorInferrer {
     fn other_execution_error_stacktrace(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         mut stacktrace: SolidityStackTrace,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let other_execution_error_frame = OtherExecutionErrorStackTraceEntry {
             type_: StackTraceEntryTypeConst,
-            source_reference: Self::get_last_source_reference(trace, env)?,
+            source_reference: Self::get_last_source_reference(trace)?,
         };
 
         stacktrace.push(other_execution_error_frame.into());
         Ok(stacktrace)
     }
 
-    fn is_direct_library_call(trace: &CallMessageTrace, env: Env) -> napi::Result<bool> {
+    fn is_direct_library_call(trace: &CallMessageTrace) -> napi::Result<bool> {
         let contract = &trace.bytecode.as_ref().expect("JS code asserts").contract;
-        let contract = contract.borrow(env)?;
+        let contract = contract.borrow();
 
         Ok(trace.depth == 0 && contract.r#type == ContractKind::Library)
     }
 
     fn get_direct_library_call_error_stack_trace(
         trace: &CallMessageTrace,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let contract = &trace.bytecode.as_ref().expect("JS code asserts").contract;
-        let contract = contract.borrow(env)?;
+        let contract = contract.borrow();
 
         let func = contract
             .get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
         let source_reference = match func {
-            Some(func) => Self::get_function_start_source_reference(Either::A(trace), func, env)?,
-            None => {
-                Self::get_contract_start_without_function_source_reference(Either::A(trace), env)?
-            }
+            Some(func) => Self::get_function_start_source_reference(Either::A(trace), func)?,
+            None => Self::get_contract_start_without_function_source_reference(Either::A(trace))?,
         };
 
         Ok(vec![DirectLibraryCallErrorStackTraceEntry {
@@ -1275,7 +1236,6 @@ impl ErrorInferrer {
     fn get_function_start_source_reference(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         func: &ContractFunction,
-        env: Env,
     ) -> napi::Result<SourceReference> {
         let bytecode = match &trace {
             Either::A(create) => &create.bytecode,
@@ -1283,7 +1243,7 @@ impl ErrorInferrer {
         };
 
         let contract = &bytecode.as_ref().expect("JS code asserts").contract;
-        let contract = contract.borrow(env)?;
+        let contract = contract.borrow();
 
         let file = func
             .location
@@ -1307,7 +1267,6 @@ impl ErrorInferrer {
     fn is_missing_function_and_fallback_error(
         trace: &CallMessageTrace,
         called_function: Option<&ContractFunction>,
-        env: Env,
     ) -> napi::Result<bool> {
         // This error doesn't return data
         if trace.return_data.len() > 0 {
@@ -1323,7 +1282,7 @@ impl ErrorInferrer {
             .bytecode
             .as_ref()
             .expect("The TS code type-checks this to always have bytecode");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         // there's a receive function and no calldata
         if trace.calldata.len() == 0 && contract.receive.is_some() {
@@ -1333,12 +1292,12 @@ impl ErrorInferrer {
         Ok(contract.fallback.is_none())
     }
 
-    fn empty_calldata_and_no_receive(trace: &CallMessageTrace, env: Env) -> napi::Result<bool> {
+    fn empty_calldata_and_no_receive(trace: &CallMessageTrace) -> napi::Result<bool> {
         let bytecode = trace
             .bytecode
             .as_ref()
             .expect("The TS code type-checks this to always have bytecode");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         let version = Version::parse(&bytecode.compiler_version).unwrap();
         // this only makes sense when receive functions are available
@@ -1352,7 +1311,6 @@ impl ErrorInferrer {
     fn is_fallback_not_payable_error(
         trace: &CallMessageTrace,
         called_function: Option<&ContractFunction>,
-        env: Env,
     ) -> napi::Result<bool> {
         // This error doesn't return data
         if !trace.return_data.is_empty() {
@@ -1370,7 +1328,7 @@ impl ErrorInferrer {
         }
 
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         match &contract.fallback {
             Some(fallback) => Ok(fallback.is_payable != Some(true)),
@@ -1380,10 +1338,9 @@ impl ErrorInferrer {
 
     fn get_fallback_start_source_reference(
         trace: &CallMessageTrace,
-        env: Env,
     ) -> napi::Result<SourceReference> {
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         let func = match &contract.fallback {
           Some(func) => func,
@@ -1406,17 +1363,14 @@ impl ErrorInferrer {
         })
     }
 
-    fn is_constructor_not_payable_error(
-        trace: &CreateMessageTrace,
-        env: Env,
-    ) -> napi::Result<bool> {
+    fn is_constructor_not_payable_error(trace: &CreateMessageTrace) -> napi::Result<bool> {
         // This error doesn't return data
         if !trace.return_data.is_empty() {
             return Ok(false);
         }
 
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         // This function is only matters with contracts that have constructors defined.
         // The ones that don't are abstract contracts, or their constructor
@@ -1438,10 +1392,9 @@ impl ErrorInferrer {
     /// to the contract otherwise.
     fn get_constructor_start_source_reference(
         trace: &CreateMessageTrace,
-        env: Env,
     ) -> napi::Result<SourceReference> {
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
         let contract_location = &contract.location;
 
         let line = match &contract.constructor {
@@ -1468,16 +1421,13 @@ impl ErrorInferrer {
         })
     }
 
-    fn is_constructor_invalid_arguments_error(
-        trace: &CreateMessageTrace,
-        env: Env,
-    ) -> napi::Result<bool> {
+    fn is_constructor_invalid_arguments_error(trace: &CreateMessageTrace) -> napi::Result<bool> {
         if trace.return_data.len() > 0 {
             return Ok(false);
         }
 
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         // This function is only matters with contracts that have constructors defined.
         // The ones that don't are abstract contracts, or their constructor
@@ -1531,7 +1481,6 @@ impl ErrorInferrer {
 
     fn get_contract_start_without_function_source_reference(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SourceReference> {
         let bytecode = match &trace {
             Either::A(create) => &create.bytecode,
@@ -1540,7 +1489,7 @@ impl ErrorInferrer {
 
         let contract = &bytecode.as_ref().expect("JS code asserts").contract;
 
-        let contract = contract.borrow(env)?;
+        let contract = contract.borrow();
 
         let location = &contract.location;
         let file = location
@@ -1562,7 +1511,6 @@ impl ErrorInferrer {
     fn is_function_not_payable_error(
         trace: &CallMessageTrace,
         called_function: &ContractFunction,
-        env: Env,
     ) -> napi::Result<bool> {
         // This error doesn't return data
         if !trace.return_data.is_empty() {
@@ -1575,7 +1523,7 @@ impl ErrorInferrer {
         }
 
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         // Libraries don't have a nonpayable check
         if contract.r#type == ContractKind::Library {
@@ -1587,7 +1535,6 @@ impl ErrorInferrer {
 
     fn get_last_source_reference(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<Option<SourceReference>> {
         let (bytecode, steps) = match trace {
             Either::A(create) => (&create.bytecode, &create.steps),
@@ -1610,8 +1557,7 @@ impl ErrorInferrer {
                 continue;
             };
 
-            let source_reference =
-                source_location_to_source_reference(bytecode, Some(location), env)?;
+            let source_reference = source_location_to_source_reference(bytecode, Some(location))?;
 
             if let Some(source_reference) = source_reference {
                 return Ok(Some(source_reference));
@@ -1621,12 +1567,9 @@ impl ErrorInferrer {
         Ok(None)
     }
 
-    fn has_failed_inside_the_fallback_function(
-        trace: &CallMessageTrace,
-        env: Env,
-    ) -> napi::Result<bool> {
+    fn has_failed_inside_the_fallback_function(trace: &CallMessageTrace) -> napi::Result<bool> {
         let contract = &trace.bytecode.as_ref().expect("JS code asserts").contract;
-        let contract = contract.borrow(env)?;
+        let contract = contract.borrow();
 
         match &contract.fallback {
             Some(fallback) => Self::has_failed_inside_function(trace, fallback),
@@ -1634,12 +1577,9 @@ impl ErrorInferrer {
         }
     }
 
-    fn has_failed_inside_the_receive_function(
-        trace: &CallMessageTrace,
-        env: Env,
-    ) -> napi::Result<bool> {
+    fn has_failed_inside_the_receive_function(trace: &CallMessageTrace) -> napi::Result<bool> {
         let contract = &trace.bytecode.as_ref().expect("JS code asserts").contract;
-        let contract = contract.borrow(env)?;
+        let contract = contract.borrow();
 
         match &contract.receive {
             Some(receive) => Self::has_failed_inside_function(trace, receive),
@@ -1675,7 +1615,6 @@ impl ErrorInferrer {
     fn instruction_within_function_to_revert_stack_trace_entry(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         inst: &Instruction,
-        env: Env,
     ) -> napi::Result<RevertErrorStackTraceEntry> {
         let bytecode = match &trace {
             Either::A(create) => &create.bytecode,
@@ -1685,7 +1624,7 @@ impl ErrorInferrer {
         .expect("JS code asserts");
 
         let source_reference =
-            source_location_to_source_reference(bytecode, inst.location.as_deref(), env)?
+            source_location_to_source_reference(bytecode, inst.location.as_deref())?
                 .expect("Expected source reference to be defined");
 
         let return_data = match &trace {
@@ -1704,7 +1643,6 @@ impl ErrorInferrer {
     fn instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         inst: &Instruction,
-        env: Env,
     ) -> napi::Result<UnmappedSolc063RevertErrorStackTraceEntry> {
         let bytecode = match &trace {
             Either::A(create) => &create.bytecode,
@@ -1714,7 +1652,7 @@ impl ErrorInferrer {
         .expect("JS code asserts");
 
         let source_reference =
-            source_location_to_source_reference(bytecode, inst.location.as_deref(), env)?;
+            source_location_to_source_reference(bytecode, inst.location.as_deref())?;
 
         Ok(UnmappedSolc063RevertErrorStackTraceEntry {
             type_: StackTraceEntryTypeConst,
@@ -1726,9 +1664,8 @@ impl ErrorInferrer {
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         inst: &Instruction,
         error_code: BigInt,
-        env: Env,
     ) -> napi::Result<PanicErrorStackTraceEntry> {
-        let last_source_reference = Self::get_last_source_reference(trace, env)?;
+        let last_source_reference = Self::get_last_source_reference(trace)?;
 
         let bytecode = match &trace {
             Either::A(create) => &create.bytecode,
@@ -1738,7 +1675,7 @@ impl ErrorInferrer {
         .expect("JS code asserts");
 
         let source_reference =
-            source_location_to_source_reference(bytecode, inst.location.as_deref(), env)?;
+            source_location_to_source_reference(bytecode, inst.location.as_deref())?;
 
         let source_reference = source_reference.or(last_source_reference);
 
@@ -1753,9 +1690,8 @@ impl ErrorInferrer {
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
         inst: &Instruction,
         message: String,
-        env: Env,
     ) -> napi::Result<CustomErrorStackTraceEntry> {
-        let last_source_reference = Self::get_last_source_reference(trace, env)?;
+        let last_source_reference = Self::get_last_source_reference(trace)?;
         let last_source_reference =
             last_source_reference.expect("Expected source reference to be defined");
 
@@ -1767,7 +1703,7 @@ impl ErrorInferrer {
         .expect("JS code asserts");
 
         let source_reference =
-            source_location_to_source_reference(bytecode, inst.location.as_deref(), env)?;
+            source_location_to_source_reference(bytecode, inst.location.as_deref())?;
 
         let source_reference = source_reference.unwrap_or(last_source_reference);
 
@@ -1815,15 +1751,12 @@ impl ErrorInferrer {
     // For more info: https://github.com/ethereum/solidity/issues/9006
     fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function(
         trace: &CallMessageTrace,
-        env: Env,
     ) -> napi::Result<Option<UnmappedSolc063RevertErrorStackTraceEntry>> {
         let bytecode = trace.bytecode.as_ref().expect("JS code asserts");
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
-        let revert_frame = Self::solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
-            Either::A(trace),
-            env,
-        )?;
+        let revert_frame =
+            Self::solidity_0_6_3_get_frame_for_unmapped_revert_within_function(Either::A(trace))?;
 
         let revert_frame = match revert_frame {
             None
@@ -1892,7 +1825,6 @@ impl ErrorInferrer {
 
     fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<Option<UnmappedSolc063RevertErrorStackTraceEntry>> {
         let (bytecode, steps) = match &trace {
             Either::A(create) => (&create.bytecode, &create.steps),
@@ -1903,7 +1835,7 @@ impl ErrorInferrer {
             .as_ref()
             .expect("JS code only accepted variants that had bytecode defined");
 
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         // If we are within a function there's a last valid location. It may
         // be the entire contract.
@@ -1942,7 +1874,7 @@ impl ErrorInferrer {
                     return Ok(Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 next_inst,
-                env,
+
               )?));
                 }
                 _ => {}
@@ -1952,13 +1884,13 @@ impl ErrorInferrer {
                 Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 prev_inst.as_ref().unwrap(),
-                env,
+
               )?)
             } else if next_func.is_some() {
                 Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 next_inst,
-                env,
+
               )?)
             } else {
                 None
@@ -1975,7 +1907,7 @@ impl ErrorInferrer {
             let mut constructor_revert_frame = Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 prev_inst.as_ref().unwrap(),
-                env,
+
             )?;
 
             // When the latest instruction is not within a function we need
@@ -2018,7 +1950,7 @@ impl ErrorInferrer {
             let mut latest_instruction_revert_frame = Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 prev_inst,
-                env,
+
             )?;
 
             if latest_instruction_revert_frame.source_reference.is_some() {
@@ -2064,10 +1996,9 @@ impl ErrorInferrer {
 
     fn get_other_error_before_called_function_stack_trace_entry(
         trace: &CallMessageTrace,
-        env: Env,
     ) -> napi::Result<OtherExecutionErrorStackTraceEntry> {
         let source_reference =
-            Self::get_contract_start_without_function_source_reference(Either::A(trace), env)?;
+            Self::get_contract_start_without_function_source_reference(Either::A(trace))?;
 
         Ok(OtherExecutionErrorStackTraceEntry {
             type_: StackTraceEntryTypeConst,
@@ -2179,7 +2110,6 @@ impl ErrorInferrer {
 fn source_location_to_source_reference(
     bytecode: &Bytecode,
     location: Option<&SourceLocation>,
-    env: Env,
 ) -> napi::Result<Option<SourceReference>> {
     let Some(location) = location else {
         return Ok(None);
@@ -2209,7 +2139,7 @@ fn source_location_to_source_reference(
         contract: if func.r#type == ContractFunctionType::FREE_FUNCTION {
             None
         } else {
-            Some(bytecode.contract.borrow(env)?.name.clone())
+            Some(bytecode.contract.borrow().name.clone())
         },
         source_name: func_location_file.source_name.clone(),
         source_content: func_location_file.content.clone(),
@@ -2221,9 +2151,8 @@ fn source_location_to_source_reference(
 pub fn instruction_to_callstack_stack_trace_entry(
     bytecode: &Bytecode,
     inst: &Instruction,
-    env: Env,
 ) -> napi::Result<Either<CallstackEntryStackTraceEntry, InternalFunctionCallStackEntry>> {
-    let contract = bytecode.contract.borrow(env)?;
+    let contract = bytecode.contract.borrow();
 
     // This means that a jump is made from within an internal solc function.
     // These are normally made from yul code, so they don't map to any Solidity
@@ -2255,9 +2184,8 @@ pub fn instruction_to_callstack_stack_trace_entry(
     let func = inst_location.get_containing_function()?;
 
     if let Some(func) = func {
-        let source_reference =
-            source_location_to_source_reference(bytecode, Some(inst_location), env)?
-                .expect("Expected source reference to be defined");
+        let source_reference = source_location_to_source_reference(bytecode, Some(inst_location))?
+            .expect("Expected source reference to be defined");
 
         return Ok(Either::A(CallstackEntryStackTraceEntry {
             type_: StackTraceEntryTypeConst,

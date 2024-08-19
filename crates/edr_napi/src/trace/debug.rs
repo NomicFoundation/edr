@@ -81,7 +81,7 @@ fn print_call_trace(trace: &CallMessageTrace, depth: u32, env: Env) -> napi::Res
     println!("{margin}Call trace");
 
     if let Some(bytecode) = &trace.bytecode {
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
         let file = contract
             .location
             .file
@@ -130,7 +130,7 @@ fn print_create_trace(trace: &CreateMessageTrace, depth: u32, env: Env) -> napi:
     println!("{margin}Create trace");
 
     if let Some(bytecode) = &trace.bytecode {
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         println!("{margin} deploying contract: {}", contract.name);
         println!("{margin} code: {}", hex::encode_prefixed(&*trace.code));

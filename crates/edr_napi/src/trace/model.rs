@@ -14,7 +14,6 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::opcodes::Opcode;
-use crate::utils::ClassInstanceRef;
 
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
@@ -248,7 +247,7 @@ impl From<edr_solidity::artifacts::ImmutableReference> for ImmutableReference {
 pub struct Bytecode {
     pc_to_instruction: HashMap<u32, Instruction>,
 
-    pub(crate) contract: Rc<ClassInstanceRef<Contract>>,
+    pub(crate) contract: Rc<RefCell<Contract>>,
     #[napi(readonly)]
     pub is_deployment: bool,
     pub(crate) normalized_code: Vec<u8>,
@@ -262,7 +261,7 @@ pub struct Bytecode {
 #[napi]
 impl Bytecode {
     pub fn new(
-        contract: Rc<ClassInstanceRef<Contract>>,
+        contract: Rc<RefCell<Contract>>,
         is_deployment: bool,
         normalized_code: Vec<u8>,
         instructions: Vec<Instruction>,
@@ -307,7 +306,6 @@ pub enum ContractKind {
     Library,
 }
 
-#[napi]
 pub struct Contract {
     pub(crate) custom_errors: Vec<CustomError>,
     pub(crate) constructor: Option<Rc<ContractFunction>>,
@@ -316,13 +314,11 @@ pub struct Contract {
     local_functions: Vec<Rc<ContractFunction>>,
     selector_hex_to_function: HashMap<String, Rc<ContractFunction>>,
 
-    #[napi(readonly)]
     pub name: String,
     pub(crate) r#type: ContractKind,
     pub(crate) location: Rc<SourceLocation>,
 }
 
-#[napi]
 impl Contract {
     pub fn new(
         name: String,
