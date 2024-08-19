@@ -11,10 +11,7 @@ use edr_solidity::{
     library_utils::get_library_address_positions,
 };
 use indexmap::IndexMap;
-use napi::{
-    bindgen_prelude::{ClassInstance, Uint8Array},
-    Env,
-};
+use napi::{bindgen_prelude::ClassInstance, Env};
 use napi_derive::napi;
 
 use super::{
@@ -336,7 +333,7 @@ fn process_function_definition_ast_node(
         contract: contract.clone(),
         visibility: Some(visibility),
         is_payable: Some(node["stateMutability"].as_str().unwrap() == "payable"),
-        selector: selector.map(Uint8Array::from),
+        selector,
         param_types,
     }
     .into_instance(env)?;
@@ -422,9 +419,9 @@ fn process_variable_declaration_ast_node(
         contract: Some(contract.clone()),
         visibility: Some(visibility),
         is_payable: Some(false), // Getters aren't payable
-        selector: Some(Uint8Array::from(
-            get_public_variable_selector_from_declaration_ast_node(node)?,
-        )),
+        selector: Some(get_public_variable_selector_from_declaration_ast_node(
+            node,
+        )?),
         param_types,
     }
     .into_instance(env)?;
@@ -705,11 +702,8 @@ fn correct_selectors(
             // Let's create a stack trace that exercises that code path or
             // let's remove it if/when we adapt our model to also properly
             // support ABI v2.
-            let fixed_selector = contract.correct_selector(
-                function_name.to_string(),
-                selector.clone().into(),
-                env,
-            )?;
+            let fixed_selector =
+                contract.correct_selector(function_name.to_string(), selector.clone(), env)?;
 
             if !fixed_selector {
                 return Err(napi::Error::from_reason(format!(

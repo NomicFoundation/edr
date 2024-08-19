@@ -166,7 +166,7 @@ pub struct ContractFunction {
     #[napi(readonly)]
     pub is_payable: Option<bool>,
     /// Fixed up by `Contract.correctSelector`
-    pub(crate) selector: Option<Uint8Array>,
+    pub(crate) selector: Option<Vec<u8>>,
     #[napi(readonly)]
     pub param_types: Option<Vec<Value>>,
 }
@@ -532,7 +532,7 @@ impl Contract {
     pub fn correct_selector(
         &mut self,
         function_name: String,
-        selector: Uint8Array,
+        selector: Vec<u8>,
         env: Env,
     ) -> napi::Result<bool> {
         let functions = self
