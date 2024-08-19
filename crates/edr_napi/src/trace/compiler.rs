@@ -80,7 +80,7 @@ fn create_sources_model_from_ast(
         let file = SourceFile::new(
             source_name.to_string(),
             compiler_input.sources[source_name].content.clone(),
-        )?;
+        );
         let file = Rc::new(RefCell::new(file));
 
         file_id_to_source_file.insert(source.id, file.clone());

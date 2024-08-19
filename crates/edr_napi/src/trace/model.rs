@@ -26,13 +26,13 @@ pub struct SourceFile {
 }
 
 impl SourceFile {
-    pub fn new(source_name: String, content: String) -> napi::Result<SourceFile> {
-        Ok(SourceFile {
+    pub fn new(source_name: String, content: String) -> SourceFile {
+        SourceFile {
             functions: Vec::new(),
 
             content,
             source_name,
-        })
+        }
     }
 
     pub fn add_function(&mut self, contract_function: Rc<ClassInstanceRef<ContractFunction>>) {
