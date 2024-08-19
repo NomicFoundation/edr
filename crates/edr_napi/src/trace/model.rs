@@ -287,11 +287,8 @@ pub enum JumpType {
 }
 
 #[derive(Clone)]
-#[napi(object)]
 pub struct ImmutableReference {
-    #[napi(readonly)]
     pub start: u32,
-    #[napi(readonly)]
     pub length: u32,
 }
 
@@ -333,15 +330,13 @@ pub struct Bytecode {
     pub normalized_code: Buffer,
     #[napi(readonly)]
     pub library_address_positions: Vec<u32>,
-    #[napi(readonly)]
-    pub immutable_references: Vec<ImmutableReference>,
+    pub(crate) immutable_references: Vec<ImmutableReference>,
     #[napi(readonly)]
     pub compiler_version: String,
 }
 
 #[napi]
 impl Bytecode {
-    #[allow(clippy::too_many_arguments)] // mimick the original code
     pub fn new(
         contract: Rc<ClassInstanceRef<Contract>>,
         is_deployment: bool,
@@ -350,7 +345,6 @@ impl Bytecode {
         library_address_positions: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
         compiler_version: String,
-        // env: Env,
     ) -> napi::Result<Bytecode> {
         let mut pc_to_instruction = HashMap::new();
         for inst in instructions {

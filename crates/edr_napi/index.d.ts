@@ -357,10 +357,6 @@ export const enum ContractFunctionType {
   MODIFIER = 5,
   FREE_FUNCTION = 6
 }
-export interface ImmutableReference {
-  readonly start: number
-  readonly length: number
-}
 export function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
 export function printStackTrace(trace: SolidityStackTrace): void
 /** Represents the exit code of the EVM. */
@@ -687,7 +683,6 @@ export class Bytecode {
   readonly isDeployment: boolean
   readonly normalizedCode: Buffer
   readonly libraryAddressPositions: Array<number>
-  readonly immutableReferences: Array<ImmutableReference>
   readonly compilerVersion: string
   get contract(): Contract
 }
