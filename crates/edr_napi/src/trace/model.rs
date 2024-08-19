@@ -169,14 +169,11 @@ pub enum ContractFunctionType {
 }
 
 #[derive(PartialEq)]
-#[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
-#[allow(clippy::upper_case_acronyms)]
-#[napi]
 pub enum ContractFunctionVisibility {
-    PRIVATE,
-    INTERNAL,
-    PUBLIC,
-    EXTERNAL,
+    Private,
+    Internal,
+    Public,
+    External,
 }
 
 #[napi]
@@ -187,8 +184,7 @@ pub struct ContractFunction {
     pub r#type: ContractFunctionType,
     pub(crate) location: ClassInstanceRef<SourceLocation>,
     pub(crate) contract: Option<Rc<ClassInstanceRef<Contract>>>,
-    #[napi(readonly)]
-    pub visibility: Option<ContractFunctionVisibility>,
+    pub(crate) visibility: Option<ContractFunctionVisibility>,
     #[napi(readonly)]
     pub is_payable: Option<bool>,
     /// Fixed up by `Contract.correctSelector`
@@ -481,7 +477,7 @@ impl Contract {
 
         if matches!(
             func.visibility,
-            Some(ContractFunctionVisibility::PUBLIC | ContractFunctionVisibility::EXTERNAL)
+            Some(ContractFunctionVisibility::Public | ContractFunctionVisibility::External)
         ) {
             match func.r#type {
                 ContractFunctionType::FUNCTION | ContractFunctionType::GETTER => {
@@ -537,8 +533,8 @@ impl Contract {
                 continue;
             }
 
-            if base_contract_function.visibility != Some(ContractFunctionVisibility::PUBLIC)
-                && base_contract_function.visibility != Some(ContractFunctionVisibility::EXTERNAL)
+            if base_contract_function.visibility != Some(ContractFunctionVisibility::Public)
+                && base_contract_function.visibility != Some(ContractFunctionVisibility::External)
             {
                 continue;
             }

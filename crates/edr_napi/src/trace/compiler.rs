@@ -285,8 +285,8 @@ fn process_function_definition_ast_node(
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
 
     let selector = if function_type == ContractFunctionType::FUNCTION
-        && (visibility == ContractFunctionVisibility::EXTERNAL
-            || visibility == ContractFunctionVisibility::PUBLIC)
+        && (visibility == ContractFunctionVisibility::External
+            || visibility == ContractFunctionVisibility::Public)
     {
         Some(ast_function_definition_to_selector(node)?)
     } else {
@@ -398,7 +398,7 @@ fn process_variable_declaration_ast_node(
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
 
     // Variables can't be external
-    if visibility != ContractFunctionVisibility::PUBLIC {
+    if visibility != ContractFunctionVisibility::Public {
         return Ok(());
     }
 
@@ -573,10 +573,10 @@ fn function_definition_kind_to_function_type(kind: Option<&str>) -> ContractFunc
 
 fn ast_visibility_to_visibility(visibility: &str) -> ContractFunctionVisibility {
     match visibility {
-        "private" => ContractFunctionVisibility::PRIVATE,
-        "internal" => ContractFunctionVisibility::INTERNAL,
-        "public" => ContractFunctionVisibility::PUBLIC,
-        _ => ContractFunctionVisibility::EXTERNAL,
+        "private" => ContractFunctionVisibility::Private,
+        "internal" => ContractFunctionVisibility::Internal,
+        "public" => ContractFunctionVisibility::Public,
+        _ => ContractFunctionVisibility::External,
     }
 }
 

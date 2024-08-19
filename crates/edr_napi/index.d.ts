@@ -357,12 +357,6 @@ export const enum ContractFunctionType {
   MODIFIER = 5,
   FREE_FUNCTION = 6
 }
-export const enum ContractFunctionVisibility {
-  PRIVATE = 0,
-  INTERNAL = 1,
-  PUBLIC = 2,
-  EXTERNAL = 3
-}
 export interface ImmutableReference {
   readonly start: number
   readonly length: number
@@ -683,7 +677,6 @@ export class SourceLocation {
 export class ContractFunction {
   readonly name: string
   readonly type: ContractFunctionType
-  readonly visibility?: ContractFunctionVisibility
   readonly isPayable?: boolean
   readonly paramTypes?: Array<any>
   get location(): SourceLocation
