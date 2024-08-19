@@ -446,9 +446,7 @@ impl ErrorInferrer {
         );
 
         for custom_error in &contract.custom_errors {
-            let custom_error = custom_error.borrow(env)?;
-
-            if return_data.matches_selector(&*custom_error.selector) {
+            if return_data.matches_selector(custom_error.selector) {
                 // if the return data matches a custom error in the called contract,
                 // we format the message using the returnData and the custom error instance
                 let decoded = custom_error

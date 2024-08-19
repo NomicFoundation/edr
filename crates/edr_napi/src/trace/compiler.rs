@@ -797,11 +797,8 @@ fn decode_bytecodes(
 
         for item in contract_abi_output {
             if item.r#type.as_deref() == Some("error") {
-                let custom_error = CustomError::from_abi(item.clone()).ok();
-
-                if let Some(custom_error) = custom_error {
-                    let r#ref = ClassInstanceRef::from_obj(custom_error.into_instance(env)?, env)?;
-                    contract.add_custom_error(r#ref);
+                if let Ok(custom_error) = CustomError::from_abi(item.clone()) {
+                    contract.add_custom_error(custom_error);
                 }
             }
         }

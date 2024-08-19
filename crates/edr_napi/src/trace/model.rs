@@ -232,13 +232,9 @@ impl<'a> TryFrom<&'a ContractFunction> for alloy_json_abi::Function {
     }
 }
 
-#[napi]
 pub struct CustomError {
-    #[napi(readonly)]
-    pub selector: Uint8Array,
-    #[napi(readonly)]
+    pub selector: [u8; 4],
     pub name: String,
-    #[napi(readonly)]
     pub param_types: Vec<Value>,
 
     def: alloy_json_abi::Error,
@@ -254,7 +250,7 @@ impl CustomError {
         let selector = edr_solidity::utils::json_abi_error_selector(&json)?;
 
         Ok(CustomError {
-            selector: Uint8Array::from(&selector),
+            selector,
             name: entry.name.expect("ABI errors to always have names"),
             param_types: entry.inputs.unwrap_or_default(),
             def: serde_json::from_value(json).map_err(|e| e.to_string().into_boxed_str())?,
@@ -390,7 +386,7 @@ pub enum ContractKind {
 
 #[napi]
 pub struct Contract {
-    pub(crate) custom_errors: Vec<ClassInstanceRef<CustomError>>,
+    pub(crate) custom_errors: Vec<CustomError>,
     pub(crate) constructor: Option<Rc<ClassInstanceRef<ContractFunction>>>,
     pub(crate) fallback: Option<Rc<ClassInstanceRef<ContractFunction>>>,
     pub(crate) receive: Option<Rc<ClassInstanceRef<ContractFunction>>>,
@@ -426,14 +422,6 @@ impl Contract {
     #[napi(getter, ts_return_type = "SourceLocation")]
     pub fn location(&self, env: Env) -> napi::Result<Object> {
         self.location.as_object(env)
-    }
-
-    #[napi(getter, ts_return_type = "Array<CustomError>")]
-    pub fn custom_errors(&self, env: Env) -> napi::Result<Vec<Object>> {
-        self.custom_errors
-            .iter()
-            .map(|value| value.as_object(env))
-            .collect()
     }
 
     #[napi(getter, ts_return_type = "ContractFunction | undefined")]
@@ -498,7 +486,7 @@ impl Contract {
         Ok(())
     }
 
-    pub fn add_custom_error(&mut self, value: ClassInstanceRef<CustomError>) {
+    pub fn add_custom_error(&mut self, value: CustomError) {
         self.custom_errors.push(value);
     }
 

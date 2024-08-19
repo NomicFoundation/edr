@@ -674,11 +674,6 @@ export class ContractFunction {
   get location(): SourceLocation
   get contract(): Contract | undefined
 }
-export class CustomError {
-  readonly selector: Uint8Array
-  readonly name: string
-  readonly paramTypes: Array<any>
-}
 export class Bytecode {
   readonly isDeployment: boolean
   readonly normalizedCode: Buffer
@@ -689,7 +684,6 @@ export class Bytecode {
 export class Contract {
   readonly name: string
   get location(): SourceLocation
-  get customErrors(): Array<CustomError>
   get constructorFunction(): ContractFunction | undefined
   get fallback(): ContractFunction | undefined
   get receive(): ContractFunction | undefined
