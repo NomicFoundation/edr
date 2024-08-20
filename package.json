@@ -6,7 +6,8 @@
   "private": true,
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
-    "prettier": "^3.2.5"
+    "prettier": "^3.2.5",
+    "syncpack": "^12.4.0"
   },
   "scripts": {
     "build": "cd crates/edr_napi && pnpm build",
