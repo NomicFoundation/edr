@@ -6,9 +6,11 @@ use std::str::FromStr;
 use std::{collections::HashMap, rc::Rc};
 
 use edr_evm::{alloy_primitives::keccak256, hex};
-use edr_solidity::{
-    artifacts::{CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry},
-    library_utils::get_library_address_positions,
+use edr_solidity::artifacts::{
+    CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry,
+};
+use edr_solidity::library_utils::{
+    get_library_address_positions, normalize_compiler_output_bytecode,
 };
 use indexmap::IndexMap;
 use napi::bindgen_prelude::ClassInstance;
@@ -17,7 +19,6 @@ use napi_derive::napi;
 
 use super::model::BytecodeWrapper;
 use super::{
-    library_utils::normalize_compiler_output_bytecode,
     model::{
         Bytecode, Contract, ContractFunction, ContractFunctionType, ContractFunctionVisibility,
         ContractKind, CustomError, SourceFile, SourceLocation,
