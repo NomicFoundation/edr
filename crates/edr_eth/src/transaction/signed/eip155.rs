@@ -120,7 +120,7 @@ impl Transaction for Eip155 {
     }
 
     fn chain_id(&self) -> Option<u64> {
-        Some(chain_id(self))
+        Some(v_to_chain_id(self.signature.v()))
     }
 
     fn access_list(&self) -> &[AccessListItem] {
@@ -142,10 +142,6 @@ impl Transaction for Eip155 {
     fn authorization_list(&self) -> Option<&AuthorizationList> {
         None
     }
-}
-
-pub fn chain_id(transaction: &Eip155) -> u64 {
-    v_to_chain_id(transaction.signature.v())
 }
 
 /// Converts a V-value to a chain ID.

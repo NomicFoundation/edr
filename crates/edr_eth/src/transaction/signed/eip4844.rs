@@ -210,7 +210,7 @@ impl From<&Decodable> for transaction::request::Eip4844 {
 
 /// Total blob gas used by the transaction.
 pub fn total_blob_gas(transaction: &Eip4844) -> u64 {
-    GAS_PER_BLOB * transaction.blob_hashes.len() as u64
+    GAS_PER_BLOB * (transaction.blob_hashes.len() as u64)
 }
 
 #[cfg(test)]
