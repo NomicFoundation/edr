@@ -107,7 +107,7 @@ fn create_sources_model_from_ast(
                             });
 
                     process_contract_ast_node(
-                        file.clone(),
+                        &file,
                         node,
                         file_id_to_source_file,
                         contract_type,
@@ -122,7 +122,7 @@ fn create_sources_model_from_ast(
                         node,
                         file_id_to_source_file,
                         None,
-                        file.clone(),
+                        &file,
                         None,
                     )?;
                 }
@@ -169,7 +169,7 @@ fn apply_contracts_inheritance(
 
 #[allow(clippy::too_many_arguments)] // mimick the original code
 fn process_contract_ast_node(
-    file: Rc<RefCell<SourceFile>>,
+    file: &RefCell<SourceFile>,
     contract_node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_type: ContractKind,
@@ -216,8 +216,8 @@ fn process_contract_ast_node(
                 process_function_definition_ast_node(
                     node,
                     file_id_to_source_file,
-                    Some(contract.clone()),
-                    file.clone(),
+                    Some(&contract),
+                    file,
                     function_abis,
                 )?;
             }
@@ -225,8 +225,8 @@ fn process_contract_ast_node(
                 process_modifier_definition_ast_node(
                     node,
                     file_id_to_source_file,
-                    contract.clone(),
-                    file.clone(),
+                    &contract,
+                    file,
                 )?;
             }
             "VariableDeclaration" => {
@@ -239,8 +239,8 @@ fn process_contract_ast_node(
                 process_variable_declaration_ast_node(
                     node,
                     file_id_to_source_file,
-                    contract.clone(),
-                    file.clone(),
+                    &contract,
+                    file,
                     getter_abi,
                 )?;
             }
@@ -254,8 +254,8 @@ fn process_contract_ast_node(
 fn process_function_definition_ast_node(
     node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract: Option<Rc<RefCell<Contract>>>,
-    file: Rc<RefCell<SourceFile>>,
+    contract: Option<&RefCell<Contract>>,
+    file: &RefCell<SourceFile>,
     function_abis: Option<Vec<&ContractAbiEntry>>,
 ) -> napi::Result<()> {
     if node.get("implemented").and_then(serde_json::Value::as_bool) == Some(false) {
@@ -346,8 +346,8 @@ fn process_function_definition_ast_node(
 fn process_modifier_definition_ast_node(
     node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract: Rc<RefCell<Contract>>,
-    file: Rc<RefCell<SourceFile>>,
+    contract: &RefCell<Contract>,
+    file: &RefCell<SourceFile>,
 ) -> napi::Result<()> {
     let function_location =
         ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
@@ -380,8 +380,8 @@ fn process_modifier_definition_ast_node(
 fn process_variable_declaration_ast_node(
     node: &serde_json::Value,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract: Rc<RefCell<Contract>>,
-    file: Rc<RefCell<SourceFile>>,
+    contract: &RefCell<Contract>,
+    file: &RefCell<SourceFile>,
     getter_abi: Option<&ContractAbiEntry>,
 ) -> napi::Result<()> {
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
