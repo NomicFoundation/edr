@@ -48,12 +48,12 @@ impl VmTraceDecoder {
     }
 
     #[napi]
-    pub fn add_bytecode(&mut self, bytecode: ClassInstance<BytecodeWrapper>) -> napi::Result<()> {
-        self.add_bytecode_inner(bytecode.0.clone())
+    pub fn add_bytecode(&mut self, bytecode: ClassInstance<BytecodeWrapper>) {
+        self.add_bytecode_inner(bytecode.0.clone());
     }
 
-    pub fn add_bytecode_inner(&mut self, bytecode: Rc<Bytecode>) -> napi::Result<()> {
-        self.contracts_identifier.add_bytecode(bytecode)
+    pub fn add_bytecode_inner(&mut self, bytecode: Rc<Bytecode>) {
+        self.contracts_identifier.add_bytecode(bytecode);
     }
 
     #[napi]
@@ -70,7 +70,7 @@ impl VmTraceDecoder {
 
                 let bytecode = self
                     .contracts_identifier
-                    .get_bytecode_for_call(call.code.as_ref(), is_create)?;
+                    .get_bytecode_for_call(call.code.as_ref(), is_create);
 
                 let steps: Vec<_> = call
                     .steps
@@ -105,7 +105,7 @@ impl VmTraceDecoder {
 
                 let bytecode = self
                     .contracts_identifier
-                    .get_bytecode_for_call(create.code.as_ref(), is_create)?;
+                    .get_bytecode_for_call(create.code.as_ref(), is_create);
 
                 let steps: Vec<_> = create
                     .steps
@@ -146,7 +146,7 @@ impl VmTraceDecoder {
         let is_create = matches!(calldata, Either::B(()));
         let bytecode = self
             .contracts_identifier
-            .get_bytecode_for_call(code.as_ref(), is_create)?;
+            .get_bytecode_for_call(code.as_ref(), is_create);
 
         let contract = bytecode.map(|bytecode| bytecode.contract.clone());
         let contract = contract.as_ref().map(|c| c.borrow());
@@ -231,7 +231,7 @@ pub fn initialize_vm_trace_decoder(
                 continue;
             }
 
-            vm_trace_decoder.add_bytecode_inner(Rc::new(bytecode))?;
+            vm_trace_decoder.add_bytecode_inner(Rc::new(bytecode));
         }
     }
 
