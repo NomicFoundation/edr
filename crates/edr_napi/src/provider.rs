@@ -1,4 +1,7 @@
 mod config;
+mod factory;
+/// Types for the L1 chain type.
+pub mod l1;
 
 use std::sync::Arc;
 
@@ -8,7 +11,10 @@ use edr_rpc_eth::jsonrpc;
 use napi::{tokio::runtime, Either, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 
-use self::config::ProviderConfig;
+pub use self::{
+    config::ProviderConfig,
+    factory::{ProviderFactory, SyncProviderFactory},
+};
 use crate::{
     call_override::CallOverrideCallback,
     context::EdrContext,
@@ -17,69 +23,83 @@ use crate::{
     trace::RawTrace,
 };
 
+pub trait SyncProvider {
+    fn handle_request(&self, request: serde_json::Value) -> napi::Result<Response>;
+}
+
+impl SyncProvider for edr_provider::Provider<L1ChainSpec> {
+    fn handle_request(&self, request: serde_json::Value) -> napi::Result<Response> {
+        let method_name = request.get("method").and_then(serde_json::Value::as_str);
+
+        let request = match serde_json::from_value(request) {
+            Ok(request) => request,
+            Err(error) => {
+                let message = error.to_string();
+                let reason = InvalidRequestReason::new(method_name, &message);
+
+                // HACK: We need to log failed deserialization attempts when they concern input
+                // validation.
+                if let Some((method_name, provider_error)) = reason.provider_error() {
+                    // Ignore potential failure of logging, as returning the original error is more
+                    // important
+                    let _result = self.log_failed_deserialization(method_name, &provider_error);
+                }
+
+                let response = jsonrpc::ResponseData::<()>::Error {
+                    error: jsonrpc::Error {
+                        code: reason.error_code(),
+                        message: reason.error_message(),
+                        data: Some(request),
+                    },
+                };
+
+                return serde_json::to_string(&response)
+                    .map_err(|error| {
+                        let json_request = request.to_string();
+                        napi::Error::new(
+                            Status::InvalidArg,
+                            format!("Invalid JSON `{json_request}` due to: {error}"),
+                        )
+                    })
+                    .map(|json_response| Response {
+                        solidity_trace: None,
+                        json: json_response,
+                        traces: Vec::new(),
+                    });
+            }
+        };
+
+        let mut response = runtime::Handle::current()
+            .spawn_blocking(move || provider.handle_request(request))
+            .await
+            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))?;
+        self.handle_request(request)
+            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+    }
+}
+
 /// A JSON-RPC provider for Ethereum.
 #[napi]
 pub struct Provider {
-    provider: Arc<edr_provider::Provider<L1ChainSpec>>,
+    provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
 
+impl Provider {
+    pub fn new(provider: Arc<dyn SyncProvider>, runtime: runtime::Handle) -> Self {
+        Self {
+            provider,
+            runtime,
+            #[cfg(feature = "scenarios")]
+            scenario_file: None,
+        }
+    }
+}
+
 #[napi]
 impl Provider {
-    #[doc = "Constructs a new provider with the provided configuration."]
-    #[napi(ts_return_type = "Promise<Provider>")]
-    pub fn with_config(
-        env: Env,
-        // We take the context as argument to ensure that tracing is initialized properly.
-        _context: &EdrContext,
-        config: ProviderConfig,
-        logger_config: LoggerConfig,
-        #[napi(ts_arg_type = "(event: SubscriptionEvent) => void")] subscriber_callback: JsFunction,
-    ) -> napi::Result<JsObject> {
-        let config = edr_provider::ProviderConfig::try_from(config)?;
-        let runtime = runtime::Handle::current();
-
-        let logger = Box::new(Logger::new(&env, logger_config)?);
-        let subscriber_callback = SubscriberCallback::new(&env, subscriber_callback)?;
-        let subscriber_callback = Box::new(move |event| subscriber_callback.call(event));
-
-        let (deferred, promise) = env.create_deferred()?;
-        runtime.clone().spawn_blocking(move || {
-            #[cfg(feature = "scenarios")]
-            let scenario_file =
-                runtime::Handle::current().block_on(crate::scenarios::scenario_file(
-                    &config,
-                    edr_provider::Logger::is_enabled(&*logger),
-                ))?;
-
-            let result = edr_provider::Provider::new(
-                runtime.clone(),
-                logger,
-                subscriber_callback,
-                config,
-                CurrentTime,
-            )
-            .map_or_else(
-                |error| Err(napi::Error::new(Status::GenericFailure, error.to_string())),
-                |provider| {
-                    Ok(Provider {
-                        provider: Arc::new(provider),
-                        runtime,
-                        #[cfg(feature = "scenarios")]
-                        scenario_file,
-                    })
-                },
-            );
-
-            deferred.resolve(|_env| result);
-            Ok::<_, napi::Error>(())
-        });
-
-        Ok(promise)
-    }
-
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
     #[napi]
     pub async fn handle_request(&self, json_request: String) -> napi::Result<Response> {

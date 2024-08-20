@@ -1,23 +1,26 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use edr_eth::chain_spec::L1ChainSpec;
+use edr_evm::chain_spec::ChainSpec;
 use edr_provider::ProviderRequest;
 use napi::tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
 use rand::{distributions::Alphanumeric, Rng};
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 const SCENARIO_FILE_PREFIX: &str = "EDR_SCENARIO_PREFIX";
 
-#[derive(Clone, Debug, Serialize)]
-struct ScenarioConfig<'a> {
-    provider_config: &'a edr_provider::ProviderConfig<L1ChainSpec>,
+#[derive(Serialize)]
+#[serde(bound = "ChainSpecT::Hardfork: Serialize")]
+struct ScenarioConfig<'a, ChainSpecT: ChainSpec> {
+    chain_type: &'a str,
+    provider_config: &'a edr_provider::ProviderConfig<ChainSpecT>,
     logger_enabled: bool,
 }
 
-pub(crate) async fn scenario_file(
-    provider_config: &edr_provider::ProviderConfig<L1ChainSpec>,
+pub(crate) async fn scenario_file<ChainSpecT: ChainSpec<Hardfork: DeserializeOwned + Serialize>>(
+    provider_config: &edr_provider::ProviderConfig<ChainSpecT>,
     logger_enabled: bool,
-) -> Result<Option<Mutex<File>>, napi::Error> {
+) -> napi::Result<Option<Mutex<File>>> {
     if let Ok(scenario_prefix) = std::env::var(SCENARIO_FILE_PREFIX) {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -33,6 +36,7 @@ pub(crate) async fn scenario_file(
             File::create(format!("{scenario_prefix}_{timestamp}_{suffix}.json")).await?;
 
         let config = ScenarioConfig {
+            chain_type,
             provider_config,
             logger_enabled,
         };

@@ -4,7 +4,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use edr_eth::{chain_spec::L1ChainSpec, HashMap};
+use edr_eth::HashMap;
+use edr_evm::chain_spec::ChainSpec;
 use edr_provider::AccountConfig;
 use napi::{
     bindgen_prelude::{BigInt, Buffer},
@@ -12,7 +13,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::{account::GenesisAccount, block::BlobGas, cast::TryCast, config::SpecId};
+use crate::{account::GenesisAccount, block::BlobGas, cast::TryCast};
 
 /// Configuration for a chain
 #[napi(object)]
@@ -47,7 +48,7 @@ pub struct HardforkActivation {
     /// The block number at which the hardfork is activated
     pub block_number: BigInt,
     /// The activated hardfork
-    pub spec_id: SpecId,
+    pub spec_id: String,
 }
 
 #[napi(string_enum)]
@@ -108,7 +109,7 @@ pub struct ProviderConfig {
     /// The genesis accounts of the blockchain
     pub genesis_accounts: Vec<GenesisAccount>,
     /// The hardfork of the blockchain
-    pub hardfork: SpecId,
+    pub hardfork: String,
     /// The initial base fee per gas of the blockchain. Required for EIP-1559
     /// transactions and later
     pub initial_base_fee_per_gas: Option<BigInt>,
@@ -203,7 +204,9 @@ impl TryFrom<MiningConfig> for edr_provider::MiningConfig {
     }
 }
 
-impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig<L1ChainSpec> {
+impl<ChainSpecT: ChainSpec<Hardfork: for<'s> From<&'s str>>> TryFrom<ProviderConfig>
+    for edr_provider::ProviderConfig<ChainSpecT>
+{
     type Error = napi::Error;
 
     fn try_from(value: ProviderConfig) -> Result<Self, Self::Error> {
@@ -225,8 +228,9 @@ impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig<L1ChainSpec> {
                                 let block_number = block_number.try_cast()?;
                                 let condition =
                                     edr_evm::hardfork::ForkCondition::Block(block_number);
+                                let hardfork = ChainSpecT::Hardfork::from(&spec_id);
 
-                                Ok((condition, spec_id.into()))
+                                Ok((condition, hardfork))
                             },
                         )
                         .collect::<napi::Result<Vec<_>>>()?;
@@ -244,6 +248,8 @@ impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig<L1ChainSpec> {
                     "Block gas limit must be greater than 0",
                 )
             })?;
+
+        let hardfork = ChainSpecT::Hardfork::from(&value.hardfork);
 
         Ok(Self {
             accounts: value
@@ -267,7 +273,7 @@ impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig<L1ChainSpec> {
             enable_rip_7212: value.enable_rip_7212,
             fork: value.fork.map(TryInto::try_into).transpose()?,
             genesis_accounts: HashMap::new(),
-            hardfork: value.hardfork.into(),
+            hardfork,
             initial_base_fee_per_gas: value
                 .initial_base_fee_per_gas
                 .map(TryCast::try_cast)
