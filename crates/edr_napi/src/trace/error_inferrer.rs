@@ -1038,7 +1038,7 @@ impl ErrorInferrer {
             let step_inst = bytecode.get_instruction(step.pc)?;
 
             if let Some(step_inst_location) = &step_inst.location {
-                if !step_inst_location.equals(location) {
+                if **step_inst_location != *location {
                     return Ok(false);
                 }
             }
@@ -1464,9 +1464,7 @@ impl ErrorInferrer {
             let inst = bytecode.get_instruction(step.pc)?;
 
             if let Some(inst_location) = &inst.location {
-                if !contract.location.equals(inst_location)
-                    && !constructor.location.equals(inst_location)
-                {
+                if contract.location != *inst_location && constructor.location != *inst_location {
                     return Ok(false);
                 }
             }
@@ -1870,7 +1868,7 @@ impl ErrorInferrer {
             // synthetic call frames when failing in a modifier) so we still
             // add this frame as UNMAPPED_SOLC_0_6_3_REVERT_ERROR
             match (&prev_func, &next_loc, &prev_loc) {
-                (Some(_), Some(next_loc), Some(prev_loc)) if prev_loc.equals(next_loc) => {
+                (Some(_), Some(next_loc), Some(prev_loc)) if prev_loc == next_loc => {
                     return Ok(Some(Self::instruction_within_function_to_unmapped_solc_0_6_3_revert_error_stack_trace_entry(
                 trace,
                 next_inst,

@@ -40,14 +40,10 @@ impl SourceFile {
     pub fn get_containing_function(
         &self,
         location: &SourceLocation,
-    ) -> napi::Result<Option<&Rc<ContractFunction>>> {
-        for func in &self.functions {
-            if func.location.contains(location) {
-                return Ok(Some(func));
-            }
-        }
-
-        Ok(None)
+    ) -> Option<&Rc<ContractFunction>> {
+        self.functions
+            .iter()
+            .find(|func| func.location.contains(location))
     }
 }
 
@@ -57,6 +53,14 @@ pub struct SourceLocation {
     pub(crate) file: Rc<RefCell<SourceFile>>,
     pub offset: u32,
     pub length: u32,
+}
+
+impl PartialEq for SourceLocation {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.file, &other.file)
+            && self.offset == other.offset
+            && self.length == other.length
+    }
 }
 
 impl SourceLocation {
@@ -98,7 +102,7 @@ impl SourceLocation {
             .file
             .try_borrow()
             .map_err(|e| napi::Error::from_reason(e.to_string()))?
-            .get_containing_function(self)?
+            .get_containing_function(self)
             .cloned())
     }
 
@@ -112,12 +116,6 @@ impl SourceLocation {
         }
 
         other.offset + other.length <= self.offset + self.length
-    }
-
-    pub fn equals(&self, other: &SourceLocation) -> bool {
-        Rc::ptr_eq(&self.file, &other.file)
-            && self.offset == other.offset
-            && self.length == other.length
     }
 }
 
@@ -334,8 +332,8 @@ impl Contract {
         name: String,
         contract_type: ContractKind,
         location: Rc<SourceLocation>,
-    ) -> napi::Result<Contract> {
-        Ok(Contract {
+    ) -> Contract {
+        Contract {
             custom_errors: Vec::new(),
             constructor: None,
             fallback: None,
@@ -345,10 +343,10 @@ impl Contract {
             name,
             r#type: contract_type,
             location,
-        })
+        }
     }
 
-    pub fn add_local_function(&mut self, func: Rc<ContractFunction>) -> napi::Result<()> {
+    pub fn add_local_function(&mut self, func: Rc<ContractFunction>) {
         if matches!(
             func.visibility,
             Some(ContractFunctionVisibility::Public | ContractFunctionVisibility::External)
@@ -378,18 +376,13 @@ impl Contract {
         }
 
         self.local_functions.push(func);
-
-        Ok(())
     }
 
     pub fn add_custom_error(&mut self, value: CustomError) {
         self.custom_errors.push(value);
     }
 
-    pub fn add_next_linearized_base_contract(
-        &mut self,
-        base_contract: &Contract,
-    ) -> napi::Result<()> {
+    pub fn add_next_linearized_base_contract(&mut self, base_contract: &Contract) {
         if self.fallback.is_none() && base_contract.fallback.is_some() {
             self.fallback.clone_from(&base_contract.fallback);
         }
@@ -424,8 +417,6 @@ impl Contract {
                 .entry(selector_hex)
                 .or_insert(base_contract_function_clone);
         }
-
-        Ok(())
     }
 
     pub fn get_function_from_selector(&self, selector: &[u8]) -> Option<&Rc<ContractFunction>> {
@@ -446,11 +437,7 @@ impl Contract {
     /// same name. If there are multiple of those we can't do anything. If
     /// there is a single one, it must have an incorrect selector, so we
     /// update it with the `evm.methodIdentifiers`'s value.
-    pub fn correct_selector(
-        &mut self,
-        function_name: String,
-        selector: Vec<u8>,
-    ) -> napi::Result<bool> {
+    pub fn correct_selector(&mut self, function_name: String, selector: Vec<u8>) -> bool {
         let functions = self
             .selector_hex_to_function
             .values()
@@ -460,7 +447,7 @@ impl Contract {
 
         let function_to_correct = match functions.split_first() {
             Some((function_to_correct, [])) => function_to_correct,
-            _ => return Ok(false),
+            _ => return false,
         };
 
         {
@@ -480,6 +467,6 @@ impl Contract {
         self.selector_hex_to_function
             .insert(selector_hex, function_to_correct.clone());
 
-        Ok(true)
+        true
     }
 }

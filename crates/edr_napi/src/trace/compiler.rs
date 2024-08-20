@@ -135,7 +135,7 @@ fn create_sources_model_from_ast(
     apply_contracts_inheritance(
         contract_id_to_contract,
         &contract_id_to_linearized_base_contract_ids,
-    )?;
+    );
 
     Ok(())
 }
@@ -143,7 +143,7 @@ fn create_sources_model_from_ast(
 fn apply_contracts_inheritance(
     contract_id_to_contract: &IndexMap<u32, Rc<RefCell<Contract>>>,
     contract_id_to_linearized_base_contract_ids: &HashMap<u32, Vec<u32>>,
-) -> napi::Result<()> {
+) {
     for (cid, contract) in contract_id_to_contract {
         let mut contract = contract.borrow_mut();
 
@@ -160,12 +160,10 @@ fn apply_contracts_inheritance(
 
             if cid != base_id {
                 let base_contract = &base_contract.borrow();
-                contract.add_next_linearized_base_contract(base_contract)?;
+                contract.add_next_linearized_base_contract(base_contract);
             }
         }
     }
-
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)] // mimick the original code
@@ -188,7 +186,7 @@ fn process_contract_ast_node(
         contract_node["name"].as_str().unwrap().to_string(),
         contract_type,
         contract_location,
-    )?;
+    );
     let contract = Rc::new(RefCell::new(contract));
 
     let contract_id = contract_node["id"].as_u64().unwrap() as u32;
@@ -333,7 +331,7 @@ fn process_function_definition_ast_node(
 
     if let Some(contract) = contract {
         let mut contract = contract.borrow_mut();
-        contract.add_local_function(contract_func.clone())?;
+        contract.add_local_function(contract_func.clone());
     }
 
     let mut file = file
@@ -372,7 +370,7 @@ fn process_modifier_definition_ast_node(
         .try_borrow_mut()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    contract.add_local_function(contract_func.clone())?;
+    contract.add_local_function(contract_func.clone());
     file.add_function(contract_func.clone());
 
     Ok(())
@@ -420,7 +418,7 @@ fn process_variable_declaration_ast_node(
         .try_borrow_mut()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    contract.add_local_function(contract_func.clone())?;
+    contract.add_local_function(contract_func.clone());
     file.add_function(contract_func);
 
     Ok(())
@@ -687,7 +685,7 @@ fn correct_selectors(bytecodes: &[Bytecode], compiler_output: &CompilerOutput) -
             // let's remove it if/when we adapt our model to also properly
             // support ABI v2.
             let fixed_selector =
-                contract.correct_selector(function_name.to_string(), selector.clone())?;
+                contract.correct_selector(function_name.to_string(), selector.clone());
 
             if !fixed_selector {
                 return Err(napi::Error::from_reason(format!(
