@@ -160,7 +160,7 @@ jobs:
           command: doc
           args: --workspace --no-deps --all-features
 
-  prettier:
+  lint:
     name: Run Prettier
     runs-on: ubuntu-latest
     steps:
@@ -178,8 +178,8 @@ jobs:
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Run prettier
-        run: pnpm run prettier
+      - name: Run lint script
+        run: pnpm run lint
 
   edr-napi-typings-file:
     name: Check that edr_napi typings file is up to date

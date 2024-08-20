@@ -22,7 +22,7 @@
   "private": true,
   "scripts": {
     "build": "cd crates/edr_napi && pnpm build",
-    "lint": "syncpack lint",
+    "lint": "syncpack lint && pnpm run prettier",
     "prettier": "prettier --check \".github/**/*.{yml,ts,js}\" \"crates/edr_napi/test/**.ts\" \"**/*.md\"",
     "prettier:fix": "pnpm run prettier --write"
   }
