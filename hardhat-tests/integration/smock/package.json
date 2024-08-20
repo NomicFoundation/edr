@@ -10,6 +10,7 @@
   "devDependencies": {
     "@defi-wonderland/smock": "^2.4.0",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@types/node": "^18.0.0",
     "chai": "^4.3.6",
     "ethers": "5",
     "hardhat": "2.22.7",

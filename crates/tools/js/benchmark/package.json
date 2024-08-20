@@ -16,6 +16,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^18.0.0",
     "argparse": "^2.0.1",
     "chai": "^4.2.0",
     "hardhat": "2.22.7",
