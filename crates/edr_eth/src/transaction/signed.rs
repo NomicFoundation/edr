@@ -7,6 +7,7 @@ mod legacy;
 use std::sync::OnceLock;
 
 use alloy_rlp::{Buf, BufMut};
+use k256::SecretKey;
 
 pub use self::{
     eip155::Eip155,
@@ -16,23 +17,44 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    Signed, SignedTransaction, TransactionMut, TransactionType, TxKind,
-    INVALID_TX_TYPE_ERROR_MESSAGE,
+    ExecutableTransaction, HasAccessList, IsEip155, IsEip4844, IsLegacy, Signed, SignedTransaction,
+    Transaction, TransactionMut, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
-    signature::{Fakeable, Signature},
+    signature::{Fakeable, Signature, SignatureError},
     AccessListItem, Address, Bytes, B256, U256,
 };
 
+/// Trait for signing a transaction request with a fake signature.
+pub trait FakeSign {
+    /// The type of the signed transaction.
+    type Signed;
+
+    /// Signs the transaction with a fake signature.
+    fn fake_sign(self, sender: Address) -> Self::Signed;
+}
+
+pub trait Sign {
+    /// The type of the signed transaction.
+    type Signed;
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided sender's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<Self::Signed, SignatureError>;
+}
+
 impl Signed {
     /// Whether this is a legacy (pre-EIP-155) transaction.
-    pub fn is_legacy(&self) -> bool {
+    pub fn is_pre_eip155(&self) -> bool {
         matches!(self, Signed::PreEip155Legacy(_))
-    }
-
-    /// Whether this is an EIP-1559 transaction.
-    pub fn is_eip155(&self) -> bool {
-        matches!(self, Signed::PostEip155Legacy(_))
     }
 
     /// Whether this is an EIP-1559 transaction.
@@ -45,26 +67,10 @@ impl Signed {
         matches!(self, Signed::Eip2930(_))
     }
 
-    /// Whether this is an EIP-4844 transaction.
-    pub fn is_eip4844(&self) -> bool {
-        matches!(self, Signed::Eip4844(_))
-    }
-
     pub fn as_legacy(&self) -> Option<&self::legacy::Legacy> {
         match self {
             Signed::PreEip155Legacy(tx) => Some(tx),
             _ => None,
-        }
-    }
-
-    /// Returns the [`Signature`] of the transaction
-    pub fn signature(&self) -> &dyn Signature {
-        match self {
-            Signed::PreEip155Legacy(tx) => &tx.signature,
-            Signed::PostEip155Legacy(tx) => &tx.signature,
-            Signed::Eip2930(tx) => &tx.signature,
-            Signed::Eip1559(tx) => &tx.signature,
-            Signed::Eip4844(tx) => &tx.signature,
         }
     }
 
@@ -179,26 +185,54 @@ impl From<PreOrPostEip155> for Signed {
     }
 }
 
-impl SignedTransaction for Signed {
+impl HasAccessList for Signed {
+    fn has_access_list(&self) -> bool {
+        match self {
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => false,
+            Signed::Eip2930(_) | Signed::Eip1559(_) | Signed::Eip4844(_) => true,
+        }
+    }
+}
+
+impl IsEip155 for Signed {
+    fn is_eip155(&self) -> bool {
+        matches!(self, Signed::PostEip155Legacy(_))
+    }
+}
+
+impl IsEip4844 for Signed {
+    fn is_eip4844(&self) -> bool {
+        matches!(self, Signed::Eip4844(_))
+    }
+}
+
+impl IsLegacy for Signed {
+    fn is_legacy(&self) -> bool {
+        matches!(
+            self,
+            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_)
+        )
+    }
+}
+
+impl ExecutableTransaction for Signed {
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
         match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
-            Signed::Eip1559(tx) => Some(
-                tx.max_fee_per_gas
-                    .min(block_base_fee + tx.max_priority_fee_per_gas),
-            ),
-            Signed::Eip4844(tx) => Some(
-                tx.max_fee_per_gas
-                    .min(block_base_fee + tx.max_priority_fee_per_gas),
-            ),
+            Signed::PreEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::PostEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
         }
     }
 
-    fn max_fee_per_gas(&self) -> Option<U256> {
+    fn max_fee_per_gas(&self) -> Option<&U256> {
         match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
-            Signed::Eip1559(tx) => Some(tx.max_fee_per_gas),
-            Signed::Eip4844(tx) => Some(tx.max_fee_per_gas),
+            Signed::PreEip155Legacy(tx) => tx.max_fee_per_gas(),
+            Signed::PostEip155Legacy(tx) => tx.max_fee_per_gas(),
+            Signed::Eip2930(tx) => tx.max_fee_per_gas(),
+            Signed::Eip1559(tx) => tx.max_fee_per_gas(),
+            Signed::Eip4844(tx) => tx.max_fee_per_gas(),
         }
     }
 
@@ -214,8 +248,11 @@ impl SignedTransaction for Signed {
 
     fn total_blob_gas(&self) -> Option<u64> {
         match self {
-            Signed::Eip4844(tx) => Some(tx.total_blob_gas()),
-            _ => None,
+            Signed::PreEip155Legacy(tx) => tx.total_blob_gas(),
+            Signed::PostEip155Legacy(tx) => tx.total_blob_gas(),
+            Signed::Eip2930(tx) => tx.total_blob_gas(),
+            Signed::Eip1559(tx) => tx.total_blob_gas(),
+            Signed::Eip4844(tx) => tx.total_blob_gas(),
         }
     }
 
@@ -230,7 +267,19 @@ impl SignedTransaction for Signed {
     }
 }
 
-impl revm_primitives::Transaction for Signed {
+impl SignedTransaction for Signed {
+    fn signature(&self) -> &dyn Signature {
+        match self {
+            Signed::PreEip155Legacy(tx) => &tx.signature,
+            Signed::PostEip155Legacy(tx) => &tx.signature,
+            Signed::Eip2930(tx) => &tx.signature,
+            Signed::Eip1559(tx) => &tx.signature,
+            Signed::Eip4844(tx) => &tx.signature,
+        }
+    }
+}
+
+impl Transaction for Signed {
     fn caller(&self) -> &Address {
         match self {
             Signed::PreEip155Legacy(tx) => tx.caller(),
@@ -243,113 +292,122 @@ impl revm_primitives::Transaction for Signed {
 
     fn gas_limit(&self) -> u64 {
         match self {
-            Signed::PreEip155Legacy(tx) => tx.gas_limit,
-            Signed::PostEip155Legacy(tx) => tx.gas_limit,
-            Signed::Eip2930(tx) => tx.gas_limit,
-            Signed::Eip1559(tx) => tx.gas_limit,
-            Signed::Eip4844(tx) => tx.gas_limit,
+            Signed::PreEip155Legacy(tx) => tx.gas_limit(),
+            Signed::PostEip155Legacy(tx) => tx.gas_limit(),
+            Signed::Eip2930(tx) => tx.gas_limit(),
+            Signed::Eip1559(tx) => tx.gas_limit(),
+            Signed::Eip4844(tx) => tx.gas_limit(),
         }
     }
 
     fn gas_price(&self) -> &U256 {
         match self {
-            Signed::PreEip155Legacy(tx) => &tx.gas_price,
-            Signed::PostEip155Legacy(tx) => &tx.gas_price,
-            Signed::Eip2930(tx) => &tx.gas_price,
-            Signed::Eip1559(tx) => &tx.max_fee_per_gas,
-            Signed::Eip4844(tx) => &tx.max_fee_per_gas,
+            Signed::PreEip155Legacy(tx) => tx.gas_price(),
+            Signed::PostEip155Legacy(tx) => tx.gas_price(),
+            Signed::Eip2930(tx) => tx.gas_price(),
+            Signed::Eip1559(tx) => tx.gas_price(),
+            Signed::Eip4844(tx) => tx.gas_price(),
         }
     }
 
     fn kind(&self) -> TxKind {
         match self {
-            Signed::PreEip155Legacy(tx) => tx.kind,
-            Signed::PostEip155Legacy(tx) => tx.kind,
-            Signed::Eip2930(tx) => tx.kind,
-            Signed::Eip1559(tx) => tx.kind,
-            Signed::Eip4844(tx) => TxKind::Call(tx.to),
+            Signed::PreEip155Legacy(tx) => tx.kind(),
+            Signed::PostEip155Legacy(tx) => tx.kind(),
+            Signed::Eip2930(tx) => tx.kind(),
+            Signed::Eip1559(tx) => tx.kind(),
+            Signed::Eip4844(tx) => tx.kind(),
         }
     }
 
     fn value(&self) -> &U256 {
         match self {
-            Signed::PreEip155Legacy(tx) => &tx.value,
-            Signed::PostEip155Legacy(tx) => &tx.value,
-            Signed::Eip2930(tx) => &tx.value,
-            Signed::Eip1559(tx) => &tx.value,
-            Signed::Eip4844(tx) => &tx.value,
+            Signed::PreEip155Legacy(tx) => tx.value(),
+            Signed::PostEip155Legacy(tx) => tx.value(),
+            Signed::Eip2930(tx) => tx.value(),
+            Signed::Eip1559(tx) => tx.value(),
+            Signed::Eip4844(tx) => tx.value(),
         }
     }
 
     fn data(&self) -> &Bytes {
         match self {
-            Signed::PreEip155Legacy(tx) => &tx.input,
-            Signed::PostEip155Legacy(tx) => &tx.input,
-            Signed::Eip2930(tx) => &tx.input,
-            Signed::Eip1559(tx) => &tx.input,
-            Signed::Eip4844(tx) => &tx.input,
+            Signed::PreEip155Legacy(tx) => tx.data(),
+            Signed::PostEip155Legacy(tx) => tx.data(),
+            Signed::Eip2930(tx) => tx.data(),
+            Signed::Eip1559(tx) => tx.data(),
+            Signed::Eip4844(tx) => tx.data(),
         }
     }
 
     fn nonce(&self) -> u64 {
         match self {
-            Signed::PreEip155Legacy(t) => t.nonce,
-            Signed::PostEip155Legacy(t) => t.nonce,
-            Signed::Eip2930(t) => t.nonce,
-            Signed::Eip1559(t) => t.nonce,
-            Signed::Eip4844(t) => t.nonce,
+            Signed::PreEip155Legacy(tx) => tx.nonce(),
+            Signed::PostEip155Legacy(tx) => tx.nonce(),
+            Signed::Eip2930(tx) => tx.nonce(),
+            Signed::Eip1559(tx) => tx.nonce(),
+            Signed::Eip4844(tx) => tx.nonce(),
         }
     }
 
     fn chain_id(&self) -> Option<u64> {
         match self {
-            Signed::PreEip155Legacy(_) => None,
-            Signed::PostEip155Legacy(t) => Some(t.chain_id()),
-            Signed::Eip2930(t) => Some(t.chain_id),
-            Signed::Eip1559(t) => Some(t.chain_id),
-            Signed::Eip4844(t) => Some(t.chain_id),
+            Signed::PreEip155Legacy(tx) => tx.chain_id(),
+            Signed::PostEip155Legacy(tx) => tx.chain_id(),
+            Signed::Eip2930(tx) => tx.chain_id(),
+            Signed::Eip1559(tx) => tx.chain_id(),
+            Signed::Eip4844(tx) => tx.chain_id(),
         }
     }
 
     fn access_list(&self) -> &[AccessListItem] {
         match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => &[],
-            Signed::Eip2930(tx) => &tx.access_list.0,
-            Signed::Eip1559(tx) => &tx.access_list.0,
-            Signed::Eip4844(tx) => &tx.access_list.0,
+            Signed::PreEip155Legacy(tx) => tx.access_list(),
+            Signed::PostEip155Legacy(tx) => tx.access_list(),
+            Signed::Eip2930(tx) => tx.access_list(),
+            Signed::Eip1559(tx) => tx.access_list(),
+            Signed::Eip4844(tx) => tx.access_list(),
         }
     }
 
     fn max_priority_fee_per_gas(&self) -> Option<&U256> {
         match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
-            Signed::Eip1559(tx) => Some(&tx.max_priority_fee_per_gas),
-            Signed::Eip4844(tx) => Some(&tx.max_priority_fee_per_gas),
+            Signed::PreEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
+            Signed::PostEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
+            Signed::Eip2930(tx) => tx.max_priority_fee_per_gas(),
+            Signed::Eip1559(tx) => tx.max_priority_fee_per_gas(),
+            Signed::Eip4844(tx) => tx.max_priority_fee_per_gas(),
         }
     }
 
     fn blob_hashes(&self) -> &[B256] {
         match self {
-            Signed::PreEip155Legacy(_)
-            | Signed::PostEip155Legacy(_)
-            | Signed::Eip2930(_)
-            | Signed::Eip1559(_) => &[],
-            Signed::Eip4844(tx) => &tx.blob_hashes,
+            Signed::PreEip155Legacy(tx) => tx.blob_hashes(),
+            Signed::PostEip155Legacy(tx) => tx.blob_hashes(),
+            Signed::Eip2930(tx) => tx.blob_hashes(),
+            Signed::Eip1559(tx) => tx.blob_hashes(),
+            Signed::Eip4844(tx) => tx.blob_hashes(),
         }
     }
 
     fn max_fee_per_blob_gas(&self) -> Option<&U256> {
         match self {
-            Signed::PreEip155Legacy(_)
-            | Signed::PostEip155Legacy(_)
-            | Signed::Eip2930(_)
-            | Signed::Eip1559(_) => None,
-            Signed::Eip4844(tx) => Some(&tx.max_fee_per_blob_gas),
+            Signed::PreEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
+            Signed::PostEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
+            Signed::Eip2930(tx) => tx.max_fee_per_blob_gas(),
+            Signed::Eip1559(tx) => tx.max_fee_per_blob_gas(),
+            Signed::Eip4844(tx) => tx.max_fee_per_blob_gas(),
         }
     }
 
     fn authorization_list(&self) -> Option<&revm_primitives::AuthorizationList> {
-        None
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.authorization_list(),
+            Signed::PostEip155Legacy(tx) => tx.authorization_list(),
+            Signed::Eip2930(tx) => tx.authorization_list(),
+            Signed::Eip1559(tx) => tx.authorization_list(),
+            Signed::Eip4844(tx) => tx.authorization_list(),
+        }
     }
 }
 
@@ -389,11 +447,7 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{
-        signature,
-        transaction::{self, Transaction as _},
-        AccessList, Bytes,
-    };
+    use crate::{signature, transaction, AccessList, Bytes};
 
     #[test]
     fn can_recover_sender() {

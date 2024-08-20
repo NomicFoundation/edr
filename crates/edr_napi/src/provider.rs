@@ -20,7 +20,7 @@ use crate::{
 /// A JSON-RPC provider for Ethereum.
 #[napi]
 pub struct Provider {
-    provider: Arc<edr_provider::Provider>,
+    provider: Arc<edr_provider::Provider<L1ChainSpec>>,
     runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,

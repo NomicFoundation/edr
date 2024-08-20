@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use revm_primitives::keccak256;
+use revm_primitives::{keccak256, AuthorizationList};
 
 use crate::{
     signature::{self, Signature},
-    transaction::{self, TxKind},
-    Address, Bytes, B256, U256,
+    transaction::{self, ExecutableTransaction, Transaction, TxKind},
+    AccessListItem, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -37,24 +37,27 @@ pub struct Eip155 {
 impl Eip155 {
     /// The type identifier for a post-EIP-155 transaction.
     pub const TYPE: u8 = transaction::request::Eip155::TYPE;
+}
 
-    /// Returns the caller/signer of the transaction.
-    pub fn caller(&self) -> &Address {
-        self.signature.caller()
+impl ExecutableTransaction for Eip155 {
+    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
+        None
     }
 
-    pub fn chain_id(&self) -> u64 {
-        v_to_chain_id(self.signature.v())
+    fn max_fee_per_gas(&self) -> Option<&U256> {
+        None
     }
 
-    /// Returns the (cached) RLP-encoding of the transaction.
-    pub fn rlp_encoding(&self) -> &Bytes {
+    fn rlp_encoding(&self) -> &Bytes {
         self.rlp_encoding
             .get_or_init(|| alloy_rlp::encode(self).into())
     }
 
-    /// Returns the (cached) hash of the transaction.
-    pub fn transaction_hash(&self) -> &B256 {
+    fn total_blob_gas(&self) -> Option<u64> {
+        None
+    }
+
+    fn transaction_hash(&self) -> &B256 {
         self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
     }
 }
@@ -84,6 +87,60 @@ impl PartialEq for Eip155 {
             && self.value == other.value
             && self.input == other.input
             && self.signature == other.signature
+    }
+}
+
+impl Transaction for Eip155 {
+    fn caller(&self) -> &Address {
+        self.signature.caller()
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
+    }
+
+    fn gas_price(&self) -> &U256 {
+        &self.gas_price
+    }
+
+    fn kind(&self) -> TxKind {
+        self.kind
+    }
+
+    fn value(&self) -> &U256 {
+        &self.value
+    }
+
+    fn data(&self) -> &Bytes {
+        &self.input
+    }
+
+    fn nonce(&self) -> u64 {
+        self.nonce
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        Some(v_to_chain_id(self.signature.v()))
+    }
+
+    fn access_list(&self) -> &[AccessListItem] {
+        &[]
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+        None
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        &[]
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+        None
+    }
+
+    fn authorization_list(&self) -> Option<&AuthorizationList> {
+        None
     }
 }
 

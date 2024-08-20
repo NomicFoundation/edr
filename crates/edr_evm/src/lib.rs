@@ -29,7 +29,8 @@ pub mod state;
 /// Types used for tracing EVM calls
 pub mod trace;
 
-mod block;
+/// Types for Ethereum blocks.
+pub mod block;
 /// Types for chain specification.
 pub mod chain_spec;
 pub(crate) mod collections;

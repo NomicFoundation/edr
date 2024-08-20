@@ -707,7 +707,7 @@ mod tests {
             );
             assert_eq!(
                 tx.block_number,
-                Some(U256::from_str_radix("a74fde", 16).expect("couldn't parse data"))
+                Some(u64::from_str_radix("a74fde", 16).expect("couldn't parse data"))
             );
             assert_eq!(tx.hash, hash);
             assert_eq!(

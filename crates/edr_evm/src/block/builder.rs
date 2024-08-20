@@ -8,7 +8,7 @@ use edr_eth::{
     log::ExecutionLog,
     receipt::{ExecutionReceiptBuilder as _, Receipt as _, TransactionReceipt},
     result::InvalidTransaction,
-    transaction::SignedTransaction as _,
+    transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
@@ -166,18 +166,19 @@ impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
     pub fn header(&self) -> &PartialHeader {
         &self.header
     }
+}
 
+impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
     /// Finalizes the block, returning the block and the callers of the
     /// transactions.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn finalize<StateT, StateErrorT>(
+    pub fn finalize<StateT, StateErrorT: Debug + Send>(
         mut self,
         state: &mut StateT,
         rewards: Vec<(Address, U256)>,
     ) -> Result<BuildBlockResult<ChainSpecT>, StateErrorT>
     where
         StateT: SyncState<StateErrorT> + ?Sized,
-        StateErrorT: Debug + Send,
     {
         for (address, reward) in rewards {
             if reward > U256::ZERO {
@@ -248,7 +249,7 @@ where
 {
     /// Adds a pending transaction to
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateT, StateErrorT>(
+    pub fn add_transaction<'blockchain, 'evm, DebugDataT, StateT, BlockchainErrorT, StateErrorT>(
         &mut self,
         blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: StateT,
@@ -264,9 +265,7 @@ where
     >
     where
         'blockchain: 'evm,
-        BlockchainErrorT: Debug + Send,
         StateT: StateRef<Error = StateErrorT> + DatabaseCommit + StateDebug<Error = StateErrorT>,
-        StateErrorT: Debug + Send,
     {
         // The transaction's gas limit cannot be greater than the remaining gas in the
         // block

@@ -1,7 +1,7 @@
 use edr_eth::{chain_spec::L1ChainSpec, eips::eip2718::TypedEnvelope, receipt::Receipt};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::receipt::Block;
+use crate::{receipt::Block, CallRequest};
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
 pub trait RpcSpec: Sized {
@@ -13,11 +13,17 @@ pub trait RpcSpec: Sized {
     where
         Data: Default + DeserializeOwned + Serialize;
 
+    /// Type representing an RPC `eth_call` request.
+    type RpcCallRequest: DeserializeOwned + Serialize;
+
     /// Type representing an RPC receipt.
     type RpcReceipt: DeserializeOwned + Serialize;
 
     /// Type representing an RPC transaction.
     type RpcTransaction: Default + DeserializeOwned + Serialize;
+
+    /// Type representing an RPC `eth_sendTransaction` request.
+    type RpcTransactionRequest: DeserializeOwned + Serialize;
 }
 
 pub trait GetBlockNumber {
@@ -27,6 +33,8 @@ pub trait GetBlockNumber {
 impl RpcSpec for L1ChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<edr_eth::receipt::Execution<Log>>;
     type RpcBlock<Data> = crate::block::Block<Data> where Data: Default + DeserializeOwned + Serialize;
+    type RpcCallRequest = CallRequest;
     type RpcReceipt = Block;
-    type RpcTransaction = crate::transaction::Transaction;
+    type RpcTransaction = crate::transaction::TransactionWithSignature;
+    type RpcTransactionRequest = crate::transaction::TransactionRequest;
 }

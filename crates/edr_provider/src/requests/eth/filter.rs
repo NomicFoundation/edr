@@ -1,4 +1,4 @@
-use std::iter;
+use core::iter;
 
 use edr_eth::{
     filter::{FilteredEvents, LogFilterOptions, LogOutput, OneOrMore, SubscriptionType},
@@ -6,72 +6,100 @@ use edr_eth::{
 };
 
 use crate::{
-    data::ProviderData, filter::LogFilter, requests::validation::validate_post_merge_block_tags,
-    time::TimeSinceEpoch, ProviderError,
+    data::ProviderData,
+    filter::LogFilter,
+    requests::validation::validate_post_merge_block_tags,
+    spec::{ProviderSpec, SyncProviderSpec},
+    time::TimeSinceEpoch,
+    ProviderError,
 };
 
-pub fn handle_get_filter_changes_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<TimerT>,
+pub fn handle_get_filter_changes_request<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_id: U256,
-) -> Result<Option<FilteredEvents>, ProviderError> {
+) -> Result<Option<FilteredEvents>, ProviderError<ChainSpecT>> {
     Ok(data.get_filter_changes(&filter_id))
 }
 
-pub fn handle_get_filter_logs_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<TimerT>,
+pub fn handle_get_filter_logs_request<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_id: U256,
-) -> Result<Option<Vec<LogOutput>>, ProviderError> {
+) -> Result<Option<Vec<LogOutput>>, ProviderError<ChainSpecT>> {
     data.get_filter_logs(&filter_id)
 }
 
-pub fn handle_get_logs_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &ProviderData<TimerT>,
+pub fn handle_get_logs_request<
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &ProviderData<ChainSpecT, TimerT>,
     filter_options: LogFilterOptions,
-) -> Result<Vec<LogOutput>, ProviderError> {
+) -> Result<Vec<LogOutput>, ProviderError<ChainSpecT>> {
+    let evm_spec_id = data.evm_spec_id();
     // Hardhat integration tests expect validation in this order.
     if let Some(from_block) = &filter_options.from_block {
-        validate_post_merge_block_tags(data.spec_id(), from_block)?;
+        validate_post_merge_block_tags(evm_spec_id, from_block)?;
     }
     if let Some(to_block) = &filter_options.to_block {
-        validate_post_merge_block_tags(data.spec_id(), to_block)?;
+        validate_post_merge_block_tags(evm_spec_id, to_block)?;
     }
 
-    let filter = validate_filter_criteria::<true, TimerT>(data, filter_options)?;
+    let filter = validate_filter_criteria::<true, ChainSpecT, TimerT>(data, filter_options)?;
     data.logs(filter)
         .map(|logs| logs.iter().map(LogOutput::from).collect())
 }
 
-pub fn handle_new_block_filter_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<TimerT>,
-) -> Result<U256, ProviderError> {
+pub fn handle_new_block_filter_request<
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
+) -> Result<U256, ProviderError<ChainSpecT>> {
     data.add_block_filter::<false>()
 }
 
-pub fn handle_new_log_filter_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<TimerT>,
+pub fn handle_new_log_filter_request<
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_criteria: LogFilterOptions,
-) -> Result<U256, ProviderError> {
-    let filter_criteria = validate_filter_criteria::<false, TimerT>(data, filter_criteria)?;
+) -> Result<U256, ProviderError<ChainSpecT>> {
+    let filter_criteria =
+        validate_filter_criteria::<false, ChainSpecT, TimerT>(data, filter_criteria)?;
     data.add_log_filter::<false>(filter_criteria)
 }
 
-pub fn handle_new_pending_transaction_filter_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<TimerT>,
-) -> Result<U256, ProviderError> {
+pub fn handle_new_pending_transaction_filter_request<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
+) -> Result<U256, ProviderError<ChainSpecT>> {
     Ok(data.add_pending_transaction_filter::<false>())
 }
 
-pub fn handle_subscribe_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<TimerT>,
+pub fn handle_subscribe_request<
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
     subscription_type: SubscriptionType,
     filter_criteria: Option<LogFilterOptions>,
-) -> Result<U256, ProviderError> {
+) -> Result<U256, ProviderError<ChainSpecT>> {
     match subscription_type {
         SubscriptionType::Logs => {
             let filter_criteria = filter_criteria.ok_or_else(|| {
                 ProviderError::InvalidArgument("Missing params argument".to_string())
             })?;
-            let filter_criteria = validate_filter_criteria::<false, TimerT>(data, filter_criteria)?;
+            let filter_criteria =
+                validate_filter_criteria::<false, ChainSpecT, TimerT>(data, filter_criteria)?;
             data.add_log_filter::<true>(filter_criteria)
         }
         SubscriptionType::NewHeads => data.add_block_filter::<true>(),
@@ -81,30 +109,43 @@ pub fn handle_subscribe_request<TimerT: Clone + TimeSinceEpoch>(
     }
 }
 
-pub fn handle_uninstall_filter_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<TimerT>,
+pub fn handle_uninstall_filter_request<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_id: U256,
-) -> Result<bool, ProviderError> {
+) -> Result<bool, ProviderError<ChainSpecT>> {
     Ok(data.remove_filter(&filter_id))
 }
 
-pub fn handle_unsubscribe_request<TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<TimerT>,
+pub fn handle_unsubscribe_request<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_id: U256,
-) -> Result<bool, ProviderError> {
+) -> Result<bool, ProviderError<ChainSpecT>> {
     Ok(data.remove_subscription(&filter_id))
 }
 
-fn validate_filter_criteria<const SHOULD_RESOLVE_LATEST: bool, TimerT: Clone + TimeSinceEpoch>(
-    data: &ProviderData<TimerT>,
+fn validate_filter_criteria<
+    const SHOULD_RESOLVE_LATEST: bool,
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &ProviderData<ChainSpecT, TimerT>,
     filter: LogFilterOptions,
-) -> Result<LogFilter, ProviderError> {
-    fn normalize_block_spec<TimerT: Clone + TimeSinceEpoch>(
-        data: &ProviderData<TimerT>,
+) -> Result<LogFilter, ProviderError<ChainSpecT>> {
+    fn normalize_block_spec<
+        ChainSpecT: SyncProviderSpec<TimerT>,
+        TimerT: Clone + TimeSinceEpoch,
+    >(
+        data: &ProviderData<ChainSpecT, TimerT>,
         block_spec: Option<BlockSpec>,
-    ) -> Result<Option<u64>, ProviderError> {
+    ) -> Result<Option<u64>, ProviderError<ChainSpecT>> {
         if let Some(block_spec) = &block_spec {
-            validate_post_merge_block_tags(data.spec_id(), block_spec)?;
+            validate_post_merge_block_tags(data.evm_spec_id(), block_spec)?;
         }
 
         let block_number = match block_spec {

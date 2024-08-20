@@ -1,8 +1,10 @@
 #[macro_export]
 macro_rules! impl_execution_receipt_tests {
-    ($(
-        $name:ident => $receipt:expr,
-    )+) => {
+    ($chain_spec:ident => {
+        $(
+            $name:ident => $receipt:expr,
+        )+
+    }) => {
         $(
             paste::item! {
                 #[test]
@@ -15,7 +17,7 @@ macro_rules! impl_execution_receipt_tests {
                         Address, B256, U256,
                     };
 
-                    use $crate::receipt::ToRpcReceipt as _;
+                    use $crate::{RpcTypeFrom as _, spec::RpcSpec};
 
                     let block_hash = B256::random();
                     let block_number = 10u64;
@@ -61,7 +63,7 @@ macro_rules! impl_execution_receipt_tests {
                         block_number,
                     };
 
-                    let rpc_receipt = block_receipt.to_rpc_receipt(Default::default());
+                    let rpc_receipt = <$chain_spec as RpcSpec>::RpcReceipt::rpc_type_from(&block_receipt, Default::default());
 
                     let serialized = serde_json::to_string(&rpc_receipt)?;
                     let deserialized = serde_json::from_str(&serialized)?;

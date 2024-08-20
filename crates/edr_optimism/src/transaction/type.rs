@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use edr_eth::{transaction::ParseError, U8};
+use edr_eth::{
+    transaction::{IsEip4844, ParseError},
+    U8,
+};
 
 use super::{signed, Type};
 
@@ -26,6 +29,12 @@ impl FromStr for Type {
         } else {
             Err(ParseError::InvalidRadix)
         }
+    }
+}
+
+impl IsEip4844 for Type {
+    fn is_eip4844(&self) -> bool {
+        *self == Type::Eip4844
     }
 }
 

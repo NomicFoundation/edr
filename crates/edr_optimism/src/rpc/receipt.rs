@@ -5,52 +5,55 @@ use edr_eth::{
     receipt::{Receipt as _, TransactionReceipt},
     transaction::TransactionType as _,
 };
-use edr_rpc_eth::receipt::ToRpcReceipt;
+use edr_rpc_eth::RpcTypeFrom;
 use revm::optimism::OptimismSpecId;
 
 use super::BlockReceipt;
 use crate::{eip2718::TypedEnvelope, receipt, transaction};
 
-impl ToRpcReceipt<BlockReceipt>
-    for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>
+impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>
+    for BlockReceipt
 {
     type Hardfork = OptimismSpecId;
 
-    fn to_rpc_receipt(&self, hardfork: Self::Hardfork) -> BlockReceipt {
+    fn rpc_type_from(
+        receipt: &receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
+        hardfork: Self::Hardfork,
+    ) -> Self {
         let transaction_type = if hardfork >= OptimismSpecId::BERLIN {
-            Some(u8::from(self.inner.transaction_type()))
+            Some(u8::from(receipt.inner.transaction_type()))
         } else {
             None
         };
 
-        BlockReceipt {
-            block_hash: self.block_hash,
-            block_number: self.block_number,
-            transaction_hash: self.inner.transaction_hash,
-            transaction_index: self.inner.transaction_index,
+        Self {
+            block_hash: receipt.block_hash,
+            block_number: receipt.block_number,
+            transaction_hash: receipt.inner.transaction_hash,
+            transaction_index: receipt.inner.transaction_index,
             transaction_type,
-            from: self.inner.from,
-            to: self.inner.to,
-            cumulative_gas_used: self.inner.cumulative_gas_used(),
-            gas_used: self.inner.gas_used,
-            contract_address: self.inner.contract_address,
-            logs: self.inner.logs().to_vec(),
-            logs_bloom: *self.inner.logs_bloom(),
-            state_root: match self.inner.as_execution_receipt().data() {
+            from: receipt.inner.from,
+            to: receipt.inner.to,
+            cumulative_gas_used: receipt.inner.cumulative_gas_used(),
+            gas_used: receipt.inner.gas_used,
+            contract_address: receipt.inner.contract_address,
+            logs: receipt.inner.transaction_logs().to_vec(),
+            logs_bloom: *receipt.inner.logs_bloom(),
+            state_root: match receipt.inner.as_execution_receipt().data() {
                 receipt::Execution::Legacy(receipt) => Some(receipt.root),
                 receipt::Execution::Eip658(_) | receipt::Execution::Deposit(_) => None,
             },
-            status: match self.inner.as_execution_receipt().data() {
+            status: match receipt.inner.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) => None,
                 receipt::Execution::Eip658(receipt) => Some(receipt.status),
                 receipt::Execution::Deposit(receipt) => Some(receipt.status),
             },
-            effective_gas_price: self.inner.effective_gas_price,
-            deposit_nonce: match self.inner.as_execution_receipt().data() {
+            effective_gas_price: receipt.inner.effective_gas_price,
+            deposit_nonce: match receipt.inner.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => Some(receipt.deposit_nonce),
             },
-            deposit_receipt_version: match self.inner.as_execution_receipt().data() {
+            deposit_receipt_version: match receipt.inner.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => receipt.deposit_receipt_version,
             },
@@ -157,54 +160,57 @@ mod tests {
     use edr_rpc_eth::impl_execution_receipt_tests;
 
     use super::*;
+    use crate::OptimismChainSpec;
 
     impl_execution_receipt_tests! {
-        legacy => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
-            root: B256::random(),
-            cumulative_gas_used: 0xffff,
-            logs_bloom: Bloom::random(),
-            logs: vec![
-                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
-                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
-            ],
-        })),
-        eip658_eip2930 => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
-            status: true,
-            cumulative_gas_used: 0xffff,
-            logs_bloom: Bloom::random(),
-            logs: vec![
-                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
-                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
-            ],
-        })),
-        eip658_eip1559 => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
-            status: true,
-            cumulative_gas_used: 0xffff,
-            logs_bloom: Bloom::random(),
-            logs: vec![
-                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
-                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
-            ],
-        })),
-        eip658_eip4844 => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
-            status: true,
-            cumulative_gas_used: 0xffff,
-            logs_bloom: Bloom::random(),
-            logs: vec![
-                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
-                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
-            ],
-        })),
-        deposit => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
-            status: true,
-            cumulative_gas_used: 0xffff,
-            logs_bloom: Bloom::random(),
-            logs: vec![
-                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
-                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
-            ],
-            deposit_nonce: 0x1234,
-            deposit_receipt_version: Some(1u8),
-        })),
+        OptimismChainSpec => {
+            legacy => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
+                root: B256::random(),
+                cumulative_gas_used: 0xffff,
+                logs_bloom: Bloom::random(),
+                logs: vec![
+                    ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                    ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+                ],
+            })),
+            eip658_eip2930 => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+                status: true,
+                cumulative_gas_used: 0xffff,
+                logs_bloom: Bloom::random(),
+                logs: vec![
+                    ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                    ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+                ],
+            })),
+            eip658_eip1559 => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+                status: true,
+                cumulative_gas_used: 0xffff,
+                logs_bloom: Bloom::random(),
+                logs: vec![
+                    ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                    ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+                ],
+            })),
+            eip658_eip4844 => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
+                status: true,
+                cumulative_gas_used: 0xffff,
+                logs_bloom: Bloom::random(),
+                logs: vec![
+                    ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                    ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+                ],
+            })),
+            deposit => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
+                status: true,
+                cumulative_gas_used: 0xffff,
+                logs_bloom: Bloom::random(),
+                logs: vec![
+                    ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                    ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+                ],
+                deposit_nonce: 0x1234,
+                deposit_receipt_version: Some(1u8),
+            })),
+        }
     }
 }

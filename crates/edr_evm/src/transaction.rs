@@ -4,9 +4,10 @@ pub mod remote;
 
 use std::fmt::Debug;
 
+use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{SpecId, U256};
+use edr_eth::{result::InvalidHeader, SpecId, U256};
 use revm::{
     db::DatabaseComponentError,
     interpreter::gas::validate_initial_tx_gas,
@@ -14,9 +15,11 @@ use revm::{
 };
 
 pub use self::detailed::*;
+use crate::chain_spec::ChainSpec;
 
 /// Invalid transaction error
 #[derive(thiserror::Error)]
+#[derive_where(Debug; <ChainSpecT::Transaction as TransactionValidation>::ValidationError, BlockchainErrorT, StateErrorT)]
 pub enum TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
     ChainSpecT: revm::primitives::EvmWiring,
@@ -32,10 +35,19 @@ where
     Eip1559Unsupported,
     /// Invalid block header
     #[error(transparent)]
-    InvalidHeader(revm::primitives::InvalidHeader),
+    InvalidHeader(InvalidHeader),
     /// Corrupt transaction data
     #[error(transparent)]
     InvalidTransaction(<ChainSpecT::Transaction as TransactionValidation>::ValidationError),
+    /// Transaction account does not have enough amount of ether to cover
+    /// transferred value and gas_limit*gas_price.
+    #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}.")]
+    LackOfFundForMaxFee {
+        /// The max upfront cost of the transaction
+        fee: Box<U256>,
+        /// The sender's balance
+        balance: Box<U256>,
+    },
     /// Precompile errors
     #[error("{0}")]
     Precompile(String),
@@ -44,42 +56,17 @@ where
     State(StateErrorT),
 }
 
-impl<ChainSpecT, BlockchainErrorT, StateErrorT> Debug
-    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT:
-        revm::primitives::EvmWiring<Transaction: TransactionValidation<ValidationError: Debug>>,
-    BlockchainErrorT: Debug,
-    StateErrorT: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Blockchain(arg0) => f.debug_tuple("Blockchain").field(arg0).finish(),
-            Self::Custom(arg0) => f.debug_tuple("Custom").field(arg0).finish(),
-            Self::Eip1559Unsupported => write!(f, "Eip1559Unsupported"),
-            Self::InvalidHeader(arg0) => f.debug_tuple("InvalidHeader").field(arg0).finish(),
-            Self::InvalidTransaction(arg0) => {
-                f.debug_tuple("InvalidTransaction").field(arg0).finish()
-            }
-            Self::Precompile(arg0) => f.debug_tuple("Precompile").field(arg0).finish(),
-            Self::State(arg0) => f.debug_tuple("State").field(arg0).finish(),
-        }
-    }
-}
-
 impl<ChainSpecT, BlockchainErrorT, StateErrorT>
     From<EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>>
     for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::EvmWiring,
-    BlockchainErrorT: Debug + Send,
-    StateErrorT: Debug + Send,
+    ChainSpecT: ChainSpec,
 {
     fn from(
         error: EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>,
     ) -> Self {
         match error {
-            EVMError::Transaction(error) => Self::InvalidTransaction(error),
+            EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
             EVMError::Header(error) => Self::InvalidHeader(error),
             EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
             EVMError::Database(DatabaseComponentError::BlockHash(e)) => Self::Blockchain(e),
@@ -106,7 +93,7 @@ pub enum CreationError {
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: SignedTransaction>(
+pub fn validate<TransactionT: Transaction>(
     transaction: TransactionT,
     spec_id: SpecId,
 ) -> Result<TransactionT, CreationError> {

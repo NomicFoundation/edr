@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use edr_eth::{
     db::{DatabaseComponents, StateRef},
     result::{ExecutionResult, InvalidTransaction, ResultAndState},
-    transaction::{SignedTransaction as _, TransactionValidation},
+    transaction::{ExecutableTransaction as _, TransactionValidation},
     Address, HashMap, Precompile, SpecId,
 };
 use revm::{

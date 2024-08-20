@@ -4,6 +4,8 @@ pub(super) mod tests {
         () => {
             #[test]
             fn hash_with_fake_signature_same_sender() {
+                use $crate::transaction::ExecutableTransaction as _;
+
                 let transaction_request = dummy_request();
 
                 let sender = Address::from(revm_primitives::ruint::aliases::U160::from(1));
@@ -19,6 +21,8 @@ pub(super) mod tests {
 
             #[test]
             fn hash_with_fake_signature_different_senders() {
+                use $crate::transaction::ExecutableTransaction as _;
+
                 let transaction_request = dummy_request();
 
                 let sender_one = Address::from(revm_primitives::ruint::aliases::U160::from(1));
@@ -35,6 +39,8 @@ pub(super) mod tests {
 
             #[test]
             fn recovers_fake_sender() {
+                use $crate::transaction::Transaction as _;
+
                 let transaction_request = dummy_request();
 
                 // Fails to recover with signature error if tried to ecrocver a fake signature

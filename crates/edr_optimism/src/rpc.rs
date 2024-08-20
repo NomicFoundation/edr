@@ -3,7 +3,7 @@ pub mod receipt;
 /// Types for Optimism RPC transaction.
 pub mod transaction;
 
-use edr_eth::{env::SignedAuthorization, log::FilterLog, Address, Bloom, B256, U128, U256};
+use edr_eth::{env::SignedAuthorization, log::FilterLog, Address, Bloom, B256, U256};
 use serde::{Deserialize, Serialize};
 
 /// Transaction receipt
@@ -98,12 +98,38 @@ pub struct BlockReceipt {
 pub struct Transaction {
     #[serde(flatten)]
     l1: edr_rpc_eth::Transaction,
+    /// ECDSA recovery id
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub v: Option<u64>,
+    /// Y-parity for EIP-2930 and EIP-1559 transactions. In theory these
+    /// transactions types shouldn't have a `v` field, but in practice they
+    /// are returned by nodes.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub y_parity: Option<bool>,
+    /// ECDSA signature r
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r: Option<U256>,
+    /// ECDSA signature s
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s: Option<U256>,
     /// Hash that uniquely identifies the source of the deposit.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_hash: Option<B256>,
     /// The ETH value to mint on L2
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mint: Option<U128>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub mint: Option<u128>,
     /// Field indicating whether the transaction is a system transaction, and
     /// therefore exempt from the L2 gas limit.
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData, sync::Arc};
 
-use edr_eth::{transaction::SignedTransaction as _, utils::u256_to_padded_hex, B256};
+use edr_eth::{transaction::ExecutableTransaction as _, utils::u256_to_padded_hex, B256};
 use revm::{
     db::DatabaseComponents,
     handler::{register::EvmHandler, CfgEnvWithEvmWiring},

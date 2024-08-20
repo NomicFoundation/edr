@@ -1,10 +1,13 @@
 mod eip4844;
 
 pub use self::eip4844::Eip4844;
-use super::Signed;
 use crate::{
-    transaction::{signed::PreOrPostEip155, INVALID_TX_TYPE_ERROR_MESSAGE},
+    transaction::{
+        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, Signed, Transaction, TxKind,
+        INVALID_TX_TYPE_ERROR_MESSAGE,
+    },
     utils::enveloped,
+    AccessListItem, Address, Bytes, B256, U256,
 };
 
 pub type Legacy = super::signed::Legacy;
@@ -120,6 +123,58 @@ impl alloy_rlp::Encodable for PooledTransaction {
     }
 }
 
+impl ExecutableTransaction for PooledTransaction {
+    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
+            PooledTransaction::PostEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
+            PooledTransaction::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
+            PooledTransaction::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
+            PooledTransaction::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
+        }
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&U256> {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.max_fee_per_gas(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.max_fee_per_gas(),
+            PooledTransaction::Eip2930(tx) => tx.max_fee_per_gas(),
+            PooledTransaction::Eip1559(tx) => tx.max_fee_per_gas(),
+            PooledTransaction::Eip4844(tx) => tx.max_fee_per_gas(),
+        }
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.rlp_encoding(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.rlp_encoding(),
+            PooledTransaction::Eip2930(tx) => tx.rlp_encoding(),
+            PooledTransaction::Eip1559(tx) => tx.rlp_encoding(),
+            PooledTransaction::Eip4844(tx) => tx.rlp_encoding(),
+        }
+    }
+
+    fn total_blob_gas(&self) -> Option<u64> {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.total_blob_gas(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.total_blob_gas(),
+            PooledTransaction::Eip2930(tx) => tx.total_blob_gas(),
+            PooledTransaction::Eip1559(tx) => tx.total_blob_gas(),
+            PooledTransaction::Eip4844(tx) => tx.total_blob_gas(),
+        }
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.transaction_hash(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.transaction_hash(),
+            PooledTransaction::Eip2930(tx) => tx.transaction_hash(),
+            PooledTransaction::Eip1559(tx) => tx.transaction_hash(),
+            PooledTransaction::Eip4844(tx) => tx.transaction_hash(),
+        }
+    }
+}
+
 impl From<Legacy> for PooledTransaction {
     fn from(value: Legacy) -> Self {
         PooledTransaction::PreEip155Legacy(value)
@@ -155,6 +210,150 @@ impl From<PreOrPostEip155> for PooledTransaction {
         match value {
             PreOrPostEip155::Pre(tx) => Self::PreEip155Legacy(tx),
             PreOrPostEip155::Post(tx) => Self::PostEip155Legacy(tx),
+        }
+    }
+}
+
+impl From<PooledTransaction> for Signed {
+    fn from(value: PooledTransaction) -> Self {
+        value.into_payload()
+    }
+}
+
+impl IsEip155 for PooledTransaction {
+    fn is_eip155(&self) -> bool {
+        matches!(self, PooledTransaction::PostEip155Legacy(_))
+    }
+}
+
+impl Transaction for PooledTransaction {
+    fn caller(&self) -> &Address {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.caller(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.caller(),
+            PooledTransaction::Eip2930(tx) => tx.caller(),
+            PooledTransaction::Eip1559(tx) => tx.caller(),
+            PooledTransaction::Eip4844(tx) => tx.caller(),
+        }
+    }
+
+    fn gas_limit(&self) -> u64 {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.gas_limit(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.gas_limit(),
+            PooledTransaction::Eip2930(tx) => tx.gas_limit(),
+            PooledTransaction::Eip1559(tx) => tx.gas_limit(),
+            PooledTransaction::Eip4844(tx) => tx.gas_limit(),
+        }
+    }
+
+    fn gas_price(&self) -> &U256 {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.gas_price(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.gas_price(),
+            PooledTransaction::Eip2930(tx) => tx.gas_price(),
+            PooledTransaction::Eip1559(tx) => tx.gas_price(),
+            PooledTransaction::Eip4844(tx) => tx.gas_price(),
+        }
+    }
+
+    fn kind(&self) -> TxKind {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.kind(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.kind(),
+            PooledTransaction::Eip2930(tx) => tx.kind(),
+            PooledTransaction::Eip1559(tx) => tx.kind(),
+            PooledTransaction::Eip4844(tx) => tx.kind(),
+        }
+    }
+
+    fn value(&self) -> &U256 {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.value(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.value(),
+            PooledTransaction::Eip2930(tx) => tx.value(),
+            PooledTransaction::Eip1559(tx) => tx.value(),
+            PooledTransaction::Eip4844(tx) => tx.value(),
+        }
+    }
+
+    fn data(&self) -> &Bytes {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.data(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.data(),
+            PooledTransaction::Eip2930(tx) => tx.data(),
+            PooledTransaction::Eip1559(tx) => tx.data(),
+            PooledTransaction::Eip4844(tx) => tx.data(),
+        }
+    }
+
+    fn nonce(&self) -> u64 {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.nonce(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.nonce(),
+            PooledTransaction::Eip2930(tx) => tx.nonce(),
+            PooledTransaction::Eip1559(tx) => tx.nonce(),
+            PooledTransaction::Eip4844(tx) => tx.nonce(),
+        }
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.chain_id(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.chain_id(),
+            PooledTransaction::Eip2930(tx) => tx.chain_id(),
+            PooledTransaction::Eip1559(tx) => tx.chain_id(),
+            PooledTransaction::Eip4844(tx) => tx.chain_id(),
+        }
+    }
+
+    fn access_list(&self) -> &[AccessListItem] {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.access_list(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.access_list(),
+            PooledTransaction::Eip2930(tx) => tx.access_list(),
+            PooledTransaction::Eip1559(tx) => tx.access_list(),
+            PooledTransaction::Eip4844(tx) => tx.access_list(),
+        }
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
+            PooledTransaction::Eip2930(tx) => tx.max_priority_fee_per_gas(),
+            PooledTransaction::Eip1559(tx) => tx.max_priority_fee_per_gas(),
+            PooledTransaction::Eip4844(tx) => tx.max_priority_fee_per_gas(),
+        }
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.blob_hashes(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.blob_hashes(),
+            PooledTransaction::Eip2930(tx) => tx.blob_hashes(),
+            PooledTransaction::Eip1559(tx) => tx.blob_hashes(),
+            PooledTransaction::Eip4844(tx) => tx.blob_hashes(),
+        }
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
+            PooledTransaction::Eip2930(tx) => tx.max_fee_per_blob_gas(),
+            PooledTransaction::Eip1559(tx) => tx.max_fee_per_blob_gas(),
+            PooledTransaction::Eip4844(tx) => tx.max_fee_per_blob_gas(),
+        }
+    }
+
+    fn authorization_list(&self) -> Option<&revm_primitives::AuthorizationList> {
+        match self {
+            PooledTransaction::PreEip155Legacy(tx) => tx.authorization_list(),
+            PooledTransaction::PostEip155Legacy(tx) => tx.authorization_list(),
+            PooledTransaction::Eip2930(tx) => tx.authorization_list(),
+            PooledTransaction::Eip1559(tx) => tx.authorization_list(),
+            PooledTransaction::Eip4844(tx) => tx.authorization_list(),
         }
     }
 }

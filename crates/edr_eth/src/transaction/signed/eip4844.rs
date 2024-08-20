@@ -1,13 +1,13 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, GAS_PER_BLOB};
+use revm_primitives::{keccak256, AuthorizationList, GAS_PER_BLOB};
 
 use crate::{
     signature::{self, Fakeable},
-    transaction,
+    transaction::{self, ExecutableTransaction, Transaction, TxKind},
     utils::enveloped,
-    AccessList, Address, Bytes, B256, U256,
+    AccessList, AccessListItem, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -44,18 +44,21 @@ pub struct Eip4844 {
 impl Eip4844 {
     /// The type identifier for an EIP-4844 transaction.
     pub const TYPE: u8 = transaction::request::Eip4844::TYPE;
+}
 
-    /// Returns the caller/signer of the transaction.
-    pub fn caller(&self) -> &Address {
-        self.signature.caller()
+impl ExecutableTransaction for Eip4844 {
+    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
+        Some(
+            self.max_fee_per_gas
+                .min(block_base_fee + self.max_priority_fee_per_gas),
+        )
     }
 
-    pub fn nonce(&self) -> &u64 {
-        &self.nonce
+    fn max_fee_per_gas(&self) -> Option<&U256> {
+        Some(&self.max_fee_per_gas)
     }
 
-    /// Returns the (cached) RLP-encoding of the transaction.
-    pub fn rlp_encoding(&self) -> &Bytes {
+    fn rlp_encoding(&self) -> &Bytes {
         self.rlp_encoding.get_or_init(|| {
             let mut encoded = Vec::with_capacity(1 + self.length());
             enveloped(Self::TYPE, self, &mut encoded);
@@ -63,14 +66,12 @@ impl Eip4844 {
         })
     }
 
-    /// Returns the (cached) hash of the transaction.
-    pub fn transaction_hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
+    fn total_blob_gas(&self) -> Option<u64> {
+        Some(total_blob_gas(self))
     }
 
-    /// Total blob gas used by the transaction.
-    pub fn total_blob_gas(&self) -> u64 {
-        GAS_PER_BLOB * self.blob_hashes.len() as u64
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
     }
 }
 
@@ -88,6 +89,60 @@ impl PartialEq for Eip4844 {
             && self.access_list == other.access_list
             && self.blob_hashes == other.blob_hashes
             && self.signature == other.signature
+    }
+}
+
+impl Transaction for Eip4844 {
+    fn caller(&self) -> &Address {
+        self.signature.caller()
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
+    }
+
+    fn gas_price(&self) -> &U256 {
+        &self.max_fee_per_gas
+    }
+
+    fn kind(&self) -> TxKind {
+        TxKind::Call(self.to)
+    }
+
+    fn value(&self) -> &U256 {
+        &self.value
+    }
+
+    fn data(&self) -> &Bytes {
+        &self.input
+    }
+
+    fn nonce(&self) -> u64 {
+        self.nonce
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        Some(self.chain_id)
+    }
+
+    fn access_list(&self) -> &[AccessListItem] {
+        &self.access_list.0
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+        Some(&self.max_priority_fee_per_gas)
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        &self.blob_hashes
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+        Some(&self.max_fee_per_blob_gas)
+    }
+
+    fn authorization_list(&self) -> Option<&AuthorizationList> {
+        None
     }
 }
 
@@ -151,6 +206,11 @@ impl From<&Decodable> for transaction::request::Eip4844 {
             blob_hashes: value.blob_hashes.clone(),
         }
     }
+}
+
+/// Total blob gas used by the transaction.
+pub fn total_blob_gas(transaction: &Eip4844) -> u64 {
+    GAS_PER_BLOB * (transaction.blob_hashes.len() as u64)
 }
 
 #[cfg(test)]

@@ -1,19 +1,21 @@
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
-    block::{BlobGas, PartialHeader},
+    block::{self, BlobGas, PartialHeader},
     chain_spec::EthHeaderConstants,
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     env::{BlobExcessGasAndPrice, BlockEnv},
+    result::InvalidTransaction,
     U256,
 };
 use edr_evm::{
     chain_spec::{BlockEnvConstructor, ChainSpec},
+    transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };
 use edr_rpc_eth::spec::RpcSpec;
 use revm::{
     handler::register::HandleRegisters,
-    optimism::{OptimismHaltReason, OptimismSpecId},
+    optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId},
     EvmHandler,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -27,8 +29,10 @@ pub struct OptimismChainSpec;
 impl RpcSpec for OptimismChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<receipt::Execution<Log>>;
     type RpcBlock<Data> = edr_rpc_eth::Block<Data> where Data: Default + DeserializeOwned + Serialize;
+    type RpcCallRequest = edr_rpc_eth::CallRequest;
     type RpcReceipt = rpc::BlockReceipt;
     type RpcTransaction = rpc::Transaction;
+    type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
 }
 
 impl revm::primitives::EvmWiring for OptimismChainSpec {
@@ -55,7 +59,7 @@ impl revm::EvmWiring for OptimismChainSpec {
     }
 }
 
-impl BlockEnvConstructor<OptimismChainSpec> for revm::primitives::BlockEnv {
+impl BlockEnvConstructor<OptimismChainSpec, PartialHeader> for revm::primitives::BlockEnv {
     fn new_block_env(header: &PartialHeader, hardfork: OptimismSpecId) -> Self {
         BlockEnv {
             number: U256::from(header.number),
@@ -77,11 +81,45 @@ impl BlockEnvConstructor<OptimismChainSpec> for revm::primitives::BlockEnv {
     }
 }
 
+impl BlockEnvConstructor<OptimismChainSpec, block::Header> for revm::primitives::BlockEnv {
+    fn new_block_env(header: &block::Header, hardfork: OptimismSpecId) -> Self {
+        BlockEnv {
+            number: U256::from(header.number),
+            coinbase: header.beneficiary,
+            timestamp: U256::from(header.timestamp),
+            difficulty: header.difficulty,
+            basefee: header.base_fee_per_gas.unwrap_or(U256::ZERO),
+            gas_limit: U256::from(header.gas_limit),
+            prevrandao: if hardfork >= OptimismSpecId::MERGE {
+                Some(header.mix_hash)
+            } else {
+                None
+            },
+            blob_excess_gas_and_price: header
+                .blob_gas
+                .as_ref()
+                .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
+        }
+    }
+}
+
 impl ChainSpec for OptimismChainSpec {
     type ReceiptBuilder = receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
     type RpcReceiptConversionError = rpc::receipt::ConversionError;
     type RpcTransactionConversionError = rpc::transaction::ConversionError;
+
+    fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
+        error: <Self::Transaction as TransactionValidation>::ValidationError,
+    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
+        match error {
+            OptimismInvalidTransaction::Base(InvalidTransaction::LackOfFundForMaxFee {
+                fee,
+                balance,
+            }) => TransactionError::LackOfFundForMaxFee { fee, balance },
+            remainder => TransactionError::InvalidTransaction(remainder),
+        }
+    }
 
     fn chain_hardfork_activations(
         chain_id: u64,

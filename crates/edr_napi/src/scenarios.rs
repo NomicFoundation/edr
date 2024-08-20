@@ -48,7 +48,7 @@ pub(crate) async fn scenario_file(
 
 pub(crate) async fn write_request(
     scenario_file: &Mutex<File>,
-    request: &ProviderRequest,
+    request: &ProviderRequest<L1ChainSpec>,
 ) -> napi::Result<()> {
     let mut line = serde_json::to_string(request)?;
     line.push('\n');

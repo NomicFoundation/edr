@@ -1,13 +1,16 @@
 mod builder;
 mod local;
 mod remote;
+/// Block-related transaction types.
+pub mod transaction;
 
 use std::{fmt::Debug, sync::Arc};
 
 use auto_impl::auto_impl;
+use derive_where::derive_where;
 use edr_eth::{
     block::{self, BlobGas, Header},
-    transaction::SignedTransaction,
+    transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     B256, U256,
 };
@@ -150,23 +153,12 @@ impl<ChainSpecT: ChainSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransactio
 }
 
 /// The result returned by requesting a block by number.
-#[derive(Debug)]
+#[derive_where(Clone, Debug)]
 pub struct BlockAndTotalDifficulty<ChainSpecT: ChainSpec, BlockchainErrorT> {
     /// The block
     pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// The total difficulty with the block
     pub total_difficulty: Option<U256>,
-}
-
-impl<BlockchainErrorT, ChainSpecT: ChainSpec> Clone
-    for BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>
-{
-    fn clone(&self) -> Self {
-        Self {
-            block: self.block.clone(),
-            total_difficulty: self.total_difficulty,
-        }
-    }
 }
 
 impl<BlockchainErrorT, ChainSpecT: ChainSpec>

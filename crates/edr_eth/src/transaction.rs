@@ -17,7 +17,7 @@ use std::str::FromStr;
 pub use revm_primitives::{alloy_primitives::TxKind, Transaction, TransactionValidation};
 use revm_primitives::{ruint, B256};
 
-use crate::{AccessListItem, Address, Bytes, U256, U8};
+use crate::{signature::Signature, Bytes, U256, U8};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -69,6 +69,18 @@ pub enum Type {
 impl From<Type> for u8 {
     fn from(t: Type) -> u8 {
         t as u8
+    }
+}
+
+impl IsEip4844 for Type {
+    fn is_eip4844(&self) -> bool {
+        matches!(self, Type::Eip4844)
+    }
+}
+
+impl IsLegacy for Type {
+    fn is_legacy(&self) -> bool {
+        matches!(self, Type::Legacy)
     }
 }
 
@@ -148,14 +160,15 @@ impl serde::Serialize for Type {
     }
 }
 
-pub trait SignedTransaction: Transaction + TransactionType {
+/// Trait for information about executable transactions.
+pub trait ExecutableTransaction {
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256>;
 
     /// The maximum fee per gas the sender is willing to pay. Only applicable
     /// for post-EIP-1559 transactions.
-    fn max_fee_per_gas(&self) -> Option<U256>;
+    fn max_fee_per_gas(&self) -> Option<&U256>;
 
     /// The enveloped (EIP-2718) RLP-encoding of the transaction.
     fn rlp_encoding(&self) -> &Bytes;
@@ -168,71 +181,67 @@ pub trait SignedTransaction: Transaction + TransactionType {
     fn transaction_hash(&self) -> &B256;
 }
 
+/// Trait for transactions that may be signed.
+pub trait MaybeSignedTransaction {
+    /// Returns the [`Signature`] of the transaction, if any.
+    fn maybe_signature(&self) -> Option<&dyn Signature>;
+}
+
+/// Trait for transactions that have been signed.
+pub trait SignedTransaction {
+    /// Returns the [`Signature`] of the transaction.
+    fn signature(&self) -> &dyn Signature;
+}
+
+impl<TransactionT: SignedTransaction> MaybeSignedTransaction for TransactionT {
+    fn maybe_signature(&self) -> Option<&dyn Signature> {
+        Some(self.signature())
+    }
+}
+
+/// Trait for mutable transactions.
 pub trait TransactionMut {
     /// Sets the gas limit of the transaction.
     fn set_gas_limit(&mut self, gas_limit: u64);
 }
 
+/// Trait for determining the type of a transaction.
 pub trait TransactionType {
     /// Type of the transaction.
-    type Type;
+    type Type: Into<u8>;
 
     /// Returns the type of the transaction.
     fn transaction_type(&self) -> Self::Type;
 }
 
-pub fn max_cost(transaction: &impl SignedTransaction) -> U256 {
+/// Trait for determining whether a transaction has an access list.
+pub trait HasAccessList {
+    /// Whether the transaction has an access list.
+    fn has_access_list(&self) -> bool;
+}
+
+/// Trait for determining whether a transaction is an EIP-155 transaction.
+pub trait IsEip155 {
+    /// Whether the transaction is an EIP-155 transaction.
+    fn is_eip155(&self) -> bool;
+}
+
+/// Trait for determining whether a transaction is an EIP-4844 transaction.
+pub trait IsEip4844 {
+    /// Whether the transaction is an EIP-4844 transaction.
+    fn is_eip4844(&self) -> bool;
+}
+
+/// Trait for determining whether a transaction is a legacy transaction.
+pub trait IsLegacy {
+    /// Whether the transaction is a legacy transaction.
+    fn is_legacy(&self) -> bool;
+}
+
+pub fn max_cost(transaction: &impl Transaction) -> U256 {
     U256::from(transaction.gas_limit()).saturating_mul(*transaction.gas_price())
 }
 
-pub fn upfront_cost(transaction: &impl SignedTransaction) -> U256 {
+pub fn upfront_cost(transaction: &impl Transaction) -> U256 {
     max_cost(transaction).saturating_add(*transaction.value())
-}
-
-/// Represents _all_ transaction requests received from RPC
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct EthTransactionRequest {
-    /// from address
-    pub from: Address,
-    /// to address
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub to: Option<Address>,
-    /// legacy, gas Price
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub gas_price: Option<U256>,
-    /// max base fee per gas sender is willing to pay
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub max_fee_per_gas: Option<U256>,
-    /// miner tip
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub max_priority_fee_per_gas: Option<U256>,
-    /// gas
-    #[cfg_attr(feature = "serde", serde(default, with = "crate::serde::optional_u64"))]
-    pub gas: Option<u64>,
-    /// value of th tx in wei
-    pub value: Option<U256>,
-    /// Any additional data sent
-    #[cfg_attr(feature = "serde", serde(alias = "input"))]
-    pub data: Option<Bytes>,
-    /// Transaction nonce
-    #[cfg_attr(feature = "serde", serde(default, with = "crate::serde::optional_u64"))]
-    pub nonce: Option<u64>,
-    /// Chain ID
-    #[cfg_attr(feature = "serde", serde(default, with = "crate::serde::optional_u64"))]
-    pub chain_id: Option<u64>,
-    /// warm storage access pre-payment
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub access_list: Option<Vec<AccessListItem>>,
-    /// EIP-2718 type
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, rename = "type", with = "crate::serde::optional_u8")
-    )]
-    pub transaction_type: Option<u8>,
-    /// Blobs (EIP-4844)
-    pub blobs: Option<Vec<Bytes>>,
-    /// Blob versioned hashes (EIP-4844)
-    pub blob_hashes: Option<Vec<B256>>,
 }

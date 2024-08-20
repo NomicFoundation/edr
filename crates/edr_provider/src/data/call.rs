@@ -1,38 +1,40 @@
+use core::fmt::Debug;
+
 use edr_eth::{
-    block::{BlobGas, Header},
-    chain_spec::L1ChainSpec,
-    env::{BlobExcessGasAndPrice, BlockEnv},
-    result::ExecutionResult,
-    Address, HashMap, Precompile, SpecId, U256,
+    block::Header,
+    result::{ExecutionResult, InvalidTransaction},
+    transaction::TransactionValidation,
+    Address, HashMap, Precompile, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
+    chain_spec::{BlockEnvConstructor as _, ChainSpec, SyncChainSpec},
     evm::handler::CfgEnvWithEvmWiring,
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
-    transaction, DebugContext,
+    DebugContext,
 };
 
 use crate::ProviderError;
 
-pub(super) struct RunCallArgs<'a, 'evm, DebugDataT>
+pub(super) struct RunCallArgs<'a, 'evm, ChainSpecT: ChainSpec, DebugDataT>
 where
     'a: 'evm,
 {
-    pub blockchain: &'a dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithEvmWiring<L1ChainSpec>,
-    pub transaction: transaction::Signed,
+    pub cfg_env: CfgEnvWithEvmWiring<ChainSpecT>,
+    pub transaction: ChainSpecT::Transaction,
     pub precompiles: &'a HashMap<Address, Precompile>,
     // `DebugContext` cannot be simplified further
     #[allow(clippy::type_complexity)]
     pub debug_context: Option<
         DebugContext<
             'evm,
-            L1ChainSpec,
-            BlockchainError<L1ChainSpec>,
+            ChainSpecT,
+            BlockchainError<ChainSpecT>,
             DebugDataT,
             StateRefOverrider<'a, &'evm dyn SyncState<StateError>>,
         >,
@@ -40,11 +42,16 @@ where
 }
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<'a, 'evm, DebugDataT>(
-    args: RunCallArgs<'a, 'evm, DebugDataT>,
-) -> Result<ExecutionResult<L1ChainSpec>, ProviderError>
+pub(super) fn run_call<'a, 'evm, ChainSpecT, DebugDataT>(
+    args: RunCallArgs<'a, 'evm, ChainSpecT, DebugDataT>,
+) -> Result<ExecutionResult<ChainSpecT>, ProviderError<ChainSpecT>>
 where
     'a: 'evm,
+    ChainSpecT: SyncChainSpec<
+        Block: Default,
+        Hardfork: Debug,
+        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
 {
     let RunCallArgs {
         blockchain,
@@ -57,23 +64,11 @@ where
         debug_context,
     } = args;
 
-    let block = BlockEnv {
-        number: U256::from(header.number),
-        coinbase: header.beneficiary,
-        timestamp: U256::from(header.timestamp),
-        gas_limit: U256::from(header.gas_limit),
-        basefee: U256::ZERO,
-        difficulty: header.difficulty,
-        prevrandao: if cfg_env.spec_id >= SpecId::MERGE {
-            Some(header.mix_hash)
-        } else {
-            None
-        },
-        blob_excess_gas_and_price: header
-            .blob_gas
-            .as_ref()
-            .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
-    };
+    // `eth_call` uses a base fee of zero to mimick geth's behavior
+    let mut header = header.clone();
+    header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
+
+    let block = ChainSpecT::Block::new_block_env(&header, cfg_env.spec_id);
 
     guaranteed_dry_run(
         blockchain,
