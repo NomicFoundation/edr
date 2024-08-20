@@ -57,10 +57,10 @@ importers:
         version: 10.3.0
       ts-node:
         specifier: ^10.8.0
-        version: 10.9.2(@types/node@18.15.13)(typescript@4.5.5)
+        version: 10.9.2(@types/node@18.15.13)(typescript@5.0.4)
       typescript:
-        specifier: ~4.5.2
-        version: 4.5.5
+        specifier: ~5.0.0
+        version: 5.0.4
 
   crates/tools/js/benchmark:
     devDependencies:
@@ -71,7 +71,7 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1
       chai:
-        specifier: ^4.2.0
+        specifier: ^4.3.6
         version: 4.4.1
       hardhat:
         specifier: 2.22.7
@@ -110,7 +110,7 @@ importers:
         specifier: ^4.2.0
         version: 4.3.12
       '@types/chai-as-promised':
-        specifier: ^7.1.3
+        specifier: ^7.1.8
         version: 7.1.8
       '@types/ci-info':
         specifier: ^2.0.0
@@ -161,7 +161,7 @@ importers:
         specifier: 5.61.0
         version: 5.61.0(eslint@8.57.0)(typescript@5.0.4)
       chai:
-        specifier: ^4.2.0
+        specifier: ^4.3.6
         version: 4.4.1
       chai-as-promised:
         specifier: ^7.1.1
@@ -183,7 +183,7 @@ importers:
         version: 10.4.1(eslint@8.57.0)
       eslint-plugin-prettier:
         specifier: 3.4.0
-        version: 3.4.0(eslint-config-prettier@8.3.0(eslint@8.57.0))(eslint@8.57.0)(prettier@2.4.1)
+        version: 3.4.0(eslint-config-prettier@8.3.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
       ethereumjs-abi:
         specifier: ^0.6.8
         version: 0.6.8
@@ -200,8 +200,8 @@ importers:
         specifier: ^10.0.0
         version: 10.3.0
       prettier:
-        specifier: 2.4.1
-        version: 2.4.1
+        specifier: ^3.2.5
+        version: 3.2.5
       rimraf:
         specifier: ^3.0.2
         version: 3.0.2
@@ -236,7 +236,7 @@ importers:
         specifier: ^4.3.6
         version: 4.4.1
       ethers:
-        specifier: '5'
+        specifier: 5.7.2
         version: 5.7.2
       hardhat:
         specifier: 2.22.7
@@ -2438,11 +2438,6 @@ packages:
     resolution: {integrity: sha512-GbK2cP9nraSSUF9N2XwUwqfzlAFlMNYYl+ShE/V+H8a9uNl/oUqB1w2EL54Jh0OlyRSd8RfWYJ3coVS4TROP2w==}
     engines: {node: '>=6.0.0'}
 
-  prettier@2.4.1:
-    resolution: {integrity: sha512-9fbDAXSBcc6Bs1mZrDYb3XKzDLm4EXXL9sC1LqKP5rZkT6KRr/rf9amVUcODVXgguK/isJz0d0hP72WeaKWsvA==}
-    engines: {node: '>=10.13.0'}
-    hasBin: true
-
   prettier@2.8.8:
     resolution: {integrity: sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==}
     engines: {node: '>=10.13.0'}
@@ -2924,11 +2919,6 @@ packages:
   typed-array-length@1.0.6:
     resolution: {integrity: sha512-/OxDN6OtAk5KBpGb28T+HZc2M+ADtvRxXrKKbUwtsLgdoxgX13hyy7ek6bFRl5+aBs2yZzB0c4CnQfAtVypW/g==}
     engines: {node: '>= 0.4'}
-
-  typescript@4.5.5:
-    resolution: {integrity: sha512-TCTIul70LyWe6IJWT8QSYeA54WQe8EjQFU4wY52Fasj5UKx88LNYKCgBEHcOMOrFF1rKGbD8v/xcNWVUq9SymA==}
-    engines: {node: '>=4.2.0'}
-    hasBin: true
 
   typescript@5.0.4:
     resolution: {integrity: sha512-cW9T5W9xY37cc+jfEnaUvX91foxtHkza3Nw3wkoF4sSlKn0MONdkdEndig/qPBWXNkmplh3NzayQzCiHM4/hqw==}
@@ -4735,10 +4725,10 @@ snapshots:
       globals: 13.24.0
       rambda: 7.5.0
 
-  eslint-plugin-prettier@3.4.0(eslint-config-prettier@8.3.0(eslint@8.57.0))(eslint@8.57.0)(prettier@2.4.1):
+  eslint-plugin-prettier@3.4.0(eslint-config-prettier@8.3.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5):
     dependencies:
       eslint: 8.57.0
-      prettier: 2.4.1
+      prettier: 3.2.5
       prettier-linter-helpers: 1.0.0
     optionalDependencies:
       eslint-config-prettier: 8.3.0(eslint@8.57.0)
@@ -5774,8 +5764,6 @@ snapshots:
     dependencies:
       fast-diff: 1.3.0
 
-  prettier@2.4.1: {}
-
   prettier@2.8.8: {}
 
   prettier@3.2.5: {}
@@ -6183,24 +6171,6 @@ snapshots:
 
   trim-newlines@3.0.1: {}
 
-  ts-node@10.9.2(@types/node@18.15.13)(typescript@4.5.5):
-    dependencies:
-      '@cspotcode/source-map-support': 0.8.1
-      '@tsconfig/node10': 1.0.11
-      '@tsconfig/node12': 1.0.11
-      '@tsconfig/node14': 1.0.3
-      '@tsconfig/node16': 1.0.4
-      '@types/node': 18.15.13
-      acorn: 8.11.3
-      acorn-walk: 8.3.2
-      arg: 4.1.3
-      create-require: 1.1.1
-      diff: 4.0.2
-      make-error: 1.3.6
-      typescript: 4.5.5
-      v8-compile-cache-lib: 3.0.1
-      yn: 3.1.1
-
   ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
@@ -6309,8 +6279,6 @@ snapshots:
       has-proto: 1.0.3
       is-typed-array: 1.1.13
       possible-typed-array-names: 1.0.0
-
-  typescript@4.5.5: {}
 
   typescript@5.0.4: {}
 

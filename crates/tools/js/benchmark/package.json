@@ -18,7 +18,7 @@
   "devDependencies": {
     "@types/node": "^18.0.0",
     "argparse": "^2.0.1",
-    "chai": "^4.2.0",
+    "chai": "^4.3.6",
     "hardhat": "2.22.7",
     "lodash": "^4.17.11",
     "mocha": "^10.0.0",

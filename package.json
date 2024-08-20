@@ -12,7 +12,8 @@
   "scripts": {
     "build": "cd crates/edr_napi && pnpm build",
     "prettier": "prettier --check \".github/**/*.{yml,ts,js}\" \"crates/edr_napi/test/**.ts\" \"**/*.md\"",
-    "prettier:fix": "pnpm run prettier --write"
+    "prettier:fix": "pnpm run prettier --write",
+    "lint": "syncpack lint"
   },
   "pnpm": {
     "overrides": {
