@@ -1,35 +1,6 @@
 {
   "name": "@nomicfoundation/edr",
   "version": "0.5.2",
-  "main": "index.js",
-  "types": "index.d.ts",
-  "files": [
-    "index.js",
-    "index.d.ts",
-    "Cargo.toml",
-    "build.rs",
-    "src/"
-  ],
-  "repository": {
-    "url": "https://github.com/NomicFoundation/edr.git",
-    "type": "git"
-  },
-  "napi": {
-    "name": "edr",
-    "triples": {
-      "defaults": false,
-      "additional": [
-        "aarch64-apple-darwin",
-        "x86_64-apple-darwin",
-        "aarch64-unknown-linux-gnu",
-        "aarch64-unknown-linux-musl",
-        "x86_64-unknown-linux-gnu",
-        "x86_64-unknown-linux-musl",
-        "x86_64-pc-windows-msvc"
-      ]
-    }
-  },
-  "license": "MIT",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.1",
     "@types/chai": "^4.2.0",
@@ -46,18 +17,44 @@
   "engines": {
     "node": ">= 18"
   },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "Cargo.toml",
+    "build.rs",
+    "src/"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "napi": {
+    "name": "edr",
+    "triples": {
+      "defaults": false,
+      "additional": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "aarch64-unknown-linux-musl",
+        "x86_64-unknown-linux-gnu",
+        "x86_64-unknown-linux-musl",
+        "x86_64-pc-windows-msvc"
+      ]
+    }
+  },
+  "repository": "NomicFoundation/edr.git",
   "scripts": {
     "artifacts": "napi artifacts",
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
-    "build:tracing": "napi build --platform --release --features tracing",
     "build:scenarios": "napi build --platform --release --features scenarios",
+    "build:tracing": "napi build --platform --release --features tracing",
+    "clean": "rm -rf @nomicfoundation/edr.node",
     "prepublishOnly": "bash scripts/prepublish.sh",
-    "universal": "napi universal",
-    "version": "napi version",
     "pretest": "pnpm build",
     "test": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
     "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
-    "clean": "rm -rf @nomicfoundation/edr.node"
-  }
+    "universal": "napi universal",
+    "version": "napi version"
+  },
+  "types": "index.d.ts"
 }
