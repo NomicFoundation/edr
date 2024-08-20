@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use edr_solidity::artifacts::BuildInfo;
 use napi::{
     bindgen_prelude::{ClassInstance, Either3, Either4, Uint8Array, Undefined},
@@ -10,7 +12,7 @@ use super::{
     compiler::create_models_and_decode_bytecodes_inner,
     contracts_identifier::ContractsIdentifier,
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},
-    model::Bytecode,
+    model::{Bytecode, BytecodeWrapper},
     solidity_stack_trace::{
         FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME,
         UNRECOGNIZED_FUNCTION_NAME,
@@ -46,12 +48,12 @@ impl VmTraceDecoder {
     }
 
     #[napi]
-    pub fn add_bytecode(
-        &mut self,
-        bytecode: ClassInstance<Bytecode>,
-        env: Env,
-    ) -> napi::Result<()> {
-        self.contracts_identifier.add_bytecode(bytecode, env)
+    pub fn add_bytecode(&mut self, bytecode: ClassInstance<BytecodeWrapper>) -> napi::Result<()> {
+        self.add_bytecode_inner(bytecode.0.clone())
+    }
+
+    pub fn add_bytecode_inner(&mut self, bytecode: Rc<Bytecode>) -> napi::Result<()> {
+        self.contracts_identifier.add_bytecode(bytecode)
     }
 
     #[napi]
@@ -66,11 +68,9 @@ impl VmTraceDecoder {
             Either3::B(mut call) => {
                 let is_create = false;
 
-                let bytecode = self.contracts_identifier.get_bytecode_for_call(
-                    call.code.as_ref(),
-                    is_create,
-                    env,
-                )?;
+                let bytecode = self
+                    .contracts_identifier
+                    .get_bytecode_for_call(call.code.as_ref(), is_create)?;
 
                 let steps: Vec<_> = call
                     .steps
@@ -92,12 +92,7 @@ impl VmTraceDecoder {
                     .collect::<napi::Result<_>>()?;
 
                 let bytecode = bytecode
-                    .map(|b| {
-                        // SAFETY: the call is safe but the use may not be.
-                        // We only ever immutably access the bytecode, so it's safe,
-                        // see the comment in `as_unsafe_napi_reference` for more.
-                        unsafe { b.as_unsafe_napi_reference(env) }
-                    })
+                    .map(|b| BytecodeWrapper(b).into_instance(env))
                     .transpose()?;
 
                 call.bytecode = bytecode;
@@ -108,11 +103,9 @@ impl VmTraceDecoder {
             Either3::C(mut create @ CreateMessageTrace { .. }) => {
                 let is_create = true;
 
-                let bytecode = self.contracts_identifier.get_bytecode_for_call(
-                    create.code.as_ref(),
-                    is_create,
-                    env,
-                )?;
+                let bytecode = self
+                    .contracts_identifier
+                    .get_bytecode_for_call(create.code.as_ref(), is_create)?;
 
                 let steps: Vec<_> = create
                     .steps
@@ -134,12 +127,7 @@ impl VmTraceDecoder {
                     .collect::<napi::Result<_>>()?;
 
                 let bytecode = bytecode
-                    .map(|b| {
-                        // SAFETY: the call is safe but the use may not be.
-                        // We only ever immutably access the bytecode, so it's safe,
-                        // see the comment in `as_unsafe_napi_reference` for more.
-                        unsafe { b.as_unsafe_napi_reference(env) }
-                    })
+                    .map(|b| BytecodeWrapper(b).into_instance(env))
                     .transpose()?;
                 create.bytecode = bytecode;
                 create.steps = steps;
@@ -154,17 +142,13 @@ impl VmTraceDecoder {
         &mut self,
         code: Uint8Array,
         calldata: Either<Uint8Array, Undefined>,
-        env: Env,
     ) -> napi::Result<ContractAndFunctionName> {
         let is_create = matches!(calldata, Either::B(()));
-        let bytecode =
-            self.contracts_identifier
-                .get_bytecode_for_call(code.as_ref(), is_create, env)?;
+        let bytecode = self
+            .contracts_identifier
+            .get_bytecode_for_call(code.as_ref(), is_create)?;
 
-        let contract = match bytecode {
-            Some(bytecode) => Some(bytecode.borrow(env)?.contract.clone()),
-            None => None,
-        };
+        let contract = bytecode.map(|bytecode| bytecode.contract.clone());
         let contract = contract.as_ref().map(|c| c.borrow());
 
         let contract_name = contract.as_ref().map_or_else(
@@ -224,7 +208,6 @@ pub struct ContractAndFunctionName {
 pub fn initialize_vm_trace_decoder(
     mut vm_trace_decoder: ClassInstance<VmTraceDecoder>,
     tracing_config: serde_json::Value,
-    env: Env,
 ) -> napi::Result<()> {
     let config = serde_json::from_value::<TracingConfig>(tracing_config).map_err(|e| {
         napi::Error::from_reason(format!("Failed to deserialize tracing config: {e:?}"))
@@ -239,7 +222,6 @@ pub fn initialize_vm_trace_decoder(
             build_info.solc_version.clone(),
             &build_info.input,
             &build_info.output,
-            env,
         )?;
 
         for bytecode in bytecodes {
@@ -249,7 +231,7 @@ pub fn initialize_vm_trace_decoder(
                 continue;
             }
 
-            vm_trace_decoder.add_bytecode(bytecode, env)?;
+            vm_trace_decoder.add_bytecode_inner(Rc::new(bytecode))?;
         }
     }
 

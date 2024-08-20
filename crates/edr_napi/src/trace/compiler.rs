@@ -11,9 +11,11 @@ use edr_solidity::{
     library_utils::get_library_address_positions,
 };
 use indexmap::IndexMap;
-use napi::{bindgen_prelude::ClassInstance, Env};
+use napi::bindgen_prelude::ClassInstance;
+use napi::Env;
 use napi_derive::napi;
 
+use super::model::BytecodeWrapper;
 use super::{
     library_utils::normalize_compiler_output_bytecode,
     model::{
@@ -29,19 +31,21 @@ pub fn create_models_and_decode_bytecodes(
     compiler_input: serde_json::Value,
     compiler_output: serde_json::Value,
     env: Env,
-) -> napi::Result<Vec<ClassInstance<Bytecode>>> {
+) -> napi::Result<Vec<ClassInstance<BytecodeWrapper>>> {
     let compiler_input: CompilerInput = serde_json::from_value(compiler_input)?;
     let compiler_output: CompilerOutput = serde_json::from_value(compiler_output)?;
 
-    create_models_and_decode_bytecodes_inner(solc_version, &compiler_input, &compiler_output, env)
+    create_models_and_decode_bytecodes_inner(solc_version, &compiler_input, &compiler_output)?
+        .into_iter()
+        .map(|bytecode| BytecodeWrapper(Rc::new(bytecode)).into_instance(env))
+        .collect()
 }
 
 pub fn create_models_and_decode_bytecodes_inner(
     solc_version: String,
     compiler_input: &CompilerInput,
     compiler_output: &CompilerOutput,
-    env: Env,
-) -> napi::Result<Vec<ClassInstance<Bytecode>>> {
+) -> napi::Result<Vec<Bytecode>> {
     let mut file_id_to_source_file = HashMap::new();
     let mut contract_id_to_contract = IndexMap::new();
 
@@ -57,7 +61,6 @@ pub fn create_models_and_decode_bytecodes_inner(
         compiler_output,
         &file_id_to_source_file,
         &contract_id_to_contract,
-        env,
     )?;
 
     correct_selectors(&bytecodes, compiler_output)?;
@@ -646,10 +649,7 @@ fn ast_src_to_source_location(
     ))))
 }
 
-fn correct_selectors(
-    bytecodes: &[ClassInstance<Bytecode>],
-    compiler_output: &CompilerOutput,
-) -> napi::Result<()> {
+fn correct_selectors(bytecodes: &[Bytecode], compiler_output: &CompilerOutput) -> napi::Result<()> {
     for bytecode in bytecodes.iter().filter(|b| !b.is_deployment) {
         let mut contract = bytecode.contract.borrow_mut();
         // Fetch the method identifiers for the contract from the compiler output
@@ -720,8 +720,7 @@ fn decode_evm_bytecode(
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    env: Env,
-) -> napi::Result<ClassInstance<Bytecode>> {
+) -> napi::Result<Bytecode> {
     let library_address_positions = get_library_address_positions(compiler_bytecode);
 
     let immutable_references = compiler_bytecode
@@ -749,7 +748,7 @@ fn decode_evm_bytecode(
         is_deployment,
     );
 
-    Bytecode::new(
+    Ok(Bytecode::new(
         contract,
         is_deployment,
         normalized_code,
@@ -757,8 +756,7 @@ fn decode_evm_bytecode(
         library_address_positions,
         immutable_references,
         solc_version,
-    )?
-    .into_instance(env)
+    ))
 }
 
 fn decode_bytecodes(
@@ -766,8 +764,7 @@ fn decode_bytecodes(
     compiler_output: &CompilerOutput,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_id_to_contract: &IndexMap<u32, Rc<RefCell<Contract>>>,
-    env: Env,
-) -> napi::Result<Vec<ClassInstance<Bytecode>>> {
+) -> napi::Result<Vec<Bytecode>> {
     let mut bytecodes = Vec::new();
 
     for contract in contract_id_to_contract.values() {
@@ -804,7 +801,6 @@ fn decode_bytecodes(
             true,
             &contract_evm_output.bytecode,
             file_id_to_source_file,
-            env,
         )?;
 
         let runtime_bytecode = decode_evm_bytecode(
@@ -813,7 +809,6 @@ fn decode_bytecodes(
             false,
             &contract_evm_output.deployed_bytecode,
             file_id_to_source_file,
-            env,
         )?;
 
         bytecodes.push(deployment_bytecode);

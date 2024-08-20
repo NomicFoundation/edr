@@ -346,7 +346,7 @@ export interface SubscriptionEvent {
   filterId: bigint
   result: any
 }
-export function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<Bytecode>
+export function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<BytecodeWrapper>
 export function linkHexStringBytecode(code: string, address: string, position: number): string
 export const enum ContractFunctionType {
   CONSTRUCTOR = 0,
@@ -398,7 +398,11 @@ export interface CreateMessageTrace {
   depth: number
   code: Uint8Array
   steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
-  bytecode?: Bytecode
+  /**
+   * Reference to the resolved `Bytecode` EDR data.
+   * Only used on the JS side by the `VmTraceDecoder` class.
+   */
+  bytecode?: BytecodeWrapper
   numberOfSubtraces: number
   deployedContract?: Uint8Array | undefined
 }
@@ -410,7 +414,11 @@ export interface CallMessageTrace {
   depth: number
   code: Uint8Array
   steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
-  bytecode?: Bytecode
+  /**
+   * Reference to the resolved `Bytecode` EDR data.
+   * Only used on the JS side by the `VmTraceDecoder` class.
+   */
+  bytecode?: BytecodeWrapper
   numberOfSubtraces: number
   calldata: Uint8Array
   address: Uint8Array
@@ -653,11 +661,11 @@ export class Response {
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
 }
-export class Bytecode {
-  readonly isDeployment: boolean
-  readonly libraryAddressPositions: Array<number>
-  readonly compilerVersion: string
-}
+/**
+ * Opaque handle to the `Bytecode` struct.
+ * Only used on the JS side by the `VmTraceDecoder` class.
+ */
+export class BytecodeWrapper { }
 export class Exit {
   get kind(): ExitCode
   isError(): boolean
@@ -679,7 +687,7 @@ export class SolidityTracer {
 }
 export class VmTraceDecoder {
   constructor()
-  addBytecode(bytecode: Bytecode): void
+  addBytecode(bytecode: BytecodeWrapper): void
   tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
   getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName
 }

@@ -243,22 +243,32 @@ impl From<edr_solidity::artifacts::ImmutableReference> for ImmutableReference {
     }
 }
 
+/// Opaque handle to the `Bytecode` struct.
+/// Only used on the JS side by the `VmTraceDecoder` class.
+// NOTE: Needed, because we store the resolved `Bytecode` in the MessageTrace
+// JS plain objects and those need a dedicated (class) type.
 #[napi]
+pub struct BytecodeWrapper(pub(crate) Rc<Bytecode>);
+
+impl std::ops::Deref for BytecodeWrapper {
+    type Target = Bytecode;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 pub struct Bytecode {
     pc_to_instruction: HashMap<u32, Instruction>,
 
     pub(crate) contract: Rc<RefCell<Contract>>,
-    #[napi(readonly)]
     pub is_deployment: bool,
     pub(crate) normalized_code: Vec<u8>,
-    #[napi(readonly)]
     pub library_address_positions: Vec<u32>,
     pub(crate) immutable_references: Vec<ImmutableReference>,
-    #[napi(readonly)]
     pub compiler_version: String,
 }
 
-#[napi]
 impl Bytecode {
     pub fn new(
         contract: Rc<RefCell<Contract>>,
@@ -268,13 +278,13 @@ impl Bytecode {
         library_address_positions: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
         compiler_version: String,
-    ) -> napi::Result<Bytecode> {
+    ) -> Bytecode {
         let mut pc_to_instruction = HashMap::new();
         for inst in instructions {
             pc_to_instruction.insert(inst.pc, inst);
         }
 
-        Ok(Bytecode {
+        Bytecode {
             pc_to_instruction,
             contract,
             is_deployment,
@@ -282,7 +292,7 @@ impl Bytecode {
             library_address_positions,
             immutable_references,
             compiler_version,
-        })
+        }
     }
 
     pub fn get_instruction(&self, pc: u32) -> napi::Result<&Instruction> {

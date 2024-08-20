@@ -1,12 +1,12 @@
 //! Bridging type for the existing `MessageTrace` interface in Hardhat.
 
 use napi::{
-    bindgen_prelude::{BigInt, ClassInstance, Either3, Either4, Reference, Uint8Array, Undefined},
+    bindgen_prelude::{BigInt, ClassInstance, Either3, Either4, Uint8Array, Undefined},
     Either, Env,
 };
 use napi_derive::napi;
 
-use super::{exit::Exit, model::Bytecode};
+use super::{exit::Exit, model::BytecodeWrapper};
 
 #[napi(object)]
 pub struct EvmStep {
@@ -41,7 +41,9 @@ pub struct CreateMessageTrace {
     // `BaseEvmMessageTrace`
     pub code: Uint8Array,
     pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>>,
-    pub bytecode: Option<Reference<Bytecode>>,
+    /// Reference to the resolved `Bytecode` EDR data.
+    /// Only used on the JS side by the `VmTraceDecoder` class.
+    pub bytecode: Option<ClassInstance<BytecodeWrapper>>,
     pub number_of_subtraces: u32,
     // `CreateMessageTrace`
     // HACK: It seems that `Either<Uint8Array, Undefined>` means exactly what we
@@ -65,7 +67,9 @@ pub struct CallMessageTrace {
     // `BaseEvmMessageTrace`
     pub code: Uint8Array,
     pub steps: Vec<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>>,
-    pub bytecode: Option<Reference<Bytecode>>,
+    /// Reference to the resolved `Bytecode` EDR data.
+    /// Only used on the JS side by the `VmTraceDecoder` class.
+    pub bytecode: Option<ClassInstance<BytecodeWrapper>>,
     pub number_of_subtraces: u32,
     // `CallMessageTrace`
     pub calldata: Uint8Array,

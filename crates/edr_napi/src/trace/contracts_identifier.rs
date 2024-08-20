@@ -1,13 +1,12 @@
 use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
 use edr_eth::Address;
-use napi::{bindgen_prelude::ClassInstance, Either, Env};
+use napi::Either;
 
 use super::{
     model::{Bytecode, ImmutableReference},
     opcodes::Opcode,
 };
-use crate::utils::ClassInstanceRef;
 
 /// This class represent a somewhat special Trie of bytecodes.
 ///
@@ -16,8 +15,8 @@ use crate::utils::ClassInstanceRef;
 #[derive(Clone)]
 pub struct BytecodeTrie {
     child_nodes: HashMap<u8, Box<BytecodeTrie>>,
-    descendants: Vec<Rc<ClassInstanceRef<Bytecode>>>,
-    match_: Option<Rc<ClassInstanceRef<Bytecode>>>,
+    descendants: Vec<Rc<Bytecode>>,
+    match_: Option<Rc<Bytecode>>,
     depth: Option<u32>,
 }
 
@@ -31,12 +30,10 @@ impl BytecodeTrie {
         }
     }
 
-    pub fn add(&mut self, bytecode: ClassInstance<Bytecode>, env: Env) -> napi::Result<()> {
-        let bytecode = Rc::new(ClassInstanceRef::from_obj(bytecode, env)?);
-
+    pub fn add(&mut self, bytecode: Rc<Bytecode>) -> napi::Result<()> {
         let mut cursor = self;
 
-        let bytecode_normalized_code = &bytecode.borrow(env)?.normalized_code;
+        let bytecode_normalized_code = &bytecode.normalized_code;
         for (index, byte) in bytecode_normalized_code.iter().enumerate() {
             cursor.descendants.push(bytecode.clone());
 
@@ -65,7 +62,7 @@ impl BytecodeTrie {
         &self,
         code: &[u8],
         current_code_byte: u32,
-    ) -> Option<Either<Rc<ClassInstanceRef<Bytecode>>, &Self>> {
+    ) -> Option<Either<Rc<Bytecode>, &Self>> {
         if current_code_byte > code.len() as u32 {
             return None;
         }
@@ -111,7 +108,7 @@ fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
 
 pub struct ContractsIdentifier {
     trie: BytecodeTrie,
-    cache: HashMap<Vec<u8>, Rc<ClassInstanceRef<Bytecode>>>,
+    cache: HashMap<Vec<u8>, Rc<Bytecode>>,
     enable_cache: bool,
 }
 
@@ -126,12 +123,8 @@ impl ContractsIdentifier {
         }
     }
 
-    pub(crate) fn add_bytecode(
-        &mut self,
-        bytecode: ClassInstance<Bytecode>,
-        env: Env,
-    ) -> napi::Result<()> {
-        self.trie.add(bytecode, env)?;
+    pub(crate) fn add_bytecode(&mut self, bytecode: Rc<Bytecode>) -> napi::Result<()> {
+        self.trie.add(bytecode)?;
         self.cache.clear();
 
         Ok(())
@@ -144,8 +137,7 @@ impl ContractsIdentifier {
         normalize_libraries: Option<bool>,
         trie: Option<&BytecodeTrie>,
         first_byte_to_search: Option<u32>,
-        env: Env,
-    ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
+    ) -> napi::Result<Option<Rc<Bytecode>>> {
         let normalize_libraries = normalize_libraries.unwrap_or(true);
         let first_byte_to_search = first_byte_to_search.unwrap_or(0);
         let trie = trie.unwrap_or(&self.trie);
@@ -156,7 +148,6 @@ impl ContractsIdentifier {
             normalize_libraries,
             trie,
             first_byte_to_search,
-            env,
         )
     }
 
@@ -166,8 +157,7 @@ impl ContractsIdentifier {
         normalize_libraries: bool,
         trie: &BytecodeTrie,
         first_byte_to_search: u32,
-        env: Env,
-    ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
+    ) -> napi::Result<Option<Rc<Bytecode>>> {
         let search_result = match trie.search(code, first_byte_to_search) {
             None => return Ok(None),
             Some(Either::A(bytecode)) => return Ok(Some(bytecode.clone())),
@@ -191,7 +181,7 @@ impl ContractsIdentifier {
         // We take advantage of this last observation, and just return the bytecode that
         // exactly matched the search_result (sub)trie that we got.
         match &search_result.match_ {
-            Some(bytecode) if is_create && bytecode.borrow(env)?.is_deployment => {
+            Some(bytecode) if is_create && bytecode.is_deployment => {
                 return Ok(Some(bytecode.clone()));
             }
             _ => {}
@@ -199,8 +189,6 @@ impl ContractsIdentifier {
 
         if normalize_libraries {
             for bytecode_with_libraries in &search_result.descendants {
-                let bytecode_with_libraries = bytecode_with_libraries.borrow(env)?;
-
                 if bytecode_with_libraries.library_address_positions.is_empty()
                     && bytecode_with_libraries.immutable_references.is_empty()
                 {
@@ -231,7 +219,6 @@ impl ContractsIdentifier {
                     false,
                     search_result,
                     search_result.depth.map_or(0, |depth| depth + 1),
-                    env,
                 );
 
                 if let Ok(Some(bytecode)) = normalized_result {
@@ -265,8 +252,7 @@ impl ContractsIdentifier {
         &mut self,
         code: &[u8],
         is_create: bool,
-        env: Env,
-    ) -> napi::Result<Option<Rc<ClassInstanceRef<Bytecode>>>> {
+    ) -> napi::Result<Option<Rc<Bytecode>>> {
         let normalized_code = normalize_library_runtime_bytecode_if_necessary(code);
 
         if self.enable_cache {
@@ -277,7 +263,7 @@ impl ContractsIdentifier {
             }
         }
 
-        let result = self.search_bytecode(is_create, &normalized_code, None, None, None, env)?;
+        let result = self.search_bytecode(is_create, &normalized_code, None, None, None)?;
 
         if self.enable_cache {
             if let Some(result) = &result {
