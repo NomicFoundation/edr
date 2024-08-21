@@ -56,10 +56,10 @@
     "build:edr": "cd ../crates/edr_napi && pnpm build",
     "clean": "rimraf build-test tsconfig.tsbuildinfo test/internal/hardhat-network/provider/.hardhat_node_test_cache test/internal/hardhat-network/stack-traces/test-files/artifacts",
     "eslint": "eslint 'test/**/*.ts'",
-    "lint": "pnpm prettier --check && pnpm eslint",
+    "lint": "pnpm prettier && pnpm eslint",
     "lint:fix": "pnpm prettier --write && pnpm eslint --fix",
     "pretest": "pnpm build:edr",
-    "prettier": "prettier \"**/*.{js,ts,md,json}\"",
+    "prettier": "prettier --check \"**/*.{js,ts,md,json}\"",
     "test": "mocha --recursive \"test/**/*.ts\"",
     "test:ci": "pnpm test && pnpm test:integration",
     "test:integration": "bash run-integration-tests.sh"
