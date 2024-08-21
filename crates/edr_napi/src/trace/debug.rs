@@ -12,7 +12,8 @@ use super::{
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},
     solidity_stack_trace::{RevertErrorStackTraceEntry, SolidityStackTrace},
 };
-use crate::trace::{model::JumpType, return_data::ReturnData};
+use crate::trace::return_data::ReturnData;
+use edr_solidity::build_model::JumpType;
 
 const MARGIN_SPACE: usize = 6;
 

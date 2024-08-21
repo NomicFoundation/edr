@@ -8,10 +8,14 @@ use napi::{
 };
 use semver::{Version, VersionReq};
 
+use edr_solidity::build_model::{
+    Bytecode, ContractFunction, ContractFunctionType, ContractKind, Instruction, JumpType,
+    SourceLocation,
+};
+
 use super::{
     exit::ExitCode,
     message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
-    model::{Bytecode, ContractFunction, ContractKind, SourceLocation},
     return_data::ReturnData,
     solidity_stack_trace::{
         CallFailedErrorStackTraceEntry, CallstackEntryStackTraceEntry, CustomErrorStackTraceEntry,
@@ -21,17 +25,14 @@ use super::{
         SolidityStackTraceEntryExt, SourceReference, UnmappedSolc063RevertErrorStackTraceEntry,
     },
 };
-use crate::trace::{
-    model::{ContractFunctionType, Instruction, JumpType},
-    solidity_stack_trace::{
-        ContractCallRunOutOfGasError, ContractTooLargeErrorStackTraceEntry,
-        DirectLibraryCallErrorStackTraceEntry, FallbackNotPayableAndNoReceiveErrorStackTraceEntry,
-        FunctionNotPayableErrorStackTraceEntry, MissingFallbackOrReceiveErrorStackTraceEntry,
-        OtherExecutionErrorStackTraceEntry, ReturndataSizeErrorStackTraceEntry,
-        RevertErrorStackTraceEntry, StackTraceEntryTypeConst,
-        UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry, CONSTRUCTOR_FUNCTION_NAME,
-        FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME,
-    },
+use crate::trace::solidity_stack_trace::{
+    ContractCallRunOutOfGasError, ContractTooLargeErrorStackTraceEntry,
+    DirectLibraryCallErrorStackTraceEntry, FallbackNotPayableAndNoReceiveErrorStackTraceEntry,
+    FunctionNotPayableErrorStackTraceEntry, MissingFallbackOrReceiveErrorStackTraceEntry,
+    OtherExecutionErrorStackTraceEntry, ReturndataSizeErrorStackTraceEntry,
+    RevertErrorStackTraceEntry, StackTraceEntryTypeConst,
+    UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry, CONSTRUCTOR_FUNCTION_NAME,
+    FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME,
 };
 
 /// Specifies whether a heuristic was applied and modified the stack trace.

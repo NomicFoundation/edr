@@ -1279,12 +1279,17 @@ dependencies = [
 name = "edr_solidity"
 version = "0.3.5"
 dependencies = [
+ "alloy-dyn-abi",
  "alloy-json-abi",
+ "anyhow",
  "edr_eth",
  "edr_evm",
  "indexmap 2.2.6",
+ "napi",
+ "napi-derive",
  "serde",
  "serde_json",
+ "strum",
 ]
 
 [[package]]

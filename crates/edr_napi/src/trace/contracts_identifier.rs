@@ -3,7 +3,8 @@ use std::{borrow::Cow, collections::HashMap, rc::Rc};
 use edr_eth::Address;
 use edr_evm::interpreter::OpCode;
 
-use super::model::{Bytecode, ImmutableReference};
+use edr_solidity::build_model::Bytecode;
+use edr_solidity::artifacts::ImmutableReference;
 
 /// The result of searching for a bytecode in a [`BytecodeTrie`].
 enum TrieSearch<'a> {

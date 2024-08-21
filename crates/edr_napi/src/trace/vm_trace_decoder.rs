@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use edr_solidity::artifacts::BuildInfo;
+use edr_solidity::compiler::create_models_and_decode_bytecodes;
 use napi::{
     bindgen_prelude::{ClassInstance, Either3, Either4, Uint8Array, Undefined},
     Either, Env,
@@ -8,17 +9,17 @@ use napi::{
 use napi_derive::napi;
 use serde::{Deserialize, Serialize};
 
+use edr_solidity::build_model::Bytecode;
+
 use super::{
-    compiler::create_models_and_decode_bytecodes_inner,
     contracts_identifier::ContractsIdentifier,
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},
-    model::{Bytecode, BytecodeWrapper},
     solidity_stack_trace::{
         FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME,
         UNRECOGNIZED_FUNCTION_NAME,
     },
 };
-use crate::trace::model::ContractFunctionType;
+use crate::trace::model::{BytecodeWrapper, ContractFunctionType};
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,7 +50,7 @@ impl VmTraceDecoder {
 
     #[napi(catch_unwind)]
     pub fn add_bytecode(&mut self, bytecode: ClassInstance<BytecodeWrapper>) {
-        self.add_bytecode_inner(bytecode.0.clone());
+        self.add_bytecode_inner(bytecode.inner().clone());
     }
 
     pub fn add_bytecode_inner(&mut self, bytecode: Rc<Bytecode>) {
@@ -92,7 +93,7 @@ impl VmTraceDecoder {
                     .collect::<napi::Result<_>>()?;
 
                 let bytecode = bytecode
-                    .map(|b| BytecodeWrapper(b).into_instance(env))
+                    .map(|b| BytecodeWrapper::new(b).into_instance(env))
                     .transpose()?;
 
                 call.bytecode = bytecode;
@@ -127,7 +128,7 @@ impl VmTraceDecoder {
                     .collect::<napi::Result<_>>()?;
 
                 let bytecode = bytecode
-                    .map(|b| BytecodeWrapper(b).into_instance(env))
+                    .map(|b| BytecodeWrapper::new(b).into_instance(env))
                     .transpose()?;
                 create.bytecode = bytecode;
                 create.steps = steps;
@@ -218,7 +219,7 @@ pub fn initialize_vm_trace_decoder(
     };
 
     for build_info in &build_infos {
-        let bytecodes = create_models_and_decode_bytecodes_inner(
+        let bytecodes = create_models_and_decode_bytecodes(
             build_info.solc_version.clone(),
             &build_info.input,
             &build_info.output,

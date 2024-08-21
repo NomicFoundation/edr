@@ -19,7 +19,6 @@ use crate::result::ExecutionResult;
 mod compiler;
 mod library_utils;
 mod model;
-mod source_map;
 
 mod contracts_identifier;
 mod debug;

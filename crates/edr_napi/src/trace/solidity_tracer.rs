@@ -5,6 +5,8 @@ use napi::{
 };
 use napi_derive::napi;
 
+use edr_solidity::build_model::{Instruction, JumpType};
+
 use super::{
     error_inferrer::{
         instruction_to_callstack_stack_trace_entry, ErrorInferrer, SubmessageDataRef,
@@ -13,7 +15,6 @@ use super::{
         adjust_stack_trace, stack_trace_may_require_adjustments,
     },
     message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
-    model::{Instruction, JumpType},
     solidity_stack_trace::{PrecompileErrorStackTraceEntry, SolidityStackTrace},
 };
 use crate::trace::{

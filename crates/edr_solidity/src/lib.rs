@@ -14,3 +14,6 @@ pub mod artifacts;
 pub mod library_utils;
 pub mod message_trace;
 pub mod vm_tracer;
+
+pub mod source_map;
+pub mod compiler;

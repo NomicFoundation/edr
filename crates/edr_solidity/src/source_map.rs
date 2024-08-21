@@ -1,11 +1,11 @@
 //! Ported from `hardhat-network/stack-traces/source-maps.ts`.
+#![allow(missing_docs)] // TODO: Document this module
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use edr_evm::interpreter::OpCode;
 
-use super::model::{SourceFile, SourceLocation};
-use crate::trace::model::{Instruction, JumpType};
+use crate::build_model::{Instruction, JumpType, SourceFile, SourceLocation};
 
 // See https://docs.soliditylang.org/en/latest/internals/source_mappings.html
 pub struct SourceMapLocation {
