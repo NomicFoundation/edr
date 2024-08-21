@@ -20,7 +20,7 @@ it("uses the workspace version of EDR", async function () {
     "..",
     "crates",
     "edr_napi",
-    "index.js",
+    "index.js"
   );
 
   assert.equal(edrPath, expectedPath);
