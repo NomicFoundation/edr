@@ -1,4 +1,3 @@
-import chai, { assert } from "chai";
 import { JsonStreamStringify } from "json-stream-stringify";
 
 import {
@@ -51,7 +50,7 @@ describe("Provider", () => {
 
   const loggerConfig = {
     enable: false,
-    decodeConsoleLogInputsCallback: (inputs: Buffer[]): string[] => {
+    decodeConsoleLogInputsCallback: (_inputs: Buffer[]): string[] => {
       return [];
     },
     getContractAndFunctionNameCallback: (
@@ -62,7 +61,7 @@ describe("Provider", () => {
         contractName: "",
       };
     },
-    printLineCallback: (message: string, replace: boolean) => {},
+    printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
   it("issue 543", async function () {

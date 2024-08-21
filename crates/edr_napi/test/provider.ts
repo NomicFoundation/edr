@@ -53,7 +53,7 @@ describe("Provider", () => {
 
   const loggerConfig = {
     enable: false,
-    decodeConsoleLogInputsCallback: (inputs: Buffer[]): string[] => {
+    decodeConsoleLogInputsCallback: (_inputs: Buffer[]): string[] => {
       return [];
     },
     getContractAndFunctionNameCallback: (
@@ -64,7 +64,7 @@ describe("Provider", () => {
         contractName: "",
       };
     },
-    printLineCallback: (message: string, replace: boolean) => {},
+    printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
   it("initialize local", async function () {

@@ -42,9 +42,6 @@ jobs:
             hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/artifacts
           key: hardhat-network-stack-traces-tests-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/**/*.sol') }}-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/**/test.json') }}-${{ hashFiles('hardhat-tests/test/internal/hardhat-network/stack-traces/**/*.ts') }}
 
-      - name: Build
-        run: cd hardhat-tests && pnpm build
-
       - name: Run tests
         env:
           INFURA_URL: ${{ secrets.INFURA_URL }}
