@@ -9,6 +9,7 @@ use std::{
 use alloy_dyn_abi::ErrorExt;
 use edr_evm::{hex, interpreter::OpCode};
 use edr_solidity::artifacts::ContractAbiEntry;
+use napi::anyhow::{self, Context as _};
 use napi_derive::napi;
 use serde::Serialize;
 use serde_json::Value;
@@ -71,14 +72,14 @@ impl SourceLocation {
         }
     }
 
-    pub fn get_starting_line_number(&self) -> napi::Result<u32> {
+    pub fn get_starting_line_number(&self) -> u32 {
         if let Some(line) = self.line.get() {
-            return Ok(*line);
+            return *line;
         }
 
         let contents = &self.file.borrow().content;
 
-        Ok(*self.line.get_or_init(move || {
+        *self.line.get_or_init(move || {
             let mut line = 1;
 
             for c in contents.chars().take(self.offset as usize) {
@@ -88,11 +89,11 @@ impl SourceLocation {
             }
 
             line
-        }))
+        })
     }
 
-    pub fn get_containing_function(&self) -> napi::Result<Option<Rc<ContractFunction>>> {
-        Ok(self.file.borrow().get_containing_function(self).cloned())
+    pub fn get_containing_function(&self) -> Option<Rc<ContractFunction>> {
+        self.file.borrow().get_containing_function(self).cloned()
     }
 
     pub fn contains(&self, other: &SourceLocation) -> bool {
@@ -282,13 +283,10 @@ impl Bytecode {
         }
     }
 
-    pub fn get_instruction(&self, pc: u32) -> napi::Result<&Instruction> {
-        let instruction = self
-            .pc_to_instruction
+    pub fn get_instruction(&self, pc: u32) -> anyhow::Result<&Instruction> {
+        self.pc_to_instruction
             .get(&pc)
-            .ok_or_else(|| napi::Error::from_reason(format!("Instruction at PC {pc} not found")))?;
-
-        Ok(instruction)
+            .with_context(|| format!("Instruction at PC {pc} not found"))
     }
 
     pub fn has_instruction(&self, pc: u32) -> bool {

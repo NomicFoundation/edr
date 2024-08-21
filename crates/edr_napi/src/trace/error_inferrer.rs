@@ -631,7 +631,7 @@ impl ErrorInferrer {
                 //
                 // If it's a call trace, we already jumped into a function. But optimizations
                 // can happen.
-                let failing_function = location.get_containing_function()?;
+                let failing_function = location.get_containing_function();
 
                 // If the failure is in a modifier we add an entry with the function/constructor
                 match failing_function {
@@ -664,7 +664,7 @@ impl ErrorInferrer {
 
         if let Some(location) = &last_instruction.location {
             if jumped_into_function || matches!(trace, Either::B(CreateMessageTrace { .. })) {
-                let failing_function = location.get_containing_function()?;
+                let failing_function = location.get_containing_function();
 
                 if failing_function.is_some() {
                     let frame = Self::instruction_within_function_to_revert_stack_trace_entry(
@@ -797,7 +797,7 @@ impl ErrorInferrer {
 
         // Sometimes we do fail inside of a function but there's no jump into
         if let Some(location) = &last_instruction.location {
-            let failing_function = location.get_containing_function()?;
+            let failing_function = location.get_containing_function();
 
             if let Some(failing_function) = failing_function {
                 let frame = RevertErrorStackTraceEntry {
@@ -1254,7 +1254,7 @@ impl ErrorInferrer {
             contract: Some(contract.name.clone()),
 
             function: Some(func.name.clone()),
-            line: location.get_starting_line_number().unwrap(),
+            line: location.get_starting_line_number(),
             range: [location.offset, location.offset + location.length].to_vec(),
         })
     }
@@ -1350,7 +1350,7 @@ impl ErrorInferrer {
             source_content: file.content.clone(),
             contract: Some(contract.name.clone()),
             function: Some(FALLBACK_FUNCTION_NAME.to_string()),
-            line: location.get_starting_line_number().unwrap(),
+            line: location.get_starting_line_number(),
             range: [location.offset, location.offset + location.length].to_vec(),
         })
     }
@@ -1390,8 +1390,8 @@ impl ErrorInferrer {
         let contract_location = &contract.location;
 
         let line = match &contract.constructor {
-            Some(constructor) => constructor.location.get_starting_line_number()?,
-            None => contract_location.get_starting_line_number()?,
+            Some(constructor) => constructor.location.get_starting_line_number(),
+            None => contract_location.get_starting_line_number(),
         };
 
         let file = contract_location.file.borrow();
@@ -1487,7 +1487,7 @@ impl ErrorInferrer {
             contract: Some(contract.name.clone()),
 
             function: None,
-            line: location.get_starting_line_number().unwrap(),
+            line: location.get_starting_line_number(),
             range: [location.offset, location.offset + location.length].to_vec(),
         })
     }
@@ -1761,7 +1761,7 @@ impl ErrorInferrer {
                                 function: Some(FALLBACK_FUNCTION_NAME.to_string()),
                                 source_name: file.source_name.clone(),
                                 source_content: file.content.clone(),
-                                line: location.get_starting_line_number().unwrap(),
+                                line: location.get_starting_line_number(),
                                 range: [location.offset, location.offset + location.length]
                                     .to_vec(),
                             }),
@@ -1787,7 +1787,7 @@ impl ErrorInferrer {
                             function: Some(RECEIVE_FUNCTION_NAME.to_string()),
                             source_name: file.source_name.clone(),
                             source_content: file.content.clone(),
-                            line: location.get_starting_line_number().unwrap(),
+                            line: location.get_starting_line_number(),
                             range: [location.offset, location.offset + location.length].to_vec(),
                         }),
                     };
@@ -1831,17 +1831,8 @@ impl ErrorInferrer {
             let prev_loc = prev_inst.and_then(|i| i.location.as_deref());
             let next_loc = next_inst.location.as_deref();
 
-            let prev_func = prev_loc
-                .as_ref()
-                .map(|l| l.get_containing_function())
-                .transpose()?
-                .flatten();
-
-            let next_func = next_loc
-                .as_ref()
-                .map(|l| l.get_containing_function())
-                .transpose()?
-                .flatten();
+            let prev_func = prev_loc.and_then(SourceLocation::get_containing_function);
+            let next_func = next_loc.and_then(SourceLocation::get_containing_function);
 
             // This is probably a require. This means that we have the exact
             // line, but the stack trace may be degraded (e.g. missing our
@@ -1899,13 +1890,12 @@ impl ErrorInferrer {
                     contract: Some(contract.name.clone()),
                     source_name: file.source_name.clone(),
                     source_content: file.content.clone(),
-                    line: location.get_starting_line_number()?,
+                    line: location.get_starting_line_number(),
                     range: [location.offset, location.offset + location.length].to_vec(),
                 };
 
                 if let Some(constructor) = &contract.constructor {
-                    default_source_reference.line =
-                        constructor.location.get_starting_line_number()?;
+                    default_source_reference.line = constructor.location.get_starting_line_number();
                 }
 
                 constructor_revert_frame.source_reference = Some(default_source_reference);
@@ -2089,10 +2079,7 @@ fn source_location_to_source_reference(
     let Some(location) = location else {
         return Ok(None);
     };
-
-    let func = location.get_containing_function()?;
-
-    let Some(func) = func else {
+    let Some(func) = location.get_containing_function() else {
         return Ok(None);
     };
 
@@ -2114,7 +2101,7 @@ fn source_location_to_source_reference(
         },
         source_name: func_location_file.source_name.clone(),
         source_content: func_location_file.content.clone(),
-        line: location.get_starting_line_number()?,
+        line: location.get_starting_line_number(),
         range: [location.offset, location.offset + location.length].to_vec(),
     }))
 }
@@ -2141,7 +2128,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
                     source_content: file.content.clone(),
                     contract: Some(contract.name.clone()),
                     function: None,
-                    line: location.get_starting_line_number()?,
+                    line: location.get_starting_line_number(),
                     range: [location.offset, location.offset + location.length].to_vec(),
                 },
             }));
@@ -2149,9 +2136,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
         Some(inst_location) => inst_location,
     };
 
-    let func = inst_location.get_containing_function()?;
-
-    if let Some(func) = func {
+    if let Some(func) = inst_location.get_containing_function() {
         let source_reference = source_location_to_source_reference(bytecode, Some(inst_location))?
             .expect("Expected source reference to be defined");
 
@@ -2171,7 +2156,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
             contract: Some(contract.name.clone()),
             source_name: file.source_name.clone(),
             source_content: file.content.clone(),
-            line: inst_location.get_starting_line_number()?,
+            line: inst_location.get_starting_line_number(),
             range: [
                 inst_location.offset,
                 inst_location.offset + inst_location.length,
