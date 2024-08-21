@@ -2018,13 +2018,18 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 if let RpcTransactionType::Unknown(transaction_type) =
                     transaction.transaction_type()
                 {
-                    if self.skip_unsupported_transaction_types {
+                    if transaction_hash == &transaction.hash {
+                        Some(Err(ProviderError::<LoggerErrorT>::UnsupportedTransactionTypeForDebugTrace {
+                            transaction_hash: *transaction_hash,
+                            unsupported_transaction_type: transaction_type,
+                        }))
+                    } else if self.skip_unsupported_transaction_types  {
                         None
                     } else {
                         Some(Err(
                             ProviderError::<LoggerErrorT>::UnsupportedTransactionTypeInDebugTrace {
                                 requested_transaction_hash: *transaction_hash,
-                                unsupported_transaction_hash: *transaction_hash,
+                                unsupported_transaction_hash: transaction.hash,
                                 unsupported_transaction_type: transaction_type,
                             },
                         ))

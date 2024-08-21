@@ -208,6 +208,11 @@ pub enum ProviderError<LoggerErrorT> {
         unsupported_transaction_hash: B256,
         unsupported_transaction_type: u64,
     },
+    #[error("Cannot perform debug tracing on transaction '{transaction_hash:?}', because it has unsupported transaction type '{unsupported_transaction_type}'")]
+    UnsupportedTransactionTypeForDebugTrace {
+        transaction_hash: B256,
+        unsupported_transaction_type: u64,
+    },
     #[error("{method_name} - Method not supported")]
     UnsupportedMethod { method_name: String },
 }
@@ -279,6 +284,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
             ProviderError::UnsupportedEIP4844Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedMethod { .. } => -32004,
             ProviderError::UnsupportedTransactionTypeInDebugTrace { .. } => INVALID_INPUT,
+            ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT,
         };
 
         let data = match &value {
