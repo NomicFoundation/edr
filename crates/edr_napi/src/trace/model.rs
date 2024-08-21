@@ -419,7 +419,7 @@ impl Contract {
     /// We compute selectors manually, which is particularly hard. We do this
     /// because we need to map selectors to AST nodes, and it seems easier to
     /// start from the AST node. This is surprisingly super hard: things
-    /// like inherited enums, structs and ABIv2 complicate it.
+    /// like inherited enums, structs and `ABIv2` complicate it.
     ///
     /// As we know that that can fail, we run a heuristic that tries to correct
     /// incorrect selectors. What it does is checking the
