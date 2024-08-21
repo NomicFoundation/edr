@@ -1,23 +1,53 @@
 // Trigger change
 
-const child_process = require("child_process");
-const path = require("path");
-const fs = require("fs");
-const readline = require("readline");
-const zlib = require("zlib");
+import { ArgumentParser } from "argparse";
+import child_process, { SpawnSyncReturns } from "child_process";
+import fs from "fs";
+import { HttpProvider } from "hardhat/internal/core/providers/http";
+import { createHardhatNetworkProvider } from "hardhat/internal/hardhat-network/provider/provider";
+import _ from "lodash";
+import path from "path";
+import readline from "readline";
+import zlib from "zlib";
 
-const { ArgumentParser } = require("argparse");
-const { _ } = require("lodash");
-
-const {
-  createHardhatNetworkProvider,
-} = require("hardhat/internal/hardhat-network/provider/provider");
-const { HttpProvider } = require("hardhat/internal/core/providers/http");
-
-const SCENARIOS_DIR = "../../scenarios/";
+const SCENARIOS_DIR = "../../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
 const NEPTUNE_MAX_MIN_FAILURES = 1.05;
 const ANVIL_HOST = "http://127.0.0.1:8545";
+
+interface ParsedArguments {
+  command: "benchmark" | "verify" | "report";
+  grep?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  benchmark_output: string;
+  anvil: boolean;
+}
+
+interface BenchmarkScenarioResult {
+  name: string;
+  result: BenchmarkResult;
+}
+
+interface BenchmarkResult {
+  timeMs: number;
+  failures: number[];
+}
+
+interface BenchmarkScenarioRpcCalls {
+  rpcCallResults: any[];
+  rpcCallErrors: any[];
+}
+
+interface BenchmarkScenarioReport {
+  name: string;
+  unit: string;
+  value: number;
+}
+
+interface Scenario {
+  requests: any[];
+  config?: any;
+}
 
 async function main() {
   const parser = new ArgumentParser({
@@ -40,14 +70,15 @@ async function main() {
     action: "store_true",
     help: "Run benchmarks on Anvil node",
   });
-  const args = parser.parse_args();
+  const args: ParsedArguments = parser.parse_args();
 
-  // Make results not GC
-  let results;
+  let results: BenchmarkScenarioRpcCalls | undefined;
   if (args.command === "benchmark") {
-    if (args.grep) {
-      for (let scenarioFileName of getScenarioFileNames()) {
+    if (args.grep !== undefined) {
+      for (const scenarioFileName of getScenarioFileNames()) {
         if (scenarioFileName.includes(args.grep)) {
+          // We store the results to avoid GC
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           results = await benchmarkScenario(scenarioFileName, args.anvil);
         }
       }
@@ -64,37 +95,40 @@ async function main() {
   }
 }
 
-async function report(benchmarkResultPath) {
-  const benchmarkResult = require(benchmarkResultPath);
+async function report(benchmarkResultPath: string) {
+  const benchmarkResult: Record<string, BenchmarkResult> = require(
+    benchmarkResultPath
+  );
 
   let totalTime = 0;
-  const report = [];
-  for (let scenarioName in benchmarkResult) {
-    const scenarioResult = benchmarkResult[scenarioName];
-    report.push({
+  const reports: BenchmarkScenarioReport[] = [];
+  for (const [scenarioName, scenarioResult] of Object.entries(
+    benchmarkResult
+  )) {
+    reports.push({
       name: scenarioName,
       unit: "ms",
       value: scenarioResult.timeMs,
     });
     totalTime += scenarioResult.timeMs;
   }
-  report.unshift({
+  reports.unshift({
     name: "All Scenarios",
     unit: "ms",
     value: totalTime,
   });
 
-  console.log(JSON.stringify(report));
+  console.log(JSON.stringify(reports));
 }
 
-async function verify(benchmarkResultPath) {
+async function verify(benchmarkResultPath: string) {
   let success = true;
   const benchmarkResult = require(benchmarkResultPath);
   const snapshotResult = require(
     path.join(getScenariosDir(), SCENARIO_SNAPSHOT_NAME)
   );
 
-  for (let scenarioName in snapshotResult) {
+  for (const scenarioName of Object.keys(snapshotResult)) {
     // TODO https://github.com/NomicFoundation/edr/issues/365
     if (scenarioName.includes("neptune-mutual")) {
       const snapshotCount = snapshotResult[scenarioName].failures.length;
@@ -114,15 +148,16 @@ async function verify(benchmarkResultPath) {
       continue;
     }
 
-    let snapshotFailures = new Set(snapshotResult[scenarioName].failures);
-    let benchFailures = new Set(benchmarkResult[scenarioName].failures);
+    const snapshotFailures = new Set(snapshotResult[scenarioName].failures);
+    const benchFailures = new Set(benchmarkResult[scenarioName].failures);
 
     if (!_.isEqual(snapshotFailures, benchFailures)) {
       success = false;
       const shouldFail = setDifference(snapshotFailures, benchFailures);
       const shouldNotFail = setDifference(benchFailures, snapshotFailures);
 
-      // We're logging to stderr so that it doesn't pollute stdout where we write the result
+      // We're logging to stderr so that it doesn't pollute stdout where we
+      // write the result
       console.error(`Snapshot failure for ${scenarioName}`);
 
       if (shouldFail.size > 0) {
@@ -151,20 +186,22 @@ async function verify(benchmarkResultPath) {
 }
 
 // From https://stackoverflow.com/a/66512466
-function setDifference(a, b) {
+function setDifference<T>(a: Set<T>, b: Set<T>): Set<T> {
   return new Set(Array.from(a).filter((item) => !b.has(item)));
 }
 
-async function benchmarkAllScenarios(outPath, useAnvil) {
-  const result = {};
+async function benchmarkAllScenarios(outPath: string, useAnvil: boolean) {
+  const result: any = {};
   let totalTime = 0;
   let totalFailures = 0;
-  for (let scenarioFileName of getScenarioFileNames()) {
+  for (const scenarioFileName of getScenarioFileNames()) {
     const args = [
       "--noconcurrent_sweeping",
       "--noconcurrent_recompilation",
       "--max-old-space-size=28000",
-      "index.js",
+      "--import",
+      "tsx",
+      "src/index.ts",
       "benchmark",
       "-g",
       scenarioFileName,
@@ -173,21 +210,22 @@ async function benchmarkAllScenarios(outPath, useAnvil) {
       args.push("--anvil");
     }
 
+    let processResult: SpawnSyncReturns<string> | undefined;
     try {
-      const scenarioResults = [];
+      const scenarioResults: BenchmarkScenarioResult[] = [];
       const iterations = numIterations(scenarioFileName);
       for (let i = 0; i < iterations; i++) {
         // Run in subprocess with grep to simulate Hardhat test runner behaviour
         // where there is one provider per process
-        const processResult = child_process.spawnSync(process.argv[0], args, {
+        processResult = child_process.spawnSync(process.argv[0], args, {
           shell: true,
           timeout: 60 * 60 * 1000,
           // Pipe stdout, proxy the rest
           stdio: [process.stdin, "pipe", process.stderr],
           encoding: "utf-8",
         });
-        const scenarioResult = JSON.parse(processResult.stdout);
-        scenarioResults.push(scenarioResult);
+        const resultFromStdout: any = JSON.parse(processResult.stdout);
+        scenarioResults.push(resultFromStdout);
       }
       const scenarioResult = medianOfResults(scenarioResults);
       totalTime += scenarioResult.result.timeMs;
@@ -195,14 +233,17 @@ async function benchmarkAllScenarios(outPath, useAnvil) {
       result[scenarioResult.name] = scenarioResult.result;
     } catch (e) {
       console.error(e);
-      console.error(processResult.stdout.toString());
+      if (processResult !== undefined) {
+        console.error(processResult.stdout);
+      }
       throw e;
     }
   }
 
   fs.writeFileSync(outPath, JSON.stringify(result) + "\n");
 
-  // Log info to stderr so that it doesn't pollute stdout where we write the result
+  // Log info to stderr so that it doesn't pollute stdout where we write the
+  // result
   console.error(
     `Total time ${
       Math.round(100 * (totalTime / 1000)) / 100
@@ -212,7 +253,7 @@ async function benchmarkAllScenarios(outPath, useAnvil) {
   console.error(`Benchmark results written to ${outPath}`);
 }
 
-function numIterations(scenarioName) {
+function numIterations(scenarioName: string): number {
   // Run fast scenarios repeatedly to get more reliable results
   if (scenarioName.includes("safe-contracts")) {
     return 15;
@@ -230,7 +271,7 @@ function numIterations(scenarioName) {
   }
 }
 
-function medianOfResults(results) {
+function medianOfResults(results: BenchmarkScenarioResult[]) {
   if (results.length === 0) {
     throw new Error("No results to calculate median");
   }
@@ -239,8 +280,11 @@ function medianOfResults(results) {
   return sorted[middle];
 }
 
-async function benchmarkScenario(scenarioFileName, useAnvil) {
-  let { config, requests } = await loadScenario(scenarioFileName);
+async function benchmarkScenario(
+  scenarioFileName: string,
+  useAnvil: boolean
+): Promise<BenchmarkScenarioRpcCalls> {
+  const { config, requests } = await loadScenario(scenarioFileName);
   const name = path.basename(scenarioFileName).split(".")[0];
   console.error(`Running ${name} scenario`);
 
@@ -261,8 +305,8 @@ async function benchmarkScenario(scenarioFileName, useAnvil) {
 
   for (let i = 0; i < requests.length; i += 1) {
     try {
-      const result = await provider.request(requests[i]);
-      rpcCallResults.push(result);
+      const rpcCallResult = await provider.request(requests[i]);
+      rpcCallResults.push(rpcCallResult);
     } catch (e) {
       rpcCallErrors.push(e);
       failures.push(i);
@@ -277,7 +321,7 @@ async function benchmarkScenario(scenarioFileName, useAnvil) {
     } seconds with ${failures.length} failures.`
   );
 
-  const result = {
+  const result: BenchmarkScenarioResult = {
     name,
     result: {
       timeMs,
@@ -290,8 +334,8 @@ async function benchmarkScenario(scenarioFileName, useAnvil) {
   return { rpcCallResults, rpcCallErrors };
 }
 
-async function loadScenario(scenarioFileName) {
-  const result = {
+async function loadScenario(scenarioFileName: string): Promise<Scenario> {
+  const result: Scenario = {
     requests: [],
   };
   let i = 0;
@@ -308,10 +352,10 @@ async function loadScenario(scenarioFileName) {
   return result;
 }
 
-function preprocessConfig(config) {
+function preprocessConfig(config: any) {
   // From https://stackoverflow.com/a/59771233
-  const camelize = (obj) =>
-    _.transform(obj, (acc, value, key, target) => {
+  const camelize = (obj: any) =>
+    _.transform(obj, (acc: any, value: any, key: any, target: any) => {
       const camelKey = _.isArray(target) ? key : _.camelCase(key);
 
       acc[camelKey] = _.isObject(value) ? camelize(value) : value;
@@ -319,8 +363,8 @@ function preprocessConfig(config) {
   config = camelize(config);
 
   // EDR serializes None as null to json, but Hardhat expects it to be undefined
-  const removeNull = (obj) =>
-    _.transform(obj, (acc, value, key) => {
+  const removeNull = (obj: any) =>
+    _.transform(obj, (acc: any, value: any, key: any) => {
       if (_.isObject(value)) {
         acc[key] = removeNull(value);
       } else if (!_.isNull(value)) {
@@ -342,7 +386,7 @@ function preprocessConfig(config) {
     throw new Error("Genesis accounts are not supported");
   }
   config.providerConfig.genesisAccounts = config.providerConfig.accounts.map(
-    ({ balance, secretKey }) => {
+    ({ balance, secretKey }: any) => {
       return { balance, privateKey: secretKey };
     }
   );
@@ -362,11 +406,11 @@ function preprocessConfig(config) {
     config.providerConfig.bailOnTransactionFailure;
   delete config.providerConfig.bailOnTransactionFailure;
 
-  let chains = new Map();
-  for (let key of Object.keys(config.providerConfig.chains)) {
+  const chains: any = new Map();
+  for (const key of Object.keys(config.providerConfig.chains)) {
     const hardforkHistory = new Map();
     const hardforks = config.providerConfig.chains[key].hardforks;
-    for (let [blockNumber, hardfork] of hardforks) {
+    for (const [blockNumber, hardfork] of hardforks) {
       hardforkHistory.set(normalizeHardfork(hardfork), blockNumber);
     }
     chains.set(Number(key), { hardforkHistory });
@@ -384,23 +428,23 @@ function preprocessConfig(config) {
   return config;
 }
 
-function normalizeHardfork(hardfork) {
+function normalizeHardfork(hardfork: string) {
   hardfork = _.camelCase(hardfork.toLowerCase());
   if (hardfork === "frontier") {
     hardfork = "chainstart";
   } else if (hardfork === "daoFork") {
     hardfork = "dao";
-  } else if (hardfork == "tangerine") {
+  } else if (hardfork === "tangerine") {
     hardfork = "tangerineWhistle";
   }
   return hardfork;
 }
 
 // From https://stackoverflow.com/a/65015455/2650622
-function readFile(path) {
-  let stream = fs.createReadStream(path);
+function readFile(pathToRead: string) {
+  let stream: any = fs.createReadStream(pathToRead);
 
-  if (/\.gz$/i.test(path)) {
+  if (/\.gz$/i.test(pathToRead)) {
     stream = stream.pipe(zlib.createGunzip());
   }
 
@@ -414,7 +458,7 @@ function getScenariosDir() {
   return path.join(__dirname, SCENARIOS_DIR);
 }
 
-function getScenarioFileNames() {
+function getScenarioFileNames(): string[] {
   const scenariosDir = path.join(__dirname, SCENARIOS_DIR);
   const scenarioFiles = fs.readdirSync(scenariosDir);
   scenarioFiles.sort();
@@ -428,10 +472,10 @@ async function flushStdout() {
 }
 
 main()
+  .then(() => {
+    process.exit(0);
+  })
   .catch((error) => {
     console.error(error);
     process.exit(1);
-  })
-  .then(() => {
-    process.exit(0);
   });

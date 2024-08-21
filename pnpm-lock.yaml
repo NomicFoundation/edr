@@ -43,18 +43,42 @@ importers:
       '@types/node':
         specifier: ^18.0.0
         version: 18.15.13
+      '@typescript-eslint/eslint-plugin':
+        specifier: 5.61.0
+        version: 5.61.0(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.0.4))(eslint@8.57.0)(typescript@5.0.4)
+      '@typescript-eslint/parser':
+        specifier: 5.61.0
+        version: 5.61.0(eslint@8.57.0)(typescript@5.0.4)
       chai:
         specifier: ^4.3.6
         version: 4.4.1
       chai-as-promised:
         specifier: ^7.1.1
         version: 7.1.1(chai@4.4.1)
+      eslint:
+        specifier: ^8.44.0
+        version: 8.57.0
+      eslint-config-prettier:
+        specifier: 9.1.0
+        version: 9.1.0(eslint@8.57.0)
+      eslint-plugin-import:
+        specifier: 2.27.5
+        version: 2.27.5(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.0.4))(eslint@8.57.0)
+      eslint-plugin-mocha:
+        specifier: 10.4.1
+        version: 10.4.1(eslint@8.57.0)
+      eslint-plugin-prettier:
+        specifier: 5.2.1
+        version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
       json-stream-stringify:
         specifier: ^3.1.4
         version: 3.1.4
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
+      prettier:
+        specifier: ^3.2.5
+        version: 3.2.5
       ts-node:
         specifier: ^10.8.0
         version: 10.9.2(@types/node@18.15.13)(typescript@5.0.4)
@@ -64,15 +88,45 @@ importers:
 
   crates/tools/js/benchmark:
     devDependencies:
+      '@types/argparse':
+        specifier: ^2.0.16
+        version: 2.0.16
+      '@types/chai':
+        specifier: ^4.2.0
+        version: 4.3.12
+      '@types/lodash':
+        specifier: ^4.14.123
+        version: 4.17.0
       '@types/node':
         specifier: ^18.0.0
         version: 18.15.13
+      '@typescript-eslint/eslint-plugin':
+        specifier: 5.61.0
+        version: 5.61.0(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.0.4))(eslint@8.57.0)(typescript@5.0.4)
+      '@typescript-eslint/parser':
+        specifier: 5.61.0
+        version: 5.61.0(eslint@8.57.0)(typescript@5.0.4)
       argparse:
         specifier: ^2.0.1
         version: 2.0.1
       chai:
         specifier: ^4.3.6
         version: 4.4.1
+      eslint:
+        specifier: ^8.44.0
+        version: 8.57.0
+      eslint-config-prettier:
+        specifier: 9.1.0
+        version: 9.1.0(eslint@8.57.0)
+      eslint-plugin-import:
+        specifier: 2.27.5
+        version: 2.27.5(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.0.4))(eslint@8.57.0)
+      eslint-plugin-mocha:
+        specifier: 10.4.1
+        version: 10.4.1(eslint@8.57.0)
+      eslint-plugin-prettier:
+        specifier: 5.2.1
+        version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
       hardhat:
         specifier: 2.22.7
         version: 2.22.7(patch_hash=umhdsnfwxfqbbniyljx6a4ic5i)(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
@@ -82,6 +136,9 @@ importers:
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
+      prettier:
+        specifier: ^3.2.5
+        version: 3.2.5
       tsx:
         specifier: ^4.7.1
         version: 4.7.1
@@ -826,6 +883,9 @@ packages:
 
   '@tsconfig/node16@1.0.4':
     resolution: {integrity: sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==}
+
+  '@types/argparse@2.0.16':
+    resolution: {integrity: sha512-aMqBra2JlqpFeCWOinCtpRpiCkPIXH8hahW2+FkGzvWjfE5sAqtOcrjN5DRcMnTQqFDe6gb1CVYuGnBH0lhXwA==}
 
   '@types/async-eventemitter@0.2.4':
     resolution: {integrity: sha512-2Bq61VD01kgLf1XkK2xPtoBcu7fgn/km5JyEX9v0BlG5VQBzA+BlF9umFk+8gR8S4+eK7MgDY2oyVZCu6ar3Jw==}
@@ -3903,6 +3963,8 @@ snapshots:
 
   '@tsconfig/node16@1.0.4': {}
 
+  '@types/argparse@2.0.16': {}
+
   '@types/async-eventemitter@0.2.4':
     dependencies:
       '@types/events': 3.0.3
@@ -4009,7 +4071,7 @@ snapshots:
       graphemer: 1.4.0
       ignore: 5.3.1
       natural-compare-lite: 1.4.0
-      semver: 7.6.0
+      semver: 7.6.3
       tsutils: 3.21.0(typescript@5.0.4)
     optionalDependencies:
       typescript: 5.0.4
@@ -4054,7 +4116,7 @@ snapshots:
       debug: 4.3.4(supports-color@8.1.1)
       globby: 11.1.0
       is-glob: 4.0.3
-      semver: 7.6.0
+      semver: 7.6.3
       tsutils: 3.21.0(typescript@5.0.4)
     optionalDependencies:
       typescript: 5.0.4
@@ -4071,7 +4133,7 @@ snapshots:
       '@typescript-eslint/typescript-estree': 5.61.0(typescript@5.0.4)
       eslint: 8.57.0
       eslint-scope: 5.1.1
-      semver: 7.6.0
+      semver: 7.6.3
     transitivePeerDependencies:
       - supports-color
       - typescript
