@@ -37,7 +37,7 @@ describe("Provider", () => {
     },
     initialParentBeaconBlockRoot: Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex",
+      "hex"
     ),
     minGasPrice: 0n,
     mining: {
@@ -56,7 +56,7 @@ describe("Provider", () => {
     },
     getContractAndFunctionNameCallback: (
       _code: Buffer,
-      _calldata?: Buffer,
+      _calldata?: Buffer
     ): ContractAndFunctionName => {
       return {
         contractName: "",
@@ -83,7 +83,7 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
-      (_event: SubscriptionEvent) => {},
+      (_event: SubscriptionEvent) => {}
     );
 
     const debugTraceTransaction = `{
