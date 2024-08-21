@@ -18,6 +18,7 @@ use napi_derive::napi;
 
 use crate::artifacts::{ContractAbiEntry, ImmutableReference};
 
+#[derive(Debug)]
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
     functions: Vec<Rc<ContractFunction>>,
@@ -50,7 +51,7 @@ impl SourceFile {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SourceLocation {
     line: OnceCell<u32>,
     pub file: Rc<RefCell<SourceFile>>,
@@ -113,7 +114,7 @@ impl SourceLocation {
     }
 }
 
-#[derive(PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
 #[allow(clippy::upper_case_acronyms)]
 #[cfg_attr(feature = "napi", napi)]
@@ -127,7 +128,7 @@ pub enum ContractFunctionType {
     FREE_FUNCTION,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ContractFunctionVisibility {
     Private,
     Internal,
@@ -135,6 +136,7 @@ pub enum ContractFunctionVisibility {
     External,
 }
 
+#[derive(Debug)]
 pub struct ContractFunction {
     pub name: String,
     pub r#type: ContractFunctionType,
@@ -171,6 +173,7 @@ impl<'a> TryFrom<&'a ContractFunction> for alloy_json_abi::Function {
     }
 }
 
+#[derive(Debug)]
 pub struct CustomError {
     pub selector: [u8; 4],
     pub name: String,
@@ -204,6 +207,7 @@ impl CustomError {
     }
 }
 
+#[derive(Debug)]
 pub struct Instruction {
     pub pc: u32,
     pub opcode: OpCode,
@@ -212,7 +216,7 @@ pub struct Instruction {
     pub location: Option<Rc<SourceLocation>>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::Display)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::IntoStaticStr, strum::Display)]
 pub enum JumpType {
     NotJump,
     IntoFunction,
@@ -245,6 +249,7 @@ impl std::ops::Deref for BytecodeWrapper {
     }
 }
 
+#[derive(Debug)]
 pub struct Bytecode {
     pc_to_instruction: HashMap<u32, Instruction>,
 
@@ -293,13 +298,14 @@ impl Bytecode {
     }
 }
 
-#[derive(PartialEq, strum::EnumString)]
+#[derive(Debug, PartialEq, strum::EnumString)]
 #[strum(serialize_all = "camelCase")]
 pub enum ContractKind {
     Contract,
     Library,
 }
 
+#[derive(Debug)]
 pub struct Contract {
     pub custom_errors: Vec<CustomError>,
     pub constructor: Option<Rc<ContractFunction>>,

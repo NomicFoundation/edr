@@ -20,7 +20,6 @@ mod compiler;
 mod library_utils;
 mod model;
 
-mod contracts_identifier;
 mod debug;
 mod error_inferrer;
 mod exit;

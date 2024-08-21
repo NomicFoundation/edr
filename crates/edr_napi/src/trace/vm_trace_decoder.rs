@@ -10,9 +10,9 @@ use napi_derive::napi;
 use serde::{Deserialize, Serialize};
 
 use edr_solidity::build_model::Bytecode;
+use edr_solidity::contracts_identifier::ContractsIdentifier;
 
 use super::{
-    contracts_identifier::ContractsIdentifier,
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},
     solidity_stack_trace::{
         FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME,
@@ -28,17 +28,10 @@ pub struct TracingConfig {
     pub ignore_contracts: Option<bool>,
 }
 
+#[derive(Default)]
 #[napi]
 pub struct VmTraceDecoder {
     contracts_identifier: ContractsIdentifier,
-}
-
-impl Default for VmTraceDecoder {
-    fn default() -> Self {
-        Self {
-            contracts_identifier: ContractsIdentifier::new(None),
-        }
-    }
 }
 
 #[napi]
