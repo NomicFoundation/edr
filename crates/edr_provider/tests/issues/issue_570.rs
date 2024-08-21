@@ -3,7 +3,7 @@ use std::str::FromStr as _;
 use edr_eth::{spec::HardforkActivations, SpecId, B256};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
 use edr_test_utils::env::get_alchemy_url;
 use tokio::runtime;
@@ -13,6 +13,9 @@ use tokio::runtime;
 // https://github.com/NomicFoundation/edr/issues/570
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_570_error_message() -> anyhow::Result<()> {
+    // Base Sepolia Testnet
+    const CHAIN_ID: u64 = 84532;
+
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
 
@@ -22,14 +25,11 @@ async fn issue_570_error_message() -> anyhow::Result<()> {
         http_headers: None,
     }));
 
-    let chain_id = 84532;
-
     config
         .chains
-        .insert(chain_id, HardforkActivations::with_spec_id(SpecId::CANCUN));
+        .insert(CHAIN_ID, HardforkActivations::with_spec_id(SpecId::CANCUN));
 
-    // The default chain id set by Hardhat
-    config.chain_id = chain_id;
+    config.chain_id = CHAIN_ID;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -45,10 +45,13 @@ async fn issue_570_error_message() -> anyhow::Result<()> {
     let result = provider.handle_request(ProviderRequest::Single(
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ));
-    assert!(result
-        .expect_err("should error")
-        .to_string()
-        .contains("unsupported type"));
+    matches!(
+        result,
+        Err(ProviderError::UnsupportedTransactionTypeInDebugTrace {
+            requested_transaction_hash,
+            ..
+        }) if requested_transaction_hash == transaction_hash
+    );
 
     Ok(())
 }

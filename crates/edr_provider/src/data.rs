@@ -1920,7 +1920,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         &self,
         transaction_hash: &B256,
     ) -> Result<(Header, Vec<Signed>), ProviderError<LoggerErrorT>> {
-        // This is a hack to make `debug_traceTransaction` return a helpful error
+        // HACK: This is a hack to make `debug_traceTransaction` return a helpful error
         // message in fork mode if there is a transaction in the block whose
         // type is not supported or skip that transaction if an environment
         // variable is set. This hack is only necessary until proper multichain
@@ -2010,8 +2010,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 ProviderError::<LoggerErrorT>::InvalidTransactionHash(*transaction_hash)
             })?;
 
-        // We only need the header from the block later, so it's safe to take the
-        // transactions.
+        // SAFETY: We only need the header from the block later, so it's safe to take
+        // the transactions.
         let transactions = std::mem::take(&mut rpc_block.transactions)
             .into_iter()
             .filter_map(|transaction| {
