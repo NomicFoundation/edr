@@ -23,14 +23,7 @@ jobs:
       - uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node }}
-
-      - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
-
-      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-rust
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline

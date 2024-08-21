@@ -28,12 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-node
-
-      - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
+      - uses: ./.github/actions/setup-rust
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
