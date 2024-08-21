@@ -234,7 +234,7 @@ describe("Eth module", function () {
         async function sendJson<
           TBody extends TReq | TReq[],
           TReq extends JsonRpcRequest,
-          TResp extends JsonRpcResponse
+          TResp extends JsonRpcResponse,
         >(body: TBody): Promise<TBody extends TReq[] ? TResp[] : TResp> {
           const resultPromise = new Promise<any>((resolve) => {
             const listener: any = (message: any) => {
