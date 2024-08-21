@@ -27,7 +27,6 @@ mod error_inferrer;
 mod exit;
 mod mapped_inlined_internal_functions_heuristics;
 mod message_trace;
-mod opcodes;
 mod return_data;
 mod solidity_stack_trace;
 mod solidity_tracer;

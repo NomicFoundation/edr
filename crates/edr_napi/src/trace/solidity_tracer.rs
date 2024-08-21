@@ -1,3 +1,4 @@
+use edr_evm::interpreter::OpCode;
 use napi::{
     bindgen_prelude::{Either3, Either4},
     Either,
@@ -13,7 +14,6 @@ use super::{
     },
     message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
     model::{Instruction, JumpType},
-    opcodes::Opcode,
     solidity_stack_trace::{PrecompileErrorStackTraceEntry, SolidityStackTrace},
 };
 use crate::trace::{
@@ -261,15 +261,14 @@ impl SolidityTracer {
                         unreachable!("JS code asserted that");
                     };
                     let next_inst = bytecode.get_instruction(next_evm_step.pc)?;
-                    let next_inst_borrowed = &next_inst;
 
-                    if next_inst_borrowed.opcode == Opcode::JUMPDEST {
+                    if next_inst.opcode == OpCode::JUMPDEST {
                         let frame = instruction_to_callstack_stack_trace_entry(bytecode, inst)?;
                         stacktrace.push(match frame {
                             Either::A(frame) => frame.into(),
                             Either::B(frame) => frame.into(),
                         });
-                        if next_inst_borrowed.location.is_some() {
+                        if next_inst.location.is_some() {
                             jumped_into_function = true;
                         }
                         function_jumpdests.push(next_inst);

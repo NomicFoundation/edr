@@ -16,6 +16,7 @@
 //! occur, we now start from complete stack traces and adjust them if we can
 //! provide more meaningful errors.
 
+use edr_evm::interpreter::OpCode;
 use napi::{
     bindgen_prelude::{Either24, Either4},
     Either,
@@ -24,7 +25,6 @@ use semver::Version;
 
 use super::{
     message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep},
-    opcodes::Opcode,
     solidity_stack_trace::{
         InvalidParamsErrorStackTraceEntry, NonContractAccountCalledErrorStackTraceEntry,
         RevertErrorStackTraceEntry, SolidityStackTrace, StackTraceEntryTypeConst,
@@ -117,10 +117,10 @@ fn is_non_contract_account_called_error(
         decoded_trace,
         -9,
         &[
-            Opcode::EXTCODESIZE,
-            Opcode::ISZERO,
-            Opcode::DUP1,
-            Opcode::ISZERO,
+            OpCode::EXTCODESIZE,
+            OpCode::ISZERO,
+            OpCode::DUP1,
+            OpCode::ISZERO,
         ],
     )
 }
@@ -128,22 +128,22 @@ fn is_non_contract_account_called_error(
 fn is_constructor_invalid_params_error(
     decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
 ) -> napi::Result<bool> {
-    Ok(match_opcodes(decoded_trace, -20, &[Opcode::CODESIZE])?
-        && match_opcodes(decoded_trace, -15, &[Opcode::CODECOPY])?
-        && match_opcodes(decoded_trace, -7, &[Opcode::LT, Opcode::ISZERO])?)
+    Ok(match_opcodes(decoded_trace, -20, &[OpCode::CODESIZE])?
+        && match_opcodes(decoded_trace, -15, &[OpCode::CODECOPY])?
+        && match_opcodes(decoded_trace, -7, &[OpCode::LT, OpCode::ISZERO])?)
 }
 
 fn is_call_invalid_params_error(
     decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
 ) -> napi::Result<bool> {
-    Ok(match_opcodes(decoded_trace, -11, &[Opcode::CALLDATASIZE])?
-        && match_opcodes(decoded_trace, -7, &[Opcode::LT, Opcode::ISZERO])?)
+    Ok(match_opcodes(decoded_trace, -11, &[OpCode::CALLDATASIZE])?
+        && match_opcodes(decoded_trace, -7, &[OpCode::LT, OpCode::ISZERO])?)
 }
 
 fn match_opcodes(
     decoded_trace: Either<&CallMessageTrace, &CreateMessageTrace>,
     first_step_index: i32,
-    opcodes: &[Opcode],
+    opcodes: &[OpCode],
 ) -> napi::Result<bool> {
     let (bytecode, steps) = match &decoded_trace {
         Either::A(call) => (&call.bytecode, &call.steps),

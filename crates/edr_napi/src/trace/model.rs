@@ -7,13 +7,11 @@ use std::{
 };
 
 use alloy_dyn_abi::ErrorExt;
-use edr_evm::hex;
+use edr_evm::{hex, interpreter::OpCode};
 use edr_solidity::artifacts::ContractAbiEntry;
 use napi_derive::napi;
 use serde::Serialize;
 use serde_json::Value;
-
-use super::opcodes::Opcode;
 
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
@@ -203,7 +201,7 @@ impl CustomError {
 
 pub struct Instruction {
     pub pc: u32,
-    pub opcode: Opcode,
+    pub opcode: OpCode,
     pub jump_type: JumpType,
     pub push_data: Option<Vec<u8>>,
     pub(crate) location: Option<Rc<SourceLocation>>,

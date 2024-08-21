@@ -1,11 +1,9 @@
 use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
 use edr_eth::Address;
+use edr_evm::interpreter::OpCode;
 
-use super::{
-    model::{Bytecode, ImmutableReference},
-    opcodes::Opcode,
-};
+use super::model::{Bytecode, ImmutableReference};
 
 /// The result of searching for a bytecode in a [`BytecodeTrie`].
 enum TrieSearch<'a> {
@@ -92,16 +90,14 @@ impl BytecodeTrie {
 fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
     let mut byte = 0;
     while byte < last_byte {
-        let opcode = Opcode::from_repr(code[byte as usize]).unwrap();
-        let next = code
-            .get(byte as usize + 1)
-            .and_then(|x| Opcode::from_repr(*x));
+        let opcode = OpCode::new(code[byte as usize]).unwrap();
+        let next = code.get(byte as usize + 1).copied().and_then(OpCode::new);
 
-        if opcode == Opcode::REVERT && next == Some(Opcode::INVALID) {
+        if opcode == OpCode::REVERT && next == Some(OpCode::INVALID) {
             return true;
         }
 
-        byte += u32::from(opcode.len());
+        byte += 1 + u32::from(opcode.info().immediate_size());
     }
 
     false
@@ -273,7 +269,7 @@ fn normalize_library_runtime_bytecode_if_necessary(code: &[u8]) -> Cow<'_, [u8]>
     // hard-coding the contract address. The first instruction is a PUSH20 of
     // the address, which we zero-out as a way of normalizing it. Note that it's
     // also zeroed-out in the compiler output.
-    if code.first().copied() == Some(Opcode::PUSH20 as u8) {
+    if code.first().copied() == Some(OpCode::PUSH20.get()) {
         code.to_mut()[1..][..Address::len_bytes()].fill(0);
     }
 

@@ -1,7 +1,7 @@
 //! Port of `hardhat-network/stack-traces/debug.ts` from Hardhat.
 
 use edr_eth::U256;
-use edr_evm::hex;
+use edr_evm::{hex, interpreter::OpCode};
 use napi::{
     bindgen_prelude::{Either24, Either3, Either4},
     Either, Env,
@@ -227,7 +227,7 @@ fn trace_steps(
                 .transpose()?
                 .unwrap_or_default();
 
-            if inst.opcode.is_jump() {
+            if matches!(inst.opcode, OpCode::JUMP | OpCode::JUMPI) {
                 let jump = if inst.jump_type == JumpType::NotJump {
                     "".to_string()
                 } else {

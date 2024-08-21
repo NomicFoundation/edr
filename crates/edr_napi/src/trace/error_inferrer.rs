@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashSet};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
-use edr_evm::hex;
+use edr_evm::{hex, interpreter::OpCode};
 use napi::{
     bindgen_prelude::{BigInt, Either24, Either3, Either4},
     Either,
@@ -12,7 +12,6 @@ use super::{
     exit::ExitCode,
     message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
     model::{Bytecode, ContractFunction, ContractKind, SourceLocation},
-    opcodes::Opcode,
     return_data::ReturnData,
     solidity_stack_trace::{
         CallFailedErrorStackTraceEntry, CallstackEntryStackTraceEntry, CustomErrorStackTraceEntry,
@@ -333,7 +332,7 @@ impl ErrorInferrer {
 
             let inst = bytecode.get_instruction(step.pc)?;
 
-            if let (Opcode::CALL | Opcode::CREATE, Either4::A(EvmStep { .. })) =
+            if let (OpCode::CALL | OpCode::CREATE, Either4::A(EvmStep { .. })) =
                 (inst.opcode, next_step)
             {
                 if Self::is_call_failed_error(trace, step_index as u32, inst)? {
@@ -610,7 +609,7 @@ impl ErrorInferrer {
         jumped_into_function: bool,
     ) -> napi::Result<Heuristic> {
         match last_instruction.opcode {
-            Opcode::REVERT | Opcode::INVALID => {}
+            OpCode::REVERT | OpCode::INVALID => {}
             _ => return Ok(Heuristic::Miss(stacktrace)),
         }
 
@@ -675,7 +674,7 @@ impl ErrorInferrer {
 
                     inferred_stacktrace.push(frame.into());
                 } else {
-                    let is_invalid_opcode_error = last_instruction.opcode == Opcode::INVALID;
+                    let is_invalid_opcode_error = last_instruction.opcode == OpCode::INVALID;
 
                     match &trace {
                         Either::A(CallMessageTrace { calldata, .. }) => {
@@ -733,7 +732,7 @@ impl ErrorInferrer {
                     trace,
                 )?,
                 return_data: return_data.clone(),
-                is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
+                is_invalid_opcode_error: last_instruction.opcode == OpCode::INVALID,
             };
 
             inferred_stacktrace.push(revert_frame.into());
@@ -808,7 +807,7 @@ impl ErrorInferrer {
                         &failing_function,
                     )?,
                     return_data: trace.return_data.clone(),
-                    is_invalid_opcode_error: last_instruction.opcode == Opcode::INVALID,
+                    is_invalid_opcode_error: last_instruction.opcode == OpCode::INVALID,
                 };
 
                 return Ok(Heuristic::Hit(vec![frame.into()]));
@@ -984,7 +983,7 @@ impl ErrorInferrer {
         };
 
         let last_inst = bytecode.get_instruction(last_step.pc)?;
-        if last_inst.opcode != Opcode::REVERT {
+        if last_inst.opcode != OpCode::REVERT {
             return Ok(false);
         }
 
@@ -1129,7 +1128,7 @@ impl ErrorInferrer {
 
         let call_inst = bytecode.get_instruction(call_step.pc)?;
 
-        if call_inst.opcode != Opcode::DELEGATECALL {
+        if call_inst.opcode != OpCode::DELEGATECALL {
             return Ok(false);
         }
 
@@ -1189,7 +1188,7 @@ impl ErrorInferrer {
         };
         let last_inst = bytecode.get_instruction(last_step.pc)?;
 
-        Ok(last_inst.opcode == Opcode::REVERT)
+        Ok(last_inst.opcode == OpCode::REVERT)
     }
 
     fn other_execution_error_stacktrace(
@@ -1440,7 +1439,7 @@ impl ErrorInferrer {
 
         let last_inst = bytecode.get_instruction(last_step.pc)?;
 
-        if last_inst.opcode != Opcode::REVERT || last_inst.location.is_some() {
+        if last_inst.opcode != OpCode::REVERT || last_inst.location.is_some() {
             return Ok(false);
         }
 
@@ -1459,7 +1458,7 @@ impl ErrorInferrer {
                 }
             }
 
-            if inst.opcode == Opcode::CODESIZE {
+            if inst.opcode == OpCode::CODESIZE {
                 has_read_deployment_code_size = true;
             }
         }
@@ -1590,7 +1589,7 @@ impl ErrorInferrer {
 
         Ok(match &last_instruction.location {
             Some(last_instruction_location) => {
-                last_instruction.opcode == Opcode::REVERT
+                last_instruction.opcode == OpCode::REVERT
                     && func.location.contains(last_instruction_location)
             }
             _ => false,
@@ -1620,7 +1619,7 @@ impl ErrorInferrer {
         Ok(RevertErrorStackTraceEntry {
             type_: StackTraceEntryTypeConst,
             source_reference,
-            is_invalid_opcode_error: inst.opcode == Opcode::INVALID,
+            is_invalid_opcode_error: inst.opcode == OpCode::INVALID,
             return_data: return_data.clone(),
         })
     }
@@ -1729,7 +1728,7 @@ impl ErrorInferrer {
         let req = VersionReq::parse(&format!("^{FIRST_SOLC_VERSION_WITH_UNMAPPED_REVERTS}"))
             .expect("valid semver");
 
-        Ok(req.matches(&version) && last_instruction.opcode == Opcode::REVERT)
+        Ok(req.matches(&version) && last_instruction.opcode == OpCode::REVERT)
     }
 
     // Solidity 0.6.3 unmapped reverts special handling
@@ -2012,7 +2011,7 @@ impl ErrorInferrer {
 
         let last_inst = bytecode.get_instruction(last_step.pc)?;
 
-        if last_inst.opcode != Opcode::ISZERO {
+        if last_inst.opcode != OpCode::ISZERO {
             return Ok(false);
         }
 
@@ -2023,7 +2022,7 @@ impl ErrorInferrer {
 
         let prev_inst = bytecode.get_instruction(prev_step.pc)?;
 
-        Ok(prev_inst.opcode == Opcode::EXTCODESIZE)
+        Ok(prev_inst.opcode == OpCode::EXTCODESIZE)
     }
 
     fn get_last_instruction_with_valid_location_step_index(

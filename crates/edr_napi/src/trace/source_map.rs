@@ -2,11 +2,10 @@
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use edr_evm::interpreter::OpCode;
+
 use super::model::{SourceFile, SourceLocation};
-use crate::trace::{
-    model::{Instruction, JumpType},
-    opcodes::Opcode,
-};
+use crate::trace::model::{Instruction, JumpType};
 
 // See https://docs.soliditylang.org/en/latest/internals/source_mappings.html
 pub struct SourceMapLocation {
@@ -98,19 +97,18 @@ fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8
 
     let mut bytes_index = (last_instr_pc + 1) as usize;
 
-    while bytecode.get(bytes_index) != Some(Opcode::INVALID as u8).as_ref() {
-        let opcode = Opcode::from_repr(bytecode[bytes_index]).expect("Invalid opcode");
+    while bytecode.get(bytes_index) != Some(OpCode::INVALID.get()).as_ref() {
+        let opcode = OpCode::new(bytecode[bytes_index]).expect("Invalid opcode");
 
         let push_data = if opcode.is_push() {
-            let push_data =
-                &bytecode[(bytes_index + 1)..(bytes_index + 1 + (opcode.push_len() as usize))];
+            let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
 
             Some(push_data.to_vec())
         } else {
             None
         };
 
-        let jump_type = if opcode.is_jump() {
+        let jump_type = if matches!(opcode, OpCode::JUMP | OpCode::JUMPI) {
             JumpType::InternalJump
         } else {
             JumpType::NotJump
@@ -126,7 +124,7 @@ fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8
 
         instructions.push(instruction);
 
-        bytes_index += opcode.len() as usize;
+        bytes_index += 1 + opcode.info().immediate_size() as usize;
     }
 }
 
@@ -146,21 +144,19 @@ pub fn decode_instructions(
         let source_map = &source_maps[instructions.len()];
 
         let pc = bytes_index;
-        let opcode = Opcode::from_repr(bytecode[pc]).expect("Invalid opcode");
+        let opcode = OpCode::new(bytecode[pc]).expect("Invalid opcode");
 
         let push_data = if opcode.is_push() {
-            let length = opcode.push_len();
-            let push_data = &bytecode[(bytes_index + 1)..(bytes_index + 1 + (length as usize))];
+            let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
 
             Some(push_data.to_vec())
         } else {
             None
         };
 
-        let jump_type = if opcode.is_jump() && source_map.jump_type == JumpType::NotJump {
-            JumpType::InternalJump
-        } else {
-            source_map.jump_type
+        let jump_type = match (opcode, source_map.jump_type) {
+            (OpCode::JUMP | OpCode::JUMPI, JumpType::NotJump) => JumpType::InternalJump,
+            _ => source_map.jump_type,
         };
 
         let location = if source_map.location.file == -1 {
@@ -187,7 +183,7 @@ pub fn decode_instructions(
 
         instructions.push(instruction);
 
-        bytes_index += opcode.len() as usize;
+        bytes_index += 1 + opcode.info().immediate_size() as usize;
     }
 
     if is_deployment {

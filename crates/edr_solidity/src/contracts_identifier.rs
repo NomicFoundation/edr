@@ -3,11 +3,10 @@ mod radix_tree;
 use std::collections::HashMap;
 
 use edr_eth::Bytes;
-use edr_evm::interpreter::opcode;
+use edr_evm::interpreter::{opcode, OpCode};
 use radix_tree::RadixTree;
 
 use self::radix_tree::RadixNode;
-use crate::opcodes::opcode_length;
 
 /// Temporary stub
 #[derive(Clone, Debug, PartialEq)]
@@ -272,7 +271,7 @@ fn is_matching_metadata(code: &[u8]) -> bool {
             return true;
         }
 
-        byte += opcode_length(*opcode);
+        byte += 1 + OpCode::new(*opcode).unwrap().info().immediate_size() as usize;
     }
 
     false

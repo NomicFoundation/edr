@@ -8,8 +8,6 @@ pub mod build_model;
 /// Map of bytecodes to known contracts
 pub mod contracts_identifier;
 
-mod opcodes;
-
 pub mod utils;
 
 pub mod artifacts;
