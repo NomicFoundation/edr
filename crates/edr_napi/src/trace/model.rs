@@ -78,11 +78,7 @@ impl SourceLocation {
             return Ok(*line);
         }
 
-        let contents = &self
-            .file
-            .try_borrow()
-            .map_err(|e| napi::Error::from_reason(e.to_string()))?
-            .content;
+        let contents = &self.file.borrow().content;
 
         Ok(*self.line.get_or_init(move || {
             let mut line = 1;
@@ -98,12 +94,7 @@ impl SourceLocation {
     }
 
     pub fn get_containing_function(&self) -> napi::Result<Option<Rc<ContractFunction>>> {
-        Ok(self
-            .file
-            .try_borrow()
-            .map_err(|e| napi::Error::from_reason(e.to_string()))?
-            .get_containing_function(self)
-            .cloned())
+        Ok(self.file.borrow().get_containing_function(self).cloned())
     }
 
     pub fn contains(&self, other: &SourceLocation) -> bool {

@@ -329,15 +329,10 @@ fn process_function_definition_ast_node(
     };
     let contract_func = Rc::new(contract_func);
 
+    file.borrow_mut().add_function(contract_func.clone());
     if let Some(contract) = contract {
-        let mut contract = contract.borrow_mut();
-        contract.add_local_function(contract_func.clone());
+        contract.borrow_mut().add_local_function(contract_func);
     }
-
-    let mut file = file
-        .try_borrow_mut()
-        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-    file.add_function(contract_func);
 
     Ok(())
 }
@@ -365,13 +360,8 @@ fn process_modifier_definition_ast_node(
 
     let contract_func = Rc::new(contract_func);
 
-    let mut contract = contract.borrow_mut();
-    let mut file = file
-        .try_borrow_mut()
-        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-
-    contract.add_local_function(contract_func.clone());
-    file.add_function(contract_func.clone());
+    file.borrow_mut().add_function(contract_func.clone());
+    contract.borrow_mut().add_local_function(contract_func);
 
     Ok(())
 }
@@ -413,13 +403,8 @@ fn process_variable_declaration_ast_node(
     };
     let contract_func = Rc::new(contract_func);
 
-    let mut contract = contract.borrow_mut();
-    let mut file = file
-        .try_borrow_mut()
-        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-
-    contract.add_local_function(contract_func.clone());
-    file.add_function(contract_func);
+    file.borrow_mut().add_function(contract_func.clone());
+    contract.borrow_mut().add_local_function(contract_func);
 
     Ok(())
 }
@@ -654,14 +639,7 @@ fn correct_selectors(bytecodes: &[Bytecode], compiler_output: &CompilerOutput) -
         // Fetch the method identifiers for the contract from the compiler output
         let method_identifiers = match compiler_output
             .contracts
-            .get(
-                &contract
-                    .location
-                    .file
-                    .try_borrow()
-                    .map_err(|e| napi::Error::from_reason(e.to_string()))?
-                    .source_name,
-            )
+            .get(&contract.location.file.borrow().source_name)
             .and_then(|file| file.get(&contract.name))
             .map(|contract| &contract.evm.method_identifiers)
         {
@@ -771,13 +749,7 @@ fn decode_bytecodes(
 
         let mut contract = contract.borrow_mut();
 
-        let contract_file = &contract
-            .location
-            .file
-            .try_borrow()
-            .map_err(|e| napi::Error::from_reason(e.to_string()))?
-            .source_name
-            .clone();
+        let contract_file = &contract.location.file.borrow().source_name.clone();
         let contract_evm_output = &compiler_output.contracts[contract_file][&contract.name].evm;
         let contract_abi_output = &compiler_output.contracts[contract_file][&contract.name].abi;
 
