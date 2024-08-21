@@ -14,7 +14,7 @@ use edr_evm::{
     transaction::Transaction as _,
     SyncBlock,
 };
-use edr_provider::{ProviderError, TransactionFailure};
+use edr_provider::{time::CurrentTime, ProviderError, TransactionFailure};
 use itertools::izip;
 use napi::{
     threadsafe_function::{
@@ -368,7 +368,7 @@ impl LogCollector {
             logger.log_console_log_messages(console_log_inputs);
 
             if let Some(transaction_failure) =
-                TransactionFailure::from_execution_result(execution_result, None, trace)
+                TransactionFailure::<L1ChainSpec>::from_execution_result::<L1ChainSpec, CurrentTime>(execution_result, None, trace)
             {
                 logger.log_transaction_failure(&transaction_failure);
             }
@@ -768,11 +768,11 @@ impl LogCollector {
 
             logger.log_console_log_messages(console_log_inputs);
 
-            let transaction_failure = edr_provider::TransactionFailure::from_execution_result(
-                result,
-                Some(transaction_hash),
-                trace,
-            );
+            let transaction_failure =
+                edr_provider::TransactionFailure::<L1ChainSpec>::from_execution_result::<
+                    L1ChainSpec,
+                    CurrentTime,
+                >(result, Some(transaction_hash), trace);
 
             if let Some(transaction_failure) = transaction_failure {
                 logger.log_transaction_failure(&transaction_failure);
@@ -1159,11 +1159,11 @@ impl LogCollector {
 
             logger.log_console_log_messages(&block_result.console_log_inputs);
 
-            let transaction_failure = edr_provider::TransactionFailure::from_execution_result(
-                transaction_result,
-                Some(transaction_hash),
-                trace,
-            );
+            let transaction_failure =
+                edr_provider::TransactionFailure::<L1ChainSpec>::from_execution_result::<
+                    L1ChainSpec,
+                    CurrentTime,
+                >(transaction_result, Some(transaction_hash), trace);
 
             if let Some(transaction_failure) = transaction_failure {
                 logger.log_transaction_failure(&transaction_failure);

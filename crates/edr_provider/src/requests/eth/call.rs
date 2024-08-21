@@ -8,7 +8,7 @@ use edr_rpc_eth::StateOverrideOptions;
 
 use crate::{
     data::ProviderData,
-    spec::{CallContext, MaybeSender as _, ResolveRpcType, SyncProviderSpec},
+    spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure,
 };
@@ -44,8 +44,10 @@ pub fn handle_call_request<
         .map_err(ProviderError::Logger)?;
 
     if data.bail_on_call_failure() {
-        if let Some(failure) =
-            TransactionFailure::from_execution_result(&result.execution_result, None, &result.trace)
+        if let Some(failure) = TransactionFailure::<ChainSpecT>::from_execution_result::<
+            ChainSpecT,
+            TimerT,
+        >(&result.execution_result, None, &result.trace)
         {
             return Err(ProviderError::TransactionFailed(
                 crate::error::TransactionFailureWithTraces {
@@ -101,7 +103,7 @@ pub(crate) fn resolve_call_request<
         },
     };
 
-    let request = request.resolve_rpc_type(context)?;
+    let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
     transaction::validate(transaction, SpecId::LATEST)

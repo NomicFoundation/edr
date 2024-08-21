@@ -26,7 +26,7 @@ use crate::{
         validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
         validate_transaction_and_call_request,
     },
-    spec::{ResolveRpcType, Sender as _, SyncProviderSpec, TransactionContext},
+    spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure,
 };
@@ -184,7 +184,7 @@ pub fn handle_send_transaction_request<
     let sender = *request.sender();
 
     let context = TransactionContext { data };
-    let request = request.resolve_rpc_type(context)?;
+    let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
 
     let request = TransactionRequestAndSender { request, sender };
     let signed_transaction = data.sign_transaction_request(request)?;
@@ -254,7 +254,7 @@ fn send_raw_transaction_and_log<
             result
                 .transaction_result_and_trace()
                 .and_then(|(execution_result, trace)| {
-                    TransactionFailure::from_execution_result(
+                    TransactionFailure::<ChainSpecT>::from_execution_result::<ChainSpecT, TimerT>(
                         execution_result,
                         Some(&result.transaction_hash),
                         trace,

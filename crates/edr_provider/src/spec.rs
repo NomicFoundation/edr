@@ -2,6 +2,7 @@ use core::fmt::Debug;
 
 use edr_eth::{
     chain_spec::L1ChainSpec,
+    result::HaltReason,
     rlp,
     transaction::{
         signed::{FakeSign, Sign},
@@ -19,24 +20,7 @@ use edr_rpc_eth::{CallRequest, TransactionRequest};
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, TransactionFailureReason};
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    ChainSpec<
-    HaltReason: Into<TransactionFailureReason<Self>>,
-    Hardfork: Debug,
-    RpcCallRequest: MaybeSender
-                        + for<'context> ResolveRpcType<
-        TimerT,
-        Self::TransactionRequest,
-        Context<'context> = CallContext<'context, Self, TimerT>,
-        Error = ProviderError<Self>,
-    >,
-    RpcTransactionRequest: Sender
-                               + for<'context> ResolveRpcType<
-        TimerT,
-        Self::TransactionRequest,
-        Context<'context> = TransactionContext<'context, Self, TimerT>,
-        Error = ProviderError<Self>,
-    >,
->
+    ChainSpec<Hardfork: Debug, RpcCallRequest: MaybeSender, RpcTransactionRequest: Sender>
 {
     type PooledTransaction: HardforkValidationData
         + Into<Self::Transaction>
@@ -44,12 +28,43 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
         + Transaction;
 
     /// Type representing a transaction request.
-    type TransactionRequest: FakeSign<Signed = Self::Transaction> + Sign<Signed = Self::Transaction>;
+    type TransactionRequest: FakeSign<Signed = Self::Transaction>
+        + Sign<Signed = Self::Transaction>
+        + for<'context> FromRpcType<
+            Self::RpcCallRequest,
+            TimerT,
+            Context<'context> = CallContext<'context, Self, TimerT>,
+            Error = ProviderError<Self>,
+        > + for<'context> FromRpcType<
+            Self::RpcTransactionRequest,
+            TimerT,
+            Context<'context> = TransactionContext<'context, Self, TimerT>,
+            Error = ProviderError<Self>,
+        >;
+
+    /// Casts a halt reason into a transaction failure reason.
+    ///
+    /// This is implemented as an associated function to avoid problems when
+    /// implementing type conversions for third-party types.
+    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self>;
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
     type PooledTransaction = transaction::pooled::PooledTransaction;
     type TransactionRequest = transaction::Request;
+
+    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self> {
+        match reason {
+            HaltReason::CreateContractSizeLimit => {
+                TransactionFailureReason::CreateContractSizeLimit
+            }
+            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+                TransactionFailureReason::OpcodeNotFound
+            }
+            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+            remainder => TransactionFailureReason::Inner(remainder),
+        }
+    }
 }
 
 /// Trait with data used for validating a transaction complies with a
@@ -104,14 +119,14 @@ impl Sender for TransactionRequest {
 // ChainSpecT: ProviderSpec<TimerT, Hardfork: Debug>,
 
 /// Trait for resolving an RPC type to an internal type.
-pub trait ResolveRpcType<TimerT: Clone + TimeSinceEpoch, OutputT> {
+pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {
     /// Type for contextual information.
     type Context<'context>;
 
     /// Type of error that can occur during resolution.
     type Error;
 
-    fn resolve_rpc_type(self, context: Self::Context<'_>) -> Result<OutputT, Self::Error>;
+    fn from_rpc_type(value: RpcT, context: Self::Context<'_>) -> Result<Self, Self::Error>;
 }
 
 pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:

@@ -4,7 +4,7 @@ use edr_eth::{
     chain_spec::EthHeaderConstants,
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     env::{BlobExcessGasAndPrice, BlockEnv},
-    result::InvalidTransaction,
+    result::{HaltReason, InvalidTransaction},
     U256,
 };
 use edr_evm::{
@@ -12,6 +12,7 @@ use edr_evm::{
     transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };
+use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::spec::RpcSpec;
 use revm::{
     handler::register::HandleRegisters,
@@ -140,4 +141,25 @@ impl EthHeaderConstants for OptimismChainSpec {
         ]));
 
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
+}
+
+impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OptimismChainSpec {
+    type PooledTransaction = transaction::Pooled;
+    type TransactionRequest = transaction::Request;
+
+    fn cast_halt_reason(reason: OptimismHaltReason) -> TransactionFailureReason<Self> {
+        match reason {
+            OptimismHaltReason::Base(reason) => match reason {
+                HaltReason::CreateContractSizeLimit => {
+                    TransactionFailureReason::CreateContractSizeLimit
+                }
+                HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+                    TransactionFailureReason::OpcodeNotFound
+                }
+                HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+                remainder => TransactionFailureReason::Inner(OptimismHaltReason::Base(remainder)),
+            },
+            remainder => TransactionFailureReason::Inner(remainder),
+        }
+    }
 }

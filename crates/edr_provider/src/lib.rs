@@ -9,7 +9,8 @@ mod interval;
 mod logger;
 mod mock;
 mod pending;
-mod requests;
+/// Type for RPC requests.
+pub mod requests;
 mod snapshot;
 /// Types for provider-related chain specification.
 pub mod spec;
@@ -39,7 +40,7 @@ use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 pub use self::{
     config::*,
-    data::CallResult,
+    data::{CallResult, ProviderData},
     debug_mine::DebugMineBlockResult,
     error::{EstimateGasFailure, ProviderError, TransactionFailure, TransactionFailureReason},
     logger::{Logger, NoopLogger},
@@ -52,7 +53,7 @@ pub use self::{
     subscribe::*,
 };
 use self::{
-    data::{CreationError, ProviderData},
+    data::CreationError,
     interval::IntervalMiner,
     requests::{debug, eth, hardhat},
 };

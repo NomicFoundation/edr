@@ -122,7 +122,8 @@ impl HardforkValidationData for PooledTransaction {
     }
 }
 
-pub(crate) fn validate_send_transaction_request<
+/// Validates a `TransactionRequest` against the provided `ProviderData`.
+pub fn validate_send_transaction_request<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -240,6 +241,7 @@ fn validate_transaction_spec<ChainSpecT: ChainSpec<Hardfork: Debug>>(
     Ok(())
 }
 
+/// Validates a `CallRequest` and `BlockSpec` against the provided hardfork.
 pub fn validate_call_request<ChainSpecT: ChainSpec<Hardfork: Debug>>(
     spec_id: SpecId,
     call_request: &CallRequest,
@@ -266,7 +268,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-pub fn validate_transaction_and_call_request<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+pub(crate) fn validate_transaction_and_call_request<ChainSpecT: ChainSpec<Hardfork: Debug>>(
     spec_id: SpecId,
     validation_data: &impl HardforkValidationData,
 ) -> Result<(), ProviderError<ChainSpecT>> {
@@ -284,7 +286,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-pub fn validate_eip3860_max_initcode_size<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: ChainSpec<Hardfork: Debug>>(
     spec_id: SpecId,
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
@@ -335,7 +337,7 @@ impl<'a> From<ValidationBlockSpec<'a>> for BlockSpec {
     }
 }
 
-pub fn validate_post_merge_block_tags<'a, ChainSpecT: ChainSpec<Hardfork: Debug>>(
+pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: ChainSpec<Hardfork: Debug>>(
     hardfork: SpecId,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
 ) -> Result<(), ProviderError<ChainSpecT>> {
