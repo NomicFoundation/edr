@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::str::FromStr;
 use std::{collections::HashMap, rc::Rc};
 
+use anyhow::{self, Context as _};
 use edr_evm::{alloy_primitives::keccak256, hex};
 use edr_solidity::artifacts::{
     CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry,
@@ -46,7 +47,7 @@ pub fn create_models_and_decode_bytecodes_inner(
     solc_version: String,
     compiler_input: &CompilerInput,
     compiler_output: &CompilerOutput,
-) -> napi::Result<Vec<Bytecode>> {
+) -> anyhow::Result<Vec<Bytecode>> {
     let mut file_id_to_source_file = HashMap::new();
     let mut contract_id_to_contract = IndexMap::new();
 
@@ -74,7 +75,7 @@ fn create_sources_model_from_ast(
     compiler_input: &CompilerInput,
     file_id_to_source_file: &mut HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_id_to_contract: &mut IndexMap<u32, Rc<RefCell<Contract>>>,
-) -> napi::Result<()> {
+) -> anyhow::Result<()> {
     let mut contract_id_to_linearized_base_contract_ids = HashMap::new();
 
     for (source_name, source) in &compiler_output.sources {
@@ -175,7 +176,7 @@ fn process_contract_ast_node(
     contract_id_to_contract: &mut IndexMap<u32, Rc<RefCell<Contract>>>,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_abi: Option<&[ContractAbiEntry]>,
-) -> napi::Result<()> {
+) -> anyhow::Result<()> {
     let contract_location = ast_src_to_source_location(
         contract_node["src"].as_str().unwrap(),
         file_id_to_source_file,
@@ -256,7 +257,7 @@ fn process_function_definition_ast_node(
     contract: Option<&RefCell<Contract>>,
     file: &RefCell<SourceFile>,
     function_abis: Option<Vec<&ContractAbiEntry>>,
-) -> napi::Result<()> {
+) -> anyhow::Result<()> {
     if node.get("implemented").and_then(serde_json::Value::as_bool) == Some(false) {
         return Ok(());
     }
@@ -342,7 +343,7 @@ fn process_modifier_definition_ast_node(
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract: &RefCell<Contract>,
     file: &RefCell<SourceFile>,
-) -> napi::Result<()> {
+) -> anyhow::Result<()> {
     let function_location =
         ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
             .expect("The original JS code always asserts that");
@@ -372,7 +373,7 @@ fn process_variable_declaration_ast_node(
     contract: &RefCell<Contract>,
     file: &RefCell<SourceFile>,
     getter_abi: Option<&ContractAbiEntry>,
-) -> napi::Result<()> {
+) -> anyhow::Result<()> {
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
 
     // Variables can't be external
@@ -411,10 +412,10 @@ fn process_variable_declaration_ast_node(
 
 fn get_public_variable_selector_from_declaration_ast_node(
     variable_declaration: &serde_json::Value,
-) -> napi::Result<Vec<u8>> {
+) -> anyhow::Result<Vec<u8>> {
     if let Some(function_selector) = variable_declaration["functionSelector"].as_str() {
         return hex::decode(function_selector)
-            .map_err(|e| napi::Error::from_reason(format!("Failed to decode hex: {e:?}")));
+            .with_context(|| format!("Failed to decode hex: {function_selector:?}"));
     }
 
     // NOTE: It seems we don't have tests that exercise missing functionSelector
@@ -449,10 +450,10 @@ fn get_public_variable_selector_from_declaration_ast_node(
 
 fn ast_function_definition_to_selector(
     function_definition: &serde_json::Value,
-) -> napi::Result<Vec<u8>> {
+) -> anyhow::Result<Vec<u8>> {
     if let Some(function_selector) = function_definition["functionSelector"].as_str() {
         return hex::decode(function_selector)
-            .map_err(|e| napi::Error::from_reason(format!("Failed to decode hex: {e:?}")));
+            .with_context(|| format!("Failed to decode hex: {function_selector:?}"));
     }
 
     let mut param_types = Vec::new();
@@ -606,7 +607,7 @@ fn to_canonical_abi_type(type_: &str) -> String {
 fn ast_src_to_source_location(
     src: &str,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-) -> napi::Result<Option<Rc<SourceLocation>>> {
+) -> anyhow::Result<Option<Rc<SourceLocation>>> {
     let parts: Vec<&str> = src.split(':').collect();
     if parts.len() != 3 {
         return Ok(None);
@@ -614,17 +615,17 @@ fn ast_src_to_source_location(
 
     let offset = parts[0]
         .parse::<u32>()
-        .map_err(|e| napi::Error::from_reason(format!("Failed to parse offset: {e:?}")))?;
+        .with_context(|| format!("Failed to parse offset: {src:?}"))?;
     let length = parts[1]
         .parse::<u32>()
-        .map_err(|e| napi::Error::from_reason(format!("Failed to parse length: {e:?}")))?;
+        .with_context(|| format!("Failed to parse length: {src:?}"))?;
     let file_id = parts[2]
         .parse::<u32>()
-        .map_err(|e| napi::Error::from_reason(format!("Failed to parse file ID: {e:?}")))?;
+        .with_context(|| format!("Failed to parse file ID: {src:?}"))?;
 
     let file = file_id_to_source_file
         .get(&file_id)
-        .ok_or_else(|| napi::Error::from_reason("Failed to find file by ID"))?;
+        .with_context(|| format!("Failed to find file by ID: {file_id}"))?;
 
     Ok(Some(Rc::new(SourceLocation::new(
         file.clone(),
@@ -633,7 +634,10 @@ fn ast_src_to_source_location(
     ))))
 }
 
-fn correct_selectors(bytecodes: &[Bytecode], compiler_output: &CompilerOutput) -> napi::Result<()> {
+fn correct_selectors(
+    bytecodes: &[Bytecode],
+    compiler_output: &CompilerOutput,
+) -> anyhow::Result<()> {
     for bytecode in bytecodes.iter().filter(|b| !b.is_deployment) {
         let mut contract = bytecode.contract.borrow_mut();
         // Fetch the method identifiers for the contract from the compiler output
@@ -650,7 +654,7 @@ fn correct_selectors(bytecodes: &[Bytecode], compiler_output: &CompilerOutput) -
         for (signature, hex_selector) in method_identifiers {
             let function_name = signature.split('(').next().unwrap_or("");
             let selector = hex::decode(hex_selector)
-                .map_err(|e| napi::Error::from_reason(format!("Failed to decode hex: {e:?}")))?;
+                .with_context(|| format!("Failed to decode hex: {hex_selector:?}"))?;
 
             let contract_function = contract.get_function_from_selector(&selector);
 
@@ -666,10 +670,10 @@ fn correct_selectors(bytecodes: &[Bytecode], compiler_output: &CompilerOutput) -
                 contract.correct_selector(function_name.to_string(), selector.clone());
 
             if !fixed_selector {
-                return Err(napi::Error::from_reason(format!(
-                    "Failed to compute the selector for one or more implementations of {}#{}. Hardhat Network can automatically fix this problem if you don't use function overloading.",
-                    contract.name, function_name
-                )));
+                return Err(anyhow::anyhow!(
+                "Failed to fix up the selector for one or more implementations of {}#{}. Hardhat Network can automatically fix this problem if you don't use function overloading.",
+                contract.name, function_name
+              ));
             }
         }
     }
@@ -697,7 +701,7 @@ fn decode_evm_bytecode(
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-) -> napi::Result<Bytecode> {
+) -> anyhow::Result<Bytecode> {
     let library_address_positions = get_library_address_positions(compiler_bytecode);
 
     let immutable_references = compiler_bytecode
@@ -716,7 +720,7 @@ fn decode_evm_bytecode(
         compiler_bytecode.object.clone(),
         &library_address_positions,
     )
-    .map_err(|e| napi::Error::from_reason(format!("Failed to decode hex: {e:?}")))?;
+    .with_context(|| format!("Failed to decode hex: {compiler_bytecode:?}"))?;
 
     let instructions = decode_instructions(
         &normalized_code,
@@ -741,7 +745,7 @@ fn decode_bytecodes(
     compiler_output: &CompilerOutput,
     file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_id_to_contract: &IndexMap<u32, Rc<RefCell<Contract>>>,
-) -> napi::Result<Vec<Bytecode>> {
+) -> anyhow::Result<Vec<Bytecode>> {
     let mut bytecodes = Vec::new();
 
     for contract in contract_id_to_contract.values() {

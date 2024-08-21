@@ -1157,6 +1157,7 @@ dependencies = [
  "alloy-json-abi",
  "alloy-sol-types 0.5.4",
  "ansi_term",
+ "anyhow",
  "crossbeam-channel",
  "edr_defaults",
  "edr_eth",

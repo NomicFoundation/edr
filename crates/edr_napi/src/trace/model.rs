@@ -7,9 +7,9 @@ use std::{
 };
 
 use alloy_dyn_abi::ErrorExt;
+use anyhow::{self, Context as _};
 use edr_evm::{hex, interpreter::OpCode};
 use edr_solidity::artifacts::ContractAbiEntry;
-use napi::anyhow::{self, Context as _};
 use napi_derive::napi;
 use serde::Serialize;
 use serde_json::Value;
