@@ -72,6 +72,13 @@ async function main() {
   });
   const args: ParsedArguments = parser.parse_args();
 
+  // if --benchmark-output is relative, resolve it relatively to cwd
+  // to reduce ambiguity
+  const benchmarkOutputPath = path.resolve(
+    process.cwd(),
+    args.benchmark_output
+  );
+
   let results: BenchmarkScenarioRpcCalls | undefined;
   if (args.command === "benchmark") {
     if (args.grep !== undefined) {
@@ -83,14 +90,14 @@ async function main() {
         }
       }
     } else {
-      await benchmarkAllScenarios(args.benchmark_output, args.anvil);
+      await benchmarkAllScenarios(benchmarkOutputPath, args.anvil);
     }
     await flushStdout();
   } else if (args.command === "verify") {
-    const success = await verify(args.benchmark_output);
+    const success = await verify(benchmarkOutputPath);
     process.exit(success ? 0 : 1);
   } else if (args.command === "report") {
-    await report(args.benchmark_output);
+    await report(benchmarkOutputPath);
     await flushStdout();
   }
 }
