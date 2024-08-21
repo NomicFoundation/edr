@@ -32,7 +32,7 @@ pub struct SolidityTracer;
 #[allow(clippy::unused_self)] // we allow this for convenience for now
 #[napi]
 impl SolidityTracer {
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn get_stack_trace(
         &self,
         trace: Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>,

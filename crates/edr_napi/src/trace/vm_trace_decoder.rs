@@ -47,7 +47,7 @@ impl VmTraceDecoder {
         Self::default()
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn add_bytecode(&mut self, bytecode: ClassInstance<BytecodeWrapper>) {
         self.add_bytecode_inner(bytecode.0.clone());
     }
@@ -56,7 +56,7 @@ impl VmTraceDecoder {
         self.contracts_identifier.add_bytecode(bytecode);
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn try_to_decode_message_trace(
         &mut self,
         message_trace: Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>,

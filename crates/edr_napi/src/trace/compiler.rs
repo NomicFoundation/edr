@@ -26,7 +26,7 @@ use super::{
     source_map::decode_instructions,
 };
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn create_models_and_decode_bytecodes(
     solc_version: String,
     compiler_input: serde_json::Value,
