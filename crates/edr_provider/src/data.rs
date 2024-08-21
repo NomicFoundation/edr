@@ -1215,26 +1215,14 @@ where
         Ok(block_number)
     }
 
-    /// Creates a configuration, taking into the hardfork at the provided
-    /// `BlockSpec`. If none is provided, assumes the hardfork for newly
-    /// mined blocks.
+    /// Creates an EVM configuration with the provided hardfork and chain id
     fn create_evm_config(
         &self,
-        block_spec: Option<&BlockSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        chain_id: u64,
     ) -> Result<CfgEnvWithEvmWiring<ChainSpecT>, ProviderError<ChainSpecT>> {
-        let block_number = block_spec
-            .map(|block_spec| self.block_number_by_block_spec(block_spec))
-            .transpose()?
-            .flatten();
-
-        let spec_id = if let Some(block_number) = block_number {
-            self.blockchain.spec_at_block_number(block_number)?
-        } else {
-            self.blockchain.spec_id()
-        };
-
         let mut cfg_env = CfgEnv::default();
-        cfg_env.chain_id = self.blockchain.chain_id();
+        cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
             Some(usize::MAX)
         } else {
@@ -1242,7 +1230,30 @@ where
         };
         cfg_env.disable_eip3607 = true;
 
-        Ok(CfgEnvWithEvmWiring::<ChainSpecT>::new(cfg_env, spec_id))
+        Ok(CfgEnvWithEvmWiring::<ChainSpecT>::new(cfg_env, hardfork))
+    }
+
+    /// Creates a configuration, taking into account the hardfork at the
+    /// provided `BlockSpec`.
+    fn create_evm_config_at_block_spec(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<CfgEnvWithEvmWiring<ChainSpecT>, ProviderError<ChainSpecT>> {
+        let block_number = self.block_number_by_block_spec(block_spec)?;
+
+        let spec_id = if let Some(block_number) = block_number {
+            self.spec_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.spec_id()
+        };
+
+        let chain_id = if let Some(block_number) = block_number {
+            self.chain_id_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.chain_id()
+        };
+
+        self.create_evm_config(spec_id, chain_id)
     }
 
     fn current_state(
@@ -1354,7 +1365,8 @@ where
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
-        let evm_config = self.create_evm_config(None)?;
+        let evm_config =
+            self.create_evm_config(self.blockchain.spec_id(), self.blockchain.chain_id())?;
 
         if options.mix_hash.is_none() && evm_config.spec_id.into() >= SpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
@@ -1434,6 +1446,24 @@ where
         Ok((block_timestamp, new_offset))
     }
 
+    /// Wrapper over `Blockchain::spec_at_block_number` that handles error
+    /// conversion.
+    fn spec_at_block_number(
+        &self,
+        block_number: u64,
+        block_spec: &BlockSpec,
+    ) -> Result<ChainSpecT::Hardfork, ProviderError<ChainSpecT>> {
+        self.blockchain
+            .spec_at_block_number(block_number)
+            .map_err(|err| match err {
+                BlockchainError::UnknownBlockNumber => ProviderError::InvalidBlockNumberOrHash {
+                    block_spec: block_spec.clone(),
+                    latest_block_number: self.blockchain.last_block_number(),
+                },
+                _ => ProviderError::Blockchain(err),
+            })
+    }
+
     fn validate_auto_mine_transaction(
         &mut self,
         transaction: &ChainSpecT::Transaction,
@@ -1499,6 +1529,21 @@ where
     /// Returns the chain ID.
     pub fn chain_id(&self) -> u64 {
         self.blockchain.chain_id()
+    }
+
+    pub fn chain_id_at_block_spec(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderError<ChainSpecT>> {
+        let block_number = self.block_number_by_block_spec(block_spec)?;
+
+        let chain_id = if let Some(block_number) = block_number {
+            self.chain_id_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.chain_id()
+        };
+
+        Ok(chain_id)
     }
 
     /// Returns the local EVM's [`SpecId`].
@@ -1594,6 +1639,24 @@ where
             Ok(U256::from(8_000_000_000u64))
         }
     }
+
+    /// Wrapper over `Blockchain::chain_id_at_block_number` that handles error
+    /// conversion.
+    fn chain_id_at_block_number(
+        &self,
+        block_number: u64,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderError<ChainSpecT>> {
+        self.blockchain
+            .chain_id_at_block_number(block_number)
+            .map_err(|err| match err {
+                BlockchainError::UnknownBlockNumber => ProviderError::InvalidBlockNumberOrHash {
+                    block_spec: block_spec.clone(),
+                    latest_block_number: self.blockchain.last_block_number(),
+                },
+                _ => ProviderError::Blockchain(err),
+            })
+    }
 }
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
@@ -1633,7 +1696,7 @@ where
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
     ) -> Result<DebugTraceResultWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
         let precompiles = self.custom_precompiles.clone();
@@ -2040,7 +2103,7 @@ where
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult<ChainSpecT>, ProviderError<ChainSpecT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let mut debugger = Debugger::with_mocker(
             Mocker::new(self.call_override.clone()),
@@ -2303,9 +2366,8 @@ where
             .ok_or_else(|| ProviderError::InvalidTransactionHash(*transaction_hash))?;
 
         let header = block.header();
-        let block_spec = Some(BlockSpec::Number(header.number));
 
-        let cfg_env = self.create_evm_config(block_spec.as_ref())?;
+        let cfg_env = self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
 
         let transactions = block.transactions().to_vec();
 
@@ -2354,7 +2416,7 @@ where
         transaction: ChainSpecT::Transaction,
         block_spec: &BlockSpec,
     ) -> Result<EstimateGasResult<ChainSpecT>, ProviderError<ChainSpecT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
         let minimum_cost = transaction::initial_cost(&transaction, self.evm_spec_id());
@@ -3076,6 +3138,11 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
         assert_eq!(chain_id, fixture.config.chain_id);
+
+        let chain_id_at_block = fixture
+            .provider_data
+            .chain_id_at_block_spec(&BlockSpec::Number(1))?;
+        assert_eq!(chain_id_at_block, 1);
 
         Ok(())
     }

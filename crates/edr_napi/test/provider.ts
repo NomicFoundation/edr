@@ -9,22 +9,9 @@ import {
   SpecId,
   SubscriptionEvent,
 } from "..";
-import { collectMessages, collectSteps } from "./helpers";
+import { collectMessages, collectSteps, ALCHEMY_URL } from "./helpers";
 
 chai.use(chaiAsPromised);
-
-function getEnv(key: string): string | undefined {
-  const variable = process.env[key];
-  if (variable === undefined || variable === "") {
-    return undefined;
-  }
-
-  const trimmed = variable.trim();
-
-  return trimmed.length === 0 ? undefined : trimmed;
-}
-
-const ALCHEMY_URL = getEnv("ALCHEMY_URL");
 
 describe("Provider", () => {
   const context = new EdrContext();
@@ -350,7 +337,15 @@ describe("Provider", () => {
         }),
       );
 
-      const txHash = JSON.parse(sendTxResponse.json).result;
+      let responseData;
+
+      if (typeof sendTxResponse.data === "string") {
+        responseData = JSON.parse(sendTxResponse.data);
+      } else {
+        responseData = sendTxResponse.data;
+      }
+
+      const txHash = responseData.result;
 
       const traceTransactionResponse = await provider.handleRequest(
         JSON.stringify({

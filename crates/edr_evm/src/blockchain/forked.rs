@@ -365,6 +365,18 @@ where
         self.chain_id
     }
 
+    fn chain_id_at_block_number(&self, block_number: u64) -> Result<u64, Self::BlockchainError> {
+        if block_number > self.last_block_number() {
+            return Err(BlockchainError::UnknownBlockNumber);
+        }
+
+        if block_number <= self.fork_block_number {
+            Ok(self.remote_chain_id())
+        } else {
+            Ok(self.chain_id())
+        }
+    }
+
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn last_block(
         &self,
