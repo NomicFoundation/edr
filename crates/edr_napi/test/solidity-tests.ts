@@ -13,7 +13,7 @@ import {
 async function executeSolidityTests(
   artifacts: Array<Artifact>,
   testSuites: Array<ArtifactId>,
-  configArgs: SolidityTestRunnerConfigArgs,
+  configArgs: SolidityTestRunnerConfigArgs
 ): Promise<Array<SuiteResult>> {
   return await new Promise((resolve, reject) => {
     const resultsFromCallback: Array<SuiteResult> = [];
@@ -28,7 +28,7 @@ async function executeSolidityTests(
           resolve(resultsFromCallback);
         }
       },
-      reject,
+      reject
     );
   });
 }
@@ -78,7 +78,7 @@ describe("Solidity Tests", () => {
 
     await assert.isRejected(
       executeSolidityTests(artifacts, testSuites, config),
-      Error,
+      Error
     );
   });
 });
