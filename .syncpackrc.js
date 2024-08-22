@@ -13,8 +13,8 @@ const config = {
     {
       packages: ["**"],
       dependencies: ["@nomicfoundation/edr"],
-      pinVersion: "workspace:*"
-    }
+      dependencyTypes: ["local"]
+    },
   ],
   semverGroups: [
     {
