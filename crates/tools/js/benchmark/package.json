@@ -38,7 +38,7 @@
     "presoltests": "cd ../../../edr_napi/ && pnpm build",
     "prettier": "prettier --check \"**/*.{js,ts}\"",
     "report": "tsx src/index.ts report",
-    "soltests": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 index.js solidity-tests",
+    "soltests": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts solidity-tests",
     "test": "mocha --recursive --require tsx/cjs \"test/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "verify": "tsx src/index.ts verify"

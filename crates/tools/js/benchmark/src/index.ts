@@ -55,7 +55,7 @@ async function main() {
     description: "Scenario benchmark runner",
   });
   parser.add_argument("command", {
-    choices: ["benchmark", "verify", "report"],
+    choices: ["benchmark", "verify", "report", "solidity-tests"],
     help: "Whether to run a benchmark, verify that there are no regressions or create a report for `github-action-benchmark`",
   });
   parser.add_argument("-g", "--grep", {
