@@ -12,7 +12,7 @@ const config = {
     },
     {
       packages: ["**"],
-      dependencies: ["@nomicfoundation/edr"],
+      dependencies: ["@nomicfoundation/edr", "hardhat-solidity-tests"],
       dependencyTypes: ["local"]
     },
   ],
