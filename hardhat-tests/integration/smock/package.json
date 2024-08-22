@@ -12,7 +12,7 @@
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "chai": "^4.3.6",
     "ethers": "5",
-    "hardhat": "2.22.6",
+    "hardhat": "2.22.9",
     "mocha": "^10.0.0"
   }
 }

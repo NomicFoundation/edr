@@ -7,11 +7,6 @@ settings:
 overrides:
   hardhat>@nomicfoundation/edr: workspace:*
 
-patchedDependencies:
-  hardhat@2.22.6:
-    hash: q32okhcj77b2rhazxikm6oongi
-    path: patches/hardhat@2.22.6.patch
-
 importers:
 
   .:
@@ -65,8 +60,8 @@ importers:
         specifier: ^4.2.0
         version: 4.4.1
       hardhat:
-        specifier: 2.22.6
-        version: 2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
+        specifier: 2.22.9
+        version: 2.22.9(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
       lodash:
         specifier: ^4.17.11
         version: 4.17.21
@@ -185,8 +180,8 @@ importers:
         specifier: ^7.0.1
         version: 7.0.1
       hardhat:
-        specifier: 2.22.6
-        version: 2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
+        specifier: 2.22.9
+        version: 2.22.9(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
@@ -216,10 +211,10 @@ importers:
     devDependencies:
       '@defi-wonderland/smock':
         specifier: ^2.4.0
-        version: 2.4.0(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4)))(ethers@5.7.2)(hardhat@2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))
+        version: 2.4.0(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.22.9(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4)))(ethers@5.7.2)(hardhat@2.22.9(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))
       '@nomiclabs/hardhat-ethers':
         specifier: ^2.2.3
-        version: 2.2.3(ethers@5.7.2)(hardhat@2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))
+        version: 2.2.3(ethers@5.7.2)(hardhat@2.22.9(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))
       chai:
         specifier: ^4.3.6
         version: 4.4.1
@@ -227,8 +222,8 @@ importers:
         specifier: '5'
         version: 5.7.2
       hardhat:
-        specifier: 2.22.6
-        version: 2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
+        specifier: 2.22.9
+        version: 2.22.9(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
@@ -1726,8 +1721,8 @@ packages:
     resolution: {integrity: sha512-VIZB+ibDhx7ObhAe7OVtoEbuP4h/MuOTHJ+J8h/eBXotJYl0fBgR72xDFCKgIh22OJZIOVNxBMWuhAr10r8HdA==}
     engines: {node: '>=6'}
 
-  hardhat@2.22.6:
-    resolution: {integrity: sha512-abFEnd9QACwEtSvZZGSmzvw7N3zhQN1cDKz5SLHAupfG24qTHofCjqvD5kT5Wwsq5XOL0ON1Mq5rr4v0XX5ciw==}
+  hardhat@2.22.9:
+    resolution: {integrity: sha512-sWiuI/yRdFUPfndIvL+2H18Vs2Gav0XacCFYY5msT5dHOWkhLxESJySIk9j83mXL31aXL8+UMA9OgViFLexklg==}
     hasBin: true
     peerDependencies:
       ts-node: '*'
@@ -3082,16 +3077,16 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@defi-wonderland/smock@2.4.0(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4)))(ethers@5.7.2)(hardhat@2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))':
+  '@defi-wonderland/smock@2.4.0(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.22.9(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4)))(ethers@5.7.2)(hardhat@2.22.9(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))':
     dependencies:
       '@ethersproject/abi': 5.7.0
       '@ethersproject/abstract-provider': 5.7.0
       '@ethersproject/abstract-signer': 5.7.0
       '@nomicfoundation/ethereumjs-util': 9.0.4
-      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.7.2)(hardhat@2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))
+      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.7.2)(hardhat@2.22.9(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))
       diff: 5.0.0
       ethers: 5.7.2
-      hardhat: 2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
+      hardhat: 2.22.9(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
       lodash.isequal: 4.5.0
       lodash.isequalwith: 4.4.0
       rxjs: 7.8.1
@@ -3602,10 +3597,10 @@ snapshots:
       '@nomicfoundation/solidity-analyzer-win32-ia32-msvc': 0.1.1
       '@nomicfoundation/solidity-analyzer-win32-x64-msvc': 0.1.1
 
-  '@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))':
+  '@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.22.9(ts-node@10.9.2(typescript@5.0.4))(typescript@5.0.4))':
     dependencies:
       ethers: 5.7.2
-      hardhat: 2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
+      hardhat: 2.22.9(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4)
 
   '@scure/base@1.1.5': {}
 
@@ -4872,7 +4867,7 @@ snapshots:
 
   hard-rejection@2.1.0: {}
 
-  hardhat@2.22.6(patch_hash=q32okhcj77b2rhazxikm6oongi)(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4):
+  hardhat@2.22.9(ts-node@10.9.2(@types/node@18.15.13)(typescript@5.0.4))(typescript@5.0.4):
     dependencies:
       '@ethersproject/abi': 5.7.0
       '@metamask/eth-sig-util': 4.0.1
