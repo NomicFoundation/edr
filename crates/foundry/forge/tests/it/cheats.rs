@@ -1,7 +1,7 @@
 //! Forge tests for cheatcodes.
 
+use edr_test_utils::SolidityTestFilter;
 use foundry_config::{fs_permissions::PathPermission, FsPermissions};
-use foundry_test_utils::SolidityTestFilter;
 
 use crate::{
     config::*,

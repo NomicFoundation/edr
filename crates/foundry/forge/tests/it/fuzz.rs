@@ -3,11 +3,11 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::{Bytes, U256};
+use edr_test_utils::SolidityTestFilter;
 use forge::{
     fuzz::CounterExample,
     result::{SuiteResult, TestStatus},
 };
-use foundry_test_utils::SolidityTestFilter;
 
 use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
 

@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::U256;
+use edr_test_utils::SolidityTestFilter;
 use forge::{fuzz::CounterExample, TestOptions};
-use foundry_test_utils::SolidityTestFilter;
 
 use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
 

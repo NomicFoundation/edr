@@ -2083,8 +2083,15 @@ dependencies = [
 name = "edr_test_utils"
 version = "0.3.8"
 dependencies = [
+ "fd-lock",
+ "foundry-common",
+ "foundry-compilers",
+ "once_cell",
+ "rand",
+ "regex",
  "serde",
  "serde_json",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2365,6 +2372,7 @@ dependencies = [
  "alloy-signer-wallet",
  "comfy-table",
  "criterion 0.5.1",
+ "edr_test_utils",
  "evm-disassembler",
  "eyre",
  "foundry-common",
@@ -2372,7 +2380,6 @@ dependencies = [
  "foundry-config",
  "foundry-evm",
  "foundry-linking",
- "foundry-test-utils",
  "futures",
  "globset",
  "humantime-serde",
@@ -2634,12 +2641,12 @@ dependencies = [
  "auto_impl",
  "const-hex",
  "derive_more",
+ "edr_test_utils",
  "eyre",
  "foundry-cheatcodes-spec",
  "foundry-common",
  "foundry-config",
  "foundry-macros",
- "foundry-test-utils",
  "futures",
  "itertools 0.12.1",
  "once_cell",
@@ -2737,19 +2744,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.66",
-]
-
-[[package]]
-name = "foundry-test-utils"
-version = "0.3.8"
-dependencies = [
- "fd-lock",
- "foundry-common",
- "foundry-compilers",
- "once_cell",
- "rand",
- "regex",
- "tracing-subscriber",
 ]
 
 [[package]]

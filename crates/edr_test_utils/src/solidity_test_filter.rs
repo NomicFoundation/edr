@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use foundry_common::TestFilter;
+use foundry_common::traits::TestFilter;
 use regex::Regex;
 
 pub struct SolidityTestFilter {

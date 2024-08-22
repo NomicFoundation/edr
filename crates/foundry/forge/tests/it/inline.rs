@@ -1,8 +1,8 @@
 //! Inline configuration tests.
 
+use edr_test_utils::SolidityTestFilter;
 use forge::{result::TestKind, TestOptionsBuilder};
 use foundry_config::{FuzzConfig, InvariantConfig};
-use foundry_test_utils::SolidityTestFilter;
 
 use crate::test_helpers::TEST_DATA_DEFAULT;
 

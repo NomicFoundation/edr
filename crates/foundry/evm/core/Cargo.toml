@@ -51,7 +51,7 @@ tracing = "0.1"
 url = "2"
 
 [dev-dependencies]
-foundry-test-utils.workspace = true
+edr_test_utils.workspace = true
 
 [lints]
 workspace = true

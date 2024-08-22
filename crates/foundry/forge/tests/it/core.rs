@@ -2,9 +2,9 @@
 
 use std::{collections::BTreeMap, env};
 
+use edr_test_utils::SolidityTestFilter;
 use forge::result::SuiteResult;
 use foundry_evm::traces::TraceKind;
-use foundry_test_utils::SolidityTestFilter;
 
 use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
 

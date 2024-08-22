@@ -1,7 +1,7 @@
 //! Integration tests for EVM specifications.
 
+use edr_test_utils::SolidityTestFilter;
 use foundry_evm::revm::primitives::SpecId;
-use foundry_test_utils::SolidityTestFilter;
 
 use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
 

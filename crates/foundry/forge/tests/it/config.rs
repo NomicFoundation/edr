@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use edr_test_utils::{init_tracing_for_solidity_tests, SolidityTestFilter};
 use forge::{
     result::{SuiteResult, TestStatus},
     MultiContractRunner,
@@ -11,7 +12,6 @@ use foundry_evm::{
     revm::primitives::SpecId,
     traces::{render_trace_arena, CallTraceDecoderBuilder},
 };
-use foundry_test_utils::{init_tracing_for_solidity_tests, SolidityTestFilter};
 use futures::future::join_all;
 use itertools::Itertools;
 
