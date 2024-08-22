@@ -2,22 +2,20 @@
   "name": "hardhat-solidity-tests",
   "version": "0.0.1",
   "author": "Nomic Foundation",
+  "devDependencies": {
+    "@nomicfoundation/edr": "workspace:*",
+    "@tsconfig/node18": "^18.2.4",
+    "@types/node": "^20.0.0",
+    "hardhat": "2.22.9",
+    "typescript": "~5.5.3"
+  },
   "license": "MIT",
-  "private": true,
   "main": "dist/index.js",
+  "peerDependencies": {
+    "hardhat": "2.22.9"
+  },
+  "private": true,
   "scripts": {
     "build": "tsc"
-  },
-  "devDependencies": {
-    "@tsconfig/node18": "^18.2.4",
-    "@types/node": "^20.14.11",
-    "hardhat": "^2.22.6",
-    "typescript": "^5.5.3"
-  },
-  "peerDependencies": {
-    "hardhat": "^2.22.6"
-  },
-  "dependencies": {
-    "@nomicfoundation/edr": "workspace:*"
   }
 }

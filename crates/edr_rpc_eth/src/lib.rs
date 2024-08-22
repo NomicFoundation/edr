@@ -20,5 +20,5 @@ pub use self::{
     call_request::CallRequest,
     r#override::*,
     request_methods::RequestMethod,
-    transaction::{ConversionError as TransactionConversionError, Transaction},
+    transaction::{ConversionError as TransactionConversionError, RpcTransactionType, Transaction},
 };

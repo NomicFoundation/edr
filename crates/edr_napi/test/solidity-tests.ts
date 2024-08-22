@@ -11,12 +11,12 @@ import {
 
 // This throws an error if the tests fail
 async function executeSolidityTests(
-  artifacts: Array<Artifact>,
-  testSuites: Array<ArtifactId>,
-  configArgs: SolidityTestRunnerConfigArgs,
-): Promise<Array<SuiteResult>> {
-  return await new Promise((resolve, reject) => {
-    const resultsFromCallback: Array<SuiteResult> = [];
+  artifacts: Artifact[],
+  testSuites: ArtifactId[],
+  configArgs: SolidityTestRunnerConfigArgs
+): Promise<SuiteResult[]> {
+  return new Promise((resolve, reject) => {
+    const resultsFromCallback: SuiteResult[] = [];
 
     runSolidityTests(
       artifacts,
@@ -28,7 +28,7 @@ async function executeSolidityTests(
           resolve(resultsFromCallback);
         }
       },
-      reject,
+      reject
     );
   });
 }
@@ -49,7 +49,7 @@ describe("Solidity Tests", () => {
 
     assert.equal(results.length, artifacts.length);
 
-    for (let res of results) {
+    for (const res of results) {
       if (res.id.name.includes("SetupConsistencyCheck")) {
         assert.equal(res.testResults.length, 2);
         assert.equal(res.testResults[0].status, "Success");
@@ -78,7 +78,7 @@ describe("Solidity Tests", () => {
 
     await assert.isRejected(
       executeSolidityTests(artifacts, testSuites, config),
-      Error,
+      Error
     );
   });
 });
