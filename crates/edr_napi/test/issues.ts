@@ -1,4 +1,3 @@
-import chai, { assert } from "chai";
 import { JsonStreamStringify } from "json-stream-stringify";
 
 import {
@@ -37,7 +36,7 @@ describe("Provider", () => {
     },
     initialParentBeaconBlockRoot: Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex",
+      "hex"
     ),
     minGasPrice: 0n,
     mining: {
@@ -51,18 +50,18 @@ describe("Provider", () => {
 
   const loggerConfig = {
     enable: false,
-    decodeConsoleLogInputsCallback: (inputs: Buffer[]): string[] => {
+    decodeConsoleLogInputsCallback: (_inputs: Buffer[]): string[] => {
       return [];
     },
     getContractAndFunctionNameCallback: (
       _code: Buffer,
-      _calldata?: Buffer,
+      _calldata?: Buffer
     ): ContractAndFunctionName => {
       return {
         contractName: "",
       };
     },
-    printLineCallback: (message: string, replace: boolean) => {},
+    printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
   it("issue 543", async function () {
@@ -83,7 +82,7 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
-      (_event: SubscriptionEvent) => {},
+      (_event: SubscriptionEvent) => {}
     );
 
     const debugTraceTransaction = `{

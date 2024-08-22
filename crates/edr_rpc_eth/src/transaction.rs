@@ -95,8 +95,32 @@ impl Transaction {
 
     /// Returns whether the transaction is a legacy transaction.
     pub fn is_legacy(&self) -> bool {
-        matches!(self.transaction_type, None | Some(0)) && matches!(self.v, 27 | 28)
+        matches!(self.transaction_type(), RpcTransactionType::Legacy) && matches!(self.v, 27 | 28)
     }
+
+    pub fn transaction_type(&self) -> RpcTransactionType {
+        match self.transaction_type {
+            Some(0) | None => RpcTransactionType::Legacy,
+            Some(1) => RpcTransactionType::AccessList,
+            Some(2) => RpcTransactionType::Eip1559,
+            Some(3) => RpcTransactionType::Eip4844,
+            Some(r#type) => RpcTransactionType::Unknown(r#type),
+        }
+    }
+}
+
+/// The transaction type of the remote transaction.
+pub enum RpcTransactionType {
+    /// Legacy transaction
+    Legacy,
+    /// EIP-2930 access list transaction
+    AccessList,
+    /// EIP-1559 transaction
+    Eip1559,
+    /// EIP-4844 transaction
+    Eip4844,
+    /// Unknown transaction type
+    Unknown(u64),
 }
 
 impl TryFrom<Transaction> for transaction::Signed {
@@ -109,8 +133,8 @@ impl TryFrom<Transaction> for transaction::Signed {
             TxKind::Create
         };
 
-        let transaction = match value.transaction_type {
-            Some(0) | None => {
+        let transaction = match value.transaction_type() {
+            RpcTransactionType::Legacy => {
                 if value.is_legacy() {
                     transaction::Signed::PreEip155Legacy(transaction::signed::Legacy {
                         nonce: value.nonce,
@@ -157,88 +181,94 @@ impl TryFrom<Transaction> for transaction::Signed {
                     })
                 }
             }
-            Some(1) => transaction::Signed::Eip2930(transaction::signed::Eip2930 {
-                // SAFETY: The `from` field represents the caller address of the signed
-                // transaction.
-                signature: unsafe {
-                    signature::Fakeable::with_address_unchecked(
-                        signature::SignatureWithYParity {
-                            y_parity: value.odd_y_parity(),
-                            r: value.r,
-                            s: value.s,
-                        },
-                        value.from,
-                    )
-                },
-                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
-                nonce: value.nonce,
-                gas_price: value.gas_price,
-                gas_limit: value.gas.to(),
-                kind,
-                value: value.value,
-                input: value.input,
-                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(2) => transaction::Signed::Eip1559(transaction::signed::Eip1559 {
-                // SAFETY: The `from` field represents the caller address of the signed
-                // transaction.
-                signature: unsafe {
-                    signature::Fakeable::with_address_unchecked(
-                        signature::SignatureWithYParity {
-                            y_parity: value.odd_y_parity(),
-                            r: value.r,
-                            s: value.s,
-                        },
-                        value.from,
-                    )
-                },
-                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
-                nonce: value.nonce,
-                max_priority_fee_per_gas: value
-                    .max_priority_fee_per_gas
-                    .ok_or(ConversionError::MaxPriorityFeePerGas)?,
-                max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
-                gas_limit: value.gas.to(),
-                kind,
-                value: value.value,
-                input: value.input,
-                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(3) => transaction::Signed::Eip4844(transaction::signed::Eip4844 {
-                // SAFETY: The `from` field represents the caller address of the signed
-                // transaction.
-                signature: unsafe {
-                    signature::Fakeable::with_address_unchecked(
-                        signature::SignatureWithYParity {
-                            r: value.r,
-                            s: value.s,
-                            y_parity: value.odd_y_parity(),
-                        },
-                        value.from,
-                    )
-                },
-                chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
-                nonce: value.nonce,
-                max_priority_fee_per_gas: value
-                    .max_priority_fee_per_gas
-                    .ok_or(ConversionError::MaxPriorityFeePerGas)?,
-                max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
-                max_fee_per_blob_gas: value
-                    .max_fee_per_blob_gas
-                    .ok_or(ConversionError::MaxFeePerBlobGas)?,
-                gas_limit: value.gas.to(),
-                to: value.to.ok_or(ConversionError::ReceiverAddress)?,
-                value: value.value,
-                input: value.input,
-                access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
-                blob_hashes: value
-                    .blob_versioned_hashes
-                    .ok_or(ConversionError::BlobHashes)?,
-                hash: OnceLock::from(value.hash),
-            }),
-            Some(r#type) => {
+            RpcTransactionType::AccessList => {
+                transaction::Signed::Eip2930(transaction::signed::Eip2930 {
+                    // SAFETY: The `from` field represents the caller address of the signed
+                    // transaction.
+                    signature: unsafe {
+                        signature::Fakeable::with_address_unchecked(
+                            signature::SignatureWithYParity {
+                                y_parity: value.odd_y_parity(),
+                                r: value.r,
+                                s: value.s,
+                            },
+                            value.from,
+                        )
+                    },
+                    chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+                    nonce: value.nonce,
+                    gas_price: value.gas_price,
+                    gas_limit: value.gas.to(),
+                    kind,
+                    value: value.value,
+                    input: value.input,
+                    access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+                    hash: OnceLock::from(value.hash),
+                })
+            }
+            RpcTransactionType::Eip1559 => {
+                transaction::Signed::Eip1559(transaction::signed::Eip1559 {
+                    // SAFETY: The `from` field represents the caller address of the signed
+                    // transaction.
+                    signature: unsafe {
+                        signature::Fakeable::with_address_unchecked(
+                            signature::SignatureWithYParity {
+                                y_parity: value.odd_y_parity(),
+                                r: value.r,
+                                s: value.s,
+                            },
+                            value.from,
+                        )
+                    },
+                    chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+                    nonce: value.nonce,
+                    max_priority_fee_per_gas: value
+                        .max_priority_fee_per_gas
+                        .ok_or(ConversionError::MaxPriorityFeePerGas)?,
+                    max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+                    gas_limit: value.gas.to(),
+                    kind,
+                    value: value.value,
+                    input: value.input,
+                    access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+                    hash: OnceLock::from(value.hash),
+                })
+            }
+            RpcTransactionType::Eip4844 => {
+                transaction::Signed::Eip4844(transaction::signed::Eip4844 {
+                    // SAFETY: The `from` field represents the caller address of the signed
+                    // transaction.
+                    signature: unsafe {
+                        signature::Fakeable::with_address_unchecked(
+                            signature::SignatureWithYParity {
+                                r: value.r,
+                                s: value.s,
+                                y_parity: value.odd_y_parity(),
+                            },
+                            value.from,
+                        )
+                    },
+                    chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+                    nonce: value.nonce,
+                    max_priority_fee_per_gas: value
+                        .max_priority_fee_per_gas
+                        .ok_or(ConversionError::MaxPriorityFeePerGas)?,
+                    max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+                    max_fee_per_blob_gas: value
+                        .max_fee_per_blob_gas
+                        .ok_or(ConversionError::MaxFeePerBlobGas)?,
+                    gas_limit: value.gas.to(),
+                    to: value.to.ok_or(ConversionError::ReceiverAddress)?,
+                    value: value.value,
+                    input: value.input,
+                    access_list: value.access_list.ok_or(ConversionError::AccessList)?.into(),
+                    blob_hashes: value
+                        .blob_versioned_hashes
+                        .ok_or(ConversionError::BlobHashes)?,
+                    hash: OnceLock::from(value.hash),
+                })
+            }
+            RpcTransactionType::Unknown(r#type) => {
                 log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction", );
 
                 transaction::Signed::PostEip155Legacy(transaction::signed::Eip155 {

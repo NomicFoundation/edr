@@ -2,11 +2,11 @@
 // foundryup --commit 0a5b22f07
 // forge test --no-match-contract 'StdChainsTest|StdCheatsTest|MockERC721Test|MockERC20Test|StdCheatsForkTest|StdJsonTest|StdUtilsForkTest|StdTomlTest'
 
-const fs = require("fs");
-const { execSync } = require("child_process");
-const path = require("path");
-const simpleGit = require("simple-git");
-const { runSolidityTests } = require("@nomicfoundation/edr");
+import fs from "fs";
+import { execSync } from "child_process";
+import path from "path";
+import simpleGit from "simple-git";
+import { SuiteResult, runSolidityTests } from "@nomicfoundation/edr";
 
 const EXCLUDED_TEST_SUITES = new Set([
   "StdChainsTest",
@@ -28,8 +28,7 @@ async function setupForgeStdRepo() {
   const repoPath = path.join(__dirname, REPO_DIR);
   // Ensure directory exists
   if (!fs.existsSync(repoPath)) {
-    const git = simpleGit();
-    await git.clone(REPO_URL, repoPath);
+    await simpleGit().clone(REPO_URL, repoPath);
   }
 
   const git = simpleGit(repoPath);
@@ -46,27 +45,27 @@ async function setupForgeStdRepo() {
   return repoPath;
 }
 
-async function runForgeStdTests(forgeStdRepoPath) {
+async function runForgeStdTests(forgeStdRepoPath: string) {
   const start = performance.now();
 
   const artifactsDir = path.join(forgeStdRepoPath, "artifacts");
   const hardhatConfig = require(
-    path.join(forgeStdRepoPath, "hardhat.config.js"),
+    path.join(forgeStdRepoPath, "hardhat.config.js")
   );
 
   const artifacts = listFilesRecursively(artifactsDir)
     .filter((p) => !p.endsWith(".dbg.json") && !p.includes("build-info"))
-    .map(loadArtifact.bind(null, hardhatConfig));
+    .map((artifactPath) => loadArtifact(hardhatConfig, artifactPath));
 
   const testSuiteIds = artifacts
     .filter(
       (a) =>
-        a.id.source.includes(".t.sol") && !EXCLUDED_TEST_SUITES.has(a.id.name),
+        a.id.source.includes(".t.sol") && !EXCLUDED_TEST_SUITES.has(a.id.name)
     )
     .map((a) => a.id);
 
-  const results = await new Promise((resolve, reject) => {
-    const resultsFromCallback = [];
+  const results = await new Promise<any>((resolve, reject) => {
+    const resultsFromCallback: SuiteResult[] = [];
     const configs = {
       projectRoot: forgeStdRepoPath,
       fuzz: {
@@ -79,28 +78,30 @@ async function runForgeStdTests(forgeStdRepoPath) {
       testSuiteIds,
       configs,
       (result) => {
-        console.error(`${result.id.name} took ${elapsedSec(start)} seconds`);
+        console.error(
+          `${result.id.name} took ${computeElapsedSec(start)} seconds`
+        );
 
         resultsFromCallback.push(result);
         if (resultsFromCallback.length === artifacts.length) {
           resolve(resultsFromCallback);
         }
       },
-      reject,
+      reject
     );
   });
-  console.error("elapsed (s)", elapsedSec(start));
+  console.error("elapsed (s)", computeElapsedSec(start));
 
   if (results.length !== EXPECTED_RESULTS) {
-    console.log(results.map((r) => r.name));
+    console.log(results.map((r: any) => r.name));
     throw new Error(
-      `Expected ${EXPECTED_RESULTS} results, got ${results.length}`,
+      `Expected ${EXPECTED_RESULTS} results, got ${results.length}`
     );
   }
 
   const failed = new Set();
-  for (let res of results) {
-    for (let r of res.testResults) {
+  for (const res of results) {
+    for (const r of res.testResults) {
       if (r.status !== "Success") {
         failed.add(`${res.name} ${r.name} ${r.status}`);
       }
@@ -112,12 +113,12 @@ async function runForgeStdTests(forgeStdRepoPath) {
   }
 }
 
-function elapsedSec(since) {
+function computeElapsedSec(since: number) {
   const elapsedSec = (performance.now() - since) / 1000;
   return Math.round(elapsedSec * 1000) / 1000;
 }
 
-function listFilesRecursively(dir, fileList = []) {
+function listFilesRecursively(dir: string, fileList: string[] = []): string[] {
   const files = fs.readdirSync(dir);
 
   files.forEach((file) => {
@@ -133,14 +134,14 @@ function listFilesRecursively(dir, fileList = []) {
 }
 
 // Load a contract built with Hardhat
-function loadArtifact(hardhatConfig, artifactPath) {
+function loadArtifact(hardhatConfig: any, artifactPath: string) {
   const compiledContract = require(artifactPath);
 
   const artifactId = {
     name: compiledContract.contractName,
     solcVersion: hardhatConfig.solidity.version,
     source: compiledContract.sourceName,
-  };
+  } as { name: string; solcVersion: string; source: string };
 
   const testContract = {
     abi: JSON.stringify(compiledContract.abi),

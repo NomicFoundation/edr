@@ -1,8 +1,30 @@
 {
   "name": "@nomicfoundation/edr",
   "version": "0.5.2",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.1",
+    "@types/chai": "^4.2.0",
+    "@types/chai-as-promised": "^7.1.8",
+    "@types/mocha": ">=9.1.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "5.61.0",
+    "@typescript-eslint/parser": "5.61.0",
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "eslint": "^8.44.0",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-plugin-import": "2.27.5",
+    "eslint-plugin-mocha": "10.4.1",
+    "eslint-plugin-prettier": "5.2.1",
+    "json-stream-stringify": "^3.1.4",
+    "mocha": "^10.0.0",
+    "prettier": "^3.2.5",
+    "ts-node": "^10.8.0",
+    "typescript": "~5.0.0"
+  },
+  "engines": {
+    "node": ">= 18"
+  },
   "files": [
     "index.js",
     "index.d.ts",
@@ -10,10 +32,8 @@
     "build.rs",
     "src/"
   ],
-  "repository": {
-    "url": "https://github.com/NomicFoundation/edr.git",
-    "type": "git"
-  },
+  "license": "MIT",
+  "main": "index.js",
   "napi": {
     "name": "edr",
     "triples": {
@@ -29,36 +49,25 @@
       ]
     }
   },
-  "license": "MIT",
-  "devDependencies": {
-    "@napi-rs/cli": "^2.18.1",
-    "@types/chai": "^4.2.0",
-    "@types/chai-as-promised": "^7.1.8",
-    "@types/mocha": ">=9.1.0",
-    "@types/node": "^18.0.0",
-    "chai": "^4.3.6",
-    "chai-as-promised": "^7.1.1",
-    "json-stream-stringify": "^3.1.4",
-    "mocha": "^10.0.0",
-    "ts-node": "^10.8.0",
-    "typescript": "~4.5.2"
-  },
-  "engines": {
-    "node": ">= 18"
-  },
+  "repository": "NomicFoundation/edr.git",
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --platform --profile napi-publish",
+    "build": "napi build --platform  --profile napi-publish",
     "build:test": "napi build --platform --release",
     "build:debug": "napi build --platform",
-    "build:tracing": "napi build --platform --release --features tracing",
     "build:scenarios": "napi build --platform --release --features scenarios",
+    "build:tracing": "napi build --platform --release --features tracing",
+    "clean": "rm -rf @nomicfoundation/edr.node",
+    "eslint": "eslint 'test/**/*.ts'",
+    "lint": "pnpm run prettier && pnpm run eslint",
+    "lint:fix": "pnpm run prettier --write",
     "prepublishOnly": "bash scripts/prepublish.sh",
-    "universal": "napi universal",
-    "version": "napi version",
     "pretest": "pnpm build:test",
+    "prettier": "prettier --check \"test/**.ts\"",
     "test": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
     "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
-    "clean": "rm -rf @nomicfoundation/edr.node"
-  }
+    "universal": "napi universal",
+    "version": "napi version"
+  },
+  "types": "index.d.ts"
 }

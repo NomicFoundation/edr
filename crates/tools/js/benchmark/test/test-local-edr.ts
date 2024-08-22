@@ -1,5 +1,5 @@
-const { assert } = require("chai");
-const path = require("path");
+import { assert } from "chai";
+import path from "path";
 
 // The benchmarks assume that the EDR version used by
 // Hardhat is the one in the workspace, instead of the one installed
@@ -20,7 +20,7 @@ it("uses the workspace version of EDR", async function () {
     "..",
     "crates",
     "edr_napi",
-    "index.js",
+    "index.js"
   );
 
   assert.equal(edrPath, expectedPath);

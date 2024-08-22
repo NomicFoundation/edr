@@ -101,7 +101,7 @@ jobs:
         uses: actions/setup-node@v3
         if: ${{ !matrix.settings.docker }}
         with:
-          node-version: 18
+          node-version: 20
           check-latest: true
           cache: pnpm
       - name: Install Rust toolchain
@@ -174,15 +174,7 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node }}
-          check-latest: true
-          cache: pnpm
+      - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
@@ -208,15 +200,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node }}
-          check-latest: true
-          cache: pnpm
+      - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
@@ -244,15 +228,9 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Setup node
-        uses: actions/setup-node@v3
+      - uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node }}
-          check-latest: true
-          cache: pnpm
       - name: Install dependencies
         run: |
           pnpm config set supportedArchitectures.libc "musl"
@@ -395,15 +373,7 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          check-latest: true
-          cache: pnpm
+      - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download all artifacts
