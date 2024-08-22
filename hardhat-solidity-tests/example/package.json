@@ -8,7 +8,7 @@
     "test": "hardhat test:solidity"
   },
   "dependencies": {
-    "hardhat": "^2.22.6",
+    "hardhat": "2.22.9",
     "hardhat-solidity-tests": "workspace:*"
   }
 }

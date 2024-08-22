@@ -45,7 +45,7 @@
     "semver": "^6.3.0",
     "sinon": "^9.0.0",
     "ts-node": "^10.8.0",
-    "typescript": "~5.0.0",
+    "typescript": "~5.5.3",
     "undici": "^5.14.0"
   },
   "homepage": "https://hardhat.org",
