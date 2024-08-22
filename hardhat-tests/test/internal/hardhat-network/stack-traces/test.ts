@@ -329,9 +329,9 @@ function compareStackTraces(
       "message" in actual
         ? actual.message
         : "returnData" in actual &&
-          new ReturnData(actual.returnData).isErrorReturnData()
-        ? new ReturnData(actual.returnData).decodeError()
-        : "";
+            new ReturnData(actual.returnData).isErrorReturnData()
+          ? new ReturnData(actual.returnData).decodeError()
+          : "";
 
     if (expected.message !== undefined) {
       assert.equal(
