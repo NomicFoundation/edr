@@ -29,8 +29,8 @@ importers:
   crates/edr_napi:
     devDependencies:
       '@napi-rs/cli':
-        specifier: ^2.18.1
-        version: 2.18.1
+        specifier: ^2.18.3
+        version: 2.18.3
       '@types/chai':
         specifier: ^4.2.0
         version: 4.3.12
@@ -681,8 +681,8 @@ packages:
     resolution: {integrity: sha512-tghyZKLHZjcdlDqCA3gNZmLeR0XvOE9U1qoQO9ohyAZT6Pya+H9vkBPcsyXytmYLNgVoin7CKCmweo/R43V+tQ==}
     engines: {node: '>=12.0.0'}
 
-  '@napi-rs/cli@2.18.1':
-    resolution: {integrity: sha512-N4iTeip2VSk0RftgDGuk7IBrgOST/WPUSA3lYstILXsNifR3tHugcbLzo04+OtSrMc+ZUPsXo3Jd1t3dlswAlw==}
+  '@napi-rs/cli@2.18.3':
+    resolution: {integrity: sha512-L0f4kP0dyG8W5Qtc7MtP73VvLLrOLyRcUEBzknIfu8Jk4Jfhrsx1ItMHgyalYqMSslWdY3ojEfAaU5sx1VyeQQ==}
     engines: {node: '>= 10'}
     hasBin: true
 
@@ -3765,7 +3765,7 @@ snapshots:
       tweetnacl: 1.0.3
       tweetnacl-util: 0.15.1
 
-  '@napi-rs/cli@2.18.1': {}
+  '@napi-rs/cli@2.18.3': {}
 
   '@noble/curves@1.2.0':
     dependencies:
