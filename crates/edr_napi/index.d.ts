@@ -946,7 +946,8 @@ export class Provider {
   setVerboseTracing(verboseTracing: boolean): void
 }
 export class Response {
-  get json(): string
+  /** Returns the response data as a JSON string or a JSON object. */
+  get data(): string | any
   get solidityTrace(): RawTrace | null
   get traces(): Array<RawTrace>
 }

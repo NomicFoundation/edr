@@ -16,7 +16,7 @@ use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
     block::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
-        BlobGas, BlockOptions,
+        BlobGas, BlockOptions, Header,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -24,15 +24,15 @@ use edr_eth::{
     receipt::BlockReceipt,
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
-    transaction::{request::TransactionRequestAndSender, Transaction, TransactionType},
+    transaction::{request::TransactionRequestAndSender, Signed, Transaction, TransactionType},
     Address, BlockSpec, BlockTag, Bytes, Eip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{
     blockchain::{
-        Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
-        LocalBlockchain, LocalCreationError, SyncBlockchain,
+        Blockchain, BlockchainError, ForkedBlockchain, ForkedBlockchainError, ForkedCreationError,
+        GenesisBlockOptions, LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
-    chain_spec::L1ChainSpec,
+    chain_spec::{ChainSpec, L1ChainSpec},
     db::StateRef,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
@@ -45,12 +45,13 @@ use edr_evm::{
     Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
     Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
     DebugTraceResultWithTraces, Eip3155AndRawTracers, EvmStorageSlot, ExecutionResult, HashMap,
-    HashSet, MemPool, MineBlockResultAndState, OrderedTransaction, Precompile, RandomHashGenerator,
-    SyncBlock, TxEnv, KECCAK_EMPTY,
+    HashSet, IntoRemoteBlock, MemPool, MineBlockResultAndState, OrderedTransaction, Precompile,
+    RandomHashGenerator, RemoteBlockCreationError, SyncBlock, TxEnv, KECCAK_EMPTY,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
     error::HttpError,
+    RpcTransactionType,
 };
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
@@ -83,6 +84,9 @@ use crate::{
 const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u64 = 1_000_000_000;
 const EDR_MAX_CACHED_STATES_ENV_VAR: &str = "__EDR_MAX_CACHED_STATES";
 const DEFAULT_MAX_CACHED_STATES: usize = 100_000;
+const EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES: &str =
+    "__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES";
+const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 
 /// The result of executing an `eth_call`.
 #[derive(Clone, Debug)]
@@ -188,6 +192,8 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     allow_blocks_with_same_timestamp: bool,
     allow_unlimited_contract_size: bool,
     verbose_tracing: bool,
+    // Skip unsupported transaction types in `debugTraceTransaction` instead of throwing an error
+    skip_unsupported_transaction_types: bool,
     // IndexMap to preserve account order for logging.
     local_accounts: IndexMap<Address, k256::SecretKey>,
     filters: HashMap<U256, Filter>,
@@ -229,18 +235,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             next_block_base_fee_per_gas,
         } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer, genesis_accounts)?;
 
-        let max_cached_states = std::env::var(EDR_MAX_CACHED_STATES_ENV_VAR).map_or_else(
-            |err| match err {
-                std::env::VarError::NotPresent => {
-                    Ok(NonZeroUsize::new(DEFAULT_MAX_CACHED_STATES).expect("constant is non-zero"))
-                }
-                std::env::VarError::NotUnicode(s) => Err(CreationError::InvalidMaxCachedStates(s)),
-            },
-            |s| {
-                s.parse()
-                    .map_err(|_err| CreationError::InvalidMaxCachedStates(s.into()))
-            },
-        )?;
+        let max_cached_states = get_max_cached_states_from_env()?;
         let mut block_state_cache = LruCache::new(max_cached_states);
         let mut block_number_to_state_id = HashTrieMapSync::default();
 
@@ -254,6 +249,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         let block_gas_limit = config.block_gas_limit;
         let is_auto_mining = config.mining.auto_mine;
         let min_gas_price = config.min_gas_price;
+
+        let skip_unsupported_transaction_types = get_skip_unsupported_transaction_types_from_env();
 
         let dao_activation_block = config
             .chains
@@ -304,6 +301,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size,
             verbose_tracing: false,
+            skip_unsupported_transaction_types,
             local_accounts,
             filters: HashMap::default(),
             last_filter_id: U256::ZERO,
@@ -591,6 +589,20 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.blockchain.chain_id()
     }
 
+    pub fn chain_id_at_block_spec(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderError<LoggerErrorT>> {
+        let block_number = self.block_number_by_block_spec(block_spec)?;
+
+        let chain_id = if let Some(block_number) = block_number {
+            self.chain_id_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.chain_id()
+        };
+
+        Ok(chain_id)
+    }
     pub fn coinbase(&self) -> Address {
         self.beneficiary
     }
@@ -601,19 +613,12 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
     ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
-        let block = self
-            .blockchain
-            .block_by_transaction_hash(transaction_hash)?
-            .ok_or_else(|| ProviderError::InvalidTransactionHash(*transaction_hash))?;
+        let (header, transactions) =
+            self.block_data_for_debug_trace_transaction(transaction_hash)?;
 
-        let header = block.header();
-        let block_spec = Some(BlockSpec::Number(header.number));
+        let cfg_env = self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
 
-        let cfg_env = self.create_evm_config(block_spec.as_ref())?;
-
-        let transactions = block.transactions().to_vec();
-
-        let prev_block_number = block.header().number - 1;
+        let prev_block_number = header.number - 1;
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
         let verbose_tracing = self.verbose_tracing;
 
@@ -659,7 +664,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
     ) -> Result<DebugTraceResultWithTraces, ProviderError<LoggerErrorT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let tx_env: TxEnv = transaction.into();
 
@@ -691,7 +696,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         transaction: transaction::Signed,
         block_spec: &BlockSpec,
     ) -> Result<EstimateGasResult, ProviderError<LoggerErrorT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
         let minimum_cost = transaction::initial_cost(&transaction, self.spec_id());
@@ -1422,7 +1427,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult, ProviderError<LoggerErrorT>> {
-        let cfg_env = self.create_evm_config(Some(block_spec))?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         let tx_env = transaction.into();
 
         let mut debugger = Debugger::with_mocker(
@@ -1909,26 +1914,172 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         Ok(transaction_hash)
     }
 
-    /// Creates a configuration, taking into the hardfork at the provided
-    /// `BlockSpec`. If none is provided, assumes the hardfork for newly
-    /// mined blocks.
+    /// Returns the block header and the transactions from the block that
+    /// contains the transaction for debug trace transactions.
+    fn block_data_for_debug_trace_transaction(
+        &self,
+        transaction_hash: &B256,
+    ) -> Result<(Header, Vec<Signed>), ProviderError<LoggerErrorT>> {
+        // HACK: This is a hack to make `debug_traceTransaction` return a helpful error
+        // message in fork mode if there is a transaction in the block whose
+        // type is not supported or skip that transaction if an environment
+        // variable is set. This hack is only necessary until proper multichain
+        // support. https://github.com/NomicFoundation/edr/issues/570
+        self.rpc_client
+            .as_ref()
+            .and_then(|rpc_client| {
+                // Use `Result<Option>` in `block_in_place` to be able to short-circuit with
+                // `?`, but we want `Option<Result>` in the end as we're flat
+                // mapping an `Option`.
+                tokio::task::block_in_place::<_, Result<Option<_>, _>>(|| {
+                    // If the transaction is not found in the remote by the provided hash, there are
+                    // two possibilities:
+                    // 1. The transaction is from a local block. In this case, it must have valid
+                    //    transaction types, so we have nothing to do.
+                    // 2. There is no transaction with the provided hash. In this case the abstract
+                    //    interface will return an error.
+                    self.runtime_handle
+                        .block_on(rpc_client.get_transaction_by_hash(*transaction_hash))?
+                        .and_then::<Result<_, _>, _>(|transaction| {
+                            transaction
+                                .block_hash
+                                .ok_or_else(|| {
+                                    // If the transaction doesn't have a block hash, we treat the
+                                    // transaction hash as invalid.
+                                    ProviderError::<LoggerErrorT>::InvalidTransactionHash(
+                                        *transaction_hash,
+                                    )
+                                })
+                                .and_then(|block_hash| {
+                                    self.block_data_for_debug_trance_transaction_from_block_hash(
+                                        &block_hash,
+                                        transaction_hash,
+                                        rpc_client,
+                                    )
+                                })
+                                // Go from `Result<Option>` to `Option<Result>` as we're in a flat
+                                // map for an `Option`
+                                .transpose()
+                        })
+                        // Go back from `Option<Result>` to `Result<Option>` which is the expected
+                        // return type in the `block_in_place` to be able to short-circuit.
+                        .transpose()
+                })
+                // Go from `Result<Option>` to `Option<Result>` as we're in a flat
+                // map for an Option
+                .transpose()
+            })
+            // We have an `Option<Result>`, default with another `Option<Result>` from the generic
+            // blockchain interface if it's `None`.
+            .or_else(|| {
+                self.blockchain
+                    // Returns `Result<Option>`
+                    .block_by_transaction_hash(transaction_hash)
+                    .map_err(ProviderError::<LoggerErrorT>::Blockchain)
+                    // We need to return an `Option<Result>`
+                    .transpose()
+                    .map(|block| {
+                        // Map the value in the result then pass the result back out so the error
+                        // can be propagated if any.
+                        block.map(|block| {
+                            let transactions = block.transactions().to_vec();
+                            let header = block.header().clone();
+                            (header, transactions)
+                        })
+                    })
+            })
+            // Go from `Option<Result>` to `Result<Option>` to short-circuit the error.
+            .transpose()?
+            // If we couldn't find the transaction in the remote or local blockchains through the
+            // generic blockchain interface, then it's definitely invalid.
+            .ok_or_else(|| ProviderError::<LoggerErrorT>::InvalidTransactionHash(*transaction_hash))
+    }
+
+    fn block_data_for_debug_trance_transaction_from_block_hash(
+        &self,
+        block_hash: &B256,
+        transaction_hash: &B256,
+        rpc_client: &Arc<EthRpcClient<L1ChainSpec>>,
+    ) -> Result<Option<(Header, Vec<Signed>)>, ProviderError<LoggerErrorT>> {
+        let mut rpc_block = self
+            .runtime_handle
+            .block_on(rpc_client.get_block_by_hash_with_transaction_data(*block_hash))?
+            .ok_or_else(|| {
+                // If the remote returned a transaction for the transaction hash, but the block
+                // is not found, we treat the transaction hash as invalid.
+                ProviderError::<LoggerErrorT>::InvalidTransactionHash(*transaction_hash)
+            })?;
+
+        // SAFETY: We only need the header from the block later, so it's safe to take
+        // the transactions.
+        let transactions = std::mem::take(&mut rpc_block.transactions)
+            .into_iter()
+            .filter_map(|transaction| {
+                if let RpcTransactionType::Unknown(transaction_type) =
+                    transaction.transaction_type()
+                {
+                    if transaction_hash == &transaction.hash {
+                        Some(Err(ProviderError::<LoggerErrorT>::UnsupportedTransactionTypeForDebugTrace {
+                            transaction_hash: *transaction_hash,
+                            unsupported_transaction_type: transaction_type,
+                        }))
+                    } else if self.skip_unsupported_transaction_types  {
+                        None
+                    } else {
+                        Some(Err(
+                            ProviderError::<LoggerErrorT>::UnsupportedTransactionTypeInDebugTrace {
+                                requested_transaction_hash: *transaction_hash,
+                                unsupported_transaction_hash: transaction.hash,
+                                unsupported_transaction_type: transaction_type,
+                            },
+                        ))
+                    }
+                } else {
+                    Some(
+                        <L1ChainSpec as ChainSpec>::SignedTransaction::try_from(transaction)
+                            .map_err(RemoteBlockCreationError::from)
+                            .map_err(ForkedBlockchainError::from)
+                            .map_err(BlockchainError::from)
+                            .map_err(ProviderError::<LoggerErrorT>::from),
+                    )
+                }
+            })
+            .collect::<Result<Vec<_>, ProviderError<LoggerErrorT>>>()?;
+
+        let block = rpc_block
+            .into_remote_block(rpc_client.clone(), self.runtime_handle.clone())
+            .map_err(ForkedBlockchainError::from)
+            .map_err(BlockchainError::from)?;
+
+        Ok(Some((block.header().clone(), transactions)))
+    }
+
+    /// Wrapper over `Blockchain::chain_id_at_block_number` that handles error
+    /// conversion.
+    fn chain_id_at_block_number(
+        &self,
+        block_number: u64,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderError<LoggerErrorT>> {
+        self.blockchain
+            .chain_id_at_block_number(block_number)
+            .map_err(|err| match err {
+                BlockchainError::UnknownBlockNumber => ProviderError::InvalidBlockNumberOrHash {
+                    block_spec: block_spec.clone(),
+                    latest_block_number: self.blockchain.last_block_number(),
+                },
+                _ => ProviderError::Blockchain(err),
+            })
+    }
+
+    /// Creates an EVM configuration with the provided hardfork and chain id
     fn create_evm_config(
         &self,
-        block_spec: Option<&BlockSpec>,
+        spec_id: SpecId,
+        chain_id: u64,
     ) -> Result<CfgEnvWithHandlerCfg, ProviderError<LoggerErrorT>> {
-        let block_number = block_spec
-            .map(|block_spec| self.block_number_by_block_spec(block_spec))
-            .transpose()?
-            .flatten();
-
-        let spec_id = if let Some(block_number) = block_number {
-            self.blockchain.spec_at_block_number(block_number)?
-        } else {
-            self.blockchain.spec_id()
-        };
-
         let mut cfg_env = CfgEnv::default();
-        cfg_env.chain_id = self.blockchain.chain_id();
+        cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
             Some(usize::MAX)
         } else {
@@ -1937,6 +2088,29 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         cfg_env.disable_eip3607 = true;
 
         Ok(CfgEnvWithHandlerCfg::new_with_spec_id(cfg_env, spec_id))
+    }
+
+    /// Creates a configuration, taking into the hardfork and chain id at the
+    /// provided `BlockSpec`.
+    fn create_evm_config_at_block_spec(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<CfgEnvWithHandlerCfg, ProviderError<LoggerErrorT>> {
+        let block_number = self.block_number_by_block_spec(block_spec)?;
+
+        let spec_id = if let Some(block_number) = block_number {
+            self.spec_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.spec_id()
+        };
+
+        let chain_id = if let Some(block_number) = block_number {
+            self.chain_id_at_block_number(block_number, block_spec)?
+        } else {
+            self.blockchain.chain_id()
+        };
+
+        self.create_evm_config(spec_id, chain_id)
     }
 
     fn execute_in_block_context<T>(
@@ -1995,7 +2169,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
-        let evm_config = self.create_evm_config(None)?;
+        let evm_config =
+            self.create_evm_config(self.blockchain.spec_id(), self.blockchain.chain_id())?;
 
         if options.mix_hash.is_none() && evm_config.handler_cfg.spec_id >= SpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
@@ -2226,6 +2401,24 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         } else {
             false
         }
+    }
+
+    /// Wrapper over `Blockchain::spec_at_block_number` that handles error
+    /// conversion.
+    fn spec_at_block_number(
+        &self,
+        block_number: u64,
+        block_spec: &BlockSpec,
+    ) -> Result<SpecId, ProviderError<LoggerErrorT>> {
+        self.blockchain
+            .spec_at_block_number(block_number)
+            .map_err(|err| match err {
+                BlockchainError::UnknownBlockNumber => ProviderError::InvalidBlockNumberOrHash {
+                    block_spec: block_spec.clone(),
+                    latest_block_number: self.blockchain.last_block_number(),
+                },
+                _ => ProviderError::Blockchain(err),
+            })
     }
 
     pub fn sign_transaction_request(
@@ -2751,6 +2944,26 @@ pub(crate) mod test_utils {
     }
 }
 
+fn get_skip_unsupported_transaction_types_from_env() -> bool {
+    std::env::var(EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES)
+        .map_or(DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES, |s| s == "true")
+}
+
+fn get_max_cached_states_from_env() -> Result<NonZeroUsize, CreationError> {
+    std::env::var(EDR_MAX_CACHED_STATES_ENV_VAR).map_or_else(
+        |err| match err {
+            std::env::VarError::NotPresent => {
+                Ok(NonZeroUsize::new(DEFAULT_MAX_CACHED_STATES).expect("constant is non-zero"))
+            }
+            std::env::VarError::NotUnicode(s) => Err(CreationError::InvalidMaxCachedStates(s)),
+        },
+        |s| {
+            s.parse()
+                .map_err(|_err| CreationError::InvalidMaxCachedStates(s.into()))
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use std::convert::Infallible;
@@ -2978,6 +3191,11 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
         assert_eq!(chain_id, fixture.config.chain_id);
+
+        let chain_id_at_block = fixture
+            .provider_data
+            .chain_id_at_block_spec(&BlockSpec::Number(1))?;
+        assert_eq!(chain_id_at_block, 1);
 
         Ok(())
     }
