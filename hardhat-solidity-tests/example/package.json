@@ -2,13 +2,13 @@
   "name": "hardhat-solidity-tests-example",
   "version": "0.0.1",
   "author": "Nomic Foundation",
+  "dependencies": {
+    "hardhat": "2.22.9",
+    "hardhat-solidity-tests": "workspace:*"
+  },
   "license": "MIT",
   "private": true,
   "scripts": {
     "test": "hardhat test:solidity"
-  },
-  "dependencies": {
-    "hardhat": "2.22.9",
-    "hardhat-solidity-tests": "workspace:*"
   }
 }

@@ -53,9 +53,9 @@
   "scripts": {
     "artifacts": "napi artifacts",
     "build": "napi build --platform  --profile napi-publish",
-    "build:test": "napi build --platform --release",
     "build:debug": "napi build --platform",
     "build:scenarios": "napi build --platform --release --features scenarios",
+    "build:test": "napi build --platform --release",
     "build:tracing": "napi build --platform --release --features tracing",
     "clean": "rm -rf @nomicfoundation/edr.node",
     "eslint": "eslint 'test/**/*.ts'",
