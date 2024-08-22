@@ -11,12 +11,12 @@ import {
 
 // This throws an error if the tests fail
 async function executeSolidityTests(
-  artifacts: Array<Artifact>,
-  testSuites: Array<ArtifactId>,
+  artifacts: Artifact[],
+  testSuites: ArtifactId[],
   configArgs: SolidityTestRunnerConfigArgs
-): Promise<Array<SuiteResult>> {
-  return await new Promise((resolve, reject) => {
-    const resultsFromCallback: Array<SuiteResult> = [];
+): Promise<SuiteResult[]> {
+  return new Promise((resolve, reject) => {
+    const resultsFromCallback: SuiteResult[] = [];
 
     runSolidityTests(
       artifacts,
@@ -49,7 +49,7 @@ describe("Solidity Tests", () => {
 
     assert.equal(results.length, artifacts.length);
 
-    for (let res of results) {
+    for (const res of results) {
       if (res.id.name.includes("SetupConsistencyCheck")) {
         assert.equal(res.testResults.length, 2);
         assert.equal(res.testResults[0].status, "Success");

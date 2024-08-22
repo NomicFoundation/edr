@@ -24,7 +24,7 @@ const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
 const BRANCH_NAME = "js-benchmark-config";
 
-async function setupForgeStdRepo() {
+export async function setupForgeStdRepo() {
   const repoPath = path.join(__dirname, REPO_DIR);
   // Ensure directory exists
   if (!fs.existsSync(repoPath)) {
@@ -45,7 +45,7 @@ async function setupForgeStdRepo() {
   return repoPath;
 }
 
-async function runForgeStdTests(forgeStdRepoPath: string) {
+export async function runForgeStdTests(forgeStdRepoPath: string) {
   const start = performance.now();
 
   const artifactsDir = path.join(forgeStdRepoPath, "artifacts");
@@ -154,8 +154,3 @@ function loadArtifact(hardhatConfig: any, artifactPath: string) {
     contract: testContract,
   };
 }
-
-module.exports = {
-  runForgeStdTests,
-  setupForgeStdRepo,
-};
