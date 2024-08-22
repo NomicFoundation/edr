@@ -1,7 +1,7 @@
 //! Forge tests for cheatcodes.
 
 use foundry_config::{fs_permissions::PathPermission, FsPermissions};
-use foundry_test_utils::Filter;
+use foundry_test_utils::SolidityTestFilter;
 
 use crate::{
     config::*,
@@ -14,7 +14,7 @@ use crate::{
 /// Executes all cheat code tests but not fork cheat codes or tests that require
 /// isolation mode
 async fn test_cheats_local(test_data: &ForgeTestData) {
-    let mut filter = Filter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}*"))
+    let mut filter = SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}*"))
         .exclude_paths("Fork")
         .exclude_contracts("Isolated");
 
@@ -33,7 +33,7 @@ async fn test_cheats_local(test_data: &ForgeTestData) {
 
 /// Executes subset of all cheat code tests in isolation mode
 async fn test_cheats_local_isolated(test_data: &ForgeTestData) {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*(Isolated)",
         &format!(".*cheats{RE_PATH_SEPARATOR}*"),

@@ -11,7 +11,7 @@ use foundry_evm::{
     revm::primitives::SpecId,
     traces::{render_trace_arena, CallTraceDecoderBuilder},
 };
-use foundry_test_utils::{init_tracing, Filter};
+use foundry_test_utils::{init_tracing, SolidityTestFilter};
 use futures::future::join_all;
 use itertools::Itertools;
 
@@ -19,15 +19,15 @@ use itertools::Itertools;
 pub struct TestConfig {
     pub runner: MultiContractRunner,
     pub should_fail: bool,
-    pub filter: Filter,
+    pub filter: SolidityTestFilter,
 }
 
 impl TestConfig {
     pub fn new(runner: MultiContractRunner) -> Self {
-        Self::with_filter(runner, Filter::matches_all())
+        Self::with_filter(runner, SolidityTestFilter::matches_all())
     }
 
-    pub fn with_filter(runner: MultiContractRunner, filter: Filter) -> Self {
+    pub fn with_filter(runner: MultiContractRunner, filter: SolidityTestFilter) -> Self {
         init_tracing();
         Self {
             runner,

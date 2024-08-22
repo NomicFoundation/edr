@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use alloy_primitives::U256;
 use forge::{fuzz::CounterExample, TestOptions};
-use foundry_test_utils::Filter;
+use foundry_test_utils::SolidityTestFilter;
 
 use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
 
@@ -27,7 +27,7 @@ macro_rules! get_counterexample {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant() {
-    let filter = Filter::new(".*", ".*", ".*fuzz/invariant/(target|targetAbi|common)");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/(target|targetAbi|common)");
     let mut runner = TEST_DATA_DEFAULT.runner();
     runner.test_options.invariant.failure_persist_dir =
         Some(tempfile::tempdir().unwrap().into_path());
@@ -228,7 +228,7 @@ async fn test_invariant() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_override() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantReentrancy.t.sol",
@@ -255,7 +255,7 @@ async fn test_invariant_override() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_fail_on_revert() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantHandlerFailure.t.sol",
@@ -284,7 +284,7 @@ async fn test_invariant_fail_on_revert() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_invariant_storage() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/storage/InvariantStorageTest.t.sol",
@@ -335,7 +335,7 @@ async fn test_invariant_storage() {
 #[tokio::test(flavor = "multi_thread")]
 #[cfg_attr(windows, ignore = "for some reason there's different rng")]
 async fn test_invariant_shrink() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantInnerContract.t.sol",
@@ -381,7 +381,7 @@ async fn test_invariant_assert_shrink() {
 }
 
 async fn test_shrink(opts: TestOptions, contract_pattern: &str) {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         contract_pattern,
         ".*fuzz/invariant/common/InvariantShrinkWithAssert.t.sol",
@@ -403,7 +403,7 @@ async fn test_shrink_big_sequence() {
     let mut opts = TEST_DATA_DEFAULT.test_opts.clone();
     opts.fuzz.seed = Some(U256::from(119u32));
 
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantShrinkBigSequence.t.sol",
@@ -481,7 +481,7 @@ async fn test_shrink_fail_on_revert() {
     let mut opts = TEST_DATA_DEFAULT.test_opts.clone();
     opts.fuzz.seed = Some(U256::from(119u32));
 
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantShrinkFailOnRevert.t.sol",
@@ -503,7 +503,7 @@ async fn test_shrink_fail_on_revert() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_preserve_state() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantPreserveState.t.sol",
@@ -529,7 +529,7 @@ async fn test_invariant_preserve_state() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_with_address_fixture() {
     let mut runner = TEST_DATA_DEFAULT.runner();
-    let results = runner.test_collect(&Filter::new(
+    let results = runner.test_collect(&SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantCalldataDictionary.t.sol",
@@ -551,7 +551,8 @@ async fn test_invariant_with_address_fixture() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_assume_does_not_revert() {
-    let filter = Filter::new(".*", ".*", ".*fuzz/invariant/common/InvariantAssume.t.sol");
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantAssume.t.sol");
     let mut runner = TEST_DATA_DEFAULT.runner();
     // Should not treat vm.assume as revert.
     runner.test_options.invariant.fail_on_revert = true;
@@ -567,7 +568,8 @@ async fn test_invariant_assume_does_not_revert() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_assume_respects_restrictions() {
-    let filter = Filter::new(".*", ".*", ".*fuzz/invariant/common/InvariantAssume.t.sol");
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantAssume.t.sol");
     let mut runner = TEST_DATA_DEFAULT.runner();
     runner.test_options.invariant.runs = 1;
     runner.test_options.invariant.depth = 10;
@@ -590,7 +592,7 @@ async fn test_invariant_assume_respects_restrictions() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_decode_custom_error() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantCustomError.t.sol",
@@ -615,7 +617,7 @@ async fn test_invariant_decode_custom_error() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_fuzzed_selected_targets() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/target/FuzzedTargetContracts.t.sol",
@@ -646,7 +648,7 @@ async fn test_invariant_fuzzed_selected_targets() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_fixtures() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantFixtures.t.sol",
@@ -674,7 +676,7 @@ async fn test_invariant_fixtures() {
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_scrape_values() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         ".*",
         ".*",
         ".*fuzz/invariant/common/InvariantScrapeValues.t.sol",

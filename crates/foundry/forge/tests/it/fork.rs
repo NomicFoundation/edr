@@ -2,7 +2,7 @@
 
 use forge::result::SuiteResult;
 use foundry_config::{fs_permissions::PathPermission, FsPermissions};
-use foundry_test_utils::Filter;
+use foundry_test_utils::SolidityTestFilter;
 
 use crate::{
     config::*,
@@ -12,7 +12,7 @@ use crate::{
 /// Executes reverting fork test
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_fork_revert() {
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         "testNonExistingContractRevert",
         ".*",
         &format!(".*cheats{RE_PATH_SEPARATOR}Fork"),
@@ -37,7 +37,7 @@ async fn test_cheats_fork() {
     let mut config = TEST_DATA_DEFAULT.config.clone();
     config.fs_permissions = FsPermissions::new(vec![PathPermission::read("./fixtures")]);
     let runner = TEST_DATA_DEFAULT.runner_with_config(config);
-    let filter = Filter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
+    let filter = SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
         .exclude_tests(".*Revert");
     TestConfig::with_filter(runner, filter).run().await;
 }
@@ -48,7 +48,7 @@ async fn test_get_logs_fork() {
     let mut config = TEST_DATA_DEFAULT.config.clone();
     config.fs_permissions = FsPermissions::new(vec![PathPermission::read("./fixtures")]);
     let runner = TEST_DATA_DEFAULT.runner_with_config(config);
-    let filter = Filter::new(
+    let filter = SolidityTestFilter::new(
         "testEthGetLogs",
         ".*",
         &format!(".*cheats{RE_PATH_SEPARATOR}Fork"),
@@ -63,8 +63,9 @@ async fn test_rpc_fork() {
     let mut config = TEST_DATA_DEFAULT.config.clone();
     config.fs_permissions = FsPermissions::new(vec![PathPermission::read("./fixtures")]);
     let runner = TEST_DATA_DEFAULT.runner_with_config(config);
-    let filter = Filter::new("testRpc", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
-        .exclude_tests(".*Revert");
+    let filter =
+        SolidityTestFilter::new("testRpc", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
+            .exclude_tests(".*Revert");
     TestConfig::with_filter(runner, filter).run().await;
 }
 
@@ -73,7 +74,7 @@ async fn test_rpc_fork() {
 async fn test_launch_fork() {
     let rpc_url = foundry_test_utils::rpc::next_http_archive_rpc_endpoint();
     let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
-    let filter = Filter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
+    let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
     TestConfig::with_filter(runner, filter).run().await;
 }
 
@@ -82,7 +83,7 @@ async fn test_launch_fork() {
 async fn test_launch_fork_ws() {
     let rpc_url = foundry_test_utils::rpc::next_ws_archive_rpc_endpoint();
     let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
-    let filter = Filter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
+    let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
     TestConfig::with_filter(runner, filter).run().await;
 }
 
@@ -90,7 +91,7 @@ async fn test_launch_fork_ws() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transact_fork() {
     let runner = TEST_DATA_DEFAULT.runner();
-    let filter = Filter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Transact"));
+    let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Transact"));
     TestConfig::with_filter(runner, filter).run().await;
 }
 
@@ -99,6 +100,6 @@ async fn test_transact_fork() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_create_same_fork() {
     let runner = TEST_DATA_DEFAULT.runner();
-    let filter = Filter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}ForkSame"));
+    let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}ForkSame"));
     TestConfig::with_filter(runner, filter).run().await;
 }

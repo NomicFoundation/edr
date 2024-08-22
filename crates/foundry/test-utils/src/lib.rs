@@ -8,7 +8,7 @@ pub mod fd_lock;
 
 mod filter;
 
-pub use filter::Filter;
+pub use filter::SolidityTestFilter;
 // re-exports for convenience
 pub use foundry_compilers;
 

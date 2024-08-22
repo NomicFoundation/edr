@@ -2,7 +2,7 @@
 
 use forge::{result::TestKind, TestOptionsBuilder};
 use foundry_config::{FuzzConfig, InvariantConfig};
-use foundry_test_utils::Filter;
+use foundry_test_utils::SolidityTestFilter;
 
 use crate::test_helpers::TEST_DATA_DEFAULT;
 
@@ -10,7 +10,7 @@ use crate::test_helpers::TEST_DATA_DEFAULT;
 #[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn inline_config_run_fuzz() {
-    let filter = Filter::new(".*", ".*", ".*inline/FuzzInlineConf.t.sol");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*inline/FuzzInlineConf.t.sol");
     let mut runner = TEST_DATA_DEFAULT.runner();
     let result = runner.test_collect(&filter);
     let suite_result = result
@@ -30,7 +30,7 @@ async fn inline_config_run_fuzz() {
 async fn inline_config_run_invariant() {
     const ROOT: &str = "default/inline/InvariantInlineConf.t.sol";
 
-    let filter = Filter::new(".*", ".*", ".*inline/InvariantInlineConf.t.sol");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*inline/InvariantInlineConf.t.sol");
     let mut runner = TEST_DATA_DEFAULT.runner();
     let result = runner.test_collect(&filter);
 

@@ -11,7 +11,7 @@ use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
     traces::{CallKind, CallTraceDecoder, DecodedCallData, TraceKind},
 };
-use foundry_test_utils::Filter;
+use foundry_test_utils::SolidityTestFilter;
 
 use crate::{
     config::*,
@@ -62,7 +62,7 @@ async fn repro_config(
     test_data: &ForgeTestData,
 ) -> TestConfig {
     foundry_test_utils::init_tracing();
-    let filter = Filter::path(&format!(".*repros/Issue{issue}.t.sol"));
+    let filter = SolidityTestFilter::path(&format!(".*repros/Issue{issue}.t.sol"));
 
     let mut config = test_data.config.clone();
     config.fs_permissions = FsPermissions::new(vec![
