@@ -8,7 +8,7 @@ use std::{
 pub use fd_lock::RwLock;
 
 /// Creates a new lock file at the given path.
-pub fn new_lock(lock_path: impl AsRef<Path>) -> RwLock<File> {
+pub fn new_fd_lock(lock_path: impl AsRef<Path>) -> RwLock<File> {
     fn new_lock(lock_path: &Path) -> RwLock<File> {
         let lock_file = pretty_err(
             lock_path,

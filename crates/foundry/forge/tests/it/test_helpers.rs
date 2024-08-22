@@ -282,7 +282,7 @@ pub fn get_compiled(project: &Project) -> ProjectCompileOutput {
     // We need to use a file lock because `cargo-nextest` runs tests in different
     // processes. This is similar to [`foundry_test_utils::util::initialize`],
     // see its comments for more details.
-    let mut lock = fd_lock::new_lock(&lock_file_path);
+    let mut lock = fd_lock::new_fd_lock(&lock_file_path);
     let read = lock.read().unwrap();
     let out;
     if project.cache_path().exists() && std::fs::read(&lock_file_path).unwrap() == b"1" {
