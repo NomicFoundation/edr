@@ -72,7 +72,7 @@ async fn test_rpc_fork() {
 /// Tests that we can launch in forking mode
 #[tokio::test(flavor = "multi_thread")]
 async fn test_launch_fork() {
-    let rpc_url = edr_test_utils::rpc::http_archive_rpc_endpoint();
+    let rpc_url = edr_test_utils::env::get_alchemy_url();
     let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
     let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
     TestConfig::with_filter(runner, filter).run().await;
@@ -81,7 +81,7 @@ async fn test_launch_fork() {
 /// Smoke test that forking workings with websockets
 #[tokio::test(flavor = "multi_thread")]
 async fn test_launch_fork_ws() {
-    let rpc_url = edr_test_utils::rpc::ws_archive_rpc_endpoint();
+    let rpc_url = edr_test_utils::env::get_alchemy_url().replace("https://", "wss://");
     let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
     let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
     TestConfig::with_filter(runner, filter).run().await;

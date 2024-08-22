@@ -1,6 +1,5 @@
 pub mod env;
 mod fd_lock;
-pub mod rpc;
 mod solidity_test_filter;
 mod tracing;
 
