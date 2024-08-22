@@ -53,5 +53,8 @@ url = "2"
 [dev-dependencies]
 edr_test_utils.workspace = true
 
+[features]
+test-remote = []
+
 [lints]
 workspace = true

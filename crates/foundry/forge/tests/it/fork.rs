@@ -69,24 +69,6 @@ async fn test_rpc_fork() {
     TestConfig::with_filter(runner, filter).run().await;
 }
 
-/// Tests that we can launch in forking mode
-#[tokio::test(flavor = "multi_thread")]
-async fn test_launch_fork() {
-    let rpc_url = edr_test_utils::env::get_alchemy_url();
-    let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
-    let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
-    TestConfig::with_filter(runner, filter).run().await;
-}
-
-/// Smoke test that forking workings with websockets
-#[tokio::test(flavor = "multi_thread")]
-async fn test_launch_fork_ws() {
-    let rpc_url = edr_test_utils::env::get_alchemy_url().replace("https://", "wss://");
-    let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
-    let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
-    TestConfig::with_filter(runner, filter).run().await;
-}
-
 /// Tests that we can transact transactions in forking mode
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transact_fork() {
@@ -102,4 +84,29 @@ async fn test_create_same_fork() {
     let runner = TEST_DATA_DEFAULT.runner();
     let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}ForkSame"));
     TestConfig::with_filter(runner, filter).run().await;
+}
+
+#[cfg(feature = "test-remote")]
+mod remote {
+    use super::*;
+
+    /// Tests that we can launch in forking mode
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_launch_fork() {
+        let rpc_url = edr_test_utils::env::get_alchemy_url();
+        let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
+        let filter =
+            SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
+        TestConfig::with_filter(runner, filter).run().await;
+    }
+
+    /// Smoke test that forking workings with websockets
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_launch_fork_ws() {
+        let rpc_url = edr_test_utils::env::get_alchemy_url().replace("https://", "wss://");
+        let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
+        let filter =
+            SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
+        TestConfig::with_filter(runner, filter).run().await;
+    }
 }

@@ -282,7 +282,7 @@ impl DatabaseRef for ForkDbSnapshot {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-remote"))]
 mod tests {
     use std::collections::BTreeSet;
 

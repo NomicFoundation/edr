@@ -52,5 +52,8 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 alloy-signer-wallet.workspace = true
 
+[features]
+test-remote = []
+
 [lints]
 workspace = true
