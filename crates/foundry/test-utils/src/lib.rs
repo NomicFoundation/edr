@@ -1,26 +1,16 @@
 #![warn(unused_crate_dependencies, unreachable_pub)]
 
-#[macro_use]
-extern crate tracing;
-
 // Macros useful for testing.
-mod macros;
 
 pub mod rpc;
 
 pub mod fd_lock;
 
 mod filter;
+
 pub use filter::Filter;
-
-// Utilities for making it easier to handle tests.
-pub mod util;
-pub use util::{TestCommand, TestProject};
-
-mod script;
 // re-exports for convenience
 pub use foundry_compilers;
-pub use script::{ScriptOutcome, ScriptTester};
 
 /// Initializes tracing for tests.
 pub fn init_tracing() {

@@ -5,9 +5,7 @@ use std::{
     path::Path,
 };
 
-pub use fd_lock::*;
-
-use crate::util::pretty_err;
+pub use fd_lock::RwLock;
 
 /// Creates a new lock file at the given path.
 pub fn new_lock(lock_path: impl AsRef<Path>) -> RwLock<File> {
@@ -24,4 +22,12 @@ pub fn new_lock(lock_path: impl AsRef<Path>) -> RwLock<File> {
         RwLock::new(lock_file)
     }
     new_lock(lock_path.as_ref())
+}
+
+#[track_caller]
+fn pretty_err<T, E: std::error::Error>(path: impl AsRef<Path>, res: Result<T, E>) -> T {
+    match res {
+        Ok(t) => t,
+        Err(err) => panic!("{}: {err}", path.as_ref().display()),
+    }
 }

@@ -2743,23 +2743,13 @@ dependencies = [
 name = "foundry-test-utils"
 version = "0.3.8"
 dependencies = [
- "alloy-primitives 0.7.7",
- "alloy-provider",
- "alloy-rpc-types",
- "eyre",
  "fd-lock",
  "foundry-common",
  "foundry-compilers",
- "foundry-config",
  "once_cell",
- "parking_lot 0.12.3",
  "rand",
  "regex",
- "serde_json",
- "similar-asserts",
- "tracing",
  "tracing-subscriber",
- "walkdir",
 ]
 
 [[package]]
