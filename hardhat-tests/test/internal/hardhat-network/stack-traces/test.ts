@@ -6,7 +6,7 @@ import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/pr
 import { ReturnData } from "hardhat/internal/hardhat-network/provider/return-data";
 import {
   ConsoleLogs,
-  consoleLogToString,
+  ConsoleLogger,
 } from "hardhat/internal/hardhat-network/stack-traces/consoleLogger";
 import {
   printMessageTrace,
@@ -93,7 +93,7 @@ interface DeploymentTransaction {
   };
   stackTrace?: StackFrameDescription[]; // No stack trace === the tx MUST be successful
   imports?: string[]; // Imports needed for successful compilation
-  consoleLogs?: ConsoleLogs[];
+  consoleLogs?: ConsoleLogs;
   gas?: number;
 }
 
@@ -108,7 +108,7 @@ interface CallTransaction {
   // The second one is with function and parms
   function?: string; // Default: no data
   params?: Array<string | number>; // Default: no param
-  consoleLogs?: ConsoleLogs[];
+  consoleLogs?: ConsoleLogs;
   gas?: number;
 }
 
@@ -437,7 +437,7 @@ function compareStackTraces(
   assert.lengthOf(trace, description.length);
 }
 
-function compareConsoleLogs(logs: string[], expectedLogs?: ConsoleLogs[]) {
+function compareConsoleLogs(logs: string[], expectedLogs?: ConsoleLogs) {
   if (expectedLogs === undefined) {
     return;
   }
@@ -446,7 +446,7 @@ function compareConsoleLogs(logs: string[], expectedLogs?: ConsoleLogs[]) {
 
   for (let i = 0; i < logs.length; i++) {
     const actual = logs[i];
-    const expected = consoleLogToString(expectedLogs[i]);
+    const expected = ConsoleLogger.format(expectedLogs[i]);
 
     assert.equal(actual, expected);
   }

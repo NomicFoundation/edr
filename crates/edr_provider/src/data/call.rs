@@ -59,7 +59,7 @@ where
         state,
         state_overrides,
         cfg_env,
-        transaction: tx_env,
+        transaction,
         precompiles,
         debug_context,
     } = args;
@@ -75,7 +75,7 @@ where
         state,
         state_overrides,
         cfg_env,
-        tx_env,
+        transaction,
         block,
         precompiles,
         debug_context,

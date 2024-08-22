@@ -1,0 +1,77 @@
+diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
+index 720cbe438e2a09b210db4135c0e87a4edb5b69f0..5954096feb5bc4ab1c546e6acc9d765bdfb7e95d 100644
+--- a/internal/hardhat-network/provider/provider.js
++++ b/internal/hardhat-network/provider/provider.js
+@@ -215,7 +215,14 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             params,
+         });
+         const responseObject = await this._provider.handleRequest(stringifiedArgs);
+-        const response = JSON.parse(responseObject.json);
++
++        let response;
++        if (typeof responseObject.data === "string") {
++            response = JSON.parse(responseObject.data);
++        } else {
++            response = responseObject.data;
++        }
++
+         const needsTraces = this._node._vm.evm.events.eventNames().length > 0 ||
+             this._node._vm.events.eventNames().length > 0 ||
+             this._vmTracer !== undefined;
+diff --git a/internal/hardhat-network/provider/vm/minimal-vm.js b/internal/hardhat-network/provider/vm/minimal-vm.js
+index 7308105d1718d54afac5a87402a6c2250ae8115c..5e054633ac9dcc7ec1872d1527e637a18a0db550 100644
+--- a/internal/hardhat-network/provider/vm/minimal-vm.js
++++ b/internal/hardhat-network/provider/vm/minimal-vm.js
+@@ -26,7 +26,14 @@ function getMinimalEthereumJsVm(provider) {
+                     method: "eth_getStorageAt",
+                     params: [address.toString(), `0x${slotHash.toString("hex")}`],
+                 }));
+-                const response = JSON.parse(responseObject.json);
++
++                let response;
++                if (typeof responseObject.data === "string") {
++                    response = JSON.parse(responseObject.data);
++                } else {
++                    response = responseObject.data;
++                }
++                
+                 return Buffer.from(response.result.slice(2), "hex");
+             },
+             putContractStorage: async (address, slotHash, slotValue) => {
+diff --git a/src/internal/hardhat-network/provider/provider.ts b/src/internal/hardhat-network/provider/provider.ts
+index 939ca6b3b7968e9b98cc2b4d1edfc906ef92897c..15418fdb0902728cefc6433dce152a08efc5ba70 100644
+--- a/src/internal/hardhat-network/provider/provider.ts
++++ b/src/internal/hardhat-network/provider/provider.ts
+@@ -354,7 +354,13 @@ export class EdrProviderWrapper
+     const responseObject: Response = await this._provider.handleRequest(
+       stringifiedArgs
+     );
+-    const response = JSON.parse(responseObject.json);
++    
++    let response;
++    if (typeof responseObject.data === "string") {
++        response = JSON.parse(responseObject.data);
++    } else {
++        response = responseObject.data;
++    }
+ 
+     const needsTraces =
+       this._node._vm.evm.events.eventNames().length > 0 ||
+diff --git a/src/internal/hardhat-network/provider/vm/minimal-vm.ts b/src/internal/hardhat-network/provider/vm/minimal-vm.ts
+index bf75d7d30adf1845201a8841fdc1c4db17e63d90..0c947e8a74c7dedcd8e6831773cbaaee432284dc 100644
+--- a/src/internal/hardhat-network/provider/vm/minimal-vm.ts
++++ b/src/internal/hardhat-network/provider/vm/minimal-vm.ts
+@@ -82,7 +82,12 @@ export function getMinimalEthereumJsVm(
+           })
+         );
+ 
+-        const response = JSON.parse(responseObject.json);
++        let response;
++        if (typeof responseObject.data === "string") {
++            response = JSON.parse(responseObject.data);
++        } else {
++            response = responseObject.data;
++        }
+ 
+         return Buffer.from(response.result.slice(2), "hex");
+       },
