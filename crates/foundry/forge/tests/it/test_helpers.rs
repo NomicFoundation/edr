@@ -23,7 +23,7 @@ use foundry_evm::{
     constants::CALLER,
     opts::{Env, EvmOpts},
 };
-use foundry_test_utils::{fd_lock, init_tracing};
+use foundry_test_utils::{fd_lock, init_tracing_for_solidity_tests};
 use once_cell::sync::Lazy;
 
 pub const RE_PATH_SEPARATOR: &str = "/";
@@ -193,7 +193,7 @@ impl ForgeTestData {
 
     /// Builds a base runner
     pub fn base_runner(&self) -> MultiContractRunnerBuilder {
-        init_tracing();
+        init_tracing_for_solidity_tests();
         let mut runner = MultiContractRunnerBuilder::new(self.config.clone())
             .set_trace(true)
             .sender(self.evm_opts.sender)

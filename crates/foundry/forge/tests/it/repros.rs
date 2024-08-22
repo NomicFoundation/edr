@@ -61,7 +61,7 @@ async fn repro_config(
     sender: Option<Address>,
     test_data: &ForgeTestData,
 ) -> TestConfig {
-    foundry_test_utils::init_tracing();
+    foundry_test_utils::init_tracing_for_solidity_tests();
     let filter = SolidityTestFilter::path(&format!(".*repros/Issue{issue}.t.sol"));
 
     let mut config = test_data.config.clone();
