@@ -35,7 +35,7 @@ tokio = { workspace = true, features = ["time"] }
 evm-disassembler.workspace = true
 
 [dev-dependencies]
-foundry-test-utils.workspace = true
+edr_test_utils.workspace = true
 
 mockall = "0.12"
 criterion = "0.5"
@@ -51,6 +51,9 @@ tempfile.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 alloy-signer-wallet.workspace = true
+
+[features]
+test-remote = []
 
 [lints]
 workspace = true

@@ -7,6 +7,7 @@ use std::{
 };
 
 use alloy_primitives::U256;
+use edr_test_utils::{init_tracing_for_solidity_tests, new_fd_lock};
 use forge::{
     revm::primitives::SpecId, MultiContractRunner, MultiContractRunnerBuilder, TestOptions,
     TestOptionsBuilder,
@@ -23,7 +24,6 @@ use foundry_evm::{
     constants::CALLER,
     opts::{Env, EvmOpts},
 };
-use foundry_test_utils::{fd_lock, init_tracing};
 use once_cell::sync::Lazy;
 
 pub const RE_PATH_SEPARATOR: &str = "/";
@@ -193,7 +193,7 @@ impl ForgeTestData {
 
     /// Builds a base runner
     pub fn base_runner(&self) -> MultiContractRunnerBuilder {
-        init_tracing();
+        init_tracing_for_solidity_tests();
         let mut runner = MultiContractRunnerBuilder::new(self.config.clone())
             .set_trace(true)
             .sender(self.evm_opts.sender)
@@ -280,9 +280,9 @@ pub fn get_compiled(project: &Project) -> ProjectCompileOutput {
     let lock_file_path = project.sources_path().join(".lock");
     // Compile only once per test run.
     // We need to use a file lock because `cargo-nextest` runs tests in different
-    // processes. This is similar to [`foundry_test_utils::util::initialize`],
+    // processes. This is similar to [`edr_test_utils::util::initialize`],
     // see its comments for more details.
-    let mut lock = fd_lock::new_lock(&lock_file_path);
+    let mut lock = new_fd_lock(&lock_file_path);
     let read = lock.read().unwrap();
     let out;
     if project.cache_path().exists() && std::fs::read(&lock_file_path).unwrap() == b"1" {

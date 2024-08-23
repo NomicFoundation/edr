@@ -20,7 +20,6 @@ members = [
     "crates/foundry/evm/traces",
     "crates/foundry/forge",
     "crates/foundry/macros",
-    "crates/foundry/test-utils",
 ]
 resolver = "2"
 
@@ -160,6 +159,8 @@ wildcard-imports = "warn"
 zero_sized_map_values = "warn"
 
 [workspace.dependencies]
+edr_test_utils = { path = "crates/edr_test_utils" }
+
 forge = { path = "crates/foundry/forge" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
@@ -173,7 +174,6 @@ foundry-evm-coverage = { path = "crates/foundry/evm/coverage" }
 foundry-evm-fuzz = { path = "crates/foundry/evm/fuzz" }
 foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 foundry-macros = { path = "crates/foundry/macros" }
-foundry-test-utils = { path = "crates/foundry/test-utils" }
 foundry-linking = { path = "crates/foundry/linking" }
 
 # solc & compilation utilities

@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use edr_test_utils::{init_tracing_for_solidity_tests, SolidityTestFilter};
 use forge::{
     result::{SuiteResult, TestStatus},
     MultiContractRunner,
@@ -11,7 +12,6 @@ use foundry_evm::{
     revm::primitives::SpecId,
     traces::{render_trace_arena, CallTraceDecoderBuilder},
 };
-use foundry_test_utils::{init_tracing, Filter};
 use futures::future::join_all;
 use itertools::Itertools;
 
@@ -19,16 +19,16 @@ use itertools::Itertools;
 pub struct TestConfig {
     pub runner: MultiContractRunner,
     pub should_fail: bool,
-    pub filter: Filter,
+    pub filter: SolidityTestFilter,
 }
 
 impl TestConfig {
     pub fn new(runner: MultiContractRunner) -> Self {
-        Self::with_filter(runner, Filter::matches_all())
+        Self::with_filter(runner, SolidityTestFilter::matches_all())
     }
 
-    pub fn with_filter(runner: MultiContractRunner, filter: Filter) -> Self {
-        init_tracing();
+    pub fn with_filter(runner: MultiContractRunner, filter: SolidityTestFilter) -> Self {
+        init_tracing_for_solidity_tests();
         Self {
             runner,
             should_fail: false,

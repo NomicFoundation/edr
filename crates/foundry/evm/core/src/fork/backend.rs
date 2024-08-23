@@ -736,65 +736,9 @@ impl DatabaseRef for SharedBackend {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeSet, path::PathBuf};
+    use std::path::PathBuf;
 
-    use foundry_common::provider::get_http_provider;
-    use foundry_config::{Config, NamedChain};
-    use revm::primitives::{BlockEnv, CfgEnv};
-
-    use super::*;
-    use crate::{
-        backend::Backend,
-        fork::{BlockchainDbMeta, CreateFork, JsonBlockCacheDB},
-        opts::EvmOpts,
-    };
-
-    const ENDPOINT: Option<&str> = option_env!("ETH_RPC_URL");
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn shared_backend() {
-        let Some(endpoint) = ENDPOINT else { return };
-
-        let provider = get_http_provider(endpoint);
-        let meta = BlockchainDbMeta {
-            cfg_env: CfgEnv::default(),
-            block_env: BlockEnv::default(),
-            hosts: BTreeSet::from([endpoint.to_string()]),
-        };
-
-        let db = BlockchainDb::new(meta, None);
-        let backend = SharedBackend::spawn_backend(Arc::new(provider), db.clone(), None).await;
-
-        // some rng contract from etherscan
-        let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();
-
-        let idx = U256::from(0u64);
-        let value = backend.storage_ref(address, idx).unwrap();
-        let account = backend.basic_ref(address).unwrap().unwrap();
-
-        let mem_acc = db.accounts().read().get(&address).unwrap().clone();
-        assert_eq!(account.balance, mem_acc.balance);
-        assert_eq!(account.nonce, mem_acc.nonce);
-        let slots = db.storage().read().get(&address).unwrap().clone();
-        assert_eq!(slots.len(), 1);
-        assert_eq!(slots.get(&idx).copied().unwrap(), value);
-
-        let num = U256::from(10u64);
-        let hash = backend.block_hash_ref(num).unwrap();
-        let mem_hash = *db.block_hashes().read().get(&num).unwrap();
-        assert_eq!(hash, mem_hash);
-
-        let max_slots = 5;
-        let handle = std::thread::spawn(move || {
-            for i in 1..max_slots {
-                let idx = U256::from(i);
-                let _ = backend.storage_ref(address, idx);
-            }
-        });
-        handle.join().unwrap();
-        let slots = db.storage().read().get(&address).unwrap().clone();
-        assert_eq!(slots.len() as u64, max_slots);
-    }
+    use crate::fork::JsonBlockCacheDB;
 
     #[test]
     fn can_read_cache() {
@@ -803,58 +747,124 @@ mod tests {
         assert!(!json.db().accounts.read().is_empty());
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn can_read_write_cache() {
-        let Some(endpoint) = ENDPOINT else { return };
+    #[cfg(feature = "test-remote")]
+    mod remote {
+        use std::{collections::BTreeSet, sync::Arc};
 
-        let provider = get_http_provider(endpoint);
-
-        let block_num = provider.get_block_number().await.unwrap();
-
-        let config = Config::figment();
-        let mut evm_opts = config.extract::<EvmOpts>().unwrap();
-        evm_opts.fork_block_number = Some(block_num);
-
-        let (env, _block) = evm_opts.fork_evm_env(endpoint).await.unwrap();
-
-        let fork = CreateFork {
-            enable_caching: true,
-            url: endpoint.to_string(),
-            env: env.clone(),
-            evm_opts,
+        use alloy_primitives::{Address, U256};
+        use alloy_provider::Provider;
+        use edr_test_utils::env::get_alchemy_url;
+        use foundry_common::provider::get_http_provider;
+        use foundry_config::{Config, NamedChain};
+        use revm::{
+            primitives::{BlockEnv, CfgEnv},
+            DatabaseRef,
         };
 
-        let backend = Backend::spawn(Some(fork));
+        use crate::{
+            backend::Backend,
+            fork::{BlockchainDb, BlockchainDbMeta, CreateFork, SharedBackend},
+            opts::EvmOpts,
+        };
 
-        // some rng contract from etherscan
-        let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();
+        #[tokio::test(flavor = "multi_thread")]
+        async fn shared_backend() {
+            let endpoint = get_alchemy_url();
 
-        let idx = U256::from(0u64);
-        let _value = backend.storage_ref(address, idx);
-        let _account = backend.basic_ref(address);
+            let provider = get_http_provider(&endpoint);
+            let meta = BlockchainDbMeta {
+                cfg_env: CfgEnv::default(),
+                block_env: BlockEnv::default(),
+                hosts: BTreeSet::from([endpoint]),
+            };
 
-        // fill some slots
-        let num_slots = 10u64;
-        for idx in 1..num_slots {
-            let _ = backend.storage_ref(address, U256::from(idx));
+            let db = BlockchainDb::new(meta, None);
+            let backend = SharedBackend::spawn_backend(Arc::new(provider), db.clone(), None).await;
+
+            // some rng contract from etherscan
+            let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();
+
+            let idx = U256::from(0u64);
+            let value = backend.storage_ref(address, idx).unwrap();
+            let account = backend.basic_ref(address).unwrap().unwrap();
+
+            let mem_acc = db.accounts().read().get(&address).unwrap().clone();
+            assert_eq!(account.balance, mem_acc.balance);
+            assert_eq!(account.nonce, mem_acc.nonce);
+            let slots = db.storage().read().get(&address).unwrap().clone();
+            assert_eq!(slots.len(), 1);
+            assert_eq!(slots.get(&idx).copied().unwrap(), value);
+
+            let num = U256::from(10u64);
+            let hash = backend.block_hash_ref(num).unwrap();
+            let mem_hash = *db.block_hashes().read().get(&num).unwrap();
+            assert_eq!(hash, mem_hash);
+
+            let max_slots = 5;
+            let handle = std::thread::spawn(move || {
+                for i in 1..max_slots {
+                    let idx = U256::from(i);
+                    let _ = backend.storage_ref(address, idx);
+                }
+            });
+            handle.join().unwrap();
+            let slots = db.storage().read().get(&address).unwrap().clone();
+            assert_eq!(slots.len() as u64, max_slots);
         }
-        drop(backend);
 
-        let meta = BlockchainDbMeta {
-            cfg_env: env.cfg,
-            block_env: env.block,
-            hosts: BTreeSet::default(),
-        };
+        #[tokio::test(flavor = "multi_thread")]
+        async fn can_read_write_cache() {
+            let endpoint = get_alchemy_url();
 
-        let db = BlockchainDb::new(
-            meta,
-            Some(Config::foundry_block_cache_dir(NamedChain::Mainnet, block_num).unwrap()),
-        );
-        assert!(db.accounts().read().contains_key(&address));
-        assert!(db.storage().read().contains_key(&address));
-        assert_eq!(
-            db.storage().read().get(&address).unwrap().len(),
-            num_slots as usize
-        );
+            let provider = get_http_provider(&endpoint);
+
+            let block_num = provider.get_block_number().await.unwrap();
+
+            let config = Config::figment();
+            let mut evm_opts = config.extract::<EvmOpts>().unwrap();
+            evm_opts.fork_block_number = Some(block_num);
+
+            let (env, _block) = evm_opts.fork_evm_env(&endpoint).await.unwrap();
+
+            let fork = CreateFork {
+                enable_caching: true,
+                url: endpoint,
+                env: env.clone(),
+                evm_opts,
+            };
+
+            let backend = Backend::spawn(Some(fork));
+
+            // some rng contract from etherscan
+            let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();
+
+            let idx = U256::from(0u64);
+            let _value = backend.storage_ref(address, idx);
+            let _account = backend.basic_ref(address);
+
+            // fill some slots
+            let num_slots = 10u64;
+            for idx in 1..num_slots {
+                let _ = backend.storage_ref(address, U256::from(idx));
+            }
+            drop(backend);
+
+            let meta = BlockchainDbMeta {
+                cfg_env: env.cfg,
+                block_env: env.block,
+                hosts: BTreeSet::default(),
+            };
+
+            let db = BlockchainDb::new(
+                meta,
+                Some(Config::foundry_block_cache_dir(NamedChain::Mainnet, block_num).unwrap()),
+            );
+            assert!(db.accounts().read().contains_key(&address));
+            assert!(db.storage().read().contains_key(&address));
+            assert_eq!(
+                db.storage().read().get(&address).unwrap().len(),
+                num_slots as usize
+            );
+        }
     }
 }

@@ -4,8 +4,15 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+fd-lock = "4.0.0"
+foundry-common.workspace = true
+foundry-compilers = { workspace = true, features = ["project-util"] }
+once_cell = "1"
+rand.workspace = true
+regex = "1"
 serde.workspace = true
 serde_json.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 [lints]
 workspace = true

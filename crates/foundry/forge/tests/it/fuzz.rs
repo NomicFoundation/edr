@@ -3,17 +3,17 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::{Bytes, U256};
+use edr_test_utils::SolidityTestFilter;
 use forge::{
     fuzz::CounterExample,
     result::{SuiteResult, TestStatus},
 };
-use foundry_test_utils::Filter;
 
 use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
-    let filter = Filter::new(".*", ".*", ".*fuzz/")
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/")
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)|testSuccessChecker\(uint256\)|testSuccessChecker2\(int256\)|testSuccessChecker3\(uint32\)")
         .exclude_paths("invariant");
     let mut runner = TEST_DATA_DEFAULT.runner();
@@ -50,7 +50,7 @@ async fn test_fuzz() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_successful_fuzz_cases() {
-    let filter = Filter::new(".*", ".*", ".*fuzz/FuzzPositive")
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzPositive")
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)")
         .exclude_paths("invariant");
     let mut runner = TEST_DATA_DEFAULT.runner();
@@ -82,7 +82,7 @@ async fn test_successful_fuzz_cases() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_fuzz_collection() {
-    let filter = Filter::new(".*", ".*", ".*fuzz/FuzzCollection.t.sol");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzCollection.t.sol");
     let mut runner = TEST_DATA_DEFAULT.runner();
     runner.test_options.invariant.depth = 100;
     runner.test_options.invariant.runs = 1000;
@@ -123,7 +123,7 @@ async fn test_fuzz_collection() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_persist_fuzz_failure() {
-    let filter = Filter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
     let mut runner = TEST_DATA_DEFAULT.runner();
     runner.test_options.fuzz.runs = 1000;
 

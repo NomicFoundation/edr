@@ -2,15 +2,15 @@
 
 use std::{collections::BTreeMap, env};
 
+use edr_test_utils::SolidityTestFilter;
 use forge::result::SuiteResult;
 use foundry_evm::traces::TraceKind;
-use foundry_test_utils::Filter;
 
 use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_core() {
-    let filter = Filter::new(".*", ".*", ".*core");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*core");
     let mut runner = TEST_DATA_DEFAULT.runner();
     let results = runner.test_collect(&filter);
 
@@ -89,7 +89,7 @@ async fn test_core() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_linking() {
-    let filter = Filter::new(".*", ".*", ".*linking");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*linking");
     let mut runner = TEST_DATA_DEFAULT.runner();
     let results = runner.test_collect(&filter);
 
@@ -123,7 +123,7 @@ async fn test_linking() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_logs() {
-    let filter = Filter::new(".*", ".*", ".*logs");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*logs");
     let mut runner = TEST_DATA_DEFAULT.runner();
     let results = runner.test_collect(&filter);
 
@@ -688,7 +688,7 @@ async fn test_env_vars() {
     let env_var_val = "_foundryCheatcodeSetEnvTestVal";
     env::remove_var(env_var_key);
 
-    let filter = Filter::new("testSetEnv", ".*", ".*");
+    let filter = SolidityTestFilter::new("testSetEnv", ".*", ".*");
     let mut runner = TEST_DATA_DEFAULT.runner();
     let _ = runner.test_collect(&filter);
 
@@ -697,7 +697,7 @@ async fn test_env_vars() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_doesnt_run_abstract_contract() {
-    let filter = Filter::new(".*", ".*", ".*Abstract.t.sol".to_string().as_str());
+    let filter = SolidityTestFilter::new(".*", ".*", ".*Abstract.t.sol".to_string().as_str());
     let mut runner = TEST_DATA_DEFAULT.runner();
     let results = runner.test_collect(&filter);
     assert!(!results.contains_key("default/core/Abstract.t.sol:AbstractTestBase"));
@@ -706,7 +706,7 @@ async fn test_doesnt_run_abstract_contract() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_trace() {
-    let filter = Filter::new(".*", ".*", ".*trace");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*trace");
     let mut runner = TEST_DATA_DEFAULT.tracing_runner();
     let suite_result = runner.test_collect(&filter);
 

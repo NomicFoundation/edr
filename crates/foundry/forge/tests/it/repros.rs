@@ -5,13 +5,13 @@ use std::sync::Arc;
 use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
+use edr_test_utils::SolidityTestFilter;
 use forge::result::TestStatus;
 use foundry_config::{fs_permissions::PathPermission, FsPermissions};
 use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
     traces::{CallKind, CallTraceDecoder, DecodedCallData, TraceKind},
 };
-use foundry_test_utils::Filter;
 
 use crate::{
     config::*,
@@ -61,8 +61,8 @@ async fn repro_config(
     sender: Option<Address>,
     test_data: &ForgeTestData,
 ) -> TestConfig {
-    foundry_test_utils::init_tracing();
-    let filter = Filter::path(&format!(".*repros/Issue{issue}.t.sol"));
+    edr_test_utils::init_tracing_for_solidity_tests();
+    let filter = SolidityTestFilter::path(&format!(".*repros/Issue{issue}.t.sol"));
 
     let mut config = test_data.config.clone();
     config.fs_permissions = FsPermissions::new(vec![

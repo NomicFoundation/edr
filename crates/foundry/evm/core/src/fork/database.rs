@@ -282,7 +282,7 @@ impl DatabaseRef for ForkDbSnapshot {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-remote"))]
 mod tests {
     use std::collections::BTreeSet;
 
@@ -296,7 +296,7 @@ mod tests {
     /// return the `AccountInfo`
     #[tokio::test(flavor = "multi_thread")]
     async fn fork_db_insert_basic_default() {
-        let rpc = foundry_test_utils::rpc::next_http_rpc_endpoint();
+        let rpc = edr_test_utils::env::get_alchemy_url();
         let provider = get_http_provider(rpc.clone());
         let meta = BlockchainDbMeta {
             cfg_env: CfgEnv::default(),
