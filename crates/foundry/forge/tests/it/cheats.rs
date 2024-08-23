@@ -46,29 +46,21 @@ async fn test_cheats_local_isolated(test_data: &ForgeTestData) {
     TestConfig::with_filter(runner, filter).run().await;
 }
 
-// TODO flaky test
-#[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_default() {
     test_cheats_local(&TEST_DATA_DEFAULT).await;
 }
 
-// TODO flaky test
-#[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_default_isolated() {
     test_cheats_local_isolated(&TEST_DATA_DEFAULT).await;
 }
 
-// TODO flaky test
-#[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_multi_version() {
     test_cheats_local(&TEST_DATA_MULTI_VERSION).await;
 }
 
-// TODO flaky test
-#[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_cancun() {
     test_cheats_local(&TEST_DATA_CANCUN).await;

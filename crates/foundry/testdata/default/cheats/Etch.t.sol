@@ -8,7 +8,8 @@ contract EtchTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
     function testEtch() public {
-        address target = address(10);
+        // 1-10 are precompiles with the tenth added in Cancun
+        address target = address(11);
         bytes memory code = hex"1010";
         vm.etch(target, code);
         assertEq(string(code), string(target.code));
