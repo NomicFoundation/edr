@@ -53,7 +53,7 @@
   "repository": "github:NomicFoundation/edr",
   "scripts": {
     "build": "tsc --build --force --incremental . && pnpm run build:edr",
-    "build:edr": "cd ../crates/edr_napi && pnpm build:debug",
+    "build:edr": "cd ../crates/edr_napi && pnpm build:test",
     "clean": "rimraf build-test tsconfig.tsbuildinfo test/internal/hardhat-network/provider/.hardhat_node_test_cache test/internal/hardhat-network/stack-traces/test-files/artifacts",
     "eslint": "eslint '**/*.ts'",
     "lint": "pnpm prettier && pnpm eslint",
