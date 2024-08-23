@@ -424,8 +424,8 @@ impl<'a> ContractRunner<'a> {
                 let setup = setup.clone();
                 let should_fail = func.is_test_fail();
                 let res = if func.is_invariant_test() {
-                    let runner = test_options.invariant_runner(self.name, &func.name);
-                    let invariant_config = test_options.invariant_config(self.name, &func.name);
+                    let runner = test_options.invariant_runner();
+                    let invariant_config = test_options.invariant_config();
                     self.run_invariant_test(
                         runner,
                         setup,
@@ -436,8 +436,8 @@ impl<'a> ContractRunner<'a> {
                     )
                 } else if func.is_fuzz_test() {
                     debug_assert!(func.is_test());
-                    let runner = test_options.fuzz_runner(self.name, &func.name);
-                    let fuzz_config = test_options.fuzz_config(self.name, &func.name);
+                    let runner = test_options.fuzz_runner();
+                    let fuzz_config = test_options.fuzz_config();
                     self.run_fuzz_test(func, should_fail, runner, setup, fuzz_config.clone())
                 } else {
                     debug_assert!(func.is_test());

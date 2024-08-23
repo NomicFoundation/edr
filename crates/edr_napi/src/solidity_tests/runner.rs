@@ -4,7 +4,7 @@ use forge::{
     decode::RevertDecoder,
     multi_runner::{DeployableContracts, TestContract},
     revm::primitives::SpecId,
-    MultiContractRunner, TestOptionsBuilder,
+    MultiContractRunner, TestOptions,
 };
 use foundry_common::ContractsByArtifact;
 
@@ -29,11 +29,7 @@ pub(super) async fn build_runner(
         invariant,
     } = config;
 
-    let test_options = TestOptionsBuilder::default()
-        .fuzz(fuzz)
-        .invariant(invariant)
-        .build_hardhat()
-        .map_err(|e| napi::Error::new(napi::Status::GenericFailure, format!("{e:?}")))?;
+    let test_options = TestOptions { fuzz, invariant };
 
     // Build revert decoder from ABIs of all artifacts.
     let abis = known_contracts.iter().map(|(_, contract)| &contract.abi);

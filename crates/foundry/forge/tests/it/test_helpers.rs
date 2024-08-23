@@ -10,7 +10,6 @@ use alloy_primitives::U256;
 use edr_test_utils::{init_tracing_for_solidity_tests, new_fd_lock};
 use forge::{
     revm::primitives::SpecId, MultiContractRunner, MultiContractRunnerBuilder, TestOptions,
-    TestOptionsBuilder,
 };
 use foundry_compilers::{
     artifacts::{Libraries, Settings},
@@ -78,42 +77,41 @@ impl ForgeTestProfile {
         self.config().project().expect("Failed to build project")
     }
 
-    pub fn test_opts(&self, output: &ProjectCompileOutput) -> TestOptions {
-        TestOptionsBuilder::default()
-            .fuzz(FuzzConfig {
-                runs: 256,
-                max_test_rejects: 65536,
-                seed: None,
-                dictionary: FuzzDictionaryConfig {
-                    include_storage: true,
-                    include_push_bytes: true,
-                    dictionary_weight: 40,
-                    max_fuzz_dictionary_addresses: 10_000,
-                    max_fuzz_dictionary_values: 10_000,
-                },
-                gas_report_samples: 256,
-                failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
-                failure_persist_file: Some("testfailure".to_string()),
-            })
-            .invariant(InvariantConfig {
-                runs: 256,
-                depth: 15,
-                fail_on_revert: false,
-                call_override: false,
-                dictionary: FuzzDictionaryConfig {
-                    dictionary_weight: 80,
-                    include_storage: true,
-                    include_push_bytes: true,
-                    max_fuzz_dictionary_addresses: 10_000,
-                    max_fuzz_dictionary_values: 10_000,
-                },
-                shrink_run_limit: 2usize.pow(18u32),
-                max_assume_rejects: 65536,
-                gas_report_samples: 256,
-                failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
-            })
-            .build(output, Path::new(self.project().root()))
-            .expect("Config loaded")
+    pub fn test_opts(&self) -> TestOptions {
+        let fuzz = FuzzConfig {
+            runs: 256,
+            max_test_rejects: 65536,
+            seed: None,
+            dictionary: FuzzDictionaryConfig {
+                include_storage: true,
+                include_push_bytes: true,
+                dictionary_weight: 40,
+                max_fuzz_dictionary_addresses: 10_000,
+                max_fuzz_dictionary_values: 10_000,
+            },
+            gas_report_samples: 256,
+            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
+            failure_persist_file: Some("testfailure".to_string()),
+        };
+        let invariant = InvariantConfig {
+            runs: 256,
+            depth: 15,
+            fail_on_revert: false,
+            call_override: false,
+            dictionary: FuzzDictionaryConfig {
+                dictionary_weight: 80,
+                include_storage: true,
+                include_push_bytes: true,
+                max_fuzz_dictionary_addresses: 10_000,
+                max_fuzz_dictionary_values: 10_000,
+            },
+            shrink_run_limit: 2usize.pow(18u32),
+            max_assume_rejects: 65536,
+            gas_report_samples: 256,
+            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
+        };
+
+        TestOptions { fuzz, invariant }
     }
 
     pub fn evm_opts(&self) -> EvmOpts {
@@ -177,7 +175,7 @@ impl ForgeTestData {
     pub fn new(profile: ForgeTestProfile) -> Self {
         let project = profile.project();
         let output = get_compiled(&project);
-        let test_opts = profile.test_opts(&output);
+        let test_opts = profile.test_opts();
         let config = profile.config();
         let evm_opts = profile.evm_opts();
 

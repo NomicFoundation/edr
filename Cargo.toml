@@ -47,7 +47,6 @@ codegen-units = 1
 [profile.dev.package]
 # Solc and artifacts
 foundry-compilers.opt-level = 3
-solang-parser.opt-level = 3
 lalrpop-util.opt-level = 3
 serde_json.opt-level = 3
 
@@ -223,7 +222,6 @@ syn-solidity = "0.7.1"
 alloy-chains = "0.1"
 alloy-trie = "0.3.1"
 alloy-rlp = "0.3.3"
-solang-parser = "=0.3.3"
 
 ## misc
 arrayvec = "0.7"

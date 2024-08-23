@@ -672,8 +672,6 @@ async fn test_invariant_fixtures() {
     );
 }
 
-// TODO flaky test
-#[ignore]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_scrape_values() {
     let filter = SolidityTestFilter::new(
@@ -682,6 +680,11 @@ async fn test_invariant_scrape_values() {
         ".*fuzz/invariant/common/InvariantScrapeValues.t.sol",
     );
     let mut runner = TEST_DATA_DEFAULT.runner();
+
+    runner.test_options.invariant.runs = 50;
+    runner.test_options.invariant.depth = 300;
+    runner.test_options.invariant.fail_on_revert = true;
+
     let results = runner.test_collect(&filter);
     assert_multiple(
         &results,

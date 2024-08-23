@@ -16,7 +16,7 @@ use crate::{
 async fn test_cheats_local(test_data: &ForgeTestData) {
     let mut filter = SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}*"))
         .exclude_paths("Fork")
-        .exclude_contracts("Isolated");
+        .exclude_contracts("Isolated|Sleep");
 
     // Exclude FFI tests on Windows because no `echo`, and file tests that expect
     // certain file paths
@@ -49,6 +49,17 @@ async fn test_cheats_local_isolated(test_data: &ForgeTestData) {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_default() {
     test_cheats_local(&TEST_DATA_DEFAULT).await;
+}
+
+// Need custom fuzz config to speed it up
+#[tokio::test(flavor = "multi_thread")]
+async fn test_cheats_sleep_test() {
+    let filter = SolidityTestFilter::new(".*", "Sleep", &format!(".*cheats{RE_PATH_SEPARATOR}*"));
+
+    let mut runner = TEST_DATA_DEFAULT.runner();
+    runner.test_options.fuzz.runs = 2;
+
+    TestConfig::with_filter(runner, filter).run().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

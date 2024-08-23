@@ -2589,7 +2589,6 @@ dependencies = [
  "serde_json",
  "serde_regex",
  "similar-asserts",
- "solang-parser",
  "tempfile",
  "thiserror",
  "toml 0.8.14",
