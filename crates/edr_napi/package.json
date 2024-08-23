@@ -52,7 +52,7 @@
   "repository": "NomicFoundation/edr.git",
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --platform  --profile napi-publish",
+    "build": "napi build --platform --profile napi-publish",
     "build:debug": "napi build --platform",
     "build:scenarios": "napi build --platform --release --features scenarios",
     "build:test": "napi build --platform --release",
