@@ -244,9 +244,9 @@ fn send_raw_transaction_and_log<
 ) -> Result<(B256, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
-    let spec_id = data.evm_spec_id();
+    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_send_transaction(spec_id, &signed_transaction, &result.mining_results)
+        .log_send_transaction(hardfork, &signed_transaction, &result.mining_results)
         .map_err(ProviderError::Logger)?;
 
     if data.bail_on_transaction_failure() {

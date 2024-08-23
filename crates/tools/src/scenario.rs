@@ -53,7 +53,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
     let start = Instant::now();
     // Matches how `edr_napi` constructs and invokes the provider.
     let provider = task::spawn_blocking(move || {
-        edr_provider::Provider::new(
+        edr_provider::Sequential::new(
             runtime::Handle::current(),
             logger,
             subscription_callback,

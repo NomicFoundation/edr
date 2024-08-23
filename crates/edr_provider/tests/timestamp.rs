@@ -6,12 +6,12 @@ use edr_eth::{chain_spec::L1ChainSpec, PreEip1898BlockSpec, B256};
 use edr_provider::{
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, Timestamp,
+    MethodInvocation, NoopLogger, Sequential, ProviderRequest, Timestamp,
 };
 use tokio::runtime;
 
 struct TimestampFixture {
-    provider: Provider<L1ChainSpec, Arc<MockTime>>,
+    provider: Sequential<L1ChainSpec, Arc<MockTime>>,
     mock_timer: Arc<MockTime>,
 }
 
@@ -25,7 +25,7 @@ impl TimestampFixture {
 
         let mock_timer = Arc::new(MockTime::now());
 
-        let provider = Provider::new(
+        let provider = Sequential::new(
             runtime::Handle::current(),
             logger,
             subscription_callback_noop,

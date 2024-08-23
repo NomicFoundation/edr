@@ -1,11 +1,12 @@
 use edr_eth::chain_spec::L1ChainSpec;
 use edr_evm::trace::AfterMessage;
-use edr_napi_core::log::ExecutionLog;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Either, Env, JsBuffer, JsBufferValue,
 };
 use napi_derive::napi;
+
+use crate::log::ExecutionLog;
 
 /// The possible reasons for successful termination of the EVM.
 #[napi]

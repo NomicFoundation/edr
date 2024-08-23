@@ -1933,7 +1933,7 @@ where
         let result = self.mine_and_commit_block(BlockOptions::default())?;
 
         self.logger
-            .log_interval_mined(self.evm_spec_id(), &result)
+            .log_interval_mined(self.hardfork(), &result)
             .map_err(ProviderError::Logger)?;
 
         Ok(true)

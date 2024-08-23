@@ -2,7 +2,7 @@
 
 use edr_eth::{bytes, chain_spec::L1ChainSpec, Bytes};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
+    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Sequential,
     ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
@@ -20,7 +20,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
-    let provider = Provider::new(
+    let provider = Sequential::new(
         runtime::Handle::current(),
         logger,
         subscriber,
@@ -50,7 +50,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
-    let provider = Provider::new(
+    let provider = Sequential::new(
         runtime::Handle::current(),
         logger,
         subscriber,

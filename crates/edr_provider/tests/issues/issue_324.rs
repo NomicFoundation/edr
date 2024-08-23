@@ -3,7 +3,7 @@ use std::str::FromStr;
 use edr_eth::{chain_spec::L1ChainSpec, Address, Bytes, SpecId, U256};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Sequential, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_test_utils::env::get_alchemy_url;
@@ -30,7 +30,7 @@ async fn issue_324() -> anyhow::Result<()> {
     }));
     config.hardfork = SpecId::CANCUN;
 
-    let provider = Provider::new(
+    let provider = Sequential::new(
         runtime::Handle::current(),
         logger,
         subscriber,

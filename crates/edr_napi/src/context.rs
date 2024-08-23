@@ -1,18 +1,17 @@
 use std::{io, sync::Arc};
 
 use edr_eth::HashMap;
+use edr_napi_core::{
+    logger::LoggerConfig, provider::SyncProviderFactory, subscription::SubscriptionConfig,
+};
 use napi::{
     tokio::{runtime, sync::Mutex as AsyncMutex},
-    Env, JsFunction, JsObject, Status,
+    Env, JsObject, Status,
 };
 use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
-use crate::{
-    logger::{Logger, LoggerConfig},
-    provider::{Provider, ProviderConfig, ProviderFactory, SyncProvider, SyncProviderFactory},
-    subscribe::SubscriberCallback,
-};
+use crate::provider::{Provider, ProviderConfig, ProviderFactory};
 
 #[napi]
 pub struct EdrContext {
@@ -38,20 +37,26 @@ impl EdrContext {
         &self,
         env: Env,
         chain_type: String,
-        config: ProviderConfig,
+        provider_config: ProviderConfig,
         logger_config: LoggerConfig,
-        #[napi(ts_arg_type = "(event: SubscriptionEvent) => void")] subscriber_callback: JsFunction,
+        subscription_config: SubscriptionConfig,
     ) -> napi::Result<JsObject> {
-        let logger = Logger::new(&env, logger_config)?;
-        let subscriber_callback = SubscriberCallback::new(&env, subscriber_callback)?;
+        let provider_config = provider_config.try_into()?;
 
         let runtime = runtime::Handle::current();
-        let context = self.inner.clone();
+        let builder = {
+            let context = runtime.block_on(async { self.inner.lock().await });
+            context.create_provider_builder(
+                &env,
+                &chain_type,
+                provider_config,
+                logger_config,
+                subscription_config,
+            )?
+        };
 
         let (deferred, promise) = env.create_deferred()?;
         runtime.clone().spawn_blocking(move || {
-            let context = runtime.block_on(async { context.lock().await });
-
             // #[cfg(feature = "scenarios")]
             // let scenario_file =
             //     runtime::Handle::current().block_on(crate::scenarios::scenario_file(
@@ -59,17 +64,11 @@ impl EdrContext {
             //         edr_provider::Logger::is_enabled(&*logger),
             //     ))?;
 
-            let result = context
-                .create_provider(
-                    runtime.clone(),
-                    &chain_type,
-                    config,
-                    logger,
-                    subscriber_callback,
-                )
+            let result = builder
+                .build(runtime.clone())
                 .map(|provider| Provider::new(provider, runtime));
 
-            deferred.resolve(|_env| result)
+            deferred.resolve(|_env| result);
         });
 
         Ok(promise)
@@ -138,15 +137,16 @@ impl Context {
         self.provider_factories.insert(chain_type, factory);
     }
 
-    /// Tries to create a new provider for the provided chain type and configuration.
-    pub fn create_provider(
+    /// Tries to create a new provider for the provided chain type and
+    /// configuration.
+    pub fn create_provider_builder(
         &self,
-        runtime: runtime::Handle,
+        env: &napi::Env,
         chain_type: &str,
-        config: ProviderConfig,
-        logger: Logger,
-        subscriber_callback: SubscriberCallback,
-    ) -> napi::Result<Arc<dyn SyncProvider>> {
+        provider_config: edr_napi_core::provider::Config,
+        logger_config: LoggerConfig,
+        subscription_config: SubscriptionConfig,
+    ) -> napi::Result<Box<dyn edr_napi_core::provider::Builder>> {
         if let Some(factory) = self.provider_factories.get(chain_type) {
             // #[cfg(feature = "scenarios")]
             // let scenario_file = crate::scenarios::scenario_file(
@@ -155,7 +155,12 @@ impl Context {
             // )
             // .await?;
 
-            factory.create_provider(runtime, config, logger, subscriber_callback)
+            factory.create_provider_builder(
+                env,
+                provider_config,
+                logger_config,
+                subscription_config,
+            )
         } else {
             Err(napi::Error::new(
                 napi::Status::GenericFailure,

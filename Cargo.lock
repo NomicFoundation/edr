@@ -1168,14 +1168,13 @@ dependencies = [
 name = "edr_napi"
 version = "0.3.5"
 dependencies = [
- "ansi_term",
  "crossbeam-channel",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_napi_core",
  "edr_provider",
  "edr_rpc_eth",
- "itertools 0.12.1",
  "k256",
  "lazy_static",
  "log",
@@ -1192,6 +1191,25 @@ dependencies = [
  "tracing",
  "tracing-flame",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "edr_napi_core"
+version = "0.3.5"
+dependencies = [
+ "ansi_term",
+ "derive-where",
+ "edr_defaults",
+ "edr_eth",
+ "edr_evm",
+ "edr_provider",
+ "edr_rpc_client",
+ "itertools 0.12.1",
+ "napi",
+ "napi-derive",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

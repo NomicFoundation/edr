@@ -38,9 +38,9 @@ pub fn handle_call_request<
     let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
     let result = data.run_call(transaction.clone(), &block_spec, &state_overrides)?;
 
-    let evm_spec_id = data.evm_spec_id();
+    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_call(evm_spec_id, &transaction, &result)
+        .log_call(hardfork, &transaction, &result)
         .map_err(ProviderError::Logger)?;
 
     if data.bail_on_call_failure() {

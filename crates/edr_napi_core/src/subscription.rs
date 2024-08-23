@@ -1,4 +1,5 @@
-use edr_eth::{chain_spec::L1ChainSpec, B256};
+use edr_eth::B256;
+use edr_provider::{time::CurrentTime, ProviderSpec};
 use napi::{
     bindgen_prelude::BigInt,
     threadsafe_function::{
@@ -9,15 +10,15 @@ use napi::{
 use napi_derive::napi;
 
 #[derive(Clone)]
-pub struct SubscriberCallback {
-    inner: ThreadsafeFunction<edr_provider::SubscriptionEvent<L1ChainSpec>, ErrorStrategy::Fatal>,
+pub struct SubscriptionCallback<ChainSpecT: ProviderSpec<CurrentTime>> {
+    inner: ThreadsafeFunction<edr_provider::SubscriptionEvent<ChainSpecT>, ErrorStrategy::Fatal>,
 }
 
-impl SubscriberCallback {
+impl<ChainSpecT: ProviderSpec<CurrentTime>> SubscriptionCallback<ChainSpecT> {
     pub fn new(env: &Env, subscription_event_callback: JsFunction) -> napi::Result<Self> {
         let mut callback = subscription_event_callback.create_threadsafe_function(
             0,
-            |ctx: ThreadSafeCallContext<edr_provider::SubscriptionEvent<L1ChainSpec>>| {
+            |ctx: ThreadSafeCallContext<edr_provider::SubscriptionEvent<ChainSpecT>>| {
                 // SubscriptionEvent
                 let mut event = ctx.env.create_object()?;
 
@@ -28,7 +29,7 @@ impl SubscriberCallback {
                 let result = match ctx.value.result {
                     edr_provider::SubscriptionEventData::Logs(logs) => ctx.env.to_js_value(&logs),
                     edr_provider::SubscriptionEventData::NewHeads(block) => {
-                        let block = edr_rpc_eth::Block::<B256>::from(block);
+                        let block = ChainSpecT::RpcBlock::<B256>::from(block);
                         ctx.env.to_js_value(&block)
                     }
                     edr_provider::SubscriptionEventData::NewPendingTransactions(tx_hash) => {
@@ -49,11 +50,19 @@ impl SubscriberCallback {
         Ok(Self { inner: callback })
     }
 
-    pub fn call(&self, event: edr_provider::SubscriptionEvent<L1ChainSpec>) {
+    pub fn call(&self, event: edr_provider::SubscriptionEvent<ChainSpecT>) {
         // This is blocking because it's important that the subscription events are
         // in-order
         self.inner.call(event, ThreadsafeFunctionCallMode::Blocking);
     }
+}
+
+/// Configuration for subscriptions.
+#[napi(object)]
+pub struct SubscriptionConfig {
+    /// Callback to be called when a new event is received.
+    #[napi(ts_type = "(event: SubscriptionEvent) => void")]
+    pub subscription_callback: JsFunction,
 }
 
 #[napi(object)]

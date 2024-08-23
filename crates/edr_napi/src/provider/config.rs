@@ -6,6 +6,7 @@ use std::{
 
 use edr_eth::HashMap;
 use edr_evm::chain_spec::ChainSpec;
+use edr_napi_core::cast::TryCast;
 use edr_provider::AccountConfig;
 use napi::{
     bindgen_prelude::{BigInt, Buffer},
@@ -13,7 +14,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::{account::GenesisAccount, block::BlobGas, cast::TryCast};
+use crate::{account::GenesisAccount, block::BlobGas};
 
 /// Configuration for a chain
 #[napi(object)]
@@ -204,9 +205,7 @@ impl TryFrom<MiningConfig> for edr_provider::MiningConfig {
     }
 }
 
-impl<ChainSpecT: ChainSpec<Hardfork: for<'s> From<&'s str>>> TryFrom<ProviderConfig>
-    for edr_provider::ProviderConfig<ChainSpecT>
-{
+impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
     type Error = napi::Error;
 
     fn try_from(value: ProviderConfig) -> Result<Self, Self::Error> {
@@ -223,20 +222,20 @@ impl<ChainSpecT: ChainSpec<Hardfork: for<'s> From<&'s str>>> TryFrom<ProviderCon
                         .map(
                             |HardforkActivation {
                                  block_number,
-                                 spec_id,
+                                 spec_id: hardfork,
                              }| {
                                 let block_number = block_number.try_cast()?;
-                                let condition =
-                                    edr_evm::hardfork::ForkCondition::Block(block_number);
-                                let hardfork = ChainSpecT::Hardfork::from(&spec_id);
 
-                                Ok((condition, hardfork))
+                                Ok(edr_napi_core::provider::HardforkActivation {
+                                    block_number,
+                                    hardfork,
+                                })
                             },
                         )
                         .collect::<napi::Result<Vec<_>>>()?;
 
                     let chain_id = chain_id.try_cast()?;
-                    Ok((chain_id, edr_evm::hardfork::Activations::new(hardforks)))
+                    Ok((chain_id, hardforks))
                 },
             )
             .collect::<napi::Result<_>>()?;
@@ -249,8 +248,6 @@ impl<ChainSpecT: ChainSpec<Hardfork: for<'s> From<&'s str>>> TryFrom<ProviderCon
                 )
             })?;
 
-        let hardfork = ChainSpecT::Hardfork::from(&value.hardfork);
-
         Ok(Self {
             accounts: value
                 .genesis_accounts
@@ -262,18 +259,14 @@ impl<ChainSpecT: ChainSpec<Hardfork: for<'s> From<&'s str>>> TryFrom<ProviderCon
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit,
-            cache_dir: PathBuf::from(
-                value
-                    .cache_dir
-                    .unwrap_or(String::from(edr_defaults::CACHE_DIR)),
-            ),
+            cache_dir: value.cache_dir,
             chain_id: value.chain_id.try_cast()?,
             chains,
             coinbase: value.coinbase.try_cast()?,
             enable_rip_7212: value.enable_rip_7212,
             fork: value.fork.map(TryInto::try_into).transpose()?,
             genesis_accounts: HashMap::new(),
-            hardfork,
+            hardfork: value.hardfork,
             initial_base_fee_per_gas: value
                 .initial_base_fee_per_gas
                 .map(TryCast::try_cast)

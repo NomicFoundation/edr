@@ -7,9 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-ansi_term = { version = "0.12.1", default-features = false }
 crossbeam-channel = { version = "0.5.6", default-features = false }
-itertools = { version = "0.12.0", default-features = false }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", "precomputed-tables", "std"] }
 log = { version = "0.4.20", default-features = false }
 # when napi is pinned, be sure to pin napi-derive to the same version
@@ -19,6 +17,7 @@ napi-derive = "2.16.0"
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"]}
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
+edr_napi_core = { version = "0.3.5", path = "../edr_napi_core" }
 edr_provider = { version = "0.3.5", path = "../edr_provider" }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 serde_json = { version = "1.0.85", default-features = false, features = ["alloc"] }

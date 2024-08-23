@@ -1,21 +1,7 @@
 use std::sync::Arc;
 
-use napi::tokio::runtime;
+use edr_napi_core::provider::SyncProviderFactory;
 use napi_derive::napi;
-
-use crate::{logger::Logger, subscribe::SubscriberCallback};
-
-use super::{config::ProviderConfig, SyncProvider};
-
-pub trait SyncProviderFactory: Send + Sync {
-    fn create_provider(
-        &self,
-        runtime: runtime::Handle,
-        config: ProviderConfig,
-        logger: Logger,
-        subscriber_callback: SubscriberCallback,
-    ) -> napi::Result<Arc<dyn SyncProvider>>;
-}
 
 #[napi]
 pub struct ProviderFactory {

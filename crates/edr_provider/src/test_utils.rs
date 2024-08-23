@@ -98,7 +98,7 @@ pub fn pending_base_fee<
 /// Deploys a contract with the provided code. Returns the address of the
 /// contract.
 pub fn deploy_contract<TimerT>(
-    provider: &Provider<L1ChainSpec, TimerT>,
+    provider: &Sequential<L1ChainSpec, TimerT>,
     caller: Address,
     code: Bytes,
 ) -> anyhow::Result<Address>

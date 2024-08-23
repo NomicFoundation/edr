@@ -1,8 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use edr_eth::chain_spec::L1ChainSpec;
 use edr_evm::chain_spec::ChainSpec;
-use edr_provider::ProviderRequest;
 use napi::tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{de::DeserializeOwned, Serialize};
@@ -52,9 +50,9 @@ pub(crate) async fn scenario_file<ChainSpecT: ChainSpec<Hardfork: DeserializeOwn
 
 pub(crate) async fn write_request(
     scenario_file: &Mutex<File>,
-    request: &ProviderRequest<L1ChainSpec>,
+    request: &serde_json::Value,
 ) -> napi::Result<()> {
-    let mut line = serde_json::to_string(request)?;
+    let mut line = request.to_string();
     line.push('\n');
     {
         let mut scenario_file = scenario_file.lock().await;

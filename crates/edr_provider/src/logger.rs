@@ -20,11 +20,11 @@ pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
 
     fn log_call(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
         result: &CallResult<ChainSpecT>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _spec_id = spec_id;
+        let _hardfork = hardfork;
         let _transaction = transaction;
         let _result = result;
 
@@ -33,11 +33,11 @@ pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
 
     fn log_estimate_gas_failure(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
         result: &EstimateGasFailure<ChainSpecT>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _spec_id = spec_id;
+        let _hardfork = hardfork;
         let _transaction = transaction;
         let _failure = result;
 
@@ -46,10 +46,10 @@ pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
 
     fn log_interval_mined(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        hardfork: ChainSpecT::Hardfork,
         result: &DebugMineBlockResult<ChainSpecT, Self::BlockchainError>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _spec_id = spec_id;
+        let _hardfork = hardfork;
         let _result = result;
 
         Ok(())
@@ -57,10 +57,10 @@ pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
 
     fn log_mined_block(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        hardfork: ChainSpecT::Hardfork,
         results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _spec_id = spec_id;
+        let _hardfork = hardfork;
         let _results = results;
 
         Ok(())
@@ -68,11 +68,11 @@ pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
 
     fn log_send_transaction(
         &mut self,
-        spec_id: edr_eth::SpecId,
+        hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
         mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _spec_id = spec_id;
+        let _hardfork = hardfork;
         let _transaction = transaction;
         let _mining_results = mining_results;
 

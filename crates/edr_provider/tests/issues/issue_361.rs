@@ -5,7 +5,7 @@ use edr_eth::{
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Sequential, ProviderRequest,
 };
 use edr_rpc_eth::TransactionRequest;
 use tokio::runtime;
@@ -29,7 +29,7 @@ async fn issue_361() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Provider::new(
+    let provider = Sequential::new(
         runtime::Handle::current(),
         logger,
         subscriber,

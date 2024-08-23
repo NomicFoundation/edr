@@ -1,5 +1,5 @@
 use edr_eth::chain_spec::L1ChainSpec;
-use edr_provider::{test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider};
+use edr_provider::{test_utils::create_test_config, time::CurrentTime, NoopLogger, Sequential};
 use serde_json::json;
 use tokio::runtime;
 
@@ -9,7 +9,7 @@ async fn issue_346() -> anyhow::Result<()> {
     let config = create_test_config();
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
-    let provider = Provider::new(
+    let provider = Sequential::new(
         runtime::Handle::current(),
         logger,
         subscriber,

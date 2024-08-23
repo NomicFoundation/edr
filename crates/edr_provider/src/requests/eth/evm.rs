@@ -46,9 +46,9 @@ pub fn handle_mine_request<
 
     let traces = mine_block_result.transaction_traces.clone();
 
-    let spec_id = data.evm_spec_id();
+    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_mined_block(spec_id, &[mine_block_result])
+        .log_mined_block(hardfork, &[mine_block_result])
         .map_err(ProviderError::Logger)?;
 
     let result = String::from("0");

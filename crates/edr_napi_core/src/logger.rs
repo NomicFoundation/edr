@@ -1,20 +1,20 @@
-use std::{fmt::Display, sync::mpsc::channel};
+use core::fmt::Debug;
+use std::{fmt::Display, marker::PhantomData, sync::mpsc::channel};
 
 use ansi_term::{Color, Style};
-use edr_eth::{
-    chain_spec::L1ChainSpec,
-    result::ExecutionResult,
-    transaction::{self, ExecutableTransaction},
-    Bytes, B256, U256,
-};
+use derive_where::derive_where;
+use edr_eth::{result::ExecutionResult, transaction::ExecutableTransaction, Bytes, B256, U256};
 use edr_evm::{
     blockchain::BlockchainError,
     precompile::{self, Precompiles},
-    trace::{AfterMessage, TraceMessage},
+    trace::{AfterMessage, Trace, TraceMessage},
     transaction::Transaction as _,
     SyncBlock,
 };
-use edr_provider::{time::CurrentTime, ProviderError, TransactionFailure};
+use edr_provider::{
+    time::CurrentTime, CallResult, DebugMineBlockResult, EstimateGasFailure, ProviderError,
+    ProviderSpec, TransactionFailure,
+};
 use itertools::izip;
 use napi::{
     threadsafe_function::{
@@ -112,12 +112,12 @@ pub enum LoggerError {
     PrintLine,
 }
 
-#[derive(Clone)]
-pub struct Logger {
-    collector: LogCollector,
+#[derive_where(Clone)]
+pub struct Logger<ChainSpecT: ProviderSpec<CurrentTime>> {
+    collector: LogCollector<ChainSpecT>,
 }
 
-impl Logger {
+impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT> {
     pub fn new(env: &Env, config: LoggerConfig) -> napi::Result<Self> {
         Ok(Self {
             collector: LogCollector::new(env, config)?,
@@ -125,8 +125,11 @@ impl Logger {
     }
 }
 
-impl edr_provider::Logger<L1ChainSpec> for Logger {
-    type BlockchainError = BlockchainError<L1ChainSpec>;
+impl<ChainSpecT> edr_provider::Logger<ChainSpecT> for Logger<ChainSpecT>
+where
+    ChainSpecT: ProviderSpec<CurrentTime>,
+{
+    type BlockchainError = BlockchainError<ChainSpecT>;
 
     fn is_enabled(&self) -> bool {
         self.collector.is_enabled
@@ -138,34 +141,34 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
 
     fn log_call(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        result: &edr_provider::CallResult<L1ChainSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::Transaction,
+        result: &CallResult<ChainSpecT>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.collector.log_call(spec_id, transaction, result);
+        self.collector.log_call(hardfork, transaction, result);
 
         Ok(())
     }
 
     fn log_estimate_gas_failure(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        failure: &edr_provider::EstimateGasFailure<L1ChainSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::Transaction,
+        failure: &EstimateGasFailure<ChainSpecT>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
-            .log_estimate_gas(spec_id, transaction, failure);
+            .log_estimate_gas(hardfork, transaction, failure);
 
         Ok(())
     }
 
     fn log_interval_mined(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        mining_result: &edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>,
+        hardfork: ChainSpecT::Hardfork,
+        mining_result: &DebugMineBlockResult<ChainSpecT, Self::BlockchainError>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
-            .log_interval_mined(spec_id, mining_result)
+            .log_interval_mined(hardfork, mining_result)
             .map_err(Box::new)?;
 
         Ok(())
@@ -173,22 +176,22 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
 
     fn log_mined_block(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        mining_results: &[edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
+        hardfork: ChainSpecT::Hardfork,
+        mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.collector.log_mined_blocks(spec_id, mining_results);
+        self.collector.log_mined_blocks(hardfork, mining_results);
 
         Ok(())
     }
 
     fn log_send_transaction(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &edr_evm::transaction::Signed,
-        mining_results: &[edr_provider::DebugMineBlockResult<L1ChainSpec, Self::BlockchainError>],
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::Transaction,
+        mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
-            .log_send_transaction(spec_id, transaction, mining_results);
+            .log_send_transaction(hardfork, transaction, mining_results);
 
         Ok(())
     }
@@ -196,7 +199,7 @@ impl edr_provider::Logger<L1ChainSpec> for Logger {
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderError<L1ChainSpec>>,
+        error: Option<&ProviderError<ChainSpecT>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(error) = error {
             self.collector.state = LoggingState::Empty;
@@ -245,8 +248,8 @@ pub struct CollapsedMethod {
     method: String,
 }
 
-#[derive(Clone)]
-struct LogCollector {
+#[derive_where(Clone)]
+struct LogCollector<ChainSpecT: ProviderSpec<CurrentTime>> {
     decode_console_log_inputs_fn: ThreadsafeFunction<Vec<Bytes>, ErrorStrategy::Fatal>,
     get_contract_and_function_name_fn:
         ThreadsafeFunction<ContractAndFunctionNameCall, ErrorStrategy::Fatal>,
@@ -256,9 +259,10 @@ struct LogCollector {
     print_line_fn: ThreadsafeFunction<(String, bool), ErrorStrategy::Fatal>,
     state: LoggingState,
     title_length: usize,
+    phantom: PhantomData<ChainSpecT>,
 }
 
-impl LogCollector {
+impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     pub fn new(env: &Env, config: LoggerConfig) -> napi::Result<Self> {
         let mut decode_console_log_inputs_fn = config
             .decode_console_log_inputs_callback
@@ -337,16 +341,17 @@ impl LogCollector {
             print_line_fn,
             state: LoggingState::default(),
             title_length: 0,
+            phantom: PhantomData,
         })
     }
 
     pub fn log_call(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        result: &edr_provider::CallResult<L1ChainSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::Transaction,
+        result: &CallResult<ChainSpecT>,
     ) {
-        let edr_provider::CallResult {
+        let CallResult {
             console_log_inputs,
             execution_result,
             trace,
@@ -355,7 +360,7 @@ impl LogCollector {
         self.state = LoggingState::Empty;
 
         self.indented(|logger| {
-            logger.log_contract_and_function_name::<true>(spec_id, trace);
+            logger.log_contract_and_function_name::<true>(hardfork, trace);
 
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
             if let Some(to) = transaction.kind().to() {
@@ -368,7 +373,11 @@ impl LogCollector {
             logger.log_console_log_messages(console_log_inputs);
 
             if let Some(transaction_failure) =
-                TransactionFailure::<L1ChainSpec>::from_execution_result::<L1ChainSpec, CurrentTime>(execution_result, None, trace)
+                TransactionFailure::<ChainSpecT>::from_execution_result::<ChainSpecT, CurrentTime>(
+                    execution_result,
+                    None,
+                    trace,
+                )
             {
                 logger.log_transaction_failure(&transaction_failure);
             }
@@ -377,11 +386,11 @@ impl LogCollector {
 
     pub fn log_estimate_gas(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        result: &edr_provider::EstimateGasFailure<L1ChainSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::Transaction,
+        result: &EstimateGasFailure<ChainSpecT>,
     ) {
-        let edr_provider::EstimateGasFailure {
+        let EstimateGasFailure {
             console_log_inputs,
             transaction_failure,
         } = result;
@@ -390,7 +399,7 @@ impl LogCollector {
 
         self.indented(|logger| {
             logger.log_contract_and_function_name::<true>(
-                spec_id,
+                hardfork,
                 &transaction_failure.failure.solidity_trace,
             );
 
@@ -406,7 +415,7 @@ impl LogCollector {
         });
     }
 
-    fn log_transaction_failure(&mut self, failure: &edr_provider::TransactionFailure<L1ChainSpec>) {
+    fn log_transaction_failure(&mut self, failure: &edr_provider::TransactionFailure<ChainSpecT>) {
         let is_revert_error = matches!(
             failure.reason,
             edr_provider::TransactionFailureReason::Revert(_)
@@ -424,11 +433,8 @@ impl LogCollector {
 
     pub fn log_mined_blocks(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        mining_results: &[edr_provider::DebugMineBlockResult<
-            L1ChainSpec,
-            BlockchainError<L1ChainSpec>,
-        >],
+        hardfork: ChainSpecT::Hardfork,
+        mining_results: &[DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>],
     ) {
         let num_results = mining_results.len();
         for (idx, mining_result) in mining_results.iter().enumerate() {
@@ -445,7 +451,7 @@ impl LogCollector {
                     ),
                 };
             } else {
-                self.log_hardhat_mined_block(spec_id, mining_result);
+                self.log_hardhat_mined_block(hardfork, mining_result);
 
                 if idx < num_results - 1 {
                     self.log_empty_line();
@@ -456,11 +462,8 @@ impl LogCollector {
 
     pub fn log_interval_mined(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        mining_result: &edr_provider::DebugMineBlockResult<
-            L1ChainSpec,
-            BlockchainError<L1ChainSpec>,
-        >,
+        hardfork: ChainSpecT::Hardfork,
+        mining_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
     ) -> Result<(), LoggerError> {
         let block_header = mining_result.block.header();
         let block_number = block_header.number;
@@ -489,7 +492,7 @@ impl LogCollector {
                 ),
             };
         } else {
-            self.log_interval_mined_block(spec_id, mining_result);
+            self.log_interval_mined_block(hardfork, mining_result);
 
             self.print::<false>(format!("Mined block #{block_number}"))?;
 
@@ -504,12 +507,9 @@ impl LogCollector {
 
     pub fn log_send_transaction(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &edr_evm::transaction::Signed,
-        mining_results: &[edr_provider::DebugMineBlockResult<
-            L1ChainSpec,
-            BlockchainError<L1ChainSpec>,
-        >],
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::Transaction,
+        mining_results: &[DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>],
     ) {
         if !mining_results.is_empty() {
             self.state = LoggingState::Empty;
@@ -532,12 +532,12 @@ impl LogCollector {
             if mining_results.len() > 1 {
                 self.log_multiple_blocks_warning();
                 self.log_auto_mined_block_results(
-                    spec_id,
+                    hardfork,
                     mining_results,
                     transaction.transaction_hash(),
                 );
                 self.log_currently_sent_transaction(
-                    spec_id,
+                    hardfork,
                     sent_block_result,
                     transaction,
                     sent_transaction_result,
@@ -548,19 +548,19 @@ impl LogCollector {
                 if transactions.len() > 1 {
                     self.log_multiple_transactions_warning();
                     self.log_auto_mined_block_results(
-                        spec_id,
+                        hardfork,
                         mining_results,
                         transaction.transaction_hash(),
                     );
                     self.log_currently_sent_transaction(
-                        spec_id,
+                        hardfork,
                         sent_block_result,
                         transaction,
                         sent_transaction_result,
                         sent_trace,
                     );
                 } else if let Some(transaction) = transactions.first() {
-                    self.log_single_transaction_mining_result(spec_id, result, transaction);
+                    self.log_single_transaction_mining_result(hardfork, result, transaction);
                 }
             }
         }
@@ -635,12 +635,12 @@ impl LogCollector {
 
     fn log_auto_mined_block_results(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        results: &[edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>],
+        hardfork: ChainSpecT::Hardfork,
+        results: &[DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>],
         sent_transaction_hash: &B256,
     ) {
         for result in results {
-            self.log_block_from_auto_mine(spec_id, result, sent_transaction_hash);
+            self.log_block_from_auto_mine(hardfork, result, sent_transaction_hash);
         }
     }
 
@@ -652,11 +652,11 @@ impl LogCollector {
 
     fn log_block_from_auto_mine(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        result: &edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
+        hardfork: ChainSpecT::Hardfork,
+        result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
         transaction_hash_to_highlight: &edr_eth::B256,
     ) {
-        let edr_provider::DebugMineBlockResult {
+        let DebugMineBlockResult {
             block,
             transaction_results,
             transaction_traces,
@@ -686,7 +686,7 @@ impl LogCollector {
                     let should_highlight_hash =
                         *transaction.transaction_hash() == *transaction_hash_to_highlight;
                     logger.log_block_transaction(
-                        spec_id,
+                        hardfork,
                         transaction,
                         result,
                         trace,
@@ -704,7 +704,7 @@ impl LogCollector {
 
     fn log_block_hash(
         &mut self,
-        block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
+        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     ) {
         let block_hash = block.hash();
 
@@ -713,7 +713,7 @@ impl LogCollector {
 
     fn log_block_id(
         &mut self,
-        block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
+        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     ) {
         let block_number = block.header().number;
         let block_hash = block.hash();
@@ -723,7 +723,7 @@ impl LogCollector {
 
     fn log_block_number(
         &mut self,
-        block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
+        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     ) {
         let block_number = block.header().number;
 
@@ -733,10 +733,10 @@ impl LogCollector {
     /// Logs a transaction that's part of a block.
     fn log_block_transaction(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &edr_evm::transaction::Signed,
-        result: &edr_eth::result::ExecutionResult<L1ChainSpec>,
-        trace: &edr_evm::trace::Trace<L1ChainSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::Transaction,
+        result: &ExecutionResult<ChainSpecT>,
+        trace: &Trace<ChainSpecT>,
         console_log_inputs: &[Bytes],
         should_highlight_hash: bool,
     ) {
@@ -751,7 +751,7 @@ impl LogCollector {
         }
 
         self.indented(|logger| {
-            logger.log_contract_and_function_name::<false>(spec_id, trace);
+            logger.log_contract_and_function_name::<false>(hardfork, trace);
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
             if let Some(to) = transaction.kind().to() {
                 logger.log_with_title("To", format!("0x{to:x}"));
@@ -769,8 +769,8 @@ impl LogCollector {
             logger.log_console_log_messages(console_log_inputs);
 
             let transaction_failure =
-                edr_provider::TransactionFailure::<L1ChainSpec>::from_execution_result::<
-                    L1ChainSpec,
+                edr_provider::TransactionFailure::<ChainSpecT>::from_execution_result::<
+                    ChainSpecT,
                     CurrentTime,
                 >(result, Some(transaction_hash), trace);
 
@@ -825,15 +825,16 @@ impl LogCollector {
 
     fn log_contract_and_function_name<const PRINT_INVALID_CONTRACT_WARNING: bool>(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        trace: &edr_evm::trace::Trace<L1ChainSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        trace: &Trace<ChainSpecT>,
     ) {
         if let Some(TraceMessage::Before(before_message)) = trace.messages.first() {
             if let Some(to) = before_message.to {
                 // Call
                 let is_precompile = {
-                    let precompiles =
-                        Precompiles::new(precompile::PrecompileSpecId::from_spec_id(spec_id));
+                    let precompiles = Precompiles::new(precompile::PrecompileSpecId::from_spec_id(
+                        hardfork.into(),
+                    ));
                     precompiles.contains(&to)
                 };
 
@@ -909,7 +910,7 @@ impl LogCollector {
 
     fn log_empty_block(
         &mut self,
-        block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
+        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     ) {
         let block_header = block.header();
         let block_number = block_header.number;
@@ -935,7 +936,7 @@ impl LogCollector {
 
     fn log_hardhat_mined_empty_block(
         &mut self,
-        block: &dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>,
+        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
         empty_blocks_range_start: Option<u64>,
     ) {
         self.indented(|logger| {
@@ -953,10 +954,10 @@ impl LogCollector {
     /// Logs the result of interval mining a block.
     fn log_interval_mined_block(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        result: &edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
+        hardfork: ChainSpecT::Hardfork,
+        result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
     ) {
-        let edr_provider::DebugMineBlockResult {
+        let DebugMineBlockResult {
             block,
             transaction_results,
             transaction_traces,
@@ -984,7 +985,7 @@ impl LogCollector {
                     transaction_traces
                 ) {
                     logger.log_block_transaction(
-                        spec_id,
+                        hardfork,
                         transaction,
                         result,
                         trace,
@@ -1000,10 +1001,10 @@ impl LogCollector {
 
     fn log_hardhat_mined_block(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        result: &edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
+        hardfork: ChainSpecT::Hardfork,
+        result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
     ) {
-        let edr_provider::DebugMineBlockResult {
+        let DebugMineBlockResult {
             block,
             transaction_results,
             transaction_traces,
@@ -1035,7 +1036,7 @@ impl LogCollector {
                             transaction_traces
                         ) {
                             logger.log_block_transaction(
-                                spec_id,
+                                hardfork,
                                 transaction,
                                 result,
                                 trace,
@@ -1081,14 +1082,11 @@ impl LogCollector {
 
     fn log_currently_sent_transaction(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        block_result: &edr_provider::DebugMineBlockResult<
-            L1ChainSpec,
-            BlockchainError<L1ChainSpec>,
-        >,
-        transaction: &transaction::Signed,
-        transaction_result: &edr_eth::result::ExecutionResult<L1ChainSpec>,
-        trace: &edr_evm::trace::Trace<L1ChainSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        block_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        transaction: &ChainSpecT::Transaction,
+        transaction_result: &ExecutionResult<ChainSpecT>,
+        trace: &Trace<ChainSpecT>,
     ) {
         self.indented(|logger| {
             logger.log("Currently sent transaction:");
@@ -1096,7 +1094,7 @@ impl LogCollector {
         });
 
         self.log_transaction(
-            spec_id,
+            hardfork,
             block_result,
             transaction,
             transaction_result,
@@ -1106,9 +1104,9 @@ impl LogCollector {
 
     fn log_single_transaction_mining_result(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        result: &edr_provider::DebugMineBlockResult<L1ChainSpec, BlockchainError<L1ChainSpec>>,
-        transaction: &transaction::Signed,
+        hardfork: ChainSpecT::Hardfork,
+        result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        transaction: &ChainSpecT::Transaction,
     ) {
         let trace = result
             .transaction_traces
@@ -1120,22 +1118,19 @@ impl LogCollector {
             .first()
             .expect("A transaction exists, so the result must exist as well.");
 
-        self.log_transaction(spec_id, result, transaction, transaction_result, trace);
+        self.log_transaction(hardfork, result, transaction, transaction_result, trace);
     }
 
     fn log_transaction(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        block_result: &edr_provider::DebugMineBlockResult<
-            L1ChainSpec,
-            BlockchainError<L1ChainSpec>,
-        >,
-        transaction: &transaction::Signed,
-        transaction_result: &edr_eth::result::ExecutionResult<L1ChainSpec>,
-        trace: &edr_evm::trace::Trace<L1ChainSpec>,
+        hardfork: ChainSpecT::Hardfork,
+        block_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        transaction: &ChainSpecT::Transaction,
+        transaction_result: &ExecutionResult<ChainSpecT>,
+        trace: &Trace<ChainSpecT>,
     ) {
         self.indented(|logger| {
-            logger.log_contract_and_function_name::<false>(spec_id, trace);
+            logger.log_contract_and_function_name::<false>(hardfork, trace);
 
             let transaction_hash = transaction.transaction_hash();
             logger.log_with_title("Transaction", transaction_hash);
@@ -1160,8 +1155,8 @@ impl LogCollector {
             logger.log_console_log_messages(&block_result.console_log_inputs);
 
             let transaction_failure =
-                edr_provider::TransactionFailure::<L1ChainSpec>::from_execution_result::<
-                    L1ChainSpec,
+                edr_provider::TransactionFailure::<ChainSpecT>::from_execution_result::<
+                    ChainSpecT,
                     CurrentTime,
                 >(transaction_result, Some(transaction_hash), trace);
 
