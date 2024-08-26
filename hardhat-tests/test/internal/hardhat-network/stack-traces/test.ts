@@ -21,9 +21,10 @@ import {
 import {
   SolidityStackTraceEntry,
   StackTraceEntryType,
+  stackTraceEntryTypeToString,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
 import { SolidityTracer } from "hardhat/internal/hardhat-network/stack-traces/solidityTracer";
-import { VmTraceDecoder } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
+import { VmTraceDecoderT } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
 import { SUPPORTED_SOLIDITY_VERSION_RANGE } from "hardhat/internal/hardhat-network/stack-traces/constants";
 import {
   BuildInfo,
@@ -303,7 +304,7 @@ function compareStackTraces(
     const actual = trace[i];
     const expected = description[i];
 
-    const actualErrorType = StackTraceEntryType[actual.type];
+    const actualErrorType = stackTraceEntryTypeToString(actual.type);
     const expectedErrorType = expected.type;
 
     if (
@@ -322,19 +323,15 @@ function compareStackTraces(
       `Stack trace of tx ${txIndex} entry ${i} type is incorrect: expected ${expectedErrorType}, got ${actualErrorType}`
     );
 
-    const actualMessage = "message" in actual ? actual.message : undefined;
-
-    // actual.message is a ReturnData in revert errors, but a string
-    // in custom errors
-    let decodedMessage = "";
-    if (typeof actualMessage === "string") {
-      decodedMessage = actualMessage;
-    } else if (
-      actualMessage instanceof ReturnData &&
-      actualMessage.isErrorReturnData()
-    ) {
-      decodedMessage = actualMessage.decodeError();
-    }
+    // actual.message is a ReturnData in revert errors but in custom errors
+    // we need to decode it
+    const decodedMessage =
+      "message" in actual
+        ? actual.message
+        : "returnData" in actual &&
+            new ReturnData(actual.returnData).isErrorReturnData()
+          ? new ReturnData(actual.returnData).decodeError()
+          : "";
 
     if (expected.message !== undefined) {
       assert.equal(
@@ -532,7 +529,7 @@ async function runTest(
     compareConsoleLogs(logger.lines, tx.consoleLogs);
 
     // eslint-disable-next-line @typescript-eslint/dot-notation
-    const vmTraceDecoder = provider["_vmTraceDecoder"] as VmTraceDecoder;
+    const vmTraceDecoder = provider["_vmTraceDecoder"] as VmTraceDecoderT;
     const decodedTrace = vmTraceDecoder.tryToDecodeMessageTrace(trace);
 
     try {
