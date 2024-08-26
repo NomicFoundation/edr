@@ -3,13 +3,9 @@ use std::borrow::Cow;
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Address;
 use foundry_common::{ArtifactId, ContractsByArtifact};
-use foundry_config::{Chain, Config};
 
 mod local;
 pub use local::LocalTraceIdentifier;
-
-mod etherscan;
-pub use etherscan::EtherscanIdentifier;
 
 mod signatures;
 pub use signatures::{SignaturesIdentifier, SingleSignaturesIdentifier};
@@ -43,8 +39,6 @@ pub trait TraceIdentifier {
 pub struct TraceIdentifiers<'a> {
     /// The local trace identifier.
     pub local: Option<LocalTraceIdentifier<'a>>,
-    /// The optional Etherscan trace identifier.
-    pub etherscan: Option<EtherscanIdentifier>,
 }
 
 impl Default for TraceIdentifiers<'_> {
@@ -62,9 +56,6 @@ impl TraceIdentifier for TraceIdentifiers<'_> {
         if let Some(local) = &mut self.local {
             identities.extend(local.identify_addresses(addresses.clone()));
         }
-        if let Some(etherscan) = &mut self.etherscan {
-            identities.extend(etherscan.identify_addresses(addresses));
-        }
         identities
     }
 }
@@ -72,10 +63,7 @@ impl TraceIdentifier for TraceIdentifiers<'_> {
 impl<'a> TraceIdentifiers<'a> {
     /// Creates a new, empty instance.
     pub const fn new() -> Self {
-        Self {
-            local: None,
-            etherscan: None,
-        }
+        Self { local: None }
     }
 
     /// Sets the local identifier.
@@ -84,14 +72,8 @@ impl<'a> TraceIdentifiers<'a> {
         self
     }
 
-    /// Sets the etherscan identifier.
-    pub fn with_etherscan(mut self, config: &Config, chain: Option<Chain>) -> eyre::Result<Self> {
-        self.etherscan = EtherscanIdentifier::new(config, chain)?;
-        Ok(self)
-    }
-
     /// Returns `true` if there are no set identifiers.
     pub fn is_empty(&self) -> bool {
-        self.local.is_none() && self.etherscan.is_none()
+        self.local.is_none()
     }
 }
