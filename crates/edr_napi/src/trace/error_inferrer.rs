@@ -348,7 +348,7 @@ impl ErrorInferrer {
         let bytecode = bytecode.as_ref().expect("JS code asserts");
 
         if steps.is_empty() {
-          return Ok(Heuristic::Miss(stacktrace));
+            return Ok(Heuristic::Miss(stacktrace));
         }
 
         for step_index in (0..steps.len() - 1).rev() {
