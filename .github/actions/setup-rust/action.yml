@@ -1,0 +1,13 @@
+name: Setup rust
+description: Sets up rust
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust (stable)
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        override: true
+
+    - uses: Swatinem/rust-cache@v2

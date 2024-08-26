@@ -219,12 +219,18 @@ impl ContractsIdentifier {
                 let mut normalized_code = code.clone();
                 // zero out addresses
                 for pos in &bytecode_with_libraries.library_address_positions {
+                    if (*pos as usize + Address::len_bytes()) > normalized_code.len() {
+                        continue;
+                    }
                     normalized_code[*pos as usize..][..Address::len_bytes()].fill(0);
                 }
                 // zero out slices
                 for ImmutableReference { start, length } in
                     &bytecode_with_libraries.immutable_references
                 {
+                    if *start as usize + *length as usize > normalized_code.len() {
+                        continue;
+                    }
                     normalized_code[*start as usize..][..*length as usize].fill(0);
                 }
 

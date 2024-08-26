@@ -195,9 +195,8 @@ export async function downloadCompiler(solidityVersion: string): Promise<void> {
     compilersCache
   );
 
-  const isCompilerDownloaded = await downloader.isCompilerDownloaded(
-    solidityVersion
-  );
+  const isCompilerDownloaded =
+    await downloader.isCompilerDownloaded(solidityVersion);
 
   if (!isCompilerDownloaded) {
     console.log("Downloading solc", solidityVersion);
@@ -219,9 +218,8 @@ export async function downloadCompiler(solidityVersion: string): Promise<void> {
     compilersCache
   );
 
-  const isWasmCompilerDownloaded = await downloader.isCompilerDownloaded(
-    solidityVersion
-  );
+  const isWasmCompilerDownloaded =
+    await downloader.isCompilerDownloaded(solidityVersion);
 
   if (!isWasmCompilerDownloaded) {
     console.log("Downloading solcjs", solidityVersion);

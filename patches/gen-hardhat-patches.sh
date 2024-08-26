@@ -16,8 +16,6 @@ pnpm patch hardhat --edit-dir $temp_dir
 cd $temp_dir
 
 COMMITS=(
-  # Adapt to the EDR v0.5 breaking changes (drop when Hardhat v2.22.7 releases)
-  f944cd54eb65d78f6ce54248fb5c573aadc7281c
   # refactor: Remove dead code and hide unnecessarily public properties
   5739893bf382b4e937b44995ca7917cbbd39de12
   # refactor: Re-use the compiler to model and opcodes logic from EDR
@@ -48,6 +46,8 @@ COMMITS=(
   cb1e10ff142964e0afaecf4753bc82398810195f
   # Port debug.ts
   ebff4c53e0d4c290e7e2f11f2559c6d1b79ee628
+  # Add await in provider creation (remove once we upgrade to v2.22.10)
+  ecb36651e220200abeb8b82ce7336466580611bc
 )
 
 for commit in "${COMMITS[@]}"; do

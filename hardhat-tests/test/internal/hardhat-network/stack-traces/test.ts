@@ -6,7 +6,7 @@ import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/pr
 import { ReturnData } from "hardhat/internal/hardhat-network/provider/return-data";
 import {
   ConsoleLogs,
-  consoleLogToString,
+  ConsoleLogger,
 } from "hardhat/internal/hardhat-network/stack-traces/consoleLogger";
 import {
   printMessageTrace,
@@ -94,7 +94,7 @@ interface DeploymentTransaction {
   };
   stackTrace?: StackFrameDescription[]; // No stack trace === the tx MUST be successful
   imports?: string[]; // Imports needed for successful compilation
-  consoleLogs?: ConsoleLogs[];
+  consoleLogs?: ConsoleLogs;
   gas?: number;
 }
 
@@ -109,7 +109,7 @@ interface CallTransaction {
   // The second one is with function and parms
   function?: string; // Default: no data
   params?: Array<string | number>; // Default: no param
-  consoleLogs?: ConsoleLogs[];
+  consoleLogs?: ConsoleLogs;
   gas?: number;
 }
 
@@ -329,9 +329,9 @@ function compareStackTraces(
       "message" in actual
         ? actual.message
         : "returnData" in actual &&
-          new ReturnData(actual.returnData).isErrorReturnData()
-        ? new ReturnData(actual.returnData).decodeError()
-        : "";
+            new ReturnData(actual.returnData).isErrorReturnData()
+          ? new ReturnData(actual.returnData).decodeError()
+          : "";
 
     if (expected.message !== undefined) {
       assert.equal(
@@ -435,7 +435,7 @@ function compareStackTraces(
   assert.lengthOf(trace, description.length);
 }
 
-function compareConsoleLogs(logs: string[], expectedLogs?: ConsoleLogs[]) {
+function compareConsoleLogs(logs: string[], expectedLogs?: ConsoleLogs) {
   if (expectedLogs === undefined) {
     return;
   }
@@ -444,7 +444,7 @@ function compareConsoleLogs(logs: string[], expectedLogs?: ConsoleLogs[]) {
 
   for (let i = 0; i < logs.length; i++) {
     const actual = logs[i];
-    const expected = consoleLogToString(expectedLogs[i]);
+    const expected = ConsoleLogger.format(expectedLogs[i]);
 
     assert.equal(actual, expected);
   }
@@ -769,12 +769,12 @@ describe("Stack traces", function () {
       const testsDir = semver.satisfies(customSolcVersion, "^0.5.0")
         ? "0_5"
         : semver.satisfies(customSolcVersion, "^0.6.0")
-        ? "0_6"
-        : semver.satisfies(customSolcVersion, "^0.7.0")
-        ? "0_7"
-        : semver.satisfies(customSolcVersion, "^0.8.0")
-        ? "0_8"
-        : null;
+          ? "0_6"
+          : semver.satisfies(customSolcVersion, "^0.7.0")
+            ? "0_7"
+            : semver.satisfies(customSolcVersion, "^0.8.0")
+              ? "0_8"
+              : null;
 
       if (testsDir === null) {
         console.error(`There are no tests for version ${customSolcVersion}`);
