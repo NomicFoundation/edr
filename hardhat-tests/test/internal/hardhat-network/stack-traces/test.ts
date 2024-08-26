@@ -21,7 +21,6 @@ import {
 import {
   SolidityStackTraceEntry,
   StackTraceEntryType,
-  stackTraceEntryTypeToString,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
 import { SolidityTracer } from "hardhat/internal/hardhat-network/stack-traces/solidityTracer";
 import { VmTraceDecoder } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
@@ -304,7 +303,7 @@ function compareStackTraces(
     const actual = trace[i];
     const expected = description[i];
 
-    const actualErrorType = stackTraceEntryTypeToString(actual.type);
+    const actualErrorType = StackTraceEntryType[actual.type];
     const expectedErrorType = expected.type;
 
     if (
@@ -323,15 +322,19 @@ function compareStackTraces(
       `Stack trace of tx ${txIndex} entry ${i} type is incorrect: expected ${expectedErrorType}, got ${actualErrorType}`
     );
 
-    // actual.message is a ReturnData in revert errors but in custom errors
-    // we need to decode it
-    const decodedMessage =
-      "message" in actual
-        ? actual.message
-        : "returnData" in actual &&
-            new ReturnData(actual.returnData).isErrorReturnData()
-          ? new ReturnData(actual.returnData).decodeError()
-          : "";
+    const actualMessage = "message" in actual ? actual.message : undefined;
+
+    // actual.message is a ReturnData in revert errors, but a string
+    // in custom errors
+    let decodedMessage = "";
+    if (typeof actualMessage === "string") {
+      decodedMessage = actualMessage;
+    } else if (
+      actualMessage instanceof ReturnData &&
+      actualMessage.isErrorReturnData()
+    ) {
+      decodedMessage = actualMessage.decodeError();
+    }
 
     if (expected.message !== undefined) {
       assert.equal(
@@ -348,7 +351,7 @@ function compareStackTraces(
     }
 
     if (expected.value !== undefined) {
-      const actualValue = (actual as any).value;
+      const actualValue = "value" in actual ? actual.value : undefined;
 
       assert.isDefined(
         actualValue,
@@ -358,8 +361,8 @@ function compareStackTraces(
       const expectedValue = BigInt(expected.value);
 
       assert.isTrue(
-        expectedValue === (actual as any).value,
-        `Stack trace of tx ${txIndex} entry ${i} has value ${actualValue.toString(
+        expectedValue === actualValue,
+        `Stack trace of tx ${txIndex} entry ${i} has value ${actualValue!.toString(
           10
         )} and should have ${expectedValue.toString(10)}`
       );
@@ -371,14 +374,15 @@ function compareStackTraces(
     }
 
     if (expected.errorCode !== undefined) {
-      const actualErrorCode = (actual as any).errorCode;
+      const actualErrorCode =
+        "errorCode" in actual ? actual.errorCode : undefined;
 
       assert.isDefined(
         actualErrorCode,
         `Stack trace of tx ${txIndex} entry ${i} should have an errorCode`
       );
 
-      const actualErrorCodeHex = actualErrorCode.toString(16);
+      const actualErrorCodeHex = actualErrorCode!.toString(16);
 
       assert.isTrue(
         expected.errorCode === actualErrorCodeHex,
