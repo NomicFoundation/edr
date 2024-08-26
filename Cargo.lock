@@ -2420,6 +2420,7 @@ dependencies = [
 name = "foundry-common"
 version = "0.3.8"
 dependencies = [
+ "alloy-chains",
  "alloy-consensus",
  "alloy-contract",
  "alloy-dyn-abi",
@@ -2442,7 +2443,6 @@ dependencies = [
  "eyre",
  "foundry-block-explorers",
  "foundry-compilers",
- "foundry-config",
  "foundry-linking",
  "foundry-macros",
  "glob",
