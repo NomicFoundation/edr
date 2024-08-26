@@ -99,12 +99,7 @@ mod invariant;
 pub use invariant::InvariantConfig;
 use providers::remappings::RemappingsProvider;
 
-use crate::fs_permissions::PathPermission;
-
-mod inline;
-pub use inline::{validate_profiles, InlineConfig, InlineConfigError, InlineConfigParser, NatSpec};
-
-use crate::etherscan::EtherscanEnvProvider;
+use crate::{etherscan::EtherscanEnvProvider, fs_permissions::PathPermission};
 
 /// Foundry configuration
 ///

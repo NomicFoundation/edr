@@ -216,7 +216,9 @@ test_repro!(5929);
 test_repro!(5935);
 
 // <https://github.com/foundry-rs/foundry/issues/5948>
-test_repro!(5948);
+test_repro!(5948; |config| {
+    config.runner.test_options.fuzz.runs = 2;
+});
 
 // https://github.com/foundry-rs/foundry/issues/6006
 test_repro!(6006);

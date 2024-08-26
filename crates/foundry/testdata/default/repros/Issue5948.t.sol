@@ -8,7 +8,6 @@ import "cheats/Vm.sol";
 contract Issue5948Test is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
-    /// forge-config: default.fuzz.runs = 2
     function testSleepFuzzed(uint256 _milliseconds) public {
         // Limit sleep time to 2 seconds to decrease test time
         uint256 milliseconds = _milliseconds % 2000;

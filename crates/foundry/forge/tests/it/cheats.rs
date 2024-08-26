@@ -1,7 +1,7 @@
 //! Forge tests for cheatcodes.
-
 use edr_test_utils::SolidityTestFilter;
 use foundry_config::{fs_permissions::PathPermission, FsPermissions};
+use serial_test::serial;
 
 use crate::{
     config::*,
@@ -16,7 +16,7 @@ use crate::{
 async fn test_cheats_local(test_data: &ForgeTestData) {
     let mut filter = SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}*"))
         .exclude_paths("Fork")
-        .exclude_contracts("Isolated");
+        .exclude_contracts("Isolated|Sleep");
 
     // Exclude FFI tests on Windows because no `echo`, and file tests that expect
     // certain file paths
@@ -47,21 +47,37 @@ async fn test_cheats_local_isolated(test_data: &ForgeTestData) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[serial]
 async fn test_cheats_local_default() {
     test_cheats_local(&TEST_DATA_DEFAULT).await;
 }
 
+// Need custom fuzz config to speed it up
+#[serial]
 #[tokio::test(flavor = "multi_thread")]
+async fn test_cheats_sleep_test() {
+    let filter = SolidityTestFilter::new(".*", "Sleep", &format!(".*cheats{RE_PATH_SEPARATOR}*"));
+
+    let mut runner = TEST_DATA_DEFAULT.runner();
+    runner.test_options.fuzz.runs = 2;
+
+    TestConfig::with_filter(runner, filter).run().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[serial]
 async fn test_cheats_local_default_isolated() {
     test_cheats_local_isolated(&TEST_DATA_DEFAULT).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[serial]
 async fn test_cheats_local_multi_version() {
     test_cheats_local(&TEST_DATA_MULTI_VERSION).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[serial]
 async fn test_cheats_local_cancun() {
     test_cheats_local(&TEST_DATA_CANCUN).await;
 }

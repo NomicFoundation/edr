@@ -27,9 +27,6 @@ contract FindFromReturnValueTest is DSTest {
         target = new FindFromReturnValue();
     }
 
-    /// forge-config: default.invariant.runs = 50
-    /// forge-config: default.invariant.depth = 300
-    /// forge-config: default.invariant.fail-on-revert = true
     function invariant_value_not_found() public view {
         require(!target.found(), "value from return found");
     }
@@ -60,9 +57,6 @@ contract FindFromLogValueTest is DSTest {
         target = new FindFromLogValue();
     }
 
-    /// forge-config: default.invariant.runs = 50
-    /// forge-config: default.invariant.depth = 300
-    /// forge-config: default.invariant.fail-on-revert = true
     function invariant_value_not_found() public view {
         require(!target.found(), "value from logs found");
     }
