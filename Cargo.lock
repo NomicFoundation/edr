@@ -2392,6 +2392,7 @@ dependencies = [
  "proptest",
  "rayon",
  "serde",
+ "serial_test",
  "similar-asserts",
  "svm-rs",
  "tempfile",
