@@ -1,11 +1,10 @@
 use edr_evm::interpreter::OpCode;
+use edr_solidity::build_model::{Instruction, JumpType};
 use napi::{
     bindgen_prelude::{Either3, Either4},
     Either,
 };
 use napi_derive::napi;
-
-use edr_solidity::build_model::{Instruction, JumpType};
 
 use super::{
     error_inferrer::{

@@ -2,21 +2,20 @@
 //! Ported from `hardhat-network/stack-traces/compiler-to-model.ts`.
 #![allow(missing_docs)] // TODO: Document this module
 
-use std::cell::RefCell;
-use std::str::FromStr;
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 
 use anyhow::{self, Context as _};
 use edr_evm::{alloy_primitives::keccak256, hex};
 use indexmap::IndexMap;
 
-use crate::artifacts::{CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry};
-use crate::library_utils::{get_library_address_positions, normalize_compiler_output_bytecode};
-use crate::source_map::decode_instructions;
-
-use crate::build_model::{
-    Bytecode, Contract, ContractFunction, ContractFunctionType, ContractFunctionVisibility,
-    ContractKind, CustomError, SourceFile, SourceLocation,
+use crate::{
+    artifacts::{CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry},
+    build_model::{
+        Bytecode, Contract, ContractFunction, ContractFunctionType, ContractFunctionVisibility,
+        ContractKind, CustomError, SourceFile, SourceLocation,
+    },
+    library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
+    source_map::decode_instructions,
 };
 
 pub fn create_models_and_decode_bytecodes(

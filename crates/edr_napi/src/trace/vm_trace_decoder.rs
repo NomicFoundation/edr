@@ -1,16 +1,15 @@
 use std::rc::Rc;
 
-use edr_solidity::artifacts::BuildInfo;
-use edr_solidity::compiler::create_models_and_decode_bytecodes;
+use edr_solidity::{
+    artifacts::BuildInfo, build_model::Bytecode, compiler::create_models_and_decode_bytecodes,
+    contracts_identifier::ContractsIdentifier,
+};
 use napi::{
     bindgen_prelude::{ClassInstance, Either3, Either4, Uint8Array, Undefined},
     Either, Env,
 };
 use napi_derive::napi;
 use serde::{Deserialize, Serialize};
-
-use edr_solidity::build_model::Bytecode;
-use edr_solidity::contracts_identifier::ContractsIdentifier;
 
 use super::{
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},

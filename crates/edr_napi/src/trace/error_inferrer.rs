@@ -2,16 +2,15 @@ use std::{borrow::Cow, collections::HashSet};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_evm::{hex, interpreter::OpCode};
+use edr_solidity::build_model::{
+    Bytecode, ContractFunction, ContractFunctionType, ContractKind, Instruction, JumpType,
+    SourceLocation,
+};
 use napi::{
     bindgen_prelude::{BigInt, Either24, Either3, Either4},
     Either,
 };
 use semver::{Version, VersionReq};
-
-use edr_solidity::build_model::{
-    Bytecode, ContractFunction, ContractFunctionType, ContractKind, Instruction, JumpType,
-    SourceLocation,
-};
 
 use super::{
     exit::ExitCode,

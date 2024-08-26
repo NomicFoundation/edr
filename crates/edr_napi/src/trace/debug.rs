@@ -2,6 +2,7 @@
 
 use edr_eth::U256;
 use edr_evm::{hex, interpreter::OpCode};
+use edr_solidity::build_model::JumpType;
 use napi::{
     bindgen_prelude::{Either24, Either3, Either4},
     Either, Env,
@@ -13,7 +14,6 @@ use super::{
     solidity_stack_trace::{RevertErrorStackTraceEntry, SolidityStackTrace},
 };
 use crate::trace::return_data::ReturnData;
-use edr_solidity::build_model::JumpType;
 
 const MARGIN_SPACE: usize = 6;
 

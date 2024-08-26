@@ -288,10 +288,11 @@ fn normalize_library_runtime_bytecode_if_necessary(bytecode: &[u8]) -> Cow<'_, [
 mod tests {
     use std::{cell::RefCell, vec};
 
-    use crate::artifacts::ImmutableReference;
-    use crate::build_model::{Contract, ContractKind, SourceFile, SourceLocation};
-
     use super::*;
+    use crate::{
+        artifacts::ImmutableReference,
+        build_model::{Contract, ContractKind, SourceFile, SourceLocation},
+    };
 
     fn create_test_contract() -> Rc<RefCell<Contract>> {
         let file = Rc::new(RefCell::new(SourceFile::new(
