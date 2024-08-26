@@ -2549,7 +2549,6 @@ dependencies = [
  "eyre",
  "foundry-cheatcodes",
  "foundry-common",
- "foundry-compilers",
  "foundry-config",
  "foundry-evm-core",
  "foundry-evm-coverage",

@@ -3,12 +3,11 @@ use alloy_provider::Provider;
 use alloy_rpc_types::Block;
 use eyre::WrapErr;
 use foundry_common::{provider::ProviderBuilder, ALCHEMY_FREE_TIER_CUPS};
-use foundry_config::{Chain, Config};
+use foundry_config::Chain;
 use revm::primitives::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use super::fork::environment;
-use crate::fork::CreateFork;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EvmOpts {
@@ -36,9 +35,6 @@ pub struct EvmOpts {
 
     /// Disables RPC rate limiting entirely.
     pub no_rpc_rate_limit: bool,
-
-    /// Disables storage caching entirely.
-    pub no_storage_caching: bool,
 
     /// The initial balance of each deployed test contract.
     pub initial_balance: U256,
@@ -134,32 +130,6 @@ impl EvmOpts {
                 ..Default::default()
             },
         }
-    }
-
-    /// Helper function that returns the [`CreateFork`] to use, if any.
-    ///
-    /// storage caching for the [`CreateFork`] will be enabled if
-    ///   - `fork_url` is present
-    ///   - `fork_block_number` is present
-    ///   - [`StorageCachingConfig`] allows the `fork_url` +  chain id pair
-    ///   - storage is allowed (`no_storage_caching = false`)
-    ///
-    /// If all these criteria are met, then storage caching is enabled and
-    /// storage info will be written to
-    /// [`Config::foundry_cache_dir()`]/<str(chainid)>/<block>/storage.json
-    ///
-    /// for `mainnet` and `--fork-block-number 14435000` on mac the
-    /// corresponding storage cache will be at `~/.foundry/cache/mainnet/
-    /// 14435000/storage.json`
-    pub fn get_fork(&self, config: &Config, env: revm::primitives::Env) -> Option<CreateFork> {
-        let url = self.fork_url.clone()?;
-        let enable_caching = config.enable_caching(&url, env.cfg.chain_id);
-        Some(CreateFork {
-            url,
-            enable_caching,
-            env,
-            evm_opts: self.clone(),
-        })
     }
 
     /// Returns the gas limit to use

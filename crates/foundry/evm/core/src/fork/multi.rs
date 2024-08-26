@@ -18,7 +18,6 @@ use std::{
 use foundry_common::provider::{
     runtime_transport::RuntimeTransport, tower::RetryBackoffService, ProviderBuilder, RetryProvider,
 };
-use foundry_config::Config;
 use futures::{
     channel::mpsc::{channel, Receiver, Sender},
     stream::{Fuse, Stream},
@@ -555,12 +554,7 @@ async fn create_fork(mut fork: CreateFork) -> eyre::Result<(ForkId, CreatedFork,
     // be different on some L2s (e.g. Arbitrum).
     let number = block.header.number.unwrap_or(meta.block_env.number.to());
 
-    // determine the cache path if caching is enabled
-    let cache_path = if fork.enable_caching {
-        Config::foundry_block_cache_dir(meta.cfg_env.chain_id, number)
-    } else {
-        None
-    };
+    let cache_path = fork.block_cache_dir(meta.cfg_env.chain_id, number);
 
     let db = BlockchainDb::new(meta, cache_path);
     let (backend, handler) = SharedBackend::new(provider, db, Some(number.into()));

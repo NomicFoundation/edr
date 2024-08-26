@@ -44,9 +44,6 @@ pub use fuzz::FuzzedExecutor;
 pub mod invariant;
 pub use invariant::InvariantExecutor;
 
-mod tracing;
-pub use tracing::TracingExecutor;
-
 sol! {
     interface ITest {
         function setUp() external;
