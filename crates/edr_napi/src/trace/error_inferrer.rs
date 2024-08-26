@@ -15,6 +15,7 @@ use semver::{Version, VersionReq};
 use super::{
     exit::ExitCode,
     message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
+    model::ContractFunctionType as ContractFunctionTypeNapi,
     return_data::ReturnData,
     solidity_stack_trace::{
         CallFailedErrorStackTraceEntry, CallstackEntryStackTraceEntry, CustomErrorStackTraceEntry,
@@ -635,7 +636,7 @@ impl ErrorInferrer {
 
                 // If the failure is in a modifier we add an entry with the function/constructor
                 match failing_function {
-                    Some(func) if func.r#type == ContractFunctionType::MODIFIER => {
+                    Some(func) if func.r#type == ContractFunctionType::Modifier => {
                         let frame =
                             Self::get_entry_before_failure_in_modifier(trace, function_jumpdests)?;
 
@@ -866,7 +867,7 @@ impl ErrorInferrer {
         mut stacktrace: SolidityStackTrace,
     ) -> napi::Result<SolidityStackTrace> {
         if let Some(Either24::A(CallstackEntryStackTraceEntry {
-            function_type: ContractFunctionType::MODIFIER,
+            function_type: ContractFunctionTypeNapi::MODIFIER,
             ..
         })) = stacktrace.first()
         {
@@ -887,7 +888,7 @@ impl ErrorInferrer {
                 return Ok(CallstackEntryStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
                     source_reference: Self::get_constructor_start_source_reference(create)?,
-                    function_type: ContractFunctionType::CONSTRUCTOR,
+                    function_type: ContractFunctionType::Constructor.into(),
                 }
                 .into())
             }
@@ -908,14 +909,14 @@ impl ErrorInferrer {
         };
 
         let function_type = match called_function {
-            Some(_) => ContractFunctionType::FUNCTION,
-            None => ContractFunctionType::FALLBACK,
+            Some(_) => ContractFunctionType::Function,
+            None => ContractFunctionType::Fallback,
         };
 
         Ok(CallstackEntryStackTraceEntry {
             type_: StackTraceEntryTypeConst,
             source_reference,
-            function_type,
+            function_type: function_type.into(),
         }
         .into())
     }
@@ -963,7 +964,7 @@ impl ErrorInferrer {
         Ok(Either::A(CallstackEntryStackTraceEntry {
             type_: StackTraceEntryTypeConst,
             source_reference: Self::get_constructor_start_source_reference(trace)?,
-            function_type: ContractFunctionType::CONSTRUCTOR,
+            function_type: ContractFunctionType::Constructor.into(),
         }))
     }
 
@@ -2084,9 +2085,9 @@ fn source_location_to_source_reference(
     };
 
     let func_name = match func.r#type {
-        ContractFunctionType::CONSTRUCTOR => CONSTRUCTOR_FUNCTION_NAME.to_string(),
-        ContractFunctionType::FALLBACK => FALLBACK_FUNCTION_NAME.to_string(),
-        ContractFunctionType::RECEIVE => RECEIVE_FUNCTION_NAME.to_string(),
+        ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
+        ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
+        ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
         _ => func.name.clone(),
     };
 
@@ -2094,7 +2095,7 @@ fn source_location_to_source_reference(
 
     Ok(Some(SourceReference {
         function: Some(func_name.clone()),
-        contract: if func.r#type == ContractFunctionType::FREE_FUNCTION {
+        contract: if func.r#type == ContractFunctionType::FreeFunction {
             None
         } else {
             Some(bytecode.contract.borrow().name.clone())
@@ -2143,7 +2144,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
         return Ok(Either::A(CallstackEntryStackTraceEntry {
             type_: StackTraceEntryTypeConst,
             source_reference,
-            function_type: func.r#type,
+            function_type: func.r#type.into(),
         }));
     };
 
@@ -2163,7 +2164,7 @@ pub fn instruction_to_callstack_stack_trace_entry(
             ]
             .to_vec(),
         },
-        function_type: ContractFunctionType::FUNCTION,
+        function_type: ContractFunctionType::Function.into(),
     }))
 }
 

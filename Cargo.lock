@@ -1285,8 +1285,6 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "indexmap 2.2.6",
- "napi",
- "napi-derive",
  "serde",
  "serde_json",
  "strum",

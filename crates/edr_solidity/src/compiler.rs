@@ -245,7 +245,7 @@ fn process_function_definition_ast_node(
 
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
 
-    let selector = if function_type == ContractFunctionType::FUNCTION
+    let selector = if function_type == ContractFunctionType::Function
         && (visibility == ContractFunctionVisibility::External
             || visibility == ContractFunctionVisibility::Public)
     {
@@ -325,7 +325,7 @@ fn process_modifier_definition_ast_node(
 
     let contract_func = ContractFunction {
         name: node["name"].as_str().unwrap().to_string(),
-        r#type: ContractFunctionType::MODIFIER,
+        r#type: ContractFunctionType::Modifier,
         location: function_location,
         contract_name: Some(contract.borrow().name.clone()),
         visibility: None,
@@ -367,7 +367,7 @@ fn process_variable_declaration_ast_node(
 
     let contract_func = ContractFunction {
         name: node["name"].as_str().unwrap().to_string(),
-        r#type: ContractFunctionType::GETTER,
+        r#type: ContractFunctionType::Getter,
         location: function_location,
         contract_name: Some(contract.borrow().name.clone()),
         visibility: Some(visibility),
@@ -505,11 +505,11 @@ fn canonical_abi_type_for_elementary_or_user_defined_types(
 
 fn function_definition_kind_to_function_type(kind: Option<&str>) -> ContractFunctionType {
     match kind {
-        Some("constructor") => ContractFunctionType::CONSTRUCTOR,
-        Some("fallback") => ContractFunctionType::FALLBACK,
-        Some("receive") => ContractFunctionType::RECEIVE,
-        Some("freeFunction") => ContractFunctionType::FREE_FUNCTION,
-        _ => ContractFunctionType::FUNCTION,
+        Some("constructor") => ContractFunctionType::Constructor,
+        Some("fallback") => ContractFunctionType::Fallback,
+        Some("receive") => ContractFunctionType::Receive,
+        Some("freeFunction") => ContractFunctionType::FreeFunction,
+        _ => ContractFunctionType::Function,
     }
 }
 

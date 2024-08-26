@@ -10,8 +10,6 @@ use std::{
 use alloy_dyn_abi::ErrorExt;
 use anyhow::{self, Context as _};
 use edr_evm::{hex, interpreter::OpCode};
-#[cfg(feature = "napi")]
-use napi_derive::napi;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -113,18 +111,15 @@ impl SourceLocation {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
-#[allow(non_camel_case_types)] // intentionally mimicks the original case in TS
-#[allow(clippy::upper_case_acronyms)]
-#[cfg_attr(feature = "napi", napi)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ContractFunctionType {
-    CONSTRUCTOR,
-    FUNCTION,
-    FALLBACK,
-    RECEIVE,
-    GETTER,
-    MODIFIER,
-    FREE_FUNCTION,
+    Constructor,
+    Function,
+    Fallback,
+    Receive,
+    Getter,
+    Modifier,
+    FreeFunction,
 }
 
 #[derive(Debug, PartialEq)]
@@ -223,31 +218,6 @@ pub enum JumpType {
     InternalJump,
 }
 
-/// Opaque handle to the `Bytecode` struct.
-/// Only used on the JS side by the `VmTraceDecoder` class.
-// NOTE: Needed, because we store the resolved `Bytecode` in the MessageTrace
-// JS plain objects and those need a dedicated (class) type.
-#[cfg_attr(feature = "napi", napi)]
-pub struct BytecodeWrapper(pub(crate) Rc<Bytecode>);
-
-impl BytecodeWrapper {
-    pub fn new(bytecode: Rc<Bytecode>) -> Self {
-        Self(bytecode)
-    }
-
-    pub fn inner(&self) -> &Rc<Bytecode> {
-        &self.0
-    }
-}
-
-impl std::ops::Deref for BytecodeWrapper {
-    type Target = Bytecode;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 #[derive(Debug)]
 pub struct Bytecode {
     pc_to_instruction: HashMap<u32, Instruction>,
@@ -343,7 +313,7 @@ impl Contract {
             Some(ContractFunctionVisibility::Public | ContractFunctionVisibility::External)
         ) {
             match func.r#type {
-                ContractFunctionType::FUNCTION | ContractFunctionType::GETTER => {
+                ContractFunctionType::Function | ContractFunctionType::Getter => {
                     let selector = func.selector.try_borrow().expect(
                         "Function selector to be corrected later after creating the source model",
                     );
@@ -353,13 +323,13 @@ impl Contract {
 
                     self.selector_hex_to_function.insert(selector, func.clone());
                 }
-                ContractFunctionType::CONSTRUCTOR => {
+                ContractFunctionType::Constructor => {
                     self.constructor = Some(func.clone());
                 }
-                ContractFunctionType::FALLBACK => {
+                ContractFunctionType::Fallback => {
                     self.fallback = Some(func.clone());
                 }
-                ContractFunctionType::RECEIVE => {
+                ContractFunctionType::Receive => {
                     self.receive = Some(func.clone());
                 }
                 _ => {}
@@ -384,8 +354,8 @@ impl Contract {
         for base_contract_function in &base_contract.local_functions {
             let base_contract_function_clone = base_contract_function.clone();
 
-            if base_contract_function.r#type != ContractFunctionType::GETTER
-                && base_contract_function.r#type != ContractFunctionType::FUNCTION
+            if base_contract_function.r#type != ContractFunctionType::Getter
+                && base_contract_function.r#type != ContractFunctionType::Function
             {
                 continue;
             }

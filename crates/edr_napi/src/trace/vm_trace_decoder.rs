@@ -1,7 +1,9 @@
 use std::rc::Rc;
 
 use edr_solidity::{
-    artifacts::BuildInfo, build_model::Bytecode, compiler::create_models_and_decode_bytecodes,
+    artifacts::BuildInfo,
+    build_model::{Bytecode, ContractFunctionType},
+    compiler::create_models_and_decode_bytecodes,
     contracts_identifier::ContractsIdentifier,
 };
 use napi::{
@@ -18,7 +20,7 @@ use super::{
         UNRECOGNIZED_FUNCTION_NAME,
     },
 };
-use crate::trace::model::{BytecodeWrapper, ContractFunctionType};
+use crate::trace::model::BytecodeWrapper;
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -174,8 +176,8 @@ impl VmTraceDecoder {
 
                     let function_name = match func {
                         Some(func) => match func.r#type {
-                            ContractFunctionType::FALLBACK => FALLBACK_FUNCTION_NAME.to_string(),
-                            ContractFunctionType::RECEIVE => RECEIVE_FUNCTION_NAME.to_string(),
+                            ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
+                            ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
                             _ => func.name.clone(),
                         },
                         None => UNRECOGNIZED_FUNCTION_NAME.to_string(),
