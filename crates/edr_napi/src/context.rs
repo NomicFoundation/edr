@@ -11,7 +11,7 @@ use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 use crate::{
     config::ProviderConfig,
     logger::LoggerConfig,
-    provider::{self, factory::SyncProviderFactory, Provider, ProviderFactory},
+    provider::{factory::SyncProviderFactory, Provider, ProviderFactory},
     subscription::SubscriptionConfig,
 };
 
@@ -43,7 +43,7 @@ impl EdrContext {
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
     ) -> napi::Result<JsObject> {
-        let provider_config = provider::Config::try_from(provider_config)?;
+        let provider_config = edr_napi_core::provider::Config::try_from(provider_config)?;
 
         #[cfg(feature = "scenarios")]
         let scenario_file =
@@ -152,7 +152,7 @@ impl Context {
         &self,
         env: &napi::Env,
         chain_type: &str,
-        provider_config: crate::provider::Config,
+        provider_config: edr_napi_core::provider::Config,
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
     ) -> napi::Result<Box<dyn crate::provider::Builder>> {

@@ -28,7 +28,7 @@ pub trait SyncProviderFactory: Send + Sync {
     fn create_provider_builder(
         &self,
         env: &napi::Env,
-        provider_config: provider::Config,
+        provider_config: edr_napi_core::provider::Config,
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
     ) -> napi::Result<Box<dyn provider::Builder>>;

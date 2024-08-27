@@ -1161,9 +1161,9 @@ version = "0.3.5"
 dependencies = [
  "ansi_term",
  "derive-where",
- "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_napi_core",
  "edr_provider",
  "edr_rpc_client",
  "itertools 0.12.1",
@@ -1179,6 +1179,16 @@ dependencies = [
  "tracing",
  "tracing-flame",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "edr_napi_core"
+version = "0.3.5"
+dependencies = [
+ "edr_defaults",
+ "edr_eth",
+ "edr_provider",
+ "serde",
 ]
 
 [[package]]
@@ -3780,6 +3790,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_napi_core",
  "edr_provider",
  "edr_rpc_eth",
  "flate2",

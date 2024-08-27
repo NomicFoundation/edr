@@ -9,9 +9,9 @@ crate-type = ["cdylib"]
 [dependencies]
 ansi_term = { version = "0.12.1", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
-edr_defaults = { path = "../edr_defaults" }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
+edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_client = { path = "../edr_rpc_client" }
 itertools = { version = "0.12.0", default-features = false }
@@ -44,7 +44,7 @@ openssl-sys = { version = "0.9.93", features = ["vendored"] }
 napi-build = "2.0.1"
 
 [features]
-tracing = ["edr_evm/tracing", "edr_provider/tracing"]
+tracing = ["edr_evm/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
 scenarios = ["rand"]
 
 [profile.release]

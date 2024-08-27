@@ -202,7 +202,7 @@ impl TryFrom<MiningConfig> for edr_provider::MiningConfig {
     }
 }
 
-impl TryFrom<ProviderConfig> for crate::provider::Config {
+impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
     type Error = napi::Error;
 
     fn try_from(value: ProviderConfig) -> Result<Self, Self::Error> {
@@ -223,7 +223,7 @@ impl TryFrom<ProviderConfig> for crate::provider::Config {
                              }| {
                                 let block_number = block_number.try_cast()?;
 
-                                Ok(crate::provider::HardforkActivation {
+                                Ok(edr_napi_core::provider::HardforkActivation {
                                     block_number,
                                     hardfork,
                                 })

@@ -21,7 +21,8 @@ use tracing_subscriber::{prelude::*, Registry};
 
 #[derive(Clone, Debug, Deserialize)]
 struct ScenarioConfig {
-    provider_config: edr_provider::ProviderConfig<L1ChainSpec>,
+    chain_type: Option<String>,
+    provider_config: edr_napi_core::provider::Config,
     logger_enabled: bool,
 }
 
@@ -31,6 +32,8 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
     if config.logger_enabled {
         anyhow::bail!("This scenario expects logging, but logging is not yet implemented")
     }
+
+    let provider_config = edr_provider::ProviderConfig::<L1ChainSpec>::from(config.provider_config);
 
     let logger = Box::<DisabledLogger<L1ChainSpec>>::default();
     let subscription_callback = Box::new(|_| ());
@@ -57,7 +60,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
             runtime::Handle::current(),
             logger,
             subscription_callback,
-            config.provider_config,
+            provider_config,
             CurrentTime,
         )
     })
@@ -136,6 +139,10 @@ async fn load_gzipped_json(
                 .context("Invalid gzip")?;
             let config: ScenarioConfig = serde_json::from_str(&first_line)?;
 
+            if let Some(chain_type) = &config.chain_type {
+                anyhow::ensure!(chain_type == "L1", "Unsupported chain type: {chain_type}");
+            }
+
             let mut requests: Vec<ProviderRequest<L1ChainSpec>> = Vec::new();
 
             for gzipped_line in lines {
@@ -159,6 +166,10 @@ async fn load_json(
 
     let first_line = lines.next_line().await?.context("Scenario file is empty")?;
     let config: ScenarioConfig = serde_json::from_str(&first_line)?;
+
+    if let Some(chain_type) = &config.chain_type {
+        anyhow::ensure!(chain_type == "L1", "Unsupported chain type: {chain_type}");
+    }
 
     let mut requests: Vec<ProviderRequest<L1ChainSpec>> = Vec::new();
 

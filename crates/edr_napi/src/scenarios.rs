@@ -4,21 +4,19 @@ use napi::tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::provider;
-
 const SCENARIO_FILE_PREFIX: &str = "EDR_SCENARIO_PREFIX";
 
 #[derive(Deserialize, Serialize)]
 struct ScenarioConfig {
     chain_type: String,
-    provider_config: provider::Config,
+    provider_config: edr_napi_core::provider::Config,
     logger_enabled: bool,
 }
 
 /// Creates a scenario file with the provided configuration.
 pub async fn scenario_file(
     chain_type: String,
-    provider_config: provider::Config,
+    provider_config: edr_napi_core::provider::Config,
     logger_enabled: bool,
 ) -> napi::Result<Option<Mutex<File>>> {
     if let Ok(scenario_prefix) = std::env::var(SCENARIO_FILE_PREFIX) {

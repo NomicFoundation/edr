@@ -11,14 +11,14 @@ use edr_provider::{
 use serde::{Deserialize, Serialize};
 
 /// Chain-agnostic configuration for a hardfork activation.
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct HardforkActivation {
     pub block_number: u64,
     pub hardfork: String,
 }
 
 /// Chain-agnostic configuration for a provider.
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Config {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,

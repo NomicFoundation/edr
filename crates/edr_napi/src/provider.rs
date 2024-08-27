@@ -1,5 +1,4 @@
 mod builder;
-mod config;
 /// Types related to provider factories.
 pub mod factory;
 
@@ -12,7 +11,6 @@ use napi_derive::napi;
 
 pub use self::{
     builder::{Builder, ProviderBuilder},
-    config::{Config, HardforkActivation},
     factory::ProviderFactory,
 };
 use crate::{
