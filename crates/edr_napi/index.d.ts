@@ -304,7 +304,7 @@ export interface RevertResult {
 export const enum ExceptionalHalt {
   OutOfGas = 0,
   OpcodeNotFound = 1,
-  InvalidEFOpcode = 2,
+  InvalidFEOpcode = 2,
   InvalidJump = 3,
   NotActivated = 4,
   StackUnderflow = 5,
