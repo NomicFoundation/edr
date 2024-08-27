@@ -476,13 +476,6 @@ export interface SolidityTestRunnerConfigArgs {
    */
   memoryLimit?: bigint
   /**
-   * If set to true, then block data from RPC endpoints in tests will not be
-   * cached. Otherwise, the data is cached to
-   * `$HOME/.foundry/cache/<chain id>/<block number>`.
-   * Defaults to false.
-   */
-  noStorageCaching?: boolean
-  /**
    * If set, all tests are run in fork mode using this url or remote name.
    * Defaults to none.
    */
@@ -494,6 +487,13 @@ export interface SolidityTestRunnerConfigArgs {
    * e.g. `{ "optimism": "https://optimism.alchemyapi.io/v2/..." }`
    */
   rpcEndpoints?: Record<string, string>
+  /**
+   * Optional RPC cache path. If this is none, then no RPC calls will be
+   * cached, otherwise data is cached to `<rpc_cache_path>/<chain
+   * id>/<block number>`. Caching can be disabled for specific chains
+   * with `rpc_storage_caching`.
+   */
+  rpcCachePath?: string
   /** What RPC endpoints are cached. Defaults to all. */
   rpcStorageCaching?: StorageCachingConfig
   /**
