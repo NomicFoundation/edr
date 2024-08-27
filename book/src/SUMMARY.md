@@ -18,4 +18,8 @@
 
 - [Release](./03_release.md)
 
+- [Multi-chain](./04_multichain.md)
+
+  - [Chain Specification](04_multichain/01_chain_spec.md)
+
 - [Contributing](./99_contributing.md)
