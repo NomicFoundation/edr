@@ -9,9 +9,9 @@ mod interval;
 mod logger;
 mod mock;
 mod pending;
+mod provider;
 /// Type for RPC requests.
 pub mod requests;
-mod sequential;
 mod snapshot;
 /// Types for provider-related chain specification.
 pub mod spec;
@@ -23,24 +23,12 @@ pub mod test_utils;
 pub mod time;
 
 use core::fmt::Debug;
-use std::sync::Arc;
 
-use edr_eth::{
-    result::InvalidTransaction,
-    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
-    HashSet,
-};
+use edr_eth::HashSet;
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
-use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec, trace::Trace};
-use edr_rpc_eth::jsonrpc::Response;
+use edr_evm::{chain_spec::ChainSpec, trace::Trace};
 use lazy_static::lazy_static;
-use logger::SyncLogger;
-use mock::SyncCallOverride;
-use parking_lot::Mutex;
-use requests::{eth::handle_set_interval_mining, hardhat::rpc_types::ResetProviderConfig};
-use time::{CurrentTime, TimeSinceEpoch};
-use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 pub use self::{
     config::*,
@@ -49,18 +37,13 @@ pub use self::{
     error::{EstimateGasFailure, ProviderError, TransactionFailure, TransactionFailureReason},
     logger::{Logger, NoopLogger},
     mock::CallOverrideResult,
+    provider::Provider,
     requests::{
         hardhat::rpc_types as hardhat_rpc_types, IntervalConfig as IntervalConfigRequest,
         InvalidRequestReason, MethodInvocation, ProviderRequest, Timestamp,
     },
-    sequential::Sequential,
     spec::{ProviderSpec, SyncProviderSpec},
     subscribe::*,
-};
-use self::{
-    data::CreationError,
-    interval::IntervalMiner,
-    requests::{debug, eth, hardhat},
 };
 
 lazy_static! {
@@ -73,22 +56,6 @@ lazy_static! {
         .collect()
     };
 }
-
-pub trait Provider {
-    type Error;
-
-    /// Blocking method to handle a request.
-    fn handle_request(
-        &self,
-        request: serde_json::Value,
-    ) -> Result<Response<serde_json::Value>, Self::Error>;
-
-    fn set_call_override_callback(&self, call_override_callback: CallOverrideCallback);
-
-    fn set_verbose_tracing(&self, enabled: bool);
-}
-
-pub trait SyncProvider: Provider + Send + Sync {}
 
 #[derive(Clone, Debug)]
 pub struct ResponseWithTraces<ChainSpecT: edr_eth::chain_spec::EvmWiring> {

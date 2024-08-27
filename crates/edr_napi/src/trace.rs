@@ -151,13 +151,16 @@ pub struct TracingMessageResult {
 }
 
 #[napi]
+#[derive(Clone)]
 pub struct RawTrace {
     inner: Arc<edr_evm::trace::Trace<L1ChainSpec>>,
 }
 
-impl From<Arc<edr_evm::trace::Trace<L1ChainSpec>>> for RawTrace {
-    fn from(inner: Arc<edr_evm::trace::Trace<L1ChainSpec>>) -> Self {
-        Self { inner }
+impl From<edr_evm::trace::Trace<L1ChainSpec>> for RawTrace {
+    fn from(value: edr_evm::trace::Trace<L1ChainSpec>) -> Self {
+        Self {
+            inner: Arc::new(value),
+        }
     }
 }
 

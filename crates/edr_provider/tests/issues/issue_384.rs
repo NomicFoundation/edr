@@ -1,7 +1,7 @@
 use edr_eth::chain_spec::L1ChainSpec;
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
-    MethodInvocation, NoopLogger, Sequential, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_test_utils::env::get_infura_url;
 use tokio::runtime;
@@ -19,7 +19,7 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
         http_headers: None,
     }));
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,

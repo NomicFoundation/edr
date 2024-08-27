@@ -1,9 +1,8 @@
 use edr_eth::{Address, Bytes, B256, B64};
-use edr_napi_core::cast::TryCast;
 use napi::bindgen_prelude::{BigInt, Buffer};
 use napi_derive::napi;
 
-use crate::withdrawal::Withdrawal;
+use crate::{cast::TryCast, withdrawal::Withdrawal};
 
 #[napi(object)]
 pub struct BlockOptions {

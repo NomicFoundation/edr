@@ -1,7 +1,8 @@
 use edr_eth::signature::secret_key_from_str;
-use edr_napi_core::cast::TryCast as _;
 use napi::{bindgen_prelude::BigInt, Status};
 use napi_derive::napi;
+
+use crate::cast::TryCast as _;
 
 /// An account that needs to be created during the genesis block.
 #[napi(object)]

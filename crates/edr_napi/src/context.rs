@@ -1,9 +1,6 @@
 use std::{io, sync::Arc};
 
 use edr_eth::HashMap;
-use edr_napi_core::{
-    logger::LoggerConfig, provider::SyncProviderFactory, subscription::SubscriptionConfig,
-};
 use napi::{
     tokio::{runtime, sync::Mutex as AsyncMutex},
     Env, JsObject, Status,
@@ -11,7 +8,12 @@ use napi::{
 use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
-use crate::provider::{Provider, ProviderConfig, ProviderFactory};
+use crate::{
+    config::ProviderConfig,
+    logger::LoggerConfig,
+    provider::{self, factory::SyncProviderFactory, Provider, ProviderFactory},
+    subscription::SubscriptionConfig,
+};
 
 #[napi]
 pub struct EdrContext {
@@ -41,7 +43,15 @@ impl EdrContext {
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
     ) -> napi::Result<JsObject> {
-        let provider_config = provider_config.try_into()?;
+        let provider_config = provider::Config::try_from(provider_config)?;
+
+        #[cfg(feature = "scenarios")]
+        let scenario_file =
+            runtime::Handle::current().block_on(crate::scenarios::scenario_file(
+                chain_type.clone(),
+                provider_config.clone(),
+                logger_config.enable,
+            ))?;
 
         let runtime = runtime::Handle::current();
         let builder = {
@@ -57,16 +67,14 @@ impl EdrContext {
 
         let (deferred, promise) = env.create_deferred()?;
         runtime.clone().spawn_blocking(move || {
-            // #[cfg(feature = "scenarios")]
-            // let scenario_file =
-            //     runtime::Handle::current().block_on(crate::scenarios::scenario_file(
-            //         &config,
-            //         edr_provider::Logger::is_enabled(&*logger),
-            //     ))?;
-
-            let result = builder
-                .build(runtime.clone())
-                .map(|provider| Provider::new(provider, runtime));
+            let result = builder.build(runtime.clone()).map(|provider| {
+                Provider::new(
+                    provider,
+                    runtime,
+                    #[cfg(feature = "scenarios")]
+                    scenario_file,
+                )
+            });
 
             deferred.resolve(|_env| result);
         });
@@ -75,10 +83,11 @@ impl EdrContext {
     }
 
     #[doc = "Registers a new provider factory for the provided chain type."]
+    #[napi]
     pub async fn register_provider_factory(
         &self,
         chain_type: String,
-        factory: ProviderFactory,
+        factory: &ProviderFactory,
     ) -> napi::Result<()> {
         let mut context = self.inner.lock().await;
         context.register_provider_factory(chain_type, factory.as_inner().clone());
@@ -143,10 +152,10 @@ impl Context {
         &self,
         env: &napi::Env,
         chain_type: &str,
-        provider_config: edr_napi_core::provider::Config,
+        provider_config: crate::provider::Config,
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
-    ) -> napi::Result<Box<dyn edr_napi_core::provider::Builder>> {
+    ) -> napi::Result<Box<dyn crate::provider::Builder>> {
         if let Some(factory) = self.provider_factories.get(chain_type) {
             // #[cfg(feature = "scenarios")]
             // let scenario_file = crate::scenarios::scenario_file(

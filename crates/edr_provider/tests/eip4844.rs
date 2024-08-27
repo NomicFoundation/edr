@@ -18,7 +18,7 @@ use edr_evm::interpreter::primitives::EnvKzgSettings;
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, ProviderError, ProviderRequest, Sequential,
+    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use tokio::runtime;
@@ -219,7 +219,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.hardfork = SpecId::SHANGHAI;
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,
@@ -250,7 +250,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.hardfork = SpecId::SHANGHAI;
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,
@@ -281,7 +281,7 @@ async fn send_transaction_unsupported() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.chain_id = transaction.chain_id.expect("Blob transaction has chain ID");
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,
@@ -324,7 +324,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,
@@ -363,7 +363,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,
@@ -410,7 +410,7 @@ async fn block_header() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,
@@ -528,7 +528,7 @@ async fn block_header() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn blob_hash_opcode() -> anyhow::Result<()> {
     fn assert_blob_hash_opcodes(
-        provider: &Sequential<L1ChainSpec>,
+        provider: &Provider<L1ChainSpec>,
         contract_address: &Address,
         num_blobs: usize,
         nonce: u64,
@@ -596,7 +596,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,

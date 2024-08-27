@@ -1,22 +1,24 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use edr_evm::chain_spec::ChainSpec;
 use napi::tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
 use rand::{distributions::Alphanumeric, Rng};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Deserialize, Serialize};
+
+use crate::provider;
 
 const SCENARIO_FILE_PREFIX: &str = "EDR_SCENARIO_PREFIX";
 
-#[derive(Serialize)]
-#[serde(bound = "ChainSpecT::Hardfork: Serialize")]
-struct ScenarioConfig<'a, ChainSpecT: ChainSpec> {
-    chain_type: &'a str,
-    provider_config: &'a edr_provider::ProviderConfig<ChainSpecT>,
+#[derive(Deserialize, Serialize)]
+struct ScenarioConfig {
+    chain_type: String,
+    provider_config: provider::Config,
     logger_enabled: bool,
 }
 
-pub(crate) async fn scenario_file<ChainSpecT: ChainSpec<Hardfork: DeserializeOwned + Serialize>>(
-    provider_config: &edr_provider::ProviderConfig<ChainSpecT>,
+/// Creates a scenario file with the provided configuration.
+pub async fn scenario_file(
+    chain_type: String,
+    provider_config: provider::Config,
     logger_enabled: bool,
 ) -> napi::Result<Option<Mutex<File>>> {
     if let Ok(scenario_prefix) = std::env::var(SCENARIO_FILE_PREFIX) {
@@ -48,7 +50,8 @@ pub(crate) async fn scenario_file<ChainSpecT: ChainSpec<Hardfork: DeserializeOwn
     }
 }
 
-pub(crate) async fn write_request(
+/// Writes a JSON-RPC request to the scenario file.
+pub async fn write_request(
     scenario_file: &Mutex<File>,
     request: &serde_json::Value,
 ) -> napi::Result<()> {

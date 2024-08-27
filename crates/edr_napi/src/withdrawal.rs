@@ -1,7 +1,8 @@
 use edr_eth::Address;
-use edr_napi_core::cast::TryCast as _;
 use napi::bindgen_prelude::{BigInt, Buffer};
 use napi_derive::napi;
+
+use crate::cast::TryCast as _;
 
 #[napi(object)]
 pub struct Withdrawal {

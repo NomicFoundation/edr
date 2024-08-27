@@ -2,17 +2,13 @@ use std::sync::Arc;
 
 use edr_eth::{
     result::InvalidTransaction,
-    transaction::{
-        request, IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation,
-    },
+    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::blockchain::BlockchainError;
-use edr_rpc_eth::jsonrpc;
 use parking_lot::Mutex;
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 use crate::{
-    config::*,
     data::{CreationError, ProviderData},
     error::ProviderError,
     interval::IntervalMiner,
@@ -25,10 +21,9 @@ use crate::{
         MethodInvocation, ProviderRequest,
     },
     spec::{ProviderSpec, SyncProviderSpec},
-    subscribe::*,
     time::{CurrentTime, TimeSinceEpoch},
-    to_json, to_json_with_trace, to_json_with_traces, Provider, ResponseWithTraces,
-    PRIVATE_RPC_METHODS,
+    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig, ResponseWithTraces,
+    SyncSubscriberCallback, PRIVATE_RPC_METHODS,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -61,10 +56,8 @@ use crate::{
 ///     }
 /// }
 /// ```
-pub struct Sequential<
-    ChainSpecT: ProviderSpec<TimerT>,
-    TimerT: Clone + TimeSinceEpoch = CurrentTime,
-> {
+pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch = CurrentTime>
+{
     data: Arc<AsyncMutex<ProviderData<ChainSpecT, TimerT>>>,
     /// Interval miner runs in the background, if enabled. It holds the data
     /// mutex, so it needs to internally check for cancellation/self-destruction
@@ -74,22 +67,8 @@ pub struct Sequential<
 }
 
 impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
-    Sequential<ChainSpecT, TimerT>
+    Provider<ChainSpecT, TimerT>
 {
-    pub fn set_call_override_callback(&self, call_override: Option<Arc<dyn SyncCallOverride>>) {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-        data.set_call_override_callback(call_override);
-    }
-
-    /// Set to `true` to make the traces returned with `eth_call`,
-    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
-    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
-    /// `false` to disable this.
-    pub fn set_verbose_tracing(&self, verbose_tracing: bool) {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-        data.set_verbose_tracing(verbose_tracing);
-    }
-
     /// Blocking method to log a failed deserialization.
     pub fn log_failed_deserialization(
         &self,
@@ -113,7 +92,7 @@ impl<
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,
-    > Sequential<ChainSpecT, TimerT>
+    > Provider<ChainSpecT, TimerT>
 {
     /// Constructs a new instance.
     pub fn new(
@@ -147,48 +126,20 @@ impl<
             runtime,
         })
     }
-}
 
-impl<
-        ChainSpecT: SyncProviderSpec<
-            TimerT,
-            Block: Clone + Default,
-            PooledTransaction: IsEip155,
-            Transaction: Default
-                             + TransactionMut
-                             + TransactionType<Type: IsEip4844>
-                             + TransactionValidation<
-                ValidationError: From<InvalidTransaction> + PartialEq,
-            >,
-        >,
-        TimerT: Clone + TimeSinceEpoch,
-    > Provider for Sequential<ChainSpecT, TimerT>
-{
-    type Error = ProviderError<ChainSpecT>;
-
-    fn handle_request(
+    /// Set to `true` to make the traces returned with `eth_call`,
+    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
+    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
+    /// `false` to disable this.
+    pub fn set_call_override_callback(
         &self,
-        request: serde_json::Value,
-    ) -> Result<ResponseWithTraces<ChainSpecT>, Self::Error> {
-        let request: ProviderRequest<ChainSpecT> = serde_json::from_value(request)?;
-
+        call_override_callback: Option<Arc<dyn SyncCallOverride>>,
+    ) {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-
-        let response = match request {
-            ProviderRequest::Single(request) => self.handle_single_request(&mut data, request),
-            ProviderRequest::Batch(requests) => self.handle_batch_request(&mut data, requests),
-        }?;
-
-        let response = serde_json::to_value(response).map_err(ProviderError::Serialization)?;
-
-        Ok(response)
+        data.set_call_override_callback(call_override_callback);
     }
 
-    fn set_call_override_callback(&self, call_override_callback: CallOverrideCallback) {
-        todo!()
-    }
-
-    fn set_verbose_tracing(&self, enabled: bool) {
+    pub fn set_verbose_tracing(&self, enabled: bool) {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
         data.set_verbose_tracing(enabled);
     }
@@ -207,8 +158,23 @@ impl<
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,
-    > Sequential<ChainSpecT, TimerT>
+    > Provider<ChainSpecT, TimerT>
 {
+    /// Blocking method to handle a request.
+    pub fn handle_request(
+        &self,
+        request: ProviderRequest<ChainSpecT>,
+    ) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
+        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+
+        let response = match request {
+            ProviderRequest::Single(request) => self.handle_single_request(&mut data, request),
+            ProviderRequest::Batch(requests) => self.handle_batch_request(&mut data, requests),
+        }?;
+
+        Ok(response)
+    }
+
     /// Handles a batch of JSON requests for an execution provider.
     fn handle_batch_request(
         &self,

@@ -2,7 +2,7 @@
 
 use edr_eth::chain_spec::L1ChainSpec;
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Sequential,
+    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
 use tokio::runtime;
@@ -12,7 +12,7 @@ async fn eth_max_priority_fee_per_gas() -> anyhow::Result<()> {
     let config = create_test_config();
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,

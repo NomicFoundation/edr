@@ -1,3 +1,4 @@
+use derive_where::derive_where;
 use edr_eth::B256;
 use edr_provider::{time::CurrentTime, ProviderSpec};
 use napi::{
@@ -9,7 +10,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-#[derive(Clone)]
+#[derive_where(Clone)]
 pub struct SubscriptionCallback<ChainSpecT: ProviderSpec<CurrentTime>> {
     inner: ThreadsafeFunction<edr_provider::SubscriptionEvent<ChainSpecT>, ErrorStrategy::Fatal>,
 }

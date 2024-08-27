@@ -4,7 +4,7 @@ use edr_eth::{chain_spec::L1ChainSpec, AccountInfo, Address, SpecId, KECCAK_EMPT
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
-    MethodInvocation, MiningConfig, NoopLogger, Provider, ProvideSequential,
+    MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use tokio::runtime;
@@ -33,7 +33,7 @@ async fn issue_326() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Sequential::new(
+    let provider = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,
