@@ -1153,6 +1153,9 @@ dependencies = [
 name = "edr_napi"
 version = "0.3.5"
 dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
+ "alloy-sol-types 0.5.4",
  "ansi_term",
  "crossbeam-channel",
  "edr_defaults",
@@ -1160,6 +1163,8 @@ dependencies = [
  "edr_evm",
  "edr_provider",
  "edr_rpc_eth",
+ "edr_solidity",
+ "indexmap 2.2.6",
  "itertools 0.12.1",
  "k256",
  "lazy_static",
@@ -1171,8 +1176,10 @@ dependencies = [
  "openssl-sys",
  "parking_lot 0.12.1",
  "rand",
+ "semver 1.0.22",
  "serde",
  "serde_json",
+ "strum",
  "thiserror",
  "tracing",
  "tracing-flame",
@@ -1271,8 +1278,12 @@ dependencies = [
 name = "edr_solidity"
 version = "0.3.5"
 dependencies = [
+ "alloy-json-abi",
  "edr_eth",
  "edr_evm",
+ "indexmap 2.2.6",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1842,6 +1853,7 @@ checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.3",
+ "serde",
 ]
 
 [[package]]
@@ -3102,6 +3114,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustversion"
+version = "1.0.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
+
+[[package]]
 name = "rusty-fork"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3422,6 +3440,28 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "strum"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.58",
+]
 
 [[package]]
 name = "substrate-bn"
