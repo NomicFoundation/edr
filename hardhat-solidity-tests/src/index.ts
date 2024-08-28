@@ -42,7 +42,7 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
         name += ` (${testResult.kind.runs} runs)`;
       }
 
-      let failed = testResult.status === "Failure";
+      const failed = testResult.status === "Failure";
       totalTests++;
       if (failed) {
         failedTests++;
