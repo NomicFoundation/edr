@@ -917,15 +917,6 @@ impl Config {
         self.auto_detect_solc
     }
 
-    /// Whether caching should be enabled for the given chain id
-    pub fn enable_caching(&self, endpoint: &str, chain_id: impl Into<u64>) -> bool {
-        !self.no_storage_caching
-            && self
-                .rpc_storage_caching
-                .enable_for_chain_id(chain_id.into())
-            && self.rpc_storage_caching.enable_for_endpoint(endpoint)
-    }
-
     /// Returns the `ProjectPathsConfig` sub set of the config.
     ///
     /// **NOTE**: this uses the paths as they are and does __not__ modify them,
@@ -2897,20 +2888,6 @@ mod tests {
             Config::DEFAULT_SENDER,
             Address::from_str("0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38").unwrap()
         );
-    }
-
-    #[test]
-    fn test_caching() {
-        let mut config = Config::default();
-        let chain_id = NamedChain::Mainnet;
-        let url = "https://eth-mainnet.alchemyapi";
-        assert!(config.enable_caching(url, chain_id));
-
-        config.no_storage_caching = true;
-        assert!(!config.enable_caching(url, chain_id));
-
-        config.no_storage_caching = false;
-        assert!(!config.enable_caching(url, NamedChain::Dev));
     }
 
     #[test]

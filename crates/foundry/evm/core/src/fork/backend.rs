@@ -826,8 +826,12 @@ mod tests {
 
             let (env, _block) = evm_opts.fork_evm_env(&endpoint).await.unwrap();
 
+            // TODO https://github.com/NomicFoundation/edr/issues/607
+            // Construct fork config the same way as the JS runner
             let fork = CreateFork {
-                enable_caching: true,
+                rpc_cache_path: Some(
+                    Config::foundry_rpc_cache_dir().expect("Could not get rpc cache dir"),
+                ),
                 url: endpoint,
                 env: env.clone(),
                 evm_opts,

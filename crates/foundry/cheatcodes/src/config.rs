@@ -31,6 +31,11 @@ pub struct CheatsConfig {
     pub always_use_create_2_factory: bool,
     /// Sets a timeout for vm.prompt cheatcodes
     pub prompt_timeout: Duration,
+    /// Optional RPC cache path. If this is none, then no RPC calls will be
+    /// cached, otherwise data is cached to `<rpc_cache_path>/<chain
+    /// id>/<block number>`. Caching can be disabled for specific chains
+    /// with `rpc_storage_caching`.
+    pub rpc_cache_path: Option<PathBuf>,
     /// RPC storage caching settings determines what chains and endpoints to
     /// cache
     pub rpc_storage_caching: StorageCachingConfig,
@@ -57,6 +62,11 @@ pub struct CheatsConfig {
 pub struct CheatsConfigOptions {
     /// Multiple rpc endpoints and their aliases
     pub rpc_endpoints: RpcEndpoints,
+    /// Optional RPC cache path. If this is none, then no RPC calls will be
+    /// cached, otherwise data is cached to `<rpc_cache_path>/<chain
+    /// id>/<block number>`. Caching can be disabled for specific chains
+    /// with `rpc_storage_caching`.
+    pub rpc_cache_path: Option<PathBuf>,
     /// RPC storage caching settings determines what chains and endpoints to
     /// cache
     pub rpc_storage_caching: StorageCachingConfig,
@@ -78,9 +88,10 @@ impl From<Config> for CheatsConfigOptions {
     fn from(value: Config) -> Self {
         Self {
             rpc_endpoints: value.rpc_endpoints,
+            rpc_cache_path: value.eth_rpc_url.map(PathBuf::from),
+            rpc_storage_caching: value.rpc_storage_caching,
             unchecked_cheatcode_artifacts: value.unchecked_cheatcode_artifacts,
             prompt_timeout: value.prompt_timeout,
-            rpc_storage_caching: value.rpc_storage_caching,
             fs_permissions: value.fs_permissions,
             labels: value.labels,
         }
@@ -98,6 +109,7 @@ impl CheatsConfig {
     ) -> Self {
         let CheatsConfigOptions {
             rpc_endpoints,
+            rpc_cache_path,
             unchecked_cheatcode_artifacts,
             prompt_timeout,
             rpc_storage_caching,
@@ -121,6 +133,7 @@ impl CheatsConfig {
             ffi: evm_opts.ffi,
             always_use_create_2_factory: evm_opts.always_use_create_2_factory,
             prompt_timeout: Duration::from_secs(prompt_timeout),
+            rpc_cache_path,
             rpc_storage_caching,
             rpc_endpoints,
             fs_permissions,
@@ -260,6 +273,7 @@ impl Default for CheatsConfig {
             ffi: false,
             always_use_create_2_factory: false,
             prompt_timeout: Duration::from_secs(120),
+            rpc_cache_path: None,
             rpc_storage_caching: StorageCachingConfig::default(),
             rpc_endpoints: ResolvedRpcEndpoints::default(),
             fs_permissions: FsPermissions::default(),

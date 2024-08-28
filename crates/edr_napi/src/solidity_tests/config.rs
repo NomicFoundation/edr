@@ -90,12 +90,6 @@ pub struct SolidityTestRunnerConfigArgs {
     /// The memory limit of the EVM in bytes.
     /// Defaults to 33_554_432 (2^25 = 32MiB).
     pub memory_limit: Option<BigInt>,
-    // TODO https://github.com/NomicFoundation/edr/issues/591
-    /// If set to true, then block data from RPC endpoints in tests will not be
-    /// cached. Otherwise, the data is cached to
-    /// `$HOME/.foundry/cache/<chain id>/<block number>`.
-    /// Defaults to false.
-    pub no_storage_caching: Option<bool>,
     /// If set, all tests are run in fork mode using this url or remote name.
     /// Defaults to none.
     pub eth_rpc_url: Option<String>,
@@ -104,6 +98,11 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Map of RPC endpoints from chain name to RPC urls for fork cheat codes,
     /// e.g. `{ "optimism": "https://optimism.alchemyapi.io/v2/..." }`
     pub rpc_endpoints: Option<HashMap<String, String>>,
+    /// Optional RPC cache path. If this is none, then no RPC calls will be
+    /// cached, otherwise data is cached to `<rpc_cache_path>/<chain
+    /// id>/<block number>`. Caching can be disabled for specific chains
+    /// with `rpc_storage_caching`.
+    pub rpc_cache_path: Option<String>,
     /// What RPC endpoints are cached. Defaults to all.
     pub rpc_storage_caching: Option<StorageCachingConfig>,
     /// The number of seconds to wait before `vm.prompt` reverts with a timeout.
@@ -142,7 +141,7 @@ impl Debug for SolidityTestRunnerConfigArgs {
             .field("block_gas_limit", &self.block_gas_limit)
             .field("memory_limit", &self.memory_limit)
             .field("eth_rpc_url", &self.eth_rpc_url)
-            .field("no_storage_caching", &self.no_storage_caching)
+            .field("rpc_cache_path", &self.rpc_cache_path)
             .field("rpc_endpoints", &self.rpc_endpoints)
             .field("rpc_storage_caching", &self.rpc_storage_caching)
             .field("prompt_timeout", &self.prompt_timeout)
@@ -179,7 +178,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             disable_block_gas_limit,
             memory_limit,
             eth_rpc_url,
-            no_storage_caching,
+            rpc_cache_path,
             fork_block_number,
             rpc_endpoints,
             rpc_storage_caching,
@@ -207,6 +206,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
                     )
                 })
                 .unwrap_or_default(),
+            rpc_cache_path: rpc_cache_path.map(PathBuf::from),
             rpc_storage_caching: rpc_storage_caching
                 .map(TryFrom::try_from)
                 .transpose()?
@@ -265,10 +265,6 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
         evm_opts.fork_url = eth_rpc_url;
 
         evm_opts.fork_block_number = fork_block_number.map(TryCast::try_cast).transpose()?;
-
-        if let Some(no_storage_caching) = no_storage_caching {
-            evm_opts.no_storage_caching = no_storage_caching;
-        }
 
         if let Some(isolate) = isolate {
             evm_opts.isolate = isolate;
@@ -732,7 +728,6 @@ impl SolidityTestRunnerConfig {
             always_use_create_2_factory: false,
             memory_limit: 1 << 25, // 2**25 = 32MiB
             isolate: false,
-            no_storage_caching: false,
             disable_block_gas_limit: false,
         }
     }
@@ -751,11 +746,11 @@ impl SolidityTestRunnerConfig {
                 })?
                 .0;
 
-            let enable_caching = self.enable_caching(fork_url, evm_env.cfg.chain_id);
+            let rpc_cache_path = self.rpc_cache_path(fork_url, evm_env.cfg.chain_id);
 
             Ok(Some(CreateFork {
+                rpc_cache_path,
                 url: fork_url.clone(),
-                enable_caching,
                 env: evm_env,
                 evm_opts: self.evm_opts.clone(),
             }))
@@ -765,15 +760,80 @@ impl SolidityTestRunnerConfig {
     }
 
     /// Whether caching should be enabled for the given chain id
-    fn enable_caching(&self, endpoint: &str, chain_id: impl Into<u64>) -> bool {
-        !self.evm_opts.no_storage_caching
-            && self
-                .cheats_config_options
-                .rpc_storage_caching
-                .enable_for_chain_id(chain_id.into())
-            && self
-                .cheats_config_options
-                .rpc_storage_caching
-                .enable_for_endpoint(endpoint)
+    fn rpc_cache_path(&self, endpoint: &str, chain_id: impl Into<u64>) -> Option<PathBuf> {
+        let enable_for_chain_id = self
+            .cheats_config_options
+            .rpc_storage_caching
+            .enable_for_chain_id(chain_id.into());
+        let enable_for_endpoint = self
+            .cheats_config_options
+            .rpc_storage_caching
+            .enable_for_endpoint(endpoint);
+        if enable_for_chain_id && enable_for_endpoint {
+            self.cheats_config_options.rpc_cache_path.clone()
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use foundry_config::NamedChain;
+
+    use super::*;
+
+    impl SolidityTestRunnerConfig {
+        fn new_for_caching_tests(project_root: PathBuf) -> Self {
+            let cheats_config_options = CheatsConfigOptions {
+                rpc_endpoints: RpcEndpoints::default(),
+                rpc_cache_path: Some(project_root.join("rpc-cache")),
+                rpc_storage_caching: foundry_config::cache::StorageCachingConfig::default(),
+                unchecked_cheatcode_artifacts: false,
+                fs_permissions: FsPermissions::default(),
+                prompt_timeout: 120,
+                labels: HashMap::default(),
+            };
+            Self {
+                project_root,
+                debug: false,
+                trace: false,
+                cheats_config_options,
+                evm_opts: Self::default_evm_opts(),
+                fuzz: FuzzConfig::default(),
+                invariant: InvariantConfig::default(),
+            }
+        }
+    }
+
+    #[test]
+    fn test_rpc_cache_path() {
+        let mut config = SolidityTestRunnerConfig::new_for_caching_tests(
+            "/tmp/fake-path".parse().expect("path ok"),
+        );
+
+        let url = "https://eth-mainnet.alchemyapi";
+        assert_eq!(
+            config.rpc_cache_path(url, NamedChain::Mainnet),
+            Some("/tmp/fake-path/rpc-cache".parse().expect("path ok"))
+        );
+        assert!(config.rpc_cache_path(url, NamedChain::Dev).is_none());
+
+        config.cheats_config_options.rpc_storage_caching.chains =
+            foundry_config::cache::CachedChains::None;
+        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_none());
+
+        config.cheats_config_options.rpc_storage_caching.chains =
+            foundry_config::cache::CachedChains::All;
+        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_some());
+        config.cheats_config_options.rpc_storage_caching.endpoints =
+            foundry_config::cache::CachedEndpoints::Pattern("sepolia".parse().expect("regex ok"));
+        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_none());
+
+        config.cheats_config_options.rpc_storage_caching.endpoints =
+            foundry_config::cache::CachedEndpoints::All;
+        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_some());
+        config.cheats_config_options.rpc_cache_path = None;
+        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_none());
     }
 }

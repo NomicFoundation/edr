@@ -9,7 +9,8 @@ use std::{
 use alloy_primitives::U256;
 use edr_test_utils::{init_tracing_for_solidity_tests, new_fd_lock};
 use forge::{
-    revm::primitives::SpecId, MultiContractRunner, MultiContractRunnerBuilder, TestOptions,
+    fork::CreateFork, revm::primitives::SpecId, MultiContractRunner, MultiContractRunnerBuilder,
+    TestOptions,
 };
 use foundry_compilers::{
     artifacts::{Libraries, Settings},
@@ -265,10 +266,20 @@ impl ForgeTestData {
             .evm_env()
             .await
             .expect("Could not instantiate fork environment");
-        let fork = opts.get_fork(&Config::default(), env.clone());
+
+        // TODO https://github.com/NomicFoundation/edr/issues/607
+        // Construct fork config the same way as the JS runner
+        let fork = CreateFork {
+            rpc_cache_path: Some(
+                Config::foundry_rpc_cache_dir().expect("Could not get rpc cache dir"),
+            ),
+            url: rpc.to_string(),
+            env: env.clone(),
+            evm_opts: self.evm_opts.clone(),
+        };
 
         self.base_runner()
-            .with_fork(fork)
+            .with_fork(Some(fork))
             .build(self.project.root(), self.output.clone(), env, opts)
             .unwrap()
     }
