@@ -3,8 +3,10 @@ import type {
   ArtifactId,
   SolidityTestRunnerConfigArgs,
 } from "@nomicfoundation/edr";
-import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
-import type { Artifacts } from "hardhat/types";
+import {
+  buildSolidityTestsInput,
+  runAllSolidityTests,
+} from "@nomicfoundation/edr-helpers";
 import { assert } from "chai";
 import hre from "hardhat";
 
@@ -54,38 +56,4 @@ async function runTestsWithStats(
     }
   }
   return { totalTests, failedTests };
-}
-
-async function buildSolidityTestsInput(
-  hardhatArtifacts: Artifacts
-): Promise<{ artifacts: Artifact[]; testSuiteIds: ArtifactId[] }> {
-  const fqns = await hardhatArtifacts.getAllFullyQualifiedNames();
-  const artifacts: Artifact[] = [];
-  const testSuiteIds: ArtifactId[] = [];
-
-  for (const fqn of fqns) {
-    const artifact = hardhatArtifacts.readArtifactSync(fqn);
-    const buildInfo = hardhatArtifacts.getBuildInfoSync(fqn);
-
-    if (buildInfo === undefined) {
-      throw new Error(`Build info not found for contract ${fqn}`);
-    }
-
-    const id = {
-      name: artifact.contractName,
-      solcVersion: buildInfo.solcVersion,
-      source: artifact.sourceName,
-    };
-
-    const contract = {
-      abi: JSON.stringify(artifact.abi),
-      bytecode: artifact.bytecode,
-      deployedBytecode: artifact.deployedBytecode,
-    };
-
-    artifacts.push({ id, contract });
-    testSuiteIds.push(id);
-  }
-
-  return { artifacts, testSuiteIds };
 }

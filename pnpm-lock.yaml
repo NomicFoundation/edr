@@ -379,6 +379,9 @@ importers:
       eslint-plugin-prettier:
         specifier: 5.2.1
         version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
+      hardhat:
+        specifier: 2.22.9
+        version: 2.22.9(patch_hash=ixnneac56zlmammcmucrfcq4uu)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.5.3))(typescript@5.5.3)
       typescript:
         specifier: ~5.5.3
         version: 5.5.3

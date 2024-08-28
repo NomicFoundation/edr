@@ -1,13 +1,10 @@
-import {
-  Artifact,
-  ArtifactId,
-  ContractData,
-} from "@nomicfoundation/edr";
 import { task } from "hardhat/config";
 
 task("test:solidity").setAction(async (_: any, hre: any) => {
   await hre.run("compile", { quiet: true });
-  const { runAllSolidityTests } = await import("@nomicfoundation/edr-helpers");
+  const { buildSolidityTestsInput, runAllSolidityTests } = await import(
+    "@nomicfoundation/edr-helpers"
+  );
   const { spec } = require("node:test/reporters");
 
   const specReporter = new spec();
@@ -17,39 +14,19 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
   let totalTests = 0;
   let failedTests = 0;
 
-  const artifacts: Artifact[] = [];
-  const testSuiteIds: ArtifactId[] = [];
-  const fqns = await hre.artifacts.getAllFullyQualifiedNames();
+  const { artifacts, testSuiteIds } = await buildSolidityTestsInput(
+    hre.artifacts,
+    (artifact) => {
+      const sourceName = artifact.id.source;
+      const isTestArtifact =
+        sourceName.endsWith(".t.sol") &&
+        sourceName.startsWith("contracts/") &&
+        !sourceName.startsWith("contracts/forge-std/") &&
+        !sourceName.startsWith("contracts/ds-test/");
 
-  for (const fqn of fqns) {
-    const artifact = hre.artifacts.readArtifactSync(fqn);
-    const buildInfo = hre.artifacts.getBuildInfoSync(fqn);
-
-    const id = {
-      name: artifact.contractName,
-      solcVersion: buildInfo.solcVersion,
-      source: artifact.sourceName,
-    };
-
-    const contract: ContractData = {
-      abi: JSON.stringify(artifact.abi),
-      bytecode: artifact.bytecode,
-      deployedBytecode: artifact.deployedBytecode,
-    };
-
-    artifacts.push({ id, contract });
-
-    const sourceName = artifact.sourceName;
-    const isTestFile =
-      sourceName.endsWith(".t.sol") &&
-      sourceName.startsWith("contracts/") &&
-      !sourceName.startsWith("contracts/forge-std/") &&
-      !sourceName.startsWith("contracts/ds-test/");
-
-    if (isTestFile) {
-      testSuiteIds.push(id);
+      return isTestArtifact;
     }
-  }
+  );
 
   const config = {
     projectRoot: hre.config.paths.root,
