@@ -24,7 +24,8 @@
     "mocha": "^10.0.0",
     "prettier": "^3.2.5",
     "simple-git": "^3.25.0",
-    "tsx": "^4.7.1"
+    "tsx": "^4.7.1",
+    "typescript": "~5.5.3"
   },
   "keywords": [],
   "license": "ISC",

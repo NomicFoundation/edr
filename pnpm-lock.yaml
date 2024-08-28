@@ -151,6 +151,9 @@ importers:
       tsx:
         specifier: ^4.7.1
         version: 4.7.1
+      typescript:
+        specifier: ~5.5.3
+        version: 5.5.3
 
   hardhat-solidity-tests:
     dependencies:
