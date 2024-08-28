@@ -21,8 +21,8 @@
   "main": "index.js",
   "private": true,
   "scripts": {
-    "build:edr": "cd ../../../crates/edr_napi && pnpm build:test",
-    "pretest": "pnpm build:edr && hardhat compile",
+    "build": "tsc --build --incremental .",
+    "pretest": "cd ../../.. && pnpm build",
     "test": "hardhat test"
   }
 }
