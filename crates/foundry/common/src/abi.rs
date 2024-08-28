@@ -2,12 +2,12 @@
 
 use std::{future::Future, pin::Pin};
 
+use alloy_chains::Chain;
 use alloy_dyn_abi::{DynSolType, DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Event, Function};
 use alloy_primitives::{hex, Address, LogData};
 use eyre::{Context, ContextCompat, Result};
 use foundry_block_explorers::{contract::ContractMetadata, errors::EtherscanError, Client};
-use foundry_config::Chain;
 
 /// Given a function and a vector of string arguments, it proceeds to convert
 /// the args to alloy [`DynSolValue`]s and then ABI encode them.

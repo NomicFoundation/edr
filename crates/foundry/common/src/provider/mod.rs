@@ -11,6 +11,7 @@ use std::{
     time::Duration,
 };
 
+use alloy_chains::NamedChain;
 use alloy_provider::{
     fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, SignerFiller},
     network::{AnyNetwork, EthereumSigner},
@@ -19,7 +20,6 @@ use alloy_provider::{
 use alloy_rpc_client::ClientBuilder;
 use alloy_transport::utils::guess_local_url;
 use eyre::{Result, WrapErr};
-use foundry_config::NamedChain;
 use reqwest::Url;
 use runtime_transport::RuntimeTransport;
 use tower::{RetryBackoffLayer, RetryBackoffService};
