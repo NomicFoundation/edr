@@ -1,7 +1,13 @@
 import { assert } from "chai";
-import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
-import { ArtifactId, ContractData, Artifact } from "..";
+import {
+  ArtifactId,
+  ContractData,
+  Artifact,
+  runSolidityTests,
+  SolidityTestRunnerConfigArgs,
+  SuiteResult,
+} from "..";
 
 describe("Solidity Tests", () => {
   it("executes basic tests", async function () {
@@ -72,4 +78,27 @@ function loadContract(artifactPath: string): Artifact {
     id,
     contract,
   };
+}
+
+async function runAllSolidityTests(
+  artifacts: Artifact[],
+  testSuites: ArtifactId[],
+  configArgs: SolidityTestRunnerConfigArgs
+): Promise<SuiteResult[]> {
+  return new Promise((resolve, reject) => {
+    const resultsFromCallback: SuiteResult[] = [];
+
+    runSolidityTests(
+      artifacts,
+      testSuites,
+      configArgs,
+      (suiteResult: SuiteResult) => {
+        resultsFromCallback.push(suiteResult);
+        if (resultsFromCallback.length === artifacts.length) {
+          resolve(resultsFromCallback);
+        }
+      },
+      reject
+    );
+  });
 }
