@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::chain_spec::L1ChainSpec;
+use edr_eth::{chain_spec::L1ChainSpec, specification};
 use napi_derive::napi;
 
 use crate::{
@@ -112,3 +112,36 @@ impl From<SpecId> for edr_eth::SpecId {
         }
     }
 }
+
+macro_rules! export_spec_id {
+    ($($variant:ident),*) => {
+        $(
+            #[napi]
+            pub const $variant: &str = specification::id::$variant;
+        )*
+    };
+}
+
+export_spec_id!(
+    FRONTIER,
+    FRONTIER_THAWING,
+    HOMESTEAD,
+    DAO_FORK,
+    TANGERINE,
+    SPURIOUS_DRAGON,
+    BYZANTIUM,
+    CONSTANTINOPLE,
+    PETERSBURG,
+    ISTANBUL,
+    MUIR_GLACIER,
+    BERLIN,
+    LONDON,
+    ARROW_GLACIER,
+    GRAY_GLACIER,
+    MERGE,
+    SHANGHAI,
+    CANCUN,
+    PRAGUE,
+    PRAGUE_EOF,
+    LATEST
+);

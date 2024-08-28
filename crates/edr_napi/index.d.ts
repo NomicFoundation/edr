@@ -238,6 +238,27 @@ export const enum SpecId {
   /** Latest */
   Latest = 18
 }
+export const FRONTIER: string
+export const FRONTIER_THAWING: string
+export const HOMESTEAD: string
+export const DAO_FORK: string
+export const TANGERINE: string
+export const SPURIOUS_DRAGON: string
+export const BYZANTIUM: string
+export const CONSTANTINOPLE: string
+export const PETERSBURG: string
+export const ISTANBUL: string
+export const MUIR_GLACIER: string
+export const BERLIN: string
+export const LONDON: string
+export const ARROW_GLACIER: string
+export const GRAY_GLACIER: string
+export const MERGE: string
+export const SHANGHAI: string
+export const CANCUN: string
+export const PRAGUE: string
+export const PRAGUE_EOF: string
+export const LATEST: string
 /** Ethereum execution log. */
 export interface ExecutionLog {
   address: Buffer

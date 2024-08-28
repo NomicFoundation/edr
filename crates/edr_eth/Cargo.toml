@@ -17,8 +17,8 @@ itertools = { version = "0.10.5", default-features = false, features = ["use_all
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", ] }
 log = { version = "0.4.17", default-features = false }
 once_cell = { version = "1.18.0", default-features = false, features = ["alloc", "race", "std"] }
-revm = { git = "https://github.com/Wodann/revm", rev = "6d479da", version = "12.1", default-features = false, features = ["c-kzg", "dev", "serde"] }
-revm-primitives = { git = "https://github.com/Wodann/revm", rev = "6d479da", version = "7.1", default-features = false, features = ["c-kzg", "hashbrown"] }
+revm = { git = "https://github.com/Wodann/revm", rev = "a500675", version = "12.1", default-features = false, features = ["c-kzg", "dev", "serde"] }
+revm-primitives = { git = "https://github.com/Wodann/revm", rev = "a500675", version = "7.1", default-features = false, features = ["c-kzg", "hashbrown"] }
 serde = { version = "1.0.147", default-features = false, features = ["derive"], optional = true }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
