@@ -1,0 +1,28 @@
+{
+  "name": "solidity-tests-simple",
+  "description": "",
+  "version": "1.0.0",
+  "author": "",
+  "devDependencies": {
+    "@nomicfoundation/edr": "workspace:*",
+    "@nomicfoundation/edr-helpers": "workspace:*",
+    "@tsconfig/node20": "^20.1.4",
+    "@types/chai": "^4.2.0",
+    "@types/mocha": ">=9.1.0",
+    "@types/node": "^20.0.0",
+    "chai": "^4.3.6",
+    "hardhat": "2.22.9",
+    "prettier": "^3.2.5",
+    "ts-node": "^10.8.0",
+    "typescript": "~5.5.3"
+  },
+  "keywords": [],
+  "license": "MIT",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "build:edr": "cd ../../../crates/edr_napi && pnpm build:test",
+    "pretest": "pnpm build:edr && hardhat compile",
+    "test": "hardhat test"
+  }
+}
