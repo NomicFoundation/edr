@@ -4,7 +4,7 @@
 use std::{
     cell::{OnceCell, RefCell},
     collections::HashMap,
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 use alloy_dyn_abi::ErrorExt;
@@ -61,7 +61,7 @@ impl SourceFile {
 #[derive(Clone, Debug)]
 pub struct SourceLocation {
     line: OnceCell<u32>,
-    sources: BuildModelSources,
+    pub(crate) sources: Weak<HashMap<u32, Rc<RefCell<SourceFile>>>>,
     pub file_id: u32,
     pub offset: u32,
     pub length: u32,
@@ -69,7 +69,7 @@ pub struct SourceLocation {
 
 impl PartialEq for SourceLocation {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.sources, &other.sources)
+        Weak::ptr_eq(&self.sources, &other.sources)
             && self.file_id == other.file_id
             && self.offset == other.offset
             && self.length == other.length
@@ -85,15 +85,21 @@ impl SourceLocation {
     ) -> SourceLocation {
         SourceLocation {
             line: OnceCell::new(),
-            sources,
+            // We need to break the cycle between SourceLocation and SourceFile
+            // (via ContractFunction); the Bytecode struct is owning the build
+            // model (sources), so we should always be alive.
+            sources: Rc::downgrade(&sources),
             file_id,
             offset,
             length,
         }
     }
 
-    pub fn file(&self) -> &RefCell<SourceFile> {
-        self.sources.get(&self.file_id).unwrap()
+    pub fn file(&self) -> Rc<RefCell<SourceFile>> {
+        match self.sources.upgrade() {
+            Some(ref sources) => sources.get(&self.file_id).unwrap().clone(),
+            None => panic!("dangling SourceLocation; did you drop the owning Bytecode?"),
+        }
     }
 
     pub fn get_starting_line_number(&self) -> u32 {
@@ -124,7 +130,7 @@ impl SourceLocation {
     }
 
     pub fn contains(&self, other: &SourceLocation) -> bool {
-        if !Rc::ptr_eq(&self.sources, &other.sources) || self.file_id != other.file_id {
+        if !Weak::ptr_eq(&self.sources, &other.sources) || self.file_id != other.file_id {
             return false;
         }
 
@@ -247,6 +253,9 @@ pub enum JumpType {
 pub struct Bytecode {
     pc_to_instruction: HashMap<u32, Instruction>,
 
+    #[allow(dead_code)] // This owns the source files transitively used by the
+    // source locations in the Instruction structs.
+    sources: BuildModelSources,
     pub contract: Rc<RefCell<Contract>>,
     pub is_deployment: bool,
     pub normalized_code: Vec<u8>,
@@ -256,7 +265,9 @@ pub struct Bytecode {
 }
 
 impl Bytecode {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        sources: BuildModelSources,
         contract: Rc<RefCell<Contract>>,
         is_deployment: bool,
         normalized_code: Vec<u8>,
@@ -272,6 +283,7 @@ impl Bytecode {
 
         Bytecode {
             pc_to_instruction,
+            sources,
             contract,
             is_deployment,
             normalized_code,

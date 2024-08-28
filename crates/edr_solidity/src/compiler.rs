@@ -326,10 +326,14 @@ fn process_function_definition_ast_node(
     X.with_borrow_mut(|x| x.push((Rc::downgrade(&contract_func), Instant::now())));
     X.with_borrow(|x| {
         for (contract_func, start) in x.iter() {
-            const TEN_SECONDS: Duration = Duration::from_secs(5);
-            if Instant::now().duration_since(*start) > TEN_SECONDS {
+            if Instant::now().duration_since(*start) > Duration::from_secs(10) {
                 if let Some(contract_func) = contract_func.upgrade() {
-                    panic!("Allocation is alive: {contract_func:?}");
+                    let location = &contract_func.location;
+                    if let Some(file) = location.sources.upgrade() {
+                        eprintln!(">>>>>>>>>>> Sources is still alive: {file:?}");
+                    }
+                    eprintln!("Allocation is alive: {contract_func:?}");
+                    panic!();
                 }
             }
         }
@@ -735,6 +739,7 @@ fn decode_evm_bytecode(
     );
 
     Ok(Bytecode::new(
+        Rc::clone(&build_model.file_id_to_source_file),
         contract,
         is_deployment,
         normalized_code,

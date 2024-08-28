@@ -83,7 +83,8 @@ fn print_call_trace(trace: &CallMessageTrace, depth: u32, env: Env) -> napi::Res
 
     if let Some(bytecode) = &trace.bytecode {
         let contract = bytecode.contract.borrow();
-        let file = contract.location.file().borrow();
+        let file = contract.location.file();
+        let file = file.borrow();
 
         println!(
             "{margin} calling contract: {}:{}",
@@ -206,12 +207,14 @@ fn trace_steps(
                 .as_ref()
                 .map(|inst_location| {
                     let inst_location = &inst_location;
-                    let file = inst_location.file().borrow();
+                    let file = inst_location.file();
+                    let file = file.borrow();
 
                     let mut location_str = file.source_name.clone();
 
                     if let Some(func) = inst_location.get_containing_function() {
-                        let file = func.location.file().borrow();
+                        let file = func.location.file();
+                        let file = file.borrow();
 
                         let source_name = func
                             .contract_name
