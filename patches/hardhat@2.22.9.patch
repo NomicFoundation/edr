@@ -236,7 +236,7 @@ index 01cf991d531fc11a184eb43373b13f1f50bf7df4..b2a6c734ee00e975f6e1e3511b85e058
 +{"version":3,"file":"minimal-vm.js","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/vm/minimal-vm.ts"],"names":[],"mappings":";;;AAQA,sEAAqE;AAgDrE,MAAa,+BAAgC,SAAQ,mCAA4C;CAAG;AAApG,0EAAoG;AACpG,MAAa,gCAAiC,SAAQ,mCAA6C;CAAG;AAAtG,4EAAsG;AAEtG,SAAgB,sBAAsB,CACpC,QAAsB;IAEtB,MAAM,mBAAmB,GAAwB;QAC/C,MAAM,EAAE,IAAI,+BAA+B,EAAE;QAC7C,GAAG,EAAE;YACH,MAAM,EAAE,IAAI,gCAAgC,EAAE;SAC/C;QACD,YAAY,EAAE;YACZ,eAAe,EAAE,KAAK,EAAE,OAAgB,EAAE,IAAY,EAAE,EAAE;gBACxD,MAAM,QAAQ,CAAC,aAAa,CAAC;oBAC3B,MAAM,EAAE,iBAAiB;oBACzB,MAAM,EAAE,CAAC,OAAO,CAAC,QAAQ,EAAE,EAAE,KAAK,IAAI,CAAC,QAAQ,CAAC,KAAK,CAAC,EAAE,CAAC;iBAC1D,CAAC,CAAC;YACL,CAAC;YACD,kBAAkB,EAAE,KAAK,EAAE,OAAgB,EAAE,QAAgB,EAAE,EAAE;gBAC/D,MAAM,cAAc,GAAG,MAAM,QAAQ,CAAC,aAAa,CAAC;oBAClD,MAAM,EAAE,kBAAkB;oBAC1B,MAAM,EAAE,CAAC,OAAO,CAAC,QAAQ,EAAE,EAAE,KAAK,QAAQ,CAAC,QAAQ,CAAC,KAAK,CAAC,EAAE,CAAC;iBAC9D,CAAC,CAAC;gBAEH,IAAI,QAAQ,CAAC;gBACb,IAAI,OAAO,cAAc,CAAC,IAAI,KAAK,QAAQ,EAAE;oBAC3C,QAAQ,GAAG,IAAI,CAAC,KAAK,CAAC,cAAc,CAAC,IAAI,CAAC,CAAC;iBAC5C;qBAAM;oBACL,QAAQ,GAAG,cAAc,CAAC,IAAI,CAAC;iBAChC;gBAED,OAAO,MAAM,CAAC,IAAI,CAAC,QAAQ,CAAC,MAAM,CAAC,KAAK,CAAC,CAAC,CAAC,EAAE,KAAK,CAAC,CAAC;YACtD,CAAC;YACD,kBAAkB,EAAE,KAAK,EACvB,OAAgB,EAChB,QAAgB,EAChB,SAAiB,EACjB,EAAE;gBACF,MAAM,QAAQ,CAAC,aAAa,CAAC;oBAC3B,MAAM,EAAE,sBAAsB;oBAC9B,MAAM,EAAE;wBACN,OAAO,CAAC,QAAQ,EAAE;wBAClB,KAAK,QAAQ,CAAC,QAAQ,CAAC,KAAK,CAAC,EAAE;wBAC/B,KAAK,SAAS,CAAC,QAAQ,CAAC,KAAK,CAAC,EAAE;qBACjC;iBACF,CAAC,CAAC;YACL,CAAC;SACF;KACF,CAAC;IAEF,OAAO,mBAAmB,CAAC;AAC7B,CAAC;AAhDD,wDAgDC"}
 \ No newline at end of file
 diff --git a/src/internal/hardhat-network/provider/provider.ts b/src/internal/hardhat-network/provider/provider.ts
-index c48c51cfb758478b32295e82952b3cd4d9967aac..ee993d640a620425b0cd3564f0286c47aa641421 100644
+index c48c51cfb758478b32295e82952b3cd4d9967aac..3dda0ab27f9a3dc7cf9032ddd39544ba94d854fc 100644
 --- a/src/internal/hardhat-network/provider/provider.ts
 +++ b/src/internal/hardhat-network/provider/provider.ts
 @@ -1,6 +1,5 @@
@@ -309,24 +309,7 @@ index c48c51cfb758478b32295e82952b3cd4d9967aac..ee993d640a620425b0cd3564f0286c47
        }
      );
  
-@@ -346,15 +351,11 @@ export class EdrProviderWrapper
-       );
-     }
- 
--    const stringifiedArgs = JSON.stringify({
-+    const responseObject: Response = await this._provider.handleRequest({
-       method: args.method,
-       params,
-     });
- 
--    const responseObject: Response = await this._provider.handleRequest(
--      stringifiedArgs
--    );
--
-     let response;
-     if (typeof responseObject.data === "string") {
-       response = JSON.parse(responseObject.data);
-@@ -481,18 +482,20 @@ export class EdrProviderWrapper
+@@ -481,18 +486,20 @@ export class EdrProviderWrapper
    }
  
    // temporarily added to make smock work with HH+EDR
@@ -351,7 +334,7 @@ index c48c51cfb758478b32295e82952b3cd4d9967aac..ee993d640a620425b0cd3564f0286c47
    }
  
    private _ethEventListener(event: SubscriptionEvent) {
-@@ -630,7 +633,7 @@ export async function createHardhatNetworkProvider(
+@@ -630,7 +637,7 @@ export async function createHardhatNetworkProvider(
    log("Making tracing config");
    const tracingConfig = await makeTracingConfig(artifacts);
    log("Creating EDR provider");
