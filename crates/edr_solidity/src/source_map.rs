@@ -1,11 +1,11 @@
 //! Ported from `hardhat-network/stack-traces/source-maps.ts`.
 #![allow(missing_docs)] // TODO: Document this module
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use edr_evm::interpreter::OpCode;
 
-use crate::build_model::{Instruction, JumpType, SourceFile, SourceLocation};
+use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
 
 // See https://docs.soliditylang.org/en/latest/internals/source_mappings.html
 pub struct SourceMapLocation {
@@ -131,7 +131,7 @@ fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8
 pub fn decode_instructions(
     bytecode: &[u8],
     compressed_sourcemaps: &str,
-    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
+    build_model: &Rc<BuildModel>,
     is_deployment: bool,
 ) -> Vec<Instruction> {
     let source_maps = uncompress_sourcemaps(compressed_sourcemaps);
@@ -162,11 +162,13 @@ pub fn decode_instructions(
         let location = if source_map.location.file == -1 {
             None
         } else {
-            file_id_to_source_file
+            build_model
+                .file_id_to_source_file
                 .get(&(source_map.location.file as u32))
-                .map(|file| {
+                .map(|_| {
                     Rc::new(SourceLocation::new(
-                        file.clone(),
+                        build_model.file_id_to_source_file.clone(),
+                        source_map.location.file as u32,
                         source_map.location.offset as u32,
                         source_map.location.length as u32,
                     ))

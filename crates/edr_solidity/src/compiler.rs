@@ -2,7 +2,13 @@
 //! Ported from `hardhat-network/stack-traces/compiler-to-model.ts`.
 #![allow(missing_docs)] // TODO: Document this module
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    rc::{Rc, Weak},
+    str::FromStr,
+    time::{Duration, Instant},
+};
 
 use anyhow::{self, Context as _};
 use edr_evm::{alloy_primitives::keccak256, hex};
@@ -11,33 +17,40 @@ use indexmap::IndexMap;
 use crate::{
     artifacts::{CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry},
     build_model::{
-        Bytecode, Contract, ContractFunction, ContractFunctionType, ContractFunctionVisibility,
-        ContractKind, CustomError, SourceFile, SourceLocation,
+        BuildModel, Bytecode, Contract, ContractFunction, ContractFunctionType,
+        ContractFunctionVisibility, ContractKind, CustomError, SourceFile, SourceLocation,
     },
     library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
     source_map::decode_instructions,
 };
+
+pub type BuildModelSources = Rc<HashMap<u32, Rc<RefCell<SourceFile>>>>;
 
 pub fn create_models_and_decode_bytecodes(
     solc_version: String,
     compiler_input: &CompilerInput,
     compiler_output: &CompilerOutput,
 ) -> anyhow::Result<Vec<Bytecode>> {
-    let mut file_id_to_source_file = HashMap::new();
-    let mut contract_id_to_contract = IndexMap::new();
+    // let mut build_model = Rc::new(BuildModel::default());
 
-    create_sources_model_from_ast(
+    // let mut file_id_to_source_file = HashMap::new();
+    // let mut contract_id_to_contract = IndexMap::new();
+
+    let build_model = create_sources_model_from_ast(
         compiler_output,
         compiler_input,
-        &mut file_id_to_source_file,
-        &mut contract_id_to_contract,
+        //&mut file_id_to_source_file,
+        // &mut contract_id_to_contract,
     )?;
+
+    let build_model = Rc::new(build_model);
 
     let bytecodes = decode_bytecodes(
         solc_version,
         compiler_output,
-        &file_id_to_source_file,
-        &contract_id_to_contract,
+        &build_model,
+        // &build_model.file_id_to_source_file,
+        // &build_model.contract_id_to_contract,
     )?;
 
     correct_selectors(&bytecodes, compiler_output)?;
@@ -48,29 +61,41 @@ pub fn create_models_and_decode_bytecodes(
 fn create_sources_model_from_ast(
     compiler_output: &CompilerOutput,
     compiler_input: &CompilerInput,
-    file_id_to_source_file: &mut HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract_id_to_contract: &mut IndexMap<u32, Rc<RefCell<Contract>>>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<BuildModel> {
+    let mut build_model = BuildModel::default();
     let mut contract_id_to_linearized_base_contract_ids = HashMap::new();
 
-    for (source_name, source) in &compiler_output.sources {
-        let file = SourceFile::new(
-            source_name.to_string(),
-            compiler_input.sources[source_name].content.clone(),
-        );
-        let file = Rc::new(RefCell::new(file));
+    // First, collect and store all the files to be able to resolve the source locations
+    let file_id_to_source_file: HashMap<_, _> = compiler_output
+        .sources
+        .iter()
+        .map(|(source_name, source)| {
+            let file = SourceFile::new(
+                source_name.clone(),
+                compiler_input.sources[source_name].content.clone(),
+            );
+            let file = Rc::new(RefCell::new(file));
+            (source.id, file.clone())
+        })
+        .collect();
+    // TODO: make it nicer
+    let sources: BuildModelSources = Rc::new(file_id_to_source_file);
+    build_model.file_id_to_source_file = sources.clone();
 
-        file_id_to_source_file.insert(source.id, file.clone());
+    // Secondly, collect all the contracts and fill the source file/contracts with
+    // processed functions
+    let mut contract_id_to_contract = IndexMap::new();
+    for (source_name, source) in &compiler_output.sources {
+        let file = &sources[&source.id];
 
         for node in source.ast["nodes"].as_array().unwrap() {
             match node["nodeType"].as_str().unwrap() {
                 "ContractDefinition" => {
-                    let contract_kind = node["contractKind"].as_str();
-                    let contract_type = contract_kind.and_then(|k| ContractKind::from_str(k).ok());
-
-                    let contract_type = match contract_type {
-                        Some(contract_type) => contract_type,
-                        None => continue,
+                    let Some(contract_type) = node["contractKind"]
+                        .as_str()
+                        .and_then(|k| ContractKind::from_str(k).ok())
+                    else {
+                        continue;
                     };
 
                     let contract_abi =
@@ -83,23 +108,24 @@ fn create_sources_model_from_ast(
                                     .map(|contract| &contract.abi)
                             });
 
-                    process_contract_ast_node(
-                        &file,
+                    let (contract_id, contract) = process_contract_ast_node(
+                        file,
                         node,
-                        file_id_to_source_file,
                         contract_type,
-                        contract_id_to_contract,
+                        &sources,
                         &mut contract_id_to_linearized_base_contract_ids,
                         contract_abi.map(Vec::as_slice),
                     )?;
+
+                    contract_id_to_contract.insert(contract_id, contract);
                 }
                 // top-level functions
                 "FunctionDefinition" => {
                     process_function_definition_ast_node(
                         node,
-                        file_id_to_source_file,
+                        &build_model.file_id_to_source_file,
                         None,
-                        &file,
+                        file,
                         None,
                     )?;
                 }
@@ -107,13 +133,14 @@ fn create_sources_model_from_ast(
             }
         }
     }
+    build_model.contract_id_to_contract = contract_id_to_contract;
 
     apply_contracts_inheritance(
-        contract_id_to_contract,
+        &build_model.contract_id_to_contract,
         &contract_id_to_linearized_base_contract_ids,
     );
 
-    Ok(())
+    Ok(build_model)
 }
 
 fn apply_contracts_inheritance(
@@ -146,17 +173,14 @@ fn apply_contracts_inheritance(
 fn process_contract_ast_node(
     file: &RefCell<SourceFile>,
     contract_node: &serde_json::Value,
-    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
     contract_type: ContractKind,
-    contract_id_to_contract: &mut IndexMap<u32, Rc<RefCell<Contract>>>,
+    sources: &BuildModelSources,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_abi: Option<&[ContractAbiEntry]>,
-) -> anyhow::Result<()> {
-    let contract_location = ast_src_to_source_location(
-        contract_node["src"].as_str().unwrap(),
-        file_id_to_source_file,
-    )?
-    .expect("The original JS code always asserts that");
+) -> anyhow::Result<(u32, Rc<RefCell<Contract>>)> {
+    let contract_location =
+        ast_src_to_source_location(contract_node["src"].as_str().unwrap(), sources)?
+            .expect("The original JS code always asserts that");
 
     let contract = Contract::new(
         contract_node["name"].as_str().unwrap().to_string(),
@@ -166,7 +190,9 @@ fn process_contract_ast_node(
     let contract = Rc::new(RefCell::new(contract));
 
     let contract_id = contract_node["id"].as_u64().unwrap() as u32;
-    contract_id_to_contract.insert(contract_id, contract.clone());
+    // build_model
+    //     .contract_id_to_contract
+    //     .insert(contract_id, contract.clone());
 
     contract_id_to_linearized_base_contract_ids.insert(
         contract_id,
@@ -190,19 +216,14 @@ fn process_contract_ast_node(
 
                 process_function_definition_ast_node(
                     node,
-                    file_id_to_source_file,
+                    sources,
                     Some(&contract),
                     file,
                     function_abis,
                 )?;
             }
             "ModifierDefinition" => {
-                process_modifier_definition_ast_node(
-                    node,
-                    file_id_to_source_file,
-                    &contract,
-                    file,
-                )?;
+                process_modifier_definition_ast_node(node, sources, &contract, file)?;
             }
             "VariableDeclaration" => {
                 let getter_abi = contract_abi.and_then(|contract_abi| {
@@ -211,24 +232,18 @@ fn process_contract_ast_node(
                         .find(|abi_entry| abi_entry.name.as_deref() == node["name"].as_str())
                 });
 
-                process_variable_declaration_ast_node(
-                    node,
-                    file_id_to_source_file,
-                    &contract,
-                    file,
-                    getter_abi,
-                )?;
+                process_variable_declaration_ast_node(node, sources, &contract, file, getter_abi)?;
             }
             _ => {}
         }
     }
 
-    Ok(())
+    Ok((contract_id, contract))
 }
 
 fn process_function_definition_ast_node(
     node: &serde_json::Value,
-    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
+    sources: &BuildModelSources,
     contract: Option<&RefCell<Contract>>,
     file: &RefCell<SourceFile>,
     function_abis: Option<Vec<&ContractAbiEntry>>,
@@ -239,9 +254,8 @@ fn process_function_definition_ast_node(
 
     let function_type = function_definition_kind_to_function_type(node["kind"].as_str());
 
-    let function_location =
-        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
-            .expect("The original JS code always asserts that");
+    let function_location = ast_src_to_source_location(node["src"].as_str().unwrap(), sources)?
+        .expect("The original JS code always asserts that");
 
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
 
@@ -305,6 +319,22 @@ fn process_function_definition_ast_node(
     };
     let contract_func = Rc::new(contract_func);
 
+    thread_local! {
+      pub static X: RefCell<Vec<(Weak<ContractFunction>, Instant)>> = const { RefCell::new(vec![]) };
+    }
+
+    X.with_borrow_mut(|x| x.push((Rc::downgrade(&contract_func), Instant::now())));
+    X.with_borrow(|x| {
+        for (contract_func, start) in x.iter() {
+            const TEN_SECONDS: Duration = Duration::from_secs(5);
+            if Instant::now().duration_since(*start) > TEN_SECONDS {
+                if let Some(contract_func) = contract_func.upgrade() {
+                    panic!("Allocation is alive: {contract_func:?}");
+                }
+            }
+        }
+    });
+
     file.borrow_mut().add_function(contract_func.clone());
     if let Some(contract) = contract {
         contract.borrow_mut().add_local_function(contract_func);
@@ -315,13 +345,12 @@ fn process_function_definition_ast_node(
 
 fn process_modifier_definition_ast_node(
     node: &serde_json::Value,
-    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
+    sources: &BuildModelSources,
     contract: &RefCell<Contract>,
     file: &RefCell<SourceFile>,
 ) -> anyhow::Result<()> {
-    let function_location =
-        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
-            .expect("The original JS code always asserts that");
+    let function_location = ast_src_to_source_location(node["src"].as_str().unwrap(), sources)?
+        .expect("The original JS code always asserts that");
 
     let contract_func = ContractFunction {
         name: node["name"].as_str().unwrap().to_string(),
@@ -344,7 +373,7 @@ fn process_modifier_definition_ast_node(
 
 fn process_variable_declaration_ast_node(
     node: &serde_json::Value,
-    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
+    sources: &BuildModelSources,
     contract: &RefCell<Contract>,
     file: &RefCell<SourceFile>,
     getter_abi: Option<&ContractAbiEntry>,
@@ -356,9 +385,8 @@ fn process_variable_declaration_ast_node(
         return Ok(());
     }
 
-    let function_location =
-        ast_src_to_source_location(node["src"].as_str().unwrap(), file_id_to_source_file)?
-            .expect("The original JS code always asserts that");
+    let function_location = ast_src_to_source_location(node["src"].as_str().unwrap(), sources)?
+        .expect("The original JS code always asserts that");
 
     let param_types = getter_abi
         .as_ref()
@@ -581,7 +609,7 @@ fn to_canonical_abi_type(type_: &str) -> String {
 
 fn ast_src_to_source_location(
     src: &str,
-    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
+    build_model_sources: &BuildModelSources,
 ) -> anyhow::Result<Option<Rc<SourceLocation>>> {
     let parts: Vec<&str> = src.split(':').collect();
     if parts.len() != 3 {
@@ -598,12 +626,13 @@ fn ast_src_to_source_location(
         .parse::<u32>()
         .with_context(|| format!("Failed to parse file ID: {src:?}"))?;
 
-    let file = file_id_to_source_file
-        .get(&file_id)
-        .with_context(|| format!("Failed to find file by ID: {file_id}"))?;
+    if build_model_sources.get(&file_id).is_none() {
+        return Err(anyhow::anyhow!("Failed to find file by ID: {file_id}"));
+    }
 
     Ok(Some(Rc::new(SourceLocation::new(
-        file.clone(),
+        Rc::clone(build_model_sources),
+        file_id,
         offset,
         length,
     ))))
@@ -618,7 +647,7 @@ fn correct_selectors(
         // Fetch the method identifiers for the contract from the compiler output
         let method_identifiers = match compiler_output
             .contracts
-            .get(&contract.location.file.borrow().source_name)
+            .get(&contract.location.file().borrow().source_name)
             .and_then(|file| file.get(&contract.name))
             .map(|contract| &contract.evm.method_identifiers)
         {
@@ -675,7 +704,7 @@ fn decode_evm_bytecode(
     solc_version: String,
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
-    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
+    build_model: &Rc<BuildModel>,
 ) -> anyhow::Result<Bytecode> {
     let library_address_positions = get_library_address_positions(compiler_bytecode);
 
@@ -700,7 +729,8 @@ fn decode_evm_bytecode(
     let instructions = decode_instructions(
         &normalized_code,
         &compiler_bytecode.source_map,
-        file_id_to_source_file,
+        build_model,
+        // file_id_to_source_file,
         is_deployment,
     );
 
@@ -718,17 +748,18 @@ fn decode_evm_bytecode(
 fn decode_bytecodes(
     solc_version: String,
     compiler_output: &CompilerOutput,
-    file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
-    contract_id_to_contract: &IndexMap<u32, Rc<RefCell<Contract>>>,
+    build_model: &Rc<BuildModel>,
+    // file_id_to_source_file: &HashMap<u32, Rc<RefCell<SourceFile>>>,
+    // contract_id_to_contract: &IndexMap<u32, Rc<RefCell<Contract>>>,
 ) -> anyhow::Result<Vec<Bytecode>> {
     let mut bytecodes = Vec::new();
 
-    for contract in contract_id_to_contract.values() {
+    for contract in build_model.contract_id_to_contract.values() {
         let contract_rc = contract.clone();
 
         let mut contract = contract.borrow_mut();
 
-        let contract_file = &contract.location.file.borrow().source_name.clone();
+        let contract_file = &contract.location.file().borrow().source_name.clone();
         let contract_evm_output = &compiler_output.contracts[contract_file][&contract.name].evm;
         let contract_abi_output = &compiler_output.contracts[contract_file][&contract.name].abi;
 
@@ -750,7 +781,8 @@ fn decode_bytecodes(
             solc_version.clone(),
             true,
             &contract_evm_output.bytecode,
-            file_id_to_source_file,
+            build_model,
+            // &build_model.file_id_to_source_file,
         )?;
 
         let runtime_bytecode = decode_evm_bytecode(
@@ -758,7 +790,8 @@ fn decode_bytecodes(
             solc_version.clone(),
             false,
             &contract_evm_output.deployed_bytecode,
-            file_id_to_source_file,
+            build_model,
+            // &build_model.file_id_to_source_file,
         )?;
 
         bytecodes.push(deployment_bytecode);

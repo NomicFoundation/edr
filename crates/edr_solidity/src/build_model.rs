@@ -10,10 +10,20 @@ use std::{
 use alloy_dyn_abi::ErrorExt;
 use anyhow::{self, Context as _};
 use edr_evm::{hex, interpreter::OpCode};
+use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::artifacts::{ContractAbiEntry, ImmutableReference};
+use crate::{
+    artifacts::{ContractAbiEntry, ImmutableReference},
+    compiler::BuildModelSources,
+};
+
+#[derive(Debug, Default)]
+pub struct BuildModel {
+    pub contract_id_to_contract: IndexMap<u32, Rc<RefCell<Contract>>>,
+    pub file_id_to_source_file: Rc<HashMap<u32, Rc<RefCell<SourceFile>>>>,
+}
 
 #[derive(Debug)]
 pub struct SourceFile {
@@ -51,27 +61,39 @@ impl SourceFile {
 #[derive(Clone, Debug)]
 pub struct SourceLocation {
     line: OnceCell<u32>,
-    pub file: Rc<RefCell<SourceFile>>,
+    sources: BuildModelSources,
+    pub file_id: u32,
     pub offset: u32,
     pub length: u32,
 }
 
 impl PartialEq for SourceLocation {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.file, &other.file)
+        Rc::ptr_eq(&self.sources, &other.sources)
+            && self.file_id == other.file_id
             && self.offset == other.offset
             && self.length == other.length
     }
 }
 
 impl SourceLocation {
-    pub fn new(file: Rc<RefCell<SourceFile>>, offset: u32, length: u32) -> SourceLocation {
+    pub fn new(
+        sources: BuildModelSources,
+        file_id: u32,
+        offset: u32,
+        length: u32,
+    ) -> SourceLocation {
         SourceLocation {
             line: OnceCell::new(),
-            file,
+            sources,
+            file_id,
             offset,
             length,
         }
+    }
+
+    pub fn file(&self) -> &RefCell<SourceFile> {
+        self.sources.get(&self.file_id).unwrap()
     }
 
     pub fn get_starting_line_number(&self) -> u32 {
@@ -79,7 +101,8 @@ impl SourceLocation {
             return *line;
         }
 
-        let contents = &self.file.borrow().content;
+        let file = self.file();
+        let contents = &file.borrow().content;
 
         *self.line.get_or_init(move || {
             let mut line = 1;
@@ -95,11 +118,13 @@ impl SourceLocation {
     }
 
     pub fn get_containing_function(&self) -> Option<Rc<ContractFunction>> {
-        self.file.borrow().get_containing_function(self).cloned()
+        let file = self.file();
+        let file = file.borrow();
+        file.get_containing_function(self).cloned()
     }
 
     pub fn contains(&self, other: &SourceLocation) -> bool {
-        if !Rc::ptr_eq(&self.file, &other.file) {
+        if !Rc::ptr_eq(&self.sources, &other.sources) || self.file_id != other.file_id {
             return false;
         }
 

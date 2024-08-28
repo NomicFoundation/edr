@@ -294,13 +294,22 @@ mod tests {
         build_model::{Contract, ContractKind, SourceFile, SourceLocation},
     };
 
-    fn create_test_contract() -> Rc<RefCell<Contract>> {
+    fn create_sources() -> Rc<HashMap<u32, Rc<RefCell<SourceFile>>>> {
+        let mut sources = HashMap::new();
         let file = Rc::new(RefCell::new(SourceFile::new(
             "test.sol".to_string(),
             "".to_string(),
         )));
 
-        let location = Rc::new(SourceLocation::new(file, 0, 0));
+        sources.insert(0, file.clone());
+
+        Rc::new(sources)
+    }
+
+    fn create_test_contract() -> Rc<RefCell<Contract>> {
+        let sources = create_sources();
+
+        let location = Rc::new(SourceLocation::new(sources.clone(), 0, 0, 0));
 
         Rc::new(RefCell::new(Contract::new(
             "TestContract".to_string(),
