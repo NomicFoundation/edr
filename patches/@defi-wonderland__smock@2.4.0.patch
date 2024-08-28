@@ -1,3 +1,43 @@
+diff --git a/dist/src/index.js b/dist/src/index.js
+index d5ee6ca40339da8260275bd0b7ba8cf7e3e878b6..a4d8d3f2cf286b0fd128eebe940dd585ef323a86 100644
+--- a/dist/src/index.js
++++ b/dist/src/index.js
+@@ -13,16 +13,11 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
+ var __exportStar = (this && this.__exportStar) || function(m, exports) {
+     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+ };
+-var __importDefault = (this && this.__importDefault) || function (mod) {
+-    return (mod && mod.__esModule) ? mod : { "default": mod };
+-};
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.smock = void 0;
+-const hardhat_1 = __importDefault(require("hardhat"));
+ const matchers_1 = require("./chai-plugin/matchers");
+ require("./chai-plugin/types");
+ const sandbox_1 = require("./sandbox");
+-const utils_1 = require("./utils");
+ let sandbox;
+ async function fake(spec, opts = {}) {
+     if (!sandbox)
+@@ -36,9 +31,6 @@ async function mock(contractName, signerOrOptions) {
+ }
+ async function init() {
+     sandbox = await sandbox_1.Sandbox.create();
+-    (await (0, utils_1.getHardhatBaseProvider)(hardhat_1.default)).on('hardhatNetworkReset', async () => {
+-        sandbox = await sandbox_1.Sandbox.create();
+-    });
+ }
+ __exportStar(require("./types"), exports);
+ exports.smock = { fake, mock, matchers: matchers_1.matchers };
+diff --git a/dist/src/index.js.map b/dist/src/index.js.map
+index 26966ef864b18d05146e4c976045541a3d8142a7..9f2a0955e069878e537fab1369ffd715ce1231ae 100644
+--- a/dist/src/index.js.map
++++ b/dist/src/index.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"index.js","sourceRoot":"","sources":["../../src/index.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;;;;;AAEA,sDAA0B;AAC1B,qDAAkD;AAClD,+BAA6B;AAC7B,uCAAoC;AAEpC,mCAAiD;AAEjD,IAAI,OAAgB,CAAC;AAErB,KAAK,UAAU,IAAI,CAAyB,IAAsB,EAAE,OAA4B,EAAE;IAChG,IAAI,CAAC,OAAO;QAAE,MAAM,IAAI,EAAE,CAAC;IAC3B,OAAO,MAAM,OAAO,CAAC,IAAI,CAAC,IAAI,EAAE,IAAI,CAAC,CAAC;AACxC,CAAC;AAED,KAAK,UAAU,IAAI,CACjB,YAAoB,EACpB,eAAgD;IAEhD,IAAI,CAAC,OAAO;QAAE,MAAM,IAAI,EAAE,CAAC;IAE3B,OAAO,MAAM,OAAO,CAAC,IAAI,CAAC,YAAY,EAAE,eAAe,CAAC,CAAC;AAC3D,CAAC;AAED,KAAK,UAAU,IAAI;IACjB,OAAO,GAAG,MAAM,iBAAO,CAAC,MAAM,EAAE,CAAC;IAGjC,CAAC,MAAM,IAAA,8BAAsB,EAAC,iBAAG,CAAC,CAAC,CAAC,EAAE,CAAC,qBAAqB,EAAE,KAAK,IAAI,EAAE;QACvE,OAAO,GAAG,MAAM,iBAAO,CAAC,MAAM,EAAE,CAAC;IACnC,CAAC,CAAC,CAAC;AACL,CAAC;AAED,0CAAwB;AACX,QAAA,KAAK,GAAG,EAAE,IAAI,EAAE,IAAI,EAAE,QAAQ,EAAR,mBAAQ,EAAE,CAAC"}
+\ No newline at end of file
++{"version":3,"file":"index.js","sourceRoot":"","sources":["../../src/index.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;;AAGA,qDAAkD;AAClD,+BAA6B;AAC7B,uCAAoC;AAIpC,IAAI,OAAgB,CAAC;AAErB,KAAK,UAAU,IAAI,CAAyB,IAAsB,EAAE,OAA4B,EAAE;IAChG,IAAI,CAAC,OAAO;QAAE,MAAM,IAAI,EAAE,CAAC;IAC3B,OAAO,MAAM,OAAO,CAAC,IAAI,CAAC,IAAI,EAAE,IAAI,CAAC,CAAC;AACxC,CAAC;AAED,KAAK,UAAU,IAAI,CACjB,YAAoB,EACpB,eAAgD;IAEhD,IAAI,CAAC,OAAO;QAAE,MAAM,IAAI,EAAE,CAAC;IAE3B,OAAO,MAAM,OAAO,CAAC,IAAI,CAAC,YAAY,EAAE,eAAe,CAAC,CAAC;AAC3D,CAAC;AAED,KAAK,UAAU,IAAI;IACjB,OAAO,GAAG,MAAM,iBAAO,CAAC,MAAM,EAAE,CAAC;AACnC,CAAC;AAED,0CAAwB;AACX,QAAA,KAAK,GAAG,EAAE,IAAI,EAAE,IAAI,EAAE,QAAQ,EAAR,mBAAQ,EAAE,CAAC"}
+\ No newline at end of file
 diff --git a/dist/src/sandbox.d.ts b/dist/src/sandbox.d.ts
 index ade4d57a5ed41dfbd1c6a91bb88aa10f994591c8..b8cb3e9974fbc636bfb0aa253a9bbee8578c1969 100644
 --- a/dist/src/sandbox.d.ts
