@@ -159,7 +159,7 @@ describe("Provider", () => {
         },
       );
 
-      provider.setVerboseTracing(true);
+      await provider.setVerboseTracing(true);
 
       const responseObject = await provider.handleRequest({
         id: 1,
@@ -245,7 +245,7 @@ describe("Provider", () => {
         },
       );
 
-      provider.setVerboseTracing(true);
+      await provider.setVerboseTracing(true);
 
       const responseObject = await provider.handleRequest({
         id: 1,
