@@ -438,7 +438,7 @@ export class ProviderFactory { }
 /** A JSON-RPC provider for Ethereum. */
 export class Provider {
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
-  handleRequest(request: any): Promise<Response>
+  handleRequest(request: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): Promise<void>
   /**
    * Set to `true` to make the traces returned with `eth_call`,

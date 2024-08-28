@@ -7,7 +7,7 @@ edition = "2021"
 edr_defaults = { path = "../edr_defaults" }
 edr_eth = { path = "../edr_eth" }
 edr_provider = { path = "../edr_provider" }
-serde = { version = "1.0.189", features = ["derive"] }
+serde = { version = "1.0.209", features = ["derive"] }
 
 [features]
 tracing = ["edr_provider/tracing"]

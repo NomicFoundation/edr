@@ -2,7 +2,7 @@ mod builder;
 /// Types related to provider factories.
 pub mod factory;
 
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use edr_provider::InvalidRequestReason;
 use edr_rpc_client::jsonrpc;
@@ -49,7 +49,7 @@ impl Provider {
 impl Provider {
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
     #[napi]
-    pub async fn handle_request(&self, request: serde_json::Value) -> napi::Result<Response> {
+    pub async fn handle_request(&self, request: String) -> napi::Result<Response> {
         let provider = self.provider.clone();
 
         #[cfg(feature = "scenarios")]
@@ -108,7 +108,7 @@ impl Provider {
 /// objects.
 pub trait SyncProvider: Send + Sync {
     /// Blocking method to handle a request.
-    fn handle_request(&self, request: serde_json::Value) -> napi::Result<Response>;
+    fn handle_request(&self, request: String) -> napi::Result<Response>;
 
     /// Set to `true` to make the traces returned with `eth_call`,
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
@@ -121,13 +121,18 @@ pub trait SyncProvider: Send + Sync {
 }
 
 impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpecT> {
-    fn handle_request(&self, request: serde_json::Value) -> napi::Result<Response> {
-        let method_name = request.get("method").and_then(serde_json::Value::as_str);
-
-        let request = match serde_json::from_value(request.clone()) {
+    fn handle_request(&self, request: String) -> napi::Result<Response> {
+        let request = match serde_json::from_str(&request) {
             Ok(request) => request,
             Err(error) => {
                 let message = error.to_string();
+
+                let request = serde_json::Value::from_str(&request).ok();
+                let method_name = request
+                    .as_ref()
+                    .and_then(|request| request.get("method"))
+                    .and_then(serde_json::Value::as_str);
+
                 let reason = InvalidRequestReason::new(method_name, &message);
 
                 // HACK: We need to log failed deserialization attempts when they concern input
@@ -142,7 +147,7 @@ impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpec
                     error: jsonrpc::Error {
                         code: reason.error_code(),
                         message: reason.error_message(),
-                        data: Some(request),
+                        data: request,
                     },
                 };
 

@@ -49,10 +49,7 @@ pub async fn scenario_file(
 }
 
 /// Writes a JSON-RPC request to the scenario file.
-pub async fn write_request(
-    scenario_file: &Mutex<File>,
-    request: &serde_json::Value,
-) -> napi::Result<()> {
+pub async fn write_request(scenario_file: &Mutex<File>, request: &str) -> napi::Result<()> {
     let mut line = request.to_string();
     line.push('\n');
     {

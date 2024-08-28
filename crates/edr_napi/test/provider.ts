@@ -119,21 +119,23 @@ describe("Provider", () => {
         },
       );
 
-      const responseObject = await provider.handleRequest({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-            // PUSH1 1
-            // PUSH1 2
-            // PUSH1 3
-            // STOP
-            data: "0x60016002600300",
-          },
-        ],
-      });
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 1
+              // PUSH1 2
+              // PUSH1 3
+              // STOP
+              data: "0x60016002600300",
+            },
+          ],
+        }),
+      );
 
       const rawTraces = responseObject.traces;
       assert.lengthOf(rawTraces, 1);
@@ -161,21 +163,23 @@ describe("Provider", () => {
 
       await provider.setVerboseTracing(true);
 
-      const responseObject = await provider.handleRequest({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-            // PUSH1 1
-            // PUSH1 2
-            // PUSH1 3
-            // STOP
-            data: "0x60016002600300",
-          },
-        ],
-      });
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 1
+              // PUSH1 2
+              // PUSH1 3
+              // STOP
+              data: "0x60016002600300",
+            },
+          ],
+        }),
+      );
 
       console.log(responseObject);
 
@@ -206,22 +210,24 @@ describe("Provider", () => {
         },
       );
 
-      const responseObject = await provider.handleRequest({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-            // store 0x000...001 as the first memory word
-            // PUSH1 1
-            // PUSH0
-            // MSTORE
-            // STOP
-            data: "0x60015f5200",
-          },
-        ],
-      });
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // store 0x000...001 as the first memory word
+              // PUSH1 1
+              // PUSH0
+              // MSTORE
+              // STOP
+              data: "0x60015f5200",
+            },
+          ],
+        }),
+      );
 
       const rawTraces = responseObject.traces;
       assert.lengthOf(rawTraces, 1);
@@ -247,22 +253,24 @@ describe("Provider", () => {
 
       await provider.setVerboseTracing(true);
 
-      const responseObject = await provider.handleRequest({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-            // store 0x000...001 as the first memory word
-            // PUSH1 1
-            // PUSH0
-            // MSTORE
-            // STOP
-            data: "0x60015f5200",
-          },
-        ],
-      });
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // store 0x000...001 as the first memory word
+              // PUSH1 1
+              // PUSH0
+              // MSTORE
+              // STOP
+              data: "0x60015f5200",
+            },
+          ],
+        }),
+      );
 
       const rawTraces = responseObject.traces;
       assert.lengthOf(rawTraces, 1);
@@ -292,20 +300,22 @@ describe("Provider", () => {
         },
       );
 
-      const responseObject = await provider.handleRequest({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-            // make a static call to the zero address
-            // yul: staticcall(gas(), 0, 0, 0, 0, 0)
-            data: "0x6000808080805afa00",
-            gas: "0x" + 1_000_000n.toString(16),
-          },
-        ],
-      });
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // make a static call to the zero address
+              // yul: staticcall(gas(), 0, 0, 0, 0, 0)
+              data: "0x6000808080805afa00",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        }),
+      );
 
       const rawTraces = responseObject.traces;
       assert.lengthOf(rawTraces, 1);
@@ -332,24 +342,26 @@ describe("Provider", () => {
         },
       );
 
-      const sendTxResponse = await provider.handleRequest({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-            // PUSH1 0x42
-            // PUSH0
-            // MSTORE
-            // PUSH1 0x20
-            // PUSH0
-            // RETURN
-            data: "0x60425f5260205ff3",
-            gas: "0x" + 1_000_000n.toString(16),
-          },
-        ],
-      });
+      const sendTxResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        }),
+      );
 
       let responseData;
 
@@ -361,12 +373,14 @@ describe("Provider", () => {
 
       const txHash = responseData.result;
 
-      const traceTransactionResponse = await provider.handleRequest({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "debug_traceTransaction",
-        params: [txHash],
-      });
+      const traceTransactionResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceTransaction",
+          params: [txHash],
+        }),
+      );
 
       const rawTraces = traceTransactionResponse.traces;
       assert.lengthOf(rawTraces, 1);
@@ -383,24 +397,26 @@ describe("Provider", () => {
         },
       );
 
-      const traceCallResponse = await provider.handleRequest({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "debug_traceCall",
-        params: [
-          {
-            from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-            // PUSH1 0x42
-            // PUSH0
-            // MSTORE
-            // PUSH1 0x20
-            // PUSH0
-            // RETURN
-            data: "0x60425f5260205ff3",
-            gas: "0x" + 1_000_000n.toString(16),
-          },
-        ],
-      });
+      const traceCallResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceCall",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        }),
+      );
 
       const rawTraces = traceCallResponse.traces;
       assert.lengthOf(rawTraces, 1);
