@@ -2,9 +2,10 @@
   "name": "hardhat-solidity-tests-example",
   "version": "0.0.1",
   "author": "Nomic Foundation",
-  "dependencies": {
+  "devDependencies": {
     "hardhat": "2.22.9",
-    "hardhat-solidity-tests": "workspace:*"
+    "hardhat-solidity-tests": "workspace:*",
+    "ts-node": "^10.8.0"
   },
   "license": "MIT",
   "private": true,

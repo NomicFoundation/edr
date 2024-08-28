@@ -5,7 +5,7 @@
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
-    "@tsconfig/node18": "^18.2.4",
+    "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.0.0",
     "hardhat": "2.22.9",
     "typescript": "~5.5.3"
