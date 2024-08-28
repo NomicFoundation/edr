@@ -27,9 +27,7 @@ async fn block_with_transactions() -> anyhow::Result<()> {
         ))
         .await?;
 
-    let block = RemoteBlock::new(block, Arc::new(rpc_client), runtime::Handle::current())?;
-
-    println!("serialized: {block:?}");
+    let _block = RemoteBlock::new(block, Arc::new(rpc_client), runtime::Handle::current())?;
 
     Ok(())
 }
