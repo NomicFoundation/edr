@@ -45,7 +45,7 @@ export async function runAllSolidityTests(
 
 export async function buildSolidityTestsInput(
   hardhatArtifacts: HardhatArtifacts,
-  isTestArtifact: (artifact: Artifact) => boolean = () => true,
+  isTestArtifact: (artifact: Artifact) => boolean = () => true
 ): Promise<{ artifacts: Artifact[]; testSuiteIds: ArtifactId[] }> {
   const fqns = await hardhatArtifacts.getAllFullyQualifiedNames();
   const artifacts: Artifact[] = [];
@@ -71,7 +71,7 @@ export async function buildSolidityTestsInput(
       deployedBytecode: hardhatArtifact.deployedBytecode,
     };
 
-    const artifact = { id, contract }
+    const artifact = { id, contract };
     artifacts.push(artifact);
     if (isTestArtifact(artifact)) {
       testSuiteIds.push(artifact.id);

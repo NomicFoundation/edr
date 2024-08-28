@@ -191,6 +191,9 @@ importers:
       hardhat:
         specifier: 2.22.9
         version: 2.22.9(patch_hash=ixnneac56zlmammcmucrfcq4uu)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.5.3))(typescript@5.5.3)
+      prettier:
+        specifier: ^3.2.5
+        version: 3.2.5
       typescript:
         specifier: ~5.5.3
         version: 5.5.3
@@ -367,10 +370,11 @@ importers:
         version: 10.3.0
 
   js/helpers:
-    devDependencies:
+    dependencies:
       '@nomicfoundation/edr':
         specifier: workspace:*
         version: link:../../crates/edr_napi
+    devDependencies:
       '@tsconfig/node20':
         specifier: ^20.1.4
         version: 20.1.4
@@ -401,6 +405,9 @@ importers:
       hardhat:
         specifier: 2.22.9
         version: 2.22.9(patch_hash=ixnneac56zlmammcmucrfcq4uu)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.5.3))(typescript@5.5.3)
+      prettier:
+        specifier: ^3.2.5
+        version: 3.2.5
       typescript:
         specifier: ~5.5.3
         version: 5.5.3
