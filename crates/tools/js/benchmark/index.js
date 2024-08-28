@@ -385,11 +385,13 @@ function preprocessConfig(config) {
 }
 
 function normalizeHardfork(hardfork) {
-  hardfork = _.camelCase(hardfork.toLowerCase());
+  hardfork = _.camelCase(hardfork);
   if (hardfork === "frontier") {
     hardfork = "chainstart";
   } else if (hardfork === "daoFork") {
     hardfork = "dao";
+  } else if (hardfork === "spurious") {
+    hardfork = "spuriousDragon";
   } else if (hardfork == "tangerine") {
     hardfork = "tangerineWhistle";
   }
