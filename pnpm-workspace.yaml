@@ -5,3 +5,4 @@ packages:
   - "hardhat-tests/integration/*"
   - "hardhat-solidity-tests"
   - "hardhat-solidity-tests/example"
+  - "js/helpers"

@@ -5,6 +5,7 @@
   "author": "",
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
+    "@nomicfoundation/edr-helpers": "workspace:*",
     "@types/argparse": "^2.0.16",
     "@types/chai": "^4.2.0",
     "@types/lodash": "^4.14.123",

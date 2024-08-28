@@ -4,6 +4,7 @@
   "author": "Nomic Foundation",
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
+    "@nomicfoundation/edr-helpers": "workspace:*",
     "@tsconfig/node18": "^18.2.4",
     "@types/node": "^20.0.0",
     "hardhat": "2.22.9",

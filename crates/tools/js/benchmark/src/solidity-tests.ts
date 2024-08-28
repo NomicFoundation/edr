@@ -6,7 +6,7 @@ import fs from "fs";
 import { execSync } from "child_process";
 import path from "path";
 import simpleGit from "simple-git";
-import { SuiteResult, runSolidityTests } from "@nomicfoundation/edr";
+import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 const EXCLUDED_TEST_SUITES = new Set([
   "StdChainsTest",
@@ -64,32 +64,14 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
     )
     .map((a) => a.id);
 
-  const results = await new Promise<any>((resolve, reject) => {
-    const resultsFromCallback: SuiteResult[] = [];
-    const configs = {
-      projectRoot: forgeStdRepoPath,
-      fuzz: {
-        failurePersistDir: path.join(forgeStdRepoPath, "failures"),
-      },
-    };
+  const configs = {
+    projectRoot: forgeStdRepoPath,
+    fuzz: {
+      failurePersistDir: path.join(forgeStdRepoPath, "failures"),
+    },
+  };
+  const results = await runAllSolidityTests(artifacts, testSuiteIds, configs);
 
-    runSolidityTests(
-      artifacts,
-      testSuiteIds,
-      configs,
-      (result) => {
-        console.error(
-          `${result.id.name} took ${computeElapsedSec(start)} seconds`
-        );
-
-        resultsFromCallback.push(result);
-        if (resultsFromCallback.length === artifacts.length) {
-          resolve(resultsFromCallback);
-        }
-      },
-      reject
-    );
-  });
   console.error("elapsed (s)", computeElapsedSec(start));
 
   if (results.length !== EXPECTED_RESULTS) {
@@ -103,7 +85,7 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
   for (const res of results) {
     for (const r of res.testResults) {
       if (r.status !== "Success") {
-        failed.add(`${res.name} ${r.name} ${r.status}`);
+        failed.add(`${res.id.name} ${r.name} ${r.status}`);
       }
     }
   }

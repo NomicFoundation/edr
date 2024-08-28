@@ -31,6 +31,9 @@ importers:
       '@napi-rs/cli':
         specifier: ^2.18.1
         version: 2.18.1
+      '@nomicfoundation/edr-helpers':
+        specifier: workspace:*
+        version: link:../../js/helpers
       '@types/chai':
         specifier: ^4.2.0
         version: 4.3.12
@@ -91,6 +94,9 @@ importers:
       '@nomicfoundation/edr':
         specifier: workspace:*
         version: link:../../../edr_napi
+      '@nomicfoundation/edr-helpers':
+        specifier: workspace:*
+        version: link:../../../../js/helpers
       '@types/argparse':
         specifier: ^2.0.16
         version: 2.0.16
@@ -154,6 +160,9 @@ importers:
       '@nomicfoundation/edr':
         specifier: workspace:*
         version: link:../crates/edr_napi
+      '@nomicfoundation/edr-helpers':
+        specifier: workspace:*
+        version: link:../js/helpers
       '@tsconfig/node18':
         specifier: ^18.2.4
         version: 18.2.4
@@ -334,6 +343,78 @@ importers:
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
+
+  js/helpers:
+    devDependencies:
+      '@nomicfoundation/edr':
+        specifier: workspace:*
+        version: link:../../crates/edr_napi
+      '@tsconfig/node20':
+        specifier: ^20.1.4
+        version: 20.1.4
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.16.1
+      '@typescript-eslint/eslint-plugin':
+        specifier: 5.61.0
+        version: 5.61.0(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.5.3))(eslint@8.57.0)(typescript@5.5.3)
+      '@typescript-eslint/parser':
+        specifier: 5.61.0
+        version: 5.61.0(eslint@8.57.0)(typescript@5.5.3)
+      eslint:
+        specifier: ^8.44.0
+        version: 8.57.0
+      eslint-config-prettier:
+        specifier: 9.1.0
+        version: 9.1.0(eslint@8.57.0)
+      eslint-plugin-import:
+        specifier: 2.27.5
+        version: 2.27.5(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.5.3))(eslint@8.57.0)
+      eslint-plugin-mocha:
+        specifier: 10.4.1
+        version: 10.4.1(eslint@8.57.0)
+      eslint-plugin-prettier:
+        specifier: 5.2.1
+        version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
+      typescript:
+        specifier: ~5.5.3
+        version: 5.5.3
+
+  js/integration-tests/solidity-tests-simple:
+    devDependencies:
+      '@nomicfoundation/edr':
+        specifier: workspace:*
+        version: link:../../../crates/edr_napi
+      '@nomicfoundation/edr-helpers':
+        specifier: workspace:*
+        version: link:../../helpers
+      '@tsconfig/node20':
+        specifier: ^20.1.4
+        version: 20.1.4
+      '@types/chai':
+        specifier: ^4.2.0
+        version: 4.3.12
+      '@types/mocha':
+        specifier: '>=9.1.0'
+        version: 10.0.6
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.16.1
+      chai:
+        specifier: ^4.3.6
+        version: 4.4.1
+      hardhat:
+        specifier: 2.22.9
+        version: 2.22.9(patch_hash=ixnneac56zlmammcmucrfcq4uu)(ts-node@10.9.2(typescript@5.5.3))(typescript@5.5.3)
+      prettier:
+        specifier: ^3.2.5
+        version: 3.2.5
+      ts-node:
+        specifier: ^10.8.0
+        version: 10.9.2(@types/node@20.16.1)(typescript@5.5.3)
+      typescript:
+        specifier: ~5.5.3
+        version: 5.5.3
 
 packages:
 
@@ -923,6 +1004,9 @@ packages:
 
   '@tsconfig/node18@18.2.4':
     resolution: {integrity: sha512-5xxU8vVs9/FNcvm3gE07fPbn9tl6tqGGWA9tSlwsUEkBxtRnTsNmwrV8gasZ9F/EobaSv9+nu8AxUKccw77JpQ==}
+
+  '@tsconfig/node20@20.1.4':
+    resolution: {integrity: sha512-sqgsT69YFeLWf5NtJ4Xq/xAF8p4ZQHlmGW74Nu2tD4+g5fAsposc4ZfaaPixVu4y01BEiDCWLRDCvDM5JOsRxg==}
 
   '@types/argparse@2.0.16':
     resolution: {integrity: sha512-aMqBra2JlqpFeCWOinCtpRpiCkPIXH8hahW2+FkGzvWjfE5sAqtOcrjN5DRcMnTQqFDe6gb1CVYuGnBH0lhXwA==}
@@ -1882,6 +1966,7 @@ packages:
 
   glob@7.2.0:
     resolution: {integrity: sha512-lmLf6gtyrPq8tTjSmrO94wBeQbFR3HbLHbuyD69wuyQkImp2hWqMGB47OX65FBkPffO641IP9jWa1z4ivqG26Q==}
+    deprecated: Glob versions prior to v9 are no longer supported
 
   glob@8.1.0:
     resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
@@ -4026,6 +4111,8 @@ snapshots:
   '@tsconfig/node16@1.0.4': {}
 
   '@tsconfig/node18@18.2.4': {}
+
+  '@tsconfig/node20@20.1.4': {}
 
   '@types/argparse@2.0.16': {}
 

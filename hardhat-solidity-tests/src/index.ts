@@ -1,14 +1,13 @@
 import {
-  SuiteResult,
   Artifact,
   ArtifactId,
   ContractData,
 } from "@nomicfoundation/edr";
-const { task } = require("hardhat/config");
+import { task } from "hardhat/config";
 
 task("test:solidity").setAction(async (_: any, hre: any) => {
   await hre.run("compile", { quiet: true });
-  const { runSolidityTests } = await import("@nomicfoundation/edr");
+  const { runAllSolidityTests } = await import("@nomicfoundation/edr-helpers");
   const { spec } = require("node:test/reporters");
 
   const specReporter = new spec();
@@ -52,43 +51,34 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
     }
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const config = {
-      projectRoot: hre.config.paths.root,
-    };
+  const config = {
+    projectRoot: hre.config.paths.root,
+  };
 
-    runSolidityTests(
-      artifacts,
-      testSuiteIds,
-      config,
-      (suiteResult: SuiteResult) => {
-        for (const testResult of suiteResult.testResults) {
-          let name = suiteResult.id.name + " | " + testResult.name;
-          if ("runs" in testResult?.kind) {
-            name += ` (${testResult.kind.runs} runs)`;
-          }
+  await runAllSolidityTests(
+    artifacts,
+    testSuiteIds,
+    config,
+    (suiteResult, testResult) => {
+      let name = suiteResult.id.name + " | " + testResult.name;
+      if ("runs" in testResult?.kind) {
+        name += ` (${testResult.kind.runs} runs)`;
+      }
 
-          let failed = testResult.status === "Failure";
-          totalTests++;
-          if (failed) {
-            failedTests++;
-          }
+      let failed = testResult.status === "Failure";
+      totalTests++;
+      if (failed) {
+        failedTests++;
+      }
 
-          specReporter.write({
-            type: failed ? "test:fail" : "test:pass",
-            data: {
-              name,
-            },
-          });
-        }
-
-        if (totalTests === artifacts.length) {
-          resolve();
-        }
-      },
-      reject,
-    );
-  });
+      specReporter.write({
+        type: failed ? "test:fail" : "test:pass",
+        data: {
+          name,
+        },
+      });
+    }
+  );
 
   console.log(`\n${totalTests} tests found, ${failedTests} failed`);
 
