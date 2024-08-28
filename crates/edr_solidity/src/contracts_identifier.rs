@@ -294,13 +294,22 @@ mod tests {
         build_model::{Contract, ContractKind, SourceFile, SourceLocation},
     };
 
-    fn create_test_contract() -> Rc<RefCell<Contract>> {
+    fn create_sources() -> Rc<HashMap<u32, Rc<RefCell<SourceFile>>>> {
+        let mut sources = HashMap::new();
         let file = Rc::new(RefCell::new(SourceFile::new(
             "test.sol".to_string(),
             "".to_string(),
         )));
 
-        let location = Rc::new(SourceLocation::new(file, 0, 0));
+        sources.insert(0, file.clone());
+
+        Rc::new(sources)
+    }
+
+    fn create_test_contract() -> Rc<RefCell<Contract>> {
+        let sources = create_sources();
+
+        let location = Rc::new(SourceLocation::new(sources.clone(), 0, 0, 0));
 
         Rc::new(RefCell::new(Contract::new(
             "TestContract".to_string(),
@@ -310,6 +319,7 @@ mod tests {
     }
 
     fn create_test_bytecode(normalized_code: Vec<u8>) -> Rc<Bytecode> {
+        let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = false;
 
@@ -318,6 +328,7 @@ mod tests {
         let immutable_references = vec![];
 
         Rc::new(Bytecode::new(
+            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -329,6 +340,7 @@ mod tests {
     }
 
     fn create_test_deployment_bytecode(normalized_code: Vec<u8>) -> Rc<Bytecode> {
+        let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = true;
 
@@ -337,6 +349,7 @@ mod tests {
         let immutable_references = vec![];
 
         Rc::new(Bytecode::new(
+            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -352,12 +365,14 @@ mod tests {
         library_offsets: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
     ) -> Rc<Bytecode> {
+        let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = false;
 
         let instructions = vec![];
 
         Rc::new(Bytecode::new(
+            sources,
             contract,
             is_deployment,
             normalized_code,

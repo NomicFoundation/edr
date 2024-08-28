@@ -1245,7 +1245,8 @@ impl ErrorInferrer {
         let contract = &bytecode.as_ref().expect("JS code asserts").contract;
         let contract = contract.borrow();
 
-        let file = func.location.file.borrow();
+        let file = func.location.file();
+        let file = file.borrow();
 
         let location = &func.location;
 
@@ -1344,7 +1345,8 @@ impl ErrorInferrer {
         };
 
         let location = &func.location;
-        let file = location.file.borrow();
+        let file = location.file();
+        let file = file.borrow();
 
         Ok(SourceReference {
             source_name: file.source_name.clone(),
@@ -1395,7 +1397,8 @@ impl ErrorInferrer {
             None => contract_location.get_starting_line_number(),
         };
 
-        let file = contract_location.file.borrow();
+        let file = contract_location.file();
+        let file = file.borrow();
 
         Ok(SourceReference {
             source_name: file.source_name.clone(),
@@ -1480,7 +1483,8 @@ impl ErrorInferrer {
         let contract = contract.borrow();
 
         let location = &contract.location;
-        let file = location.file.borrow();
+        let file = location.file();
+        let file = file.borrow();
 
         Ok(SourceReference {
             source_name: file.source_name.clone(),
@@ -1753,7 +1757,8 @@ impl ErrorInferrer {
                     // Failed within the fallback
                     if let Some(fallback) = &contract.fallback {
                         let location = &fallback.location;
-                        let file = location.file.borrow();
+                        let file = location.file();
+                        let file = file.borrow();
 
                         let revert_frame = UnmappedSolc063RevertErrorStackTraceEntry {
                             type_: StackTraceEntryTypeConst,
@@ -1779,7 +1784,8 @@ impl ErrorInferrer {
                         .expect("None always hits branch above");
 
                     let location = &receive.location;
-                    let file = location.file.borrow();
+                    let file = location.file();
+                    let file = file.borrow();
 
                     let revert_frame = UnmappedSolc063RevertErrorStackTraceEntry {
                         type_: StackTraceEntryTypeConst,
@@ -1884,7 +1890,8 @@ impl ErrorInferrer {
             // some default sourceReference to show to the user
             if constructor_revert_frame.source_reference.is_none() {
                 let location = &contract.location;
-                let file = location.file.borrow();
+                let file = location.file();
+                let file = file.borrow();
 
                 let mut default_source_reference = SourceReference {
                     function: Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
@@ -2091,7 +2098,8 @@ fn source_location_to_source_reference(
         _ => func.name.clone(),
     };
 
-    let func_location_file = func.location.file.borrow();
+    let func_location_file = func.location.file();
+    let func_location_file = func_location_file.borrow();
 
     Ok(Some(SourceReference {
         function: Some(func_name.clone()),
@@ -2119,7 +2127,8 @@ pub fn instruction_to_callstack_stack_trace_entry(
     let inst_location = match &inst.location {
         None => {
             let location = &contract.location;
-            let file = location.file.borrow();
+            let file = location.file();
+            let file = file.borrow();
 
             return Ok(Either::B(InternalFunctionCallStackEntry {
                 type_: StackTraceEntryTypeConst,
@@ -2148,7 +2157,8 @@ pub fn instruction_to_callstack_stack_trace_entry(
         }));
     };
 
-    let file = inst_location.file.borrow();
+    let file = inst_location.file();
+    let file = file.borrow();
 
     Ok(Either::A(CallstackEntryStackTraceEntry {
         type_: StackTraceEntryTypeConst,

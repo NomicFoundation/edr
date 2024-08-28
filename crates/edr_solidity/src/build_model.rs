@@ -4,16 +4,25 @@
 use std::{
     cell::{OnceCell, RefCell},
     collections::HashMap,
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 use alloy_dyn_abi::ErrorExt;
 use anyhow::{self, Context as _};
 use edr_evm::{hex, interpreter::OpCode};
+use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::Value;
 
 use crate::artifacts::{ContractAbiEntry, ImmutableReference};
+
+#[derive(Debug, Default)]
+pub struct BuildModel {
+    pub contract_id_to_contract: IndexMap<u32, Rc<RefCell<Contract>>>,
+    pub file_id_to_source_file: Rc<BuildModelSources>,
+}
+
+pub type BuildModelSources = HashMap<u32, Rc<RefCell<SourceFile>>>;
 
 #[derive(Debug)]
 pub struct SourceFile {
@@ -51,26 +60,48 @@ impl SourceFile {
 #[derive(Clone, Debug)]
 pub struct SourceLocation {
     line: OnceCell<u32>,
-    pub file: Rc<RefCell<SourceFile>>,
+    pub(crate) sources: Weak<BuildModelSources>,
+    pub file_id: u32,
     pub offset: u32,
     pub length: u32,
 }
 
 impl PartialEq for SourceLocation {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.file, &other.file)
+        Weak::ptr_eq(&self.sources, &other.sources)
+            && self.file_id == other.file_id
             && self.offset == other.offset
             && self.length == other.length
     }
 }
 
 impl SourceLocation {
-    pub fn new(file: Rc<RefCell<SourceFile>>, offset: u32, length: u32) -> SourceLocation {
+    pub fn new(
+        sources: Rc<BuildModelSources>,
+        file_id: u32,
+        offset: u32,
+        length: u32,
+    ) -> SourceLocation {
         SourceLocation {
             line: OnceCell::new(),
-            file,
+            // We need to break the cycle between SourceLocation and SourceFile
+            // (via ContractFunction); the Bytecode struct is owning the build
+            // model sources, so we should always be alive.
+            sources: Rc::downgrade(&sources),
+            file_id,
             offset,
             length,
+        }
+    }
+
+    /// Returns the file that contains the given source location.
+    /// # Panics
+    /// This function panics if the source location is dangling, i.e. the owning
+    /// [`Bytecode`] has been dropped.
+    pub fn file(&self) -> Rc<RefCell<SourceFile>> {
+        match self.sources.upgrade() {
+            Some(ref sources) => sources.get(&self.file_id).unwrap().clone(),
+            None => panic!("dangling SourceLocation; did you drop the owning Bytecode?"),
         }
     }
 
@@ -79,7 +110,8 @@ impl SourceLocation {
             return *line;
         }
 
-        let contents = &self.file.borrow().content;
+        let file = self.file();
+        let contents = &file.borrow().content;
 
         *self.line.get_or_init(move || {
             let mut line = 1;
@@ -95,11 +127,13 @@ impl SourceLocation {
     }
 
     pub fn get_containing_function(&self) -> Option<Rc<ContractFunction>> {
-        self.file.borrow().get_containing_function(self).cloned()
+        let file = self.file();
+        let file = file.borrow();
+        file.get_containing_function(self).cloned()
     }
 
     pub fn contains(&self, other: &SourceLocation) -> bool {
-        if !Rc::ptr_eq(&self.file, &other.file) {
+        if !Weak::ptr_eq(&self.sources, &other.sources) || self.file_id != other.file_id {
             return false;
         }
 
@@ -222,6 +256,9 @@ pub enum JumpType {
 pub struct Bytecode {
     pc_to_instruction: HashMap<u32, Instruction>,
 
+    // This owns the source files transitively used by the source locations
+    // in the Instruction structs.
+    _sources: Rc<BuildModelSources>,
     pub contract: Rc<RefCell<Contract>>,
     pub is_deployment: bool,
     pub normalized_code: Vec<u8>,
@@ -231,7 +268,9 @@ pub struct Bytecode {
 }
 
 impl Bytecode {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        sources: Rc<BuildModelSources>,
         contract: Rc<RefCell<Contract>>,
         is_deployment: bool,
         normalized_code: Vec<u8>,
@@ -247,6 +286,7 @@ impl Bytecode {
 
         Bytecode {
             pc_to_instruction,
+            _sources: sources,
             contract,
             is_deployment,
             normalized_code,
