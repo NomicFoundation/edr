@@ -17,9 +17,9 @@ use crate::{
     source_map::decode_instructions,
 };
 
-/// For the Solidity compiler version and its standard JSON input and output[^1],
-/// creates the source model, decodes the bytecode with source mapping and links
-/// them to the source files.
+/// For the Solidity compiler version and its standard JSON input and
+/// output[^1], creates the source model, decodes the bytecode with source
+/// mapping and links them to the source files.
 ///
 /// Returns the decoded bytecodes that reference the resolved source model.
 ///

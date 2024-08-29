@@ -4,7 +4,8 @@
 //! - [`SourceFile`]s and their name, content
 //!   - [`SourceLocation`]s that point inside the source files
 //! - [`Contract`]s and its name, location
-//!   - related contract and free [`ContractFunction`]s and their name, location and parameters
+//!   - related contract and free [`ContractFunction`]s and their name, location
+//!     and parameters
 //!   - related [`CustomError`]s and their name, location and parameters
 //! - the resolved [`Bytecode`] of the contract
 //!   - related resolved [`Instruction`]s and their location
@@ -66,7 +67,8 @@ impl SourceFile {
         self.functions.push(contract_function);
     }
 
-    /// Returns the [`ContractFunction`] that contains the provided [`SourceLocation`].
+    /// Returns the [`ContractFunction`] that contains the provided
+    /// [`SourceLocation`].
     pub fn get_containing_function(
         &self,
         location: &SourceLocation,
@@ -108,7 +110,8 @@ impl PartialEq for SourceLocation {
 }
 
 impl SourceLocation {
-    /// Creates a new [`SourceLocation`] with the provided file ID, offset, and length.
+    /// Creates a new [`SourceLocation`] with the provided file ID, offset, and
+    /// length.
     pub fn new(
         sources: Rc<BuildModelSources>,
         file_id: u32,
@@ -129,8 +132,9 @@ impl SourceLocation {
 
     /// Returns the file that contains the given source location.
     /// # Panics
-    /// This function panics if the source location is dangling, i.e. source files
-    /// mapping has been dropped (currently only owned by the [`Bytecode`]).
+    /// This function panics if the source location is dangling, i.e. source
+    /// files mapping has been dropped (currently only owned by the
+    /// [`Bytecode`]).
     pub fn file(&self) -> Rc<RefCell<SourceFile>> {
         match self.sources.upgrade() {
             Some(ref sources) => sources.get(&self.file_id).unwrap().clone(),
@@ -167,7 +171,8 @@ impl SourceLocation {
         file.get_containing_function(self).cloned()
     }
 
-    /// Returns whether the source location is contained within the other source location.
+    /// Returns whether the source location is contained within the other source
+    /// location.
     pub fn contains(&self, other: &SourceLocation) -> bool {
         if !Weak::ptr_eq(&self.sources, &other.sources) || self.file_id != other.file_id {
             return false;
@@ -329,7 +334,8 @@ pub struct Bytecode {
     pub contract: Rc<RefCell<Contract>>,
     /// Whether the bytecode is a deployment bytecode.
     pub is_deployment: bool,
-    /// Normalized code of the bytecode, i.e. replaced with zeroes for the library addresses.
+    /// Normalized code of the bytecode, i.e. replaced with zeroes for the
+    /// library addresses.
     pub normalized_code: Vec<u8>,
     /// Positions in the bytecode of the library addresses.
     pub library_address_positions: Vec<u32>,
@@ -376,7 +382,8 @@ impl Bytecode {
             .with_context(|| format!("Instruction at PC {pc} not found"))
     }
 
-    /// Whether the bytecode has an instruction at the provided program counter (PC).
+    /// Whether the bytecode has an instruction at the provided program counter
+    /// (PC).
     pub fn has_instruction(&self, pc: u32) -> bool {
         self.pc_to_instruction.contains_key(&pc)
     }
@@ -477,8 +484,8 @@ impl Contract {
         self.custom_errors.push(value);
     }
 
-    /// Adds the next linearized base contract to the contract, possibly overwriting
-    /// the functions of the contract.
+    /// Adds the next linearized base contract to the contract, possibly
+    /// overwriting the functions of the contract.
     /// # Note
     /// Should only be called when resolving the source model.
     pub fn add_next_linearized_base_contract(&mut self, base_contract: &Contract) {

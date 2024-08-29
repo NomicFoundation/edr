@@ -1,4 +1,5 @@
-//! A data structure that allows searching for well-known bytecodes.
+//! A data structure that allows searching for well-known bytecodes and their
+//! contracts.
 //!
 //! In addition to being a trie, it also performs normalization of the bytecode
 //! for the libraries by zeroing out the addresses of link references, i.e. the
