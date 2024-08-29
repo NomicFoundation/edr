@@ -39,9 +39,9 @@ pub fn handle_mine<
 
     let mined_block_results = data.mine_and_commit_blocks(number_of_blocks, interval)?;
 
-    let spec_id = data.evm_spec_id();
+    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_mined_block(spec_id, &mined_block_results)
+        .log_mined_block(hardfork, &mined_block_results)
         .map_err(ProviderError::Logger)?;
 
     let traces = mined_block_results

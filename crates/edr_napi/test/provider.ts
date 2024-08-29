@@ -4,9 +4,9 @@ import chaiAsPromised from "chai-as-promised";
 import {
   ContractAndFunctionName,
   EdrContext,
+  L1_CHAIN_TYPE,
+  l1ProviderFactory,
   MineOrdering,
-  Provider,
-  SpecId,
   SubscriptionEvent,
 } from "..";
 import { collectMessages, collectSteps, ALCHEMY_URL } from "./helpers";
@@ -15,6 +15,11 @@ chai.use(chaiAsPromised);
 
 describe("Provider", () => {
   const context = new EdrContext();
+
+  before(async () => {
+    await context.registerProviderFactory(L1_CHAIN_TYPE, l1ProviderFactory());
+  });
+
   const providerConfig = {
     allowBlocksWithSameTimestamp: false,
     allowUnlimitedContractSize: true,
@@ -32,7 +37,7 @@ describe("Provider", () => {
         balance: 1000n * 10n ** 18n,
       },
     ],
-    hardfork: SpecId.Latest,
+    hardfork: "Latest",
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
@@ -68,11 +73,13 @@ describe("Provider", () => {
   };
 
   it("initialize local", async function () {
-    const provider = Provider.withConfig(
-      context,
+    const provider = context.createProvider(
+      L1_CHAIN_TYPE,
       providerConfig,
       loggerConfig,
-      (_event: SubscriptionEvent) => {},
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
     );
 
     await assert.isFulfilled(provider);
@@ -83,8 +90,8 @@ describe("Provider", () => {
       this.skip();
     }
 
-    const provider = Provider.withConfig(
-      context,
+    const provider = context.createProvider(
+      L1_CHAIN_TYPE,
       {
         fork: {
           jsonRpcUrl: ALCHEMY_URL,
@@ -92,7 +99,9 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
-      (_event: SubscriptionEvent) => {},
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
     );
 
     await assert.isFulfilled(provider);
@@ -100,11 +109,14 @@ describe("Provider", () => {
 
   describe("verbose mode", function () {
     it("should only include the top of the stack by default", async function () {
-      const provider = await Provider.withConfig(
-        context,
+      const provider = await context.createProvider(
+        L1_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {},
+
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
       );
 
       const responseObject = await provider.handleRequest(
@@ -140,14 +152,16 @@ describe("Provider", () => {
     });
 
     it("should only include the whole stack if verbose mode is enabled", async function () {
-      const provider = await Provider.withConfig(
-        context,
+      const provider = await context.createProvider(
+        L1_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {},
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
       );
 
-      provider.setVerboseTracing(true);
+      await provider.setVerboseTracing(true);
 
       const responseObject = await provider.handleRequest(
         JSON.stringify({
@@ -167,6 +181,8 @@ describe("Provider", () => {
         }),
       );
 
+      console.log(responseObject);
+
       const rawTraces = responseObject.traces;
       assert.lengthOf(rawTraces, 1);
 
@@ -185,11 +201,13 @@ describe("Provider", () => {
     });
 
     it("should not include memory by default", async function () {
-      const provider = await Provider.withConfig(
-        context,
+      const provider = await context.createProvider(
+        L1_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {},
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
       );
 
       const responseObject = await provider.handleRequest(
@@ -224,14 +242,16 @@ describe("Provider", () => {
     });
 
     it("should include memory if verbose mode is enabled", async function () {
-      const provider = await Provider.withConfig(
-        context,
+      const provider = await context.createProvider(
+        L1_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {},
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
       );
 
-      provider.setVerboseTracing(true);
+      await provider.setVerboseTracing(true);
 
       const responseObject = await provider.handleRequest(
         JSON.stringify({
@@ -270,11 +290,14 @@ describe("Provider", () => {
     });
 
     it("should include isStaticCall flag in tracing messages", async function () {
-      const provider = await Provider.withConfig(
-        context,
+      const provider = await context.createProvider(
+        L1_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {},
+
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
       );
 
       const responseObject = await provider.handleRequest(
@@ -309,11 +332,14 @@ describe("Provider", () => {
     });
 
     it("should have tracing information when debug_traceTransaction is used", async function () {
-      const provider = await Provider.withConfig(
-        context,
+      const provider = await context.createProvider(
+        L1_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {},
+
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
       );
 
       const sendTxResponse = await provider.handleRequest(
@@ -361,11 +387,14 @@ describe("Provider", () => {
     });
 
     it("should have tracing information when debug_traceCall is used", async function () {
-      const provider = await Provider.withConfig(
-        context,
+      const provider = await context.createProvider(
+        L1_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
-        (_event: SubscriptionEvent) => {},
+
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
       );
 
       const traceCallResponse = await provider.handleRequest(

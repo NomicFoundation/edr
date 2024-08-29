@@ -12,14 +12,15 @@ difference = { version = "2.0.0", default-features = false }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["test-utils", "tracing"] }
+edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { version = "0.3.5", path = "../edr_provider" }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 flate2 = "1.0.28"
 indicatif = { version = "0.17.7", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }
 reqwest = { version = "0.11.12", features = ["blocking"] }
-serde_json = "1.0.107"
-serde = { version = "1.0.189", features = ["derive"] }
+serde_json = "1.0.127"
+serde = { version = "1.0.209", features = ["derive"] }
 tempfile = "3.7.1"
 tokio = "1.33.0"
 tracing = { version = "0.1.37", features = ["attributes", "std"], optional = true }

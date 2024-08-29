@@ -35,7 +35,7 @@ pub fn handle_estimate_gas<
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
 
-    let evm_spec_id = data.evm_spec_id();
+    let hardfork = data.hardfork();
 
     let transaction =
         resolve_estimate_gas_request(data, request, &block_spec, &StateOverrides::default())?;
@@ -43,7 +43,7 @@ pub fn handle_estimate_gas<
     let result = data.estimate_gas(transaction.clone(), &block_spec);
     if let Err(ProviderError::EstimateGasTransactionFailure(failure)) = result {
         data.logger_mut()
-            .log_estimate_gas_failure(evm_spec_id, &transaction, &failure)
+            .log_estimate_gas_failure(hardfork, &transaction, &failure)
             .map_err(ProviderError::Logger)?;
 
         Err(ProviderError::TransactionFailed(

@@ -9,8 +9,8 @@ pub struct CallRequest {
     pub from: Option<Address>,
     /// the address to which the transaction should be sent
     pub to: Option<Address>,
-    #[serde(default, with = "edr_eth::serde::optional_u64")]
     /// gas
+    #[serde(default, with = "alloy_serde::quantity::opt")]
     pub gas: Option<u64>,
     /// gas price
     pub gas_price: Option<U256>,
@@ -26,7 +26,7 @@ pub struct CallRequest {
     /// warm storage access pre-payment
     pub access_list: Option<Vec<AccessListItem>>,
     /// EIP-2718 type
-    #[serde(default, rename = "type", with = "edr_eth::serde::optional_u8")]
+    #[serde(default, rename = "type", with = "alloy_serde::quantity::opt")]
     pub transaction_type: Option<u8>,
     /// Blobs (EIP-4844)
     pub blobs: Option<Vec<Blob>>,

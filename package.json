@@ -18,7 +18,8 @@
       "hardhat>@nomicfoundation/edr": "workspace:*"
     },
     "patchedDependencies": {
-      "hardhat@2.22.7": "patches/hardhat@2.22.7.patch"
+      "hardhat@2.22.9": "patches/hardhat@2.22.9.patch",
+      "@defi-wonderland/smock@2.4.0": "patches/@defi-wonderland__smock@2.4.0.patch"
     }
   },
   "engines": {

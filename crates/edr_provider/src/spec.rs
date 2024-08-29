@@ -1,5 +1,6 @@
 use core::fmt::Debug;
 
+pub use edr_eth::chain_spec::EthHeaderConstants;
 use edr_eth::{
     chain_spec::L1ChainSpec,
     result::HaltReason,
@@ -10,17 +11,21 @@ use edr_eth::{
     },
     AccessListItem, Address, Blob, BlockSpec, B256, U256,
 };
+pub use edr_evm::chain_spec::{ChainSpec, SyncChainSpec};
 use edr_evm::{
-    chain_spec::{ChainSpec, SyncChainSpec},
-    state::StateOverrides,
-    transaction,
+    blockchain::BlockchainError, state::StateOverrides, transaction, BlockAndTotalDifficulty,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, TransactionFailureReason};
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    ChainSpec<Hardfork: Debug, RpcCallRequest: MaybeSender, RpcTransactionRequest: Sender>
+    ChainSpec<
+    Hardfork: Debug,
+    RpcBlock<B256>: From<BlockAndTotalDifficulty<Self, BlockchainError<Self>>>,
+    RpcCallRequest: MaybeSender,
+    RpcTransactionRequest: Sender,
+>
 {
     type PooledTransaction: HardforkValidationData
         + Into<Self::Transaction>

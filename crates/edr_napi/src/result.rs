@@ -86,7 +86,7 @@ pub struct RevertResult {
 pub enum ExceptionalHalt {
     OutOfGas,
     OpcodeNotFound,
-    InvalidEFOpcode,
+    InvalidFEOpcode,
     InvalidJump,
     NotActivated,
     StackUnderflow,
@@ -114,7 +114,7 @@ impl From<edr_eth::result::HaltReason> for ExceptionalHalt {
         match halt {
             edr_eth::result::HaltReason::OutOfGas(..) => ExceptionalHalt::OutOfGas,
             edr_eth::result::HaltReason::OpcodeNotFound => ExceptionalHalt::OpcodeNotFound,
-            edr_eth::result::HaltReason::InvalidFEOpcode => ExceptionalHalt::InvalidEFOpcode,
+            edr_eth::result::HaltReason::InvalidFEOpcode => ExceptionalHalt::InvalidFEOpcode,
             edr_eth::result::HaltReason::InvalidJump => ExceptionalHalt::InvalidJump,
             edr_eth::result::HaltReason::NotActivated => ExceptionalHalt::NotActivated,
             edr_eth::result::HaltReason::StackUnderflow => ExceptionalHalt::StackUnderflow,
@@ -153,7 +153,7 @@ impl From<ExceptionalHalt> for edr_eth::result::HaltReason {
         match value {
             ExceptionalHalt::OutOfGas => Self::OutOfGas(edr_eth::result::OutOfGasError::Basic),
             ExceptionalHalt::OpcodeNotFound => Self::OpcodeNotFound,
-            ExceptionalHalt::InvalidEFOpcode => Self::InvalidFEOpcode,
+            ExceptionalHalt::InvalidFEOpcode => Self::InvalidFEOpcode,
             ExceptionalHalt::InvalidJump => Self::InvalidJump,
             ExceptionalHalt::NotActivated => Self::NotActivated,
             ExceptionalHalt::StackUnderflow => Self::StackUnderflow,

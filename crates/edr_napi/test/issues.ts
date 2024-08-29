@@ -30,7 +30,7 @@ describe("Provider", () => {
         balance: 1000n * 10n ** 18n,
       },
     ],
-    hardfork: SpecId.Latest,
+    hardfork: "Latest",
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
@@ -73,8 +73,8 @@ describe("Provider", () => {
     // This test is slow because the debug_traceTransaction is performed on a large transaction.
     this.timeout(240_000);
 
-    const provider = await Provider.withConfig(
-      context,
+    const provider = await context.createProvider(
+      "L1",
       {
         fork: {
           jsonRpcUrl: ALCHEMY_URL,
@@ -83,7 +83,9 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
-      (_event: SubscriptionEvent) => {},
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
     );
 
     const debugTraceTransaction = `{

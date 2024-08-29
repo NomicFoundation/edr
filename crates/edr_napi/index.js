@@ -310,13 +310,37 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, RawTrace } = nativeBinding
+const { MineOrdering, EdrContext, L1_CHAIN_TYPE, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, ProviderFactory, Provider, SuccessReason, ExceptionalHalt, Response, RawTrace } = nativeBinding
 
-module.exports.SpecId = SpecId
-module.exports.EdrContext = EdrContext
 module.exports.MineOrdering = MineOrdering
+module.exports.EdrContext = EdrContext
+module.exports.L1_CHAIN_TYPE = L1_CHAIN_TYPE
+module.exports.l1ProviderFactory = l1ProviderFactory
+module.exports.SpecId = SpecId
+module.exports.FRONTIER = FRONTIER
+module.exports.FRONTIER_THAWING = FRONTIER_THAWING
+module.exports.HOMESTEAD = HOMESTEAD
+module.exports.DAO_FORK = DAO_FORK
+module.exports.TANGERINE = TANGERINE
+module.exports.SPURIOUS_DRAGON = SPURIOUS_DRAGON
+module.exports.BYZANTIUM = BYZANTIUM
+module.exports.CONSTANTINOPLE = CONSTANTINOPLE
+module.exports.PETERSBURG = PETERSBURG
+module.exports.ISTANBUL = ISTANBUL
+module.exports.MUIR_GLACIER = MUIR_GLACIER
+module.exports.BERLIN = BERLIN
+module.exports.LONDON = LONDON
+module.exports.ARROW_GLACIER = ARROW_GLACIER
+module.exports.GRAY_GLACIER = GRAY_GLACIER
+module.exports.MERGE = MERGE
+module.exports.SHANGHAI = SHANGHAI
+module.exports.CANCUN = CANCUN
+module.exports.PRAGUE = PRAGUE
+module.exports.PRAGUE_EOF = PRAGUE_EOF
+module.exports.LATEST = LATEST
+module.exports.ProviderFactory = ProviderFactory
 module.exports.Provider = Provider
-module.exports.Response = Response
 module.exports.SuccessReason = SuccessReason
 module.exports.ExceptionalHalt = ExceptionalHalt
+module.exports.Response = Response
 module.exports.RawTrace = RawTrace

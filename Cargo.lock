@@ -904,15 +904,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-channel"
-version = "0.5.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab3db02a9c5b5121e1e42fbdb1aeb65f5e02624cc58c43f2884c6ccac0b82f95"
-dependencies = [
- "crossbeam-utils",
-]
-
-[[package]]
 name = "crossbeam-deque"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1169,22 +1160,18 @@ name = "edr_napi"
 version = "0.3.5"
 dependencies = [
  "ansi_term",
- "crossbeam-channel",
- "edr_defaults",
+ "derive-where",
  "edr_eth",
  "edr_evm",
+ "edr_napi_core",
  "edr_provider",
- "edr_rpc_eth",
+ "edr_rpc_client",
  "itertools 0.12.1",
- "k256",
- "lazy_static",
- "log",
  "mimalloc",
  "napi",
  "napi-build",
  "napi-derive",
  "openssl-sys",
- "parking_lot 0.12.1",
  "rand",
  "serde",
  "serde_json",
@@ -1192,6 +1179,16 @@ dependencies = [
  "tracing",
  "tracing-flame",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "edr_napi_core"
+version = "0.3.5"
+dependencies = [
+ "edr_defaults",
+ "edr_eth",
+ "edr_provider",
+ "serde",
 ]
 
 [[package]]
@@ -2962,7 +2959,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "12.1.0"
-source = "git+https://github.com/Wodann/revm?rev=6d479da#6d479da35cf431da4276f374a39291cc3872b336"
+source = "git+https://github.com/Wodann/revm?rev=a500675#a5006752ca98c65c005fbbec082862b67af9dab5"
 dependencies = [
  "auto_impl",
  "derive-where",
@@ -2977,7 +2974,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "8.1.0"
-source = "git+https://github.com/Wodann/revm?rev=6d479da#6d479da35cf431da4276f374a39291cc3872b336"
+source = "git+https://github.com/Wodann/revm?rev=a500675#a5006752ca98c65c005fbbec082862b67af9dab5"
 dependencies = [
  "derive-where",
  "revm-primitives",
@@ -2987,7 +2984,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "9.2.0"
-source = "git+https://github.com/Wodann/revm?rev=6d479da#6d479da35cf431da4276f374a39291cc3872b336"
+source = "git+https://github.com/Wodann/revm?rev=a500675#a5006752ca98c65c005fbbec082862b67af9dab5"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -3005,7 +3002,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "7.1.0"
-source = "git+https://github.com/Wodann/revm?rev=6d479da#6d479da35cf431da4276f374a39291cc3872b336"
+source = "git+https://github.com/Wodann/revm?rev=a500675#a5006752ca98c65c005fbbec082862b67af9dab5"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.7.7",
@@ -3269,18 +3266,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.197"
+version = "1.0.209"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fb1c873e1b9b056a4dc4c0c198b24c3ffa059243875552b2bd0933b1aee4ce2"
+checksum = "99fce0ffe7310761ca6bf9faf5115afbc19688edd00171d81b1bb1b116c63e09"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.197"
+version = "1.0.209"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7eb0b34b42edc17f6b7cac84a52a1c5f0e1bb2227e997ca9011ea3dd34e8610b"
+checksum = "a5831b979fd7b5439637af1752d535ff49f4860c0f341d1baeb6faf0f4242170"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3289,12 +3286,13 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.115"
+version = "1.0.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12dc5c46daa8e9fdf4f5e71b6cf9a53f2487da0e86e55808e2d35539666497dd"
+checksum = "8043c06d9f82bd7271361ed64f415fe5e12a77fdb52e573e7f06a516dea329ad"
 dependencies = [
  "indexmap 2.2.6",
  "itoa",
+ "memchr",
  "ryu",
  "serde",
 ]
@@ -3793,6 +3791,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_napi_core",
  "edr_provider",
  "edr_rpc_eth",
  "flate2",

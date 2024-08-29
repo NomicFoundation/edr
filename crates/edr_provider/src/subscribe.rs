@@ -4,7 +4,7 @@ use edr_eth::{filter::LogOutput, B256, U256};
 use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec, BlockAndTotalDifficulty};
 
 /// Subscription event.
-#[derive(Clone, Debug)]
+#[derive_where(Clone, Debug)]
 pub struct SubscriptionEvent<ChainSpecT: ChainSpec> {
     pub filter_id: U256,
     pub result: SubscriptionEventData<ChainSpecT>,
