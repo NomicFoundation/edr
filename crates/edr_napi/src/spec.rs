@@ -18,8 +18,12 @@ pub struct Response {
     data: Either<String, serde_json::Value>,
     /// When a transaction fails to execute, the provider returns a trace of the
     /// transaction.
+    ///
+    /// Only present for L1 Ethereum chains.
     solidity_trace: Option<RawTrace>,
     /// This may contain zero or more traces, depending on the (batch) request
+    ///
+    /// Always empty for non-L1 Ethereum chains.
     traces: Vec<RawTrace>,
 }
 

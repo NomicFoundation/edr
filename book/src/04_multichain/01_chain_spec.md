@@ -5,7 +5,9 @@ EDR uses a concept called _chain specification_ to define all necessary types an
 This is achieved through the usage of multiple traits, some of which are supertraits of each other, providing increasing scope of functionality in the EDR ecosystem:
 
 - Revm primitives: `revm_primitives::EvmWiring`
+  - Implements the main trait for implementing associated chain-specific primitive types.
 - Revm: `revm::EvmWiring`
+  - Adds an additional function to `revm_primitives::EvmWiring` that depends on the `Evm`.
 - Header builder: `edr_eth::EthHeaderConstants`
 - RPC client: `edr_rpc_eth::RpcSpec`
 - EVM runtime: `edr_evm::ChainSpec`
