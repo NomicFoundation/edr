@@ -1,4 +1,8 @@
-#![allow(missing_docs)] // TODO: Document this module
+//! A data structure that allows searching for well-known bytecodes.
+//!
+//! In addition to being a trie, it also performs normalization of the bytecode
+//! for the libraries by zeroing out the addresses of link references, i.e. the
+//! addresses of the libraries or immutable references for the lookup.
 
 use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
@@ -20,7 +24,7 @@ enum TrieSearch<'a> {
 /// What makes it special is that every node has a set of all of its descendants
 /// and its depth.
 #[derive(Clone)]
-pub struct BytecodeTrie {
+struct BytecodeTrie {
     child_nodes: HashMap<u8, Box<BytecodeTrie>>,
     descendants: Vec<Rc<Bytecode>>,
     match_: Option<Rc<Bytecode>>,
@@ -28,7 +32,7 @@ pub struct BytecodeTrie {
 }
 
 impl BytecodeTrie {
-    pub fn new(depth: Option<u32>) -> BytecodeTrie {
+    fn new(depth: Option<u32>) -> BytecodeTrie {
         BytecodeTrie {
             child_nodes: HashMap::new(),
             descendants: Vec::new(),
@@ -37,7 +41,7 @@ impl BytecodeTrie {
         }
     }
 
-    pub fn add(&mut self, bytecode: Rc<Bytecode>) {
+    fn add(&mut self, bytecode: Rc<Bytecode>) {
         let mut cursor = self;
 
         let bytecode_normalized_code = &bytecode.normalized_code;
@@ -87,7 +91,7 @@ impl BytecodeTrie {
     }
 }
 
-/// Returns true if the lastByte is placed right when the metadata starts or
+/// Returns true if the `last_byte` is placed right when the metadata starts or
 /// after it.
 fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
     let mut byte = 0;
@@ -105,6 +109,7 @@ fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
     false
 }
 
+/// A data structure that allows searching for well-known bytecodes.
 pub struct ContractsIdentifier {
     trie: BytecodeTrie,
     cache: HashMap<Vec<u8>, Rc<Bytecode>>,
@@ -118,6 +123,7 @@ impl Default for ContractsIdentifier {
 }
 
 impl ContractsIdentifier {
+    /// Creates a new [`ContractsIdentifier`].
     pub fn new(enable_cache: Option<bool>) -> ContractsIdentifier {
         let enable_cache = enable_cache.unwrap_or(true);
 
@@ -128,6 +134,7 @@ impl ContractsIdentifier {
         }
     }
 
+    /// Adds a bytecode to the tree.
     pub fn add_bytecode(&mut self, bytecode: Rc<Bytecode>) {
         self.trie.add(bytecode);
         self.cache.clear();
@@ -243,6 +250,7 @@ impl ContractsIdentifier {
         None
     }
 
+    /// Searches for a bytecode that matches the given (call/create) code.
     pub fn get_bytecode_for_call(&mut self, code: &[u8], is_create: bool) -> Option<Rc<Bytecode>> {
         let normalized_code = normalize_library_runtime_bytecode_if_necessary(code);
 

@@ -1,22 +1,29 @@
-//! Ported from `hardhat-network/stack-traces/source-maps.ts`.
-#![allow(missing_docs)] // TODO: Document this module
-
+//! Utility functions for decoding the Solidity compiler source maps.
 use std::rc::Rc;
 
 use edr_evm::interpreter::OpCode;
 
 use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
 
-// See https://docs.soliditylang.org/en/latest/internals/source_mappings.html
+/// Source mapping used by the Solidity compiler as part of its AST output.
+///
+/// See <https://docs.soliditylang.org/en/latest/internals/source_mappings.html>.
 pub struct SourceMapLocation {
+    /// Byte-offset to the start of the range in the source file.
     // Only -1 if the information is missing, the values are non-negative otherwise
     pub offset: i32,
+    /// Length of the source range in bytes.
     pub length: i32,
+    /// Integer identifier of the source file.
     pub file: i32,
 }
 
+/// Source mapping for the bytecode. In addition to [`SourceMapLocation`], it
+/// also contains the jump type.
 pub struct SourceMap {
+    /// Source mapping.
     pub location: SourceMapLocation,
+    /// Jump type, i.e. into (`i`) or out of (`o`) function.
     pub jump_type: JumpType,
 }
 
@@ -128,6 +135,12 @@ fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8
     }
 }
 
+/// Given the raw bytecode and the compressed source maps, decode the
+/// instructions.
+///
+/// # Panics
+///
+/// This function panics if the bytecode is invalid.
 pub fn decode_instructions(
     bytecode: &[u8],
     compressed_sourcemaps: &str,

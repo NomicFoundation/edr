@@ -1,5 +1,13 @@
-//! Ported from `hardhat-network/stack-traces/model.ts`.
-#![allow(missing_docs)] // TODO: Document this module
+//! Defines the source model used to perform the stack trace decoding.
+//!
+//! The source model consists of the following:
+//! - [`SourceFile`]s and their name, content
+//!   - [`SourceLocation`]s that point inside the source files
+//! - [`Contract`]s and its name, location
+//!   - related contract and free [`ContractFunction`]s and their name, location and parameters
+//!   - related [`CustomError`]s and their name, location and parameters
+//! - the resolved [`Bytecode`] of the contract
+//!   - related resolved [`Instruction`]s and their location
 
 use std::{
     cell::{OnceCell, RefCell},
@@ -16,24 +24,32 @@ use serde_json::Value;
 
 use crate::artifacts::{ContractAbiEntry, ImmutableReference};
 
+/// A resolved build model from a Solidity compiler standard JSON output.
 #[derive(Debug, Default)]
 pub struct BuildModel {
+    /// Maps the contract ID to the contract.
     pub contract_id_to_contract: IndexMap<u32, Rc<RefCell<Contract>>>,
+    /// Maps the file ID to the source file.
     pub file_id_to_source_file: Rc<BuildModelSources>,
 }
 
+/// Type alias for the source file mapping used by [`BuildModel`].
 pub type BuildModelSources = HashMap<u32, Rc<RefCell<SourceFile>>>;
 
+/// A source file.
 #[derive(Debug)]
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
     functions: Vec<Rc<ContractFunction>>,
 
+    /// The name of the source file.
     pub source_name: String,
+    /// The content of the source file.
     pub content: String,
 }
 
 impl SourceFile {
+    /// Creates a new [`SourceFile`] with the provided name and content.
     pub fn new(source_name: String, content: String) -> SourceFile {
         SourceFile {
             functions: Vec::new(),
@@ -43,10 +59,14 @@ impl SourceFile {
         }
     }
 
+    /// Adds a [`ContractFunction`] to the source file.
+    /// # Note
+    /// Should only be called when resolving the source model.
     pub fn add_function(&mut self, contract_function: Rc<ContractFunction>) {
         self.functions.push(contract_function);
     }
 
+    /// Returns the [`ContractFunction`] that contains the provided [`SourceLocation`].
     pub fn get_containing_function(
         &self,
         location: &SourceLocation,
@@ -58,11 +78,23 @@ impl SourceFile {
 }
 
 #[derive(Clone, Debug)]
+/// A source location that is tied to a source file.
+///
+/// # Note
+/// This is a weak reference to the source file. If the source file is dropped,
+/// we can no longer access it through this reference.
 pub struct SourceLocation {
+    /// Cached 1-based line number of the source location.
     line: OnceCell<u32>,
+    /// A weak reference to the source files mapping.
+    ///
+    /// Used to access the source file when needed.
     pub(crate) sources: Weak<BuildModelSources>,
+    /// The file ID of the source file.
     pub file_id: u32,
+    /// Byte offset of the source location.
     pub offset: u32,
+    /// Byte length of the source location.
     pub length: u32,
 }
 
@@ -76,6 +108,7 @@ impl PartialEq for SourceLocation {
 }
 
 impl SourceLocation {
+    /// Creates a new [`SourceLocation`] with the provided file ID, offset, and length.
     pub fn new(
         sources: Rc<BuildModelSources>,
         file_id: u32,
@@ -96,8 +129,8 @@ impl SourceLocation {
 
     /// Returns the file that contains the given source location.
     /// # Panics
-    /// This function panics if the source location is dangling, i.e. the owning
-    /// [`Bytecode`] has been dropped.
+    /// This function panics if the source location is dangling, i.e. source files
+    /// mapping has been dropped (currently only owned by the [`Bytecode`]).
     pub fn file(&self) -> Rc<RefCell<SourceFile>> {
         match self.sources.upgrade() {
             Some(ref sources) => sources.get(&self.file_id).unwrap().clone(),
@@ -105,6 +138,7 @@ impl SourceLocation {
         }
     }
 
+    /// Returns the 1-based line number of the source location.
     pub fn get_starting_line_number(&self) -> u32 {
         if let Some(line) = self.line.get() {
             return *line;
@@ -126,12 +160,14 @@ impl SourceLocation {
         })
     }
 
+    /// Returns the [`ContractFunction`] that contains the source location.
     pub fn get_containing_function(&self) -> Option<Rc<ContractFunction>> {
         let file = self.file();
         let file = file.borrow();
         file.get_containing_function(self).cloned()
     }
 
+    /// Returns whether the source location is contained within the other source location.
     pub fn contains(&self, other: &SourceLocation) -> bool {
         if !Weak::ptr_eq(&self.sources, &other.sources) || self.file_id != other.file_id {
             return false;
@@ -145,6 +181,8 @@ impl SourceLocation {
     }
 }
 
+/// The type of a contract function.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ContractFunctionType {
     Constructor,
@@ -156,6 +194,8 @@ pub enum ContractFunctionType {
     FreeFunction,
 }
 
+/// The visibility of a contract function.
+#[allow(missing_docs)]
 #[derive(Debug, PartialEq)]
 pub enum ContractFunctionVisibility {
     Private,
@@ -164,16 +204,25 @@ pub enum ContractFunctionVisibility {
     External,
 }
 
+/// A contract function.
 #[derive(Debug)]
 pub struct ContractFunction {
+    /// The name of the contract function.
     pub name: String,
+    /// The type of the contract function.
     pub r#type: ContractFunctionType,
+    /// The source location of the contract function.
     pub location: Rc<SourceLocation>,
+    /// The name of the contract that contains the contract function.
     pub contract_name: Option<String>,
+    /// The visibility of the contract function.
     pub visibility: Option<ContractFunctionVisibility>,
+    /// Whether the contract function is payable.
     pub is_payable: Option<bool>,
-    /// Fixed up by `Contract.correctSelector`
+    /// The selector of the contract function.
+    /// May be fixed up by [`Contract::correct_selector`].
     pub selector: RefCell<Option<Vec<u8>>>,
+    /// JSON ABI parameter types of the contract function.
     pub param_types: Option<Vec<Value>>,
 }
 
@@ -202,15 +251,20 @@ impl<'a> TryFrom<&'a ContractFunction> for alloy_json_abi::Function {
 }
 
 #[derive(Debug)]
+/// A custom error.
 pub struct CustomError {
+    /// The 4-byte selector of the custom error.
     pub selector: [u8; 4],
+    /// The name of the custom error.
     pub name: String,
+    /// JSON ABI parameter types of the custom error.
     pub param_types: Vec<Value>,
 
     def: alloy_json_abi::Error,
 }
 
 impl CustomError {
+    /// Creates a new [`CustomError`] from the provided [`ContractAbiEntry`].
     pub fn from_abi(entry: ContractAbiEntry) -> Result<CustomError, Box<str>> {
         // This is wasteful; to fix that we'd have to implement tighter deserialization
         // for the contract ABI entries.
@@ -235,23 +289,35 @@ impl CustomError {
     }
 }
 
+/// A decoded EVM instruction.
 #[derive(Debug)]
 pub struct Instruction {
+    /// The program counter (PC) of the instruction in a bytecode.
     pub pc: u32,
+    /// The opcode of the instruction.
     pub opcode: OpCode,
+    /// The jump type of the instruction, if any.
     pub jump_type: JumpType,
+    /// The push data of the instruction, if it's a `PUSHx` instruction.
     pub push_data: Option<Vec<u8>>,
+    /// The source location of the instruction, if any.
     pub location: Option<Rc<SourceLocation>>,
 }
 
+/// The type of a jump.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, strum::IntoStaticStr, strum::Display)]
 pub enum JumpType {
+    /// The instruction is not a jump.
     NotJump,
+    /// The instruction is a jump into a function.
     IntoFunction,
+    /// The instruction is a jump out of a function.
     OutofFunction,
+    /// The instruction is an internal jump, e.g. a loop.
     InternalJump,
 }
 
+/// A resolved bytecode.
 #[derive(Debug)]
 pub struct Bytecode {
     pc_to_instruction: HashMap<u32, Instruction>,
@@ -259,15 +325,22 @@ pub struct Bytecode {
     // This owns the source files transitively used by the source locations
     // in the Instruction structs.
     _sources: Rc<BuildModelSources>,
+    /// Contract that the bytecode belongs to.
     pub contract: Rc<RefCell<Contract>>,
+    /// Whether the bytecode is a deployment bytecode.
     pub is_deployment: bool,
+    /// Normalized code of the bytecode, i.e. replaced with zeroes for the library addresses.
     pub normalized_code: Vec<u8>,
+    /// Positions in the bytecode of the library addresses.
     pub library_address_positions: Vec<u32>,
+    /// Positions in the bytecode of the immutable references.
     pub immutable_references: Vec<ImmutableReference>,
+    /// Solidity compiler version used to compile the bytecode.
     pub compiler_version: String,
 }
 
 impl Bytecode {
+    /// Creates a new [`Bytecode`] with the provided arguments.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         sources: Rc<BuildModelSources>,
@@ -296,39 +369,54 @@ impl Bytecode {
         }
     }
 
+    /// Returns the [`Instruction`] at the provided program counter (PC).
     pub fn get_instruction(&self, pc: u32) -> anyhow::Result<&Instruction> {
         self.pc_to_instruction
             .get(&pc)
             .with_context(|| format!("Instruction at PC {pc} not found"))
     }
 
+    /// Whether the bytecode has an instruction at the provided program counter (PC).
     pub fn has_instruction(&self, pc: u32) -> bool {
         self.pc_to_instruction.contains_key(&pc)
     }
 }
 
+/// The kind of a contract.
 #[derive(Debug, PartialEq, strum::EnumString)]
 #[strum(serialize_all = "camelCase")]
 pub enum ContractKind {
+    /// A contract.
     Contract,
+    /// A library.
     Library,
 }
 
+/// A resolved contract.
 #[derive(Debug)]
 pub struct Contract {
+    /// Custom errors defined in the contract.
     pub custom_errors: Vec<CustomError>,
+    /// The constructor function of the contract.
     pub constructor: Option<Rc<ContractFunction>>,
+    /// The fallback function of the contract.
     pub fallback: Option<Rc<ContractFunction>>,
+    /// The receive function of the contract.
     pub receive: Option<Rc<ContractFunction>>,
+
     local_functions: Vec<Rc<ContractFunction>>,
     selector_hex_to_function: HashMap<String, Rc<ContractFunction>>,
 
+    /// The contract's name.
     pub name: String,
+    /// The contract's kind, i.e. contract or library.
     pub r#type: ContractKind,
+    /// The source location of the contract.
     pub location: Rc<SourceLocation>,
 }
 
 impl Contract {
+    /// Creates a new [`Contract`] with the provided arguments.
     pub fn new(
         name: String,
         contract_type: ContractKind,
@@ -347,6 +435,9 @@ impl Contract {
         }
     }
 
+    /// Adds a local function to the contract.
+    /// # Note
+    /// Should only be called when resolving the source model.
     pub fn add_local_function(&mut self, func: Rc<ContractFunction>) {
         if matches!(
             func.visibility,
@@ -379,10 +470,17 @@ impl Contract {
         self.local_functions.push(func);
     }
 
+    /// Adds a custom error to the contract.
+    /// # Note
+    /// Should only be called when resolving the source model.
     pub fn add_custom_error(&mut self, value: CustomError) {
         self.custom_errors.push(value);
     }
 
+    /// Adds the next linearized base contract to the contract, possibly overwriting
+    /// the functions of the contract.
+    /// # Note
+    /// Should only be called when resolving the source model.
     pub fn add_next_linearized_base_contract(&mut self, base_contract: &Contract) {
         if self.fallback.is_none() && base_contract.fallback.is_some() {
             self.fallback.clone_from(&base_contract.fallback);
@@ -420,6 +518,7 @@ impl Contract {
         }
     }
 
+    /// Looks up the local [`ContractFunction`] with the provided selector.
     pub fn get_function_from_selector(&self, selector: &[u8]) -> Option<&Rc<ContractFunction>> {
         let selector_hex = hex::encode(selector);
 
