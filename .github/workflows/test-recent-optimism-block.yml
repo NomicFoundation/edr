@@ -1,4 +1,4 @@
-name: Run a recent full block in the Hardhat Network
+name: Run a recent full Optimism block in the Hardhat Network
 
 on:
   schedule:
@@ -10,8 +10,8 @@ defaults:
     working-directory: packages/hardhat-core
 
 jobs:
-  test-recent-mainnet-block:
-    name: Test recent mainnet block
+  test-recent-optimism-block:
+    name: Test recent Optimism block
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -29,13 +29,13 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: test-recent-mainnet-block-rpc-cache-v1
+          key: test-recent-optimism-block-rpc-cache-v1
 
       - name: Run test
         uses: actions-rs/cargo@v1
         with:
           command: replay-block
-          args: -u ${{ secrets.ALCHEMY_URL }} --chain-id 1 --chain-type l1
+          args: -u ${{ secrets.ALCHEMY_URL }} --chain-id 10 --chain-type optimism
 
       - name: Notify failures
         if: failure()

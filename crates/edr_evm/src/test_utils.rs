@@ -162,9 +162,7 @@ pub async fn run_full_block<
     ChainSpecT: Debug
         + SyncChainSpec<
             Block: Default,
-            Hardfork: Debug + Send + Sync,
-            RpcBlockConversionError: Send + Sync,
-            RpcReceiptConversionError: Send + Sync,
+            Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,
             Transaction: Default
                              + TransactionValidation<

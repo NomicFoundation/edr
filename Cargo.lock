@@ -3792,6 +3792,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_napi_core",
+ "edr_optimism",
  "edr_provider",
  "edr_rpc_eth",
  "flate2",
