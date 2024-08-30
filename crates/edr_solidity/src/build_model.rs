@@ -271,7 +271,7 @@ pub struct CustomError {
 impl CustomError {
     /// Creates a new [`CustomError`] from the provided [`ContractAbiEntry`].
     pub fn from_abi(entry: ContractAbiEntry) -> Result<CustomError, Box<str>> {
-        // This is wasteful; to fix that we'd have to implement tighter deserialization
+        // FIXME(#636): This is wasteful; to fix that we'd have to implement tighter deserialization
         // for the contract ABI entries.
         let json = serde_json::to_value(&entry).expect("ContractAbiEntry to be round-trippable");
 
