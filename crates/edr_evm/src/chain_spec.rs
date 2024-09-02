@@ -31,35 +31,29 @@ pub trait ChainSpec:
     + EvmWiring<
         Block: BlockEnvConstructor<Self, block::Header> + BlockEnvConstructor<Self, PartialHeader>,
         Transaction: alloy_rlp::Encodable
-                         + Clone
-                         + Debug
-                         + PartialEq
-                         + Eq
-                         + ExecutableTransaction
-                         + Transaction
-                         + TransactionType,
+          + Clone
+          + Debug
+          + PartialEq
+          + Eq
+          + ExecutableTransaction
+          + Transaction
+          + TransactionType,
     >
-    // Defines an RPC spec and a conversion between RPC <-> EVM types
-    + RpcSpec<RpcTransaction: TryInto<<Self as revm::primitives::EvmWiring>::Transaction, Error = Self::RpcTransactionConversionError>>
+    // Defines an RPC spec and conversion between RPC <-> EVM types
     + RpcSpec<
-        ExecutionReceipt<FilterLog>: Debug,
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
-                                                         + TryInto<
-            EthBlockData<Self>,
-            Error = Self::RpcBlockConversionError,
-        >,
-        RpcReceipt: Debug
-                        + RpcTypeFrom<BlockReceipt<Self>, Hardfork = Self::Hardfork>
-                        + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
+          + TryInto<EthBlockData<Self>, Error = Self::RpcBlockConversionError>,
         RpcTransaction: EthRpcTransaction
-                            + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>,
-    > + RpcSpec<
+          + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
+          + TryInto<<Self as revm::primitives::EvmWiring>::Transaction, Error = Self::RpcTransactionConversionError>,
+        RpcReceipt: Debug
+          + RpcTypeFrom<BlockReceipt<Self>, Hardfork = Self::Hardfork>
+          + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
+    >
+    + RpcSpec<ExecutionReceipt<FilterLog>: Debug>
+    + RpcSpec<
         ExecutionReceipt<ExecutionLog>: alloy_rlp::Encodable
-                                            + MapReceiptLogs<
-            ExecutionLog,
-            FilterLog,
-            Self::ExecutionReceipt<FilterLog>,
-        >,
+          + MapReceiptLogs<ExecutionLog, FilterLog, Self::ExecutionReceipt<FilterLog>>,
         RpcBlock<B256>: EthRpcBlock,
     >
 {
