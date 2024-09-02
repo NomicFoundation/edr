@@ -173,3 +173,16 @@ jobs:
 
       - name: Check that there are no uncommitted changes
         run: git diff --exit-code
+
+  edr-integration-tests:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-node
+
+      - name: Install package
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Run integration tests
+        run: pnpm run --recursive --filter './js/integration-tests/*' test
