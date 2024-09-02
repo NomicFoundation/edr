@@ -3,35 +3,11 @@ import { assert } from "chai";
 import {
   ArtifactId,
   ContractData,
-  SuiteResult,
-  runSolidityTests,
   Artifact,
+  runSolidityTests,
   SolidityTestRunnerConfigArgs,
+  SuiteResult,
 } from "..";
-
-// This throws an error if the tests fail
-async function executeSolidityTests(
-  artifacts: Artifact[],
-  testSuites: ArtifactId[],
-  configArgs: SolidityTestRunnerConfigArgs
-): Promise<SuiteResult[]> {
-  return new Promise((resolve, reject) => {
-    const resultsFromCallback: SuiteResult[] = [];
-
-    runSolidityTests(
-      artifacts,
-      testSuites,
-      configArgs,
-      (result: SuiteResult) => {
-        resultsFromCallback.push(result);
-        if (resultsFromCallback.length === artifacts.length) {
-          resolve(resultsFromCallback);
-        }
-      },
-      reject
-    );
-  });
-}
 
 describe("Solidity Tests", () => {
   it("executes basic tests", async function () {
@@ -45,7 +21,7 @@ describe("Solidity Tests", () => {
       projectRoot: __dirname,
     };
 
-    const results = await executeSolidityTests(artifacts, testSuites, config);
+    const results = await runAllSolidityTests(artifacts, testSuites, config);
 
     assert.equal(results.length, artifacts.length);
 
@@ -77,7 +53,7 @@ describe("Solidity Tests", () => {
     };
 
     await assert.isRejected(
-      executeSolidityTests(artifacts, testSuites, config),
+      runAllSolidityTests(artifacts, testSuites, config),
       Error
     );
   });
@@ -102,4 +78,27 @@ function loadContract(artifactPath: string): Artifact {
     id,
     contract,
   };
+}
+
+async function runAllSolidityTests(
+  artifacts: Artifact[],
+  testSuites: ArtifactId[],
+  configArgs: SolidityTestRunnerConfigArgs
+): Promise<SuiteResult[]> {
+  return new Promise((resolve, reject) => {
+    const resultsFromCallback: SuiteResult[] = [];
+
+    runSolidityTests(
+      artifacts,
+      testSuites,
+      configArgs,
+      (suiteResult: SuiteResult) => {
+        resultsFromCallback.push(suiteResult);
+        if (resultsFromCallback.length === artifacts.length) {
+          resolve(resultsFromCallback);
+        }
+      },
+      reject
+    );
+  });
 }

@@ -1,4 +1,4 @@
-require("hardhat-solidity-tests")
+require("hardhat-solidity-tests");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {

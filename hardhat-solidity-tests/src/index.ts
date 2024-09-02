@@ -1,14 +1,10 @@
-import {
-  SuiteResult,
-  Artifact,
-  ArtifactId,
-  ContractData,
-} from "@nomicfoundation/edr";
-const { task } = require("hardhat/config");
+import { task } from "hardhat/config";
 
 task("test:solidity").setAction(async (_: any, hre: any) => {
   await hre.run("compile", { quiet: true });
-  const { runSolidityTests } = await import("@nomicfoundation/edr");
+  const { buildSolidityTestsInput, runAllSolidityTests } = await import(
+    "@nomicfoundation/edr-helpers"
+  );
   const { spec } = require("node:test/reporters");
 
   const specReporter = new spec();
@@ -18,77 +14,48 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
   let totalTests = 0;
   let failedTests = 0;
 
-  const artifacts: Artifact[] = [];
-  const testSuiteIds: ArtifactId[] = [];
-  const fqns = await hre.artifacts.getAllFullyQualifiedNames();
+  const { artifacts, testSuiteIds } = await buildSolidityTestsInput(
+    hre.artifacts,
+    (artifact) => {
+      const sourceName = artifact.id.source;
+      const isTestArtifact =
+        sourceName.endsWith(".t.sol") &&
+        sourceName.startsWith("contracts/") &&
+        !sourceName.startsWith("contracts/forge-std/") &&
+        !sourceName.startsWith("contracts/ds-test/");
 
-  for (const fqn of fqns) {
-    const artifact = hre.artifacts.readArtifactSync(fqn);
-    const buildInfo = hre.artifacts.getBuildInfoSync(fqn);
-
-    const id = {
-      name: artifact.contractName,
-      solcVersion: buildInfo.solcVersion,
-      source: artifact.sourceName,
-    };
-
-    const contract: ContractData = {
-      abi: JSON.stringify(artifact.abi),
-      bytecode: artifact.bytecode,
-      deployedBytecode: artifact.deployedBytecode,
-    };
-
-    artifacts.push({ id, contract });
-
-    const sourceName = artifact.sourceName;
-    const isTestFile =
-      sourceName.endsWith(".t.sol") &&
-      sourceName.startsWith("contracts/") &&
-      !sourceName.startsWith("contracts/forge-std/") &&
-      !sourceName.startsWith("contracts/ds-test/");
-
-    if (isTestFile) {
-      testSuiteIds.push(id);
+      return isTestArtifact;
     }
-  }
+  );
 
-  await new Promise<void>((resolve, reject) => {
-    const config = {
-      projectRoot: hre.config.paths.root,
-    };
+  const config = {
+    projectRoot: hre.config.paths.root,
+  };
 
-    runSolidityTests(
-      artifacts,
-      testSuiteIds,
-      config,
-      (suiteResult: SuiteResult) => {
-        for (const testResult of suiteResult.testResults) {
-          let name = suiteResult.id.name + " | " + testResult.name;
-          if ("runs" in testResult?.kind) {
-            name += ` (${testResult.kind.runs} runs)`;
-          }
+  await runAllSolidityTests(
+    artifacts,
+    testSuiteIds,
+    config,
+    (suiteResult, testResult) => {
+      let name = suiteResult.id.name + " | " + testResult.name;
+      if ("runs" in testResult?.kind) {
+        name += ` (${testResult.kind.runs} runs)`;
+      }
 
-          let failed = testResult.status === "Failure";
-          totalTests++;
-          if (failed) {
-            failedTests++;
-          }
+      const failed = testResult.status === "Failure";
+      totalTests++;
+      if (failed) {
+        failedTests++;
+      }
 
-          specReporter.write({
-            type: failed ? "test:fail" : "test:pass",
-            data: {
-              name,
-            },
-          });
-        }
-
-        if (totalTests === artifacts.length) {
-          resolve();
-        }
-      },
-      reject,
-    );
-  });
+      specReporter.write({
+        type: failed ? "test:fail" : "test:pass",
+        data: {
+          name,
+        },
+      });
+    }
+  );
 
   console.log(`\n${totalTests} tests found, ${failedTests} failed`);
 

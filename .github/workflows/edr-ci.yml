@@ -144,8 +144,8 @@ jobs:
           ./.github/scripts/cargo-doc.sh
         shell: bash
 
-  lint:
-    name: Run Prettier
+  build-and-lint:
+    name: Build and lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -153,6 +153,8 @@ jobs:
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Run build script
+        run: pnpm run build:dev
       - name: Run lint script
         run: pnpm run lint
 
@@ -167,7 +169,20 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build edr_napi
-        run: cd crates/edr_napi && pnpm build
+        run: cd crates/edr_napi && pnpm build:dev
 
       - name: Check that there are no uncommitted changes
         run: git diff --exit-code
+
+  edr-integration-tests:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-node
+
+      - name: Install package
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Run integration tests
+        run: pnpm run --recursive --filter './js/integration-tests/*' test

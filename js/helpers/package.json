@@ -1,9 +1,10 @@
 {
-  "name": "hardhat-solidity-tests",
-  "version": "0.0.1",
-  "author": "Nomic Foundation",
+  "name": "@nomicfoundation/edr-helpers",
+  "description": "",
+  "version": "1.0.0",
+  "author": "",
   "dependencies": {
-    "@nomicfoundation/edr-helpers": "workspace:*"
+    "@nomicfoundation/edr": "workspace:*"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
@@ -19,17 +20,16 @@
     "prettier": "^3.2.5",
     "typescript": "~5.5.3"
   },
+  "keywords": [],
   "license": "MIT",
   "main": "dist/index.js",
-  "peerDependencies": {
-    "hardhat": "2.22.9"
-  },
   "private": true,
   "scripts": {
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build --incremental .",
-    "eslint": "eslint src/**/*.ts",
+    "eslint": "eslint 'src/**/*.ts'",
     "lint": "pnpm prettier && pnpm eslint",
     "prettier": "prettier --check \"**/*.{js,ts,md,json}\""
-  }
+  },
+  "types": "dist/index.d.ts"
 }

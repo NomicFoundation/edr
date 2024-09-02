@@ -37,13 +37,13 @@ jobs:
         run: pnpm test
 
       - name: Run benchmark
-        run: pnpm run -s benchmark
+        run: pnpm run benchmark
 
       - name: Validate regressions
-        run: pnpm run -s verify
+        run: pnpm run verify
 
       - name: Generate report for github-action-benchmark
-        run: pnpm run -s report | tee report.json
+        run: pnpm run --silent report | tee report.json
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
