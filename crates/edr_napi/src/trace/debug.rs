@@ -1,7 +1,8 @@
 //! Port of `hardhat-network/stack-traces/debug.ts` from Hardhat.
 
 use edr_eth::U256;
-use edr_evm::hex;
+use edr_evm::{hex, interpreter::OpCode};
+use edr_solidity::build_model::JumpType;
 use napi::{
     bindgen_prelude::{Either24, Either3, Either4},
     Either, Env,
@@ -12,7 +13,7 @@ use super::{
     message_trace::{CallMessageTrace, CreateMessageTrace, PrecompileMessageTrace},
     solidity_stack_trace::{RevertErrorStackTraceEntry, SolidityStackTrace},
 };
-use crate::trace::{model::JumpType, return_data::ReturnData};
+use crate::trace::return_data::ReturnData;
 
 const MARGIN_SPACE: usize = 6;
 
@@ -81,9 +82,9 @@ fn print_call_trace(trace: &CallMessageTrace, depth: u32, env: Env) -> napi::Res
     println!("{margin}Call trace");
 
     if let Some(bytecode) = &trace.bytecode {
-        let contract = bytecode.contract.borrow(env)?;
-        let location = contract.location.borrow(env)?;
-        let file = location.file.borrow(env)?;
+        let contract = bytecode.contract.borrow();
+        let file = contract.location.file();
+        let file = file.borrow();
 
         println!(
             "{margin} calling contract: {}:{}",
@@ -127,7 +128,7 @@ fn print_create_trace(trace: &CreateMessageTrace, depth: u32, env: Env) -> napi:
     println!("{margin}Create trace");
 
     if let Some(bytecode) = &trace.bytecode {
-        let contract = bytecode.contract.borrow(env)?;
+        let contract = bytecode.contract.borrow();
 
         println!("{margin} deploying contract: {}", contract.name);
         println!("{margin} code: {}", hex::encode_prefixed(&*trace.code));
@@ -199,32 +200,26 @@ fn trace_steps(
         let pc = format!("{:>5}", format!("{:03}", step.pc));
 
         if let Some(bytecode) = bytecode {
-            let inst = bytecode.get_instruction_inner(step.pc)?;
-            let inst = inst.borrow(env)?;
+            let inst = bytecode.get_instruction(step.pc)?;
 
             let location = inst
                 .location
                 .as_ref()
                 .map(|inst_location| {
-                    let inst_location = inst_location.borrow(env)?;
-                    let file = inst_location.file.borrow(env)?;
+                    let inst_location = &inst_location;
+                    let file = inst_location.file();
+                    let file = file.borrow();
 
                     let mut location_str = file.source_name.clone();
 
-                    if let Some(func) = inst_location.get_containing_function_inner(env)? {
-                        let func = func.borrow(env)?;
-                        let location = func.location.borrow(env)?;
-                        let file = location.file.borrow(env)?;
+                    if let Some(func) = inst_location.get_containing_function() {
+                        let file = func.location.file();
+                        let file = file.borrow();
 
-                        let contract_name = func
-                            .contract
+                        let source_name = func
+                            .contract_name
                             .as_ref()
-                            .map(|contract| -> napi::Result<_> {
-                                Ok(contract.borrow(env)?.name.clone())
-                            })
-                            .transpose()?;
-
-                        let source_name = contract_name.unwrap_or_else(|| file.source_name.clone());
+                            .unwrap_or_else(|| &file.source_name);
 
                         location_str += &format!(":{source_name}:{}", func.name);
                     }
@@ -236,23 +231,20 @@ fn trace_steps(
                 .transpose()?
                 .unwrap_or_default();
 
-            if inst.opcode.is_jump() {
-                let jump = if inst.jump_type == JumpType::NOT_JUMP {
+            if matches!(inst.opcode, OpCode::JUMP | OpCode::JUMPI) {
+                let jump = if inst.jump_type == JumpType::NotJump {
                     "".to_string()
                 } else {
-                    format!("({})", inst.jump_type.into_static_str())
+                    format!("({})", inst.jump_type)
                 };
 
-                let entry = format!(
-                    "{margin}  {pc}   {opcode} {jump}",
-                    opcode = inst.opcode.into_static_str()
-                );
+                let entry = format!("{margin}  {pc}   {opcode} {jump}", opcode = inst.opcode);
 
                 println!("{entry:<50}{location}");
             } else if inst.opcode.is_push() {
                 let entry = format!(
                     "{margin}  {pc}   {opcode} {push_data}",
-                    opcode = inst.opcode.into_static_str(),
+                    opcode = inst.opcode,
                     push_data = inst
                         .push_data
                         .as_deref()
@@ -262,10 +254,7 @@ fn trace_steps(
 
                 println!("{entry:<50}{location}");
             } else {
-                let entry = format!(
-                    "{margin}  {pc}   {opcode}",
-                    opcode = inst.opcode.into_static_str()
-                );
+                let entry = format!("{margin}  {pc}   {opcode}", opcode = inst.opcode);
 
                 println!("{entry:<50}{location}");
             }

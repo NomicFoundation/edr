@@ -1,39 +1,37 @@
-//! Ported from `hardhat-network/stack-traces/source-maps.ts`.
+//! Utility functions for decoding the Solidity compiler source maps.
+use std::rc::Rc;
 
-use std::{collections::HashMap, rc::Rc};
+use edr_evm::interpreter::OpCode;
 
-use napi::{bindgen_prelude::Buffer, Env};
-use napi_derive::napi;
+use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
 
-use super::model::{SourceFile, SourceLocation};
-use crate::{
-    trace::{
-        model::{Instruction, JumpType},
-        opcodes::{is_jump, is_push, Opcode},
-    },
-    utils::ClassInstanceRef,
-};
-
-// See https://docs.soliditylang.org/en/latest/internals/source_mappings.html
-#[napi(object)]
+/// Source mapping used by the Solidity compiler as part of its AST output.
+///
+/// See <https://docs.soliditylang.org/en/latest/internals/source_mappings.html>.
 pub struct SourceMapLocation {
+    /// Byte-offset to the start of the range in the source file.
     // Only -1 if the information is missing, the values are non-negative otherwise
     pub offset: i32,
+    /// Length of the source range in bytes.
     pub length: i32,
+    /// Integer identifier of the source file.
     pub file: i32,
 }
 
-#[napi(object)]
+/// Source mapping for the bytecode. In addition to [`SourceMapLocation`], it
+/// also contains the jump type.
 pub struct SourceMap {
+    /// Source mapping.
     pub location: SourceMapLocation,
+    /// Jump type, i.e. into (`i`) or out of (`o`) function.
     pub jump_type: JumpType,
 }
 
 fn jump_letter_to_jump_type(letter: &str) -> JumpType {
     match letter {
-        "i" => JumpType::INTO_FUNCTION,
-        "o" => JumpType::OUTOF_FUNCTION,
-        _ => JumpType::NOT_JUMP,
+        "i" => JumpType::IntoFunction,
+        "o" => JumpType::OutofFunction,
+        _ => JumpType::NotJump,
     }
 }
 
@@ -55,7 +53,7 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
         // // See: https://github.com/nomiclabs/hardhat/issues/593
         if i == 0 && !has_every_part {
             mappings.push(SourceMap {
-                jump_type: JumpType::NOT_JUMP,
+                jump_type: JumpType::NotJump,
                 location: SourceMapLocation {
                     file: -1,
                     offset: 0,
@@ -101,49 +99,54 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
     mappings
 }
 
-fn add_unmapped_instructions(
-    instructions: &mut Vec<Instruction>,
-    bytecode: &[u8],
-) -> napi::Result<()> {
+fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8]) {
     let last_instr_pc = instructions.last().map_or(0, |instr| instr.pc);
 
     let mut bytes_index = (last_instr_pc + 1) as usize;
 
-    while bytecode.get(bytes_index) != Some(Opcode::INVALID as u8).as_ref() {
-        let opcode = Opcode::from_repr(bytecode[bytes_index]).expect("Invalid opcode");
+    while bytecode.get(bytes_index) != Some(OpCode::INVALID.get()).as_ref() {
+        let opcode = OpCode::new(bytecode[bytes_index]).expect("Invalid opcode");
 
-        let push_data: Option<Buffer> = if is_push(opcode) {
-            let push_data =
-                &bytecode[(bytes_index + 1)..(bytes_index + 1 + (opcode.push_len() as usize))];
+        let push_data = if opcode.is_push() {
+            let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
 
-            Some(Buffer::from(push_data))
+            Some(push_data.to_vec())
         } else {
             None
         };
 
-        let jump_type = if is_jump(opcode) {
-            JumpType::INTERNAL_JUMP
+        let jump_type = if matches!(opcode, OpCode::JUMP | OpCode::JUMPI) {
+            JumpType::InternalJump
         } else {
-            JumpType::NOT_JUMP
+            JumpType::NotJump
         };
 
-        let instruction = Instruction::new(bytes_index as u32, opcode, jump_type, push_data, None)?;
+        let instruction = Instruction {
+            pc: bytes_index as u32,
+            opcode,
+            jump_type,
+            push_data,
+            location: None,
+        };
 
         instructions.push(instruction);
 
-        bytes_index += opcode.len() as usize;
+        bytes_index += 1 + opcode.info().immediate_size() as usize;
     }
-
-    Ok(())
 }
 
+/// Given the raw bytecode and the compressed source maps, decode the
+/// instructions.
+///
+/// # Panics
+///
+/// This function panics if the bytecode is invalid.
 pub fn decode_instructions(
     bytecode: &[u8],
     compressed_sourcemaps: &str,
-    file_id_to_source_file: &HashMap<u32, Rc<ClassInstanceRef<SourceFile>>>,
+    build_model: &Rc<BuildModel>,
     is_deployment: bool,
-    env: Env,
-) -> napi::Result<Vec<Instruction>> {
+) -> Vec<Instruction> {
     let source_maps = uncompress_sourcemaps(compressed_sourcemaps);
 
     let mut instructions = Vec::new();
@@ -154,52 +157,53 @@ pub fn decode_instructions(
         let source_map = &source_maps[instructions.len()];
 
         let pc = bytes_index;
-        let opcode = Opcode::from_repr(bytecode[pc]).expect("Invalid opcode");
+        let opcode = OpCode::new(bytecode[pc]).expect("Invalid opcode");
 
-        let push_data = if is_push(opcode) {
-            let length = opcode.push_len();
-            let push_data = &bytecode[(bytes_index + 1)..(bytes_index + 1 + (length as usize))];
+        let push_data = if opcode.is_push() {
+            let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
 
-            Some(Buffer::from(push_data))
+            Some(push_data.to_vec())
         } else {
             None
         };
 
-        let jump_type = if is_jump(opcode) && source_map.jump_type == JumpType::NOT_JUMP {
-            JumpType::INTERNAL_JUMP
-        } else {
-            source_map.jump_type
+        let jump_type = match (opcode, source_map.jump_type) {
+            (OpCode::JUMP | OpCode::JUMPI, JumpType::NotJump) => JumpType::InternalJump,
+            _ => source_map.jump_type,
         };
 
         let location = if source_map.location.file == -1 {
             None
         } else {
-            match file_id_to_source_file.get(&(source_map.location.file as u32)) {
-                Some(file) => {
-                    let location = SourceLocation::new(
-                        file.clone(),
+            build_model
+                .file_id_to_source_file
+                .get(&(source_map.location.file as u32))
+                .map(|_| {
+                    Rc::new(SourceLocation::new(
+                        build_model.file_id_to_source_file.clone(),
+                        source_map.location.file as u32,
                         source_map.location.offset as u32,
                         source_map.location.length as u32,
-                    )
-                    .into_instance(env)?;
-
-                    Some(ClassInstanceRef::from_obj(location, env)?)
-                }
-                None => None,
-            }
+                    ))
+                })
         };
 
-        let instruction =
-            Instruction::new(bytes_index as u32, opcode, jump_type, push_data, location)?;
+        let instruction = Instruction {
+            pc: bytes_index as u32,
+            opcode,
+            jump_type,
+            push_data,
+            location,
+        };
 
         instructions.push(instruction);
 
-        bytes_index += opcode.len() as usize;
+        bytes_index += 1 + opcode.info().immediate_size() as usize;
     }
 
     if is_deployment {
-        add_unmapped_instructions(&mut instructions, bytecode)?;
+        add_unmapped_instructions(&mut instructions, bytecode);
     }
 
-    Ok(instructions)
+    instructions
 }

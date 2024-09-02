@@ -19,15 +19,12 @@ use crate::result::ExecutionResult;
 mod compiler;
 mod library_utils;
 mod model;
-mod source_map;
 
-mod contracts_identifier;
 mod debug;
 mod error_inferrer;
 mod exit;
 mod mapped_inlined_internal_functions_heuristics;
 mod message_trace;
-mod opcodes;
 mod return_data;
 mod solidity_stack_trace;
 mod solidity_tracer;

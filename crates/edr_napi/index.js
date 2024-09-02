@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, SourceFile, SourceLocation, ContractFunctionType, ContractFunctionVisibility, ContractFunction, CustomError, Instruction, JumpType, jumpTypeToString, Bytecode, ContractType, Contract, ContractsIdentifier, printMessageTrace, printStackTrace, Exit, ExitCode, Opcode, opcodeToString, isPush, isJump, isCall, isCreate, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, BytecodeWrapper, ContractFunctionType, printMessageTrace, printStackTrace, Exit, ExitCode, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -321,29 +321,12 @@ module.exports.SuccessReason = SuccessReason
 module.exports.ExceptionalHalt = ExceptionalHalt
 module.exports.createModelsAndDecodeBytecodes = createModelsAndDecodeBytecodes
 module.exports.linkHexStringBytecode = linkHexStringBytecode
-module.exports.SourceFile = SourceFile
-module.exports.SourceLocation = SourceLocation
+module.exports.BytecodeWrapper = BytecodeWrapper
 module.exports.ContractFunctionType = ContractFunctionType
-module.exports.ContractFunctionVisibility = ContractFunctionVisibility
-module.exports.ContractFunction = ContractFunction
-module.exports.CustomError = CustomError
-module.exports.Instruction = Instruction
-module.exports.JumpType = JumpType
-module.exports.jumpTypeToString = jumpTypeToString
-module.exports.Bytecode = Bytecode
-module.exports.ContractType = ContractType
-module.exports.Contract = Contract
-module.exports.ContractsIdentifier = ContractsIdentifier
 module.exports.printMessageTrace = printMessageTrace
 module.exports.printStackTrace = printStackTrace
 module.exports.Exit = Exit
 module.exports.ExitCode = ExitCode
-module.exports.Opcode = Opcode
-module.exports.opcodeToString = opcodeToString
-module.exports.isPush = isPush
-module.exports.isJump = isJump
-module.exports.isCall = isCall
-module.exports.isCreate = isCreate
 module.exports.ReturnData = ReturnData
 module.exports.StackTraceEntryType = StackTraceEntryType
 module.exports.stackTraceEntryTypeToString = stackTraceEntryTypeToString

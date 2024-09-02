@@ -20,5 +20,4 @@ mod result;
 mod scenarios;
 mod subscribe;
 mod trace;
-mod utils;
 mod withdrawal;

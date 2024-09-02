@@ -1,6 +1,8 @@
+use edr_evm::interpreter::OpCode;
+use edr_solidity::build_model::{Instruction, JumpType};
 use napi::{
     bindgen_prelude::{Either3, Either4},
-    Either, Env,
+    Either,
 };
 use napi_derive::napi;
 
@@ -12,22 +14,16 @@ use super::{
         adjust_stack_trace, stack_trace_may_require_adjustments,
     },
     message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, PrecompileMessageTrace},
-    model::{Instruction, JumpType},
-    opcodes::Opcode,
     solidity_stack_trace::{PrecompileErrorStackTraceEntry, SolidityStackTrace},
 };
-use crate::{
-    trace::{
-        exit::ExitCode,
-        solidity_stack_trace::{
-            ContractTooLargeErrorStackTraceEntry, SolidityStackTraceEntry,
-            StackTraceEntryTypeConst, UnrecognizedContractCallstackEntryStackTraceEntry,
-            UnrecognizedContractErrorStackTraceEntry,
-            UnrecognizedCreateCallstackEntryStackTraceEntry,
-            UnrecognizedCreateErrorStackTraceEntry,
-        },
+use crate::trace::{
+    exit::ExitCode,
+    solidity_stack_trace::{
+        ContractTooLargeErrorStackTraceEntry, SolidityStackTraceEntry, StackTraceEntryTypeConst,
+        UnrecognizedContractCallstackEntryStackTraceEntry,
+        UnrecognizedContractErrorStackTraceEntry, UnrecognizedCreateCallstackEntryStackTraceEntry,
+        UnrecognizedCreateErrorStackTraceEntry,
     },
-    utils::ClassInstanceRef,
 };
 
 #[napi(constructor)]
@@ -36,11 +32,10 @@ pub struct SolidityTracer;
 #[allow(clippy::unused_self)] // we allow this for convenience for now
 #[napi]
 impl SolidityTracer {
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn get_stack_trace(
         &self,
         trace: Either3<PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let trace = match &trace {
             Either3::A(precompile) => Either3::A(precompile),
@@ -48,13 +43,12 @@ impl SolidityTracer {
             Either3::C(create) => Either3::C(create),
         };
 
-        self.get_stack_trace_inner(trace, env)
+        self.get_stack_trace_inner(trace)
     }
 
     pub fn get_stack_trace_inner(
         &self,
         trace: Either3<&PrecompileMessageTrace, &CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let exit = match &trace {
             Either3::A(precompile) => &precompile.exit,
@@ -69,18 +63,14 @@ impl SolidityTracer {
         match trace {
             Either3::A(precompile) => Ok(self.get_precompile_message_stack_trace(precompile)?),
             Either3::B(call) if call.bytecode.is_some() => {
-                Ok(self.get_call_message_stack_trace(call, env)?)
+                Ok(self.get_call_message_stack_trace(call)?)
             }
             Either3::C(create) if create.bytecode.is_some() => {
-                Ok(self.get_create_message_stack_trace(create, env)?)
+                Ok(self.get_create_message_stack_trace(create)?)
             }
             // No bytecode is present
-            Either3::B(call) => {
-                Ok(self.get_unrecognized_message_stack_trace(Either::A(call), env)?)
-            }
-            Either3::C(create) => {
-                Ok(self.get_unrecognized_message_stack_trace(Either::B(create), env)?)
-            }
+            Either3::B(call) => Ok(self.get_unrecognized_message_stack_trace(Either::A(call))?),
+            Either3::C(create) => Ok(self.get_unrecognized_message_stack_trace(Either::B(create))?),
         }
     }
 
@@ -121,35 +111,32 @@ impl SolidityTracer {
     fn get_create_message_stack_trace(
         &self,
         trace: &CreateMessageTrace,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
-        let inferred_error = ErrorInferrer::infer_before_tracing_create_message(trace, env)?;
+        let inferred_error = ErrorInferrer::infer_before_tracing_create_message(trace)?;
 
         if let Some(inferred_error) = inferred_error {
             return Ok(inferred_error);
         }
 
-        self.trace_evm_execution(Either::B(trace), env)
+        self.trace_evm_execution(Either::B(trace))
     }
 
     fn get_call_message_stack_trace(
         &self,
         trace: &CallMessageTrace,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
-        let inferred_error = ErrorInferrer::infer_before_tracing_call_message(trace, env)?;
+        let inferred_error = ErrorInferrer::infer_before_tracing_call_message(trace)?;
 
         if let Some(inferred_error) = inferred_error {
             return Ok(inferred_error);
         }
 
-        self.trace_evm_execution(Either::A(trace), env)
+        self.trace_evm_execution(Either::A(trace))
     }
 
     fn get_unrecognized_message_stack_trace(
         &self,
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let (trace_exit_kind, trace_return_data) = match &trace {
             Either::A(call) => (call.exit.kind(), &call.return_data),
@@ -190,7 +177,7 @@ impl SolidityTracer {
                 };
 
                 let mut stacktrace = vec![unrecognized_entry];
-                stacktrace.extend(self.get_stack_trace_inner(subtrace, env)?);
+                stacktrace.extend(self.get_stack_trace_inner(subtrace)?);
 
                 return Ok(stacktrace);
             }
@@ -232,12 +219,11 @@ impl SolidityTracer {
     fn trace_evm_execution(
         &self,
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
-        let stack_trace = self.raw_trace_evm_execution(trace, env)?;
+        let stack_trace = self.raw_trace_evm_execution(trace)?;
 
         if stack_trace_may_require_adjustments(&stack_trace, trace) {
-            return adjust_stack_trace(stack_trace, trace, env);
+            return adjust_stack_trace(stack_trace, trace);
         }
 
         Ok(stack_trace)
@@ -246,7 +232,6 @@ impl SolidityTracer {
     fn raw_trace_evm_execution(
         &self,
         trace: Either<&CallMessageTrace, &CreateMessageTrace>,
-        env: Env,
     ) -> napi::Result<SolidityStackTrace> {
         let (bytecode, steps, number_of_subtraces) = match &trace {
             Either::A(call) => (&call.bytecode, &call.steps, call.number_of_subtraces),
@@ -261,37 +246,34 @@ impl SolidityTracer {
         // There was a jump into a function according to the sourcemaps
         let mut jumped_into_function = false;
 
-        let mut function_jumpdests: Vec<&ClassInstanceRef<Instruction>> = vec![];
+        let mut function_jumpdests: Vec<&Instruction> = vec![];
 
         let mut last_submessage_data: Option<SubmessageDataRef<'_>> = None;
 
         let mut iter = steps.iter().enumerate().peekable();
         while let Some((step_index, step)) = iter.next() {
             if let Either4::A(EvmStep { pc }) = step {
-                let inst = bytecode.get_instruction_inner(*pc)?;
-                let inst = inst.borrow(env)?;
+                let inst = bytecode.get_instruction(*pc)?;
 
-                if inst.jump_type == JumpType::INTO_FUNCTION && iter.peek().is_some() {
+                if inst.jump_type == JumpType::IntoFunction && iter.peek().is_some() {
                     let (_, next_step) = iter.peek().unwrap();
                     let Either4::A(next_evm_step) = next_step else {
                         unreachable!("JS code asserted that");
                     };
-                    let next_inst = bytecode.get_instruction_inner(next_evm_step.pc)?;
-                    let next_inst_borrowed = next_inst.borrow(env)?;
+                    let next_inst = bytecode.get_instruction(next_evm_step.pc)?;
 
-                    if next_inst_borrowed.opcode == Opcode::JUMPDEST {
-                        let frame =
-                            instruction_to_callstack_stack_trace_entry(bytecode, &inst, env)?;
+                    if next_inst.opcode == OpCode::JUMPDEST {
+                        let frame = instruction_to_callstack_stack_trace_entry(bytecode, inst)?;
                         stacktrace.push(match frame {
                             Either::A(frame) => frame.into(),
                             Either::B(frame) => frame.into(),
                         });
-                        if next_inst_borrowed.location.is_some() {
+                        if next_inst.location.is_some() {
                             jumped_into_function = true;
                         }
                         function_jumpdests.push(next_inst);
                     }
-                } else if inst.jump_type == JumpType::OUTOF_FUNCTION {
+                } else if inst.jump_type == JumpType::OutofFunction {
                     stacktrace.pop();
                     function_jumpdests.pop();
                 }
@@ -310,7 +292,7 @@ impl SolidityTracer {
                     continue;
                 }
 
-                let submessage_trace = self.get_stack_trace_inner(message_trace, env)?;
+                let submessage_trace = self.get_stack_trace_inner(message_trace)?;
 
                 last_submessage_data = Some(SubmessageDataRef {
                     message_trace,
@@ -320,21 +302,12 @@ impl SolidityTracer {
             }
         }
 
-        // Borrow the classes at the same time to keep it alive for the duration
-        // of the call below
-        let function_jumpdests = function_jumpdests
-            .into_iter()
-            .map(|x| x.borrow(env))
-            .collect::<Result<Vec<_>, _>>()?;
-        let function_jumpdests = function_jumpdests.iter().map(|x| &**x).collect::<Vec<_>>();
-
         let stacktrace_with_inferred_error = ErrorInferrer::infer_after_tracing(
             trace,
             stacktrace,
             &function_jumpdests,
             jumped_into_function,
             last_submessage_data,
-            env,
         )?;
 
         ErrorInferrer::filter_redundant_frames(stacktrace_with_inferred_error)

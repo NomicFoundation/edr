@@ -5,7 +5,7 @@ use std::{cell::RefCell, rc::Rc};
 use edr_eth::{Address, Bytes, U256};
 use edr_evm::HaltReason;
 
-use crate::contracts_identifier::Bytecode;
+use crate::build_model::Bytecode;
 
 /// Represents the exit code of the EVM.
 #[derive(Clone, Debug)]
@@ -78,7 +78,7 @@ pub struct BaseEvmMessageTrace {
     pub steps: Vec<MessageTraceStep>,
     /// Resolved metadata of the contract that is being executed.
     /// Filled in the JS side by `ContractsIdentifier`.
-    pub bytecode: Option<Bytecode>,
+    pub bytecode: Option<Rc<Bytecode>>,
     // The following is just an optimization: When processing this traces it's useful to know ahead
     // of time how many subtraces there are.
     /// Number of subtraces. Used to speed up the processing of the traces in
