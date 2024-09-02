@@ -26,6 +26,7 @@ use crate::{
 #[allow(clippy::trait_duplication_in_bounds)]
 pub trait ChainSpec:
     alloy_rlp::Encodable
+    // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
     + EvmWiring<
         Block: BlockEnvConstructor<Self, block::Header> + BlockEnvConstructor<Self, PartialHeader>,
@@ -36,12 +37,11 @@ pub trait ChainSpec:
                          + Eq
                          + ExecutableTransaction
                          + Transaction
-                         + TransactionType
-                         + TryFrom<
-            <Self as RpcSpec>::RpcTransaction,
-            Error = Self::RpcTransactionConversionError,
-        >,
-    > + RpcSpec<
+                         + TransactionType,
+    >
+    // Defines an RPC spec and a conversion between RPC <-> EVM types
+    + RpcSpec<RpcTransaction: TryInto<<Self as revm::primitives::EvmWiring>::Transaction, Error = Self::RpcTransactionConversionError>>
+    + RpcSpec<
         ExecutionReceipt<FilterLog>: Debug,
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
                                                          + TryInto<
@@ -96,7 +96,7 @@ pub trait ChainSpec:
     fn chain_name(chain_id: u64) -> Option<&'static str>;
 }
 
-/// A trait for constructing a block a [`PartialHeader`] into an EVM block.
+/// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<ChainSpecT: ChainSpec, HeaderT> {
     /// Converts the instance into an EVM block.
     fn new_block_env(header: &HeaderT, hardfork: ChainSpecT::Hardfork) -> Self;
