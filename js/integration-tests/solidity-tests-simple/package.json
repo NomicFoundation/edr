@@ -21,8 +21,9 @@
   "main": "index.js",
   "private": true,
   "scripts": {
-    "build": "tsc --build --incremental .",
-    "pretest": "cd ../../.. && pnpm build",
+    "build": "pnpm run build:dev",
+    "build:dev": "tsc --build --incremental .",
+    "pretest": "cd ../../.. && pnpm build:dev",
     "test": "hardhat test"
   }
 }
