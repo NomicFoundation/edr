@@ -25,7 +25,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Cache EDR RPC cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             **/edr-cache
