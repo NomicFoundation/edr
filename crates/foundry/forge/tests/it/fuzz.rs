@@ -9,15 +9,18 @@ use forge::{
     result::{SuiteResult, TestStatus},
 };
 
-use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
+use crate::{
+    config::*,
+    test_helpers::{TestFuzzConfig, TEST_DATA_DEFAULT},
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/")
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)|testSuccessChecker\(uint256\)|testSuccessChecker2\(int256\)|testSuccessChecker3\(uint32\)")
         .exclude_paths("invariant");
-    let mut runner = TEST_DATA_DEFAULT.runner();
-    let suite_result = runner.test_collect(&filter);
+    let runner = TEST_DATA_DEFAULT.runner().await;
+    let suite_result = runner.test_collect(filter).await;
 
     assert!(!suite_result.is_empty());
 
@@ -53,8 +56,8 @@ async fn test_successful_fuzz_cases() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzPositive")
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)")
         .exclude_paths("invariant");
-    let mut runner = TEST_DATA_DEFAULT.runner();
-    let suite_result = runner.test_collect(&filter);
+    let runner = TEST_DATA_DEFAULT.runner().await;
+    let suite_result = runner.test_collect(filter).await;
 
     assert!(!suite_result.is_empty());
 
@@ -83,12 +86,13 @@ async fn test_successful_fuzz_cases() {
 #[ignore]
 async fn test_fuzz_collection() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzCollection.t.sol");
-    let mut runner = TEST_DATA_DEFAULT.runner();
-    runner.test_options.invariant.depth = 100;
-    runner.test_options.invariant.runs = 1000;
-    runner.test_options.fuzz.runs = 1000;
-    runner.test_options.fuzz.seed = Some(U256::from(6u32));
-    let results = runner.test_collect(&filter);
+    let mut config = TEST_DATA_DEFAULT.base_runner_config();
+    config.invariant.depth = 100;
+    config.invariant.runs = 1000;
+    config.fuzz.runs = 1000;
+    config.fuzz.seed = Some(U256::from(6u32));
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -124,13 +128,19 @@ async fn test_fuzz_collection() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_persist_fuzz_failure() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
-    let mut runner = TEST_DATA_DEFAULT.runner();
-    runner.test_options.fuzz.runs = 1000;
+    let mut fuzz_config = TestFuzzConfig {
+        runs: 1000,
+        ..TestFuzzConfig::default()
+    };
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fuzz_config(fuzz_config.clone())
+        .await;
 
     macro_rules! get_failure_result {
-        () => {
-            runner
-                .test_collect(&filter)
+        ($runner:ident) => {
+            $runner
+                .clone()
+                .test_collect(filter.clone()).await
                 .get("default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest")
                 .unwrap()
                 .test_results
@@ -142,7 +152,7 @@ async fn test_persist_fuzz_failure() {
     }
 
     // record initial counterexample calldata
-    let initial_counterexample = get_failure_result!();
+    let initial_counterexample = get_failure_result!(runner);
     let initial_calldata = match initial_counterexample {
         Some(CounterExample::Single(counterexample)) => counterexample.calldata,
         _ => Bytes::new(),
@@ -150,7 +160,7 @@ async fn test_persist_fuzz_failure() {
 
     // run several times and compare counterexamples calldata
     for i in 0..10 {
-        let new_calldata = match get_failure_result!() {
+        let new_calldata = match get_failure_result!(runner) {
             Some(CounterExample::Single(counterexample)) => counterexample.calldata,
             _ => Bytes::new(),
         };
@@ -158,9 +168,10 @@ async fn test_persist_fuzz_failure() {
         assert_eq!(initial_calldata, new_calldata, "run {i}");
     }
 
-    // write new failure in different file
-    runner.test_options.fuzz.failure_persist_file = Some("failure1".to_string());
-    let new_calldata = match get_failure_result!() {
+    // write new failure in different file, but keep the same directory
+    fuzz_config.failure_persist_file = Some("failure1".to_string());
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_config(fuzz_config).await;
+    let new_calldata = match get_failure_result!(runner) {
         Some(CounterExample::Single(counterexample)) => counterexample.calldata,
         _ => Bytes::new(),
     };

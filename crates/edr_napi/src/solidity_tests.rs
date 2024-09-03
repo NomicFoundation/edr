@@ -87,11 +87,7 @@ pub fn run_solidity_tests(
         };
 
         // Returns immediately after test suite execution is started
-        runner.test_hardhat(
-            Arc::new(known_contracts),
-            Arc::new(EverythingFilter),
-            tx_results,
-        );
+        runner.test(Arc::new(EverythingFilter), tx_results);
 
         while let Some(name_and_suite_result) = rx_results.recv().await {
             let callback_arg = name_and_suite_result.into();

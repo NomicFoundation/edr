@@ -1,12 +1,10 @@
 //! Regression tests for previous issues.
 
-use std::sync::Arc;
-
 use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
 use edr_test_utils::SolidityTestFilter;
-use forge::result::TestStatus;
+use forge::{result::TestStatus, SolidityTestRunnerConfig};
 use foundry_config::{fs_permissions::PathPermission, FsPermissions};
 use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
@@ -38,21 +36,47 @@ macro_rules! test_repro {
         paste::paste! {
             #[tokio::test(flavor = "multi_thread")]
             async fn [< issue_ $issue_number >]() {
-                let mut $res = repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT).await.test();
+                let mut $res = repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT).await.test().await;
                 $e
             }
         }
     };
-    ($issue_number:literal; |$config:ident| $e:expr $(,)?) => {
+    ($issue_number:literal; |$runner_config:ident| $e:expr $(,)?) => {
         paste::paste! {
             #[tokio::test(flavor = "multi_thread")]
             async fn [< issue_ $issue_number >]() {
-                let mut $config = repro_config($issue_number, false, None, &*TEST_DATA_DEFAULT).await;
+                let mut $runner_config = runner_config(None, &*TEST_DATA_DEFAULT).await;
                 $e
-                $config.run().await;
+                let filter = repro_filter($issue_number);
+                let runner = TEST_DATA_DEFAULT.runner_with_config($runner_config).await;
+                let test_config = TestConfig::with_filter(runner, filter).set_should_fail(false);
+                test_config.run().await;
             }
         }
     };
+}
+
+async fn runner_config(
+    sender: Option<Address>,
+    test_data: &ForgeTestData,
+) -> SolidityTestRunnerConfig {
+    let mut config = test_data.base_runner_config();
+
+    config.cheats_config_options.fs_permissions = FsPermissions::new(vec![
+        PathPermission::read("./fixtures"),
+        PathPermission::read("out"),
+    ]);
+    if let Some(sender) = sender {
+        config.evm_opts.sender = sender;
+    }
+
+    config.trace = true;
+
+    config
+}
+
+fn repro_filter(issue: usize) -> SolidityTestFilter {
+    SolidityTestFilter::path(&format!(".*repros/Issue{issue}.t.sol"))
 }
 
 async fn repro_config(
@@ -61,19 +85,9 @@ async fn repro_config(
     sender: Option<Address>,
     test_data: &ForgeTestData,
 ) -> TestConfig {
-    edr_test_utils::init_tracing_for_solidity_tests();
-    let filter = SolidityTestFilter::path(&format!(".*repros/Issue{issue}.t.sol"));
-
-    let mut config = test_data.config.clone();
-    config.fs_permissions = FsPermissions::new(vec![
-        PathPermission::read("./fixtures"),
-        PathPermission::read("out"),
-    ]);
-    if let Some(sender) = sender {
-        config.sender = sender;
-    }
-
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config);
+    let config = runner_config(sender, test_data).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let filter = repro_filter(issue);
     TestConfig::with_filter(runner, filter).set_should_fail(should_fail)
 }
 
@@ -217,7 +231,7 @@ test_repro!(5935);
 
 // <https://github.com/foundry-rs/foundry/issues/5948>
 test_repro!(5948; |config| {
-    config.runner.test_options.fuzz.runs = 2;
+    config.fuzz.runs = 2;
 });
 
 // https://github.com/foundry-rs/foundry/issues/6006
@@ -317,10 +331,9 @@ test_repro!(6538);
 
 // https://github.com/foundry-rs/foundry/issues/6554
 test_repro!(6554; |config| {
-    let path = config.runner.project_root.join("out/default/Issue6554.t.sol");
+    let path = config.project_root.join("out/default/Issue6554.t.sol");
 
-    let cheats_config_opts = Arc::get_mut(&mut config.runner.cheats_config_opts).unwrap();
-    cheats_config_opts.fs_permissions.add(PathPermission::read_write(path));
+    config.cheats_config_options.fs_permissions.add(PathPermission::read_write(path));
 });
 
 // https://github.com/foundry-rs/foundry/issues/6759
@@ -334,7 +347,7 @@ test_repro!(6616);
 
 // https://github.com/foundry-rs/foundry/issues/5529
 test_repro!(5529; |config| {
-  config.runner.evm_opts.always_use_create_2_factory = true;
+  config.evm_opts.always_use_create_2_factory = true;
 });
 
 test_repro!(7481);

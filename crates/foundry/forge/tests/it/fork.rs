@@ -17,8 +17,8 @@ async fn test_cheats_fork_revert() {
         ".*",
         &format!(".*cheats{RE_PATH_SEPARATOR}Fork"),
     );
-    let mut runner = TEST_DATA_DEFAULT.runner();
-    let suite_result = runner.test_collect(&filter);
+    let runner = TEST_DATA_DEFAULT.runner().await;
+    let suite_result = runner.test_collect(filter).await;
     assert_eq!(suite_result.len(), 1);
 
     for (_, SuiteResult { test_results, .. }) in suite_result {
@@ -34,9 +34,9 @@ async fn test_cheats_fork_revert() {
 /// Executes all non-reverting fork cheatcodes
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_fork() {
-    let mut config = TEST_DATA_DEFAULT.config.clone();
-    config.fs_permissions = FsPermissions::new(vec![PathPermission::read("./fixtures")]);
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config);
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fs_permissions(FsPermissions::new(vec![PathPermission::read("./fixtures")]))
+        .await;
     let filter = SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
         .exclude_tests(".*Revert");
     TestConfig::with_filter(runner, filter).run().await;
@@ -45,9 +45,9 @@ async fn test_cheats_fork() {
 /// Executes eth_getLogs cheatcode
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_logs_fork() {
-    let mut config = TEST_DATA_DEFAULT.config.clone();
-    config.fs_permissions = FsPermissions::new(vec![PathPermission::read("./fixtures")]);
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config);
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fs_permissions(FsPermissions::new(vec![PathPermission::read("./fixtures")]))
+        .await;
     let filter = SolidityTestFilter::new(
         "testEthGetLogs",
         ".*",
@@ -60,9 +60,9 @@ async fn test_get_logs_fork() {
 /// Executes rpc cheatcode
 #[tokio::test(flavor = "multi_thread")]
 async fn test_rpc_fork() {
-    let mut config = TEST_DATA_DEFAULT.config.clone();
-    config.fs_permissions = FsPermissions::new(vec![PathPermission::read("./fixtures")]);
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config);
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fs_permissions(FsPermissions::new(vec![PathPermission::read("./fixtures")]))
+        .await;
     let filter =
         SolidityTestFilter::new("testRpc", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
             .exclude_tests(".*Revert");
@@ -72,7 +72,7 @@ async fn test_rpc_fork() {
 /// Tests that we can transact transactions in forking mode
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transact_fork() {
-    let runner = TEST_DATA_DEFAULT.runner();
+    let runner = TEST_DATA_DEFAULT.runner().await;
     let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Transact"));
     TestConfig::with_filter(runner, filter).run().await;
 }
@@ -81,7 +81,7 @@ async fn test_transact_fork() {
 /// different tests
 #[tokio::test(flavor = "multi_thread")]
 async fn test_create_same_fork() {
-    let runner = TEST_DATA_DEFAULT.runner();
+    let runner = TEST_DATA_DEFAULT.runner().await;
     let filter = SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}ForkSame"));
     TestConfig::with_filter(runner, filter).run().await;
 }

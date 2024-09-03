@@ -9,8 +9,8 @@ use alloy_primitives::Address;
 use foundry_common::{fs::normalize_path, ContractsByArtifact};
 use foundry_compilers::utils::canonicalize;
 use foundry_config::{
-    cache::StorageCachingConfig, fs_permissions::FsAccessKind, Config, FsPermissions,
-    ResolvedRpcEndpoints, RpcEndpoints,
+    cache::StorageCachingConfig, fs_permissions::FsAccessKind, FsPermissions,
+    IntegrationTestConfig, ResolvedRpcEndpoints, RpcEndpoints,
 };
 use foundry_evm_core::opts::EvmOpts;
 use semver::Version;
@@ -58,7 +58,7 @@ pub struct CheatsConfig {
 }
 
 /// Configuration options specific to cheat codes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CheatsConfigOptions {
     /// Multiple rpc endpoints and their aliases
     pub rpc_endpoints: RpcEndpoints,
@@ -82,20 +82,6 @@ pub struct CheatsConfigOptions {
     pub prompt_timeout: u64,
     /// Address labels
     pub labels: HashMap<Address, String>,
-}
-
-impl From<Config> for CheatsConfigOptions {
-    fn from(value: Config) -> Self {
-        Self {
-            rpc_endpoints: value.rpc_endpoints,
-            rpc_cache_path: value.eth_rpc_url.map(PathBuf::from),
-            rpc_storage_caching: value.rpc_storage_caching,
-            unchecked_cheatcode_artifacts: value.unchecked_cheatcode_artifacts,
-            prompt_timeout: value.prompt_timeout,
-            fs_permissions: value.fs_permissions,
-            labels: value.labels,
-        }
-    }
 }
 
 impl CheatsConfig {
@@ -200,7 +186,7 @@ impl CheatsConfig {
         // filesystem. to make this case-sensitive we convert the underlying
         // `OssStr` to lowercase checking that `path` and `foundry.toml` are the
         // same file by comparing the FD, because it may not exist
-        let foundry_toml = self.project_root.join(Config::FILE_NAME);
+        let foundry_toml = self.project_root.join(IntegrationTestConfig::FILE_NAME);
         Path::new(&foundry_toml.to_string_lossy().to_lowercase())
             .starts_with(Path::new(&path.as_ref().to_string_lossy().to_lowercase()))
     }
@@ -293,17 +279,18 @@ mod tests {
     use super::*;
 
     fn config(root: &str, fs_permissions: FsPermissions) -> CheatsConfig {
-        let config = Config {
-            __root: PathBuf::from(root).into(),
+        let cheats_config_options = CheatsConfigOptions {
+            rpc_endpoints: RpcEndpoints::default(),
+            rpc_cache_path: None,
+            rpc_storage_caching: StorageCachingConfig::default(),
+            unchecked_cheatcode_artifacts: false,
             fs_permissions,
-            ..Default::default()
+            prompt_timeout: 0,
+            labels: HashMap::default(),
         };
 
-        let project_paths_config = config.project_paths();
-        let cheats_config_options = CheatsConfigOptions::from(config);
-
         CheatsConfig::new(
-            project_paths_config.root,
+            PathBuf::from(root),
             cheats_config_options,
             EvmOpts::default(),
             None,

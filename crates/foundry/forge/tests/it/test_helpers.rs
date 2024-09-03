@@ -1,33 +1,37 @@
 //! Test helpers for Forge integration tests.
 
-use std::{
-    env, fmt,
-    io::Write,
-    path::{Path, PathBuf},
-};
+use std::{borrow::Cow, env, fmt, io::Write, path::PathBuf};
 
 use alloy_primitives::U256;
 use edr_test_utils::{init_tracing_for_solidity_tests, new_fd_lock};
 use forge::{
-    fork::CreateFork, revm::primitives::SpecId, MultiContractRunner, MultiContractRunnerBuilder,
-    TestOptions,
+    multi_runner::{TestContract, TestContracts},
+    MultiContractRunner, SolidityTestRunnerConfig,
 };
+use foundry_common::{ContractsByArtifact, TestFunctionExt};
 use foundry_compilers::{
-    artifacts::{Libraries, Settings},
-    EvmVersion, Project, ProjectCompileOutput, SolcConfig,
+    artifacts::{CompactContractBytecode, Libraries},
+    Artifact, EvmVersion, Project, ProjectCompileOutput,
 };
 use foundry_config::{
-    fs_permissions::PathPermission, Config, FsPermissions, FuzzConfig, FuzzDictionaryConfig,
-    InvariantConfig, RpcEndpoint, RpcEndpoints,
+    FsPermissions, FuzzConfig, FuzzDictionaryConfig, IntegrationTestConfig, InvariantConfig,
+    RpcEndpoint, RpcEndpoints,
 };
 use foundry_evm::{
     constants::CALLER,
+    decode::RevertDecoder,
+    inspectors::cheatcodes::CheatsConfigOptions,
     opts::{Env, EvmOpts},
 };
+use foundry_linking::{LinkOutput, Linker};
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 
 pub const RE_PATH_SEPARATOR: &str = "/";
-const TESTDATA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../testdata");
+static PROJECT_ROOT: Lazy<PathBuf> = Lazy::new(|| {
+    const TESTDATA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../testdata");
+    dunce::canonicalize(PathBuf::from(TESTDATA)).expect("Failed to canonicalize root")
+});
 
 /// Profile for the tests group. Used to configure separate configurations for
 /// test runs.
@@ -49,52 +53,134 @@ impl fmt::Display for ForgeTestProfile {
 
 impl ForgeTestProfile {
     /// Returns true if the profile is Cancun.
-    pub fn is_cancun(&self) -> bool {
+    fn is_cancun(&self) -> bool {
         matches!(self, Self::Cancun)
     }
 
-    pub fn root(&self) -> PathBuf {
-        PathBuf::from(TESTDATA)
+    fn project(&self) -> Project {
+        self.integration_test_config()
+            .project()
+            .expect("Failed to build project")
     }
 
-    /// Configures the solc settings for the test profile.
-    pub fn solc_config(&self) -> SolcConfig {
-        let libs =
-            ["fork/Fork.t.sol:DssExecLib:0xfD88CeE74f7D78697775aBDAE53f9Da1559728E4".to_string()];
+    fn evm_opts() -> EvmOpts {
+        EvmOpts {
+            env: Env {
+                gas_limit: u64::MAX,
+                chain_id: None,
+                tx_origin: CALLER,
+                block_number: 1,
+                block_timestamp: 1,
+                ..Env::default()
+            },
+            sender: CALLER,
+            initial_balance: U256::MAX,
+            ffi: true,
+            memory_limit: 1 << 26,
+            ..EvmOpts::default()
+        }
+    }
 
-        let mut settings = Settings {
-            libraries: Libraries::parse(&libs).unwrap(),
-            ..Default::default()
-        };
+    fn runner_config() -> SolidityTestRunnerConfig {
+        SolidityTestRunnerConfig {
+            debug: false,
+            trace: true,
+            evm_opts: Self::evm_opts(),
+            project_root: PROJECT_ROOT.clone(),
+            cheats_config_options: CheatsConfigOptions::default(),
+            fuzz: TestFuzzConfig::default().into(),
+            invariant: TestInvariantConfig::default().into(),
+            coverage: false,
+        }
+    }
 
-        if matches!(self, Self::Cancun) {
-            settings.evm_version = Some(EvmVersion::Cancun);
+    /// Build [`IntegrationTestConfig`] for test profile.
+    ///
+    /// Project source files are read from `testdata/{profile_name`}
+    /// Project output files are written to `testdata/out/{profile_name`}
+    /// Cache is written to `testdata/cache/{profile_name`}
+    ///
+    /// AST output is enabled by default to support inline configs.
+    fn integration_test_config(&self) -> IntegrationTestConfig {
+        let mut config = IntegrationTestConfig::with_root(PROJECT_ROOT.clone());
+
+        config.ast = true;
+        config.src = PROJECT_ROOT.join(self.to_string());
+        config.out = PROJECT_ROOT.join("out").join(self.to_string());
+        config.cache_path = PROJECT_ROOT.join("cache").join(self.to_string());
+        config.libraries = vec![
+            "fork/Fork.t.sol:DssExecLib:0xfD88CeE74f7D78697775aBDAE53f9Da1559728E4".to_string(),
+        ];
+
+        if self.is_cancun() {
+            config.evm_version = EvmVersion::Cancun;
         }
 
-        SolcConfig::builder().settings(settings).build()
+        config
     }
+}
 
-    pub fn project(&self) -> Project {
-        self.config().project().expect("Failed to build project")
-    }
+/// Fuzz testing config with different defaults than
+/// [`foundry_config::FuzzConfig`]. See [`foundry_config::FuzzConfig`] for
+/// documentation.
+#[derive(Debug, Clone)]
+pub struct TestFuzzConfig {
+    pub runs: u32,
+    pub max_test_rejects: u32,
+    pub seed: Option<U256>,
+    pub dictionary: TestFuzzDictionaryConfig,
+    pub gas_report_samples: u32,
+    pub failure_persist_dir: Option<PathBuf>,
+    pub failure_persist_file: Option<String>,
+}
 
-    pub fn test_opts(&self) -> TestOptions {
-        let fuzz = FuzzConfig {
+impl Default for TestFuzzConfig {
+    fn default() -> Self {
+        TestFuzzConfig {
             runs: 256,
             max_test_rejects: 65536,
             seed: None,
-            dictionary: FuzzDictionaryConfig {
-                include_storage: true,
-                include_push_bytes: true,
-                dictionary_weight: 40,
-                max_fuzz_dictionary_addresses: 10_000,
-                max_fuzz_dictionary_values: 10_000,
-            },
+            dictionary: TestFuzzDictionaryConfig::default(),
             gas_report_samples: 256,
             failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
             failure_persist_file: Some("testfailure".to_string()),
-        };
-        let invariant = InvariantConfig {
+        }
+    }
+}
+
+impl From<TestFuzzConfig> for FuzzConfig {
+    fn from(value: TestFuzzConfig) -> Self {
+        FuzzConfig {
+            runs: value.runs,
+            max_test_rejects: value.max_test_rejects,
+            seed: value.seed,
+            dictionary: value.dictionary.into(),
+            gas_report_samples: value.gas_report_samples,
+            failure_persist_dir: value.failure_persist_dir,
+            failure_persist_file: value.failure_persist_file,
+        }
+    }
+}
+
+/// Fuzz testing config with different defaults than
+/// [`foundry_config::InvariantConfig`]. See [`foundry_config::InvariantConfig`]
+/// for documentation.
+#[derive(Debug, Clone)]
+pub struct TestInvariantConfig {
+    pub runs: u32,
+    pub depth: u32,
+    pub fail_on_revert: bool,
+    pub call_override: bool,
+    pub dictionary: FuzzDictionaryConfig,
+    pub shrink_run_limit: usize,
+    pub max_assume_rejects: u32,
+    pub gas_report_samples: u32,
+    pub failure_persist_dir: Option<PathBuf>,
+}
+
+impl Default for TestInvariantConfig {
+    fn default() -> Self {
+        TestInvariantConfig {
             runs: 256,
             depth: 15,
             fail_on_revert: false,
@@ -110,63 +196,69 @@ impl ForgeTestProfile {
             max_assume_rejects: 65536,
             gas_report_samples: 256,
             failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
-        };
-
-        TestOptions { fuzz, invariant }
-    }
-
-    pub fn evm_opts(&self) -> EvmOpts {
-        EvmOpts {
-            env: Env {
-                gas_limit: u64::MAX,
-                chain_id: None,
-                tx_origin: CALLER,
-                block_number: 1,
-                block_timestamp: 1,
-                ..Default::default()
-            },
-            sender: CALLER,
-            initial_balance: U256::MAX,
-            ffi: true,
-            memory_limit: 1 << 26,
-            ..Default::default()
         }
     }
+}
 
-    /// Build [Config] for test profile.
-    ///
-    /// Project source files are read from `testdata/{profile_name`}
-    /// Project output files are written to `testdata/out/{profile_name`}
-    /// Cache is written to `testdata/cache/{profile_name`}
-    ///
-    /// AST output is enabled by default to support inline configs.
-    pub fn config(&self) -> Config {
-        let mut config = Config::with_root(self.root());
-
-        config.ast = true;
-        config.src = self.root().join(self.to_string());
-        config.out = self.root().join("out").join(self.to_string());
-        config.cache_path = self.root().join("cache").join(self.to_string());
-        config.libraries = vec![
-            "fork/Fork.t.sol:DssExecLib:0xfD88CeE74f7D78697775aBDAE53f9Da1559728E4".to_string(),
-        ];
-
-        if self.is_cancun() {
-            config.evm_version = EvmVersion::Cancun;
+impl From<TestInvariantConfig> for InvariantConfig {
+    fn from(value: TestInvariantConfig) -> Self {
+        InvariantConfig {
+            runs: value.runs,
+            depth: value.depth,
+            fail_on_revert: value.fail_on_revert,
+            call_override: value.call_override,
+            dictionary: value.dictionary,
+            shrink_run_limit: value.shrink_run_limit,
+            max_assume_rejects: value.max_assume_rejects,
+            gas_report_samples: value.gas_report_samples,
+            failure_persist_dir: value.failure_persist_dir,
         }
+    }
+}
 
-        config
+/// Fuzz dictionary config with different defaults than
+/// [`foundry_config::FuzzDictionaryConfig`].
+/// See [`foundry_config::FuzzDictionaryConfig`] for documentation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TestFuzzDictionaryConfig {
+    pub dictionary_weight: u32,
+    pub include_storage: bool,
+    pub include_push_bytes: bool,
+    pub max_fuzz_dictionary_addresses: usize,
+    pub max_fuzz_dictionary_values: usize,
+}
+
+impl Default for TestFuzzDictionaryConfig {
+    fn default() -> Self {
+        TestFuzzDictionaryConfig {
+            dictionary_weight: 40,
+            include_storage: true,
+            include_push_bytes: true,
+            max_fuzz_dictionary_addresses: 10_000,
+            max_fuzz_dictionary_values: 10_000,
+        }
+    }
+}
+
+impl From<TestFuzzDictionaryConfig> for FuzzDictionaryConfig {
+    fn from(value: TestFuzzDictionaryConfig) -> Self {
+        FuzzDictionaryConfig {
+            dictionary_weight: value.dictionary_weight,
+            include_storage: value.include_storage,
+            include_push_bytes: value.include_push_bytes,
+            max_fuzz_dictionary_addresses: value.max_fuzz_dictionary_addresses,
+            max_fuzz_dictionary_values: value.max_fuzz_dictionary_values,
+        }
     }
 }
 
 /// Container for test data for a specific test profile.
 pub struct ForgeTestData {
-    pub project: Project,
-    pub output: ProjectCompileOutput,
-    pub test_opts: TestOptions,
-    pub evm_opts: EvmOpts,
-    pub config: Config,
-    pub profile: ForgeTestProfile,
+    project: Project,
+    test_contracts: TestContracts,
+    known_contracts: ContractsByArtifact,
+    revert_decoder: RevertDecoder,
+    runner_config: SolidityTestRunnerConfig,
 }
 
 impl ForgeTestData {
@@ -176,116 +268,193 @@ impl ForgeTestData {
     pub fn new(profile: ForgeTestProfile) -> Self {
         let project = profile.project();
         let output = get_compiled(&project);
-        let test_opts = profile.test_opts();
-        let config = profile.config();
-        let evm_opts = profile.evm_opts();
+        let runner_config = ForgeTestProfile::runner_config();
+
+        let root = project.root();
+        let output = output.clone().with_stripped_file_prefixes(root);
+        let linker = Linker::new(root, output.artifact_ids().collect());
+
+        // Build revert decoder from ABIs of all artifacts.
+        let abis = linker
+            .contracts
+            .iter()
+            .filter_map(|(_, contract)| contract.abi.as_ref().map(std::borrow::Borrow::borrow));
+        let revert_decoder = RevertDecoder::new().with_abis(abis);
+
+        // Create a mapping of name => (abi, deployment code, Vec<library deployment
+        // code>)
+        let mut test_contracts = TestContracts::default();
+
+        for (id, contract) in linker.contracts.iter() {
+            let Some(abi) = contract.abi.as_ref() else {
+                continue;
+            };
+
+            // if it's a test, link it and add to deployable contracts
+            if abi
+                .constructor
+                .as_ref()
+                .map_or(true, |c| c.inputs.is_empty())
+                && abi
+                    .functions()
+                    .any(|func| func.name.is_test() || func.name.is_invariant_test())
+            {
+                let LinkOutput {
+                    libs_to_deploy,
+                    libraries,
+                } = linker
+                    .link_with_nonce_or_address(
+                        Libraries::default(),
+                        runner_config.evm_opts.sender,
+                        1,
+                        id,
+                    )
+                    .expect("Libraries should be ok");
+
+                let linked_contract = linker.link(id, &libraries).expect("Linking should be ok");
+
+                let Some(bytecode) = linked_contract
+                    .get_bytecode_bytes()
+                    .map(std::borrow::Cow::into_owned)
+                    .filter(|b| !b.is_empty())
+                else {
+                    continue;
+                };
+
+                test_contracts.insert(
+                    id.clone().into(),
+                    TestContract {
+                        abi: abi.clone().into_owned(),
+                        bytecode,
+                        libs_to_deploy,
+                        libraries,
+                    },
+                );
+            }
+        }
+
+        let known_contracts = ContractsByArtifact::new_from_foundry_linker(
+            linker.contracts.into_iter().map(|(id, contract)| {
+                (
+                    id,
+                    CompactContractBytecode {
+                        abi: contract.abi.map(Cow::into_owned),
+                        bytecode: contract.bytecode.map(Cow::into_owned),
+                        deployed_bytecode: contract.deployed_bytecode.map(Cow::into_owned),
+                    },
+                )
+            }),
+        );
 
         Self {
             project,
-            output,
-            test_opts,
-            evm_opts,
-            config,
-            profile,
+            test_contracts,
+            known_contracts,
+            revert_decoder,
+            runner_config,
         }
     }
 
-    /// Builds a base runner
-    pub fn base_runner(&self) -> MultiContractRunnerBuilder {
+    /// Builds a base runner config
+    pub fn base_runner_config(&self) -> SolidityTestRunnerConfig {
         init_tracing_for_solidity_tests();
-        let mut runner = MultiContractRunnerBuilder::new(self.config.clone())
-            .set_trace(true)
-            .sender(self.evm_opts.sender)
-            .with_test_options(self.test_opts.clone());
-        if self.profile.is_cancun() {
-            runner = runner.evm_spec(SpecId::CANCUN);
-        }
-
-        runner
+        self.runner_config.clone()
     }
 
     /// Builds a non-tracing runner
-    pub fn runner(&self) -> MultiContractRunner {
-        let mut config = self.config.clone();
-        config.fs_permissions =
-            FsPermissions::new(vec![PathPermission::read_write(manifest_root())]);
-        self.runner_with_config(config)
+    pub async fn runner(&self) -> MultiContractRunner {
+        let config = self.base_runner_config();
+        self.runner_with_config(config).await
     }
 
-    /// Builds a non-tracing runner
-    pub fn runner_with_config(&self, mut config: Config) -> MultiContractRunner {
-        config.rpc_endpoints = rpc_endpoints();
-        config.allow_paths.push(manifest_root().to_path_buf());
+    /// Builds a non-tracing runner with the given config
+    pub async fn runner_with_config(
+        &self,
+        mut config: SolidityTestRunnerConfig,
+    ) -> MultiContractRunner {
+        config.cheats_config_options.rpc_endpoints = rpc_endpoints();
+        // `**/edr-cache` is cached in CI
+        config.cheats_config_options.rpc_cache_path =
+            Some(self.project.root().join("edr-cache/solidity-tests/rpc"));
 
         // no prompt testing
-        config.prompt_timeout = 0;
+        config.cheats_config_options.prompt_timeout = 0;
 
-        let root = self.project.root();
-        let mut opts = self.evm_opts.clone();
+        self.build_runner(config).await
+    }
 
-        if config.isolate {
-            opts.isolate = true;
-        }
+    /// Builds a non-tracing runner with the given filesystem permissions
+    pub async fn runner_with_fs_permissions(
+        &self,
+        fs_permissions: FsPermissions,
+    ) -> MultiContractRunner {
+        let mut config = self.base_runner_config();
+        config.cheats_config_options.fs_permissions = fs_permissions;
+        self.runner_with_config(config).await
+    }
 
-        let env = opts.local_evm_env();
-        let output = self.output.clone();
+    /// Builds a non-tracing runner with the given invariant config
+    pub async fn runner_with_fuzz_config(
+        &self,
+        fuzz_config: TestFuzzConfig,
+    ) -> MultiContractRunner {
+        let mut config = self.base_runner_config();
+        config.fuzz = fuzz_config.into();
+        self.runner_with_config(config).await
+    }
 
-        let sender = config.sender;
+    /// Builds a non-tracing runner with the given invariant config
+    pub async fn runner_with_invariant_config(
+        &self,
+        invariant_config: TestInvariantConfig,
+    ) -> MultiContractRunner {
+        let mut config = self.base_runner_config();
+        config.invariant = invariant_config.into();
+        self.runner_with_config(config).await
+    }
 
-        let mut builder = self.base_runner();
-        builder.config = config;
-        builder
-            .enable_isolation(opts.isolate)
-            .sender(sender)
-            .with_test_options(self.test_opts.clone())
-            .build(root, output, env, opts.clone())
-            .unwrap()
+    /// Builds a non-tracing runner with the given invariant config and fuzz
+    /// seed.
+    pub async fn runner_with_invariant_config_and_seed(
+        &self,
+        seed: U256,
+        invariant_config: TestInvariantConfig,
+    ) -> MultiContractRunner {
+        let mut config = self.base_runner_config();
+        config.fuzz.seed = Some(seed);
+        config.invariant = invariant_config.into();
+        self.runner_with_config(config).await
     }
 
     /// Builds a tracing runner
-    pub fn tracing_runner(&self) -> MultiContractRunner {
-        let opts = self.evm_opts.clone();
-        self.base_runner()
-            .build(
-                self.project.root(),
-                self.output.clone(),
-                opts.local_evm_env(),
-                opts,
-            )
-            .unwrap()
+    pub async fn tracing_runner(&self) -> MultiContractRunner {
+        let mut config = self.base_runner_config();
+        config.trace = true;
+        self.build_runner(config).await
     }
 
     /// Builds a runner that runs against forked state
     pub async fn forked_runner(&self, rpc: &str) -> MultiContractRunner {
-        let mut opts = self.evm_opts.clone();
+        let mut config = self.base_runner_config();
 
-        opts.env.chain_id = None; // clear chain id so the correct one gets fetched from the RPC
-        opts.fork_url = Some(rpc.to_string());
+        config.evm_opts.fork_url = Some(rpc.to_string());
 
-        let env = opts
-            .evm_env()
-            .await
-            .expect("Could not instantiate fork environment");
+        self.build_runner(config).await
+    }
 
-        // TODO https://github.com/NomicFoundation/edr/issues/607
-        // Construct fork config the same way as the JS runner
-        let fork = CreateFork {
-            rpc_cache_path: Some(
-                Config::foundry_rpc_cache_dir().expect("Could not get rpc cache dir"),
-            ),
-            url: rpc.to_string(),
-            env: env.clone(),
-            evm_opts: self.evm_opts.clone(),
-        };
-
-        self.base_runner()
-            .with_fork(Some(fork))
-            .build(self.project.root(), self.output.clone(), env, opts)
-            .unwrap()
+    async fn build_runner(&self, config: SolidityTestRunnerConfig) -> MultiContractRunner {
+        MultiContractRunner::new(
+            config,
+            self.test_contracts.clone(),
+            self.known_contracts.clone(),
+            self.revert_decoder.clone(),
+        )
+        .await
+        .expect("Config should be ok")
     }
 }
 
-pub fn get_compiled(project: &Project) -> ProjectCompileOutput {
+fn get_compiled(project: &Project) -> ProjectCompileOutput {
     let lock_file_path = project.sources_path().join(".lock");
     // Compile only once per test run.
     // We need to use a file lock because `cargo-nextest` runs tests in different
@@ -322,18 +491,9 @@ pub static TEST_DATA_CANCUN: Lazy<ForgeTestData> =
 pub static TEST_DATA_MULTI_VERSION: Lazy<ForgeTestData> =
     Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion));
 
-pub fn manifest_root() -> &'static Path {
-    let mut root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    // need to check here where we're executing the test from, if in `forge` we need
-    // to also allow `testdata`
-    if root.ends_with("forge") {
-        root = root.parent().unwrap();
-    }
-    root
-}
-
-/// the RPC endpoints used during tests
-pub fn rpc_endpoints() -> RpcEndpoints {
+// TODO use alchemy from env
+// https://github.com/NomicFoundation/edr/issues/643
+fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
             "rpcAlias",

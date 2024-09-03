@@ -3,7 +3,7 @@ use figment::{
     Error, Figment, Metadata, Profile, Provider,
 };
 
-use crate::{Config, Warning, DEPRECATIONS};
+use crate::{IntegrationTestConfig, Warning, DEPRECATIONS};
 
 /// Remappings provider
 pub mod remappings;
@@ -60,8 +60,10 @@ impl<P: Provider> WarningsProvider<P> {
                 .unwrap_or_default()
                 .keys()
                 .filter(|k| {
-                    k != &Config::PROFILE_SECTION
-                        && !Config::STANDALONE_SECTIONS.iter().any(|s| s == k)
+                    k != &IntegrationTestConfig::PROFILE_SECTION
+                        && !IntegrationTestConfig::STANDALONE_SECTIONS
+                            .iter()
+                            .any(|s| s == k)
                 })
                 .map(|unknown_section| {
                     let source = self.provider.metadata().source.map(|s| s.to_string());

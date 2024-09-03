@@ -755,7 +755,7 @@ mod tests {
         use alloy_provider::Provider;
         use edr_test_utils::env::get_alchemy_url;
         use foundry_common::provider::get_http_provider;
-        use foundry_config::{Config, NamedChain};
+        use foundry_config::{IntegrationTestConfig, NamedChain};
         use revm::{
             primitives::{BlockEnv, CfgEnv},
             DatabaseRef,
@@ -820,7 +820,7 @@ mod tests {
 
             let block_num = provider.get_block_number().await.unwrap();
 
-            let config = Config::figment();
+            let config = IntegrationTestConfig::figment();
             let mut evm_opts = config.extract::<EvmOpts>().unwrap();
             evm_opts.fork_block_number = Some(block_num);
 
@@ -830,7 +830,8 @@ mod tests {
             // Construct fork config the same way as the JS runner
             let fork = CreateFork {
                 rpc_cache_path: Some(
-                    Config::foundry_rpc_cache_dir().expect("Could not get rpc cache dir"),
+                    IntegrationTestConfig::foundry_rpc_cache_dir()
+                        .expect("Could not get rpc cache dir"),
                 ),
                 url: endpoint,
                 env: env.clone(),
@@ -861,7 +862,10 @@ mod tests {
 
             let db = BlockchainDb::new(
                 meta,
-                Some(Config::foundry_block_cache_dir(NamedChain::Mainnet, block_num).unwrap()),
+                Some(
+                    IntegrationTestConfig::foundry_block_cache_dir(NamedChain::Mainnet, block_num)
+                        .unwrap(),
+                ),
             );
             assert!(db.accounts().read().contains_key(&address));
             assert!(db.storage().read().contains_key(&address));

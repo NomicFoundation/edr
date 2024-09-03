@@ -17,7 +17,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
     resolve::{interpolate, UnresolvedEnvVarError, RE_PLACEHOLDER},
-    Chain, Config, NamedChain,
+    Chain, IntegrationTestConfig, NamedChain,
 };
 
 /// The user agent to use when querying the etherscan API.
@@ -45,7 +45,10 @@ impl Provider for EtherscanEnvProvider {
             }
         }
 
-        Ok(Map::from([(Config::selected_profile(), dict)]))
+        Ok(Map::from([(
+            IntegrationTestConfig::selected_profile(),
+            dict,
+        )]))
     }
 }
 
@@ -335,7 +338,7 @@ impl ResolvedEtherscanConfig {
         let cache = chain
             // try to match against mainnet, which is usually the most common target
             .or_else(|| (api_url == mainnet_api).then(Chain::mainnet))
-            .and_then(Config::foundry_etherscan_chain_cache_dir);
+            .and_then(IntegrationTestConfig::foundry_etherscan_chain_cache_dir);
 
         if let Some(cache_path) = &cache {
             // we also create the `sources` sub dir here

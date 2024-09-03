@@ -3,6 +3,7 @@ use std::path::Path;
 use foundry_common::traits::TestFilter;
 use regex::Regex;
 
+#[derive(Clone, Debug)]
 pub struct SolidityTestFilter {
     test_regex: Regex,
     contract_regex: Regex,

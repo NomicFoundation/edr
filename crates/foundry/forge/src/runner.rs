@@ -1,5 +1,4 @@
 //! The Forge test runner.
-
 use std::{
     borrow::Cow,
     cmp::min,
@@ -70,17 +69,17 @@ impl<'a> ContractRunner<'a> {
         executor: Executor,
         contract: &'a TestContract,
         initial_balance: U256,
-        sender: Option<Address>,
+        sender: Address,
         revert_decoder: &'a RevertDecoder,
         debug: bool,
     ) -> Self {
         Self {
             name,
-            executor,
             contract,
-            initial_balance,
-            sender: sender.unwrap_or_default(),
+            executor,
             revert_decoder,
+            initial_balance,
+            sender,
             debug,
         }
     }

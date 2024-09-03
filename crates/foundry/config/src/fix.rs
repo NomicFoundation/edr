@@ -8,7 +8,7 @@ use std::{
 
 use figment::providers::Env;
 
-use crate::{Config, Warning};
+use crate::{IntegrationTestConfig, Warning};
 
 /// A convenience wrapper around a TOML document and the path it was read from
 struct TomlFile {
@@ -83,7 +83,7 @@ impl TomlFile {
             });
         }
         // get or create the profile section
-        let profile_map = if let Some(map) = self.get_mut(Config::PROFILE_SECTION) {
+        let profile_map = if let Some(map) = self.get_mut(IntegrationTestConfig::PROFILE_SECTION) {
             map
         } else {
             // insert profile section at the beginning of the map
@@ -91,10 +91,10 @@ impl TomlFile {
             profile_section.set_position(0);
             profile_section.set_implicit(true);
             self.insert(
-                Config::PROFILE_SECTION,
+                IntegrationTestConfig::PROFILE_SECTION,
                 toml_edit::Item::Table(profile_section),
             );
-            self.get_mut(Config::PROFILE_SECTION)
+            self.get_mut(IntegrationTestConfig::PROFILE_SECTION)
                 .expect("exists per above")
         };
         // ensure the profile section is a table
@@ -102,7 +102,10 @@ impl TomlFile {
             table
         } else {
             return Err(InsertProfileError {
-                message: format!("Expected [{}] to be a Table", Config::PROFILE_SECTION),
+                message: format!(
+                    "Expected [{}] to be a Table",
+                    IntegrationTestConfig::PROFILE_SECTION
+                ),
                 value,
             });
         };
@@ -113,7 +116,7 @@ impl TomlFile {
                     return Err(InsertProfileError {
                         message: format!(
                             "[{}.{}] already exists",
-                            Config::PROFILE_SECTION,
+                            IntegrationTestConfig::PROFILE_SECTION,
                             profile_str
                         ),
                         value,
@@ -123,7 +126,7 @@ impl TomlFile {
                 return Err(InsertProfileError {
                     message: format!(
                         "Expected [{}.{}] to be a Table",
-                        Config::PROFILE_SECTION,
+                        IntegrationTestConfig::PROFILE_SECTION,
                         profile_str
                     ),
                     value,
@@ -149,7 +152,8 @@ fn fix_toml_non_strict_profiles(
         .iter()
         .map(|(k, _)| k.to_string())
         .filter(|k| {
-            !(k == Config::PROFILE_SECTION || Config::STANDALONE_SECTIONS.contains(&k.as_str()))
+            !(k == IntegrationTestConfig::PROFILE_SECTION
+                || IntegrationTestConfig::STANDALONE_SECTIONS.contains(&k.as_str()))
         })
         .collect::<Vec<_>>();
 
@@ -173,11 +177,13 @@ pub fn fix_tomls() -> Vec<Warning> {
 
     let tomls = {
         let mut tomls = vec![];
-        if let Some(global_toml) = Config::foundry_dir_toml().filter(|p| p.exists()) {
+        if let Some(global_toml) = IntegrationTestConfig::foundry_dir_toml().filter(|p| p.exists())
+        {
             tomls.push(global_toml);
         }
         let local_toml = PathBuf::from(
-            Env::var("FOUNDRY_CONFIG").unwrap_or_else(|| Config::FILE_NAME.to_string()),
+            Env::var("FOUNDRY_CONFIG")
+                .unwrap_or_else(|| IntegrationTestConfig::FILE_NAME.to_string()),
         );
         if local_toml.exists() {
             tomls.push(local_toml);

@@ -106,12 +106,13 @@ use crate::{etherscan::EtherscanEnvProvider, fs_permissions::PathPermission};
 /// # Defaults
 ///
 /// All configuration values have a default, documented in the [fields](#fields)
-/// section below. [`Config::default()`] returns the default values for
-/// the default profile while [`Config::with_root()`] returns the values based
-/// on the given directory. [`Config::load()`] starts with the default profile
-/// and merges various providers into the config, same for
-/// [`Config::load_with_root()`], but there the default values are determined by
-/// [`Config::with_root()`]
+/// section below. [`IntegrationTestConfig::default()`] returns the default
+/// values for the default profile while [`IntegrationTestConfig::with_root()`]
+/// returns the values based on the given directory.
+/// [`IntegrationTestConfig::load()`] starts with the default profile and merges
+/// various providers into the config, same for
+/// [`IntegrationTestConfig::load_with_root()`], but there the default values
+/// are determined by [`IntegrationTestConfig::with_root()`]
 ///
 /// # Provider Details
 ///
@@ -132,9 +133,10 @@ use crate::{etherscan::EtherscanEnvProvider, fs_permissions::PathPermission};
 ///     to the fields and values of the structure. The dictionary is emitted to
 ///     the "default" meta-profile.
 ///
-/// Note that these behaviors differ from those of [`Config::figment()`].
+/// Note that these behaviors differ from those of
+/// [`IntegrationTestConfig::figment()`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Config {
+pub struct IntegrationTestConfig {
     /// The selected profile. **(default: _default_ `default`)**
     ///
     /// **Note:** This field is never serialized nor deserialized. When a
@@ -440,7 +442,7 @@ pub const STANDALONE_FALLBACK_SECTIONS: &[(&str, &str)] = &[("invariant", "fuzz"
 /// See [`Warning::DeprecatedKey`]
 pub const DEPRECATIONS: &[(&str, &str)] = &[("cancun", "evm_version = Cancun")];
 
-impl Config {
+impl IntegrationTestConfig {
     /// The default profile: "default"
     pub const DEFAULT_PROFILE: Profile = Profile::const_new("default");
 
@@ -482,7 +484,7 @@ impl Config {
     /// See `Config::figment`
     #[track_caller]
     pub fn load() -> Self {
-        Config::from_provider(Config::figment())
+        IntegrationTestConfig::from_provider(IntegrationTestConfig::figment())
     }
 
     /// Returns the current `Config` with the given `providers` preset
@@ -490,7 +492,10 @@ impl Config {
     /// See `Config::to_figment`
     #[track_caller]
     pub fn load_with_providers(providers: FigmentProviders) -> Self {
-        Config::default().to_figment(providers).extract().unwrap()
+        IntegrationTestConfig::default()
+            .to_figment(providers)
+            .extract()
+            .unwrap()
     }
 
     /// Returns the current `Config`
@@ -498,7 +503,7 @@ impl Config {
     /// See `Config::figment_with_root`
     #[track_caller]
     pub fn load_with_root(root: impl Into<PathBuf>) -> Self {
-        Config::from_provider(Config::figment_with_root(root))
+        IntegrationTestConfig::from_provider(IntegrationTestConfig::figment_with_root(root))
     }
 
     /// Extract a `Config` from `provider`, panicking if extraction fails.
@@ -506,19 +511,20 @@ impl Config {
     /// # Panics
     ///
     /// If extraction fails, prints an error message indicating the failure and
-    /// panics. For a version that doesn't panic, use [`Config::try_from()`].
+    /// panics. For a version that doesn't panic, use
+    /// [`IntegrationTestConfig::try_from()`].
     ///
     /// # Example
     ///
     /// ```no_run
     /// use figment::providers::{Env, Format, Toml};
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     ///
     /// // Use foundry's default `Figment`, but allow values from `other.toml`
     /// // to supersede its values.
-    /// let figment = Config::figment().merge(Toml::file("other.toml").nested());
+    /// let figment = IntegrationTestConfig::figment().merge(Toml::file("other.toml").nested());
     ///
-    /// let config = Config::from_provider(figment);
+    /// let config = IntegrationTestConfig::from_provider(figment);
     /// ```
     #[track_caller]
     pub fn from_provider<T: Provider>(provider: T) -> Self {
@@ -532,13 +538,13 @@ impl Config {
     ///
     /// ```rust
     /// use figment::providers::{Env, Format, Toml};
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     ///
     /// // Use foundry's default `Figment`, but allow values from `other.toml`
     /// // to supersede its values.
-    /// let figment = Config::figment().merge(Toml::file("other.toml").nested());
+    /// let figment = IntegrationTestConfig::figment().merge(Toml::file("other.toml").nested());
     ///
-    /// let config = Config::try_from(figment);
+    /// let config = IntegrationTestConfig::try_from(figment);
     /// ```
     pub fn try_from<T: Provider>(provider: T) -> Result<Self, ExtractConfigError> {
         let figment = Figment::from(provider);
@@ -554,22 +560,26 @@ impl Config {
     /// figment.
     pub fn to_figment(self, providers: FigmentProviders) -> Figment {
         let mut c = self;
-        let profile = Config::selected_profile();
+        let profile = IntegrationTestConfig::selected_profile();
         let mut figment = Figment::default().merge(DappHardhatDirProvider(&c.__root.0));
 
         // merge global foundry.toml file
-        if let Some(global_toml) = Config::foundry_dir_toml().filter(|p| p.exists()) {
-            figment = Config::merge_toml_provider(
+        if let Some(global_toml) = IntegrationTestConfig::foundry_dir_toml().filter(|p| p.exists())
+        {
+            figment = IntegrationTestConfig::merge_toml_provider(
                 figment,
                 TomlFileProvider::new(None, global_toml).cached(),
                 profile.clone(),
             );
         }
         // merge local foundry.toml file
-        figment = Config::merge_toml_provider(
+        figment = IntegrationTestConfig::merge_toml_provider(
             figment,
-            TomlFileProvider::new(Some("FOUNDRY_CONFIG"), c.__root.0.join(Config::FILE_NAME))
-                .cached(),
+            TomlFileProvider::new(
+                Some("FOUNDRY_CONFIG"),
+                c.__root.0.join(IntegrationTestConfig::FILE_NAME),
+            )
+            .cached(),
             profile.clone(),
         );
 
@@ -598,9 +608,12 @@ impl Config {
                     ])
                     .map(|key| {
                         let key = key.as_str();
-                        if Config::STANDALONE_SECTIONS.iter().any(|section| {
-                            key.starts_with(&format!("{}_", section.to_ascii_uppercase()))
-                        }) {
+                        if IntegrationTestConfig::STANDALONE_SECTIONS
+                            .iter()
+                            .any(|section| {
+                                key.starts_with(&format!("{}_", section.to_ascii_uppercase()))
+                            })
+                        {
                             key.replacen('_', ".", 1).into()
                         } else {
                             key.into()
@@ -793,8 +806,8 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// use foundry_config::Config;
-    /// let config = Config::load_with_root(".").sanitized();
+    /// use foundry_config::IntegrationTestConfig;
+    /// let config = IntegrationTestConfig::load_with_root(".").sanitized();
     /// let project = config.project();
     /// ```
     pub fn project(&self) -> Result<Project, SolcError> {
@@ -925,8 +938,8 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// use foundry_config::Config;
-    /// let config = Config::load_with_root(".").sanitized();
+    /// use foundry_config::IntegrationTestConfig;
+    /// let config = IntegrationTestConfig::load_with_root(".").sanitized();
     /// let paths = config.project_paths();
     /// ```
     pub fn project_paths(&self) -> ProjectPathsConfig {
@@ -991,9 +1004,9 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     /// # fn t() {
-    /// let config = Config::with_root("./");
+    /// let config = IntegrationTestConfig::with_root("./");
     /// let rpc_jwt = config.get_rpc_jwt_secret().unwrap().unwrap();
     /// # }
     /// ```
@@ -1014,9 +1027,9 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     /// # fn t() {
-    /// let config = Config::with_root("./");
+    /// let config = IntegrationTestConfig::with_root("./");
     /// let rpc_url = config.get_rpc_url().unwrap().unwrap();
     /// # }
     /// ```
@@ -1042,9 +1055,9 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     /// # fn t() {
-    /// let config = Config::with_root("./");
+    /// let config = IntegrationTestConfig::with_root("./");
     /// let rpc_url = config.get_rpc_url_with_alias("mainnet").unwrap().unwrap();
     /// # }
     /// ```
@@ -1061,9 +1074,9 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     /// # fn t() {
-    /// let config = Config::with_root("./");
+    /// let config = IntegrationTestConfig::with_root("./");
     /// let rpc_url = config.get_rpc_url_or("http://localhost:8545").unwrap();
     /// # }
     /// ```
@@ -1083,9 +1096,9 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     /// # fn t() {
-    /// let config = Config::with_root("./");
+    /// let config = IntegrationTestConfig::with_root("./");
     /// let rpc_url = config.get_rpc_url_or_localhost_http().unwrap();
     /// # }
     /// ```
@@ -1106,9 +1119,9 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     /// # fn t() {
-    /// let config = Config::with_root("./");
+    /// let config = IntegrationTestConfig::with_root("./");
     /// let etherscan_config = config.get_etherscan_config().unwrap().unwrap();
     /// let client = etherscan_config.into_client().unwrap();
     /// # }
@@ -1317,7 +1330,7 @@ impl Config {
     /// The default figment reads from the following sources, in ascending
     /// priority order:
     ///
-    ///   1. [`Config::default()`] (see [defaults](#defaults))
+    ///   1. [`IntegrationTestConfig::default()`] (see [defaults](#defaults))
     ///   2. `foundry.toml` _or_ filename in `FOUNDRY_CONFIG` environment
     ///      variable
     ///   3. `FOUNDRY_` prefixed environment variables
@@ -1328,13 +1341,13 @@ impl Config {
     /// # Example
     ///
     /// ```rust
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     /// use serde::Deserialize;
     ///
-    /// let my_config = Config::figment().extract::<Config>();
+    /// let my_config = IntegrationTestConfig::figment().extract::<IntegrationTestConfig>();
     /// ```
     pub fn figment() -> Figment {
-        Config::default().into()
+        IntegrationTestConfig::default().into()
     }
 
     /// Returns the default figment enhanced with additional context extracted
@@ -1343,10 +1356,10 @@ impl Config {
     /// # Example
     ///
     /// ```rust
-    /// use foundry_config::Config;
+    /// use foundry_config::IntegrationTestConfig;
     /// use serde::Deserialize;
     ///
-    /// let my_config = Config::figment_with_root(".").extract::<Config>();
+    /// let my_config = IntegrationTestConfig::figment_with_root(".").extract::<IntegrationTestConfig>();
     /// ```
     pub fn figment_with_root(root: impl Into<PathBuf>) -> Figment {
         Self::with_root(root).into()
@@ -1358,15 +1371,15 @@ impl Config {
     /// # Example
     ///
     /// ```rust
-    /// use foundry_config::Config;
-    /// let my_config = Config::with_root(".");
+    /// use foundry_config::IntegrationTestConfig;
+    /// let my_config = IntegrationTestConfig::with_root(".");
     /// ```
     pub fn with_root(root: impl Into<PathBuf>) -> Self {
         // autodetect paths
         let root = root.into();
         let paths = ProjectPathsConfig::builder().build_with_root::<()>(&root);
         let artifacts: PathBuf = paths.artifacts.file_name().unwrap().into();
-        Config {
+        IntegrationTestConfig {
             __root: paths.root.into(),
             src: paths.sources.file_name().unwrap().into(),
             out: artifacts.clone(),
@@ -1381,27 +1394,27 @@ impl Config {
                 .map(|r| RelativeRemapping::new(r, &root))
                 .collect(),
             fs_permissions: FsPermissions::new([PathPermission::read(artifacts)]),
-            ..Config::default()
+            ..IntegrationTestConfig::default()
         }
     }
 
     /// Returns the default config but with hardhat paths
     pub fn hardhat() -> Self {
-        Config {
+        IntegrationTestConfig {
             src: "contracts".into(),
             out: "artifacts".into(),
             libs: vec!["node_modules".into()],
-            ..Config::default()
+            ..IntegrationTestConfig::default()
         }
     }
 
     /// Returns the default config that uses dapptools style paths
     pub fn dapptools() -> Self {
-        Config {
+        IntegrationTestConfig {
             chain: Some(Chain::from_id(99)),
             block_timestamp: 0,
             block_number: 0,
-            ..Config::default()
+            ..IntegrationTestConfig::default()
         }
     }
 
@@ -1410,8 +1423,8 @@ impl Config {
     /// # Example
     ///
     /// ```rust
-    /// use foundry_config::Config;
-    /// let my_config = Config::with_root(".").into_basic();
+    /// use foundry_config::IntegrationTestConfig;
+    /// let my_config = IntegrationTestConfig::with_root(".").into_basic();
     /// ```
     pub fn into_basic(self) -> BasicConfig {
         BasicConfig {
@@ -1431,7 +1444,7 @@ impl Config {
     /// `true`.
     pub fn update_at<F>(root: impl Into<PathBuf>, f: F) -> eyre::Result<()>
     where
-        F: FnOnce(&Config, &mut toml_edit::DocumentMut) -> bool,
+        F: FnOnce(&IntegrationTestConfig, &mut toml_edit::DocumentMut) -> bool,
     {
         let config = Self::load_with_root(root).sanitized();
         config.update(|doc| f(&config, doc))
@@ -1481,7 +1494,7 @@ impl Config {
                 })
                 .collect();
             let libs = toml_edit::value(libs);
-            doc[Config::PROFILE_SECTION][profile]["libs"] = libs;
+            doc[IntegrationTestConfig::PROFILE_SECTION][profile]["libs"] = libs;
             true
         })
     }
@@ -1503,7 +1516,7 @@ impl Config {
         // Config map always gets serialized as a table
         let value_table = value.as_table_mut().unwrap();
         // remove standalone sections from inner table
-        let standalone_sections = Config::STANDALONE_SECTIONS
+        let standalone_sections = IntegrationTestConfig::STANDALONE_SECTIONS
             .iter()
             .filter_map(|section| {
                 let section = (*section).to_string();
@@ -1512,7 +1525,7 @@ impl Config {
             .collect::<Vec<_>>();
         // wrap inner table in [profile.<profile>]
         let mut wrapping_table = [(
-            Config::PROFILE_SECTION.into(),
+            IntegrationTestConfig::PROFILE_SECTION.into(),
             toml::Value::Table([(self.profile.to_string(), value)].into_iter().collect()),
         )]
         .into_iter()
@@ -1527,7 +1540,7 @@ impl Config {
 
     /// Returns the path to the `foundry.toml`  of this `Config`
     pub fn get_config_path(&self) -> PathBuf {
-        self.__root.0.join(Config::FILE_NAME)
+        self.__root.0.join(IntegrationTestConfig::FILE_NAME)
     }
 
     /// Returns the selected profile
@@ -1535,18 +1548,18 @@ impl Config {
     /// If the `FOUNDRY_PROFILE` env variable is not set, this returns the
     /// `DEFAULT_PROFILE`
     pub fn selected_profile() -> Profile {
-        Profile::from_env_or("FOUNDRY_PROFILE", Config::DEFAULT_PROFILE)
+        Profile::from_env_or("FOUNDRY_PROFILE", IntegrationTestConfig::DEFAULT_PROFILE)
     }
 
     /// Returns the path to foundry's global toml file that's stored at
     /// `~/.foundry/foundry.toml`
     pub fn foundry_dir_toml() -> Option<PathBuf> {
-        Self::foundry_dir().map(|p| p.join(Config::FILE_NAME))
+        Self::foundry_dir().map(|p| p.join(IntegrationTestConfig::FILE_NAME))
     }
 
     /// Returns the path to foundry's config dir `~/.foundry/`
     pub fn foundry_dir() -> Option<PathBuf> {
-        dirs_next::home_dir().map(|p| p.join(Config::FOUNDRY_DIR_NAME))
+        dirs_next::home_dir().map(|p| p.join(IntegrationTestConfig::FOUNDRY_DIR_NAME))
     }
 
     /// Returns the path to foundry's cache dir `~/.foundry/cache`
@@ -1632,13 +1645,13 @@ impl Config {
                 cwd = cwd.parent()?;
             }
         }
-        find(Env::var_or("FOUNDRY_CONFIG", Config::FILE_NAME).as_ref())
+        find(Env::var_or("FOUNDRY_CONFIG", IntegrationTestConfig::FILE_NAME).as_ref())
             .or_else(|| Self::foundry_dir_toml().filter(|p| p.exists()))
     }
 
     /// Clears the foundry cache
     pub fn clean_foundry_cache() -> eyre::Result<()> {
-        if let Some(cache_dir) = Config::foundry_cache_dir() {
+        if let Some(cache_dir) = IntegrationTestConfig::foundry_cache_dir() {
             let path = cache_dir.as_path();
             let _ = fs::remove_dir_all(path);
         } else {
@@ -1650,7 +1663,7 @@ impl Config {
 
     /// Clears the foundry cache for `chain`
     pub fn clean_foundry_chain_cache(chain: Chain) -> eyre::Result<()> {
-        if let Some(cache_dir) = Config::foundry_chain_cache_dir(chain) {
+        if let Some(cache_dir) = IntegrationTestConfig::foundry_chain_cache_dir(chain) {
             let path = cache_dir.as_path();
             let _ = fs::remove_dir_all(path);
         } else {
@@ -1662,7 +1675,7 @@ impl Config {
 
     /// Clears the foundry cache for `chain` and `block`
     pub fn clean_foundry_block_cache(chain: Chain, block: u64) -> eyre::Result<()> {
-        if let Some(cache_dir) = Config::foundry_block_cache_dir(chain, block) {
+        if let Some(cache_dir) = IntegrationTestConfig::foundry_block_cache_dir(chain, block) {
             let path = cache_dir.as_path();
             let _ = fs::remove_dir_all(path);
         } else {
@@ -1674,7 +1687,7 @@ impl Config {
 
     /// Clears the foundry etherscan cache
     pub fn clean_foundry_etherscan_cache() -> eyre::Result<()> {
-        if let Some(cache_dir) = Config::foundry_etherscan_cache_dir() {
+        if let Some(cache_dir) = IntegrationTestConfig::foundry_etherscan_cache_dir() {
             let path = cache_dir.as_path();
             let _ = fs::remove_dir_all(path);
         } else {
@@ -1686,7 +1699,7 @@ impl Config {
 
     /// Clears the foundry etherscan cache for `chain`
     pub fn clean_foundry_etherscan_chain_cache(chain: Chain) -> eyre::Result<()> {
-        if let Some(cache_dir) = Config::foundry_etherscan_chain_cache_dir(chain) {
+        if let Some(cache_dir) = IntegrationTestConfig::foundry_etherscan_chain_cache_dir(chain) {
             let path = cache_dir.as_path();
             let _ = fs::remove_dir_all(path);
         } else {
@@ -1701,7 +1714,7 @@ impl Config {
 
     /// List the data in the foundry cache
     pub fn list_foundry_cache() -> eyre::Result<Cache> {
-        if let Some(cache_dir) = Config::foundry_rpc_cache_dir() {
+        if let Some(cache_dir) = IntegrationTestConfig::foundry_rpc_cache_dir() {
             let mut cache = Cache { chains: vec![] };
             if !cache_dir.exists() {
                 return Ok(cache);
@@ -1724,15 +1737,16 @@ impl Config {
 
     /// List the cached data for `chain`
     pub fn list_foundry_chain_cache(chain: Chain) -> eyre::Result<ChainCache> {
-        let block_explorer_data_size =
-            if let Some(cache_dir) = Config::foundry_etherscan_chain_cache_dir(chain) {
-                Self::get_cached_block_explorer_data(&cache_dir)?
-            } else {
-                warn!("failed to access foundry_etherscan_chain_cache_dir");
-                0
-            };
+        let block_explorer_data_size = if let Some(cache_dir) =
+            IntegrationTestConfig::foundry_etherscan_chain_cache_dir(chain)
+        {
+            Self::get_cached_block_explorer_data(&cache_dir)?
+        } else {
+            warn!("failed to access foundry_etherscan_chain_cache_dir");
+            0
+        };
 
-        if let Some(cache_dir) = Config::foundry_chain_cache_dir(chain) {
+        if let Some(cache_dir) = IntegrationTestConfig::foundry_chain_cache_dir(chain) {
             let blocks = Self::get_cached_blocks(&cache_dir)?;
             Ok(ChainCache {
                 name: chain.to_string(),
@@ -1805,8 +1819,8 @@ impl Config {
         };
 
         // use [profile.<profile>] as [<profile>]
-        let mut profiles = vec![Config::DEFAULT_PROFILE];
-        if profile != Config::DEFAULT_PROFILE {
+        let mut profiles = vec![IntegrationTestConfig::DEFAULT_PROFILE];
+        if profile != IntegrationTestConfig::DEFAULT_PROFILE {
             profiles.push(profile.clone());
         }
         let provider = toml_provider.strict_select(profiles);
@@ -1815,11 +1829,12 @@ impl Config {
         let provider = BackwardsCompatTomlProvider(ForcedSnakeCaseData(provider));
 
         // merge the default profile as a base
-        if profile != Config::DEFAULT_PROFILE {
-            figment = figment.merge(provider.rename(Config::DEFAULT_PROFILE, profile.clone()));
+        if profile != IntegrationTestConfig::DEFAULT_PROFILE {
+            figment = figment
+                .merge(provider.rename(IntegrationTestConfig::DEFAULT_PROFILE, profile.clone()));
         }
         // merge special keys into config
-        for standalone_key in Config::STANDALONE_SECTIONS {
+        for standalone_key in IntegrationTestConfig::STANDALONE_SECTIONS {
             if let Some((_, fallback)) = STANDALONE_FALLBACK_SECTIONS
                 .iter()
                 .find(|(key, _)| standalone_key == key)
@@ -1864,14 +1879,14 @@ impl Config {
     }
 }
 
-impl From<Config> for Figment {
-    fn from(c: Config) -> Figment {
+impl From<IntegrationTestConfig> for Figment {
+    fn from(c: IntegrationTestConfig) -> Figment {
         c.to_figment(FigmentProviders::All)
     }
 }
 
-/// Determines what providers should be used when loading the [Figment] for a
-/// [Config]
+/// Determines what providers should be used when loading the [`Figment`] for a
+/// [`IntegrationTestConfig`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FigmentProviders {
     /// Include all providers
@@ -1997,22 +2012,27 @@ impl AsRef<Path> for RootPath {
 pub fn parse_with_profile<T: serde::de::DeserializeOwned>(
     s: &str,
 ) -> Result<Option<(Profile, T)>, Error> {
-    let figment = Config::merge_toml_provider(
+    let figment = IntegrationTestConfig::merge_toml_provider(
         Figment::new(),
         Toml::string(s).nested(),
-        Config::DEFAULT_PROFILE,
+        IntegrationTestConfig::DEFAULT_PROFILE,
     );
-    if figment.profiles().any(|p| p == Config::DEFAULT_PROFILE) {
+    if figment
+        .profiles()
+        .any(|p| p == IntegrationTestConfig::DEFAULT_PROFILE)
+    {
         Ok(Some((
-            Config::DEFAULT_PROFILE,
-            figment.select(Config::DEFAULT_PROFILE).extract()?,
+            IntegrationTestConfig::DEFAULT_PROFILE,
+            figment
+                .select(IntegrationTestConfig::DEFAULT_PROFILE)
+                .extract()?,
         )))
     } else {
         Ok(None)
     }
 }
 
-impl Provider for Config {
+impl Provider for IntegrationTestConfig {
     fn metadata(&self) -> Metadata {
         Metadata::named("Foundry Config")
     }
@@ -2031,7 +2051,7 @@ impl Provider for Config {
     }
 }
 
-impl Default for Config {
+impl Default for IntegrationTestConfig {
     fn default() -> Self {
         Self {
             profile: Self::DEFAULT_PROFILE,
@@ -2075,8 +2095,8 @@ impl Default for Config {
             always_use_create_2_factory: false,
             ffi: false,
             prompt_timeout: 120,
-            sender: Config::DEFAULT_SENDER,
-            tx_origin: Config::DEFAULT_SENDER,
+            sender: IntegrationTestConfig::DEFAULT_SENDER,
+            tx_origin: IntegrationTestConfig::DEFAULT_SENDER,
             initial_balance: U256::from(0xffffffffffffffffffffffffu128),
             block_number: 1,
             fork_block_number: None,
@@ -2124,7 +2144,7 @@ impl Default for Config {
             doc: DocConfig::default(),
             labels: HashMap::default(),
             unchecked_cheatcode_artifacts: false,
-            create2_library_salt: Config::DEFAULT_CREATE2_LIBRARY_SALT,
+            create2_library_salt: IntegrationTestConfig::DEFAULT_CREATE2_LIBRARY_SALT,
             __non_exhaustive: (),
             __warnings: vec![],
         }
@@ -2330,7 +2350,7 @@ impl<P: Provider> Provider for ForcedSnakeCaseData<P> {
     fn data(&self) -> Result<Map<Profile, Dict>, Error> {
         let mut map = Map::new();
         for (profile, dict) in self.0.data()? {
-            if Config::STANDALONE_SECTIONS.contains(&profile.as_ref()) {
+            if IntegrationTestConfig::STANDALONE_SECTIONS.contains(&profile.as_ref()) {
                 // don't force snake case for keys in standalone sections
                 map.insert(profile, dict);
                 continue;
@@ -2430,7 +2450,10 @@ impl<'a> Provider for DappHardhatDirProvider<'a> {
 
         dict.insert("libs".to_string(), libs.into());
 
-        Ok(Map::from([(Config::selected_profile(), dict)]))
+        Ok(Map::from([(
+            IntegrationTestConfig::selected_profile(),
+            dict,
+        )]))
     }
 }
 
@@ -2515,7 +2538,10 @@ impl Provider for DappEnvCompatProvider {
         }
         dict.insert("invariant".to_string(), invariant_dict.into());
 
-        Ok(Map::from([(Config::selected_profile(), dict)]))
+        Ok(Map::from([(
+            IntegrationTestConfig::selected_profile(),
+            dict,
+        )]))
     }
 }
 
@@ -2790,10 +2816,10 @@ impl<P: Provider> ProviderExt for P {}
 /// # Example
 ///
 /// ```rust
-/// use foundry_config::{BasicConfig, Config};
+/// use foundry_config::{BasicConfig, IntegrationTestConfig};
 /// use serde::Deserialize;
 ///
-/// let my_config = Config::figment().extract::<BasicConfig>();
+/// let my_config = IntegrationTestConfig::figment().extract::<BasicConfig>();
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BasicConfig {
@@ -2878,14 +2904,14 @@ mod tests {
     // Helper function to clear `__warnings` in config, since it will be populated
     // during loading from file, causing testing problem when comparing to those
     // created from `default()`, etc.
-    fn clear_warning(config: &mut Config) {
+    fn clear_warning(config: &mut IntegrationTestConfig) {
         config.__warnings = vec![];
     }
 
     #[test]
     fn default_sender() {
         assert_eq!(
-            Config::DEFAULT_SENDER,
+            IntegrationTestConfig::DEFAULT_SENDER,
             Address::from_str("0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38").unwrap()
         );
     }
@@ -2893,7 +2919,7 @@ mod tests {
     #[test]
     fn test_install_dir() {
         figment::Jail::expect_with(|jail| {
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.install_lib_dir(), PathBuf::from("lib"));
             jail.create_file(
                 "foundry.toml",
@@ -2902,7 +2928,7 @@ mod tests {
                 libs = ['node_modules', 'lib']
             ",
             )?;
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.install_lib_dir(), PathBuf::from("lib"));
 
             jail.create_file(
@@ -2912,7 +2938,7 @@ mod tests {
                 libs = ['custom', 'node_modules', 'lib']
             ",
             )?;
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.install_lib_dir(), PathBuf::from("custom"));
 
             Ok(())
@@ -2922,9 +2948,10 @@ mod tests {
     #[test]
     fn test_figment_is_default() {
         figment::Jail::expect_with(|_err| {
-            let mut default: Config = Config::figment().extract().unwrap();
-            default.profile = Config::default().profile;
-            assert_eq!(default, Config::default());
+            let mut default: IntegrationTestConfig =
+                IntegrationTestConfig::figment().extract().unwrap();
+            default.profile = IntegrationTestConfig::default().profile;
+            assert_eq!(default, IntegrationTestConfig::default());
             Ok(())
         });
     }
@@ -2932,11 +2959,11 @@ mod tests {
     #[test]
     fn test_default_round_trip() {
         figment::Jail::expect_with(|_err| {
-            let original = Config::figment();
-            let roundtrip = Figment::from(Config::from_provider(&original));
+            let original = IntegrationTestConfig::figment();
+            let roundtrip = Figment::from(IntegrationTestConfig::from_provider(&original));
             for figment in &[original, roundtrip] {
-                let config = Config::from_provider(figment);
-                assert_eq!(config, Config::default());
+                let config = IntegrationTestConfig::from_provider(figment);
+                assert_eq!(config, IntegrationTestConfig::default());
             }
             Ok(())
         });
@@ -2948,7 +2975,7 @@ mod tests {
             jail.set_env("FOUNDRY_FFI", "true");
             jail.set_env("FFI", "true");
             jail.set_env("DAPP_FFI", "true");
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert!(!config.ffi);
 
             Ok(())
@@ -2959,11 +2986,11 @@ mod tests {
     fn test_profile_env() {
         figment::Jail::expect_with(|jail| {
             jail.set_env("FOUNDRY_PROFILE", "default");
-            let figment = Config::figment();
+            let figment = IntegrationTestConfig::figment();
             assert_eq!(figment.profile(), "default");
 
             jail.set_env("FOUNDRY_PROFILE", "hardhat");
-            let figment: Figment = Config::hardhat().into();
+            let figment: Figment = IntegrationTestConfig::hardhat().into();
             assert_eq!(figment.profile(), "hardhat");
 
             jail.create_file(
@@ -2976,7 +3003,7 @@ mod tests {
             ",
             )?;
             jail.set_env("FOUNDRY_PROFILE", "local");
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.libs, vec![PathBuf::from("modules")]);
 
             Ok(())
@@ -2986,7 +3013,7 @@ mod tests {
     #[test]
     fn test_default_test_path() {
         figment::Jail::expect_with(|_err| {
-            let config = Config::default();
+            let config = IntegrationTestConfig::default();
             let paths_config = config.project_paths();
             assert_eq!(paths_config.tests, PathBuf::from(r"test"));
             Ok(())
@@ -2996,15 +3023,15 @@ mod tests {
     #[test]
     fn test_default_libs() {
         figment::Jail::expect_with(|jail| {
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.libs, vec![PathBuf::from("lib")]);
 
             fs::create_dir_all(jail.directory().join("node_modules")).unwrap();
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.libs, vec![PathBuf::from("node_modules")]);
 
             fs::create_dir_all(jail.directory().join("lib")).unwrap();
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.libs,
                 vec![PathBuf::from("lib"), PathBuf::from("node_modules")]
@@ -3030,7 +3057,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.src, PathBuf::from("defaultsrc"));
             assert_eq!(
                 config.libs,
@@ -3038,7 +3065,7 @@ mod tests {
             );
 
             jail.set_env("FOUNDRY_PROFILE", "custom");
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             assert_eq!(config.src, PathBuf::from("customsrc"));
             assert_eq!(config.test, PathBuf::from("defaulttest"));
@@ -3062,7 +3089,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             let paths_config = config.project_paths();
             assert_eq!(paths_config.tests, PathBuf::from(r"mytest"));
             Ok(())
@@ -3081,7 +3108,7 @@ mod tests {
                 cache = true
             "#,
             )?;
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert!(config.remappings.is_empty());
 
             jail.create_file(
@@ -3092,7 +3119,7 @@ mod tests {
             ",
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.remappings,
                 vec![
@@ -3106,7 +3133,7 @@ mod tests {
             );
 
             jail.set_env("DAPP_REMAPPINGS", "ds-test=lib/ds-test/\nother/=lib/other/");
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             assert_eq!(
                 config.remappings,
@@ -3140,7 +3167,7 @@ mod tests {
                 cache = true
             "#,
             )?;
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert!(config.remappings.is_empty());
 
             jail.create_file(
@@ -3151,7 +3178,7 @@ mod tests {
             ",
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.remappings,
                 vec![
@@ -3164,7 +3191,7 @@ mod tests {
                 "DAPP_REMAPPINGS",
                 "ds-test/=lib/ds-test/src/\nenv-lib/=lib/env-lib/",
             );
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             // Remappings should now be:
             // - ds-test from environment (lib/ds-test/src/)
@@ -3206,11 +3233,11 @@ mod tests {
             "#,
             )?;
 
-            let mut config = Config::load();
+            let mut config = IntegrationTestConfig::load();
             config.libs.push("libs".into());
             config.update_libs().unwrap();
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.libs,
                 vec![PathBuf::from("node_modules"), PathBuf::from("libs"),]
@@ -3233,12 +3260,12 @@ mod tests {
                 ),
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config,
-                Config {
+                IntegrationTestConfig {
                     gas_limit: gas.into(),
-                    ..Config::default()
+                    ..IntegrationTestConfig::default()
                 }
             );
 
@@ -3258,7 +3285,7 @@ mod tests {
             "#,
             )?;
 
-            let _config = Config::load();
+            let _config = IntegrationTestConfig::load();
 
             Ok(())
         });
@@ -3270,7 +3297,7 @@ mod tests {
         figment::Jail::expect_with(|jail| {
             jail.set_env("FOUNDRY_CONFIG", "this config does not exist");
 
-            let _config = Config::load();
+            let _config = IntegrationTestConfig::load();
 
             Ok(())
         });
@@ -3291,7 +3318,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert!(config
                 .get_etherscan_config_with_chain(Some(NamedChain::BinanceSmartChain.into()))
                 .is_err());
@@ -3338,7 +3365,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             assert!(config.etherscan.clone().resolved().has_unresolved());
 
@@ -3391,7 +3418,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             let etherscan = config.get_etherscan_config().unwrap().unwrap();
             assert_eq!(etherscan.chain, Some(NamedChain::Sepolia.into()));
             assert_eq!(etherscan.key, "FX42Z3BBJJEWXWGYV2X1CIPRSCN");
@@ -3417,7 +3444,7 @@ mod tests {
                 "https://eth-mainnet.alchemyapi.io/v2/123455",
             );
 
-            let mut config = Config::load();
+            let mut config = IntegrationTestConfig::load();
             assert_eq!(
                 "http://localhost:8545",
                 config.get_rpc_url_or_localhost_http().unwrap()
@@ -3452,7 +3479,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 "http://localhost:8545",
                 config.get_rpc_url_or_localhost_http().unwrap()
@@ -3473,13 +3500,13 @@ mod tests {
                 polygonMumbai = "https://polygon-mumbai.g.alchemy.com/v2/${_RESOLVE_RPC_ALIAS}"
             "#,
             )?;
-            let mut config = Config::load();
+            let mut config = IntegrationTestConfig::load();
             config.eth_rpc_url = Some("polygonMumbai".to_string());
             assert!(config.get_rpc_url().unwrap().is_err());
 
             jail.set_env("_RESOLVE_RPC_ALIAS", "123455");
 
-            let mut config = Config::load();
+            let mut config = IntegrationTestConfig::load();
             config.eth_rpc_url = Some("polygonMumbai".to_string());
             assert_eq!(
                 "https://polygon-mumbai.g.alchemy.com/v2/123455",
@@ -3507,7 +3534,7 @@ mod tests {
             jail.set_env("TEST_RESOLVE_RPC_ALIAS_ARB_ONE", "123455");
             jail.set_env("TEST_RESOLVE_RPC_ALIAS_ARBISCAN", "123455");
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             let config = config.get_etherscan_config_with_chain(Some(NamedChain::Arbitrum.into()));
             assert!(config.is_err());
@@ -3533,7 +3560,7 @@ mod tests {
                 "https://eth-mainnet.alchemyapi.io/v2/123455",
             );
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 RpcEndpoints::new([
                     (
@@ -3590,7 +3617,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             assert_eq!(
                 config.get_rpc_url().unwrap().unwrap(),
@@ -3654,7 +3681,7 @@ mod tests {
             "#,
             )?;
 
-            let mut config = Config::load();
+            let mut config = IntegrationTestConfig::load();
 
             let optimism = config.get_etherscan_api_key(Some(NamedChain::Optimism.into()));
             assert_eq!(
@@ -3684,7 +3711,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             let mumbai = config
                 .get_etherscan_config_with_chain(Some(NamedChain::PolygonMumbai.into()))
@@ -3709,7 +3736,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             let mumbai = config
                 .get_etherscan_config_with_chain(Some(NamedChain::PolygonMumbai.into()))
@@ -3739,7 +3766,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             let mumbai = config
                 .get_etherscan_config_with_chain(None)
@@ -3783,10 +3810,10 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config,
-                Config {
+                IntegrationTestConfig {
                     src: "some-source".into(),
                     out: "some-out".into(),
                     cache: true,
@@ -3828,7 +3855,7 @@ mod tests {
                     ]),
                     build_info_path: Some("build-info".into()),
                     always_use_create_2_factory: true,
-                    ..Config::default()
+                    ..IntegrationTestConfig::default()
                 }
             );
 
@@ -3847,7 +3874,7 @@ mod tests {
             ",
             )?;
 
-            let config = Config::load_with_root(jail.directory());
+            let config = IntegrationTestConfig::load_with_root(jail.directory());
             assert_eq!(
                 config.remappings,
                 vec![Remapping::from_str("nested/=lib/nested/").unwrap().into()]
@@ -3930,7 +3957,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load_with_root(jail.directory());
+            let config = IntegrationTestConfig::load_with_root(jail.directory());
 
             assert_eq!(config.ignored_file_paths, vec![PathBuf::from("something")]);
             assert_eq!(config.fuzz.seed, Some(U256::from(1000)));
@@ -3971,7 +3998,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.solc, Some(SolcReq::Version(Version::new(0, 8, 12))));
 
             jail.create_file(
@@ -3982,7 +4009,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.solc, Some(SolcReq::Version(Version::new(0, 8, 12))));
 
             jail.create_file(
@@ -3993,14 +4020,14 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.solc,
                 Some(SolcReq::Local("path/to/local/solc".into()))
             );
 
             jail.set_env("FOUNDRY_SOLC_VERSION", "0.6.6");
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.solc, Some(SolcReq::Version(Version::new(0, 6, 6))));
             Ok(())
         });
@@ -4019,7 +4046,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.solc, Some(SolcReq::Version(Version::new(0, 8, 12))));
 
             Ok(())
@@ -4034,7 +4061,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.solc, Some(SolcReq::Version(Version::new(0, 8, 20))));
 
             Ok(())
@@ -4057,17 +4084,17 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config,
-                Config {
+                IntegrationTestConfig {
                     src: "some-source".into(),
                     out: "some-out".into(),
                     cache: true,
                     eth_rpc_url: Some("https://example.com/".to_string()),
                     auto_detect_solc: false,
                     evm_version: EvmVersion::Berlin,
-                    ..Config::default()
+                    ..IntegrationTestConfig::default()
                 }
             );
 
@@ -4087,7 +4114,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             assert_eq!(
                 config.extra_output,
@@ -4117,29 +4144,29 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config,
-                Config {
+                IntegrationTestConfig {
                     src: "mysrc".into(),
                     out: "myout".into(),
-                    ..Config::default()
+                    ..IntegrationTestConfig::default()
                 }
             );
 
             jail.set_env("FOUNDRY_SRC", r"other-src");
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config,
-                Config {
+                IntegrationTestConfig {
                     src: "other-src".into(),
                     out: "myout".into(),
-                    ..Config::default()
+                    ..IntegrationTestConfig::default()
                 }
             );
 
             jail.set_env("FOUNDRY_PROFILE", "foo");
-            let val: Result<String, _> = Config::figment().extract_inner("profile");
+            let val: Result<String, _> = IntegrationTestConfig::figment().extract_inner("profile");
             assert!(val.is_err());
 
             Ok(())
@@ -4161,14 +4188,14 @@ mod tests {
                 src = "other-src"
             "#,
             )?;
-            let loaded = Config::load();
+            let loaded = IntegrationTestConfig::load();
             assert_eq!(loaded.evm_version, EvmVersion::Berlin);
             let base = loaded.into_basic();
-            let default = Config::default();
+            let default = IntegrationTestConfig::default();
             assert_eq!(
                 base,
                 BasicConfig {
-                    profile: Config::DEFAULT_PROFILE,
+                    profile: IntegrationTestConfig::DEFAULT_PROFILE,
                     src: "mysrc".into(),
                     out: "myout".into(),
                     libs: default.libs.clone(),
@@ -4176,11 +4203,13 @@ mod tests {
                 }
             );
             jail.set_env("FOUNDRY_PROFILE", r"other");
-            let base = Config::figment().extract::<BasicConfig>().unwrap();
+            let base = IntegrationTestConfig::figment()
+                .extract::<BasicConfig>()
+                .unwrap();
             assert_eq!(
                 base,
                 BasicConfig {
-                    profile: Config::DEFAULT_PROFILE,
+                    profile: IntegrationTestConfig::DEFAULT_PROFILE,
                     src: "other-src".into(),
                     out: "myout".into(),
                     libs: default.libs.clone(),
@@ -4202,7 +4231,7 @@ mod tests {
                 dictionary_weight = 101
             ",
             )?;
-            let _config = Config::load();
+            let _config = IntegrationTestConfig::load();
             Ok(())
         });
     }
@@ -4230,7 +4259,7 @@ mod tests {
             )?;
 
             let invariant_default = InvariantConfig::default();
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             assert_ne!(config.invariant.runs, config.fuzz.runs);
             assert_eq!(config.invariant.runs, 420);
@@ -4254,7 +4283,7 @@ mod tests {
             );
 
             jail.set_env("FOUNDRY_PROFILE", "ci");
-            let ci_config = Config::load();
+            let ci_config = IntegrationTestConfig::load();
             assert_eq!(ci_config.fuzz.runs, 1);
             assert_eq!(ci_config.invariant.runs, 400);
             assert_eq!(ci_config.fuzz.dictionary.dictionary_weight, 5);
@@ -4287,12 +4316,12 @@ mod tests {
             ",
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.fuzz.runs, 100);
             assert_eq!(config.invariant.runs, 120);
 
             jail.set_env("FOUNDRY_PROFILE", "ci");
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.fuzz.runs, 420);
             assert_eq!(config.invariant.runs, 500);
 
@@ -4312,7 +4341,7 @@ mod tests {
             jail.set_env("DAPP_BUILD_OPTIMIZE_RUNS", 999);
             jail.set_env("DAPP_BUILD_OPTIMIZE", 0);
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             assert_eq!(config.block_number, 1337);
             assert_eq!(config.sender, addr);
@@ -4333,7 +4362,7 @@ mod tests {
                 "DAPP_LIBRARIES",
                 "[src/DssSpell.sol:DssExecLib:0x8De6DDbCd5053d32292AAA0D2105A32d108484a6]",
             );
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.libraries,
                 vec![
@@ -4346,7 +4375,7 @@ mod tests {
                 "DAPP_LIBRARIES",
                 "src/DssSpell.sol:DssExecLib:0x8De6DDbCd5053d32292AAA0D2105A32d108484a6",
             );
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.libraries,
                 vec![
@@ -4359,7 +4388,7 @@ mod tests {
                 "DAPP_LIBRARIES",
                 "src/DssSpell.sol:DssExecLib:0x8De6DDbCd5053d32292AAA0D2105A32d108484a6,src/DssSpell.sol:DssExecLib:0x8De6DDbCd5053d32292AAA0D2105A32d108484a6",
             );
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.libraries,
                 vec![
@@ -4390,7 +4419,7 @@ mod tests {
                     ]       
             ",
             )?;
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
 
             let libs = config.parsed_libraries().unwrap().libs;
 
@@ -4440,11 +4469,11 @@ mod tests {
     #[test]
     fn config_roundtrip() {
         figment::Jail::expect_with(|jail| {
-            let default = Config::default();
+            let default = IntegrationTestConfig::default();
             let basic = default.clone().into_basic();
             jail.create_file("foundry.toml", &basic.to_string_pretty().unwrap())?;
 
-            let mut other = Config::load();
+            let mut other = IntegrationTestConfig::load();
             clear_warning(&mut other);
             assert_eq!(default, other);
 
@@ -4452,7 +4481,7 @@ mod tests {
             assert_eq!(basic, other);
 
             jail.create_file("foundry.toml", &default.to_string_pretty().unwrap())?;
-            let mut other = Config::load();
+            let mut other = IntegrationTestConfig::load();
             clear_warning(&mut other);
             assert_eq!(default, other);
 
@@ -4470,7 +4499,7 @@ mod tests {
                 fs_permissions = [{ access = "read-write", path = "./"}]
             "#,
             )?;
-            let loaded = Config::load();
+            let loaded = IntegrationTestConfig::load();
 
             assert_eq!(
                 loaded.fs_permissions,
@@ -4484,7 +4513,7 @@ mod tests {
                 fs_permissions = [{ access = "none", path = "./"}]
             "#,
             )?;
-            let loaded = Config::load();
+            let loaded = IntegrationTestConfig::load();
             assert_eq!(
                 loaded.fs_permissions,
                 FsPermissions::new(vec![PathPermission::none("./")])
@@ -4510,7 +4539,7 @@ mod tests {
                 stackAllocation = true
             ",
             )?;
-            let mut loaded = Config::load();
+            let mut loaded = IntegrationTestConfig::load();
             clear_warning(&mut loaded);
             assert_eq!(
                 loaded.optimizer_details,
@@ -4527,7 +4556,7 @@ mod tests {
             let s = loaded.to_string_pretty().unwrap();
             jail.create_file("foundry.toml", &s)?;
 
-            let mut reloaded = Config::load();
+            let mut reloaded = IntegrationTestConfig::load();
             clear_warning(&mut reloaded);
             assert_eq!(loaded, reloaded);
 
@@ -4550,7 +4579,7 @@ mod tests {
                 timeout = 10000
             ",
             )?;
-            let mut loaded = Config::load();
+            let mut loaded = IntegrationTestConfig::load();
             clear_warning(&mut loaded);
             assert_eq!(
                 loaded.model_checker,
@@ -4583,7 +4612,7 @@ mod tests {
             let s = loaded.to_string_pretty().unwrap();
             jail.create_file("foundry.toml", &s)?;
 
-            let mut reloaded = Config::load();
+            let mut reloaded = IntegrationTestConfig::load();
             clear_warning(&mut reloaded);
             assert_eq!(loaded, reloaded);
 
@@ -4606,7 +4635,7 @@ mod tests {
                 timeout = 10000
             ",
             )?;
-            let loaded = Config::load().sanitized();
+            let loaded = IntegrationTestConfig::load().sanitized();
 
             // NOTE(onbjerg): We have to canonicalize the path here using dunce because
             // figment will canonicalize the jail path using the standard
@@ -4658,7 +4687,7 @@ mod tests {
                 bracket_spacing = true
             ",
             )?;
-            let loaded = Config::load().sanitized();
+            let loaded = IntegrationTestConfig::load().sanitized();
             assert_eq!(
                 loaded.fmt,
                 FormatterConfig {
@@ -4685,7 +4714,7 @@ mod tests {
             ",
             )?;
 
-            let loaded = Config::load().sanitized();
+            let loaded = IntegrationTestConfig::load().sanitized();
             assert_eq!(
                 loaded.invariant,
                 InvariantConfig {
@@ -4718,7 +4747,7 @@ mod tests {
             jail.set_env("FOUNDRY_FUZZ_DICTIONARY_WEIGHT", "99");
             jail.set_env("FOUNDRY_INVARIANT_DEPTH", "5");
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.fmt.line_length, 95);
             assert_eq!(config.fuzz.dictionary.dictionary_weight, 99);
             assert_eq!(config.invariant.depth, 5);
@@ -4742,9 +4771,9 @@ mod tests {
                 .unwrap()
                 .unwrap(),
             (
-                Config::DEFAULT_PROFILE,
+                IntegrationTestConfig::DEFAULT_PROFILE,
                 BasicConfig {
-                    profile: Config::DEFAULT_PROFILE,
+                    profile: IntegrationTestConfig::DEFAULT_PROFILE,
                     src: "src".into(),
                     out: "out".into(),
                     libs: vec!["lib".into()],
@@ -4765,7 +4794,7 @@ mod tests {
                 out = 'my-out'
             ",
             )?;
-            let loaded = Config::load().sanitized();
+            let loaded = IntegrationTestConfig::load().sanitized();
             assert_eq!(loaded.src.file_name().unwrap(), "my-src");
             assert_eq!(loaded.out.file_name().unwrap(), "my-out");
             assert_eq!(
@@ -4790,11 +4819,11 @@ mod tests {
             ",
             )?;
             jail.set_env("ETHERSCAN_API_KEY", "");
-            let loaded = Config::load().sanitized();
+            let loaded = IntegrationTestConfig::load().sanitized();
             assert!(loaded.etherscan_api_key.is_none());
 
             jail.set_env("ETHERSCAN_API_KEY", "DUMMY");
-            let loaded = Config::load().sanitized();
+            let loaded = IntegrationTestConfig::load().sanitized();
             assert_eq!(loaded.etherscan_api_key, Some("DUMMY".into()));
 
             Ok(())
@@ -4813,10 +4842,10 @@ mod tests {
             )?;
             jail.set_env("ETHERSCAN_API_KEY", "ETHER");
 
-            let figment = Config::figment_with_root(jail.directory())
+            let figment = IntegrationTestConfig::figment_with_root(jail.directory())
                 .merge(("etherscan_api_key", "USER_KEY"));
 
-            let loaded = Config::from_provider(figment);
+            let loaded = IntegrationTestConfig::from_provider(figment);
             assert_eq!(loaded.etherscan_api_key, Some("USER_KEY".into()));
 
             Ok(())
@@ -4834,7 +4863,7 @@ mod tests {
             ",
             )?;
 
-            let loaded = Config::load().sanitized();
+            let loaded = IntegrationTestConfig::load().sanitized();
             assert_eq!(loaded.evm_version, EvmVersion::London);
             Ok(())
         });
@@ -4845,7 +4874,7 @@ mod tests {
     #[test]
     #[ignore]
     fn print_config() {
-        let config = Config {
+        let config = IntegrationTestConfig {
             optimizer_details: Some(OptimizerDetails {
                 peephole: None,
                 inliner: None,
@@ -4885,12 +4914,15 @@ mod tests {
                 let value = Value::serialize(self)?;
                 let error = InvalidType(value.to_actual(), "map".into());
                 let dict = value.into_dict().ok_or(error)?;
-                Ok(Map::from([(Config::selected_profile(), dict)]))
+                Ok(Map::from([(
+                    IntegrationTestConfig::selected_profile(),
+                    dict,
+                )]))
             }
         }
 
         let _figment: Figment = From::from(&MyArgs::default());
-        let _config: Config = From::from(&MyArgs::default());
+        let _config: IntegrationTestConfig = From::from(&MyArgs::default());
 
         #[derive(Default)]
         struct Outer {
@@ -4901,7 +4933,7 @@ mod tests {
         impl_figment_convert!(Outer, start, other, another);
 
         let _figment: Figment = From::from(&Outer::default());
-        let _config: Config = From::from(&Outer::default());
+        let _config: IntegrationTestConfig = From::from(&Outer::default());
     }
 
     #[test]
@@ -4943,7 +4975,7 @@ mod tests {
         let mut pol_file = File::create(chain_dir.path().join("pol.txt")).unwrap();
         writeln!(pol_file, "{}", [' '; 10].iter().collect::<String>()).unwrap();
 
-        let result = Config::get_cached_blocks(chain_dir.path())?;
+        let result = IntegrationTestConfig::get_cached_blocks(chain_dir.path())?;
 
         assert_eq!(result.len(), 3);
         let block1 = &result.iter().find(|x| x.0 == "1").unwrap();
@@ -4993,7 +5025,7 @@ mod tests {
         fake_etherscan_cache(chain_dir.path(), "1", 100);
         fake_etherscan_cache(chain_dir.path(), "2", 500);
 
-        let result = Config::get_cached_block_explorer_data(chain_dir.path())?;
+        let result = IntegrationTestConfig::get_cached_block_explorer_data(chain_dir.path())?;
 
         assert_eq!(result, 600);
 
@@ -5012,7 +5044,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.ignored_error_codes,
                 vec![
@@ -5037,7 +5069,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.ignored_file_paths,
                 vec![Path::new("something").to_path_buf()]
@@ -5058,7 +5090,7 @@ mod tests {
             ",
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(config.optimizer_details, Some(OptimizerDetails::default()));
 
             Ok(())
@@ -5077,7 +5109,7 @@ mod tests {
             "#,
             )?;
 
-            let config = Config::load();
+            let config = IntegrationTestConfig::load();
             assert_eq!(
                 config.labels,
                 HashMap::from_iter(vec![

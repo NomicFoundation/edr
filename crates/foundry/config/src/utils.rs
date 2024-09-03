@@ -16,19 +16,19 @@ use revm_primitives::SpecId;
 use serde::{de::Error, Deserialize, Deserializer};
 use toml_edit::{DocumentMut, Item};
 
-use crate::Config;
+use crate::IntegrationTestConfig;
 
 /// Loads the config for the current project workspace
-pub fn load_config() -> Config {
+pub fn load_config() -> IntegrationTestConfig {
     load_config_with_root(None)
 }
 
 /// Loads the config for the current project workspace or the provided root path
-pub fn load_config_with_root(root: Option<PathBuf>) -> Config {
+pub fn load_config_with_root(root: Option<PathBuf>) -> IntegrationTestConfig {
     if let Some(root) = root {
-        Config::load_with_root(root)
+        IntegrationTestConfig::load_with_root(root)
     } else {
-        Config::load_with_root(find_project_root_path(None).unwrap())
+        IntegrationTestConfig::load_with_root(find_project_root_path(None).unwrap())
     }
     .sanitized()
 }
@@ -76,7 +76,7 @@ pub fn find_project_root_path(path: Option<&PathBuf>) -> std::io::Result<PathBuf
     let mut cwd = cwd.as_path();
     // traverse as long as we're in the current git repo cwd
     while cwd.starts_with(&boundary) {
-        let file_path = cwd.join(Config::FILE_NAME);
+        let file_path = cwd.join(IntegrationTestConfig::FILE_NAME);
         if file_path.is_file() {
             return Ok(cwd.to_path_buf());
         }
@@ -173,7 +173,7 @@ pub fn foundry_toml_dirs(root: impl AsRef<Path>) -> Vec<PathBuf> {
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_dir())
         .filter_map(|e| foundry_compilers::utils::canonicalize(e.path()).ok())
-        .filter(|p| p.join(Config::FILE_NAME).exists())
+        .filter(|p| p.join(IntegrationTestConfig::FILE_NAME).exists())
         .collect()
 }
 
@@ -210,7 +210,7 @@ pub(crate) fn get_dir_remapping(dir: impl AsRef<Path>) -> Option<Remapping> {
 /// [profile.local]
 /// ```
 pub fn get_available_profiles(toml_path: impl AsRef<Path>) -> eyre::Result<Vec<String>> {
-    let mut result = vec![Config::DEFAULT_PROFILE.to_string()];
+    let mut result = vec![IntegrationTestConfig::DEFAULT_PROFILE.to_string()];
 
     if !toml_path.as_ref().exists() {
         return Ok(result);
@@ -218,7 +218,8 @@ pub fn get_available_profiles(toml_path: impl AsRef<Path>) -> eyre::Result<Vec<S
 
     let doc = read_toml(toml_path)?;
 
-    if let Some(Item::Table(profiles)) = doc.as_table().get(Config::PROFILE_SECTION) {
+    if let Some(Item::Table(profiles)) = doc.as_table().get(IntegrationTestConfig::PROFILE_SECTION)
+    {
         for (profile, _) in profiles {
             let p = profile.to_string();
             if !result.contains(&p) {

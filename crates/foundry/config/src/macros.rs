@@ -16,7 +16,7 @@
 /// ```rust
 /// use std::path::PathBuf;
 /// use serde::Serialize;
-/// use foundry_config::{Config, impl_figment_convert};
+/// use foundry_config::{IntegrationTestConfig, impl_figment_convert};
 /// use foundry_config::figment::*;
 /// use foundry_config::figment::error::Kind::InvalidType;
 /// use foundry_config::figment::value::*;
@@ -36,12 +36,12 @@
 ///         let value = Value::serialize(self)?;
 ///         let error = InvalidType(value.to_actual(), "map".into());
 ///         let mut dict = value.into_dict().ok_or(error)?;
-///         Ok(Map::from([(Config::selected_profile(), dict)]))
+///         Ok(Map::from([(IntegrationTestConfig::selected_profile(), dict)]))
 ///     }
 /// }
 ///
 /// let figment: Figment = From::from(&MyArgs::default());
-/// let config: Config = From::from(&MyArgs::default());
+/// let config: IntegrationTestConfig = From::from(&MyArgs::default());
 ///
 ///  // Use `impl_figment` on a type that has several nested `Provider` as fields but is _not_ a `Provider` itself
 ///
@@ -54,7 +54,7 @@
 /// impl_figment_convert!(Outer, start, second, third);
 ///
 /// let figment: Figment = From::from(&Outer::default());
-/// let config: Config = From::from(&Outer::default());
+/// let config: IntegrationTestConfig = From::from(&Outer::default());
 /// ```
 #[macro_export]
 macro_rules! impl_figment_convert {
@@ -64,14 +64,14 @@ macro_rules! impl_figment_convert {
                 let root = args.root.clone()
                     .unwrap_or_else(|| $crate::find_project_root_path(None)
                         .unwrap_or_else(|e| panic!("could not find project root: {e}")));
-                $crate::Config::figment_with_root(root).merge(args)
+                $crate::IntegrationTestConfig::figment_with_root(root).merge(args)
             }
         }
 
-        impl<'a> From<&'a $name> for $crate::Config {
+        impl<'a> From<&'a $name> for $crate::IntegrationTestConfig {
             fn from(args: &'a $name) -> Self {
                 let figment: $crate::figment::Figment = args.into();
-                $crate::Config::from_provider(figment).sanitized()
+                $crate::IntegrationTestConfig::from_provider(figment).sanitized()
             }
         }
     };
@@ -86,10 +86,10 @@ macro_rules! impl_figment_convert {
             }
         }
 
-        impl<'a> From<&'a $name> for $crate::Config {
+        impl<'a> From<&'a $name> for $crate::IntegrationTestConfig {
             fn from(args: &'a $name) -> Self {
                 let figment: $crate::figment::Figment = args.into();
-                $crate::Config::from_provider(figment).sanitized()
+                $crate::IntegrationTestConfig::from_provider(figment).sanitized()
             }
         }
     };
@@ -105,10 +105,10 @@ macro_rules! impl_figment_convert {
             }
         }
 
-        impl<'a> From<&'a $name> for $crate::Config {
+        impl<'a> From<&'a $name> for $crate::IntegrationTestConfig {
             fn from(args: &'a $name) -> Self {
                 let figment: $crate::figment::Figment = args.into();
-                $crate::Config::from_provider(figment).sanitized()
+                $crate::IntegrationTestConfig::from_provider(figment).sanitized()
             }
         }
     };
@@ -124,7 +124,7 @@ macro_rules! impl_figment_convert {
 /// ```rust
 /// use foundry_config::{
 ///     figment::{value::*, *},
-///     impl_figment_convert, merge_impl_figment_convert, Config,
+///     impl_figment_convert, merge_impl_figment_convert, IntegrationTestConfig,
 /// };
 /// use std::path::PathBuf;
 ///
@@ -177,10 +177,10 @@ macro_rules! merge_impl_figment_convert {
             }
         }
 
-        impl<'a> From<&'a $name> for $crate::Config {
+        impl<'a> From<&'a $name> for $crate::IntegrationTestConfig {
             fn from(args: &'a $name) -> Self {
                 let figment: $crate::figment::Figment = args.into();
-                $crate::Config::from_provider(figment).sanitized()
+                $crate::IntegrationTestConfig::from_provider(figment).sanitized()
             }
         }
     };
@@ -189,23 +189,25 @@ macro_rules! merge_impl_figment_convert {
 /// A macro to implement converters from a type to [`Config`] and
 /// [`figment::Figment`]
 ///
-/// Via [`Config::to_figment`](crate::Config::to_figment) and the
+/// Via [`Config::to_figment`](crate::IntegrationTestConfig::to_figment) and the
 /// [Cast](crate::FigmentProviders::Cast) profile.
 #[macro_export]
 macro_rules! impl_figment_convert_cast {
     ($name:ty) => {
         impl<'a> From<&'a $name> for $crate::figment::Figment {
             fn from(args: &'a $name) -> Self {
-                $crate::Config::with_root($crate::find_project_root_path(None).unwrap())
-                    .to_figment($crate::FigmentProviders::Cast)
-                    .merge(args)
+                $crate::IntegrationTestConfig::with_root(
+                    $crate::find_project_root_path(None).unwrap(),
+                )
+                .to_figment($crate::FigmentProviders::Cast)
+                .merge(args)
             }
         }
 
-        impl<'a> From<&'a $name> for $crate::Config {
+        impl<'a> From<&'a $name> for $crate::IntegrationTestConfig {
             fn from(args: &'a $name) -> Self {
                 let figment: $crate::figment::Figment = args.into();
-                $crate::Config::from_provider(figment).sanitized()
+                $crate::IntegrationTestConfig::from_provider(figment).sanitized()
             }
         }
     };
@@ -238,7 +240,7 @@ macro_rules! impl_figment_convert_basic {
                     );
                 }
                 Ok($crate::figment::value::Map::from([(
-                    $crate::Config::selected_profile(),
+                    $crate::IntegrationTestConfig::selected_profile(),
                     dict,
                 )]))
             }

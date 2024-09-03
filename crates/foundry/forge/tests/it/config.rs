@@ -9,7 +9,6 @@ use forge::{
 };
 use foundry_evm::{
     decode::decode_console_logs,
-    revm::primitives::SpecId,
     traces::{render_trace_arena, CallTraceDecoderBuilder},
 };
 use futures::future::join_all;
@@ -36,11 +35,6 @@ impl TestConfig {
         }
     }
 
-    pub fn evm_spec(mut self, spec: SpecId) -> Self {
-        self.runner.evm_spec = spec;
-        self
-    }
-
     pub fn should_fail(self) -> Self {
         self.set_should_fail(true)
     }
@@ -51,11 +45,11 @@ impl TestConfig {
     }
 
     /// Executes the test runner
-    pub fn test(&mut self) -> BTreeMap<String, SuiteResult> {
-        self.runner.test_collect(&self.filter)
+    pub async fn test(self) -> BTreeMap<String, SuiteResult> {
+        self.runner.test_collect(self.filter).await
     }
 
-    pub async fn run(&mut self) {
+    pub async fn run(self) {
         self.try_run().await.unwrap();
     }
 
@@ -64,18 +58,19 @@ impl TestConfig {
     /// Returns an error if
     ///    * filter matched 0 test cases
     ///    * a test results deviates from the configured `should_fail` setting
-    pub async fn try_run(&mut self) -> eyre::Result<()> {
-        let suite_result = self.test();
+    pub async fn try_run(self) -> eyre::Result<()> {
+        let should_fail = self.should_fail;
+        let suite_result = self.test().await;
         if suite_result.is_empty() {
             eyre::bail!("empty test result");
         }
         for (_, SuiteResult { test_results, .. }) in suite_result {
             for (test_name, result) in test_results {
-                if self.should_fail && (result.status == TestStatus::Success)
-                    || !self.should_fail && (result.status == TestStatus::Failure)
+                if should_fail && (result.status == TestStatus::Success)
+                    || !should_fail && (result.status == TestStatus::Failure)
                 {
                     let logs = decode_console_logs(&result.logs);
-                    let outcome = if self.should_fail { "fail" } else { "pass" };
+                    let outcome = if should_fail { "fail" } else { "pass" };
                     let call_trace_decoder = CallTraceDecoderBuilder::default().build();
                     let decoded_traces = join_all(
                         result

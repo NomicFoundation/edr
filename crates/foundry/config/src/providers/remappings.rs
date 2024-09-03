@@ -11,7 +11,9 @@ use figment::{
 };
 use foundry_compilers::remappings::{RelativeRemapping, Remapping};
 
-use crate::{foundry_toml_dirs, remappings_from_env_var, remappings_from_newline, Config};
+use crate::{
+    foundry_toml_dirs, remappings_from_env_var, remappings_from_newline, IntegrationTestConfig,
+};
 
 /// Wrapper types over a `Vec<Remapping>` that only appends unique remappings.
 #[derive(Clone, Debug, Default)]
@@ -222,7 +224,7 @@ impl<'a> RemappingsProvider<'a> {
             })
             .flat_map(|lib: PathBuf| {
                 // load config, of the nested lib if it exists
-                let config = Config::load_with_root(&lib).sanitized();
+                let config = IntegrationTestConfig::load_with_root(&lib).sanitized();
 
                 // if the configured _src_ directory is set to something that
                 // [Remapping::find_many()] doesn't classify as a src directory (src, contracts,
@@ -286,7 +288,7 @@ impl<'a> Provider for RemappingsProvider<'a> {
             .collect::<Vec<_>>();
 
         Ok(Map::from([(
-            Config::selected_profile(),
+            IntegrationTestConfig::selected_profile(),
             Dict::from([(
                 "remappings".to_string(),
                 figment::value::Value::from(remappings),
@@ -295,6 +297,6 @@ impl<'a> Provider for RemappingsProvider<'a> {
     }
 
     fn profile(&self) -> Option<Profile> {
-        Some(Config::selected_profile())
+        Some(IntegrationTestConfig::selected_profile())
     }
 }

@@ -1,12 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 
-use alloy_primitives::{address, hex, Address, B256};
-use edr_eth::U256;
-use forge::{
-    fork::CreateFork,
-    inspectors::cheatcodes::CheatsConfigOptions,
-    opts::{Env as EvmEnv, EvmOpts},
-};
+use alloy_primitives::hex;
+use forge::{inspectors::cheatcodes::CheatsConfigOptions, SolidityTestRunnerConfig};
 use foundry_config::{FsPermissions, FuzzConfig, InvariantConfig, RpcEndpoint, RpcEndpoints};
 use napi::{
     bindgen_prelude::{BigInt, Buffer},
@@ -15,11 +10,6 @@ use napi::{
 use napi_derive::napi;
 
 use crate::cast::TryCast;
-
-/// Default address of `tx.origin` in Foundry
-///
-/// `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`
-const DEFAULT_SENDER: Address = address!("1804c8AB1F12E6bbf3894d4083f33e07309d1f38");
 
 /// Solidity test runner configuration arguments exposed through the ffi.
 /// Docs based on https://book.getfoundry.sh/reference/config/testing
@@ -294,6 +284,8 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             project_root: project_root.into(),
             debug: debug.unwrap_or_default(),
             trace: trace.unwrap_or_default(),
+            // TODO
+            coverage: false,
             cheats_config_options,
             evm_opts,
             fuzz,
@@ -676,164 +668,5 @@ impl Debug for AddressLabel {
             .field("address", &hex::encode(&self.address))
             .field("label", &self.label)
             .finish()
-    }
-}
-
-/// Solidity tests configuration
-#[derive(Clone, Debug)]
-pub(super) struct SolidityTestRunnerConfig {
-    /// Project root directory.
-    pub project_root: PathBuf,
-    /// Whether to enable debug mode.
-    pub debug: bool,
-    /// Whether to enable trace mode.
-    pub trace: bool,
-    /// Cheats configuration options
-    pub cheats_config_options: CheatsConfigOptions,
-    /// EVM options
-    pub evm_opts: EvmOpts,
-    /// Configuration for fuzz testing
-    pub fuzz: FuzzConfig,
-    /// Configuration for invariant testing
-    pub invariant: InvariantConfig,
-}
-
-impl SolidityTestRunnerConfig {
-    /// The default evm options for the Solidity test runner.
-    pub fn default_evm_opts() -> EvmOpts {
-        EvmOpts {
-            env: EvmEnv {
-                gas_limit: i64::MAX.try_into().expect("max i64 fits into u64"),
-                chain_id: Some(31337),
-                gas_price: Some(0),
-                block_base_fee_per_gas: 0,
-                tx_origin: DEFAULT_SENDER,
-                block_number: 1,
-                block_difficulty: 0,
-                block_prevrandao: B256::default(),
-                block_gas_limit: None,
-                block_timestamp: 1,
-                block_coinbase: Address::default(),
-                code_size_limit: None,
-            },
-            fork_url: None,
-            fork_block_number: None,
-            fork_retries: None,
-            fork_retry_backoff: None,
-            compute_units_per_second: None,
-            no_rpc_rate_limit: false,
-            sender: DEFAULT_SENDER,
-            initial_balance: U256::from(0xffffffffffffffffffffffffu128),
-            ffi: false,
-            always_use_create_2_factory: false,
-            memory_limit: 1 << 25, // 2**25 = 32MiB
-            isolate: false,
-            disable_block_gas_limit: false,
-        }
-    }
-
-    pub async fn get_fork(&self) -> Result<Option<CreateFork>, napi::Error> {
-        if let Some(fork_url) = self.evm_opts.fork_url.as_ref() {
-            let evm_env = self
-                .evm_opts
-                .fork_evm_env(fork_url)
-                .await
-                .map_err(|e| {
-                    napi::Error::new(
-                        Status::GenericFailure,
-                        format!("Failed to get fork config: {e:?}"),
-                    )
-                })?
-                .0;
-
-            let rpc_cache_path = self.rpc_cache_path(fork_url, evm_env.cfg.chain_id);
-
-            Ok(Some(CreateFork {
-                rpc_cache_path,
-                url: fork_url.clone(),
-                env: evm_env,
-                evm_opts: self.evm_opts.clone(),
-            }))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Whether caching should be enabled for the given chain id
-    fn rpc_cache_path(&self, endpoint: &str, chain_id: impl Into<u64>) -> Option<PathBuf> {
-        let enable_for_chain_id = self
-            .cheats_config_options
-            .rpc_storage_caching
-            .enable_for_chain_id(chain_id.into());
-        let enable_for_endpoint = self
-            .cheats_config_options
-            .rpc_storage_caching
-            .enable_for_endpoint(endpoint);
-        if enable_for_chain_id && enable_for_endpoint {
-            self.cheats_config_options.rpc_cache_path.clone()
-        } else {
-            None
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use foundry_config::NamedChain;
-
-    use super::*;
-
-    impl SolidityTestRunnerConfig {
-        fn new_for_caching_tests(project_root: PathBuf) -> Self {
-            let cheats_config_options = CheatsConfigOptions {
-                rpc_endpoints: RpcEndpoints::default(),
-                rpc_cache_path: Some(project_root.join("rpc-cache")),
-                rpc_storage_caching: foundry_config::cache::StorageCachingConfig::default(),
-                unchecked_cheatcode_artifacts: false,
-                fs_permissions: FsPermissions::default(),
-                prompt_timeout: 120,
-                labels: HashMap::default(),
-            };
-            Self {
-                project_root,
-                debug: false,
-                trace: false,
-                cheats_config_options,
-                evm_opts: Self::default_evm_opts(),
-                fuzz: FuzzConfig::default(),
-                invariant: InvariantConfig::default(),
-            }
-        }
-    }
-
-    #[test]
-    fn test_rpc_cache_path() {
-        let mut config = SolidityTestRunnerConfig::new_for_caching_tests(
-            "/tmp/fake-path".parse().expect("path ok"),
-        );
-
-        let url = "https://eth-mainnet.alchemyapi";
-        assert_eq!(
-            config.rpc_cache_path(url, NamedChain::Mainnet),
-            Some("/tmp/fake-path/rpc-cache".parse().expect("path ok"))
-        );
-        assert!(config.rpc_cache_path(url, NamedChain::Dev).is_none());
-
-        config.cheats_config_options.rpc_storage_caching.chains =
-            foundry_config::cache::CachedChains::None;
-        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_none());
-
-        config.cheats_config_options.rpc_storage_caching.chains =
-            foundry_config::cache::CachedChains::All;
-        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_some());
-        config.cheats_config_options.rpc_storage_caching.endpoints =
-            foundry_config::cache::CachedEndpoints::Pattern("sepolia".parse().expect("regex ok"));
-        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_none());
-
-        config.cheats_config_options.rpc_storage_caching.endpoints =
-            foundry_config::cache::CachedEndpoints::All;
-        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_some());
-        config.cheats_config_options.rpc_cache_path = None;
-        assert!(config.rpc_cache_path(url, NamedChain::Mainnet).is_none());
     }
 }
