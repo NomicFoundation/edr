@@ -8,7 +8,7 @@ use foundry_common::ContractsByArtifact;
 use crate::solidity_tests::config::SolidityTestRunnerConfigArgs;
 
 pub(super) async fn build_runner(
-    known_contracts: &ContractsByArtifact,
+    known_contracts: ContractsByArtifact,
     test_suites: Vec<foundry_common::ArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
 ) -> napi::Result<MultiContractRunner> {
@@ -44,7 +44,7 @@ pub(super) async fn build_runner(
         })
         .collect::<napi::Result<TestContracts>>()?;
 
-    MultiContractRunner::new(config, contracts, known_contracts.clone(), revert_decoder)
+    MultiContractRunner::new(config, contracts, known_contracts, revert_decoder)
         .await
         .map_err(|err| {
             napi::Error::new(

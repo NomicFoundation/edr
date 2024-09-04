@@ -71,7 +71,7 @@ pub fn run_solidity_tests(
 
     let runtime = runtime::Handle::current();
     runtime.spawn(async move {
-        let runner = match build_runner(&known_contracts, test_suites, config_args).await {
+        let runner = match build_runner(known_contracts, test_suites, config_args).await {
             Ok(runner) => runner,
             Err(error) => {
                 let call_status =
