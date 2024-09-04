@@ -755,11 +755,12 @@ mod tests {
         use alloy_provider::Provider;
         use edr_test_utils::env::get_alchemy_url;
         use foundry_common::provider::get_http_provider;
-        use foundry_config::{IntegrationTestConfig, NamedChain};
+        use foundry_config::NamedChain;
         use revm::{
             primitives::{BlockEnv, CfgEnv},
             DatabaseRef,
         };
+        use tempfile::tempdir;
 
         use crate::{
             backend::Backend,
@@ -815,30 +816,27 @@ mod tests {
         #[tokio::test(flavor = "multi_thread")]
         async fn can_read_write_cache() {
             let endpoint = get_alchemy_url();
+            let cache_dir = tempdir().expect("Should create tempdir");
 
             let provider = get_http_provider(&endpoint);
 
             let block_num = provider.get_block_number().await.unwrap();
 
-            let config = IntegrationTestConfig::figment();
-            let mut evm_opts = config.extract::<EvmOpts>().unwrap();
-            evm_opts.fork_block_number = Some(block_num);
+            let evm_opts = EvmOpts {
+                fork_block_number: Some(block_num),
+                ..EvmOpts::default()
+            };
 
             let (env, _block) = evm_opts.fork_evm_env(&endpoint).await.unwrap();
 
-            // TODO https://github.com/NomicFoundation/edr/issues/607
-            // Construct fork config the same way as the JS runner
             let fork = CreateFork {
-                rpc_cache_path: Some(
-                    IntegrationTestConfig::foundry_rpc_cache_dir()
-                        .expect("Could not get rpc cache dir"),
-                ),
+                rpc_cache_path: Some(cache_dir.path().into()),
                 url: endpoint,
                 env: env.clone(),
                 evm_opts,
             };
 
-            let backend = Backend::spawn(Some(fork));
+            let backend = Backend::spawn(Some(fork.clone()));
 
             // some rng contract from etherscan
             let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();
@@ -863,8 +861,8 @@ mod tests {
             let db = BlockchainDb::new(
                 meta,
                 Some(
-                    IntegrationTestConfig::foundry_block_cache_dir(NamedChain::Mainnet, block_num)
-                        .unwrap(),
+                    fork.block_cache_dir(NamedChain::Mainnet, block_num)
+                        .expect("Rpc cache path should be set"),
                 ),
             );
             assert!(db.accounts().read().contains_key(&address));

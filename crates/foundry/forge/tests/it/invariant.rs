@@ -298,6 +298,7 @@ async fn test_invariant_fail_on_revert() {
     );
 }
 
+/// Disabled in https://github.com/foundry-rs/foundry/pull/5986
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_invariant_storage() {

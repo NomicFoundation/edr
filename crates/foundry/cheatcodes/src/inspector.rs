@@ -13,7 +13,6 @@ use alloy_primitives::{Address, Bytes, Log, B256, U256};
 use alloy_rpc_types::request::TransactionRequest;
 use alloy_sol_types::{SolInterface, SolValue};
 use foundry_common::{evm::Breakpoints, SELECTOR_LEN};
-use foundry_config::IntegrationTestConfig;
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
     backend::{DatabaseExt, RevertDiagnostic},
@@ -784,7 +783,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
         // once we start broadcasting.
         if ecx.journaled_state.depth == 0 {
             let sender = ecx.env.tx.caller;
-            if sender != IntegrationTestConfig::DEFAULT_SENDER {
+            if sender != foundry_config::DEFAULT_SENDER {
                 let account = match super::evm::journaled_account(ecx, sender) {
                     Ok(account) => account,
                     Err(err) => {

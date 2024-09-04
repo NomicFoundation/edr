@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use alloy_primitives::{address, Address, B256};
-use foundry_config::{FuzzConfig, InvariantConfig};
+use alloy_primitives::{Address, B256};
+use foundry_config::{FuzzConfig, InvariantConfig, DEFAULT_SENDER};
 use foundry_evm::inspectors::cheatcodes::CheatsConfigOptions;
 
 use crate::{
@@ -9,11 +9,6 @@ use crate::{
     opts::{Env as EvmEnv, EvmOpts},
     revm::primitives::{SpecId, U256},
 };
-
-/// Default address of `tx.origin` in Foundry
-///
-/// `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`
-const DEFAULT_SENDER: Address = address!("1804c8AB1F12E6bbf3894d4083f33e07309d1f38");
 
 #[derive(Debug, thiserror::Error)]
 pub enum SolidityTestRunnerConfigError {

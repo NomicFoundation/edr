@@ -5,7 +5,6 @@ use alloy_signer::Error as SignerError;
 use alloy_signer_wallet::WalletError;
 use alloy_sol_types::SolError;
 use foundry_common::errors::FsPathError;
-use foundry_config::UnresolvedEnvVarError;
 use foundry_evm_core::backend::DatabaseError;
 use k256::ecdsa::signature::Error as SignatureError;
 use revm::primitives::EVMError;
@@ -308,7 +307,6 @@ impl_from!(
     std::num::TryFromIntError,
     std::str::Utf8Error,
     std::string::FromUtf8Error,
-    UnresolvedEnvVarError,
     WalletError,
     SignerError,
 );

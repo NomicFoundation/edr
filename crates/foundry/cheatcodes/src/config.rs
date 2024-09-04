@@ -9,8 +9,7 @@ use alloy_primitives::Address;
 use foundry_common::{fs::normalize_path, ContractsByArtifact};
 use foundry_compilers::utils::canonicalize;
 use foundry_config::{
-    cache::StorageCachingConfig, fs_permissions::FsAccessKind, FsPermissions,
-    IntegrationTestConfig, ResolvedRpcEndpoints, RpcEndpoints,
+    cache::StorageCachingConfig, fs_permissions::FsAccessKind, FsPermissions, RpcEndpoints,
 };
 use foundry_evm_core::opts::EvmOpts;
 use semver::Version;
@@ -40,7 +39,7 @@ pub struct CheatsConfig {
     /// cache
     pub rpc_storage_caching: StorageCachingConfig,
     /// All known endpoints and their aliases
-    pub rpc_endpoints: ResolvedRpcEndpoints,
+    pub rpc_endpoints: RpcEndpoints,
     /// Filesystem permissions for cheatcodes like `writeFile`, `readFile`
     pub fs_permissions: FsPermissions,
     /// Project root
@@ -102,9 +101,6 @@ impl CheatsConfig {
             fs_permissions,
             labels,
         } = config;
-
-        let rpc_endpoints = rpc_endpoints.resolved();
-        trace!(?rpc_endpoints, "using resolved rpc endpoints");
 
         // If user explicitly disabled safety checks, do not set available_artifacts
         let available_artifacts = if unchecked_cheatcode_artifacts {
@@ -181,12 +177,14 @@ impl CheatsConfig {
     ///
     /// Note: this should be called with normalized path
     pub fn is_foundry_toml(&self, path: impl AsRef<Path>) -> bool {
+        const FILE_NAME: &str = "foundry.toml";
+
         // path methods that do not access the filesystem are such as
         // [`Path::starts_with`], are case-sensitive no matter the platform or
         // filesystem. to make this case-sensitive we convert the underlying
         // `OssStr` to lowercase checking that `path` and `foundry.toml` are the
         // same file by comparing the FD, because it may not exist
-        let foundry_toml = self.project_root.join(IntegrationTestConfig::FILE_NAME);
+        let foundry_toml = self.project_root.join(FILE_NAME);
         Path::new(&foundry_toml.to_string_lossy().to_lowercase())
             .starts_with(Path::new(&path.as_ref().to_string_lossy().to_lowercase()))
     }
@@ -203,7 +201,7 @@ impl CheatsConfig {
 
     /// Returns the RPC to use
     ///
-    /// If `url_or_alias` is a known alias in the `ResolvedRpcEndpoints` then it
+    /// If `url_or_alias` is a known alias in the `RpcEndpoints` then it
     /// returns the corresponding URL of that alias. otherwise this assumes
     /// `url_or_alias` is itself a URL if it starts with a `http` or `ws`
     /// scheme.
@@ -219,10 +217,12 @@ impl CheatsConfig {
     ///    with a `http` or `ws` `scheme` and is not a path to an existing file
     pub fn rpc_url(&self, url_or_alias: &str) -> Result<String> {
         match self.rpc_endpoints.get(url_or_alias) {
-            Some(Ok(url)) => Ok(url.clone()),
-            Some(Err(err)) => {
-                // try resolve again, by checking if env vars are now set
-                err.try_resolve().map_err(Into::into)
+            Some(endpoint_config) => {
+                if let Some(url) = endpoint_config.endpoint.as_url() {
+                    Ok(url.into())
+                } else {
+                    Err(fmt_err!("unresolved env var in rpc url: {url_or_alias}"))
+                }
             }
             None => {
                 // check if it's a URL or a path to an existing file to an ipc socket
@@ -261,7 +261,7 @@ impl Default for CheatsConfig {
             prompt_timeout: Duration::from_secs(120),
             rpc_cache_path: None,
             rpc_storage_caching: StorageCachingConfig::default(),
-            rpc_endpoints: ResolvedRpcEndpoints::default(),
+            rpc_endpoints: RpcEndpoints::default(),
             fs_permissions: FsPermissions::default(),
             project_root: PathBuf::default(),
             evm_opts: EvmOpts::default(),
