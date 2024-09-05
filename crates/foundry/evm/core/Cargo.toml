@@ -52,6 +52,7 @@ url = "2"
 
 [dev-dependencies]
 edr_test_utils.workspace = true
+tempfile = "3"
 
 [features]
 test-remote = []

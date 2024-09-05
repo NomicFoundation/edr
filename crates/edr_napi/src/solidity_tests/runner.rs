@@ -1,35 +1,18 @@
-use std::sync::Arc;
-
 use forge::{
     decode::RevertDecoder,
-    multi_runner::{DeployableContracts, TestContract},
-    revm::primitives::SpecId,
-    MultiContractRunner, TestOptions,
+    multi_runner::{TestContract, TestContracts},
+    MultiContractRunner, SolidityTestRunnerConfig,
 };
 use foundry_common::ContractsByArtifact;
 
-use crate::solidity_tests::config::{SolidityTestRunnerConfig, SolidityTestRunnerConfigArgs};
+use crate::solidity_tests::config::SolidityTestRunnerConfigArgs;
 
 pub(super) async fn build_runner(
-    known_contracts: &ContractsByArtifact,
+    known_contracts: ContractsByArtifact,
     test_suites: Vec<foundry_common::ArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
 ) -> napi::Result<MultiContractRunner> {
     let config: SolidityTestRunnerConfig = config_args.try_into()?;
-
-    let fork = config.get_fork().await?;
-
-    let SolidityTestRunnerConfig {
-        debug,
-        trace,
-        evm_opts,
-        project_root,
-        cheats_config_options,
-        fuzz,
-        invariant,
-    } = config;
-
-    let test_options = TestOptions { fuzz, invariant };
 
     // Build revert decoder from ABIs of all artifacts.
     let abis = known_contracts.iter().map(|(_, contract)| &contract.abi);
@@ -59,27 +42,14 @@ pub(super) async fn build_runner(
 
             Ok((artifact_id.clone(), test_contract))
         })
-        .collect::<napi::Result<DeployableContracts>>()?;
+        .collect::<napi::Result<TestContracts>>()?;
 
-    let sender = Some(evm_opts.sender);
-    let isolate = evm_opts.isolate;
-    let evm_env = evm_opts.local_evm_env();
-
-    Ok(MultiContractRunner {
-        project_root,
-        cheats_config_opts: Arc::new(cheats_config_options),
-        contracts,
-        evm_opts,
-        env: evm_env,
-        evm_spec: SpecId::CANCUN,
-        sender,
-        revert_decoder,
-        fork,
-        coverage: false,
-        trace,
-        debug,
-        test_options,
-        isolation: isolate,
-        output: None,
-    })
+    MultiContractRunner::new(config, contracts, known_contracts, revert_decoder)
+        .await
+        .map_err(|err| {
+            napi::Error::new(
+                napi::Status::GenericFailure,
+                format!("Failed to create multi contract runner: {err}"),
+            )
+        })
 }

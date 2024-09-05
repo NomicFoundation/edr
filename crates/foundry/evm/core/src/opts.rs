@@ -15,6 +15,9 @@ pub struct EvmOpts {
     #[serde(flatten)]
     pub env: Env,
 
+    /// The hardfork to use for the EVM.
+    pub spec: revm::primitives::SpecId,
+
     /// Fetch state over a remote instead of starting from empty state.
     #[serde(rename = "eth_rpc_url")]
     pub fork_url: Option<String>,

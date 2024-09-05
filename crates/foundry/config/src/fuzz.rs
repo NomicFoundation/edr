@@ -3,10 +3,9 @@
 use std::path::PathBuf;
 
 use alloy_primitives::U256;
-use serde::{Deserialize, Serialize};
 
 /// Contains for fuzz testing
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FuzzConfig {
     /// The number of test cases that must execute for each property test
     pub runs: u32,
@@ -19,7 +18,6 @@ pub struct FuzzConfig {
     /// Optional seed for the fuzzing RNG algorithm
     pub seed: Option<U256>,
     /// The fuzz dictionary configuration
-    #[serde(flatten)]
     pub dictionary: FuzzDictionaryConfig,
     /// Number of runs to execute and include in the gas report.
     pub gas_report_samples: u32,
@@ -60,10 +58,9 @@ impl FuzzConfig {
 }
 
 /// Contains for fuzz testing
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FuzzDictionaryConfig {
     /// The weight of the dictionary
-    #[serde(deserialize_with = "crate::deserialize_stringified_percent")]
     pub dictionary_weight: u32,
     /// The flag indicating whether to include values from storage
     pub include_storage: bool,
@@ -74,12 +71,10 @@ pub struct FuzzDictionaryConfig {
     /// entries
     ///
     /// This limit is put in place to prevent memory blowup.
-    #[serde(deserialize_with = "crate::deserialize_usize_or_max")]
     pub max_fuzz_dictionary_addresses: usize,
     /// How many values to record at most.
     /// Once the fuzzer exceeds this limit, it will start evicting random
     /// entries
-    #[serde(deserialize_with = "crate::deserialize_usize_or_max")]
     pub max_fuzz_dictionary_values: usize,
 }
 

@@ -3,12 +3,11 @@
 use std::{fmt, fmt::Formatter, str::FromStr};
 
 use number_prefix::NumberPrefix;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::Chain;
 
 /// Settings to configure caching of remote
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct StorageCachingConfig {
     /// chains to cache
     pub chains: CachedChains,
@@ -50,42 +49,6 @@ impl CachedChains {
             CachedChains::All => true,
             CachedChains::None => false,
             CachedChains::Chains(chains) => chains.iter().any(|c| c.id() == chain),
-        }
-    }
-}
-
-impl Serialize for CachedChains {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            CachedChains::All => serializer.serialize_str("all"),
-            CachedChains::None => serializer.serialize_str("none"),
-            CachedChains::Chains(chains) => chains.serialize(serializer),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for CachedChains {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Chains {
-            All(String),
-            Chains(Vec<Chain>),
-        }
-
-        match Chains::deserialize(deserializer)? {
-            Chains::All(s) => match s.as_str() {
-                "all" => Ok(CachedChains::All),
-                "none" => Ok(CachedChains::None),
-                s => Err(serde::de::Error::unknown_variant(s, &["all", "none"])),
-            },
-            Chains::Chains(chains) => Ok(CachedChains::Chains(chains)),
         }
     }
 }
@@ -151,30 +114,6 @@ impl FromStr for CachedEndpoints {
     }
 }
 
-impl<'de> Deserialize<'de> for CachedEndpoints {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        String::deserialize(deserializer)?
-            .parse()
-            .map_err(serde::de::Error::custom)
-    }
-}
-
-impl Serialize for CachedEndpoints {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            CachedEndpoints::All => serializer.serialize_str("all"),
-            CachedEndpoints::Remote => serializer.serialize_str("remote"),
-            CachedEndpoints::Pattern(pattern) => serializer.serialize_str(pattern.as_str()),
-        }
-    }
-}
-
 /// Content of the foundry cache folder
 #[derive(Debug, Default)]
 pub struct Cache {
@@ -236,40 +175,6 @@ mod tests {
     use similar_asserts::assert_eq;
 
     use super::*;
-
-    #[test]
-    fn can_parse_storage_config() {
-        #[derive(Serialize, Deserialize)]
-        pub struct Wrapper {
-            pub rpc_storage_caching: StorageCachingConfig,
-        }
-
-        let s = r#"rpc_storage_caching = { chains = "all", endpoints = "remote"}"#;
-        let w: Wrapper = toml::from_str(s).unwrap();
-
-        assert_eq!(
-            w.rpc_storage_caching,
-            StorageCachingConfig {
-                chains: CachedChains::All,
-                endpoints: CachedEndpoints::Remote
-            }
-        );
-
-        let s = r#"rpc_storage_caching = { chains = [1, "optimism", 999999], endpoints = "all"}"#;
-        let w: Wrapper = toml::from_str(s).unwrap();
-
-        assert_eq!(
-            w.rpc_storage_caching,
-            StorageCachingConfig {
-                chains: CachedChains::Chains(vec![
-                    Chain::mainnet(),
-                    Chain::optimism_mainnet(),
-                    Chain::from_id(999999)
-                ]),
-                endpoints: CachedEndpoints::All
-            }
-        );
-    }
 
     #[test]
     fn cache_to_string() {

@@ -2,12 +2,10 @@
 
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
-
 use crate::fuzz::FuzzDictionaryConfig;
 
 /// Contains for invariant testing
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InvariantConfig {
     /// The number of runs that must execute for each invariant test group.
     pub runs: u32,
@@ -19,7 +17,6 @@ pub struct InvariantConfig {
     /// eg. reentrancy checks
     pub call_override: bool,
     /// The fuzz dictionary configuration
-    #[serde(flatten)]
     pub dictionary: FuzzDictionaryConfig,
     /// The maximum number of attempts to shrink the sequence
     pub shrink_run_limit: usize,

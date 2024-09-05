@@ -6,13 +6,10 @@ use std::{
     str::FromStr,
 };
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 /// Configures file system access
 ///
 /// E.g. for cheat codes (`vm.writeFile`)
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FsPermissions {
     /// what kind of access is allowed
     pub permissions: Vec<PathPermission>,
@@ -110,7 +107,7 @@ impl FsPermissions {
 }
 
 /// Represents an access permission to a single path
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PathPermission {
     /// Permission level to access the `path`
     pub access: FsAccessPermission,
@@ -224,45 +221,6 @@ impl fmt::Display for FsAccessPermission {
             FsAccessPermission::None => f.write_str("none"),
             FsAccessPermission::Read => f.write_str("read"),
             FsAccessPermission::Write => f.write_str("write"),
-        }
-    }
-}
-
-impl Serialize for FsAccessPermission {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            FsAccessPermission::ReadWrite => serializer.serialize_bool(true),
-            FsAccessPermission::None => serializer.serialize_bool(false),
-            FsAccessPermission::Read => serializer.serialize_str("read"),
-            FsAccessPermission::Write => serializer.serialize_str("write"),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for FsAccessPermission {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Status {
-            Bool(bool),
-            String(String),
-        }
-        match Status::deserialize(deserializer)? {
-            Status::Bool(enabled) => {
-                let status = if enabled {
-                    FsAccessPermission::ReadWrite
-                } else {
-                    FsAccessPermission::None
-                };
-                Ok(status)
-            }
-            Status::String(val) => val.parse().map_err(serde::de::Error::custom),
         }
     }
 }

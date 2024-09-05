@@ -225,6 +225,7 @@ alloy-rlp = "0.3.3"
 
 ## misc
 arrayvec = "0.7"
+dunce = "1"
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = [
     "clock",

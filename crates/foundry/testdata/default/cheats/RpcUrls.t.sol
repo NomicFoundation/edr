@@ -18,30 +18,4 @@ contract RpcUrlTest is DSTest {
         vm._expectCheatcodeRevert("invalid rpc url: rpcUrlEnv");
         string memory url = vm.rpcUrl("rpcUrlEnv");
     }
-
-    // can set env and return correct url
-    function testCanSetAndGetURLAndAllUrls() public {
-        // this will fail because alias is not set
-        vm._expectCheatcodeRevert(
-            "Failed to resolve env var `RPC_ENV_ALIAS` in `${RPC_ENV_ALIAS}`: environment variable not found"
-        );
-        string[2][] memory _urls = vm.rpcUrls();
-
-        string memory url = vm.rpcUrl("rpcAlias");
-        vm.setEnv("RPC_ENV_ALIAS", url);
-        string memory envUrl = vm.rpcUrl("rpcEnvAlias");
-        assertEq(url, envUrl);
-
-        string[2][] memory allUrls = vm.rpcUrls();
-        assertEq(allUrls.length, 3);
-
-        string[2] memory val = allUrls[0];
-        assertEq(val[0], "rpcAlias");
-
-        string[2] memory env = allUrls[1];
-        assertEq(env[0], "rpcAliasSepolia");
-
-        string[2] memory env2 = allUrls[2];
-        assertEq(env2[0], "rpcEnvAlias");
-    }
 }
