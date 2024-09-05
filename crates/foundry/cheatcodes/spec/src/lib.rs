@@ -162,7 +162,6 @@ interface Vm {{
 
     #[test]
     fn iface_up_to_date() {
-        dbg!(&IFACE_PATH);
         ensure_file_contents(Path::new(IFACE_PATH), &sol_iface());
     }
 
