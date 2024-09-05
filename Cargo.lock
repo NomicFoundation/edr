@@ -2359,7 +2359,6 @@ version = "0.3.8"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-genesis",
- "alloy-json-abi",
  "alloy-primitives 0.7.7",
  "alloy-provider",
  "alloy-rpc-types",

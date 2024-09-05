@@ -11,7 +11,6 @@ use std::{
 };
 
 use alloy_dyn_abi::DynSolType;
-use alloy_json_abi::ContractObject;
 use alloy_primitives::{Bytes, U256};
 use alloy_sol_types::SolValue;
 use dialoguer::{Input, Password};
@@ -302,7 +301,7 @@ impl Cheatcode for getDeployedCodeCall {
     }
 }
 
-/// Returns the path to the json artifact depending on the input
+/// Returns the artifact code from known artifacts
 ///
 /// Can parse following input formats:
 /// - `path/to/artifact.json`
@@ -313,121 +312,91 @@ impl Cheatcode for getDeployedCodeCall {
 /// - `ContractName`
 /// - `ContractName:0.8.23`
 fn get_artifact_code(state: &Cheatcodes, path: &str, deployed: bool) -> Result<Bytes> {
-    let path = if path.ends_with(".json") {
-        PathBuf::from(path)
-    } else {
-        let mut parts = path.split(':');
+    let mut parts = path.split(':');
 
-        let mut file = None;
-        let mut contract_name = None;
-        let mut version = None;
+    let mut file = None;
+    let mut contract_name = None;
+    let mut version = None;
 
-        let path_or_name = parts.next().unwrap();
-        if path_or_name.ends_with(".sol") {
-            file = Some(PathBuf::from(path_or_name));
-            if let Some(name_or_version) = parts.next() {
-                if name_or_version.contains('.') {
-                    version = Some(name_or_version);
-                } else {
-                    contract_name = Some(name_or_version);
-                    version = parts.next();
-                }
-            }
-        } else {
-            contract_name = Some(path_or_name);
-            version = parts.next();
-        }
-
-        let version = if let Some(version) = version {
-            Some(Version::parse(version).map_err(|_err| fmt_err!("Error parsing version"))?)
-        } else {
-            None
-        };
-
-        // Use available artifacts list if present
-        if let Some(artifacts) = &state.config.available_artifacts {
-            let filtered = artifacts
-                .iter()
-                .filter(|(id, _)| {
-                    // name might be in the form of "Counter.0.8.23"
-                    let id_name = id.name.split('.').next().unwrap();
-
-                    if let Some(path) = &file {
-                        if !id.source.ends_with(path) {
-                            return false;
-                        }
-                    }
-                    if let Some(name) = contract_name {
-                        if id_name != name {
-                            return false;
-                        }
-                    }
-                    if let Some(ref version) = version {
-                        if id.version.minor != version.minor
-                            || id.version.major != version.major
-                            || id.version.patch != version.patch
-                        {
-                            return false;
-                        }
-                    }
-                    true
-                })
-                .collect::<Vec<_>>();
-
-            let artifact = match filtered.len() {
-                0 => Err(fmt_err!("No matching artifact found")),
-                1 => Ok(filtered[0]),
-                _ => {
-                    // If we know the current script/test contract solc version, try to filter by it
-                    state
-                        .config
-                        .running_version
-                        .as_ref()
-                        .and_then(|version| {
-                            let filtered = filtered
-                                .into_iter()
-                                .filter(|(id, _)| id.version == *version)
-                                .collect::<Vec<_>>();
-
-                            (filtered.len() == 1).then_some(filtered[0])
-                        })
-                        .ok_or_else(|| fmt_err!("Multiple matching artifacts found"))
-                }
-            }?;
-
-            let maybe_bytecode = if deployed {
-                artifact.1.deployed_bytecode.clone()
+    let path_or_name = parts.next().unwrap();
+    if path_or_name.ends_with(".sol") {
+        file = Some(PathBuf::from(path_or_name));
+        if let Some(name_or_version) = parts.next() {
+            if name_or_version.contains('.') {
+                version = Some(name_or_version);
             } else {
-                artifact.1.bytecode.clone()
-            };
-
-            return maybe_bytecode
-                .ok_or_else(|| fmt_err!("No bytecode for contract. Is it abstract or unlinked?"));
-        } else {
-            match (file.map(|f| f.to_string_lossy().to_string()), contract_name) {
-                (Some(file), Some(contract_name)) => {
-                    PathBuf::from(format!("{file}/{contract_name}.json"))
-                }
-                (None, Some(contract_name)) => {
-                    PathBuf::from(format!("{contract_name}.sol/{contract_name}.json"))
-                }
-                (Some(file), None) => {
-                    let name = file.replace(".sol", "");
-                    PathBuf::from(format!("{file}/{name}.json"))
-                }
-                _ => return Err(fmt_err!("Invalid artifact path")),
+                contract_name = Some(name_or_version);
+                version = parts.next();
             }
         }
+    } else {
+        contract_name = Some(path_or_name);
+        version = parts.next();
+    }
+
+    let version = if let Some(version) = version {
+        Some(Version::parse(version).map_err(|_err| fmt_err!("Error parsing version"))?)
+    } else {
+        None
     };
 
-    let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
-    let data = fs::read_to_string(path)?;
-    let artifact = serde_json::from_str::<ContractObject>(&data)?;
+    let filtered = state
+        .config
+        .available_artifacts
+        .iter()
+        .filter(|(id, _)| {
+            // name might be in the form of "Counter.0.8.23"
+            let id_name = id.name.split('.').next().unwrap();
+
+            if let Some(path) = &file {
+                if !id.source.ends_with(path) {
+                    return false;
+                }
+            }
+            if let Some(name) = contract_name {
+                if id_name != name {
+                    return false;
+                }
+            }
+            if let Some(ref version) = version {
+                if id.version.minor != version.minor
+                    || id.version.major != version.major
+                    || id.version.patch != version.patch
+                {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect::<Vec<_>>();
+
+    let artifact = match filtered.len() {
+        0 => Err(fmt_err!("No matching artifact found")),
+        1 => Ok(filtered[0]),
+        _ => {
+            // If we know the current script/test contract solc version, try to filter by it
+            state
+                .config
+                .running_version
+                .as_ref()
+                .and_then(|version| {
+                    let filtered = filtered
+                        .into_iter()
+                        .filter(|(id, _)| id.version == *version)
+                        .collect::<Vec<_>>();
+
+                    (filtered.len() == 1).then_some(filtered[0])
+                })
+                .ok_or_else(|| fmt_err!("Multiple matching artifacts found"))
+        }
+    }?;
+
     let maybe_bytecode = if deployed {
-        artifact.deployed_bytecode
+        artifact.1.deployed_bytecode.clone()
     } else {
-        artifact.bytecode
+        artifact.1.bytecode.clone()
     };
+
     maybe_bytecode.ok_or_else(|| fmt_err!("No bytecode for contract. Is it abstract or unlinked?"))
 }
 
@@ -605,6 +574,8 @@ fn prompt(
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+
+    use alloy_sol_types::private::alloy_json_abi::ContractObject;
 
     use super::*;
     use crate::CheatsConfig;

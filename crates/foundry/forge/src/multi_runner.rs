@@ -242,7 +242,7 @@ impl MultiContractRunner {
             self.project_root.clone(),
             (*self.cheats_config_options).clone(),
             self.evm_opts.clone(),
-            Some(self.known_contracts.clone()),
+            self.known_contracts.clone(),
             Some(artifact_id.version.clone()),
         );
 
