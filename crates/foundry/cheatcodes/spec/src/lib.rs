@@ -116,7 +116,7 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../assets/cheatcodes.schema.json"
     );
-    const IFACE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../testdata/cheats/Vm.sol");
+    const IFACE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../testdata/cheats/Vm.sol");
 
     /// Generates the `cheatcodes.json` file contents.
     fn json_cheatcodes() -> String {
@@ -162,6 +162,7 @@ interface Vm {{
 
     #[test]
     fn iface_up_to_date() {
+        dbg!(&IFACE_PATH);
         ensure_file_contents(Path::new(IFACE_PATH), &sol_iface());
     }
 
