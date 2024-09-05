@@ -1,5 +1,15 @@
 # @nomicfoundation/edr
 
+## 0.6.0
+
+### Minor Changes
+
+- a417e19: Renamed `json` field in response to `data` and changed its type to `string | object` (specified as `string | any` due to an napi-rs limitation).
+
+### Patch Changes
+
+- 2f1c189: Improved error message and added option to skip unsupported transaction type in `debug_traceTransaction`. Set `__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES=true` as an environment variable to enable this.
+
 ## 0.5.2
 
 ### Patch Changes
