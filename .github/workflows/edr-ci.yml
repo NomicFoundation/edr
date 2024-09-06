@@ -57,6 +57,10 @@ jobs:
         with:
           profile: minimal
           override: true
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
       - uses: Swatinem/rust-cache@v2
 
@@ -67,20 +71,22 @@ jobs:
             **/edr-cache
           key: edr-rs-rpc-cache-v1
 
-      - name: Build cargo tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --all-targets --all-features --no-run
-
-      - name: Run cargo test
+      - name: Run cargo tests (with coverage)
         uses: actions-rs/cargo@v1
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
           INFURA_URL: ${{ secrets.INFURA_URL }}
         with:
-          command: test
-          args: --workspace --all-targets --all-features
+          command: llvm-cov
+          args: --workspace --all-targets --all-features --codecov --output-path codecov.json
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: codecov.json
+          name: ${{ matrix.os }}
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Doctests
         uses: actions-rs/cargo@v1
