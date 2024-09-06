@@ -389,6 +389,8 @@ export interface SolidityTestRunnerConfigArgs {
   trace?: boolean
   /** Whether to collect debug info. Defaults to false. */
   debug?: boolean
+  /** Whether to support the `testFail` prefix. Defaults to false. */
+  testFail?: boolean
   /** Address labels for traces. Defaults to none. */
   labels?: Array<AddressLabel>
   /**
