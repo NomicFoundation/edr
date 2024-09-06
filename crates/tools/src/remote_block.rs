@@ -20,18 +20,16 @@ pub async fn replay(
     chain_type: SupportedChainTypes,
     url: String,
     block_number: Option<u64>,
-    chain_id: u64,
 ) -> anyhow::Result<()> {
     match chain_type {
         SupportedChainTypes::L1 => {
-            replay_chain_specific_block::<L1ChainSpec>("l1", url, block_number, chain_id).await
+            replay_chain_specific_block::<L1ChainSpec>("l1", url, block_number).await
         }
         SupportedChainTypes::Optimism => {
             replay_chain_specific_block::<OptimismChainSpec>(
                 "optimism",
                 url.replace("eth-", "opt-"),
                 block_number,
-                chain_id,
             )
             .await
         }
@@ -42,7 +40,6 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
     chain_type: &str,
     url: String,
     block_number: Option<u64>,
-    chain_id: u64,
 ) -> anyhow::Result<()>
 where
     ChainSpecT: Debug
@@ -68,5 +65,5 @@ where
     };
 
     println!("Testing block {block_number} for chain type {chain_type}");
-    run_full_block::<ChainSpecT>(url, block_number, chain_id).await
+    run_full_block::<ChainSpecT>(url, block_number).await
 }

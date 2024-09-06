@@ -46,7 +46,7 @@ enum Command {
     GenExecutionApi,
     /// Replays a block from a remote node and compares it to the mined block.
     ReplayBlock {
-        #[clap(long, value_enum)]
+        #[clap(long, short, value_enum)]
         chain_type: SupportedChainTypes,
         /// The URL of the remote node
         #[clap(long, short)]
@@ -54,9 +54,6 @@ enum Command {
         /// The block number to replay
         #[clap(long, short)]
         block_number: Option<u64>,
-        /// The chain ID
-        #[clap(long)]
-        chain_id: u64,
     },
     /// Execute a benchmark scenario and report statistics
     Scenario {
@@ -86,8 +83,7 @@ async fn main() -> anyhow::Result<()> {
             chain_type,
             url,
             block_number,
-            chain_id,
-        } => remote_block::replay(chain_type, url, block_number, chain_id).await,
+        } => remote_block::replay(chain_type, url, block_number).await,
         Command::Scenario { path, count } => scenario::execute(&path, count).await,
     }
 }

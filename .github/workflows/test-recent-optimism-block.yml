@@ -37,7 +37,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: replay-block
-          args: -u ${{ secrets.ALCHEMY_URL }} --chain-id 10 --chain-type optimism
+          args: -u ${{ secrets.ALCHEMY_URL }} -c optimism
 
       - name: Notify failures
         if: failure()
