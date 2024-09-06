@@ -43,12 +43,12 @@ pub trait ChainSpec:
     + RpcSpec<
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
           + TryInto<EthBlockData<Self>, Error = Self::RpcBlockConversionError>,
-        RpcTransaction: EthRpcTransaction
-          + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
-          + TryInto<<Self as revm::primitives::EvmWiring>::Transaction, Error = Self::RpcTransactionConversionError>,
         RpcReceipt: Debug
           + RpcTypeFrom<BlockReceipt<Self>, Hardfork = Self::Hardfork>
           + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
+        RpcTransaction: EthRpcTransaction
+          + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
+          + TryInto<<Self as revm::primitives::EvmWiring>::Transaction, Error = Self::RpcTransactionConversionError>,
     >
     + RpcSpec<ExecutionReceipt<FilterLog>: Debug>
     + RpcSpec<
