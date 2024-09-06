@@ -19,8 +19,8 @@ use foundry_evm::{
 use futures::StreamExt;
 
 use crate::{
-    result::SuiteResult, ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
-    TestFilter, TestOptions,
+    result::SuiteResult, runner::ContractRunnerOptions, ContractRunner, SolidityTestRunnerConfig,
+    SolidityTestRunnerConfigError, TestFilter, TestOptions,
 };
 
 #[derive(Debug, Clone)]
@@ -72,6 +72,8 @@ pub struct MultiContractRunner {
     trace: bool,
     /// Whether to collect debug info
     debug: bool,
+    /// Whether to support the `testFail` prefix
+    test_fail: bool,
     /// Settings related to fuzz and/or invariant tests
     test_options: TestOptions,
 }
@@ -96,6 +98,7 @@ impl MultiContractRunner {
             debug,
             trace,
             coverage,
+            test_fail,
             evm_opts,
             project_root,
             cheats_config_options,
@@ -126,6 +129,7 @@ impl MultiContractRunner {
             coverage,
             trace,
             debug,
+            test_fail,
             test_options,
         })
     }
@@ -270,10 +274,13 @@ impl MultiContractRunner {
             &identifier,
             executor,
             contract,
-            self.evm_opts.initial_balance,
-            self.evm_opts.sender,
             &self.revert_decoder,
-            self.debug,
+            ContractRunnerOptions {
+                initial_balance: self.evm_opts.initial_balance,
+                sender: self.evm_opts.sender,
+                debug: self.debug,
+                test_fail: self.test_fail,
+            },
         );
         let r = runner.run_tests(
             filter,

@@ -25,6 +25,8 @@ pub struct SolidityTestRunnerConfigArgs {
     pub trace: Option<bool>,
     /// Whether to collect debug info. Defaults to false.
     pub debug: Option<bool>,
+    /// Whether to support the `testFail` prefix. Defaults to false.
+    pub test_fail: Option<bool>,
     /// Address labels for traces. Defaults to none.
     pub labels: Option<Vec<AddressLabel>>,
     /// Whether to enable isolation of calls. In isolation mode all top-level
@@ -150,6 +152,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             fs_permissions,
             trace,
             debug,
+            test_fail,
             labels,
             isolate,
             ffi,
@@ -285,6 +288,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             trace: trace.unwrap_or_default(),
             // TODO
             coverage: false,
+            test_fail: test_fail.unwrap_or_default(),
             cheats_config_options,
             evm_opts,
             fuzz,
@@ -667,5 +671,49 @@ impl Debug for AddressLabel {
             .field("address", &hex::encode(&self.address))
             .field("label", &self.label)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fail_test_default() {
+        let config = SolidityTestRunnerConfigArgs {
+            project_root: "dummy-root".to_string(),
+            fs_permissions: None,
+            trace: None,
+            debug: None,
+            test_fail: None,
+            labels: None,
+            isolate: None,
+            ffi: None,
+            sender: None,
+            tx_origin: None,
+            initial_balance: None,
+            block_number: None,
+            chain_id: None,
+            gas_limit: None,
+            gas_price: None,
+            block_base_fee_per_gas: None,
+            block_coinbase: None,
+            block_timestamp: None,
+            block_difficulty: None,
+            block_gas_limit: None,
+            disable_block_gas_limit: None,
+            memory_limit: None,
+            eth_rpc_url: None,
+            fork_block_number: None,
+            rpc_endpoints: None,
+            rpc_cache_path: None,
+            rpc_storage_caching: None,
+            prompt_timeout: None,
+            fuzz: None,
+            invariant: None,
+        };
+
+        let config = SolidityTestRunnerConfig::try_from(config).expect("Failed to parse config");
+        assert!(!config.test_fail);
     }
 }
