@@ -1156,6 +1156,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_generic"
+version = "0.3.5"
+dependencies = [
+ "alloy-rlp",
+ "anyhow",
+ "edr_defaults",
+ "edr_eth",
+ "edr_evm",
+ "edr_rpc_eth",
+ "edr_test_utils",
+ "log",
+ "parking_lot 0.12.1",
+ "paste",
+ "revm",
+ "revm-primitives",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "edr_napi"
 version = "0.3.5"
 dependencies = [
