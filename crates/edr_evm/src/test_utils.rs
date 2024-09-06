@@ -162,9 +162,7 @@ pub async fn run_full_block<
     ChainSpecT: Debug
         + SyncChainSpec<
             Block: Default,
-            Hardfork: Debug + Send + Sync,
-            RpcBlockConversionError: Send + Sync,
-            RpcReceiptConversionError: Send + Sync,
+            Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,
             Transaction: Default
                              + TransactionValidation<
@@ -174,13 +172,13 @@ pub async fn run_full_block<
 >(
     url: String,
     block_number: u64,
-    chain_id: u64,
 ) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Handle::current();
 
     let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
-    let rpc_client = Arc::new(rpc_client);
+    let chain_id = rpc_client.chain_id().await?;
 
+    let rpc_client = Arc::new(rpc_client);
     let replay_block = {
         let block = rpc_client
             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(block_number))
@@ -376,7 +374,6 @@ pub async fn run_full_block<
 /// impl_full_block_tests! {
 ///     mainnet_byzantium => L1ChainSpec {
 ///         block_number: 4_370_001,
-///         chain_id: 1,
 ///         url: get_alchemy_url(),
 ///     },
 /// }
@@ -386,7 +383,6 @@ macro_rules! impl_full_block_tests {
     ($(
         $name:ident => $chain_spec:ident {
             block_number: $block_number:expr,
-            chain_id: $chain_id:expr,
             url: $url:expr,
         },
     )+) => {
@@ -397,7 +393,7 @@ macro_rules! impl_full_block_tests {
                 async fn [<full_block_ $name>]() -> anyhow::Result<()> {
                     let url = $url;
 
-                    $crate::test_utils::run_full_block::<$chain_spec>(url, $block_number, $chain_id).await
+                    $crate::test_utils::run_full_block::<$chain_spec>(url, $block_number).await
                 }
             }
         )+

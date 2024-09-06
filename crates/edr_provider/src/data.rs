@@ -4092,58 +4092,48 @@ mod tests {
         impl_full_block_tests! {
             mainnet_byzantium => L1ChainSpec {
                 block_number: 4_370_001,
-                chain_id: 1,
                 url: get_alchemy_url(),
             },
             mainnet_constantinople => L1ChainSpec {
                 block_number: 7_280_001,
-                chain_id: 1,
                 url: get_alchemy_url(),
             },
             mainnet_istanbul => L1ChainSpec {
                 block_number: 9_069_001,
-                chain_id: 1,
                 url: get_alchemy_url(),
             },
             mainnet_muir_glacier => L1ChainSpec {
                 block_number: 9_300_077,
-                chain_id: 1,
                 url: get_alchemy_url(),
             },
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,
-                chain_id: 1,
                 url: get_alchemy_url(),
             },
             // This block contains a sequence of transaction that first raise
             // an empty account's balance and then decrease it
             mainnet_19318016 => L1ChainSpec {
                 block_number: 19_318_016,
-                chain_id: 1,
                 url: get_alchemy_url(),
             },
             // This block has both EIP-2930 and EIP-1559 transactions
             sepolia_eip_1559_2930 => L1ChainSpec {
                 block_number: 5_632_795,
-                chain_id: 11_155_111,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
             },
             sepolia_shanghai => L1ChainSpec {
                 block_number: 3_095_000,
-                chain_id: 11_155_111,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
             },
             // This block has an EIP-4844 transaction
             mainnet_cancun => L1ChainSpec {
                 block_number: 19_529_021,
-                chain_id: 1,
                 url: get_alchemy_url(),
             },
             // This block contains a transaction that uses the KZG point evaluation
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
-                chain_id: 1,
                 url: get_alchemy_url(),
             },
         }
