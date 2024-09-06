@@ -52,7 +52,7 @@
     "build:debug": "napi build --platform",
     "build:tracing": "napi build --platform --release --features tracing",
     "build:scenarios": "napi build --platform --release --features scenarios",
-    "prepublishOnly": "bash scripts/prepublish.sh",
+    "prepublishOnly": "bash ../../scripts/prepublish.sh",
     "universal": "napi universal",
     "version": "napi version",
     "pretest": "pnpm build",
