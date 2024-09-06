@@ -1,110 +1,88 @@
-use core::num::NonZeroU64;
-use std::{path::PathBuf, time::SystemTime};
+mod builder;
+mod config;
+mod factory;
 
-use edr_eth::{block::BlobGas, AccountInfo, Address, ChainId, HashMap, B256, U256};
-use edr_provider::{
-    hardfork::{Activations, ForkCondition},
-    hardhat_rpc_types::ForkConfig,
-    spec::ChainSpec,
-    AccountConfig, MiningConfig,
+use std::{str::FromStr as _, sync::Arc};
+
+use edr_generic::GenericChainSpec;
+use edr_provider::{InvalidRequestReason, SyncCallOverride};
+use edr_rpc_client::jsonrpc;
+
+pub use self::{
+    builder::{Builder, ProviderBuilder},
+    config::{Config, HardforkActivation},
+    factory::SyncProviderFactory,
 };
-use serde::{Deserialize, Serialize};
+use crate::spec::{Response, SyncNapiSpec};
 
-/// Chain-agnostic configuration for a hardfork activation.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct HardforkActivation {
-    pub block_number: u64,
-    pub hardfork: String,
+/// Trait for a synchronous N-API provider that can be used for dynamic trait
+/// objects.
+pub trait SyncProvider: Send + Sync {
+    /// Blocking method to handle a request.
+    fn handle_request(&self, request: String) -> napi::Result<Response<GenericChainSpec>>;
+
+    /// Set to `true` to make the traces returned with `eth_call`,
+    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
+    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
+    /// `false` to disable this.
+    fn set_call_override_callback(&self, call_override_callback: Arc<dyn SyncCallOverride>);
+
+    /// Set the verbose tracing flag to the provided value.
+    fn set_verbose_tracing(&self, enabled: bool);
 }
 
-/// Chain-agnostic configuration for a provider.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Config {
-    pub allow_blocks_with_same_timestamp: bool,
-    pub allow_unlimited_contract_size: bool,
-    pub accounts: Vec<AccountConfig>,
-    /// Whether to return an `Err` when `eth_call` fails
-    pub bail_on_call_failure: bool,
-    /// Whether to return an `Err` when a `eth_sendTransaction` fails
-    pub bail_on_transaction_failure: bool,
-    pub block_gas_limit: NonZeroU64,
-    pub cache_dir: Option<String>,
-    pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
-    pub coinbase: Address,
-    #[serde(default)]
-    pub enable_rip_7212: bool,
-    pub fork: Option<ForkConfig>,
-    // Genesis accounts in addition to accounts. Useful for adding impersonated accounts for tests.
-    pub genesis_accounts: HashMap<Address, AccountInfo>,
-    pub hardfork: String,
-    pub initial_base_fee_per_gas: Option<U256>,
-    pub initial_blob_gas: Option<BlobGas>,
-    pub initial_date: Option<SystemTime>,
-    pub initial_parent_beacon_block_root: Option<B256>,
-    pub min_gas_price: U256,
-    pub mining: MiningConfig,
-    pub network_id: u64,
-}
+impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpecT> {
+    fn handle_request(&self, request: String) -> napi::Result<Response<GenericChainSpec>> {
+        let request = match serde_json::from_str(&request) {
+            Ok(request) => request,
+            Err(error) => {
+                let message = error.to_string();
 
-impl<ChainSpecT> From<Config> for edr_provider::ProviderConfig<ChainSpecT>
-where
-    ChainSpecT: ChainSpec<Hardfork: for<'s> From<&'s str>>,
-{
-    fn from(value: Config) -> Self {
-        let cache_dir = PathBuf::from(
-            value
-                .cache_dir
-                .unwrap_or(String::from(edr_defaults::CACHE_DIR)),
-        );
+                let request = serde_json::Value::from_str(&request).ok();
+                let method_name = request
+                    .as_ref()
+                    .and_then(|request| request.get("method"))
+                    .and_then(serde_json::Value::as_str);
 
-        let chains = value
-            .chains
-            .into_iter()
-            .map(|(chain_id, activations)| {
-                let activations = activations
-                    .into_iter()
-                    .map(
-                        |HardforkActivation {
-                             block_number,
-                             hardfork,
-                         }| {
-                            let condition = ForkCondition::Block(block_number);
-                            let hardfork = ChainSpecT::Hardfork::from(&hardfork);
+                let reason = InvalidRequestReason::new(method_name, &message);
 
-                            (condition, hardfork)
-                        },
-                    )
-                    .collect();
+                // HACK: We need to log failed deserialization attempts when they concern input
+                // validation.
+                if let Some((method_name, provider_error)) = reason.provider_error() {
+                    // Ignore potential failure of logging, as returning the original error is more
+                    // important
+                    let _result = self.log_failed_deserialization(method_name, &provider_error);
+                }
 
-                (chain_id, Activations::new(activations))
-            })
-            .collect();
+                let response = jsonrpc::ResponseData::<()>::Error {
+                    error: jsonrpc::Error {
+                        code: reason.error_code(),
+                        message: reason.error_message(),
+                        data: request,
+                    },
+                };
 
-        let hardfork = ChainSpecT::Hardfork::from(&value.hardfork);
+                return serde_json::to_string(&response)
+                    .map_err(|error| {
+                        napi::Error::new(
+                            napi::Status::Unknown,
+                            format!("Failed to serialize response due to: {error}"),
+                        )
+                    })
+                    .map(Response::from);
+            }
+        };
 
-        Self {
-            allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
-            allow_unlimited_contract_size: value.allow_unlimited_contract_size,
-            accounts: value.accounts,
-            bail_on_call_failure: value.bail_on_call_failure,
-            bail_on_transaction_failure: value.bail_on_transaction_failure,
-            block_gas_limit: value.block_gas_limit,
-            cache_dir,
-            chain_id: value.chain_id,
-            chains,
-            coinbase: value.coinbase,
-            enable_rip_7212: value.enable_rip_7212,
-            fork: value.fork,
-            genesis_accounts: value.genesis_accounts,
-            hardfork,
-            initial_base_fee_per_gas: value.initial_base_fee_per_gas,
-            initial_blob_gas: value.initial_blob_gas,
-            initial_date: value.initial_date,
-            initial_parent_beacon_block_root: value.initial_parent_beacon_block_root,
-            min_gas_price: value.min_gas_price,
-            mining: value.mining,
-            network_id: value.network_id,
-        }
+        let response = edr_provider::Provider::handle_request(self, request);
+
+        ChainSpecT::cast_response(response)
+    }
+
+    fn set_call_override_callback(&self, call_override_callback: Arc<dyn SyncCallOverride>) {
+        self.set_call_override_callback(Some(call_override_callback));
+    }
+
+    fn set_verbose_tracing(&self, enabled: bool) {
+        self.set_verbose_tracing(enabled);
     }
 }

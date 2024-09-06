@@ -62,6 +62,45 @@ importers:
         specifier: ~4.5.2
         version: 4.5.5
 
+  crates/edr_napi_optimism:
+    devDependencies:
+      '@napi-rs/cli':
+        specifier: ^2.18.1
+        version: 2.18.1
+      '@nomicfoundation/edr':
+        specifier: workspace:^
+        version: link:../edr_napi
+      '@nomicfoundation/ethereumjs-util':
+        specifier: ^9.0.4
+        version: 9.0.4
+      '@types/chai':
+        specifier: ^4.2.0
+        version: 4.3.12
+      '@types/chai-as-promised':
+        specifier: ^7.1.8
+        version: 7.1.8
+      '@types/mocha':
+        specifier: '>=9.1.0'
+        version: 10.0.6
+      '@types/node':
+        specifier: ^18.0.0
+        version: 18.15.13
+      chai:
+        specifier: ^4.3.6
+        version: 4.4.1
+      chai-as-promised:
+        specifier: ^7.1.1
+        version: 7.1.1(chai@4.4.1)
+      mocha:
+        specifier: ^10.0.0
+        version: 10.3.0
+      ts-node:
+        specifier: ^10.8.0
+        version: 10.9.2(@types/node@18.15.13)(typescript@4.5.5)
+      typescript:
+        specifier: ~4.5.2
+        version: 4.5.5
+
   crates/tools/js/benchmark:
     devDependencies:
       argparse:

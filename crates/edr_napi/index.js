@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { MineOrdering, EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, ProviderFactory, Provider, SuccessReason, ExceptionalHalt, Response, RawTrace } = nativeBinding
+const { MineOrdering, EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, RawTrace } = nativeBinding
 
 module.exports.MineOrdering = MineOrdering
 module.exports.EdrContext = EdrContext
@@ -341,8 +341,8 @@ module.exports.PRAGUE = PRAGUE
 module.exports.PRAGUE_EOF = PRAGUE_EOF
 module.exports.LATEST = LATEST
 module.exports.ProviderFactory = ProviderFactory
+module.exports.Response = Response
 module.exports.Provider = Provider
 module.exports.SuccessReason = SuccessReason
 module.exports.ExceptionalHalt = ExceptionalHalt
-module.exports.Response = Response
 module.exports.RawTrace = RawTrace

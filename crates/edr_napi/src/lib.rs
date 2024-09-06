@@ -32,8 +32,6 @@ pub mod result;
 /// Types relating to benchmark scenarios.
 #[cfg(feature = "scenarios")]
 pub mod scenarios;
-/// Types for N-API-related chain specification.
-pub mod spec;
 /// Types for subscribing to events.
 pub mod subscription;
 /// Types for EVM traces.

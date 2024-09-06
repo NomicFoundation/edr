@@ -12,8 +12,13 @@ use edr_evm::{
     transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };
+use edr_generic::GenericChainSpec;
+use edr_napi_core::{
+    napi,
+    spec::{marshal_response_data, Response, SyncNapiSpec},
+};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
-use edr_rpc_eth::spec::RpcSpec;
+use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
 use revm::{
     handler::register::HandleRegisters,
     optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId},
@@ -141,6 +146,22 @@ impl EthHeaderConstants for OptimismChainSpec {
         ]));
 
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
+}
+
+impl SyncNapiSpec for OptimismChainSpec {
+    const CHAIN_TYPE: &'static str = "Optimism";
+
+    fn cast_response(
+        response: Result<edr_provider::ResponseWithTraces<Self>, edr_provider::ProviderError<Self>>,
+    ) -> napi::Result<edr_napi_core::spec::Response<GenericChainSpec>> {
+        let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
+
+        marshal_response_data(response).map(|data| Response {
+            solidity_trace: None,
+            data,
+            traces: Vec::new(),
+        })
+    }
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OptimismChainSpec {

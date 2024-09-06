@@ -35,8 +35,8 @@ pub use self::{
     data::{CallResult, ProviderData},
     debug_mine::DebugMineBlockResult,
     error::{EstimateGasFailure, ProviderError, TransactionFailure, TransactionFailureReason},
-    logger::{Logger, NoopLogger},
-    mock::CallOverrideResult,
+    logger::{Logger, NoopLogger, SyncLogger},
+    mock::{CallOverrideResult, SyncCallOverride},
     provider::Provider,
     requests::{
         hardhat::rpc_types as hardhat_rpc_types, IntervalConfig as IntervalConfigRequest,
