@@ -26,40 +26,34 @@ use crate::{
 #[allow(clippy::trait_duplication_in_bounds)]
 pub trait ChainSpec:
     alloy_rlp::Encodable
+    // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
     + EvmWiring<
         Block: BlockEnvConstructor<Self, block::Header> + BlockEnvConstructor<Self, PartialHeader>,
         Transaction: alloy_rlp::Encodable
-                         + Clone
-                         + Debug
-                         + PartialEq
-                         + Eq
-                         + ExecutableTransaction
-                         + Transaction
-                         + TransactionType
-                         + TryFrom<
-            <Self as RpcSpec>::RpcTransaction,
-            Error = Self::RpcTransactionConversionError,
-        >,
-    > + RpcSpec<
-        ExecutionReceipt<FilterLog>: Debug,
+          + Clone
+          + Debug
+          + PartialEq
+          + Eq
+          + ExecutableTransaction
+          + Transaction
+          + TransactionType,
+    >
+    // Defines an RPC spec and conversion between RPC <-> EVM types
+    + RpcSpec<
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
-                                                         + TryInto<
-            EthBlockData<Self>,
-            Error = Self::RpcBlockConversionError,
-        >,
+          + TryInto<EthBlockData<Self>, Error = Self::RpcBlockConversionError>,
         RpcReceipt: Debug
-                        + RpcTypeFrom<BlockReceipt<Self>, Hardfork = Self::Hardfork>
-                        + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
+          + RpcTypeFrom<BlockReceipt<Self>, Hardfork = Self::Hardfork>
+          + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
         RpcTransaction: EthRpcTransaction
-                            + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>,
-    > + RpcSpec<
+          + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
+          + TryInto<<Self as revm::primitives::EvmWiring>::Transaction, Error = Self::RpcTransactionConversionError>,
+    >
+    + RpcSpec<ExecutionReceipt<FilterLog>: Debug>
+    + RpcSpec<
         ExecutionReceipt<ExecutionLog>: alloy_rlp::Encodable
-                                            + MapReceiptLogs<
-            ExecutionLog,
-            FilterLog,
-            Self::ExecutionReceipt<FilterLog>,
-        >,
+          + MapReceiptLogs<ExecutionLog, FilterLog, Self::ExecutionReceipt<FilterLog>>,
         RpcBlock<B256>: EthRpcBlock,
     >
 {
@@ -96,7 +90,7 @@ pub trait ChainSpec:
     fn chain_name(chain_id: u64) -> Option<&'static str>;
 }
 
-/// A trait for constructing a block a [`PartialHeader`] into an EVM block.
+/// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<ChainSpecT: ChainSpec, HeaderT> {
     /// Converts the instance into an EVM block.
     fn new_block_env(header: &HeaderT, hardfork: ChainSpecT::Hardfork) -> Self;

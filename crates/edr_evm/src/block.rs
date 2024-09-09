@@ -135,8 +135,8 @@ impl<ChainSpecT: ChainSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransactio
         let transactions = value
             .transactions
             .into_iter()
-            .map(ChainSpecT::Transaction::try_from)
-            .collect::<Result<Vec<_>, _>>()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<ChainSpecT::Transaction>, _>>()
             .map_err(RemoteBlockConversionError::TransactionConversionError)?;
 
         let hash = value.hash.ok_or(RemoteBlockConversionError::MissingHash)?;
