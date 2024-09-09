@@ -1,43 +1,16 @@
-import type {
-  Artifact,
-  ArtifactId,
-  SolidityTestRunnerConfigArgs,
-} from "@nomicfoundation/edr";
-import {
-  buildSolidityTestsInput,
-  runAllSolidityTests,
-} from "@nomicfoundation/edr-helpers";
 import { assert } from "chai";
-import hre from "hardhat";
+import { TestContext } from "./testContext";
 
 describe("Unit tests", () => {
-  const alchemyUrl = process.env.ALCHEMY_URL;
-  const rpcCachePath = "./edr-cache";
-  let artifacts: Artifact[], testSuiteIds: ArtifactId[];
+  let testContext: TestContext;
 
   before(async () => {
-    const results = await buildSolidityTestsInput(hre.artifacts);
-    artifacts = results.artifacts;
-    testSuiteIds = results.testSuiteIds;
+    testContext = await TestContext.setup();
   });
 
-  function matchingTest(contractName: string): ArtifactId[] {
-    return matchingTests(new Set([contractName]));
-  }
-
-  function matchingTests(testContractNames: Set<string>): ArtifactId[] {
-    return testSuiteIds.filter((testSuiteId) => {
-      return testContractNames.has(testSuiteId.name);
-    });
-  }
-
   it("SuccessAndFailure", async function () {
-    const { totalTests, failedTests } = await runTestsWithStats(
-      artifacts,
-      matchingTest("SuccessAndFailureTest"),
-      {
-        projectRoot: hre.config.paths.root,
-      }
+    const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      "SuccessAndFailureTest"
     );
 
     assert.equal(failedTests, 1);
@@ -45,11 +18,9 @@ describe("Unit tests", () => {
   });
 
   it("ContractEnvironment", async function () {
-    const { totalTests, failedTests } = await runTestsWithStats(
-      artifacts,
-      matchingTest("ContractEnvironmentTest"),
+    const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      "ContractEnvironmentTest",
       {
-        projectRoot: hre.config.paths.root,
         sender: Buffer.from("976EA74026E726554dB657fA54763abd0C3a0aa9", "hex"),
         chainId: 12n,
         blockNumber: 23n,
@@ -61,18 +32,27 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
   });
 
+  it("LastCallGasIsolated", async function () {
+    const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      "LastCallGasIsolatedTest",
+      {
+        isolate: true,
+      }
+    );
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 4);
+  });
+
   it("GlobalFork", async function () {
-    if (alchemyUrl === undefined) {
+    if (testContext.rpcUrl === undefined) {
       this.skip();
     }
 
-    const { totalTests, failedTests } = await runTestsWithStats(
-      artifacts,
-      matchingTest("GlobalForkTest"),
+    const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      "GlobalForkTest",
       {
-        projectRoot: hre.config.paths.root,
-        rpcCachePath,
-        ethRpcUrl: alchemyUrl,
+        ethRpcUrl: testContext.rpcUrl,
         forkBlockNumber: 20_000_000n,
       }
     );
@@ -82,18 +62,15 @@ describe("Unit tests", () => {
   });
 
   it("ForkCheatcode", async function () {
-    if (alchemyUrl === undefined) {
+    if (testContext.rpcUrl === undefined) {
       this.skip();
     }
 
-    const { totalTests, failedTests } = await runTestsWithStats(
-      artifacts,
-      matchingTest("ForkCheatcodeTest"),
+    const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      "ForkCheatcodeTest",
       {
-        projectRoot: hre.config.paths.root,
-        rpcCachePath,
         rpcEndpoints: {
-          alchemyMainnet: alchemyUrl,
+          alchemyMainnet: testContext.rpcUrl,
         },
       }
     );
@@ -102,34 +79,3 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
   });
 });
-
-interface SolidityTestsRunResult {
-  totalTests: number;
-  failedTests: number;
-}
-
-async function runTestsWithStats(
-  artifacts: Artifact[],
-  testSuiteIds: ArtifactId[],
-  config: SolidityTestRunnerConfigArgs
-): Promise<SolidityTestsRunResult> {
-  let totalTests = 0;
-  let failedTests = 0;
-
-  const suiteResults = await runAllSolidityTests(
-    artifacts,
-    testSuiteIds,
-    config
-  );
-
-  for (const suiteResult of suiteResults) {
-    for (const testResult of suiteResult.testResults) {
-      let failed = testResult.status === "Failure";
-      totalTests++;
-      if (failed) {
-        failedTests++;
-      }
-    }
-  }
-  return { totalTests, failedTests };
-}
