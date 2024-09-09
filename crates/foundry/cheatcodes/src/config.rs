@@ -48,10 +48,8 @@ pub struct CheatsConfig {
     pub evm_opts: EvmOpts,
     /// Address labels from config
     pub labels: HashMap<Address, String>,
-    /// Artifacts which are guaranteed to be fresh (either recompiled or
-    /// cached). If Some, `vm.getDeployedCode` invocations are validated to
-    /// be in scope of this list. If None, no validation is performed.
-    pub available_artifacts: Option<Arc<ContractsByArtifact>>,
+    /// Solidity compilation artifacts.
+    pub available_artifacts: Arc<ContractsByArtifact>,
     /// Version of the script/test contract which is currently running.
     pub running_version: Option<Version>,
 }
@@ -69,10 +67,6 @@ pub struct CheatsConfigOptions {
     /// RPC storage caching settings determines what chains and endpoints to
     /// cache
     pub rpc_storage_caching: StorageCachingConfig,
-    /// Whether to enable safety checks for `vm.getCode` and
-    /// `vm.getDeployedCode` invocations. If disabled, it is possible to
-    /// access artifacts which were not recompiled or cached.
-    pub unchecked_cheatcode_artifacts: bool,
     /// Configures the permissions of cheat codes that touch the file system.
     ///
     /// This includes what operations can be executed (read, write)
@@ -89,25 +83,17 @@ impl CheatsConfig {
         project_root: PathBuf,
         config: CheatsConfigOptions,
         evm_opts: EvmOpts,
-        available_artifacts: Option<Arc<ContractsByArtifact>>,
+        available_artifacts: Arc<ContractsByArtifact>,
         running_version: Option<Version>,
     ) -> Self {
         let CheatsConfigOptions {
             rpc_endpoints,
             rpc_cache_path,
-            unchecked_cheatcode_artifacts,
             prompt_timeout,
             rpc_storage_caching,
             fs_permissions,
             labels,
         } = config;
-
-        // If user explicitly disabled safety checks, do not set available_artifacts
-        let available_artifacts = if unchecked_cheatcode_artifacts {
-            None
-        } else {
-            available_artifacts
-        };
 
         let fs_permissions = fs_permissions.joined(&project_root);
 
@@ -266,7 +252,7 @@ impl Default for CheatsConfig {
             project_root: PathBuf::default(),
             evm_opts: EvmOpts::default(),
             labels: HashMap::default(),
-            available_artifacts: Option::default(),
+            available_artifacts: Arc::<ContractsByArtifact>::default(),
             running_version: Option::default(),
         }
     }
@@ -283,7 +269,6 @@ mod tests {
             rpc_endpoints: RpcEndpoints::default(),
             rpc_cache_path: None,
             rpc_storage_caching: StorageCachingConfig::default(),
-            unchecked_cheatcode_artifacts: false,
             fs_permissions,
             prompt_timeout: 0,
             labels: HashMap::default(),
@@ -293,7 +278,7 @@ mod tests {
             PathBuf::from(root),
             cheats_config_options,
             EvmOpts::default(),
-            None,
+            Arc::<ContractsByArtifact>::default(),
             None,
         )
     }

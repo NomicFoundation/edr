@@ -201,7 +201,6 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
                 .map(TryFrom::try_from)
                 .transpose()?
                 .unwrap_or_default(),
-            unchecked_cheatcode_artifacts: false,
             fs_permissions: FsPermissions::new(
                 fs_permissions
                     .unwrap_or_default()

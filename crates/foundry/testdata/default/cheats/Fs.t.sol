@@ -177,7 +177,7 @@ contract FsTest is DSTest {
     }
 
     function testCreateRemoveDir() public {
-        string memory path = "fixtures/Dir/remove_dir";
+        string memory path = "fixtures/CreateRemoveDir/remove_dir";
         string memory child = string.concat(path, "/child");
 
         vm.createDir(path, false);
