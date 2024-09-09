@@ -1,3 +1,10 @@
+// In contrast to the functions in the `#[napi] impl XYZ` block,
+// the free functions `#[napi] pub fn` are exported by napi-rs but
+// are considered dead code in the (lib test) target.
+// For now, we silence the relevant warnings, as we need to mimick
+// the original API while we rewrite the stack trace refinement to Rust.
+#![cfg_attr(test, allow(dead_code))]
+
 use std::sync::Arc;
 
 use edr_evm::{interpreter::OpCode, trace::BeforeMessage};
@@ -8,6 +15,21 @@ use napi::{
 use napi_derive::napi;
 
 use crate::result::ExecutionResult;
+
+mod compiler;
+mod library_utils;
+mod model;
+
+mod debug;
+mod error_inferrer;
+mod exit;
+mod mapped_inlined_internal_functions_heuristics;
+mod message_trace;
+mod return_data;
+mod solidity_stack_trace;
+mod solidity_tracer;
+mod vm_trace_decoder;
+mod vm_tracer;
 
 #[napi(object)]
 pub struct TracingMessage {
@@ -151,7 +173,7 @@ pub struct TracingMessageResult {
 
 #[napi]
 pub struct RawTrace {
-    inner: Arc<edr_evm::trace::Trace>,
+    pub(crate) inner: Arc<edr_evm::trace::Trace>,
 }
 
 impl RawTrace {
