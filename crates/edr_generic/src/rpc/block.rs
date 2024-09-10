@@ -5,17 +5,15 @@ use edr_eth::{
     Address, Bloom, Bytes, B256, B64, U256,
 };
 use edr_evm::{chain_spec::ChainSpec, EthBlockData, EthRpcBlock};
-use edr_rpc_eth::{spec::GetBlockNumber, RpcSpec};
+use edr_rpc_eth::spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 
 use crate::GenericChainSpec;
 
-type Transaction = <GenericChainSpec as RpcSpec>::RpcTransaction;
-
 /// block object returned by `eth_getBlockBy*`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Block {
+pub struct Block<TransactionT> {
     /// Hash of the block
     pub hash: Option<B256>,
     /// hash of the parent block.
@@ -54,7 +52,7 @@ pub struct Block {
     /// Array of transaction objects, or 32 Bytes transaction hashes depending
     /// on the last given parameter
     #[serde(default)]
-    pub transactions: Vec<Transaction>,
+    pub transactions: Vec<TransactionT>,
     /// the length of the RLP encoding of this block in bytes
     #[serde(with = "edr_eth::serde::u64")]
     pub size: u64,
@@ -94,13 +92,13 @@ pub struct Block {
     pub parent_beacon_block_root: Option<B256>,
 }
 
-impl GetBlockNumber for Block {
+impl<T> GetBlockNumber for Block<T> {
     fn number(&self) -> Option<u64> {
         self.number
     }
 }
 
-impl EthRpcBlock for Block {
+impl<T> EthRpcBlock for Block<T> {
     fn state_root(&self) -> &B256 {
         &self.state_root
     }
@@ -134,10 +132,16 @@ pub enum ConversionError<ChainSpecT: ChainSpec> {
     Transaction(ChainSpecT::RpcTransactionConversionError),
 }
 
-impl TryFrom<Block> for EthBlockData<GenericChainSpec> {
+impl<TransactionT> TryFrom<Block<TransactionT>> for EthBlockData<GenericChainSpec>
+where
+    TransactionT: TryInto<
+        crate::transaction::SignedFallbackToPostEip155,
+        Error = crate::rpc::transaction::ConversionError,
+    >,
+{
     type Error = ConversionError<GenericChainSpec>;
 
-    fn try_from(value: Block) -> Result<Self, Self::Error> {
+    fn try_from(value: Block<TransactionT>) -> Result<Self, Self::Error> {
         let header = Header {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,
@@ -195,7 +199,7 @@ mod tests {
     use edr_rpc_client::jsonrpc;
     use edr_rpc_eth::client::EthRpcClient;
 
-    use crate::GenericChainSpec;
+    use crate::{rpc::transaction::TransactionWithSignature, GenericChainSpec};
 
     #[tokio::test(flavor = "current_thread")]
     async fn test_allow_missing_nonce_or_mix_hash() {
@@ -228,7 +232,8 @@ mod tests {
           "id": 1
         }"#;
 
-        type BlockResponsePayload = <GenericChainSpec as edr_rpc_eth::RpcSpec>::RpcBlock<()>;
+        type BlockResponsePayload =
+            <GenericChainSpec as edr_rpc_eth::RpcSpec>::RpcBlock<TransactionWithSignature>;
 
         let response: jsonrpc::Response<BlockResponsePayload> = serde_json::from_str(DATA).unwrap();
         let rpc_block = match response.data {

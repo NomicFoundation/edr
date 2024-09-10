@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::GenericChainSpec;
 
+pub use edr_rpc_eth::TransactionConversionError as ConversionError;
+
 // We need to use a newtype here as `RpcTypeFrom` cannot be implemented here,
 // in an external crate, even though `TransactionAndBlock` is generic over
 // a type that we introduced.

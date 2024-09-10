@@ -9,7 +9,7 @@ pub mod transaction;
 
 impl RpcSpec for GenericChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<edr_eth::receipt::Execution<Log>>;
-    type RpcBlock<Data> = self::block::Block where Data: Default + DeserializeOwned + Serialize;
+    type RpcBlock<Data> = self::block::Block<Data> where Data: Default + DeserializeOwned + Serialize;
     type RpcCallRequest = edr_rpc_eth::CallRequest;
     type RpcReceipt = self::receipt::BlockReceipt;
     type RpcTransaction = self::transaction::TransactionWithSignature;
