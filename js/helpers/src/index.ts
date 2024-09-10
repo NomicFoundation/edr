@@ -34,7 +34,7 @@ export async function runAllSolidityTests(
         }
 
         resultsFromCallback.push(suiteResult);
-        if (resultsFromCallback.length === artifacts.length) {
+        if (resultsFromCallback.length === testSuites.length) {
           resolve(resultsFromCallback);
         }
       },
