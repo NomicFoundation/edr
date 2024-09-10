@@ -11,9 +11,8 @@ use std::{marker::PhantomData, sync::Arc};
 use edr_eth::{receipt::BlockReceipt, transaction::Transaction, B256, U256};
 use revm::primitives::HashMap;
 
-use crate::{chain_spec::ChainSpec, Block, LocalBlock};
-
 use super::InsertError;
+use crate::{chain_spec::ChainSpec, Block, LocalBlock};
 
 /// A storage solution for storing a Blockchain's blocks contiguously in-memory.
 #[derive(Clone, Default, Debug)]
@@ -45,12 +44,14 @@ where
         self.hash_to_block.get(hash)
     }
 
-    /// Retrieves the block that contains the transaction with the provided hash, if it exists.
+    /// Retrieves the block that contains the transaction with the provided
+    /// hash, if it exists.
     pub fn block_by_transaction_hash(&self, transaction_hash: &B256) -> Option<&BlockT> {
         self.transaction_hash_to_block.get(transaction_hash)
     }
 
-    /// Retrieves the receipt of the transaction with the provided hash, if it exists.
+    /// Retrieves the receipt of the transaction with the provided hash, if it
+    /// exists.
     pub fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
@@ -58,7 +59,8 @@ where
         self.transaction_hash_to_receipt.get(transaction_hash)
     }
 
-    /// Reverts to the block with the provided number, deleting all later blocks.
+    /// Reverts to the block with the provided number, deleting all later
+    /// blocks.
     pub fn revert_to_block(&mut self, block_number: &U256) -> bool {
         let block_number = usize::try_from(block_number)
             .expect("No blocks with a number larger than usize::MAX are inserted");
@@ -162,8 +164,8 @@ where
     ) -> Result<&BlockT, InsertError> {
         let block_hash = block.hash();
 
-        // As blocks are contiguous, we are guaranteed that the block number won't exist if its
-        // hash is not present.
+        // As blocks are contiguous, we are guaranteed that the block number won't exist
+        // if its hash is not present.
         if self.hash_to_block.contains_key(block_hash) {
             return Err(InsertError::DuplicateBlock {
                 block_hash: *block_hash,
@@ -188,8 +190,8 @@ where
     ///
     /// # Safety
     ///
-    /// Ensure that the instance does not contain a block with the same hash, nor
-    /// any transactions with the same hash.
+    /// Ensure that the instance does not contain a block with the same hash,
+    /// nor any transactions with the same hash.
     pub unsafe fn insert_block_unchecked(
         &mut self,
         block: LocalBlock<ChainSpecT>,
