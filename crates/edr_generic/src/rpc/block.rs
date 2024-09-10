@@ -4,10 +4,8 @@ use edr_eth::{
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
-use edr_evm::chain_spec::ChainSpec;
-use edr_evm::{EthBlockData, EthRpcBlock};
+use edr_evm::{chain_spec::ChainSpec, EthBlockData, EthRpcBlock};
 use edr_rpc_eth::{spec::GetBlockNumber, RpcSpec};
-
 use serde::{Deserialize, Serialize};
 
 use crate::GenericChainSpec;
