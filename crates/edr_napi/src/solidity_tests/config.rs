@@ -182,7 +182,8 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
 
         let invariant: InvariantConfig = fuzz
             .as_ref()
-            .map(|f| invariant.unwrap_or_default().defaults_from_fuzz(f))
+            .map(|f| invariant.clone().unwrap_or_default().defaults_from_fuzz(f))
+            .or(invariant)
             .map(TryFrom::try_from)
             .transpose()?
             .unwrap_or_default();
@@ -301,8 +302,8 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
 #[napi(object)]
 #[derive(Clone, Default, Debug)]
 pub struct FuzzConfigArgs {
-    /// Path where fuzz failures are recorded and replayed.
-    pub failure_persist_dir: String,
+    /// Path where fuzz failures are recorded and replayed if set.
+    pub failure_persist_dir: Option<String>,
     /// Name of the file to record fuzz failures, defaults to `failures`.
     pub failure_persist_file: Option<String>,
     /// The amount of fuzz runs to perform for each fuzz test case. Higher
@@ -348,8 +349,8 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             include_push_bytes,
         } = value;
 
-        let failure_persist_dir = Some(failure_persist_dir.into());
-        let failure_persist_file = Some(failure_persist_file.unwrap_or("failures".to_string()));
+        let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
+        let failure_persist_file = failure_persist_file.unwrap_or("failures".to_string());
         let seed = seed
             .map(|s| {
                 s.parse().map_err(|_err| {
@@ -362,6 +363,8 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             seed,
             failure_persist_dir,
             failure_persist_file,
+            // TODO https://github.com/NomicFoundation/edr/issues/657
+            gas_report_samples: 0,
             ..FuzzConfig::default()
         };
 
@@ -393,7 +396,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
 #[napi(object)]
 #[derive(Clone, Default, Debug)]
 pub struct InvariantConfigArgs {
-    /// Path where invariant failures are recorded and replayed.
+    /// Path where invariant failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
     /// The number of runs that must execute for each invariant test group.
     /// Defaults to 256.
@@ -442,7 +445,7 @@ impl InvariantConfigArgs {
         } = fuzz;
 
         if self.failure_persist_dir.is_none() {
-            self.failure_persist_dir = Some(failure_persist_dir.clone());
+            self.failure_persist_dir.clone_from(failure_persist_dir);
         }
 
         if self.runs.is_none() {
@@ -483,6 +486,8 @@ impl From<InvariantConfigArgs> for InvariantConfig {
 
         let mut invariant = InvariantConfig {
             failure_persist_dir,
+            // TODO https://github.com/NomicFoundation/edr/issues/657
+            gas_report_samples: 0,
             ..InvariantConfig::default()
         };
 

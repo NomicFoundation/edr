@@ -69,10 +69,16 @@ impl InvariantConfig {
     }
 
     /// Returns path to failure dir of given invariant test contract.
-    pub fn failure_dir(self, contract_name: &str) -> PathBuf {
+    pub fn failure_dir(&self, contract_name: &str) -> Option<PathBuf> {
         self.failure_persist_dir
-            .unwrap()
-            .join("failures")
-            .join(contract_name.split(':').last().unwrap())
+            .as_ref()
+            .map(|failure_persist_dir| {
+                failure_persist_dir.join("failures").join(
+                    contract_name
+                        .split(':')
+                        .last()
+                        .expect("contract name should have solc version suffix"),
+                )
+            })
     }
 }

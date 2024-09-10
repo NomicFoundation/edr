@@ -24,7 +24,7 @@ pub struct FuzzConfig {
     /// Path where fuzz failures are recorded and replayed.
     pub failure_persist_dir: Option<PathBuf>,
     /// Name of the file to record fuzz failures, defaults to `failures`.
-    pub failure_persist_file: Option<String>,
+    pub failure_persist_file: String,
 }
 
 impl Default for FuzzConfig {
@@ -36,7 +36,7 @@ impl Default for FuzzConfig {
             dictionary: FuzzDictionaryConfig::default(),
             gas_report_samples: 0,
             failure_persist_dir: None,
-            failure_persist_file: None,
+            failure_persist_file: "failures".into(),
         }
     }
 }
@@ -46,13 +46,8 @@ impl FuzzConfig {
     /// `{PROJECT_ROOT}/cache/fuzz` dir.
     pub fn new(cache_dir: PathBuf) -> Self {
         FuzzConfig {
-            runs: 256,
-            max_test_rejects: 65536,
-            seed: None,
-            dictionary: FuzzDictionaryConfig::default(),
-            gas_report_samples: 0,
             failure_persist_dir: Some(cache_dir),
-            failure_persist_file: Some("failures".to_string()),
+            ..FuzzConfig::default()
         }
     }
 }
