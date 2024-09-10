@@ -57,7 +57,7 @@ impl ChainSpec for GenericChainSpec {
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;
-    type RpcTransactionConversionError = edr_rpc_eth::TransactionConversionError;
+    type RpcTransactionConversionError = crate::rpc::transaction::ConversionError;
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::Transaction as TransactionValidation>::ValidationError,
