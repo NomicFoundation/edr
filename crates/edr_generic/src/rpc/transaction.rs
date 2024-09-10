@@ -69,7 +69,7 @@ impl RpcTypeFrom<TransactionAndBlock<GenericChainSpec>> for TransactionWithSigna
 
 pub use edr_rpc_eth::TransactionConversionError as ConversionError;
 
-impl TryFrom<TransactionWithSignature> for crate::transaction::SignedFallbackToPostEip155 {
+impl TryFrom<TransactionWithSignature> for crate::transaction::SignedWithFallbackToPostEip155 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {

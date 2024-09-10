@@ -20,7 +20,7 @@ impl EvmWiring for GenericChainSpec {
 
     type HaltReason = revm_primitives::HaltReason;
 
-    type Transaction = crate::transaction::SignedFallbackToPostEip155;
+    type Transaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 
 impl revm::EvmWiring for GenericChainSpec {

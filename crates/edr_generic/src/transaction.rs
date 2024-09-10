@@ -75,13 +75,13 @@ impl transaction::IsLegacy for Type {
 // types different.
 #[repr(transparent)]
 #[derive(Clone, Debug, PartialEq, Eq, alloy_rlp::RlpEncodable)]
-pub struct SignedFallbackToPostEip155(pub transaction::Signed);
+pub struct SignedWithFallbackToPostEip155(pub transaction::Signed);
 
-impl TransactionValidation for SignedFallbackToPostEip155 {
+impl TransactionValidation for SignedWithFallbackToPostEip155 {
     type ValidationError = <transaction::Signed as TransactionValidation>::ValidationError;
 }
 
-impl revm_primitives::Transaction for SignedFallbackToPostEip155 {
+impl revm_primitives::Transaction for SignedWithFallbackToPostEip155 {
     fn caller(&self) -> &Address {
         self.0.caller()
     }
@@ -135,7 +135,7 @@ impl revm_primitives::Transaction for SignedFallbackToPostEip155 {
     }
 }
 
-impl ExecutableTransaction for SignedFallbackToPostEip155 {
+impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
         self.0.effective_gas_price(block_base_fee)
     }
@@ -157,7 +157,7 @@ impl ExecutableTransaction for SignedFallbackToPostEip155 {
     }
 }
 
-impl TransactionType for SignedFallbackToPostEip155 {
+impl TransactionType for SignedWithFallbackToPostEip155 {
     type Type = crate::transaction::Type;
 
     fn transaction_type(&self) -> Self::Type {
@@ -165,25 +165,25 @@ impl TransactionType for SignedFallbackToPostEip155 {
     }
 }
 
-impl transaction::HasAccessList for SignedFallbackToPostEip155 {
+impl transaction::HasAccessList for SignedWithFallbackToPostEip155 {
     fn has_access_list(&self) -> bool {
         self.0.has_access_list()
     }
 }
 
-impl transaction::IsEip155 for SignedFallbackToPostEip155 {
+impl transaction::IsEip155 for SignedWithFallbackToPostEip155 {
     fn is_eip155(&self) -> bool {
         self.0.is_eip155()
     }
 }
 
-impl transaction::IsEip4844 for SignedFallbackToPostEip155 {
+impl transaction::IsEip4844 for SignedWithFallbackToPostEip155 {
     fn is_eip4844(&self) -> bool {
         self.0.is_eip4844()
     }
 }
 
-impl transaction::IsLegacy for SignedFallbackToPostEip155 {
+impl transaction::IsLegacy for SignedWithFallbackToPostEip155 {
     fn is_legacy(&self) -> bool {
         self.0.is_legacy()
     }

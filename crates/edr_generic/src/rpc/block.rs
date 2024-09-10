@@ -133,7 +133,7 @@ pub enum ConversionError<ChainSpecT: ChainSpec> {
 impl<TransactionT> TryFrom<Block<TransactionT>> for EthBlockData<GenericChainSpec>
 where
     TransactionT: TryInto<
-        crate::transaction::SignedFallbackToPostEip155,
+        crate::transaction::SignedWithFallbackToPostEip155,
         Error = crate::rpc::transaction::ConversionError,
     >,
 {

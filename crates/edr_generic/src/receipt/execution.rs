@@ -25,7 +25,7 @@ impl ExecutionReceiptBuilder<GenericChainSpec> for Builder {
     fn build_receipt(
         self,
         header: &edr_eth::block::PartialHeader,
-        transaction: &crate::transaction::SignedFallbackToPostEip155,
+        transaction: &crate::transaction::SignedWithFallbackToPostEip155,
         result: &revm_primitives::ExecutionResult<GenericChainSpec>,
         hardfork: SpecId,
     ) -> Self::Receipt {
