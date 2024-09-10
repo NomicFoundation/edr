@@ -19,7 +19,7 @@ export class TestContext {
   readonly artifacts: Artifact[];
   readonly testSuiteIds: ArtifactId[];
 
-  constructor(artifacts: Artifact[], testSuiteIds: ArtifactId[]) {
+  private constructor(artifacts: Artifact[], testSuiteIds: ArtifactId[]) {
     this.artifacts = artifacts;
     this.testSuiteIds = testSuiteIds;
   }
