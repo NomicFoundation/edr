@@ -122,8 +122,6 @@ pub enum ConversionError<ChainSpecT: ChainSpec> {
     /// Missing miner
     #[error("Missing miner")]
     MissingMiner,
-    #[error("Missing nonce")]
-    MissingNonce,
     /// Missing number
     #[error("Missing numbeer")]
     MissingNumber,
