@@ -23,5 +23,5 @@ task("test").setAction(async (taskArgs, hre, runSuper) => {
 });
 
 export default {
-  solidity: "0.8.24",
+  solidity: { version: "0.8.24", settings: { evmVersion: "cancun" } },
 };

@@ -32,16 +32,27 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
   });
 
-  it("LastCallGasIsolated", async function () {
-    const { totalTests, failedTests } = await testContext.runTestsWithStats(
-      "LastCallGasIsolatedTest",
-      {
-        isolate: true,
-      }
-    );
+  describe("IsolateMode", function () {
+    it("IsolateMode on", async function () {
+      const { totalTests, failedTests } = await testContext.runTestsWithStats(
+        "IsolateModeTest",
+        {
+          isolate: true,
+        }
+      );
 
-    assert.equal(failedTests, 0);
-    assert.equal(totalTests, 4);
+      assert.equal(failedTests, 0);
+      assert.equal(totalTests, 1);
+    });
+
+    // Isolate mode off
+    it("IsolateMode off", async function () {
+      const { totalTests, failedTests } =
+        await testContext.runTestsWithStats("IsolateModeTest");
+
+      assert.equal(failedTests, 1);
+      assert.equal(totalTests, 1);
+    });
   });
 
   it("GlobalFork", async function () {
