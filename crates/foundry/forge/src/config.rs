@@ -34,6 +34,8 @@ pub struct SolidityTestRunnerConfig {
     pub trace: bool,
     /// Whether to collect coverage info
     pub coverage: bool,
+    /// Whether to support the `testFail` prefix
+    pub test_fail: bool,
     /// Cheats configuration options
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options

@@ -25,6 +25,8 @@ pub struct SolidityTestRunnerConfigArgs {
     pub trace: Option<bool>,
     /// Whether to collect debug info. Defaults to false.
     pub debug: Option<bool>,
+    /// Whether to support the `testFail` prefix. Defaults to false.
+    pub test_fail: Option<bool>,
     /// Address labels for traces. Defaults to none.
     pub labels: Option<Vec<AddressLabel>>,
     /// Whether to enable isolation of calls. In isolation mode all top-level
@@ -150,6 +152,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             fs_permissions,
             trace,
             debug,
+            test_fail,
             labels,
             isolate,
             ffi,
@@ -285,6 +288,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             trace: trace.unwrap_or_default(),
             // TODO
             coverage: false,
+            test_fail: test_fail.unwrap_or_default(),
             cheats_config_options,
             evm_opts,
             fuzz,

@@ -91,6 +91,7 @@ impl ForgeTestProfile {
             fuzz: TestFuzzConfig::default().into(),
             invariant: TestInvariantConfig::default().into(),
             coverage: false,
+            test_fail: true,
         }
     }
 

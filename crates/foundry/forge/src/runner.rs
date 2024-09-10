@@ -61,6 +61,21 @@ pub struct ContractRunner<'a> {
     pub sender: Address,
     /// Should generate debug traces
     pub debug: bool,
+    /// Whether to support the `testFail` prefix
+    pub test_fail: bool,
+}
+
+/// Options for [`ContractRunner`].
+#[derive(Clone, Debug)]
+pub struct ContractRunnerOptions {
+    /// The initial balance of the test contract
+    pub initial_balance: U256,
+    /// The address which will be used as the `from` field in all EVM calls
+    pub sender: Address,
+    /// Should generate debug traces
+    pub debug: bool,
+    /// Whether to support the `testFail` prefix
+    pub test_fail: bool,
 }
 
 impl<'a> ContractRunner<'a> {
@@ -68,11 +83,16 @@ impl<'a> ContractRunner<'a> {
         name: &'a str,
         executor: Executor,
         contract: &'a TestContract,
-        initial_balance: U256,
-        sender: Address,
         revert_decoder: &'a RevertDecoder,
-        debug: bool,
+        options: ContractRunnerOptions,
     ) -> Self {
+        let ContractRunnerOptions {
+            initial_balance,
+            sender,
+            debug,
+            test_fail,
+        } = options;
+
         Self {
             name,
             contract,
@@ -81,6 +101,7 @@ impl<'a> ContractRunner<'a> {
             initial_balance,
             sender,
             debug,
+            test_fail,
         }
     }
 }
@@ -421,7 +442,7 @@ impl<'a> ContractRunner<'a> {
                 let sig = func.signature();
 
                 let setup = setup.clone();
-                let should_fail = func.is_test_fail();
+                let should_fail = self.test_fail && func.is_test_fail();
                 let res = if func.is_invariant_test() {
                     let runner = test_options.invariant_runner();
                     let invariant_config = test_options.invariant_config();

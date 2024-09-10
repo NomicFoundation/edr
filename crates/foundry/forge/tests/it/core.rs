@@ -744,3 +744,28 @@ async fn test_trace() {
         }
     }
 }
+
+/// Test that the test method will fail if the `testFail` prefix is used and
+/// `test_fail` is set to false.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fail_test() {
+    let filter = SolidityTestFilter::new(".*", "Reverting", "default/core/Reverting.t.sol");
+    let mut config = TEST_DATA_DEFAULT.base_runner_config();
+    config.test_fail = false;
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/core/Reverting.t.sol:RevertingTest",
+            vec![(
+                "testFailRevert()",
+                /* should succeed */ false,
+                /* revert message */ Some("revert: should revert here".into()),
+                None,
+                None,
+            )],
+        )]),
+    );
+}
