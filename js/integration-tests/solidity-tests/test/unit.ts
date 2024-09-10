@@ -45,7 +45,6 @@ describe("Unit tests", () => {
       assert.equal(totalTests, 1);
     });
 
-    // Isolate mode off
     it("IsolateMode off", async function () {
       const { totalTests, failedTests } =
         await testContext.runTestsWithStats("IsolateModeTest");
