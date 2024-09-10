@@ -1161,9 +1161,11 @@ version = "0.3.5"
 dependencies = [
  "alloy-rlp",
  "anyhow",
+ "derive-where",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_rpc_client",
  "edr_rpc_eth",
  "edr_test_utils",
  "log",

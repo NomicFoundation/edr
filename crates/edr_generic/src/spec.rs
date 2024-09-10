@@ -8,7 +8,6 @@ use edr_evm::{
     chain_spec::{BlockEnvConstructor, ChainSpec},
     hardfork::Activations,
     transaction::TransactionError,
-    RemoteBlockConversionError,
 };
 use revm_primitives::{BlockEnv, EvmWiring, InvalidTransaction, TransactionValidation};
 
@@ -56,7 +55,7 @@ impl BlockEnvConstructor<GenericChainSpec, PartialHeader> for BlockEnv {
 
 impl ChainSpec for GenericChainSpec {
     type ReceiptBuilder = crate::receipt::execution::Builder;
-    type RpcBlockConversionError = RemoteBlockConversionError<Self>;
+    type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;
     type RpcTransactionConversionError = edr_rpc_eth::TransactionConversionError;
 
