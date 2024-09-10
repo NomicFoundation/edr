@@ -11,7 +11,7 @@ mod transaction;
 /// [`L1ChainSpec`](edr_eth::chain_spec::L1ChainSpec).
 ///
 /// Specifically:
-/// - it allows unknown transaction types (treates them as legacy
+/// - it allows unknown transaction types (treats them as legacy
 ///   [`Eip155`](edr_eth::transaction::signed::Eip155) transactions)
 /// - it allows remote blocks with missing `nonce` and `mix_hash` fields
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, alloy_rlp::RlpEncodable)]
