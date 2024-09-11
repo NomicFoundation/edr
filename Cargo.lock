@@ -2306,6 +2306,7 @@ dependencies = [
  "globset",
  "humantime-serde",
  "itertools 0.12.1",
+ "log",
  "mockall",
  "num_cpus",
  "once_cell",

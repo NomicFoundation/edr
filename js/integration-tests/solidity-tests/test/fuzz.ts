@@ -40,6 +40,20 @@ describe("Fuzz and invariant testing", function () {
     assert.isTrue(existsSync(failureDir));
   });
 
+  it("FuzzFixture is not supported", async function () {
+    const result = await testContext.runTestsWithStats("FuzzFixtureTest", {
+      fuzz: {
+        runs: 256,
+        dictionaryWeight: 1,
+        includeStorage: false,
+        includePushBytes: false,
+        seed: "0x7bb9ee74aaa2abe5e2ca8a116382a9f2ed70b651e70b430e1052eff52a74ffe3",
+      },
+    });
+    assert.equal(result.failedTests, 0);
+    assert.equal(result.totalTests, 1);
+  });
+
   // One test as steps should be sequential
   it("FailingInvariant", async function () {
     const failureDir = testContext.invariantFailuresPersistDir;

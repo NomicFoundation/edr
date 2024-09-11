@@ -294,6 +294,8 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             evm_opts,
             fuzz,
             invariant,
+            // Solidity fuzz fixtures are not supported by the JS backend
+            solidity_fuzz_fixtures: false,
         })
     }
 }

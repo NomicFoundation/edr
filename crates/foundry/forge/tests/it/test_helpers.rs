@@ -92,6 +92,7 @@ impl ForgeTestProfile {
             invariant: TestInvariantConfig::default().into(),
             coverage: false,
             test_fail: true,
+            solidity_fuzz_fixtures: true,
         }
     }
 

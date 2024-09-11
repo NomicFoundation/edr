@@ -36,6 +36,8 @@ pub struct SolidityTestRunnerConfig {
     pub coverage: bool,
     /// Whether to support the `testFail` prefix
     pub test_fail: bool,
+    /// Whether to enable solidity fuzz fixtures support
+    pub solidity_fuzz_fixtures: bool,
     /// Cheats configuration options
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options

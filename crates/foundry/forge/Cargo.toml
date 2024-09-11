@@ -35,6 +35,7 @@ alloy-primitives = { workspace = true, features = ["serde"] }
 tokio = { workspace = true, features = ["time"] }
 evm-disassembler.workspace = true
 thiserror = "1.0.61"
+log = "0.4.22"
 
 [dev-dependencies]
 edr_test_utils.workspace = true
