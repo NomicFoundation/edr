@@ -78,6 +78,17 @@ describe("Unit tests", () => {
     });
   });
 
+  it("EnvVarTest", async function () {
+    process.env._EDR_SOLIDITY_TESTS_GET_ENV_TEST_KEY =
+      "_edrSolidityTestsGetEnvTestVal";
+
+    const { totalTests, failedTests } =
+      await testContext.runTestsWithStats("EnvVarTest");
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 1);
+  });
+
   it("GlobalFork", async function () {
     if (testContext.rpcUrl === undefined) {
       this.skip();
