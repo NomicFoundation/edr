@@ -746,7 +746,8 @@ impl<'a> ContractRunner<'a> {
                             if !call_sequence.is_empty() {
                                 // Persist error in invariant failure dir.
                                 if let Some(failure_dir) = failure_dir {
-                                    let failure_file = failure_file.expect("failure file ");
+                                    let failure_file = failure_file
+                                        .expect("failure file must be some if failure_dir is some");
                                     if let Err(err) =
                                         foundry_common::fs::create_dir_all(failure_dir)
                                     {

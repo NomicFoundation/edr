@@ -2,7 +2,8 @@ import chai, { assert, expect } from "chai";
 import { TestContext } from "./testContext";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { FuzzConfigArgs } from "@nomicfoundation/edr";
+import { FuzzTestKind } from "@nomicfoundation/edr";
+import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 describe("Fuzz and invariant testing", function () {
   let testContext: TestContext;
@@ -42,7 +43,8 @@ describe("Fuzz and invariant testing", function () {
   // One test as steps should be sequential
   it("FailingInvariant", async function () {
     const failureDir = testContext.invariantFailuresPersistDir;
-    const defaultConfig = {
+    const invariantConfig = {
+      runs: 256,
       depth: 15,
       // This is false by default, we just specify it here to make it obvious to the reader.
       failOnRevert: false,
@@ -57,7 +59,7 @@ describe("Fuzz and invariant testing", function () {
     const result1 = await testContext.runTestsWithStats(
       "FailingInvariantTest",
       {
-        invariant: defaultConfig,
+        invariant: invariantConfig,
       }
     );
     assert.equal(result1.failedTests, 1);
@@ -66,40 +68,46 @@ describe("Fuzz and invariant testing", function () {
     // The invariant failure directory should not be created if we don't set the directory
     assert.isFalse(existsSync(failureDir));
 
-    const firstStart = performance.now();
-    const result2 = await testContext.runTestsWithStats(
-      "FailingInvariantTest",
+    const results2 = await runAllSolidityTests(
+      testContext.artifacts,
+      testContext.matchingTest("FailingInvariantTest"),
       {
+        ...testContext.defaultConfig(),
         invariant: {
-          ...defaultConfig,
+          ...invariantConfig,
           failurePersistDir: failureDir,
         },
       }
     );
-    const firstDuration = performance.now() - firstStart;
-    assert.equal(result2.failedTests, 1);
-    assert.equal(result2.totalTests, 1);
+    assert.equal(results2.length, 1);
+    assert.equal(results2[0].testResults.length, 1);
+    assert.equal(results2[0].testResults[0].status, "Failure");
+    const fuzzTestResult2 = results2[0].testResults[0].kind as FuzzTestKind;
+    // More than one run should be needed on a fresh invariant test.
+    assert.isTrue(fuzzTestResult2.runs > 1n);
 
     // The invariant failure directory should now be created
     assert.isTrue(existsSync(failureDir));
 
-    const secondStart = performance.now();
-    const result3 = await testContext.runTestsWithStats(
-      "FailingInvariantTest",
+    const results3 = await runAllSolidityTests(
+      testContext.artifacts,
+      testContext.matchingTest("FailingInvariantTest"),
       {
+        ...testContext.defaultConfig(),
         invariant: {
-          ...defaultConfig,
+          ...invariantConfig,
           failurePersistDir: failureDir,
         },
       }
     );
-    assert.equal(result2.failedTests, 1);
-    assert.equal(result2.totalTests, 1);
-    const secondDuration = performance.now() - secondStart;
 
     // The invariant failure directory should still be there
     assert.isTrue(existsSync(failureDir));
-    // The second run should be faster than the first because it should use the persisted failure.
-    assert.isBelow(secondDuration, firstDuration * 0.25);
+    assert.equal(results3.length, 1);
+    assert.equal(results3[0].testResults.length, 1);
+    assert.equal(results3[0].testResults[0].status, "Failure");
+    const fuzzTestResult3 = results3[0].testResults[0].kind as FuzzTestKind;
+    // The second time only one run should be needed, because the persisted failure is used.
+    assert.equal(fuzzTestResult3.runs, 1n);
   });
 });

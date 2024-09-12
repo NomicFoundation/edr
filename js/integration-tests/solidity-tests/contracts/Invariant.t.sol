@@ -5,35 +5,35 @@ import "./test.sol";
 import "./Vm.sol";
 
 contract StochasticWrongContract {
-    uint256 public val1;
-    uint256 public val2;
-    uint256 public val3;
+    uint256 public a;
+    uint256 public b;
+    uint256 public both;
 
     function addToA(uint256 amount) external {
         // This is an intentional bug in the contract to trigger invariant failure.
         // If the conditional is removed, the invariant will pass.
         if (amount % 13 != 0) {
-            val1 += amount;
+            a += amount;
         }
-        val3 += amount;
+        both += amount;
     }
 
     function addToB(uint256 amount) external {
-        val2 += amount;
-        val3 += amount;
+        b += amount;
+        both += amount;
     }
 }
 
 // Test that the invariant testing works correctly by catching a bug in the contract.
 contract FailingInvariantTest is DSTest {
-    StochasticWrongContract val;
+    StochasticWrongContract wrongContract;
 
     function setUp() external {
-        val = new StochasticWrongContract();
+        wrongContract = new StochasticWrongContract();
     }
 
     function invariant() external {
-        assertEq(val.val1() + val.val2(), val.val3());
+        assertEq(wrongContract.a() + wrongContract.b(), wrongContract.both());
     }
 }
 
