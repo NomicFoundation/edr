@@ -35,7 +35,7 @@ describe("Unit tests", () => {
   describe("IsolateMode", function () {
     it("IsolateMode on", async function () {
       const { totalTests, failedTests } = await testContext.runTestsWithStats(
-        "IsolateModeTest",
+        "IsolateTest",
         {
           isolate: true,
         }
@@ -47,7 +47,7 @@ describe("Unit tests", () => {
 
     it("IsolateMode off", async function () {
       const { totalTests, failedTests } =
-        await testContext.runTestsWithStats("IsolateModeTest");
+        await testContext.runTestsWithStats("IsolateTest");
 
       assert.equal(failedTests, 1);
       assert.equal(totalTests, 1);
