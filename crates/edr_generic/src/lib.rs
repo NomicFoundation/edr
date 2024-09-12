@@ -1,6 +1,7 @@
 //! A slightly more flexible chain specification for Ethereum Layer 1 chain.
 
 mod eip2718;
+mod provider;
 mod receipt;
 mod rpc;
 mod spec;

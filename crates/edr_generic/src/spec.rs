@@ -1,3 +1,4 @@
+use edr_eth::result::HaltReason;
 use edr_eth::{
     block::{Header, PartialHeader},
     chain_spec::{EthHeaderConstants, L1ChainSpec},
@@ -9,6 +10,8 @@ use edr_evm::{
     hardfork::Activations,
     transaction::TransactionError,
 };
+use edr_provider::time::TimeSinceEpoch;
+use edr_provider::{ProviderSpec, TransactionFailureReason};
 use revm_primitives::{BlockEnv, EvmWiring, InvalidTransaction, TransactionValidation};
 
 use crate::GenericChainSpec;
@@ -81,3 +84,21 @@ impl ChainSpec for GenericChainSpec {
         L1ChainSpec::chain_name(chain_id)
     }
 }
+
+// impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
+//     type PooledTransaction = edr_eth::transaction::pooled::PooledTransaction;
+//     type TransactionRequest = edr_eth::transaction::Request;
+
+//     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self> {
+//         match reason {
+//             HaltReason::CreateContractSizeLimit => {
+//                 TransactionFailureReason::CreateContractSizeLimit
+//             }
+//             HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+//                 TransactionFailureReason::OpcodeNotFound
+//             }
+//             HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+//             remainder => TransactionFailureReason::Inner(remainder),
+//         }
+//     }
+// }

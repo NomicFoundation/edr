@@ -15,16 +15,16 @@ pub struct Response {
     // N-API is known to be slow when marshalling `serde_json::Value`s, so we try to return a
     // `String`. If the object is too large to be represented as a `String`, we return a `Buffer`
     // instead.
-    data: Either<String, serde_json::Value>,
+    pub(crate) data: Either<String, serde_json::Value>,
     /// When a transaction fails to execute, the provider returns a trace of the
     /// transaction.
     ///
     /// Only present for L1 Ethereum chains.
-    solidity_trace: Option<RawTrace>,
+    pub(crate) solidity_trace: Option<RawTrace>,
     /// This may contain zero or more traces, depending on the (batch) request
     ///
     /// Always empty for non-L1 Ethereum chains.
-    traces: Vec<RawTrace>,
+    pub(crate) traces: Vec<RawTrace>,
 }
 
 #[napi]

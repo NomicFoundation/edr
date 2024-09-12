@@ -16,9 +16,7 @@ use edr_rpc_eth::{CallRequest, TransactionRequest};
 use super::{Request, Signed};
 use crate::OptimismChainSpec;
 
-impl FakeSign for Request {
-    type Signed = Signed;
-
+impl FakeSign<Signed> for Request {
     fn fake_sign(self, sender: Address) -> Signed {
         match self {
             Request::Legacy(transaction) => transaction.fake_sign(sender).into(),
@@ -30,9 +28,7 @@ impl FakeSign for Request {
     }
 }
 
-impl Sign for Request {
-    type Signed = Signed;
-
+impl Sign<Signed> for Request {
     unsafe fn sign_for_sender_unchecked(
         self,
         secret_key: &SecretKey,

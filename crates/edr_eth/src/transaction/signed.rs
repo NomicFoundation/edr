@@ -26,18 +26,12 @@ use crate::{
 };
 
 /// Trait for signing a transaction request with a fake signature.
-pub trait FakeSign {
-    /// The type of the signed transaction.
-    type Signed;
-
+pub trait FakeSign<SignedT> {
     /// Signs the transaction with a fake signature.
-    fn fake_sign(self, sender: Address) -> Self::Signed;
+    fn fake_sign(self, sender: Address) -> SignedT;
 }
 
-pub trait Sign {
-    /// The type of the signed transaction.
-    type Signed;
-
+pub trait Sign<SignedT> {
     /// Signs the transaction with the provided secret key, belonging to the
     /// provided sender's address.
     ///
@@ -48,7 +42,7 @@ pub trait Sign {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<Self::Signed, SignatureError>;
+    ) -> Result<SignedT, SignatureError>;
 }
 
 impl Signed {

@@ -33,8 +33,8 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
         + Transaction;
 
     /// Type representing a transaction request.
-    type TransactionRequest: FakeSign<Signed = Self::Transaction>
-        + Sign<Signed = Self::Transaction>
+    type TransactionRequest: FakeSign<Self::Transaction>
+        + Sign<Self::Transaction>
         + for<'context> FromRpcType<
             Self::RpcCallRequest,
             TimerT,
