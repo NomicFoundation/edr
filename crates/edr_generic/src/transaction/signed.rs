@@ -1,4 +1,4 @@
-use edr_eth::transaction::{self, ExecutableTransaction, TransactionType};
+use edr_eth::transaction::{self, ExecutableTransaction, TransactionMut, TransactionType};
 use revm_primitives::{
     AccessListItem, Address, AuthorizationList, Bytes, TransactionValidation, TxKind, B256, U256,
 };
@@ -144,6 +144,12 @@ impl revm_primitives::Transaction for SignedWithFallbackToPostEip155 {
 
     fn authorization_list(&self) -> Option<&AuthorizationList> {
         self.0.authorization_list()
+    }
+}
+
+impl TransactionMut for SignedWithFallbackToPostEip155 {
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.0.set_gas_limit(gas_limit);
     }
 }
 

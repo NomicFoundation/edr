@@ -1189,6 +1189,7 @@ dependencies = [
  "derive-where",
  "edr_eth",
  "edr_evm",
+ "edr_generic",
  "edr_napi_core",
  "edr_provider",
  "edr_rpc_client",

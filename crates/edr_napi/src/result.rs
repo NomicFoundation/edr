@@ -1,5 +1,5 @@
-use edr_eth::chain_spec::L1ChainSpec;
 use edr_evm::trace::AfterMessage;
+use edr_generic::GenericChainSpec;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Either, Env, JsBuffer, JsBufferValue,
@@ -192,7 +192,7 @@ pub struct ExecutionResult {
 }
 
 impl ExecutionResult {
-    pub fn new(env: &Env, message: &AfterMessage<L1ChainSpec>) -> napi::Result<Self> {
+    pub fn new(env: &Env, message: &AfterMessage<GenericChainSpec>) -> napi::Result<Self> {
         let AfterMessage {
             execution_result,
             contract_address,

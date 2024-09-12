@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use edr_eth::{chain_spec::L1ChainSpec, specification};
+use edr_eth::specification;
+use edr_generic::GenericChainSpec;
 use napi_derive::napi;
 
 use crate::{
@@ -10,9 +11,9 @@ use crate::{
     subscription::{SubscriptionCallback, SubscriptionConfig},
 };
 
-pub struct L1ProviderFactory;
+pub struct GenericChainProviderFactory;
 
-impl SyncProviderFactory for L1ProviderFactory {
+impl SyncProviderFactory for GenericChainProviderFactory {
     fn create_provider_builder(
         &self,
         env: &napi::Env,
@@ -20,9 +21,10 @@ impl SyncProviderFactory for L1ProviderFactory {
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
     ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<L1ChainSpec>::new(env, logger_config)?;
+        let logger = Logger::<GenericChainSpec>::new(env, logger_config)?;
 
-        let provider_config = edr_provider::ProviderConfig::<L1ChainSpec>::from(provider_config);
+        let provider_config =
+            edr_provider::ProviderConfig::<GenericChainSpec>::from(provider_config);
 
         let subscription_callback =
             SubscriptionCallback::new(env, subscription_config.subscription_callback)?;
@@ -36,11 +38,11 @@ impl SyncProviderFactory for L1ProviderFactory {
 }
 
 #[napi]
-pub const L1_CHAIN_TYPE: &str = L1ChainSpec::CHAIN_TYPE;
+pub const GENERIC_CHAIN_TYPE: &str = GenericChainSpec::CHAIN_TYPE;
 
 #[napi]
-pub fn l1_provider_factory() -> ProviderFactory {
-    let factory: Arc<dyn SyncProviderFactory> = Arc::new(L1ProviderFactory);
+pub fn generic_chain_provider_factory() -> ProviderFactory {
+    let factory: Arc<dyn SyncProviderFactory> = Arc::new(GenericChainProviderFactory);
     factory.into()
 }
 

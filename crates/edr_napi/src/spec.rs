@@ -1,8 +1,8 @@
 use edr_eth::{
-    chain_spec::L1ChainSpec,
     result::InvalidTransaction,
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
+use edr_generic::GenericChainSpec;
 use edr_provider::{time::CurrentTime, ProviderError, ResponseWithTraces, SyncProviderSpec};
 use edr_rpc_client::jsonrpc;
 use napi::{Either, Status};
@@ -82,8 +82,8 @@ pub trait SyncNapiSpec:
     ) -> napi::Result<Response>;
 }
 
-impl SyncNapiSpec for L1ChainSpec {
-    const CHAIN_TYPE: &'static str = "L1";
+impl SyncNapiSpec for GenericChainSpec {
+    const CHAIN_TYPE: &'static str = "generic";
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self>, ProviderError<Self>>,
