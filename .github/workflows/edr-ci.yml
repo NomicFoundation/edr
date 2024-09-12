@@ -142,6 +142,13 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Cache EDR RPC cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            **/edr-cache
+          key: edr-ts-rpc-cache-v1
+
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
 
