@@ -13,7 +13,7 @@ contract TransientStorageStore {
     }
   }
 
-  function tload(uint key) public returns (uint) {
+  function tload(uint key) public view returns (uint) {
     uint val;
     assembly {
       val := tload(key)
