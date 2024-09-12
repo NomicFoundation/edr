@@ -1,10 +1,11 @@
 use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, Header},
+    transaction::ExecutableTransaction as _,
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
-use edr_evm::{chain_spec::ChainSpec, EthBlockData, EthRpcBlock};
+use edr_evm::{chain_spec::ChainSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
 use edr_rpc_eth::spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 
@@ -186,6 +187,52 @@ where
             hash,
             rlp_size: value.size,
         })
+    }
+}
+
+impl<BlockchainErrorT, ChainSpecT: ChainSpec>
+    From<BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>> for crate::rpc::block::Block<B256>
+{
+    fn from(value: BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>) -> Self {
+        let transactions = value
+            .block
+            .transactions()
+            .iter()
+            .map(|tx| *tx.transaction_hash())
+            .collect();
+
+        let header = value.block.header();
+        crate::rpc::block::Block {
+            hash: Some(*value.block.hash()),
+            parent_hash: header.parent_hash,
+            sha3_uncles: header.ommers_hash,
+            state_root: header.state_root,
+            transactions_root: header.transactions_root,
+            receipts_root: header.receipts_root,
+            number: Some(header.number),
+            gas_used: header.gas_used,
+            gas_limit: header.gas_limit,
+            extra_data: header.extra_data.clone(),
+            logs_bloom: header.logs_bloom,
+            timestamp: header.timestamp,
+            difficulty: header.difficulty,
+            total_difficulty: value.total_difficulty,
+            uncles: value.block.ommer_hashes().to_vec(),
+            transactions,
+            size: value.block.rlp_size(),
+            mix_hash: Some(header.mix_hash),
+            nonce: Some(header.nonce),
+            base_fee_per_gas: header.base_fee_per_gas,
+            miner: Some(header.beneficiary),
+            withdrawals: value
+                .block
+                .withdrawals()
+                .map(<[edr_eth::withdrawal::Withdrawal]>::to_vec),
+            withdrawals_root: header.withdrawals_root,
+            blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
+            excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
+            parent_beacon_block_root: header.parent_beacon_block_root,
+        }
     }
 }
 

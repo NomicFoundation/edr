@@ -1165,6 +1165,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_provider",
  "edr_rpc_client",
  "edr_rpc_eth",
  "edr_test_utils",
