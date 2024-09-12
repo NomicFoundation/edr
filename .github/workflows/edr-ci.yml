@@ -146,6 +146,8 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Run tests
+        env:
+          ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
         run: cd crates/edr_napi && pnpm test
 
   edr-style:
