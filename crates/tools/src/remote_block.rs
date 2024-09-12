@@ -23,7 +23,7 @@ pub async fn replay(
 ) -> anyhow::Result<()> {
     match chain_type {
         SupportedChainTypes::L1 => {
-            replay_chain_specific_block::<L1ChainSpec>("l1", url, block_number).await
+            replay_chain_specific_block::<L1ChainSpec>("L1", url, block_number).await
         }
         SupportedChainTypes::Optimism => {
             replay_chain_specific_block::<OptimismChainSpec>(

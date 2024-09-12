@@ -19,6 +19,8 @@ mod debug_trace;
 /// Types for the generic L1 Ethereum implementation.
 pub mod generic_chain;
 
+/// Types for L1 Ethereum implementation.
+pub mod l1;
 /// Types for EVM execution logs.
 pub mod log;
 /// Types for an RPC request logger.

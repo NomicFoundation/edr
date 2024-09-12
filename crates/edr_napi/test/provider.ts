@@ -184,8 +184,6 @@ describe("Provider", () => {
         }),
       );
 
-      console.log(responseObject);
-
       const rawTraces = responseObject.traces;
       assert.lengthOf(rawTraces, 1);
 
