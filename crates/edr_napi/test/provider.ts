@@ -4,8 +4,8 @@ import chaiAsPromised from "chai-as-promised";
 import {
   ContractAndFunctionName,
   EdrContext,
-  L1_CHAIN_TYPE,
-  l1ProviderFactory,
+  GENERIC_CHAIN_TYPE,
+  genericChainProviderFactory,
   MineOrdering,
   SubscriptionEvent,
 } from "..";
@@ -17,7 +17,10 @@ describe("Provider", () => {
   const context = new EdrContext();
 
   before(async () => {
-    await context.registerProviderFactory(L1_CHAIN_TYPE, l1ProviderFactory());
+    await context.registerProviderFactory(
+      GENERIC_CHAIN_TYPE,
+      genericChainProviderFactory(),
+    );
   });
 
   const providerConfig = {
@@ -74,7 +77,7 @@ describe("Provider", () => {
 
   it("initialize local", async function () {
     const provider = context.createProvider(
-      L1_CHAIN_TYPE,
+      GENERIC_CHAIN_TYPE,
       providerConfig,
       loggerConfig,
       {
@@ -91,7 +94,7 @@ describe("Provider", () => {
     }
 
     const provider = context.createProvider(
-      L1_CHAIN_TYPE,
+      GENERIC_CHAIN_TYPE,
       {
         fork: {
           jsonRpcUrl: ALCHEMY_URL,
@@ -110,7 +113,7 @@ describe("Provider", () => {
   describe("verbose mode", function () {
     it("should only include the top of the stack by default", async function () {
       const provider = await context.createProvider(
-        L1_CHAIN_TYPE,
+        GENERIC_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
 
@@ -153,7 +156,7 @@ describe("Provider", () => {
 
     it("should only include the whole stack if verbose mode is enabled", async function () {
       const provider = await context.createProvider(
-        L1_CHAIN_TYPE,
+        GENERIC_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
         {
@@ -202,7 +205,7 @@ describe("Provider", () => {
 
     it("should not include memory by default", async function () {
       const provider = await context.createProvider(
-        L1_CHAIN_TYPE,
+        GENERIC_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
         {
@@ -243,7 +246,7 @@ describe("Provider", () => {
 
     it("should include memory if verbose mode is enabled", async function () {
       const provider = await context.createProvider(
-        L1_CHAIN_TYPE,
+        GENERIC_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
         {
@@ -291,7 +294,7 @@ describe("Provider", () => {
 
     it("should include isStaticCall flag in tracing messages", async function () {
       const provider = await context.createProvider(
-        L1_CHAIN_TYPE,
+        GENERIC_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
 
@@ -333,7 +336,7 @@ describe("Provider", () => {
 
     it("should have tracing information when debug_traceTransaction is used", async function () {
       const provider = await context.createProvider(
-        L1_CHAIN_TYPE,
+        GENERIC_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
 
@@ -388,7 +391,7 @@ describe("Provider", () => {
 
     it("should have tracing information when debug_traceCall is used", async function () {
       const provider = await context.createProvider(
-        L1_CHAIN_TYPE,
+        GENERIC_CHAIN_TYPE,
         providerConfig,
         loggerConfig,
 
