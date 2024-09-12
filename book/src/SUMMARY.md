@@ -15,6 +15,7 @@
   - [Local release](02_development/03_local_release.md)
   - [Update N-API targets](02_development/04_update_napi_targets.md)
   - [Using pnpm link](02_development/05_pnpm_link.md)
+  - [Style Guide](02_development/06_style_guide.md)
 
 - [Release](./03_release.md)
 
