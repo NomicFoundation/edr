@@ -54,6 +54,30 @@ describe("Unit tests", () => {
     });
   });
 
+  describe("TestFail", function () {
+    it("TestFail on", async function () {
+      const { totalTests, failedTests } = await testContext.runTestsWithStats(
+        "TestFailTest",
+        {
+          testFail: true,
+        }
+      );
+
+      // Reverting test starting with `testFail` should be reported as success if `testFail` is on
+      assert.equal(failedTests, 0);
+      assert.equal(totalTests, 1);
+    });
+
+    it("TestFail off", async function () {
+      const { totalTests, failedTests } =
+        await testContext.runTestsWithStats("TestFailTest");
+
+      // Reverting test starting with `testFail` should be reported as failure if `testFail` is off
+      assert.equal(failedTests, 1);
+      assert.equal(totalTests, 1);
+    });
+  });
+
   it("GlobalFork", async function () {
     if (testContext.rpcUrl === undefined) {
       this.skip();
