@@ -74,6 +74,8 @@ pub struct MultiContractRunner {
     debug: bool,
     /// Whether to support the `testFail` prefix
     test_fail: bool,
+    /// Whether to enable solidity fuzz fixtures support
+    solidity_fuzz_fixtures: bool,
     /// Settings related to fuzz and/or invariant tests
     test_options: TestOptions,
 }
@@ -104,6 +106,7 @@ impl MultiContractRunner {
             cheats_config_options,
             fuzz,
             invariant,
+            solidity_fuzz_fixtures,
         } = config;
 
         // Do canonicalization in blocking context.
@@ -130,6 +133,7 @@ impl MultiContractRunner {
             trace,
             debug,
             test_fail,
+            solidity_fuzz_fixtures,
             test_options,
         })
     }
@@ -280,6 +284,7 @@ impl MultiContractRunner {
                 sender: self.evm_opts.sender,
                 debug: self.debug,
                 test_fail: self.test_fail,
+                solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
             },
         );
         let r = runner.run_tests(
