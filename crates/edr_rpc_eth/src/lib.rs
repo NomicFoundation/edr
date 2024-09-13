@@ -24,6 +24,7 @@ pub use self::{
     call_request::CallRequest,
     r#override::*,
     request_methods::RequestMethod,
+    spec::RpcSpec,
     transaction::{
         ConversionError as TransactionConversionError, Transaction, TransactionRequest,
         TransactionWithSignature,

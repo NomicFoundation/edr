@@ -55,6 +55,17 @@ impl<ChainSpecT: ChainSpec> Activations<ChainSpecT> {
             })
             .map(|entry| entry.1)
     }
+
+    /// Views the activations as for a different chain spec (that shares the
+    /// underlying hardforks).
+    pub fn as_chain_spec<OtherChainSpecT: ChainSpec<Hardfork = ChainSpecT::Hardfork>>(
+        &'static self,
+    ) -> &'static Activations<OtherChainSpecT> {
+        // SAFETY: The layout is the same as we're using the same struct and the
+        // Hardfork associated type is the same and we are also converting from
+        // one static reference to another, so no lifetime hazards here as well.
+        unsafe { std::mem::transmute(self) }
+    }
 }
 
 impl<ChainSpecT: ChainSpec> From<&[(ForkCondition, ChainSpecT::Hardfork)]>

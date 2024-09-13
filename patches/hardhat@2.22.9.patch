@@ -45,11 +45,11 @@ index 5538259ab7fcbf99b7fa82e26922510da6444613..f59d394fed89488f006122f9475eddd1
 -function getGlobalEdrContext() {
 -    const { EdrContext } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
 +async function getGlobalEdrContext() {
-+    const { EdrContext, L1_CHAIN_TYPE, l1ProviderFactory } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++    const { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
      if (_globalEdrContext === undefined) {
          // Only one is allowed to exist
          _globalEdrContext = new EdrContext();
-+        await _globalEdrContext.registerProviderFactory(L1_CHAIN_TYPE, l1ProviderFactory());
++        await _globalEdrContext.registerProviderFactory(GENERIC_CHAIN_TYPE, genericChainProviderFactory());
      }
      return _globalEdrContext;
  }
@@ -58,7 +58,7 @@ index 5538259ab7fcbf99b7fa82e26922510da6444613..f59d394fed89488f006122f9475eddd1
      }
      static async create(config, loggerConfig, tracingConfig) {
 -        const { Provider } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
-+        const { L1_CHAIN_TYPE } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++        const { GENERIC_CHAIN_TYPE } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
          const coinbase = config.coinbase ?? exports.DEFAULT_COINBASE;
          let fork;
          if (config.forkConfig !== undefined) {
@@ -68,7 +68,7 @@ index 5538259ab7fcbf99b7fa82e26922510da6444613..f59d394fed89488f006122f9475eddd1
          const hardforkName = (0, hardforks_1.getHardforkName)(config.hardfork);
 -        const provider = await Provider.withConfig(getGlobalEdrContext(), {
 +        const context = await getGlobalEdrContext();
-+        const provider = await context.createProvider(L1_CHAIN_TYPE, {
++        const provider = await context.createProvider(GENERIC_CHAIN_TYPE, {
              allowBlocksWithSameTimestamp: config.allowBlocksWithSameTimestamp ?? false,
              allowUnlimitedContractSize: config.allowUnlimitedContractSize,
              bailOnCallFailure: config.throwOnCallFailures,
@@ -253,7 +253,7 @@ index c48c51cfb758478b32295e82952b3cd4d9967aac..3dda0ab27f9a3dc7cf9032ddd39544ba
 -export function getGlobalEdrContext(): EdrContext {
 -  const { EdrContext } = requireNapiRsModule(
 +export async function getGlobalEdrContext(): Promise<EdrContext> {
-+  const { EdrContext, L1_CHAIN_TYPE, l1ProviderFactory } = requireNapiRsModule(
++  const { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory } = requireNapiRsModule(
      "@nomicfoundation/edr"
    ) as typeof import("@nomicfoundation/edr");
  
@@ -261,8 +261,8 @@ index c48c51cfb758478b32295e82952b3cd4d9967aac..3dda0ab27f9a3dc7cf9032ddd39544ba
      // Only one is allowed to exist
      _globalEdrContext = new EdrContext();
 +    await _globalEdrContext.registerProviderFactory(
-+      L1_CHAIN_TYPE,
-+      l1ProviderFactory()
++      GENERIC_CHAIN_TYPE,
++      genericChainProviderFactory()
 +    );
    }
  
@@ -280,19 +280,19 @@ index c48c51cfb758478b32295e82952b3cd4d9967aac..3dda0ab27f9a3dc7cf9032ddd39544ba
      tracingConfig?: TracingConfig
    ): Promise<EdrProviderWrapper> {
 -    const { Provider } = requireNapiRsModule(
-+    const { L1_CHAIN_TYPE } = requireNapiRsModule(
++    const { GENERIC_CHAIN_TYPE } = requireNapiRsModule(
        "@nomicfoundation/edr"
      ) as typeof import("@nomicfoundation/edr");
- 
+
 @@ -228,8 +230,9 @@ export class EdrProviderWrapper
- 
+
      const hardforkName = getHardforkName(config.hardfork);
- 
+
 -    const provider = await Provider.withConfig(
 -      getGlobalEdrContext(),
 +    const context = await getGlobalEdrContext();
 +    const provider = await context.createProvider(
-+      L1_CHAIN_TYPE,
++      GENERIC_CHAIN_TYPE,
        {
          allowBlocksWithSameTimestamp:
            config.allowBlocksWithSameTimestamp ?? false,

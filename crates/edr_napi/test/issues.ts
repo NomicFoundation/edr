@@ -1,18 +1,25 @@
-import chai, { assert } from "chai";
 import { JsonStreamStringify } from "json-stream-stringify";
 
 import {
   ContractAndFunctionName,
   EdrContext,
+  GENERIC_CHAIN_TYPE,
+  genericChainProviderFactory,
   MineOrdering,
-  Provider,
-  SpecId,
   SubscriptionEvent,
 } from "..";
 import { ALCHEMY_URL, isCI } from "./helpers";
 
 describe("Provider", () => {
   const context = new EdrContext();
+
+  before(async () => {
+    await context.registerProviderFactory(
+      GENERIC_CHAIN_TYPE,
+      genericChainProviderFactory(),
+    );
+  });
+
   const providerConfig = {
     allowBlocksWithSameTimestamp: false,
     allowUnlimitedContractSize: true,
@@ -74,7 +81,7 @@ describe("Provider", () => {
     this.timeout(240_000);
 
     const provider = await context.createProvider(
-      "L1",
+      GENERIC_CHAIN_TYPE,
       {
         fork: {
           jsonRpcUrl: ALCHEMY_URL,

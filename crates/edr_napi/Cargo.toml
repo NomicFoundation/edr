@@ -11,6 +11,7 @@ ansi_term = { version = "0.12.1", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
+edr_generic = { path = "../edr_generic" }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_client = { path = "../edr_rpc_client" }

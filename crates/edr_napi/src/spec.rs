@@ -3,6 +3,7 @@ use edr_eth::{
     result::InvalidTransaction,
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
+use edr_generic::GenericChainSpec;
 use edr_provider::{time::CurrentTime, ProviderError, ResponseWithTraces, SyncProviderSpec};
 use edr_rpc_client::jsonrpc;
 use napi::{Either, Status};
@@ -84,6 +85,39 @@ pub trait SyncNapiSpec:
 
 impl SyncNapiSpec for L1ChainSpec {
     const CHAIN_TYPE: &'static str = "L1";
+
+    fn cast_response(
+        response: Result<ResponseWithTraces<Self>, ProviderError<Self>>,
+    ) -> napi::Result<Response> {
+        let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
+
+        serde_json::to_string(&response)
+            .and_then(|json| {
+                // We experimentally determined that 500_000_000 was the maximum string length
+                // that can be returned without causing the error:
+                //
+                // > Failed to convert rust `String` into napi `string`
+                //
+                // To be safe, we're limiting string lengths to half of that.
+                const MAX_STRING_LENGTH: usize = 250_000_000;
+
+                if json.len() <= MAX_STRING_LENGTH {
+                    Ok(Either::A(json))
+                } else {
+                    serde_json::to_value(response).map(Either::B)
+                }
+            })
+            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+            .map(|data| Response {
+                solidity_trace: None,
+                data,
+                traces: Vec::new(),
+            })
+    }
+}
+
+impl SyncNapiSpec for GenericChainSpec {
+    const CHAIN_TYPE: &'static str = "generic";
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self>, ProviderError<Self>>,
