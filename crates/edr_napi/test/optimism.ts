@@ -8,16 +8,14 @@ import {
   l1ProviderFactory,
   MineOrdering,
   SubscriptionEvent,
-} from "@nomicfoundation/edr";
-import {
-  CHAIN_TYPE as OPTIMISM_CHAIN_TYPE,
-  providerFactory as optimismProviderFactory,
+  OPTIMISM_CHAIN_TYPE,
+  optimismProviderFactory,
 } from "..";
 import { ALCHEMY_URL, toBuffer } from "./helpers";
 
 chai.use(chaiAsPromised);
 
-describe("Provider", () => {
+describe("Multi-chain", () => {
   const context = new EdrContext();
 
   before(async () => {

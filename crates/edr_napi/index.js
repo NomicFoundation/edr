@@ -310,10 +310,8 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { MineOrdering, EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, RawTrace } = nativeBinding
+const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, OPTIMISM_CHAIN_TYPE, optimismProviderFactory, MineOrdering, EdrContext, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, RawTrace } = nativeBinding
 
-module.exports.MineOrdering = MineOrdering
-module.exports.EdrContext = EdrContext
 module.exports.GENERIC_CHAIN_TYPE = GENERIC_CHAIN_TYPE
 module.exports.genericChainProviderFactory = genericChainProviderFactory
 module.exports.L1_CHAIN_TYPE = L1_CHAIN_TYPE
@@ -340,6 +338,10 @@ module.exports.CANCUN = CANCUN
 module.exports.PRAGUE = PRAGUE
 module.exports.PRAGUE_EOF = PRAGUE_EOF
 module.exports.LATEST = LATEST
+module.exports.OPTIMISM_CHAIN_TYPE = OPTIMISM_CHAIN_TYPE
+module.exports.optimismProviderFactory = optimismProviderFactory
+module.exports.MineOrdering = MineOrdering
+module.exports.EdrContext = EdrContext
 module.exports.ProviderFactory = ProviderFactory
 module.exports.Response = Response
 module.exports.Provider = Provider

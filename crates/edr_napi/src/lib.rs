@@ -11,16 +11,13 @@ mod block;
 pub mod call_override;
 /// Types for casting N-API types to Rust types.
 pub mod cast;
+/// Supported chain types.
+pub mod chains;
 /// Types for configuration.
 pub mod config;
 /// Types related to an EDR N-API context.
 pub mod context;
 mod debug_trace;
-/// Types for the generic L1 Ethereum implementation.
-pub mod generic_chain;
-
-/// Types for L1 Ethereum implementation.
-pub mod l1;
 /// Types for EVM execution logs.
 pub mod log;
 /// Types for an RPC request logger.

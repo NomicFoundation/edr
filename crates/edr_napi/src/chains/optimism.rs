@@ -1,9 +1,15 @@
+use std::sync::Arc;
+
 use edr_napi_core::{
     logger::{self, Logger},
     provider::{self, ProviderBuilder, SyncProviderFactory},
+    spec::SyncNapiSpec as _,
     subscription,
 };
 use edr_optimism::OptimismChainSpec;
+use napi_derive::napi;
+
+use crate::provider::ProviderFactory;
 
 pub struct OptimismProviderFactory;
 
@@ -29,4 +35,13 @@ impl SyncProviderFactory for OptimismProviderFactory {
             subscription_callback,
         )))
     }
+}
+
+#[napi]
+pub const OPTIMISM_CHAIN_TYPE: &str = OptimismChainSpec::CHAIN_TYPE;
+
+#[napi]
+pub fn optimism_provider_factory() -> ProviderFactory {
+    let factory: Arc<dyn SyncProviderFactory> = Arc::new(OptimismProviderFactory);
+    factory.into()
 }

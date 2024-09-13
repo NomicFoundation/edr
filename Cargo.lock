@@ -1190,6 +1190,7 @@ dependencies = [
  "edr_evm",
  "edr_generic",
  "edr_napi_core",
+ "edr_optimism",
  "edr_provider",
  "edr_rpc_client",
  "mimalloc",
@@ -1222,20 +1223,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "edr_napi_optimism"
-version = "0.3.5"
-dependencies = [
- "edr_napi",
- "edr_napi_core",
- "edr_optimism",
- "edr_provider",
- "napi",
- "napi-build",
- "napi-derive",
- "openssl-sys",
 ]
 
 [[package]]
