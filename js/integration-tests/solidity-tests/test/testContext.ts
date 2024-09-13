@@ -43,9 +43,14 @@ export class TestContext {
     let totalTests = 0;
     let failedTests = 0;
 
+    let testContracts = this.matchingTest(contractName);
+    if (testContracts.length === 0) {
+      throw new Error(`No matching test contract found for ${contractName}`);
+    }
+
     const suiteResults = await runAllSolidityTests(
       this.artifacts,
-      this.matchingTest(contractName),
+      testContracts,
       {
         ...this.defaultConfig(),
         ...config,
