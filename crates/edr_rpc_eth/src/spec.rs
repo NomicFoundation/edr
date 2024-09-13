@@ -1,6 +1,4 @@
-use edr_eth::{
-    chain_spec::L1ChainSpec, db::Database, eips::eip2718::TypedEnvelope, receipt::Receipt,
-};
+use edr_eth::{chain_spec::L1ChainSpec, eips::eip2718::TypedEnvelope, receipt::Receipt};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{receipt::Block, CallRequest};
@@ -32,7 +30,7 @@ pub trait GetBlockNumber {
     fn number(&self) -> Option<u64>;
 }
 
-impl<DatabaseT: Database, ExternalContextT> RpcSpec for L1ChainSpec<DatabaseT, ExternalContextT> {
+impl RpcSpec for L1ChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<edr_eth::receipt::Execution<Log>>;
     type RpcBlock<Data> = crate::block::Block<Data> where Data: Default + DeserializeOwned + Serialize;
     type RpcCallRequest = CallRequest;

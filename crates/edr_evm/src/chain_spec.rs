@@ -11,7 +11,7 @@ use edr_eth::{
     SpecId, B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
-use revm::primitives::TransactionValidation;
+use revm::primitives::{HardforkTrait, TransactionValidation};
 pub use revm::EvmWiring;
 
 use crate::{
@@ -28,8 +28,8 @@ pub trait ChainSpec:
     alloy_rlp::Encodable
     // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
-    + EvmWiring<
-        Block: BlockEnvConstructor<Self, block::Header> + BlockEnvConstructor<Self, PartialHeader>,
+    + revm::primitives::ChainSpec<
+        Block: BlockEnvConstructor<Self::Hardfork, block::Header> + BlockEnvConstructor<Self::Hardfork, PartialHeader>,
         Transaction: alloy_rlp::Encodable
           + Clone
           + Debug
@@ -48,7 +48,7 @@ pub trait ChainSpec:
           + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
         RpcTransaction: EthRpcTransaction
           + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
-          + TryInto<<Self as revm::primitives::EvmWiring>::Transaction, Error = Self::RpcTransactionConversionError>,
+          + TryInto<<Self as revm::primitives::ChainSpec>::Transaction, Error = Self::RpcTransactionConversionError>,
     >
     + RpcSpec<ExecutionReceipt<FilterLog>: Debug>
     + RpcSpec<
@@ -59,7 +59,9 @@ pub trait ChainSpec:
 {
     /// Type representing a builder that constructs an execution receipt.
     type ReceiptBuilder: ExecutionReceiptBuilder<
-        Self,
+        Self::HaltReason,
+        Self::Hardfork,
+        Self::Transaction,
         Receipt = Self::ExecutionReceipt<ExecutionLog>,
     >;
 
@@ -91,12 +93,12 @@ pub trait ChainSpec:
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.
-pub trait BlockEnvConstructor<ChainSpecT: ChainSpec, HeaderT> {
+pub trait BlockEnvConstructor<HardforkT: HardforkTrait, HeaderT> {
     /// Converts the instance into an EVM block.
-    fn new_block_env(header: &HeaderT, hardfork: ChainSpecT::Hardfork) -> Self;
+    fn new_block_env(header: &HeaderT, hardfork: HardforkT) -> Self;
 }
 
-impl BlockEnvConstructor<L1ChainSpec, PartialHeader> for BlockEnv {
+impl BlockEnvConstructor<SpecId, PartialHeader> for BlockEnv {
     fn new_block_env(header: &PartialHeader, hardfork: SpecId) -> Self {
         Self {
             number: U256::from(header.number),
@@ -118,7 +120,7 @@ impl BlockEnvConstructor<L1ChainSpec, PartialHeader> for BlockEnv {
     }
 }
 
-impl BlockEnvConstructor<L1ChainSpec, block::Header> for BlockEnv {
+impl BlockEnvConstructor<SpecId, block::Header> for BlockEnv {
     fn new_block_env(header: &block::Header, hardfork: SpecId) -> Self {
         Self {
             number: U256::from(header.number),

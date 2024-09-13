@@ -1,18 +1,28 @@
 use auto_impl::auto_impl;
-use revm::db::{DatabaseComponents, StateRef, WrapDatabaseRef};
+use edr_eth::{chain_spec::Wiring, result::InvalidTransaction};
+use revm::{
+    db::{DatabaseComponents, StateRef, WrapDatabaseRef},
+    primitives::TransactionValidation,
+};
 
-use crate::blockchain::SyncBlockchain;
+use crate::{blockchain::SyncBlockchain, chain_spec::ChainSpec};
 
 /// Type for registering handles, specialised for EDR database component types.
 pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> =
     revm::handler::register::HandleRegister<
-        ChainSpecT,
-        DebugDataT,
-        WrapDatabaseRef<
-            DatabaseComponents<
-                StateT,
-                &'evm dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, <StateT as StateRef>::Error>,
+        Wiring<
+            ChainSpecT,
+            WrapDatabaseRef<
+                DatabaseComponents<
+                    StateT,
+                    &'evm dyn SyncBlockchain<
+                        ChainSpecT,
+                        BlockchainErrorT,
+                        <StateT as StateRef>::Error,
+                    >,
+                >,
             >,
+            DebugDataT,
         >,
     >;
 
@@ -20,7 +30,8 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
 /// `EvmBuilder`.
 pub struct DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
-    ChainSpecT: revm::EvmWiring,
+    ChainSpecT:
+        ChainSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     StateT: StateRef,
 {
     /// The contextual data.
@@ -31,7 +42,8 @@ where
 
 pub struct EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
-    ChainSpecT: revm::EvmWiring,
+    ChainSpecT:
+        ChainSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     StateT: StateRef,
 {
     pub debug: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,

@@ -17,8 +17,8 @@ itertools = { version = "0.10.5", default-features = false, features = ["use_all
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", ] }
 log = { version = "0.4.17", default-features = false }
 once_cell = { version = "1.18.0", default-features = false, features = ["alloc", "race", "std"] }
-revm = { git = "https://github.com/Wodann/revm", rev = "f57e3e6", version = "14.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
-revm-primitives = { git = "https://github.com/Wodann/revm", rev = "f57e3e6", version = "9.0", default-features = false, features = ["c-kzg", "hashbrown"] }
+revm = { git = "https://github.com/Wodann/revm", rev = "dfc2f28f", version = "14.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
+revm-primitives = { git = "https://github.com/Wodann/revm", rev = "dfc2f28f", version = "9.0", default-features = false, features = ["c-kzg", "hashbrown", "rand"] }
 serde = { version = "1.0.209", default-features = false, features = ["derive"], optional = true }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
@@ -41,7 +41,6 @@ tokio = { version = "1.23.0", features = ["macros"] }
 
 [features]
 default = ["std"]
-rand = ["revm-primitives/rand"]
 serde = ["dep:serde", "c-kzg/serde", "revm/serde", "revm-primitives/serde"]
 std = ["alloy-eips/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm/std", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
 test-remote = []

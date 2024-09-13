@@ -41,7 +41,8 @@ impl RpcSpec for OptimismChainSpec {
     type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
 }
 
-impl revm::primitives::EvmWiring for OptimismChainSpec {
+impl revm::primitives::ChainSpec for OptimismChainSpec {
+    type ChainContext = revm::optimism::Context;
     type Block = edr_eth::env::BlockEnv;
     type Transaction = transaction::Signed;
     type Hardfork = OptimismSpecId;
@@ -49,8 +50,6 @@ impl revm::primitives::EvmWiring for OptimismChainSpec {
 }
 
 impl revm::EvmWiring for OptimismChainSpec {
-    type Context = revm::optimism::Context;
-
     fn handler<'evm, EXT, DB>(hardfork: Self::Hardfork) -> EvmHandler<'evm, Self, EXT, DB>
     where
         DB: revm::Database,

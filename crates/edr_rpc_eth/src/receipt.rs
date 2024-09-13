@@ -242,7 +242,7 @@ mod test {
     }
 
     impl_execution_receipt_tests! {
-        L1ChainSpec<EmptyDB, ()> => {
+        L1ChainSpec => {
             legacy => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,

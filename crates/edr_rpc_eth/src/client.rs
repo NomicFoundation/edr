@@ -329,7 +329,7 @@ mod tests {
     use super::*;
 
     struct TestRpcClient {
-        client: EthRpcClient<L1ChainSpec<EmptyDB, ()>>,
+        client: EthRpcClient<L1ChainSpec>,
 
         // Need to keep the tempdir around to prevent it from being deleted
         // Only accessed when feature = "test-remote", hence the allow.
@@ -348,7 +348,7 @@ mod tests {
     }
 
     impl Deref for TestRpcClient {
-        type Target = EthRpcClient<L1ChainSpec<EmptyDB, ()>>;
+        type Target = EthRpcClient<L1ChainSpec>;
 
         fn deref(&self) -> &Self::Target {
             &self.client

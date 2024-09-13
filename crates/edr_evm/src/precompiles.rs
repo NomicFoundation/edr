@@ -1,16 +1,13 @@
-use std::{fmt::Debug, sync::Arc};
+use std::sync::Arc;
 
 use edr_eth::{Address, HashMap};
-use revm::{db::Database, ContextPrecompile, EvmHandler};
+use revm::{ContextPrecompile, EvmHandler, EvmWiring};
 
 /// Registers custom precompiles.
-pub fn register_precompiles_handles<ChainSpecT, DatabaseT, ContextT>(
-    handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
-    precompiles: HashMap<Address, ContextPrecompile<ChainSpecT, DatabaseT>>,
-) where
-    ChainSpecT: revm::EvmWiring,
-    DatabaseT: Database<Error: Debug>,
-{
+pub fn register_precompiles_handles<EvmWiringT: EvmWiring>(
+    handler: &mut EvmHandler<'_, EvmWiringT>,
+    precompiles: HashMap<Address, ContextPrecompile<EvmWiringT>>,
+) {
     let old_handle = handler.pre_execution.load_precompiles();
     handler.pre_execution.load_precompiles = Arc::new(move || {
         let mut new_handle = old_handle.clone();
