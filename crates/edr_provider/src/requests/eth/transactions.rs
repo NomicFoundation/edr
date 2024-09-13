@@ -6,7 +6,7 @@ use edr_eth::{
     rlp::Decodable,
     transaction::{
         request::TransactionRequestAndSender, IsEip155, IsEip4844, Transaction as _,
-        TransactionType, TransactionValidation,
+        TransactionType, TransactionValidation, INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Bytes, PreEip1898BlockSpec, B256, U256,
 };
@@ -211,7 +211,7 @@ pub fn handle_send_raw_transaction_request<
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     ChainSpecT::PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
-            edr_eth::rlp::Error::Custom(message) if transaction::Signed::is_invalid_transaction_type_error(message) => {
+            edr_eth::rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE) => {
                 let type_id = *raw_transaction.first().expect("We already validated that the transaction is not empty if it's an invalid transaction type error.");
                 ProviderError::InvalidTransactionType(type_id)
             }

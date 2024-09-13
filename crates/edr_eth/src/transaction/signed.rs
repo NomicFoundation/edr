@@ -73,10 +73,6 @@ impl Signed {
             _ => None,
         }
     }
-
-    pub fn is_invalid_transaction_type_error(message: &str) -> bool {
-        message == INVALID_TX_TYPE_ERROR_MESSAGE
-    }
 }
 
 impl alloy_rlp::Decodable for Signed {
