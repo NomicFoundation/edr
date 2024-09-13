@@ -1185,7 +1185,6 @@ dependencies = [
 name = "edr_napi"
 version = "0.3.5"
 dependencies = [
- "ansi_term",
  "derive-where",
  "edr_eth",
  "edr_evm",
@@ -1193,7 +1192,6 @@ dependencies = [
  "edr_napi_core",
  "edr_provider",
  "edr_rpc_client",
- "itertools 0.12.1",
  "mimalloc",
  "napi",
  "napi-build",
@@ -1202,7 +1200,6 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "thiserror",
  "tracing",
  "tracing-flame",
  "tracing-subscriber",
@@ -1212,10 +1209,33 @@ dependencies = [
 name = "edr_napi_core"
 version = "0.3.5"
 dependencies = [
+ "ansi_term",
+ "derive-where",
  "edr_defaults",
  "edr_eth",
+ "edr_evm",
+ "edr_generic",
  "edr_provider",
+ "edr_rpc_client",
+ "itertools 0.12.1",
+ "napi",
  "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "edr_napi_optimism"
+version = "0.3.5"
+dependencies = [
+ "edr_napi",
+ "edr_napi_core",
+ "edr_optimism",
+ "edr_provider",
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "openssl-sys",
 ]
 
 [[package]]
@@ -1229,6 +1249,8 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_generic",
+ "edr_napi_core",
  "edr_provider",
  "edr_rpc_eth",
  "edr_test_utils",

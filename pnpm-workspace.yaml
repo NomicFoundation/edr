@@ -1,5 +1,6 @@
 packages:
   - "crates/edr_napi"
+  - "crates/edr_napi_optimism"
   - "crates/tools/js/benchmark"
   - "hardhat-tests"
   - "hardhat-tests/integration/*"

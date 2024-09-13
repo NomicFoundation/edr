@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use edr_eth::{chain_spec::L1ChainSpec, specification};
+use edr_napi_core::{
+    logger::Logger,
+    provider::{self, ProviderBuilder, SyncProviderFactory},
+    spec::SyncNapiSpec as _,
+    subscription,
+};
 use napi_derive::napi;
 
-use crate::{
-    logger::{Logger, LoggerConfig},
-    provider::{self, factory::SyncProviderFactory, ProviderBuilder, ProviderFactory},
-    spec::SyncNapiSpec,
-    subscription::{SubscriptionCallback, SubscriptionConfig},
-};
+use crate::provider::ProviderFactory;
 
 pub struct L1ProviderFactory;
 
@@ -17,18 +18,18 @@ impl SyncProviderFactory for L1ProviderFactory {
         &self,
         env: &napi::Env,
         provider_config: edr_napi_core::provider::Config,
-        logger_config: LoggerConfig,
-        subscription_config: SubscriptionConfig,
+        logger_config: edr_napi_core::logger::Config,
+        subscription_config: edr_napi_core::subscription::Config,
     ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<L1ChainSpec>::new(env, logger_config)?;
+        let logger = Logger::<L1ChainSpec>::new(logger_config)?;
 
         let provider_config = edr_provider::ProviderConfig::<L1ChainSpec>::from(provider_config);
 
         let subscription_callback =
-            SubscriptionCallback::new(env, subscription_config.subscription_callback)?;
+            subscription::Callback::new(env, subscription_config.subscription_callback)?;
 
         Ok(Box::new(ProviderBuilder::new(
-            logger,
+            Box::new(logger),
             provider_config,
             subscription_callback,
         )))

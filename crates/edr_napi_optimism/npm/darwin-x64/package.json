@@ -1,0 +1,16 @@
+{
+  "name": "@nomicfoundation/edr-optimism-darwin-x64",
+  "repository": {
+    "url": "https://github.com/NomicFoundation/edr.git",
+    "type": "git"
+  },
+  "version": "0.2.0-alpha.1",
+  "main": "edr-optimism.darwin-x64.node",
+  "files": [
+    "edr-optimism.darwin-x64.node"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">= 18"
+  }
+}

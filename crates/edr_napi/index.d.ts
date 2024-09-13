@@ -437,6 +437,14 @@ export class EdrContext {
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
 }
 export class ProviderFactory { }
+export class Response {
+  /**Returns the response data as a JSON string or a JSON object. */
+  get data(): string | any
+  /**Returns the Solidity trace of the transaction that failed to execute, if any. */
+  get solidityTrace(): RawTrace | null
+  /**Returns the raw traces of executed contracts. This maybe contain zero or more traces. */
+  get traces(): Array<RawTrace>
+}
 /** A JSON-RPC provider for Ethereum. */
 export class Provider {
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
@@ -449,14 +457,6 @@ export class Provider {
    * `false` to disable this.
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
-}
-export class Response {
-  /**Returns the response data as a JSON string or a JSON object. */
-  get data(): string | any
-  /**Returns the Solidity trace of the transaction that failed to execute, if any. */
-  get solidityTrace(): RawTrace | null
-  /**Returns the raw traces of executed contracts. This maybe contain zero or more traces. */
-  get traces(): Array<RawTrace>
 }
 export class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>

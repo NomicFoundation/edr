@@ -156,11 +156,9 @@ pub struct RawTrace {
     inner: Arc<edr_evm::trace::Trace<GenericChainSpec>>,
 }
 
-impl From<edr_evm::trace::Trace<GenericChainSpec>> for RawTrace {
-    fn from(value: edr_evm::trace::Trace<GenericChainSpec>) -> Self {
-        Self {
-            inner: Arc::new(value),
-        }
+impl From<Arc<edr_evm::trace::Trace<GenericChainSpec>>> for RawTrace {
+    fn from(value: Arc<edr_evm::trace::Trace<GenericChainSpec>>) -> Self {
+        Self { inner: value }
     }
 }
 

@@ -1,6 +1,7 @@
 use std::{io, sync::Arc};
 
 use edr_eth::HashMap;
+use edr_napi_core::provider::{self, SyncProviderFactory};
 use napi::{
     tokio::{runtime, sync::Mutex as AsyncMutex},
     Env, JsObject, Status,
@@ -11,7 +12,7 @@ use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 use crate::{
     config::ProviderConfig,
     logger::LoggerConfig,
-    provider::{factory::SyncProviderFactory, Provider, ProviderFactory},
+    provider::{Provider, ProviderFactory},
     subscription::SubscriptionConfig,
 };
 
@@ -44,6 +45,7 @@ impl EdrContext {
         subscription_config: SubscriptionConfig,
     ) -> napi::Result<JsObject> {
         let provider_config = edr_napi_core::provider::Config::try_from(provider_config)?;
+        let logger_config = logger_config.resolve(&env)?;
 
         #[cfg(feature = "scenarios")]
         let scenario_file =
@@ -61,7 +63,7 @@ impl EdrContext {
                 &chain_type,
                 provider_config,
                 logger_config,
-                subscription_config,
+                subscription_config.into(),
             )?
         };
 
@@ -153,17 +155,10 @@ impl Context {
         env: &napi::Env,
         chain_type: &str,
         provider_config: edr_napi_core::provider::Config,
-        logger_config: LoggerConfig,
-        subscription_config: SubscriptionConfig,
-    ) -> napi::Result<Box<dyn crate::provider::Builder>> {
+        logger_config: edr_napi_core::logger::Config,
+        subscription_config: edr_napi_core::subscription::Config,
+    ) -> napi::Result<Box<dyn provider::Builder>> {
         if let Some(factory) = self.provider_factories.get(chain_type) {
-            // #[cfg(feature = "scenarios")]
-            // let scenario_file = crate::scenarios::scenario_file(
-            //     &config,
-            //     edr_provider::Logger::is_enabled(&*logger),
-            // )
-            // .await?;
-
             factory.create_provider_builder(
                 env,
                 provider_config,

@@ -9,6 +9,8 @@ alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
 alloy-serde = { version = "0.2.0", default-features = false, features = ["std"] }
 edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
+edr_generic = { path = "../edr_generic" }
+edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
 log = { version = "0.4.17", default-features = false }

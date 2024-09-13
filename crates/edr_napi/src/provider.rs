@@ -1,22 +1,16 @@
-mod builder;
 /// Types related to provider factories.
 pub mod factory;
+mod response;
 
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use edr_provider::InvalidRequestReason;
-use edr_rpc_client::jsonrpc;
+use edr_napi_core::provider::SyncProvider;
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 
-pub use self::{
-    builder::{Builder, ProviderBuilder},
-    factory::ProviderFactory,
-};
-use crate::{
-    call_override::CallOverrideCallback,
-    spec::{Response, SyncNapiSpec},
-};
+pub use self::factory::ProviderFactory;
+use self::response::Response;
+use crate::call_override::CallOverrideCallback;
 
 /// A JSON-RPC provider for Ethereum.
 #[napi]
@@ -57,10 +51,11 @@ impl Provider {
             crate::scenarios::write_request(scenario_file, &request).await?;
         }
 
-        runtime::Handle::current()
+        self.runtime
             .spawn_blocking(move || provider.handle_request(request))
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
+            .map(Response::from)
     }
 
     #[napi(ts_return_type = "Promise<void>")]
@@ -74,6 +69,9 @@ impl Provider {
     ) -> napi::Result<JsObject> {
         let call_override_callback =
             CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone())?;
+
+        let call_override_callback =
+            Arc::new(move |address, data| call_override_callback.call_override(address, data));
 
         let provider = self.provider.clone();
 
@@ -101,80 +99,5 @@ impl Provider {
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
-    }
-}
-
-/// Trait for a synchronous N-API provider that can be used for dynamic trait
-/// objects.
-pub trait SyncProvider: Send + Sync {
-    /// Blocking method to handle a request.
-    fn handle_request(&self, request: String) -> napi::Result<Response>;
-
-    /// Set to `true` to make the traces returned with `eth_call`,
-    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
-    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
-    /// `false` to disable this.
-    fn set_call_override_callback(&self, call_override_callback: CallOverrideCallback);
-
-    /// Set the verbose tracing flag to the provided value.
-    fn set_verbose_tracing(&self, enabled: bool);
-}
-
-impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpecT> {
-    fn handle_request(&self, request: String) -> napi::Result<Response> {
-        let request = match serde_json::from_str(&request) {
-            Ok(request) => request,
-            Err(error) => {
-                let message = error.to_string();
-
-                let request = serde_json::Value::from_str(&request).ok();
-                let method_name = request
-                    .as_ref()
-                    .and_then(|request| request.get("method"))
-                    .and_then(serde_json::Value::as_str);
-
-                let reason = InvalidRequestReason::new(method_name, &message);
-
-                // HACK: We need to log failed deserialization attempts when they concern input
-                // validation.
-                if let Some((method_name, provider_error)) = reason.provider_error() {
-                    // Ignore potential failure of logging, as returning the original error is more
-                    // important
-                    let _result = self.log_failed_deserialization(method_name, &provider_error);
-                }
-
-                let response = jsonrpc::ResponseData::<()>::Error {
-                    error: jsonrpc::Error {
-                        code: reason.error_code(),
-                        message: reason.error_message(),
-                        data: request,
-                    },
-                };
-
-                return serde_json::to_string(&response)
-                    .map_err(|error| {
-                        napi::Error::new(
-                            Status::Unknown,
-                            format!("Failed to serialize response due to: {error}"),
-                        )
-                    })
-                    .map(Response::from);
-            }
-        };
-
-        let response = edr_provider::Provider::handle_request(self, request);
-
-        ChainSpecT::cast_response(response)
-    }
-
-    fn set_call_override_callback(&self, call_override_callback: CallOverrideCallback) {
-        let call_override_callback =
-            Arc::new(move |address, data| call_override_callback.call_override(address, data));
-
-        self.set_call_override_callback(Some(call_override_callback));
-    }
-
-    fn set_verbose_tracing(&self, enabled: bool) {
-        self.set_verbose_tracing(enabled);
     }
 }
