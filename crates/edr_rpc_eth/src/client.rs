@@ -322,14 +322,14 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
 mod tests {
     use std::{ops::Deref, str::FromStr};
 
-    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_eth::{chain_spec::L1ChainSpec, db::EmptyDB};
     use reqwest::StatusCode;
     use tempfile::TempDir;
 
     use super::*;
 
     struct TestRpcClient {
-        client: EthRpcClient<L1ChainSpec>,
+        client: EthRpcClient<L1ChainSpec<EmptyDB, ()>>,
 
         // Need to keep the tempdir around to prevent it from being deleted
         // Only accessed when feature = "test-remote", hence the allow.
@@ -348,7 +348,7 @@ mod tests {
     }
 
     impl Deref for TestRpcClient {
-        type Target = EthRpcClient<L1ChainSpec>;
+        type Target = EthRpcClient<L1ChainSpec<EmptyDB, ()>>;
 
         fn deref(&self) -> &Self::Target {
             &self.client

@@ -189,7 +189,8 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
 mod test {
     use assert_json_diff::assert_json_eq;
     use edr_eth::{
-        chain_spec::L1ChainSpec, eips::eip2718::TypedEnvelope, log::ExecutionLog, Bloom, Bytes,
+        chain_spec::L1ChainSpec, db::EmptyDB, eips::eip2718::TypedEnvelope, log::ExecutionLog,
+        Bloom, Bytes,
     };
     use serde_json::json;
 
@@ -241,7 +242,7 @@ mod test {
     }
 
     impl_execution_receipt_tests! {
-        L1ChainSpec => {
+        L1ChainSpec<EmptyDB, ()> => {
             legacy => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,

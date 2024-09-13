@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! impl_execution_receipt_tests {
-    ($chain_spec:ident => {
+    ($chain_spec:ty => {
         $(
             $name:ident => $receipt:expr,
         )+
