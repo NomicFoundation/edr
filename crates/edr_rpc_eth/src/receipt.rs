@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
+use alloy_eips::eip7702::SignedAuthorization;
 use edr_eth::{
     eips::eip2718::TypedEnvelope,
-    env::SignedAuthorization,
     log::FilterLog,
     receipt::{self, Execution, Receipt as _, TransactionReceipt},
     transaction::{self, TransactionType as _},

@@ -12,8 +12,8 @@ edr_evm = { path = "../edr_evm" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
 log = { version = "0.4.17", default-features = false }
-revm = { git = "https://github.com/Wodann/revm", rev = "a500675", version = "12.1", default-features = false, features = ["c-kzg", "dev", "serde"] }
-revm-primitives = { git = "https://github.com/Wodann/revm", rev = "a500675", version = "7.1", default-features = false, features = ["c-kzg", "hashbrown"] }
+revm = { git = "https://github.com/Wodann/revm", rev = "f57e3e6", version = "14.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
+revm-primitives = { git = "https://github.com/Wodann/revm", rev = "f57e3e6", version = "9.0", default-features = false, features = ["c-kzg", "hashbrown"] }
 serde = { version = "1.0.209", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.37", default-features = false }
 

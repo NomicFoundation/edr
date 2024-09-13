@@ -2,11 +2,10 @@ mod eip658;
 mod legacy;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::EvmWiring;
+use revm_primitives::{ExecutionResult, HaltReason};
 
 use super::{Execution, ExecutionReceiptBuilder, MapReceiptLogs, Receipt};
 use crate::{
-    chain_spec::L1ChainSpec,
     eips::eip2718::TypedEnvelope,
     log::ExecutionLog,
     transaction::{self, TransactionType as _},
@@ -118,12 +117,12 @@ where
 
 pub struct Builder;
 
-impl ExecutionReceiptBuilder<L1ChainSpec> for Builder {
+impl ExecutionReceiptBuilder<HaltReason, SpecId, transaction::Signed> for Builder {
     type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: revm::db::StateRef>(
         _pre_execution_state: StateT,
-        _transaction: &<L1ChainSpec as EvmWiring>::Transaction,
+        _transaction: &transaction::Signed,
     ) -> Result<Self, StateT::Error> {
         Ok(Self)
     }
@@ -132,7 +131,7 @@ impl ExecutionReceiptBuilder<L1ChainSpec> for Builder {
         self,
         header: &crate::block::PartialHeader,
         transaction: &transaction::Signed,
-        result: &revm_primitives::ExecutionResult<L1ChainSpec>,
+        result: &ExecutionResult<HaltReason>,
         hardfork: SpecId,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();

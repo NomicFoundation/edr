@@ -12,7 +12,7 @@ pub mod execution;
 mod transaction;
 
 use revm::db::StateRef;
-use revm_primitives::EvmWiring;
+use revm_primitives::{HaltReasonTrait, HardforkTrait, Transaction, TransactionValidation};
 
 pub use self::{block::BlockReceipt, transaction::TransactionReceipt};
 use crate::{block::PartialHeader, Bloom, B256};
@@ -28,23 +28,28 @@ pub enum Execution<LogT> {
 }
 
 /// Trait for a builder that constructs an execution receipt.
-pub trait ExecutionReceiptBuilder<ChainSpecT: EvmWiring>: Sized {
+pub trait ExecutionReceiptBuilder<HaltReasonT, HardforkT, TransactionT>: Sized
+where
+    HaltReasonT: HaltReasonTrait,
+    HardforkT: HardforkTrait,
+    TransactionT: Transaction + TransactionValidation,
+{
     /// The receipt type that the builder constructs.
     type Receipt;
 
     /// Creates a new builder with the given pre-execution state.
     fn new_receipt_builder<StateT: StateRef>(
         pre_execution_state: StateT,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &TransactionT,
     ) -> Result<Self, StateT::Error>;
 
     /// Builds a receipt using the provided information.
     fn build_receipt(
         self,
         header: &PartialHeader,
-        transaction: &ChainSpecT::Transaction,
-        result: &revm_primitives::ExecutionResult<ChainSpecT>,
-        hardfork: ChainSpecT::Hardfork,
+        transaction: &TransactionT,
+        result: &revm_primitives::ExecutionResult<HaltReasonT>,
+        hardfork: HardforkT,
     ) -> Self::Receipt;
 }
 

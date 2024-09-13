@@ -21,7 +21,7 @@ parking_lot = { version = "0.12.1", default-features = false }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["rand", "serde"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
-revm = { git = "https://github.com/Wodann/revm", rev = "a500675", version = "12.1", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
+revm = { git = "https://github.com/Wodann/revm", rev = "f57e3e6", version = "14.0", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { version = "1.0.209", default-features = false, features = ["std"] }
 serde_json = { version = "1.0.127", default-features = false, features = ["std"] }
