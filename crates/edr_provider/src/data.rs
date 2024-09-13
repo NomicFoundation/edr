@@ -2692,8 +2692,8 @@ fn create_blockchain_and_state(
                 );
 
             let elapsed = match timer.since(fork_block_timestamp) {
-                Ok(elapsed) => i128::from(elapsed),
-                Err(forward_drift) => -i128::from(forward_drift.duration().as_secs()),
+                Ok(elapsed) => -i128::from(elapsed),
+                Err(forward_drift) => i128::from(forward_drift.duration().as_secs()),
             };
 
             elapsed
