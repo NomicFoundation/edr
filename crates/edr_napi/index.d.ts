@@ -515,8 +515,8 @@ export interface SolidityTestRunnerConfigArgs {
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {
-  /** Path where fuzz failures are recorded and replayed. */
-  failurePersistDir: string
+  /** Path where fuzz failures are recorded and replayed if set. */
+  failurePersistDir?: string
   /** Name of the file to record fuzz failures, defaults to `failures`. */
   failurePersistFile?: string
   /**
@@ -560,7 +560,7 @@ export interface FuzzConfigArgs {
 }
 /** Invariant testing configuration. */
 export interface InvariantConfigArgs {
-  /** Path where invariant failures are recorded and replayed. */
+  /** Path where invariant failures are recorded and replayed if set. */
   failurePersistDir?: string
   /**
    * The number of runs that must execute for each invariant test group.

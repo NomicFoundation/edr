@@ -132,7 +132,7 @@ pub struct TestFuzzConfig {
     pub dictionary: TestFuzzDictionaryConfig,
     pub gas_report_samples: u32,
     pub failure_persist_dir: Option<PathBuf>,
-    pub failure_persist_file: Option<String>,
+    pub failure_persist_file: String,
 }
 
 impl Default for TestFuzzConfig {
@@ -144,7 +144,7 @@ impl Default for TestFuzzConfig {
             dictionary: TestFuzzDictionaryConfig::default(),
             gas_report_samples: 256,
             failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
-            failure_persist_file: Some("testfailure".to_string()),
+            failure_persist_file: "testfailure".into(),
         }
     }
 }

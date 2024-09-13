@@ -36,24 +36,6 @@ export class TestContext {
     };
   }
 
-  fuzzConfig(
-    config?: Omit<FuzzConfigArgs, "failurePersistDir">
-  ): FuzzConfigArgs {
-    return {
-      failurePersistDir: this.fuzzFailuresPersistDir,
-      ...config,
-    };
-  }
-
-  invariantConfig(
-    config?: Omit<InvariantConfigArgs, "failurePersistDir">
-  ): InvariantConfigArgs {
-    return {
-      failurePersistDir: this.invariantFailuresPersistDir,
-      ...config,
-    };
-  }
-
   async runTestsWithStats(
     contractName: string,
     config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot">

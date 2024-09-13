@@ -170,7 +170,7 @@ async fn test_persist_fuzz_failure() {
     }
 
     // write new failure in different file, but keep the same directory
-    fuzz_config.failure_persist_file = Some("failure1".to_string());
+    fuzz_config.failure_persist_file = "failure1".to_string();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_config(fuzz_config).await;
     let new_calldata = match get_failure_result!(runner) {
         Some(CounterExample::Single(counterexample)) => counterexample.calldata,
