@@ -59,7 +59,7 @@
     "version": "napi version",
     "pretest": "pnpm build:optimism",
     "test": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
-    "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
+    "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(optimism)}.ts\"",
     "clean": "rm -rf @nomicfoundation/edr.node"
   }
 }

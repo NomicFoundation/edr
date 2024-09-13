@@ -8,7 +8,11 @@ import {
   l1ProviderFactory,
   MineOrdering,
   SubscriptionEvent,
+  // HACK: There is no way to exclude tsc type checking for a file from the
+  // CLI, so we ignore the error here to allow `pnpm testNoBuild` to pass.
+  // @ts-ignore
   OPTIMISM_CHAIN_TYPE,
+  // @ts-ignore
   optimismProviderFactory,
 } from "..";
 import { ALCHEMY_URL, toBuffer } from "./helpers";
