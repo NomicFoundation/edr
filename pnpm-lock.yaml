@@ -424,9 +424,6 @@ importers:
       '@types/chai':
         specifier: ^4.2.0
         version: 4.3.12
-      '@types/chai-as-promised':
-        specifier: ^7.1.8
-        version: 7.1.8
       '@types/mocha':
         specifier: '>=9.1.0'
         version: 10.0.6
@@ -436,9 +433,6 @@ importers:
       chai:
         specifier: ^4.3.6
         version: 4.4.1
-      chai-as-promised:
-        specifier: ^7.1.1
-        version: 7.1.1(chai@4.4.1)
       hardhat:
         specifier: 2.22.10
         version: 2.22.10(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.5.4))(typescript@5.5.4)
