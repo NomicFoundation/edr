@@ -15,7 +15,8 @@
   - [Local release](02_development/03_local_release.md)
   - [Update N-API targets](02_development/04_update_napi_targets.md)
   - [Using pnpm link](02_development/05_pnpm_link.md)
-  - [Solidity test cheatcodes](02_development/06_cheatcodes)
+  - [Style Guide](02_development/06_style_guide.md)
+  - [Solidity test cheatcodes](02_development/07_cheatcodes)
 
 - [Release](./03_release.md)
 

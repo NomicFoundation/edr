@@ -1,9 +1,13 @@
+mod contiguous;
 mod reservable;
 mod sparse;
 
 use edr_eth::B256;
 
-pub use self::{reservable::ReservableSparseBlockchainStorage, sparse::SparseBlockchainStorage};
+pub use self::{
+    contiguous::ContiguousBlockchainStorage, reservable::ReservableSparseBlockchainStorage,
+    sparse::SparseBlockchainStorage,
+};
 
 /// An error that occurs when trying to insert a block into storage.
 #[derive(Debug, thiserror::Error)]

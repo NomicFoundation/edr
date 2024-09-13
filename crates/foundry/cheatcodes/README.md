@@ -16,7 +16,7 @@ This, combined with the use of an internal [`Cheatcode`](../macros/impl/src/chea
 
 Cheatcodes are manually implemented through the `Cheatcode` trait, which is called in the `Cheatcodes` inspector implementation.
 
-See the [cheatcodes dev documentation](../../../book/src/02_development/06_cheatcodes#adding-a-new-cheatcode) for more details.
+See the [cheatcodes dev documentation](../../../book/src/02_development/07_cheatcodes#adding-a-new-cheatcode) for more details.
 
 ### JSON interface
 
@@ -33,7 +33,7 @@ If you are making use of the JSON interface, please don't hesitate to open a PR 
 
 ### Adding a new cheatcode
 
-Please see the [cheatcodes dev documentation](../../../book/src/02_development/06_cheatcodes#adding-a-new-cheatcode) on how to add new cheatcodes.
+Please see the [cheatcodes dev documentation](../../../book/src/02_development/07_cheatcodes#adding-a-new-cheatcode) on how to add new cheatcodes.
 
 [`sol!`]: https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html
 [`spec/src/vm.rs`]: ./spec/src/vm.rs
