@@ -146,8 +146,6 @@ interface Vm {
     function assume(bool condition) external pure;
     function blobBaseFee(uint256 newBlobBaseFee) external;
     function blobhashes(bytes32[] calldata hashes) external;
-    function breakpoint(string calldata char) external;
-    function breakpoint(string calldata char, bool value) external;
     function chainId(uint256 newChainId) external;
     function clearMockedCalls() external;
     function closeFile(string calldata path) external;

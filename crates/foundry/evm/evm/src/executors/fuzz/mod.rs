@@ -129,7 +129,6 @@ impl FuzzedExecutor {
                 FuzzOutcome::CounterExample(CounterExampleOutcome {
                     exit_reason,
                     counterexample: _counterexample,
-                    ..
                 }) => {
                     let status = exit_reason;
                     // We cannot use the calldata returned by the test runner in `TestError::Fail`,
@@ -224,11 +223,6 @@ impl FuzzedExecutor {
             return Err(TestCaseError::reject(FuzzError::AssumeReject));
         }
 
-        let breakpoints = call
-            .cheatcodes
-            .as_ref()
-            .map_or_else(Default::default, |cheats| cheats.breakpoints.clone());
-
         let success = self.executor.is_raw_call_success(
             address,
             Cow::Owned(state_changeset),
@@ -245,15 +239,11 @@ impl FuzzedExecutor {
                 },
                 traces: call.traces,
                 coverage: call.coverage,
-                debug: call.debug,
-                breakpoints,
             }))
         } else {
             Ok(FuzzOutcome::CounterExample(CounterExampleOutcome {
-                debug: call.debug.clone(),
                 exit_reason: call.exit_reason,
                 counterexample: (calldata, call),
-                breakpoints,
             }))
         }
     }

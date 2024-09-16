@@ -1,15 +1,11 @@
 //! Implementations of [`Testing`](crate::Group::Testing) cheatcodes.
 
-use alloy_primitives::Address;
 use alloy_sol_types::SolValue;
 use foundry_evm_core::constants::{MAGIC_ASSUME, MAGIC_SKIP};
 
 use crate::{
     Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Error, Result,
-    Vm::{
-        assumeCall, breakpoint_0Call, breakpoint_1Call, rpcUrlCall, rpcUrlStructsCall, rpcUrlsCall,
-        skipCall, sleepCall,
-    },
+    Vm::{assumeCall, rpcUrlCall, rpcUrlStructsCall, rpcUrlsCall, skipCall, sleepCall},
 };
 
 pub(crate) mod assert;
@@ -23,20 +19,6 @@ impl Cheatcode for assumeCall {
         } else {
             Err(Error::from(MAGIC_ASSUME))
         }
-    }
-}
-
-impl Cheatcode for breakpoint_0Call {
-    fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
-        let Self { char } = self;
-        breakpoint(ccx.state, &ccx.caller, char, true)
-    }
-}
-
-impl Cheatcode for breakpoint_1Call {
-    fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
-        let Self { char, value } = self;
-        breakpoint(ccx.state, &ccx.caller, char, *value)
     }
 }
 
@@ -86,24 +68,4 @@ impl Cheatcode for skipCall {
             Ok(Vec::default())
         }
     }
-}
-
-/// Adds or removes the given breakpoint to the state.
-fn breakpoint(state: &mut Cheatcodes, caller: &Address, s: &str, add: bool) -> Result {
-    let mut chars = s.chars();
-    let (Some(point), None) = (chars.next(), chars.next()) else {
-        bail!("breakpoints must be exactly one character");
-    };
-    ensure!(
-        point.is_alphabetic(),
-        "only alphabetic characters are accepted as breakpoints"
-    );
-
-    if add {
-        state.breakpoints.insert(point, (*caller, state.pc));
-    } else {
-        state.breakpoints.remove(&point);
-    }
-
-    Ok(Vec::default())
 }

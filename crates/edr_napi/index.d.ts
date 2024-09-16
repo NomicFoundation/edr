@@ -387,8 +387,6 @@ export interface SolidityTestRunnerConfigArgs {
   fsPermissions?: Array<PathPermission>
   /** Whether to collect traces. Defaults to false. */
   trace?: boolean
-  /** Whether to collect debug info. Defaults to false. */
-  debug?: boolean
   /** Whether to support the `testFail` prefix. Defaults to false. */
   testFail?: boolean
   /** Address labels for traces. Defaults to none. */
@@ -701,8 +699,6 @@ export interface StandardTestKind {
 }
 /** See [forge::result::TestKind::Fuzz] */
 export interface FuzzTestKind {
-  /** See [forge::result::TestKind::Fuzz] */
-  readonly firstCase: FuzzCase
   /** See [forge::result::TestKind::Fuzz] */
   readonly runs: bigint
   /** See [forge::result::TestKind::Fuzz] */

@@ -12,7 +12,7 @@ use std::{
 use alloy_primitives::{Address, Bytes, Log, B256, U256};
 use alloy_rpc_types::request::TransactionRequest;
 use alloy_sol_types::{SolInterface, SolValue};
-use foundry_common::{evm::Breakpoints, SELECTOR_LEN};
+use foundry_common::SELECTOR_LEN;
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
     backend::{DatabaseExt, RevertDiagnostic},
@@ -207,9 +207,6 @@ pub struct Cheatcodes {
 
     /// The current program counter.
     pub pc: usize,
-    /// Breakpoints supplied by the `breakpoint` cheatcode.
-    /// `char -> (address, pc)`
-    pub breakpoints: Breakpoints,
 }
 
 impl Cheatcodes {

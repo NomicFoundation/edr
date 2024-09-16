@@ -28,8 +28,6 @@ pub enum SolidityTestRunnerConfigError {
 pub struct SolidityTestRunnerConfig {
     /// Project root directory.
     pub project_root: PathBuf,
-    /// Whether to enable debug mode.
-    pub debug: bool,
     /// Whether to enable trace mode.
     pub trace: bool,
     /// Whether to collect coverage info

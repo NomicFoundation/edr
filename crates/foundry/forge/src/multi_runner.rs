@@ -70,8 +70,6 @@ pub struct MultiContractRunner {
     coverage: bool,
     /// Whether to collect traces
     trace: bool,
-    /// Whether to collect debug info
-    debug: bool,
     /// Whether to support the `testFail` prefix
     test_fail: bool,
     /// Whether to enable solidity fuzz fixtures support
@@ -97,7 +95,6 @@ impl MultiContractRunner {
         let fork = config.get_fork().await?;
 
         let SolidityTestRunnerConfig {
-            debug,
             trace,
             coverage,
             test_fail,
@@ -131,7 +128,6 @@ impl MultiContractRunner {
             fork,
             coverage,
             trace,
-            debug,
             test_fail,
             solidity_fuzz_fixtures,
             test_options,
@@ -258,8 +254,7 @@ impl MultiContractRunner {
             .inspectors(|stack| {
                 stack
                     .cheatcodes(Arc::new(cheats_config))
-                    .trace(self.trace || self.debug)
-                    .debug(self.debug)
+                    .trace(self.trace)
                     .coverage(self.coverage)
                     .enable_isolation(self.evm_opts.isolate)
             })
@@ -282,7 +277,6 @@ impl MultiContractRunner {
             ContractRunnerOptions {
                 initial_balance: self.evm_opts.initial_balance,
                 sender: self.evm_opts.sender,
-                debug: self.debug,
                 test_fail: self.test_fail,
                 solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
             },

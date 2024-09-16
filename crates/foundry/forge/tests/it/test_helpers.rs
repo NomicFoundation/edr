@@ -83,7 +83,6 @@ impl ForgeTestProfile {
 
     fn runner_config() -> SolidityTestRunnerConfig {
         SolidityTestRunnerConfig {
-            debug: false,
             trace: true,
             evm_opts: Self::evm_opts(),
             project_root: PROJECT_ROOT.clone(),

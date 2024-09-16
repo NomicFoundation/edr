@@ -23,8 +23,6 @@ pub struct SolidityTestRunnerConfigArgs {
     pub fs_permissions: Option<Vec<PathPermission>>,
     /// Whether to collect traces. Defaults to false.
     pub trace: Option<bool>,
-    /// Whether to collect debug info. Defaults to false.
-    pub debug: Option<bool>,
     /// Whether to support the `testFail` prefix. Defaults to false.
     pub test_fail: Option<bool>,
     /// Address labels for traces. Defaults to none.
@@ -114,7 +112,6 @@ impl Debug for SolidityTestRunnerConfigArgs {
             .field("project_root", &self.project_root)
             .field("fs_permissions", &self.fs_permissions)
             .field("trace", &self.trace)
-            .field("debug", &self.debug)
             .field("ffi", &self.ffi)
             .field("sender", &self.sender.as_ref().map(hex::encode))
             .field("tx_origin", &self.tx_origin.as_ref().map(hex::encode))
@@ -151,7 +148,6 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             project_root,
             fs_permissions,
             trace,
-            debug,
             test_fail,
             labels,
             isolate,
@@ -285,7 +281,6 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
 
         Ok(SolidityTestRunnerConfig {
             project_root: project_root.into(),
-            debug: debug.unwrap_or_default(),
             trace: trace.unwrap_or_default(),
             // TODO
             coverage: false,

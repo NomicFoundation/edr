@@ -390,7 +390,6 @@ Over the next months, we intend to add the following features which are availabl
 
 1. Stack Traces: Currently we do not provide any debug information when a call fails. We intend to add a structured printer (something like [this](https://twitter.com/gakonst/status/1434337110111182848) which will show all the calls, logs and arguments passed across intermediate smart contract calls, which should help with debugging.
 1. [Invariant Tests](https://github.com/dapphub/dapptools/blob/master/src/dapp/README.md#invariant-testing)
-1. [Interactive Debugger](https://github.com/dapphub/dapptools/blob/master/src/hevm/README.md#interactive-debugger-key-bindings)
 1. [Code coverage](https://twitter.com/dapptools/status/1435973810545729536)
 1. [Gas snapshots](https://github.com/dapphub/dapptools/pull/850/files)
 1. [Symbolic EVM](https://fv.ethereum.org/2020/07/28/symbolic-hevm-release/)
