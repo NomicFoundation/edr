@@ -8,9 +8,7 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
-use foundry_common::{
-    evm::Breakpoints, get_contract_name, get_file_name, shell, ContractsByArtifact,
-};
+use foundry_common::{evm::Breakpoints, get_contract_name, get_file_name, ContractsByArtifact};
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
     coverage::HitMaps,
@@ -167,47 +165,6 @@ impl TestOutcome {
             total_skipped.yellow(),
             total_tests
         )
-    }
-
-    /// Checks if there are any failures and failures are disallowed.
-    pub fn ensure_ok(&self) -> eyre::Result<()> {
-        let outcome = self;
-        let failures = outcome.failures().count();
-        if outcome.allow_failure || failures == 0 {
-            return Ok(());
-        }
-
-        if !shell::verbosity().is_normal() {
-            // TODO: Avoid process::exit
-            std::process::exit(1);
-        }
-
-        shell::println("")?;
-        shell::println("Failing tests:")?;
-        for (suite_name, suite) in outcome.results.iter() {
-            let failed = suite.failed();
-            if failed == 0 {
-                continue;
-            }
-
-            let term = if failed > 1 { "tests" } else { "test" };
-            shell::println(format!(
-                "Encountered {failed} failing {term} in {suite_name}"
-            ))?;
-            for (name, result) in suite.failures() {
-                shell::println(result.short_result(name))?;
-            }
-            shell::println("")?;
-        }
-        let successes = outcome.passed();
-        shell::println(format!(
-            "Encountered a total of {} failing tests, {} tests succeeded",
-            failures.to_string().red(),
-            successes.to_string().green()
-        ))?;
-
-        // TODO: Avoid process::exit
-        std::process::exit(1);
     }
 }
 

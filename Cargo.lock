@@ -90,24 +90,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "alloy-contract"
-version = "0.1.0"
-source = "git+https://github.com/alloy-rs/alloy?rev=899fc51#899fc51af8b5f4de6df1605ca3ffe8d8d6fa8c69"
-dependencies = [
- "alloy-dyn-abi",
- "alloy-json-abi",
- "alloy-network",
- "alloy-primitives 0.7.7",
- "alloy-provider",
- "alloy-rpc-types",
- "alloy-sol-types 0.7.7",
- "alloy-transport",
- "futures",
- "futures-util",
- "thiserror",
-]
-
-[[package]]
 name = "alloy-dyn-abi"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2406,7 +2388,6 @@ version = "0.3.8"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
- "alloy-contract",
  "alloy-dyn-abi",
  "alloy-json-abi",
  "alloy-json-rpc",
@@ -2421,25 +2402,17 @@ dependencies = [
  "alloy-transport-http",
  "alloy-transport-ipc",
  "alloy-transport-ws",
- "async-trait",
- "comfy-table",
  "dunce",
  "eyre",
  "foundry-block-explorers",
  "foundry-compilers",
- "foundry-linking",
  "foundry-macros",
- "glob",
- "globset",
- "num-format",
- "once_cell",
  "reqwest 0.12.7",
  "rustc-hash 1.1.0",
  "semver 1.0.23",
  "serde",
  "serde_json",
  "similar-asserts",
- "tempfile",
  "thiserror",
  "tokio",
  "tower",
@@ -3838,16 +3811,6 @@ name = "num-conv"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
-
-[[package]]
-name = "num-format"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a652d9771a63711fd3c3deb670acfbe5c30a4072e664d7a3bf5a9e1056ac72c3"
-dependencies = [
- "arrayvec",
- "itoa",
-]
 
 [[package]]
 name = "num-integer"
