@@ -1,5 +1,7 @@
 //! Represents artifacts of the Solidity compiler input and output in the
 //! Standard JSON format.
+//!
+//! See <https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description>.
 #![allow(missing_docs)]
 
 use std::collections::HashMap;
@@ -37,7 +39,7 @@ pub struct Source {
 pub struct CompilerInput {
     pub language: String,
     pub sources: HashMap<String, Source>,
-    pub settings: CompilerSettings,
+    pub settings: Option<CompilerSettings>,
 }
 
 /// Additional settings like the optimizer, metadata, etc.
@@ -46,7 +48,7 @@ pub struct CompilerInput {
 pub struct CompilerSettings {
     #[serde(rename = "viaIR")]
     via_ir: Option<bool>,
-    optimizer: OptimizerSettings,
+    optimizer: Option<OptimizerSettings>,
     metadata: Option<MetadataSettings>,
     output_selection: HashMap<String, HashMap<String, Vec<String>>>,
     evm_version: Option<String>,
@@ -66,21 +68,21 @@ pub struct OptimizerSettings {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OptimizerDetails {
-    yul_details: YulDetails,
+    yul_details: Option<YulDetails>,
 }
 
 /// Yul-specific optimizer details.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct YulDetails {
-    optimizer_steps: String,
+    optimizer_steps: Option<String>,
 }
 
 /// Specifies the metadata settings.
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataSettings {
-    use_literal_content: bool,
+    use_literal_content: Option<bool>,
 }
 
 /// The main output of the Solidity compiler.
