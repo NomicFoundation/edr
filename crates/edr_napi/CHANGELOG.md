@@ -1,5 +1,12 @@
 # @nomicfoundation/edr
 
+## 0.6.1
+
+### Patch Changes
+
+- c8fbf3b: Allow forked block time offset to be negative
+- bb3808b: Handle optional solc settings better in the tracing engine
+
 ## 0.6.0
 
 ### Minor Changes
