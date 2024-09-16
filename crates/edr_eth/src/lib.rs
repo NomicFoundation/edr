@@ -48,8 +48,8 @@ pub use revm_primitives::{
     address,
     alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
     bytes, db, env, hex, hex_literal, result, specification, AccessList, AccessListItem,
-    AccountInfo, Address, Bytecode, Bytes, HashMap, HashSet, Precompile, SpecId, B256,
-    KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
+    AccountInfo, Address, Bytecode, Bytes, HashMap, HashSet, Precompile, SignedAuthorization,
+    SpecId, B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
 };
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};

@@ -4,7 +4,7 @@ mod factory;
 
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_generic::GenericChainSpec;
+use edr_eth::result::HaltReason;
 use edr_provider::{InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
 
@@ -19,7 +19,7 @@ use crate::spec::{Response, SyncNapiSpec};
 /// objects.
 pub trait SyncProvider: Send + Sync {
     /// Blocking method to handle a request.
-    fn handle_request(&self, request: String) -> napi::Result<Response<GenericChainSpec>>;
+    fn handle_request(&self, request: String) -> napi::Result<Response<HaltReason>>;
 
     /// Set to `true` to make the traces returned with `eth_call`,
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
@@ -32,7 +32,7 @@ pub trait SyncProvider: Send + Sync {
 }
 
 impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpecT> {
-    fn handle_request(&self, request: String) -> napi::Result<Response<GenericChainSpec>> {
+    fn handle_request(&self, request: String) -> napi::Result<Response<HaltReason>> {
         let request = match serde_json::from_str(&request) {
             Ok(request) => request,
             Err(error) => {

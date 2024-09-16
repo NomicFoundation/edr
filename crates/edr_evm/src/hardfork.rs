@@ -3,7 +3,7 @@ pub mod l1;
 
 use derive_where::derive_where;
 
-use crate::chain_spec::ChainSpec;
+use crate::chain_spec::EvmSpec;
 
 /// Fork condition for a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -16,12 +16,12 @@ pub enum ForkCondition {
 
 /// A struct that stores the hardforks for a chain.
 #[derive_where(Clone, Debug; ChainSpecT::Hardfork)]
-pub struct Activations<ChainSpecT: ChainSpec> {
+pub struct Activations<ChainSpecT: EvmSpec> {
     /// (Start block number -> `SpecId`) mapping
     hardforks: Vec<(ForkCondition, ChainSpecT::Hardfork)>,
 }
 
-impl<ChainSpecT: ChainSpec> Activations<ChainSpecT> {
+impl<ChainSpecT: EvmSpec> Activations<ChainSpecT> {
     /// Constructs a new instance with the provided hardforks.
     pub fn new(hardforks: Vec<(ForkCondition, ChainSpecT::Hardfork)>) -> Self {
         Self { hardforks }
@@ -58,7 +58,7 @@ impl<ChainSpecT: ChainSpec> Activations<ChainSpecT> {
 
     /// Views the activations as for a different chain spec (that shares the
     /// underlying hardforks).
-    pub fn as_chain_spec<OtherChainSpecT: ChainSpec<Hardfork = ChainSpecT::Hardfork>>(
+    pub fn as_chain_spec<OtherChainSpecT: EvmSpec<Hardfork = ChainSpecT::Hardfork>>(
         &'static self,
     ) -> &'static Activations<OtherChainSpecT> {
         // SAFETY: The layout is the same as we're using the same struct and the
@@ -68,7 +68,7 @@ impl<ChainSpecT: ChainSpec> Activations<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: ChainSpec> From<&[(ForkCondition, ChainSpecT::Hardfork)]>
+impl<ChainSpecT: EvmSpec> From<&[(ForkCondition, ChainSpecT::Hardfork)]>
     for Activations<ChainSpecT>
 {
     fn from(hardforks: &[(ForkCondition, ChainSpecT::Hardfork)]) -> Self {
@@ -80,7 +80,7 @@ impl<ChainSpecT: ChainSpec> From<&[(ForkCondition, ChainSpecT::Hardfork)]>
 
 impl<'deserializer, ChainSpecT> serde::Deserialize<'deserializer> for Activations<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<Hardfork: serde::Deserialize<'deserializer>>,
+    ChainSpecT: EvmSpec<Hardfork: serde::Deserialize<'deserializer>>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -93,7 +93,7 @@ where
 
 impl<ChainSpecT> serde::Serialize for Activations<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<Hardfork: serde::Serialize>,
+    ChainSpecT: EvmSpec<Hardfork: serde::Serialize>,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -104,7 +104,7 @@ where
 }
 
 /// Type that stores the configuration for a chain.
-pub struct ChainConfig<ChainSpecT: ChainSpec> {
+pub struct ChainConfig<ChainSpecT: EvmSpec> {
     /// Chain name
     pub name: String,
     /// Hardfork activations for the chain

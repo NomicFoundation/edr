@@ -5,7 +5,6 @@ use std::{
 
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
-    chain_spec::Wiring,
     env::{CfgEnv, Env},
     log::ExecutionLog,
     receipt::{ExecutionReceiptBuilder as _, Receipt as _, TransactionReceipt},
@@ -27,7 +26,7 @@ use revm::{
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::{BlockEnvConstructor, ChainSpec},
+    chain_spec::{BlockEnvConstructor, EvmSpec},
     debug::{DebugContext, EvmContext},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
     transaction::TransactionError,
@@ -38,7 +37,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum BlockBuilderCreationError<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: EvmSpec<Hardfork: Debug>,
 {
     /// Unsupported hardfork. Hardforks older than Byzantium are not supported
     #[error("Unsupported hardfork: {0:?}. Hardforks older than Byzantium are not supported.")]
@@ -66,7 +65,7 @@ where
 /// was executed.
 pub struct ExecutionResultWithContext<
     'evm,
-    ChainSpecT: ChainSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    ChainSpecT: EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT,
     StateErrorT,
     DebugDataT,
@@ -82,7 +81,7 @@ pub struct ExecutionResultWithContext<
 }
 
 /// The result of building a block, using the [`BlockBuilder`].
-pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
+pub struct BuildBlockResult<ChainSpecT: EvmSpec> {
     /// Built block
     pub block: LocalBlock<ChainSpecT>,
     /// State diff
@@ -90,7 +89,7 @@ pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
 }
 
 /// A builder for constructing Ethereum blocks.
-pub struct BlockBuilder<ChainSpecT: ChainSpec> {
+pub struct BlockBuilder<ChainSpecT: EvmSpec> {
     cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     header: PartialHeader,
@@ -103,7 +102,7 @@ pub struct BlockBuilder<ChainSpecT: ChainSpec> {
 
 impl<ChainSpecT> BlockBuilder<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: EvmSpec<Hardfork: Debug>,
 {
     /// Creates an intance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -149,7 +148,7 @@ where
     }
 }
 
-impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
+impl<ChainSpecT: EvmSpec> BlockBuilder<ChainSpecT> {
     /// Retrieves the config of the block builder.
     pub fn config(&self) -> &CfgEnv {
         &self.cfg
@@ -176,7 +175,7 @@ impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
+impl<ChainSpecT: EvmSpec> BlockBuilder<ChainSpecT> {
     /// Finalizes the block, returning the block and the callers of the
     /// transactions.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -248,7 +247,7 @@ impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
 
 impl<ChainSpecT> BlockBuilder<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<
+    ChainSpecT: EvmSpec<
         Block: Default,
         Transaction: Clone
                          + Default
@@ -337,7 +336,7 @@ where
             },
         ) = {
             if let Some(debug_context) = debug_context {
-                let mut evm = Evm::<Wiring<ChainSpecT, _, _>>::builder()
+                let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
                     .with_db(db)
                     .with_external_context(debug_context.data)
                     .with_env(env)
@@ -372,7 +371,7 @@ where
                     }
                 }
             } else {
-                let mut evm = Evm::<Wiring<ChainSpecT, _, ()>>::builder()
+                let mut evm = Evm::<ChainSpecT::EvmWiring<_, ()>>::builder()
                     .with_db(db)
                     .with_env(env)
                     .build();

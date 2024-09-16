@@ -164,7 +164,7 @@ impl<
     pub fn handle_request(
         &self,
         request: ProviderRequest<ChainSpecT>,
-    ) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
+    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
 
         let response = match request {
@@ -180,7 +180,7 @@ impl<
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         request: Vec<MethodInvocation<ChainSpecT>>,
-    ) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
+    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
         let mut results = Vec::new();
         let mut traces = Vec::new();
 
@@ -198,7 +198,7 @@ impl<
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         request: MethodInvocation<ChainSpecT>,
-    ) -> Result<ResponseWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
+    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
         let method_name = if data.logger_mut().is_enabled() {
             let method_name = request.method_name();
             if PRIVATE_RPC_METHODS.contains(method_name) {

@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use edr_eth::{
-    chain_spec::Wiring,
     db::{DatabaseComponents, StateRef},
     env::{CfgEnv, Env},
     result::{ExecutionResult, InvalidTransaction, ResultAndState},
@@ -11,7 +10,7 @@ use edr_eth::{
 use revm::{db::WrapDatabaseRef, ContextPrecompile, DatabaseCommit, Evm};
 
 use crate::{
-    blockchain::SyncBlockchain, chain_spec::ChainSpec, debug::DebugContext,
+    blockchain::SyncBlockchain, chain_spec::EvmSpec, debug::DebugContext,
     precompiles::register_precompiles_handles, transaction::TransactionError,
 };
 
@@ -41,10 +40,8 @@ pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, Stat
 >
 where
     'blockchain: 'evm,
-    ChainSpecT: ChainSpec<
-        Block: Default,
-        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
+    ChainSpecT:
+        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT: Debug + Send,
     StateT: StateRef<Error: Debug + Send>,
 {
@@ -52,19 +49,20 @@ where
 
     let env = Env::boxed(cfg, block, transaction);
     let result = {
-        let builder = Evm::builder().with_db(WrapDatabaseRef(DatabaseComponents {
-            state,
-            block_hash: blockchain,
-        }));
+        let builder = Evm::<ChainSpecT::EvmWiring<_, _>>::builder().with_db(WrapDatabaseRef(
+            DatabaseComponents {
+                state,
+                block_hash: blockchain,
+            },
+        ));
 
         if let Some(debug_context) = debug_context {
-            let precompiles: HashMap<Address, ContextPrecompile<Wiring<ChainSpecT, _, _>>> =
-                custom_precompiles
-                    .iter()
-                    .map(|(address, precompile)| {
-                        (*address, ContextPrecompile::from(precompile.clone()))
-                    })
-                    .collect();
+            let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
+                .iter()
+                .map(|(address, precompile)| {
+                    (*address, ContextPrecompile::from(precompile.clone()))
+                })
+                .collect();
 
             let mut evm = builder
                 .with_external_context(debug_context.data)
@@ -77,13 +75,12 @@ where
 
             evm.transact()
         } else {
-            let precompiles: HashMap<Address, ContextPrecompile<Wiring<ChainSpecT, _, _>>> =
-                custom_precompiles
-                    .iter()
-                    .map(|(address, precompile)| {
-                        (*address, ContextPrecompile::from(precompile.clone()))
-                    })
-                    .collect();
+            let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
+                .iter()
+                .map(|(address, precompile)| {
+                    (*address, ContextPrecompile::from(precompile.clone()))
+                })
+                .collect();
 
             let mut evm = builder
                 .with_env(env)
@@ -128,10 +125,8 @@ pub fn guaranteed_dry_run<
 where
     'blockchain: 'evm,
     'state: 'evm,
-    ChainSpecT: ChainSpec<
-        Block: Default,
-        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
+    ChainSpecT:
+        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT: Debug + Send,
     StateT: StateRef<Error: Debug + Send>,
 {
@@ -168,10 +163,8 @@ pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
 >
 where
     'blockchain: 'evm,
-    ChainSpecT: ChainSpec<
-        Block: Default,
-        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
+    ChainSpecT:
+        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT: Debug + Send,
     StateT: StateRef + DatabaseCommit,
     StateT::Error: Debug + Send,
@@ -179,13 +172,15 @@ where
     validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(hardfork, &transaction)?;
 
     let env = Env::boxed(cfg, block, transaction);
-    let evm_builder = Evm::builder().with_db(WrapDatabaseRef(DatabaseComponents {
-        state,
-        block_hash: blockchain,
-    }));
+    let evm_builder = Evm::<ChainSpecT::EvmWiring<_, _>>::builder().with_db(WrapDatabaseRef(
+        DatabaseComponents {
+            state,
+            block_hash: blockchain,
+        },
+    ));
 
     let result = if let Some(debug_context) = debug_context {
-        let precompiles: HashMap<Address, ContextPrecompile<Wiring<ChainSpecT, _, _>>> =
+        let precompiles: HashMap<Address, ContextPrecompile<ChainSpecT::EvmWiring<_, _>>> =
             custom_precompiles
                 .iter()
                 .map(|(address, precompile)| {
@@ -204,7 +199,7 @@ where
 
         evm.transact_commit()
     } else {
-        let precompiles: HashMap<Address, ContextPrecompile<Wiring<ChainSpecT, _, _>>> =
+        let precompiles: HashMap<Address, ContextPrecompile<ChainSpecT::EvmWiring<_, _>>> =
             custom_precompiles
                 .iter()
                 .map(|(address, precompile)| {
@@ -225,7 +220,7 @@ where
     Ok(result)
 }
 
-fn validate_configuration<ChainSpecT: ChainSpec, BlockchainErrorT, StateErrorT>(
+fn validate_configuration<ChainSpecT: EvmSpec, BlockchainErrorT, StateErrorT>(
     hardfork: ChainSpecT::Hardfork,
     transaction: &ChainSpecT::Transaction,
 ) -> Result<(), TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>> {

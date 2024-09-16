@@ -7,7 +7,7 @@ use edr_eth::{
 };
 use edr_evm::test_utils::run_full_block;
 use edr_optimism::OptimismChainSpec;
-use edr_provider::spec::SyncChainSpec;
+use edr_provider::spec::SyncEvmSpec;
 use edr_rpc_eth::client::EthRpcClient;
 
 #[derive(Clone, ValueEnum)]
@@ -43,7 +43,7 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
 ) -> anyhow::Result<()>
 where
     ChainSpecT: Debug
-        + SyncChainSpec<
+        + SyncEvmSpec<
             Block: Default,
             Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,

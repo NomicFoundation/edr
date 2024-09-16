@@ -7,7 +7,7 @@ use edr_eth::{
     transaction::TransactionType as _,
     Bloom,
 };
-use revm::{db::StateRef, optimism::OptimismSpecId, primitives::Transaction as _};
+use revm::{db::StateRef, primitives::Transaction as _};
 
 use self::deposit::Eip658OrDeposit;
 use super::Execution;

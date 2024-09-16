@@ -3,7 +3,7 @@ use edr_eth::{
     state::{Account, AccountStatus},
     AccountInfo, Address, HashMap, KECCAK_EMPTY,
 };
-use edr_evm::chain_spec::ChainSpec;
+use edr_evm::chain_spec::EvmSpec;
 use indexmap::IndexMap;
 
 use crate::{AccountConfig, ProviderConfig};
@@ -13,7 +13,7 @@ pub(super) struct InitialAccounts {
     pub genesis_accounts: HashMap<Address, Account>,
 }
 
-pub(super) fn create_accounts<ChainSpecT: ChainSpec>(
+pub(super) fn create_accounts<ChainSpecT: EvmSpec>(
     config: &ProviderConfig<ChainSpecT>,
 ) -> InitialAccounts {
     let mut local_accounts = IndexMap::default();

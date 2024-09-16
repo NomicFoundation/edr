@@ -38,7 +38,7 @@ pub fn handle_mine_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     timestamp: Option<Timestamp>,
-) -> Result<(String, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
+) -> Result<(String, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
     let mine_block_result = data.mine_and_commit_block(BlockOptions {
         timestamp: timestamp.map(Into::into),
         ..BlockOptions::default()

@@ -11,10 +11,10 @@ use revm::{
     primitives::{AccountInfo, HashMap, Transaction},
 };
 
-use crate::chain_spec::ChainSpec;
+use crate::chain_spec::EvmSpec;
 
 /// An iterator over pending transactions.
-pub struct PendingTransactions<ChainSpecT: ChainSpec, ComparatorT>
+pub struct PendingTransactions<ChainSpecT: EvmSpec, ComparatorT>
 where
     ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
 {
@@ -24,7 +24,7 @@ where
 
 impl<ChainSpecT, ComparatorT> PendingTransactions<ChainSpecT, ComparatorT>
 where
-    ChainSpecT: ChainSpec,
+    ChainSpecT: EvmSpec,
     ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
 {
     /// Removes all pending transactions of the account corresponding to the
@@ -39,7 +39,7 @@ where
 
 impl<ChainSpecT, ComparatorT> Debug for PendingTransactions<ChainSpecT, ComparatorT>
 where
-    ChainSpecT: ChainSpec<Transaction: Debug>,
+    ChainSpecT: EvmSpec<Transaction: Debug>,
     ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -51,7 +51,7 @@ where
 
 impl<ChainSpecT, ComparatorT> Iterator for PendingTransactions<ChainSpecT, ComparatorT>
 where
-    ChainSpecT: ChainSpec<Transaction: Debug>,
+    ChainSpecT: EvmSpec<Transaction: Debug>,
     ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
 {
     type Item = ChainSpecT::Transaction;
@@ -143,12 +143,12 @@ pub enum MemPoolAddTransactionError<SE> {
 
 /// A pending transaction with an order ID.
 #[derive_where(Clone, Debug; ChainSpecT::Transaction)]
-pub struct OrderedTransaction<ChainSpecT: ChainSpec> {
+pub struct OrderedTransaction<ChainSpecT: EvmSpec> {
     order_id: usize,
     transaction: ChainSpecT::Transaction,
 }
 
-impl<ChainSpecT: ChainSpec> OrderedTransaction<ChainSpecT> {
+impl<ChainSpecT: EvmSpec> OrderedTransaction<ChainSpecT> {
     /// Retrieves the order ID of the pending transaction.
     pub fn order_id(&self) -> usize {
         self.order_id
@@ -174,7 +174,7 @@ impl<ChainSpecT: ChainSpec> OrderedTransaction<ChainSpecT> {
 
 /// The mempool contains transactions pending inclusion in the blockchain.
 #[derive_where(Clone, Debug; ChainSpecT::Transaction)]
-pub struct MemPool<ChainSpecT: ChainSpec> {
+pub struct MemPool<ChainSpecT: EvmSpec> {
     /// The block's gas limit
     block_gas_limit: NonZeroU64,
     /// Transactions that can be executed now
@@ -187,7 +187,7 @@ pub struct MemPool<ChainSpecT: ChainSpec> {
     next_order_id: usize,
 }
 
-impl<ChainSpecT: ChainSpec> MemPool<ChainSpecT> {
+impl<ChainSpecT: EvmSpec> MemPool<ChainSpecT> {
     /// Constructs a new [`MemPool`] with the specified block gas limit.
     pub fn new(block_gas_limit: NonZeroU64) -> Self {
         Self {
@@ -562,7 +562,7 @@ impl<ChainSpecT: ChainSpec> MemPool<ChainSpecT> {
 
 /// Calculates the next nonce of the account corresponding to the provided
 /// address.
-pub fn account_next_nonce<ChainSpecT: ChainSpec, StateT: StateRef + ?Sized>(
+pub fn account_next_nonce<ChainSpecT: EvmSpec, StateT: StateRef + ?Sized>(
     mem_pool: &MemPool<ChainSpecT>,
     state: &StateT,
     address: &Address,
@@ -578,7 +578,7 @@ pub fn account_next_nonce<ChainSpecT: ChainSpec, StateT: StateRef + ?Sized>(
 }
 
 /// Whether the mempool has any transactions.
-pub fn has_transactions<ChainSpecT: ChainSpec>(mem_pool: &MemPool<ChainSpecT>) -> bool {
+pub fn has_transactions<ChainSpecT: EvmSpec>(mem_pool: &MemPool<ChainSpecT>) -> bool {
     mem_pool.has_future_transactions() || mem_pool.has_pending_transactions()
 }
 

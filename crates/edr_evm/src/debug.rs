@@ -1,17 +1,16 @@
 use auto_impl::auto_impl;
-use edr_eth::{chain_spec::Wiring, result::InvalidTransaction};
+use edr_eth::result::InvalidTransaction;
 use revm::{
     db::{DatabaseComponents, StateRef, WrapDatabaseRef},
     primitives::TransactionValidation,
 };
 
-use crate::{blockchain::SyncBlockchain, chain_spec::ChainSpec};
+use crate::{blockchain::SyncBlockchain, chain_spec::EvmSpec};
 
 /// Type for registering handles, specialised for EDR database component types.
 pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> =
     revm::handler::register::HandleRegister<
-        Wiring<
-            ChainSpecT,
+        <ChainSpecT as EvmSpec>::EvmWiring<
             WrapDatabaseRef<
                 DatabaseComponents<
                     StateT,
@@ -31,7 +30,7 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
 pub struct DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
     ChainSpecT:
-        ChainSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     StateT: StateRef,
 {
     /// The contextual data.
@@ -43,7 +42,7 @@ where
 pub struct EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
     ChainSpecT:
-        ChainSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     StateT: StateRef,
 {
     pub debug: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,

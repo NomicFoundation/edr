@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 
 use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
-use edr_evm::chain_spec::ChainSpec;
+use edr_evm::chain_spec::EvmSpec;
 use tokio::{
     runtime,
     sync::{oneshot, Mutex},
@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Type for interval mining on a separate thread.
-pub struct IntervalMiner<ChainSpecT: ChainSpec<Hardfork: Debug>, TimerT> {
+pub struct IntervalMiner<ChainSpecT: EvmSpec<Hardfork: Debug>, TimerT> {
     inner: Option<Inner<ChainSpecT>>,
     runtime: runtime::Handle,
     phantom: PhantomData<TimerT>,
@@ -23,7 +23,7 @@ pub struct IntervalMiner<ChainSpecT: ChainSpec<Hardfork: Debug>, TimerT> {
 
 /// Inner type for interval mining on a separate thread, required for
 /// implementation of `Drop`.
-struct Inner<ChainSpecT: ChainSpec<Hardfork: Debug>> {
+struct Inner<ChainSpecT: EvmSpec<Hardfork: Debug>> {
     cancellation_sender: oneshot::Sender<()>,
     background_task: JoinHandle<Result<(), ProviderError<ChainSpecT>>>,
 }
@@ -103,7 +103,7 @@ async fn interval_mining_loop<
     }
 }
 
-impl<ChainSpecT: ChainSpec<Hardfork: Debug>, TimerT> Drop for IntervalMiner<ChainSpecT, TimerT> {
+impl<ChainSpecT: EvmSpec<Hardfork: Debug>, TimerT> Drop for IntervalMiner<ChainSpecT, TimerT> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn drop(&mut self) {
         if let Some(Inner {

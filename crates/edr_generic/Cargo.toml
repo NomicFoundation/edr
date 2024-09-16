@@ -12,13 +12,11 @@ edr_evm = { path = "../edr_evm" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
 log = { version = "0.4.17", default-features = false }
-revm = { git = "https://github.com/Wodann/revm", rev = "dfc2f28f", version = "14.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
-revm-primitives = { git = "https://github.com/Wodann/revm", rev = "dfc2f28f", version = "9.0", default-features = false, features = ["c-kzg", "hashbrown"] }
 serde = { version = "1.0.209", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.37", default-features = false }
 
 [dev-dependencies]
-anyhow = "1.0.75"
+anyhow = "1.0.89"
 edr_defaults = { path = "../edr_defaults" }
 edr_evm = { path = "../edr_evm", features = ["test-utils"] }
 edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }

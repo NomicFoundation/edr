@@ -1,23 +1,27 @@
 use edr_eth::{
+    db::StateRef,
     log::ExecutionLog,
     receipt::{
         execution::{Eip658, Legacy},
         Execution, ExecutionReceiptBuilder,
     },
+    result::{ExecutionResult, HaltReason},
     transaction::TransactionType,
+    SpecId,
 };
-use revm_primitives::{EvmWiring, SpecId};
 
-use crate::{eip2718::TypedEnvelope, GenericChainSpec};
+use crate::{eip2718::TypedEnvelope, transaction};
 
 pub struct Builder;
 
-impl ExecutionReceiptBuilder<GenericChainSpec> for Builder {
+impl ExecutionReceiptBuilder<HaltReason, SpecId, transaction::SignedWithFallbackToPostEip155>
+    for Builder
+{
     type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
 
-    fn new_receipt_builder<StateT: revm::db::StateRef>(
+    fn new_receipt_builder<StateT: StateRef>(
         _pre_execution_state: StateT,
-        _transaction: &<GenericChainSpec as EvmWiring>::Transaction,
+        _transaction: &transaction::SignedWithFallbackToPostEip155,
     ) -> Result<Self, StateT::Error> {
         Ok(Self)
     }
@@ -26,7 +30,7 @@ impl ExecutionReceiptBuilder<GenericChainSpec> for Builder {
         self,
         header: &edr_eth::block::PartialHeader,
         transaction: &crate::transaction::SignedWithFallbackToPostEip155,
-        result: &revm_primitives::ExecutionResult<GenericChainSpec>,
+        result: &ExecutionResult<HaltReason>,
         hardfork: SpecId,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();

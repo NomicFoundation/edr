@@ -4,9 +4,9 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
-alloy-dyn-abi = { version = "0.7.6", features = ["eip712"] }
-alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
-anyhow = { version = "1.0.75", optional = true }
+alloy-dyn-abi = { version = "0.8.3", features = ["eip712"] }
+alloy-sol-types = { version = "0.8.3", default-features = false, features = ["std"] }
+anyhow = { version = "1.0.89", optional = true }
 auto_impl = { version = "1.2", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
 dyn-clone = { version = "1.0.13", default-features = false }
@@ -21,7 +21,7 @@ lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.20", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
 rand = { version = "0.8.5", default-features = false }
-revm-precompile = { git = "https://github.com/Wodann/revm", rev = "dfc2f28f", version = "11.0", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
+revm-precompile = { git = "https://github.com/Wodann/revm", rev = "e407ed0", version = "11.0", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { version = "1.0.209", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.127" }
@@ -32,7 +32,7 @@ tracing = { version = "0.1.37", features = ["attributes", "std"], optional = tru
 lru = "0.12.2"
 
 [dev-dependencies]
-anyhow = "1.0.75"
+anyhow = "1.0.89"
 edr_evm = { path = "../edr_evm", features = ["test-utils"] }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 paste = { version = "1.0.14", default-features = false }

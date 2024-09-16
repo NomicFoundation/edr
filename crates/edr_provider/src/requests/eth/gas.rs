@@ -30,7 +30,7 @@ pub fn handle_estimate_gas<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
-) -> Result<(U64, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
+) -> Result<(U64, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);

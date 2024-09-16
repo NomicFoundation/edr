@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
 use edr_eth::{
     block::{self, BlobGas, PartialHeader},
@@ -11,8 +11,11 @@ use edr_eth::{
     SpecId, B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
-use revm::primitives::{HardforkTrait, TransactionValidation};
 pub use revm::EvmWiring;
+use revm::{
+    primitives::{ChainSpec, HardforkTrait, TransactionValidation},
+    Database,
+};
 
 use crate::{
     block::transaction::TransactionAndBlock,
@@ -24,15 +27,16 @@ use crate::{
 /// A trait for defining a chain's associated types.
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
 #[allow(clippy::trait_duplication_in_bounds)]
-pub trait ChainSpec:
+pub trait EvmSpec:
     alloy_rlp::Encodable
     // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
     + revm::primitives::ChainSpec<
-        Block: BlockEnvConstructor<Self::Hardfork, block::Header> + BlockEnvConstructor<Self::Hardfork, PartialHeader>,
+        Block: BlockEnvConstructor<Self::Hardfork, block::Header> + BlockEnvConstructor<Self::Hardfork, PartialHeader> + Default,
         Transaction: alloy_rlp::Encodable
           + Clone
           + Debug
+          + Default
           + PartialEq
           + Eq
           + ExecutableTransaction
@@ -57,6 +61,9 @@ pub trait ChainSpec:
         RpcBlock<B256>: EthRpcBlock,
     >
 {
+    /// Type representing an implementation of `EvmWiring` for this chain.
+    type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<ChainSpec = Self, Database = DatabaseT, ExternalContext = ExternalContexT, Block: Default, Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>>;
+
     /// Type representing a builder that constructs an execution receipt.
     type ReceiptBuilder: ExecutionReceiptBuilder<
         Self::HaltReason,
@@ -143,8 +150,8 @@ impl BlockEnvConstructor<SpecId, block::Header> for BlockEnv {
 }
 
 /// A supertrait for [`ChainSpec`] that is safe to send between threads.
-pub trait SyncChainSpec:
-    ChainSpec<
+pub trait SyncEvmSpec:
+    EvmSpec<
         ExecutionReceipt<FilterLog>: Send + Sync,
         HaltReason: Send + Sync,
         Hardfork: Send + Sync,
@@ -157,8 +164,8 @@ pub trait SyncChainSpec:
 {
 }
 
-impl<ChainSpecT> SyncChainSpec for ChainSpecT where
-    ChainSpecT: ChainSpec<
+impl<ChainSpecT> SyncEvmSpec for ChainSpecT where
+    ChainSpecT: EvmSpec<
             ExecutionReceipt<FilterLog>: Send + Sync,
             HaltReason: Send + Sync,
             Hardfork: Send + Sync,
@@ -171,7 +178,37 @@ impl<ChainSpecT> SyncChainSpec for ChainSpecT where
 {
 }
 
-impl ChainSpec for L1ChainSpec {
+/// EVM wiring for L1 chains.
+pub struct L1Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> {
+    _phantom: PhantomData<(ChainSpecT, DatabaseT, ExternalContextT)>,
+}
+
+impl<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> edr_eth::chain_spec::EvmWiring
+    for L1Wiring<ChainSpecT, DatabaseT, ExternalContextT>
+{
+    type ChainSpec = ChainSpecT;
+    type ExternalContext = ExternalContextT;
+    type Database = DatabaseT;
+}
+
+impl<ChainSpecT, DatabaseT, ExternalContextT> revm::EvmWiring
+    for L1Wiring<ChainSpecT, DatabaseT, ExternalContextT>
+where
+    ChainSpecT: ChainSpec<
+        Block: Default,
+        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+    DatabaseT: Database,
+{
+    fn handler<'evm>(hardfork: Self::Hardfork) -> revm::EvmHandler<'evm, Self> {
+        revm::EvmHandler::mainnet_with_spec(hardfork)
+    }
+}
+
+impl EvmSpec for L1ChainSpec {
+    type EvmWiring<DatabaseT: Database, ExternalContexT> =
+        L1Wiring<Self, DatabaseT, ExternalContexT>;
+
     type ReceiptBuilder = edr_eth::receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
     type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;

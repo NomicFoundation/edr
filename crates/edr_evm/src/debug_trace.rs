@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
-    chain_spec::Wiring,
     env::{CfgEnv, Env},
     transaction::ExecutableTransaction as _,
     utils::u256_to_padded_hex,
@@ -15,15 +14,15 @@ use revm::{
         Interpreter, InterpreterResult,
     },
     primitives::{
-        hex, Address, Block as _, Bytes, ExecutionResult, HaltReasonTrait, InvalidTransaction,
-        ResultAndState, SpecId, TransactionValidation, U256,
+        hex, Address, Block as _, Bytes, ExecutionResult, HaltReasonTrait, ResultAndState, SpecId,
+        U256,
     },
     Context, Database, Evm, EvmContext, EvmWiring, JournalEntry,
 };
 
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::ChainSpec,
+    chain_spec::EvmSpec,
     debug::GetContextData,
     state::SyncState,
     trace::{register_trace_collector_handles, Trace, TraceCollector},
@@ -95,10 +94,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     DebugTraceError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
-    ChainSpecT: ChainSpec<
-        Block: Clone + Default,
-        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
+    ChainSpecT: EvmSpec<Block: Clone>,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {
@@ -117,7 +113,7 @@ where
             let ResultAndState { result, .. } = {
                 let env = Env::boxed(evm_config, block, transaction);
 
-                let mut evm = Evm::<Wiring<ChainSpecT, _, _>>::builder()
+                let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
                     .with_db(WrapDatabaseRef(DatabaseComponents {
                         state: state.as_ref(),
                         block_hash: blockchain,
@@ -135,7 +131,7 @@ where
             let ResultAndState { state: changes, .. } = {
                 let env = Env::boxed(evm_config.clone(), block.clone(), transaction);
 
-                let mut evm = Evm::<Wiring<ChainSpecT, _, ()>>::builder()
+                let mut evm = Evm::<ChainSpecT::EvmWiring<_, ()>>::builder()
                     .with_db(WrapDatabaseRef(DatabaseComponents {
                         state: state.as_ref(),
                         block_hash: blockchain,

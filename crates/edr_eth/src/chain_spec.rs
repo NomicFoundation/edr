@@ -1,39 +1,10 @@
-use std::marker::PhantomData;
-
 use alloy_rlp::RlpEncodable;
-use revm::Database;
-pub use revm_primitives::EvmWiring;
-use revm_primitives::{ChainSpec, InvalidTransaction, TransactionValidation};
+pub use revm_primitives::{ChainSpec, EvmWiring, HaltReasonTrait, HardforkTrait};
 
 use crate::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
     transaction,
 };
-
-/// A wrapper around the EVM's wiring.
-pub struct Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> {
-    _phantom: PhantomData<(ChainSpecT, DatabaseT, ExternalContextT)>,
-}
-
-impl<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> EvmWiring
-    for Wiring<ChainSpecT, DatabaseT, ExternalContextT>
-{
-    type ChainSpec = ChainSpecT;
-    type ExternalContext = ExternalContextT;
-    type Database = DatabaseT;
-}
-
-impl<ChainSpecT, DatabaseT, ExternalContextT> revm::EvmWiring
-    for Wiring<ChainSpecT, DatabaseT, ExternalContextT>
-where
-    ChainSpecT:
-        ChainSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
-    DatabaseT: Database,
-{
-    fn handler<'evm>(hardfork: Self::Hardfork) -> revm::EvmHandler<'evm, Self> {
-        revm::EvmHandler::mainnet_with_spec(hardfork)
-    }
-}
 
 /// The chain specification for Ethereum Layer 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]

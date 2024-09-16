@@ -9,7 +9,7 @@ use edr_eth::{
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainError,
-    chain_spec::ChainSpec,
+    chain_spec::EvmSpec,
     SyncBlock,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
@@ -21,7 +21,7 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(untagged)]
-pub enum HashOrTransaction<ChainSpecT: ChainSpec> {
+pub enum HashOrTransaction<ChainSpecT: EvmSpec> {
     Hash(B256),
     Transaction(ChainSpecT::RpcTransaction),
 }
@@ -115,7 +115,7 @@ pub fn handle_get_block_transaction_count_by_block_number<
 
 /// The result returned by requesting a block by number.
 #[derive(Debug, Clone)]
-struct BlockByNumberResult<ChainSpecT: ChainSpec> {
+struct BlockByNumberResult<ChainSpecT: EvmSpec> {
     /// The block
     pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
     /// Whether the block is a pending block.
@@ -172,7 +172,7 @@ fn block_by_number<
     }
 }
 
-fn block_to_rpc_output<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+fn block_to_rpc_output<ChainSpecT: EvmSpec<Hardfork: Debug>>(
     hardfork: ChainSpecT::Hardfork,
     block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
     is_pending: bool,

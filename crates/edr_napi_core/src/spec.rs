@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    chain_spec::L1ChainSpec,
-    result::InvalidTransaction,
+    chain_spec::{HaltReasonTrait, L1ChainSpec},
+    result::{HaltReason, InvalidTransaction},
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::trace::Trace;
@@ -13,7 +13,7 @@ use napi::{Either, Status};
 
 pub type ResponseData = Either<String, serde_json::Value>;
 
-pub struct Response<ChainSpecT: edr_eth::chain_spec::EvmWiring> {
+pub struct Response<HaltReasonT: HaltReasonTrait> {
     // N-API is known to be slow when marshalling `serde_json::Value`s, so we try to return a
     // `String`. If the object is too large to be represented as a `String`, we return a `Buffer`
     // instead.
@@ -22,14 +22,14 @@ pub struct Response<ChainSpecT: edr_eth::chain_spec::EvmWiring> {
     /// transaction.
     ///
     /// Only present for L1 Ethereum chains.
-    pub solidity_trace: Option<Arc<Trace<ChainSpecT>>>,
+    pub solidity_trace: Option<Arc<Trace<HaltReasonT>>>,
     /// This may contain zero or more traces, depending on the (batch) request
     ///
     /// Always empty for non-L1 Ethereum chains.
-    pub traces: Vec<Arc<Trace<ChainSpecT>>>,
+    pub traces: Vec<Arc<Trace<HaltReasonT>>>,
 }
 
-impl<ChainSpecT: edr_eth::chain_spec::EvmWiring> From<String> for Response<ChainSpecT> {
+impl<HaltReasonT: HaltReasonTrait> From<String> for Response<HaltReasonT> {
     fn from(value: String) -> Self {
         Response {
             solidity_trace: None,
@@ -59,22 +59,50 @@ pub trait SyncNapiSpec:
     /// This is implemented as an associated function to avoid problems when
     /// implementing type conversions for third-party types.
     fn cast_response(
-        response: Result<ResponseWithTraces<Self>, ProviderError<Self>>,
-    ) -> napi::Result<Response<GenericChainSpec>>;
+        response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
+    ) -> napi::Result<Response<HaltReason>>;
 }
 
 impl SyncNapiSpec for L1ChainSpec {
     const CHAIN_TYPE: &'static str = "L1";
 
     fn cast_response(
-        response: Result<ResponseWithTraces<Self>, ProviderError<Self>>,
-    ) -> napi::Result<Response<GenericChainSpec>> {
+        mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
+    ) -> napi::Result<Response<HaltReason>> {
+        // We can take the solidity trace as it won't be used for anything else
+        let solidity_trace: Option<Arc<Trace<HaltReason>>> =
+            response.as_mut().err().and_then(|error| {
+                if let edr_provider::ProviderError::TransactionFailed(failure) = error {
+                    if matches!(
+                        failure.failure.reason,
+                        edr_provider::TransactionFailureReason::OutOfGas(_)
+                    ) {
+                        None
+                    } else {
+                        Some(Arc::new(std::mem::take(
+                            &mut failure.failure.solidity_trace,
+                        )))
+                    }
+                } else {
+                    None
+                }
+            });
+
+        // We can take the traces as they won't be used for anything else
+        let traces = match &mut response {
+            Ok(response) => std::mem::take(&mut response.traces),
+            Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
+                std::mem::take(&mut failure.traces)
+            }
+            Err(_) => Vec::new(),
+        };
+
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
         marshal_response_data(response).map(|data| Response {
-            solidity_trace: None,
+            solidity_trace,
             data,
-            traces: Vec::new(),
+            traces: traces.into_iter().map(Arc::new).collect(),
         })
     }
 }
@@ -83,8 +111,8 @@ impl SyncNapiSpec for GenericChainSpec {
     const CHAIN_TYPE: &'static str = "generic";
 
     fn cast_response(
-        mut response: Result<ResponseWithTraces<Self>, ProviderError<Self>>,
-    ) -> napi::Result<Response<GenericChainSpec>> {
+        mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
+    ) -> napi::Result<Response<HaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
         let solidity_trace = response.as_mut().err().and_then(|error| {
             if let edr_provider::ProviderError::TransactionFailed(failure) = error {

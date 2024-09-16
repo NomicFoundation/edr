@@ -16,7 +16,7 @@ use edr_rpc_eth::client::EthRpcClient;
 
 use crate::{
     blockchain::{Blockchain as _, ForkedBlockchain},
-    chain_spec::SyncChainSpec,
+    chain_spec::SyncEvmSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
     transaction, Block, BlockBuilder, DebugContext, ExecutionResultWithContext, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
@@ -159,7 +159,7 @@ pub fn dummy_eip1559_transaction(
 /// block.
 pub async fn run_full_block<
     ChainSpecT: Debug
-        + SyncChainSpec<
+        + SyncEvmSpec<
             Block: Default,
             Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,

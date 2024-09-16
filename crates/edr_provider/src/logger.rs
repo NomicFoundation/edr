@@ -3,13 +3,13 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec};
+use edr_evm::{blockchain::BlockchainError, chain_spec::EvmSpec};
 
 use crate::{
     data::CallResult, debug_mine::DebugMineBlockResult, error::EstimateGasFailure, ProviderError,
 };
 
-pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
+pub trait Logger<ChainSpecT: EvmSpec<Hardfork: Debug>> {
     type BlockchainError;
 
     /// Whether the logger is enabled.
@@ -22,7 +22,7 @@ pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
-        result: &CallResult<ChainSpecT>,
+        result: &CallResult<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
         let _transaction = transaction;
@@ -35,7 +35,7 @@ pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
-        result: &EstimateGasFailure<ChainSpecT>,
+        result: &EstimateGasFailure<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
         let _transaction = transaction;
@@ -90,19 +90,19 @@ pub trait Logger<ChainSpecT: ChainSpec<Hardfork: Debug>> {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
-pub trait SyncLogger<ChainSpecT: ChainSpec<Hardfork: Debug>>:
+pub trait SyncLogger<ChainSpecT: EvmSpec<Hardfork: Debug>>:
     Logger<ChainSpecT> + DynClone + Send + Sync
 {
 }
 
 impl<ChainSpecT, T> SyncLogger<ChainSpecT> for T
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: EvmSpec<Hardfork: Debug>,
     T: Logger<ChainSpecT> + DynClone + Send + Sync,
 {
 }
 
-impl<ChainSpecT: ChainSpec<Hardfork: Debug>, BlockchainErrorT> Clone
+impl<ChainSpecT: EvmSpec<Hardfork: Debug>, BlockchainErrorT> Clone
     for Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorT>>
 {
     fn clone(&self) -> Self {
@@ -112,11 +112,11 @@ impl<ChainSpecT: ChainSpec<Hardfork: Debug>, BlockchainErrorT> Clone
 
 /// A logger that does nothing.
 #[derive_where(Clone, Default)]
-pub struct NoopLogger<ChainSpecT: ChainSpec> {
+pub struct NoopLogger<ChainSpecT: EvmSpec> {
     _phantom: PhantomData<ChainSpecT>,
 }
 
-impl<ChainSpecT: ChainSpec<Hardfork: Debug>> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
+impl<ChainSpecT: EvmSpec<Hardfork: Debug>> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
     type BlockchainError = BlockchainError<ChainSpecT>;
 
     fn is_enabled(&self) -> bool {

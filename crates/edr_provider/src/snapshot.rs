@@ -1,12 +1,12 @@
 use std::time::Instant;
 
 use edr_eth::{Address, U256};
-use edr_evm::{chain_spec::ChainSpec, state::IrregularState, MemPool, RandomHashGenerator};
+use edr_evm::{chain_spec::EvmSpec, state::IrregularState, MemPool, RandomHashGenerator};
 use rpds::HashTrieMapSync;
 
 use crate::data::StateId;
 
-pub(crate) struct Snapshot<ChainSpecT: ChainSpec> {
+pub(crate) struct Snapshot<ChainSpecT: EvmSpec> {
     pub block_number: u64,
     pub block_number_to_state_id: HashTrieMapSync<u64, StateId>,
     pub block_time_offset_seconds: i64,

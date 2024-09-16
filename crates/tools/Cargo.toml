@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { version = "1.0.75" }
+anyhow = { version = "1.0.89" }
 cfg-if = "1.0.0"
 clap = { version = "3.2.20", features = ["derive"] }
 derive-where = { version = "1.2.7", default-features = false }

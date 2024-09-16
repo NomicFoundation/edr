@@ -33,7 +33,7 @@ pub fn handle_mine<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     number_of_blocks: Option<u64>,
     interval: Option<u64>,
-) -> Result<(bool, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
+) -> Result<(bool, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
     let number_of_blocks = number_of_blocks.unwrap_or(1);
     let interval = interval.unwrap_or(1);
 

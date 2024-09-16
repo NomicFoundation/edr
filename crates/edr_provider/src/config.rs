@@ -2,7 +2,7 @@ use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use derive_where::derive_where;
 use edr_eth::{block::BlobGas, AccountInfo, Address, ChainId, HashMap, B256, U256};
-use edr_evm::{chain_spec::ChainSpec, hardfork, MineOrdering};
+use edr_evm::{chain_spec::EvmSpec, hardfork, MineOrdering};
 use rand::Rng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -76,7 +76,7 @@ pub struct MiningConfig {
     deserialize = "ChainSpecT::Hardfork: DeserializeOwned",
     serialize = "ChainSpecT::Hardfork: Serialize"
 ))]
-pub struct ProviderConfig<ChainSpecT: ChainSpec> {
+pub struct ProviderConfig<ChainSpecT: EvmSpec> {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
     pub accounts: Vec<AccountConfig>,

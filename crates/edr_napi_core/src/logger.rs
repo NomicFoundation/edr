@@ -130,7 +130,7 @@ where
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
-        result: &CallResult<ChainSpecT>,
+        result: &CallResult<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector.log_call(hardfork, transaction, result)?;
 
@@ -141,7 +141,7 @@ where
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
-        failure: &EstimateGasFailure<ChainSpecT>,
+        failure: &EstimateGasFailure<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
             .log_estimate_gas(hardfork, transaction, failure)?;
@@ -261,7 +261,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
-        result: &CallResult<ChainSpecT>,
+        result: &CallResult<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
         let CallResult {
             console_log_inputs,
@@ -284,12 +284,10 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
             logger.log_console_log_messages(console_log_inputs)?;
 
-            if let Some(transaction_failure) =
-                TransactionFailure::<ChainSpecT>::from_execution_result::<ChainSpecT, CurrentTime>(
-                    execution_result,
-                    None,
-                    trace,
-                )
+            if let Some(transaction_failure) = TransactionFailure::from_execution_result::<
+                ChainSpecT,
+                CurrentTime,
+            >(execution_result, None, trace)
             {
                 logger.log_transaction_failure(&transaction_failure);
             }
@@ -302,7 +300,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
-        result: &EstimateGasFailure<ChainSpecT>,
+        result: &EstimateGasFailure<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
         let EstimateGasFailure {
             console_log_inputs,
@@ -331,7 +329,10 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         })
     }
 
-    fn log_transaction_failure(&mut self, failure: &edr_provider::TransactionFailure<ChainSpecT>) {
+    fn log_transaction_failure(
+        &mut self,
+        failure: &edr_provider::TransactionFailure<ChainSpecT::HaltReason>,
+    ) {
         let is_revert_error = matches!(
             failure.reason,
             edr_provider::TransactionFailureReason::Revert(_)
@@ -640,8 +641,8 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::Transaction,
-        result: &ExecutionResult<ChainSpecT>,
-        trace: &Trace<ChainSpecT>,
+        result: &ExecutionResult<ChainSpecT::HaltReason>,
+        trace: &Trace<ChainSpecT::HaltReason>,
         console_log_inputs: &[Bytes],
         should_highlight_hash: bool,
     ) -> Result<(), LoggerError> {
@@ -673,11 +674,10 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
             logger.log_console_log_messages(console_log_inputs)?;
 
-            let transaction_failure =
-                edr_provider::TransactionFailure::<ChainSpecT>::from_execution_result::<
-                    ChainSpecT,
-                    CurrentTime,
-                >(result, Some(transaction_hash), trace);
+            let transaction_failure = edr_provider::TransactionFailure::from_execution_result::<
+                ChainSpecT,
+                CurrentTime,
+            >(result, Some(transaction_hash), trace);
 
             if let Some(transaction_failure) = transaction_failure {
                 logger.log_transaction_failure(&transaction_failure);
@@ -724,7 +724,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_contract_and_function_name<const PRINT_INVALID_CONTRACT_WARNING: bool>(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        trace: &Trace<ChainSpecT>,
+        trace: &Trace<ChainSpecT::HaltReason>,
     ) {
         if let Some(TraceMessage::Before(before_message)) = trace.messages.first() {
             if let Some(to) = before_message.to {
@@ -1004,8 +1004,8 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         hardfork: ChainSpecT::Hardfork,
         block_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
         transaction: &ChainSpecT::Transaction,
-        transaction_result: &ExecutionResult<ChainSpecT>,
-        trace: &Trace<ChainSpecT>,
+        transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
+        trace: &Trace<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
         self.indented(|logger| {
             logger.log("Currently sent transaction:");
@@ -1051,8 +1051,8 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         hardfork: ChainSpecT::Hardfork,
         block_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
         transaction: &ChainSpecT::Transaction,
-        transaction_result: &ExecutionResult<ChainSpecT>,
-        trace: &Trace<ChainSpecT>,
+        transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
+        trace: &Trace<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
         self.indented(|logger| {
             logger.log_contract_and_function_name::<false>(hardfork, trace);
@@ -1079,11 +1079,12 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
             logger.log_console_log_messages(&block_result.console_log_inputs)?;
 
-            let transaction_failure =
-                edr_provider::TransactionFailure::<ChainSpecT>::from_execution_result::<
-                    ChainSpecT,
-                    CurrentTime,
-                >(transaction_result, Some(transaction_hash), trace);
+            let transaction_failure = edr_provider::TransactionFailure::from_execution_result::<
+                ChainSpecT,
+                CurrentTime,
+            >(
+                transaction_result, Some(transaction_hash), trace
+            );
 
             if let Some(transaction_failure) = transaction_failure {
                 logger.log_transaction_failure(&transaction_failure);

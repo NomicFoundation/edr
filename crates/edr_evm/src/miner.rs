@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
-    chain_spec::{ChainSpec, SyncChainSpec},
+    chain_spec::{EvmSpec, SyncEvmSpec},
     debug::DebugContext,
     mempool::OrderedTransaction,
     state::{StateDiff, SyncState},
@@ -54,7 +54,7 @@ where
 /// inserted into the blockchain to be persistent.
 pub struct MineBlockResultAndState<ChainSpecT, StateErrorT>
 where
-    ChainSpecT: ChainSpec,
+    ChainSpecT: EvmSpec,
 {
     /// Mined block
     pub block: LocalBlock<ChainSpecT>,
@@ -79,7 +79,7 @@ pub enum MineOrdering {
 #[derive(Debug, thiserror::Error)]
 pub enum MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: EvmSpec<Hardfork: Debug>,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
@@ -129,13 +129,9 @@ pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, S
 >
 where
     'blockchain: 'evm,
-    ChainSpecT: SyncChainSpec<
-        Block: Default,
+    ChainSpecT: SyncEvmSpec<
         Hardfork: Debug,
-        Transaction: Default
-                         + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
-        >,
+        Transaction: TransactionValidation<ValidationError: From<InvalidTransaction> + PartialEq>,
     >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
@@ -216,7 +212,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: EvmSpec<Hardfork: Debug>,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
@@ -327,7 +323,7 @@ pub fn mine_block_with_single_transaction<
 >
 where
     'blockchain: 'evm,
-    ChainSpecT: SyncChainSpec<
+    ChainSpecT: SyncEvmSpec<
         Block: Default,
         Hardfork: Debug,
         Transaction: Default
@@ -440,14 +436,14 @@ fn effective_miner_fee(transaction: &impl Transaction, base_fee: Option<U256>) -
     })
 }
 
-fn first_in_first_out_comparator<ChainSpecT: ChainSpec>(
+fn first_in_first_out_comparator<ChainSpecT: EvmSpec>(
     lhs: &OrderedTransaction<ChainSpecT>,
     rhs: &OrderedTransaction<ChainSpecT>,
 ) -> Ordering {
     lhs.order_id().cmp(&rhs.order_id())
 }
 
-fn priority_comparator<ChainSpecT: ChainSpec>(
+fn priority_comparator<ChainSpecT: EvmSpec>(
     lhs: &OrderedTransaction<ChainSpecT>,
     rhs: &OrderedTransaction<ChainSpecT>,
     base_fee: Option<U256>,

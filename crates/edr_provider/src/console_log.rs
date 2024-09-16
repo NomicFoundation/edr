@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::{address, db::Database, result::EVMErrorForChain, Address, Bytes};
+use edr_eth::{address, result::EVMErrorWiring, Address, Bytes};
 use edr_evm::{
     evm::{handler::register::EvmHandler, FrameOrResult},
     GetContextData,
@@ -9,18 +9,14 @@ use edr_evm::{
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
 
 /// Registers the `ConsoleLogCollector`'s handles.
-pub fn register_console_log_handles<
-    ChainSpecT: edr_evm::chain_spec::EvmWiring,
-    DatabaseT: Database,
-    ContextT: GetContextData<ConsoleLogCollector>,
->(
-    handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
-) {
+pub fn register_console_log_handles<EvmWiringT>(handler: &mut EvmHandler<'_, EvmWiringT>)
+where
+    EvmWiringT:
+        edr_evm::chain_spec::EvmWiring<ExternalContext: GetContextData<ConsoleLogCollector>>,
+{
     let old_handle = handler.execution.call.clone();
     handler.execution.call = Arc::new(
-        move |ctx,
-              inputs|
-              -> Result<FrameOrResult, EVMErrorForChain<DatabaseT::Error, ChainSpecT>> {
+        move |ctx, inputs| -> Result<FrameOrResult, EVMErrorWiring<EvmWiringT>> {
             if inputs.bytecode_address == CONSOLE_ADDRESS {
                 let collector = ctx.external.get_context_data();
                 collector.record_console_log(inputs.input.clone());

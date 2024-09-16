@@ -24,7 +24,7 @@ pub fn handle_debug_trace_transaction<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     transaction_hash: B256,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
+) -> Result<(DebugTraceResult, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
     let DebugTraceResultWithTraces { result, traces } = data
         .debug_trace_transaction(
             &transaction_hash,
@@ -45,7 +45,7 @@ pub fn handle_debug_trace_call<ChainSpecT, TimerT>(
     call_request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>>
+) -> Result<(DebugTraceResult, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>>
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,
