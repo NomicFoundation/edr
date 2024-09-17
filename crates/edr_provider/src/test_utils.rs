@@ -5,12 +5,14 @@ use edr_eth::{
     signature::secret_key_from_str, transaction::TransactionValidation, trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, U160, U256,
 };
-use edr_evm::Block;
+use edr_evm::{chain_spec::EvmSpec, Block};
 use edr_rpc_eth::TransactionRequest;
-use time::TimeSinceEpoch;
 
-use super::*;
-use crate::{config::MiningConfig, requests::hardhat::rpc_types::ForkConfig};
+use crate::{
+    config::MiningConfig, requests::hardhat::rpc_types::ForkConfig, time::TimeSinceEpoch,
+    AccountConfig, MethodInvocation, Provider, ProviderConfig, ProviderData, ProviderError,
+    ProviderRequest, SyncProviderSpec,
+};
 
 pub const TEST_SECRET_KEY: &str =
     "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";

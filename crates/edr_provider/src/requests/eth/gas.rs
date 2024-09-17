@@ -5,14 +5,14 @@ use edr_eth::{
     transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
     BlockSpec, SpecId, U256, U64,
 };
-use edr_evm::{state::StateOverrides, trace::Trace, transaction};
+use edr_evm::{state::StateOverrides, transaction};
 
 use crate::{
     data::ProviderData,
     requests::validation::validate_post_merge_block_tags,
     spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError,
+    ProviderError, ProviderResultWithTraces,
 };
 
 pub fn handle_estimate_gas<
@@ -30,7 +30,7 @@ pub fn handle_estimate_gas<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
-) -> Result<(U64, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<U64, ChainSpecT> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);

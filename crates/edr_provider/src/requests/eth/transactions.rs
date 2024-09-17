@@ -14,7 +14,6 @@ use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainError,
     chain_spec::EvmSpec,
-    trace::Trace,
     transaction, SyncBlock,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
@@ -28,7 +27,7 @@ use crate::{
     },
     spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, TransactionFailure,
+    ProviderError, ProviderResultWithTraces, TransactionFailure,
 };
 
 pub fn handle_get_transaction_by_block_hash_and_index<
@@ -180,7 +179,7 @@ pub fn handle_send_transaction_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ChainSpecT::RpcTransactionRequest,
-) -> Result<(B256, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<B256, ChainSpecT> {
     let sender = *request.sender();
 
     let context = TransactionContext { data };
@@ -207,7 +206,7 @@ pub fn handle_send_raw_transaction_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     raw_transaction: Bytes,
-) -> Result<(B256, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<B256, ChainSpecT> {
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     ChainSpecT::PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
@@ -241,7 +240,7 @@ fn send_raw_transaction_and_log<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     signed_transaction: ChainSpecT::Transaction,
-) -> Result<(B256, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<B256, ChainSpecT> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
     let hardfork = data.hardfork();

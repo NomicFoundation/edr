@@ -18,7 +18,7 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         BlockOptions,
     },
-    chain_spec::HaltReasonTrait,
+    chain_spec::{ChainSpec, HaltReasonTrait},
     db::StateRef,
     env::CfgEnv,
     fee_history::FeeHistoryResult,
@@ -112,14 +112,15 @@ pub struct SendTransactionResult<ChainSpecT: EvmSpec> {
     pub mining_results: Vec<DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>>,
 }
 
+/// The result of executing a transaction.
+pub type ExecutionResultAndTrace<'provider, ChainSpecT> = (
+    &'provider ExecutionResult<<ChainSpecT as ChainSpec>::HaltReason>,
+    &'provider Trace<<ChainSpecT as ChainSpec>::HaltReason>,
+);
+
 impl<ChainSpecT: EvmSpec> SendTransactionResult<ChainSpecT> {
     /// Present if the transaction was auto-mined.
-    pub fn transaction_result_and_trace(
-        &self,
-    ) -> Option<(
-        &ExecutionResult<ChainSpecT::HaltReason>,
-        &Trace<ChainSpecT::HaltReason>,
-    )> {
+    pub fn transaction_result_and_trace(&self) -> Option<ExecutionResultAndTrace<'_, ChainSpecT>> {
         self.mining_results.iter().find_map(|result| {
             izip!(
                 result.block.transactions().iter(),

@@ -24,7 +24,10 @@ pub mod time;
 
 use core::fmt::Debug;
 
-use edr_eth::{chain_spec::HaltReasonTrait, HashSet};
+use edr_eth::{
+    chain_spec::{ChainSpec, HaltReasonTrait},
+    HashSet,
+};
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
 use edr_evm::{chain_spec::EvmSpec, trace::Trace};
@@ -56,6 +59,9 @@ lazy_static! {
         .collect()
     };
 }
+
+pub type ProviderResultWithTraces<T, ChainSpecT> =
+    Result<(T, Vec<Trace<<ChainSpecT as ChainSpec>::HaltReason>>), ProviderError<ChainSpecT>>;
 
 #[derive(Clone, Debug)]
 pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {

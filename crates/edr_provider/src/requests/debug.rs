@@ -1,5 +1,5 @@
 use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation, BlockSpec, B256};
-use edr_evm::{state::StateOverrides, trace::Trace, DebugTraceResult, DebugTraceResultWithTraces};
+use edr_evm::{state::StateOverrides, DebugTraceResult, DebugTraceResultWithTraces};
 use serde::{Deserialize, Deserializer};
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
     requests::eth::{resolve_block_spec_for_call_request, resolve_call_request},
     spec::SyncProviderSpec,
     time::TimeSinceEpoch,
-    ProviderError,
+    ProviderError, ProviderResultWithTraces,
 };
 
 pub fn handle_debug_trace_transaction<
@@ -24,7 +24,7 @@ pub fn handle_debug_trace_transaction<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     transaction_hash: B256,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<DebugTraceResult, ChainSpecT> {
     let DebugTraceResultWithTraces { result, traces } = data
         .debug_trace_transaction(
             &transaction_hash,
@@ -45,7 +45,7 @@ pub fn handle_debug_trace_call<ChainSpecT, TimerT>(
     call_request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     config: Option<DebugTraceConfig>,
-) -> Result<(DebugTraceResult, Vec<Trace<ChainSpecT::HaltReason>>), ProviderError<ChainSpecT>>
+) -> ProviderResultWithTraces<DebugTraceResult, ChainSpecT>
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,
