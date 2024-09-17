@@ -74,7 +74,7 @@ where
     let mut header = header.clone();
     header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
 
-    let block = ChainSpecT::Block::new_block_env(&header, hardfork);
+    let block = ChainSpecT::Block::new_block_env(&header, hardfork.into());
 
     let state_overrider = StateRefOverrider::new(state_overrides, state);
 

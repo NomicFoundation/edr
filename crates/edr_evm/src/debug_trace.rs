@@ -1,7 +1,9 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
+    chain_spec::ChainSpec,
     env::{CfgEnv, Env},
+    result::InvalidTransaction,
     transaction::ExecutableTransaction as _,
     utils::u256_to_padded_hex,
     B256,
@@ -15,7 +17,7 @@ use revm::{
     },
     primitives::{
         hex, Address, Block as _, Bytes, ExecutionResult, HaltReasonTrait, ResultAndState, SpecId,
-        U256,
+        TransactionValidation, U256,
     },
     Context, Database, Evm, EvmContext, EvmWiring, JournalEntry,
 };
@@ -64,8 +66,9 @@ impl<HaltReasonT: HaltReasonTrait> GetContextData<TracerEip3155>
 /// Register EIP-3155 and trace collector handles.
 pub fn register_eip_3155_and_raw_tracers_handles<
     EvmWiringT: revm::EvmWiring<
-        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>
-                             + GetContextData<TracerEip3155>,
+        ExternalContext: GetContextData<
+            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
+        > + GetContextData<TracerEip3155>,
         Database: Database<Error: Debug>,
     >,
 >(
@@ -94,7 +97,10 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     DebugTraceError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
-    ChainSpecT: EvmSpec<Block: Clone>,
+    ChainSpecT: EvmSpec<
+        Block: Clone,
+        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {

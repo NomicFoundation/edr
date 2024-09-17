@@ -26,7 +26,7 @@ const MAX_PARALLEL_REQUESTS: usize = 20;
 #[derive_where(Debug)]
 pub struct EthRpcClient<RpcSpecT: RpcSpec> {
     inner: RpcClient<RequestMethod>,
-    _phantom: std::marker::PhantomData<RpcSpecT>,
+    phantom: std::marker::PhantomData<RpcSpecT>,
 }
 
 impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
@@ -42,7 +42,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
         let inner = RpcClient::new(url, cache_dir, extra_headers)?;
         Ok(Self {
             inner,
-            _phantom: std::marker::PhantomData,
+            phantom: std::marker::PhantomData,
         })
     }
 
@@ -322,7 +322,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
 mod tests {
     use std::{ops::Deref, str::FromStr};
 
-    use edr_eth::{chain_spec::L1ChainSpec, db::EmptyDB};
+    use edr_eth::chain_spec::L1ChainSpec;
     use reqwest::StatusCode;
     use tempfile::TempDir;
 

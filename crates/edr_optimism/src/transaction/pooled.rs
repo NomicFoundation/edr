@@ -1,9 +1,8 @@
 pub use edr_eth::transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Legacy};
 use edr_eth::{
-    env::AuthorizationList,
     transaction::{
-        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, Transaction, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
+        signed::PreOrPostEip155, AuthorizationList, ExecutableTransaction, IsEip155, Transaction,
+        TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     utils::enveloped,
     AccessListItem, Address, Blob, Bytes, B256, U256,

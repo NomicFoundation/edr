@@ -303,7 +303,7 @@ where
             }
         }
 
-        let block = ChainSpecT::Block::new_block_env(&self.header, self.hardfork);
+        let block = ChainSpecT::Block::new_block_env(&self.header, self.hardfork.into());
 
         let receipt_builder = {
             let builder = ChainSpecT::ReceiptBuilder::new_receipt_builder(&state, &transaction);

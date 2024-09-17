@@ -1,9 +1,11 @@
+use std::marker::PhantomData;
+
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
     block::{self, BlobGas, PartialHeader},
     chain_spec::EthHeaderConstants,
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
-    env::{BlobExcessGasAndPrice, BlockEnv},
+    env::BlobExcessGasAndPrice,
     result::{HaltReason, InvalidTransaction},
     U256,
 };
@@ -12,20 +14,14 @@ use edr_evm::{
     transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };
-use edr_generic::GenericChainSpec;
 use edr_napi_core::{
     napi,
     spec::{marshal_response_data, Response, SyncNapiSpec},
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
-use revm::{
-    handler::register::HandleRegisters,
-    optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId},
-    primitives::ChainSpec,
-    Database, EvmHandler,
-};
-use revm_optimism::{OptimismSpecId, OptimismWiring};
+use revm::{handler::register::HandleRegisters, primitives::ChainSpec, Database, EvmHandler};
+use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{eip2718::TypedEnvelope, hardfork, receipt, rpc, transaction};
@@ -51,47 +47,12 @@ impl revm::primitives::ChainSpec for OptimismChainSpec {
     type HaltReason = OptimismHaltReason;
 }
 
-impl BlockEnvConstructor<OptimismChainSpec, PartialHeader> for revm::primitives::BlockEnv {
-    fn new_block_env(header: &PartialHeader, hardfork: OptimismSpecId) -> Self {
-        BlockEnv {
-            number: U256::from(header.number),
-            coinbase: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee.unwrap_or(U256::ZERO),
-            gas_limit: U256::from(header.gas_limit),
-            prevrandao: if hardfork >= OptimismSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: header
-                .blob_gas
-                .as_ref()
-                .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
-        }
-    }
-}
+#[repr(transparent)]
+pub struct BlockEnv(pub revm::primitives::BlockEnv);
 
-impl BlockEnvConstructor<OptimismSpecId, block::Header> for revm::primitives::BlockEnv {
-    fn new_block_env(header: &block::Header, hardfork: OptimismSpecId) -> Self {
-        BlockEnv {
-            number: U256::from(header.number),
-            coinbase: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee_per_gas.unwrap_or(U256::ZERO),
-            gas_limit: U256::from(header.gas_limit),
-            prevrandao: if hardfork >= OptimismSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: header
-                .blob_gas
-                .as_ref()
-                .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
-        }
+impl From<revm::primitives::BlockEnv> for BlockEnv {
+    fn from(env: revm::primitives::BlockEnv) -> Self {
+        BlockEnv(env)
     }
 }
 
@@ -103,8 +64,8 @@ pub struct Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> 
 impl<ChainSpecT, DatabaseT, ExternalContextT> edr_eth::chain_spec::EvmWiring
     for Wiring<ChainSpecT, DatabaseT, ExternalContextT>
 where
-    ChainSpecT: ChainSpec + revm_optimism::OptimismChainSpec,
     DatabaseT: Database,
+    ChainSpecT: ChainSpec + revm_optimism::OptimismChainSpec,
 {
     type ChainSpec = ChainSpecT;
     type ExternalContext = ExternalContextT;
@@ -114,14 +75,18 @@ where
 impl<ChainSpecT, DatabaseT, ExternalContextT> revm::EvmWiring
     for Wiring<ChainSpecT, DatabaseT, ExternalContextT>
 where
-    ChainSpecT: OptimismWiring,
+    ChainSpecT: revm_optimism::OptimismChainSpec,
     DatabaseT: Database,
 {
-    fn handler<'evm>(hardfork: Self::Hardfork) -> revm::EvmHandler<'evm, Self> {
+    fn handler<'evm>(
+        hardfork: <Self::ChainSpec as ChainSpec>::Hardfork,
+    ) -> revm::EvmHandler<'evm, Self> {
         let mut handler = EvmHandler::mainnet_with_spec(hardfork);
 
         handler.append_handler_register(HandleRegisters::Plain(
-            revm_optimism::optimism_handle_register::<ChainSpecT, DB, EXT>,
+            revm_optimism::optimism_handle_register::<
+                Wiring<ChainSpecT, DatabaseT, ExternalContextT>,
+            >,
         ));
 
         handler

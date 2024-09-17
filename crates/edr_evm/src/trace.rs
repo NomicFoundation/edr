@@ -9,7 +9,7 @@ use revm::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         InstructionResult, Interpreter, SuccessOrHalt,
     },
-    primitives::{Bytecode, ExecutionResult, HaltReasonTrait, Output},
+    primitives::{Bytecode, ChainSpec, ExecutionResult, HaltReasonTrait, Output},
     Context, Database, EvmContext, FrameOrResult, FrameResult,
 };
 
@@ -18,7 +18,9 @@ use crate::{chain_spec::EvmWiring, debug::GetContextData};
 /// Registers trace collector handles to the EVM handler.
 pub fn register_trace_collector_handles<
     EvmWiringT: revm::EvmWiring<
-        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>,
+        ExternalContext: GetContextData<
+            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
+        >,
         Database: Database<Error: Debug>,
     >,
 >(
@@ -118,7 +120,9 @@ fn instruction_handler<EvmWiringT>(
 ) where
     EvmWiringT: revm::EvmWiring<
         Database: Database<Error: Debug>,
-        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>,
+        ExternalContext: GetContextData<
+            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
+        >,
     >,
 {
     // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
@@ -302,7 +306,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         }
     }
 
-    fn call<EvmWiringT: EvmWiring<Database: Database<Error: Debug>, HaltReason = HaltReasonT>>(
+    fn call<
+        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>, Database: Database<Error: Debug>>,
+    >(
         &mut self,
         data: &mut EvmContext<EvmWiringT>,
         inputs: &CallInputs,
@@ -355,7 +361,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn call_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    fn call_end<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
         &mut self,
         data: &EvmContext<EvmWiringT>,
         _inputs: &CallInputs,
@@ -409,7 +415,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn create<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    fn create<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
         &mut self,
         data: &EvmContext<EvmWiringT>,
         inputs: &CreateInputs,
@@ -434,7 +440,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn create_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    fn create_end<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
         &mut self,
         data: &EvmContext<EvmWiringT>,
         _inputs: &CreateInputs,
@@ -478,7 +484,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn step<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    fn step<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
         &mut self,
         interp: &Interpreter,
         data: &EvmContext<EvmWiringT>,
@@ -511,7 +517,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         }
     }
 
-    fn call_transaction_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    fn call_transaction_end<
+        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>,
+    >(
         &mut self,
         data: &EvmContext<EvmWiringT>,
         inputs: &CallInputs,
@@ -521,7 +529,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         self.call_end(data, inputs, outcome);
     }
 
-    fn create_transaction_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    fn create_transaction_end<
+        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>,
+    >(
         &mut self,
         data: &EvmContext<EvmWiringT>,
         inputs: &CreateInputs,

@@ -1,12 +1,17 @@
 use edr_eth::{
     chain_spec::{ChainSpec, EthHeaderConstants, L1ChainSpec},
+    db::Database,
     eips::eip1559::BaseFeeParams,
     env::BlockEnv,
     result::{HaltReason, InvalidTransaction},
     transaction::TransactionValidation,
     SpecId,
 };
-use edr_evm::{chain_spec::EvmSpec, hardfork::Activations, transaction::TransactionError};
+use edr_evm::{
+    chain_spec::{EvmSpec, L1Wiring},
+    hardfork::Activations,
+    transaction::TransactionError,
+};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
 use crate::GenericChainSpec;
@@ -30,6 +35,9 @@ impl EthHeaderConstants for GenericChainSpec {
 }
 
 impl EvmSpec for GenericChainSpec {
+    type EvmWiring<DatabaseT: Database, ExternalContexT> =
+        L1Wiring<Self, DatabaseT, ExternalContexT>;
+
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;

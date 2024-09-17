@@ -1,6 +1,9 @@
 use core::fmt::Debug;
 
-use edr_eth::{chain_spec::HaltReasonTrait, db::Database};
+use edr_eth::{
+    chain_spec::{ChainSpec, HaltReasonTrait},
+    db::Database,
+};
 use edr_evm::{
     chain_spec::EvmWiring,
     evm::handler::register::EvmHandler,
@@ -19,7 +22,9 @@ where
     EvmWiringT: EvmWiring<
         ExternalContext: GetContextData<ConsoleLogCollector>
                              + GetContextData<Mocker>
-                             + GetContextData<TraceCollector<EvmWiringT::HaltReason>>,
+                             + GetContextData<
+            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
+        >,
         Database: Database<Error: Debug>,
     >,
 {

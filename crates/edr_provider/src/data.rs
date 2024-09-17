@@ -45,7 +45,7 @@ use edr_evm::{
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
     chain_spec::{BlockEnvConstructor as _, EvmSpec, SyncEvmSpec},
-    debug_trace_transaction, execution_result_to_debug_result, hardfork, mempool, mine_block,
+    debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
@@ -2296,13 +2296,13 @@ where
             None
         };
 
-        let transaction_hash = self.add_pending_transaction(transaction).map_err(|error| {
-            if let Some(snapshot_id) = snapshot_id {
-                self.revert_to_snapshot(snapshot_id);
-            }
-
-            error
-        })?;
+        let transaction_hash = self
+            .add_pending_transaction(transaction)
+            .inspect_err(|_error| {
+                if let Some(snapshot_id) = snapshot_id {
+                    self.revert_to_snapshot(snapshot_id);
+                }
+            })?;
 
         let mut mining_results = Vec::new();
         snapshot_id
@@ -2310,10 +2310,8 @@ where
                 loop {
                     let result = self
                         .mine_and_commit_block(BlockOptions::default())
-                        .map_err(|error| {
+                        .inspect_err(|_error| {
                             self.revert_to_snapshot(snapshot_id);
-
-                            error
                         })?;
 
                     let mined_transaction = result.has_transaction(&transaction_hash);
@@ -2328,10 +2326,8 @@ where
                 while self.mem_pool.has_pending_transactions() {
                     let result = self
                         .mine_and_commit_block(BlockOptions::default())
-                        .map_err(|error| {
+                        .inspect_err(|_error| {
                             self.revert_to_snapshot(snapshot_id);
-
-                            error
                         })?;
 
                     mining_results.push(result);
@@ -2388,7 +2384,7 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::Block::new_block_env(header, hardfork);
+                let block_env = ChainSpecT::Block::new_block_env(header, hardfork.into());
 
                 debug_trace_transaction(
                     blockchain,

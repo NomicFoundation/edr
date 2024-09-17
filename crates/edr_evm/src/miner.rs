@@ -27,7 +27,7 @@ use crate::{
 #[derive(Debug)]
 pub struct MineBlockResult<ChainSpecT, BlockchainErrorT>
 where
-    ChainSpecT: revm::primitives::EvmWiring,
+    ChainSpecT: EvmSpec,
 {
     /// Mined block
     pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
@@ -39,7 +39,7 @@ where
 
 impl<BlockchainErrorT, ChainSpecT> Clone for MineBlockResult<ChainSpecT, BlockchainErrorT>
 where
-    ChainSpecT: revm::primitives::EvmWiring,
+    ChainSpecT: EvmSpec,
 {
     fn clone(&self) -> Self {
         Self {
@@ -324,12 +324,8 @@ pub fn mine_block_with_single_transaction<
 where
     'blockchain: 'evm,
     ChainSpecT: SyncEvmSpec<
-        Block: Default,
         Hardfork: Debug,
-        Transaction: Default
-                         + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
-        >,
+        Transaction: TransactionValidation<ValidationError: From<InvalidTransaction> + PartialEq>,
     >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
