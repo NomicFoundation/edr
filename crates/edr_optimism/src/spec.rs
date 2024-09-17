@@ -2,15 +2,12 @@ use std::marker::PhantomData;
 
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
-    block::{self, BlobGas, PartialHeader},
     chain_spec::EthHeaderConstants,
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
-    env::BlobExcessGasAndPrice,
     result::{HaltReason, InvalidTransaction},
-    U256,
 };
 use edr_evm::{
-    chain_spec::{BlockEnvConstructor, EvmSpec},
+    chain_spec::EvmSpec,
     transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };

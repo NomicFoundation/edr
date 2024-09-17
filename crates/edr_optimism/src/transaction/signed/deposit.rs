@@ -5,7 +5,6 @@ use edr_eth::{
     AccessListItem, Address, Bytes, B256, U256,
 };
 use revm::primitives::keccak256;
-use revm_optimism::OptimismTransaction;
 
 use super::Deposit;
 
