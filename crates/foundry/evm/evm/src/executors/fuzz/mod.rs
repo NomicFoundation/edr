@@ -4,7 +4,6 @@ use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Bytes, U256};
 use eyre::Result;
-use foundry_config::FuzzConfig;
 use foundry_evm_core::{
     constants::MAGIC_ASSUME,
     decode::{decode_console_logs, RevertDecoder},
@@ -14,6 +13,7 @@ use foundry_evm_fuzz::{
     strategies::{fuzz_calldata, fuzz_calldata_from_state, EvmFuzzState},
     BaseCounterExample, CounterExample, FuzzCase, FuzzError, FuzzFixtures, FuzzTestResult,
 };
+pub use foundry_evm_fuzz::{FuzzConfig, FuzzDictionaryConfig};
 use foundry_evm_traces::CallTraceArena;
 use proptest::test_runner::{TestCaseError, TestError, TestRunner};
 

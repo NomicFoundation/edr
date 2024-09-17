@@ -780,7 +780,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
         // once we start broadcasting.
         if ecx.journaled_state.depth == 0 {
             let sender = ecx.env.tx.caller;
-            if sender != foundry_config::DEFAULT_SENDER {
+            if sender != edr_defaults::SOLIDITY_TESTS_SENDER {
                 let account = match super::evm::journaled_account(ecx, sender) {
                     Ok(account) => account,
                     Err(err) => {

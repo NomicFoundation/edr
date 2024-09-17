@@ -2,11 +2,11 @@
 
 use edr_test_utils::SolidityTestFilter;
 use forge::result::SuiteResult;
-use foundry_config::{fs_permissions::PathPermission, FsPermissions};
+use foundry_cheatcodes::{FsPermissions, PathPermission};
 
 use crate::{
     config::*,
-    test_helpers::{RE_PATH_SEPARATOR, TEST_DATA_DEFAULT},
+    helpers::{RE_PATH_SEPARATOR, TEST_DATA_DEFAULT},
 };
 
 /// Executes reverting fork test

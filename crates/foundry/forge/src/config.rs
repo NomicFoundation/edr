@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use alloy_primitives::{Address, B256};
-use foundry_config::{FuzzConfig, InvariantConfig, DEFAULT_SENDER};
-use foundry_evm::inspectors::cheatcodes::CheatsConfigOptions;
+use foundry_evm::{
+    executors::{fuzz::FuzzConfig, invariant::InvariantConfig},
+    inspectors::cheatcodes::CheatsConfigOptions,
+};
 
 use crate::{
     fork::CreateFork,
@@ -55,7 +57,7 @@ impl SolidityTestRunnerConfig {
                 chain_id: Some(31337),
                 gas_price: Some(0),
                 block_base_fee_per_gas: 0,
-                tx_origin: DEFAULT_SENDER,
+                tx_origin: edr_defaults::SOLIDITY_TESTS_SENDER,
                 block_number: 1,
                 block_difficulty: 0,
                 block_prevrandao: B256::default(),
@@ -71,7 +73,7 @@ impl SolidityTestRunnerConfig {
             fork_retry_backoff: None,
             compute_units_per_second: None,
             no_rpc_rate_limit: false,
-            sender: DEFAULT_SENDER,
+            sender: edr_defaults::SOLIDITY_TESTS_SENDER,
             initial_balance: U256::from(0xffffffffffffffffffffffffu128),
             ffi: false,
             always_use_create_2_factory: false,

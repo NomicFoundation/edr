@@ -1,3 +1,5 @@
+use alloy_primitives::{address, Address};
+
 /// The default secret keys from which the local accounts will be derived.
 pub const SECRET_KEYS: [&str; 20] = [
     // these were taken from the standard output of a run of `hardhat node`
@@ -33,6 +35,11 @@ pub const MAX_CONCURRENT_REQUESTS: usize = 5;
 
 /// Seed value for the generator of mix hashes.
 pub const MIX_HASH_SEED: &str = "randomMixHashSeed";
+
+/// Default address for `tx.origin` in Solidity tests.
+///
+/// `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`
+pub const SOLIDITY_TESTS_SENDER: Address = address!("1804c8AB1F12E6bbf3894d4083f33e07309d1f38");
 
 /// Seed value for the generator of state root hashes.
 pub const STATE_ROOT_HASH_SEED: &str = "seed";

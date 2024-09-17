@@ -15,7 +15,7 @@ use foundry_common::{calc, contracts::ContractsByAddress};
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::CallTraceArena;
 use itertools::Itertools;
-pub use proptest::test_runner::{Config as FuzzConfig, Reason};
+pub use proptest::test_runner::{Config as PropFuzzConfig, Reason};
 use serde::{Deserialize, Serialize};
 
 mod error;
@@ -23,6 +23,9 @@ pub use error::FuzzError;
 
 pub mod invariant;
 pub mod strategies;
+
+mod fuzz_config;
+pub use fuzz_config::{FuzzConfig, FuzzDictionaryConfig};
 
 mod inspector;
 pub use inspector::Fuzzer;

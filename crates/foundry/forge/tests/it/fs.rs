@@ -1,9 +1,9 @@
 //! Filesystem tests.
 
 use edr_test_utils::SolidityTestFilter;
-use foundry_config::{fs_permissions::PathPermission, FsPermissions};
+use foundry_cheatcodes::{FsPermissions, PathPermission};
 
-use crate::{config::*, test_helpers::TEST_DATA_DEFAULT};
+use crate::{config::*, helpers::TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fs_disabled() {

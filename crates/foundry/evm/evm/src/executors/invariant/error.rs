@@ -1,7 +1,9 @@
 use alloy_primitives::{Address, Bytes};
-use foundry_config::InvariantConfig;
 use foundry_evm_core::decode::RevertDecoder;
-use foundry_evm_fuzz::{invariant::FuzzRunIdentifiedContracts, Reason};
+use foundry_evm_fuzz::{
+    invariant::{FuzzRunIdentifiedContracts, InvariantConfig},
+    Reason,
+};
 use proptest::test_runner::TestError;
 
 use super::{BasicTxDetails, InvariantContract};

@@ -3,16 +3,6 @@
 version = 3
 
 [[package]]
-name = "Inflector"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-dependencies = [
- "lazy_static",
- "regex",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1783,6 +1773,9 @@ dependencies = [
 [[package]]
 name = "edr_defaults"
 version = "0.3.8"
+dependencies = [
+ "alloy-primitives 0.7.7",
+]
 
 [[package]]
 name = "edr_eth"
@@ -1870,8 +1863,8 @@ dependencies = [
  "edr_rpc_eth",
  "edr_solidity",
  "forge",
+ "foundry-cheatcodes",
  "foundry-common",
- "foundry-config",
  "indexmap 2.5.0",
  "itertools 0.12.1",
  "k256",
@@ -2276,14 +2269,14 @@ dependencies = [
  "comfy-table",
  "criterion 0.5.1",
  "dunce",
+ "edr_defaults",
  "edr_test_utils",
  "evm-disassembler",
  "eyre",
+ "foundry-cheatcodes",
  "foundry-common",
  "foundry-compilers",
- "foundry-config",
  "foundry-evm",
- "foundry-linking",
  "futures",
  "globset",
  "humantime-serde",
@@ -2296,6 +2289,7 @@ dependencies = [
  "path-slash",
  "proptest",
  "rayon",
+ "semver 1.0.23",
  "serde",
  "serial_test",
  "similar-asserts",
@@ -2340,6 +2334,7 @@ dependencies = [
 name = "foundry-cheatcodes"
 version = "0.3.8"
 dependencies = [
+ "alloy-chains",
  "alloy-dyn-abi",
  "alloy-genesis",
  "alloy-primitives 0.7.7",
@@ -2351,16 +2346,18 @@ dependencies = [
  "base64 0.22.1",
  "const-hex",
  "dialoguer",
+ "dunce",
+ "edr_defaults",
  "eyre",
  "foundry-cheatcodes-spec",
  "foundry-common",
  "foundry-compilers",
- "foundry-config",
  "foundry-evm-core",
  "itertools 0.12.1",
  "jsonpath_lib",
  "k256",
  "p256",
+ "regex",
  "revm 8.0.0",
  "rustc-hash 1.1.0",
  "semver 1.0.23",
@@ -2460,25 +2457,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "foundry-config"
-version = "0.3.8"
-dependencies = [
- "Inflector",
- "alloy-chains",
- "alloy-primitives 0.7.7",
- "dunce",
- "eyre",
- "foundry-compilers",
- "number_prefix",
- "path-slash",
- "regex",
- "semver 1.0.23",
- "similar-asserts",
- "tempfile",
- "tracing",
-]
-
-[[package]]
 name = "foundry-evm"
 version = "0.3.8"
 dependencies = [
@@ -2490,7 +2468,6 @@ dependencies = [
  "eyre",
  "foundry-cheatcodes",
  "foundry-common",
- "foundry-config",
  "foundry-evm-core",
  "foundry-evm-coverage",
  "foundry-evm-fuzz",
@@ -2507,6 +2484,7 @@ dependencies = [
 name = "foundry-evm-core"
 version = "0.3.8"
 dependencies = [
+ "alloy-chains",
  "alloy-dyn-abi",
  "alloy-genesis",
  "alloy-json-abi",
@@ -2522,7 +2500,6 @@ dependencies = [
  "eyre",
  "foundry-cheatcodes-spec",
  "foundry-common",
- "foundry-config",
  "foundry-macros",
  "futures",
  "itertools 0.12.1",
@@ -2564,7 +2541,6 @@ dependencies = [
  "alloy-primitives 0.7.7",
  "eyre",
  "foundry-common",
- "foundry-config",
  "foundry-evm-core",
  "foundry-evm-coverage",
  "foundry-evm-traces",
@@ -2600,16 +2576,6 @@ dependencies = [
  "tokio",
  "tracing",
  "yansi",
-]
-
-[[package]]
-name = "foundry-linking"
-version = "0.3.8"
-dependencies = [
- "alloy-primitives 0.7.7",
- "foundry-compilers",
- "semver 1.0.23",
- "thiserror",
 ]
 
 [[package]]

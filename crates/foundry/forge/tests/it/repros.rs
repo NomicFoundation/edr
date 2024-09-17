@@ -5,7 +5,7 @@ use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
 use edr_test_utils::SolidityTestFilter;
 use forge::{result::TestStatus, SolidityTestRunnerConfig};
-use foundry_config::{fs_permissions::PathPermission, FsPermissions};
+use foundry_cheatcodes::{FsPermissions, PathPermission};
 use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
     traces::{CallKind, CallTraceDecoder, DecodedCallData, TraceKind},
@@ -13,7 +13,7 @@ use foundry_evm::{
 
 use crate::{
     config::*,
-    test_helpers::{ForgeTestData, TEST_DATA_DEFAULT},
+    helpers::{ForgeTestData, TEST_DATA_DEFAULT},
 };
 
 /// Creates a test that runs `testdata/repros/Issue{issue}.t.sol`.

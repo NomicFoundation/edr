@@ -10,6 +10,9 @@ pub use call_override::RandomCallGenerator;
 mod filters;
 pub use filters::{ArtifactFilters, SenderFilters};
 
+mod invariant_config;
+pub use invariant_config::InvariantConfig;
+
 pub type TargetedContracts = BTreeMap<Address, (String, JsonAbi, Vec<Function>)>;
 
 /// Contracts identified as targets during a fuzz run.

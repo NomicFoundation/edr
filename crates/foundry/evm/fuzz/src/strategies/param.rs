@@ -242,10 +242,10 @@ pub fn fuzz_param_from_state(
 #[cfg(test)]
 mod tests {
     use foundry_common::abi::get_func;
-    use foundry_config::FuzzDictionaryConfig;
     use revm::db::{CacheDB, EmptyDB};
 
     use crate::{
+        fuzz_config::FuzzDictionaryConfig,
         strategies::{fuzz_calldata, fuzz_calldata_from_state, EvmFuzzState},
         FuzzFixtures,
     };

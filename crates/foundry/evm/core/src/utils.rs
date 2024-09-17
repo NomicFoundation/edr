@@ -1,10 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
+use alloy_chains::NamedChain;
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_rpc_types::{Block, Transaction};
 use eyre::ContextCompat;
-use foundry_config::NamedChain;
 pub use revm::primitives::State as StateChangeset;
 use revm::{
     db::WrapDatabaseRef,

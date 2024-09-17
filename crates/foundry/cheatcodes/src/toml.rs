@@ -2,7 +2,6 @@
 
 use alloy_dyn_abi::DynSolType;
 use foundry_common::fs;
-use foundry_config::fs_permissions::FsAccessKind;
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
 
@@ -11,7 +10,7 @@ use crate::{
         canonicalize_json_path, check_json_key_exists, parse_json, parse_json_coerce,
         parse_json_keys,
     },
-    Cheatcode, Cheatcodes, Result,
+    Cheatcode, Cheatcodes, FsAccessKind, Result,
     Vm::{
         keyExistsTomlCall, parseTomlAddressArrayCall, parseTomlAddressCall, parseTomlBoolArrayCall,
         parseTomlBoolCall, parseTomlBytes32ArrayCall, parseTomlBytes32Call,

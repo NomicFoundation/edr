@@ -1,8 +1,5 @@
-//! Foundry configuration.
-
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
-use alloy_primitives::{address, Address};
 use foundry_compilers::{
     artifacts::{
         output_selection::{ContractOutputSelection, OutputSelection},
@@ -18,25 +15,7 @@ use foundry_compilers::{
 };
 use semver::Version;
 
-mod endpoints;
-pub use endpoints::{RpcEndpoint, RpcEndpoints};
-
-pub mod cache;
-
-pub mod fs_permissions;
-pub use crate::fs_permissions::FsPermissions;
-
-pub mod error;
-// reexport so cli types can implement `figment::Provider` to easily merge
-// compiler arguments
-pub use alloy_chains::{Chain, NamedChain};
-pub use error::SolidityErrorCode;
-
-mod fuzz;
-pub use fuzz::{FuzzConfig, FuzzDictionaryConfig};
-
-mod invariant;
-pub use invariant::InvariantConfig;
+use crate::helpers::solidity_error_code::SolidityErrorCode;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IntegrationTestConfig {
@@ -166,11 +145,6 @@ pub struct IntegrationTestConfig {
     /// files.
     pub build_info_path: Option<PathBuf>,
 }
-
-/// Default address for tx.origin
-///
-/// `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`
-pub const DEFAULT_SENDER: Address = address!("1804c8AB1F12E6bbf3894d4083f33e07309d1f38");
 
 impl IntegrationTestConfig {
     /// Serves as the entrypoint for obtaining the project.
@@ -414,13 +388,6 @@ impl IntegrationTestConfig {
 
     /// Creates a new Config that adds additional context extracted from the
     /// provided root.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use foundry_config::IntegrationTestConfig;
-    /// let my_config = IntegrationTestConfig::with_root(".");
-    /// ```
     pub fn with_root(root: impl Into<PathBuf>) -> Self {
         // autodetect paths
         let root = root.into();
@@ -500,20 +467,5 @@ impl<T: AsRef<str>> From<T> for SolcReq {
         } else {
             SolcReq::Local(s.into())
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use similar_asserts::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn default_sender() {
-        assert_eq!(
-            DEFAULT_SENDER,
-            Address::from_str("0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38").unwrap()
-        );
     }
 }

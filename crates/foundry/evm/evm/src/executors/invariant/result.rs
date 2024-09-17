@@ -2,10 +2,9 @@ use std::borrow::Cow;
 
 use alloy_dyn_abi::JsonAbiExt;
 use eyre::Result;
-use foundry_config::InvariantConfig;
 use foundry_evm_core::{constants::CALLER, utils::StateChangeset};
 use foundry_evm_fuzz::{
-    invariant::{BasicTxDetails, FuzzRunIdentifiedContracts, InvariantContract},
+    invariant::{BasicTxDetails, FuzzRunIdentifiedContracts, InvariantConfig, InvariantContract},
     FuzzedCases,
 };
 use revm::primitives::U256;
