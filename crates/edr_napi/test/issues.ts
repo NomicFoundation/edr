@@ -78,7 +78,7 @@ describe("Provider", () => {
     }
 
     // This test is slow because the debug_traceTransaction is performed on a large transaction.
-    this.timeout(12_000_000);
+    this.timeout(1_800_000);
 
     const provider = await context.createProvider(
       GENERIC_CHAIN_TYPE,
