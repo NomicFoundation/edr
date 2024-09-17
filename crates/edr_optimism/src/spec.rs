@@ -44,15 +44,6 @@ impl revm::primitives::ChainSpec for OptimismChainSpec {
     type HaltReason = OptimismHaltReason;
 }
 
-#[repr(transparent)]
-pub struct BlockEnv(pub revm::primitives::BlockEnv);
-
-impl From<revm::primitives::BlockEnv> for BlockEnv {
-    fn from(env: revm::primitives::BlockEnv) -> Self {
-        BlockEnv(env)
-    }
-}
-
 /// EVM wiring for Optimism chains.
 pub struct Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> {
     _phantom: PhantomData<(ChainSpecT, DatabaseT, ExternalContextT)>,
