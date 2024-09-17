@@ -16,7 +16,7 @@ use crate::{chain_spec::EvmSpec, Block};
 #[derive_where(Debug; BlockT)]
 pub struct SparseBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    BlockT: Block<ChainSpecT> + Clone,
     ChainSpecT: EvmSpec,
 {
     hash_to_block: HashMap<B256, BlockT>,
@@ -30,7 +30,7 @@ where
 
 impl<BlockT, ChainSpecT> SparseBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    BlockT: Block<ChainSpecT> + Clone,
     ChainSpecT: EvmSpec,
 {
     /// Constructs a new instance with the provided block.

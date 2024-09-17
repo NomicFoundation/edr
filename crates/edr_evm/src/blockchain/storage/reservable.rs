@@ -27,7 +27,7 @@ struct Reservation<ChainSpecT: EvmSpec> {
 #[derive_where(Debug; BlockT, ChainSpecT::Hardfork)]
 pub struct ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    BlockT: Block<ChainSpecT> + Clone,
     ChainSpecT: EvmSpec,
 {
     reservations: RwLock<Vec<Reservation<ChainSpecT>>>,
