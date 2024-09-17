@@ -2,7 +2,7 @@ pub use edr_eth::transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Legacy
 use edr_eth::{
     env::AuthorizationList,
     transaction::{
-        signed::PreOrPostEip155, ExecutableTransaction, Transaction, TxKind,
+        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, Transaction, TxKind,
         INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     utils::enveloped,
@@ -208,6 +208,12 @@ impl HardforkValidationData for Pooled {
             Pooled::Eip4844(tx) => Some(&tx.payload().blob_hashes),
             _ => None,
         }
+    }
+}
+
+impl IsEip155 for Pooled {
+    fn is_eip155(&self) -> bool {
+        matches!(self, Pooled::PostEip155Legacy(_))
     }
 }
 

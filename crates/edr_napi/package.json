@@ -32,6 +32,7 @@
   "license": "MIT",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.1",
+    "@nomicfoundation/ethereumjs-util": "^9.0.4",
     "@types/chai": "^4.2.0",
     "@types/chai-as-promised": "^7.1.8",
     "@types/mocha": ">=9.1.0",
@@ -50,14 +51,15 @@
     "artifacts": "napi artifacts",
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
+    "build:optimism": "napi build --platform --release --features optimism",
     "build:tracing": "napi build --platform --release --features tracing",
     "build:scenarios": "napi build --platform --release --features scenarios",
-    "prepublishOnly": "bash scripts/prepublish.sh",
+    "prepublishOnly": "bash ../../scripts/prepublish.sh",
     "universal": "napi universal",
     "version": "napi version",
-    "pretest": "pnpm build",
+    "pretest": "pnpm build:optimism",
     "test": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
-    "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
+    "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(optimism)}.ts\"",
     "clean": "rm -rf @nomicfoundation/edr.node"
   }
 }

@@ -7,15 +7,14 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-ansi_term = { version = "0.12.1", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 edr_generic = { path = "../edr_generic" }
 edr_napi_core = { path = "../edr_napi_core" }
+edr_optimism = { path = "../edr_optimism", optional = true }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_client = { path = "../edr_rpc_client" }
-itertools = { version = "0.12.0", default-features = false }
 mimalloc = { version = "0.1.39", default-features = false, features = ["local_dynamic_tls"] }
 # when napi is pinned, be sure to pin napi-derive to the same version
 # The `async` feature ensures that a tokio runtime is available
@@ -24,7 +23,6 @@ napi-derive = "2.16.0"
 rand = { version = "0.8.4", optional = true }
 serde = { version = "1.0.209", features = ["derive"] }
 serde_json = { version = "1.0.127" }
-thiserror = { version = "1.0.37", default-features = false }
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
 tracing-flame = { version = "0.2.0", default-features = false, features = ["smallvec"] }
 tracing-subscriber = { version = "0.3.18", default-features = false, features = ["ansi", "env-filter", "fmt", "parking_lot", "smallvec", "std"] }
@@ -45,11 +43,9 @@ openssl-sys = { version = "0.9.93", features = ["vendored"] }
 napi-build = "2.0.1"
 
 [features]
-tracing = ["edr_evm/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
+optimism = ["dep:edr_optimism"]
 scenarios = ["rand"]
-
-[profile.release]
-lto = true
+tracing = ["edr_evm/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
 
 [lints]
 workspace = true

@@ -63,6 +63,72 @@ export interface CallOverrideResult {
   result: Buffer
   shouldRevert: boolean
 }
+export const GENERIC_CHAIN_TYPE: string
+export function genericChainProviderFactory(): ProviderFactory
+export const L1_CHAIN_TYPE: string
+export function l1ProviderFactory(): ProviderFactory
+/** Identifier for the Ethereum spec. */
+export const enum SpecId {
+  /** Frontier */
+  Frontier = 0,
+  /** Frontier Thawing */
+  FrontierThawing = 1,
+  /** Homestead */
+  Homestead = 2,
+  /** DAO Fork */
+  DaoFork = 3,
+  /** Tangerine */
+  Tangerine = 4,
+  /** Spurious Dragon */
+  SpuriousDragon = 5,
+  /** Byzantium */
+  Byzantium = 6,
+  /** Constantinople */
+  Constantinople = 7,
+  /** Petersburg */
+  Petersburg = 8,
+  /** Istanbul */
+  Istanbul = 9,
+  /** Muir Glacier */
+  MuirGlacier = 10,
+  /** Berlin */
+  Berlin = 11,
+  /** London */
+  London = 12,
+  /** Arrow Glacier */
+  ArrowGlacier = 13,
+  /** Gray Glacier */
+  GrayGlacier = 14,
+  /** Merge */
+  Merge = 15,
+  /** Shanghai */
+  Shanghai = 16,
+  /** Cancun */
+  Cancun = 17,
+  /** Latest */
+  Latest = 18
+}
+export const FRONTIER: string
+export const FRONTIER_THAWING: string
+export const HOMESTEAD: string
+export const DAO_FORK: string
+export const TANGERINE: string
+export const SPURIOUS_DRAGON: string
+export const BYZANTIUM: string
+export const CONSTANTINOPLE: string
+export const PETERSBURG: string
+export const ISTANBUL: string
+export const MUIR_GLACIER: string
+export const BERLIN: string
+export const LONDON: string
+export const ARROW_GLACIER: string
+export const GRAY_GLACIER: string
+export const MERGE: string
+export const SHANGHAI: string
+export const CANCUN: string
+export const PRAGUE: string
+export const PRAGUE_EOF: string
+export const LATEST: string
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
@@ -195,72 +261,6 @@ export interface DebugTraceLogItem {
   /** Map of all stored values with keys and values encoded as hex strings. */
   storage?: Record<string, string>
 }
-export const GENERIC_CHAIN_TYPE: string
-export function genericChainProviderFactory(): ProviderFactory
-export const L1_CHAIN_TYPE: string
-export function l1ProviderFactory(): ProviderFactory
-/** Identifier for the Ethereum spec. */
-export const enum SpecId {
-  /** Frontier */
-  Frontier = 0,
-  /** Frontier Thawing */
-  FrontierThawing = 1,
-  /** Homestead */
-  Homestead = 2,
-  /** DAO Fork */
-  DaoFork = 3,
-  /** Tangerine */
-  Tangerine = 4,
-  /** Spurious Dragon */
-  SpuriousDragon = 5,
-  /** Byzantium */
-  Byzantium = 6,
-  /** Constantinople */
-  Constantinople = 7,
-  /** Petersburg */
-  Petersburg = 8,
-  /** Istanbul */
-  Istanbul = 9,
-  /** Muir Glacier */
-  MuirGlacier = 10,
-  /** Berlin */
-  Berlin = 11,
-  /** London */
-  London = 12,
-  /** Arrow Glacier */
-  ArrowGlacier = 13,
-  /** Gray Glacier */
-  GrayGlacier = 14,
-  /** Merge */
-  Merge = 15,
-  /** Shanghai */
-  Shanghai = 16,
-  /** Cancun */
-  Cancun = 17,
-  /** Latest */
-  Latest = 18
-}
-export const FRONTIER: string
-export const FRONTIER_THAWING: string
-export const HOMESTEAD: string
-export const DAO_FORK: string
-export const TANGERINE: string
-export const SPURIOUS_DRAGON: string
-export const BYZANTIUM: string
-export const CONSTANTINOPLE: string
-export const PETERSBURG: string
-export const ISTANBUL: string
-export const MUIR_GLACIER: string
-export const BERLIN: string
-export const LONDON: string
-export const ARROW_GLACIER: string
-export const GRAY_GLACIER: string
-export const MERGE: string
-export const SHANGHAI: string
-export const CANCUN: string
-export const PRAGUE: string
-export const PRAGUE_EOF: string
-export const LATEST: string
 /** Ethereum execution log. */
 export interface ExecutionLog {
   address: Buffer
@@ -437,6 +437,14 @@ export class EdrContext {
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
 }
 export class ProviderFactory { }
+export class Response {
+  /**Returns the response data as a JSON string or a JSON object. */
+  get data(): string | any
+  /**Returns the Solidity trace of the transaction that failed to execute, if any. */
+  get solidityTrace(): RawTrace | null
+  /**Returns the raw traces of executed contracts. This maybe contain zero or more traces. */
+  get traces(): Array<RawTrace>
+}
 /** A JSON-RPC provider for Ethereum. */
 export class Provider {
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
@@ -449,14 +457,6 @@ export class Provider {
    * `false` to disable this.
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
-}
-export class Response {
-  /**Returns the response data as a JSON string or a JSON object. */
-  get data(): string | any
-  /**Returns the Solidity trace of the transaction that failed to execute, if any. */
-  get solidityTrace(): RawTrace | null
-  /**Returns the raw traces of executed contracts. This maybe contain zero or more traces. */
-  get traces(): Array<RawTrace>
 }
 export class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
