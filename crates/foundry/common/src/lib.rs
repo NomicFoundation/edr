@@ -14,7 +14,6 @@ pub mod constants;
 pub mod contracts;
 pub mod ens;
 pub mod errors;
-pub mod evm;
 pub mod fmt;
 pub mod fs;
 pub mod provider;

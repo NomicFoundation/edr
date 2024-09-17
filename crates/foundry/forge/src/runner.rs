@@ -22,7 +22,7 @@ use foundry_evm::{
     coverage::HitMaps,
     decode::{decode_console_logs, RevertDecoder},
     executors::{
-        fuzz::{CaseOutcome, CounterExampleOutcome, FuzzOutcome, FuzzedExecutor},
+        fuzz::FuzzedExecutor,
         invariant::{
             check_sequence, replay_error, replay_run, InvariantExecutor, InvariantFuzzError,
             InvariantFuzzTestResult,
@@ -61,8 +61,6 @@ pub struct ContractRunner<'a> {
     pub initial_balance: U256,
     /// The address which will be used as the `from` field in all EVM calls
     pub sender: Address,
-    /// Should generate debug traces
-    pub debug: bool,
     /// Whether to support the `testFail` prefix
     pub test_fail: bool,
     /// Whether to enable solidity fuzz fixtures support
@@ -76,8 +74,6 @@ pub struct ContractRunnerOptions {
     pub initial_balance: U256,
     /// The address which will be used as the `from` field in all EVM calls
     pub sender: Address,
-    /// Should generate debug traces
-    pub debug: bool,
     /// Whether to support the `testFail` prefix
     pub test_fail: bool,
     /// whether to enable solidity fuzz fixtures support
@@ -95,7 +91,6 @@ impl<'a> ContractRunner<'a> {
         let ContractRunnerOptions {
             initial_balance,
             sender,
-            debug,
             test_fail,
             solidity_fuzz_fixtures,
         } = options;
@@ -107,7 +102,6 @@ impl<'a> ContractRunner<'a> {
             revert_decoder,
             initial_balance,
             sender,
-            debug,
             test_fail,
             solidity_fuzz_fixtures,
         }
@@ -579,13 +573,9 @@ impl<'a> ContractRunner<'a> {
             coverage: execution_coverage,
             labels: new_labels,
             state_changeset,
-            debug,
-            cheatcodes,
             ..
         } = raw_call_result;
 
-        let breakpoints = cheatcodes.map(|c| c.breakpoints).unwrap_or_default();
-        let debug_arena = debug;
         traces.extend(execution_trace.map(|traces| (TraceKind::Execution, traces)));
         labeled_addresses.extend(new_labels);
         logs.extend(execution_logs);
@@ -615,8 +605,6 @@ impl<'a> ContractRunner<'a> {
             traces,
             coverage,
             labeled_addresses,
-            debug: debug_arena,
-            breakpoints,
             duration,
             gas_report_traces: Vec::new(),
         }
@@ -824,7 +812,6 @@ impl<'a> ContractRunner<'a> {
             labeled_addresses: labeled_addresses.clone(),
             duration: start.elapsed(),
             gas_report_traces,
-            ..Default::default() // TODO collect debug traces on the last run or error
         }
     }
 
@@ -874,9 +861,6 @@ impl<'a> ContractRunner<'a> {
             self.revert_decoder,
         );
 
-        let mut debug = Option::default();
-        let mut breakpoints = HashMap::default();
-
         // Check the last test result and skip the test
         // if it's marked as so.
         if let Some("SKIPPED") = result.reason.as_deref() {
@@ -887,56 +871,15 @@ impl<'a> ContractRunner<'a> {
                 traces,
                 labeled_addresses,
                 kind: TestKind::Standard(0),
-                debug,
-                breakpoints,
                 coverage,
                 duration: start.elapsed(),
                 ..Default::default()
             };
         }
 
-        // if should debug
-        if self.debug {
-            let mut debug_executor = self.executor.clone();
-            // turn the debug traces on
-            debug_executor.inspector.enable_debugger(true);
-            debug_executor.inspector.tracing(true);
-            let calldata = if let Some(counterexample) = result.counterexample.as_ref() {
-                match counterexample {
-                    CounterExample::Single(ce) => ce.calldata.clone(),
-                    #[allow(clippy::unimplemented)]
-                    CounterExample::Sequence(_) => unimplemented!(),
-                }
-            } else {
-                result.first_case.calldata.clone()
-            };
-            // rerun the last relevant test with traces
-            let debug_result =
-                FuzzedExecutor::new(debug_executor, runner, self.sender, fuzz_config).single_fuzz(
-                    address,
-                    should_fail,
-                    calldata,
-                );
-
-            (debug, breakpoints) = match debug_result {
-                Ok(fuzz_outcome) => match fuzz_outcome {
-                    FuzzOutcome::Case(CaseOutcome {
-                        debug, breakpoints, ..
-                    })
-                    | FuzzOutcome::CounterExample(CounterExampleOutcome {
-                        debug,
-                        breakpoints,
-                        ..
-                    }) => (debug, breakpoints),
-                },
-                Err(_) => (Option::default(), HashMap::default()),
-            };
-        }
-
         let kind = TestKind::Fuzz {
             median_gas: result.median_gas(false),
             mean_gas: result.mean_gas(false),
-            first_case: result.first_case,
             runs: result.gas_by_case.len(),
         };
 
@@ -963,8 +906,6 @@ impl<'a> ContractRunner<'a> {
             traces,
             coverage,
             labeled_addresses,
-            debug,
-            breakpoints,
             duration,
             gas_report_traces: result
                 .gas_report_traces

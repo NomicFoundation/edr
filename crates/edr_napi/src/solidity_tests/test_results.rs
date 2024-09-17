@@ -94,16 +94,10 @@ impl From<(String, forge::result::TestResult)> for TestResult {
                     consumed_gas: BigInt::from(gas_consumed),
                 }),
                 forge::result::TestKind::Fuzz {
-                    first_case,
                     runs,
                     mean_gas,
                     median_gas,
                 } => Either3::B(FuzzTestKind {
-                    first_case: FuzzCase {
-                        calldata: Buffer::from(first_case.calldata.as_ref()),
-                        gas: BigInt::from(first_case.gas),
-                        stipend: BigInt::from(first_case.stipend),
-                    },
                     // usize as u64 is always safe
                     runs: BigInt::from(runs as u64),
                     mean_gas: BigInt::from(mean_gas),
@@ -160,9 +154,6 @@ pub struct StandardTestKind {
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct FuzzTestKind {
-    /// See [forge::result::TestKind::Fuzz]
-    #[napi(readonly)]
-    pub first_case: FuzzCase,
     /// See [forge::result::TestKind::Fuzz]
     #[napi(readonly)]
     pub runs: BigInt,

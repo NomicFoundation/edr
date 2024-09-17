@@ -3013,46 +3013,6 @@
     },
     {
       "func": {
-        "id": "breakpoint_0",
-        "description": "Writes a breakpoint to jump to in the debugger.",
-        "declaration": "function breakpoint(string calldata char) external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "breakpoint(string)",
-        "selector": "0xf0259e92",
-        "selectorBytes": [
-          240,
-          37,
-          158,
-          146
-        ]
-      },
-      "group": "testing",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
-        "id": "breakpoint_1",
-        "description": "Writes a conditional breakpoint to jump to in the debugger.",
-        "declaration": "function breakpoint(string calldata char, bool value) external;",
-        "visibility": "external",
-        "mutability": "",
-        "signature": "breakpoint(string,bool)",
-        "selector": "0xf7d39a8d",
-        "selectorBytes": [
-          247,
-          211,
-          154,
-          141
-        ]
-      },
-      "group": "testing",
-      "status": "stable",
-      "safety": "safe"
-    },
-    {
-      "func": {
         "id": "chainId",
         "description": "Sets `block.chainid`.",
         "declaration": "function chainId(uint256 newChainId) external;",

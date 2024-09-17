@@ -16,7 +16,6 @@ mod ic;
 pub mod abi;
 pub mod backend;
 pub mod constants;
-pub mod debug;
 pub mod decode;
 pub mod fork;
 pub mod opcodes;

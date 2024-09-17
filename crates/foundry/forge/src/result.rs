@@ -8,13 +8,12 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
-use foundry_common::{evm::Breakpoints, get_contract_name, get_file_name, ContractsByArtifact};
+use foundry_common::{get_contract_name, get_file_name, ContractsByArtifact};
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
     coverage::HitMaps,
-    debug::DebugArena,
     executors::EvmError,
-    fuzz::{CounterExample, FuzzCase, FuzzFixtures},
+    fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
 };
 use serde::{Deserialize, Serialize};
@@ -387,13 +386,7 @@ pub struct TestResult {
     /// Labeled addresses
     pub labeled_addresses: HashMap<Address, String>,
 
-    /// The debug nodes of the call
-    pub debug: Option<DebugArena>,
-
     pub duration: Duration,
-
-    /// pc breakpoint char map
-    pub breakpoints: Breakpoints,
 }
 
 impl fmt::Display for TestResult {
@@ -513,8 +506,6 @@ pub enum TestKind {
     Standard(u64),
     /// A solidity fuzz test, that stores all test cases
     Fuzz {
-        /// we keep this for the debugger
-        first_case: FuzzCase,
         runs: usize,
         mean_gas: u64,
         median_gas: u64,

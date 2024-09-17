@@ -672,14 +672,6 @@ interface Vm {
     #[cheatcode(group = Testing, safety = Safe)]
     function assume(bool condition) external pure;
 
-    /// Writes a breakpoint to jump to in the debugger.
-    #[cheatcode(group = Testing, safety = Safe)]
-    function breakpoint(string calldata char) external;
-
-    /// Writes a conditional breakpoint to jump to in the debugger.
-    #[cheatcode(group = Testing, safety = Safe)]
-    function breakpoint(string calldata char, bool value) external;
-
     /// Returns the RPC url for the given alias.
     #[cheatcode(group = Testing, safety = Safe)]
     function rpcUrl(string calldata rpcAlias) external view returns (string memory json);

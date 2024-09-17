@@ -18,7 +18,6 @@ use foundry_evm_core::{
     constants::{
         CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, DEFAULT_CREATE2_DEPLOYER_CODE,
     },
-    debug::DebugArena,
     decode::RevertDecoder,
     utils::StateChangeset,
 };
@@ -194,12 +193,6 @@ impl Executor {
     #[inline]
     pub fn set_tracing(&mut self, tracing: bool) -> &mut Self {
         self.inspector.tracing(tracing);
-        self
-    }
-
-    #[inline]
-    pub fn set_debugger(&mut self, debugger: bool) -> &mut Self {
-        self.inspector.enable_debugger(debugger);
         self
     }
 
@@ -712,8 +705,6 @@ pub struct RawCallResult {
     pub traces: Option<CallTraceArena>,
     /// The coverage info collected during the call
     pub coverage: Option<HitMaps>,
-    /// The debug nodes of the call
-    pub debug: Option<DebugArena>,
     /// The changeset of the state.
     ///
     /// This is only present if the changed state was not committed to the
@@ -744,7 +735,6 @@ impl Default for RawCallResult {
             labels: HashMap::new(),
             traces: None,
             coverage: None,
-            debug: None,
             state_changeset: None,
             env: EnvWithHandlerCfg::new_with_spec_id(Box::default(), SpecId::LATEST),
             cheatcodes: Option::default(),
@@ -880,7 +870,6 @@ fn convert_executed_result(
         labels,
         traces,
         coverage,
-        debug,
         cheatcodes,
         chisel_state,
     } = inspector.collect();
@@ -897,7 +886,6 @@ fn convert_executed_result(
         labels,
         traces,
         coverage,
-        debug,
         state_changeset: Some(state_changeset),
         env,
         cheatcodes,
