@@ -1,11 +1,11 @@
 //! Forge tests for cheatcodes.
 use edr_test_utils::SolidityTestFilter;
-use foundry_config::{fs_permissions::PathPermission, FsPermissions};
+use foundry_cheatcodes::{FsPermissions, PathPermission};
 use serial_test::serial;
 
 use crate::{
     config::*,
-    test_helpers::{
+    helpers::{
         ForgeTestData, RE_PATH_SEPARATOR, TEST_DATA_CANCUN, TEST_DATA_DEFAULT,
         TEST_DATA_MULTI_VERSION,
     },

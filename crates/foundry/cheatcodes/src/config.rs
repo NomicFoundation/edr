@@ -8,14 +8,11 @@ use std::{
 use alloy_primitives::Address;
 use foundry_common::{fs::normalize_path, ContractsByArtifact};
 use foundry_compilers::utils::canonicalize;
-use foundry_config::{
-    cache::StorageCachingConfig, fs_permissions::FsAccessKind, FsPermissions, RpcEndpoints,
-};
 use foundry_evm_core::opts::EvmOpts;
 use semver::Version;
 
-use super::Result;
-use crate::Vm::Rpc;
+use super::{FsAccessKind, FsPermissions, Result, RpcEndpoints};
+use crate::{cache::StorageCachingConfig, Vm::Rpc};
 
 /// Additional, configurable context the `Cheatcodes` inspector has access to
 ///
@@ -260,9 +257,8 @@ impl Default for CheatsConfig {
 
 #[cfg(test)]
 mod tests {
-    use foundry_config::fs_permissions::PathPermission;
-
     use super::*;
+    use crate::{cache::StorageCachingConfig, PathPermission};
 
     fn config(root: &str, fs_permissions: FsPermissions) -> CheatsConfig {
         let cheats_config_options = CheatsConfigOptions {

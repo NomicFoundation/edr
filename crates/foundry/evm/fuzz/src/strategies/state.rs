@@ -8,7 +8,6 @@ use alloy_dyn_abi::{DynSolType, DynSolValue, EventExt, FunctionExt};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Bytes, Log, B256, U256};
 use foundry_common::contracts::{ContractsByAddress, ContractsByArtifact};
-use foundry_config::FuzzDictionaryConfig;
 use foundry_evm_core::utils::StateChangeset;
 use indexmap::IndexSet;
 use parking_lot::{lock_api::RwLockReadGuard, RawRwLock, RwLock};
@@ -18,7 +17,10 @@ use revm::{
     primitives::{AccountInfo, SpecId},
 };
 
-use crate::invariant::{ArtifactFilters, FuzzRunIdentifiedContracts};
+use crate::{
+    fuzz_config::FuzzDictionaryConfig,
+    invariant::{ArtifactFilters, FuzzRunIdentifiedContracts},
+};
 
 /// A set of arbitrary 32 byte data from the VM used to generate values for the
 /// strategy.

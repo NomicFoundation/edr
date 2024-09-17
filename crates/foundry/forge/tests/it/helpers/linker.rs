@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), warn(unused_crate_dependencies))]
-
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -307,26 +305,19 @@ impl<'a> Linker<'a> {
             deployed_bytecode: contract.deployed_bytecode.map(std::borrow::Cow::into_owned),
         })
     }
-
-    pub fn get_linked_artifacts(
-        &self,
-        libraries: &Libraries,
-    ) -> Result<ArtifactContracts, LinkerError> {
-        self.contracts
-            .keys()
-            .map(|id| Ok((id.clone(), self.link(id, libraries)?)))
-            .collect()
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
-    use alloy_primitives::fixed_bytes;
-    use foundry_compilers::{CompilerConfig, Project, ProjectCompileOutput, ProjectPathsConfig};
+    use alloy_primitives::{fixed_bytes, Address, B256};
+    use foundry_compilers::{
+        artifacts::Libraries, ArtifactId, CompilerConfig, Project, ProjectCompileOutput,
+        ProjectPathsConfig,
+    };
 
-    use super::*;
+    use crate::helpers::linker::{LinkOutput, Linker};
 
     struct LinkerTest {
         project: Project,

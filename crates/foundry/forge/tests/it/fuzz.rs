@@ -11,7 +11,7 @@ use forge::{
 
 use crate::{
     config::*,
-    test_helpers::{TestFuzzConfig, TEST_DATA_DEFAULT},
+    helpers::{TestFuzzConfig, TEST_DATA_DEFAULT},
 };
 
 #[tokio::test(flavor = "multi_thread")]

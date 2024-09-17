@@ -8,7 +8,7 @@ use forge::fuzz::CounterExample;
 
 use crate::{
     config::*,
-    test_helpers::{TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT},
+    helpers::{TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT},
 };
 
 macro_rules! get_counterexample {

@@ -7,7 +7,6 @@ use std::{
     sync::{OnceLock, RwLock},
 };
 
-use foundry_config::{FuzzConfig, InvariantConfig};
 use proptest::test_runner::{
     FailurePersistence, FileFailurePersistence, RngAlgorithm, TestRng, TestRunner,
 };
@@ -30,6 +29,7 @@ pub mod result;
 // TODO: remove
 pub use foundry_common::traits::TestFilter;
 pub use foundry_evm::*;
+use foundry_evm::{executors::fuzz::FuzzConfig, fuzz::invariant::InvariantConfig};
 
 static FAILURE_PATHS: OnceLock<RwLock<HashSet<&'static str>>> = OnceLock::new();
 

@@ -751,11 +751,11 @@ mod tests {
     mod remote {
         use std::{collections::BTreeSet, sync::Arc};
 
+        use alloy_chains::NamedChain;
         use alloy_primitives::{Address, U256};
         use alloy_provider::Provider;
         use edr_test_utils::env::get_alchemy_url;
         use foundry_common::provider::get_http_provider;
-        use foundry_config::NamedChain;
         use revm::{
             primitives::{BlockEnv, CfgEnv},
             DatabaseRef,

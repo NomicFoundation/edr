@@ -11,8 +11,8 @@ mod init;
 pub use init::environment;
 
 mod cache;
+use alloy_chains::Chain;
 pub use cache::{BlockchainDb, BlockchainDbMeta, JsonBlockCacheDB, MemDb};
-use foundry_config::Chain;
 
 pub mod database;
 

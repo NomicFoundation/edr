@@ -9,12 +9,12 @@ edition.workspace = true
 vergen = { workspace = true, default-features = false, features = ["build", "git", "gitcl"] }
 
 [dependencies]
-# lib
+edr_defaults.workspace = true
+
+foundry-cheatcodes.workspace = true
 foundry-common.workspace = true
 foundry-compilers = { workspace = true }
-foundry-config.workspace = true
 foundry-evm.workspace = true
-foundry-linking.workspace = true
 
 comfy-table = "7"
 dunce.workspace = true
@@ -50,6 +50,7 @@ once_cell = "1"
 paste = "1.0"
 path-slash = "0.2"
 similar-asserts.workspace = true
+semver = "1"
 svm = { package = "svm-rs", version = "0.5", default-features = false, features = ["rustls"] }
 tempfile.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }

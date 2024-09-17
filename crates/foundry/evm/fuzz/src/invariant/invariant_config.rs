@@ -1,8 +1,6 @@
-//! Configuration for invariant testing
-
 use std::path::PathBuf;
 
-use crate::fuzz::FuzzDictionaryConfig;
+use crate::fuzz_config::FuzzDictionaryConfig;
 
 /// Contains for invariant testing
 #[derive(Clone, Debug, PartialEq, Eq)]

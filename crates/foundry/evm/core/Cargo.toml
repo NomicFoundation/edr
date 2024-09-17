@@ -8,9 +8,9 @@ edition.workspace = true
 [dependencies]
 foundry-cheatcodes-spec.workspace = true
 foundry-common.workspace = true
-foundry-config.workspace = true
 foundry-macros.workspace = true
 
+alloy-chains.workspace = true
 alloy-dyn-abi = { workspace = true, features = ["arbitrary", "eip712"] }
 alloy-json-abi.workspace = true
 alloy-primitives = { workspace = true, features = ["serde", "getrandom", "arbitrary", "rlp"] }

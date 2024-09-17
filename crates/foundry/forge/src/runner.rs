@@ -16,7 +16,6 @@ use foundry_common::{
     contracts::{ContractsByAddress, ContractsByArtifact},
     TestFunctionExt,
 };
-use foundry_config::{FuzzConfig, InvariantConfig};
 use foundry_evm::{
     constants::CALLER,
     coverage::HitMaps,
@@ -24,8 +23,8 @@ use foundry_evm::{
     executors::{
         fuzz::FuzzedExecutor,
         invariant::{
-            check_sequence, replay_error, replay_run, InvariantExecutor, InvariantFuzzError,
-            InvariantFuzzTestResult,
+            check_sequence, replay_error, replay_run, InvariantConfig, InvariantExecutor,
+            InvariantFuzzError, InvariantFuzzTestResult,
         },
         CallResult, EvmError, ExecutionErr, Executor, RawCallResult,
     },
@@ -40,7 +39,7 @@ use proptest::test_runner::TestRunner;
 use rayon::prelude::*;
 
 use crate::{
-    fuzz::{invariant::BasicTxDetails, BaseCounterExample},
+    fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
     multi_runner::{is_matching_test, TestContract},
     result::{SuiteResult, TestKind, TestResult, TestSetup, TestStatus},
     traces::Traces,

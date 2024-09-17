@@ -1,8 +1,11 @@
 use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 
 use alloy_primitives::hex;
-use forge::{inspectors::cheatcodes::CheatsConfigOptions, SolidityTestRunnerConfig};
-use foundry_config::{FsPermissions, FuzzConfig, InvariantConfig, RpcEndpoint, RpcEndpoints};
+use forge::{
+    executors::invariant::InvariantConfig, fuzz::FuzzConfig,
+    inspectors::cheatcodes::CheatsConfigOptions, SolidityTestRunnerConfig,
+};
+use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
 use napi::{
     bindgen_prelude::{BigInt, Buffer},
     Either, Status,
@@ -544,7 +547,7 @@ impl Default for StorageCachingConfig {
     }
 }
 
-impl TryFrom<StorageCachingConfig> for foundry_config::cache::StorageCachingConfig {
+impl TryFrom<StorageCachingConfig> for foundry_cheatcodes::StorageCachingConfig {
     type Error = napi::Error;
 
     fn try_from(value: StorageCachingConfig) -> Result<Self, Self::Error> {
@@ -558,7 +561,7 @@ impl TryFrom<StorageCachingConfig> for foundry_config::cache::StorageCachingConf
                             .map_err(|c| napi::Error::new(Status::InvalidArg, c))
                     })
                     .collect::<Result<_, _>>()?;
-                foundry_config::cache::CachedChains::Chains(chains)
+                foundry_cheatcodes::CachedChains::Chains(chains)
             }
         };
         let endpoints = match value.endpoints {
@@ -567,7 +570,7 @@ impl TryFrom<StorageCachingConfig> for foundry_config::cache::StorageCachingConf
                 let regex = regex.parse().map_err(|_err| {
                     napi::Error::new(Status::InvalidArg, format!("Invalid regex: {regex}"))
                 })?;
-                foundry_config::cache::CachedEndpoints::Pattern(regex)
+                foundry_cheatcodes::CachedEndpoints::Pattern(regex)
             }
         };
         Ok(Self { chains, endpoints })
@@ -585,11 +588,11 @@ pub enum CachedChains {
     None,
 }
 
-impl From<CachedChains> for foundry_config::cache::CachedChains {
+impl From<CachedChains> for foundry_cheatcodes::CachedChains {
     fn from(value: CachedChains) -> Self {
         match value {
-            CachedChains::All => foundry_config::cache::CachedChains::All,
-            CachedChains::None => foundry_config::cache::CachedChains::None,
+            CachedChains::All => foundry_cheatcodes::CachedChains::All,
+            CachedChains::None => foundry_cheatcodes::CachedChains::None,
         }
     }
 }
@@ -605,11 +608,11 @@ pub enum CachedEndpoints {
     Remote,
 }
 
-impl From<CachedEndpoints> for foundry_config::cache::CachedEndpoints {
+impl From<CachedEndpoints> for foundry_cheatcodes::CachedEndpoints {
     fn from(value: CachedEndpoints) -> Self {
         match value {
-            CachedEndpoints::All => foundry_config::cache::CachedEndpoints::All,
-            CachedEndpoints::Remote => foundry_config::cache::CachedEndpoints::Remote,
+            CachedEndpoints::All => foundry_cheatcodes::CachedEndpoints::All,
+            CachedEndpoints::Remote => foundry_cheatcodes::CachedEndpoints::Remote,
         }
     }
 }
@@ -624,7 +627,7 @@ pub struct PathPermission {
     pub path: String,
 }
 
-impl From<PathPermission> for foundry_config::fs_permissions::PathPermission {
+impl From<PathPermission> for foundry_cheatcodes::PathPermission {
     fn from(value: PathPermission) -> Self {
         let PathPermission { access, path } = value;
         Self {
@@ -646,14 +649,12 @@ pub enum FsAccessPermission {
     Write,
 }
 
-impl From<FsAccessPermission> for foundry_config::fs_permissions::FsAccessPermission {
+impl From<FsAccessPermission> for foundry_cheatcodes::FsAccessPermission {
     fn from(value: FsAccessPermission) -> Self {
         match value {
-            FsAccessPermission::ReadWrite => {
-                foundry_config::fs_permissions::FsAccessPermission::ReadWrite
-            }
-            FsAccessPermission::Read => foundry_config::fs_permissions::FsAccessPermission::Read,
-            FsAccessPermission::Write => foundry_config::fs_permissions::FsAccessPermission::Write,
+            FsAccessPermission::ReadWrite => foundry_cheatcodes::FsAccessPermission::ReadWrite,
+            FsAccessPermission::Read => foundry_cheatcodes::FsAccessPermission::Read,
+            FsAccessPermission::Write => foundry_cheatcodes::FsAccessPermission::Write,
         }
     }
 }

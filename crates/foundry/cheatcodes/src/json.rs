@@ -6,11 +6,10 @@ use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::{Address, B256, I256};
 use alloy_sol_types::SolValue;
 use foundry_common::fs;
-use foundry_config::fs_permissions::FsAccessKind;
 use serde_json::Value;
 
 use crate::{
-    string, Cheatcode, Cheatcodes, Result,
+    string, Cheatcode, Cheatcodes, FsAccessKind, Result,
     Vm::{
         keyExistsCall, keyExistsJsonCall, parseJsonAddressArrayCall, parseJsonAddressCall,
         parseJsonBoolArrayCall, parseJsonBoolCall, parseJsonBytes32ArrayCall, parseJsonBytes32Call,

@@ -17,8 +17,10 @@ extern crate tracing;
 
 use alloy_primitives::Address;
 pub use config::{CheatsConfig, CheatsConfigOptions};
+pub use endpoints::{RpcEndpoint, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
 use foundry_evm_core::backend::DatabaseExt;
+pub use fs_permissions::{FsAccessKind, FsAccessPermission, FsPermissions, PathPermission};
 pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatcodes, Context};
 use revm::{ContextPrecompiles, InnerEvmContext};
 pub use spec::{CheatcodeDef, Vm};
@@ -26,10 +28,13 @@ pub use spec::{CheatcodeDef, Vm};
 #[macro_use]
 mod error;
 mod base64;
+mod cache;
 mod config;
+mod endpoints;
 mod env;
 mod evm;
 mod fs;
+mod fs_permissions;
 mod inspector;
 mod json;
 mod string;
@@ -37,6 +42,7 @@ mod test;
 mod toml;
 mod utils;
 
+pub use cache::{CachedChains, CachedEndpoints, StorageCachingConfig};
 pub use env::set_execution_context;
 pub use test::expect::ExpectedCallTracker;
 pub use Vm::ForgeContext;

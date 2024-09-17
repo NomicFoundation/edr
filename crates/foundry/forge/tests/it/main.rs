@@ -1,5 +1,5 @@
 pub mod config;
-pub mod test_helpers;
+pub mod helpers;
 
 mod cheats;
 mod core;

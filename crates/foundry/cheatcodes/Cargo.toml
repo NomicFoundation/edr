@@ -6,12 +6,14 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+edr_defaults.workspace = true
+
 foundry-cheatcodes-spec.workspace = true
 foundry-common.workspace = true
 foundry-compilers.workspace = true
-foundry-config.workspace = true
 foundry-evm-core.workspace = true
 
+alloy-chains = { workspace = true, features = ["serde"] }
 alloy-dyn-abi.workspace = true
 alloy-primitives.workspace = true
 alloy-genesis.workspace = true
@@ -21,22 +23,25 @@ alloy-rpc-types.workspace = true
 alloy-signer.workspace = true
 alloy-signer-wallet = { workspace = true, features = ["mnemonic-all-languages", "keystore"] }
 
+base64.workspace = true
+dunce.workspace = true
 eyre.workspace = true
 hex.workspace = true
 itertools.workspace = true
 jsonpath_lib.workspace = true
 revm.workspace = true
 serde_json.workspace = true
-base64.workspace = true
+rustc-hash.workspace = true
 toml = { workspace = true, features = ["preserve_order"] }
 tracing.workspace = true
 k256.workspace = true
-walkdir = "2"
-p256 = "0.13.2"
-thiserror = "1"
-semver = "1"
-rustc-hash.workspace = true
+
 dialoguer = "0.11.0"
+p256 = "0.13.2"
+semver = "1"
+regex = "1"
+thiserror = "1"
+walkdir = "2"
 
 [lints]
 workspace = true

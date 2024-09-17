@@ -15,13 +15,12 @@ use alloy_primitives::{Bytes, U256};
 use alloy_sol_types::SolValue;
 use dialoguer::{Input, Password};
 use foundry_common::fs;
-use foundry_config::fs_permissions::FsAccessKind;
 use semver::Version;
 use walkdir::WalkDir;
 
 use super::string::parse;
 use crate::{
-    Cheatcode, Cheatcodes, Result,
+    Cheatcode, Cheatcodes, FsAccessKind, Result,
     Vm::{
         closeFileCall, copyFileCall, createDirCall, existsCall, ffiCall, fsMetadataCall,
         getCodeCall, getDeployedCodeCall, isDirCall, isFileCall, projectRootCall,
