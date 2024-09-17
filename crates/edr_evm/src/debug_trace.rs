@@ -142,6 +142,7 @@ where
                         state: state.as_ref(),
                         block_hash: blockchain,
                     }))
+                    .with_external_context(())
                     .with_env(env)
                     .build();
 

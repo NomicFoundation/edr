@@ -373,6 +373,7 @@ where
             } else {
                 let mut evm = Evm::<ChainSpecT::EvmWiring<_, ()>>::builder()
                     .with_db(db)
+                    .with_external_context(())
                     .with_env(env)
                     .build();
 

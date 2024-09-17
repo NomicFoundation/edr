@@ -49,13 +49,6 @@ where
 
     let env = Env::boxed(cfg, block, transaction);
     let result = {
-        let builder = Evm::<ChainSpecT::EvmWiring<_, _>>::builder().with_db(WrapDatabaseRef(
-            DatabaseComponents {
-                state,
-                block_hash: blockchain,
-            },
-        ));
-
         if let Some(debug_context) = debug_context {
             let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
                 .iter()
@@ -64,7 +57,11 @@ where
                 })
                 .collect();
 
-            let mut evm = builder
+            let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
+                .with_db(WrapDatabaseRef(DatabaseComponents {
+                    state,
+                    block_hash: blockchain,
+                }))
                 .with_external_context(debug_context.data)
                 .with_env(env)
                 .append_handler_register(debug_context.register_handles_fn)
@@ -82,7 +79,12 @@ where
                 })
                 .collect();
 
-            let mut evm = builder
+            let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
+                .with_db(WrapDatabaseRef(DatabaseComponents {
+                    state,
+                    block_hash: blockchain,
+                }))
+                .with_external_context(())
                 .with_env(env)
                 .append_handler_register_box(Box::new(move |handler| {
                     register_precompiles_handles(handler, precompiles.clone());
@@ -172,12 +174,6 @@ where
     validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(hardfork, &transaction)?;
 
     let env = Env::boxed(cfg, block, transaction);
-    let evm_builder = Evm::<ChainSpecT::EvmWiring<_, _>>::builder().with_db(WrapDatabaseRef(
-        DatabaseComponents {
-            state,
-            block_hash: blockchain,
-        },
-    ));
 
     let result = if let Some(debug_context) = debug_context {
         let precompiles: HashMap<Address, ContextPrecompile<ChainSpecT::EvmWiring<_, _>>> =
@@ -188,7 +184,11 @@ where
                 })
                 .collect();
 
-        let mut evm = evm_builder
+        let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
+            .with_db(WrapDatabaseRef(DatabaseComponents {
+                state,
+                block_hash: blockchain,
+            }))
             .with_external_context(debug_context.data)
             .with_env(env)
             .append_handler_register(debug_context.register_handles_fn)
@@ -207,7 +207,12 @@ where
                 })
                 .collect();
 
-        let mut evm = evm_builder
+        let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
+            .with_db(WrapDatabaseRef(DatabaseComponents {
+                state,
+                block_hash: blockchain,
+            }))
+            .with_external_context(())
             .with_env(env)
             .append_handler_register_box(Box::new(move |handler| {
                 register_precompiles_handles(handler, precompiles.clone());
