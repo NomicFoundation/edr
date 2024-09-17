@@ -340,6 +340,7 @@ where
                     .with_db(db)
                     .with_external_context(debug_context.data)
                     .with_env(env)
+                    .with_spec_id(self.hardfork)
                     .append_handler_register(debug_context.register_handles_fn)
                     .build();
 
@@ -375,6 +376,7 @@ where
                     .with_db(db)
                     .with_external_context(())
                     .with_env(env)
+                    .with_spec_id(self.hardfork)
                     .build();
 
                 let result = evm.transact();

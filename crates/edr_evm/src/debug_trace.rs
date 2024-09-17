@@ -126,6 +126,7 @@ where
                     }))
                     .with_external_context(&mut tracer)
                     .with_env(env)
+                    .with_spec_id(hardfork)
                     .append_handler_register(register_eip_3155_and_raw_tracers_handles)
                     .build();
 
@@ -144,6 +145,7 @@ where
                     }))
                     .with_external_context(())
                     .with_env(env)
+                    .with_spec_id(hardfork)
                     .build();
 
                 evm.transact().map_err(TransactionError::from)?

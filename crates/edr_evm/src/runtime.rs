@@ -64,6 +64,7 @@ where
                 }))
                 .with_external_context(debug_context.data)
                 .with_env(env)
+                .with_spec_id(hardfork)
                 .append_handler_register(debug_context.register_handles_fn)
                 .append_handler_register_box(Box::new(move |handler| {
                     register_precompiles_handles(handler, precompiles.clone());
@@ -86,6 +87,7 @@ where
                 }))
                 .with_external_context(())
                 .with_env(env)
+                .with_spec_id(hardfork)
                 .append_handler_register_box(Box::new(move |handler| {
                     register_precompiles_handles(handler, precompiles.clone());
                 }))
@@ -191,6 +193,7 @@ where
             }))
             .with_external_context(debug_context.data)
             .with_env(env)
+            .with_spec_id(hardfork)
             .append_handler_register(debug_context.register_handles_fn)
             .append_handler_register_box(Box::new(move |handler| {
                 register_precompiles_handles(handler, precompiles.clone());
@@ -214,6 +217,7 @@ where
             }))
             .with_external_context(())
             .with_env(env)
+            .with_spec_id(hardfork)
             .append_handler_register_box(Box::new(move |handler| {
                 register_precompiles_handles(handler, precompiles.clone());
             }))
