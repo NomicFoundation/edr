@@ -2957,7 +2957,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "14.0.1"
-source = "git+https://github.com/Wodann/revm?rev=e407ed0#e407ed03612bd9c96ba3205d1b575a3e993c49f7"
+source = "git+https://github.com/Wodann/revm?rev=31771cc#31771cca888708b09f722b0b2721ede221d383dd"
 dependencies = [
  "auto_impl",
  "derive-where",
@@ -2971,7 +2971,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "10.0.1"
-source = "git+https://github.com/Wodann/revm?rev=e407ed0#e407ed03612bd9c96ba3205d1b575a3e993c49f7"
+source = "git+https://github.com/Wodann/revm?rev=31771cc#31771cca888708b09f722b0b2721ede221d383dd"
 dependencies = [
  "derive-where",
  "revm-primitives",
@@ -2981,7 +2981,7 @@ dependencies = [
 [[package]]
 name = "revm-optimism"
 version = "1.0.0"
-source = "git+https://github.com/Wodann/revm?rev=e407ed0#e407ed03612bd9c96ba3205d1b575a3e993c49f7"
+source = "git+https://github.com/Wodann/revm?rev=31771cc#31771cca888708b09f722b0b2721ede221d383dd"
 dependencies = [
  "enumn",
  "revm",
@@ -2992,7 +2992,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "11.0.1"
-source = "git+https://github.com/Wodann/revm?rev=e407ed0#e407ed03612bd9c96ba3205d1b575a3e993c49f7"
+source = "git+https://github.com/Wodann/revm?rev=31771cc#31771cca888708b09f722b0b2721ede221d383dd"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -3010,7 +3010,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "9.0.1"
-source = "git+https://github.com/Wodann/revm?rev=e407ed0#e407ed03612bd9c96ba3205d1b575a3e993c49f7"
+source = "git+https://github.com/Wodann/revm?rev=31771cc#31771cca888708b09f722b0b2721ede221d383dd"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
