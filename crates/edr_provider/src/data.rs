@@ -2691,11 +2691,13 @@ fn create_blockchain_and_state(
                         .timestamp,
                 );
 
-            let elapsed_time = timer
-                .since(fork_block_timestamp)
-                .expect("current time must be after fork block");
+            let elapsed = match timer.since(fork_block_timestamp) {
+                Ok(elapsed) => -i128::from(elapsed),
+                Err(forward_drift) => i128::from(forward_drift.duration().as_secs()),
+            };
 
-            -i64::try_from(elapsed_time)
+            elapsed
+                .try_into()
                 .expect("Elapsed time since fork block must be representable as i64")
         };
 

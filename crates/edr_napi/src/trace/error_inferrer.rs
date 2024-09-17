@@ -955,8 +955,14 @@ impl ErrorInferrer {
             return Ok(entry);
         }
 
+        // This function is only called after we jumped into the initial function in
+        // call traces, so there should always be at least a function jumpdest.
         let trace = match trace {
-            Either::A(_call) => unreachable!("This shouldn't happen: a call trace has no functionJumpdest but has already jumped into a function"),
+            Either::A(_call) => return Err(
+              napi::Error::new(
+                napi::Status::GenericFailure,
+                "This shouldn't happen: a call trace has no functionJumpdest but has already jumped into a function"
+              )),
             Either::B(create) => create,
         };
 

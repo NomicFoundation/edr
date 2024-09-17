@@ -42,7 +42,7 @@ mod test_utils {
 
     use super::{CurrentTime, TimeSinceEpoch};
 
-    /// An internally mutable mock implementation of `TimeSinceEpoch`.
+    /// An internally mutable mock implementation of [`TimeSinceEpoch`].
     #[derive(Debug)]
     pub struct MockTime(AtomicU64);
 
