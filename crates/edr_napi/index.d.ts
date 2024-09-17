@@ -64,9 +64,9 @@ export interface CallOverrideResult {
   shouldRevert: boolean
 }
 export const GENERIC_CHAIN_TYPE: string
-export function genericChainProviderFactory(): ProviderFactory
+export declare function genericChainProviderFactory(): ProviderFactory
 export const L1_CHAIN_TYPE: string
-export function l1ProviderFactory(): ProviderFactory
+export declare function l1ProviderFactory(): ProviderFactory
 /** Identifier for the Ethereum spec. */
 export const enum SpecId {
   /** Frontier */
