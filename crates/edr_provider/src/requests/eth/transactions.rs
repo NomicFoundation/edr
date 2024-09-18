@@ -13,7 +13,7 @@ use edr_eth::{
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainError,
-    chain_spec::EvmSpec,
+    chain_spec::RuntimeSpec,
     transaction, SyncBlock,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
@@ -111,7 +111,7 @@ pub fn handle_pending_transactions<
     Ok(transactions)
 }
 
-fn rpc_index_to_usize<ChainSpecT: EvmSpec<Hardfork: Debug>>(
+fn rpc_index_to_usize<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     index: &U256,
 ) -> Result<usize, ProviderError<ChainSpecT>> {
     index
@@ -147,7 +147,7 @@ pub fn handle_get_transaction_receipt<
     Ok(receipt.map(|receipt| ChainSpecT::RpcReceipt::rpc_type_from(&receipt, data.hardfork())))
 }
 
-fn transaction_from_block<ChainSpecT: EvmSpec>(
+fn transaction_from_block<ChainSpecT: RuntimeSpec>(
     block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
     transaction_index: usize,
     is_pending: bool,

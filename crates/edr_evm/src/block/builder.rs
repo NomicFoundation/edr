@@ -26,7 +26,7 @@ use revm::{
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::{BlockEnvConstructor, EvmSpec},
+    chain_spec::{BlockEnvConstructor, RuntimeSpec},
     debug::{DebugContext, EvmContext},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
     transaction::TransactionError,
@@ -37,7 +37,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum BlockBuilderCreationError<ChainSpecT>
 where
-    ChainSpecT: EvmSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// Unsupported hardfork. Hardforks older than Byzantium are not supported
     #[error("Unsupported hardfork: {0:?}. Hardforks older than Byzantium are not supported.")]
@@ -65,7 +65,7 @@ where
 /// was executed.
 pub struct ExecutionResultWithContext<
     'evm,
-    ChainSpecT: EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    ChainSpecT: RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT,
     StateErrorT,
     DebugDataT,
@@ -81,7 +81,7 @@ pub struct ExecutionResultWithContext<
 }
 
 /// The result of building a block, using the [`BlockBuilder`].
-pub struct BuildBlockResult<ChainSpecT: EvmSpec> {
+pub struct BuildBlockResult<ChainSpecT: RuntimeSpec> {
     /// Built block
     pub block: LocalBlock<ChainSpecT>,
     /// State diff
@@ -89,7 +89,7 @@ pub struct BuildBlockResult<ChainSpecT: EvmSpec> {
 }
 
 /// A builder for constructing Ethereum blocks.
-pub struct BlockBuilder<ChainSpecT: EvmSpec> {
+pub struct BlockBuilder<ChainSpecT: RuntimeSpec> {
     cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     header: PartialHeader,
@@ -102,7 +102,7 @@ pub struct BlockBuilder<ChainSpecT: EvmSpec> {
 
 impl<ChainSpecT> BlockBuilder<ChainSpecT>
 where
-    ChainSpecT: EvmSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// Creates an intance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -148,7 +148,7 @@ where
     }
 }
 
-impl<ChainSpecT: EvmSpec> BlockBuilder<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> BlockBuilder<ChainSpecT> {
     /// Retrieves the config of the block builder.
     pub fn config(&self) -> &CfgEnv {
         &self.cfg
@@ -175,7 +175,7 @@ impl<ChainSpecT: EvmSpec> BlockBuilder<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: EvmSpec> BlockBuilder<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> BlockBuilder<ChainSpecT> {
     /// Finalizes the block, returning the block and the callers of the
     /// transactions.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -247,7 +247,7 @@ impl<ChainSpecT: EvmSpec> BlockBuilder<ChainSpecT> {
 
 impl<ChainSpecT> BlockBuilder<ChainSpecT>
 where
-    ChainSpecT: EvmSpec<
+    ChainSpecT: RuntimeSpec<
         Block: Default,
         Transaction: Clone
                          + Default

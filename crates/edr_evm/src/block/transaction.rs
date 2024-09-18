@@ -5,11 +5,11 @@ use edr_eth::{chain_spec::L1ChainSpec, transaction::SignedTransaction as _, Spec
 use edr_rpc_eth::RpcTypeFrom;
 
 use super::SyncBlock;
-use crate::{blockchain::BlockchainError, chain_spec::EvmSpec};
+use crate::{blockchain::BlockchainError, chain_spec::RuntimeSpec};
 
 /// The result returned by requesting a transaction.
 #[derive_where(Clone, Debug; ChainSpecT::Transaction)]
-pub struct TransactionAndBlock<ChainSpecT: EvmSpec> {
+pub struct TransactionAndBlock<ChainSpecT: RuntimeSpec> {
     /// The transaction.
     pub transaction: ChainSpecT::Transaction,
     /// Block data in which the transaction is found if it has been mined.
@@ -20,7 +20,7 @@ pub struct TransactionAndBlock<ChainSpecT: EvmSpec> {
 
 /// Block metadata for a transaction.
 #[derive_where(Clone, Debug)]
-pub struct BlockDataForTransaction<ChainSpecT: EvmSpec> {
+pub struct BlockDataForTransaction<ChainSpecT: RuntimeSpec> {
     /// The block in which the transaction is found.
     pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
     /// The index of the transaction in the block.

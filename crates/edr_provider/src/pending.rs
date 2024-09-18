@@ -4,7 +4,7 @@ use derive_where::derive_where;
 use edr_eth::{db::BlockHashRef, transaction::ExecutableTransaction as _, HashSet, B256, U256};
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
-    chain_spec::SyncEvmSpec,
+    chain_spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
     BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
@@ -20,14 +20,14 @@ use edr_evm::{
 /// [`SyncBlockchain`] because we cannot upcast the trait at its usage site
 /// <https://github.com/NomicFoundation/edr/issues/284>
 #[derive_where(Debug)]
-pub(crate) struct BlockchainWithPending<'blockchain, ChainSpecT: SyncEvmSpec> {
+pub(crate) struct BlockchainWithPending<'blockchain, ChainSpecT: SyncRuntimeSpec> {
     blockchain:
         &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pending_block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
     pending_state_diff: StateDiff,
 }
 
-impl<'blockchain, ChainSpecT: SyncEvmSpec> BlockchainWithPending<'blockchain, ChainSpecT> {
+impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain, ChainSpecT> {
     /// Constructs a new instance with the provided blockchain and pending
     /// block.
     pub fn new(
@@ -47,7 +47,7 @@ impl<'blockchain, ChainSpecT: SyncEvmSpec> BlockchainWithPending<'blockchain, Ch
     }
 }
 
-impl<'blockchain, ChainSpecT: SyncEvmSpec> Blockchain<ChainSpecT>
+impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
     for BlockchainWithPending<'blockchain, ChainSpecT>
 {
     type BlockchainError = BlockchainError<ChainSpecT>;
@@ -204,7 +204,7 @@ impl<'blockchain, ChainSpecT: SyncEvmSpec> Blockchain<ChainSpecT>
     }
 }
 
-impl<'blockchain, ChainSpecT: SyncEvmSpec> BlockchainMut<ChainSpecT>
+impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT>
     for BlockchainWithPending<'blockchain, ChainSpecT>
 {
     type Error = BlockchainError<ChainSpecT>;
@@ -226,7 +226,7 @@ impl<'blockchain, ChainSpecT: SyncEvmSpec> BlockchainMut<ChainSpecT>
     }
 }
 
-impl<'blockchain, ChainSpecT: SyncEvmSpec> BlockHashRef
+impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockHashRef
     for BlockchainWithPending<'blockchain, ChainSpecT>
 {
     type Error = BlockchainError<ChainSpecT>;

@@ -5,12 +5,12 @@ use revm::{
     primitives::TransactionValidation,
 };
 
-use crate::{blockchain::SyncBlockchain, chain_spec::EvmSpec};
+use crate::{blockchain::SyncBlockchain, chain_spec::RuntimeSpec};
 
 /// Type for registering handles, specialised for EDR database component types.
 pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> =
     revm::handler::register::HandleRegister<
-        <ChainSpecT as EvmSpec>::EvmWiring<
+        <ChainSpecT as RuntimeSpec>::EvmWiring<
             WrapDatabaseRef<
                 DatabaseComponents<
                     StateT,
@@ -30,7 +30,7 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
 pub struct DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
     ChainSpecT:
-        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     StateT: StateRef,
 {
     /// The contextual data.
@@ -42,7 +42,7 @@ where
 pub struct EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
     ChainSpecT:
-        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     StateT: StateRef,
 {
     pub debug: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,

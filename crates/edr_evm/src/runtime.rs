@@ -10,7 +10,7 @@ use edr_eth::{
 use revm::{db::WrapDatabaseRef, ContextPrecompile, DatabaseCommit, Evm};
 
 use crate::{
-    blockchain::SyncBlockchain, chain_spec::EvmSpec, debug::DebugContext,
+    blockchain::SyncBlockchain, chain_spec::RuntimeSpec, debug::DebugContext,
     precompiles::register_precompiles_handles, transaction::TransactionError,
 };
 
@@ -41,7 +41,7 @@ pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, Stat
 where
     'blockchain: 'evm,
     ChainSpecT:
-        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT: Debug + Send,
     StateT: StateRef<Error: Debug + Send>,
 {
@@ -130,7 +130,7 @@ where
     'blockchain: 'evm,
     'state: 'evm,
     ChainSpecT:
-        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT: Debug + Send,
     StateT: StateRef<Error: Debug + Send>,
 {
@@ -168,7 +168,7 @@ pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
 where
     'blockchain: 'evm,
     ChainSpecT:
-        EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT: Debug + Send,
     StateT: StateRef + DatabaseCommit,
     StateT::Error: Debug + Send,
@@ -229,7 +229,7 @@ where
     Ok(result)
 }
 
-fn validate_configuration<ChainSpecT: EvmSpec, BlockchainErrorT, StateErrorT>(
+fn validate_configuration<ChainSpecT: RuntimeSpec, BlockchainErrorT, StateErrorT>(
     hardfork: ChainSpecT::Hardfork,
     transaction: &ChainSpecT::Transaction,
 ) -> Result<(), TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>> {

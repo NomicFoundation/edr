@@ -27,7 +27,7 @@ use crate::{
 /// A trait for defining a chain's associated types.
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
 #[allow(clippy::trait_duplication_in_bounds)]
-pub trait EvmSpec:
+pub trait RuntimeSpec:
     alloy_rlp::Encodable
     // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
@@ -149,9 +149,9 @@ impl BlockEnvConstructor<block::Header> for BlockEnv {
     }
 }
 
-/// A supertrait for [`ChainSpec`] that is safe to send between threads.
-pub trait SyncEvmSpec:
-    EvmSpec<
+/// A supertrait for [`RuntimeSpec`] that is safe to send between threads.
+pub trait SyncRuntimeSpec:
+    RuntimeSpec<
         ExecutionReceipt<FilterLog>: Send + Sync,
         HaltReason: Send + Sync,
         Hardfork: Send + Sync,
@@ -164,8 +164,8 @@ pub trait SyncEvmSpec:
 {
 }
 
-impl<ChainSpecT> SyncEvmSpec for ChainSpecT where
-    ChainSpecT: EvmSpec<
+impl<ChainSpecT> SyncRuntimeSpec for ChainSpecT where
+    ChainSpecT: RuntimeSpec<
             ExecutionReceipt<FilterLog>: Send + Sync,
             HaltReason: Send + Sync,
             Hardfork: Send + Sync,
@@ -207,7 +207,7 @@ where
     }
 }
 
-impl EvmSpec for L1ChainSpec {
+impl RuntimeSpec for L1ChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
 

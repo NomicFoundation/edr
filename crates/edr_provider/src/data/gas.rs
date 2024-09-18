@@ -10,7 +10,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    chain_spec::{EvmSpec, SyncEvmSpec},
+    chain_spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
     DebugContext, SyncBlock,
@@ -22,7 +22,7 @@ use crate::{
     ProviderError,
 };
 
-pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncEvmSpec> {
+pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
@@ -42,7 +42,7 @@ pub(super) fn check_gas_limit<ChainSpecT>(
     args: CheckGasLimitArgs<'_, ChainSpecT>,
 ) -> Result<bool, ProviderError<ChainSpecT>>
 where
-    ChainSpecT: SyncEvmSpec<
+    ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
         Transaction: Default
@@ -83,7 +83,7 @@ where
     Ok(matches!(result, ExecutionResult::Success { .. }))
 }
 
-pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncEvmSpec> {
+pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
@@ -104,7 +104,7 @@ pub(super) fn binary_search_estimation<ChainSpecT>(
     args: BinarySearchEstimationArgs<'_, ChainSpecT>,
 ) -> Result<u64, ProviderError<ChainSpecT>>
 where
-    ChainSpecT: SyncEvmSpec<
+    ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
         Transaction: Default
@@ -183,7 +183,7 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT: EvmSpec<Hardfork: Debug>>(
+pub(super) fn compute_rewards<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     reward_percentiles: &[RewardPercentile],
 ) -> Result<Vec<U256>, ProviderError<ChainSpecT>> {

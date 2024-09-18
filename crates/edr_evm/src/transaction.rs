@@ -16,7 +16,7 @@ use revm::{
 };
 
 pub use self::detailed::*;
-use crate::chain_spec::EvmSpec;
+use crate::chain_spec::RuntimeSpec;
 
 /// Invalid transaction error
 #[derive(thiserror::Error)]
@@ -61,7 +61,7 @@ impl<ChainSpecT, BlockchainErrorT, StateErrorT>
     From<EVMErrorForChain<ChainSpecT, DatabaseComponentError<StateErrorT, BlockchainErrorT>>>
     for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: EvmSpec,
+    ChainSpecT: RuntimeSpec,
 {
     fn from(
         error: EVMErrorForChain<ChainSpecT, DatabaseComponentError<StateErrorT, BlockchainErrorT>>,

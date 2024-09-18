@@ -5,7 +5,7 @@ use edr_eth::{
     signature::secret_key_from_str, transaction::TransactionValidation, trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, U160, U256,
 };
-use edr_evm::{chain_spec::EvmSpec, Block};
+use edr_evm::{chain_spec::RuntimeSpec, Block};
 use edr_rpc_eth::TransactionRequest;
 
 use crate::{
@@ -24,7 +24,7 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
-pub fn create_test_config<ChainSpecT: EvmSpec>() -> ProviderConfig<ChainSpecT> {
+pub fn create_test_config<ChainSpecT: RuntimeSpec>() -> ProviderConfig<ChainSpecT> {
     create_test_config_with_fork(None)
 }
 
@@ -32,7 +32,7 @@ pub fn one_ether() -> U256 {
     U256::from(10).pow(U256::from(18))
 }
 
-pub fn create_test_config_with_fork<ChainSpecT: EvmSpec>(
+pub fn create_test_config_with_fork<ChainSpecT: RuntimeSpec>(
     fork: Option<ForkConfig>,
 ) -> ProviderConfig<ChainSpecT> {
     ProviderConfig {

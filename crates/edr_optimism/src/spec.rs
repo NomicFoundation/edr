@@ -7,7 +7,7 @@ use edr_eth::{
     result::{HaltReason, InvalidTransaction},
 };
 use edr_evm::{
-    chain_spec::EvmSpec,
+    chain_spec::RuntimeSpec,
     transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };
@@ -81,7 +81,7 @@ where
     }
 }
 
-impl EvmSpec for OptimismChainSpec {
+impl RuntimeSpec for OptimismChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<Self, DatabaseT, ExternalContexT>;
 
     type ReceiptBuilder = receipt::execution::Builder;

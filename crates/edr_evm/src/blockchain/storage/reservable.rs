@@ -6,12 +6,12 @@ use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use revm::primitives::{HashMap, HashSet};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{chain_spec::EvmSpec, state::StateDiff, Block, BlockReceipt, LocalBlock};
+use crate::{chain_spec::RuntimeSpec, state::StateDiff, Block, BlockReceipt, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
 #[derive_where(Debug; ChainSpecT::Hardfork)]
-struct Reservation<ChainSpecT: EvmSpec> {
+struct Reservation<ChainSpecT: RuntimeSpec> {
     first_number: u64,
     last_number: u64,
     interval: u64,
@@ -28,7 +28,7 @@ struct Reservation<ChainSpecT: EvmSpec> {
 pub struct ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: EvmSpec,
+    ChainSpecT: RuntimeSpec,
 {
     reservations: RwLock<Vec<Reservation<ChainSpecT>>>,
     storage: RwLock<SparseBlockchainStorage<BlockT, ChainSpecT>>,
@@ -44,7 +44,7 @@ where
 impl<BlockT, ChainSpecT> ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: EvmSpec,
+    ChainSpecT: RuntimeSpec,
 {
     /// Constructs a new instance with the provided block as genesis block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -235,7 +235,7 @@ where
 impl<BlockT, ChainSpecT> ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone + From<LocalBlock<ChainSpecT>>,
-    ChainSpecT: EvmSpec,
+    ChainSpecT: RuntimeSpec,
 {
     /// Retrieves the block by number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -343,7 +343,7 @@ fn calculate_timestamp_for_reserved_block<BlockT, ChainSpecT>(
 ) -> u64
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: EvmSpec,
+    ChainSpecT: RuntimeSpec,
 {
     let previous_block_number = reservation.first_number - 1;
     let previous_timestamp =
@@ -365,7 +365,7 @@ where
     previous_timestamp + reservation.interval * (block_number - reservation.first_number + 1)
 }
 
-fn find_reservation<ChainSpecT: EvmSpec>(
+fn find_reservation<ChainSpecT: RuntimeSpec>(
     reservations: &[Reservation<ChainSpecT>],
     number: u64,
 ) -> Option<&Reservation<ChainSpecT>> {

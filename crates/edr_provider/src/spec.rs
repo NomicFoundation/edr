@@ -11,7 +11,7 @@ use edr_eth::{
     },
     AccessListItem, Address, Blob, BlockSpec, B256, U256,
 };
-pub use edr_evm::chain_spec::{EvmSpec, SyncEvmSpec};
+pub use edr_evm::chain_spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
     blockchain::BlockchainError, state::StateOverrides, transaction, BlockAndTotalDifficulty,
 };
@@ -20,7 +20,7 @@ use edr_rpc_eth::{CallRequest, TransactionRequest};
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, TransactionFailureReason};
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    EvmSpec<
+    RuntimeSpec<
     Hardfork: Debug,
     RpcBlock<B256>: From<BlockAndTotalDifficulty<Self, BlockchainError<Self>>>,
     RpcCallRequest: MaybeSender,
@@ -135,11 +135,11 @@ pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {
 }
 
 pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    ProviderSpec<TimerT> + SyncEvmSpec
+    ProviderSpec<TimerT> + SyncRuntimeSpec
 {
 }
 
-impl<ProviderSpecT: ProviderSpec<TimerT> + SyncEvmSpec, TimerT: Clone + TimeSinceEpoch>
+impl<ProviderSpecT: ProviderSpec<TimerT> + SyncRuntimeSpec, TimerT: Clone + TimeSinceEpoch>
     SyncProviderSpec<TimerT> for ProviderSpecT
 {
 }

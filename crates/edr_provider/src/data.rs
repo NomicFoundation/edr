@@ -44,7 +44,7 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
-    chain_spec::{BlockEnvConstructor as _, EvmSpec, SyncEvmSpec},
+    chain_spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
@@ -107,7 +107,7 @@ pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
     pub traces: Vec<Trace<HaltReasonT>>,
 }
 
-pub struct SendTransactionResult<ChainSpecT: EvmSpec> {
+pub struct SendTransactionResult<ChainSpecT: RuntimeSpec> {
     pub transaction_hash: B256,
     pub mining_results: Vec<DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>>,
 }
@@ -118,7 +118,7 @@ pub type ExecutionResultAndTrace<'provider, ChainSpecT> = (
     &'provider Trace<<ChainSpecT as ChainSpec>::HaltReason>,
 );
 
-impl<ChainSpecT: EvmSpec> SendTransactionResult<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> SendTransactionResult<ChainSpecT> {
     /// Present if the transaction was auto-mined.
     pub fn transaction_result_and_trace(&self) -> Option<ExecutionResultAndTrace<'_, ChainSpecT>> {
         self.mining_results.iter().find_map(|result| {
@@ -138,7 +138,7 @@ impl<ChainSpecT: EvmSpec> SendTransactionResult<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: EvmSpec> From<SendTransactionResult<ChainSpecT>>
+impl<ChainSpecT: RuntimeSpec> From<SendTransactionResult<ChainSpecT>>
     for (B256, Vec<Trace<ChainSpecT::HaltReason>>)
 {
     fn from(value: SendTransactionResult<ChainSpecT>) -> Self {
@@ -159,7 +159,7 @@ impl<ChainSpecT: EvmSpec> From<SendTransactionResult<ChainSpecT>>
 #[derive(Debug, thiserror::Error)]
 pub enum CreationError<ChainSpecT>
 where
-    ChainSpecT: EvmSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// A blockchain error
     #[error(transparent)]
@@ -2555,7 +2555,7 @@ impl StateId {
     }
 }
 
-fn block_time_offset_seconds<ChainSpecT: EvmSpec<Hardfork: Debug>>(
+fn block_time_offset_seconds<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     config: &ProviderConfig<ChainSpecT>,
     timer: &impl TimeSinceEpoch,
 ) -> Result<i64, CreationError<ChainSpecT>> {
@@ -2575,7 +2575,7 @@ fn block_time_offset_seconds<ChainSpecT: EvmSpec<Hardfork: Debug>>(
     })
 }
 
-struct BlockchainAndState<ChainSpecT: SyncEvmSpec> {
+struct BlockchainAndState<ChainSpecT: SyncRuntimeSpec> {
     blockchain: Box<dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>>,
     fork_metadata: Option<ForkMetadata>,
     rpc_client: Option<Arc<EthRpcClient<ChainSpecT>>>,
@@ -2586,7 +2586,7 @@ struct BlockchainAndState<ChainSpecT: SyncEvmSpec> {
     next_block_base_fee_per_gas: Option<U256>,
 }
 
-fn create_blockchain_and_state<ChainSpecT: SyncEvmSpec<Hardfork: Debug>>(
+fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
     runtime: runtime::Handle,
     config: &ProviderConfig<ChainSpecT>,
     timer: &impl TimeSinceEpoch,

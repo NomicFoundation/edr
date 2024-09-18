@@ -9,7 +9,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    chain_spec::{BlockEnvConstructor as _, EvmSpec, SyncEvmSpec},
+    chain_spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     guaranteed_dry_run,
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
     DebugContext,
@@ -20,7 +20,7 @@ use crate::ProviderError;
 pub(super) struct RunCallArgs<
     'a,
     'evm,
-    ChainSpecT: EvmSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    ChainSpecT: RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     DebugDataT,
 > where
     'a: 'evm,
@@ -52,7 +52,7 @@ pub(super) fn run_call<'a, 'evm, ChainSpecT, DebugDataT>(
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>>
 where
     'a: 'evm,
-    ChainSpecT: SyncEvmSpec<
+    ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
         Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,

@@ -27,7 +27,7 @@ use super::{
 };
 use crate::{
     block::EthRpcBlock,
-    chain_spec::{EvmSpec, SyncEvmSpec},
+    chain_spec::{RuntimeSpec, SyncRuntimeSpec},
     hardfork::Activations,
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, RandomHashGenerator, SyncBlock,
@@ -37,7 +37,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum CreationError<ChainSpecT>
 where
-    ChainSpecT: EvmSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// JSON-RPC error
     #[error(transparent)]
@@ -65,7 +65,7 @@ where
 /// Error type for [`ForkedBlockchain`].
 #[derive(thiserror::Error)]
 #[derive_where(Debug; ChainSpecT::RpcBlockConversionError, ChainSpecT::RpcReceiptConversionError)]
-pub enum ForkedBlockchainError<ChainSpecT: EvmSpec> {
+pub enum ForkedBlockchainError<ChainSpecT: RuntimeSpec> {
     /// Remote block creation error
     #[error(transparent)]
     BlockCreation(ChainSpecT::RpcBlockConversionError),
@@ -93,7 +93,7 @@ pub enum ForkedBlockchainError<ChainSpecT: EvmSpec> {
 #[derive_where(Debug; ChainSpecT::Hardfork)]
 pub struct ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncEvmSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     local_storage: ReservableSparseBlockchainStorage<
         Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
@@ -119,7 +119,7 @@ where
 
 impl<ChainSpecT> ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncEvmSpec<Hardfork: Debug>,
+    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
 {
     /// Constructs a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -274,7 +274,7 @@ where
 
 impl<ChainSpecT> BlockHashRef for ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncEvmSpec<Hardfork: Debug>,
+    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
 {
     type Error = BlockchainError<ChainSpecT>;
 
@@ -296,7 +296,7 @@ where
 
 impl<ChainSpecT> Blockchain<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncEvmSpec<Hardfork: Debug>,
+    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
 {
     type BlockchainError = BlockchainError<ChainSpecT>;
 
@@ -569,7 +569,7 @@ where
 
 impl<ChainSpecT> BlockchainMut<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncEvmSpec<Hardfork: Debug>,
+    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
 {
     type Error = BlockchainError<ChainSpecT>;
 

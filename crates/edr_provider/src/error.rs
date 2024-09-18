@@ -11,7 +11,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::BlockchainError,
-    chain_spec::EvmSpec,
+    chain_spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
@@ -27,7 +27,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError<ChainSpecT>
 where
-    ChainSpecT: EvmSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// Account override conversion error.
     #[error(transparent)]
@@ -221,7 +221,7 @@ where
 
 impl<ChainSpecT> From<ProviderError<ChainSpecT>> for jsonrpc::Error
 where
-    ChainSpecT: EvmSpec<HaltReason: Serialize, Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<HaltReason: Serialize, Hardfork: Debug>,
 {
     fn from(value: ProviderError<ChainSpecT>) -> Self {
         const INVALID_INPUT: i16 = -32000;

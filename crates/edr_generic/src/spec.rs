@@ -8,7 +8,7 @@ use edr_eth::{
     SpecId,
 };
 use edr_evm::{
-    chain_spec::{EvmSpec, L1Wiring},
+    chain_spec::{L1Wiring, RuntimeSpec},
     hardfork::Activations,
     transaction::TransactionError,
 };
@@ -34,7 +34,7 @@ impl EthHeaderConstants for GenericChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
 }
 
-impl EvmSpec for GenericChainSpec {
+impl RuntimeSpec for GenericChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
 

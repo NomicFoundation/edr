@@ -30,7 +30,7 @@ use edr_eth::{
 };
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
-use edr_evm::{chain_spec::EvmSpec, trace::Trace};
+use edr_evm::{chain_spec::RuntimeSpec, trace::Trace};
 use lazy_static::lazy_static;
 
 pub use self::{
@@ -69,7 +69,7 @@ pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {
     pub traces: Vec<Trace<HaltReasonT>>,
 }
 
-fn to_json<T: serde::Serialize, ChainSpecT: EvmSpec<Hardfork: Debug>>(
+fn to_json<T: serde::Serialize, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     value: T,
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
@@ -80,7 +80,7 @@ fn to_json<T: serde::Serialize, ChainSpecT: EvmSpec<Hardfork: Debug>>(
     })
 }
 
-fn to_json_with_trace<T: serde::Serialize, ChainSpecT: EvmSpec<Hardfork: Debug>>(
+fn to_json_with_trace<T: serde::Serialize, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     value: (T, Trace<ChainSpecT::HaltReason>),
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
@@ -91,7 +91,7 @@ fn to_json_with_trace<T: serde::Serialize, ChainSpecT: EvmSpec<Hardfork: Debug>>
     })
 }
 
-fn to_json_with_traces<T: serde::Serialize, ChainSpecT: EvmSpec<Hardfork: Debug>>(
+fn to_json_with_traces<T: serde::Serialize, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     value: (T, Vec<Trace<ChainSpecT::HaltReason>>),
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;

@@ -5,7 +5,7 @@ use edr_eth::{block::BlobGas, AccountInfo, Address, ChainId, HashMap, B256, U256
 use edr_provider::{
     hardfork::{Activations, ForkCondition},
     hardhat_rpc_types::ForkConfig,
-    spec::EvmSpec,
+    spec::RuntimeSpec,
     AccountConfig, MiningConfig,
 };
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,7 @@ pub struct Config {
 
 impl<ChainSpecT> From<Config> for edr_provider::ProviderConfig<ChainSpecT>
 where
-    ChainSpecT: EvmSpec<Hardfork: for<'s> From<&'s str>>,
+    ChainSpecT: RuntimeSpec<Hardfork: for<'s> From<&'s str>>,
 {
     fn from(value: Config) -> Self {
         let cache_dir = PathBuf::from(

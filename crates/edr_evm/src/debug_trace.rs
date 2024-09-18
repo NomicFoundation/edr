@@ -24,7 +24,7 @@ use revm::{
 
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::EvmSpec,
+    chain_spec::RuntimeSpec,
     debug::GetContextData,
     state::SyncState,
     trace::{register_trace_collector_handles, Trace, TraceCollector},
@@ -97,7 +97,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     DebugTraceError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
-    ChainSpecT: EvmSpec<
+    ChainSpecT: RuntimeSpec<
         Block: Clone,
         Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
