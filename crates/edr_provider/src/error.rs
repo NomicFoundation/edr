@@ -3,7 +3,7 @@ use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
-    chain_spec::HaltReasonTrait,
+    spec::HaltReasonTrait,
     filter::SubscriptionType,
     hex,
     result::{ExecutionResult, HaltReason, OutOfGasError},
@@ -11,7 +11,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::BlockchainError,
-    chain_spec::RuntimeSpec,
+    spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},

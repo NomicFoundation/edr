@@ -8,8 +8,8 @@ use std::{
 
 use anyhow::Context;
 use derive_where::derive_where;
-use edr_eth::chain_spec::L1ChainSpec;
-use edr_evm::{blockchain::BlockchainError, chain_spec::RuntimeSpec};
+use edr_eth::spec::L1ChainSpec;
+use edr_evm::{blockchain::BlockchainError, spec::RuntimeSpec};
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use flate2::bufread::GzDecoder;

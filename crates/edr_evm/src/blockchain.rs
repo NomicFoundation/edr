@@ -21,8 +21,8 @@ pub use self::{
     local::{CreationError as LocalCreationError, GenesisBlockOptions, LocalBlockchain},
 };
 use crate::{
-    chain_spec::{RuntimeSpec, SyncRuntimeSpec},
     hardfork::Activations,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };

@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    chain_spec::L1ChainSpec,
+    spec::L1ChainSpec,
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{

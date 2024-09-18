@@ -10,7 +10,7 @@ use tokio::runtime;
 use super::BlockReceipt;
 use crate::{
     blockchain::{BlockchainError, ForkedBlockchainError},
-    chain_spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     Block, EthBlockData, SyncBlock,
 };
 

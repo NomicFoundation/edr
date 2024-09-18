@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use edr_eth::{Address, U256, U64};
-use edr_evm::chain_spec::RuntimeSpec;
+use edr_evm::spec::RuntimeSpec;
 
 use crate::{
     data::ProviderData,

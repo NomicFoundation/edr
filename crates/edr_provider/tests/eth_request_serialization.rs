@@ -1,7 +1,7 @@
 mod common;
 
 use edr_eth::{
-    chain_spec::L1ChainSpec,
+    spec::L1ChainSpec,
     filter::{LogFilterOptions, LogOutput, OneOrMore},
     Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, BYTES_PER_BLOB, U160,
     U256,

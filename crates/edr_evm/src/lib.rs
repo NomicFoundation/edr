@@ -31,8 +31,6 @@ pub mod trace;
 
 /// Types for Ethereum blocks.
 pub mod block;
-/// Types for chain specification.
-pub mod chain_spec;
 pub(crate) mod collections;
 mod debug;
 mod debug_trace;
@@ -44,6 +42,8 @@ mod miner;
 mod precompiles;
 pub(crate) mod random;
 mod runtime;
+/// Types for chain specification.
+pub mod spec;
 /// Utilities for testing
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;

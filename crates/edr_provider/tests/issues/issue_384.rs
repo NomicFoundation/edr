@@ -1,4 +1,4 @@
-use edr_eth::chain_spec::L1ChainSpec;
+use edr_eth::spec::L1ChainSpec;
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,

@@ -10,8 +10,8 @@ use edr_eth::{
 use revm::{db::WrapDatabaseRef, ContextPrecompile, DatabaseCommit, Evm};
 
 use crate::{
-    blockchain::SyncBlockchain, chain_spec::RuntimeSpec, debug::DebugContext,
-    precompiles::register_precompiles_handles, transaction::TransactionError,
+    blockchain::SyncBlockchain, debug::DebugContext, precompiles::register_precompiles_handles,
+    spec::RuntimeSpec, transaction::TransactionError,
 };
 
 /// Asynchronous implementation of the Database super-trait

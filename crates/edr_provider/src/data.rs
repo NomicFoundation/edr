@@ -18,7 +18,7 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         BlockOptions,
     },
-    chain_spec::{ChainSpec, HaltReasonTrait},
+    spec::{ChainSpec, HaltReasonTrait},
     db::StateRef,
     env::CfgEnv,
     fee_history::FeeHistoryResult,
@@ -44,7 +44,7 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
-    chain_spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
+    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
@@ -2784,7 +2784,7 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
 pub(crate) mod test_utils {
     use anyhow::anyhow;
     use edr_eth::{
-        chain_spec::L1ChainSpec,
+        spec::L1ChainSpec,
         transaction::{self, TxKind},
     };
 
@@ -2927,7 +2927,7 @@ pub(crate) mod test_utils {
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{chain_spec::L1ChainSpec, hex, transaction::ExecutableTransaction as _};
+    use edr_eth::{spec::L1ChainSpec, hex, transaction::ExecutableTransaction as _};
     use edr_evm::MineOrdering;
     use serde_json::json;
 

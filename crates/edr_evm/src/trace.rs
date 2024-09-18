@@ -13,7 +13,7 @@ use revm::{
     Context, Database, EvmContext, FrameOrResult, FrameResult,
 };
 
-use crate::{chain_spec::EvmWiring, debug::GetContextData};
+use crate::{spec::EvmWiring, debug::GetContextData};
 
 /// Registers trace collector handles to the EVM handler.
 pub fn register_trace_collector_handles<

@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 
 use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
-use edr_evm::chain_spec::RuntimeSpec;
+use edr_evm::spec::RuntimeSpec;
 use tokio::{
     runtime,
     sync::{oneshot, Mutex},

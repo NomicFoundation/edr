@@ -3,7 +3,7 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 use anyhow::anyhow;
 use edr_eth::{
     block::{miner_reward, BlockOptions},
-    chain_spec::L1ChainSpec,
+    spec::L1ChainSpec,
     env::CfgEnv,
     log::FilterLog,
     receipt::Receipt as _,
@@ -16,7 +16,7 @@ use edr_rpc_eth::client::EthRpcClient;
 
 use crate::{
     blockchain::{Blockchain as _, ForkedBlockchain},
-    chain_spec::SyncRuntimeSpec,
+    spec::SyncRuntimeSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
     transaction, Block, BlockBuilder, DebugContext, ExecutionResultWithContext, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,

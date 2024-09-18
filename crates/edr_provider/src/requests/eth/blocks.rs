@@ -9,7 +9,7 @@ use edr_eth::{
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainError,
-    chain_spec::RuntimeSpec,
+    spec::RuntimeSpec,
     SyncBlock,
 };
 use edr_rpc_eth::RpcTypeFrom as _;

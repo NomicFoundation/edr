@@ -11,7 +11,7 @@ use revm::{
     primitives::{AccountInfo, HashMap, Transaction},
 };
 
-use crate::chain_spec::RuntimeSpec;
+use crate::spec::RuntimeSpec;
 
 /// An iterator over pending transactions.
 pub struct PendingTransactions<ChainSpecT: RuntimeSpec, ComparatorT>

@@ -25,12 +25,12 @@ pub mod time;
 use core::fmt::Debug;
 
 use edr_eth::{
-    chain_spec::{ChainSpec, HaltReasonTrait},
+    spec::{ChainSpec, HaltReasonTrait},
     HashSet,
 };
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
-use edr_evm::{chain_spec::RuntimeSpec, trace::Trace};
+use edr_evm::{spec::RuntimeSpec, trace::Trace};
 use lazy_static::lazy_static;
 
 pub use self::{

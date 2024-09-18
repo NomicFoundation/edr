@@ -25,7 +25,7 @@ use super::{
     Blockchain, BlockchainError, BlockchainMut,
 };
 use crate::{
-    chain_spec::SyncRuntimeSpec,
+    spec::SyncRuntimeSpec,
     state::{StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
@@ -428,7 +428,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{chain_spec::L1ChainSpec, AccountInfo, HashMap};
+    use edr_eth::{spec::L1ChainSpec, AccountInfo, HashMap};
     use revm::primitives::{Account, AccountStatus};
 
     use super::*;

@@ -16,7 +16,7 @@ use revm::{
 };
 
 pub use self::detailed::*;
-use crate::chain_spec::RuntimeSpec;
+use crate::spec::RuntimeSpec;
 
 /// Invalid transaction error
 #[derive(thiserror::Error)]

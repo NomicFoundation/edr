@@ -2,12 +2,12 @@ use std::marker::PhantomData;
 
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
-    chain_spec::EthHeaderConstants,
+    spec::EthHeaderConstants,
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     result::{HaltReason, InvalidTransaction},
 };
 use edr_evm::{
-    chain_spec::RuntimeSpec,
+    spec::RuntimeSpec,
     transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };
@@ -49,7 +49,7 @@ pub struct Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> 
     _phantom: PhantomData<(ChainSpecT, DatabaseT, ExternalContextT)>,
 }
 
-impl<ChainSpecT, DatabaseT, ExternalContextT> edr_eth::chain_spec::EvmWiring
+impl<ChainSpecT, DatabaseT, ExternalContextT> edr_eth::spec::EvmWiring
     for Wiring<ChainSpecT, DatabaseT, ExternalContextT>
 where
     DatabaseT: Database,

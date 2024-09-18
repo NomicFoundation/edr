@@ -27,7 +27,7 @@ use super::{
 };
 use crate::{
     block::EthRpcBlock,
-    chain_spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     hardfork::Activations,
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, RandomHashGenerator, SyncBlock,

@@ -16,7 +16,7 @@ use revm::primitives::keccak256;
 
 use crate::{
     blockchain::BlockchainError,
-    chain_spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     transaction::DetailedTransaction,
     Block, SyncBlock,
 };

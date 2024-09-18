@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use edr_eth::{
     block::{self, BlobGas, PartialHeader},
-    chain_spec::{EthHeaderConstants, L1ChainSpec},
+    spec::{EthHeaderConstants, L1ChainSpec},
     env::{BlobExcessGasAndPrice, BlockEnv},
     log::{ExecutionLog, FilterLog},
     receipt::{ExecutionReceiptBuilder, MapReceiptLogs},
@@ -183,7 +183,7 @@ pub struct L1Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT
     _phantom: PhantomData<(ChainSpecT, DatabaseT, ExternalContextT)>,
 }
 
-impl<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> edr_eth::chain_spec::EvmWiring
+impl<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> edr_eth::spec::EvmWiring
     for L1Wiring<ChainSpecT, DatabaseT, ExternalContextT>
 {
     type ChainSpec = ChainSpecT;

@@ -1,11 +1,11 @@
 use core::fmt::Debug;
 
 use edr_eth::{
-    chain_spec::{ChainSpec, HaltReasonTrait},
+    spec::{ChainSpec, HaltReasonTrait},
     db::Database,
 };
 use edr_evm::{
-    chain_spec::EvmWiring,
+    spec::EvmWiring,
     evm::handler::register::EvmHandler,
     trace::{register_trace_collector_handles, TraceCollector},
     GetContextData,

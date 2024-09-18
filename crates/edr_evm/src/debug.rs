@@ -5,7 +5,7 @@ use revm::{
     primitives::TransactionValidation,
 };
 
-use crate::{blockchain::SyncBlockchain, chain_spec::RuntimeSpec};
+use crate::{blockchain::SyncBlockchain, spec::RuntimeSpec};
 
 /// Type for registering handles, specialised for EDR database component types.
 pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> =

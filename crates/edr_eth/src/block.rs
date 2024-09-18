@@ -23,7 +23,7 @@ pub use self::{
     reward::miner_reward,
 };
 use crate::{
-    chain_spec::EthHeaderConstants, trie::KECCAK_NULL_RLP, Address, Bloom, Bytes, SpecId, B256,
+    spec::EthHeaderConstants, trie::KECCAK_NULL_RLP, Address, Bloom, Bytes, SpecId, B256,
     B64, U256,
 };
 

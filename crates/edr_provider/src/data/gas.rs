@@ -10,7 +10,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    chain_spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
     DebugContext, SyncBlock,

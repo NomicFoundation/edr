@@ -1,7 +1,7 @@
 use derive_where::derive_where;
 use dyn_clone::DynClone;
 use edr_eth::{filter::LogOutput, B256, U256};
-use edr_evm::{blockchain::BlockchainError, chain_spec::RuntimeSpec, BlockAndTotalDifficulty};
+use edr_evm::{blockchain::BlockchainError, spec::RuntimeSpec, BlockAndTotalDifficulty};
 
 /// Subscription event.
 #[derive_where(Clone, Debug)]

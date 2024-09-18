@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_evm::{blockchain::BlockchainError, chain_spec::RuntimeSpec};
+use edr_evm::{blockchain::BlockchainError, spec::RuntimeSpec};
 
 use crate::{
     data::CallResult, debug_mine::DebugMineBlockResult, error::EstimateGasFailure, ProviderError,

@@ -11,7 +11,7 @@ use tokio::runtime;
 
 use super::storage::SparseBlockchainStorage;
 use crate::{
-    blockchain::ForkedBlockchainError, chain_spec::RuntimeSpec,
+    blockchain::ForkedBlockchainError, spec::RuntimeSpec,
     transaction::remote::EthRpcTransaction as _, Block, BlockReceipt, EthRpcBlock as _,
     RemoteBlock,
 };
@@ -261,7 +261,7 @@ where
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_eth::spec::L1ChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;

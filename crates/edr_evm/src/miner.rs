@@ -13,9 +13,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
-    chain_spec::{RuntimeSpec, SyncRuntimeSpec},
     debug::DebugContext,
     mempool::OrderedTransaction,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, SyncState},
     trace::Trace,
     transaction::TransactionError,

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use dyn_clone::DynClone;
 use edr_eth::{db::Database, result::EVMErrorWiring, Address, Bytes};
 use edr_evm::{
-    chain_spec::EvmWiring,
+    spec::EvmWiring,
     evm::{handler::register::EvmHandler, FrameOrResult, FrameResult},
     interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
     GetContextData,

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use edr_eth::{chain_spec::L1ChainSpec, AccountInfo, Address, SpecId, KECCAK_EMPTY, U256};
+use edr_eth::{spec::L1ChainSpec, AccountInfo, Address, SpecId, KECCAK_EMPTY, U256};
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,

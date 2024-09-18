@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::{chain_spec::L1ChainSpec, specification};
+use edr_eth::{spec::L1ChainSpec, specification};
 use edr_napi_core::{
     logger::Logger,
     provider::{self, ProviderBuilder, SyncProviderFactory},

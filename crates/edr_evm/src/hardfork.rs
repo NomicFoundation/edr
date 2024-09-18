@@ -3,7 +3,7 @@ pub mod l1;
 
 use derive_where::derive_where;
 
-use crate::chain_spec::RuntimeSpec;
+use crate::spec::RuntimeSpec;
 
 /// Fork condition for a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]

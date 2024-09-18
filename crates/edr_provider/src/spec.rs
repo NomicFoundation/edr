@@ -1,8 +1,8 @@
 use core::fmt::Debug;
 
-pub use edr_eth::chain_spec::EthHeaderConstants;
+pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
-    chain_spec::L1ChainSpec,
+    spec::L1ChainSpec,
     result::HaltReason,
     rlp,
     transaction::{
@@ -11,7 +11,7 @@ use edr_eth::{
     },
     AccessListItem, Address, Blob, BlockSpec, B256, U256,
 };
-pub use edr_evm::chain_spec::{RuntimeSpec, SyncRuntimeSpec};
+pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
     blockchain::BlockchainError, state::StateOverrides, transaction, BlockAndTotalDifficulty,
 };

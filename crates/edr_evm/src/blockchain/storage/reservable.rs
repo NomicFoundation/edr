@@ -6,7 +6,7 @@ use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use revm::primitives::{HashMap, HashSet};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{chain_spec::RuntimeSpec, state::StateDiff, Block, BlockReceipt, LocalBlock};
+use crate::{spec::RuntimeSpec, state::StateDiff, Block, BlockReceipt, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.

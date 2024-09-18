@@ -1,4 +1,4 @@
-use edr_eth::{chain_spec::L1ChainSpec, Bytes, SpecId, U256};
+use edr_eth::{spec::L1ChainSpec, Bytes, SpecId, U256};
 use edr_evm::{blockchain::BlockchainError, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 

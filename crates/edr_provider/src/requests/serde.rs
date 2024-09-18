@@ -6,7 +6,7 @@ use std::{
 
 use alloy_dyn_abi::TypedData;
 use edr_eth::{Address, Bytes, U256, U64};
-use edr_evm::chain_spec::RuntimeSpec;
+use edr_evm::spec::RuntimeSpec;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::ProviderError;

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use derive_where::derive_where;
 use edr_eth::{result::ExecutionResult, transaction::ExecutableTransaction, Bytes, B256};
 use edr_evm::{
-    chain_spec::RuntimeSpec,
+    spec::RuntimeSpec,
     state::{StateDiff, SyncState},
     trace::Trace,
     LocalBlock, MineBlockResultAndState, SyncBlock,

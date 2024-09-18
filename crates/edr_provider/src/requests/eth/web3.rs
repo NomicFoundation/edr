@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use edr_eth::{Bytes, B256};
-use edr_evm::chain_spec::RuntimeSpec;
+use edr_evm::spec::RuntimeSpec;
 use sha3::{Digest, Keccak256};
 
 use crate::ProviderError;

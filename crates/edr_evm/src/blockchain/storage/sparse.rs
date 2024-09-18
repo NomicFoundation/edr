@@ -10,7 +10,7 @@ use edr_eth::{
 use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};
 
 use super::InsertError;
-use crate::{chain_spec::RuntimeSpec, Block};
+use crate::{spec::RuntimeSpec, Block};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
 #[derive_where(Debug; BlockT)]

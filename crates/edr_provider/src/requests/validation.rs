@@ -6,7 +6,7 @@ use edr_eth::{
     MAX_INITCODE_SIZE, U256,
 };
 use edr_evm::{
-    chain_spec::RuntimeSpec,
+    spec::RuntimeSpec,
     transaction::{self, Transaction},
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
@@ -364,7 +364,7 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec<Hardfor
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_eth::spec::L1ChainSpec;
 
     use super::*;
 

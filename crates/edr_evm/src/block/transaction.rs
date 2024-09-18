@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use derive_where::derive_where;
-use edr_eth::{chain_spec::L1ChainSpec, transaction::SignedTransaction as _, SpecId};
+use edr_eth::{spec::L1ChainSpec, transaction::SignedTransaction as _, SpecId};
 use edr_rpc_eth::RpcTypeFrom;
 
 use super::SyncBlock;
-use crate::{blockchain::BlockchainError, chain_spec::RuntimeSpec};
+use crate::{blockchain::BlockchainError, spec::RuntimeSpec};
 
 /// The result returned by requesting a transaction.
 #[derive_where(Clone, Debug; ChainSpecT::Transaction)]

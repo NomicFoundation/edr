@@ -12,7 +12,7 @@ const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6
 pub fn register_console_log_handles<EvmWiringT>(handler: &mut EvmHandler<'_, EvmWiringT>)
 where
     EvmWiringT:
-        edr_evm::chain_spec::EvmWiring<ExternalContext: GetContextData<ConsoleLogCollector>>,
+        edr_evm::spec::EvmWiring<ExternalContext: GetContextData<ConsoleLogCollector>>,
 {
     let old_handle = handler.execution.call.clone();
     handler.execution.call = Arc::new(
@@ -47,7 +47,7 @@ impl ConsoleLogCollector {
 pub(crate) mod tests {
     use anyhow::Context;
     use edr_eth::{
-        chain_spec::L1ChainSpec,
+        spec::L1ChainSpec,
         hex,
         transaction::{self, request::TransactionRequestAndSender, TxKind},
         Bytes, U256,

@@ -16,7 +16,7 @@ use revm::{
 use tokio::runtime;
 
 use super::StateError;
-use crate::{chain_spec::RuntimeSpec, EthRpcBlock as _};
+use crate::{spec::RuntimeSpec, EthRpcBlock as _};
 
 /// A state backed by a remote Ethereum node
 #[derive_where(Debug)]
@@ -112,7 +112,7 @@ impl<ChainSpecT: RpcSpec> StateRef for RemoteState<ChainSpecT> {
 mod tests {
     use std::str::FromStr;
 
-    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_eth::spec::L1ChainSpec;
     use tokio::runtime;
 
     use super::*;

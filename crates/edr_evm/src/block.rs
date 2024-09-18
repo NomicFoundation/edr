@@ -24,7 +24,7 @@ pub use self::{
     local::LocalBlock,
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
 };
-use crate::chain_spec::RuntimeSpec;
+use crate::spec::RuntimeSpec;
 
 /// A block receipt with filter logs for the specified RPC specification.
 pub type BlockReceipt<RpcSpecT> = edr_eth::receipt::BlockReceipt<

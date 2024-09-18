@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    chain_spec::{HaltReasonTrait, L1ChainSpec},
+    spec::{HaltReasonTrait, L1ChainSpec},
     result::{HaltReason, InvalidTransaction},
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };

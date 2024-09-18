@@ -4,7 +4,7 @@ use derive_where::derive_where;
 use edr_eth::{db::BlockHashRef, transaction::ExecutableTransaction as _, HashSet, B256, U256};
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
-    chain_spec::SyncRuntimeSpec,
+    spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
     BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };

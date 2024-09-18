@@ -5,7 +5,7 @@ use edr_eth::{
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
-use edr_evm::{chain_spec::RuntimeSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
+use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
 use edr_rpc_eth::spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 

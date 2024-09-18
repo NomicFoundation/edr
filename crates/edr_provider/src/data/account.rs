@@ -3,7 +3,7 @@ use edr_eth::{
     state::{Account, AccountStatus},
     AccountInfo, Address, HashMap, KECCAK_EMPTY,
 };
-use edr_evm::chain_spec::RuntimeSpec;
+use edr_evm::spec::RuntimeSpec;
 use indexmap::IndexMap;
 
 use crate::{AccountConfig, ProviderConfig};

@@ -1,5 +1,5 @@
 use edr_eth::{
-    chain_spec::{ChainSpec, EthHeaderConstants, L1ChainSpec},
+    spec::{ChainSpec, EthHeaderConstants, L1ChainSpec},
     db::Database,
     eips::eip1559::BaseFeeParams,
     env::BlockEnv,
@@ -8,7 +8,7 @@ use edr_eth::{
     SpecId,
 };
 use edr_evm::{
-    chain_spec::{L1Wiring, RuntimeSpec},
+    spec::{L1Wiring, RuntimeSpec},
     hardfork::Activations,
     transaction::TransactionError,
 };

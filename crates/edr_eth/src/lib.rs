@@ -13,8 +13,6 @@ pub mod beacon;
 pub mod block;
 /// Ethereum block spec
 mod block_spec;
-/// Ethereum L1 chain spec
-pub mod chain_spec;
 /// Types and functions related to EIPs
 pub mod eips;
 /// Ethereum fee history types
@@ -33,6 +31,8 @@ pub mod rlp;
 pub mod serde;
 /// Ethereum signature types
 pub mod signature;
+/// Ethereum L1 chain spec
+pub mod spec;
 /// Ethereum state types and functions
 pub mod state;
 /// Ethereum transaction types
