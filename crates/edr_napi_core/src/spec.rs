@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    spec::{HaltReasonTrait, L1ChainSpec},
     result::{HaltReason, InvalidTransaction},
+    spec::{HaltReasonTrait, L1ChainSpec},
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::trace::Trace;

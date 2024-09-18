@@ -1,5 +1,5 @@
 use edr_eth::{
-    spec::L1ChainSpec, filter::LogFilterOptions, AccountInfo, Address, BlockSpec, SpecId,
+    filter::LogFilterOptions, spec::L1ChainSpec, AccountInfo, Address, BlockSpec, SpecId,
     KECCAK_EMPTY,
 };
 use edr_provider::{

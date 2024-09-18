@@ -26,8 +26,8 @@ use revm::{
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
-    spec::{BlockEnvConstructor, RuntimeSpec},
     debug::{DebugContext, EvmContext},
+    spec::{BlockEnvConstructor, RuntimeSpec},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
     transaction::TransactionError,
     SyncBlock,

@@ -2,9 +2,9 @@ use core::fmt::Debug;
 
 pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
-    spec::L1ChainSpec,
     result::HaltReason,
     rlp,
+    spec::L1ChainSpec,
     transaction::{
         signed::{FakeSign, Sign},
         Transaction,

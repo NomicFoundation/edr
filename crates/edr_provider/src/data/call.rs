@@ -9,8 +9,8 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     guaranteed_dry_run,
+    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
     DebugContext,
 };

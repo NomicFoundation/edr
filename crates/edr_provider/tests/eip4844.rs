@@ -4,9 +4,9 @@ use std::str::FromStr;
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    spec::L1ChainSpec,
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
+    spec::L1ChainSpec,
     transaction::{
         self, pooled::PooledTransaction, ExecutableTransaction as _, Transaction as _,
         TransactionType as _,

@@ -2,9 +2,9 @@ use std::marker::PhantomData;
 
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
-    spec::EthHeaderConstants,
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     result::{HaltReason, InvalidTransaction},
+    spec::EthHeaderConstants,
 };
 use edr_evm::{
     spec::RuntimeSpec,

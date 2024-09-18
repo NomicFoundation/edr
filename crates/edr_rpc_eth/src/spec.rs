@@ -1,4 +1,4 @@
-use edr_eth::{spec::L1ChainSpec, eips::eip2718::TypedEnvelope, receipt::Receipt};
+use edr_eth::{eips::eip2718::TypedEnvelope, receipt::Receipt, spec::L1ChainSpec};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{receipt::Block, CallRequest};

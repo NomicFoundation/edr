@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use clap::ValueEnum;
 use edr_eth::{
-    spec::L1ChainSpec, log::FilterLog, result::InvalidTransaction,
+    log::FilterLog, result::InvalidTransaction, spec::L1ChainSpec,
     transaction::TransactionValidation,
 };
 use edr_evm::test_utils::run_full_block;

@@ -188,7 +188,7 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
 mod test {
     use assert_json_diff::assert_json_eq;
     use edr_eth::{
-        spec::L1ChainSpec, eips::eip2718::TypedEnvelope, log::ExecutionLog, Bloom, Bytes,
+        eips::eip2718::TypedEnvelope, log::ExecutionLog, spec::L1ChainSpec, Bloom, Bytes,
     };
     use serde_json::json;
 

@@ -1,9 +1,9 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
-    spec::ChainSpec,
     env::{CfgEnv, Env},
     result::InvalidTransaction,
+    spec::ChainSpec,
     transaction::ExecutableTransaction as _,
     utils::u256_to_padded_hex,
     B256,
@@ -24,8 +24,8 @@ use revm::{
 
 use crate::{
     blockchain::SyncBlockchain,
-    spec::RuntimeSpec,
     debug::GetContextData,
+    spec::RuntimeSpec,
     state::SyncState,
     trace::{register_trace_collector_handles, Trace, TraceCollector},
     transaction::TransactionError,

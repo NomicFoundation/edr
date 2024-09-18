@@ -3,10 +3,10 @@ use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
-    spec::HaltReasonTrait,
     filter::SubscriptionType,
     hex,
     result::{ExecutionResult, HaltReason, OutOfGasError},
+    spec::HaltReasonTrait,
     Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256,
 };
 use edr_evm::{

@@ -18,7 +18,6 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         BlockOptions,
     },
-    spec::{ChainSpec, HaltReasonTrait},
     db::StateRef,
     env::CfgEnv,
     fee_history::FeeHistoryResult,
@@ -28,6 +27,7 @@ use edr_eth::{
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
+    spec::{ChainSpec, HaltReasonTrait},
     state::{Account, EvmStorageSlot},
     transaction::{
         request::TransactionRequestAndSender,
@@ -44,9 +44,9 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
+    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
@@ -2927,7 +2927,7 @@ pub(crate) mod test_utils {
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{spec::L1ChainSpec, hex, transaction::ExecutableTransaction as _};
+    use edr_eth::{hex, spec::L1ChainSpec, transaction::ExecutableTransaction as _};
     use edr_evm::MineOrdering;
     use serde_json::json;
 
