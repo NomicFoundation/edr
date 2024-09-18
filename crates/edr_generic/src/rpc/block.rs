@@ -5,7 +5,7 @@ use edr_eth::{
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
-use edr_evm::{chain_spec::ChainSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
+use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
 use edr_rpc_eth::spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 
@@ -116,7 +116,7 @@ impl<T> EthRpcBlock for Block<T> {
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
 #[derive(thiserror::Error)]
 #[derive_where(Debug; ChainSpecT::RpcTransactionConversionError)]
-pub enum ConversionError<ChainSpecT: ChainSpec> {
+pub enum ConversionError<ChainSpecT: RuntimeSpec> {
     /// Missing hash
     #[error("Missing hash")]
     MissingHash,
@@ -190,7 +190,7 @@ where
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT: ChainSpec>
+impl<BlockchainErrorT, ChainSpecT: RuntimeSpec>
     From<BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>> for crate::rpc::block::Block<B256>
 {
     fn from(value: BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>) -> Self {

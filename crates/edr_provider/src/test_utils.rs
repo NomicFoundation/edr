@@ -1,16 +1,18 @@
 use std::{num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas, chain_spec::L1ChainSpec, result::InvalidTransaction,
-    signature::secret_key_from_str, transaction::TransactionValidation, trie::KECCAK_NULL_RLP,
-    Address, Bytes, HashMap, B256, U160, U256,
+    block::BlobGas, result::InvalidTransaction, signature::secret_key_from_str, spec::L1ChainSpec,
+    transaction::TransactionValidation, trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, B256, U160,
+    U256,
 };
-use edr_evm::Block;
+use edr_evm::{spec::RuntimeSpec, Block};
 use edr_rpc_eth::TransactionRequest;
-use time::TimeSinceEpoch;
 
-use super::*;
-use crate::{config::MiningConfig, requests::hardhat::rpc_types::ForkConfig};
+use crate::{
+    config::MiningConfig, requests::hardhat::rpc_types::ForkConfig, time::TimeSinceEpoch,
+    AccountConfig, MethodInvocation, Provider, ProviderConfig, ProviderData, ProviderError,
+    ProviderRequest, SyncProviderSpec,
+};
 
 pub const TEST_SECRET_KEY: &str =
     "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -22,7 +24,7 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
-pub fn create_test_config<ChainSpecT: ChainSpec>() -> ProviderConfig<ChainSpecT> {
+pub fn create_test_config<ChainSpecT: RuntimeSpec>() -> ProviderConfig<ChainSpecT> {
     create_test_config_with_fork(None)
 }
 
@@ -30,7 +32,7 @@ pub fn one_ether() -> U256 {
     U256::from(10).pow(U256::from(18))
 }
 
-pub fn create_test_config_with_fork<ChainSpecT: ChainSpec>(
+pub fn create_test_config_with_fork<ChainSpecT: RuntimeSpec>(
     fork: Option<ForkConfig>,
 ) -> ProviderConfig<ChainSpecT> {
     ProviderConfig {

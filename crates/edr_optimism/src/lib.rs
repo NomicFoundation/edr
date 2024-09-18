@@ -19,3 +19,5 @@ pub use self::spec::OptimismChainSpec;
 
 /// Optimism transaction types
 pub mod transaction;
+
+pub use revm_optimism::OptimismSpecId;

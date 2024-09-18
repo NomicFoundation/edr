@@ -1,8 +1,12 @@
 use core::fmt::Debug;
 
-use edr_eth::db::Database;
+use edr_eth::{
+    db::Database,
+    spec::{ChainSpec, HaltReasonTrait},
+};
 use edr_evm::{
     evm::handler::register::EvmHandler,
+    spec::EvmWiring,
     trace::{register_trace_collector_handles, TraceCollector},
     GetContextData,
 };
@@ -13,27 +17,29 @@ use crate::{
 };
 
 /// Registers debugger handles.
-pub fn register_debugger_handles<ChainSpecT: edr_evm::chain_spec::EvmWiring, DatabaseT, ContextT>(
-    handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
-) where
-    DatabaseT: Database,
-    DatabaseT::Error: Debug,
-    ContextT: GetContextData<ConsoleLogCollector>
-        + GetContextData<Mocker>
-        + GetContextData<TraceCollector<ChainSpecT>>,
+pub fn register_debugger_handles<EvmWiringT>(handler: &mut EvmHandler<'_, EvmWiringT>)
+where
+    EvmWiringT: EvmWiring<
+        ExternalContext: GetContextData<ConsoleLogCollector>
+                             + GetContextData<Mocker>
+                             + GetContextData<
+            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
+        >,
+        Database: Database<Error: Debug>,
+    >,
 {
     register_console_log_handles(handler);
     register_mocking_handles(handler);
     register_trace_collector_handles(handler);
 }
 
-pub struct Debugger<ChainSpecT: edr_evm::chain_spec::EvmWiring> {
+pub struct Debugger<HaltReasonT: HaltReasonTrait> {
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
-    pub trace_collector: TraceCollector<ChainSpecT>,
+    pub trace_collector: TraceCollector<HaltReasonT>,
 }
 
-impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> Debugger<ChainSpecT> {
+impl<HaltReasonT: HaltReasonTrait> Debugger<HaltReasonT> {
     /// Creates a new instance with the provided mocker.
     /// If verbose is true, full stack and memory will be recorded for each
     /// step.
@@ -46,24 +52,22 @@ impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> Debugger<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> GetContextData<ConsoleLogCollector>
-    for Debugger<ChainSpecT>
-{
+impl<HaltReasonT: HaltReasonTrait> GetContextData<ConsoleLogCollector> for Debugger<HaltReasonT> {
     fn get_context_data(&mut self) -> &mut ConsoleLogCollector {
         &mut self.console_logger
     }
 }
 
-impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> GetContextData<Mocker> for Debugger<ChainSpecT> {
+impl<HaltReasonT: HaltReasonTrait> GetContextData<Mocker> for Debugger<HaltReasonT> {
     fn get_context_data(&mut self) -> &mut Mocker {
         &mut self.mocker
     }
 }
 
-impl<ChainSpecT: edr_evm::chain_spec::EvmWiring> GetContextData<TraceCollector<ChainSpecT>>
-    for Debugger<ChainSpecT>
+impl<HaltReasonT: HaltReasonTrait> GetContextData<TraceCollector<HaltReasonT>>
+    for Debugger<HaltReasonT>
 {
-    fn get_context_data(&mut self) -> &mut TraceCollector<ChainSpecT> {
+    fn get_context_data(&mut self) -> &mut TraceCollector<HaltReasonT> {
         &mut self.trace_collector
     }
 }

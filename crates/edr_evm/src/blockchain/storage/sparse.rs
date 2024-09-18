@@ -10,14 +10,14 @@ use edr_eth::{
 use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};
 
 use super::InsertError;
-use crate::{chain_spec::ChainSpec, Block};
+use crate::{spec::RuntimeSpec, Block};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
 #[derive_where(Debug; BlockT)]
 pub struct SparseBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
-    ChainSpecT: ChainSpec,
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: RuntimeSpec,
 {
     hash_to_block: HashMap<B256, BlockT>,
     hash_to_total_difficulty: HashMap<B256, U256>,
@@ -30,8 +30,8 @@ where
 
 impl<BlockT, ChainSpecT> SparseBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
-    ChainSpecT: ChainSpec,
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: RuntimeSpec,
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -226,7 +226,7 @@ where
 impl<BlockT, ChainSpecT> Default for SparseBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     fn default() -> Self {
         Self {
@@ -250,7 +250,7 @@ pub fn logs<BlockT, ChainSpecT>(
 ) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error>
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     let mut logs = Vec::new();
     let addresses: HashSet<Address> = addresses.iter().copied().collect();

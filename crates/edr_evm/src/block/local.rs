@@ -16,7 +16,7 @@ use revm::primitives::keccak256;
 
 use crate::{
     blockchain::BlockchainError,
-    chain_spec::{ChainSpec, SyncChainSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     transaction::DetailedTransaction,
     Block, SyncBlock,
 };
@@ -25,7 +25,7 @@ use crate::{
 #[derive(PartialEq, Eq, RlpEncodable)]
 #[derive_where(Clone, Debug; ChainSpecT::ExecutionReceipt<FilterLog>, ChainSpecT::Transaction)]
 #[rlp(trailing)]
-pub struct LocalBlock<ChainSpecT: ChainSpec> {
+pub struct LocalBlock<ChainSpecT: RuntimeSpec> {
     header: block::Header,
     transactions: Vec<ChainSpecT::Transaction>,
     #[rlp(skip)]
@@ -38,7 +38,7 @@ pub struct LocalBlock<ChainSpecT: ChainSpec> {
     hash: B256,
 }
 
-impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
     /// Constructs an empty block, i.e. no transactions.
     pub fn empty(spec_id: ChainSpecT::Hardfork, partial_header: PartialHeader) -> Self {
         let withdrawals = if spec_id.into() >= SpecId::SHANGHAI {
@@ -117,7 +117,7 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
     type Error = BlockchainError<ChainSpecT>;
 
     fn hash(&self) -> &B256 {
@@ -154,7 +154,7 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
     }
 }
 
-fn transaction_to_block_receipts<ChainSpecT: ChainSpec>(
+fn transaction_to_block_receipts<ChainSpecT: RuntimeSpec>(
     block_hash: &B256,
     block_number: u64,
     receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>>,
@@ -199,7 +199,7 @@ fn transaction_to_block_receipts<ChainSpecT: ChainSpec>(
 impl<ChainSpecT> From<LocalBlock<ChainSpecT>>
     for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     fn from(value: LocalBlock<ChainSpecT>) -> Self {
         Arc::new(value)

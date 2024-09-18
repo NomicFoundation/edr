@@ -2,22 +2,20 @@ use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
+    env::CfgEnv,
     signature::SignatureError,
     transaction::{ExecutableTransaction as _, Transaction},
     U256,
 };
-use revm::{
-    handler::CfgEnvWithEvmWiring,
-    primitives::{ExecutionResult, InvalidTransaction, TransactionValidation},
-};
+use revm::primitives::{ExecutionResult, InvalidTransaction, TransactionValidation};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
-    chain_spec::{ChainSpec, SyncChainSpec},
     debug::DebugContext,
     mempool::OrderedTransaction,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, SyncState},
     trace::Trace,
     transaction::TransactionError,
@@ -29,19 +27,19 @@ use crate::{
 #[derive(Debug)]
 pub struct MineBlockResult<ChainSpecT, BlockchainErrorT>
 where
-    ChainSpecT: revm::primitives::EvmWiring,
+    ChainSpecT: RuntimeSpec,
 {
     /// Mined block
     pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<ChainSpecT>>,
+    pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace<ChainSpecT>>,
+    pub transaction_traces: Vec<Trace<ChainSpecT::HaltReason>>,
 }
 
 impl<BlockchainErrorT, ChainSpecT> Clone for MineBlockResult<ChainSpecT, BlockchainErrorT>
 where
-    ChainSpecT: revm::primitives::EvmWiring,
+    ChainSpecT: RuntimeSpec,
 {
     fn clone(&self) -> Self {
         Self {
@@ -56,7 +54,7 @@ where
 /// inserted into the blockchain to be persistent.
 pub struct MineBlockResultAndState<ChainSpecT, StateErrorT>
 where
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     /// Mined block
     pub block: LocalBlock<ChainSpecT>,
@@ -65,7 +63,7 @@ where
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<ChainSpecT>>,
+    pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
 }
 
 /// The type of ordering to use when selecting blocks to mine.
@@ -81,7 +79,7 @@ pub enum MineOrdering {
 #[derive(Debug, thiserror::Error)]
 pub enum MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
@@ -110,7 +108,8 @@ pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, S
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     mut state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool<ChainSpecT>,
-    cfg: &CfgEnvWithEvmWiring<ChainSpecT>,
+    cfg: &CfgEnv,
+    hardfork: ChainSpecT::Hardfork,
     options: BlockOptions,
     min_gas_price: U256,
     mine_ordering: MineOrdering,
@@ -130,13 +129,9 @@ pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, S
 >
 where
     'blockchain: 'evm,
-    ChainSpecT: SyncChainSpec<
-        Block: Default,
+    ChainSpecT: SyncRuntimeSpec<
         Hardfork: Debug,
-        Transaction: Default
-                         + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
-        >,
+        Transaction: TransactionValidation<ValidationError: From<InvalidTransaction> + PartialEq>,
     >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
@@ -145,7 +140,7 @@ where
         .last_block()
         .map_err(MineBlockError::Blockchain)?;
 
-    let mut block_builder = BlockBuilder::new(cfg.clone(), &parent_block, options)?;
+    let mut block_builder = BlockBuilder::new(cfg.clone(), hardfork, &parent_block, options)?;
 
     let mut pending_transactions = {
         type MineOrderComparator<ChainSpecT> = dyn Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering
@@ -217,7 +212,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
@@ -308,7 +303,8 @@ pub fn mine_block_with_single_transaction<
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: ChainSpecT::Transaction,
-    cfg: &CfgEnvWithEvmWiring<ChainSpecT>,
+    cfg: &CfgEnv,
+    hardfork: ChainSpecT::Hardfork,
     options: BlockOptions,
     min_gas_price: U256,
     reward: U256,
@@ -327,13 +323,9 @@ pub fn mine_block_with_single_transaction<
 >
 where
     'blockchain: 'evm,
-    ChainSpecT: SyncChainSpec<
-        Block: Default,
+    ChainSpecT: SyncRuntimeSpec<
         Hardfork: Debug,
-        Transaction: Default
-                         + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
-        >,
+        Transaction: TransactionValidation<ValidationError: From<InvalidTransaction> + PartialEq>,
     >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
@@ -404,7 +396,8 @@ where
         }
     }
 
-    let mut block_builder = BlockBuilder::new(cfg.clone(), parent_block.as_ref(), options)?;
+    let mut block_builder =
+        BlockBuilder::new(cfg.clone(), hardfork, parent_block.as_ref(), options)?;
 
     let ExecutionResultWithContext {
         result,
@@ -439,14 +432,14 @@ fn effective_miner_fee(transaction: &impl Transaction, base_fee: Option<U256>) -
     })
 }
 
-fn first_in_first_out_comparator<ChainSpecT: ChainSpec>(
+fn first_in_first_out_comparator<ChainSpecT: RuntimeSpec>(
     lhs: &OrderedTransaction<ChainSpecT>,
     rhs: &OrderedTransaction<ChainSpecT>,
 ) -> Ordering {
     lhs.order_id().cmp(&rhs.order_id())
 }
 
-fn priority_comparator<ChainSpecT: ChainSpec>(
+fn priority_comparator<ChainSpecT: RuntimeSpec>(
     lhs: &OrderedTransaction<ChainSpecT>,
     rhs: &OrderedTransaction<ChainSpecT>,
     base_fee: Option<U256>,

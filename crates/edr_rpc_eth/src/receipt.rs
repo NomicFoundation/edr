@@ -2,11 +2,10 @@ use std::marker::PhantomData;
 
 use edr_eth::{
     eips::eip2718::TypedEnvelope,
-    env::SignedAuthorization,
     log::FilterLog,
     receipt::{self, Execution, Receipt as _, TransactionReceipt},
     transaction::{self, TransactionType as _},
-    Address, Bloom, SpecId, B256, U256,
+    Address, Bloom, SignedAuthorization, SpecId, B256, U256,
 };
 use serde::{Deserialize, Serialize};
 
@@ -189,7 +188,7 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
 mod test {
     use assert_json_diff::assert_json_eq;
     use edr_eth::{
-        chain_spec::L1ChainSpec, eips::eip2718::TypedEnvelope, log::ExecutionLog, Bloom, Bytes,
+        eips::eip2718::TypedEnvelope, log::ExecutionLog, spec::L1ChainSpec, Bloom, Bytes,
     };
     use serde_json::json;
 

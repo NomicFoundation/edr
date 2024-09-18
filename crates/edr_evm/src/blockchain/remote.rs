@@ -11,7 +11,7 @@ use tokio::runtime;
 
 use super::storage::SparseBlockchainStorage;
 use crate::{
-    blockchain::ForkedBlockchainError, chain_spec::ChainSpec,
+    blockchain::ForkedBlockchainError, spec::RuntimeSpec,
     transaction::remote::EthRpcTransaction as _, Block, BlockReceipt, EthRpcBlock as _,
     RemoteBlock,
 };
@@ -20,7 +20,7 @@ use crate::{
 pub struct RemoteBlockchain<BlockT, ChainSpecT, const FORCE_CACHING: bool>
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     client: Arc<EthRpcClient<ChainSpecT>>,
     cache: RwLock<SparseBlockchainStorage<BlockT, ChainSpecT>>,
@@ -31,7 +31,7 @@ impl<BlockT, ChainSpecT, const FORCE_CACHING: bool>
     RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>
 where
     BlockT: Block<ChainSpecT> + Clone + From<RemoteBlock<ChainSpecT>>,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     /// Constructs a new instance with the provided RPC client.
     pub fn new(client: Arc<EthRpcClient<ChainSpecT>>, runtime: runtime::Handle) -> Self {
@@ -261,7 +261,7 @@ where
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_eth::spec::L1ChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;

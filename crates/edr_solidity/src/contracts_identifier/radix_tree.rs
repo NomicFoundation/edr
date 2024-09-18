@@ -121,14 +121,14 @@ impl RadixNode {
         }
     }
 
-    /**
-     * Returns a tuple containing:
-     * - a boolean indicating if the word was matched exactly
-     * - the number of bytes matched
-     * - the node that matched the word
-     * If the word is not matched exactly, the node will be the one that
-     * matched the longest prefix.
-     */
+    /// Returns a tuple containing:
+    ///
+    /// - a boolean indicating if the word was matched exactly
+    /// - the number of bytes matched
+    /// - the node that matched the word
+    ///
+    /// If the word is not matched exactly, the node will be the one that
+    /// matched the longest prefix.
     pub fn longest_match(&self, word: &[u8]) -> (bool, usize, &RadixNode) {
         let prefix_length = longest_prefix_length(word, &self.content);
 

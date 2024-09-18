@@ -29,7 +29,7 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace<ChainSpecT>), ProviderError<ChainSpecT>> {
+) -> Result<(Bytes, Trace<ChainSpecT::HaltReason>), ProviderError<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =
@@ -44,11 +44,11 @@ pub fn handle_call_request<
         .map_err(ProviderError::Logger)?;
 
     if data.bail_on_call_failure() {
-        if let Some(failure) = TransactionFailure::<ChainSpecT>::from_execution_result::<
-            ChainSpecT,
-            TimerT,
-        >(&result.execution_result, None, &result.trace)
-        {
+        if let Some(failure) = TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
+            &result.execution_result,
+            None,
+            &result.trace,
+        ) {
             return Err(ProviderError::TransactionFailed(
                 crate::error::TransactionFailureWithTraces {
                     failure,

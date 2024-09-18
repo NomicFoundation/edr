@@ -8,8 +8,8 @@ use std::{
 
 use anyhow::Context;
 use derive_where::derive_where;
-use edr_eth::chain_spec::L1ChainSpec;
-use edr_evm::{blockchain::BlockchainError, chain_spec::ChainSpec};
+use edr_eth::spec::L1ChainSpec;
+use edr_evm::{blockchain::BlockchainError, spec::RuntimeSpec};
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use flate2::bufread::GzDecoder;
@@ -182,11 +182,11 @@ async fn load_json(
 }
 
 #[derive_where(Clone, Default)]
-struct DisabledLogger<ChainSpecT: ChainSpec> {
+struct DisabledLogger<ChainSpecT: RuntimeSpec> {
     _phantom: PhantomData<ChainSpecT>,
 }
 
-impl<ChainSpecT: ChainSpec<Hardfork: Debug>> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec<Hardfork: Debug>> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
     type BlockchainError = BlockchainError<L1ChainSpec>;
 
     fn is_enabled(&self) -> bool {

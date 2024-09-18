@@ -1,6 +1,4 @@
-use crate::{
-    block::Header, chain_spec::EthHeaderConstants, trie::KECCAK_RLP_EMPTY_ARRAY, SpecId, U256,
-};
+use crate::{block::Header, spec::EthHeaderConstants, trie::KECCAK_RLP_EMPTY_ARRAY, SpecId, U256};
 
 fn bomb_delay(spec_id: SpecId) -> u64 {
     match spec_id {

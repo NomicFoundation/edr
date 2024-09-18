@@ -228,7 +228,7 @@ mod tests {
         str::FromStr,
     };
 
-    use edr_eth::{chain_spec::L1ChainSpec, PreEip1898BlockSpec};
+    use edr_eth::{spec::L1ChainSpec, PreEip1898BlockSpec};
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;

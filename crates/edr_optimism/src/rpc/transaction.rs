@@ -8,7 +8,7 @@ use edr_evm::{
 use edr_rpc_eth::{
     RpcTypeFrom, TransactionConversionError as L1ConversionError, TransactionWithSignature,
 };
-use revm::optimism::{OptimismSpecId, OptimismTransaction};
+use revm_optimism::{OptimismSpecId, OptimismTransaction};
 
 use super::Transaction;
 use crate::{transaction, OptimismChainSpec};

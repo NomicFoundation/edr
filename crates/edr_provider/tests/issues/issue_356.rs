@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Context;
-use edr_eth::{chain_spec::L1ChainSpec, Address, Bytes, SpecId};
+use edr_eth::{spec::L1ChainSpec, Address, Bytes, SpecId};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,

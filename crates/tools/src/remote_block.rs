@@ -2,12 +2,12 @@ use core::fmt::Debug;
 
 use clap::ValueEnum;
 use edr_eth::{
-    chain_spec::L1ChainSpec, log::FilterLog, result::InvalidTransaction,
+    log::FilterLog, result::InvalidTransaction, spec::L1ChainSpec,
     transaction::TransactionValidation,
 };
 use edr_evm::test_utils::run_full_block;
 use edr_optimism::OptimismChainSpec;
-use edr_provider::spec::SyncChainSpec;
+use edr_provider::spec::SyncRuntimeSpec;
 use edr_rpc_eth::client::EthRpcClient;
 
 #[derive(Clone, ValueEnum)]
@@ -43,7 +43,7 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
 ) -> anyhow::Result<()>
 where
     ChainSpecT: Debug
-        + SyncChainSpec<
+        + SyncRuntimeSpec<
             Block: Default,
             Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,

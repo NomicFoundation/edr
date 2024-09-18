@@ -2,6 +2,7 @@ use core::{cmp, fmt::Debug};
 
 use edr_eth::{
     block::Header,
+    env::CfgEnv,
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut, TransactionValidation},
@@ -9,8 +10,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    chain_spec::{ChainSpec, SyncChainSpec},
-    evm::handler::CfgEnvWithEvmWiring,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
     DebugContext, SyncBlock,
@@ -22,16 +22,17 @@ use crate::{
     ProviderError,
 };
 
-pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncChainSpec> {
+pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithEvmWiring<ChainSpecT>,
+    pub cfg_env: CfgEnv,
+    pub hardfork: ChainSpecT::Hardfork,
     pub transaction: ChainSpecT::Transaction,
     pub gas_limit: u64,
     pub precompiles: &'a HashMap<Address, Precompile>,
-    pub trace_collector: &'a mut TraceCollector<ChainSpecT>,
+    pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
@@ -41,7 +42,7 @@ pub(super) fn check_gas_limit<ChainSpecT>(
     args: CheckGasLimitArgs<'_, ChainSpecT>,
 ) -> Result<bool, ProviderError<ChainSpecT>>
 where
-    ChainSpecT: SyncChainSpec<
+    ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
         Transaction: Default
@@ -55,6 +56,7 @@ where
         state,
         state_overrides,
         cfg_env,
+        hardfork,
         mut transaction,
         gas_limit,
         precompiles,
@@ -69,6 +71,7 @@ where
         state,
         state_overrides,
         cfg_env,
+        hardfork,
         transaction,
         precompiles,
         debug_context: Some(DebugContext {
@@ -80,17 +83,18 @@ where
     Ok(matches!(result, ExecutionResult::Success { .. }))
 }
 
-pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncChainSpec> {
+pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithEvmWiring<ChainSpecT>,
+    pub cfg_env: CfgEnv,
+    pub hardfork: ChainSpecT::Hardfork,
     pub transaction: ChainSpecT::Transaction,
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub precompiles: &'a HashMap<Address, Precompile>,
-    pub trace_collector: &'a mut TraceCollector<ChainSpecT>,
+    pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
@@ -100,7 +104,7 @@ pub(super) fn binary_search_estimation<ChainSpecT>(
     args: BinarySearchEstimationArgs<'_, ChainSpecT>,
 ) -> Result<u64, ProviderError<ChainSpecT>>
 where
-    ChainSpecT: SyncChainSpec<
+    ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
         Transaction: Default
@@ -116,6 +120,7 @@ where
         state,
         state_overrides,
         cfg_env,
+        hardfork,
         transaction,
         mut lower_bound,
         mut upper_bound,
@@ -140,6 +145,7 @@ where
             state,
             state_overrides,
             cfg_env: cfg_env.clone(),
+            hardfork,
             transaction: transaction.clone(),
             gas_limit: mid,
             precompiles,
@@ -177,7 +183,7 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+pub(super) fn compute_rewards<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     reward_percentiles: &[RewardPercentile],
 ) -> Result<Vec<U256>, ProviderError<ChainSpecT>> {

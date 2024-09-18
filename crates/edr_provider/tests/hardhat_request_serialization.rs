@@ -1,6 +1,6 @@
 mod common;
 
-use edr_eth::{chain_spec::L1ChainSpec, Address, Bytes, B256, U160, U256};
+use edr_eth::{spec::L1ChainSpec, Address, Bytes, B256, U160, U256};
 use edr_provider::{
     hardhat_rpc_types::{CompilerInput, CompilerOutput, ForkConfig, ResetProviderConfig},
     MethodInvocation,

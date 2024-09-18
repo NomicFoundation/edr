@@ -1,4 +1,4 @@
-use edr_eth::chain_spec::L1ChainSpec;
+use edr_eth::spec::L1ChainSpec;
 use edr_provider::{test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider};
 use serde_json::json;
 use tokio::runtime;

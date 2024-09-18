@@ -6,7 +6,7 @@ use edr_eth::{
     MAX_INITCODE_SIZE, U256,
 };
 use edr_evm::{
-    chain_spec::ChainSpec,
+    spec::RuntimeSpec,
     transaction::{self, Transaction},
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
@@ -171,7 +171,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-fn validate_transaction_spec<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+fn validate_transaction_spec<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     spec_id: SpecId,
     value: &impl HardforkValidationData,
 ) -> Result<(), ProviderError<ChainSpecT>> {
@@ -242,7 +242,7 @@ fn validate_transaction_spec<ChainSpecT: ChainSpec<Hardfork: Debug>>(
 }
 
 /// Validates a `CallRequest` and `BlockSpec` against the provided hardfork.
-pub fn validate_call_request<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+pub fn validate_call_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     spec_id: SpecId,
     call_request: &CallRequest,
     block_spec: &BlockSpec,
@@ -268,7 +268,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-pub(crate) fn validate_transaction_and_call_request<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+pub(crate) fn validate_transaction_and_call_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     spec_id: SpecId,
     validation_data: &impl HardforkValidationData,
 ) -> Result<(), ProviderError<ChainSpecT>> {
@@ -286,7 +286,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     spec_id: SpecId,
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
@@ -337,7 +337,7 @@ impl<'a> From<ValidationBlockSpec<'a>> for BlockSpec {
     }
 }
 
-pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: ChainSpec<Hardfork: Debug>>(
+pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     hardfork: SpecId,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
 ) -> Result<(), ProviderError<ChainSpecT>> {
@@ -364,7 +364,7 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: ChainSpec<Hardfork:
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_eth::spec::L1ChainSpec;
 
     use super::*;
 

@@ -25,7 +25,7 @@ use super::{
     Blockchain, BlockchainError, BlockchainMut,
 };
 use crate::{
-    chain_spec::SyncChainSpec,
+    spec::SyncRuntimeSpec,
     state::{StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
@@ -79,7 +79,7 @@ impl From<GenesisBlockOptions> for BlockOptions {
 #[derive_where(Debug; ChainSpecT::Hardfork)]
 pub struct LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     storage: ReservableSparseBlockchainStorage<
         Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
@@ -91,7 +91,7 @@ where
 
 impl<ChainSpecT> LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     /// Constructs a new instance using the provided arguments to build a
     /// genesis block.
@@ -219,7 +219,7 @@ where
 
 impl<ChainSpecT> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     type BlockchainError = BlockchainError<ChainSpecT>;
 
@@ -343,7 +343,7 @@ where
 
 impl<ChainSpecT> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec<Hardfork: Debug>,
+    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
 {
     type Error = BlockchainError<ChainSpecT>;
 
@@ -413,7 +413,7 @@ where
 
 impl<ChainSpecT> BlockHashRef for LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     type Error = BlockchainError<ChainSpecT>;
 
@@ -428,7 +428,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{chain_spec::L1ChainSpec, AccountInfo, HashMap};
+    use edr_eth::{spec::L1ChainSpec, AccountInfo, HashMap};
     use revm::primitives::{Account, AccountStatus};
 
     use super::*;

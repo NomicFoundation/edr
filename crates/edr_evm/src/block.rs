@@ -24,7 +24,7 @@ pub use self::{
     local::LocalBlock,
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
 };
-use crate::chain_spec::ChainSpec;
+use crate::spec::RuntimeSpec;
 
 /// A block receipt with filter logs for the specified RPC specification.
 pub type BlockReceipt<RpcSpecT> = edr_eth::receipt::BlockReceipt<
@@ -33,7 +33,7 @@ pub type BlockReceipt<RpcSpecT> = edr_eth::receipt::BlockReceipt<
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]
-pub trait Block<ChainSpecT: ChainSpec>: Debug {
+pub trait Block<ChainSpecT: RuntimeSpec>: Debug {
     /// The blockchain error type.
     type Error;
 
@@ -62,19 +62,19 @@ pub trait Block<ChainSpecT: ChainSpec>: Debug {
 /// Trait that meets all requirements for a synchronous block.
 pub trait SyncBlock<ChainSpecT>: Block<ChainSpecT> + Send + Sync
 where
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
 }
 
 impl<BlockT, ChainSpecT> SyncBlock<ChainSpecT> for BlockT
 where
     BlockT: Block<ChainSpecT> + Send + Sync,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
 }
 
 /// A type containing the relevant data for an Ethereum block.
-pub struct EthBlockData<ChainSpecT: ChainSpec> {
+pub struct EthBlockData<ChainSpecT: RuntimeSpec> {
     /// The block's header.
     pub header: edr_eth::block::Header,
     /// The block's transactions.
@@ -89,7 +89,7 @@ pub struct EthBlockData<ChainSpecT: ChainSpec> {
     pub rlp_size: u64,
 }
 
-impl<ChainSpecT: ChainSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransaction>>
+impl<ChainSpecT: RuntimeSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransaction>>
     for EthBlockData<ChainSpecT>
 {
     type Error = RemoteBlockConversionError<ChainSpecT>;
@@ -154,14 +154,14 @@ impl<ChainSpecT: ChainSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransactio
 
 /// The result returned by requesting a block by number.
 #[derive_where(Clone, Debug)]
-pub struct BlockAndTotalDifficulty<ChainSpecT: ChainSpec, BlockchainErrorT> {
+pub struct BlockAndTotalDifficulty<ChainSpecT: RuntimeSpec, BlockchainErrorT> {
     /// The block
     pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
     /// The total difficulty with the block
     pub total_difficulty: Option<U256>,
 }
 
-impl<BlockchainErrorT, ChainSpecT: ChainSpec>
+impl<BlockchainErrorT, ChainSpecT: RuntimeSpec>
     From<BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>> for edr_rpc_eth::Block<B256>
 {
     fn from(value: BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>) -> Self {

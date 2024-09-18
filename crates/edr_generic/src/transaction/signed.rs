@@ -1,6 +1,9 @@
-use edr_eth::transaction::{self, ExecutableTransaction, TransactionMut, TransactionType};
-use revm_primitives::{
-    AccessListItem, Address, AuthorizationList, Bytes, TransactionValidation, TxKind, B256, U256,
+use edr_eth::{
+    transaction::{
+        self, AuthorizationList, ExecutableTransaction, Transaction, TransactionMut,
+        TransactionType, TransactionValidation, TxKind,
+    },
+    AccessListItem, Address, Bytes, B256, U256,
 };
 
 /// The type of transaction.
@@ -93,7 +96,7 @@ impl TransactionValidation for SignedWithFallbackToPostEip155 {
     type ValidationError = <transaction::Signed as TransactionValidation>::ValidationError;
 }
 
-impl revm_primitives::Transaction for SignedWithFallbackToPostEip155 {
+impl Transaction for SignedWithFallbackToPostEip155 {
     fn caller(&self) -> &Address {
         self.0.caller()
     }

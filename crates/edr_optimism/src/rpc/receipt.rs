@@ -6,7 +6,7 @@ use edr_eth::{
     transaction::TransactionType as _,
 };
 use edr_rpc_eth::RpcTypeFrom;
-use revm::optimism::OptimismSpecId;
+use revm_optimism::OptimismSpecId;
 
 use super::BlockReceipt;
 use crate::{eip2718::TypedEnvelope, receipt, transaction};

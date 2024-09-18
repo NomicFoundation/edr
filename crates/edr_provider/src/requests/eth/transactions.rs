@@ -13,8 +13,7 @@ use edr_eth::{
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainError,
-    chain_spec::ChainSpec,
-    trace::Trace,
+    spec::RuntimeSpec,
     transaction, SyncBlock,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
@@ -28,7 +27,7 @@ use crate::{
     },
     spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, TransactionFailure,
+    ProviderError, ProviderResultWithTraces, TransactionFailure,
 };
 
 pub fn handle_get_transaction_by_block_hash_and_index<
@@ -112,7 +111,7 @@ pub fn handle_pending_transactions<
     Ok(transactions)
 }
 
-fn rpc_index_to_usize<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+fn rpc_index_to_usize<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     index: &U256,
 ) -> Result<usize, ProviderError<ChainSpecT>> {
     index
@@ -148,7 +147,7 @@ pub fn handle_get_transaction_receipt<
     Ok(receipt.map(|receipt| ChainSpecT::RpcReceipt::rpc_type_from(&receipt, data.hardfork())))
 }
 
-fn transaction_from_block<ChainSpecT: ChainSpec>(
+fn transaction_from_block<ChainSpecT: RuntimeSpec>(
     block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
     transaction_index: usize,
     is_pending: bool,
@@ -180,7 +179,7 @@ pub fn handle_send_transaction_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ChainSpecT::RpcTransactionRequest,
-) -> Result<(B256, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<B256, ChainSpecT> {
     let sender = *request.sender();
 
     let context = TransactionContext { data };
@@ -207,7 +206,7 @@ pub fn handle_send_raw_transaction_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     raw_transaction: Bytes,
-) -> Result<(B256, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<B256, ChainSpecT> {
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     ChainSpecT::PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
@@ -241,7 +240,7 @@ fn send_raw_transaction_and_log<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     signed_transaction: ChainSpecT::Transaction,
-) -> Result<(B256, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<B256, ChainSpecT> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
     let hardfork = data.hardfork();
@@ -254,7 +253,7 @@ fn send_raw_transaction_and_log<
             result
                 .transaction_result_and_trace()
                 .and_then(|(execution_result, trace)| {
-                    TransactionFailure::<ChainSpecT>::from_execution_result::<ChainSpecT, TimerT>(
+                    TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
                         execution_result,
                         Some(&result.transaction_hash),
                         trace,

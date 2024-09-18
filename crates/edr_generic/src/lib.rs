@@ -8,7 +8,7 @@ mod transaction;
 
 /// The chain specification for Ethereum Layer 1 that is a bit more lenient
 /// and allows for more flexibility in contrast to
-/// [`L1ChainSpec`](edr_eth::chain_spec::L1ChainSpec).
+/// [`L1ChainSpec`](edr_eth::spec::L1ChainSpec).
 ///
 /// Specifically:
 /// - it allows unknown transaction types (treats them as legacy

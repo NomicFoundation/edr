@@ -4,10 +4,10 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.75"
-alloy-eips = { version = "0.2", default-features = false }
+anyhow = "1.0.89"
+alloy-eips = { version = "0.3", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
-c-kzg = { version = "1.0.2", default-features = false }
+c-kzg = { version = "1.0.3", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
@@ -16,9 +16,9 @@ hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 itertools = { version = "0.10.5", default-features = false, features = ["use_alloc"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", ] }
 log = { version = "0.4.17", default-features = false }
-once_cell = { version = "1.18.0", default-features = false, features = ["alloc", "race", "std"] }
-revm = { git = "https://github.com/Wodann/revm", rev = "a500675", version = "12.1", default-features = false, features = ["c-kzg", "dev", "serde"] }
-revm-primitives = { git = "https://github.com/Wodann/revm", rev = "a500675", version = "7.1", default-features = false, features = ["c-kzg", "hashbrown"] }
+once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "race", "std"] }
+revm = { git = "https://github.com/Wodann/revm", rev = "f260074", version = "14.0", default-features = false, features = ["c-kzg", "dev", "serde"] }
+revm-primitives = { git = "https://github.com/Wodann/revm", rev = "f260074", version = "9.0", default-features = false, features = ["c-kzg", "hashbrown", "rand"] }
 serde = { version = "1.0.209", default-features = false, features = ["derive"], optional = true }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
@@ -27,7 +27,7 @@ tracing = { version = "0.1.37", features = ["attributes", "std"], optional = tru
 triehash = { version = "0.8.4", default-features = false }
 
 [dev-dependencies]
-anyhow = "1.0.75"
+anyhow = "1.0.89"
 assert-json-diff = "2.0.2"
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
@@ -41,7 +41,6 @@ tokio = { version = "1.23.0", features = ["macros"] }
 
 [features]
 default = ["std"]
-rand = ["revm-primitives/rand"]
 serde = ["dep:serde", "c-kzg/serde", "revm/serde", "revm-primitives/serde"]
 std = ["alloy-eips/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm/std", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
 test-remote = []

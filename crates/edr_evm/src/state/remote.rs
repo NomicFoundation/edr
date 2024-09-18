@@ -16,7 +16,7 @@ use revm::{
 use tokio::runtime;
 
 use super::StateError;
-use crate::{chain_spec::ChainSpec, EthRpcBlock as _};
+use crate::{spec::RuntimeSpec, EthRpcBlock as _};
 
 /// A state backed by a remote Ethereum node
 #[derive_where(Debug)]
@@ -60,7 +60,7 @@ impl<ChainSpecT: RpcSpec> RemoteState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: ChainSpec> RemoteState<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> RemoteState<ChainSpecT> {
     /// Retrieve the state root of the given block, if it exists.
     pub fn state_root(&self, block_number: u64) -> Result<Option<B256>, RpcClientError> {
         Ok(tokio::task::block_in_place(move || {
@@ -112,7 +112,7 @@ impl<ChainSpecT: RpcSpec> StateRef for RemoteState<ChainSpecT> {
 mod tests {
     use std::str::FromStr;
 
-    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_eth::spec::L1ChainSpec;
     use tokio::runtime;
 
     use super::*;

@@ -9,7 +9,7 @@ use napi::{
 };
 
 #[derive_where(Clone)]
-pub struct Callback<ChainSpecT: ProviderSpec<CurrentTime>> {
+pub struct Callback<ChainSpecT: ProviderSpec<CurrentTime> + 'static> {
     inner: ThreadsafeFunction<SubscriptionEvent<ChainSpecT>, ErrorStrategy::Fatal>,
 }
 

@@ -9,13 +9,13 @@ pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Legacy
 use edr_eth::{
     signature::{Fakeable, Signature},
     transaction::{
-        ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, MaybeSignedTransaction,
-        Transaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
+        AuthorizationList, ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy,
+        MaybeSignedTransaction, Transaction, TransactionMut, TransactionType,
+        TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Address, Bytes, B256, U256,
 };
-use revm::optimism::{OptimismInvalidTransaction, OptimismTransaction};
+use revm_optimism::{OptimismInvalidTransaction, OptimismTransaction};
 
 use super::Signed;
 
@@ -417,7 +417,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&edr_eth::env::AuthorizationList> {
+    fn authorization_list(&self) -> Option<&AuthorizationList> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),

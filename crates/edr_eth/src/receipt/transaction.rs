@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use alloy_rlp::BufMut;
-use revm_primitives::{EvmWiring, ExecutionResult, Output};
+use revm_primitives::{ExecutionResult, HaltReasonTrait, HardforkTrait, Output};
 
 use super::{MapReceiptLogs, Receipt};
 use crate::{
@@ -50,16 +50,17 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
 impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
     /// Constructs a new instance using the provided execution receipt an
     /// transaction
-    pub fn new<ChainSpecT>(
+    pub fn new<HaltReasonT, HardforkT>(
         execution_receipt: ExecutionReceiptT,
         transaction: &(impl Transaction + ExecutableTransaction),
-        result: &ExecutionResult<ChainSpecT>,
+        result: &ExecutionResult<HaltReasonT>,
         transaction_index: u64,
         block_base_fee: U256,
-        hardfork: ChainSpecT::Hardfork,
+        hardfork: HardforkT,
     ) -> Self
     where
-        ChainSpecT: EvmWiring,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: HardforkTrait,
     {
         let contract_address = if let ExecutionResult::Success {
             output: Output::Create(_, address),

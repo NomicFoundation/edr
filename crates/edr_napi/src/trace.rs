@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use edr_eth::result::HaltReason;
 use edr_evm::{interpreter::OpCode, trace::BeforeMessage};
-use edr_generic::GenericChainSpec;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Env, JsBuffer, JsBufferValue,
@@ -153,11 +153,11 @@ pub struct TracingMessageResult {
 #[napi]
 #[derive(Clone)]
 pub struct RawTrace {
-    inner: Arc<edr_evm::trace::Trace<GenericChainSpec>>,
+    inner: Arc<edr_evm::trace::Trace<HaltReason>>,
 }
 
-impl From<Arc<edr_evm::trace::Trace<GenericChainSpec>>> for RawTrace {
-    fn from(value: Arc<edr_evm::trace::Trace<GenericChainSpec>>) -> Self {
+impl From<Arc<edr_evm::trace::Trace<HaltReason>>> for RawTrace {
+    fn from(value: Arc<edr_evm::trace::Trace<HaltReason>>) -> Self {
         Self { inner: value }
     }
 }

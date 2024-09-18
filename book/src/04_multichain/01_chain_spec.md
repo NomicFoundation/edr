@@ -10,11 +10,11 @@ This is achieved through the usage of multiple traits, some of which are supertr
   - Adds an additional function to `revm_primitives::EvmWiring` that depends on the `Evm`.
 - Header builder: `edr_eth::EthHeaderConstants`
 - RPC client: `edr_rpc_eth::RpcSpec`
-- EVM runtime: `edr_evm::ChainSpec`
+- EVM runtime: `edr_evm::RuntimeSpec`
 - EVM provider: `edr_provider::ProviderSpec`
 - EDR N-API bindings: `edr_napi::SyncNapiSpec`
 
-Most of these traits have a `Sync*` equivalent (e.g. `SyncChainSpec`) which is automatically implemented for types that are `Send` and `Sync`.
+Most of these traits have a `Sync*` equivalent (e.g. `SyncRuntimeSpec`) which is automatically implemented for types that are `Send` and `Sync`.
 
 ## Supported Chain Types
 

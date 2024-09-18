@@ -82,7 +82,7 @@ impl<'de, ChainSpecT: RpcSpec> Deserialize<'de> for ProviderRequest<ChainSpecT> 
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::chain_spec::L1ChainSpec;
+    use edr_eth::spec::L1ChainSpec;
 
     use super::*;
 

@@ -4,7 +4,8 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
-alloy-serde = { version = "0.2.0", default-features = false, features = ["std"] }
+alloy-eips = { version = "0.3", default-features = false }
+alloy-serde = { version = "0.3.5", default-features = false, features = ["std"] }
 derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_rpc_client = { version = "0.3.5", path = "../edr_rpc_client" }
@@ -17,7 +18,7 @@ tokio = { version = "1.21.2", default-features = false, features = ["macros"] }
 tracing = { version = "0.1.37", default-features = false, features = ["attributes", "std"], optional = true }
 
 [dev-dependencies]
-anyhow = { version = "1.0.75", default-features = false, features = ["std"] }
+anyhow = { version = "1.0.89", default-features = false, features = ["std"] }
 assert-json-diff = "2.0.2"
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 mockito = { version = "1.0.2", default-features = false }

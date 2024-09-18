@@ -2,30 +2,35 @@ use core::fmt::Debug;
 
 use edr_eth::{
     block::Header,
+    env::CfgEnv,
     result::{ExecutionResult, InvalidTransaction},
     transaction::TransactionValidation,
     Address, HashMap, Precompile, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
-    chain_spec::{BlockEnvConstructor as _, ChainSpec, SyncChainSpec},
-    evm::handler::CfgEnvWithEvmWiring,
     guaranteed_dry_run,
+    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
     DebugContext,
 };
 
 use crate::ProviderError;
 
-pub(super) struct RunCallArgs<'a, 'evm, ChainSpecT: ChainSpec, DebugDataT>
-where
+pub(super) struct RunCallArgs<
+    'a,
+    'evm,
+    ChainSpecT: RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    DebugDataT,
+> where
     'a: 'evm,
 {
     pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnvWithEvmWiring<ChainSpecT>,
+    pub cfg_env: CfgEnv,
+    pub hardfork: ChainSpecT::Hardfork,
     pub transaction: ChainSpecT::Transaction,
     pub precompiles: &'a HashMap<Address, Precompile>,
     // `DebugContext` cannot be simplified further
@@ -44,10 +49,10 @@ where
 /// Execute a transaction as a call. Returns the gas used and the output.
 pub(super) fn run_call<'a, 'evm, ChainSpecT, DebugDataT>(
     args: RunCallArgs<'a, 'evm, ChainSpecT, DebugDataT>,
-) -> Result<ExecutionResult<ChainSpecT>, ProviderError<ChainSpecT>>
+) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>>
 where
     'a: 'evm,
-    ChainSpecT: SyncChainSpec<
+    ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
         Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
@@ -59,6 +64,7 @@ where
         state,
         state_overrides,
         cfg_env,
+        hardfork,
         transaction,
         precompiles,
         debug_context,
@@ -68,13 +74,15 @@ where
     let mut header = header.clone();
     header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
 
-    let block = ChainSpecT::Block::new_block_env(&header, cfg_env.spec_id);
+    let block = ChainSpecT::Block::new_block_env(&header, hardfork.into());
+
+    let state_overrider = StateRefOverrider::new(state_overrides, state);
 
     guaranteed_dry_run(
         blockchain,
-        state,
-        state_overrides,
+        state_overrider,
         cfg_env,
+        hardfork,
         transaction,
         block,
         precompiles,

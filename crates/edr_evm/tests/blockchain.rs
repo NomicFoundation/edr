@@ -4,11 +4,11 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_eth::{
     block::PartialHeader,
-    chain_spec::L1ChainSpec,
     eips::eip2718::TypedEnvelope,
     log::{ExecutionLog, FilterLog},
     receipt::{self, ExecutionReceiptBuilder, Receipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
+    spec::L1ChainSpec,
     transaction::ExecutableTransaction as _,
     Address, Bytes, HashSet, SpecId, B256, U256,
 };

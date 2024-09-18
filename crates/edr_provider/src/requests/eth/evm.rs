@@ -3,13 +3,12 @@ use std::num::NonZeroU64;
 use edr_eth::{
     block::BlockOptions, result::InvalidTransaction, transaction::TransactionValidation, U64,
 };
-use edr_evm::trace::Trace;
 
 use crate::{
     data::ProviderData,
     spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, Timestamp,
+    ProviderError, ProviderResultWithTraces, Timestamp,
 };
 
 pub fn handle_increase_time_request<
@@ -38,7 +37,7 @@ pub fn handle_mine_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     timestamp: Option<Timestamp>,
-) -> Result<(String, Vec<Trace<ChainSpecT>>), ProviderError<ChainSpecT>> {
+) -> ProviderResultWithTraces<String, ChainSpecT> {
     let mine_block_result = data.mine_and_commit_block(BlockOptions {
         timestamp: timestamp.map(Into::into),
         ..BlockOptions::default()

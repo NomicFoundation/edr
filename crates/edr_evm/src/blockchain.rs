@@ -21,8 +21,8 @@ pub use self::{
     local::{CreationError as LocalCreationError, GenesisBlockOptions, LocalBlockchain},
 };
 use crate::{
-    chain_spec::{ChainSpec, SyncChainSpec},
     hardfork::Activations,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
@@ -30,7 +30,7 @@ use crate::{
 /// Combinatorial error for the blockchain API.
 #[derive(thiserror::Error)]
 #[derive_where(Debug; ChainSpecT::Hardfork, ChainSpecT::RpcBlockConversionError)]
-pub enum BlockchainError<ChainSpecT: ChainSpec> {
+pub enum BlockchainError<ChainSpecT: RuntimeSpec> {
     /// Forked blockchain error
     #[error(transparent)]
     Forked(#[from] ForkedBlockchainError<ChainSpecT>),
@@ -83,7 +83,7 @@ pub enum BlockchainError<ChainSpecT: ChainSpec> {
 #[auto_impl(&)]
 pub trait Blockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     /// The blockchain's error type
     type BlockchainError;
@@ -187,7 +187,7 @@ where
 }
 
 /// Trait for implementations of a mutable Ethereum blockchain
-pub trait BlockchainMut<ChainSpecT: ChainSpec> {
+pub trait BlockchainMut<ChainSpecT: RuntimeSpec> {
     /// The blockchain's error type
     type Error;
 
@@ -218,7 +218,7 @@ pub trait SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>:
     + Debug
 where
     BlockchainErrorT: Debug + Send,
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
 }
 
@@ -232,11 +232,11 @@ where
         + Sync
         + Debug,
     BlockchainErrorT: Debug + Send,
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
 }
 
-fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: ChainSpec>(
+fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: RuntimeSpec>(
     state: &mut dyn DatabaseCommit,
     local_storage: &ReservableSparseBlockchainStorage<BlockT, ChainSpecT>,
     first_local_block_number: u64,
@@ -271,7 +271,7 @@ fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: ChainSp
 }
 
 /// Validates whether a block is a valid next block.
-fn validate_next_block<ChainSpecT: ChainSpec>(
+fn validate_next_block<ChainSpecT: RuntimeSpec>(
     spec_id: ChainSpecT::Hardfork,
     last_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     next_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,

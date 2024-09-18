@@ -1,7 +1,6 @@
 use alloy_rlp::Encodable;
 use edr_eth::{
-    env::AuthorizationList,
-    transaction::{ExecutableTransaction, Transaction, TxKind},
+    transaction::{AuthorizationList, ExecutableTransaction, Transaction, TxKind},
     utils::enveloped,
     AccessListItem, Address, Bytes, B256, U256,
 };

@@ -27,6 +27,7 @@ use edr_eth::{
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
+    spec::{ChainSpec, HaltReasonTrait},
     state::{Account, EvmStorageSlot},
     transaction::{
         request::TransactionRequestAndSender,
@@ -43,11 +44,9 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
-    chain_spec::{BlockEnvConstructor as _, ChainSpec, SyncChainSpec},
-    debug_trace_transaction,
-    evm::handler::CfgEnvWithEvmWiring,
-    execution_result_to_debug_result, mempool, mine_block, mine_block_with_single_transaction,
-    register_eip_3155_and_raw_tracers_handles,
+    debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
+    mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
+    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
         SyncState,
@@ -96,28 +95,32 @@ const DEFAULT_MAX_CACHED_STATES: usize = 100_000;
 
 /// The result of executing an `eth_call`.
 #[derive(Clone, Debug)]
-pub struct CallResult<ChainSpecT: edr_eth::chain_spec::EvmWiring> {
+pub struct CallResult<HaltReasonT: HaltReasonTrait> {
     pub console_log_inputs: Vec<Bytes>,
-    pub execution_result: ExecutionResult<ChainSpecT>,
-    pub trace: Trace<ChainSpecT>,
+    pub execution_result: ExecutionResult<HaltReasonT>,
+    pub trace: Trace<HaltReasonT>,
 }
 
 #[derive(Clone)]
-pub struct EstimateGasResult<ChainSpecT: edr_eth::chain_spec::EvmWiring> {
+pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
     pub estimation: u64,
-    pub traces: Vec<Trace<ChainSpecT>>,
+    pub traces: Vec<Trace<HaltReasonT>>,
 }
 
-pub struct SendTransactionResult<ChainSpecT: ChainSpec> {
+pub struct SendTransactionResult<ChainSpecT: RuntimeSpec> {
     pub transaction_hash: B256,
     pub mining_results: Vec<DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>>,
 }
 
-impl<ChainSpecT: ChainSpec> SendTransactionResult<ChainSpecT> {
+/// The result of executing a transaction.
+pub type ExecutionResultAndTrace<'provider, ChainSpecT> = (
+    &'provider ExecutionResult<<ChainSpecT as ChainSpec>::HaltReason>,
+    &'provider Trace<<ChainSpecT as ChainSpec>::HaltReason>,
+);
+
+impl<ChainSpecT: RuntimeSpec> SendTransactionResult<ChainSpecT> {
     /// Present if the transaction was auto-mined.
-    pub fn transaction_result_and_trace(
-        &self,
-    ) -> Option<(&ExecutionResult<ChainSpecT>, &Trace<ChainSpecT>)> {
+    pub fn transaction_result_and_trace(&self) -> Option<ExecutionResultAndTrace<'_, ChainSpecT>> {
         self.mining_results.iter().find_map(|result| {
             izip!(
                 result.block.transactions().iter(),
@@ -135,8 +138,8 @@ impl<ChainSpecT: ChainSpec> SendTransactionResult<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: ChainSpec> From<SendTransactionResult<ChainSpecT>>
-    for (B256, Vec<Trace<ChainSpecT>>)
+impl<ChainSpecT: RuntimeSpec> From<SendTransactionResult<ChainSpecT>>
+    for (B256, Vec<Trace<ChainSpecT::HaltReason>>)
 {
     fn from(value: SendTransactionResult<ChainSpecT>) -> Self {
         let SendTransactionResult {
@@ -156,7 +159,7 @@ impl<ChainSpecT: ChainSpec> From<SendTransactionResult<ChainSpecT>>
 #[derive(Debug, thiserror::Error)]
 pub enum CreationError<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// A blockchain error
     #[error(transparent)]
@@ -1216,11 +1219,7 @@ where
     }
 
     /// Creates an EVM configuration with the provided hardfork and chain id
-    fn create_evm_config(
-        &self,
-        hardfork: ChainSpecT::Hardfork,
-        chain_id: u64,
-    ) -> Result<CfgEnvWithEvmWiring<ChainSpecT>, ProviderError<ChainSpecT>> {
+    fn create_evm_config(&self, chain_id: u64) -> CfgEnv {
         let mut cfg_env = CfgEnv::default();
         cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
@@ -1230,7 +1229,7 @@ where
         };
         cfg_env.disable_eip3607 = true;
 
-        Ok(CfgEnvWithEvmWiring::<ChainSpecT>::new(cfg_env, hardfork))
+        cfg_env
     }
 
     /// Creates a configuration, taking into account the hardfork at the
@@ -1238,7 +1237,7 @@ where
     fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<CfgEnvWithEvmWiring<ChainSpecT>, ProviderError<ChainSpecT>> {
+    ) -> Result<(CfgEnv, ChainSpecT::Hardfork), ProviderError<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         let spec_id = if let Some(block_number) = block_number {
@@ -1253,7 +1252,8 @@ where
             self.blockchain.chain_id()
         };
 
-        self.create_evm_config(spec_id, chain_id)
+        let cfg = self.create_evm_config(chain_id);
+        Ok((cfg, spec_id))
     }
 
     fn current_state(
@@ -1291,9 +1291,10 @@ where
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
-            &CfgEnvWithEvmWiring<ChainSpecT>,
+            &CfgEnv,
+            ChainSpecT::Hardfork,
             BlockOptions,
-            &mut Debugger<ChainSpecT>,
+            &mut Debugger<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<ChainSpecT, StateError>,
             ProviderError<ChainSpecT>,
@@ -1351,9 +1352,10 @@ where
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
-            &CfgEnvWithEvmWiring<ChainSpecT>,
+            &CfgEnv,
+            ChainSpecT::Hardfork,
             BlockOptions,
-            &mut Debugger<ChainSpecT>,
+            &mut Debugger<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<ChainSpecT, StateError>,
             ProviderError<ChainSpecT>,
@@ -1365,14 +1367,15 @@ where
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
-        let evm_config =
-            self.create_evm_config(self.blockchain.spec_id(), self.blockchain.chain_id())?;
+        let evm_config = self.create_evm_config(self.blockchain.chain_id());
+        let hardfork = self.blockchain.spec_id();
 
-        if options.mix_hash.is_none() && evm_config.spec_id.into() >= SpecId::MERGE {
+        let evm_spec_id = hardfork.into();
+        if options.mix_hash.is_none() && evm_spec_id >= SpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
         }
 
-        if evm_config.spec_id.into() >= SpecId::CANCUN {
+        if evm_spec_id >= SpecId::CANCUN {
             options.parent_beacon_block_root = options
                 .parent_beacon_block_root
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
@@ -1383,7 +1386,7 @@ where
             self.verbose_tracing,
         );
 
-        let result = mine_fn(self, &evm_config, options, &mut debugger)?;
+        let result = mine_fn(self, &evm_config, hardfork, options, &mut debugger)?;
 
         let Debugger {
             console_logger,
@@ -1695,8 +1698,8 @@ where
         transaction: ChainSpecT::Transaction,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
-        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
+    ) -> Result<DebugTraceResultWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+        let (cfg_env, hardfork) = self.create_evm_config_at_block_spec(block_spec)?;
 
         let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
         let precompiles = self.custom_precompiles.clone();
@@ -1707,7 +1710,8 @@ where
                 header: block.header(),
                 state,
                 state_overrides: &StateOverrides::default(),
-                cfg_env: cfg_env.clone(),
+                cfg_env,
+                hardfork,
                 transaction,
                 precompiles: &precompiles,
                 debug_context: Some(DebugContext {
@@ -2102,8 +2106,8 @@ where
         transaction: ChainSpecT::Transaction,
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
-    ) -> Result<CallResult<ChainSpecT>, ProviderError<ChainSpecT>> {
-        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
+    ) -> Result<CallResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+        let (cfg_env, hardfork) = self.create_evm_config_at_block_spec(block_spec)?;
 
         let mut debugger = Debugger::with_mocker(
             Mocker::new(self.call_override.clone()),
@@ -2118,6 +2122,7 @@ where
                 state,
                 state_overrides,
                 cfg_env,
+                hardfork,
                 transaction,
                 precompiles: &precompiles,
                 debug_context: Some(DebugContext {
@@ -2183,9 +2188,10 @@ where
 
     fn mine_block_with_mem_pool(
         &mut self,
-        config: &CfgEnvWithEvmWiring<ChainSpecT>,
+        config: &CfgEnv,
+        hardfork: ChainSpecT::Hardfork,
         options: BlockOptions,
-        debugger: &mut Debugger<ChainSpecT>,
+        debugger: &mut Debugger<ChainSpecT::HaltReason>,
     ) -> Result<MineBlockResultAndState<ChainSpecT, StateError>, ProviderError<ChainSpecT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block(
@@ -2193,10 +2199,11 @@ where
             state_to_be_modified,
             &self.mem_pool,
             config,
+            hardfork,
             options,
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
-            miner_reward(config.spec_id.into()).unwrap_or(U256::ZERO),
+            miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
             Some(DebugContext {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
@@ -2209,10 +2216,11 @@ where
     /// Mines a block with the provided transaction.
     fn mine_block_with_single_transaction(
         &mut self,
-        config: &CfgEnvWithEvmWiring<ChainSpecT>,
+        config: &CfgEnv,
+        hardfork: ChainSpecT::Hardfork,
         options: BlockOptions,
         transaction: ChainSpecT::Transaction,
-        debugger: &mut Debugger<ChainSpecT>,
+        debugger: &mut Debugger<ChainSpecT::HaltReason>,
     ) -> Result<MineBlockResultAndState<ChainSpecT, StateError>, ProviderError<ChainSpecT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block_with_single_transaction(
@@ -2220,9 +2228,10 @@ where
             state_to_be_modified,
             transaction,
             config,
+            hardfork,
             options,
             self.min_gas_price,
-            miner_reward(config.spec_id.into()).unwrap_or(U256::ZERO),
+            miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
             Some(DebugContext {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
@@ -2262,9 +2271,10 @@ where
             self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
             let result = self.mine_and_commit_block_impl(
-                move |provider, config, options, debugger| {
+                move |provider, config, hardfork, options, debugger| {
                     provider.mine_block_with_single_transaction(
                         config,
+                        hardfork,
                         options,
                         transaction,
                         debugger,
@@ -2287,13 +2297,13 @@ where
             None
         };
 
-        let transaction_hash = self.add_pending_transaction(transaction).map_err(|error| {
-            if let Some(snapshot_id) = snapshot_id {
-                self.revert_to_snapshot(snapshot_id);
-            }
-
-            error
-        })?;
+        let transaction_hash = self
+            .add_pending_transaction(transaction)
+            .inspect_err(|_error| {
+                if let Some(snapshot_id) = snapshot_id {
+                    self.revert_to_snapshot(snapshot_id);
+                }
+            })?;
 
         let mut mining_results = Vec::new();
         snapshot_id
@@ -2301,10 +2311,8 @@ where
                 loop {
                     let result = self
                         .mine_and_commit_block(BlockOptions::default())
-                        .map_err(|error| {
+                        .inspect_err(|_error| {
                             self.revert_to_snapshot(snapshot_id);
-
-                            error
                         })?;
 
                     let mined_transaction = result.has_transaction(&transaction_hash);
@@ -2319,10 +2327,8 @@ where
                 while self.mem_pool.has_pending_transactions() {
                     let result = self
                         .mine_and_commit_block(BlockOptions::default())
-                        .map_err(|error| {
+                        .inspect_err(|_error| {
                             self.revert_to_snapshot(snapshot_id);
-
-                            error
                         })?;
 
                     mining_results.push(result);
@@ -2359,7 +2365,7 @@ where
         &mut self,
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithTraces<ChainSpecT>, ProviderError<ChainSpecT>> {
+    ) -> Result<DebugTraceResultWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
         let block = self
             .blockchain
             .block_by_transaction_hash(transaction_hash)?
@@ -2367,7 +2373,8 @@ where
 
         let header = block.header();
 
-        let cfg_env = self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
+        let (cfg_env, hardfork) =
+            self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
 
         let transactions = block.transactions().to_vec();
 
@@ -2378,12 +2385,13 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::Block::new_block_env(header, cfg_env.spec_id);
+                let block_env = ChainSpecT::Block::new_block_env(header, hardfork.into());
 
                 debug_trace_transaction(
                     blockchain,
                     state.clone(),
                     cfg_env,
+                    hardfork,
                     trace_config,
                     block_env,
                     transactions,
@@ -2415,8 +2423,8 @@ where
         &mut self,
         transaction: ChainSpecT::Transaction,
         block_spec: &BlockSpec,
-    ) -> Result<EstimateGasResult<ChainSpecT>, ProviderError<ChainSpecT>> {
-        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
+    ) -> Result<EstimateGasResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+        let (cfg_env, hardfork) = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
         let minimum_cost = transaction::initial_cost(&transaction, self.evm_spec_id());
@@ -2441,6 +2449,7 @@ where
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
+                hardfork,
                 transaction: transaction.clone(),
                 precompiles: &precompiles,
                 debug_context: Some(DebugContext {
@@ -2496,6 +2505,7 @@ where
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
+                hardfork,
                 transaction: transaction.clone(),
                 gas_limit: initial_estimation,
                 precompiles: &precompiles,
@@ -2519,6 +2529,7 @@ where
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
+                hardfork,
                 transaction,
                 lower_bound: initial_estimation,
                 upper_bound: header.gas_limit,
@@ -2544,7 +2555,7 @@ impl StateId {
     }
 }
 
-fn block_time_offset_seconds<ChainSpecT: ChainSpec<Hardfork: Debug>>(
+fn block_time_offset_seconds<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     config: &ProviderConfig<ChainSpecT>,
     timer: &impl TimeSinceEpoch,
 ) -> Result<i64, CreationError<ChainSpecT>> {
@@ -2564,7 +2575,7 @@ fn block_time_offset_seconds<ChainSpecT: ChainSpec<Hardfork: Debug>>(
     })
 }
 
-struct BlockchainAndState<ChainSpecT: SyncChainSpec> {
+struct BlockchainAndState<ChainSpecT: SyncRuntimeSpec> {
     blockchain: Box<dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>>,
     fork_metadata: Option<ForkMetadata>,
     rpc_client: Option<Arc<EthRpcClient<ChainSpecT>>>,
@@ -2575,7 +2586,7 @@ struct BlockchainAndState<ChainSpecT: SyncChainSpec> {
     next_block_base_fee_per_gas: Option<U256>,
 }
 
-fn create_blockchain_and_state<ChainSpecT: SyncChainSpec<Hardfork: Debug>>(
+fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
     runtime: runtime::Handle,
     config: &ProviderConfig<ChainSpecT>,
     timer: &impl TimeSinceEpoch,
@@ -2773,7 +2784,7 @@ fn create_blockchain_and_state<ChainSpecT: SyncChainSpec<Hardfork: Debug>>(
 pub(crate) mod test_utils {
     use anyhow::anyhow;
     use edr_eth::{
-        chain_spec::L1ChainSpec,
+        spec::L1ChainSpec,
         transaction::{self, TxKind},
     };
 
@@ -2916,7 +2927,7 @@ pub(crate) mod test_utils {
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{chain_spec::L1ChainSpec, hex, transaction::ExecutableTransaction as _};
+    use edr_eth::{hex, spec::L1ChainSpec, transaction::ExecutableTransaction as _};
     use edr_evm::MineOrdering;
     use serde_json::json;
 
@@ -3883,6 +3894,7 @@ mod tests {
 
     #[cfg(feature = "test-remote")]
     mod alchemy {
+        use edr_eth::result::HaltReason;
         use edr_evm::impl_full_block_tests;
         use edr_test_utils::env::get_alchemy_url;
 
@@ -3948,7 +3960,7 @@ mod tests {
 
             sol! { function Hello() public pure returns (string); }
 
-            fn assert_decoded_output(result: ExecutionResult<L1ChainSpec>) -> anyhow::Result<()> {
+            fn assert_decoded_output(result: ExecutionResult<HaltReason>) -> anyhow::Result<()> {
                 let output = result.into_output().expect("Call must have output");
                 let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
 
@@ -3964,7 +3976,7 @@ mod tests {
                 data: &mut ProviderData<L1ChainSpec>,
                 block_spec: BlockSpec,
                 request: CallRequest,
-            ) -> Result<CallResult<L1ChainSpec>, ProviderError<L1ChainSpec>> {
+            ) -> Result<CallResult<HaltReason>, ProviderError<L1ChainSpec>> {
                 let state_overrides = StateOverrides::default();
 
                 let transaction =

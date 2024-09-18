@@ -10,14 +10,14 @@ use tokio::runtime;
 use super::BlockReceipt;
 use crate::{
     blockchain::{BlockchainError, ForkedBlockchainError},
-    chain_spec::{ChainSpec, SyncChainSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     Block, EthBlockData, SyncBlock,
 };
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
 #[derive(thiserror::Error)]
 #[derive_where(Debug; ChainSpecT::RpcTransactionConversionError)]
-pub enum ConversionError<ChainSpecT: ChainSpec> {
+pub enum ConversionError<ChainSpecT: RuntimeSpec> {
     /// Missing hash
     #[error("Missing hash")]
     MissingHash,
@@ -40,7 +40,7 @@ pub enum ConversionError<ChainSpecT: ChainSpec> {
 
 /// A remote block, which lazily loads receipts.
 #[derive_where(Clone, Debug; ChainSpecT::Transaction)]
-pub struct RemoteBlock<ChainSpecT: ChainSpec> {
+pub struct RemoteBlock<ChainSpecT: RuntimeSpec> {
     header: Header,
     transactions: Vec<ChainSpecT::Transaction>,
     /// The receipts of the block's transactions
@@ -58,7 +58,7 @@ pub struct RemoteBlock<ChainSpecT: ChainSpec> {
     runtime: runtime::Handle,
 }
 
-impl<ChainSpecT: ChainSpec> RemoteBlock<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> RemoteBlock<ChainSpecT> {
     /// Tries to construct a new instance from a JSON-RPC block.
     pub fn new(
         block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
@@ -81,7 +81,7 @@ impl<ChainSpecT: ChainSpec> RemoteBlock<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
     type Error = BlockchainError<ChainSpecT>;
 
     fn hash(&self) -> &B256 {
@@ -142,7 +142,7 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
 impl<ChainSpecT> From<RemoteBlock<ChainSpecT>>
     for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     fn from(value: RemoteBlock<ChainSpecT>) -> Self {
         Arc::new(value)

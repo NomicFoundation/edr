@@ -1,17 +1,17 @@
 use core::fmt::Debug;
 
-pub use edr_eth::chain_spec::EthHeaderConstants;
+pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
-    chain_spec::L1ChainSpec,
     result::HaltReason,
     rlp,
+    spec::L1ChainSpec,
     transaction::{
         signed::{FakeSign, Sign},
         Transaction,
     },
     AccessListItem, Address, Blob, BlockSpec, B256, U256,
 };
-pub use edr_evm::chain_spec::{ChainSpec, SyncChainSpec};
+pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
     blockchain::BlockchainError, state::StateOverrides, transaction, BlockAndTotalDifficulty,
 };
@@ -20,7 +20,7 @@ use edr_rpc_eth::{CallRequest, TransactionRequest};
 use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, TransactionFailureReason};
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    ChainSpec<
+    RuntimeSpec<
     Hardfork: Debug,
     RpcBlock<B256>: From<BlockAndTotalDifficulty<Self, BlockchainError<Self>>>,
     RpcCallRequest: MaybeSender,
@@ -51,14 +51,14 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     ///
     /// This is implemented as an associated function to avoid problems when
     /// implementing type conversions for third-party types.
-    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self>;
+    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason>;
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
     type PooledTransaction = transaction::pooled::PooledTransaction;
     type TransactionRequest = transaction::Request;
 
-    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self> {
+    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
         match reason {
             HaltReason::CreateContractSizeLimit => {
                 TransactionFailureReason::CreateContractSizeLimit
@@ -135,11 +135,11 @@ pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {
 }
 
 pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    ProviderSpec<TimerT> + SyncChainSpec
+    ProviderSpec<TimerT> + SyncRuntimeSpec
 {
 }
 
-impl<ProviderSpecT: ProviderSpec<TimerT> + SyncChainSpec, TimerT: Clone + TimeSinceEpoch>
+impl<ProviderSpecT: ProviderSpec<TimerT> + SyncRuntimeSpec, TimerT: Clone + TimeSinceEpoch>
     SyncProviderSpec<TimerT> for ProviderSpecT
 {
 }

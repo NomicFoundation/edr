@@ -2,9 +2,8 @@ use std::sync::OnceLock;
 
 use edr_eth::HashMap;
 use edr_evm::hardfork::{Activations, ChainConfig, ForkCondition};
-use revm::optimism::OptimismSpecId;
 
-use crate::OptimismChainSpec;
+use crate::{OptimismChainSpec, OptimismSpecId};
 
 const MAINNET_HARDFORKS: &[(ForkCondition, OptimismSpecId)] = &[
     (ForkCondition::Block(0), OptimismSpecId::FRONTIER),

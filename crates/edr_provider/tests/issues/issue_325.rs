@@ -1,5 +1,5 @@
 use edr_eth::{
-    chain_spec::L1ChainSpec, AccountInfo, Address, PreEip1898BlockSpec, SpecId, B256, KECCAK_EMPTY,
+    spec::L1ChainSpec, AccountInfo, Address, PreEip1898BlockSpec, SpecId, B256, KECCAK_EMPTY,
 };
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},

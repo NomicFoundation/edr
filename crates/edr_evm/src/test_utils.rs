@@ -3,11 +3,11 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 use anyhow::anyhow;
 use edr_eth::{
     block::{miner_reward, BlockOptions},
-    chain_spec::L1ChainSpec,
     env::CfgEnv,
     log::FilterLog,
     receipt::Receipt as _,
     result::InvalidTransaction,
+    spec::L1ChainSpec,
     transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,
     AccountInfo, Address, Bytes, HashMap, PreEip1898BlockSpec, SpecId, U256,
@@ -16,8 +16,7 @@ use edr_rpc_eth::client::EthRpcClient;
 
 use crate::{
     blockchain::{Blockchain as _, ForkedBlockchain},
-    chain_spec::SyncChainSpec,
-    evm::handler::CfgEnvWithEvmWiring,
+    spec::SyncRuntimeSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
     transaction, Block, BlockBuilder, DebugContext, ExecutionResultWithContext, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
@@ -160,7 +159,7 @@ pub fn dummy_eip1559_transaction(
 /// block.
 pub async fn run_full_block<
     ChainSpecT: Debug
-        + SyncChainSpec<
+        + SyncRuntimeSpec<
             Block: Default,
             Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,
@@ -217,12 +216,11 @@ pub async fn run_full_block<
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 
-    let cfg = CfgEnvWithEvmWiring::<ChainSpecT>::new(cfg, hardfork);
-
     let parent = blockchain.last_block()?;
 
     let mut builder = BlockBuilder::new(
         cfg,
+        hardfork,
         &parent,
         BlockOptions {
             beneficiary: Some(replay_header.beneficiary),
@@ -367,7 +365,7 @@ pub async fn run_full_block<
 
 /// Implements full block tests for the provided chain specs.
 /// ```no_run
-/// use edr_eth::chain_spec::L1ChainSpec;
+/// use edr_eth::spec::L1ChainSpec;
 /// use edr_evm::impl_full_block_tests;
 /// use edr_test_utils::env::get_alchemy_url;
 ///

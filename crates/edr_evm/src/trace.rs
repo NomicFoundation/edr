@@ -1,7 +1,7 @@
 use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{Address, Bytes, U256};
+use edr_eth::{result::EVMErrorWiring, Address, Bytes, U256};
 use revm::{
     handler::register::EvmHandler,
     interpreter::{
@@ -9,22 +9,23 @@ use revm::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         InstructionResult, Interpreter, SuccessOrHalt,
     },
-    primitives::{Bytecode, EVMErrorForChain, ExecutionResult, Output},
+    primitives::{Bytecode, ChainSpec, ExecutionResult, HaltReasonTrait, Output},
     Context, Database, EvmContext, FrameOrResult, FrameResult,
 };
 
-use crate::{chain_spec::EvmWiring, debug::GetContextData};
+use crate::{debug::GetContextData, spec::EvmWiring};
 
 /// Registers trace collector handles to the EVM handler.
 pub fn register_trace_collector_handles<
-    ChainSpecT: revm::EvmWiring,
-    DatabaseT: Database,
-    ContextT: GetContextData<TraceCollector<ChainSpecT>>,
+    EvmWiringT: revm::EvmWiring<
+        ExternalContext: GetContextData<
+            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
+        >,
+        Database: Database<Error: Debug>,
+    >,
 >(
-    handler: &mut EvmHandler<'_, ChainSpecT, ContextT, DatabaseT>,
-) where
-    DatabaseT::Error: Debug,
-{
+    handler: &mut EvmHandler<'_, EvmWiringT>,
+) {
     let table = &mut handler.instruction_table;
 
     // Update all instructions to call the instruction handler.
@@ -39,9 +40,7 @@ pub fn register_trace_collector_handles<
     let create_input_stack_inner = create_input_stack.clone();
     let old_handle = handler.execution.create.clone();
     handler.execution.create = Arc::new(
-        move |ctx,
-              inputs|
-              -> Result<FrameOrResult, EVMErrorForChain<DatabaseT::Error, ChainSpecT>> {
+        move |ctx, inputs| -> Result<FrameOrResult, EVMErrorWiring<EvmWiringT>> {
             let tracer = ctx.external.get_context_data();
             tracer.create(&ctx.evm, &inputs);
 
@@ -55,9 +54,7 @@ pub fn register_trace_collector_handles<
     let call_input_stack_inner = call_input_stack.clone();
     let old_handle = handler.execution.call.clone();
     handler.execution.call = Arc::new(
-        move |ctx,
-              inputs|
-              -> Result<FrameOrResult, EVMErrorForChain<DatabaseT::Error, ChainSpecT>> {
+        move |ctx, inputs| -> Result<FrameOrResult, EVMErrorWiring<EvmWiringT>> {
             let tracer = ctx.external.get_context_data();
             tracer.call(&mut ctx.evm, &inputs);
 
@@ -71,10 +68,7 @@ pub fn register_trace_collector_handles<
     let call_input_stack_inner = call_input_stack.clone();
     let old_handle = handler.execution.insert_call_outcome.clone();
     handler.execution.insert_call_outcome = Arc::new(
-        move |ctx: &mut revm::Context<ChainSpecT, ContextT, DatabaseT>,
-              frame,
-              shared_memory,
-              outcome| {
+        move |ctx: &mut revm::Context<EvmWiringT>, frame, shared_memory, outcome| {
             let call_inputs = call_input_stack_inner.borrow_mut().pop().unwrap();
 
             let tracer = ctx.external.get_context_data();
@@ -119,14 +113,17 @@ pub fn register_trace_collector_handles<
 }
 
 /// Outer closure that calls tracer for every instruction.
-fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
-    prev: &DynInstruction<'_, Context<ChainSpecT, ContextT, DatabaseT>>,
+fn instruction_handler<EvmWiringT>(
+    prev: &DynInstruction<'_, Context<EvmWiringT>>,
     interpreter: &mut Interpreter,
-    host: &mut Context<ChainSpecT, ContextT, DatabaseT>,
+    host: &mut Context<EvmWiringT>,
 ) where
-    ChainSpecT: revm::EvmWiring,
-    ContextT: GetContextData<TraceCollector<ChainSpecT>>,
-    DatabaseT: Database,
+    EvmWiringT: revm::EvmWiring<
+        Database: Database<Error: Debug>,
+        ExternalContext: GetContextData<
+            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
+        >,
+    >,
 {
     // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
     // the old Inspector behavior.
@@ -144,15 +141,14 @@ fn instruction_handler<ChainSpecT, ContextT, DatabaseT>(
 }
 
 /// Stack tracing message
-#[derive(Debug)]
-#[derive_where(Clone; ChainSpecT::HaltReason)]
-pub enum TraceMessage<ChainSpecT: revm::primitives::EvmWiring> {
+#[derive(Clone, Debug)]
+pub enum TraceMessage<HaltReasonT: HaltReasonTrait> {
     /// Event that occurs before a call or create message.
     Before(BeforeMessage),
     /// Event that occurs every step of a call or create message.
     Step(Step),
     /// Event that occurs after a call or create message.
-    After(AfterMessage<ChainSpecT>),
+    After(AfterMessage<HaltReasonT>),
 }
 
 /// Temporary before message type for handling traces
@@ -179,25 +175,23 @@ pub struct BeforeMessage {
 }
 
 /// Event that occurs after a call or create message.
-#[derive(Debug)]
-#[derive_where(Clone; ChainSpecT::HaltReason)]
-pub struct AfterMessage<ChainSpecT: revm::primitives::EvmWiring> {
+#[derive(Clone, Debug)]
+pub struct AfterMessage<HaltReasonT: HaltReasonTrait> {
     /// The execution result
-    pub execution_result: ExecutionResult<ChainSpecT>,
+    pub execution_result: ExecutionResult<HaltReasonT>,
     /// The newly created contract address if it's a create tx. `None`
     /// if there was an error creating the contract.
     pub contract_address: Option<Address>,
 }
 
 /// A trace for an EVM call.
-#[derive(Debug)]
-#[derive_where(Clone; ChainSpecT::HaltReason)]
+#[derive(Clone, Debug)]
 #[derive_where(Default)]
-pub struct Trace<ChainSpecT: edr_eth::chain_spec::EvmWiring> {
+pub struct Trace<HaltReasonT: HaltReasonTrait> {
     // /// The individual steps of the call
     // pub steps: Vec<Step>,
     /// Messages
-    pub messages: Vec<TraceMessage<ChainSpecT>>,
+    pub messages: Vec<TraceMessage<HaltReasonT>>,
     /// The return value of the call
     pub return_value: Bytes,
 }
@@ -253,14 +247,14 @@ impl Stack {
     }
 }
 
-impl<ChainSpecT: revm::primitives::EvmWiring> Trace<ChainSpecT> {
+impl<HaltReasonT: HaltReasonTrait> Trace<HaltReasonT> {
     /// Adds a before message
     pub fn add_before(&mut self, message: BeforeMessage) {
         self.messages.push(TraceMessage::Before(message));
     }
 
     /// Adds a result message
-    pub fn add_after(&mut self, message: AfterMessage<ChainSpecT>) {
+    pub fn add_after(&mut self, message: AfterMessage<HaltReasonT>) {
         self.messages.push(TraceMessage::After(message));
     }
 
@@ -273,14 +267,14 @@ impl<ChainSpecT: revm::primitives::EvmWiring> Trace<ChainSpecT> {
 /// Object that gathers trace information during EVM execution and can be turned
 /// into a trace upon completion.
 #[derive(Debug)]
-pub struct TraceCollector<ChainSpecT: EvmWiring> {
-    traces: Vec<Trace<ChainSpecT>>,
+pub struct TraceCollector<HaltReasonT: HaltReasonTrait> {
+    traces: Vec<Trace<HaltReasonT>>,
     pending_before: Option<BeforeMessage>,
     is_new_trace: bool,
     verbose: bool,
 }
 
-impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
+impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     /// Create a trace collector. If verbose is `true` full stack and memory
     /// will be recorded.
     pub fn new(verbose: bool) -> Self {
@@ -293,16 +287,16 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
     }
 
     /// Converts the [`TraceCollector`] into its [`Trace`].
-    pub fn into_traces(self) -> Vec<Trace<ChainSpecT>> {
+    pub fn into_traces(self) -> Vec<Trace<HaltReasonT>> {
         self.traces
     }
 
     /// Returns the traces collected so far.
-    pub fn traces(&self) -> &[Trace<ChainSpecT>] {
+    pub fn traces(&self) -> &[Trace<HaltReasonT>] {
         &self.traces
     }
 
-    fn current_trace_mut(&mut self) -> &mut Trace<ChainSpecT> {
+    fn current_trace_mut(&mut self) -> &mut Trace<HaltReasonT> {
         self.traces.last_mut().expect("Trace must have been added")
     }
 
@@ -312,13 +306,13 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
         }
     }
 
-    fn call<DatabaseT: Database>(
+    fn call<
+        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>, Database: Database<Error: Debug>>,
+    >(
         &mut self,
-        data: &mut EvmContext<ChainSpecT, DatabaseT>,
+        data: &mut EvmContext<EvmWiringT>,
         inputs: &CallInputs,
-    ) where
-        DatabaseT::Error: Debug,
-    {
+    ) {
         if self.is_new_trace {
             self.is_new_trace = false;
             self.traces.push(Trace::default());
@@ -367,9 +361,9 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
         });
     }
 
-    fn call_end<DatabaseT: Database>(
+    fn call_end<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
         &mut self,
-        data: &EvmContext<ChainSpecT, DatabaseT>,
+        data: &EvmContext<EvmWiringT>,
         _inputs: &CallInputs,
         outcome: &CallOutcome,
     ) {
@@ -393,7 +387,7 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
             ret
         };
 
-        let execution_result = match SuccessOrHalt::<ChainSpecT>::from(safe_ret) {
+        let execution_result = match SuccessOrHalt::from(safe_ret) {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -421,9 +415,9 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
         });
     }
 
-    fn create<DatabaseT: Database>(
+    fn create<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
         &mut self,
-        data: &EvmContext<ChainSpecT, DatabaseT>,
+        data: &EvmContext<EvmWiringT>,
         inputs: &CreateInputs,
     ) {
         if self.is_new_trace {
@@ -446,14 +440,12 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
         });
     }
 
-    fn create_end<DatabaseT: Database>(
+    fn create_end<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
         &mut self,
-        data: &EvmContext<ChainSpecT, DatabaseT>,
+        data: &EvmContext<EvmWiringT>,
         _inputs: &CreateInputs,
         outcome: &CreateOutcome,
-    ) where
-        <DatabaseT as Database>::Error: Debug,
-    {
+    ) {
         self.validate_before_message();
 
         let ret = *outcome.instruction_result();
@@ -464,7 +456,7 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
                 ret
             };
 
-        let execution_result = match SuccessOrHalt::<ChainSpecT>::from(safe_ret) {
+        let execution_result = match SuccessOrHalt::from(safe_ret) {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
                 gas_used: outcome.gas().spent(),
@@ -492,10 +484,10 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
         });
     }
 
-    fn step<DatabaseT: Database>(
+    fn step<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
         &mut self,
         interp: &Interpreter,
-        data: &EvmContext<ChainSpecT, DatabaseT>,
+        data: &EvmContext<EvmWiringT>,
     ) {
         // Skip the step
         let skip_step = self.pending_before.as_ref().map_or(false, |message| {
@@ -525,9 +517,11 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
         }
     }
 
-    fn call_transaction_end<DatabaseT: Database>(
+    fn call_transaction_end<
+        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>,
+    >(
         &mut self,
-        data: &EvmContext<ChainSpecT, DatabaseT>,
+        data: &EvmContext<EvmWiringT>,
         inputs: &CallInputs,
         outcome: &CallOutcome,
     ) {
@@ -535,23 +529,23 @@ impl<ChainSpecT: EvmWiring> TraceCollector<ChainSpecT> {
         self.call_end(data, inputs, outcome);
     }
 
-    fn create_transaction_end<DatabaseT: Database>(
+    fn create_transaction_end<
+        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>,
+    >(
         &mut self,
-        data: &EvmContext<ChainSpecT, DatabaseT>,
+        data: &EvmContext<EvmWiringT>,
         inputs: &CreateInputs,
         outcome: &CreateOutcome,
-    ) where
-        DatabaseT::Error: Debug,
-    {
+    ) {
         self.is_new_trace = true;
         self.create_end(data, inputs, outcome);
     }
 }
 
-impl<ChainSpecT: EvmWiring> GetContextData<TraceCollector<ChainSpecT>>
-    for TraceCollector<ChainSpecT>
+impl<HaltReasonT: HaltReasonTrait> GetContextData<TraceCollector<HaltReasonT>>
+    for TraceCollector<HaltReasonT>
 {
-    fn get_context_data(&mut self) -> &mut TraceCollector<ChainSpecT> {
+    fn get_context_data(&mut self) -> &mut TraceCollector<HaltReasonT> {
         self
     }
 }

@@ -5,6 +5,7 @@ use std::{
 
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
+    env::{CfgEnv, Env},
     log::ExecutionLog,
     receipt::{ExecutionReceiptBuilder as _, Receipt as _, TransactionReceipt},
     result::InvalidTransaction,
@@ -14,8 +15,7 @@ use edr_eth::{
     Address, Bloom, U256,
 };
 use revm::{
-    db::{DatabaseComponents, StateRef},
-    handler::{CfgEnvWithEvmWiring, EnvWithEvmWiring},
+    db::{DatabaseComponents, StateRef, WrapDatabaseRef},
     primitives::{
         ExecutionResult, ResultAndState, SpecId, Transaction as _, TransactionValidation,
         MAX_BLOB_GAS_PER_BLOCK,
@@ -26,8 +26,8 @@ use revm::{
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
-    chain_spec::{BlockEnvConstructor, ChainSpec},
     debug::{DebugContext, EvmContext},
+    spec::{BlockEnvConstructor, RuntimeSpec},
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
     transaction::TransactionError,
     SyncBlock,
@@ -37,7 +37,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum BlockBuilderCreationError<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// Unsupported hardfork. Hardforks older than Byzantium are not supported
     #[error("Unsupported hardfork: {0:?}. Hardforks older than Byzantium are not supported.")]
@@ -48,7 +48,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::EvmWiring,
+    ChainSpecT: revm::primitives::ChainSpec,
 {
     /// Transaction has higher gas limit than is remaining in block
     #[error("Transaction has a higher gas limit than the remaining gas in the block")]
@@ -65,17 +65,15 @@ where
 /// was executed.
 pub struct ExecutionResultWithContext<
     'evm,
-    ChainSpecT,
+    ChainSpecT: RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
     BlockchainErrorT,
     StateErrorT,
     DebugDataT,
     StateT: StateRef,
-> where
-    ChainSpecT: revm::EvmWiring,
-{
+> {
     /// The result of executing the transaction.
     pub result: Result<
-        ExecutionResult<ChainSpecT>,
+        ExecutionResult<ChainSpecT::HaltReason>,
         BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
     >,
     /// The context in which the transaction was executed.
@@ -83,7 +81,7 @@ pub struct ExecutionResultWithContext<
 }
 
 /// The result of building a block, using the [`BlockBuilder`].
-pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
+pub struct BuildBlockResult<ChainSpecT: RuntimeSpec> {
     /// Built block
     pub block: LocalBlock<ChainSpecT>,
     /// State diff
@@ -91,8 +89,9 @@ pub struct BuildBlockResult<ChainSpecT: ChainSpec> {
 }
 
 /// A builder for constructing Ethereum blocks.
-pub struct BlockBuilder<ChainSpecT: ChainSpec> {
-    cfg: CfgEnvWithEvmWiring<ChainSpecT>,
+pub struct BlockBuilder<ChainSpecT: RuntimeSpec> {
+    cfg: CfgEnv,
+    hardfork: ChainSpecT::Hardfork,
     header: PartialHeader,
     transactions: Vec<ChainSpecT::Transaction>,
     state_diff: StateDiff,
@@ -103,17 +102,19 @@ pub struct BlockBuilder<ChainSpecT: ChainSpec> {
 
 impl<ChainSpecT> BlockBuilder<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
 {
     /// Creates an intance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new<BlockchainErrorT>(
-        cfg: CfgEnvWithEvmWiring<ChainSpecT>,
+        cfg: CfgEnv,
+        hardfork: ChainSpecT::Hardfork,
         parent: &dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>,
         mut options: BlockOptions,
     ) -> Result<Self, BlockBuilderCreationError<ChainSpecT>> {
-        if cfg.spec_id.into() < SpecId::BYZANTIUM {
-            return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec_id));
+        let evm_spec_id = hardfork.into();
+        if evm_spec_id < SpecId::BYZANTIUM {
+            return Err(BlockBuilderCreationError::UnsupportedHardfork(hardfork));
         }
 
         let parent_header = parent.header();
@@ -124,7 +125,7 @@ where
         };
 
         let withdrawals = std::mem::take(&mut options.withdrawals).or_else(|| {
-            if cfg.spec_id.into() >= SpecId::SHANGHAI {
+            if evm_spec_id >= SpecId::SHANGHAI {
                 Some(Vec::new())
             } else {
                 None
@@ -132,10 +133,11 @@ where
         });
 
         options.parent_hash = Some(*parent.hash());
-        let header = PartialHeader::new::<ChainSpecT>(cfg.spec_id, options, Some(parent_header));
+        let header = PartialHeader::new::<ChainSpecT>(hardfork, options, Some(parent_header));
 
         Ok(Self {
             cfg,
+            hardfork,
             header,
             transactions: Vec::new(),
             state_diff: StateDiff::default(),
@@ -146,10 +148,15 @@ where
     }
 }
 
-impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> BlockBuilder<ChainSpecT> {
     /// Retrieves the config of the block builder.
-    pub fn config(&self) -> &CfgEnvWithEvmWiring<ChainSpecT> {
+    pub fn config(&self) -> &CfgEnv {
         &self.cfg
+    }
+
+    /// Retrieves the hardfork of the block builder.
+    pub fn hardfork(&self) -> ChainSpecT::Hardfork {
+        self.hardfork
     }
 
     /// Retrieves the amount of gas used in the block, so far.
@@ -168,7 +175,7 @@ impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> BlockBuilder<ChainSpecT> {
     /// Finalizes the block, returning the block and the callers of the
     /// transactions.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -240,7 +247,7 @@ impl<ChainSpecT: ChainSpec> BlockBuilder<ChainSpecT> {
 
 impl<ChainSpecT> BlockBuilder<ChainSpecT>
 where
-    ChainSpecT: ChainSpec<
+    ChainSpecT: RuntimeSpec<
         Block: Default,
         Transaction: Clone
                          + Default
@@ -296,8 +303,7 @@ where
             }
         }
 
-        let spec_id = self.cfg.spec_id;
-        let block = ChainSpecT::Block::new_block_env(&self.header, spec_id);
+        let block = ChainSpecT::Block::new_block_env(&self.header, self.hardfork.into());
 
         let receipt_builder = {
             let builder = ChainSpecT::ReceiptBuilder::new_receipt_builder(&state, &transaction);
@@ -316,12 +322,11 @@ where
             }
         };
 
-        let env = EnvWithEvmWiring::new_with_cfg_env(self.cfg.clone(), block, transaction.clone());
-
-        let db = DatabaseComponents {
+        let env = Env::boxed(self.cfg.clone(), block, transaction.clone());
+        let db = WrapDatabaseRef(DatabaseComponents {
             state,
             block_hash: blockchain,
-        };
+        });
 
         let (
             mut evm_context,
@@ -331,11 +336,11 @@ where
             },
         ) = {
             if let Some(debug_context) = debug_context {
-                let mut evm = Evm::builder()
-                    .with_chain_spec::<ChainSpecT>()
-                    .with_ref_db(db)
+                let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
+                    .with_db(db)
                     .with_external_context(debug_context.data)
-                    .with_env_with_handler_cfg(env)
+                    .with_env(env)
+                    .with_spec_id(self.hardfork)
                     .append_handler_register(debug_context.register_handles_fn)
                     .build();
 
@@ -367,10 +372,11 @@ where
                     }
                 }
             } else {
-                let mut evm = Evm::builder()
-                    .with_chain_spec::<ChainSpecT>()
-                    .with_ref_db(db)
-                    .with_env_with_handler_cfg(env)
+                let mut evm = Evm::<ChainSpecT::EvmWiring<_, ()>>::builder()
+                    .with_db(db)
+                    .with_external_context(())
+                    .with_env(env)
+                    .with_spec_id(self.hardfork)
                     .build();
 
                 let result = evm.transact();
@@ -412,14 +418,15 @@ where
             *gas_used += blob_gas_used;
         }
 
-        let receipt = receipt_builder.build_receipt(&self.header, &transaction, &result, spec_id);
+        let receipt =
+            receipt_builder.build_receipt(&self.header, &transaction, &result, self.hardfork);
         let receipt = TransactionReceipt::new(
             receipt,
             &transaction,
             &result,
             self.transactions.len() as u64,
             self.header.base_fee.unwrap_or(U256::ZERO),
-            spec_id,
+            self.hardfork,
         );
         self.receipts.push(receipt);
 

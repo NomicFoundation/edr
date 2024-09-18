@@ -7,11 +7,15 @@ use edr_eth::{
     transaction::TransactionType as _,
     Bloom,
 };
-use revm::{db::StateRef, optimism::OptimismSpecId, primitives::Transaction as _};
+use revm::{
+    db::StateRef,
+    primitives::{ExecutionResult, Transaction as _},
+};
+use revm_optimism::{OptimismHaltReason, OptimismSpecId};
 
 use self::deposit::Eip658OrDeposit;
 use super::Execution;
-use crate::{eip2718::TypedEnvelope, transaction, OptimismChainSpec};
+use crate::{eip2718::TypedEnvelope, transaction};
 
 /// Receipt for an Optimism deposit transaction with deposit nonce (since
 /// Regolith) and optionally deposit receipt version (since Canyon).
@@ -106,7 +110,7 @@ pub struct Builder {
     deposit_nonce: u64,
 }
 
-impl ExecutionReceiptBuilder<OptimismChainSpec> for Builder {
+impl ExecutionReceiptBuilder<OptimismHaltReason, OptimismSpecId, transaction::Signed> for Builder {
     type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: StateRef>(
@@ -123,9 +127,9 @@ impl ExecutionReceiptBuilder<OptimismChainSpec> for Builder {
     fn build_receipt(
         self,
         header: &edr_eth::block::PartialHeader,
-        transaction: &<OptimismChainSpec as revm::primitives::EvmWiring>::Transaction,
-        result: &revm::primitives::ExecutionResult<OptimismChainSpec>,
-        hardfork: <OptimismChainSpec as revm::primitives::EvmWiring>::Hardfork,
+        transaction: &transaction::Signed,
+        result: &ExecutionResult<OptimismHaltReason>,
+        hardfork: OptimismSpecId,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = edr_eth::log::logs_to_bloom(&logs);

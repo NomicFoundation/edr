@@ -7,22 +7,23 @@ use std::fmt::Debug;
 use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{result::InvalidHeader, SpecId, U256};
+use edr_eth::{
+    result::{EVMErrorForChain, InvalidHeader},
+    SpecId, U256,
+};
 use revm::{
-    db::DatabaseComponentError,
-    interpreter::gas::validate_initial_tx_gas,
-    primitives::{EVMError, EVMErrorForChain},
+    db::DatabaseComponentError, interpreter::gas::validate_initial_tx_gas, primitives::EVMError,
 };
 
 pub use self::detailed::*;
-use crate::chain_spec::ChainSpec;
+use crate::spec::RuntimeSpec;
 
 /// Invalid transaction error
 #[derive(thiserror::Error)]
 #[derive_where(Debug; <ChainSpecT::Transaction as TransactionValidation>::ValidationError, BlockchainErrorT, StateErrorT)]
 pub enum TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::EvmWiring,
+    ChainSpecT: revm::primitives::ChainSpec,
 {
     /// Blockchain errors
     #[error(transparent)]
@@ -57,13 +58,13 @@ where
 }
 
 impl<ChainSpecT, BlockchainErrorT, StateErrorT>
-    From<EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>>
+    From<EVMErrorForChain<ChainSpecT, DatabaseComponentError<StateErrorT, BlockchainErrorT>>>
     for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     fn from(
-        error: EVMErrorForChain<DatabaseComponentError<StateErrorT, BlockchainErrorT>, ChainSpecT>,
+        error: EVMErrorForChain<ChainSpecT, DatabaseComponentError<StateErrorT, BlockchainErrorT>>,
     ) -> Self {
         match error {
             EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),

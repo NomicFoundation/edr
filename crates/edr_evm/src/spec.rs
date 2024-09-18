@@ -1,18 +1,21 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
 use edr_eth::{
     block::{self, BlobGas, PartialHeader},
-    chain_spec::{EthHeaderConstants, L1ChainSpec},
     env::{BlobExcessGasAndPrice, BlockEnv},
     log::{ExecutionLog, FilterLog},
     receipt::{ExecutionReceiptBuilder, MapReceiptLogs},
     result::InvalidTransaction,
+    spec::{EthHeaderConstants, L1ChainSpec},
     transaction::ExecutableTransaction,
     SpecId, B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
-use revm::primitives::TransactionValidation;
 pub use revm::EvmWiring;
+use revm::{
+    primitives::{ChainSpec, TransactionValidation},
+    Database,
+};
 
 use crate::{
     block::transaction::TransactionAndBlock,
@@ -24,15 +27,16 @@ use crate::{
 /// A trait for defining a chain's associated types.
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
 #[allow(clippy::trait_duplication_in_bounds)]
-pub trait ChainSpec:
+pub trait RuntimeSpec:
     alloy_rlp::Encodable
     // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
-    + EvmWiring<
-        Block: BlockEnvConstructor<Self, block::Header> + BlockEnvConstructor<Self, PartialHeader>,
+    + revm::primitives::ChainSpec<
+        Block: BlockEnvConstructor<block::Header> + BlockEnvConstructor<PartialHeader> + Default,
         Transaction: alloy_rlp::Encodable
           + Clone
           + Debug
+          + Default
           + PartialEq
           + Eq
           + ExecutableTransaction
@@ -48,7 +52,7 @@ pub trait ChainSpec:
           + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
         RpcTransaction: EthRpcTransaction
           + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
-          + TryInto<<Self as revm::primitives::EvmWiring>::Transaction, Error = Self::RpcTransactionConversionError>,
+          + TryInto<<Self as revm::primitives::ChainSpec>::Transaction, Error = Self::RpcTransactionConversionError>,
     >
     + RpcSpec<ExecutionReceipt<FilterLog>: Debug>
     + RpcSpec<
@@ -57,9 +61,14 @@ pub trait ChainSpec:
         RpcBlock<B256>: EthRpcBlock,
     >
 {
+    /// Type representing an implementation of `EvmWiring` for this chain.
+    type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<ChainSpec = Self, Database = DatabaseT, ExternalContext = ExternalContexT>;
+
     /// Type representing a builder that constructs an execution receipt.
     type ReceiptBuilder: ExecutionReceiptBuilder<
-        Self,
+        Self::HaltReason,
+        Self::Hardfork,
+        Self::Transaction,
         Receipt = Self::ExecutionReceipt<ExecutionLog>,
     >;
 
@@ -91,12 +100,12 @@ pub trait ChainSpec:
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.
-pub trait BlockEnvConstructor<ChainSpecT: ChainSpec, HeaderT> {
+pub trait BlockEnvConstructor<HeaderT> {
     /// Converts the instance into an EVM block.
-    fn new_block_env(header: &HeaderT, hardfork: ChainSpecT::Hardfork) -> Self;
+    fn new_block_env(header: &HeaderT, hardfork: SpecId) -> Self;
 }
 
-impl BlockEnvConstructor<L1ChainSpec, PartialHeader> for BlockEnv {
+impl BlockEnvConstructor<PartialHeader> for BlockEnv {
     fn new_block_env(header: &PartialHeader, hardfork: SpecId) -> Self {
         Self {
             number: U256::from(header.number),
@@ -118,7 +127,7 @@ impl BlockEnvConstructor<L1ChainSpec, PartialHeader> for BlockEnv {
     }
 }
 
-impl BlockEnvConstructor<L1ChainSpec, block::Header> for BlockEnv {
+impl BlockEnvConstructor<block::Header> for BlockEnv {
     fn new_block_env(header: &block::Header, hardfork: SpecId) -> Self {
         Self {
             number: U256::from(header.number),
@@ -140,9 +149,9 @@ impl BlockEnvConstructor<L1ChainSpec, block::Header> for BlockEnv {
     }
 }
 
-/// A supertrait for [`ChainSpec`] that is safe to send between threads.
-pub trait SyncChainSpec:
-    ChainSpec<
+/// A supertrait for [`RuntimeSpec`] that is safe to send between threads.
+pub trait SyncRuntimeSpec:
+    RuntimeSpec<
         ExecutionReceipt<FilterLog>: Send + Sync,
         HaltReason: Send + Sync,
         Hardfork: Send + Sync,
@@ -155,8 +164,8 @@ pub trait SyncChainSpec:
 {
 }
 
-impl<ChainSpecT> SyncChainSpec for ChainSpecT where
-    ChainSpecT: ChainSpec<
+impl<ChainSpecT> SyncRuntimeSpec for ChainSpecT where
+    ChainSpecT: RuntimeSpec<
             ExecutionReceipt<FilterLog>: Send + Sync,
             HaltReason: Send + Sync,
             Hardfork: Send + Sync,
@@ -169,7 +178,39 @@ impl<ChainSpecT> SyncChainSpec for ChainSpecT where
 {
 }
 
-impl ChainSpec for L1ChainSpec {
+/// EVM wiring for L1 chains.
+pub struct L1Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> {
+    _phantom: PhantomData<(ChainSpecT, DatabaseT, ExternalContextT)>,
+}
+
+impl<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> edr_eth::spec::EvmWiring
+    for L1Wiring<ChainSpecT, DatabaseT, ExternalContextT>
+{
+    type ChainSpec = ChainSpecT;
+    type ExternalContext = ExternalContextT;
+    type Database = DatabaseT;
+}
+
+impl<ChainSpecT, DatabaseT, ExternalContextT> revm::EvmWiring
+    for L1Wiring<ChainSpecT, DatabaseT, ExternalContextT>
+where
+    ChainSpecT: ChainSpec<
+        Block: Default,
+        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+    DatabaseT: Database,
+{
+    fn handler<'evm>(
+        hardfork: <Self::ChainSpec as ChainSpec>::Hardfork,
+    ) -> revm::EvmHandler<'evm, Self> {
+        revm::EvmHandler::mainnet_with_spec(hardfork)
+    }
+}
+
+impl RuntimeSpec for L1ChainSpec {
+    type EvmWiring<DatabaseT: Database, ExternalContexT> =
+        L1Wiring<Self, DatabaseT, ExternalContexT>;
+
     type ReceiptBuilder = edr_eth::receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
     type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;

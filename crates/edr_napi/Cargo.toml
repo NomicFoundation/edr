@@ -16,10 +16,9 @@ edr_optimism = { path = "../edr_optimism", optional = true }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_client = { path = "../edr_rpc_client" }
 mimalloc = { version = "0.1.39", default-features = false, features = ["local_dynamic_tls"] }
-# when napi is pinned, be sure to pin napi-derive to the same version
 # The `async` feature ensures that a tokio runtime is available
-napi = { version = "2.16.0", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
-napi-derive = "2.16.0"
+napi = { version = "2.16.10", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
+napi-derive = "2.16.12"
 rand = { version = "0.8.4", optional = true }
 serde = { version = "1.0.209", features = ["derive"] }
 serde_json = { version = "1.0.127" }

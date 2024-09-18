@@ -3,7 +3,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{chain_spec::L1ChainSpec, Address, HashMap, SpecId, U256};
+use edr_eth::{spec::L1ChainSpec, Address, HashMap, SpecId, U256};
 use edr_evm::{
     blockchain::ForkedBlockchain,
     precompile::{self, Precompiles},

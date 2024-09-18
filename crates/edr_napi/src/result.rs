@@ -1,5 +1,5 @@
+use edr_eth::result::HaltReason;
 use edr_evm::trace::AfterMessage;
-use edr_generic::GenericChainSpec;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Either, Env, JsBuffer, JsBufferValue,
@@ -107,6 +107,8 @@ pub enum ExceptionalHalt {
     EofAuxDataTooSmall,
     /// EOF Subroutine stack overflow
     EOFFunctionStackOverflow,
+    /// Check for target address validity is only done inside subcall.
+    InvalidEXTCALLTarget,
 }
 
 impl From<edr_eth::result::HaltReason> for ExceptionalHalt {
@@ -136,6 +138,9 @@ impl From<edr_eth::result::HaltReason> for ExceptionalHalt {
             edr_eth::result::HaltReason::EofAuxDataTooSmall => ExceptionalHalt::EofAuxDataTooSmall,
             edr_eth::result::HaltReason::EOFFunctionStackOverflow => {
                 ExceptionalHalt::EOFFunctionStackOverflow
+            }
+            edr_eth::result::HaltReason::InvalidEXTCALLTarget => {
+                ExceptionalHalt::InvalidEXTCALLTarget
             }
             edr_eth::result::HaltReason::OverflowPayment
             | edr_eth::result::HaltReason::StateChangeDuringStaticCall
@@ -168,6 +173,7 @@ impl From<ExceptionalHalt> for edr_eth::result::HaltReason {
             ExceptionalHalt::EofAuxDataOverflow => Self::EofAuxDataOverflow,
             ExceptionalHalt::EofAuxDataTooSmall => Self::EofAuxDataTooSmall,
             ExceptionalHalt::EOFFunctionStackOverflow => Self::EOFFunctionStackOverflow,
+            ExceptionalHalt::InvalidEXTCALLTarget => Self::InvalidEXTCALLTarget,
         }
     }
 }
@@ -192,7 +198,7 @@ pub struct ExecutionResult {
 }
 
 impl ExecutionResult {
-    pub fn new(env: &Env, message: &AfterMessage<GenericChainSpec>) -> napi::Result<Self> {
+    pub fn new(env: &Env, message: &AfterMessage<HaltReason>) -> napi::Result<Self> {
         let AfterMessage {
             execution_result,
             contract_address,

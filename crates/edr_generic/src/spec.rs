@@ -1,61 +1,43 @@
 use edr_eth::{
-    block::{Header, PartialHeader},
-    chain_spec::{EthHeaderConstants, L1ChainSpec},
-    eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
-    result::HaltReason,
+    db::Database,
+    eips::eip1559::BaseFeeParams,
+    env::BlockEnv,
+    result::{HaltReason, InvalidTransaction},
+    spec::{ChainSpec, EthHeaderConstants, L1ChainSpec},
+    transaction::TransactionValidation,
     SpecId,
 };
 use edr_evm::{
-    chain_spec::{BlockEnvConstructor, ChainSpec},
     hardfork::Activations,
+    spec::{L1Wiring, RuntimeSpec},
     transaction::TransactionError,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
-use revm_primitives::{BlockEnv, EvmWiring, InvalidTransaction, TransactionValidation};
 
 use crate::GenericChainSpec;
 
-impl EvmWiring for GenericChainSpec {
-    type Block = revm_primitives::BlockEnv;
+impl ChainSpec for GenericChainSpec {
+    type ChainContext = ();
 
-    type Hardfork = revm_primitives::SpecId;
+    type Block = BlockEnv;
 
-    type HaltReason = revm_primitives::HaltReason;
+    type Hardfork = SpecId;
+
+    type HaltReason = HaltReason;
 
     type Transaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 
-impl revm::EvmWiring for GenericChainSpec {
-    type Context = ();
-
-    fn handler<'evm, EXT, DB>(hardfork: Self::Hardfork) -> revm::EvmHandler<'evm, Self, EXT, DB>
-    where
-        DB: revm::Database,
-    {
-        revm::EvmHandler::mainnet_with_spec(hardfork)
-    }
-}
-
 impl EthHeaderConstants for GenericChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<Self> =
-        BaseFeeParams::Constant(ConstantBaseFeeParams::ethereum());
+    const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork> = L1ChainSpec::BASE_FEE_PARAMS;
 
-    const MIN_ETHASH_DIFFICULTY: u64 = 131072;
+    const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
 }
 
-impl BlockEnvConstructor<GenericChainSpec, Header> for BlockEnv {
-    fn new_block_env(header: &Header, hardfork: SpecId) -> Self {
-        BlockEnvConstructor::<L1ChainSpec, Header>::new_block_env(header, hardfork)
-    }
-}
+impl RuntimeSpec for GenericChainSpec {
+    type EvmWiring<DatabaseT: Database, ExternalContexT> =
+        L1Wiring<Self, DatabaseT, ExternalContexT>;
 
-impl BlockEnvConstructor<GenericChainSpec, PartialHeader> for BlockEnv {
-    fn new_block_env(header: &PartialHeader, hardfork: SpecId) -> Self {
-        BlockEnvConstructor::<L1ChainSpec, PartialHeader>::new_block_env(header, hardfork)
-    }
-}
-
-impl ChainSpec for GenericChainSpec {
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;
@@ -88,16 +70,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
     type PooledTransaction = edr_eth::transaction::pooled::PooledTransaction;
     type TransactionRequest = crate::transaction::Request;
 
-    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self> {
-        match reason {
-            HaltReason::CreateContractSizeLimit => {
-                TransactionFailureReason::CreateContractSizeLimit
-            }
-            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
-                TransactionFailureReason::OpcodeNotFound
-            }
-            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
-            remainder => TransactionFailureReason::Inner(remainder),
-        }
+    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
+        <L1ChainSpec as ProviderSpec<TimerT>>::cast_halt_reason(reason)
     }
 }

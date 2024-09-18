@@ -1,4 +1,4 @@
-use edr_generic::GenericChainSpec;
+use edr_eth::result::HaltReason;
 use napi::Either;
 use napi_derive::napi;
 
@@ -6,11 +6,11 @@ use crate::trace::RawTrace;
 
 #[napi]
 pub struct Response {
-    inner: edr_napi_core::spec::Response<GenericChainSpec>,
+    inner: edr_napi_core::spec::Response<HaltReason>,
 }
 
-impl From<edr_napi_core::spec::Response<GenericChainSpec>> for Response {
-    fn from(value: edr_napi_core::spec::Response<GenericChainSpec>) -> Self {
+impl From<edr_napi_core::spec::Response<HaltReason>> for Response {
+    fn from(value: edr_napi_core::spec::Response<HaltReason>) -> Self {
         Self { inner: value }
     }
 }
