@@ -215,6 +215,17 @@ where
         current_hardfork: SpecId,
         minimum_hardfork: SpecId,
     },
+    #[error("Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'")]
+    UnsupportedTransactionTypeInDebugTrace {
+        requested_transaction_hash: B256,
+        unsupported_transaction_hash: B256,
+        unsupported_transaction_type: u64,
+    },
+    #[error("Cannot perform debug tracing on transaction '{transaction_hash:?}', because it has unsupported transaction type '{unsupported_transaction_type}'")]
+    UnsupportedTransactionTypeForDebugTrace {
+        transaction_hash: B256,
+        unsupported_transaction_type: u64,
+    },
     #[error("{method_name} - Method not supported")]
     UnsupportedMethod { method_name: String },
 }
@@ -288,6 +299,8 @@ where
             ProviderError::UnsupportedEIP1559Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedEIP4844Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedMethod { .. } => -32004,
+            ProviderError::UnsupportedTransactionTypeInDebugTrace { .. } => INVALID_INPUT,
+            ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT,
         };
 
         let data = match &value {

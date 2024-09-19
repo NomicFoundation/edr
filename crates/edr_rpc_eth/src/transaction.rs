@@ -221,8 +221,32 @@ impl TransactionWithSignature {
 
     /// Returns whether the transaction is a legacy transaction.
     pub fn is_legacy(&self) -> bool {
-        matches!(self.transaction_type, None | Some(0)) && matches!(self.v, 27 | 28)
+        matches!(self.transaction_type(), RpcTransactionType::Legacy) && matches!(self.v, 27 | 28)
     }
+
+    pub fn transaction_type(&self) -> RpcTransactionType {
+        match self.transaction_type {
+            Some(0) | None => RpcTransactionType::Legacy,
+            Some(1) => RpcTransactionType::AccessList,
+            Some(2) => RpcTransactionType::Eip1559,
+            Some(3) => RpcTransactionType::Eip4844,
+            Some(r#type) => RpcTransactionType::Unknown(r#type),
+        }
+    }
+}
+
+/// The transaction type of the remote transaction.
+pub enum RpcTransactionType {
+    /// Legacy transaction
+    Legacy,
+    /// EIP-2930 access list transaction
+    AccessList,
+    /// EIP-1559 transaction
+    Eip1559,
+    /// EIP-4844 transaction
+    Eip4844,
+    /// Unknown transaction type
+    Unknown(u8),
 }
 
 impl From<TransactionWithSignature> for transaction::signed::Legacy {

@@ -5,10 +5,6 @@ on:
     - cron: "0 */8 * * *"
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: packages/hardhat-core
-
 jobs:
   test-recent-optimism-block:
     name: Test recent Optimism block

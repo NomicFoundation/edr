@@ -47,7 +47,7 @@ pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_P
 pub use revm_primitives::{
     address,
     alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
-    bytes, db, env, hex, hex_literal, result, specification, AccessList, AccessListItem,
+    bytes, db, env, hex, hex_literal, keccak256, result, specification, AccessList, AccessListItem,
     AccountInfo, Address, Bytecode, Bytes, HashMap, HashSet, Precompile, SignedAuthorization,
     SpecId, B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
 };

@@ -2,17 +2,15 @@
   "name": "root",
   "version": "0.0.0",
   "author": "Nomic Foundation",
-  "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
-  "private": true,
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
-    "prettier": "^3.2.5"
+    "prettier": "^3.2.5",
+    "syncpack": "^12.4.0"
   },
-  "scripts": {
-    "build": "cd crates/edr_napi && pnpm build",
-    "prettier": "prettier --check \".github/**/*.{yml,ts,js}\" \"crates/edr_napi/test/**.ts\" \"**/*.md\"",
-    "prettier:fix": "pnpm run prettier --write"
+  "engines": {
+    "pnpm": ">=9"
   },
+  "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
   "pnpm": {
     "overrides": {
       "hardhat>@nomicfoundation/edr": "workspace:*"
@@ -22,7 +20,12 @@
       "@defi-wonderland/smock@2.4.0": "patches/@defi-wonderland__smock@2.4.0.patch"
     }
   },
-  "engines": {
-    "pnpm": ">=9"
+  "private": true,
+  "scripts": {
+    "build": "cd crates/edr_napi && pnpm build",
+    "lint": "syncpack lint && pnpm run prettier && pnpm run --recursive lint",
+    "lint:fix": "syncpack format && pnpm run prettier:fix && pnpm run --recursive lint:fix",
+    "prettier": "prettier --check \".github/**/*.{yml,ts,js}\" \"**/*.md\"",
+    "prettier:fix": "pnpm run prettier --write"
   }
 }

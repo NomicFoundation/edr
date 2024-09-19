@@ -5,24 +5,13 @@ on:
     - cron: "0 */8 * * *"
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: packages/hardhat-core
-
 jobs:
   test-recent-mainnet-block:
     name: Test recent mainnet block
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
-
-      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-rust
 
       - name: Cache EDR RPC cache
         uses: actions/cache@v2
