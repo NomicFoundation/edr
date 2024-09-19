@@ -773,12 +773,12 @@ describe("Stack traces", function () {
       const testsDir = semver.satisfies(customSolcVersion, "^0.5.0")
         ? "0_5"
         : semver.satisfies(customSolcVersion, "^0.6.0")
-        ? "0_6"
-        : semver.satisfies(customSolcVersion, "^0.7.0")
-        ? "0_7"
-        : semver.satisfies(customSolcVersion, "^0.8.0")
-        ? "0_8"
-        : null;
+          ? "0_6"
+          : semver.satisfies(customSolcVersion, "^0.7.0")
+            ? "0_7"
+            : semver.satisfies(customSolcVersion, "^0.8.0")
+              ? "0_8"
+              : null;
 
       if (testsDir === null) {
         console.error(`There are no tests for version ${customSolcVersion}`);

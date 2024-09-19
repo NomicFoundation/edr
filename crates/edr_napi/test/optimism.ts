@@ -26,7 +26,7 @@ describe("Multi-chain", () => {
     await context.registerProviderFactory(L1_CHAIN_TYPE, l1ProviderFactory());
     await context.registerProviderFactory(
       OPTIMISM_CHAIN_TYPE,
-      optimismProviderFactory(),
+      optimismProviderFactory()
     );
   });
 
@@ -54,7 +54,7 @@ describe("Multi-chain", () => {
     },
     initialParentBeaconBlockRoot: Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex",
+      "hex"
     ),
     minGasPrice: 0n,
     mining: {
@@ -68,18 +68,18 @@ describe("Multi-chain", () => {
 
   const loggerConfig = {
     enable: false,
-    decodeConsoleLogInputsCallback: (inputs: Buffer[]): string[] => {
+    decodeConsoleLogInputsCallback: (_inputs: Buffer[]): string[] => {
       return [];
     },
     getContractAndFunctionNameCallback: (
       _code: Buffer,
-      _calldata?: Buffer,
+      _calldata?: Buffer
     ): ContractAndFunctionName => {
       return {
         contractName: "",
       };
     },
-    printLineCallback: (message: string, replace: boolean) => {},
+    printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
   it("initialize L1 provider", async function () {
@@ -89,7 +89,7 @@ describe("Multi-chain", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
+      }
     );
 
     await assert.isFulfilled(provider);
@@ -102,7 +102,7 @@ describe("Multi-chain", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
+      }
     );
 
     await assert.isFulfilled(provider);
@@ -124,7 +124,7 @@ describe("Multi-chain", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
+      }
     );
 
     await assert.isFulfilled(provider);
@@ -141,7 +141,7 @@ describe("Multi-chain", () => {
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
+        }
       );
 
       const block = provider.handleRequest(
@@ -150,7 +150,7 @@ describe("Multi-chain", () => {
           jsonrpc: "2.0",
           method: "eth_getBlockByNumber",
           params: [toBuffer(BLOCK_NUMBER), false],
-        }),
+        })
       );
 
       await assert.isFulfilled(block);
