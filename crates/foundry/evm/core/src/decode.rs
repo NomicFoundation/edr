@@ -127,7 +127,7 @@ impl RevertDecoder {
         }
 
         if err == crate::constants::MAGIC_SKIP {
-            // Also used in forge fuzz runner
+            // Also used in edr_solidity_tests fuzz runner
             return Some("SKIPPED".to_string());
         }
 

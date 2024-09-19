@@ -41,9 +41,9 @@ mimalloc = { version = "0.1.39", default-features = false, features = ["local_dy
 
 # Solidity tests
 alloy-primitives = { workspace = true, features = ["serde"] }
-forge.workspace = true
+edr_solidity_tests.workspace = true
 foundry-cheatcodes.workspace = true
-foundry-common.workspace = true
+edr_common.workspace = true
 tempfile = "3.10.1"
 
 [target.x86_64-unknown-linux-gnu.dependencies]

@@ -6,7 +6,7 @@ mod test_results;
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use artifact::Artifact;
-use forge::{contracts::ContractsByArtifact, TestFilter};
+use edr_solidity_tests::{contracts::ContractsByArtifact, TestFilter};
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -52,15 +52,17 @@ pub fn run_solidity_tests(
             |ctx: ThreadSafeCallContext<napi::Error>| Ok(vec![ctx.value]),
         )?;
 
-    let known_contracts: ContractsByArtifact =
-        artifacts
-            .into_iter()
-            .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
-            .collect::<Result<
-                BTreeMap<forge::contracts::ArtifactId, forge::contracts::ContractData>,
-                napi::Error,
-            >>()?
-            .into();
+    let known_contracts: ContractsByArtifact = artifacts
+        .into_iter()
+        .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
+        .collect::<Result<
+            BTreeMap<
+                edr_solidity_tests::contracts::ArtifactId,
+                edr_solidity_tests::contracts::ContractData,
+            >,
+            napi::Error,
+        >>()?
+        .into();
 
     let test_suites = test_suites
         .into_iter()
@@ -68,8 +70,8 @@ pub fn run_solidity_tests(
         .collect::<Result<Vec<_>, _>>()?;
 
     let (tx_results, mut rx_results) = tokio::sync::mpsc::unbounded_channel::<(
-        forge::contracts::ArtifactId,
-        forge::result::SuiteResult,
+        edr_solidity_tests::contracts::ArtifactId,
+        edr_solidity_tests::result::SuiteResult,
     )>();
 
     let runtime = runtime::Handle::current();

@@ -40,7 +40,7 @@ impl SignEthClient {
         let inner = reqwest::Client::builder()
             .default_headers(HeaderMap::from_iter([(
                 HeaderName::from_static("user-agent"),
-                HeaderValue::from_static("forge"),
+                HeaderValue::from_static("edr_solidity_tests"),
             )]))
             .timeout(REQ_TIMEOUT)
             .build()?;

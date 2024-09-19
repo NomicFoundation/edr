@@ -14,7 +14,7 @@ use alloy_dyn_abi::DynSolType;
 use alloy_primitives::{Bytes, U256};
 use alloy_sol_types::SolValue;
 use dialoguer::{Input, Password};
-use foundry_common::fs;
+use edr_common::fs;
 use semver::Version;
 use walkdir::WalkDir;
 

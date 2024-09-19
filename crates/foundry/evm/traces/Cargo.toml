@@ -8,7 +8,7 @@ edition.workspace = true
 [dependencies]
 edr_defaults.workspace = true
 
-foundry-common.workspace = true
+edr_common.workspace = true
 foundry-evm-core.workspace = true
 
 alloy-dyn-abi = { workspace = true, features = ["arbitrary", "eip712"] }

@@ -232,7 +232,7 @@ impl Cheatcodes {
                 let msg = format!(
                     "unknown cheatcode with selector {selector}; \
                      you may have a mismatch between the `Vm` interface (likely in `forge-std`) \
-                     and the `forge` version"
+                     and the `edr_solidity_tests` version"
                 );
                 return alloy_sol_types::Error::Other(std::borrow::Cow::Owned(msg));
             }

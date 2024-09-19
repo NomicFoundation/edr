@@ -5,7 +5,7 @@ use std::{
 };
 
 use alloy_json_abi::{Event, Function};
-use foundry_common::fs;
+use edr_common::fs;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 

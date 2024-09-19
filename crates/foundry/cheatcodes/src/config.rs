@@ -6,7 +6,7 @@ use std::{
 };
 
 use alloy_primitives::Address;
-use foundry_common::fs::normalize_path;
+use edr_common::fs::normalize_path;
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, opts::EvmOpts};
 use semver::Version;

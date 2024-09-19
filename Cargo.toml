@@ -1,24 +1,24 @@
 [workspace]
 members = [
     # EDR
+    "crates/edr_common",
     "crates/edr_defaults",
     "crates/edr_eth",
+    "crates/edr_macros",
     "crates/edr_napi",
     "crates/edr_provider",
     "crates/edr_solidity",
+    "crates/edr_solidity_tests",
     "crates/edr_test_utils",
     "crates/tools",
     # Foundry
     "crates/foundry/cheatcodes",
     "crates/foundry/cheatcodes/spec",
-    "crates/foundry/common",
     "crates/foundry/evm/core",
     "crates/foundry/evm/coverage",
     "crates/foundry/evm/evm",
     "crates/foundry/evm/fuzz",
     "crates/foundry/evm/traces",
-    "crates/foundry/forge",
-    "crates/foundry/macros",
 ]
 resolver = "2"
 
@@ -157,21 +157,19 @@ wildcard-imports = "warn"
 zero_sized_map_values = "warn"
 
 [workspace.dependencies]
+edr_common = { path = "crates/edr_common" }
 edr_defaults = { path = "crates/edr_defaults" }
+edr_macros = { path = "crates/edr_macros" }
+edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_test_utils = { path = "crates/edr_test_utils" }
-
-forge = { path = "crates/foundry/forge" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
 foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }
-foundry-cli = { path = "crates/foundry/cli" }
-foundry-common = { path = "crates/foundry/common" }
 foundry-evm = { path = "crates/foundry/evm/evm" }
 foundry-evm-core = { path = "crates/foundry/evm/core" }
 foundry-evm-coverage = { path = "crates/foundry/evm/coverage" }
 foundry-evm-fuzz = { path = "crates/foundry/evm/fuzz" }
 foundry-evm-traces = { path = "crates/foundry/evm/traces" }
-foundry-macros = { path = "crates/foundry/macros" }
 
 # solc & compilation utilities
 foundry-block-explorers = { version = "=0.2.7", default-features = false }

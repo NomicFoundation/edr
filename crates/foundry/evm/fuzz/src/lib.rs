@@ -11,7 +11,7 @@ use std::{collections::HashMap, fmt, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_primitives::{Address, Bytes, Log};
-use foundry_common::calc;
+use edr_common::calc;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::CallTraceArena;
 use itertools::Itertools;

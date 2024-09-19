@@ -1771,6 +1771,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_common"
+version = "0.3.8"
+dependencies = [
+ "alloy-primitives 0.7.7",
+ "dunce",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "walkdir",
+]
+
+[[package]]
 name = "edr_defaults"
 version = "0.3.8"
 dependencies = [
@@ -1847,6 +1860,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_macros"
+version = "0.3.8"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.77",
+]
+
+[[package]]
 name = "edr_napi"
 version = "0.3.8"
 dependencies = [
@@ -1856,15 +1879,15 @@ dependencies = [
  "alloy-sol-types 0.5.4",
  "ansi_term",
  "crossbeam-channel",
+ "edr_common",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_provider",
  "edr_rpc_eth",
  "edr_solidity",
- "forge",
+ "edr_solidity_tests",
  "foundry-cheatcodes",
- "foundry-common",
  "indexmap 2.5.0",
  "itertools 0.12.1",
  "k256",
@@ -1992,11 +2015,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_solidity_tests"
+version = "0.3.8"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
+ "alloy-primitives 0.7.7",
+ "alloy-signer-wallet",
+ "comfy-table",
+ "criterion 0.5.1",
+ "dunce",
+ "edr_common",
+ "edr_defaults",
+ "edr_test_utils",
+ "evm-disassembler",
+ "eyre",
+ "foundry-cheatcodes",
+ "foundry-compilers",
+ "foundry-evm",
+ "futures",
+ "globset",
+ "humantime-serde",
+ "itertools 0.12.1",
+ "log",
+ "mockall",
+ "num_cpus",
+ "once_cell",
+ "paste",
+ "path-slash",
+ "proptest",
+ "rayon",
+ "regex",
+ "semver 1.0.23",
+ "serde",
+ "serial_test",
+ "similar-asserts",
+ "svm-rs",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "yansi",
+]
+
+[[package]]
 name = "edr_test_utils"
 version = "0.3.8"
 dependencies = [
+ "edr_common",
  "fd-lock",
- "foundry-common",
  "foundry-compilers",
  "once_cell",
  "rand",
@@ -2257,52 +2325,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
-name = "forge"
-version = "0.3.8"
-dependencies = [
- "alloy-dyn-abi",
- "alloy-json-abi",
- "alloy-primitives 0.7.7",
- "alloy-signer-wallet",
- "comfy-table",
- "criterion 0.5.1",
- "dunce",
- "edr_defaults",
- "edr_test_utils",
- "evm-disassembler",
- "eyre",
- "foundry-cheatcodes",
- "foundry-common",
- "foundry-compilers",
- "foundry-evm",
- "futures",
- "globset",
- "humantime-serde",
- "itertools 0.12.1",
- "log",
- "mockall",
- "num_cpus",
- "once_cell",
- "paste",
- "path-slash",
- "proptest",
- "rayon",
- "regex",
- "semver 1.0.23",
- "serde",
- "serial_test",
- "similar-asserts",
- "svm-rs",
- "tempfile",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "vergen",
- "yansi",
-]
-
-[[package]]
 name = "form_urlencoded"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2328,10 +2350,10 @@ dependencies = [
  "const-hex",
  "dialoguer",
  "dunce",
+ "edr_common",
  "edr_defaults",
  "eyre",
  "foundry-cheatcodes-spec",
- "foundry-common",
  "foundry-compilers",
  "foundry-evm-core",
  "itertools 0.12.1",
@@ -2354,23 +2376,10 @@ name = "foundry-cheatcodes-spec"
 version = "0.3.8"
 dependencies = [
  "alloy-sol-types 0.7.7",
- "foundry-macros",
+ "edr_macros",
  "schemars",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "foundry-common"
-version = "0.3.8"
-dependencies = [
- "alloy-primitives 0.7.7",
- "dunce",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "walkdir",
 ]
 
 [[package]]
@@ -2458,13 +2467,13 @@ dependencies = [
  "auto_impl",
  "const-hex",
  "derive_more",
+ "edr_common",
  "edr_defaults",
+ "edr_macros",
  "edr_test_utils",
  "eyre",
  "foundry-cheatcodes-spec",
- "foundry-common",
  "foundry-compilers",
- "foundry-macros",
  "futures",
  "itertools 0.12.1",
  "once_cell",
@@ -2507,8 +2516,8 @@ dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
  "alloy-primitives 0.7.7",
+ "edr_common",
  "eyre",
- "foundry-common",
  "foundry-evm-core",
  "foundry-evm-coverage",
  "foundry-evm-traces",
@@ -2532,9 +2541,9 @@ dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-sol-types 0.7.7",
  "const-hex",
+ "edr_common",
  "edr_defaults",
  "eyre",
- "foundry-common",
  "foundry-evm-core",
  "futures",
  "itertools 0.12.1",
@@ -2547,16 +2556,6 @@ dependencies = [
  "tokio",
  "tracing",
  "yansi",
-]
-
-[[package]]
-name = "foundry-macros"
-version = "0.3.8"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.77",
 ]
 
 [[package]]
@@ -3815,15 +3814,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.77",
-]
-
-[[package]]
-name = "num_threads"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c7398b9c8b70908f6371f47ed36737907c87c52af34c268fed0bf0ceb92ead9"
-dependencies = [
- "libc",
 ]
 
 [[package]]
@@ -5906,9 +5896,7 @@ checksum = "5dfd88e563464686c916c7e46e623e520ddc6d79fa6641390f2e3fa86e83e885"
 dependencies = [
  "deranged",
  "itoa",
- "libc",
  "num-conv",
- "num_threads",
  "powerfmt",
  "serde",
  "time-core",
@@ -6444,18 +6432,6 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
-
-[[package]]
-name = "vergen"
-version = "8.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2990d9ea5967266ea0ccf413a4aa5c42a93dbcfda9cb49a97de6931726b12566"
-dependencies = [
- "anyhow",
- "cfg-if",
- "rustversion",
- "time",
-]
 
 [[package]]
 name = "version_check"

@@ -1,4 +1,4 @@
-use forge::{
+use edr_solidity_tests::{
     contracts::{ArtifactId, ContractsByArtifact},
     decode::RevertDecoder,
     multi_runner::{TestContract, TestContracts},

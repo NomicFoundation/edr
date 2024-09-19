@@ -9,9 +9,9 @@ edition.workspace = true
 edr_defaults.workspace = true
 
 foundry-cheatcodes-spec.workspace = true
-foundry-common.workspace = true
+edr_common.workspace = true
 foundry-compilers.workspace = true
-foundry-macros.workspace = true
+edr_macros.workspace = true
 
 alloy-chains.workspace = true
 alloy-consensus.workspace = true

@@ -8,7 +8,7 @@ use napi_derive::napi;
 
 use crate::solidity_tests::artifact::ArtifactId;
 
-/// See [forge::result::SuiteResult]
+/// See [edr_solidity_tests::result::SuiteResult]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct SuiteResult {
@@ -16,20 +16,28 @@ pub struct SuiteResult {
     /// callback
     #[napi(readonly)]
     pub id: ArtifactId,
-    /// See [forge::result::SuiteResult::duration]
+    /// See [edr_solidity_tests::result::SuiteResult::duration]
     #[napi(readonly)]
     pub duration_ms: BigInt,
-    /// See [forge::result::SuiteResult::test_results]
+    /// See [edr_solidity_tests::result::SuiteResult::test_results]
     #[napi(readonly)]
     pub test_results: Vec<TestResult>,
-    /// See [forge::result::SuiteResult::warnings]
+    /// See [edr_solidity_tests::result::SuiteResult::warnings]
     #[napi(readonly)]
     pub warnings: Vec<String>,
 }
 
-impl From<(forge::contracts::ArtifactId, forge::result::SuiteResult)> for SuiteResult {
+impl
+    From<(
+        edr_solidity_tests::contracts::ArtifactId,
+        edr_solidity_tests::result::SuiteResult,
+    )> for SuiteResult
+{
     fn from(
-        (id, suite_result): (forge::contracts::ArtifactId, forge::result::SuiteResult),
+        (id, suite_result): (
+            edr_solidity_tests::contracts::ArtifactId,
+            edr_solidity_tests::result::SuiteResult,
+        ),
     ) -> Self {
         Self {
             id: id.into(),
@@ -44,35 +52,35 @@ impl From<(forge::contracts::ArtifactId, forge::result::SuiteResult)> for SuiteR
     }
 }
 
-/// See [forge::result::TestResult]
+/// See [edr_solidity_tests::result::TestResult]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct TestResult {
     /// The name of the test.
     #[napi(readonly)]
     pub name: String,
-    /// See [forge::result::TestResult::status]
+    /// See [edr_solidity_tests::result::TestResult::status]
     #[napi(readonly)]
     pub status: TestStatus,
-    /// See [forge::result::TestResult::reason]
+    /// See [edr_solidity_tests::result::TestResult::reason]
     #[napi(readonly)]
     pub reason: Option<String>,
-    /// See [forge::result::TestResult::counterexample]
+    /// See [edr_solidity_tests::result::TestResult::counterexample]
     #[napi(readonly)]
     pub counterexample: Option<Either<BaseCounterExample, Vec<BaseCounterExample>>>,
-    /// See [forge::result::TestResult::decoded_logs]
+    /// See [edr_solidity_tests::result::TestResult::decoded_logs]
     #[napi(readonly)]
     pub decoded_logs: Vec<String>,
-    /// See [forge::result::TestResult::kind]
+    /// See [edr_solidity_tests::result::TestResult::kind]
     #[napi(readonly)]
     pub kind: Either3<StandardTestKind, FuzzTestKind, InvariantTestKind>,
-    /// See [forge::result::TestResult::duration]
+    /// See [edr_solidity_tests::result::TestResult::duration]
     #[napi(readonly)]
     pub duration_ms: BigInt,
 }
 
-impl From<(String, forge::result::TestResult)> for TestResult {
-    fn from((name, test_result): (String, forge::result::TestResult)) -> Self {
+impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
+    fn from((name, test_result): (String, edr_solidity_tests::result::TestResult)) -> Self {
         Self {
             name,
             status: test_result.status.into(),
@@ -80,22 +88,26 @@ impl From<(String, forge::result::TestResult)> for TestResult {
             counterexample: test_result
                 .counterexample
                 .map(|counterexample| match counterexample {
-                    forge::fuzz::CounterExample::Single(counterexample) => {
+                    edr_solidity_tests::fuzz::CounterExample::Single(counterexample) => {
                         Either::A(BaseCounterExample::from(counterexample))
                     }
-                    forge::fuzz::CounterExample::Sequence(counterexamples) => Either::B(
-                        counterexamples
-                            .into_iter()
-                            .map(BaseCounterExample::from)
-                            .collect(),
-                    ),
+                    edr_solidity_tests::fuzz::CounterExample::Sequence(counterexamples) => {
+                        Either::B(
+                            counterexamples
+                                .into_iter()
+                                .map(BaseCounterExample::from)
+                                .collect(),
+                        )
+                    }
                 }),
             decoded_logs: test_result.decoded_logs,
             kind: match test_result.kind {
-                forge::result::TestKind::Standard(gas_consumed) => Either3::A(StandardTestKind {
-                    consumed_gas: BigInt::from(gas_consumed),
-                }),
-                forge::result::TestKind::Fuzz {
+                edr_solidity_tests::result::TestKind::Standard(gas_consumed) => {
+                    Either3::A(StandardTestKind {
+                        consumed_gas: BigInt::from(gas_consumed),
+                    })
+                }
+                edr_solidity_tests::result::TestKind::Fuzz {
                     runs,
                     mean_gas,
                     median_gas,
@@ -105,7 +117,7 @@ impl From<(String, forge::result::TestResult)> for TestResult {
                     mean_gas: BigInt::from(mean_gas),
                     median_gas: BigInt::from(median_gas),
                 }),
-                forge::result::TestKind::Invariant {
+                edr_solidity_tests::result::TestKind::Invariant {
                     runs,
                     calls,
                     reverts,
@@ -133,17 +145,17 @@ pub enum TestStatus {
     Skipped,
 }
 
-impl From<forge::result::TestStatus> for TestStatus {
-    fn from(value: forge::result::TestStatus) -> Self {
+impl From<edr_solidity_tests::result::TestStatus> for TestStatus {
+    fn from(value: edr_solidity_tests::result::TestStatus) -> Self {
         match value {
-            forge::result::TestStatus::Success => Self::Success,
-            forge::result::TestStatus::Failure => Self::Failure,
-            forge::result::TestStatus::Skipped => Self::Skipped,
+            edr_solidity_tests::result::TestStatus::Success => Self::Success,
+            edr_solidity_tests::result::TestStatus::Failure => Self::Failure,
+            edr_solidity_tests::result::TestStatus::Skipped => Self::Skipped,
         }
     }
 }
 
-/// See [forge::result::TestKind::Standard]
+/// See [edr_solidity_tests::result::TestKind::Standard]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct StandardTestKind {
@@ -152,22 +164,22 @@ pub struct StandardTestKind {
     pub consumed_gas: BigInt,
 }
 
-/// See [forge::result::TestKind::Fuzz]
+/// See [edr_solidity_tests::result::TestKind::Fuzz]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct FuzzTestKind {
-    /// See [forge::result::TestKind::Fuzz]
+    /// See [edr_solidity_tests::result::TestKind::Fuzz]
     #[napi(readonly)]
     pub runs: BigInt,
-    /// See [forge::result::TestKind::Fuzz]
+    /// See [edr_solidity_tests::result::TestKind::Fuzz]
     #[napi(readonly)]
     pub mean_gas: BigInt,
-    /// See [forge::result::TestKind::Fuzz]
+    /// See [edr_solidity_tests::result::TestKind::Fuzz]
     #[napi(readonly)]
     pub median_gas: BigInt,
 }
 
-/// See [forge::fuzz::FuzzCase]
+/// See [edr_solidity_tests::fuzz::FuzzCase]
 #[napi(object)]
 #[derive(Clone)]
 pub struct FuzzCase {
@@ -191,41 +203,41 @@ impl Debug for FuzzCase {
     }
 }
 
-/// See [forge::result::TestKind::Invariant]
+/// See [edr_solidity_tests::result::TestKind::Invariant]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct InvariantTestKind {
-    /// See [forge::result::TestKind::Invariant]
+    /// See [edr_solidity_tests::result::TestKind::Invariant]
     #[napi(readonly)]
     pub runs: BigInt,
-    /// See [forge::result::TestKind::Invariant]
+    /// See [edr_solidity_tests::result::TestKind::Invariant]
     #[napi(readonly)]
     pub calls: BigInt,
-    /// See [forge::result::TestKind::Invariant]
+    /// See [edr_solidity_tests::result::TestKind::Invariant]
     #[napi(readonly)]
     pub reverts: BigInt,
 }
 
-/// See [forge::fuzz::BaseCounterExample]
+/// See [edr_solidity_tests::fuzz::BaseCounterExample]
 #[napi(object)]
 #[derive(Clone)]
 pub struct BaseCounterExample {
-    /// See [forge::fuzz::BaseCounterExample::sender]
+    /// See [edr_solidity_tests::fuzz::BaseCounterExample::sender]
     #[napi(readonly)]
     pub sender: Option<Buffer>,
-    /// See [forge::fuzz::BaseCounterExample::addr]
+    /// See [edr_solidity_tests::fuzz::BaseCounterExample::addr]
     #[napi(readonly)]
     pub address: Option<Buffer>,
-    /// See [forge::fuzz::BaseCounterExample::calldata]
+    /// See [edr_solidity_tests::fuzz::BaseCounterExample::calldata]
     #[napi(readonly)]
     pub calldata: Buffer,
-    /// See [forge::fuzz::BaseCounterExample::contract_name]
+    /// See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name]
     #[napi(readonly)]
     pub contract_name: Option<String>,
-    /// See [forge::fuzz::BaseCounterExample::signature]
+    /// See [edr_solidity_tests::fuzz::BaseCounterExample::signature]
     #[napi(readonly)]
     pub signature: Option<String>,
-    /// See [forge::fuzz::BaseCounterExample::args]
+    /// See [edr_solidity_tests::fuzz::BaseCounterExample::args]
     #[napi(readonly)]
     pub args: Option<String>,
 }
@@ -240,8 +252,8 @@ impl Debug for BaseCounterExample {
     }
 }
 
-impl From<forge::fuzz::BaseCounterExample> for BaseCounterExample {
-    fn from(value: forge::fuzz::BaseCounterExample) -> Self {
+impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
+    fn from(value: edr_solidity_tests::fuzz::BaseCounterExample) -> Self {
         Self {
             sender: value.sender.map(|sender| Buffer::from(sender.as_slice())),
             address: value.addr.map(|address| Buffer::from(address.as_slice())),

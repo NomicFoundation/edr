@@ -278,7 +278,7 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_primitives::B256;
-    use foundry_macros::ConsoleFmt;
+    use edr_macros::ConsoleFmt;
 
     use super::*;
 

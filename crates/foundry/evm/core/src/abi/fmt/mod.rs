@@ -1,7 +1,7 @@
 //! Helpers for formatting Ethereum types.
 
 use alloy_primitives::{Sign, I256, U256};
-use foundry_common::calc::to_exp_notation;
+use edr_common::calc::to_exp_notation;
 use yansi::Paint;
 
 mod console;

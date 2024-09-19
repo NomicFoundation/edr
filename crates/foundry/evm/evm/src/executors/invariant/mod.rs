@@ -266,7 +266,7 @@ impl<'a> InvariantExecutor<'a> {
                             &targeted_contracts,
                             &mut created_contracts,
                         ) {
-                            warn!(target: "forge::test", "{error}");
+                            warn!(target: "edr_solidity_tests::test", "{error}");
                         }
                     }
 
@@ -330,8 +330,8 @@ impl<'a> InvariantExecutor<'a> {
             Ok(())
         });
 
-        trace!(target: "forge::test::invariant::fuzz_fixtures", "{:?}", fuzz_fixtures);
-        trace!(target: "forge::test::invariant::dictionary", "{:?}", fuzz_state.dictionary_read().values().iter().map(hex::encode).collect::<Vec<_>>());
+        trace!(target: "edr_solidity_tests::test::invariant::fuzz_fixtures", "{:?}", fuzz_fixtures);
+        trace!(target: "edr_solidity_tests::test::invariant::dictionary", "{:?}", fuzz_state.dictionary_read().values().iter().map(hex::encode).collect::<Vec<_>>());
 
         let (reverts, error) = failures.into_inner().into_inner();
 
@@ -683,7 +683,7 @@ impl<'a> InvariantExecutor<'a> {
         self.executor
             .call_sol(CALLER, to, args, U256::ZERO, None)
             .map(|c| c.decoded_result)
-            .inspect_err(|e| warn!(target: "forge::test", "failed calling {:?}: {e}", C::SIGNATURE))
+            .inspect_err(|e| warn!(target: "edr_solidity_tests::test", "failed calling {:?}: {e}", C::SIGNATURE))
             .unwrap_or_default()
     }
 }

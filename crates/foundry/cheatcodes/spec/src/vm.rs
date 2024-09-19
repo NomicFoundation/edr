@@ -4,7 +4,7 @@
 #![allow(missing_docs)]
 
 use alloy_sol_types::sol;
-use foundry_macros::Cheatcode;
+use edr_macros::Cheatcode;
 
 use super::{
     Cheatcode, CheatcodeDef, Cow, Enum, EnumVariant, Error, Function, Group, Mutability, Safety,
