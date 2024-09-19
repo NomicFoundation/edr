@@ -10,7 +10,6 @@ import {
   SubscriptionEvent,
 } from "..";
 import { collectMessages, collectSteps, ALCHEMY_URL } from "./helpers";
-import { collectMessages, collectSteps, ALCHEMY_URL } from "./helpers";
 
 chai.use(chaiAsPromised);
 
