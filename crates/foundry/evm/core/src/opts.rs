@@ -3,11 +3,10 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::Block;
 use eyre::WrapErr;
-use foundry_common::{provider::ProviderBuilder, ALCHEMY_FREE_TIER_CUPS};
 use revm::primitives::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
 
-use super::fork::environment;
+use super::fork::{environment, provider::ProviderBuilder};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EvmOpts {
@@ -105,7 +104,7 @@ impl EvmOpts {
     /// Returns the `revm::Env` configured with only local settings
     pub fn local_evm_env(&self) -> revm::primitives::Env {
         let mut cfg = CfgEnv::default();
-        cfg.chain_id = self.env.chain_id.unwrap_or(foundry_common::DEV_CHAIN_ID);
+        cfg.chain_id = self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID);
         cfg.limit_contract_code_size = self.env.code_size_limit.or(Some(usize::MAX));
         cfg.memory_limit = self.memory_limit;
         // EIP-3607 rejects transactions from senders with deployed code.
@@ -167,7 +166,7 @@ impl EvmOpts {
         } else if let Some(cups) = self.compute_units_per_second {
             return cups;
         } else {
-            ALCHEMY_FREE_TIER_CUPS
+            edr_defaults::ALCHEMY_FREE_TIER_CUPS
         }
     }
 

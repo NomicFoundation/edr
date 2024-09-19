@@ -14,7 +14,6 @@ use alloy_provider::{network::AnyNetwork, Provider};
 use alloy_rpc_types::{Block, BlockId, Transaction, WithOtherFields};
 use alloy_transport::Transport;
 use eyre::WrapErr;
-use foundry_common::NON_ARCHIVE_NODE_WARNING;
 use futures::{
     channel::mpsc::{channel, Receiver, Sender},
     stream::Stream,
@@ -57,6 +56,12 @@ type StorageSender = OneshotSender<DatabaseResult<U256>>;
 type BlockHashSender = OneshotSender<DatabaseResult<B256>>;
 type FullBlockSender = OneshotSender<DatabaseResult<Block>>;
 type TransactionSender = OneshotSender<DatabaseResult<WithOtherFields<Transaction>>>;
+
+/// Logged when an error is indicative that the user is trying to fork from a
+/// non-archive node.
+const NON_ARCHIVE_NODE_WARNING: &str = "\
+It looks like you're trying to fork from an older block with a non-archive node which is not \
+supported. Please try to change your RPC url to an archive node if the issue persists.";
 
 /// Request variants that are executed by the provider
 enum ProviderRequest<Err> {
@@ -747,6 +752,11 @@ mod tests {
         assert!(!json.db().accounts.read().is_empty());
     }
 
+    // HACK: workaround for dev dependency not allowed to be optional, but these are
+    // only used behind the remote feature flag.
+    use edr_test_utils as _;
+    use tempfile as _;
+
     #[cfg(feature = "test-remote")]
     mod remote {
         use std::{collections::BTreeSet, sync::Arc};
@@ -755,7 +765,6 @@ mod tests {
         use alloy_primitives::{Address, U256};
         use alloy_provider::Provider;
         use edr_test_utils::env::get_alchemy_url;
-        use foundry_common::provider::get_http_provider;
         use revm::{
             primitives::{BlockEnv, CfgEnv},
             DatabaseRef,
@@ -764,7 +773,10 @@ mod tests {
 
         use crate::{
             backend::Backend,
-            fork::{BlockchainDb, BlockchainDbMeta, CreateFork, SharedBackend},
+            fork::{
+                provider::get_http_provider, BlockchainDb, BlockchainDbMeta, CreateFork,
+                SharedBackend,
+            },
             opts::EvmOpts,
         };
 

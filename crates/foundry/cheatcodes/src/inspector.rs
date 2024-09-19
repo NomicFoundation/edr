@@ -12,7 +12,6 @@ use std::{
 use alloy_primitives::{Address, Bytes, Log, B256, U256};
 use alloy_rpc_types::request::TransactionRequest;
 use alloy_sol_types::{SolInterface, SolValue};
-use foundry_common::SELECTOR_LEN;
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
     backend::{DatabaseExt, RevertDiagnostic},
@@ -616,7 +615,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                                 // execution.
                                 let value = try_or_continue!(interpreter.stack().peek(1)).to_be_bytes::<32>();
                                 let selector = stopExpectSafeMemoryCall {}.cheatcode().func.selector_bytes;
-                                if value[0..SELECTOR_LEN] == selector {
+                                if value[0..edr_defaults::SELECTOR_LEN] == selector {
                                     return
                                 }
 
@@ -686,7 +685,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                                     let args_size = try_or_continue!(interpreter.stack().peek(4)).saturating_to::<usize>();
                                     let selector = stopExpectSafeMemoryCall {}.cheatcode().func.selector_bytes;
                                     let memory_word = interpreter.shared_memory.slice(args_offset, args_size);
-                                    if memory_word[0..SELECTOR_LEN] == selector {
+                                    if memory_word[0..edr_defaults::SELECTOR_LEN] == selector {
                                         return
                                     }
                                 }

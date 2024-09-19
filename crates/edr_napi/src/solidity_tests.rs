@@ -6,8 +6,7 @@ mod test_results;
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use artifact::Artifact;
-use forge::TestFilter;
-use foundry_common::{ContractData, ContractsByArtifact};
+use forge::{contracts::ContractsByArtifact, TestFilter};
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -53,11 +52,15 @@ pub fn run_solidity_tests(
             |ctx: ThreadSafeCallContext<napi::Error>| Ok(vec![ctx.value]),
         )?;
 
-    let known_contracts: ContractsByArtifact = artifacts
-        .into_iter()
-        .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
-        .collect::<Result<BTreeMap<foundry_common::ArtifactId, ContractData>, napi::Error>>()?
-        .into();
+    let known_contracts: ContractsByArtifact =
+        artifacts
+            .into_iter()
+            .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
+            .collect::<Result<
+                BTreeMap<forge::contracts::ArtifactId, forge::contracts::ContractData>,
+                napi::Error,
+            >>()?
+            .into();
 
     let test_suites = test_suites
         .into_iter()
@@ -65,7 +68,7 @@ pub fn run_solidity_tests(
         .collect::<Result<Vec<_>, _>>()?;
 
     let (tx_results, mut rx_results) = tokio::sync::mpsc::unbounded_channel::<(
-        foundry_common::ArtifactId,
+        forge::contracts::ArtifactId,
         forge::result::SuiteResult,
     )>();
 

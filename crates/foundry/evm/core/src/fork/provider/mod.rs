@@ -21,13 +21,10 @@ use alloy_rpc_client::ClientBuilder;
 use alloy_transport::utils::guess_local_url;
 use eyre::{Result, WrapErr};
 use reqwest::Url;
-use runtime_transport::RuntimeTransport;
 use tower::{RetryBackoffLayer, RetryBackoffService};
 use url::ParseError;
 
-use crate::{
-    provider::runtime_transport::RuntimeTransportBuilder, ALCHEMY_FREE_TIER_CUPS, REQUEST_TIMEOUT,
-};
+use crate::fork::provider::runtime_transport::{RuntimeTransport, RuntimeTransportBuilder};
 
 /// Helper type alias for a retry provider
 pub type RetryProvider<N = AnyNetwork> = RootProvider<RetryBackoffService<RuntimeTransport>, N>;
@@ -43,6 +40,14 @@ pub type RetryProviderWithSigner<N = AnyNetwork> = FillProvider<
     N,
 >;
 
+/// Default request timeout for http requests
+///
+/// Note: this is only used so that connections, that are discarded on the
+/// server side won't stay open forever. We assume some nodes may have some
+/// backoff baked into them and will delay some responses. This timeout should
+/// be a reasonable amount of time to wait for a request.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
+
 /// Constructs a provider with a 100 millisecond interval poll if it's a
 /// localhost URL (most likely an anvil or other dev node) and with the default,
 /// or 7 second otherwise.
@@ -56,7 +61,7 @@ pub type RetryProviderWithSigner<N = AnyNetwork> = FillProvider<
 /// # Examples
 ///
 /// ```
-/// use foundry_common::provider::get_http_provider;
+/// use foundry_evm_core::fork::provider::get_http_provider;
 ///
 /// let retry_provider = get_http_provider("http://localhost:8545");
 /// ```
@@ -138,7 +143,7 @@ impl ProviderBuilder {
             initial_backoff: 800,
             timeout: REQUEST_TIMEOUT,
             // alchemy max cpus <https://docs.alchemy.com/reference/compute-units#what-are-cups-compute-units-per-second>
-            compute_units_per_second: ALCHEMY_FREE_TIER_CUPS,
+            compute_units_per_second: edr_defaults::ALCHEMY_FREE_TIER_CUPS,
             jwt: None,
             headers: vec![],
             is_local,

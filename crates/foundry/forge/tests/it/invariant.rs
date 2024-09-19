@@ -3,12 +3,10 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::U256;
-use edr_test_utils::SolidityTestFilter;
 use forge::fuzz::CounterExample;
 
-use crate::{
-    config::*,
-    helpers::{TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT},
+use crate::helpers::{
+    assert_multiple, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT,
 };
 
 macro_rules! get_counterexample {

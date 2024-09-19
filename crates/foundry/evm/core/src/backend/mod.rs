@@ -6,10 +6,9 @@ use std::{
 };
 
 use alloy_genesis::GenesisAccount;
-use alloy_primitives::{b256, keccak256, Address, B256, U256};
+use alloy_primitives::{address, b256, keccak256, Address, B256, U256};
 use alloy_rpc_types::{Block, BlockNumberOrTag, BlockTransactions, Transaction, WithOtherFields};
 use eyre::Context;
-use foundry_common::{is_known_system_sender, SYSTEM_TRANSACTION_TYPE};
 use revm::{
     db::{CacheDB, DatabaseRef},
     inspectors::NoOpInspector,
@@ -66,6 +65,19 @@ const DEFAULT_PERSISTENT_ACCOUNTS: [Address; 3] =
 /// Not prefixed with 0x.
 const GLOBAL_FAILURE_SLOT: B256 =
     b256!("6661696c65640000000000000000000000000000000000000000000000000000");
+
+/// Arbitrum L1 sender address of the first transaction in every block.
+/// `0x00000000000000000000000000000000000a4b05`
+const ARBITRUM_SENDER: Address = address!("00000000000000000000000000000000000a4b05");
+
+/// The system address, the sender of the first transaction in every block:
+/// `0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001`
+///
+/// See also <https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/specs/deposits.md#l1-attributes-deposited-transaction>
+const OPTIMISM_SYSTEM_ADDRESS: Address = address!("deaddeaddeaddeaddeaddeaddeaddeaddead0001");
+
+/// Transaction identifier of System transaction types
+const SYSTEM_TRANSACTION_TYPE: u8 = 126;
 
 /// An extension trait that allows us to easily extend the `revm::Inspector`
 /// capabilities
@@ -2023,4 +2035,15 @@ fn apply_state_changeset(
     update_state(&mut fork.journaled_state.state, &mut fork.db)?;
 
     Ok(())
+}
+
+/// Returns whether the sender is a known L2 system sender that is the first tx
+/// in every block.
+///
+/// Transactions from these senders usually don't have a any fee information.
+///
+/// See: [`ARBITRUM_SENDER`], [`OPTIMISM_SYSTEM_ADDRESS`]
+#[inline]
+fn is_known_system_sender(sender: Address) -> bool {
+    [ARBITRUM_SENDER, OPTIMISM_SYSTEM_ADDRESS].contains(&sender)
 }

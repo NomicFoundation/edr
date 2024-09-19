@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use foundry_common::TestFunctionExt;
 use foundry_compilers::artifacts::ast::{self, Ast, Node, NodeType};
+use foundry_evm_core::abi::TestFunctionExt;
 use rustc_hash::FxHashMap;
 use semver::Version;
 

@@ -3,7 +3,6 @@ use std::{cell::RefCell, collections::BTreeMap, sync::Arc};
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_sol_types::{sol, SolCall};
 use eyre::{eyre, ContextCompat, Result};
-use foundry_common::contracts::{ContractsByAddress, ContractsByArtifact};
 use foundry_evm_core::{
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, MAGIC_ASSUME},
     utils::get_function,
@@ -34,6 +33,7 @@ use crate::{
 
 mod error;
 pub use error::{InvariantFailures, InvariantFuzzError};
+use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
 mod replay;
 pub use replay::{replay_error, replay_run};

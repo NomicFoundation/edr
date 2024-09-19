@@ -2,8 +2,7 @@ use std::collections::BTreeMap;
 
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Selector};
-use foundry_common::ArtifactId;
-use foundry_evm_core::utils::get_function;
+use foundry_evm_core::{contracts::ArtifactId, utils::get_function};
 
 /// Contains which contracts are to be targeted or excluded on an invariant test
 /// through their artifact identifiers.

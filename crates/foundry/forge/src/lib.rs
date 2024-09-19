@@ -25,11 +25,10 @@ mod config;
 pub use config::{SolidityTestRunnerConfig, SolidityTestRunnerConfigError};
 
 pub mod result;
-
-// TODO: remove
-pub use foundry_common::traits::TestFilter;
+mod test_filter;
 pub use foundry_evm::*;
 use foundry_evm::{executors::fuzz::FuzzConfig, fuzz::invariant::InvariantConfig};
+pub use test_filter::TestFilter;
 
 static FAILURE_PATHS: OnceLock<RwLock<HashSet<&'static str>>> = OnceLock::new();
 

@@ -5,10 +5,11 @@ use std::{collections::BTreeMap, fmt::Debug, path::PathBuf, sync::Arc, time::Ins
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::Bytes;
 use eyre::Result;
-use foundry_common::{get_contract_name, ArtifactId, ContractsByArtifact, TestFunctionExt};
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
+    abi::TestFunctionExt,
     backend::Backend,
+    contracts::{get_contract_name, ArtifactId, ContractsByArtifact},
     decode::RevertDecoder,
     executors::ExecutorBuilder,
     fork::CreateFork,

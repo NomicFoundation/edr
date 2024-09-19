@@ -3,16 +3,12 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::{Bytes, U256};
-use edr_test_utils::SolidityTestFilter;
 use forge::{
     fuzz::CounterExample,
     result::{SuiteResult, TestStatus},
 };
 
-use crate::{
-    config::*,
-    helpers::{TestFuzzConfig, TEST_DATA_DEFAULT},
-};
+use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {

@@ -6,7 +6,6 @@ use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::{Error, JsonAbi};
 use alloy_primitives::{Log, Selector};
 use alloy_sol_types::{SolCall, SolError, SolEventInterface, SolInterface, SolValue};
-use foundry_common::SELECTOR_LEN;
 use itertools::Itertools;
 use revm::interpreter::InstructionResult;
 
@@ -114,7 +113,7 @@ impl RevertDecoder {
     ///
     /// See [`decode_revert`] for more information.
     pub fn maybe_decode(&self, err: &[u8], status: Option<InstructionResult>) -> Option<String> {
-        if err.len() < SELECTOR_LEN {
+        if err.len() < edr_defaults::SELECTOR_LEN {
             if let Some(status) = status {
                 if !status.is_ok() {
                     return Some(format!("EvmError: {status:?}"));
@@ -137,7 +136,7 @@ impl RevertDecoder {
             return Some(e.to_string());
         }
 
-        let (selector, data) = err.split_at(SELECTOR_LEN);
+        let (selector, data) = err.split_at(edr_defaults::SELECTOR_LEN);
         let selector: &[u8; 4] = selector.try_into().unwrap();
 
         match *selector {
@@ -169,7 +168,7 @@ impl RevertDecoder {
                         error.name,
                         decoded
                             .iter()
-                            .map(foundry_common::fmt::format_token)
+                            .map(crate::abi::fmt::format_token)
                             .format(", ")
                     ));
                 }

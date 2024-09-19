@@ -8,9 +8,9 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
-use foundry_common::{get_contract_name, get_file_name, ContractsByArtifact};
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
+    contracts::{get_contract_name, get_file_name, ContractsByArtifact},
     coverage::HitMaps,
     executors::EvmError,
     fuzz::{CounterExample, FuzzFixtures},

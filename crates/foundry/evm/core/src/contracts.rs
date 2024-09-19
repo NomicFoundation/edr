@@ -231,10 +231,9 @@ unsafe fn count_different_bytes(a: &[u8], b: &[u8]) -> usize {
 /// # Example
 ///
 /// ```
-/// use foundry_common::*;
 /// assert_eq!(
 ///     "SafeTransferLibTest",
-///     get_contract_name("SafeTransferLibTest.json:SafeTransferLibTest")
+///     foundry_evm_core::contracts::get_contract_name("SafeTransferLibTest.json:SafeTransferLibTest")
 /// );
 /// ```
 pub fn get_contract_name(id: &str) -> &str {
@@ -246,10 +245,9 @@ pub fn get_contract_name(id: &str) -> &str {
 /// # Example
 ///
 /// ```
-/// use foundry_common::*;
 /// assert_eq!(
 ///     "SafeTransferLibTest.json",
-///     get_file_name("SafeTransferLibTest.json:SafeTransferLibTest")
+///     foundry_evm_core::contracts::get_file_name("SafeTransferLibTest.json:SafeTransferLibTest")
 /// );
 /// ```
 pub fn get_file_name(id: &str) -> &str {

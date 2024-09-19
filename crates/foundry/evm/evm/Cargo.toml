@@ -7,7 +7,6 @@ edition.workspace = true
 
 [dependencies]
 foundry-cheatcodes.workspace = true
-foundry-common.workspace = true
 foundry-evm-core.workspace = true
 foundry-evm-coverage.workspace = true
 foundry-evm-fuzz.workspace = true

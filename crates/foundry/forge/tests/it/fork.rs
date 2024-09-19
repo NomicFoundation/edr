@@ -1,13 +1,9 @@
 //! Forge forking tests.
 
-use edr_test_utils::SolidityTestFilter;
 use forge::result::SuiteResult;
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 
-use crate::{
-    config::*,
-    helpers::{RE_PATH_SEPARATOR, TEST_DATA_DEFAULT},
-};
+use crate::helpers::{SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT};
 
 /// Executes reverting fork test
 #[tokio::test(flavor = "multi_thread")]

@@ -18,7 +18,7 @@ use tokio::sync::RwLock;
 use tower::Service;
 use url::Url;
 
-use crate::REQUEST_TIMEOUT;
+use super::REQUEST_TIMEOUT;
 
 /// An enum representing the different transports that can be used to connect to
 /// a runtime. Only meant to be used internally by [`RuntimeTransport`].

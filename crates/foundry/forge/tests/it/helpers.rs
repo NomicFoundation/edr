@@ -1,26 +1,32 @@
 //! Test helpers for Forge integration tests.
 
+mod config;
+pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
 mod linker;
 mod solidity_error_code;
+mod solidity_test_filter;
+pub use solidity_test_filter::SolidityTestFilter;
+mod tracing;
 
 use std::{borrow::Cow, env, fmt, io::Write, path::PathBuf};
 
 use alloy_primitives::U256;
-use edr_test_utils::{init_tracing_for_solidity_tests, new_fd_lock};
+use edr_test_utils::new_fd_lock;
 use forge::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
     MultiContractRunner, SolidityTestRunnerConfig,
 };
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
-use foundry_common::{ContractsByArtifact, TestFunctionExt};
 use foundry_compilers::{
     artifacts::{CompactContractBytecode, Libraries},
     Artifact, EvmVersion, Project, ProjectCompileOutput,
 };
 use foundry_evm::{
+    abi::TestFunctionExt,
     constants::CALLER,
+    contracts::ContractsByArtifact,
     decode::RevertDecoder,
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
@@ -31,7 +37,9 @@ use linker::{LinkOutput, Linker};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-use crate::helpers::integration_test_config::IntegrationTestConfig;
+use crate::helpers::{
+    integration_test_config::IntegrationTestConfig, tracing::init_tracing_for_solidity_tests,
+};
 
 pub const RE_PATH_SEPARATOR: &str = "/";
 static PROJECT_ROOT: Lazy<PathBuf> = Lazy::new(|| {

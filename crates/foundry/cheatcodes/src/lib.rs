@@ -25,6 +25,7 @@ pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatco
 use revm::{ContextPrecompiles, InnerEvmContext};
 pub use spec::{CheatcodeDef, Vm};
 
+mod ens;
 #[macro_use]
 mod error;
 mod base64;

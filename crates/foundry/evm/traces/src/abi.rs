@@ -1,13 +1,9 @@
 //! ABI related helper functions.
 
-use std::{future::Future, pin::Pin};
-
-use alloy_chains::Chain;
 use alloy_dyn_abi::{DynSolType, DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Event, Function};
-use alloy_primitives::{hex, Address, LogData};
-use eyre::{Context, ContextCompat, Result};
-use foundry_block_explorers::{contract::ContractMetadata, errors::EtherscanError, Client};
+use alloy_primitives::{hex, LogData};
+use eyre::{Context, Result};
 
 /// Given a function and a vector of string arguments, it proceeds to convert
 /// the args to alloy [`DynSolValue`]s and then ABI encode them.
@@ -107,72 +103,6 @@ pub fn get_indexed_event(mut event: Event, raw_log: &LogData) -> Event {
     event
 }
 
-/// Given a function name, address, and args, tries to parse it as a `Function`
-/// by fetching the abi from etherscan. If the address is a proxy, fetches the
-/// ABI of the implementation contract.
-pub async fn get_func_etherscan(
-    function_name: &str,
-    contract: Address,
-    args: &[String],
-    chain: Chain,
-    etherscan_api_key: &str,
-) -> Result<Function> {
-    let client = Client::new(chain, etherscan_api_key)?;
-    let source = find_source(client, contract).await?;
-    let metadata = source
-        .items
-        .first()
-        .wrap_err("etherscan returned empty metadata")?;
-
-    let mut abi = metadata.abi()?;
-    let funcs = abi.functions.remove(function_name).unwrap_or_default();
-
-    for func in funcs {
-        let res = encode_function_args(&func, args);
-        if res.is_ok() {
-            return Ok(func);
-        }
-    }
-
-    Err(eyre::eyre!("Function not found in abi"))
-}
-
-/// If the code at `address` is a proxy, recurse until we find the
-/// implementation.
-pub fn find_source(
-    client: Client,
-    address: Address,
-) -> Pin<Box<dyn Future<Output = Result<ContractMetadata>>>> {
-    Box::pin(async move {
-        trace!(%address, "find Etherscan source");
-        let source = client.contract_source_code(address).await?;
-        let metadata = source
-            .items
-            .first()
-            .wrap_err("Etherscan returned no data")?;
-        if metadata.proxy == 0 {
-            Ok(source)
-        } else {
-            let implementation = metadata.implementation.unwrap();
-            println!(
-                "Contract at {address} is a proxy, trying to fetch source at {implementation}..."
-            );
-            match find_source(client, implementation).await {
-                impl_source @ Ok(_) => impl_source,
-                Err(e) => {
-                    let err = EtherscanError::ContractCodeNotVerified(address).to_string();
-                    if e.to_string() == err {
-                        error!(%err);
-                        Ok(source)
-                    } else {
-                        Err(e)
-                    }
-                }
-            }
-        }
-    })
-}
-
 /// Helper function to coerce a value to a [`DynSolValue`] given a type string
 pub fn coerce_value(ty: &str, arg: &str) -> Result<DynSolValue> {
     let ty = DynSolType::parse(ty)?;
@@ -182,7 +112,7 @@ pub fn coerce_value(ty: &str, arg: &str) -> Result<DynSolValue> {
 #[cfg(test)]
 mod tests {
     use alloy_dyn_abi::EventExt;
-    use alloy_primitives::{B256, U256};
+    use alloy_primitives::{Address, B256, U256};
 
     use super::*;
 

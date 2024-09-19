@@ -3,7 +3,6 @@
 use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
-use edr_test_utils::SolidityTestFilter;
 use forge::{result::TestStatus, SolidityTestRunnerConfig};
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 use foundry_evm::{
@@ -11,10 +10,7 @@ use foundry_evm::{
     traces::{CallKind, CallTraceDecoder, DecodedCallData, TraceKind},
 };
 
-use crate::{
-    config::*,
-    helpers::{ForgeTestData, TEST_DATA_DEFAULT},
-};
+use crate::helpers::{ForgeTestData, SolidityTestFilter, TestConfig, TEST_DATA_DEFAULT};
 
 /// Creates a test that runs `testdata/repros/Issue{issue}.t.sol`.
 macro_rules! test_repro {

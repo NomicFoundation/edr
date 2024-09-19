@@ -2,8 +2,7 @@ use alloy_primitives::{B256, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::Filter;
 use alloy_sol_types::SolValue;
-use foundry_common::provider::ProviderBuilder;
-use foundry_evm_core::fork::CreateFork;
+use foundry_evm_core::fork::{provider::ProviderBuilder, CreateFork};
 
 use crate::{
     Cheatcode, CheatsCtxt, DatabaseExt, Result,

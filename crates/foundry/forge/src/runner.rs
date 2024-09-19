@@ -12,12 +12,10 @@ use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Log, U256};
 use eyre::Result;
-use foundry_common::{
-    contracts::{ContractsByAddress, ContractsByArtifact},
-    TestFunctionExt,
-};
 use foundry_evm::{
+    abi::TestFunctionExt,
     constants::CALLER,
+    contracts::{ContractsByAddress, ContractsByArtifact},
     coverage::HitMaps,
     decode::{decode_console_logs, RevertDecoder},
     executors::{
@@ -389,7 +387,7 @@ impl<'a> ContractRunner<'a> {
             .contract
             .abi
             .functions()
-            .any(foundry_common::TestFunctionExt::is_invariant_test);
+            .any(foundry_evm::abi::TestFunctionExt::is_invariant_test);
 
         // Invariant testing requires tracing to figure out what contracts were created.
         let tmp_tracing = self.executor.inspector.tracer.is_none() && has_invariants && needs_setup;

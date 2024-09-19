@@ -1,22 +1,6 @@
 //! Commonly used traits.
 
-use std::path::Path;
-
 use alloy_json_abi::Function;
-use alloy_primitives::Bytes;
-use alloy_sol_types::SolError;
-
-/// Test filter.
-pub trait TestFilter: Send + Sync {
-    /// Returns whether the test should be included.
-    fn matches_test(&self, test_name: &str) -> bool;
-
-    /// Returns whether the contract should be included.
-    fn matches_contract(&self, contract_name: &str) -> bool;
-
-    /// Returns a contract with the given path should be included.
-    fn matches_path(&self, path: &Path) -> bool;
-}
 
 /// Extension trait for `Function`.
 pub trait TestFunctionExt {
@@ -117,19 +101,5 @@ impl TestFunctionExt for str {
 
     fn is_fixture(&self) -> bool {
         self.starts_with("fixture")
-    }
-}
-
-/// An extension trait for `std::error::Error` for ABI encoding.
-pub trait ErrorExt: std::error::Error {
-    /// ABI-encodes the error using `Revert(string)`.
-    fn abi_encode_revert(&self) -> Bytes;
-}
-
-impl<T: std::error::Error> ErrorExt for T {
-    fn abi_encode_revert(&self) -> Bytes {
-        alloy_sol_types::Revert::from(self.to_string())
-            .abi_encode()
-            .into()
     }
 }

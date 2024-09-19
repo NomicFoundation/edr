@@ -27,8 +27,10 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
 }
 
-impl From<(foundry_common::ArtifactId, forge::result::SuiteResult)> for SuiteResult {
-    fn from((id, suite_result): (foundry_common::ArtifactId, forge::result::SuiteResult)) -> Self {
+impl From<(forge::contracts::ArtifactId, forge::result::SuiteResult)> for SuiteResult {
+    fn from(
+        (id, suite_result): (forge::contracts::ArtifactId, forge::result::SuiteResult),
+    ) -> Self {
         Self {
             id: id.into(),
             duration_ms: BigInt::from(suite_result.duration.as_millis()),

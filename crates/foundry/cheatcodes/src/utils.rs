@@ -4,12 +4,12 @@ use alloy_primitives::{B256, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_wallet::LocalWallet;
 use alloy_sol_types::SolValue;
-use foundry_common::ens::namehash;
 use foundry_evm_core::constants::DEFAULT_CREATE2_DEPLOYER;
 use k256::{ecdsa::SigningKey, elliptic_curve::Curve, Secp256k1};
 use p256::ecdsa::{signature::hazmat::PrehashSigner, Signature, SigningKey as P256SigningKey};
 
 use crate::{
+    ens::namehash,
     Cheatcode, Cheatcodes, Result,
     Vm::{
         computeCreate2Address_0Call, computeCreate2Address_1Call, computeCreateAddressCall,

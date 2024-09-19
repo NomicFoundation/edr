@@ -1,4 +1,3 @@
-pub mod config;
 pub mod helpers;
 
 mod cheats;

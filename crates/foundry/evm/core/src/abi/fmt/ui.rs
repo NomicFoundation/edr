@@ -8,7 +8,7 @@ use alloy_rpc_types::{
 };
 use serde::Deserialize;
 
-use crate::TransactionReceiptWithRevertReason;
+use crate::abi::fmt::transactions::TransactionReceiptWithRevertReason;
 
 /// length of the name column for pretty formatting `{:>20}{value}`
 const NAME_COLUMN_LEN: usize = 20usize;
@@ -18,7 +18,7 @@ const NAME_COLUMN_LEN: usize = 20usize;
 /// # Examples
 ///
 /// ```
-/// use foundry_common::fmt::UIfmt;
+/// use foundry_evm_core::abi::fmt::UIfmt;
 ///
 /// let boolean: bool = true;
 /// let string = boolean.pretty();

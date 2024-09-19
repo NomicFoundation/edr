@@ -22,8 +22,8 @@ pub struct ArtifactId {
     pub solc_version: String,
 }
 
-impl From<foundry_common::contracts::ArtifactId> for ArtifactId {
-    fn from(value: foundry_common::ArtifactId) -> Self {
+impl From<forge::contracts::ArtifactId> for ArtifactId {
+    fn from(value: forge::contracts::ArtifactId) -> Self {
         Self {
             name: value.name,
             source: value.source.to_string_lossy().to_string(),
@@ -32,11 +32,11 @@ impl From<foundry_common::contracts::ArtifactId> for ArtifactId {
     }
 }
 
-impl TryFrom<ArtifactId> for foundry_common::contracts::ArtifactId {
+impl TryFrom<ArtifactId> for forge::contracts::ArtifactId {
     type Error = napi::Error;
 
     fn try_from(value: ArtifactId) -> napi::Result<Self> {
-        Ok(foundry_common::contracts::ArtifactId {
+        Ok(forge::contracts::ArtifactId {
             name: value.name,
             source: value.source.parse().map_err(|_err| {
                 napi::Error::new(napi::Status::GenericFailure, "Invalid source path")
@@ -62,11 +62,11 @@ pub struct ContractData {
     pub deployed_bytecode: Option<String>,
 }
 
-impl TryFrom<ContractData> for foundry_common::contracts::ContractData {
+impl TryFrom<ContractData> for forge::contracts::ContractData {
     type Error = napi::Error;
 
     fn try_from(contract: ContractData) -> napi::Result<Self> {
-        Ok(foundry_common::contracts::ContractData {
+        Ok(forge::contracts::ContractData {
             abi: serde_json::from_str(&contract.abi).map_err(|_err| {
                 napi::Error::new(napi::Status::GenericFailure, "Invalid JSON ABI")
             })?,

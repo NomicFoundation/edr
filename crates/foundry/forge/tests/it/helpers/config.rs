@@ -2,7 +2,6 @@
 
 use std::collections::BTreeMap;
 
-use edr_test_utils::{init_tracing_for_solidity_tests, SolidityTestFilter};
 use forge::{
     result::{SuiteResult, TestStatus},
     MultiContractRunner,
@@ -13,6 +12,8 @@ use foundry_evm::{
 };
 use futures::future::join_all;
 use itertools::Itertools;
+
+use crate::helpers::{tracing::init_tracing_for_solidity_tests, SolidityTestFilter};
 
 /// How to execute a test run.
 pub struct TestConfig {

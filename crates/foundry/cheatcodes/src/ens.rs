@@ -7,7 +7,7 @@ use std::borrow::Cow;
 use alloy_primitives::{Keccak256, B256};
 
 /// Returns the ENS namehash as specified in [EIP-137](https://eips.ethereum.org/EIPS/eip-137)
-pub fn namehash(name: &str) -> B256 {
+pub(crate) fn namehash(name: &str) -> B256 {
     const VARIATION_SELECTOR: char = '\u{fe0f}';
 
     if name.is_empty() {

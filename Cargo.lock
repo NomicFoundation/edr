@@ -2000,10 +2000,8 @@ dependencies = [
  "foundry-compilers",
  "once_cell",
  "rand",
- "regex",
  "serde",
  "serde_json",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -2289,6 +2287,7 @@ dependencies = [
  "path-slash",
  "proptest",
  "rayon",
+ "regex",
  "semver 1.0.23",
  "serde",
  "serial_test",
@@ -2310,24 +2309,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
-]
-
-[[package]]
-name = "foundry-block-explorers"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "351c6be2db0090c6c5ae214a7e768a1a61d7d46ff70ab9e7ee45c8f34e6c3c60"
-dependencies = [
- "alloy-chains",
- "alloy-json-abi",
- "alloy-primitives 0.7.7",
- "foundry-compilers",
- "reqwest 0.12.7",
- "semver 1.0.23",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
 ]
 
 [[package]]
@@ -2383,39 +2364,13 @@ dependencies = [
 name = "foundry-common"
 version = "0.3.8"
 dependencies = [
- "alloy-chains",
- "alloy-consensus",
- "alloy-dyn-abi",
- "alloy-json-abi",
- "alloy-json-rpc",
  "alloy-primitives 0.7.7",
- "alloy-provider",
- "alloy-pubsub",
- "alloy-rpc-client",
- "alloy-rpc-types",
- "alloy-rpc-types-engine",
- "alloy-sol-types 0.7.7",
- "alloy-transport",
- "alloy-transport-http",
- "alloy-transport-ipc",
- "alloy-transport-ws",
  "dunce",
- "eyre",
- "foundry-block-explorers",
- "foundry-compilers",
- "foundry-macros",
- "reqwest 0.12.7",
- "semver 1.0.23",
  "serde",
  "serde_json",
- "similar-asserts",
  "thiserror",
  "tokio",
- "tower",
- "tracing",
- "url",
  "walkdir",
- "yansi",
 ]
 
 [[package]]
@@ -2467,7 +2422,6 @@ dependencies = [
  "const-hex",
  "eyre",
  "foundry-cheatcodes",
- "foundry-common",
  "foundry-evm-core",
  "foundry-evm-coverage",
  "foundry-evm-fuzz",
@@ -2485,36 +2439,51 @@ name = "foundry-evm-core"
 version = "0.3.8"
 dependencies = [
  "alloy-chains",
+ "alloy-consensus",
  "alloy-dyn-abi",
  "alloy-genesis",
  "alloy-json-abi",
+ "alloy-json-rpc",
  "alloy-primitives 0.7.7",
  "alloy-provider",
+ "alloy-pubsub",
+ "alloy-rpc-client",
  "alloy-rpc-types",
+ "alloy-rpc-types-engine",
  "alloy-sol-types 0.7.7",
  "alloy-transport",
+ "alloy-transport-http",
+ "alloy-transport-ipc",
+ "alloy-transport-ws",
  "auto_impl",
  "const-hex",
  "derive_more",
+ "edr_defaults",
  "edr_test_utils",
  "eyre",
  "foundry-cheatcodes-spec",
  "foundry-common",
+ "foundry-compilers",
  "foundry-macros",
  "futures",
  "itertools 0.12.1",
  "once_cell",
  "parking_lot 0.12.3",
+ "reqwest 0.12.7",
  "revm 8.0.0",
  "revm-inspectors",
  "rustc-hash 1.1.0",
+ "semver 1.0.23",
  "serde",
  "serde_json",
+ "similar-asserts",
  "tempfile",
  "thiserror",
  "tokio",
+ "tower",
  "tracing",
  "url",
+ "yansi",
 ]
 
 [[package]]
@@ -2523,7 +2492,6 @@ version = "0.3.8"
 dependencies = [
  "alloy-primitives 0.7.7",
  "eyre",
- "foundry-common",
  "foundry-compilers",
  "foundry-evm-core",
  "revm 8.0.0",
@@ -2564,14 +2532,17 @@ dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-sol-types 0.7.7",
  "const-hex",
+ "edr_defaults",
  "eyre",
  "foundry-common",
  "foundry-evm-core",
  "futures",
  "itertools 0.12.1",
  "once_cell",
+ "reqwest 0.12.7",
  "revm-inspectors",
  "serde",
+ "serde_json",
  "tempfile",
  "tokio",
  "tracing",

@@ -10,7 +10,7 @@ pub fn console_fmt(input: &DeriveInput) -> TokenStream {
         Data::Union(_) => return quote!(compile_error!("Unions are unsupported");),
     };
     quote! {
-        impl ::foundry_common::fmt::ConsoleFmt for #name {
+        impl crate::abi::fmt::ConsoleFmt for #name {
             #tokens
         }
     }
@@ -19,7 +19,7 @@ pub fn console_fmt(input: &DeriveInput) -> TokenStream {
 fn derive_struct(s: &DataStruct) -> TokenStream {
     let imp = impl_struct(s).unwrap_or_else(|| quote!(String::new()));
     quote! {
-        fn fmt(&self, _spec: ::foundry_common::fmt::FormatSpec) -> String {
+        fn fmt(&self, _spec: crate::abi::fmt::FormatSpec) -> String {
             #imp
         }
     }
@@ -60,12 +60,12 @@ fn impl_struct(s: &DataStruct) -> Option<TokenStream> {
         let first = args.next().unwrap();
         let first = first.value();
         quote! {
-            ::foundry_common::fmt::console_format((#first).as_str(), &[#(#args)*])
+            crate::abi::fmt::console_format((#first).as_str(), &[#(#args)*])
         }
     } else {
         // console_format("", [...args])
         quote! {
-            ::foundry_common::fmt::console_format("", &[#args])
+            crate::abi::fmt::console_format("", &[#args])
         }
     };
 
@@ -101,12 +101,12 @@ fn derive_enum(e: &DataEnum) -> TokenStream {
         let field = fields.into_iter().next().unwrap();
         let fields = Group::new(delimiter, quote!(#field));
         quote! {
-            Self::#name #fields => ::foundry_common::fmt::ConsoleFmt::fmt(#field, spec),
+            Self::#name #fields => crate::abi::fmt::ConsoleFmt::fmt(#field, spec),
         }
     });
 
     quote! {
-        fn fmt(&self, spec: ::foundry_common::fmt::FormatSpec) -> String {
+        fn fmt(&self, spec: crate::abi::fmt::FormatSpec) -> String {
             match self {
                 #(#arms)*
 

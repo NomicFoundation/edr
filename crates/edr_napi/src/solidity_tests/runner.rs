@@ -1,15 +1,15 @@
 use forge::{
+    contracts::{ArtifactId, ContractsByArtifact},
     decode::RevertDecoder,
     multi_runner::{TestContract, TestContracts},
     MultiContractRunner, SolidityTestRunnerConfig,
 };
-use foundry_common::ContractsByArtifact;
 
 use crate::solidity_tests::config::SolidityTestRunnerConfigArgs;
 
 pub(super) async fn build_runner(
     known_contracts: ContractsByArtifact,
-    test_suites: Vec<foundry_common::ArtifactId>,
+    test_suites: Vec<ArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
 ) -> napi::Result<MultiContractRunner> {
     let config: SolidityTestRunnerConfig = config_args.try_into()?;

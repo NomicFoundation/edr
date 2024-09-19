@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use foundry_common::traits::TestFilter;
+use forge::TestFilter;
 use regex::Regex;
 
 #[derive(Clone, Debug)]

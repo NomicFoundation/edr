@@ -7,8 +7,10 @@ use std::{
 use alloy_dyn_abi::{DynSolType, DynSolValue, EventExt, FunctionExt};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Bytes, Log, B256, U256};
-use foundry_common::contracts::{ContractsByAddress, ContractsByArtifact};
-use foundry_evm_core::utils::StateChangeset;
+use foundry_evm_core::{
+    contracts::{ContractsByAddress, ContractsByArtifact},
+    utils::StateChangeset,
+};
 use indexmap::IndexSet;
 use parking_lot::{lock_api::RwLockReadGuard, RawRwLock, RwLock};
 use revm::{

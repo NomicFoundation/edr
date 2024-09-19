@@ -5,13 +5,14 @@ use std::{
 };
 
 use alloy_json_abi::{Event, Function};
-use foundry_common::{
-    abi::{get_event, get_func},
-    fs,
-    selectors::{SelectorType, SignEthClient},
-};
+use foundry_common::fs;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
+
+use crate::{
+    abi::{get_event, get_func},
+    identifier::selectors::{SelectorType, SignEthClient},
+};
 
 pub type SingleSignaturesIdentifier = Arc<RwLock<SignaturesIdentifier>>;
 

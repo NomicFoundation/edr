@@ -6,8 +6,8 @@ use std::{
 };
 
 use comfy_table::{presets::ASCII_MARKDOWN, Attribute, Cell, Color, Table};
-use foundry_common::{calc, TestFunctionExt};
-use foundry_evm::traces::CallKind;
+use foundry_common::calc;
+use foundry_evm::{abi::TestFunctionExt, traces::CallKind};
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
 

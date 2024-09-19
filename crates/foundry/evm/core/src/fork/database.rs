@@ -286,11 +286,10 @@ impl DatabaseRef for ForkDbSnapshot {
 mod tests {
     use std::collections::BTreeSet;
 
-    use foundry_common::provider::get_http_provider;
     use revm::primitives::{BlockEnv, CfgEnv};
 
     use super::*;
-    use crate::fork::BlockchainDbMeta;
+    use crate::fork::{provider::get_http_provider, BlockchainDbMeta};
 
     /// Demonstrates that `Database::basic` for `ForkedDatabase` will always
     /// return the `AccountInfo`

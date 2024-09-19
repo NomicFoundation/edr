@@ -1,9 +1,8 @@
 //! Integration tests for EVM specifications.
 
-use edr_test_utils::SolidityTestFilter;
 use foundry_evm::revm::primitives::SpecId;
 
-use crate::{config::*, helpers::TEST_DATA_DEFAULT};
+use crate::helpers::{SolidityTestFilter, TestConfig, TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_shanghai_compat() {

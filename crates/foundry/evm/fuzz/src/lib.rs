@@ -11,7 +11,7 @@ use std::{collections::HashMap, fmt, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_primitives::{Address, Bytes, Log};
-use foundry_common::{calc, contracts::ContractsByAddress};
+use foundry_common::calc;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::CallTraceArena;
 use itertools::Itertools;
@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 mod error;
 pub use error::FuzzError;
+use foundry_evm_core::contracts::ContractsByAddress;
 
 pub mod invariant;
 pub mod strategies;
@@ -78,7 +79,7 @@ impl BaseCounterExample {
                         contract_name: Some(name.clone()),
                         signature: Some(func.signature()),
                         args: Some(
-                            foundry_common::fmt::format_tokens(&args)
+                            foundry_evm_core::abi::fmt::format_tokens(&args)
                                 .format(", ")
                                 .to_string(),
                         ),
@@ -112,7 +113,7 @@ impl BaseCounterExample {
             contract_name: None,
             signature: None,
             args: Some(
-                foundry_common::fmt::format_tokens(&args)
+                foundry_evm_core::abi::fmt::format_tokens(&args)
                     .format(", ")
                     .to_string(),
             ),

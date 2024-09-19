@@ -203,7 +203,7 @@ impl ConsoleFmt for [u8] {
 /// # Examples
 ///
 /// ```ignore (not implemented for integers)
-/// let formatted = foundry_common::fmt::console_format("%s has %d characters", &[&"foo", &3]);
+/// let formatted = foundry_evm_core::abi::console_format("%s has %d characters", &[&"foo", &3]);
 /// assert_eq!(formatted, "foo has 3 characters");
 /// ```
 pub fn console_format(spec: &str, values: &[&dyn ConsoleFmt]) -> String {
