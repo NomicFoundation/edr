@@ -17,8 +17,9 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    ExecutableTransaction, HasAccessList, IsEip155, IsEip4844, IsLegacy, Signed, SignedTransaction,
-    Transaction, TransactionMut, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+    ExecutableTransaction, HasAccessList, IsEip155, IsEip4844, IsExecutable, IsLegacy, Signed,
+    SignedTransaction, Transaction, TransactionMut, TransactionType, TxKind,
+    INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
     signature::{Fakeable, Signature, SignatureError},
@@ -199,6 +200,12 @@ impl IsEip155 for Signed {
 impl IsEip4844 for Signed {
     fn is_eip4844(&self) -> bool {
         matches!(self, Signed::Eip4844(_))
+    }
+}
+
+impl IsExecutable for Signed {
+    fn is_executable_transaction(&self) -> bool {
+        true
     }
 }
 

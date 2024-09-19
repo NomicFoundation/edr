@@ -32,8 +32,8 @@ use edr_eth::{
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
-        ExecutableTransaction as _, IsEip4844, Transaction as _, TransactionMut, TransactionType,
-        TransactionValidation,
+        ExecutableTransaction as _, IsEip4844, IsExecutable as _, Transaction as _, TransactionMut,
+        TransactionType, TransactionValidation,
     },
     AccountInfo, Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet,
     Precompile, SpecId, B256, KECCAK_EMPTY, U256,
@@ -2373,7 +2373,8 @@ where
         let (cfg_env, hardfork) =
             self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
 
-        let transactions = block.transactions().to_vec();
+        let transactions =
+            self.filter_unsupported_transaction_types(block.transactions(), transaction_hash)?;
 
         let prev_block_number = block.header().number - 1;
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
@@ -2398,6 +2399,39 @@ where
                 .map_err(ProviderError::DebugTrace)
             },
         )?
+    }
+
+    /// Filters out transactions with unsupported types and returns the
+    /// remaining transactions, if skipping is allowed. Otherwise returns
+    /// an error.
+    fn filter_unsupported_transaction_types(
+        &self,
+        transactions: &[ChainSpecT::Transaction],
+        transaction_hash: &B256,
+    ) -> Result<Vec<ChainSpecT::Transaction>, ProviderError<ChainSpecT>> {
+        transactions
+            .iter()
+            .filter_map(|transaction| {
+                if transaction.is_executable_transaction() {
+                    Some(Ok(transaction.clone()))
+                } else if *transaction.transaction_hash() == *transaction_hash {
+                    Some(Err(
+                        ProviderError::UnsupportedTransactionTypeForDebugTrace {
+                            transaction_hash: *transaction_hash,
+                            unsupported_transaction_type: transaction.transaction_type().into(),
+                        },
+                    ))
+                } else if self.skip_unsupported_transaction_types {
+                    None
+                } else {
+                    Some(Err(ProviderError::UnsupportedTransactionTypeInDebugTrace {
+                        requested_transaction_hash: *transaction_hash,
+                        unsupported_transaction_hash: *transaction.transaction_hash(),
+                        unsupported_transaction_type: transaction.transaction_type().into(),
+                    }))
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 

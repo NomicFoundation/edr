@@ -1,7 +1,8 @@
 use edr_eth::{
+    signature::Signature,
     transaction::{
-        self, AuthorizationList, ExecutableTransaction, Transaction, TransactionMut,
-        TransactionType, TransactionValidation, TxKind,
+        self, AuthorizationList, ExecutableTransaction, IsExecutable, SignedTransaction,
+        Transaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
     },
     AccessListItem, Address, Bytes, B256, U256,
 };
@@ -71,18 +72,46 @@ impl transaction::IsLegacy for Type {
 }
 
 /// A regular [`Signed`](edr_eth::transaction::Signed) transaction that falls
-/// back to post-EIP 155 legacy transactions for unknown transaction types
+/// back to post-EIP 155 legacy transactions for unrecognized transaction types
 /// when converting from an RPC request.
 // NOTE: This is a newtype only because we need to use a different
-// `TryFrom<TransactionWithSignature>` impl that treats unknown transaction
+// `TryFrom<TransactionWithSignature>` impl that treats unrecognized transaction
 // types different.
-#[repr(transparent)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, alloy_rlp::RlpEncodable)]
-pub struct SignedWithFallbackToPostEip155(pub transaction::Signed);
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SignedWithFallbackToPostEip155 {
+    inner: transaction::Signed,
+    r#type: Type,
+}
+
+impl SignedWithFallbackToPostEip155 {
+    /// Constructs a new instance with the provided transaction its type.
+    pub fn with_type(inner: transaction::Signed, r#type: Type) -> Self {
+        Self { inner, r#type }
+    }
+}
+
+impl alloy_rlp::Encodable for SignedWithFallbackToPostEip155 {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        self.inner.encode(out);
+    }
+
+    fn length(&self) -> usize {
+        self.inner.length()
+    }
+}
 
 impl From<transaction::Signed> for SignedWithFallbackToPostEip155 {
     fn from(value: transaction::Signed) -> Self {
-        Self(value)
+        Self {
+            r#type: value.transaction_type().into(),
+            inner: value,
+        }
+    }
+}
+
+impl IsExecutable for SignedWithFallbackToPostEip155 {
+    fn is_executable_transaction(&self) -> bool {
+        !matches!(self.r#type, Type::Unrecognized(_))
     }
 }
 
@@ -98,114 +127,120 @@ impl TransactionValidation for SignedWithFallbackToPostEip155 {
 
 impl Transaction for SignedWithFallbackToPostEip155 {
     fn caller(&self) -> &Address {
-        self.0.caller()
+        self.inner.caller()
     }
 
     fn gas_limit(&self) -> u64 {
-        self.0.gas_limit()
+        self.inner.gas_limit()
     }
 
     fn gas_price(&self) -> &U256 {
-        self.0.gas_price()
+        self.inner.gas_price()
     }
 
     fn kind(&self) -> TxKind {
-        self.0.kind()
+        self.inner.kind()
     }
 
     fn value(&self) -> &U256 {
-        self.0.value()
+        self.inner.value()
     }
 
     fn data(&self) -> &Bytes {
-        self.0.data()
+        self.inner.data()
     }
 
     fn nonce(&self) -> u64 {
-        self.0.nonce()
+        self.inner.nonce()
     }
 
     fn chain_id(&self) -> Option<u64> {
-        self.0.chain_id()
+        self.inner.chain_id()
     }
 
     fn access_list(&self) -> &[AccessListItem] {
-        self.0.access_list()
+        self.inner.access_list()
     }
 
     fn max_priority_fee_per_gas(&self) -> Option<&U256> {
-        self.0.max_priority_fee_per_gas()
+        self.inner.max_priority_fee_per_gas()
     }
 
     fn blob_hashes(&self) -> &[B256] {
-        self.0.blob_hashes()
+        self.inner.blob_hashes()
     }
 
     fn max_fee_per_blob_gas(&self) -> Option<&U256> {
-        self.0.max_fee_per_blob_gas()
+        self.inner.max_fee_per_blob_gas()
     }
 
     fn authorization_list(&self) -> Option<&AuthorizationList> {
-        self.0.authorization_list()
+        self.inner.authorization_list()
     }
 }
 
 impl TransactionMut for SignedWithFallbackToPostEip155 {
     fn set_gas_limit(&mut self, gas_limit: u64) {
-        self.0.set_gas_limit(gas_limit);
+        self.inner.set_gas_limit(gas_limit);
     }
 }
 
 impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
-        self.0.effective_gas_price(block_base_fee)
+        self.inner.effective_gas_price(block_base_fee)
     }
 
     fn max_fee_per_gas(&self) -> Option<&U256> {
-        self.0.max_fee_per_gas()
+        self.inner.max_fee_per_gas()
     }
 
     fn rlp_encoding(&self) -> &Bytes {
-        self.0.rlp_encoding()
+        self.inner.rlp_encoding()
     }
 
     fn total_blob_gas(&self) -> Option<u64> {
-        self.0.total_blob_gas()
+        self.inner.total_blob_gas()
     }
 
     fn transaction_hash(&self) -> &B256 {
-        self.0.transaction_hash()
+        self.inner.transaction_hash()
+    }
+}
+
+impl SignedTransaction for SignedWithFallbackToPostEip155 {
+    fn signature(&self) -> &dyn Signature {
+        self.inner.signature()
     }
 }
 
 impl TransactionType for SignedWithFallbackToPostEip155 {
-    type Type = crate::transaction::Type;
+    type Type = Type;
 
     fn transaction_type(&self) -> Self::Type {
-        self.0.transaction_type().into()
+        self.r#type
     }
 }
 
 impl transaction::HasAccessList for SignedWithFallbackToPostEip155 {
     fn has_access_list(&self) -> bool {
-        self.0.has_access_list()
+        self.inner.has_access_list()
     }
 }
 
 impl transaction::IsEip155 for SignedWithFallbackToPostEip155 {
     fn is_eip155(&self) -> bool {
-        self.0.is_eip155()
+        self.inner.is_eip155()
     }
 }
 
 impl transaction::IsEip4844 for SignedWithFallbackToPostEip155 {
     fn is_eip4844(&self) -> bool {
-        self.0.is_eip4844()
+        self.inner.is_eip4844()
     }
 }
 
 impl transaction::IsLegacy for SignedWithFallbackToPostEip155 {
     fn is_legacy(&self) -> bool {
-        self.0.is_legacy()
+        self.inner.is_legacy()
     }
 }

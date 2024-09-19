@@ -219,12 +219,12 @@ where
     UnsupportedTransactionTypeInDebugTrace {
         requested_transaction_hash: B256,
         unsupported_transaction_hash: B256,
-        unsupported_transaction_type: u64,
+        unsupported_transaction_type: u8,
     },
     #[error("Cannot perform debug tracing on transaction '{transaction_hash:?}', because it has unsupported transaction type '{unsupported_transaction_type}'")]
     UnsupportedTransactionTypeForDebugTrace {
         transaction_hash: B256,
-        unsupported_transaction_type: u64,
+        unsupported_transaction_type: u8,
     },
     #[error("{method_name} - Method not supported")]
     UnsupportedMethod { method_name: String },

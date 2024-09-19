@@ -234,6 +234,11 @@ pub trait IsEip4844 {
     fn is_eip4844(&self) -> bool;
 }
 
+pub trait IsExecutable {
+    /// Whether the transaction is executable.
+    fn is_executable_transaction(&self) -> bool;
+}
+
 /// Trait for determining whether a transaction is a legacy transaction.
 pub trait IsLegacy {
     /// Whether the transaction is a legacy transaction.
