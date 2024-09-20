@@ -2,8 +2,10 @@ use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 
 use alloy_primitives::hex;
 use edr_solidity_tests::{
-    executors::invariant::InvariantConfig, fuzz::FuzzConfig,
-    inspectors::cheatcodes::CheatsConfigOptions, SolidityTestRunnerConfig,
+    executors::invariant::InvariantConfig,
+    fuzz::FuzzConfig,
+    inspectors::cheatcodes::{CheatsConfigOptions, ExecutionContextConfig},
+    SolidityTestRunnerConfig,
 };
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
 use napi::{
@@ -190,6 +192,9 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
         let fuzz: FuzzConfig = fuzz.map(TryFrom::try_from).transpose()?.unwrap_or_default();
 
         let cheats_config_options = CheatsConfigOptions {
+            // TODO https://github.com/NomicFoundation/edr/issues/657
+            // If gas reporting or coverage is supported, take that into account here.
+            execution_context: ExecutionContextConfig::Test,
             rpc_endpoints: rpc_endpoints
                 .map(|endpoints| {
                     RpcEndpoints::new(

@@ -6,7 +6,7 @@ import "./Vm.sol";
 
 // Contract to be tested with overflow vulnerability
 contract IdentityContract {
-    function identity(uint256 amount) view public returns(uint256) {
+    function identity(uint256 amount) pure public returns(uint256) {
         require(amount != 7191815684697958081204101901807852913954269296144377099693178655035380638910, "Got value from fixture");
         return amount;
     }

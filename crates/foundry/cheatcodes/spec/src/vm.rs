@@ -10,7 +10,6 @@ use super::{
     Cheatcode, CheatcodeDef, Cow, Enum, EnumVariant, Error, Function, Group, Mutability, Safety,
     Status, Struct, StructField, Visibility,
 };
-use crate::Vm::ForgeContext;
 
 sol! {
 // Cheatcodes are marked as view/pure/none using the following rules:
@@ -69,26 +68,18 @@ interface Vm {
         Extcodecopy,
     }
 
-    /// Forge execution contexts.
-    enum ForgeContext {
-        /// Test group execution context (test, coverage or snapshot).
+    /// Solidity test execution contexts.
+    enum ExecutionContext {
+        /// Test group execution context: any of test, coverage or snapshot.
         TestGroup,
-        /// `forge test` execution context.
+        /// Test execution context.
         Test,
-        /// `forge coverage` execution context.
+        /// Code coverage execution context.
         Coverage,
-        /// `forge snapshot` execution context.
+        /// Gas snapshot execution context.
         Snapshot,
-        /// Script group execution context (dry run, broadcast or resume).
-        ScriptGroup,
-        /// `forge script` execution context.
-        ScriptDryRun,
-        /// `forge script --broadcast` execution context.
-        ScriptBroadcast,
-        /// `forge script --resume` execution context.
-        ScriptResume,
-        /// Unknown `forge` execution context.
-        Unknown,
+        /// Unknown execution context.
+        Unknown
     }
 
     /// An Ethereum log. Returned by `getRecordedLogs`.
@@ -1644,7 +1635,7 @@ interface Vm {
 
     /// Returns true if `forge` command was executed in given context.
     #[cheatcode(group = Environment)]
-    function isContext(ForgeContext context) external view returns (bool result);
+    function isContext(ExecutionContext context) external view returns (bool result);
 
     // ======== Utilities ========
 
@@ -2023,31 +2014,4 @@ interface Vm {
     #[cheatcode(group = Utilities)]
     function ensNamehash(string calldata name) external pure returns (bytes32);
 }
-}
-
-impl PartialEq for ForgeContext {
-    // Handles test group case (any of test, coverage or snapshot)
-    // and script group case (any of dry run, broadcast or resume).
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (_, &ForgeContext::TestGroup) => {
-                self == &ForgeContext::Test
-                    || self == &ForgeContext::Snapshot
-                    || self == &ForgeContext::Coverage
-            }
-            (_, &ForgeContext::ScriptGroup) => {
-                self == &ForgeContext::ScriptDryRun
-                    || self == &ForgeContext::ScriptBroadcast
-                    || self == &ForgeContext::ScriptResume
-            }
-            (&ForgeContext::Test, &ForgeContext::Test)
-            | (&ForgeContext::Snapshot, &ForgeContext::Snapshot)
-            | (&ForgeContext::Coverage, &ForgeContext::Coverage)
-            | (&ForgeContext::ScriptDryRun, &ForgeContext::ScriptDryRun)
-            | (&ForgeContext::ScriptBroadcast, &ForgeContext::ScriptBroadcast)
-            | (&ForgeContext::ScriptResume, &ForgeContext::ScriptResume)
-            | (&ForgeContext::Unknown, &ForgeContext::Unknown) => true,
-            _ => false,
-        }
-    }
 }
