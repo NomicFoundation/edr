@@ -17,7 +17,7 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    ExecutableTransaction, HasAccessList, IsEip155, IsEip4844, IsExecutable, IsLegacy, Signed,
+    ExecutableTransaction, HasAccessList, IsEip155, IsEip4844, IsLegacy, IsSupported, Signed,
     SignedTransaction, Transaction, TransactionMut, TransactionType, TxKind,
     INVALID_TX_TYPE_ERROR_MESSAGE,
 };
@@ -203,8 +203,8 @@ impl IsEip4844 for Signed {
     }
 }
 
-impl IsExecutable for Signed {
-    fn is_executable_transaction(&self) -> bool {
+impl IsSupported for Signed {
+    fn is_supported_transaction(&self) -> bool {
         true
     }
 }

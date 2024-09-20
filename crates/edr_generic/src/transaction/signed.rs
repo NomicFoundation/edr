@@ -1,7 +1,7 @@
 use edr_eth::{
     signature::Signature,
     transaction::{
-        self, AuthorizationList, ExecutableTransaction, IsExecutable, SignedTransaction,
+        self, AuthorizationList, ExecutableTransaction, IsSupported, SignedTransaction,
         Transaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
     },
     AccessListItem, Address, Bytes, B256, U256,
@@ -109,8 +109,8 @@ impl From<transaction::Signed> for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl IsExecutable for SignedWithFallbackToPostEip155 {
-    fn is_executable_transaction(&self) -> bool {
+impl IsSupported for SignedWithFallbackToPostEip155 {
+    fn is_supported_transaction(&self) -> bool {
         !matches!(self.r#type, Type::Unrecognized(_))
     }
 }

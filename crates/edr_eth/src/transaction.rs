@@ -234,15 +234,18 @@ pub trait IsEip4844 {
     fn is_eip4844(&self) -> bool;
 }
 
-pub trait IsExecutable {
-    /// Whether the transaction is executable.
-    fn is_executable_transaction(&self) -> bool;
-}
-
 /// Trait for determining whether a transaction is a legacy transaction.
 pub trait IsLegacy {
     /// Whether the transaction is a legacy transaction.
     fn is_legacy(&self) -> bool;
+}
+
+/// Trait for determining whether a transaction is natively supported by the
+/// chain. Unsupported transactions might still be executable, but can have
+/// unexpected side effects.
+pub trait IsSupported {
+    /// Whether the transaction is natively supported.
+    fn is_supported_transaction(&self) -> bool;
 }
 
 pub fn max_cost(transaction: &impl Transaction) -> U256 {

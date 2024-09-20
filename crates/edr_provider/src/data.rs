@@ -32,7 +32,7 @@ use edr_eth::{
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
-        ExecutableTransaction as _, IsEip4844, IsExecutable as _, Transaction as _, TransactionMut,
+        ExecutableTransaction as _, IsEip4844, IsSupported as _, Transaction as _, TransactionMut,
         TransactionType, TransactionValidation,
     },
     AccountInfo, Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet,
@@ -2412,7 +2412,7 @@ where
         transactions
             .iter()
             .filter_map(|transaction| {
-                if transaction.is_executable_transaction() {
+                if transaction.is_supported_transaction() {
                     Some(Ok(transaction.clone()))
                 } else if *transaction.transaction_hash() == *transaction_hash {
                     Some(Err(
