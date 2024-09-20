@@ -2,8 +2,7 @@ use alloy_primitives::{B256, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::Filter;
 use alloy_sol_types::SolValue;
-use foundry_common::provider::ProviderBuilder;
-use foundry_evm_core::fork::CreateFork;
+use foundry_evm_core::fork::{provider::ProviderBuilder, CreateFork};
 
 use crate::{
     Cheatcode, CheatsCtxt, DatabaseExt, Result,
@@ -254,9 +253,8 @@ impl Cheatcode for rpcCall {
             .ok_or_else(|| fmt_err!("no active fork URL found"))?;
         let provider = ProviderBuilder::new(&url).build()?;
         let params_json: serde_json::Value = serde_json::from_str(params)?;
-        let result =
-            foundry_common::block_on(provider.raw_request(method.clone().into(), params_json))
-                .map_err(|err| fmt_err!("{method:?}: {err}"))?;
+        let result = edr_common::block_on(provider.raw_request(method.clone().into(), params_json))
+            .map_err(|err| fmt_err!("{method:?}: {err}"))?;
 
         let result_as_tokens = crate::json::json_value_to_token(&result)
             .map_err(|err| fmt_err!("failed to parse result: {err}"))?;
@@ -296,7 +294,7 @@ impl Cheatcode for eth_getLogsCall {
             filter.topics[i] = topic.into();
         }
 
-        let logs = foundry_common::block_on(provider.get_logs(&filter))
+        let logs = edr_common::block_on(provider.get_logs(&filter))
             .map_err(|e| fmt_err!("failed to get logs: {e}"))?;
 
         let eth_logs = logs

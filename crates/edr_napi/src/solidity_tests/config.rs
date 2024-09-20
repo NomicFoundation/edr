@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 
 use alloy_primitives::hex;
-use forge::{
+use edr_solidity_tests::{
     executors::invariant::InvariantConfig, fuzz::FuzzConfig,
     inspectors::cheatcodes::CheatsConfigOptions, SolidityTestRunnerConfig,
 };

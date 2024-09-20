@@ -6,7 +6,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-foundry-common.workspace = true
+edr_defaults.workspace = true
+
+edr_common.workspace = true
 foundry-evm-core.workspace = true
 
 alloy-dyn-abi = { workspace = true, features = ["arbitrary", "eip712"] }
@@ -20,7 +22,9 @@ futures = "0.3"
 hex.workspace = true
 itertools.workspace = true
 once_cell = "1"
+reqwest.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 tokio = { workspace = true, features = ["time", "macros"] }
 tracing = "0.1"
 yansi.workspace = true

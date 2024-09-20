@@ -3,10 +3,15 @@ use alloy_provider::{Network, Provider};
 use alloy_rpc_types::{Block, BlockNumberOrTag};
 use alloy_transport::Transport;
 use eyre::WrapErr;
-use foundry_common::NON_ARCHIVE_NODE_WARNING;
 use revm::primitives::{BlockEnv, CfgEnv, Env, TxEnv};
 
 use crate::utils::apply_chain_and_block_specific_env_changes;
+
+/// Logged when an error is indicative that the user is trying to fork from a
+/// non-archive node.
+const NON_ARCHIVE_NODE_WARNING: &str = "\
+It looks like you're trying to fork from an older block with a non-archive node which is not \
+supported. Please try to change your RPC url to an archive node if the issue persists.";
 
 /// Initializes a REVM block environment based on a forked
 /// ethereum provider.

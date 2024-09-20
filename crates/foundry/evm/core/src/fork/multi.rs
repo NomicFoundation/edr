@@ -15,9 +15,6 @@ use std::{
     time::Duration,
 };
 
-use foundry_common::provider::{
-    runtime_transport::RuntimeTransport, tower::RetryBackoffService, ProviderBuilder, RetryProvider,
-};
 use futures::{
     channel::mpsc::{channel, Receiver, Sender},
     stream::{Fuse, Stream},
@@ -26,7 +23,13 @@ use futures::{
 };
 use revm::primitives::Env;
 
-use crate::fork::{BackendHandler, BlockchainDb, BlockchainDbMeta, CreateFork, SharedBackend};
+use crate::fork::{
+    provider::{
+        runtime_transport::RuntimeTransport, tower::RetryBackoffService, ProviderBuilder,
+        RetryProvider,
+    },
+    BackendHandler, BlockchainDb, BlockchainDbMeta, CreateFork, SharedBackend,
+};
 
 /// The _unique_ identifier for a specific fork, this could be the name of the
 /// network a custom descriptive name.

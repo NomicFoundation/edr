@@ -3,8 +3,10 @@ use std::sync::Arc;
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
 use eyre::Result;
-use foundry_common::{ContractsByAddress, ContractsByArtifact};
-use foundry_evm_core::constants::CALLER;
+use foundry_evm_core::{
+    constants::CALLER,
+    contracts::{ContractsByAddress, ContractsByArtifact},
+};
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},

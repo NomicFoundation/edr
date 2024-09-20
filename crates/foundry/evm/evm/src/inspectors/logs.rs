@@ -1,17 +1,18 @@
 use alloy_primitives::{Address, Bytes, Log};
 use alloy_sol_types::{SolEvent, SolInterface, SolValue};
-use foundry_common::{
-    fmt::{ConsoleFmt, FormatSpec},
-    ErrorExt,
-};
 use foundry_evm_core::{
-    abi::{patch_hh_console_selector, Console, HardhatConsole},
+    abi::{
+        fmt::{ConsoleFmt, FormatSpec},
+        patch_hh_console_selector, Console, HardhatConsole,
+    },
     constants::HARDHAT_CONSOLE_ADDRESS,
 };
 use revm::{
     interpreter::{CallInputs, CallOutcome, Gas, InstructionResult, InterpreterResult},
     Database, EvmContext, Inspector,
 };
+
+use crate::inspectors::error_ext::ErrorExt;
 
 /// An inspector that collects logs during execution.
 ///

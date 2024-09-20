@@ -652,35 +652,35 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
-/** See [forge::result::SuiteResult] */
+/** See [edr_solidity_tests::result::SuiteResult] */
 export interface SuiteResult {
   /**
    * The artifact id can be used to match input to result in the progress
    * callback
    */
   readonly id: ArtifactId
-  /** See [forge::result::SuiteResult::duration] */
+  /** See [edr_solidity_tests::result::SuiteResult::duration] */
   readonly durationMs: bigint
-  /** See [forge::result::SuiteResult::test_results] */
+  /** See [edr_solidity_tests::result::SuiteResult::test_results] */
   readonly testResults: Array<TestResult>
-  /** See [forge::result::SuiteResult::warnings] */
+  /** See [edr_solidity_tests::result::SuiteResult::warnings] */
   readonly warnings: Array<string>
 }
-/** See [forge::result::TestResult] */
+/** See [edr_solidity_tests::result::TestResult] */
 export interface TestResult {
   /** The name of the test. */
   readonly name: string
-  /** See [forge::result::TestResult::status] */
+  /** See [edr_solidity_tests::result::TestResult::status] */
   readonly status: TestStatus
-  /** See [forge::result::TestResult::reason] */
+  /** See [edr_solidity_tests::result::TestResult::reason] */
   readonly reason?: string
-  /** See [forge::result::TestResult::counterexample] */
+  /** See [edr_solidity_tests::result::TestResult::counterexample] */
   readonly counterexample?: BaseCounterExample | Array<BaseCounterExample>
-  /** See [forge::result::TestResult::decoded_logs] */
+  /** See [edr_solidity_tests::result::TestResult::decoded_logs] */
   readonly decodedLogs: Array<string>
-  /** See [forge::result::TestResult::kind] */
+  /** See [edr_solidity_tests::result::TestResult::kind] */
   readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
-  /** See [forge::result::TestResult::duration] */
+  /** See [edr_solidity_tests::result::TestResult::duration] */
   readonly durationMs: bigint
 }
 /**The result of a test execution. */
@@ -692,21 +692,21 @@ export const enum TestStatus {
   /**Test skipped */
   Skipped = 'Skipped'
 }
-/** See [forge::result::TestKind::Standard] */
+/** See [edr_solidity_tests::result::TestKind::Standard] */
 export interface StandardTestKind {
   /** The gas consumed by the test. */
   readonly consumedGas: bigint
 }
-/** See [forge::result::TestKind::Fuzz] */
+/** See [edr_solidity_tests::result::TestKind::Fuzz] */
 export interface FuzzTestKind {
-  /** See [forge::result::TestKind::Fuzz] */
+  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
   readonly runs: bigint
-  /** See [forge::result::TestKind::Fuzz] */
+  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
   readonly meanGas: bigint
-  /** See [forge::result::TestKind::Fuzz] */
+  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
   readonly medianGas: bigint
 }
-/** See [forge::fuzz::FuzzCase] */
+/** See [edr_solidity_tests::fuzz::FuzzCase] */
 export interface FuzzCase {
   /** The calldata used for this fuzz test */
   readonly calldata: Buffer
@@ -715,28 +715,28 @@ export interface FuzzCase {
   /** The initial gas stipend for the transaction */
   readonly stipend: bigint
 }
-/** See [forge::result::TestKind::Invariant] */
+/** See [edr_solidity_tests::result::TestKind::Invariant] */
 export interface InvariantTestKind {
-  /** See [forge::result::TestKind::Invariant] */
+  /** See [edr_solidity_tests::result::TestKind::Invariant] */
   readonly runs: bigint
-  /** See [forge::result::TestKind::Invariant] */
+  /** See [edr_solidity_tests::result::TestKind::Invariant] */
   readonly calls: bigint
-  /** See [forge::result::TestKind::Invariant] */
+  /** See [edr_solidity_tests::result::TestKind::Invariant] */
   readonly reverts: bigint
 }
-/** See [forge::fuzz::BaseCounterExample] */
+/** See [edr_solidity_tests::fuzz::BaseCounterExample] */
 export interface BaseCounterExample {
-  /** See [forge::fuzz::BaseCounterExample::sender] */
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::sender] */
   readonly sender?: Buffer
-  /** See [forge::fuzz::BaseCounterExample::addr] */
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::addr] */
   readonly address?: Buffer
-  /** See [forge::fuzz::BaseCounterExample::calldata] */
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::calldata] */
   readonly calldata: Buffer
-  /** See [forge::fuzz::BaseCounterExample::contract_name] */
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name] */
   readonly contractName?: string
-  /** See [forge::fuzz::BaseCounterExample::signature] */
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::signature] */
   readonly signature?: string
-  /** See [forge::fuzz::BaseCounterExample::args] */
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::args] */
   readonly args?: string
 }
 /**

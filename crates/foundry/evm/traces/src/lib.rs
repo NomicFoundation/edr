@@ -10,7 +10,6 @@ extern crate tracing;
 use std::fmt::Write;
 
 use alloy_primitives::LogData;
-use foundry_common::contracts::{ContractsByAddress, ContractsByArtifact};
 use foundry_evm_core::constants::CHEATCODE_ADDRESS;
 use futures::{future::BoxFuture, FutureExt};
 use serde::{Deserialize, Serialize};
@@ -23,8 +22,10 @@ use yansi::{Color, Paint};
 pub mod identifier;
 use identifier::LocalTraceIdentifier;
 
+pub mod abi;
 mod decoder;
 pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
+use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 use revm_inspectors::tracing::types::LogCallOrder;
 pub use revm_inspectors::tracing::{
     types::{CallKind, CallTrace, CallTraceNode},

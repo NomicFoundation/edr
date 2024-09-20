@@ -90,7 +90,7 @@ pub(crate) fn shrink_sequence(
     calls: &[BasicTxDetails],
     executor: &Executor,
 ) -> eyre::Result<Vec<BasicTxDetails>> {
-    trace!(target: "forge::test", "Shrinking sequence of {} calls.", calls.len());
+    trace!(target: "edr_solidity_tests::test", "Shrinking sequence of {} calls.", calls.len());
 
     // Special case test: the invariant is *unsatisfiable* - it took 0 calls to
     // break the invariant -- consider emitting a warning.

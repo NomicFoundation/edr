@@ -2,12 +2,14 @@ use std::borrow::Cow;
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Address;
-use foundry_common::{ArtifactId, ContractsByArtifact};
+use foundry_evm_core::contracts::{ArtifactId, ContractsByArtifact};
 
 mod local;
 pub use local::LocalTraceIdentifier;
 
+mod selectors;
 mod signatures;
+
 pub use signatures::{SignaturesIdentifier, SingleSignaturesIdentifier};
 
 /// An address identity

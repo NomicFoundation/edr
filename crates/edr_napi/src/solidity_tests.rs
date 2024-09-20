@@ -6,8 +6,7 @@ mod test_results;
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use artifact::Artifact;
-use forge::TestFilter;
-use foundry_common::{ContractData, ContractsByArtifact};
+use edr_solidity_tests::{contracts::ContractsByArtifact, TestFilter};
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -56,7 +55,13 @@ pub fn run_solidity_tests(
     let known_contracts: ContractsByArtifact = artifacts
         .into_iter()
         .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
-        .collect::<Result<BTreeMap<foundry_common::ArtifactId, ContractData>, napi::Error>>()?
+        .collect::<Result<
+            BTreeMap<
+                edr_solidity_tests::contracts::ArtifactId,
+                edr_solidity_tests::contracts::ContractData,
+            >,
+            napi::Error,
+        >>()?
         .into();
 
     let test_suites = test_suites
@@ -65,8 +70,8 @@ pub fn run_solidity_tests(
         .collect::<Result<Vec<_>, _>>()?;
 
     let (tx_results, mut rx_results) = tokio::sync::mpsc::unbounded_channel::<(
-        foundry_common::ArtifactId,
-        forge::result::SuiteResult,
+        edr_solidity_tests::contracts::ArtifactId,
+        edr_solidity_tests::result::SuiteResult,
     )>();
 
     let runtime = runtime::Handle::current();

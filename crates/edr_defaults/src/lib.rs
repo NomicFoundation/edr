@@ -43,3 +43,13 @@ pub const SOLIDITY_TESTS_SENDER: Address = address!("1804c8AB1F12E6bbf3894d4083f
 
 /// Seed value for the generator of state root hashes.
 pub const STATE_ROOT_HASH_SEED: &str = "seed";
+
+/// Alchemy free tier cups: <https://docs.alchemy.com/reference/pricing-plans>
+pub const ALCHEMY_FREE_TIER_CUPS: u64 = 330;
+
+/// The dev chain-id, inherited from hardhat
+pub const DEV_CHAIN_ID: u64 = 31337;
+
+/// The first four bytes of the call data for a function call specifies the
+/// function to be called.
+pub const SELECTOR_LEN: usize = 4;

@@ -1,7 +1,7 @@
 //! Implementations of [`Toml`](crate::Group::Toml) cheatcodes.
 
 use alloy_dyn_abi::DynSolType;
-use foundry_common::fs;
+use edr_common::fs;
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
 

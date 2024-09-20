@@ -241,7 +241,7 @@ pub fn fuzz_param_from_state(
 
 #[cfg(test)]
 mod tests {
-    use foundry_common::abi::get_func;
+    use foundry_evm_traces::abi::get_func;
     use revm::db::{CacheDB, EmptyDB};
 
     use crate::{

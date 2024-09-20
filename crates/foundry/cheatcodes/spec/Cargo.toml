@@ -6,7 +6,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-foundry-macros.workspace = true
+edr_macros.workspace = true
 alloy-sol-types = { workspace = true, features = ["json"] }
 serde.workspace = true
 

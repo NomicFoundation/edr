@@ -3,21 +3,20 @@ use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Error, Event, Function, JsonAbi};
 use alloy_primitives::{Address, LogData, Selector, B256};
-use foundry_common::{
-    abi::get_indexed_event, fmt::format_token, ContractsByArtifact, SELECTOR_LEN,
-};
 use foundry_evm_core::{
-    abi::{Console, HardhatConsole, Vm, HARDHAT_CONSOLE_SELECTOR_PATCHES},
+    abi::{fmt::format_token, Console, HardhatConsole, Vm, HARDHAT_CONSOLE_SELECTOR_PATCHES},
     constants::{
         CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, HARDHAT_CONSOLE_ADDRESS,
         TEST_CONTRACT_ADDRESS,
     },
+    contracts::ContractsByArtifact,
     decode::RevertDecoder,
 };
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 
 use crate::{
+    abi::get_indexed_event,
     identifier::{
         AddressIdentity, LocalTraceIdentifier, SingleSignaturesIdentifier, TraceIdentifier,
     },
@@ -339,8 +338,8 @@ impl CallTraceDecoder {
             };
         }
 
-        if cdata.len() >= SELECTOR_LEN {
-            let selector = &cdata[..SELECTOR_LEN];
+        if cdata.len() >= edr_defaults::SELECTOR_LEN {
+            let selector = &cdata[..edr_defaults::SELECTOR_LEN];
             let mut functions = Vec::new();
             let functions = if let Some(fs) = self.functions.get(selector) {
                 fs
@@ -401,7 +400,7 @@ impl CallTraceDecoder {
     /// Decodes a function's input into the given trace.
     fn decode_function_input(&self, trace: &CallTrace, func: &Function) -> DecodedCallData {
         let mut args = None;
-        if trace.data.len() >= SELECTOR_LEN {
+        if trace.data.len() >= edr_defaults::SELECTOR_LEN {
             if trace.address == CHEATCODE_ADDRESS {
                 // Try to decode cheatcode inputs in a more custom way
                 if let Some(v) = self.decode_cheatcode_inputs(func, &trace.data) {
@@ -410,7 +409,9 @@ impl CallTraceDecoder {
             }
 
             if args.is_none() {
-                if let Ok(v) = func.abi_decode_input(&trace.data[SELECTOR_LEN..], false) {
+                if let Ok(v) =
+                    func.abi_decode_input(&trace.data[edr_defaults::SELECTOR_LEN..], false)
+                {
                     args = Some(v.iter().map(|value| self.apply_label(value)).collect());
                 }
             }
@@ -449,7 +450,7 @@ impl CallTraceDecoder {
                 }
             }
             "sign" | "signP256" => {
-                let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..], false).ok()?;
+                let mut decoded = func.abi_decode_input(&data[edr_defaults::SELECTOR_LEN..], false).ok()?;
 
                 // Redact private key and replace in trace
                 // sign(uint256,bytes32) / signP256(uint256,bytes32) / sign(Wallet,bytes32)
@@ -491,7 +492,7 @@ impl CallTraceDecoder {
                 if self.verbose_cheatcode_decoding {
                     None
                 } else {
-                    let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..], false).ok()?;
+                    let mut decoded = func.abi_decode_input(&data[edr_defaults::SELECTOR_LEN..], false).ok()?;
                     let token = if func.name.as_str() == "parseJson" ||
                         // `keyExists` is being deprecated in favor of `keyExistsJson`. It will be removed in future versions.
                         func.name.as_str() == "keyExists" || 
@@ -509,7 +510,7 @@ impl CallTraceDecoder {
                 if self.verbose_cheatcode_decoding {
                     None
                 } else {
-                    let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..], false).ok()?;
+                    let mut decoded = func.abi_decode_input(&data[edr_defaults::SELECTOR_LEN..], false).ok()?;
                     let token = if func.name.as_str() == "parseToml" ||
                         func.name.as_str() == "keyExistsToml"
                     {
@@ -633,7 +634,7 @@ impl CallTraceDecoder {
             .filter_map(|n| match n.trace.address.0 .0 {
                 DEFAULT_CREATE2_DEPLOYER_BYTES
                 | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01..=0x0a] => None,
-                _ => n.trace.data.get(..SELECTOR_LEN),
+                _ => n.trace.data.get(..edr_defaults::SELECTOR_LEN),
             })
             .filter(|v| !self.functions.contains_key(*v))
             .unique();
