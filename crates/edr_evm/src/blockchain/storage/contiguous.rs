@@ -1,23 +1,39 @@
-use std::sync::Arc;
+//! A more cache-friendly block storage implementation.
+//!
+//! While this does not support block reservations, which we require[^1], it
+//! still may be useful for applications that do not.
+//!
+//! [^1]: for that, we internally use the sparse implementation via
+//! [`SparseBlockchainStorage`](super::sparse::SparseBlockchainStorage).
 
-use edr_eth::{receipt::BlockReceipt, B256, U256};
+use std::{marker::PhantomData, sync::Arc};
+
+use edr_eth::{transaction::ExecutableTransaction as _, B256, U256};
 use revm::primitives::HashMap;
 
-use crate::{Block, LocalBlock};
-
 use super::InsertError;
+use crate::{spec::RuntimeSpec, Block, BlockReceipt, LocalBlock};
 
 /// A storage solution for storing a Blockchain's blocks contiguously in-memory.
 #[derive(Clone, Default, Debug)]
-pub struct ContiguousBlockchainStorage<BlockT: Block + Clone + ?Sized> {
+pub struct ContiguousBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    ChainSpecT: RuntimeSpec,
+{
     blocks: Vec<BlockT>,
     hash_to_block: HashMap<B256, BlockT>,
     total_difficulties: Vec<U256>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
-    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt>>,
+    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt<ChainSpecT>>>,
+    phantom: PhantomData<ChainSpecT>,
 }
 
-impl<BlockT: Block + Clone> ContiguousBlockchainStorage<BlockT> {
+impl<BlockT, ChainSpecT> ContiguousBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: RuntimeSpec,
+{
     /// Retrieves the instance's blocks.
     pub fn blocks(&self) -> &[BlockT] {
         &self.blocks
@@ -28,20 +44,23 @@ impl<BlockT: Block + Clone> ContiguousBlockchainStorage<BlockT> {
         self.hash_to_block.get(hash)
     }
 
-    /// Retrieves the block that contains the transaction with the provided hash, if it exists.
+    /// Retrieves the block that contains the transaction with the provided
+    /// hash, if it exists.
     pub fn block_by_transaction_hash(&self, transaction_hash: &B256) -> Option<&BlockT> {
         self.transaction_hash_to_block.get(transaction_hash)
     }
 
-    /// Retrieves the receipt of the transaction with the provided hash, if it exists.
+    /// Retrieves the receipt of the transaction with the provided hash, if it
+    /// exists.
     pub fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Option<&Arc<BlockReceipt>> {
+    ) -> Option<&Arc<BlockReceipt<ChainSpecT>>> {
         self.transaction_hash_to_receipt.get(transaction_hash)
     }
 
-    /// Reverts to the block with the provided number, deleting all later blocks.
+    /// Reverts to the block with the provided number, deleting all later
+    /// blocks.
     pub fn revert_to_block(&mut self, block_number: &U256) -> bool {
         let block_number = usize::try_from(block_number)
             .expect("No blocks with a number larger than usize::MAX are inserted");
@@ -101,10 +120,14 @@ impl<BlockT: Block + Clone> ContiguousBlockchainStorage<BlockT> {
     }
 }
 
-impl<BlockT: Block + Clone + From<LocalBlock>> ContiguousBlockchainStorage<BlockT> {
+impl<BlockT, ChainSpecT> ContiguousBlockchainStorage<BlockT, ChainSpecT>
+where
+    BlockT: Block<ChainSpecT> + Clone + From<LocalBlock<ChainSpecT>>,
+    ChainSpecT: RuntimeSpec,
+{
     /// Constructs a new instance with the provided block.
-    pub fn with_block(block: LocalBlock, total_difficulty: U256) -> Self {
-        let block_hash = block.hash();
+    pub fn with_block(block: LocalBlock<ChainSpecT>, total_difficulty: U256) -> Self {
+        let block_hash = *block.hash();
 
         let transaction_hash_to_receipt = block
             .transaction_receipts()
@@ -117,11 +140,11 @@ impl<BlockT: Block + Clone + From<LocalBlock>> ContiguousBlockchainStorage<Block
         let transaction_hash_to_block = block
             .transactions()
             .iter()
-            .map(|transaction| (transaction.hash(), block.clone()))
+            .map(|transaction| (*transaction.transaction_hash(), block.clone()))
             .collect();
 
         let mut hash_to_block = HashMap::new();
-        hash_to_block.insert(*block_hash, block.clone());
+        hash_to_block.insert(block_hash, block.clone());
 
         Self {
             total_difficulties: vec![total_difficulty],
@@ -129,19 +152,20 @@ impl<BlockT: Block + Clone + From<LocalBlock>> ContiguousBlockchainStorage<Block
             hash_to_block,
             transaction_hash_to_block,
             transaction_hash_to_receipt,
+            phantom: PhantomData,
         }
     }
 
     /// Inserts a block, failing if a block with the same hash already exists.
     pub fn insert_block(
         &mut self,
-        block: LocalBlock,
+        block: LocalBlock<ChainSpecT>,
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertError> {
         let block_hash = block.hash();
 
-        // As blocks are contiguous, we are guaranteed that the block number won't exist if its
-        // hash is not present.
+        // As blocks are contiguous, we are guaranteed that the block number won't exist
+        // if its hash is not present.
         if self.hash_to_block.contains_key(block_hash) {
             return Err(InsertError::DuplicateBlock {
                 block_hash: *block_hash,
@@ -151,10 +175,10 @@ impl<BlockT: Block + Clone + From<LocalBlock>> ContiguousBlockchainStorage<Block
 
         if let Some(transaction) = block.transactions().iter().find(|transaction| {
             self.transaction_hash_to_block
-                .contains_key(&transaction.hash())
+                .contains_key(transaction.transaction_hash())
         }) {
             return Err(InsertError::DuplicateTransaction {
-                hash: transaction.hash(),
+                hash: *transaction.transaction_hash(),
             });
         }
 
@@ -166,11 +190,11 @@ impl<BlockT: Block + Clone + From<LocalBlock>> ContiguousBlockchainStorage<Block
     ///
     /// # Safety
     ///
-    /// Ensure that the instance does not contain a block with the same hash, nor
-    /// any transactions with the same hash.
+    /// Ensure that the instance does not contain a block with the same hash,
+    /// nor any transactions with the same hash.
     pub unsafe fn insert_block_unchecked(
         &mut self,
-        block: LocalBlock,
+        block: LocalBlock<ChainSpecT>,
         total_difficulty: U256,
     ) -> &BlockT {
         self.transaction_hash_to_receipt.extend(
@@ -186,7 +210,7 @@ impl<BlockT: Block + Clone + From<LocalBlock>> ContiguousBlockchainStorage<Block
             block
                 .transactions()
                 .iter()
-                .map(|transaction| (transaction.hash(), block.clone())),
+                .map(|transaction| (*transaction.transaction_hash(), block.clone())),
         );
 
         self.blocks.push(block.clone());

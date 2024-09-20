@@ -1288,9 +1288,8 @@ describe("Hardhat module", function () {
 
             await this.provider.send("hardhat_mine", [numberToRpcQuantity(20)]);
 
-            let previousBlockDifficulty = await getBlockDifficulty(
-              previousBlockNumber
-            );
+            let previousBlockDifficulty =
+              await getBlockDifficulty(previousBlockNumber);
 
             for (let i = 1; i <= 20; i++) {
               const blockDifficulty = await getBlockDifficulty(
@@ -1603,9 +1602,8 @@ describe("Hardhat module", function () {
 
         it("should get changed balance by block even after a new block is mined", async function () {
           // Arrange 1: Get current block number
-          const currentBlockNumber = await this.provider.send(
-            "eth_blockNumber"
-          );
+          const currentBlockNumber =
+            await this.provider.send("eth_blockNumber");
 
           // Arrange 2: Set a new balance
           const targetBalance = 123454321n;
@@ -1677,9 +1675,8 @@ describe("Hardhat module", function () {
 
         it("should have its effects persist across snapshot save/restore", async function () {
           const a = DEFAULT_ACCOUNTS_ADDRESSES[0];
-          const currentBlockNumber = await this.provider.send(
-            "eth_blockNumber"
-          );
+          const currentBlockNumber =
+            await this.provider.send("eth_blockNumber");
 
           // set balance1
           const targetBalance1 = numberToRpcQuantity(1);
@@ -1876,9 +1873,8 @@ describe("Hardhat module", function () {
 
         it("should get changed code by block even after a new block is mined", async function () {
           // Arrange 1: Get current block number
-          const currentBlockNumber = await this.provider.send(
-            "eth_blockNumber"
-          );
+          const currentBlockNumber =
+            await this.provider.send("eth_blockNumber");
 
           // Act 1: Set code on an account.
           const code = `0x${contractNine.evm.deployedBytecode.object}`;
@@ -2140,9 +2136,8 @@ describe("Hardhat module", function () {
           ]);
 
           // Arrange 2: Get current block number.
-          const currentBlockNumber = await this.provider.send(
-            "eth_blockNumber"
-          );
+          const currentBlockNumber =
+            await this.provider.send("eth_blockNumber");
 
           // Act 1: Set the new nonce.
           const targetNonce = 99;
@@ -2351,9 +2346,8 @@ describe("Hardhat module", function () {
 
         it("should have the storage modification persist even after a new block is mined", async function () {
           // Arrange 1: Get current block number.
-          const currentBlockNumber = await this.provider.send(
-            "eth_blockNumber"
-          );
+          const currentBlockNumber =
+            await this.provider.send("eth_blockNumber");
 
           // Act 1: Modify storage
           const targetStorageValue = 99;
@@ -3036,30 +3030,26 @@ describe("Hardhat module", function () {
         });
 
         it("shouldn't change the instance id when a block is mined", async function () {
-          const metadataBefore: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataBefore: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           // send a transaction to generate a new block
           await sendTxToZeroAddress(this.provider);
 
-          const metadataAfter: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataAfter: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           assert.equal(metadataBefore.instanceId, metadataAfter.instanceId);
         });
 
         it("changes its instanceId when hardhat_reset is used", async function () {
-          const metadataBefore: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataBefore: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           await this.provider.send("hardhat_reset");
 
-          const metadataAfter: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataAfter: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           assert.notEqual(metadataBefore.instanceId, metadataAfter.instanceId);
         });
@@ -3067,31 +3057,27 @@ describe("Hardhat module", function () {
         it("doesn't change its instandeId when snapshots are used", async function () {
           const snapshotId = await this.provider.send("evm_snapshot");
 
-          const metadataBefore: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataBefore: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           await sendTxToZeroAddress(this.provider);
           await this.provider.send("evm_revert", [snapshotId]);
 
-          const metadataAfter: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataAfter: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           assert.equal(metadataBefore.instanceId, metadataAfter.instanceId);
         });
 
         it("updates the block number and block hash when a new block is mined (sending a tx)", async function () {
-          const metadataBefore: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataBefore: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           // send a transaction to generate a new block
           await sendTxToZeroAddress(this.provider);
 
-          const metadataAfter: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataAfter: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           assert.equal(
             metadataAfter.latestBlockNumber,
@@ -3104,15 +3090,13 @@ describe("Hardhat module", function () {
         });
 
         it("updates the block number and block hash when a new block is mined (using hardhat_mine)", async function () {
-          const metadataBefore: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataBefore: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           await this.provider.send("hardhat_mine", ["0x100"]);
 
-          const metadataAfter: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataAfter: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           assert.equal(
             metadataAfter.latestBlockNumber,
@@ -3129,16 +3113,14 @@ describe("Hardhat module", function () {
             return this.skip();
           }
 
-          const metadataBefore: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataBefore: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           // send a transaction to generate a new block
           await sendTxToZeroAddress(this.provider);
 
-          const metadataAfter: HardhatMetadata = await this.provider.send(
-            "hardhat_metadata"
-          );
+          const metadataAfter: HardhatMetadata =
+            await this.provider.send("hardhat_metadata");
 
           assert.equal(
             metadataBefore.forkedNetwork!.forkBlockNumber,
@@ -3158,9 +3140,8 @@ describe("Hardhat module", function () {
     useEnvironment();
 
     it("should return the chainId set in the config", async function () {
-      const metadata: HardhatMetadata = await this.env.network.provider.send(
-        "hardhat_metadata"
-      );
+      const metadata: HardhatMetadata =
+        await this.env.network.provider.send("hardhat_metadata");
 
       assert.equal(metadata.chainId, 1000);
     });

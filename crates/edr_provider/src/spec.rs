@@ -7,7 +7,7 @@ use edr_eth::{
     spec::L1ChainSpec,
     transaction::{
         signed::{FakeSign, Sign},
-        Transaction,
+        IsSupported, Transaction,
     },
     AccessListItem, Address, Blob, BlockSpec, B256, U256,
 };
@@ -25,6 +25,7 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RpcBlock<B256>: From<BlockAndTotalDifficulty<Self, BlockchainError<Self>>>,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,
+    Transaction: IsSupported,
 >
 {
     type PooledTransaction: HardforkValidationData

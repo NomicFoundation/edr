@@ -9,7 +9,7 @@ pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Legacy
 use edr_eth::{
     signature::{Fakeable, Signature},
     transaction::{
-        AuthorizationList, ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy,
+        AuthorizationList, ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, IsSupported,
         MaybeSignedTransaction, Transaction, TransactionMut, TransactionType,
         TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
     },
@@ -231,6 +231,12 @@ impl HasAccessList for Signed {
 impl IsEip4844 for Signed {
     fn is_eip4844(&self) -> bool {
         matches!(self, Signed::Eip4844(_))
+    }
+}
+
+impl IsSupported for Signed {
+    fn is_supported_transaction(&self) -> bool {
+        true
     }
 }
 

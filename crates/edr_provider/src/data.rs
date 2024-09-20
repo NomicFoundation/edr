@@ -32,8 +32,8 @@ use edr_eth::{
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
-        ExecutableTransaction as _, IsEip4844, Transaction as _, TransactionMut, TransactionType,
-        TransactionValidation,
+        ExecutableTransaction as _, IsEip4844, IsSupported as _, Transaction as _, TransactionMut,
+        TransactionType, TransactionValidation,
     },
     AccountInfo, Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet,
     Precompile, SpecId, B256, KECCAK_EMPTY, U256,
@@ -92,6 +92,9 @@ use crate::{
 const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u64 = 1_000_000_000;
 const EDR_MAX_CACHED_STATES_ENV_VAR: &str = "__EDR_MAX_CACHED_STATES";
 const DEFAULT_MAX_CACHED_STATES: usize = 100_000;
+const EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES: &str =
+    "__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES";
+const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 
 /// The result of executing an `eth_call`.
 #[derive(Clone, Debug)]
@@ -210,6 +213,8 @@ pub struct ProviderData<
     allow_blocks_with_same_timestamp: bool,
     allow_unlimited_contract_size: bool,
     verbose_tracing: bool,
+    // Skip unsupported transaction types in `debugTraceTransaction` instead of throwing an error
+    skip_unsupported_transaction_types: bool,
     // IndexMap to preserve account order for logging.
     local_accounts: IndexMap<Address, k256::SecretKey>,
     filters: HashMap<U256, Filter>,
@@ -595,18 +600,7 @@ where
             next_block_base_fee_per_gas,
         } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer, genesis_accounts)?;
 
-        let max_cached_states = std::env::var(EDR_MAX_CACHED_STATES_ENV_VAR).map_or_else(
-            |err| match err {
-                std::env::VarError::NotPresent => {
-                    Ok(NonZeroUsize::new(DEFAULT_MAX_CACHED_STATES).expect("constant is non-zero"))
-                }
-                std::env::VarError::NotUnicode(s) => Err(CreationError::InvalidMaxCachedStates(s)),
-            },
-            |s| {
-                s.parse()
-                    .map_err(|_err| CreationError::InvalidMaxCachedStates(s.into()))
-            },
-        )?;
+        let max_cached_states = get_max_cached_states_from_env()?;
         let mut block_state_cache = LruCache::new(max_cached_states);
         let mut block_number_to_state_id = HashTrieMapSync::default();
 
@@ -620,6 +614,8 @@ where
         let block_gas_limit = config.block_gas_limit;
         let is_auto_mining = config.mining.auto_mine;
         let min_gas_price = config.min_gas_price;
+
+        let skip_unsupported_transaction_types = get_skip_unsupported_transaction_types_from_env();
 
         let parent_beacon_block_root_generator = if let Some(initial_parent_beacon_block_root) =
             &config.initial_parent_beacon_block_root
@@ -664,6 +660,7 @@ where
             allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size,
             verbose_tracing: false,
+            skip_unsupported_transaction_types,
             local_accounts,
             filters: HashMap::default(),
             last_filter_id: U256::ZERO,
@@ -2376,7 +2373,8 @@ where
         let (cfg_env, hardfork) =
             self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
 
-        let transactions = block.transactions().to_vec();
+        let transactions =
+            self.filter_unsupported_transaction_types(block.transactions(), transaction_hash)?;
 
         let prev_block_number = block.header().number - 1;
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
@@ -2401,6 +2399,39 @@ where
                 .map_err(ProviderError::DebugTrace)
             },
         )?
+    }
+
+    /// Filters out transactions with unsupported types and returns the
+    /// remaining transactions, if skipping is allowed. Otherwise returns
+    /// an error.
+    fn filter_unsupported_transaction_types(
+        &self,
+        transactions: &[ChainSpecT::Transaction],
+        transaction_hash: &B256,
+    ) -> Result<Vec<ChainSpecT::Transaction>, ProviderError<ChainSpecT>> {
+        transactions
+            .iter()
+            .filter_map(|transaction| {
+                if transaction.is_supported_transaction() {
+                    Some(Ok(transaction.clone()))
+                } else if *transaction.transaction_hash() == *transaction_hash {
+                    Some(Err(
+                        ProviderError::UnsupportedTransactionTypeForDebugTrace {
+                            transaction_hash: *transaction_hash,
+                            unsupported_transaction_type: transaction.transaction_type().into(),
+                        },
+                    ))
+                } else if self.skip_unsupported_transaction_types {
+                    None
+                } else {
+                    Some(Err(ProviderError::UnsupportedTransactionTypeInDebugTrace {
+                        requested_transaction_hash: *transaction_hash,
+                        unsupported_transaction_hash: *transaction.transaction_hash(),
+                        unsupported_transaction_type: transaction.transaction_type().into(),
+                    }))
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -2688,11 +2719,13 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
                         .timestamp,
                 );
 
-            let elapsed_time = timer
-                .since(fork_block_timestamp)
-                .expect("current time must be after fork block");
+            let elapsed = match timer.since(fork_block_timestamp) {
+                Ok(elapsed) => -i128::from(elapsed),
+                Err(forward_drift) => i128::from(forward_drift.duration().as_secs()),
+            };
 
-            -i64::try_from(elapsed_time)
+            elapsed
+                .try_into()
                 .expect("Elapsed time since fork block must be representable as i64")
         };
 
@@ -2922,6 +2955,27 @@ pub(crate) mod test_utils {
             Ok(self.provider_data.sign_transaction_request(transaction)?)
         }
     }
+}
+
+fn get_skip_unsupported_transaction_types_from_env() -> bool {
+    std::env::var(EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES)
+        .map_or(DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES, |s| s == "true")
+}
+
+fn get_max_cached_states_from_env<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+) -> Result<NonZeroUsize, CreationError<ChainSpecT>> {
+    std::env::var(EDR_MAX_CACHED_STATES_ENV_VAR).map_or_else(
+        |err| match err {
+            std::env::VarError::NotPresent => {
+                Ok(NonZeroUsize::new(DEFAULT_MAX_CACHED_STATES).expect("constant is non-zero"))
+            }
+            std::env::VarError::NotUnicode(s) => Err(CreationError::InvalidMaxCachedStates(s)),
+        },
+        |s| {
+            s.parse()
+                .map_err(|_err| CreationError::InvalidMaxCachedStates(s.into()))
+        },
+    )
 }
 
 #[cfg(test)]

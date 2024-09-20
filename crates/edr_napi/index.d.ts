@@ -277,6 +277,7 @@ export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
   decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
+  /** Used to resolve the contract and function name when logging. */
   getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
   printLineCallback: (message: string, replace: boolean) => void
 }
@@ -377,6 +378,243 @@ export interface SubscriptionEvent {
   filterId: bigint
   result: any
 }
+export declare function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<BytecodeWrapper>
+export declare function linkHexStringBytecode(code: string, address: string, position: number): string
+export const enum ContractFunctionType {
+  CONSTRUCTOR = 0,
+  FUNCTION = 1,
+  FALLBACK = 2,
+  RECEIVE = 3,
+  GETTER = 4,
+  MODIFIER = 5,
+  FREE_FUNCTION = 6
+}
+export declare function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
+export declare function printStackTrace(trace: SolidityStackTrace): void
+/** Represents the exit code of the EVM. */
+export const enum ExitCode {
+  /** Execution was successful. */
+  SUCCESS = 0,
+  /** Execution was reverted. */
+  REVERT = 1,
+  /** Execution ran out of gas. */
+  OUT_OF_GAS = 2,
+  /** Execution encountered an internal error. */
+  INTERNAL_ERROR = 3,
+  /** Execution encountered an invalid opcode. */
+  INVALID_OPCODE = 4,
+  /** Execution encountered a stack underflow. */
+  STACK_UNDERFLOW = 5,
+  /** Create init code size exceeds limit (runtime). */
+  CODESIZE_EXCEEDS_MAXIMUM = 6,
+  /** Create collision. */
+  CREATE_COLLISION = 7
+}
+export interface EvmStep {
+  pc: number
+}
+export interface PrecompileMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  precompile: number
+  calldata: Uint8Array
+}
+export interface CreateMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  code: Uint8Array
+  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
+  /**
+   * Reference to the resolved `Bytecode` EDR data.
+   * Only used on the JS side by the `VmTraceDecoder` class.
+   */
+  bytecode?: BytecodeWrapper
+  numberOfSubtraces: number
+  deployedContract?: Uint8Array | undefined
+}
+export interface CallMessageTrace {
+  value: bigint
+  returnData: Uint8Array
+  exit: Exit
+  gasUsed: bigint
+  depth: number
+  code: Uint8Array
+  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
+  /**
+   * Reference to the resolved `Bytecode` EDR data.
+   * Only used on the JS side by the `VmTraceDecoder` class.
+   */
+  bytecode?: BytecodeWrapper
+  numberOfSubtraces: number
+  calldata: Uint8Array
+  address: Uint8Array
+  codeAddress: Uint8Array
+}
+export const enum StackTraceEntryType {
+  CALLSTACK_ENTRY = 0,
+  UNRECOGNIZED_CREATE_CALLSTACK_ENTRY = 1,
+  UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY = 2,
+  PRECOMPILE_ERROR = 3,
+  REVERT_ERROR = 4,
+  PANIC_ERROR = 5,
+  CUSTOM_ERROR = 6,
+  FUNCTION_NOT_PAYABLE_ERROR = 7,
+  INVALID_PARAMS_ERROR = 8,
+  FALLBACK_NOT_PAYABLE_ERROR = 9,
+  FALLBACK_NOT_PAYABLE_AND_NO_RECEIVE_ERROR = 10,
+  UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR = 11,
+  MISSING_FALLBACK_OR_RECEIVE_ERROR = 12,
+  RETURNDATA_SIZE_ERROR = 13,
+  NONCONTRACT_ACCOUNT_CALLED_ERROR = 14,
+  CALL_FAILED_ERROR = 15,
+  DIRECT_LIBRARY_CALL_ERROR = 16,
+  UNRECOGNIZED_CREATE_ERROR = 17,
+  UNRECOGNIZED_CONTRACT_ERROR = 18,
+  OTHER_EXECUTION_ERROR = 19,
+  UNMAPPED_SOLC_0_6_3_REVERT_ERROR = 20,
+  CONTRACT_TOO_LARGE_ERROR = 21,
+  INTERNAL_FUNCTION_CALLSTACK_ENTRY = 22,
+  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23
+}
+export declare function stackTraceEntryTypeToString(val: StackTraceEntryType): string
+export const FALLBACK_FUNCTION_NAME: string
+export const RECEIVE_FUNCTION_NAME: string
+export const CONSTRUCTOR_FUNCTION_NAME: string
+export const UNRECOGNIZED_FUNCTION_NAME: string
+export const UNKNOWN_FUNCTION_NAME: string
+export const PRECOMPILE_FUNCTION_NAME: string
+export const UNRECOGNIZED_CONTRACT_NAME: string
+export interface SourceReference {
+  sourceName: string
+  sourceContent: string
+  contract?: string
+  function?: string
+  line: number
+  range: Array<number>
+}
+export interface CallstackEntryStackTraceEntry {
+  type: StackTraceEntryType.CALLSTACK_ENTRY
+  sourceReference: SourceReference
+  functionType: ContractFunctionType
+}
+export interface UnrecognizedCreateCallstackEntryStackTraceEntry {
+  type: StackTraceEntryType.UNRECOGNIZED_CREATE_CALLSTACK_ENTRY
+  sourceReference?: undefined
+}
+export interface UnrecognizedContractCallstackEntryStackTraceEntry {
+  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY
+  address: Uint8Array
+  sourceReference?: undefined
+}
+export interface PrecompileErrorStackTraceEntry {
+  type: StackTraceEntryType.PRECOMPILE_ERROR
+  precompile: number
+  sourceReference?: undefined
+}
+export interface RevertErrorStackTraceEntry {
+  type: StackTraceEntryType.REVERT_ERROR
+  returnData: Uint8Array
+  sourceReference: SourceReference
+  isInvalidOpcodeError: boolean
+}
+export interface PanicErrorStackTraceEntry {
+  type: StackTraceEntryType.PANIC_ERROR
+  errorCode: bigint
+  sourceReference?: SourceReference
+}
+export interface CustomErrorStackTraceEntry {
+  type: StackTraceEntryType.CUSTOM_ERROR
+  message: string
+  sourceReference: SourceReference
+}
+export interface FunctionNotPayableErrorStackTraceEntry {
+  type: StackTraceEntryType.FUNCTION_NOT_PAYABLE_ERROR
+  value: bigint
+  sourceReference: SourceReference
+}
+export interface InvalidParamsErrorStackTraceEntry {
+  type: StackTraceEntryType.INVALID_PARAMS_ERROR
+  sourceReference: SourceReference
+}
+export interface FallbackNotPayableErrorStackTraceEntry {
+  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_ERROR
+  value: bigint
+  sourceReference: SourceReference
+}
+export interface FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
+  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_AND_NO_RECEIVE_ERROR
+  value: bigint
+  sourceReference: SourceReference
+}
+export interface UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
+  type: StackTraceEntryType.UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR
+  sourceReference: SourceReference
+}
+export interface MissingFallbackOrReceiveErrorStackTraceEntry {
+  type: StackTraceEntryType.MISSING_FALLBACK_OR_RECEIVE_ERROR
+  sourceReference: SourceReference
+}
+export interface ReturndataSizeErrorStackTraceEntry {
+  type: StackTraceEntryType.RETURNDATA_SIZE_ERROR
+  sourceReference: SourceReference
+}
+export interface NonContractAccountCalledErrorStackTraceEntry {
+  type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR
+  sourceReference: SourceReference
+}
+export interface CallFailedErrorStackTraceEntry {
+  type: StackTraceEntryType.CALL_FAILED_ERROR
+  sourceReference: SourceReference
+}
+export interface DirectLibraryCallErrorStackTraceEntry {
+  type: StackTraceEntryType.DIRECT_LIBRARY_CALL_ERROR
+  sourceReference: SourceReference
+}
+export interface UnrecognizedCreateErrorStackTraceEntry {
+  type: StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR
+  returnData: Uint8Array
+  sourceReference?: undefined
+  isInvalidOpcodeError: boolean
+}
+export interface UnrecognizedContractErrorStackTraceEntry {
+  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_ERROR
+  address: Uint8Array
+  returnData: Uint8Array
+  sourceReference?: undefined
+  isInvalidOpcodeError: boolean
+}
+export interface OtherExecutionErrorStackTraceEntry {
+  type: StackTraceEntryType.OTHER_EXECUTION_ERROR
+  sourceReference?: SourceReference
+}
+export interface UnmappedSolc063RevertErrorStackTraceEntry {
+  type: StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR
+  sourceReference?: SourceReference
+}
+export interface ContractTooLargeErrorStackTraceEntry {
+  type: StackTraceEntryType.CONTRACT_TOO_LARGE_ERROR
+  sourceReference?: SourceReference
+}
+export interface InternalFunctionCallStackEntry {
+  type: StackTraceEntryType.INTERNAL_FUNCTION_CALLSTACK_ENTRY
+  pc: number
+  sourceReference: SourceReference
+}
+export interface ContractCallRunOutOfGasError {
+  type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR
+  sourceReference?: SourceReference
+}
+export interface ContractAndFunctionName {
+  contractName: string
+  functionName: string | undefined
+}
+export declare function initializeVmTraceDecoder(vmTraceDecoder: VmTraceDecoder, tracingConfig: any): void
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
@@ -459,6 +697,45 @@ export class Provider {
    * `false` to disable this.
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
+}
+/**
+ * Opaque handle to the `Bytecode` struct.
+ * Only used on the JS side by the `VmTraceDecoder` class.
+ */
+export class BytecodeWrapper { }
+export class Exit {
+  get kind(): ExitCode
+  isError(): boolean
+  getReason(): string
+}
+export class ReturnData {
+  readonly value: Uint8Array
+  constructor(value: Uint8Array)
+  isEmpty(): boolean
+  isErrorReturnData(): boolean
+  isPanicReturnData(): boolean
+  decodeError(): string
+  decodePanic(): bigint
+}
+export class SolidityTracer {
+  
+  constructor()
+  getStackTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): SolidityStackTrace
+}
+export class VmTraceDecoder {
+  constructor()
+  addBytecode(bytecode: BytecodeWrapper): void
+  tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName
+}
+export type VMTracer = VmTracer
+/** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
+export class VmTracer {
+  constructor()
+  /** Observes a trace, collecting information about the execution of the EVM. */
+  observe(trace: RawTrace): void
+  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
+  getLastError(): Error | undefined
 }
 export class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>

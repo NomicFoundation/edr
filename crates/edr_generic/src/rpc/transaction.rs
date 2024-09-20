@@ -6,7 +6,7 @@ use edr_evm::{
 use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
-use crate::GenericChainSpec;
+use crate::{transaction, GenericChainSpec};
 
 // We need to use a newtype here as `RpcTypeFrom` cannot be implemented here,
 // in an external crate, even though `TransactionAndBlock` is generic over
@@ -54,7 +54,7 @@ impl RpcTypeFrom<TransactionAndBlock<GenericChainSpec>> for TransactionWithSigna
             value.is_pending,
             hardfork,
         );
-        let signature = value.transaction.0.signature();
+        let signature = value.transaction.signature();
 
         edr_rpc_eth::TransactionWithSignature::new(
             transaction,
@@ -69,45 +69,44 @@ impl RpcTypeFrom<TransactionAndBlock<GenericChainSpec>> for TransactionWithSigna
 
 pub use edr_rpc_eth::TransactionConversionError as ConversionError;
 
-impl TryFrom<TransactionWithSignature> for crate::transaction::SignedWithFallbackToPostEip155 {
+impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPostEip155 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
-        use edr_eth::transaction::{self, Signed};
-
-        enum TxType {
-            Known(transaction::Type),
-            Unknown,
-        }
+        use edr_eth::transaction::Signed;
 
         let TransactionWithSignature(value) = value;
 
-        let tx_type = match value.transaction_type.map(transaction::Type::try_from) {
-            None => TxType::Known(transaction::Type::Legacy),
-            Some(Ok(r#type)) => TxType::Known(r#type),
+        let tx_type = match value
+            .transaction_type
+            .map(edr_eth::transaction::Type::try_from)
+        {
+            None => transaction::Type::Legacy,
+            Some(Ok(r#type)) => r#type.into(),
             Some(Err(r#type)) => {
                 log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction");
 
-                TxType::Unknown
+                transaction::Type::Unrecognized(r#type)
             }
         };
 
         let transaction = match tx_type {
-            // We explicitly treat unknown transaction types as post-EIP 155 legacy transactions
-            TxType::Unknown => Signed::PostEip155Legacy(value.into()),
+            // We explicitly treat unrecognized transaction types as post-EIP 155 legacy
+            // transactions
+            transaction::Type::Unrecognized(_) => Signed::PostEip155Legacy(value.into()),
 
-            TxType::Known(transaction::Type::Legacy) => {
+            transaction::Type::Legacy => {
                 if value.is_legacy() {
                     Signed::PreEip155Legacy(value.into())
                 } else {
                     Signed::PostEip155Legacy(value.into())
                 }
             }
-            TxType::Known(transaction::Type::Eip2930) => Signed::Eip2930(value.try_into()?),
-            TxType::Known(transaction::Type::Eip1559) => Signed::Eip1559(value.try_into()?),
-            TxType::Known(transaction::Type::Eip4844) => Signed::Eip4844(value.try_into()?),
+            transaction::Type::Eip2930 => Signed::Eip2930(value.try_into()?),
+            transaction::Type::Eip1559 => Signed::Eip1559(value.try_into()?),
+            transaction::Type::Eip4844 => Signed::Eip4844(value.try_into()?),
         };
 
-        Ok(Self(transaction))
+        Ok(Self::with_type(transaction, tx_type))
     }
 }

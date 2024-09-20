@@ -19,7 +19,7 @@ describe("Provider", () => {
   before(async () => {
     await context.registerProviderFactory(
       GENERIC_CHAIN_TYPE,
-      genericChainProviderFactory(),
+      genericChainProviderFactory()
     );
   });
 
@@ -47,7 +47,7 @@ describe("Provider", () => {
     },
     initialParentBeaconBlockRoot: Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex",
+      "hex"
     ),
     minGasPrice: 0n,
     mining: {
@@ -61,18 +61,18 @@ describe("Provider", () => {
 
   const loggerConfig = {
     enable: false,
-    decodeConsoleLogInputsCallback: (inputs: Buffer[]): string[] => {
+    decodeConsoleLogInputsCallback: (_inputs: Buffer[]): string[] => {
       return [];
     },
     getContractAndFunctionNameCallback: (
       _code: Buffer,
-      _calldata?: Buffer,
+      _calldata?: Buffer
     ): ContractAndFunctionName => {
       return {
         contractName: "",
       };
     },
-    printLineCallback: (message: string, replace: boolean) => {},
+    printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
   it("initialize local", async function () {
@@ -82,7 +82,7 @@ describe("Provider", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
+      }
     );
 
     await assert.isFulfilled(provider);
@@ -104,7 +104,7 @@ describe("Provider", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
+      }
     );
 
     await assert.isFulfilled(provider);
@@ -119,7 +119,7 @@ describe("Provider", () => {
 
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
+        }
       );
 
       const responseObject = await provider.handleRequest(
@@ -137,7 +137,7 @@ describe("Provider", () => {
               data: "0x60016002600300",
             },
           ],
-        }),
+        })
       );
 
       const rawTraces = responseObject.traces;
@@ -161,7 +161,7 @@ describe("Provider", () => {
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
+        }
       );
 
       await provider.setVerboseTracing(true);
@@ -181,7 +181,7 @@ describe("Provider", () => {
               data: "0x60016002600300",
             },
           ],
-        }),
+        })
       );
 
       const rawTraces = responseObject.traces;
@@ -208,7 +208,7 @@ describe("Provider", () => {
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
+        }
       );
 
       const responseObject = await provider.handleRequest(
@@ -227,7 +227,7 @@ describe("Provider", () => {
               data: "0x60015f5200",
             },
           ],
-        }),
+        })
       );
 
       const rawTraces = responseObject.traces;
@@ -249,7 +249,7 @@ describe("Provider", () => {
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
+        }
       );
 
       await provider.setVerboseTracing(true);
@@ -270,7 +270,7 @@ describe("Provider", () => {
               data: "0x60015f5200",
             },
           ],
-        }),
+        })
       );
 
       const rawTraces = responseObject.traces;
@@ -286,7 +286,7 @@ describe("Provider", () => {
       assertEqualMemory(steps[2].memory, Buffer.from([]));
       assertEqualMemory(
         steps[3].memory,
-        Buffer.from([...Array(31).fill(0), 1]),
+        Buffer.from([...Array(31).fill(0), 1])
       );
     });
 
@@ -298,7 +298,7 @@ describe("Provider", () => {
 
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
+        }
       );
 
       const responseObject = await provider.handleRequest(
@@ -315,7 +315,7 @@ describe("Provider", () => {
               gas: "0x" + 1_000_000n.toString(16),
             },
           ],
-        }),
+        })
       );
 
       const rawTraces = responseObject.traces;
@@ -340,7 +340,7 @@ describe("Provider", () => {
 
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
+        }
       );
 
       const sendTxResponse = await provider.handleRequest(
@@ -361,7 +361,7 @@ describe("Provider", () => {
               gas: "0x" + 1_000_000n.toString(16),
             },
           ],
-        }),
+        })
       );
 
       let responseData;
@@ -380,7 +380,7 @@ describe("Provider", () => {
           jsonrpc: "2.0",
           method: "debug_traceTransaction",
           params: [txHash],
-        }),
+        })
       );
 
       const rawTraces = traceTransactionResponse.traces;
@@ -395,7 +395,7 @@ describe("Provider", () => {
 
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
+        }
       );
 
       const traceCallResponse = await provider.handleRequest(
@@ -416,7 +416,7 @@ describe("Provider", () => {
               gas: "0x" + 1_000_000n.toString(16),
             },
           ],
-        }),
+        })
       );
 
       const rawTraces = traceCallResponse.traces;

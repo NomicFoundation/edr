@@ -1,114 +1,171 @@
-mod radix_tree;
+//! A data structure that allows searching for well-known bytecodes and their
+//! contracts.
+//!
+//! In addition to being a trie, it also performs normalization of the bytecode
+//! for the libraries by zeroing out the addresses of link references, i.e. the
+//! addresses of the libraries or immutable references for the lookup.
 
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
-use edr_eth::Bytes;
-use edr_evm::interpreter::opcode;
-use radix_tree::RadixTree;
+use edr_eth::Address;
+use edr_evm::interpreter::OpCode;
 
-use self::radix_tree::RadixNode;
-use crate::opcodes::opcode_length;
+use crate::build_model::Bytecode;
 
-/// Temporary stub
-#[derive(Debug, PartialEq)]
-pub enum BytecodeType {
-    /// Temporary stub
-    Runtime,
-    /// Temporary stub
-    Deployment,
+/// The result of searching for a bytecode in a [`BytecodeTrie`].
+enum TrieSearch<'a> {
+    /// An exact match was found.
+    ExactHit(Rc<Bytecode>),
+    /// No exact match found; a node with the longest prefix is returned.
+    LongestPrefixNode(&'a BytecodeTrie),
 }
 
-/// Temporary stub
-#[derive(Debug, PartialEq)]
-pub struct ImmutableReference {
-    offset: usize,
-    length: usize,
+/// This class represent a somewhat special Trie of bytecodes.
+///
+/// What makes it special is that every node has a set of all of its descendants
+/// and its depth.
+#[derive(Clone)]
+struct BytecodeTrie {
+    child_nodes: HashMap<u8, Box<BytecodeTrie>>,
+    descendants: Vec<Rc<Bytecode>>,
+    match_: Option<Rc<Bytecode>>,
+    depth: Option<u32>,
 }
 
-/// Temporary stub
-#[derive(Debug, PartialEq)]
-pub struct Bytecode {
-    normalized_code: Bytes,
-    bytecode_type: BytecodeType,
-    library_offsets: Vec<usize>,
-    immutable_references: Vec<ImmutableReference>,
-}
-
-impl Bytecode {
-    /// Temporary stub
-    pub fn is_deployment(&self) -> bool {
-        self.bytecode_type == BytecodeType::Deployment
-    }
-}
-
-/// Temporary stub
-pub struct CreateMessageTrace {
-    code: Bytes,
-}
-
-/// Temporary stub
-pub struct CallMessageTrace {
-    code: Bytes,
-}
-
-/// Temporary stub
-pub enum EvmMessageTrace {
-    /// Temporary stub
-    Create(CreateMessageTrace),
-    /// Temporary stub
-    Call(CallMessageTrace),
-}
-
-impl EvmMessageTrace {
-    fn code(&self) -> &Bytes {
-        match self {
-            EvmMessageTrace::Create(create_message_trace) => &create_message_trace.code,
-            EvmMessageTrace::Call(call_message_trace) => &call_message_trace.code,
+impl BytecodeTrie {
+    fn new(depth: Option<u32>) -> BytecodeTrie {
+        BytecodeTrie {
+            child_nodes: HashMap::new(),
+            descendants: Vec::new(),
+            match_: None,
+            depth,
         }
     }
-}
 
-/// Map of bytecodes to known contracts
-// TODO add a caching layer: https://github.com/NomicFoundation/edr/issues/257
-#[derive(Default)]
-pub struct ContractsIdentifier<'a> {
-    tree: RadixTree,
-    bytecodes: HashMap<&'a Bytes, &'a Bytecode>,
-}
+    fn add(&mut self, bytecode: Rc<Bytecode>) {
+        let mut cursor = self;
 
-impl<'a> ContractsIdentifier<'a> {
-    /// Add a known bytecode
-    pub fn add_bytecode(&mut self, bytecode: &'a Bytecode) {
-        self.tree.add_word(bytecode.normalized_code.clone());
-        self.bytecodes.insert(&bytecode.normalized_code, bytecode);
-    }
+        let bytecode_normalized_code = &bytecode.normalized_code;
+        for (index, byte) in bytecode_normalized_code.iter().enumerate() {
+            cursor.descendants.push(bytecode.clone());
 
-    /// Get a bytecode by its normalized code
-    pub fn bytecode_by_message_trace(&self, trace: EvmMessageTrace) -> Option<&Bytecode> {
-        let normalized_code = normalize_library_runtime_bytecode_if_necessary(trace.code().clone());
+            let node = cursor
+                .child_nodes
+                .entry(*byte)
+                .or_insert_with(|| Box::new(BytecodeTrie::new(Some(index as u32))));
 
-        self.search_bytecode_in_radix_tree(&trace, &normalized_code, true, None)
-    }
-
-    fn search_bytecode_in_radix_tree(
-        &self,
-        trace: &EvmMessageTrace,
-        code: &Bytes,
-        normalize_libraries: bool,
-        radix_node: Option<&RadixNode>,
-    ) -> Option<&Bytecode> {
-        let radix_node = radix_node.unwrap_or(self.tree.root());
-
-        let (found, matched_bytes, node) = radix_node.longest_match(code);
-
-        if found {
-            return self.bytecodes.get(&code).copied();
+            cursor = node;
         }
 
-        // The entire vector is present as a prefix, but not exactly
-        if code.len() == matched_bytes {
+        // If multiple contracts with the exact same bytecode are added we keep the last
+        // of them. Note that this includes the metadata hash, so the chances of
+        // happening are pretty remote, except in super artificial cases that we
+        // have in our test suite.
+        cursor.match_ = Some(bytecode.clone());
+    }
+
+    /// Searches for a bytecode. If it's an exact match, it is returned. If
+    /// there's no match, but a prefix of the code is found in the trie, the
+    /// node of the longest prefix is returned. If the entire code is
+    /// covered by the trie, and there's no match, we return None.
+    fn search(&self, code: &[u8], current_code_byte: u32) -> Option<TrieSearch<'_>> {
+        if current_code_byte > code.len() as u32 {
             return None;
         }
+
+        let mut cursor = self;
+
+        for byte in code.iter().skip(current_code_byte as usize) {
+            let child_node = cursor.child_nodes.get(byte);
+
+            if let Some(node) = child_node {
+                cursor = node;
+            } else {
+                return Some(TrieSearch::LongestPrefixNode(cursor));
+            }
+        }
+
+        cursor
+            .match_
+            .as_ref()
+            .map(|bytecode| TrieSearch::ExactHit(bytecode.clone()))
+    }
+}
+
+/// Returns true if the `last_byte` is placed right when the metadata starts or
+/// after it.
+fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
+    let mut byte = 0;
+    while byte < last_byte {
+        let opcode = OpCode::new(code[byte as usize]).unwrap();
+        let next = code.get(byte as usize + 1).copied().and_then(OpCode::new);
+
+        if opcode == OpCode::REVERT && next == Some(OpCode::INVALID) {
+            return true;
+        }
+
+        byte += 1 + u32::from(opcode.info().immediate_size());
+    }
+
+    false
+}
+
+/// A data structure that allows searching for well-known bytecodes.
+pub struct ContractsIdentifier {
+    trie: BytecodeTrie,
+    cache: HashMap<Vec<u8>, Rc<Bytecode>>,
+    enable_cache: bool,
+}
+
+impl Default for ContractsIdentifier {
+    fn default() -> Self {
+        Self::new(None)
+    }
+}
+
+impl ContractsIdentifier {
+    /// Creates a new [`ContractsIdentifier`].
+    pub fn new(enable_cache: Option<bool>) -> ContractsIdentifier {
+        let enable_cache = enable_cache.unwrap_or(true);
+
+        ContractsIdentifier {
+            trie: BytecodeTrie::new(None),
+            cache: HashMap::new(),
+            enable_cache,
+        }
+    }
+
+    /// Adds a bytecode to the tree.
+    pub fn add_bytecode(&mut self, bytecode: Rc<Bytecode>) {
+        self.trie.add(bytecode);
+        self.cache.clear();
+    }
+
+    fn search_bytecode_from_root(&mut self, is_create: bool, code: &[u8]) -> Option<Rc<Bytecode>> {
+        let normalize_libraries = true;
+        let first_byte_to_search = 0;
+
+        Self::search_bytecode_at_depth(
+            is_create,
+            code,
+            normalize_libraries,
+            &self.trie,
+            first_byte_to_search,
+        )
+    }
+
+    fn search_bytecode_at_depth(
+        is_create: bool,
+        code: &[u8],
+        normalize_libraries: bool,
+        trie: &BytecodeTrie,
+        first_byte_to_search: u32,
+    ) -> Option<Rc<Bytecode>> {
+        let search_result = match trie.search(code, first_byte_to_search) {
+            None => return None,
+            Some(TrieSearch::ExactHit(bytecode)) => return Some(bytecode.clone()),
+            Some(TrieSearch::LongestPrefixNode(trie)) => trie,
+        };
 
         // Deployment messages have their abi-encoded arguments at the end of the
         // bytecode.
@@ -125,57 +182,47 @@ impl<'a> ContractsIdentifier<'a> {
         // its metadata hash, which will differ.
         //
         // We take advantage of this last observation, and just return the bytecode that
-        // exactly matched the searchResult (sub)trie that we got.
-        let entire_node_matched =
-            matched_bytes == node.bytes_matched_before() + node.content().len();
-        let not_entiry_bytecode_found = matched_bytes < code.len();
-        if is_create_trace(trace)
-            && entire_node_matched
-            && not_entiry_bytecode_found
-            && node.is_present()
-        {
-            // concatenate the normalized code and the node content
-            let matched_bytecode: Bytes = [&code[..node.bytes_matched_before()], node.content()]
-                .concat()
-                .into();
-
-            let bytecode = self.bytecodes.get(&matched_bytecode).copied();
-
-            if let Some(bytecode) = bytecode {
-                if bytecode.is_deployment() {
-                    return Some(bytecode);
-                }
+        // exactly matched the search_result (sub)trie that we got.
+        match &search_result.match_ {
+            Some(bytecode) if is_create && bytecode.is_deployment => {
+                return Some(bytecode.clone());
             }
-        }
+            _ => {}
+        };
 
         if normalize_libraries {
-            for suffix in node.descendant_suffixes() {
-                let descendant: Bytes = [&code[..node.bytes_matched_before()], &suffix]
-                    .concat()
-                    .into();
-
-                let bytecode_with_libraries = self.bytecodes.get(&descendant);
-
-                if bytecode_with_libraries.is_none() {
-                    continue;
-                }
-                let bytecode_with_libraries = bytecode_with_libraries.unwrap();
-
-                if bytecode_with_libraries.library_offsets.is_empty()
+            for bytecode_with_libraries in &search_result.descendants {
+                if bytecode_with_libraries.library_address_positions.is_empty()
                     && bytecode_with_libraries.immutable_references.is_empty()
                 {
                     continue;
                 }
 
-                let normalized_libraries_code =
-                    zero_out_addresses(code, &bytecode_with_libraries.library_offsets);
-                let normalized_code = zero_out_slices(
-                    &normalized_libraries_code,
-                    &bytecode_with_libraries.immutable_references,
-                );
+                let mut normalized_code = code.to_vec();
+                // zero out addresses
+                for &pos in &bytecode_with_libraries.library_address_positions {
+                    let range = pos as usize..(pos as usize + Address::len_bytes());
 
-                let normalized_result =
-                    self.search_bytecode_in_radix_tree(trace, &normalized_code, false, Some(node));
+                    if let Some(chunk) = normalized_code.get_mut(range) {
+                        chunk.fill(0);
+                    }
+                }
+                // zero out slices
+                for imm in &bytecode_with_libraries.immutable_references {
+                    let range = imm.start as usize..(imm.start as usize + imm.length as usize);
+
+                    if let Some(chunk) = normalized_code.get_mut(range) {
+                        chunk.fill(0);
+                    }
+                }
+
+                let normalized_result = Self::search_bytecode_at_depth(
+                    is_create,
+                    &normalized_code,
+                    false,
+                    search_result,
+                    search_result.depth.map_or(0, |depth| depth + 1),
+                );
 
                 if normalized_result.is_some() {
                     return normalized_result;
@@ -191,194 +238,224 @@ impl<'a> ContractsIdentifier<'a> {
         // any descendant will be a valid Bytecode, so we just choose the most
         // recently added one.
         //
-        // The reason this works is that there's no chance that Solidity includes an
+        // The reason this works is because there's no chance that Solidity includes an
         // entire bytecode (i.e. with metadata), as a prefix of another one.
-
-        if is_matching_metadata(code) {
-            let last_suffix = self.tree.root().descendant_suffixes().last();
-
-            if let Some(last_suffix) = last_suffix {
-                // TODO: this should be the last one in chronological insertion order: https://github.com/NomicFoundation/edr/issues/258
-                let descendant: Bytes = [&code[..node.bytes_matched_before()], &last_suffix]
-                    .concat()
-                    .into();
-
-                return self.bytecodes.get(&descendant).copied();
+        if let Some(search_depth) = search_result.depth {
+            if is_matching_metadata(code, search_depth) && !search_result.descendants.is_empty() {
+                return Some(
+                    search_result.descendants[search_result.descendants.len() - 1].clone(),
+                );
             }
         }
 
         None
     }
-}
 
-fn zero_out_addresses(code: &Bytes, offsets: &[usize]) -> Bytes {
-    let references = offsets
-        .iter()
-        .map(|offset| ImmutableReference {
-            offset: *offset,
-            length: 20,
-        })
-        .collect::<Vec<_>>();
+    /// Searches for a bytecode that matches the given (call/create) code.
+    pub fn get_bytecode_for_call(&mut self, code: &[u8], is_create: bool) -> Option<Rc<Bytecode>> {
+        let normalized_code = normalize_library_runtime_bytecode_if_necessary(code);
 
-    zero_out_slices(code, &references)
-}
+        if self.enable_cache {
+            let cached = self.cache.get(&*normalized_code);
 
-fn zero_out_slices(code: &Bytes, immutable_references: &[ImmutableReference]) -> Bytes {
-    let mut result = code.to_vec();
-
-    for reference in immutable_references {
-        for byte in result
-            .iter_mut()
-            .skip(reference.offset)
-            .take(reference.length)
-        {
-            *byte = 0;
+            if let Some(cached) = cached {
+                return Some(cached.clone());
+            }
         }
-    }
 
-    result.into()
+        let result = self.search_bytecode_from_root(is_create, &normalized_code);
+
+        if self.enable_cache {
+            if let Some(result) = &result {
+                if !self.cache.contains_key(&*normalized_code) {
+                    self.cache.insert(normalized_code.to_vec(), result.clone());
+                }
+            }
+        }
+
+        result
+    }
 }
 
-fn is_create_trace(trace: &EvmMessageTrace) -> bool {
-    match trace {
-        EvmMessageTrace::Create(_) => true,
-        EvmMessageTrace::Call(_) => false,
-    }
-}
+fn normalize_library_runtime_bytecode_if_necessary(bytecode: &[u8]) -> Cow<'_, [u8]> {
+    let mut bytecode = Cow::Borrowed(bytecode);
 
-fn normalize_library_runtime_bytecode_if_necessary(bytecode: Bytes) -> Bytes {
     // Libraries' protection normalization:
     // Solidity 0.4.20 introduced a protection to prevent libraries from being
     // called directly. This is done by modifying the code on deployment, and
     // hard-coding the contract address. The first instruction is a PUSH20 of
     // the address, which we zero-out as a way of normalizing it. Note that it's
     // also zeroed-out in the compiler output.
-
-    if let Some(first_opcode) = bytecode.first() {
-        if *first_opcode == opcode::PUSH20 {
-            return zero_out_addresses(&bytecode, &[1]);
-        }
+    if bytecode.first().copied() == Some(OpCode::PUSH20.get()) {
+        bytecode.to_mut()[1..][..Address::len_bytes()].fill(0);
     }
 
     bytecode
 }
 
-fn is_matching_metadata(code: &[u8]) -> bool {
-    let mut byte = 0;
-
-    while let (Some(opcode), Some(next_opcode)) = (code.get(byte), code.get(byte + 1)) {
-        // Solidity always emits REVERT INVALID right before the metadata
-        if *opcode == opcode::REVERT && *next_opcode == opcode::INVALID {
-            return true;
-        }
-
-        byte += opcode_length(*opcode);
-    }
-
-    false
-}
-
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use std::{cell::RefCell, vec};
 
     use super::*;
+    use crate::{
+        artifacts::ImmutableReference,
+        build_model::{Contract, ContractKind, SourceFile, SourceLocation},
+    };
 
-    fn create_test_call_trace(code: Bytes) -> EvmMessageTrace {
-        EvmMessageTrace::Call(CallMessageTrace { code })
+    fn create_sources() -> Rc<HashMap<u32, Rc<RefCell<SourceFile>>>> {
+        let mut sources = HashMap::new();
+        let file = Rc::new(RefCell::new(SourceFile::new(
+            "test.sol".to_string(),
+            "".to_string(),
+        )));
+
+        sources.insert(0, file.clone());
+
+        Rc::new(sources)
     }
 
-    fn create_test_create_trace(code: Bytes) -> EvmMessageTrace {
-        EvmMessageTrace::Create(CreateMessageTrace { code })
+    fn create_test_contract() -> Rc<RefCell<Contract>> {
+        let sources = create_sources();
+
+        let location = Rc::new(SourceLocation::new(sources.clone(), 0, 0, 0));
+
+        Rc::new(RefCell::new(Contract::new(
+            "TestContract".to_string(),
+            ContractKind::Contract,
+            location,
+        )))
     }
 
-    fn create_test_bytecode(normalized_code: Bytes) -> Bytecode {
-        Bytecode {
+    fn create_test_bytecode(normalized_code: Vec<u8>) -> Rc<Bytecode> {
+        let sources = create_sources();
+        let contract = create_test_contract();
+        let is_deployment = false;
+
+        let instructions = vec![];
+        let library_offsets = vec![];
+        let immutable_references = vec![];
+
+        Rc::new(Bytecode::new(
+            sources,
+            contract,
+            is_deployment,
             normalized_code,
-            bytecode_type: BytecodeType::Runtime,
-            library_offsets: vec![],
-            immutable_references: vec![],
-        }
+            instructions,
+            library_offsets,
+            immutable_references,
+            "<dummy-version>".to_string(),
+        ))
+    }
+
+    fn create_test_deployment_bytecode(normalized_code: Vec<u8>) -> Rc<Bytecode> {
+        let sources = create_sources();
+        let contract = create_test_contract();
+        let is_deployment = true;
+
+        let instructions = vec![];
+        let library_offsets = vec![];
+        let immutable_references = vec![];
+
+        Rc::new(Bytecode::new(
+            sources,
+            contract,
+            is_deployment,
+            normalized_code,
+            instructions,
+            library_offsets,
+            immutable_references,
+            "<dummy-version>".to_string(),
+        ))
     }
 
     fn create_test_bytecode_with_libraries_and_immutable_references(
-        normalized_code: Bytes,
-        library_offsets: Vec<usize>,
+        normalized_code: Vec<u8>,
+        library_offsets: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
-    ) -> Bytecode {
-        Bytecode {
+    ) -> Rc<Bytecode> {
+        let sources = create_sources();
+        let contract = create_test_contract();
+        let is_deployment = false;
+
+        let instructions = vec![];
+
+        Rc::new(Bytecode::new(
+            sources,
+            contract,
+            is_deployment,
             normalized_code,
-            bytecode_type: BytecodeType::Runtime,
+            instructions,
             library_offsets,
             immutable_references,
-        }
-    }
-
-    fn create_test_deployment_bytecode(normalized_code: Bytes) -> Bytecode {
-        Bytecode {
-            normalized_code,
-            bytecode_type: BytecodeType::Deployment,
-            library_offsets: vec![],
-            immutable_references: vec![],
-        }
+            "<dummy-version>".to_string(),
+        ))
     }
 
     #[test]
     fn test_contracts_identifier_empty() {
-        let contracts_identifier = ContractsIdentifier::default();
+        let mut contracts_identifier = ContractsIdentifier::default();
 
         // should not find any bytecode for a call trace
-        let call_trace = create_test_call_trace(vec![1, 2, 3, 4, 5].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, None);
+        let is_create = false;
+        let contract = contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5]);
+        assert!(contract.is_none());
 
-        // sould not find any bytecode for a create trace
-        let create_trace = create_test_create_trace(vec![1, 2, 3, 4, 5].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(create_trace);
-        assert_eq!(contract, None);
+        // should not find any bytecode for a create trace
+        let is_create = true;
+        let contract = contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5]);
+        assert!(contract.is_none());
     }
 
     #[test]
     fn test_contracts_identifier_single_matching_bytecode() {
         let mut contracts_identifier = ContractsIdentifier::default();
 
-        let bytecode = create_test_bytecode(vec![1, 2, 3, 4, 5].into());
-        contracts_identifier.add_bytecode(&bytecode);
+        let bytecode = create_test_bytecode(vec![1, 2, 3, 4, 5]);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
         // should find a bytecode that matches exactly
-        let call_trace = create_test_call_trace(vec![1, 2, 3, 4, 5].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode));
+        let is_create = false;
+        let contract = contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5]);
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode))
+        );
 
         // should not find a bytecode that doesn't match
-        let call_trace = create_test_call_trace(vec![1, 2, 3, 4, 6].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, None);
+        let is_create = false;
+        let contract = contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 6]);
+        assert!(contract.is_none());
     }
 
     #[test]
     fn test_contracts_identifier_multiple_matches_same_prefix() {
         let mut contracts_identifier = ContractsIdentifier::default();
 
-        let bytecode1 = create_test_bytecode(vec![1, 2, 3, 4, 5].into());
-        let bytecode2 = create_test_bytecode(vec![1, 2, 3, 4, 5, 6, 7, 8].into());
-        contracts_identifier.add_bytecode(&bytecode1);
-        contracts_identifier.add_bytecode(&bytecode2);
+        let bytecode1 = create_test_bytecode(vec![1, 2, 3, 4, 5]);
+        let bytecode2 = create_test_bytecode(vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        contracts_identifier.add_bytecode(bytecode1.clone());
+        contracts_identifier.add_bytecode(bytecode2.clone());
 
         // should find the exact match
-        let call_trace = create_test_call_trace(vec![1, 2, 3, 4, 5].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode1));
+        let contract = contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5]);
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode1))
+        );
 
         // should find the exact match
-        let call_trace = create_test_call_trace(vec![1, 2, 3, 4, 5, 6, 7, 8].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode2));
+        let contract =
+            contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode2))
+        );
 
         // should not find a bytecode that doesn't match
-        let call_trace = create_test_call_trace(vec![0, 1, 2, 3, 4, 5, 6, 7, 8].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, None);
+        let contract =
+            contracts_identifier.search_bytecode_from_root(false, &[0, 1, 2, 3, 4, 5, 6, 7, 8]);
+        assert!(contract.is_none());
     }
 
     #[test]
@@ -386,47 +463,50 @@ mod tests {
         let mut contracts_identifier = ContractsIdentifier::default();
 
         // add two bytecodes that share a prefix
-        let bytecode1 = create_test_bytecode(vec![1, 2, 3, 4, 5].into());
-        let bytecode2 = create_test_bytecode(vec![1, 2, 3, 6, 7].into());
-        contracts_identifier.add_bytecode(&bytecode1);
-        contracts_identifier.add_bytecode(&bytecode2);
+        let bytecode1 = create_test_bytecode(vec![1, 2, 3, 4, 5]);
+        let bytecode2 = create_test_bytecode(vec![1, 2, 3, 6, 7]);
+        contracts_identifier.add_bytecode(bytecode1.clone());
+        contracts_identifier.add_bytecode(bytecode2.clone());
 
         // search a trace that matches the common prefix
-        let call_trace = create_test_call_trace(vec![1, 2, 3].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, None);
+        let contract = contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3]);
+        assert!(contract.is_none());
     }
 
     #[test]
     fn test_contracts_identifier_trace_matches_deployment_bytecode_prefix() {
         let mut contracts_identifier = ContractsIdentifier::default();
 
-        let bytecode = create_test_deployment_bytecode(vec![1, 2, 3, 4, 5].into());
-        contracts_identifier.add_bytecode(&bytecode);
+        let bytecode = create_test_deployment_bytecode(vec![1, 2, 3, 4, 5]);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
         // a create trace that matches the a deployment bytecode plus some extra stuff
         // (constructor args)
-        let create_trace = create_test_create_trace(vec![1, 2, 3, 4, 5, 10, 11].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(create_trace);
-        assert_eq!(contract, Some(&bytecode));
+        let is_create = true;
+        let contract =
+            contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5, 10, 11]);
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode))
+        );
 
         // the same bytecode, but for a call trace, should not match
-        let call_trace = create_test_call_trace(vec![1, 2, 3, 4, 5, 10, 11].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, None);
+        let contract =
+            contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5, 10, 11]);
+        assert!(contract.is_none());
 
         // the same scenario but with a runtime bytecode shouldn't result in matches
         let mut contracts_identifier = ContractsIdentifier::default();
-        let bytecode = create_test_bytecode(vec![1, 2, 3, 4, 5].into());
-        contracts_identifier.add_bytecode(&bytecode);
+        let bytecode = create_test_bytecode(vec![1, 2, 3, 4, 5]);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
-        let create_trace = create_test_create_trace(vec![1, 2, 3, 4, 5, 10, 11].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(create_trace);
-        assert_eq!(contract, None);
+        let contract =
+            contracts_identifier.search_bytecode_from_root(true, &[1, 2, 3, 4, 5, 10, 11]);
+        assert!(contract.is_none());
 
-        let call_trace = create_test_call_trace(vec![1, 2, 3, 4, 5, 10, 11].into());
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, None);
+        let contract =
+            contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5, 10, 11]);
+        assert!(contract.is_none());
     }
 
     #[test]
@@ -442,16 +522,16 @@ mod tests {
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 // 40 ------------------------------------------------------------------------------
                 21, 22, 23, 24, 25,
-            ]
-            .into(),
+            ],
             vec![20],
             vec![],
         );
-        contracts_identifier.add_bytecode(&bytecode);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
         // the same bytecode, but for a call trace, should not match
-        let call_trace = create_test_call_trace(
-            vec![
+        let contract = contracts_identifier.search_bytecode_from_root(
+            false,
+            &[
                 // 0 -----------------------------------------------------------------------------------
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                 // 20, library address
@@ -460,11 +540,13 @@ mod tests {
                 118, 119, 120,
                 // 40 ----------------------------------------------------------------------------------
                 21, 22, 23, 24, 25,
-            ]
-            .into(),
+            ],
         );
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode));
+
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode))
+        );
     }
 
     #[test]
@@ -480,19 +562,19 @@ mod tests {
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 // 30 ------------------------------------------------------------------------------
                 21, 22, 23, 24, 25,
-            ]
-            .into(),
+            ],
             vec![],
             vec![ImmutableReference {
-                offset: 20,
+                start: 20,
                 length: 10,
             }],
         );
-        contracts_identifier.add_bytecode(&bytecode);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
         // the same bytecode, but for a call trace, should not match
-        let call_trace = create_test_call_trace(
-            vec![
+        let contract = contracts_identifier.search_bytecode_from_root(
+            false,
+            &[
                 // 0 -----------------------------------------------------------------------------------
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                 // 20, immutable reference of length 10
@@ -500,11 +582,13 @@ mod tests {
                 101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
                 // 30 ----------------------------------------------------------------------------------
                 21, 22, 23, 24, 25,
-            ]
-            .into(),
+            ],
         );
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode));
+
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode))
+        );
     }
 
     #[test]
@@ -525,19 +609,19 @@ mod tests {
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 // 55 ------------------------------------------------------------------------------
                 26, 27, 28, 29, 30,
-            ]
-            .into(),
+            ],
             vec![35],
             vec![ImmutableReference {
-                offset: 20,
+                start: 20,
                 length: 10,
             }],
         );
-        contracts_identifier.add_bytecode(&bytecode);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
         // the same bytecode, but for a call trace, should not match
-        let call_trace = create_test_call_trace(
-            vec![
+        let contract = contracts_identifier.search_bytecode_from_root(
+            false,
+            &[
                 // 0 -----------------------------------------------------------------------------------
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                 // 20, immutable reference of length 10
@@ -551,11 +635,13 @@ mod tests {
                 218, 219, 220,
                 // 55 ----------------------------------------------------------------------------------
                 26, 27, 28, 29, 30,
-            ]
-            .into(),
+            ],
         );
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode));
+
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode))
+        );
     }
 
     #[test]
@@ -587,25 +673,25 @@ mod tests {
                 0, 0,
                 // 115 -----------------------------------------------------------------------------
                 36, 37, 38, 39, 40,
-            ]
-            .into(),
+            ],
             vec![35, 60],
             vec![
                 ImmutableReference {
-                    offset: 20,
+                    start: 20,
                     length: 10,
                 },
                 ImmutableReference {
-                    offset: 85,
+                    start: 85,
                     length: 30,
                 },
             ],
         );
-        contracts_identifier.add_bytecode(&bytecode);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
         // the same bytecode, but for a call trace, should not match
-        let call_trace = create_test_call_trace(
-            vec![
+        let contract = contracts_identifier.search_bytecode_from_root(
+            false,
+            &[
                 // 0 -----------------------------------------------------------------------------------
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                 // 20, immutable reference of length 10
@@ -631,61 +717,58 @@ mod tests {
                 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140,
                 // 115 ---------------------------------------------------------------------------------
                 36, 37, 38, 39, 40,
-            ]
-            .into(),
+            ],
         );
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode));
+
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode))
+        );
     }
 
     #[test]
     fn test_contracts_identifier_bytecode_with_different_metadata() {
         let mut contracts_identifier = ContractsIdentifier::default();
 
-        let bytecode = create_test_bytecode(
-            vec![
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-                // metadata ----------------------------------------------------------------------------
-                0xfd, 0xfe, 11, 12, 13, 14, 15,
-            ]
-            .into(),
-        );
-        contracts_identifier.add_bytecode(&bytecode);
+        let bytecode = create_test_bytecode(vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+            // metadata ----------------------------------------------------------------------------
+            0xfd, 0xfe, 11, 12, 13, 14, 15,
+        ]);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
-        let call_trace = create_test_call_trace(
-            vec![
+        let contract = contracts_identifier.search_bytecode_from_root(
+            false,
+            &[
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                 // metadata ----------------------------------------------------------------------------
                 0xfd, 0xfe, 21, 22, 23,
-            ]
-            .into(),
+            ],
         );
-
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode));
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode))
+        );
     }
 
     #[test]
     fn test_contracts_identifier_normalized_library_runtime_code() {
         let mut contracts_identifier = ContractsIdentifier::default();
 
-        let bytecode = create_test_bytecode(
-            vec![
-                // PUSH20
-                0x73,
-                // library address
-                // ---------------------------------------------------------------------
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                // rest of the code
-                // --------------------------------------------------------------------
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-            ]
-            .into(),
-        );
-        contracts_identifier.add_bytecode(&bytecode);
+        let bytecode = create_test_bytecode(vec![
+            // PUSH20
+            0x73,
+            // library address
+            // ---------------------------------------------------------------------
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            // rest of the code
+            // --------------------------------------------------------------------
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        ]);
+        contracts_identifier.add_bytecode(bytecode.clone());
 
-        let call_trace = create_test_call_trace(
-            vec![
+        let contract = contracts_identifier.get_bytecode_for_call(
+            &[
                 // PUSH20
                 0x73,
                 // library address
@@ -694,11 +777,13 @@ mod tests {
                 // rest of the code
                 // --------------------------------------------------------------------
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-            ]
-            .into(),
+            ],
+            false,
         );
 
-        let contract = contracts_identifier.bytecode_by_message_trace(call_trace);
-        assert_eq!(contract, Some(&bytecode));
+        assert_eq!(
+            contract.as_ref().map(Rc::as_ptr),
+            Some(Rc::as_ptr(&bytecode))
+        );
     }
 }

@@ -27,21 +27,8 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.repository == github.event.pull_request.head.repo.full_name
     steps:
       - uses: actions/checkout@v3
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - name: Install Node
-        uses: actions/setup-node@v2
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-rust
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline

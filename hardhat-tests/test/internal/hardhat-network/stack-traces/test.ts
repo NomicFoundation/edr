@@ -200,6 +200,10 @@ function defineDirTests(dirPath: string, compilerOptions: SolidityCompiler) {
   });
 }
 
+/** Either re-uses the compiled artifacts or invokes solc to compile the sources.
+ *
+ * The artifacts are saved in `test-files/artifacts/{testDir}`.
+ */
 async function compileIfNecessary(
   testDir: string,
   sources: string[],
@@ -318,10 +322,7 @@ function compareStackTraces(
       `Stack trace of tx ${txIndex} entry ${i} type is incorrect: expected ${expectedErrorType}, got ${actualErrorType}`
     );
 
-    const actualMessage = (actual as any).message as
-      | ReturnData
-      | string
-      | undefined;
+    const actualMessage = "message" in actual ? actual.message : undefined;
 
     // actual.message is a ReturnData in revert errors, but a string
     // in custom errors
@@ -350,7 +351,7 @@ function compareStackTraces(
     }
 
     if (expected.value !== undefined) {
-      const actualValue = (actual as any).value;
+      const actualValue = "value" in actual ? actual.value : undefined;
 
       assert.isDefined(
         actualValue,
@@ -360,8 +361,8 @@ function compareStackTraces(
       const expectedValue = BigInt(expected.value);
 
       assert.isTrue(
-        expectedValue === (actual as any).value,
-        `Stack trace of tx ${txIndex} entry ${i} has value ${actualValue.toString(
+        expectedValue === actualValue,
+        `Stack trace of tx ${txIndex} entry ${i} has value ${actualValue!.toString(
           10
         )} and should have ${expectedValue.toString(10)}`
       );
@@ -373,14 +374,15 @@ function compareStackTraces(
     }
 
     if (expected.errorCode !== undefined) {
-      const actualErrorCode = (actual as any).errorCode;
+      const actualErrorCode =
+        "errorCode" in actual ? actual.errorCode : undefined;
 
       assert.isDefined(
         actualErrorCode,
         `Stack trace of tx ${txIndex} entry ${i} should have an errorCode`
       );
 
-      const actualErrorCodeHex = actualErrorCode.toString(16);
+      const actualErrorCodeHex = actualErrorCode!.toString(16);
 
       assert.isTrue(
         expected.errorCode === actualErrorCodeHex,
@@ -452,6 +454,7 @@ function compareConsoleLogs(logs: string[], expectedLogs?: ConsoleLogs) {
   }
 }
 
+/** The main entry point for a stack trace test. */
 async function runTest(
   testDir: string,
   testDefinition: TestDefinition,
@@ -479,7 +482,6 @@ async function runTest(
   };
 
   const logger = new FakeModulesLogger();
-  const solidityTracer = new SolidityTracer();
   const provider = await instantiateProvider(
     {
       enabled: false,
@@ -529,7 +531,8 @@ async function runTest(
 
     compareConsoleLogs(logger.lines, tx.consoleLogs);
 
-    const vmTraceDecoder = (provider as any)._vmTraceDecoder as VmTraceDecoder;
+    // eslint-disable-next-line @typescript-eslint/dot-notation
+    const vmTraceDecoder = provider["_vmTraceDecoder"] as VmTraceDecoder;
     const decodedTrace = vmTraceDecoder.tryToDecodeMessageTrace(trace);
 
     try {
@@ -551,6 +554,7 @@ async function runTest(
     }
 
     if (trace.exit.isError()) {
+      const solidityTracer = new SolidityTracer();
       const stackTrace = solidityTracer.getStackTrace(decodedTrace);
 
       try {
@@ -667,7 +671,7 @@ async function runDeploymentTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
-  if (!("deployedContract" in trace)) {
+  if ("precompile" in trace || "calldata" in trace) {
     assert.fail("Expected trace to be a deployment trace");
   }
 
@@ -769,12 +773,12 @@ describe("Stack traces", function () {
       const testsDir = semver.satisfies(customSolcVersion, "^0.5.0")
         ? "0_5"
         : semver.satisfies(customSolcVersion, "^0.6.0")
-        ? "0_6"
-        : semver.satisfies(customSolcVersion, "^0.7.0")
-        ? "0_7"
-        : semver.satisfies(customSolcVersion, "^0.8.0")
-        ? "0_8"
-        : null;
+          ? "0_6"
+          : semver.satisfies(customSolcVersion, "^0.7.0")
+            ? "0_7"
+            : semver.satisfies(customSolcVersion, "^0.8.0")
+              ? "0_8"
+              : null;
 
       if (testsDir === null) {
         console.error(`There are no tests for version ${customSolcVersion}`);
