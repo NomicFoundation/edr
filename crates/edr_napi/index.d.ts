@@ -636,12 +636,12 @@ export interface Withdrawal {
   /** The value contained in withdrawal */
   amount: bigint
 }
-export class EdrContext {
+export declare class EdrContext {
   /**Creates a new [`EdrContext`] instance. Should only be called once! */
   constructor()
 }
 /** A JSON-RPC provider for Ethereum. */
-export class Provider {
+export declare class Provider {
   /**Constructs a new provider with the provided configuration. */
   static withConfig(context: EdrContext, config: ProviderConfig, loggerConfig: LoggerConfig, subscriberCallback: (event: SubscriptionEvent) => void): Promise<Provider>
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
@@ -655,7 +655,7 @@ export class Provider {
    */
   setVerboseTracing(verboseTracing: boolean): void
 }
-export class Response {
+export declare class Response {
   /** Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
   get solidityTrace(): RawTrace | null
@@ -665,13 +665,13 @@ export class Response {
  * Opaque handle to the `Bytecode` struct.
  * Only used on the JS side by the `VmTraceDecoder` class.
  */
-export class BytecodeWrapper { }
-export class Exit {
+export declare class BytecodeWrapper { }
+export declare class Exit {
   get kind(): ExitCode
   isError(): boolean
   getReason(): string
 }
-export class ReturnData {
+export declare class ReturnData {
   readonly value: Uint8Array
   constructor(value: Uint8Array)
   isEmpty(): boolean
@@ -680,12 +680,12 @@ export class ReturnData {
   decodeError(): string
   decodePanic(): bigint
 }
-export class SolidityTracer {
+export declare class SolidityTracer {
   
   constructor()
   getStackTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): SolidityStackTrace
 }
-export class VmTraceDecoder {
+export declare class VmTraceDecoder {
   constructor()
   addBytecode(bytecode: BytecodeWrapper): void
   tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
@@ -693,13 +693,13 @@ export class VmTraceDecoder {
 }
 export type VMTracer = VmTracer
 /** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
-export class VmTracer {
+export declare class VmTracer {
   constructor()
   /** Observes a trace, collecting information about the execution of the EVM. */
   observe(trace: RawTrace): void
   getLastTopLevelMessageTrace(): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
   getLastError(): Error | undefined
 }
-export class RawTrace {
+export declare class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
 }
