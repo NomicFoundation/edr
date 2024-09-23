@@ -1172,7 +1172,6 @@ dependencies = [
  "mimalloc",
  "napi",
  "napi-build",
- "napi-derive",
  "openssl-sys",
  "parking_lot 0.12.1",
  "rand",
@@ -2183,8 +2182,6 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "regex",
- "semver 1.0.22",
  "syn 2.0.58",
 ]
 
