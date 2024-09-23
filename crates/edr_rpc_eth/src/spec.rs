@@ -20,6 +20,9 @@ pub trait GetBlockNumber {
 pub struct EthRpcSpec;
 
 impl RpcSpec for EthRpcSpec {
-    type RpcBlock<Data> = crate::block::Block<Data> where Data: Default + DeserializeOwned + Serialize;
+    type RpcBlock<Data>
+        = crate::block::Block<Data>
+    where
+        Data: Default + DeserializeOwned + Serialize;
     type RpcTransaction = crate::transaction::Transaction;
 }

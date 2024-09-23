@@ -46,6 +46,9 @@ impl ChainSpec for L1ChainSpec {
 }
 
 impl RpcSpec for L1ChainSpec {
-    type RpcBlock<Data> = <EthRpcSpec as RpcSpec>::RpcBlock<Data> where Data: Default + DeserializeOwned + Serialize;
+    type RpcBlock<Data>
+        = <EthRpcSpec as RpcSpec>::RpcBlock<Data>
+    where
+        Data: Default + DeserializeOwned + Serialize;
     type RpcTransaction = <EthRpcSpec as RpcSpec>::RpcTransaction;
 }
