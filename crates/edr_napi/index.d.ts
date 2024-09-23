@@ -346,8 +346,8 @@ export interface SubscriptionEvent {
   filterId: bigint
   result: any
 }
-export function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<BytecodeWrapper>
-export function linkHexStringBytecode(code: string, address: string, position: number): string
+export declare function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<BytecodeWrapper>
+export declare function linkHexStringBytecode(code: string, address: string, position: number): string
 export const enum ContractFunctionType {
   CONSTRUCTOR = 0,
   FUNCTION = 1,
@@ -357,8 +357,8 @@ export const enum ContractFunctionType {
   MODIFIER = 5,
   FREE_FUNCTION = 6
 }
-export function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
-export function printStackTrace(trace: SolidityStackTrace): void
+export declare function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
+export declare function printStackTrace(trace: SolidityStackTrace): void
 /** Represents the exit code of the EVM. */
 export const enum ExitCode {
   /** Execution was successful. */
@@ -450,7 +450,7 @@ export const enum StackTraceEntryType {
   INTERNAL_FUNCTION_CALLSTACK_ENTRY = 22,
   CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23
 }
-export function stackTraceEntryTypeToString(val: StackTraceEntryType): string
+export declare function stackTraceEntryTypeToString(val: StackTraceEntryType): string
 export const FALLBACK_FUNCTION_NAME: string
 export const RECEIVE_FUNCTION_NAME: string
 export const CONSTRUCTOR_FUNCTION_NAME: string
@@ -582,7 +582,7 @@ export interface ContractAndFunctionName {
   contractName: string
   functionName: string | undefined
 }
-export function initializeVmTraceDecoder(vmTraceDecoder: VmTraceDecoder, tracingConfig: any): void
+export declare function initializeVmTraceDecoder(vmTraceDecoder: VmTraceDecoder, tracingConfig: any): void
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
