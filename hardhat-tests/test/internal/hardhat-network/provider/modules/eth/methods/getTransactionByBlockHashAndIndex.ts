@@ -183,7 +183,7 @@ describe("Eth module", function () {
             false,
           ]);
 
-          const tx: eip2930::AccessListEIP2930RpcTransactionOutput =
+          const tx: AccessListEIP2930RpcTransactionOutput =
             await this.provider.send("eth_getTransactionByBlockHashAndIndex", [
               block.hash,
               numberToRpcQuantity(0),

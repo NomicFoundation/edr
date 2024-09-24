@@ -273,9 +273,9 @@ export function assertLegacyTransaction(
 }
 
 export function assertAccessListTransaction(
-  tx: eip2930::AccessListEIP2930RpcTransactionOutput,
+  tx: AccessListEIP2930RpcTransactionOutput,
   txHash: string,
-  txParams: eip2930::AccessListTransactionParams,
+  txParams: AccessListTransactionParams,
   blockNumber?: number,
   blockHash?: string,
   txIndex?: number
@@ -305,7 +305,7 @@ export function assertEIP1559Transaction(
 
 function assertEqualAccessLists(
   txAccessList: RpcAccessListOutput,
-  txParamsAccessList: eip2930::AccessListBufferItem[]
+  txParamsAccessList: AccessListBufferItem[]
 ) {
   assert.equal(txAccessList.length, txParamsAccessList.length);
 
