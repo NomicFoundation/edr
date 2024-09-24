@@ -82,17 +82,10 @@ jobs:
     needs: check-edr
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-rust
 
       - name: Install nightly rustfmt
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: nightly
-          components: rustfmt
-          override: false
-          cache: false
-          rustflags: ""
-
-      - uses: Swatinem/rust-cache@v2
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
 
       - name: Run cargo fmt
         run: cargo +nightly fmt --all --check
