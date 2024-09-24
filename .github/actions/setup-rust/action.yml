@@ -5,9 +5,9 @@ runs:
   using: composite
   steps:
     - name: Install Rust (stable)
-      uses: actions-rs/toolchain@v1
+      uses: ./.github/actions/setup-rust-toolchain
       with:
-        profile: minimal
+        toolchain: stable
         override: true
 
     - uses: Swatinem/rust-cache@v2
