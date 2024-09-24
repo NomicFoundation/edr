@@ -100,9 +100,11 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
 }
 
 fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8]) {
-    let last_instr_pc = instructions.last().map_or(0, |instr| instr.pc);
-
-    let mut bytes_index = (last_instr_pc + 1) as usize;
+    let mut bytes_index = instructions.last().map_or(0, |instr| {
+        // On the odd chance that the last instruction is a PUSH, we make sure
+        // to include any immediate data that might be present.
+        instr.pc as usize + 1 + instr.opcode.info().immediate_size() as usize
+    });
 
     while bytecode.get(bytes_index) != Some(OpCode::INVALID.get()).as_ref() {
         let opcode = OpCode::new(bytecode[bytes_index]).expect("Invalid opcode");
