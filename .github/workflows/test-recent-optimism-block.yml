@@ -14,12 +14,7 @@ jobs:
         with:
           ref: feat/multichain
 
-      - uses: ./.github/actions/setup-rust-toolchain
-        with:
-          toolchain: stable
-          override: true
-
-      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-rust
 
       - name: Cache EDR RPC cache
         uses: actions/cache@v4

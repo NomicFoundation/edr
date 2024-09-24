@@ -1,13 +1,16 @@
-name: Setup rust
-description: Sets up rust
+name: Setup Rust
+description: Sets up Rust
 
 runs:
   using: composite
   steps:
-    - name: Install Rust (stable)
-      uses: ./.github/actions/setup-rust-toolchain
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
-        override: true
-
-    - uses: Swatinem/rust-cache@v2
+        components: clippy
+        cache: true
+        # Do not override the RUSTFLAGS by default and instead do that per job,
+        # if needed. Setting RUSTFLAGS via env var, config, etc. is mutually
+        # exclusive and often a source of bugs.
+        # Empty string here means no override.
+        rustflags: ""
