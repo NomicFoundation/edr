@@ -1,24 +1,26 @@
 // Baseline
 // foundryup --commit 0a5b22f07
-// forge test --no-match-contract 'StdChainsTest|StdCheatsTest|MockERC721Test|MockERC20Test|StdCheatsForkTest|StdJsonTest|StdUtilsForkTest|StdTomlTest'
+// forge test --no-match-test "test_ChainBubbleUp()|test_DeriveRememberKey()"
 
 import fs from "fs";
 import { execSync } from "child_process";
 import path from "path";
 import simpleGit from "simple-git";
 import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
+import {
+  SolidityTestRunnerConfigArgs,
+  FsAccessPermission,
+} from "@nomicfoundation/edr";
 
-const EXCLUDED_TEST_SUITES = new Set([
-  "StdChainsTest",
-  "StdCheatsTest",
-  "MockERC721Test",
-  "MockERC20Test",
-  "StdCheatsForkTest",
-  "StdJsonTest",
-  "StdUtilsForkTest",
-  "StdTomlTest",
+const EXPECTED_RESULTS = 15;
+
+// Hack: since EDR currently doesn't support filtering certain tests in test suites, we run them, but ignore their failures.
+const EXCLUDED_TESTS = new Set([
+  // This relies on environment variable interpolation in the `rpcEndpoints` config which is not supported by EDR.
+  "test_ChainBubbleUp()",
+  // This relies on the `deriveKey` and `rememberKey` cheatcodes which are not supported by EDR.
+  "test_DeriveRememberKey()",
 ]);
-const EXPECTED_RESULTS = 7;
 
 const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
@@ -53,29 +55,53 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
     path.join(forgeStdRepoPath, "hardhat.config.js")
   );
 
-  const artifacts = listFilesRecursively(artifactsDir)
+  let artifacts = listFilesRecursively(artifactsDir)
     .filter((p) => !p.endsWith(".dbg.json") && !p.includes("build-info"))
-    .map((artifactPath) => loadArtifact(hardhatConfig, artifactPath));
+    .map((artifactPath) => loadArtifact(hardhatConfig, artifactPath))
+    .filter((a) => a !== undefined);
 
   const testSuiteIds = artifacts
     .filter(
       (a) =>
-        a.id.source.includes(".t.sol") && !EXCLUDED_TEST_SUITES.has(a.id.name)
+        a.contract !== undefined &&
+        a.contract.abi !== undefined &&
+        a.contract.abi.some(
+          (item: { type: string; name: string }) =>
+            item.type === "function" && item.name.startsWith("test")
+        )
     )
     .map((a) => a.id);
 
-  const configs = {
+  artifacts = artifacts.map((a) => {
+    a.contract.abi = JSON.stringify(a.contract.abi);
+    return a;
+  });
+
+  const configs: SolidityTestRunnerConfigArgs = {
     projectRoot: forgeStdRepoPath,
+    // TODO cache this in CI
+    rpcCachePath: "./forge-std-rpc-cache",
+    fsPermissions: [
+      { path: forgeStdRepoPath, access: FsAccessPermission.ReadWrite },
+    ],
+    testFail: true,
+    rpcEndpoints: {
+      // These are hardcoded in the `forge-std` foundry.toml
+      mainnet:
+        "https://eth-mainnet.alchemyapi.io/v2/WV407BEiBmjNJfKo9Uo_55u0z0ITyCOX",
+      optimism_sepolia: "https://sepolia.optimism.io/",
+      arbitrum_one_sepolia: "https://sepolia-rollup.arbitrum.io/rpc/",
+    },
     fuzz: {
-      failurePersistDir: path.join(forgeStdRepoPath, "failures"),
+      seed: "0x1234567890123456789012345678901234567890",
     },
   };
+
   const results = await runAllSolidityTests(artifacts, testSuiteIds, configs);
 
   console.error("elapsed (s)", computeElapsedSec(start));
 
   if (results.length !== EXPECTED_RESULTS) {
-    console.log(results.map((r: any) => r.name));
     throw new Error(
       `Expected ${EXPECTED_RESULTS} results, got ${results.length}`
     );
@@ -84,8 +110,8 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
   const failed = new Set();
   for (const res of results) {
     for (const r of res.testResults) {
-      if (r.status !== "Success") {
-        failed.add(`${res.id.name} ${r.name} ${r.status}`);
+      if (r.status !== "Success" && !EXCLUDED_TESTS.has(r.name)) {
+        failed.add(`${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`);
       }
     }
   }
@@ -117,7 +143,13 @@ function listFilesRecursively(dir: string, fileList: string[] = []): string[] {
 
 // Load a contract built with Hardhat
 function loadArtifact(hardhatConfig: any, artifactPath: string) {
-  const compiledContract = require(artifactPath);
+  let compiledContract;
+  try {
+    compiledContract = require(artifactPath);
+  } catch (e) {
+    console.error("Failed to load artifact", artifactPath);
+    return undefined;
+  }
 
   const artifactId = {
     name: compiledContract.contractName,
@@ -125,14 +157,14 @@ function loadArtifact(hardhatConfig: any, artifactPath: string) {
     source: compiledContract.sourceName,
   } as { name: string; solcVersion: string; source: string };
 
-  const testContract = {
-    abi: JSON.stringify(compiledContract.abi),
+  const contract = {
+    abi: compiledContract.abi,
     bytecode: compiledContract.bytecode,
     deployedBytecode: compiledContract.deployedBytecode,
   };
 
   return {
     id: artifactId,
-    contract: testContract,
+    contract: contract,
   };
 }
