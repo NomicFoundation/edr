@@ -197,7 +197,7 @@ pub struct PartialHeader {
 
 impl PartialHeader {
     /// Constructs a new instance based on the provided [`BlockOptions`] and
-    /// parent [`Header`] for the given [`SpecId`].
+    /// parent [`Header`] for the given [`l1::SpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
         options: BlockOptions,

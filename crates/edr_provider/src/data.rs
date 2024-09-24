@@ -1548,7 +1548,7 @@ where
         Ok(chain_id)
     }
 
-    /// Returns the local EVM's [`SpecId`].
+    /// Returns the local EVM's [`l1::SpecId`].
     pub fn evm_spec_id(&self) -> l1::SpecId {
         self.hardfork().into()
     }

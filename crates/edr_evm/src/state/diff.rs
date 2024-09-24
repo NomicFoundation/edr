@@ -6,7 +6,7 @@ use edr_eth::{
 use crate::state::EvmStorageSlot;
 
 /// The difference between two states, which can be applied to a state to get
-/// the new state using [`revm::db::StateCommit::commit`].
+/// the new state using [`revm::database_interface::DatabaseCommit::commit`].
 #[derive(Clone, Debug, Default)]
 pub struct StateDiff {
     inner: HashMap<Address, Account>,
