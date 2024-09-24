@@ -1,4 +1,4 @@
-use edr_eth::{AccessListItem, Address, Blob, Bytes, B256, U256};
+use edr_eth::{eips::eip2930, Address, Blob, Bytes, B256, U256};
 
 /// For specifying input to methods requiring a transaction object, like
 /// `eth_call` and `eth_estimateGas`
@@ -24,7 +24,7 @@ pub struct CallRequest {
     #[serde(alias = "input")]
     pub data: Option<Bytes>,
     /// warm storage access pre-payment
-    pub access_list: Option<Vec<AccessListItem>>,
+    pub access_list: Option<Vec<eip2930::AccessListItem>>,
     /// EIP-2718 type
     #[serde(default, rename = "type", with = "alloy_serde::quantity::opt")]
     pub transaction_type: Option<u8>,

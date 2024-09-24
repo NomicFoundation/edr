@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use clap::ValueEnum;
 use edr_eth::{
-    log::FilterLog, result::InvalidTransaction, spec::L1ChainSpec,
+    log::FilterLog, result::InvalidTransaction, l1::L1ChainSpec,
     transaction::TransactionValidation,
 };
 use edr_evm::test_utils::run_full_block;
@@ -47,8 +47,8 @@ where
             Block: Default,
             Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,
-            Transaction: Default
-                             + TransactionValidation<
+            SignedTransaction: Default
+                                   + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + Send + Sync,
             >,
         >,

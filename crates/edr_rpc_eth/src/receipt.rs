@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
 
 use edr_eth::{
-    eips::eip2718::TypedEnvelope,
+    eips::{eip2718::TypedEnvelope, eip7702},
+    l1,
     log::FilterLog,
     receipt::{self, Execution, Receipt as _, TransactionReceipt},
     transaction::{self, TransactionType as _},
-    Address, Bloom, SignedAuthorization, SpecId, B256, U256,
+    Address, Bloom, B256, U256,
 };
 use serde::{Deserialize, Serialize};
 
@@ -75,17 +76,17 @@ pub struct Block {
     /// code which the signer desires to execute in the context of their
     /// EOA.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_list: Option<Vec<SignedAuthorization>>,
+    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }
 
 impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>> for Block {
-    type Hardfork = SpecId;
+    type Hardfork = l1::SpecId;
 
     fn rpc_type_from(
         value: &receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= SpecId::BERLIN {
+        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None
@@ -187,9 +188,7 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
 #[cfg(test)]
 mod test {
     use assert_json_diff::assert_json_eq;
-    use edr_eth::{
-        eips::eip2718::TypedEnvelope, log::ExecutionLog, spec::L1ChainSpec, Bloom, Bytes,
-    };
+    use edr_eth::{eips::eip2718::TypedEnvelope, l1::L1ChainSpec, log::ExecutionLog, Bloom, Bytes};
     use serde_json::json;
 
     use crate::{impl_execution_receipt_tests, receipt};

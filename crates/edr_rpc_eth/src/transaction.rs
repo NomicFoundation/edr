@@ -3,11 +3,13 @@ mod request;
 use std::{ops::Deref, sync::OnceLock};
 
 use edr_eth::{
-    block, signature,
+    block,
+    eips::eip2930,
+    l1, signature,
     transaction::{
         self, ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, TransactionType, TxKind,
     },
-    AccessListItem, Address, Bytes, SpecId, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 pub use self::request::TransactionRequest;
@@ -60,7 +62,7 @@ pub struct Transaction {
     pub transaction_type: Option<u8>,
     /// access list
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub access_list: Option<Vec<AccessListItem>>,
+    pub access_list: Option<Vec<eip2930::AccessListItem>>,
     /// max fee per gas
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_fee_per_gas: Option<U256>,
@@ -88,7 +90,7 @@ impl Transaction {
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
         is_pending: bool,
-        hardfork: SpecId,
+        hardfork: l1::SpecId,
     ) -> Self {
         let base_fee = header.and_then(|header| header.base_fee_per_gas);
         let gas_price = if let Some(base_fee) = base_fee {
@@ -111,7 +113,7 @@ impl Transaction {
             }
         });
 
-        let show_transaction_type = hardfork >= SpecId::BERLIN;
+        let show_transaction_type = hardfork >= l1::SpecId::BERLIN;
         let is_typed_transaction = !transaction.is_legacy();
         let transaction_type = if show_transaction_type || is_typed_transaction {
             Some(transaction.transaction_type())

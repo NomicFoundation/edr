@@ -3,14 +3,12 @@ mod deposit;
 pub use edr_eth::receipt::execution::{Eip658, Legacy};
 use edr_eth::{
     log::ExecutionLog,
-    receipt::{ExecutionReceiptBuilder, MapReceiptLogs, Receipt, RootOrStatus},
-    transaction::TransactionType as _,
+    receipt::{MapReceiptLogs, Receipt, RootOrStatus},
+    result::ExecutionResult,
+    transaction::{Transaction as _, TransactionType as _},
     Bloom,
 };
-use revm::{
-    db::StateRef,
-    primitives::{ExecutionResult, Transaction as _},
-};
+use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
 use revm_optimism::{OptimismHaltReason, OptimismSpecId};
 
 use self::deposit::Eip658OrDeposit;
@@ -113,7 +111,7 @@ pub struct Builder {
 impl ExecutionReceiptBuilder<OptimismHaltReason, OptimismSpecId, transaction::Signed> for Builder {
     type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
 
-    fn new_receipt_builder<StateT: StateRef>(
+    fn new_receipt_builder<StateT: State>(
         pre_execution_state: StateT,
         transaction: &transaction::Signed,
     ) -> Result<Self, StateT::Error> {

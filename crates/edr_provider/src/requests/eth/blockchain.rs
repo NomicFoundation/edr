@@ -29,8 +29,8 @@ pub fn handle_get_transaction_count_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -41,7 +41,7 @@ pub fn handle_get_transaction_count_request<
     block_spec: Option<BlockSpec>,
 ) -> Result<U256, ProviderError<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
-        validate_post_merge_block_tags(data.evm_spec_id(), block_spec)?;
+        validate_post_merge_block_tags(data.hardfork(), block_spec)?;
     }
 
     data.get_transaction_count(address, block_spec.as_ref())

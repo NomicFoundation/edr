@@ -2,9 +2,9 @@ use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
 use k256::SecretKey;
-use revm_primitives::keccak256;
 
 use crate::{
+    keccak256,
     signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,

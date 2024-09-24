@@ -1,4 +1,4 @@
-use edr_eth::{transaction::SignedTransaction as _, SpecId};
+use edr_eth::{l1, transaction::SignedTransaction as _};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     transaction::remote::EthRpcTransaction,
@@ -30,7 +30,7 @@ impl From<edr_rpc_eth::TransactionWithSignature> for TransactionWithSignature {
 }
 
 impl RpcTypeFrom<TransactionAndBlock<GenericChainSpec>> for TransactionWithSignature {
-    type Hardfork = SpecId;
+    type Hardfork = l1::SpecId;
 
     fn rpc_type_from(
         value: &TransactionAndBlock<GenericChainSpec>,

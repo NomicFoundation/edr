@@ -9,7 +9,7 @@ mod alchemy {
                     #[tokio::test]
                     async fn [<transaction_remote_ $name _hash>]() {
                         use edr_eth::{
-                            spec::L1ChainSpec,
+                            l1::L1ChainSpec,
                             transaction::{self, ExecutableTransaction as _},
                             PreEip1898BlockSpec,
                             B256

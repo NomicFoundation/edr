@@ -50,7 +50,7 @@ pub trait Block<ChainSpecT: RuntimeSpec>: Debug {
     fn rlp_size(&self) -> u64;
 
     /// Returns the block's transactions.
-    fn transactions(&self) -> &[ChainSpecT::Transaction];
+    fn transactions(&self) -> &[ChainSpecT::SignedTransaction];
 
     /// Returns the receipts of the block's transactions.
     fn transaction_receipts(&self) -> Result<Vec<Arc<BlockReceipt<ChainSpecT>>>, Self::Error>;
@@ -78,7 +78,7 @@ pub struct EthBlockData<ChainSpecT: RuntimeSpec> {
     /// The block's header.
     pub header: edr_eth::block::Header,
     /// The block's transactions.
-    pub transactions: Vec<ChainSpecT::Transaction>,
+    pub transactions: Vec<ChainSpecT::SignedTransaction>,
     /// The hashes of the block's ommers.
     pub ommer_hashes: Vec<B256>,
     /// The staking withdrawals.
@@ -136,7 +136,7 @@ impl<ChainSpecT: RuntimeSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransact
             .transactions
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<Result<Vec<ChainSpecT::Transaction>, _>>()
+            .collect::<Result<Vec<ChainSpecT::SignedTransaction>, _>>()
             .map_err(RemoteBlockConversionError::TransactionConversionError)?;
 
         let hash = value.hash.ok_or(RemoteBlockConversionError::MissingHash)?;

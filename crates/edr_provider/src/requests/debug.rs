@@ -14,7 +14,7 @@ pub fn handle_debug_trace_transaction<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Clone + Default,
-        Transaction: Default
+        SignedTransaction: Default
                          + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
@@ -50,7 +50,7 @@ where
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
+        SignedTransaction: Default
                          + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,

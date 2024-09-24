@@ -1,13 +1,14 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::Encodable as _;
-use revm_primitives::{AuthorizationList, EnvKzgSettings, VERSIONED_HASH_VERSION_KZG};
+use revm_primitives::VERSIONED_HASH_VERSION_KZG;
 use sha2::Digest;
 
 use crate::{
+    eips::{eip2930, eip4844::EnvKzgSettings, eip7702},
     transaction::{self, ExecutableTransaction, Transaction, TxKind},
     utils::enveloped,
-    AccessListItem, Address, Blob, Bytes, Bytes48, B256, U256,
+    Address, Blob, Bytes, Bytes48, B256, U256,
 };
 
 /// An EIP-4844 pooled transaction.
@@ -246,7 +247,7 @@ impl Transaction for Eip4844 {
         self.payload.chain_id()
     }
 
-    fn access_list(&self) -> &[AccessListItem] {
+    fn access_list(&self) -> &[eip2930::AccessListItem] {
         self.payload.access_list()
     }
 
@@ -262,7 +263,7 @@ impl Transaction for Eip4844 {
         self.payload.max_fee_per_blob_gas()
     }
 
-    fn authorization_list(&self) -> Option<&AuthorizationList> {
+    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         self.payload.authorization_list()
     }
 }

@@ -4,18 +4,16 @@ use std::sync::Arc;
 
 pub use cached::CachedRemoteState;
 use derive_where::derive_where;
-use edr_eth::{Address, BlockSpec, PreEip1898BlockSpec, B256, U256};
+use edr_eth::{
+    account::AccountInfo, Address, BlockSpec, Bytecode, PreEip1898BlockSpec, B256, U256,
+};
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     spec::RpcSpec,
 };
-use revm::{
-    db::StateRef,
-    primitives::{AccountInfo, Bytecode},
-};
 use tokio::runtime;
 
-use super::StateError;
+use super::{State, StateError};
 use crate::{spec::RuntimeSpec, EthRpcBlock as _};
 
 /// A state backed by a remote Ethereum node
@@ -73,7 +71,7 @@ impl<ChainSpecT: RuntimeSpec> RemoteState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> StateRef for RemoteState<ChainSpecT> {
+impl<ChainSpecT: RpcSpec> State for RemoteState<ChainSpecT> {
     type Error = StateError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
@@ -112,7 +110,7 @@ impl<ChainSpecT: RpcSpec> StateRef for RemoteState<ChainSpecT> {
 mod tests {
     use std::str::FromStr;
 
-    use edr_eth::spec::L1ChainSpec;
+    use edr_eth::l1::L1ChainSpec;
     use tokio::runtime;
 
     use super::*;

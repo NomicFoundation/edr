@@ -1,7 +1,7 @@
 //! Port of `hardhat-network/stack-traces/debug.ts` from Hardhat.
 
 use edr_eth::{hex, U256};
-use edr_evm::interpreter::OpCode;
+use edr_evm::evm::interpreter::OpCode;
 use edr_solidity::build_model::JumpType;
 use napi::{
     bindgen_prelude::{Either24, Either3, Either4},

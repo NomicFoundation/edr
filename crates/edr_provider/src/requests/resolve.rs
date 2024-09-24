@@ -1,4 +1,7 @@
-use edr_eth::{spec::L1ChainSpec, Bytes, SpecId, U256};
+use edr_eth::{
+    l1::{self, L1ChainSpec},
+    Bytes, U256,
+};
 use edr_evm::{blockchain::BlockchainError, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
@@ -51,10 +54,10 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
         let value = value.unwrap_or(U256::ZERO);
 
         let evm_spec_id = data.evm_spec_id();
-        let request = if evm_spec_id < SpecId::LONDON || gas_price.is_some() {
+        let request = if evm_spec_id < l1::SpecId::LONDON || gas_price.is_some() {
             let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
             match access_list {
-                Some(access_list) if evm_spec_id >= SpecId::BERLIN => {
+                Some(access_list) if evm_spec_id >= l1::SpecId::BERLIN => {
                     transaction::Request::Eip2930(transaction::request::Eip2930 {
                         nonce,
                         gas_price,
@@ -158,7 +161,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
             access_list,
         ) {
             (gas_price, max_fee_per_gas, max_priority_fee_per_gas, access_list)
-                if data.evm_spec_id() >= SpecId::LONDON
+                if data.evm_spec_id() >= l1::SpecId::LONDON
                     && (gas_price.is_none()
                         || max_fee_per_gas.is_some()
                         || max_priority_fee_per_gas.is_some()) =>

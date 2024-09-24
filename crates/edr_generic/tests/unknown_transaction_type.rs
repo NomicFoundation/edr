@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{HashMap, SpecId};
+use edr_eth::{l1, HashMap};
 use edr_evm::{
     blockchain::{Blockchain, ForkedBlockchain},
     state::IrregularState,
@@ -31,7 +31,7 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
     let blockchain = ForkedBlockchain::new(
         runtime::Handle::current(),
         None,
-        SpecId::LATEST,
+        l1::SpecId::LATEST,
         Arc::new(rpc_client),
         None,
         &mut irregular_state,

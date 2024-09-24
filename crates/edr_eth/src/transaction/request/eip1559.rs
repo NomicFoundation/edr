@@ -2,13 +2,14 @@ use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 use k256::SecretKey;
-use revm_primitives::keccak256;
 
 use crate::{
+    eips::eip2930,
+    keccak256,
     signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     utils::envelop_bytes,
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpDecodable, RlpEncodable)]
@@ -22,7 +23,7 @@ pub struct Eip1559 {
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<AccessListItem>,
+    pub access_list: Vec<eip2930::AccessListItem>,
 }
 
 impl Eip1559 {
@@ -117,7 +118,7 @@ pub(crate) mod tests {
             kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
-            access_list: vec![AccessListItem {
+            access_list: vec![eip2930::AccessListItem {
                 address: Address::ZERO,
                 storage_keys: vec![B256::ZERO, B256::from(U256::from(1))],
             }],

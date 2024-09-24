@@ -3,11 +3,17 @@ use std::marker::PhantomData;
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
+    l1,
     result::{HaltReason, InvalidTransaction},
-    spec::EthHeaderConstants,
+    spec::{ChainSpec, EthHeaderConstants},
 };
 use edr_evm::{
+    evm::{
+        handler::register::{EvmHandler, HandleRegisters},
+        EvmWiring, PrimitiveEvmWiring,
+    },
     spec::RuntimeSpec,
+    state::Database,
     transaction::{TransactionError, TransactionValidation},
     RemoteBlockConversionError,
 };
@@ -17,7 +23,6 @@ use edr_napi_core::{
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
-use revm::{handler::register::HandleRegisters, primitives::ChainSpec, Database, EvmHandler};
 use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -29,52 +34,51 @@ pub struct OptimismChainSpec;
 
 impl RpcSpec for OptimismChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<receipt::Execution<Log>>;
-    type RpcBlock<Data> = edr_rpc_eth::Block<Data> where Data: Default + DeserializeOwned + Serialize;
+    type RpcBlock<Data>
+        = edr_rpc_eth::Block<Data>
+    where
+        Data: Default + DeserializeOwned + Serialize;
     type RpcCallRequest = edr_rpc_eth::CallRequest;
     type RpcReceipt = rpc::BlockReceipt;
     type RpcTransaction = rpc::Transaction;
     type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
 }
 
-impl revm::primitives::ChainSpec for OptimismChainSpec {
-    type ChainContext = revm_optimism::Context;
-    type Block = edr_eth::env::BlockEnv;
-    type Transaction = transaction::Signed;
-    type Hardfork = OptimismSpecId;
+impl ChainSpec for OptimismChainSpec {
+    type Block = l1::BlockEnv;
+    type Context = revm_optimism::Context;
     type HaltReason = OptimismHaltReason;
+    type Hardfork = OptimismSpecId;
+    type SignedTransaction = transaction::Signed;
 }
 
 /// EVM wiring for Optimism chains.
-pub struct Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> {
-    _phantom: PhantomData<(ChainSpecT, DatabaseT, ExternalContextT)>,
+pub struct Wiring<DatabaseT: Database, ExternalContextT> {
+    _phantom: PhantomData<(DatabaseT, ExternalContextT)>,
 }
 
-impl<ChainSpecT, DatabaseT, ExternalContextT> edr_eth::spec::EvmWiring
-    for Wiring<ChainSpecT, DatabaseT, ExternalContextT>
+impl<DatabaseT, ExternalContextT> PrimitiveEvmWiring for Wiring<DatabaseT, ExternalContextT>
 where
     DatabaseT: Database,
-    ChainSpecT: ChainSpec + revm_optimism::OptimismChainSpec,
 {
-    type ChainSpec = ChainSpecT;
     type ExternalContext = ExternalContextT;
+    type ChainContext = <OptimismChainSpec as ChainSpec>::Context;
     type Database = DatabaseT;
+    type Block = <OptimismChainSpec as ChainSpec>::Block;
+    type Transaction = <OptimismChainSpec as ChainSpec>::SignedTransaction;
+    type Hardfork = <OptimismChainSpec as ChainSpec>::Hardfork;
+    type HaltReason = <OptimismChainSpec as ChainSpec>::HaltReason;
 }
 
-impl<ChainSpecT, DatabaseT, ExternalContextT> revm::EvmWiring
-    for Wiring<ChainSpecT, DatabaseT, ExternalContextT>
+impl<DatabaseT, ExternalContextT> EvmWiring for Wiring<DatabaseT, ExternalContextT>
 where
-    ChainSpecT: revm_optimism::OptimismChainSpec,
     DatabaseT: Database,
 {
-    fn handler<'evm>(
-        hardfork: <Self::ChainSpec as ChainSpec>::Hardfork,
-    ) -> revm::EvmHandler<'evm, Self> {
+    fn handler<'evm>(hardfork: Self::Hardfork) -> EvmHandler<'evm, Self> {
         let mut handler = EvmHandler::mainnet_with_spec(hardfork);
 
         handler.append_handler_register(HandleRegisters::Plain(
-            revm_optimism::optimism_handle_register::<
-                Wiring<ChainSpecT, DatabaseT, ExternalContextT>,
-            >,
+            revm_optimism::optimism_handle_register::<Wiring<DatabaseT, ExternalContextT>>,
         ));
 
         handler
@@ -82,7 +86,7 @@ where
 }
 
 impl RuntimeSpec for OptimismChainSpec {
-    type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<Self, DatabaseT, ExternalContexT>;
+    type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
 
     type ReceiptBuilder = receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
@@ -90,7 +94,7 @@ impl RuntimeSpec for OptimismChainSpec {
     type RpcTransactionConversionError = rpc::transaction::ConversionError;
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
-        error: <Self::Transaction as TransactionValidation>::ValidationError,
+        error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
     ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
         match error {
             OptimismInvalidTransaction::Base(InvalidTransaction::LackOfFundForMaxFee {

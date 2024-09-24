@@ -17,13 +17,14 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    ExecutableTransaction, HasAccessList, IsEip155, IsEip4844, IsLegacy, IsSupported, Signed,
-    SignedTransaction, Transaction, TransactionMut, TransactionType, TxKind,
-    INVALID_TX_TYPE_ERROR_MESSAGE,
+    ExecutableTransaction, HasAccessList, InvalidTransaction, IsEip155, IsEip4844, IsLegacy,
+    IsSupported, Signed, SignedTransaction, Transaction, TransactionMut, TransactionType,
+    TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
+    eips::{self, eip7702},
     signature::{Fakeable, Signature, SignatureError},
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 /// Trait for signing a transaction request with a fake signature.
@@ -363,7 +364,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn access_list(&self) -> &[AccessListItem] {
+    fn access_list(&self) -> &[eips::eip2930::AccessListItem] {
         match self {
             Signed::PreEip155Legacy(tx) => tx.access_list(),
             Signed::PostEip155Legacy(tx) => tx.access_list(),
@@ -403,7 +404,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&revm_primitives::AuthorizationList> {
+    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),
@@ -439,8 +440,8 @@ impl TransactionType for Signed {
     }
 }
 
-impl revm_primitives::TransactionValidation for Signed {
-    type ValidationError = revm_primitives::InvalidTransaction;
+impl TransactionValidation for Signed {
+    type ValidationError = InvalidTransaction;
 }
 
 #[cfg(test)]
@@ -450,7 +451,7 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{signature, transaction, AccessList, Bytes};
+    use crate::{signature, transaction, Bytes};
 
     #[test]
     fn can_recover_sender() {
@@ -693,7 +694,7 @@ mod tests {
             )),
             value: U256::from(3000000000000000000u64),
             input: Bytes::default(),
-            access_list: AccessList::default(),
+            access_list: eips::eip2930::AccessList::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
                 signature::Fakeable::with_address_unchecked(

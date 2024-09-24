@@ -2,15 +2,9 @@ mod eip658;
 mod legacy;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::{ExecutionResult, HaltReason};
 
-use super::{Execution, ExecutionReceiptBuilder, MapReceiptLogs, Receipt};
-use crate::{
-    eips::eip2718::TypedEnvelope,
-    log::ExecutionLog,
-    transaction::{self, TransactionType as _},
-    Bloom, SpecId, B256,
-};
+use super::{Execution, MapReceiptLogs, Receipt};
+use crate::{Bloom, B256};
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpDecodable, RlpEncodable)]
 #[cfg_attr(
@@ -112,48 +106,6 @@ where
             Execution::Legacy(receipt) => receipt.length(),
             Execution::Eip658(receipt) => receipt.length(),
         }
-    }
-}
-
-pub struct Builder;
-
-impl ExecutionReceiptBuilder<HaltReason, SpecId, transaction::Signed> for Builder {
-    type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
-
-    fn new_receipt_builder<StateT: revm::db::StateRef>(
-        _pre_execution_state: StateT,
-        _transaction: &transaction::Signed,
-    ) -> Result<Self, StateT::Error> {
-        Ok(Self)
-    }
-
-    fn build_receipt(
-        self,
-        header: &crate::block::PartialHeader,
-        transaction: &transaction::Signed,
-        result: &ExecutionResult<HaltReason>,
-        hardfork: SpecId,
-    ) -> Self::Receipt {
-        let logs = result.logs().to_vec();
-        let logs_bloom = crate::log::logs_to_bloom(&logs);
-
-        let receipt = if hardfork >= SpecId::BYZANTIUM {
-            Execution::Eip658(Eip658 {
-                status: result.is_success(),
-                cumulative_gas_used: header.gas_used,
-                logs_bloom,
-                logs,
-            })
-        } else {
-            Execution::Legacy(Legacy {
-                root: header.state_root,
-                cumulative_gas_used: header.gas_used,
-                logs_bloom,
-                logs,
-            })
-        };
-
-        TypedEnvelope::new(receipt, transaction.transaction_type())
     }
 }
 

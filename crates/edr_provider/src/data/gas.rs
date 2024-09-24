@@ -2,14 +2,15 @@ use core::{cmp, fmt::Debug};
 
 use edr_eth::{
     block::Header,
-    env::CfgEnv,
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut, TransactionValidation},
-    Address, HashMap, Precompile, U256,
+    Address, HashMap, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
+    config::CfgEnv,
+    precompile::Precompile,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
@@ -29,7 +30,7 @@ pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnv,
     pub hardfork: ChainSpecT::Hardfork,
-    pub transaction: ChainSpecT::Transaction,
+    pub transaction: ChainSpecT::SignedTransaction,
     pub gas_limit: u64,
     pub precompiles: &'a HashMap<Address, Precompile>,
     pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
@@ -45,9 +46,9 @@ where
     ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
-        Transaction: Default
-                         + TransactionMut
-                         + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: Default
+                               + TransactionMut
+                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
 {
     let CheckGasLimitArgs {
@@ -90,7 +91,7 @@ pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnv,
     pub hardfork: ChainSpecT::Hardfork,
-    pub transaction: ChainSpecT::Transaction,
+    pub transaction: ChainSpecT::SignedTransaction,
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub precompiles: &'a HashMap<Address, Precompile>,
@@ -107,9 +108,9 @@ where
     ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
-        Transaction: Default
-                         + TransactionMut
-                         + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: Default
+                               + TransactionMut
+                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
 {
     const MAX_ITERATIONS: usize = 20;

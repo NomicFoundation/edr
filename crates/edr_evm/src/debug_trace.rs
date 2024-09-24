@@ -1,32 +1,30 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
-    env::{CfgEnv, Env},
-    result::InvalidTransaction,
-    spec::ChainSpec,
-    transaction::ExecutableTransaction as _,
+    block::Block as _,
+    hex, l1,
+    result::{ExecutionResult, InvalidTransaction, ResultAndState},
+    spec::{ChainSpec, HaltReasonTrait},
+    transaction::{ExecutableTransaction as _, TransactionValidation},
     utils::u256_to_padded_hex,
-    B256,
+    Address, Bytes, B256, U256,
 };
-use revm::{
-    db::{DatabaseComponents, WrapDatabaseRef},
-    handler::register::EvmHandler,
-    interpreter::{
-        opcode::{self, DynInstruction, OpCode},
-        Interpreter, InterpreterResult,
-    },
-    primitives::{
-        hex, Address, Block as _, Bytes, ExecutionResult, HaltReasonTrait, ResultAndState, SpecId,
-        TransactionValidation, U256,
-    },
-    Context, Database, Evm, EvmContext, EvmWiring, JournalEntry,
-};
+use revm::Evm;
 
 use crate::{
     blockchain::SyncBlockchain,
+    config::{CfgEnv, Env},
     debug::GetContextData,
+    evm::{
+        handler::register::EvmHandler,
+        interpreter::{
+            opcode::{self, DynInstruction},
+            Interpreter, InterpreterResult, OpCode,
+        },
+        Context, EvmWiring, InnerEvmContext, JournalEntry,
+    },
     spec::RuntimeSpec,
-    state::SyncState,
+    state::{Database, DatabaseComponents, SyncState, WrapDatabaseRef},
     trace::{register_trace_collector_handles, Trace, TraceCollector},
     transaction::TransactionError,
 };
@@ -66,9 +64,8 @@ impl<HaltReasonT: HaltReasonTrait> GetContextData<TracerEip3155>
 /// Register EIP-3155 and trace collector handles.
 pub fn register_eip_3155_and_raw_tracers_handles<
     EvmWiringT: revm::EvmWiring<
-        ExternalContext: GetContextData<
-            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
-        > + GetContextData<TracerEip3155>,
+        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>
+                             + GetContextData<TracerEip3155>,
         Database: Database<Error: Debug>,
     >,
 >(
@@ -89,7 +86,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     hardfork: ChainSpecT::Hardfork,
     trace_config: DebugTraceConfig,
     block: ChainSpecT::Block,
-    transactions: Vec<ChainSpecT::Transaction>,
+    transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     verbose_tracing: bool,
 ) -> Result<
@@ -99,13 +96,14 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
 where
     ChainSpecT: RuntimeSpec<
         Block: Clone,
-        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: Default
+                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {
     let evm_spec_id = hardfork.into();
-    if evm_spec_id < SpecId::SPURIOUS_DRAGON {
+    if evm_spec_id < l1::SpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
         return Err(DebugTraceError::InvalidSpecId {
             spec_id: evm_spec_id,
@@ -121,8 +119,8 @@ where
 
                 let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
                     .with_db(WrapDatabaseRef(DatabaseComponents {
+                        blockchain,
                         state: state.as_ref(),
-                        block_hash: blockchain,
                     }))
                     .with_external_context(&mut tracer)
                     .with_env(env)
@@ -140,8 +138,8 @@ where
 
                 let mut evm = Evm::<ChainSpecT::EvmWiring<_, ()>>::builder()
                     .with_db(WrapDatabaseRef(DatabaseComponents {
+                        blockchain,
                         state: state.as_ref(),
-                        block_hash: blockchain,
                     }))
                     .with_external_context(())
                     .with_env(env)
@@ -210,13 +208,13 @@ pub struct DebugTraceConfig {
 #[derive(Debug, thiserror::Error)]
 pub enum DebugTraceError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: ChainSpec,
 {
     /// Invalid hardfork spec argument.
     #[error("Invalid spec id: {spec_id:?}. `debug_traceTransaction` is not supported prior to Spurious Dragon")]
     InvalidSpecId {
         /// The hardfork.
-        spec_id: SpecId,
+        spec_id: l1::SpecId,
     },
     /// Invalid transaction hash argument.
     #[error("Transaction hash {transaction_hash} not found in block {block_number}")]
@@ -398,7 +396,7 @@ impl TracerEip3155 {
     fn step_end<EvmWiringT: EvmWiring>(
         &mut self,
         interp: &Interpreter,
-        context: &EvmContext<EvmWiringT>,
+        context: &InnerEvmContext<EvmWiringT>,
     ) {
         let depth = context.journaled_state.depth();
 

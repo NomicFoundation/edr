@@ -32,7 +32,7 @@ impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
             Block: Default,
-            Transaction: Default
+            SignedTransaction: Default
                              + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + PartialEq,
             >,
@@ -65,7 +65,7 @@ async fn interval_mining_loop<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
+        SignedTransaction: Default
                          + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,

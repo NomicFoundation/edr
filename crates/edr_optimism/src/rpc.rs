@@ -3,7 +3,7 @@ pub mod receipt;
 /// Types for Optimism RPC transaction.
 pub mod transaction;
 
-use edr_eth::{log::FilterLog, Address, Bloom, SignedAuthorization, B256, U256};
+use edr_eth::{eips::eip7702, log::FilterLog, Address, Bloom, B256, U256};
 use serde::{Deserialize, Serialize};
 
 /// Transaction receipt
@@ -89,7 +89,7 @@ pub struct BlockReceipt {
     /// code which the signer desires to execute in the context of their
     /// EOA.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_list: Option<Vec<SignedAuthorization>>,
+    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }
 
 /// Optimism RPC transaction.

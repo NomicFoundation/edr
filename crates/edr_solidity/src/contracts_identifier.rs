@@ -8,7 +8,7 @@
 use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
 use edr_eth::Address;
-use edr_evm::interpreter::OpCode;
+use edr_evm::evm::interpreter::OpCode;
 
 use crate::build_model::Bytecode;
 

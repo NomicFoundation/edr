@@ -12,7 +12,7 @@ pub fn handle_set_interval_mining<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
+        SignedTransaction: Default
                          + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,

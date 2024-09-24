@@ -1,7 +1,7 @@
 use edr_eth::{
+    account::{Account, AccountInfo, AccountStatus},
     signature::public_key_to_address,
-    state::{Account, AccountStatus},
-    AccountInfo, Address, HashMap, KECCAK_EMPTY,
+    Address, HashMap, KECCAK_EMPTY,
 };
 use edr_evm::spec::RuntimeSpec;
 use indexmap::IndexMap;

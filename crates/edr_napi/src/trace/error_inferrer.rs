@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashSet};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_eth::hex;
-use edr_evm::interpreter::OpCode;
+use edr_evm::evm::interpreter::OpCode;
 use edr_solidity::build_model::{
     Bytecode, ContractFunction, ContractFunctionType, ContractKind, Instruction, JumpType,
     SourceLocation,

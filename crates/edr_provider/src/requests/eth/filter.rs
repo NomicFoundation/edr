@@ -41,13 +41,13 @@ pub fn handle_get_logs_request<
     data: &ProviderData<ChainSpecT, TimerT>,
     filter_options: LogFilterOptions,
 ) -> Result<Vec<LogOutput>, ProviderError<ChainSpecT>> {
-    let evm_spec_id = data.evm_spec_id();
+    let hardfork = data.hardfork();
     // Hardhat integration tests expect validation in this order.
     if let Some(from_block) = &filter_options.from_block {
-        validate_post_merge_block_tags(evm_spec_id, from_block)?;
+        validate_post_merge_block_tags(hardfork, from_block)?;
     }
     if let Some(to_block) = &filter_options.to_block {
-        validate_post_merge_block_tags(evm_spec_id, to_block)?;
+        validate_post_merge_block_tags(hardfork, to_block)?;
     }
 
     let filter = validate_filter_criteria::<true, ChainSpecT, TimerT>(data, filter_options)?;
@@ -145,7 +145,7 @@ fn validate_filter_criteria<
         block_spec: Option<BlockSpec>,
     ) -> Result<Option<u64>, ProviderError<ChainSpecT>> {
         if let Some(block_spec) = &block_spec {
-            validate_post_merge_block_tags(data.evm_spec_id(), block_spec)?;
+            validate_post_merge_block_tags(data.hardfork(), block_spec)?;
         }
 
         let block_number = match block_spec {

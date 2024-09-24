@@ -2,12 +2,13 @@ mod eip4844;
 
 pub use self::eip4844::Eip4844;
 use crate::{
+    eips::{eip2930, eip7702},
     transaction::{
         signed::PreOrPostEip155, ExecutableTransaction, IsEip155, Signed, Transaction, TxKind,
         INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     utils::enveloped,
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 pub type Legacy = super::signed::Legacy;
@@ -307,7 +308,7 @@ impl Transaction for PooledTransaction {
         }
     }
 
-    fn access_list(&self) -> &[AccessListItem] {
+    fn access_list(&self) -> &[eip2930::AccessListItem] {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.access_list(),
             PooledTransaction::PostEip155Legacy(tx) => tx.access_list(),
@@ -347,7 +348,7 @@ impl Transaction for PooledTransaction {
         }
     }
 
-    fn authorization_list(&self) -> Option<&revm_primitives::AuthorizationList> {
+    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.authorization_list(),
             PooledTransaction::PostEip155Legacy(tx) => tx.authorization_list(),
@@ -364,10 +365,10 @@ mod tests {
 
     use alloy_rlp::Decodable;
     use c_kzg::BYTES_PER_BLOB;
-    use revm_primitives::EnvKzgSettings;
 
     use super::*;
     use crate::{
+        eips::eip4844::EnvKzgSettings,
         signature,
         transaction::{self, TxKind},
         Address, Bytes, B256, U256,

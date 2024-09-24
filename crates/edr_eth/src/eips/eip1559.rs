@@ -1,5 +1,6 @@
 pub use alloy_eips::eip1559::BaseFeeParams as ConstantBaseFeeParams;
-use revm_primitives::HardforkTrait;
+
+use crate::spec::HardforkTrait;
 
 /// A mapping of hardfork to [`ConstantBaseFeeParams`]. This is used to specify
 /// dynamic EIP-1559 parameters for chains like Optimism.

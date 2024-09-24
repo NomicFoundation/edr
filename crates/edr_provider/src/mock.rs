@@ -2,11 +2,15 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
-use edr_eth::{db::Database, result::EVMErrorWiring, Address, Bytes};
+use edr_eth::{result::EVMErrorWiring, Address, Bytes};
 use edr_evm::{
-    evm::{handler::register::EvmHandler, FrameOrResult, FrameResult},
-    interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
+    evm::{
+        handler::register::EvmHandler,
+        interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
+        FrameOrResult, FrameResult,
+    },
     spec::EvmWiring,
+    state::Database,
     GetContextData,
 };
 

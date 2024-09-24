@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use edr_eth::{
+    l1::L1ChainSpec,
     result::{HaltReason, InvalidTransaction},
-    spec::{HaltReasonTrait, L1ChainSpec},
+    spec::HaltReasonTrait,
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::trace::Trace;
@@ -45,10 +46,12 @@ pub trait SyncNapiSpec:
     CurrentTime,
     Block: Clone + Default,
     PooledTransaction: IsEip155,
-    Transaction: Default
-                     + TransactionMut
-                     + TransactionType<Type: IsEip4844>
-                     + TransactionValidation<ValidationError: From<InvalidTransaction> + PartialEq>,
+    SignedTransaction: Default
+                           + TransactionMut
+                           + TransactionType<Type: IsEip4844>
+                           + TransactionValidation<
+        ValidationError: From<InvalidTransaction> + PartialEq,
+    >,
 >
 {
     /// The string type identifier of the chain.

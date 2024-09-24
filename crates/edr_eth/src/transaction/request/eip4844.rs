@@ -2,13 +2,14 @@ use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
 use k256::SecretKey;
-use revm_primitives::keccak256;
 
 use crate::{
+    eips::eip2930,
+    keccak256,
     signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction,
     utils::envelop_bytes,
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
@@ -22,7 +23,7 @@ pub struct Eip4844 {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<AccessListItem>,
+    pub access_list: Vec<eip2930::AccessListItem>,
     pub max_fee_per_blob_gas: U256,
     pub blob_hashes: Vec<B256>,
 }

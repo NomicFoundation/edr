@@ -1,9 +1,10 @@
 use core::fmt::Debug;
 
 use edr_eth::{
+    eips::eip2930,
+    l1,
     transaction::{pooled::PooledTransaction, ExecutableTransaction},
-    AccessListItem, Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, SpecId, B256,
-    MAX_INITCODE_SIZE, U256,
+    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE, U256,
 };
 use edr_evm::{
     spec::RuntimeSpec,
@@ -33,7 +34,7 @@ impl HardforkValidationData for TransactionRequest {
         self.max_priority_fee_per_gas.as_ref()
     }
 
-    fn access_list(&self) -> Option<&Vec<AccessListItem>> {
+    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
         self.access_list.as_ref()
     }
 
@@ -63,7 +64,7 @@ impl HardforkValidationData for CallRequest {
         self.max_priority_fee_per_gas.as_ref()
     }
 
-    fn access_list(&self) -> Option<&Vec<AccessListItem>> {
+    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
         self.access_list.as_ref()
     }
 
@@ -98,7 +99,7 @@ impl HardforkValidationData for PooledTransaction {
         Transaction::max_priority_fee_per_gas(self)
     }
 
-    fn access_list(&self) -> Option<&Vec<AccessListItem>> {
+    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
         match self {
             PooledTransaction::PreEip155Legacy(_) | PooledTransaction::PostEip155Legacy(_) => None,
             PooledTransaction::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
@@ -159,7 +160,7 @@ pub fn validate_send_transaction_request<
         }
     }
 
-    validate_transaction_and_call_request(data.evm_spec_id(), request).map_err(|err| match err {
+    validate_transaction_and_call_request(data.hardfork(), request).map_err(|err| match err {
         ProviderError::UnsupportedEIP1559Parameters {
             minimum_hardfork, ..
         } => ProviderError::InvalidArgument(format!("\
@@ -172,29 +173,29 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 }
 
 fn validate_transaction_spec<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-    spec_id: SpecId,
+    spec_id: l1::SpecId,
     value: &impl HardforkValidationData,
 ) -> Result<(), ProviderError<ChainSpecT>> {
-    if spec_id < SpecId::BERLIN && value.access_list().is_some() {
+    if spec_id < l1::SpecId::BERLIN && value.access_list().is_some() {
         return Err(ProviderError::UnsupportedAccessListParameter {
             current_hardfork: spec_id,
-            minimum_hardfork: SpecId::BERLIN,
+            minimum_hardfork: l1::SpecId::BERLIN,
         });
     }
 
-    if spec_id < SpecId::LONDON
+    if spec_id < l1::SpecId::LONDON
         && (value.max_fee_per_gas().is_some() || value.max_priority_fee_per_gas().is_some())
     {
         return Err(ProviderError::UnsupportedEIP1559Parameters {
             current_hardfork: spec_id,
-            minimum_hardfork: SpecId::BERLIN,
+            minimum_hardfork: l1::SpecId::BERLIN,
         });
     }
 
-    if spec_id < SpecId::CANCUN && (value.blobs().is_some() || value.blob_hashes().is_some()) {
+    if spec_id < l1::SpecId::CANCUN && (value.blobs().is_some() || value.blob_hashes().is_some()) {
         return Err(ProviderError::UnsupportedEIP4844Parameters {
             current_hardfork: spec_id,
-            minimum_hardfork: SpecId::CANCUN,
+            minimum_hardfork: l1::SpecId::CANCUN,
         });
     }
 
@@ -243,18 +244,18 @@ fn validate_transaction_spec<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
 
 /// Validates a `CallRequest` and `BlockSpec` against the provided hardfork.
 pub fn validate_call_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-    spec_id: SpecId,
+    hardfork: ChainSpecT::Hardfork,
     call_request: &CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderError<ChainSpecT>> {
-    validate_post_merge_block_tags(spec_id, block_spec)?;
+    validate_post_merge_block_tags(hardfork, block_spec)?;
 
     if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
         return Err(ProviderError::Eip4844CallRequestUnsupported);
     }
 
     validate_transaction_and_call_request(
-        spec_id,
+        hardfork,
         call_request
     ).map_err(|err| match err {
         ProviderError::UnsupportedEIP1559Parameters {
@@ -269,10 +270,10 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 }
 
 pub(crate) fn validate_transaction_and_call_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-    spec_id: SpecId,
+    hardfork: ChainSpecT::Hardfork,
     validation_data: &impl HardforkValidationData,
 ) -> Result<(), ProviderError<ChainSpecT>> {
-    validate_transaction_spec(spec_id, validation_data).map_err(|err| match err {
+    validate_transaction_spec(hardfork.into(), validation_data).map_err(|err| match err {
         ProviderError::UnsupportedAccessListParameter {
             minimum_hardfork, ..
         } => ProviderError::InvalidArgument(format!(
@@ -287,12 +288,12 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 }
 
 pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-    spec_id: SpecId,
+    spec_id: l1::SpecId,
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
     data: &Bytes,
 ) -> Result<(), ProviderError<ChainSpecT>> {
-    if spec_id < SpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
+    if spec_id < l1::SpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
         return Ok(());
     }
 
@@ -338,12 +339,12 @@ impl<'a> From<ValidationBlockSpec<'a>> for BlockSpec {
 }
 
 pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-    hardfork: SpecId,
+    hardfork: ChainSpecT::Hardfork,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
 ) -> Result<(), ProviderError<ChainSpecT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();
 
-    if hardfork < SpecId::MERGE {
+    if hardfork.into() < l1::SpecId::MERGE {
         match block_spec {
             ValidationBlockSpec::PreEip1898(PreEip1898BlockSpec::Tag(
                 tag @ (BlockTag::Safe | BlockTag::Finalized),
@@ -353,7 +354,7 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec<Hardfor
             )) => {
                 return Err(ProviderError::InvalidBlockTag {
                     block_tag: *tag,
-                    spec: hardfork,
+                    hardfork,
                 });
             }
             _ => (),
@@ -364,11 +365,11 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec<Hardfor
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::spec::L1ChainSpec;
+    use edr_eth::l1::L1ChainSpec;
 
     use super::*;
 
-    fn assert_mixed_eip_1559_parameters(spec: SpecId) {
+    fn assert_mixed_eip_1559_parameters(spec: l1::SpecId) {
         let mixed_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(U256::ZERO),
@@ -406,7 +407,7 @@ mod tests {
         ));
     }
 
-    fn assert_unsupported_eip_1559_parameters(spec: SpecId) {
+    fn assert_unsupported_eip_1559_parameters(spec: l1::SpecId) {
         let eip_1559_request = TransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(U256::ZERO),
@@ -430,7 +431,7 @@ mod tests {
         ));
     }
 
-    fn assert_unsupported_eip_4844_parameters(spec: SpecId) {
+    fn assert_unsupported_eip_4844_parameters(spec: l1::SpecId) {
         let eip_4844_request = TransactionRequest {
             from: Address::ZERO,
             blobs: Some(Vec::new()),
@@ -456,7 +457,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_155_invalid_inputs() {
-        let eip155_spec = SpecId::MUIR_GLACIER;
+        let eip155_spec = l1::SpecId::MUIR_GLACIER;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(U256::ZERO),
@@ -482,7 +483,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_2930_invalid_inputs() {
-        let eip2930_spec = SpecId::BERLIN;
+        let eip2930_spec = l1::SpecId::BERLIN;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(U256::ZERO),
@@ -498,7 +499,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_1559_invalid_inputs() {
-        let eip1559_spec = SpecId::LONDON;
+        let eip1559_spec = l1::SpecId::LONDON;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(U256::ZERO),
@@ -515,7 +516,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_4844_invalid_inputs() {
-        let eip4844_spec = SpecId::CANCUN;
+        let eip4844_spec = l1::SpecId::CANCUN;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),

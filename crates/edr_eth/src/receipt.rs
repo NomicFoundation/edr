@@ -11,11 +11,8 @@ mod block;
 pub mod execution;
 mod transaction;
 
-use revm::db::StateRef;
-use revm_primitives::{HaltReasonTrait, HardforkTrait, Transaction, TransactionValidation};
-
 pub use self::{block::BlockReceipt, transaction::TransactionReceipt};
-use crate::{block::PartialHeader, Bloom, B256};
+use crate::{Bloom, B256};
 
 /// Log generated after execution of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,32 +22,6 @@ pub enum Execution<LogT> {
     Legacy(self::execution::Legacy<LogT>),
     /// EIP-658 receipt.
     Eip658(self::execution::Eip658<LogT>),
-}
-
-/// Trait for a builder that constructs an execution receipt.
-pub trait ExecutionReceiptBuilder<HaltReasonT, HardforkT, TransactionT>: Sized
-where
-    HaltReasonT: HaltReasonTrait,
-    HardforkT: HardforkTrait,
-    TransactionT: Transaction + TransactionValidation,
-{
-    /// The receipt type that the builder constructs.
-    type Receipt;
-
-    /// Creates a new builder with the given pre-execution state.
-    fn new_receipt_builder<StateT: StateRef>(
-        pre_execution_state: StateT,
-        transaction: &TransactionT,
-    ) -> Result<Self, StateT::Error>;
-
-    /// Builds a receipt using the provided information.
-    fn build_receipt(
-        self,
-        header: &PartialHeader,
-        transaction: &TransactionT,
-        result: &revm_primitives::ExecutionResult<HaltReasonT>,
-        hardfork: HardforkT,
-    ) -> Self::Receipt;
 }
 
 /// Type representing either the state root (pre-EIP-658) or the status code

@@ -5,15 +5,16 @@ use std::{collections::BTreeMap, sync::Arc};
 use edr_eth::{
     block::PartialHeader,
     eips::eip2718::TypedEnvelope,
+    l1::{self, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
-    receipt::{self, ExecutionReceiptBuilder, Receipt as _, TransactionReceipt},
+    receipt::{Receipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
-    spec::L1ChainSpec,
     transaction::ExecutableTransaction as _,
-    Address, Bytes, HashSet, SpecId, B256, U256,
+    Address, Bytes, HashSet, B256, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain},
+    receipt::{self, ExecutionReceiptBuilder as _},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
     LocalBlock, SyncBlock,
@@ -39,7 +40,7 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
 ) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>> {
-    use edr_eth::HashMap;
+    use edr_eth::{l1, HashMap};
     use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
@@ -54,7 +55,7 @@ async fn create_forked_dummy_blockchain(
         ForkedBlockchain::new(
             tokio::runtime::Handle::current().clone(),
             None,
-            SpecId::LATEST,
+            l1::SpecId::LATEST,
             Arc::new(rpc_client),
             fork_block_number,
             &mut irregular_state,
@@ -78,7 +79,7 @@ async fn create_dummy_blockchains(
     let local_blockchain = LocalBlockchain::new(
         StateDiff::default(),
         1,
-        SpecId::LATEST,
+        l1::SpecId::LATEST,
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -137,7 +138,7 @@ fn create_dummy_block_with_difficulty(
 }
 
 fn create_dummy_block_with_hash(
-    spec_id: SpecId,
+    spec_id: l1::SpecId,
     number: u64,
     parent_hash: B256,
 ) -> LocalBlock<L1ChainSpec> {
@@ -152,7 +153,7 @@ fn create_dummy_block_with_hash(
 }
 
 fn create_dummy_block_with_header(
-    spec_id: SpecId,
+    spec_id: l1::SpecId,
     partial_header: PartialHeader,
 ) -> LocalBlock<L1ChainSpec> {
     LocalBlock::empty(spec_id, partial_header)
@@ -185,7 +186,7 @@ fn insert_dummy_block_with_transaction(
     let state_overrides = BTreeMap::new();
     let state = blockchain.state_at_block_number(header.number - 1, &state_overrides)?;
 
-    let receipt_builder = receipt::execution::Builder::new_receipt_builder(state, &transaction)?;
+    let receipt_builder = receipt::Builder::new_receipt_builder(state, &transaction)?;
 
     let execution_result = ExecutionResult::Success {
         reason: SuccessReason::Stop,

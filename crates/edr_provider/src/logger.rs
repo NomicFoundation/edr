@@ -21,7 +21,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec<Hardfork: Debug>> {
     fn log_call(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         result: &CallResult<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
@@ -34,7 +34,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec<Hardfork: Debug>> {
     fn log_estimate_gas_failure(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         result: &EstimateGasFailure<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
@@ -69,7 +69,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec<Hardfork: Debug>> {
     fn log_send_transaction(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;

@@ -14,9 +14,8 @@ pub mod signed;
 
 use std::str::FromStr;
 
-pub use revm_primitives::{
-    alloy_primitives::TxKind, AuthorizationList, Transaction, TransactionValidation,
-};
+pub use revm::wiring::{result::InvalidTransaction, Transaction, TransactionValidation};
+pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::{ruint, B256};
 
 use crate::{signature::Signature, Bytes, U256, U8};

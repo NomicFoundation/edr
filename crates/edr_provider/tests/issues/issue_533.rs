@@ -1,6 +1,6 @@
 use std::str::FromStr as _;
 
-use edr_eth::{spec::L1ChainSpec, B256};
+use edr_eth::{l1::L1ChainSpec, B256};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,

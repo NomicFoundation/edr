@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use edr_eth::result::HaltReason;
-use edr_evm::{interpreter::OpCode, trace::BeforeMessage};
+use edr_evm::{evm::interpreter::OpCode, trace::BeforeMessage};
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
     Env, JsBuffer, JsBufferValue,

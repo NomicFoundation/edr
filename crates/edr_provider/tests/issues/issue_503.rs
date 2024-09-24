@@ -1,6 +1,9 @@
 use std::str::FromStr as _;
 
-use edr_eth::{spec::L1ChainSpec, Address, SpecId, U256};
+use edr_eth::{
+    l1::{self, L1ChainSpec},
+    Address, U256,
+};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
@@ -19,7 +22,7 @@ async fn issue_503() -> anyhow::Result<()> {
         block_number: Some(19_909_475),
         http_headers: None,
     }));
-    config.hardfork = SpecId::CANCUN;
+    config.hardfork = l1::SpecId::CANCUN;
 
     let provider = Provider::new(
         runtime::Handle::current(),

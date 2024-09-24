@@ -2,13 +2,14 @@ use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
 use k256::SecretKey;
-use revm_primitives::keccak256;
 
 use crate::{
+    eips::eip2930,
+    keccak256,
     signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     utils::envelop_bytes,
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
@@ -21,7 +22,7 @@ pub struct Eip2930 {
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<AccessListItem>,
+    pub access_list: Vec<eip2930::AccessListItem>,
 }
 
 impl Eip2930 {
@@ -113,7 +114,7 @@ mod tests {
             kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
-            access_list: vec![AccessListItem {
+            access_list: vec![eip2930::AccessListItem {
                 address: Address::ZERO,
                 storage_keys: vec![B256::ZERO, B256::from(U256::from(1))],
             }],
@@ -159,7 +160,7 @@ mod tests {
             kind: TxKind::Call("0xb5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?),
             value: U256::from(1),
             input: Bytes::default(),
-            access_list: vec![AccessListItem {
+            access_list: vec![eip2930::AccessListItem {
                 address: "0x57d7ad4d3f0c74e3766874cf06fa1dc23c21f7e8".parse()?,
                 storage_keys: vec![
                     "0xa50e92910457911e0e22d6dd1672f440a37b590b231d8309101255290f5394ec".parse()?,
