@@ -17,9 +17,11 @@ use edr_eth::{
     Address, Bytecode, HashMap, B256, U256,
 };
 use edr_rpc_eth::client::RpcClientError;
-pub use revm::state::EvmStorageSlot;
 use revm::DatabaseRef;
-pub use revm_database_interface::{Database, DatabaseCommit as StateCommit, WrapDatabaseRef};
+pub use revm::{
+    database_interface::{Database, DatabaseCommit as StateCommit, WrapDatabaseRef},
+    state::EvmStorageSlot,
+};
 
 pub use self::{
     debug::{AccountModifierFn, StateDebug},

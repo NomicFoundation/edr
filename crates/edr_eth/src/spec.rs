@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-pub use revm::wiring::{evm_wiring::HardforkTrait, HaltReasonTrait};
+pub use revm_wiring::{evm_wiring::HardforkTrait, HaltReasonTrait};
 
 use crate::{
     block::Block,

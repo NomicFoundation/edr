@@ -7,8 +7,8 @@
 //! Ethereum account types
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-pub use revm::state::{Account, AccountInfo, AccountStatus};
 pub use revm_primitives::KECCAK_EMPTY;
+pub use revm_state::{Account, AccountInfo, AccountStatus};
 
 use crate::{trie::KECCAK_NULL_RLP, B256, U256};
 
