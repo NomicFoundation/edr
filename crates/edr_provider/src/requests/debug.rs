@@ -15,7 +15,7 @@ pub fn handle_debug_trace_transaction<
         TimerT,
         Block: Clone + Default,
         SignedTransaction: Default
-                         + TransactionValidation<
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -51,7 +51,7 @@ where
         TimerT,
         Block: Default,
         SignedTransaction: Default
-                         + TransactionValidation<
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,

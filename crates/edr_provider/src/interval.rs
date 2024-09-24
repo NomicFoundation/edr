@@ -33,7 +33,7 @@ impl<
             TimerT,
             Block: Default,
             SignedTransaction: Default
-                             + TransactionValidation<
+                                   + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + PartialEq,
             >,
         >,
@@ -66,7 +66,7 @@ async fn interval_mining_loop<
         TimerT,
         Block: Default,
         SignedTransaction: Default
-                         + TransactionValidation<
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,

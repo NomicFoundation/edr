@@ -818,9 +818,10 @@ mod tests {
     }
 
     impl RpcMethod for TestMethod {
-        type Cacheable<'method> = CachedTestMethod<'method>
-    where
-        Self: 'method;
+        type Cacheable<'method>
+            = CachedTestMethod<'method>
+        where
+            Self: 'method;
 
         fn block_number_request() -> Self {
             Self::BlockNumber(())

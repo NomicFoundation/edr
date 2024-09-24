@@ -13,7 +13,7 @@ pub fn handle_set_interval_mining<
         TimerT,
         Block: Default,
         SignedTransaction: Default
-                         + TransactionValidation<
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,

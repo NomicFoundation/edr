@@ -10,7 +10,7 @@ use edr_eth::{
 };
 
 pub use self::account::AccountTrie;
-use super::{State, StateDebug, StateError, StateCommit};
+use super::{State, StateCommit, StateDebug, StateError};
 use crate::collections::SharedMap;
 
 /// An implementation of revm's state that uses a trie.

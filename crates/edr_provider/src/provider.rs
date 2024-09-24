@@ -87,7 +87,7 @@ impl<
             TimerT,
             Block: Default,
             SignedTransaction: Default
-                             + TransactionValidation<
+                                   + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + PartialEq,
             >,
         >,
@@ -151,9 +151,9 @@ impl<
             Block: Clone + Default,
             PooledTransaction: IsEip155,
             SignedTransaction: Default
-                             + TransactionMut
-                             + TransactionType<Type: IsEip4844>
-                             + TransactionValidation<
+                                   + TransactionMut
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + PartialEq,
             >,
         >,

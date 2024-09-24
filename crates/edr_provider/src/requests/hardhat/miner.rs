@@ -10,7 +10,7 @@ pub fn handle_interval_mine_request<
         TimerT,
         Block: Default,
         SignedTransaction: Default
-                         + TransactionValidation<
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -26,7 +26,7 @@ pub fn handle_mine<
         TimerT,
         Block: Default,
         SignedTransaction: Default
-                         + TransactionValidation<
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
