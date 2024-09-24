@@ -85,44 +85,28 @@
       ]
     },
     {
-      "name": "ForgeContext",
-      "description": "Forge execution contexts.",
+      "name": "ExecutionContext",
+      "description": "Solidity test execution contexts.",
       "variants": [
         {
           "name": "TestGroup",
-          "description": "Test group execution context (test, coverage or snapshot)."
+          "description": "Test group execution context: any of test, coverage or snapshot."
         },
         {
           "name": "Test",
-          "description": "`forge test` execution context."
+          "description": "Test execution context."
         },
         {
           "name": "Coverage",
-          "description": "`forge coverage` execution context."
+          "description": "Code coverage execution context."
         },
         {
           "name": "Snapshot",
-          "description": "`forge snapshot` execution context."
-        },
-        {
-          "name": "ScriptGroup",
-          "description": "Script group execution context (dry run, broadcast or resume)."
-        },
-        {
-          "name": "ScriptDryRun",
-          "description": "`forge script` execution context."
-        },
-        {
-          "name": "ScriptBroadcast",
-          "description": "`forge script --broadcast` execution context."
-        },
-        {
-          "name": "ScriptResume",
-          "description": "`forge script --resume` execution context."
+          "description": "Gas snapshot execution context."
         },
         {
           "name": "Unknown",
-          "description": "Unknown `forge` execution context."
+          "description": "Unknown execution context."
         }
       ]
     }
@@ -4755,7 +4739,7 @@
       "func": {
         "id": "isContext",
         "description": "Returns true if `forge` command was executed in given context.",
-        "declaration": "function isContext(ForgeContext context) external view returns (bool result);",
+        "declaration": "function isContext(ExecutionContext context) external view returns (bool result);",
         "visibility": "external",
         "mutability": "view",
         "signature": "isContext(uint8)",

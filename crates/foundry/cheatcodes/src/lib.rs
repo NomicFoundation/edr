@@ -16,7 +16,7 @@ pub extern crate foundry_cheatcodes_spec as spec;
 extern crate tracing;
 
 use alloy_primitives::Address;
-pub use config::{CheatsConfig, CheatsConfigOptions};
+pub use config::{CheatsConfig, CheatsConfigOptions, ExecutionContextConfig};
 pub use endpoints::{RpcEndpoint, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
 use foundry_evm_core::backend::DatabaseExt;
@@ -44,9 +44,8 @@ mod toml;
 mod utils;
 
 pub use cache::{CachedChains, CachedEndpoints, StorageCachingConfig};
-pub use env::set_execution_context;
 pub use test::expect::ExpectedCallTracker;
-pub use Vm::ForgeContext;
+pub use Vm::ExecutionContext;
 
 /// Cheatcode implementation.
 pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode {

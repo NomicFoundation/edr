@@ -82,6 +82,10 @@ async fn test_core() {
                     None,
                 )],
             ),
+            (
+                "default/core/ExecutionContext.t.sol:ExecutionContextTest",
+                vec![("testContext()", true, None, None, None)],
+            ),
         ]),
     );
 }

@@ -20,6 +20,9 @@ use crate::{cache::StorageCachingConfig, Vm::Rpc};
 /// to know.
 #[derive(Clone, Debug)]
 pub struct CheatsConfig {
+    /// Whether the execution is in the context of a test run, gas snapshot or
+    /// code coverage.
+    pub execution_context: ExecutionContextConfig,
     /// Whether the FFI cheatcode is enabled.
     pub ffi: bool,
     /// Use the create 2 factory in all cases including tests and
@@ -51,9 +54,25 @@ pub struct CheatsConfig {
     pub running_version: Option<Version>,
 }
 
+/// Solidity test execution contexts.
+#[derive(Clone, Debug, Default)]
+pub enum ExecutionContextConfig {
+    /// Test execution context.
+    Test,
+    /// Code coverage execution context.
+    Coverage,
+    /// Gas snapshot execution context.
+    Snapshot,
+    /// Unknown execution context.
+    #[default]
+    Unknown,
+}
+
 /// Configuration options specific to cheat codes.
 #[derive(Clone, Debug, Default)]
 pub struct CheatsConfigOptions {
+    /// Solidity test execution contexts.
+    pub execution_context: ExecutionContextConfig,
     /// Multiple rpc endpoints and their aliases
     pub rpc_endpoints: RpcEndpoints,
     /// Optional RPC cache path. If this is none, then no RPC calls will be
@@ -84,6 +103,7 @@ impl CheatsConfig {
         running_version: Option<Version>,
     ) -> Self {
         let CheatsConfigOptions {
+            execution_context,
             rpc_endpoints,
             rpc_cache_path,
             prompt_timeout,
@@ -95,6 +115,7 @@ impl CheatsConfig {
         let fs_permissions = fs_permissions.joined(&project_root);
 
         Self {
+            execution_context,
             ffi: evm_opts.ffi,
             always_use_create_2_factory: evm_opts.always_use_create_2_factory,
             prompt_timeout: Duration::from_secs(prompt_timeout),
@@ -239,6 +260,7 @@ impl CheatsConfig {
 impl Default for CheatsConfig {
     fn default() -> Self {
         Self {
+            execution_context: ExecutionContextConfig::default(),
             ffi: false,
             always_use_create_2_factory: false,
             prompt_timeout: Duration::from_secs(120),
@@ -262,6 +284,7 @@ mod tests {
 
     fn config(root: &str, fs_permissions: FsPermissions) -> CheatsConfig {
         let cheats_config_options = CheatsConfigOptions {
+            execution_context: ExecutionContextConfig::default(),
             rpc_endpoints: RpcEndpoints::default(),
             rpc_cache_path: None,
             rpc_storage_caching: StorageCachingConfig::default(),

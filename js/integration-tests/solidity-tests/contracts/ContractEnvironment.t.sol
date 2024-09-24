@@ -2,9 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "./test.sol";
+import "./Vm.sol";
 
 // Test that the contract environment related config values are passed on correctly
 contract ContractEnvironmentTest is DSTest {
+    Vm constant vm = Vm(HEVM_ADDRESS);
+    
     function chainId() internal view returns (uint256 id) {
         assembly {
             id := chainid()
@@ -16,5 +19,9 @@ contract ContractEnvironmentTest is DSTest {
         assertEq(chainId(), 12, "chain id is incorrect");
         assertEq(block.number, 23, "block number is incorrect");
         assertEq(block.timestamp, 45, "timestamp is incorrect");
+    }
+    
+    function testContextIsTest() public {
+        assertEq(vm.isContext(Vm.ExecutionContext.Test), true);
     }
 }

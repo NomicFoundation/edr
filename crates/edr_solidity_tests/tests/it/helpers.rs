@@ -18,7 +18,7 @@ use edr_solidity_tests::{
     MultiContractRunner, SolidityTestRunnerConfig,
 };
 use edr_test_utils::new_fd_lock;
-use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
+use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpoint, RpcEndpoints};
 use foundry_compilers::{
     artifacts::{CompactContractBytecode, Libraries},
     Artifact, EvmVersion, Project, ProjectCompileOutput,
@@ -100,7 +100,10 @@ impl ForgeTestProfile {
             trace: true,
             evm_opts: Self::evm_opts(),
             project_root: PROJECT_ROOT.clone(),
-            cheats_config_options: CheatsConfigOptions::default(),
+            cheats_config_options: CheatsConfigOptions {
+                execution_context: ExecutionContextConfig::Test,
+                ..CheatsConfigOptions::default()
+            },
             fuzz: TestFuzzConfig::default().into(),
             invariant: TestInvariantConfig::default().into(),
             coverage: false,

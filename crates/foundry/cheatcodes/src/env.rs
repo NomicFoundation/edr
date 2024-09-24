@@ -1,11 +1,12 @@
 //! Implementations of [`Environment`](crate::Group::Environment) cheatcodes.
 
-use std::{env, sync::OnceLock};
+use std::env;
 
 use alloy_dyn_abi::DynSolType;
 use alloy_sol_types::SolValue;
 
 use crate::{
+    config::ExecutionContextConfig,
     string, Cheatcode, Cheatcodes, Error, Result,
     Vm::{
         envAddress_0Call, envAddress_1Call, envBool_0Call, envBool_1Call, envBytes32_0Call,
@@ -13,12 +14,9 @@ use crate::{
         envInt_1Call, envOr_0Call, envOr_10Call, envOr_11Call, envOr_12Call, envOr_13Call,
         envOr_1Call, envOr_2Call, envOr_3Call, envOr_4Call, envOr_5Call, envOr_6Call, envOr_7Call,
         envOr_8Call, envOr_9Call, envString_0Call, envString_1Call, envUint_0Call, envUint_1Call,
-        isContextCall, setEnvCall, ForgeContext,
+        isContextCall, setEnvCall, ExecutionContext,
     },
 };
-
-/// Stores the forge execution context for the duration of the program.
-static FORGE_CONTEXT: OnceLock<ForgeContext> = OnceLock::new();
 
 impl Cheatcode for setEnvCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
@@ -291,17 +289,32 @@ impl Cheatcode for envOr_13Call {
 }
 
 impl Cheatcode for isContextCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
-        let Self { context } = self;
-        Ok((FORGE_CONTEXT.get() == Some(context)).abi_encode())
-    }
-}
+    fn apply(&self, state: &mut Cheatcodes) -> Result {
+        let Self {
+            context: context_arg,
+        } = self;
+        let configured_context = &state.config.execution_context;
 
-/// Set `forge` command current execution context for the duration of the
-/// program. Execution context is immutable, subsequent calls of this function
-/// won't change the context.
-pub fn set_execution_context(context: ForgeContext) {
-    let _ = FORGE_CONTEXT.set(context);
+        let group_match = matches!(
+            (configured_context, context_arg),
+            (
+                &ExecutionContextConfig::Test
+                    | &ExecutionContextConfig::Snapshot
+                    | &ExecutionContextConfig::Coverage,
+                ExecutionContext::TestGroup,
+            )
+        );
+
+        let exact_match = matches!(
+            (configured_context, context_arg),
+            (ExecutionContextConfig::Coverage, ExecutionContext::Coverage)
+                | (ExecutionContextConfig::Snapshot, ExecutionContext::Snapshot)
+                | (ExecutionContextConfig::Test, ExecutionContext::Test)
+                | (ExecutionContextConfig::Unknown, ExecutionContext::Unknown)
+        );
+
+        Ok((group_match || exact_match).abi_encode())
+    }
 }
 
 fn env(key: &str, ty: &DynSolType) -> Result {
