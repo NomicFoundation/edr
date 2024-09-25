@@ -1,6 +1,14 @@
 {
+<<<<<<< Updated upstream
   "name": "@ignored/edr",
   "version": "0.6.1",
+||||||| constructed merge base
+  "name": "@nomicfoundation/edr",
+  "version": "0.6.1",
+=======
+  "name": "@nomicfoundation/edr",
+  "version": "0.6.2-alpha.0",
+>>>>>>> Stashed changes
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@types/chai": "^4.2.0",
