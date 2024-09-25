@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
 use edr_eth::{
     block::Block as _,
+    bytecode::opcode::{self, OpCode},
     hex, l1,
     result::{ExecutionResult, InvalidTransaction, ResultAndState},
     spec::{ChainSpec, HaltReasonTrait},
@@ -17,10 +18,7 @@ use crate::{
     debug::GetContextData,
     evm::{
         handler::register::EvmHandler,
-        interpreter::{
-            opcode::{self, DynInstruction},
-            Interpreter, InterpreterResult, OpCode,
-        },
+        interpreter::{table::DynInstruction, Interpreter, InterpreterResult},
         Context, EvmWiring, InnerEvmContext, JournalEntry,
     },
     spec::RuntimeSpec,

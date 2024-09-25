@@ -2,6 +2,7 @@ use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
+    bytecode::opcode,
     result::{EVMErrorWiring, ExecutionResult, Output},
     spec::HaltReasonTrait,
     Address, Bytecode, Bytes, U256,
@@ -12,9 +13,8 @@ use crate::{
     evm::{
         handler::register::EvmHandler,
         interpreter::{
-            opcode::{self, DynInstruction},
-            return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-            Interpreter, SuccessOrHalt,
+            return_revert, table::DynInstruction, CallInputs, CallOutcome, CallValue, CreateInputs,
+            CreateOutcome, Interpreter, SuccessOrHalt,
         },
         Context, FrameOrResult, FrameResult, InnerEvmContext,
     },
