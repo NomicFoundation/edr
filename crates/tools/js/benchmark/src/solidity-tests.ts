@@ -16,6 +16,10 @@ import {
 } from "@nomicfoundation/edr";
 
 const EXPECTED_RESULTS = 15;
+// This is automatically cached in CI
+const RPC_CACHE_PATH = "./edr-cache";
+const SAMPLES = 9;
+const TOTAL_NAME = "Total";
 
 // Hack: since EDR currently doesn't support filtering certain tests in test suites, we run them, but ignore their failures.
 const EXCLUDED_TESTS = new Set([
@@ -44,12 +48,14 @@ export async function setupForgeStdRepo() {
   // Run npx hardhat compile
   execSync("npx hardhat compile", {
     cwd: repoPath,
-    stdio: "inherit",
+    // Spawn child sharing only stderr.
+    stdio: ["pipe", "pipe", process.stderr],
   });
 
   return repoPath;
 }
 
+/// Run Forge Standard Library tests and report to stdout
 export async function runForgeStdTests(forgeStdRepoPath: string) {
   const artifactsDir = path.join(forgeStdRepoPath, "artifacts");
   const hardhatConfig = require(
@@ -61,10 +67,65 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
     hardhatConfig
   );
 
-  const configs: SolidityTestRunnerConfigArgs = {
+  const config = getConfig(forgeStdRepoPath);
+
+  const allResults = [];
+  const runs = new Map<string, number[]>();
+  const recordRun = recordTime.bind(null, runs);
+
+  for (let i = 0; i < SAMPLES; i++) {
+    const start = performance.now();
+    const results = await runAllSolidityTests(artifacts, testSuiteIds, config);
+    const elapsed = performance.now() - start;
+
+    if (results.length !== EXPECTED_RESULTS) {
+      throw new Error(
+        `Expected ${EXPECTED_RESULTS} results, got ${results.length}`
+      );
+    }
+
+    const failed = new Set();
+    for (const res of results) {
+      for (const r of res.testResults) {
+        if (r.status !== "Success" && !EXCLUDED_TESTS.has(r.name)) {
+          failed.add(
+            `${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`
+          );
+        }
+      }
+    }
+    if (failed.size !== 0) {
+      console.error(failed);
+      throw new Error(`Some tests failed`);
+    }
+
+    recordRun(TOTAL_NAME, elapsed);
+    console.error(
+      `elapsed (s) on run ${i + 1}/${SAMPLES}: ${displaySec(elapsed)}`
+    );
+
+    for (const testSuiteResult of results) {
+      // `durationMs` is u64 in Rust which doesn't fit into JS `number`, but the JS `number` integer limit is 2^53-1
+      // which is thousands of years, so we can safely cast it to `number`
+      recordRun(testSuiteResult.id.name, Number(testSuiteResult.durationMs));
+    }
+
+    // Hold on to all results to prevent GC from interfering with the benchmark
+    allResults.push(results);
+  }
+
+  const results = getResults(runs);
+
+  // Log info to stderr so that it doesn't pollute stdout where we write the results
+  console.error("median total elapsed (s)", displaySec(results[0].value));
+
+  console.log(JSON.stringify(results));
+}
+
+function getConfig(forgeStdRepoPath: string): SolidityTestRunnerConfigArgs {
+  return {
     projectRoot: forgeStdRepoPath,
-    // TODO cache this in CI
-    rpcCachePath: "./forge-std-rpc-cache",
+    rpcCachePath: RPC_CACHE_PATH,
     fsPermissions: [
       { path: forgeStdRepoPath, access: FsAccessPermission.ReadWrite },
     ],
@@ -80,36 +141,52 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
       seed: "0x1234567890123456789012345678901234567890",
     },
   };
-
-  const start = performance.now();
-
-  const results = await runAllSolidityTests(artifacts, testSuiteIds, configs);
-
-  console.error("elapsed (s)", computeElapsedSec(start));
-
-  if (results.length !== EXPECTED_RESULTS) {
-    throw new Error(
-      `Expected ${EXPECTED_RESULTS} results, got ${results.length}`
-    );
-  }
-
-  const failed = new Set();
-  for (const res of results) {
-    for (const r of res.testResults) {
-      if (r.status !== "Success" && !EXCLUDED_TESTS.has(r.name)) {
-        failed.add(`${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`);
-      }
-    }
-  }
-  if (failed.size !== 0) {
-    console.error(failed);
-    throw new Error(`Some tests failed`);
-  }
 }
 
-function computeElapsedSec(since: number) {
-  const elapsedSec = (performance.now() - since) / 1000;
-  return Math.round(elapsedSec * 1000) / 1000;
+function getResults(runs: Map<string, number[]>) {
+  const results: { name: string; unit: string; value: number }[] = [];
+
+  const total = runs.get(TOTAL_NAME)!;
+  results.push({ name: TOTAL_NAME, unit: "ms", value: medianMs(total) });
+  runs.delete(TOTAL_NAME);
+
+  const testSuiteNames = Array.from(runs.keys());
+  testSuiteNames.sort();
+
+  for (const name of testSuiteNames) {
+    const value = medianMs(runs.get(name)!);
+    results.push({ name, unit: "ms", value });
+  }
+
+  return results;
+}
+
+function medianMs(values: number[]) {
+  if (values.length % 2 === 0) {
+    throw new Error("Expected odd number of values");
+  }
+  values.sort((a, b) => a - b);
+  const half = Math.floor(values.length / 2);
+  // Round to get rid of decimal milliseconds
+  return Math.round(values[half]);
+}
+
+function recordTime(
+  runs: Map<string, number[]>,
+  name: string,
+  elapsed: number
+) {
+  let measurements = runs.get(name);
+  if (measurements === undefined) {
+    measurements = [];
+    runs.set(name, measurements);
+  }
+  measurements.push(elapsed);
+}
+
+function displaySec(delta: number) {
+  const sec = delta / 1000;
+  return Math.round(sec * 100) / 100;
 }
 
 // Load contracts built with Hardhat
