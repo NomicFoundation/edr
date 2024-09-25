@@ -104,8 +104,6 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - uses: ./.github/actions/setup-rust
-        with:
-          components: llvm-tools-preview
 
       - name: Cache EDR RPC cache
         uses: actions/cache@v2
