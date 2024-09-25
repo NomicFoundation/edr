@@ -6,42 +6,42 @@
 /** An account that needs to be created during the genesis block. */
 export interface GenesisAccount {
   /** Account secret key */
-  secretKey: string
+  secretKey: string;
   /** Account balance */
-  balance: bigint
+  balance: bigint;
 }
 export interface BlockOptions {
   /** The parent block's hash */
-  parentHash?: Buffer
+  parentHash?: Buffer;
   /** The block's beneficiary */
-  beneficiary?: Buffer
+  beneficiary?: Buffer;
   /** The state's root hash */
-  stateRoot?: Buffer
+  stateRoot?: Buffer;
   /** The block's difficulty */
-  difficulty?: bigint
+  difficulty?: bigint;
   /** The block's number */
-  number?: bigint
+  number?: bigint;
   /** The block's gas limit */
-  gasLimit?: bigint
+  gasLimit?: bigint;
   /** The block's timestamp */
-  timestamp?: bigint
+  timestamp?: bigint;
   /** The block's extra data */
-  extraData?: Buffer
+  extraData?: Buffer;
   /** The block's mix hash (or prevrandao) */
-  mixHash?: Buffer
+  mixHash?: Buffer;
   /** The block's nonce */
-  nonce?: Buffer
+  nonce?: Buffer;
   /** The block's base gas fee */
-  baseFee?: bigint
+  baseFee?: bigint;
   /** The block's withdrawals */
-  withdrawals?: Array<Withdrawal>
+  withdrawals?: Array<Withdrawal>;
   /** Blob gas was added by EIP-4844 and is ignored in older headers. */
-  blobGas?: BlobGas
+  blobGas?: BlobGas;
   /**
    * The hash tree root of the parent beacon block for the given execution
    * block (EIP-4788).
    */
-  parentBeaconBlockRoot?: Buffer
+  parentBeaconBlockRoot?: Buffer;
 }
 /** Information about the blob gas used in a block. */
 export interface BlobGas {
@@ -49,24 +49,24 @@ export interface BlobGas {
    * The total amount of blob gas consumed by the transactions within the
    * block.
    */
-  gasUsed: bigint
+  gasUsed: bigint;
   /**
    * The running total of blob gas consumed in excess of the target, prior to
    * the block. Blocks with above-target blob gas consumption increase this
    * value, blocks with below-target blob gas consumption decrease it
    * (bounded at 0).
    */
-  excessGas: bigint
+  excessGas: bigint;
 }
 /** The result of executing a call override. */
 export interface CallOverrideResult {
-  result: Buffer
-  shouldRevert: boolean
+  result: Buffer;
+  shouldRevert: boolean;
 }
-export const GENERIC_CHAIN_TYPE: string
-export declare function genericChainProviderFactory(): ProviderFactory
-export const L1_CHAIN_TYPE: string
-export declare function l1ProviderFactory(): ProviderFactory
+export const GENERIC_CHAIN_TYPE: string;
+export declare function genericChainProviderFactory(): ProviderFactory;
+export const L1_CHAIN_TYPE: string;
+export declare function l1ProviderFactory(): ProviderFactory;
 /** Identifier for the Ethereum spec. */
 export const enum SpecId {
   /** Frontier */
@@ -106,180 +106,183 @@ export const enum SpecId {
   /** Cancun */
   Cancun = 17,
   /** Latest */
-  Latest = 18
+  Latest = 18,
 }
-export const FRONTIER: string
-export const FRONTIER_THAWING: string
-export const HOMESTEAD: string
-export const DAO_FORK: string
-export const TANGERINE: string
-export const SPURIOUS_DRAGON: string
-export const BYZANTIUM: string
-export const CONSTANTINOPLE: string
-export const PETERSBURG: string
-export const ISTANBUL: string
-export const MUIR_GLACIER: string
-export const BERLIN: string
-export const LONDON: string
-export const ARROW_GLACIER: string
-export const GRAY_GLACIER: string
-export const MERGE: string
-export const SHANGHAI: string
-export const CANCUN: string
-export const PRAGUE: string
-export const PRAGUE_EOF: string
-export const LATEST: string
+export const FRONTIER: string;
+export const FRONTIER_THAWING: string;
+export const HOMESTEAD: string;
+export const DAO_FORK: string;
+export const TANGERINE: string;
+export const SPURIOUS_DRAGON: string;
+export const BYZANTIUM: string;
+export const CONSTANTINOPLE: string;
+export const PETERSBURG: string;
+export const ISTANBUL: string;
+export const MUIR_GLACIER: string;
+export const BERLIN: string;
+export const LONDON: string;
+export const ARROW_GLACIER: string;
+export const GRAY_GLACIER: string;
+export const MERGE: string;
+export const SHANGHAI: string;
+export const CANCUN: string;
+export const PRAGUE: string;
+export const PRAGUE_EOF: string;
+export const LATEST: string;
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
-  chainId: bigint
+  chainId: bigint;
   /** The chain's supported hardforks */
-  hardforks: Array<HardforkActivation>
+  hardforks: Array<HardforkActivation>;
 }
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
   /** The URL of the JSON-RPC endpoint to fork from */
-  jsonRpcUrl: string
+  jsonRpcUrl: string;
   /**
    * The block number to fork from. If not provided, the latest safe block is
    * used.
    */
-  blockNumber?: bigint
+  blockNumber?: bigint;
   /** The HTTP headers to use when making requests to the JSON-RPC endpoint */
-  httpHeaders?: Array<HttpHeader>
+  httpHeaders?: Array<HttpHeader>;
 }
 export interface HttpHeader {
-  name: string
-  value: string
+  name: string;
+  value: string;
 }
 /** Configuration for a hardfork activation */
 export interface HardforkActivation {
   /** The block number at which the hardfork is activated */
-  blockNumber: bigint
+  blockNumber: bigint;
   /** The activated hardfork */
-  specId: string
+  specId: string;
 }
 /**The type of ordering to use when selecting blocks to mine. */
 export const enum MineOrdering {
   /**Insertion order */
-  Fifo = 'Fifo',
+  Fifo = "Fifo",
   /**Effective miner fee */
-  Priority = 'Priority'
+  Priority = "Priority",
 }
 /** Configuration for the provider's mempool. */
 export interface MemPoolConfig {
-  order: MineOrdering
+  order: MineOrdering;
 }
 export interface IntervalRange {
-  min: bigint
-  max: bigint
+  min: bigint;
+  max: bigint;
 }
 /** Configuration for the provider's miner. */
 export interface MiningConfig {
-  autoMine: boolean
-  interval?: bigint | IntervalRange
-  memPool: MemPoolConfig
+  autoMine: boolean;
+  interval?: bigint | IntervalRange;
+  memPool: MemPoolConfig;
 }
 /** Configuration for a provider */
 export interface ProviderConfig {
   /** Whether to allow blocks with the same timestamp */
-  allowBlocksWithSameTimestamp: boolean
+  allowBlocksWithSameTimestamp: boolean;
   /** Whether to allow unlimited contract size */
-  allowUnlimitedContractSize: boolean
+  allowUnlimitedContractSize: boolean;
   /** Whether to return an `Err` when `eth_call` fails */
-  bailOnCallFailure: boolean
+  bailOnCallFailure: boolean;
   /** Whether to return an `Err` when a `eth_sendTransaction` fails */
-  bailOnTransactionFailure: boolean
+  bailOnTransactionFailure: boolean;
   /** The gas limit of each block */
-  blockGasLimit: bigint
+  blockGasLimit: bigint;
   /** The directory to cache remote JSON-RPC responses */
-  cacheDir?: string
+  cacheDir?: string;
   /** The chain ID of the blockchain */
-  chainId: bigint
+  chainId: bigint;
   /** The configuration for chains */
-  chains: Array<ChainConfig>
+  chains: Array<ChainConfig>;
   /** The address of the coinbase */
-  coinbase: Buffer
+  coinbase: Buffer;
   /** Enables RIP-7212 */
-  enableRip7212: boolean
+  enableRip7212: boolean;
   /**
    * The configuration for forking a blockchain. If not provided, a local
    * blockchain will be created
    */
-  fork?: ForkConfig
+  fork?: ForkConfig;
   /** The genesis accounts of the blockchain */
-  genesisAccounts: Array<GenesisAccount>
+  genesisAccounts: Array<GenesisAccount>;
   /** The hardfork of the blockchain */
-  hardfork: string
+  hardfork: string;
   /**
    * The initial base fee per gas of the blockchain. Required for EIP-1559
    * transactions and later
    */
-  initialBaseFeePerGas?: bigint
+  initialBaseFeePerGas?: bigint;
   /** The initial blob gas of the blockchain. Required for EIP-4844 */
-  initialBlobGas?: BlobGas
+  initialBlobGas?: BlobGas;
   /** The initial date of the blockchain, in seconds since the Unix epoch */
-  initialDate?: bigint
+  initialDate?: bigint;
   /**
    * The initial parent beacon block root of the blockchain. Required for
    * EIP-4788
    */
-  initialParentBeaconBlockRoot?: Buffer
+  initialParentBeaconBlockRoot?: Buffer;
   /** The minimum gas price of the next block. */
-  minGasPrice: bigint
+  minGasPrice: bigint;
   /** The configuration for the miner */
-  mining: MiningConfig
+  mining: MiningConfig;
   /** The network ID of the blockchain */
-  networkId: bigint
+  networkId: bigint;
 }
 export interface DebugTraceResult {
-  pass: boolean
-  gasUsed: bigint
-  output?: Buffer
-  structLogs: Array<DebugTraceLogItem>
+  pass: boolean;
+  gasUsed: bigint;
+  output?: Buffer;
+  structLogs: Array<DebugTraceLogItem>;
 }
 export interface DebugTraceLogItem {
   /** Program Counter */
-  pc: bigint
-  op: number
+  pc: bigint;
+  op: number;
   /** Gas left before executing this operation as hex number. */
-  gas: string
+  gas: string;
   /** Gas cost of this operation as hex number. */
-  gasCost: string
+  gasCost: string;
   /** Array of all values (hex numbers) on the stack */
-  stack?: Array<string>
+  stack?: Array<string>;
   /** Depth of the call stack */
-  depth: bigint
+  depth: bigint;
   /** Size of memory array */
-  memSize: bigint
+  memSize: bigint;
   /** Name of the operation */
-  opName: string
+  opName: string;
   /** Description of an error as a hex string. */
-  error?: string
+  error?: string;
   /** Array of all allocated values as hex strings. */
-  memory?: Array<string>
+  memory?: Array<string>;
   /** Map of all stored values with keys and values encoded as hex strings. */
-  storage?: Record<string, string>
+  storage?: Record<string, string>;
 }
 /** Ethereum execution log. */
 export interface ExecutionLog {
-  address: Buffer
-  topics: Array<Buffer>
-  data: Buffer
+  address: Buffer;
+  topics: Array<Buffer>;
+  data: Buffer;
 }
 export interface ContractAndFunctionName {
   /** The contract name. */
-  contractName: string
+  contractName: string;
   /** The function name. Only present for calls. */
-  functionName?: string
+  functionName?: string;
 }
 export interface LoggerConfig {
   /** Whether to enable the logger. */
-  enable: boolean
-  decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
+  enable: boolean;
+  decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[];
   /** Used to resolve the contract and function name when logging. */
-  getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
-  printLineCallback: (message: string, replace: boolean) => void
+  getContractAndFunctionNameCallback: (
+    code: Buffer,
+    calldata?: Buffer
+  ) => ContractAndFunctionName;
+  printLineCallback: (message: string, replace: boolean) => void;
 }
 /** The possible reasons for successful termination of the EVM. */
 export const enum SuccessReason {
@@ -289,37 +292,37 @@ export const enum SuccessReason {
   Return = 1,
   /** The opcode `SELFDESTRUCT` was called */
   SelfDestruct = 2,
-  EofReturnContract = 3
+  EofReturnContract = 3,
 }
 export interface CallOutput {
   /** Return value */
-  returnValue: Buffer
+  returnValue: Buffer;
 }
 export interface CreateOutput {
   /** Return value */
-  returnValue: Buffer
+  returnValue: Buffer;
   /** Optionally, a 160-bit address */
-  address?: Buffer
+  address?: Buffer;
 }
 /** The result when the EVM terminates successfully. */
 export interface SuccessResult {
   /** The reason for termination */
-  reason: SuccessReason
+  reason: SuccessReason;
   /** The amount of gas used */
-  gasUsed: bigint
+  gasUsed: bigint;
   /** The amount of gas refunded */
-  gasRefunded: bigint
+  gasRefunded: bigint;
   /** The logs */
-  logs: Array<ExecutionLog>
+  logs: Array<ExecutionLog>;
   /** The transaction output */
-  output: CallOutput | CreateOutput
+  output: CallOutput | CreateOutput;
 }
 /** The result when the EVM terminates due to a revert. */
 export interface RevertResult {
   /** The amount of gas used */
-  gasUsed: bigint
+  gasUsed: bigint;
   /** The transaction output */
-  output: Buffer
+  output: Buffer;
 }
 /**
  * Indicates that the EVM has experienced an exceptional halt. This causes
@@ -350,36 +353,44 @@ export const enum ExceptionalHalt {
   /** EOF Subroutine stack overflow */
   EOFFunctionStackOverflow = 16,
   /** Check for target address validity is only done inside subcall. */
-  InvalidEXTCALLTarget = 17
+  InvalidEXTCALLTarget = 17,
 }
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
   /** The exceptional halt that occurred */
-  reason: ExceptionalHalt
+  reason: ExceptionalHalt;
   /**
    * Halting will spend all the gas and will thus be equal to the specified
    * gas limit
    */
-  gasUsed: bigint
+  gasUsed: bigint;
 }
 /** The result of executing a transaction. */
 export interface ExecutionResult {
   /** The transaction result */
-  result: SuccessResult | RevertResult | HaltResult
+  result: SuccessResult | RevertResult | HaltResult;
   /** Optional contract address if the transaction created a new contract. */
-  contractAddress?: Buffer
+  contractAddress?: Buffer;
 }
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
-  subscriptionCallback: (event: SubscriptionEvent) => void
+  subscriptionCallback: (event: SubscriptionEvent) => void;
 }
 export interface SubscriptionEvent {
-  filterId: bigint
-  result: any
+  filterId: bigint;
+  result: any;
 }
-export declare function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<BytecodeWrapper>
-export declare function linkHexStringBytecode(code: string, address: string, position: number): string
+export declare function createModelsAndDecodeBytecodes(
+  solcVersion: string,
+  compilerInput: any,
+  compilerOutput: any
+): Array<BytecodeWrapper>;
+export declare function linkHexStringBytecode(
+  code: string,
+  address: string,
+  position: number
+): string;
 export const enum ContractFunctionType {
   CONSTRUCTOR = 0,
   FUNCTION = 1,
@@ -387,10 +398,13 @@ export const enum ContractFunctionType {
   RECEIVE = 3,
   GETTER = 4,
   MODIFIER = 5,
-  FREE_FUNCTION = 6
+  FREE_FUNCTION = 6,
 }
-export declare function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
-export declare function printStackTrace(trace: SolidityStackTrace): void
+export declare function printMessageTrace(
+  trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace,
+  depth?: number | undefined | null
+): void;
+export declare function printStackTrace(trace: SolidityStackTrace): void;
 /** Represents the exit code of the EVM. */
 export const enum ExitCode {
   /** Execution was successful. */
@@ -408,53 +422,57 @@ export const enum ExitCode {
   /** Create init code size exceeds limit (runtime). */
   CODESIZE_EXCEEDS_MAXIMUM = 6,
   /** Create collision. */
-  CREATE_COLLISION = 7
+  CREATE_COLLISION = 7,
 }
 export interface EvmStep {
-  pc: number
+  pc: number;
 }
 export interface PrecompileMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  precompile: number
-  calldata: Uint8Array
+  value: bigint;
+  returnData: Uint8Array;
+  exit: Exit;
+  gasUsed: bigint;
+  depth: number;
+  precompile: number;
+  calldata: Uint8Array;
 }
 export interface CreateMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
+  value: bigint;
+  returnData: Uint8Array;
+  exit: Exit;
+  gasUsed: bigint;
+  depth: number;
+  code: Uint8Array;
+  steps: Array<
+    EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  >;
   /**
    * Reference to the resolved `Bytecode` EDR data.
    * Only used on the JS side by the `VmTraceDecoder` class.
    */
-  bytecode?: BytecodeWrapper
-  numberOfSubtraces: number
-  deployedContract?: Uint8Array | undefined
+  bytecode?: BytecodeWrapper;
+  numberOfSubtraces: number;
+  deployedContract?: Uint8Array | undefined;
 }
 export interface CallMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
+  value: bigint;
+  returnData: Uint8Array;
+  exit: Exit;
+  gasUsed: bigint;
+  depth: number;
+  code: Uint8Array;
+  steps: Array<
+    EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  >;
   /**
    * Reference to the resolved `Bytecode` EDR data.
    * Only used on the JS side by the `VmTraceDecoder` class.
    */
-  bytecode?: BytecodeWrapper
-  numberOfSubtraces: number
-  calldata: Uint8Array
-  address: Uint8Array
-  codeAddress: Uint8Array
+  bytecode?: BytecodeWrapper;
+  numberOfSubtraces: number;
+  calldata: Uint8Array;
+  address: Uint8Array;
+  codeAddress: Uint8Array;
 }
 export const enum StackTraceEntryType {
   CALLSTACK_ENTRY = 0,
@@ -480,263 +498,340 @@ export const enum StackTraceEntryType {
   UNMAPPED_SOLC_0_6_3_REVERT_ERROR = 20,
   CONTRACT_TOO_LARGE_ERROR = 21,
   INTERNAL_FUNCTION_CALLSTACK_ENTRY = 22,
-  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23
+  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23,
 }
-export declare function stackTraceEntryTypeToString(val: StackTraceEntryType): string
-export const FALLBACK_FUNCTION_NAME: string
-export const RECEIVE_FUNCTION_NAME: string
-export const CONSTRUCTOR_FUNCTION_NAME: string
-export const UNRECOGNIZED_FUNCTION_NAME: string
-export const UNKNOWN_FUNCTION_NAME: string
-export const PRECOMPILE_FUNCTION_NAME: string
-export const UNRECOGNIZED_CONTRACT_NAME: string
+export declare function stackTraceEntryTypeToString(
+  val: StackTraceEntryType
+): string;
+export const FALLBACK_FUNCTION_NAME: string;
+export const RECEIVE_FUNCTION_NAME: string;
+export const CONSTRUCTOR_FUNCTION_NAME: string;
+export const UNRECOGNIZED_FUNCTION_NAME: string;
+export const UNKNOWN_FUNCTION_NAME: string;
+export const PRECOMPILE_FUNCTION_NAME: string;
+export const UNRECOGNIZED_CONTRACT_NAME: string;
 export interface SourceReference {
-  sourceName: string
-  sourceContent: string
-  contract?: string
-  function?: string
-  line: number
-  range: Array<number>
+  sourceName: string;
+  sourceContent: string;
+  contract?: string;
+  function?: string;
+  line: number;
+  range: Array<number>;
 }
 export interface CallstackEntryStackTraceEntry {
-  type: StackTraceEntryType.CALLSTACK_ENTRY
-  sourceReference: SourceReference
-  functionType: ContractFunctionType
+  type: StackTraceEntryType.CALLSTACK_ENTRY;
+  sourceReference: SourceReference;
+  functionType: ContractFunctionType;
 }
 export interface UnrecognizedCreateCallstackEntryStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_CREATE_CALLSTACK_ENTRY
-  sourceReference?: undefined
+  type: StackTraceEntryType.UNRECOGNIZED_CREATE_CALLSTACK_ENTRY;
+  sourceReference?: undefined;
 }
 export interface UnrecognizedContractCallstackEntryStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY
-  address: Uint8Array
-  sourceReference?: undefined
+  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY;
+  address: Uint8Array;
+  sourceReference?: undefined;
 }
 export interface PrecompileErrorStackTraceEntry {
-  type: StackTraceEntryType.PRECOMPILE_ERROR
-  precompile: number
-  sourceReference?: undefined
+  type: StackTraceEntryType.PRECOMPILE_ERROR;
+  precompile: number;
+  sourceReference?: undefined;
 }
 export interface RevertErrorStackTraceEntry {
-  type: StackTraceEntryType.REVERT_ERROR
-  returnData: Uint8Array
-  sourceReference: SourceReference
-  isInvalidOpcodeError: boolean
+  type: StackTraceEntryType.REVERT_ERROR;
+  returnData: Uint8Array;
+  sourceReference: SourceReference;
+  isInvalidOpcodeError: boolean;
 }
 export interface PanicErrorStackTraceEntry {
-  type: StackTraceEntryType.PANIC_ERROR
-  errorCode: bigint
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.PANIC_ERROR;
+  errorCode: bigint;
+  sourceReference?: SourceReference;
 }
 export interface CustomErrorStackTraceEntry {
-  type: StackTraceEntryType.CUSTOM_ERROR
-  message: string
-  sourceReference: SourceReference
+  type: StackTraceEntryType.CUSTOM_ERROR;
+  message: string;
+  sourceReference: SourceReference;
 }
 export interface FunctionNotPayableErrorStackTraceEntry {
-  type: StackTraceEntryType.FUNCTION_NOT_PAYABLE_ERROR
-  value: bigint
-  sourceReference: SourceReference
+  type: StackTraceEntryType.FUNCTION_NOT_PAYABLE_ERROR;
+  value: bigint;
+  sourceReference: SourceReference;
 }
 export interface InvalidParamsErrorStackTraceEntry {
-  type: StackTraceEntryType.INVALID_PARAMS_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.INVALID_PARAMS_ERROR;
+  sourceReference: SourceReference;
 }
 export interface FallbackNotPayableErrorStackTraceEntry {
-  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_ERROR
-  value: bigint
-  sourceReference: SourceReference
+  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_ERROR;
+  value: bigint;
+  sourceReference: SourceReference;
 }
 export interface FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
-  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_AND_NO_RECEIVE_ERROR
-  value: bigint
-  sourceReference: SourceReference
+  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_AND_NO_RECEIVE_ERROR;
+  value: bigint;
+  sourceReference: SourceReference;
 }
 export interface UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR;
+  sourceReference: SourceReference;
 }
 export interface MissingFallbackOrReceiveErrorStackTraceEntry {
-  type: StackTraceEntryType.MISSING_FALLBACK_OR_RECEIVE_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.MISSING_FALLBACK_OR_RECEIVE_ERROR;
+  sourceReference: SourceReference;
 }
 export interface ReturndataSizeErrorStackTraceEntry {
-  type: StackTraceEntryType.RETURNDATA_SIZE_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.RETURNDATA_SIZE_ERROR;
+  sourceReference: SourceReference;
 }
 export interface NonContractAccountCalledErrorStackTraceEntry {
-  type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR;
+  sourceReference: SourceReference;
 }
 export interface CallFailedErrorStackTraceEntry {
-  type: StackTraceEntryType.CALL_FAILED_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.CALL_FAILED_ERROR;
+  sourceReference: SourceReference;
 }
 export interface DirectLibraryCallErrorStackTraceEntry {
-  type: StackTraceEntryType.DIRECT_LIBRARY_CALL_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.DIRECT_LIBRARY_CALL_ERROR;
+  sourceReference: SourceReference;
 }
 export interface UnrecognizedCreateErrorStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR
-  returnData: Uint8Array
-  sourceReference?: undefined
-  isInvalidOpcodeError: boolean
+  type: StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR;
+  returnData: Uint8Array;
+  sourceReference?: undefined;
+  isInvalidOpcodeError: boolean;
 }
 export interface UnrecognizedContractErrorStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_ERROR
-  address: Uint8Array
-  returnData: Uint8Array
-  sourceReference?: undefined
-  isInvalidOpcodeError: boolean
+  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_ERROR;
+  address: Uint8Array;
+  returnData: Uint8Array;
+  sourceReference?: undefined;
+  isInvalidOpcodeError: boolean;
 }
 export interface OtherExecutionErrorStackTraceEntry {
-  type: StackTraceEntryType.OTHER_EXECUTION_ERROR
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.OTHER_EXECUTION_ERROR;
+  sourceReference?: SourceReference;
 }
 export interface UnmappedSolc063RevertErrorStackTraceEntry {
-  type: StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR;
+  sourceReference?: SourceReference;
 }
 export interface ContractTooLargeErrorStackTraceEntry {
-  type: StackTraceEntryType.CONTRACT_TOO_LARGE_ERROR
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.CONTRACT_TOO_LARGE_ERROR;
+  sourceReference?: SourceReference;
 }
 export interface InternalFunctionCallStackEntry {
-  type: StackTraceEntryType.INTERNAL_FUNCTION_CALLSTACK_ENTRY
-  pc: number
-  sourceReference: SourceReference
+  type: StackTraceEntryType.INTERNAL_FUNCTION_CALLSTACK_ENTRY;
+  pc: number;
+  sourceReference: SourceReference;
 }
 export interface ContractCallRunOutOfGasError {
-  type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR;
+  sourceReference?: SourceReference;
 }
 export interface ContractAndFunctionName {
-  contractName: string
-  functionName: string | undefined
+  contractName: string;
+  functionName: string | undefined;
 }
-export declare function initializeVmTraceDecoder(vmTraceDecoder: VmTraceDecoder, tracingConfig: any): void
+export declare function initializeVmTraceDecoder(
+  vmTraceDecoder: VmTraceDecoder,
+  tracingConfig: any
+): void;
 export interface TracingMessage {
   /** Sender address */
-  readonly caller: Buffer
+  readonly caller: Buffer;
   /** Recipient address. None if it is a Create message. */
-  readonly to?: Buffer
+  readonly to?: Buffer;
   /** Whether it's a static call */
-  readonly isStaticCall: boolean
+  readonly isStaticCall: boolean;
   /** Transaction gas limit */
-  readonly gasLimit: bigint
+  readonly gasLimit: bigint;
   /** Depth of the message */
-  readonly depth: number
+  readonly depth: number;
   /** Input data of the message */
-  readonly data: Buffer
+  readonly data: Buffer;
   /** Value sent in the message */
-  readonly value: bigint
+  readonly value: bigint;
   /**
    * Address of the code that is being executed. Can be different from `to`
    * if a delegate call is being done.
    */
-  readonly codeAddress?: Buffer
+  readonly codeAddress?: Buffer;
   /** Code of the contract that is being executed. */
-  readonly code?: Buffer
+  readonly code?: Buffer;
 }
 export interface TracingStep {
   /** Call depth */
-  readonly depth: number
+  readonly depth: number;
   /** The program counter */
-  readonly pc: bigint
+  readonly pc: bigint;
   /** The executed op code */
-  readonly opcode: string
+  readonly opcode: string;
   /**
    * The entries on the stack. It only contains the top element unless
    * verbose tracing is enabled. The vector is empty if there are no elements
    * on the stack.
    */
-  readonly stack: Array<bigint>
+  readonly stack: Array<bigint>;
   /** The memory at the step. None if verbose tracing is disabled. */
-  readonly memory?: Buffer
+  readonly memory?: Buffer;
 }
 export interface TracingMessageResult {
   /** Execution result */
-  readonly executionResult: ExecutionResult
+  readonly executionResult: ExecutionResult;
 }
 export interface Withdrawal {
   /** The index of withdrawal */
-  index: bigint
+  index: bigint;
   /** The index of the validator that generated the withdrawal */
-  validatorIndex: bigint
+  validatorIndex: bigint;
   /** The recipient address for withdrawal value */
-  address: Buffer
+  address: Buffer;
   /** The value contained in withdrawal */
-  amount: bigint
+  amount: bigint;
 }
-export class EdrContext {
+export declare class EdrContext {
   /**Creates a new [`EdrContext`] instance. Should only be called once! */
-  constructor()
+  constructor();
   /**Constructs a new provider with the provided configuration. */
-  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig): Promise<Provider>
+  createProvider(
+    chainType: string,
+    providerConfig: ProviderConfig,
+    loggerConfig: LoggerConfig,
+    subscriptionConfig: SubscriptionConfig
+  ): Promise<Provider>;
   /**Registers a new provider factory for the provided chain type. */
-  registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
+  registerProviderFactory(
+    chainType: string,
+    factory: ProviderFactory
+  ): Promise<void>;
 }
-export class ProviderFactory { }
+export class ProviderFactory {}
 export class Response {
   /**Returns the response data as a JSON string or a JSON object. */
-  get data(): string | any
+  get data(): string | any;
   /**Returns the Solidity trace of the transaction that failed to execute, if any. */
-  get solidityTrace(): RawTrace | null
+  get solidityTrace(): RawTrace | null;
   /**Returns the raw traces of executed contracts. This maybe contain zero or more traces. */
-  get traces(): Array<RawTrace>
+  get traces(): Array<RawTrace>;
 }
 /** A JSON-RPC provider for Ethereum. */
 export class Provider {
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
-  handleRequest(request: string): Promise<Response>
-  setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): Promise<void>
+  handleRequest(request: string): Promise<Response>;
+  setCallOverrideCallback(
+    callOverrideCallback: (
+      contract_address: Buffer,
+      data: Buffer
+    ) => Promise<CallOverrideResult | undefined>
+  ): Promise<void>;
   /**
    * Set to `true` to make the traces returned with `eth_call`,
    * `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
    * `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
    * `false` to disable this.
    */
-  setVerboseTracing(verboseTracing: boolean): Promise<void>
+  setVerboseTracing(verboseTracing: boolean): Promise<void>;
 }
 /**
  * Opaque handle to the `Bytecode` struct.
  * Only used on the JS side by the `VmTraceDecoder` class.
  */
-export class BytecodeWrapper { }
+export class BytecodeWrapper {}
 export class Exit {
-  get kind(): ExitCode
-  isError(): boolean
-  getReason(): string
+  get kind(): ExitCode;
+  isError(): boolean;
+  getReason(): string;
 }
 export class ReturnData {
-  readonly value: Uint8Array
-  constructor(value: Uint8Array)
-  isEmpty(): boolean
-  isErrorReturnData(): boolean
-  isPanicReturnData(): boolean
-  decodeError(): string
-  decodePanic(): bigint
+  readonly value: Uint8Array;
+  constructor(value: Uint8Array);
+  isEmpty(): boolean;
+  isErrorReturnData(): boolean;
+  isPanicReturnData(): boolean;
+  decodeError(): string;
+  decodePanic(): bigint;
 }
 export class SolidityTracer {
-  
-  constructor()
-  getStackTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): SolidityStackTrace
+  constructor();
+  getStackTrace(
+    trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  ): SolidityStackTrace;
 }
 export class VmTraceDecoder {
-  constructor()
-  addBytecode(bytecode: BytecodeWrapper): void
-  tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
-  getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName
+  constructor();
+  addBytecode(bytecode: BytecodeWrapper): void;
+  tryToDecodeMessageTrace(
+    messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  ): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace;
+  getContractAndFunctionNamesForCall(
+    code: Uint8Array,
+    calldata: Uint8Array | undefined
+  ): ContractAndFunctionName;
 }
-export type VMTracer = VmTracer
+export type VMTracer = VmTracer;
 /** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
 export class VmTracer {
-  constructor()
+  constructor();
   /** Observes a trace, collecting information about the execution of the EVM. */
-  observe(trace: RawTrace): void
-  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
-  getLastError(): Error | undefined
+  observe(trace: RawTrace): void;
+  getLastTopLevelMessageTrace():
+    | PrecompileMessageTrace
+    | CallMessageTrace
+    | CreateMessageTrace
+    | undefined;
+  getLastError(): Error | undefined;
 }
-export class RawTrace {
-  trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
+/**
+ * Opaque handle to the `Bytecode` struct.
+ * Only used on the JS side by the `VmTraceDecoder` class.
+ */
+export declare class BytecodeWrapper {}
+export declare class Exit {
+  get kind(): ExitCode;
+  isError(): boolean;
+  getReason(): string;
+}
+export declare class ReturnData {
+  readonly value: Uint8Array;
+  constructor(value: Uint8Array);
+  isEmpty(): boolean;
+  isErrorReturnData(): boolean;
+  isPanicReturnData(): boolean;
+  decodeError(): string;
+  decodePanic(): bigint;
+}
+export declare class SolidityTracer {
+  constructor();
+  getStackTrace(
+    trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  ): SolidityStackTrace;
+}
+export declare class VmTraceDecoder {
+  constructor();
+  addBytecode(bytecode: BytecodeWrapper): void;
+  tryToDecodeMessageTrace(
+    messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
+  ): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace;
+  getContractAndFunctionNamesForCall(
+    code: Uint8Array,
+    calldata: Uint8Array | undefined
+  ): ContractAndFunctionName;
+}
+export type VMTracer = VmTracer;
+/** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
+export declare class VmTracer {
+  constructor();
+  /** Observes a trace, collecting information about the execution of the EVM. */
+  observe(trace: RawTrace): void;
+  getLastTopLevelMessageTrace():
+    | PrecompileMessageTrace
+    | CallMessageTrace
+    | CreateMessageTrace
+    | undefined;
+  getLastError(): Error | undefined;
+}
+export declare class RawTrace {
+  trace(): Array<TracingMessage | TracingStep | TracingMessageResult>;
 }

@@ -100,9 +100,11 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
 }
 
 fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8]) {
-    let last_instr_pc = instructions.last().map_or(0, |instr| instr.pc);
-
-    let mut bytes_index = (last_instr_pc + 1) as usize;
+    let mut bytes_index = instructions.last().map_or(0, |instr| {
+        // On the odd chance that the last instruction is a PUSH, we make sure
+        // to include any immediate data that might be present.
+        instr.pc as usize + 1 + instr.opcode.info().immediate_size() as usize
+    });
 
     while bytecode.get(bytes_index) != Some(OpCode::INVALID.get()).as_ref() {
         let opcode = OpCode::new(bytecode[bytes_index]).expect("Invalid opcode");
@@ -206,4 +208,36 @@ pub fn decode_instructions(
     }
 
     instructions
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_eth::bytecode::opcode;
+
+    use super::*;
+
+    #[test]
+    fn unmapped_instruction_opcode_boundary() {
+        let bytecode = &[opcode::PUSH2, 0xde, 0xad, opcode::STOP, opcode::INVALID];
+
+        let mut instructions = vec![Instruction {
+            pc: 0,
+            opcode: OpCode::PUSH2,
+            jump_type: JumpType::NotJump,
+            push_data: Some(vec![0xde, 0xad]),
+            location: None,
+        }];
+
+        // Make sure we start decoding from opcode::STOP rather than from inside
+        // the push data.
+        add_unmapped_instructions(&mut instructions, bytecode);
+
+        assert!(matches!(
+            instructions.last(),
+            Some(Instruction {
+                opcode: OpCode::STOP,
+                ..
+            })
+        ));
+    }
 }

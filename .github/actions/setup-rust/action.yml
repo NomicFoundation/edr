@@ -1,13 +1,30 @@
-name: Setup rust
-description: Sets up rust
+name: Setup Rust
+description: Sets up Rust
+inputs:
+  toolchain:
+    description: The Rust toolchain to use
+    required: false
+  components:
+    description: Comma-separated list of components to install
+    required: false
 
 runs:
   using: composite
   steps:
-    - name: Install Rust (stable)
-      uses: actions-rs/toolchain@v1
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        profile: minimal
-        override: true
+        # Empty string means rust-toolchain if it exists, otherwise stable
+        toolchain: ${{ inputs.toolchain }}
+        components: ${{ inputs.components }}
+        cache: true
+        # Do not override the RUSTFLAGS by default and instead do that per job,
+        # if needed. Setting RUSTFLAGS via env var, config, etc. is mutually
+        # exclusive and often a source of bugs.
+        # Empty string here means no override.
+        rustflags: ""
+        # By default, we do not override the toolchain from rust-toolchain.
+        # The user needs to explicitly use `<cmd> +<toolchain>` for clarity.
+        override: false
 
     - uses: Swatinem/rust-cache@v2
