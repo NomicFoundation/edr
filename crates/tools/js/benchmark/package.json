@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "",
   "devDependencies": {
-    "@nomicfoundation/edr": "workspace:*",
+    "@ignored/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
     "@types/argparse": "^2.0.16",
     "@types/chai": "^4.2.0",

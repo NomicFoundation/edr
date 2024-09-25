@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  hardhat>@nomicfoundation/edr: workspace:*
+  hardhat>@ignored/edr: workspace:*
 
 importers:
 
@@ -83,7 +83,7 @@ importers:
 
   crates/tools/js/benchmark:
     devDependencies:
-      '@nomicfoundation/edr':
+      '@ignored/edr':
         specifier: workspace:*
         version: link:../../../edr_napi
       '@nomicfoundation/edr-helpers':
@@ -207,12 +207,12 @@ importers:
 
   hardhat-tests:
     devDependencies:
+      '@ignored/edr':
+        specifier: workspace:*
+        version: link:../crates/edr_napi
       '@metamask/eth-sig-util':
         specifier: ^4.0.0
         version: 4.0.1
-      '@nomicfoundation/edr':
-        specifier: workspace:*
-        version: link:../crates/edr_napi
       '@nomicfoundation/ethereumjs-block':
         specifier: 5.0.4
         version: 5.0.4
@@ -369,7 +369,7 @@ importers:
 
   js/helpers:
     dependencies:
-      '@nomicfoundation/edr':
+      '@ignored/edr':
         specifier: workspace:*
         version: link:../../crates/edr_napi
     devDependencies:
@@ -412,7 +412,7 @@ importers:
 
   js/integration-tests/solidity-tests:
     devDependencies:
-      '@nomicfoundation/edr':
+      '@ignored/edr':
         specifier: workspace:*
         version: link:../../../crates/edr_napi
       '@nomicfoundation/edr-helpers':
@@ -860,6 +860,38 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@nomicfoundation/edr-darwin-arm64@0.5.2':
+    resolution: {integrity: sha512-Gm4wOPKhbDjGTIRyFA2QUAPfCXA1AHxYOKt3yLSGJkQkdy9a5WW+qtqKeEKHc/+4wpJSLtsGQfpzyIzggFfo/A==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-darwin-x64@0.5.2':
+    resolution: {integrity: sha512-ClyABq2dFCsrYEED3/UIO0c7p4H1/4vvlswFlqUyBpOkJccr75qIYvahOSJRM62WgUFRhbSS0OJXFRwc/PwmVg==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-linux-arm64-gnu@0.5.2':
+    resolution: {integrity: sha512-HWMTVk1iOabfvU2RvrKLDgtFjJZTC42CpHiw2h6rfpsgRqMahvIlx2jdjWYzFNy1jZKPTN1AStQ/91MRrg5KnA==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-linux-arm64-musl@0.5.2':
+    resolution: {integrity: sha512-CwsQ10xFx/QAD5y3/g5alm9+jFVuhc7uYMhrZAu9UVF+KtVjeCvafj0PaVsZ8qyijjqVuVsJ8hD1x5ob7SMcGg==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-linux-x64-gnu@0.5.2':
+    resolution: {integrity: sha512-CWVCEdhWJ3fmUpzWHCRnC0/VLBDbqtqTGTR6yyY1Ep3S3BOrHEAvt7h5gx85r2vLcztisu2vlDq51auie4IU1A==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-linux-x64-musl@0.5.2':
+    resolution: {integrity: sha512-+aJDfwhkddy2pP5u1ISg3IZVAm0dO836tRlDTFWtvvSMQ5hRGqPcWwlsbobhDQsIxhPJyT7phL0orCg5W3WMeA==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-win32-x64-msvc@0.5.2':
+    resolution: {integrity: sha512-CcvvuA3sAv7liFNPsIR/68YlH6rrybKzYttLlMr80d4GKJjwJ5OKb3YgE6FdZZnOfP19HEHhsLcE0DPLtY3r0w==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr@0.5.2':
+    resolution: {integrity: sha512-hW/iLvUQZNTVjFyX/I40rtKvvDOqUEyIi96T28YaLfmPL+3LW2lxmYLUXEJ6MI14HzqxDqrLyhf6IbjAa2r3Dw==}
+    engines: {node: '>= 18'}
 
   '@nomicfoundation/ethereumjs-block@5.0.4':
     resolution: {integrity: sha512-AcyacJ9eX/uPEvqsPiB+WO1ymE+kyH48qGGiGV+YTojdtas8itUTW5dehDSOXEEItWGbbzEJ4PRqnQZlWaPvDw==}
@@ -3962,6 +3994,30 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.17.1
 
+  '@nomicfoundation/edr-darwin-arm64@0.5.2': {}
+
+  '@nomicfoundation/edr-darwin-x64@0.5.2': {}
+
+  '@nomicfoundation/edr-linux-arm64-gnu@0.5.2': {}
+
+  '@nomicfoundation/edr-linux-arm64-musl@0.5.2': {}
+
+  '@nomicfoundation/edr-linux-x64-gnu@0.5.2': {}
+
+  '@nomicfoundation/edr-linux-x64-musl@0.5.2': {}
+
+  '@nomicfoundation/edr-win32-x64-msvc@0.5.2': {}
+
+  '@nomicfoundation/edr@0.5.2':
+    dependencies:
+      '@nomicfoundation/edr-darwin-arm64': 0.5.2
+      '@nomicfoundation/edr-darwin-x64': 0.5.2
+      '@nomicfoundation/edr-linux-arm64-gnu': 0.5.2
+      '@nomicfoundation/edr-linux-arm64-musl': 0.5.2
+      '@nomicfoundation/edr-linux-x64-gnu': 0.5.2
+      '@nomicfoundation/edr-linux-x64-musl': 0.5.2
+      '@nomicfoundation/edr-win32-x64-msvc': 0.5.2
+
   '@nomicfoundation/ethereumjs-block@5.0.4':
     dependencies:
       '@nomicfoundation/ethereumjs-common': 4.0.4
@@ -5382,7 +5438,7 @@ snapshots:
     dependencies:
       '@ethersproject/abi': 5.7.0
       '@metamask/eth-sig-util': 4.0.1
-      '@nomicfoundation/edr': link:crates/edr_napi
+      '@nomicfoundation/edr': 0.5.2
       '@nomicfoundation/ethereumjs-common': 4.0.4
       '@nomicfoundation/ethereumjs-tx': 5.0.4
       '@nomicfoundation/ethereumjs-util': 9.0.4

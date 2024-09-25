@@ -2,7 +2,7 @@ import chai, { assert, expect } from "chai";
 import { TestContext } from "./testContext";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { FuzzTestKind } from "@nomicfoundation/edr";
+import { FuzzTestKind } from "@ignored/edr";
 import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 describe("Fuzz and invariant testing", function () {

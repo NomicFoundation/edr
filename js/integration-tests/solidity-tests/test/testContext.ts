@@ -4,7 +4,7 @@ import {
   FuzzConfigArgs,
   InvariantConfigArgs,
   type SolidityTestRunnerConfigArgs,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr";
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "",
   "dependencies": {
-    "@nomicfoundation/edr": "workspace:*"
+    "@ignored/edr": "workspace:*"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",

@@ -420,4 +420,4 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NOMICFOUNDATION_ORG_NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.IGNORED_ORG_NPM_TOKEN }}
