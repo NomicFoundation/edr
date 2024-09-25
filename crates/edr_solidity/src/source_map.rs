@@ -209,3 +209,35 @@ pub fn decode_instructions(
 
     instructions
 }
+
+#[cfg(test)]
+mod tests {
+    use edr_evm::interpreter::opcode;
+
+    use super::*;
+
+    #[test]
+    fn unmapped_instruction_opcode_boundary() {
+        let bytecode = &[opcode::PUSH2, 0xde, 0xad, opcode::STOP, opcode::INVALID];
+
+        let mut instructions = vec![Instruction {
+            pc: 0,
+            opcode: OpCode::PUSH2,
+            jump_type: JumpType::NotJump,
+            push_data: Some(vec![0xde, 0xad]),
+            location: None,
+        }];
+
+        // Make sure we start decoding from opcode::STOP rather than from inside
+        // the push data.
+        add_unmapped_instructions(&mut instructions, bytecode);
+
+        assert!(matches!(
+            instructions.last(),
+            Some(Instruction {
+                opcode: OpCode::STOP,
+                ..
+            })
+        ));
+    }
+}
