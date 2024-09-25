@@ -86,8 +86,8 @@ impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
             Block: Default,
-            Transaction: Default
-                             + TransactionValidation<
+            SignedTransaction: Default
+                                   + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + PartialEq,
             >,
         >,
@@ -150,10 +150,10 @@ impl<
             TimerT,
             Block: Clone + Default,
             PooledTransaction: IsEip155,
-            Transaction: Default
-                             + TransactionMut
-                             + TransactionType<Type: IsEip4844>
-                             + TransactionValidation<
+            SignedTransaction: Default
+                                   + TransactionMut
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + PartialEq,
             >,
         >,

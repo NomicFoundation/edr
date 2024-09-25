@@ -1,11 +1,12 @@
 pub use edr_eth::transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Legacy};
 use edr_eth::{
+    eips::{eip2930, eip7702},
     transaction::{
-        signed::PreOrPostEip155, AuthorizationList, ExecutableTransaction, IsEip155, Transaction,
-        TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, Transaction, TxKind,
+        INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     utils::enveloped,
-    AccessListItem, Address, Blob, Bytes, B256, U256,
+    Address, Blob, Bytes, B256, U256,
 };
 use edr_provider::spec::HardforkValidationData;
 
@@ -186,7 +187,7 @@ impl HardforkValidationData for Pooled {
         Transaction::max_priority_fee_per_gas(self)
     }
 
-    fn access_list(&self) -> Option<&Vec<AccessListItem>> {
+    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
         match self {
             Pooled::PreEip155Legacy(_) | Pooled::PostEip155Legacy(_) | Pooled::Deposit(_) => None,
             Pooled::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
@@ -305,7 +306,7 @@ impl Transaction for Pooled {
         }
     }
 
-    fn access_list(&self) -> &[AccessListItem] {
+    fn access_list(&self) -> &[eip2930::AccessListItem] {
         match self {
             Pooled::PreEip155Legacy(tx) => tx.access_list(),
             Pooled::PostEip155Legacy(tx) => tx.access_list(),
@@ -349,7 +350,7 @@ impl Transaction for Pooled {
         }
     }
 
-    fn authorization_list(&self) -> Option<&AuthorizationList> {
+    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         match self {
             Pooled::PreEip155Legacy(tx) => tx.authorization_list(),
             Pooled::PostEip155Legacy(tx) => tx.authorization_list(),

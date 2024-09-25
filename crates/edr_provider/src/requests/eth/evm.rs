@@ -28,8 +28,8 @@ pub fn handle_mine_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,

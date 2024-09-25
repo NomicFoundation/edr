@@ -1,7 +1,8 @@
-pub use edr_eth::receipt::BlockReceipt;
-
 /// Types for Optimism execution receipts.
 pub mod execution;
+
+pub use edr_eth::receipt::BlockReceipt;
+pub use edr_evm::receipt::ExecutionReceiptBuilder;
 
 /// Optimism execution receipt.
 #[derive(Clone, Debug, PartialEq, Eq)]

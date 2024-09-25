@@ -14,29 +14,28 @@ use std::{
 
 use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
+    account::{Account, AccountInfo},
     block::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         BlockOptions,
     },
-    db::StateRef,
-    env::CfgEnv,
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
+    l1,
     log::FilterLog,
     receipt::Receipt as _,
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
     spec::{ChainSpec, HaltReasonTrait},
-    state::{Account, EvmStorageSlot},
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
         ExecutableTransaction as _, IsEip4844, IsSupported as _, Transaction as _, TransactionMut,
         TransactionType, TransactionValidation,
     },
-    AccountInfo, Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet,
-    Precompile, SpecId, B256, KECCAK_EMPTY, U256,
+    Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet, B256,
+    KECCAK_EMPTY, U256,
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
@@ -44,12 +43,15 @@ use edr_evm::{
         Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
         LocalBlockchain, LocalCreationError, SyncBlockchain,
     },
+    config::CfgEnv,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
-    mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
+    mine_block_with_single_transaction,
+    precompile::Precompile,
+    register_eip_3155_and_raw_tracers_handles,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{
-        AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
-        SyncState,
+        AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
+        StateOverrides, SyncState,
     },
     trace::Trace,
     transaction, Block as _, BlockAndTotalDifficulty, BlockReceipt, DebugContext, DebugTraceConfig,
@@ -325,7 +327,7 @@ where
         self.initial_config.network_id.to_string()
     }
 
-    pub fn pending_transactions(&self) -> impl Iterator<Item = &ChainSpecT::Transaction> {
+    pub fn pending_transactions(&self) -> impl Iterator<Item = &ChainSpecT::SignedTransaction> {
         self.mem_pool.transactions()
     }
 
@@ -759,12 +761,12 @@ where
             // Matching Hardhat behaviour by returning the last block for finalized and safe.
             // https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1395
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
-                if self.evm_spec_id() >= SpecId::MERGE {
+                if self.evm_spec_id() >= l1::SpecId::MERGE {
                     Some(self.blockchain.last_block()?)
                 } else {
                     return Err(ProviderError::InvalidBlockTag {
                         block_tag: *tag,
-                        spec: self.evm_spec_id(),
+                        hardfork: self.hardfork(),
                     });
                 }
             }
@@ -969,7 +971,7 @@ where
         &mut self,
         min_gas_price: U256,
     ) -> Result<(), ProviderError<ChainSpecT>> {
-        if self.evm_spec_id() >= SpecId::LONDON {
+        if self.evm_spec_id() >= l1::SpecId::LONDON {
             return Err(ProviderError::SetMinGasPriceUnsupported);
         }
 
@@ -983,9 +985,9 @@ where
         &mut self,
         base_fee_per_gas: U256,
     ) -> Result<(), ProviderError<ChainSpecT>> {
-        let spec_id = self.evm_spec_id();
-        if spec_id < SpecId::LONDON {
-            return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { spec_id });
+        let hardfork = self.hardfork();
+        if hardfork.into() < l1::SpecId::LONDON {
+            return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { hardfork });
         }
 
         self.next_block_base_fee_per_gas = Some(base_fee_per_gas);
@@ -1023,9 +1025,9 @@ where
         &mut self,
         prev_randao: B256,
     ) -> Result<(), ProviderError<ChainSpecT>> {
-        let spec_id = self.evm_spec_id();
-        if spec_id < SpecId::MERGE {
-            return Err(ProviderError::SetNextPrevRandaoUnsupported { spec_id });
+        let hardfork = self.hardfork();
+        if hardfork.into() < l1::SpecId::MERGE {
+            return Err(ProviderError::SetNextPrevRandaoUnsupported { hardfork });
         }
 
         self.prev_randao_generator.set_next(prev_randao);
@@ -1080,7 +1082,7 @@ where
     pub fn sign_transaction_request(
         &self,
         transaction_request: TransactionRequestAndSender<ChainSpecT::TransactionRequest>,
-    ) -> Result<ChainSpecT::Transaction, ProviderError<ChainSpecT>> {
+    ) -> Result<ChainSpecT::SignedTransaction, ProviderError<ChainSpecT>> {
         let TransactionRequestAndSender { request, sender } = transaction_request;
 
         if self.impersonated_accounts.contains(&sender) {
@@ -1165,7 +1167,7 @@ where
 
     fn add_pending_transaction(
         &mut self,
-        transaction: ChainSpecT::Transaction,
+        transaction: ChainSpecT::SignedTransaction,
     ) -> Result<B256, ProviderError<ChainSpecT>> {
         let transaction_hash = *transaction.transaction_hash();
 
@@ -1187,12 +1189,12 @@ where
             BlockSpec::Number(number) => Some(*number),
             BlockSpec::Tag(BlockTag::Earliest) => Some(0),
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
-                if self.evm_spec_id() >= SpecId::MERGE {
+                if self.evm_spec_id() >= l1::SpecId::MERGE {
                     Some(self.blockchain.last_block_number())
                 } else {
                     return Err(ProviderError::InvalidBlockTag {
                         block_tag: *tag,
-                        spec: self.evm_spec_id(),
+                        hardfork: self.hardfork(),
                     });
                 }
             }
@@ -1368,11 +1370,11 @@ where
         let hardfork = self.blockchain.spec_id();
 
         let evm_spec_id = hardfork.into();
-        if options.mix_hash.is_none() && evm_spec_id >= SpecId::MERGE {
+        if options.mix_hash.is_none() && evm_spec_id >= l1::SpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
         }
 
-        if evm_spec_id >= SpecId::CANCUN {
+        if evm_spec_id >= l1::SpecId::CANCUN {
             options.parent_beacon_block_root = options
                 .parent_beacon_block_root
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
@@ -1466,7 +1468,7 @@ where
 
     fn validate_auto_mine_transaction(
         &mut self,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
     ) -> Result<(), ProviderError<ChainSpecT>> {
         let next_nonce = { self.account_next_nonce(transaction.caller())? };
 
@@ -1546,8 +1548,8 @@ where
         Ok(chain_id)
     }
 
-    /// Returns the local EVM's [`SpecId`].
-    pub fn evm_spec_id(&self) -> SpecId {
+    /// Returns the local EVM's [`l1::SpecId`].
+    pub fn evm_spec_id(&self) -> l1::SpecId {
         self.hardfork().into()
     }
 
@@ -1596,7 +1598,7 @@ where
 
     /// Calculates the next block's base fee per gas.
     pub fn next_block_base_fee_per_gas(&self) -> Result<Option<U256>, BlockchainError<ChainSpecT>> {
-        if self.evm_spec_id() < SpecId::LONDON {
+        if self.evm_spec_id() < l1::SpecId::LONDON {
             return Ok(None);
         }
 
@@ -1619,7 +1621,7 @@ where
     pub fn next_block_base_fee_per_blob_gas(
         &self,
     ) -> Result<Option<U256>, BlockchainError<ChainSpecT>> {
-        if self.evm_spec_id() < SpecId::CANCUN {
+        if self.evm_spec_id() < l1::SpecId::CANCUN {
             return Ok(None);
         }
 
@@ -1664,8 +1666,8 @@ where
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -1692,7 +1694,7 @@ where
 
     pub fn debug_trace_call(
         &mut self,
-        transaction: ChainSpecT::Transaction,
+        transaction: ChainSpecT::SignedTransaction,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
     ) -> Result<DebugTraceResultWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
@@ -1728,10 +1730,10 @@ where
         newest_block_spec: &BlockSpec,
         percentiles: Option<Vec<RewardPercentile>>,
     ) -> Result<FeeHistoryResult, ProviderError<ChainSpecT>> {
-        if self.evm_spec_id() < SpecId::LONDON {
+        if self.evm_spec_id() < l1::SpecId::LONDON {
             return Err(ProviderError::UnmetHardfork {
                 actual: self.evm_spec_id(),
-                minimum: SpecId::LONDON,
+                minimum: l1::SpecId::LONDON,
             });
         }
 
@@ -2100,7 +2102,7 @@ where
 
     pub fn run_call(
         &mut self,
-        transaction: ChainSpecT::Transaction,
+        transaction: ChainSpecT::SignedTransaction,
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
@@ -2216,7 +2218,7 @@ where
         config: &CfgEnv,
         hardfork: ChainSpecT::Hardfork,
         options: BlockOptions,
-        transaction: ChainSpecT::Transaction,
+        transaction: ChainSpecT::SignedTransaction,
         debugger: &mut Debugger<ChainSpecT::HaltReason>,
     ) -> Result<MineBlockResultAndState<ChainSpecT, StateError>, ProviderError<ChainSpecT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
@@ -2244,9 +2246,9 @@ where
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionType<Type: IsEip4844>
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionType<Type: IsEip4844>
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -2254,7 +2256,7 @@ where
 {
     pub fn send_transaction(
         &mut self,
-        transaction: ChainSpecT::Transaction,
+        transaction: ChainSpecT::SignedTransaction,
     ) -> Result<SendTransactionResult<ChainSpecT>, ProviderError<ChainSpecT>> {
         if transaction.transaction_type().is_eip4844() {
             if !self.is_auto_mining || mempool::has_transactions(&self.mem_pool) {
@@ -2349,8 +2351,8 @@ where
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Clone + Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -2406,9 +2408,9 @@ where
     /// an error.
     fn filter_unsupported_transaction_types(
         &self,
-        transactions: &[ChainSpecT::Transaction],
+        transactions: &[ChainSpecT::SignedTransaction],
         transaction_hash: &B256,
-    ) -> Result<Vec<ChainSpecT::Transaction>, ProviderError<ChainSpecT>> {
+    ) -> Result<Vec<ChainSpecT::SignedTransaction>, ProviderError<ChainSpecT>> {
         transactions
             .iter()
             .filter_map(|transaction| {
@@ -2440,9 +2442,9 @@ where
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionMut
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionMut
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -2452,7 +2454,7 @@ where
     /// Estimate the gas cost of a transaction. Matches Hardhat behavior.
     pub fn estimate_gas(
         &mut self,
-        transaction: ChainSpecT::Transaction,
+        transaction: ChainSpecT::SignedTransaction,
         block_spec: &BlockSpec,
     ) -> Result<EstimateGasResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
         let (cfg_env, hardfork) = self.create_evm_config_at_block_spec(block_spec)?;
@@ -2729,7 +2731,7 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
                 .expect("Elapsed time since fork block must be representable as i64")
         };
 
-        let next_block_base_fee_per_gas = if config.hardfork.into() >= SpecId::LONDON {
+        let next_block_base_fee_per_gas = if config.hardfork.into() >= l1::SpecId::LONDON {
             if let Some(base_fee) = config.initial_base_fee_per_gas {
                 Some(base_fee)
             } else {
@@ -2768,7 +2770,7 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
             next_block_base_fee_per_gas,
         })
     } else {
-        let mix_hash = if config.hardfork.into() >= SpecId::MERGE {
+        let mix_hash = if config.hardfork.into() >= l1::SpecId::MERGE {
             Some(prev_randao_generator.generate_next())
         } else {
             None
@@ -2817,7 +2819,7 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
 pub(crate) mod test_utils {
     use anyhow::anyhow;
     use edr_eth::{
-        spec::L1ChainSpec,
+        l1::L1ChainSpec,
         transaction::{self, TxKind},
     };
 
@@ -2981,7 +2983,7 @@ fn get_max_cached_states_from_env<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{hex, spec::L1ChainSpec, transaction::ExecutableTransaction as _};
+    use edr_eth::{hex, l1::L1ChainSpec, transaction::ExecutableTransaction as _};
     use edr_evm::MineOrdering;
     use serde_json::json;
 
@@ -3622,7 +3624,7 @@ mod tests {
     fn mine_and_commit_block_rewards_miner() -> anyhow::Result<()> {
         let default_config = create_test_config();
         let config = ProviderConfig {
-            hardfork: SpecId::BERLIN,
+            hardfork: l1::SpecId::BERLIN,
             ..default_config
         };
 
@@ -4062,7 +4064,7 @@ mod tests {
                 block_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
                 chain_id: 1,
                 coinbase: Address::ZERO,
-                hardfork: SpecId::LONDON,
+                hardfork: l1::SpecId::LONDON,
                 network_id: 1,
                 ..default_config
             };

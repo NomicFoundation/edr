@@ -1,12 +1,14 @@
 use std::marker::PhantomData;
 
 use alloy_rlp::BufMut;
-use revm_primitives::{ExecutionResult, HaltReasonTrait, HardforkTrait, Output};
 
 use super::{MapReceiptLogs, Receipt};
 use crate::{
+    l1,
+    result::{ExecutionResult, Output},
+    spec::{HaltReasonTrait, HardforkTrait},
     transaction::{ExecutableTransaction, Transaction, TransactionType},
-    Address, Bloom, SpecId, B256, U256,
+    Address, Bloom, B256, U256,
 };
 
 /// Type for a receipt that's created when processing a transaction.
@@ -50,18 +52,14 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
 impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
     /// Constructs a new instance using the provided execution receipt an
     /// transaction
-    pub fn new<HaltReasonT, HardforkT>(
+    pub fn new<HaltReasonT: HaltReasonTrait, HardforkT: HardforkTrait>(
         execution_receipt: ExecutionReceiptT,
         transaction: &(impl Transaction + ExecutableTransaction),
         result: &ExecutionResult<HaltReasonT>,
         transaction_index: u64,
         block_base_fee: U256,
         hardfork: HardforkT,
-    ) -> Self
-    where
-        HaltReasonT: HaltReasonTrait,
-        HardforkT: HardforkTrait,
-    {
+    ) -> Self {
         let contract_address = if let ExecutionResult::Success {
             output: Output::Create(_, address),
             ..
@@ -72,7 +70,7 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
             None
         };
 
-        let effective_gas_price = if hardfork.into() >= SpecId::LONDON {
+        let effective_gas_price = if hardfork.into() >= l1::SpecId::LONDON {
             Some(
                 transaction
                     .effective_gas_price(block_base_fee)

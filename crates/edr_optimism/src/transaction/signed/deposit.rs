@@ -1,10 +1,11 @@
 use alloy_rlp::Encodable;
 use edr_eth::{
-    transaction::{AuthorizationList, ExecutableTransaction, Transaction, TxKind},
+    eips::{eip2930, eip7702::AuthorizationList},
+    keccak256,
+    transaction::{ExecutableTransaction, Transaction, TxKind},
     utils::enveloped,
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
-use revm::primitives::keccak256;
 
 use super::Deposit;
 
@@ -91,7 +92,7 @@ impl Transaction for Deposit {
         None
     }
 
-    fn access_list(&self) -> &[AccessListItem] {
+    fn access_list(&self) -> &[eip2930::AccessListItem] {
         &[]
     }
 
@@ -119,11 +120,10 @@ mod tests {
     use std::{str::FromStr as _, sync::OnceLock};
 
     use edr_eth::{
-        address,
+        address, b256,
         transaction::{ExecutableTransaction as _, TxKind},
         Bytes, U256,
     };
-    use revm::primitives::b256;
 
     use super::*;
     use crate::transaction;

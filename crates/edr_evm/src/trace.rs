@@ -1,26 +1,31 @@
 use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{result::EVMErrorWiring, Address, Bytes, U256};
-use revm::{
-    handler::register::EvmHandler,
-    interpreter::{
-        opcode::{self, DynInstruction},
-        return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-        InstructionResult, Interpreter, SuccessOrHalt,
-    },
-    primitives::{Bytecode, ChainSpec, ExecutionResult, HaltReasonTrait, Output},
-    Context, Database, EvmContext, FrameOrResult, FrameResult,
+use edr_eth::{
+    bytecode::opcode,
+    result::{EVMErrorWiring, ExecutionResult, Output},
+    spec::HaltReasonTrait,
+    Address, Bytecode, Bytes, U256,
 };
 
-use crate::{debug::GetContextData, spec::EvmWiring};
+use crate::{
+    debug::GetContextData,
+    evm::{
+        handler::register::EvmHandler,
+        interpreter::{
+            return_revert, table::DynInstruction, CallInputs, CallOutcome, CallValue, CreateInputs,
+            CreateOutcome, Interpreter, SuccessOrHalt,
+        },
+        Context, FrameOrResult, FrameResult, InnerEvmContext,
+    },
+    spec::EvmWiring,
+    state::Database,
+};
 
 /// Registers trace collector handles to the EVM handler.
 pub fn register_trace_collector_handles<
     EvmWiringT: revm::EvmWiring<
-        ExternalContext: GetContextData<
-            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
-        >,
+        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>,
         Database: Database<Error: Debug>,
     >,
 >(
@@ -120,9 +125,7 @@ fn instruction_handler<EvmWiringT>(
 ) where
     EvmWiringT: revm::EvmWiring<
         Database: Database<Error: Debug>,
-        ExternalContext: GetContextData<
-            TraceCollector<<EvmWiringT::ChainSpec as ChainSpec>::HaltReason>,
-        >,
+        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>,
     >,
 {
     // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
@@ -306,11 +309,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         }
     }
 
-    fn call<
-        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>, Database: Database<Error: Debug>>,
-    >(
+    fn call<EvmWiringT: EvmWiring<HaltReason = HaltReasonT, Database: Database<Error: Debug>>>(
         &mut self,
-        data: &mut EvmContext<EvmWiringT>,
+        data: &mut InnerEvmContext<EvmWiringT>,
         inputs: &CallInputs,
     ) {
         if self.is_new_trace {
@@ -361,12 +362,15 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn call_end<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
+    fn call_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
         &mut self,
-        data: &EvmContext<EvmWiringT>,
+        data: &InnerEvmContext<EvmWiringT>,
         _inputs: &CallInputs,
         outcome: &CallOutcome,
     ) {
+        // TODO: Replace this with the `return_revert!` macro
+        use crate::evm::interpreter::InstructionResult;
+
         match outcome.instruction_result() {
             return_revert!() if self.pending_before.is_some() => {
                 self.pending_before = None;
@@ -415,9 +419,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn create<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
+    fn create<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
         &mut self,
-        data: &EvmContext<EvmWiringT>,
+        data: &InnerEvmContext<EvmWiringT>,
         inputs: &CreateInputs,
     ) {
         if self.is_new_trace {
@@ -440,12 +444,15 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn create_end<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
+    fn create_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
         &mut self,
-        data: &EvmContext<EvmWiringT>,
+        data: &InnerEvmContext<EvmWiringT>,
         _inputs: &CreateInputs,
         outcome: &CreateOutcome,
     ) {
+        // TODO: Replace this with the `return_revert!` macro
+        use crate::evm::interpreter::InstructionResult;
+
         self.validate_before_message();
 
         let ret = *outcome.instruction_result();
@@ -484,10 +491,10 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn step<EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>>(
+    fn step<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
         &mut self,
         interp: &Interpreter,
-        data: &EvmContext<EvmWiringT>,
+        data: &InnerEvmContext<EvmWiringT>,
     ) {
         // Skip the step
         let skip_step = self.pending_before.as_ref().map_or(false, |message| {
@@ -517,11 +524,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         }
     }
 
-    fn call_transaction_end<
-        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>,
-    >(
+    fn call_transaction_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
         &mut self,
-        data: &EvmContext<EvmWiringT>,
+        data: &InnerEvmContext<EvmWiringT>,
         inputs: &CallInputs,
         outcome: &CallOutcome,
     ) {
@@ -529,11 +534,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         self.call_end(data, inputs, outcome);
     }
 
-    fn create_transaction_end<
-        EvmWiringT: EvmWiring<ChainSpec: ChainSpec<HaltReason = HaltReasonT>>,
-    >(
+    fn create_transaction_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
         &mut self,
-        data: &EvmContext<EvmWiringT>,
+        data: &InnerEvmContext<EvmWiringT>,
         inputs: &CreateInputs,
         outcome: &CreateOutcome,
     ) {

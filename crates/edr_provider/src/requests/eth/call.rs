@@ -1,7 +1,8 @@
 use edr_eth::{
+    l1,
     result::InvalidTransaction,
     transaction::{signed::FakeSign as _, TransactionValidation},
-    BlockSpec, Bytes, SpecId, U256,
+    BlockSpec, Bytes, U256,
 };
 use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::StateOverrideOptions;
@@ -17,9 +18,9 @@ pub fn handle_call_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Clone
-                         + Default
-                         + TransactionValidation<
+        SignedTransaction: Clone
+                               + Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -70,8 +71,8 @@ pub(crate) fn resolve_call_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -81,7 +82,7 @@ pub(crate) fn resolve_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ChainSpecT::Transaction, ProviderError<ChainSpecT>> {
+) -> Result<ChainSpecT::SignedTransaction, ProviderError<ChainSpecT>> {
     let sender = request
         .maybe_sender()
         .copied()
@@ -106,6 +107,6 @@ pub(crate) fn resolve_call_request<
     let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
-    transaction::validate(transaction, SpecId::LATEST)
+    transaction::validate(transaction, l1::SpecId::LATEST)
         .map_err(ProviderError::TransactionCreationError)
 }

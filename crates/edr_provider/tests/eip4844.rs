@@ -4,17 +4,17 @@ use std::str::FromStr;
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
+    account::AccountInfo,
+    eips::eip4844::EnvKzgSettings,
+    l1::{self, L1ChainSpec},
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
-    spec::L1ChainSpec,
     transaction::{
         self, pooled::PooledTransaction, ExecutableTransaction as _, Transaction as _,
         TransactionType as _,
     },
-    AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
-    KECCAK_EMPTY, U256,
+    Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, B256, BYTES_PER_BLOB, KECCAK_EMPTY, U256,
 };
-use edr_evm::interpreter::primitives::EnvKzgSettings;
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
@@ -217,7 +217,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = SpecId::SHANGHAI;
+    config.hardfork = l1::SpecId::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -248,7 +248,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = SpecId::SHANGHAI;
+    config.hardfork = l1::SpecId::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),

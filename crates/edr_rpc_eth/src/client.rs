@@ -2,12 +2,12 @@ use std::{fmt::Debug, path::PathBuf};
 
 use derive_where::derive_where;
 use edr_eth::{
-    account::KECCAK_EMPTY,
+    account::{AccountInfo, KECCAK_EMPTY},
     fee_history::FeeHistoryResult,
     filter::{LogFilterOptions, OneOrMore},
     log::FilterLog,
     reward_percentile::RewardPercentile,
-    AccountInfo, Address, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, B256, U256, U64,
+    Address, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
@@ -322,7 +322,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
 mod tests {
     use std::{ops::Deref, str::FromStr};
 
-    use edr_eth::spec::L1ChainSpec;
+    use edr_eth::l1::L1ChainSpec;
     use reqwest::StatusCode;
     use tempfile::TempDir;
 

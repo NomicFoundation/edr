@@ -1,7 +1,8 @@
 use edr_eth::{
+    l1,
     signature::{SecretKey, SignatureError},
     transaction::signed::{FakeSign, Sign},
-    Address, Bytes, SpecId, U256,
+    Address, Bytes, U256,
 };
 use edr_evm::blockchain::BlockchainError;
 use edr_provider::{
@@ -91,10 +92,10 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
         let value = value.unwrap_or(U256::ZERO);
 
         let evm_spec_id = data.evm_spec_id();
-        let request = if evm_spec_id < SpecId::LONDON || gas_price.is_some() {
+        let request = if evm_spec_id < l1::SpecId::LONDON || gas_price.is_some() {
             let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
             match access_list {
-                Some(access_list) if evm_spec_id >= SpecId::BERLIN => {
+                Some(access_list) if evm_spec_id >= l1::SpecId::BERLIN => {
                     edr_eth::transaction::Request::Eip2930(edr_eth::transaction::request::Eip2930 {
                         nonce,
                         gas_price,
@@ -199,7 +200,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
             access_list,
         ) {
             (gas_price, max_fee_per_gas, max_priority_fee_per_gas, access_list)
-                if data.evm_spec_id() >= SpecId::LONDON
+                if data.evm_spec_id() >= l1::SpecId::LONDON
                     && (gas_price.is_none()
                         || max_fee_per_gas.is_some()
                         || max_priority_fee_per_gas.is_some()) =>

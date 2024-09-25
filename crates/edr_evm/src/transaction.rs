@@ -7,23 +7,22 @@ use std::fmt::Debug;
 use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{
-    result::{EVMErrorForChain, InvalidHeader},
-    SpecId, U256,
-};
-use revm::{
-    db::DatabaseComponentError, interpreter::gas::validate_initial_tx_gas, primitives::EVMError,
-};
+use edr_eth::{l1, spec::ChainSpec, U256};
+use revm::interpreter::gas::validate_initial_tx_gas;
 
 pub use self::detailed::*;
-use crate::spec::RuntimeSpec;
+use crate::{
+    result::{EVMError, EVMErrorForChain, InvalidHeader},
+    spec::RuntimeSpec,
+    state::DatabaseComponentError,
+};
 
 /// Invalid transaction error
 #[derive(thiserror::Error)]
-#[derive_where(Debug; <ChainSpecT::Transaction as TransactionValidation>::ValidationError, BlockchainErrorT, StateErrorT)]
+#[derive_where(Debug; <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError, BlockchainErrorT, StateErrorT)]
 pub enum TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: ChainSpec,
 {
     /// Blockchain errors
     #[error(transparent)]
@@ -39,7 +38,7 @@ where
     InvalidHeader(InvalidHeader),
     /// Corrupt transaction data
     #[error(transparent)]
-    InvalidTransaction(<ChainSpecT::Transaction as TransactionValidation>::ValidationError),
+    InvalidTransaction(<ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError),
     /// Transaction account does not have enough amount of ether to cover
     /// transferred value and gas_limit*gas_price.
     #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}.")]
@@ -58,19 +57,17 @@ where
 }
 
 impl<ChainSpecT, BlockchainErrorT, StateErrorT>
-    From<EVMErrorForChain<ChainSpecT, DatabaseComponentError<StateErrorT, BlockchainErrorT>>>
+    From<EVMErrorForChain<ChainSpecT, BlockchainErrorT, StateErrorT>>
     for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
     ChainSpecT: RuntimeSpec,
 {
-    fn from(
-        error: EVMErrorForChain<ChainSpecT, DatabaseComponentError<StateErrorT, BlockchainErrorT>>,
-    ) -> Self {
+    fn from(error: EVMErrorForChain<ChainSpecT, BlockchainErrorT, StateErrorT>) -> Self {
         match error {
             EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
             EVMError::Header(error) => Self::InvalidHeader(error),
+            EVMError::Database(DatabaseComponentError::Blockchain(e)) => Self::Blockchain(e),
             EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
-            EVMError::Database(DatabaseComponentError::BlockHash(e)) => Self::Blockchain(e),
             EVMError::Custom(error) => Self::Custom(error),
             EVMError::Precompile(error) => Self::Precompile(error),
         }
@@ -96,7 +93,7 @@ pub enum CreationError {
 /// Validates the transaction.
 pub fn validate<TransactionT: Transaction>(
     transaction: TransactionT,
-    spec_id: SpecId,
+    spec_id: l1::SpecId,
 ) -> Result<TransactionT, CreationError> {
     if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
         return Err(CreationError::ContractMissingData);
@@ -114,7 +111,7 @@ pub fn validate<TransactionT: Transaction>(
 }
 
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
+pub fn initial_cost(transaction: &impl Transaction, spec_id: l1::SpecId) -> u64 {
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),
@@ -148,7 +145,7 @@ mod tests {
 
         let transaction = request.fake_sign(caller);
         let transaction = transaction::Signed::from(transaction);
-        let result = validate(transaction, SpecId::BERLIN);
+        let result = validate(transaction, l1::SpecId::BERLIN);
 
         let expected_gas_cost = U256::from(21_000);
         assert!(matches!(
@@ -183,7 +180,7 @@ mod tests {
 
         let transaction = request.fake_sign(caller);
         let transaction = transaction::Signed::from(transaction);
-        let result = validate(transaction, SpecId::BERLIN);
+        let result = validate(transaction, l1::SpecId::BERLIN);
 
         assert!(matches!(result, Err(CreationError::ContractMissingData)));
 

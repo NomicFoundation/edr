@@ -1,9 +1,10 @@
 use edr_eth::{
     fee_history::FeeHistoryResult,
+    l1,
     result::InvalidTransaction,
     reward_percentile::RewardPercentile,
     transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
-    BlockSpec, SpecId, U256, U64,
+    BlockSpec, U256, U64,
 };
 use edr_evm::{state::StateOverrides, transaction};
 
@@ -19,9 +20,9 @@ pub fn handle_estimate_gas<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionMut
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionMut
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -59,8 +60,8 @@ pub fn handle_fee_history<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -71,7 +72,7 @@ pub fn handle_fee_history<
     newest_block: BlockSpec,
     reward_percentiles: Option<Vec<f64>>,
 ) -> Result<FeeHistoryResult, ProviderError<ChainSpecT>> {
-    if data.evm_spec_id() < SpecId::LONDON {
+    if data.evm_spec_id() < l1::SpecId::LONDON {
         return Err(ProviderError::InvalidInput(
             "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
                 .into(),
@@ -92,7 +93,7 @@ pub fn handle_fee_history<
         ));
     }
 
-    validate_post_merge_block_tags(data.evm_spec_id(), &newest_block)?;
+    validate_post_merge_block_tags(data.hardfork(), &newest_block)?;
 
     let reward_percentiles = reward_percentiles.map(|percentiles| {
         let mut validated_percentiles = Vec::with_capacity(percentiles.len());
@@ -122,8 +123,8 @@ fn resolve_estimate_gas_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -133,7 +134,7 @@ fn resolve_estimate_gas_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ChainSpecT::Transaction, ProviderError<ChainSpecT>> {
+) -> Result<ChainSpecT::SignedTransaction, ProviderError<ChainSpecT>> {
     let sender = request
         .maybe_sender()
         .copied()
@@ -182,7 +183,7 @@ fn resolve_estimate_gas_request<
     let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
-    transaction::validate(transaction, SpecId::LATEST)
+    transaction::validate(transaction, l1::SpecId::LATEST)
         .map_err(ProviderError::TransactionCreationError)
 }
 

@@ -19,6 +19,8 @@ pub mod eips;
 pub mod fee_history;
 /// Ethereum types for filter-based RPC methods
 pub mod filter;
+/// L1 chain specification.
+pub mod l1;
 /// Ethereum log types
 pub mod log;
 /// Ethereum receipt types
@@ -44,13 +46,14 @@ pub mod utils;
 pub mod withdrawal;
 
 pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
+pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
     address,
     alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
-    bytes, db, env, hex, hex_literal, keccak256, result, specification, AccessList, AccessListItem,
-    AccountInfo, Address, Bytecode, Bytes, HashMap, HashSet, Precompile, SignedAuthorization,
-    SpecId, B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
+    b256, bytes, hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet,
+    B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
 };
+pub use revm_wiring::result;
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};
 

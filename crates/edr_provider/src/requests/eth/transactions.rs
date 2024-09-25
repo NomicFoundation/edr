@@ -54,8 +54,8 @@ pub fn handle_get_transaction_by_block_spec_and_index<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -65,7 +65,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
     block_spec: PreEip1898BlockSpec,
     index: U256,
 ) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderError<ChainSpecT>> {
-    validate_post_merge_block_tags(data.evm_spec_id(), &block_spec)?;
+    validate_post_merge_block_tags(data.hardfork(), &block_spec)?;
 
     let index = rpc_index_to_usize(&index)?;
 
@@ -169,9 +169,9 @@ pub fn handle_send_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionType<Type: IsEip4844>
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionType<Type: IsEip4844>
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -195,9 +195,9 @@ pub fn handle_send_raw_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionType<Type: IsEip4844>
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionType<Type: IsEip4844>
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
         PooledTransaction: IsEip155,
@@ -230,16 +230,16 @@ fn send_raw_transaction_and_log<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionType<Type: IsEip4844>
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionType<Type: IsEip4844>
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-    signed_transaction: ChainSpecT::Transaction,
+    signed_transaction: ChainSpecT::SignedTransaction,
 ) -> ProviderResultWithTraces<B256, ChainSpecT> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
@@ -297,19 +297,17 @@ fn validate_send_raw_transaction_request<
         transaction.data(),
     )?;
 
-    validate_transaction_and_call_request(data.evm_spec_id(), transaction).map_err(
-        |err| match err {
-            ProviderError::UnsupportedEIP1559Parameters {
-                minimum_hardfork, ..
-            } => ProviderError::InvalidArgument(format!(
-                "\
+    validate_transaction_and_call_request(data.hardfork(), transaction).map_err(|err| match err {
+        ProviderError::UnsupportedEIP1559Parameters {
+            minimum_hardfork, ..
+        } => ProviderError::InvalidArgument(format!(
+            "\
 Trying to send an EIP-1559 transaction but they are not supported by the current hard fork.\
 \
 You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later."
-            )),
-            err => err,
-        },
-    )
+        )),
+        err => err,
+    })
 }
 
 #[cfg(test)]

@@ -1,10 +1,11 @@
 use edr_eth::{
+    eips::{eip2930, eip7702},
     signature::Signature,
     transaction::{
-        self, AuthorizationList, ExecutableTransaction, IsSupported, SignedTransaction,
-        Transaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
+        self, ExecutableTransaction, IsSupported, SignedTransaction, Transaction, TransactionMut,
+        TransactionType, TransactionValidation, TxKind,
     },
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 /// The type of transaction.
@@ -158,7 +159,7 @@ impl Transaction for SignedWithFallbackToPostEip155 {
         self.inner.chain_id()
     }
 
-    fn access_list(&self) -> &[AccessListItem] {
+    fn access_list(&self) -> &[eip2930::AccessListItem] {
         self.inner.access_list()
     }
 
@@ -174,7 +175,7 @@ impl Transaction for SignedWithFallbackToPostEip155 {
         self.inner.max_fee_per_blob_gas()
     }
 
-    fn authorization_list(&self) -> Option<&AuthorizationList> {
+    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         self.inner.authorization_list()
     }
 }

@@ -1,6 +1,6 @@
 #![cfg(feature = "test-utils")]
 
-use edr_eth::spec::L1ChainSpec;
+use edr_eth::l1::L1ChainSpec;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,

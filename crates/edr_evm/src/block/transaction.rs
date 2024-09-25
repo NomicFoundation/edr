@@ -1,17 +1,20 @@
 use std::sync::Arc;
 
 use derive_where::derive_where;
-use edr_eth::{spec::L1ChainSpec, transaction::SignedTransaction as _, SpecId};
+use edr_eth::{
+    l1::{self, L1ChainSpec},
+    transaction::SignedTransaction as _,
+};
 use edr_rpc_eth::RpcTypeFrom;
 
 use super::SyncBlock;
 use crate::{blockchain::BlockchainError, spec::RuntimeSpec};
 
 /// The result returned by requesting a transaction.
-#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
+#[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
 pub struct TransactionAndBlock<ChainSpecT: RuntimeSpec> {
     /// The transaction.
-    pub transaction: ChainSpecT::Transaction,
+    pub transaction: ChainSpecT::SignedTransaction,
     /// Block data in which the transaction is found if it has been mined.
     pub block_data: Option<BlockDataForTransaction<ChainSpecT>>,
     /// Whether the transaction is pending
@@ -28,7 +31,7 @@ pub struct BlockDataForTransaction<ChainSpecT: RuntimeSpec> {
 }
 
 impl RpcTypeFrom<TransactionAndBlock<L1ChainSpec>> for edr_rpc_eth::TransactionWithSignature {
-    type Hardfork = SpecId;
+    type Hardfork = l1::SpecId;
 
     fn rpc_type_from(value: &TransactionAndBlock<L1ChainSpec>, hardfork: Self::Hardfork) -> Self {
         let (header, transaction_index) = value

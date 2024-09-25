@@ -16,7 +16,7 @@
 //! occur, we now start from complete stack traces and adjust them if we can
 //! provide more meaningful errors.
 
-use edr_evm::interpreter::OpCode;
+use edr_eth::bytecode::opcode::OpCode;
 use napi::{
     bindgen_prelude::{Either24, Either4},
     Either,

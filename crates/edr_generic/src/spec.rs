@@ -1,15 +1,14 @@
 use edr_eth::{
-    db::Database,
     eips::eip1559::BaseFeeParams,
-    env::BlockEnv,
+    l1::{self, L1ChainSpec},
     result::{HaltReason, InvalidTransaction},
-    spec::{ChainSpec, EthHeaderConstants, L1ChainSpec},
+    spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
-    SpecId,
 };
 use edr_evm::{
     hardfork::Activations,
     spec::{L1Wiring, RuntimeSpec},
+    state::Database,
     transaction::TransactionError,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
@@ -17,15 +16,11 @@ use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason}
 use crate::GenericChainSpec;
 
 impl ChainSpec for GenericChainSpec {
-    type ChainContext = ();
-
-    type Block = BlockEnv;
-
-    type Hardfork = SpecId;
-
+    type Block = l1::BlockEnv;
+    type Context = ();
     type HaltReason = HaltReason;
-
-    type Transaction = crate::transaction::SignedWithFallbackToPostEip155;
+    type Hardfork = l1::SpecId;
+    type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 
 impl EthHeaderConstants for GenericChainSpec {
@@ -44,7 +39,7 @@ impl RuntimeSpec for GenericChainSpec {
     type RpcTransactionConversionError = crate::rpc::transaction::ConversionError;
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
-        error: <Self::Transaction as TransactionValidation>::ValidationError,
+        error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
     ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
         // Can't use L1ChainSpec impl here as the TransactionError is generic
         // over the specific chain spec rather than just the validation error.

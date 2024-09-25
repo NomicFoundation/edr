@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::{spec::L1ChainSpec, specification};
+use edr_eth::l1::L1ChainSpec;
 use edr_napi_core::{
     logger::Logger,
     provider::{self, ProviderBuilder, SyncProviderFactory},
@@ -88,28 +88,28 @@ pub enum SpecId {
     Latest = 18,
 }
 
-impl From<SpecId> for edr_eth::SpecId {
+impl From<SpecId> for edr_eth::l1::SpecId {
     fn from(value: SpecId) -> Self {
         match value {
-            SpecId::Frontier => edr_eth::SpecId::FRONTIER,
-            SpecId::FrontierThawing => edr_eth::SpecId::FRONTIER_THAWING,
-            SpecId::Homestead => edr_eth::SpecId::HOMESTEAD,
-            SpecId::DaoFork => edr_eth::SpecId::DAO_FORK,
-            SpecId::Tangerine => edr_eth::SpecId::TANGERINE,
-            SpecId::SpuriousDragon => edr_eth::SpecId::SPURIOUS_DRAGON,
-            SpecId::Byzantium => edr_eth::SpecId::BYZANTIUM,
-            SpecId::Constantinople => edr_eth::SpecId::CONSTANTINOPLE,
-            SpecId::Petersburg => edr_eth::SpecId::PETERSBURG,
-            SpecId::Istanbul => edr_eth::SpecId::ISTANBUL,
-            SpecId::MuirGlacier => edr_eth::SpecId::MUIR_GLACIER,
-            SpecId::Berlin => edr_eth::SpecId::BERLIN,
-            SpecId::London => edr_eth::SpecId::LONDON,
-            SpecId::ArrowGlacier => edr_eth::SpecId::ARROW_GLACIER,
-            SpecId::GrayGlacier => edr_eth::SpecId::GRAY_GLACIER,
-            SpecId::Merge => edr_eth::SpecId::MERGE,
-            SpecId::Shanghai => edr_eth::SpecId::SHANGHAI,
-            SpecId::Cancun => edr_eth::SpecId::CANCUN,
-            SpecId::Latest => edr_eth::SpecId::LATEST,
+            SpecId::Frontier => edr_eth::l1::SpecId::FRONTIER,
+            SpecId::FrontierThawing => edr_eth::l1::SpecId::FRONTIER_THAWING,
+            SpecId::Homestead => edr_eth::l1::SpecId::HOMESTEAD,
+            SpecId::DaoFork => edr_eth::l1::SpecId::DAO_FORK,
+            SpecId::Tangerine => edr_eth::l1::SpecId::TANGERINE,
+            SpecId::SpuriousDragon => edr_eth::l1::SpecId::SPURIOUS_DRAGON,
+            SpecId::Byzantium => edr_eth::l1::SpecId::BYZANTIUM,
+            SpecId::Constantinople => edr_eth::l1::SpecId::CONSTANTINOPLE,
+            SpecId::Petersburg => edr_eth::l1::SpecId::PETERSBURG,
+            SpecId::Istanbul => edr_eth::l1::SpecId::ISTANBUL,
+            SpecId::MuirGlacier => edr_eth::l1::SpecId::MUIR_GLACIER,
+            SpecId::Berlin => edr_eth::l1::SpecId::BERLIN,
+            SpecId::London => edr_eth::l1::SpecId::LONDON,
+            SpecId::ArrowGlacier => edr_eth::l1::SpecId::ARROW_GLACIER,
+            SpecId::GrayGlacier => edr_eth::l1::SpecId::GRAY_GLACIER,
+            SpecId::Merge => edr_eth::l1::SpecId::MERGE,
+            SpecId::Shanghai => edr_eth::l1::SpecId::SHANGHAI,
+            SpecId::Cancun => edr_eth::l1::SpecId::CANCUN,
+            SpecId::Latest => edr_eth::l1::SpecId::LATEST,
         }
     }
 }
@@ -118,7 +118,7 @@ macro_rules! export_spec_id {
     ($($variant:ident),*) => {
         $(
             #[napi]
-            pub const $variant: &str = specification::id::$variant;
+            pub const $variant: &str = edr_eth::l1::hardfork::id::$variant;
         )*
     };
 }

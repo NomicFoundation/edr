@@ -2,14 +2,15 @@ use core::fmt::Debug;
 
 pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
+    eips::eip2930,
+    l1::L1ChainSpec,
     result::HaltReason,
     rlp,
-    spec::L1ChainSpec,
     transaction::{
         signed::{FakeSign, Sign},
         IsSupported, Transaction,
     },
-    AccessListItem, Address, Blob, BlockSpec, B256, U256,
+    Address, Blob, BlockSpec, B256, U256,
 };
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
@@ -25,17 +26,17 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RpcBlock<B256>: From<BlockAndTotalDifficulty<Self, BlockchainError<Self>>>,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,
-    Transaction: IsSupported,
+    SignedTransaction: IsSupported,
 >
 {
     type PooledTransaction: HardforkValidationData
-        + Into<Self::Transaction>
+        + Into<Self::SignedTransaction>
         + rlp::Decodable
         + Transaction;
 
     /// Type representing a transaction request.
-    type TransactionRequest: FakeSign<Signed = Self::Transaction>
-        + Sign<Signed = Self::Transaction>
+    type TransactionRequest: FakeSign<Signed = Self::SignedTransaction>
+        + Sign<Signed = Self::SignedTransaction>
         + for<'context> FromRpcType<
             Self::RpcCallRequest,
             TimerT,
@@ -74,7 +75,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
 }
 
 /// Trait with data used for validating a transaction complies with a
-/// [`edr_eth::SpecId`].
+/// [`edr_eth::l1::SpecId`].
 pub trait HardforkValidationData {
     /// Returns the `to` address of the transaction.
     fn to(&self) -> Option<&Address>;
@@ -89,7 +90,7 @@ pub trait HardforkValidationData {
     fn max_priority_fee_per_gas(&self) -> Option<&U256>;
 
     /// Returns the access list of the transaction.
-    fn access_list(&self) -> Option<&Vec<AccessListItem>>;
+    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>>;
 
     /// Returns the blobs of the transaction.
     fn blobs(&self) -> Option<&Vec<Blob>>;

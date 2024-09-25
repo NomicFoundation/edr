@@ -4,15 +4,15 @@ use alloy_rlp::RlpEncodable;
 use derive_where::derive_where;
 use edr_eth::{
     block::{self, Header, PartialHeader},
+    keccak256, l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     receipt::{BlockReceipt, MapReceiptLogs as _, TransactionReceipt},
     transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
-    SpecId, B256,
+    B256,
 };
 use itertools::izip;
-use revm::primitives::keccak256;
 
 use crate::{
     blockchain::BlockchainError,
@@ -23,11 +23,11 @@ use crate::{
 
 /// A locally mined block, which contains complete information.
 #[derive(PartialEq, Eq, RlpEncodable)]
-#[derive_where(Clone, Debug; ChainSpecT::ExecutionReceipt<FilterLog>, ChainSpecT::Transaction)]
+#[derive_where(Clone, Debug; ChainSpecT::ExecutionReceipt<FilterLog>, ChainSpecT::SignedTransaction)]
 #[rlp(trailing)]
 pub struct LocalBlock<ChainSpecT: RuntimeSpec> {
     header: block::Header,
-    transactions: Vec<ChainSpecT::Transaction>,
+    transactions: Vec<ChainSpecT::SignedTransaction>,
     #[rlp(skip)]
     transaction_receipts: Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
     ommers: Vec<block::Header>,
@@ -41,7 +41,7 @@ pub struct LocalBlock<ChainSpecT: RuntimeSpec> {
 impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
     /// Constructs an empty block, i.e. no transactions.
     pub fn empty(spec_id: ChainSpecT::Hardfork, partial_header: PartialHeader) -> Self {
-        let withdrawals = if spec_id.into() >= SpecId::SHANGHAI {
+        let withdrawals = if spec_id.into() >= l1::SpecId::SHANGHAI {
             Some(Vec::default())
         } else {
             None
@@ -59,7 +59,7 @@ impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
     /// Constructs a new instance with the provided data.
     pub fn new(
         partial_header: PartialHeader,
-        transactions: Vec<ChainSpecT::Transaction>,
+        transactions: Vec<ChainSpecT::SignedTransaction>,
         transaction_receipts: Vec<
             TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>,
         >,
@@ -135,7 +135,7 @@ impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
             .expect("usize fits into u64")
     }
 
-    fn transactions(&self) -> &[ChainSpecT::Transaction] {
+    fn transactions(&self) -> &[ChainSpecT::SignedTransaction] {
         &self.transactions
     }
 

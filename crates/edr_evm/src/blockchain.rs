@@ -8,12 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use derive_where::derive_where;
-use edr_eth::{log::FilterLog, Address, B256, U256};
-use revm::{
-    db::BlockHashRef,
-    primitives::{HashSet, SpecId},
-    DatabaseCommit,
-};
+use edr_eth::{l1, log::FilterLog, Address, HashSet, B256, U256};
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
@@ -23,7 +18,7 @@ pub use self::{
 use crate::{
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
-    state::{StateDiff, StateOverride, SyncState},
+    state::{StateCommit, StateDiff, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
 
@@ -77,6 +72,16 @@ pub enum BlockchainError<ChainSpecT: RuntimeSpec> {
         /// Hardfork activation history
         hardfork_activations: Activations<ChainSpecT>,
     },
+}
+
+/// Trait for retrieving a block's hash by number.
+#[auto_impl(&, &mut, Box, Rc, Arc)]
+pub trait BlockHash {
+    /// The blockchain's error type.
+    type Error;
+
+    /// Retrieves the block hash at the provided number.
+    fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error>;
 }
 
 /// Trait for implementations of an Ethereum blockchain.
@@ -212,7 +217,7 @@ pub trait BlockchainMut<ChainSpecT: RuntimeSpec> {
 pub trait SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>:
     Blockchain<ChainSpecT, BlockchainError = BlockchainErrorT, StateError = StateErrorT>
     + BlockchainMut<ChainSpecT, Error = BlockchainErrorT>
-    + BlockHashRef<Error = BlockchainErrorT>
+    + BlockHash<Error = BlockchainErrorT>
     + Send
     + Sync
     + Debug
@@ -227,7 +232,7 @@ impl<BlockchainT, ChainSpecT, BlockchainErrorT, StateErrorT>
 where
     BlockchainT: Blockchain<ChainSpecT, BlockchainError = BlockchainErrorT, StateError = StateErrorT>
         + BlockchainMut<ChainSpecT, Error = BlockchainErrorT>
-        + BlockHashRef<Error = BlockchainErrorT>
+        + BlockHash<Error = BlockchainErrorT>
         + Send
         + Sync
         + Debug,
@@ -237,7 +242,7 @@ where
 }
 
 fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: RuntimeSpec>(
-    state: &mut dyn DatabaseCommit,
+    state: &mut dyn StateCommit,
     local_storage: &ReservableSparseBlockchainStorage<BlockT, ChainSpecT>,
     first_local_block_number: u64,
     last_local_block_number: u64,
@@ -294,7 +299,7 @@ fn validate_next_block<ChainSpecT: RuntimeSpec>(
         });
     }
 
-    if spec_id.into() >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if spec_id.into() >= l1::SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 

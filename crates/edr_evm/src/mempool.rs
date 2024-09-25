@@ -2,16 +2,13 @@ use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use derive_where::derive_where;
 use edr_eth::{
-    transaction::{upfront_cost, ExecutableTransaction},
-    Address, B256, U256,
+    account::AccountInfo,
+    transaction::{upfront_cost, ExecutableTransaction, Transaction},
+    Address, HashMap, B256, U256,
 };
 use indexmap::{map::Entry, IndexMap};
-use revm::{
-    db::StateRef,
-    primitives::{AccountInfo, HashMap, Transaction},
-};
 
-use crate::spec::RuntimeSpec;
+use crate::{spec::RuntimeSpec, state::State};
 
 /// An iterator over pending transactions.
 pub struct PendingTransactions<ChainSpecT: RuntimeSpec, ComparatorT>
@@ -39,7 +36,7 @@ where
 
 impl<ChainSpecT, ComparatorT> Debug for PendingTransactions<ChainSpecT, ComparatorT>
 where
-    ChainSpecT: RuntimeSpec<Transaction: Debug>,
+    ChainSpecT: RuntimeSpec<SignedTransaction: Debug>,
     ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -51,13 +48,13 @@ where
 
 impl<ChainSpecT, ComparatorT> Iterator for PendingTransactions<ChainSpecT, ComparatorT>
 where
-    ChainSpecT: RuntimeSpec<Transaction: Debug>,
+    ChainSpecT: RuntimeSpec<SignedTransaction: Debug>,
     ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
 {
-    type Item = ChainSpecT::Transaction;
+    type Item = ChainSpecT::SignedTransaction;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn next(&mut self) -> Option<ChainSpecT::Transaction> {
+    fn next(&mut self) -> Option<ChainSpecT::SignedTransaction> {
         let (to_be_removed, next) = self
             .transactions
             .iter_mut()
@@ -142,10 +139,10 @@ pub enum MemPoolAddTransactionError<SE> {
 }
 
 /// A pending transaction with an order ID.
-#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
+#[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
 pub struct OrderedTransaction<ChainSpecT: RuntimeSpec> {
     order_id: usize,
-    transaction: ChainSpecT::Transaction,
+    transaction: ChainSpecT::SignedTransaction,
 }
 
 impl<ChainSpecT: RuntimeSpec> OrderedTransaction<ChainSpecT> {
@@ -155,7 +152,7 @@ impl<ChainSpecT: RuntimeSpec> OrderedTransaction<ChainSpecT> {
     }
 
     /// Retrieves the pending transaction.
-    pub fn pending(&self) -> &ChainSpecT::Transaction {
+    pub fn pending(&self) -> &ChainSpecT::SignedTransaction {
         &self.transaction
     }
 
@@ -173,7 +170,7 @@ impl<ChainSpecT: RuntimeSpec> OrderedTransaction<ChainSpecT> {
 }
 
 /// The mempool contains transactions pending inclusion in the blockchain.
-#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
+#[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
 pub struct MemPool<ChainSpecT: RuntimeSpec> {
     /// The block's gas limit
     block_gas_limit: NonZeroU64,
@@ -207,7 +204,7 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
     /// Sets the instance's block gas limit.
     pub fn set_block_gas_limit<S>(&mut self, state: &S, limit: NonZeroU64) -> Result<(), S::Error>
     where
-        S: StateRef + ?Sized,
+        S: State + ?Sized,
         S::Error: Debug,
     {
         self.block_gas_limit = limit;
@@ -256,7 +253,7 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
     /// Retrieves an iterator for all transactions in the instance. Pending
     /// transactions are followed by future transactions, grouped by sender
     /// in order of insertion.
-    pub fn transactions(&self) -> impl Iterator<Item = &ChainSpecT::Transaction> {
+    pub fn transactions(&self) -> impl Iterator<Item = &ChainSpecT::SignedTransaction> {
         self.pending_transactions
             .values()
             .chain(self.future_transactions.values())
@@ -278,10 +275,10 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
 
     /// Tries to add the provided transaction to the [`MemPool`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction<S: StateRef + ?Sized>(
+    pub fn add_transaction<S: State + ?Sized>(
         &mut self,
         state: &S,
-        transaction: ChainSpecT::Transaction,
+        transaction: ChainSpecT::SignedTransaction,
     ) -> Result<(), MemPoolAddTransactionError<S::Error>> {
         let transaction_gas_limit = transaction.gas_limit();
         if transaction_gas_limit > self.block_gas_limit.get() {
@@ -392,7 +389,7 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn update<S>(&mut self, state: &S) -> Result<(), S::Error>
     where
-        S: StateRef + ?Sized,
+        S: State + ?Sized,
         S::Error: Debug,
     {
         fn is_valid_tx(
@@ -562,7 +559,7 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
 
 /// Calculates the next nonce of the account corresponding to the provided
 /// address.
-pub fn account_next_nonce<ChainSpecT: RuntimeSpec, StateT: StateRef + ?Sized>(
+pub fn account_next_nonce<ChainSpecT: RuntimeSpec, StateT: State + ?Sized>(
     mem_pool: &MemPool<ChainSpecT>,
     state: &StateT,
     address: &Address,

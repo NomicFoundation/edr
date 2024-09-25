@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::Context;
 use derive_where::derive_where;
-use edr_eth::spec::L1ChainSpec;
+use edr_eth::l1::L1ChainSpec;
 use edr_evm::{blockchain::BlockchainError, spec::RuntimeSpec};
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;

@@ -261,7 +261,7 @@ where
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use edr_eth::spec::L1ChainSpec;
+    use edr_eth::l1::L1ChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;

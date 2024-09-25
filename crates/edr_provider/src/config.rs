@@ -1,7 +1,7 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use derive_where::derive_where;
-use edr_eth::{block::BlobGas, AccountInfo, Address, ChainId, HashMap, B256, U256};
+use edr_eth::{account::AccountInfo, block::BlobGas, Address, ChainId, HashMap, B256, U256};
 use edr_evm::{hardfork, spec::RuntimeSpec, MineOrdering};
 use rand::Rng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

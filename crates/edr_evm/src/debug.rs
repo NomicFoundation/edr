@@ -1,11 +1,11 @@
 use auto_impl::auto_impl;
-use edr_eth::result::InvalidTransaction;
-use revm::{
-    db::{DatabaseComponents, StateRef, WrapDatabaseRef},
-    primitives::TransactionValidation,
-};
+use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
 
-use crate::{blockchain::SyncBlockchain, spec::RuntimeSpec};
+use crate::{
+    blockchain::SyncBlockchain,
+    spec::RuntimeSpec,
+    state::{DatabaseComponents, State, WrapDatabaseRef},
+};
 
 /// Type for registering handles, specialised for EDR database component types.
 pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> =
@@ -13,12 +13,12 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
         <ChainSpecT as RuntimeSpec>::EvmWiring<
             WrapDatabaseRef<
                 DatabaseComponents<
-                    StateT,
                     &'evm dyn SyncBlockchain<
                         ChainSpecT,
                         BlockchainErrorT,
-                        <StateT as StateRef>::Error,
+                        <StateT as State>::Error,
                     >,
+                    StateT,
                 >,
             >,
             DebugDataT,
@@ -29,9 +29,10 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
 /// `EvmBuilder`.
 pub struct DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
-    ChainSpecT:
-        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
-    StateT: StateRef,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+    StateT: State,
 {
     /// The contextual data.
     pub data: DebugDataT,
@@ -41,9 +42,10 @@ where
 
 pub struct EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
-    ChainSpecT:
-        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
-    StateT: StateRef,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+    StateT: State,
 {
     pub debug: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
     pub state: StateT,

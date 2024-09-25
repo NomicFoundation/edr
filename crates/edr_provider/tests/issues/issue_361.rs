@@ -1,6 +1,8 @@
 use edr_eth::{
-    filter::LogFilterOptions, spec::L1ChainSpec, AccountInfo, Address, BlockSpec, SpecId,
-    KECCAK_EMPTY,
+    account::AccountInfo,
+    filter::LogFilterOptions,
+    l1::{self, L1ChainSpec},
+    Address, BlockSpec, KECCAK_EMPTY,
 };
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
@@ -16,7 +18,7 @@ async fn issue_361() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::MUIR_GLACIER;
+    config.hardfork = l1::SpecId::MUIR_GLACIER;
 
     let impersonated_account = Address::random();
     config.genesis_accounts.insert(

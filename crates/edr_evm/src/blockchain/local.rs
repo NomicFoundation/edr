@@ -9,24 +9,23 @@ use std::{
 
 use derive_where::derive_where;
 use edr_eth::{
+    account::AccountInfo,
     beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
     block::{BlobGas, BlockOptions, PartialHeader},
+    l1,
     log::FilterLog,
-    AccountInfo, Address, Bytes, B256, U256,
-};
-use revm::{
-    db::BlockHashRef,
-    primitives::{Bytecode, HashSet, SpecId},
-    DatabaseCommit,
+    Address, Bytecode, Bytes, HashSet, B256, U256,
 };
 
 use super::{
     compute_state_at_block, storage::ReservableSparseBlockchainStorage, validate_next_block,
-    Blockchain, BlockchainError, BlockchainMut,
+    BlockHash, Blockchain, BlockchainError, BlockchainMut,
 };
 use crate::{
     spec::SyncRuntimeSpec,
-    state::{StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState},
+    state::{
+        StateCommit as _, StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState,
+    },
     Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
 
@@ -106,7 +105,7 @@ where
         const EXTRA_DATA: &[u8] = b"\x12\x34";
 
         let evm_spec_id = spec_id.into();
-        if evm_spec_id >= SpecId::CANCUN {
+        if evm_spec_id >= l1::SpecId::CANCUN {
             let beacon_roots_address =
                 Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
             let beacon_roots_contract = Bytecode::new_raw(
@@ -126,7 +125,7 @@ where
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
 
-        if evm_spec_id >= SpecId::MERGE && options.mix_hash.is_none() {
+        if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
             return Err(CreationError::MissingPrevrandao);
         }
 
@@ -177,7 +176,7 @@ where
             });
         }
 
-        if spec_id.into() >= SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
+        if spec_id.into() >= l1::SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InsertBlockError::MissingWithdrawals);
         }
 
@@ -411,16 +410,13 @@ where
     }
 }
 
-impl<ChainSpecT> BlockHashRef for LocalBlockchain<ChainSpecT>
-where
-    ChainSpecT: SyncRuntimeSpec,
-{
+impl<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>> BlockHash for LocalBlockchain<ChainSpecT> {
     type Error = BlockchainError<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {
+    fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
         self.storage
-            .block_by_number(number)?
+            .block_by_number(block_number)?
             .map(|block| *block.hash())
             .ok_or(BlockchainError::UnknownBlockNumber)
     }
@@ -428,8 +424,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{spec::L1ChainSpec, AccountInfo, HashMap};
-    use revm::primitives::{Account, AccountStatus};
+    use edr_eth::{
+        account::{Account, AccountInfo, AccountStatus},
+        l1::L1ChainSpec,
+        HashMap,
+    };
 
     use super::*;
     use crate::state::IrregularState;
@@ -463,7 +462,7 @@ mod tests {
         let mut blockchain = LocalBlockchain::<L1ChainSpec>::new(
             genesis_diff,
             123,
-            SpecId::SHANGHAI,
+            l1::SpecId::SHANGHAI,
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),

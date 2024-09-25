@@ -53,8 +53,8 @@ pub fn handle_get_block_by_number_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -99,8 +99,8 @@ pub fn handle_get_block_transaction_count_by_block_number<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -128,8 +128,8 @@ fn block_by_number<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,
@@ -138,7 +138,7 @@ fn block_by_number<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: &BlockSpec,
 ) -> Result<Option<BlockByNumberResult<ChainSpecT>>, ProviderError<ChainSpecT>> {
-    validate_post_merge_block_tags(data.evm_spec_id(), block_spec)?;
+    validate_post_merge_block_tags(data.hardfork(), block_spec)?;
 
     match data.block_by_block_spec(block_spec) {
         Ok(Some(block)) => {

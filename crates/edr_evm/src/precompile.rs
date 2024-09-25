@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
 use edr_eth::{Address, HashMap};
-use revm::{ContextPrecompile, EvmHandler, EvmWiring};
+pub use revm::precompile::{u64_to_address, Precompile, PrecompileSpecId, Precompiles};
+
+use crate::evm::{handler::register::EvmHandler, ContextPrecompile, EvmWiring};
 
 /// Registers custom precompiles.
-pub fn register_precompiles_handles<EvmWiringT: EvmWiring>(
+pub(crate) fn register_precompiles_handles<EvmWiringT: EvmWiring>(
     handler: &mut EvmHandler<'_, EvmWiringT>,
     precompiles: HashMap<Address, ContextPrecompile<EvmWiringT>>,
 ) {

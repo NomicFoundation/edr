@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use edr_eth::{log::FilterLog, SpecId};
+use edr_eth::{l1, log::FilterLog};
 use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
@@ -90,13 +90,13 @@ impl TryFrom<BlockReceipt> for crate::receipt::BlockReceipt<TypedEnvelope<Execut
 impl RpcTypeFrom<crate::receipt::BlockReceipt<TypedEnvelope<Execution<FilterLog>>>>
     for BlockReceipt
 {
-    type Hardfork = SpecId;
+    type Hardfork = l1::SpecId;
 
     fn rpc_type_from(
         value: &crate::receipt::BlockReceipt<TypedEnvelope<Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= SpecId::BERLIN {
+        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None

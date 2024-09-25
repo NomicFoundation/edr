@@ -5,30 +5,30 @@ use std::{
 
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
-    env::{CfgEnv, Env},
+    eips::eip4844,
+    l1,
     log::ExecutionLog,
-    receipt::{ExecutionReceiptBuilder as _, Receipt as _, TransactionReceipt},
-    result::InvalidTransaction,
-    transaction::ExecutableTransaction as _,
+    receipt::{Receipt as _, TransactionReceipt},
+    result::{ExecutionResult, InvalidTransaction, ResultAndState},
+    spec::ChainSpec,
+    transaction::{ExecutableTransaction as _, Transaction as _, TransactionValidation},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, U256,
 };
-use revm::{
-    db::{DatabaseComponents, StateRef, WrapDatabaseRef},
-    primitives::{
-        ExecutionResult, ResultAndState, SpecId, Transaction as _, TransactionValidation,
-        MAX_BLOB_GAS_PER_BLOCK,
-    },
-    Context, DatabaseCommit, Evm, InnerEvmContext,
-};
+use revm::Evm;
 
 use super::local::LocalBlock;
 use crate::{
     blockchain::SyncBlockchain,
+    config::{CfgEnv, Env},
     debug::{DebugContext, EvmContext},
+    receipt::ExecutionReceiptBuilder as _,
     spec::{BlockEnvConstructor, RuntimeSpec},
-    state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
+    state::{
+        AccountModifierFn, DatabaseComponents, State, StateCommit, StateDebug, StateDiff,
+        SyncState, WrapDatabaseRef,
+    },
     transaction::TransactionError,
     SyncBlock,
 };
@@ -48,7 +48,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: revm::primitives::ChainSpec,
+    ChainSpecT: ChainSpec,
 {
     /// Transaction has higher gas limit than is remaining in block
     #[error("Transaction has a higher gas limit than the remaining gas in the block")]
@@ -65,11 +65,13 @@ where
 /// was executed.
 pub struct ExecutionResultWithContext<
     'evm,
-    ChainSpecT: RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     BlockchainErrorT,
     StateErrorT,
     DebugDataT,
-    StateT: StateRef,
+    StateT: State,
 > {
     /// The result of executing the transaction.
     pub result: Result<
@@ -93,7 +95,7 @@ pub struct BlockBuilder<ChainSpecT: RuntimeSpec> {
     cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     header: PartialHeader,
-    transactions: Vec<ChainSpecT::Transaction>,
+    transactions: Vec<ChainSpecT::SignedTransaction>,
     state_diff: StateDiff,
     receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>>,
     parent_gas_limit: Option<u64>,
@@ -113,7 +115,7 @@ where
         mut options: BlockOptions,
     ) -> Result<Self, BlockBuilderCreationError<ChainSpecT>> {
         let evm_spec_id = hardfork.into();
-        if evm_spec_id < SpecId::BYZANTIUM {
+        if evm_spec_id < l1::SpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(hardfork));
         }
 
@@ -125,7 +127,7 @@ where
         };
 
         let withdrawals = std::mem::take(&mut options.withdrawals).or_else(|| {
-            if evm_spec_id >= SpecId::SHANGHAI {
+            if evm_spec_id >= l1::SpecId::SHANGHAI {
                 Some(Vec::new())
             } else {
                 None
@@ -249,9 +251,9 @@ impl<ChainSpecT> BlockBuilder<ChainSpecT>
 where
     ChainSpecT: RuntimeSpec<
         Block: Default,
-        Transaction: Clone
-                         + Default
-                         + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: Clone
+                               + Default
+                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
 {
     /// Adds a pending transaction to
@@ -260,7 +262,7 @@ where
         &mut self,
         blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: StateT,
-        transaction: ChainSpecT::Transaction,
+        transaction: ChainSpecT::SignedTransaction,
         debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
     ) -> ExecutionResultWithContext<
         'evm,
@@ -272,7 +274,7 @@ where
     >
     where
         'blockchain: 'evm,
-        StateT: StateRef<Error = StateErrorT> + DatabaseCommit + StateDebug<Error = StateErrorT>,
+        StateT: State<Error = StateErrorT> + StateCommit + StateDebug<Error = StateErrorT>,
     {
         // The transaction's gas limit cannot be greater than the remaining gas in the
         // block
@@ -292,7 +294,7 @@ where
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            if block_blob_gas_used + blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
+            if block_blob_gas_used + blob_gas_used > eip4844::MAX_BLOB_GAS_PER_BLOCK {
                 return ExecutionResultWithContext {
                     result: Err(BlockTransactionError::ExceedsBlockBlobGasLimit),
                     evm_context: EvmContext {
@@ -323,10 +325,7 @@ where
         };
 
         let env = Env::boxed(self.cfg.clone(), block, transaction.clone());
-        let db = WrapDatabaseRef(DatabaseComponents {
-            state,
-            block_hash: blockchain,
-        });
+        let db = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
         let (
             mut evm_context,
@@ -345,10 +344,10 @@ where
                     .build();
 
                 let result = evm.transact();
-                let Context {
+                let revm::Context {
                     evm:
                         revm::EvmContext {
-                            inner: InnerEvmContext { db, .. },
+                            inner: revm::InnerEvmContext { db, .. },
                             ..
                         },
                     external,
@@ -380,10 +379,10 @@ where
                     .build();
 
                 let result = evm.transact();
-                let Context {
+                let revm::Context {
                     evm:
                         revm::EvmContext {
-                            inner: InnerEvmContext { db, .. },
+                            inner: revm::InnerEvmContext { db, .. },
                             ..
                         },
                     ..

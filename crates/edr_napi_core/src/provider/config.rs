@@ -1,7 +1,7 @@
 use core::num::NonZeroU64;
 use std::{path::PathBuf, time::SystemTime};
 
-use edr_eth::{block::BlobGas, AccountInfo, Address, ChainId, HashMap, B256, U256};
+use edr_eth::{account::AccountInfo, block::BlobGas, Address, ChainId, HashMap, B256, U256};
 use edr_provider::{
     hardfork::{Activations, ForkCondition},
     hardhat_rpc_types::ForkConfig,

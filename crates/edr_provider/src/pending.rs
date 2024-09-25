@@ -1,9 +1,9 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{db::BlockHashRef, transaction::ExecutableTransaction as _, HashSet, B256, U256};
+use edr_eth::{transaction::ExecutableTransaction as _, HashSet, B256, U256};
 use edr_evm::{
-    blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
+    blockchain::{BlockHash, Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
     BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
@@ -226,16 +226,16 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT>
     }
 }
 
-impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockHashRef
+impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockHash
     for BlockchainWithPending<'blockchain, ChainSpecT>
 {
     type Error = BlockchainError<ChainSpecT>;
 
-    fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {
-        if number == self.pending_block.header().number {
+    fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
+        if block_number == self.pending_block.header().number {
             Ok(*self.pending_block.hash())
         } else {
-            self.blockchain.block_hash(number)
+            self.blockchain.block_hash_by_number(block_number)
         }
     }
 }

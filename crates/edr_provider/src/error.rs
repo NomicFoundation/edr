@@ -4,10 +4,10 @@ use std::num::TryFromIntError;
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
     filter::SubscriptionType,
-    hex,
+    hex, l1,
     result::{ExecutionResult, HaltReason, OutOfGasError},
     spec::HaltReasonTrait,
-    Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256,
+    Address, BlockSpec, BlockTag, Bytes, B256, U256,
 };
 use edr_evm::{
     blockchain::BlockchainError,
@@ -86,8 +86,11 @@ where
     },
     /// The block tag is not allowed in pre-merge hardforks.
     /// <https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1820>
-    #[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{spec:?}' hardfork.")]
-    InvalidBlockTag { block_tag: BlockTag, spec: SpecId },
+    #[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{hardfork:?}' hardfork.")]
+    InvalidBlockTag {
+        block_tag: BlockTag,
+        hardfork: ChainSpecT::Hardfork,
+    },
     /// Invalid chain ID
     #[error("Invalid chainId {actual} provided, expected {expected} instead.")]
     InvalidChainId { expected: u64, actual: u64 },
@@ -164,11 +167,11 @@ where
     /// The `hardhat_setNextBlockBaseFeePerGas` method is not supported due to
     /// an older hardfork.
     #[error("hardhat_setNextBlockBaseFeePerGas is disabled because EIP-1559 is not active")]
-    SetNextBlockBaseFeePerGasUnsupported { spec_id: SpecId },
+    SetNextBlockBaseFeePerGasUnsupported { hardfork: ChainSpecT::Hardfork },
     /// The `hardhat_setPrevRandao` method is not supported due to an older
     /// hardfork.
-    #[error("hardhat_setPrevRandao is only available in post-merge hardforks, the current hardfork is {spec_id:?}")]
-    SetNextPrevRandaoUnsupported { spec_id: SpecId },
+    #[error("hardhat_setPrevRandao is only available in post-merge hardforks, the current hardfork is {hardfork:?}")]
+    SetNextPrevRandaoUnsupported { hardfork: ChainSpecT::Hardfork },
     /// An error occurred while recovering a signature.
     #[error(transparent)]
     Signature(#[from] edr_eth::signature::SignatureError),
@@ -199,21 +202,24 @@ where
     UnknownAddress { address: Address },
     /// Minimum required hardfork not met
     #[error("Feature is only available in post-{minimum:?} hardforks, the current hardfork is {actual:?}")]
-    UnmetHardfork { actual: SpecId, minimum: SpecId },
+    UnmetHardfork {
+        actual: l1::SpecId,
+        minimum: l1::SpecId,
+    },
     #[error("The transaction contains an access list parameter, but this is not supported by the current hardfork: {current_hardfork:?}")]
     UnsupportedAccessListParameter {
-        current_hardfork: SpecId,
-        minimum_hardfork: SpecId,
+        current_hardfork: l1::SpecId,
+        minimum_hardfork: l1::SpecId,
     },
     #[error("The transaction contains EIP-1559 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
     UnsupportedEIP1559Parameters {
-        current_hardfork: SpecId,
-        minimum_hardfork: SpecId,
+        current_hardfork: l1::SpecId,
+        minimum_hardfork: l1::SpecId,
     },
     #[error("The transaction contains EIP-4844 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
     UnsupportedEIP4844Parameters {
-        current_hardfork: SpecId,
-        minimum_hardfork: SpecId,
+        current_hardfork: l1::SpecId,
+        minimum_hardfork: l1::SpecId,
     },
     #[error("Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'")]
     UnsupportedTransactionTypeInDebugTrace {

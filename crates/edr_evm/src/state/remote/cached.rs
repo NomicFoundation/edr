@@ -1,13 +1,9 @@
 use derive_where::derive_where;
-use edr_eth::{Address, B256, U256};
+use edr_eth::{account::AccountInfo, hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
 use edr_rpc_eth::spec::RpcSpec;
-use revm::{
-    db::components::{State, StateRef},
-    primitives::{hash_map::Entry, AccountInfo, Bytecode, HashMap},
-};
 
 use super::RemoteState;
-use crate::state::{account::EdrAccount, StateError};
+use crate::state::{account::EdrAccount, State, StateError, StateMut};
 
 /// A cached version of [`RemoteState`].
 #[derive_where(Debug)]
@@ -30,10 +26,10 @@ impl<ChainSpecT: RpcSpec> CachedRemoteState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
+impl<ChainSpecT: RpcSpec> StateMut for CachedRemoteState<ChainSpecT> {
     type Error = StateError;
 
-    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+    fn basic_mut(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         let block_accounts = self
             .account_cache
             .entry(self.remote.block_number())
@@ -55,7 +51,7 @@ impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
         Ok(None)
     }
 
-    fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
+    fn code_by_hash_mut(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
         let block_code = self
             .code_cache
             .entry(self.remote.block_number())
@@ -67,7 +63,7 @@ impl<ChainSpecT: RpcSpec> State for CachedRemoteState<ChainSpecT> {
             .ok_or(StateError::InvalidCodeHash(code_hash))
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_mut(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
         let block_accounts = self
             .account_cache
             .entry(self.remote.block_number())
@@ -134,7 +130,7 @@ fn fetch_remote_account<ChainSpecT: RpcSpec>(
 mod tests {
     use std::{str::FromStr, sync::Arc};
 
-    use edr_eth::spec::L1ChainSpec;
+    use edr_eth::l1::L1ChainSpec;
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use tokio::runtime;
@@ -163,10 +159,13 @@ mod tests {
         let remote = RemoteState::new(runtime, Arc::new(rpc_client), block_number);
         let mut cached = CachedRemoteState::new(remote);
 
-        let account_info = cached.basic(dai_address).expect("should succeed").unwrap();
+        let account_info = cached
+            .basic_mut(dai_address)
+            .expect("should succeed")
+            .unwrap();
 
         cached
-            .storage(dai_address, U256::from(0))
+            .storage_mut(dai_address, U256::from(0))
             .expect("should succeed");
 
         for entry in cached.account_cache.values() {
@@ -174,7 +173,7 @@ mod tests {
         }
 
         cached
-            .code_by_hash(account_info.code_hash)
+            .code_by_hash_mut(account_info.code_hash)
             .expect("should succeed");
     }
 }

@@ -1,6 +1,6 @@
 use std::str::FromStr as _;
 
-use edr_eth::{SpecId, B256};
+use edr_eth::{l1, B256};
 use edr_evm::hardfork;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
@@ -29,7 +29,7 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
 
     config.chains.insert(
         CHAIN_ID,
-        hardfork::Activations::with_spec_id(SpecId::CANCUN),
+        hardfork::Activations::with_spec_id(l1::SpecId::CANCUN),
     );
 
     config.chain_id = CHAIN_ID;

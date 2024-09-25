@@ -1,13 +1,14 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, AuthorizationList, GAS_PER_BLOB};
+use revm_primitives::{keccak256, GAS_PER_BLOB};
 
 use crate::{
+    eips::{eip2930, eip7702},
     signature::{self, Fakeable},
     transaction::{self, ExecutableTransaction, Transaction, TxKind},
     utils::enveloped,
-    AccessList, AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -25,7 +26,7 @@ pub struct Eip4844 {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: AccessList,
+    pub access_list: eip2930::AccessList,
     pub max_fee_per_blob_gas: U256,
     pub blob_hashes: Vec<B256>,
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -125,7 +126,7 @@ impl Transaction for Eip4844 {
         Some(self.chain_id)
     }
 
-    fn access_list(&self) -> &[AccessListItem] {
+    fn access_list(&self) -> &[eip2930::AccessListItem] {
         &self.access_list.0
     }
 
@@ -141,7 +142,7 @@ impl Transaction for Eip4844 {
         Some(&self.max_fee_per_blob_gas)
     }
 
-    fn authorization_list(&self) -> Option<&AuthorizationList> {
+    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         None
     }
 }
@@ -157,7 +158,7 @@ struct Decodable {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: AccessList,
+    pub access_list: eip2930::AccessList,
     pub max_fee_per_blob_gas: U256,
     pub blob_hashes: Vec<B256>,
     pub signature: signature::SignatureWithYParity,

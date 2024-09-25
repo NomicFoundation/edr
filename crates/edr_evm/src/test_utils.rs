@@ -2,20 +2,21 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use anyhow::anyhow;
 use edr_eth::{
+    account::AccountInfo,
     block::{miner_reward, BlockOptions},
-    env::CfgEnv,
+    l1::{self, L1ChainSpec},
     log::FilterLog,
     receipt::Receipt as _,
     result::InvalidTransaction,
-    spec::L1ChainSpec,
     transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,
-    AccountInfo, Address, Bytes, HashMap, PreEip1898BlockSpec, SpecId, U256,
+    Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
 };
 use edr_rpc_eth::client::EthRpcClient;
 
 use crate::{
     blockchain::{Blockchain as _, ForkedBlockchain},
+    config::CfgEnv,
     spec::SyncRuntimeSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
     transaction, Block, BlockBuilder, DebugContext, ExecutionResultWithContext, MemPool,
@@ -126,7 +127,7 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
     let transaction = request.fake_sign(caller);
     let transaction = transaction::Signed::from(transaction);
 
-    transaction::validate(transaction, SpecId::LATEST)
+    transaction::validate(transaction, l1::SpecId::LATEST)
 }
 
 /// Creates a dummy EIP-1559 transaction with the provided max fee and max
@@ -152,7 +153,7 @@ pub fn dummy_eip1559_transaction(
     let transaction = request.fake_sign(caller);
     let transaction = transaction::Signed::from(transaction);
 
-    transaction::validate(transaction, SpecId::LATEST)
+    transaction::validate(transaction, l1::SpecId::LATEST)
 }
 
 /// Runs a full remote block, asserting that the mined block matches the remote
@@ -163,8 +164,8 @@ pub async fn run_full_block<
             Block: Default,
             Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,
-            Transaction: Default
-                             + TransactionValidation<
+            SignedTransaction: Default
+                                   + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + Send + Sync,
             >,
         >,
@@ -365,7 +366,7 @@ pub async fn run_full_block<
 
 /// Implements full block tests for the provided chain specs.
 /// ```no_run
-/// use edr_eth::spec::L1ChainSpec;
+/// use edr_eth::l1::L1ChainSpec;
 /// use edr_evm::impl_full_block_tests;
 /// use edr_test_utils::env::get_alchemy_url;
 ///

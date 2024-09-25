@@ -1,24 +1,28 @@
 use std::fmt::Debug;
 
 use edr_eth::{
-    db::{DatabaseComponents, StateRef},
-    env::{CfgEnv, Env},
+    l1,
     result::{ExecutionResult, InvalidTransaction, ResultAndState},
     transaction::{ExecutableTransaction as _, TransactionValidation},
-    Address, HashMap, Precompile, SpecId,
+    Address, HashMap,
 };
-use revm::{db::WrapDatabaseRef, ContextPrecompile, DatabaseCommit, Evm};
+use revm::{precompile::Precompile, ContextPrecompile, Evm};
 
 use crate::{
-    blockchain::SyncBlockchain, debug::DebugContext, precompiles::register_precompiles_handles,
-    spec::RuntimeSpec, transaction::TransactionError,
+    blockchain::SyncBlockchain,
+    config::{CfgEnv, Env},
+    debug::DebugContext,
+    precompile::register_precompiles_handles,
+    spec::RuntimeSpec,
+    state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
+    transaction::TransactionError,
 };
 
 /// Asynchronous implementation of the Database super-trait
 pub type SyncDatabase<'blockchain, 'state, ChainSpecT, BlockchainErrorT, StateErrorT> =
     DatabaseComponents<
-        &'state dyn StateRef<Error = StateErrorT>,
         &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+        &'state dyn State<Error = StateErrorT>,
     >;
 
 /// Runs a transaction without committing the state.
@@ -30,7 +34,7 @@ pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, Stat
     state: StateT,
     cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
-    transaction: ChainSpecT::Transaction,
+    transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::Block,
     custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
@@ -40,10 +44,11 @@ pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, Stat
 >
 where
     'blockchain: 'evm,
-    ChainSpecT:
-        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     BlockchainErrorT: Debug + Send,
-    StateT: StateRef<Error: Debug + Send>,
+    StateT: State<Error: Debug + Send>,
 {
     validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(hardfork, &transaction)?;
 
@@ -58,10 +63,7 @@ where
                 .collect();
 
             let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-                .with_db(WrapDatabaseRef(DatabaseComponents {
-                    state,
-                    block_hash: blockchain,
-                }))
+                .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
                 .with_external_context(debug_context.data)
                 .with_env(env)
                 .with_spec_id(hardfork)
@@ -81,10 +83,7 @@ where
                 .collect();
 
             let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-                .with_db(WrapDatabaseRef(DatabaseComponents {
-                    state,
-                    block_hash: blockchain,
-                }))
+                .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
                 .with_external_context(())
                 .with_env(env)
                 .with_spec_id(hardfork)
@@ -118,7 +117,7 @@ pub fn guaranteed_dry_run<
     state: StateT,
     mut cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
-    transaction: ChainSpecT::Transaction,
+    transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::Block,
     custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
@@ -129,10 +128,11 @@ pub fn guaranteed_dry_run<
 where
     'blockchain: 'evm,
     'state: 'evm,
-    ChainSpecT:
-        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     BlockchainErrorT: Debug + Send,
-    StateT: StateRef<Error: Debug + Send>,
+    StateT: State<Error: Debug + Send>,
 {
     cfg.disable_balance_check = true;
     cfg.disable_block_gas_limit = true;
@@ -157,7 +157,7 @@ pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
     state: StateT,
     cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
-    transaction: ChainSpecT::Transaction,
+    transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::Block,
     custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
@@ -167,10 +167,11 @@ pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
 >
 where
     'blockchain: 'evm,
-    ChainSpecT:
-        RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     BlockchainErrorT: Debug + Send,
-    StateT: StateRef + DatabaseCommit,
+    StateT: State + StateCommit,
     StateT::Error: Debug + Send,
 {
     validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(hardfork, &transaction)?;
@@ -187,10 +188,7 @@ where
                 .collect();
 
         let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-            .with_db(WrapDatabaseRef(DatabaseComponents {
-                state,
-                block_hash: blockchain,
-            }))
+            .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
             .with_external_context(debug_context.data)
             .with_env(env)
             .with_spec_id(hardfork)
@@ -211,10 +209,7 @@ where
                 .collect();
 
         let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-            .with_db(WrapDatabaseRef(DatabaseComponents {
-                state,
-                block_hash: blockchain,
-            }))
+            .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
             .with_external_context(())
             .with_env(env)
             .with_spec_id(hardfork)
@@ -231,9 +226,9 @@ where
 
 fn validate_configuration<ChainSpecT: RuntimeSpec, BlockchainErrorT, StateErrorT>(
     hardfork: ChainSpecT::Hardfork,
-    transaction: &ChainSpecT::Transaction,
+    transaction: &ChainSpecT::SignedTransaction,
 ) -> Result<(), TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>> {
-    if transaction.max_fee_per_gas().is_some() && Into::into(hardfork) < SpecId::LONDON {
+    if transaction.max_fee_per_gas().is_some() && Into::into(hardfork) < l1::SpecId::LONDON {
         return Err(TransactionError::Eip1559Unsupported);
     }
 

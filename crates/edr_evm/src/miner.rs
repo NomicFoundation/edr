@@ -2,17 +2,17 @@ use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
-    env::CfgEnv,
+    result::{ExecutionResult, InvalidTransaction},
     signature::SignatureError,
-    transaction::{ExecutableTransaction as _, Transaction},
+    transaction::{ExecutableTransaction as _, Transaction, TransactionValidation},
     U256,
 };
-use revm::primitives::{ExecutionResult, InvalidTransaction, TransactionValidation};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
+    config::CfgEnv,
     debug::DebugContext,
     mempool::OrderedTransaction,
     spec::{RuntimeSpec, SyncRuntimeSpec},
@@ -131,7 +131,9 @@ where
     'blockchain: 'evm,
     ChainSpecT: SyncRuntimeSpec<
         Hardfork: Debug,
-        Transaction: TransactionValidation<ValidationError: From<InvalidTransaction> + PartialEq>,
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
     >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
@@ -302,7 +304,7 @@ pub fn mine_block_with_single_transaction<
 >(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
-    transaction: ChainSpecT::Transaction,
+    transaction: ChainSpecT::SignedTransaction,
     cfg: &CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     options: BlockOptions,
@@ -325,7 +327,9 @@ where
     'blockchain: 'evm,
     ChainSpecT: SyncRuntimeSpec<
         Hardfork: Debug,
-        Transaction: TransactionValidation<ValidationError: From<InvalidTransaction> + PartialEq>,
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
     >,
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
@@ -444,8 +448,9 @@ fn priority_comparator<ChainSpecT: RuntimeSpec>(
     rhs: &OrderedTransaction<ChainSpecT>,
     base_fee: Option<U256>,
 ) -> Ordering {
-    let effective_miner_fee =
-        move |transaction: &ChainSpecT::Transaction| effective_miner_fee(transaction, base_fee);
+    let effective_miner_fee = move |transaction: &ChainSpecT::SignedTransaction| {
+        effective_miner_fee(transaction, base_fee)
+    };
 
     // Invert lhs and rhs to get decreasing order by effective miner fee
     let ordering = effective_miner_fee(rhs.pending()).cmp(&effective_miner_fee(lhs.pending()));
@@ -461,7 +466,7 @@ fn priority_comparator<ChainSpecT: RuntimeSpec>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{AccountInfo, Address};
+    use edr_eth::{account::AccountInfo, Address};
 
     use super::*;
     use crate::test_utils::{

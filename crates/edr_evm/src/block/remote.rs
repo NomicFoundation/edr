@@ -39,10 +39,10 @@ pub enum ConversionError<ChainSpecT: RuntimeSpec> {
 }
 
 /// A remote block, which lazily loads receipts.
-#[derive_where(Clone, Debug; ChainSpecT::Transaction)]
+#[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
 pub struct RemoteBlock<ChainSpecT: RuntimeSpec> {
     header: Header,
-    transactions: Vec<ChainSpecT::Transaction>,
+    transactions: Vec<ChainSpecT::SignedTransaction>,
     /// The receipts of the block's transactions
     receipts: OnceLock<Vec<Arc<BlockReceipt<ChainSpecT>>>>,
     /// The hashes of the block's ommers
@@ -100,7 +100,7 @@ impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
         self.size
     }
 
-    fn transactions(&self) -> &[ChainSpecT::Transaction] {
+    fn transactions(&self) -> &[ChainSpecT::SignedTransaction] {
         &self.transactions
     }
 
@@ -114,7 +114,7 @@ impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
                 self.rpc_client.get_transaction_receipts(
                     self.transactions
                         .iter()
-                        .map(ChainSpecT::Transaction::transaction_hash),
+                        .map(ChainSpecT::SignedTransaction::transaction_hash),
                 ),
             )
         })

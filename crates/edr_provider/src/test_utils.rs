@@ -1,7 +1,7 @@
 use std::{num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas, result::InvalidTransaction, signature::secret_key_from_str, spec::L1ChainSpec,
+    block::BlobGas, l1::L1ChainSpec, result::InvalidTransaction, signature::secret_key_from_str,
     transaction::TransactionValidation, trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, B256, U160,
     U256,
 };
@@ -80,8 +80,8 @@ pub fn pending_base_fee<
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: Default,
-        Transaction: Default
-                         + TransactionValidation<
+        SignedTransaction: Default
+                               + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
     >,

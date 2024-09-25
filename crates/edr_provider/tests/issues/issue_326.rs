@@ -1,6 +1,10 @@
 use std::str::FromStr;
 
-use edr_eth::{spec::L1ChainSpec, AccountInfo, Address, SpecId, KECCAK_EMPTY, U256};
+use edr_eth::{
+    account::AccountInfo,
+    l1::{self, L1ChainSpec},
+    Address, KECCAK_EMPTY, U256,
+};
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
@@ -15,7 +19,7 @@ async fn issue_326() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::CANCUN;
+    config.hardfork = l1::SpecId::CANCUN;
     config.mining = MiningConfig {
         auto_mine: false,
         ..MiningConfig::default()

@@ -2,14 +2,15 @@ use core::fmt::Debug;
 
 use edr_eth::{
     block::Header,
-    env::CfgEnv,
     result::{ExecutionResult, InvalidTransaction},
     transaction::TransactionValidation,
-    Address, HashMap, Precompile, U256,
+    Address, HashMap, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, SyncBlockchain},
+    config::CfgEnv,
     guaranteed_dry_run,
+    precompile::Precompile,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
     DebugContext,
@@ -20,7 +21,9 @@ use crate::ProviderError;
 pub(super) struct RunCallArgs<
     'a,
     'evm,
-    ChainSpecT: RuntimeSpec<Transaction: TransactionValidation<ValidationError: From<InvalidTransaction>>>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     DebugDataT,
 > where
     'a: 'evm,
@@ -31,7 +34,7 @@ pub(super) struct RunCallArgs<
     pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnv,
     pub hardfork: ChainSpecT::Hardfork,
-    pub transaction: ChainSpecT::Transaction,
+    pub transaction: ChainSpecT::SignedTransaction,
     pub precompiles: &'a HashMap<Address, Precompile>,
     // `DebugContext` cannot be simplified further
     #[allow(clippy::type_complexity)]
@@ -55,7 +58,8 @@ where
     ChainSpecT: SyncRuntimeSpec<
         Block: Default,
         Hardfork: Debug,
-        Transaction: Default + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: Default
+                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
 {
     let RunCallArgs {

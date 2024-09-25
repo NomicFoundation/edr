@@ -2,28 +2,26 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, str::FromStr, sync
 
 use derive_where::derive_where;
 use edr_eth::{
+    account::{Account, AccountInfo, AccountStatus},
     beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
+    l1,
     log::FilterLog,
-    AccountInfo, Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256,
+    Address, BlockSpec, Bytecode, Bytes, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256,
+    U256,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
 };
 use parking_lot::Mutex;
-use revm::{
-    db::BlockHashRef,
-    primitives::{
-        alloy_primitives::ChainId, Account, AccountStatus, Bytecode, HashMap, HashSet, SpecId,
-    },
-};
 use tokio::runtime;
 
 use super::{
-    compute_state_at_block, remote::RemoteBlockchain, storage,
-    storage::ReservableSparseBlockchainStorage, validate_next_block, Blockchain, BlockchainError,
-    BlockchainMut,
+    compute_state_at_block,
+    remote::RemoteBlockchain,
+    storage::{self, ReservableSparseBlockchainStorage},
+    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainMut,
 };
 use crate::{
     block::EthRpcBlock,
@@ -117,10 +115,7 @@ where
     hardfork_activations: Option<Activations<ChainSpecT>>,
 }
 
-impl<ChainSpecT> ForkedBlockchain<ChainSpecT>
-where
-    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
-{
+impl<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>> ForkedBlockchain<ChainSpecT> {
     /// Constructs a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
@@ -195,7 +190,7 @@ where
                     hardfork_activations.hardfork_at_block(fork_block_number, fork_timestamp)
                 })
         {
-            if remote_hardfork.into() < SpecId::SPURIOUS_DRAGON {
+            if remote_hardfork.into() < l1::SpecId::SPURIOUS_DRAGON {
                 return Err(CreationError::InvalidHardfork {
                     chain_name: ChainSpecT::chain_name(remote_chain_id)
                         .map_or_else(|| "unknown".to_string(), ToString::to_string),
@@ -204,7 +199,7 @@ where
                 });
             }
 
-            if remote_hardfork.into() < SpecId::CANCUN && spec_id.into() >= SpecId::CANCUN {
+            if remote_hardfork.into() < l1::SpecId::CANCUN && spec_id.into() >= l1::SpecId::CANCUN {
                 let beacon_roots_address =
                     Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
                 let beacon_roots_contract = Bytecode::new_raw(
@@ -269,28 +264,6 @@ where
 
     fn runtime(&self) -> &runtime::Handle {
         self.remote.runtime()
-    }
-}
-
-impl<ChainSpecT> BlockHashRef for ForkedBlockchain<ChainSpecT>
-where
-    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
-{
-    type Error = BlockchainError<ChainSpecT>;
-
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {
-        if number <= self.fork_block_number {
-            tokio::task::block_in_place(move || {
-                self.runtime().block_on(self.remote.block_by_number(number))
-            })
-            .map(|block| Ok(*block.hash()))?
-        } else {
-            self.local_storage
-                .block_by_number(number)?
-                .map(|block| *block.hash())
-                .ok_or(BlockchainError::UnknownBlockNumber)
-        }
     }
 }
 
@@ -643,6 +616,26 @@ where
                     Err(BlockchainError::UnknownBlockNumber)
                 }
             }
+        }
+    }
+}
+
+impl<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>> BlockHash for ForkedBlockchain<ChainSpecT> {
+    type Error = BlockchainError<ChainSpecT>;
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
+        if block_number <= self.fork_block_number {
+            tokio::task::block_in_place(move || {
+                self.runtime()
+                    .block_on(self.remote.block_by_number(block_number))
+            })
+            .map(|block| Ok(*block.hash()))?
+        } else {
+            self.local_storage
+                .block_by_number(block_number)?
+                .map(|block| *block.hash())
+                .ok_or(BlockchainError::UnknownBlockNumber)
         }
     }
 }

@@ -129,7 +129,7 @@ where
     fn log_call(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         result: &CallResult<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector.log_call(hardfork, transaction, result)?;
@@ -140,7 +140,7 @@ where
     fn log_estimate_gas_failure(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         failure: &EstimateGasFailure<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
@@ -174,7 +174,7 @@ where
     fn log_send_transaction(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
@@ -260,7 +260,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     pub fn log_call(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         result: &CallResult<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
         let CallResult {
@@ -299,7 +299,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     pub fn log_estimate_gas(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         result: &EstimateGasFailure<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
         let EstimateGasFailure {
@@ -427,7 +427,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     pub fn log_send_transaction(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         mining_results: &[DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>],
     ) -> Result<(), LoggerError> {
         if !mining_results.is_empty() {
@@ -640,7 +640,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_block_transaction(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         result: &ExecutionResult<ChainSpecT::HaltReason>,
         trace: &Trace<ChainSpecT::HaltReason>,
         console_log_inputs: &[Bytes],
@@ -1003,7 +1003,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         block_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
         trace: &Trace<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
@@ -1029,7 +1029,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
     ) -> Result<(), LoggerError> {
         let trace = result
             .transaction_traces
@@ -1050,7 +1050,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         block_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
-        transaction: &ChainSpecT::Transaction,
+        transaction: &ChainSpecT::SignedTransaction,
         transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
         trace: &Trace<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {

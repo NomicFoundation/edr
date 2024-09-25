@@ -11,7 +11,7 @@ mod reward;
 
 use alloy_eips::calc_next_block_base_fee;
 use alloy_rlp::{BufMut, Decodable, RlpDecodable, RlpEncodable};
-use revm_primitives::{calc_blob_gasprice, calc_excess_blob_gas, keccak256};
+pub use revm_wiring::Block;
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
@@ -23,7 +23,8 @@ pub use self::{
     reward::miner_reward,
 };
 use crate::{
-    spec::EthHeaderConstants, trie::KECCAK_NULL_RLP, Address, Bloom, Bytes, SpecId, B256, B64, U256,
+    eips::eip4844, keccak256, l1, spec::EthHeaderConstants, trie::KECCAK_NULL_RLP, Address, Bloom,
+    Bytes, B256, B64, U256,
 };
 
 /// ethereum block header
@@ -196,7 +197,7 @@ pub struct PartialHeader {
 
 impl PartialHeader {
     /// Constructs a new instance based on the provided [`BlockOptions`] and
-    /// parent [`Header`] for the given [`SpecId`].
+    /// parent [`Header`] for the given [`l1::SpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
         options: BlockOptions,
@@ -226,7 +227,7 @@ impl PartialHeader {
             receipts_root: KECCAK_NULL_RLP,
             logs_bloom: Bloom::default(),
             difficulty: options.difficulty.unwrap_or_else(|| {
-                if hardfork.into() >= SpecId::MERGE {
+                if hardfork.into() >= l1::SpecId::MERGE {
                     U256::ZERO
                 } else if let Some(parent) = parent {
                     calculate_ethash_canonical_difficulty::<ChainSpecT>(
@@ -246,14 +247,14 @@ impl PartialHeader {
             extra_data: options.extra_data.unwrap_or_default(),
             mix_hash: options.mix_hash.unwrap_or_default(),
             nonce: options.nonce.unwrap_or_else(|| {
-                if hardfork.into() >= SpecId::MERGE {
+                if hardfork.into() >= l1::SpecId::MERGE {
                     B64::ZERO
                 } else {
                     B64::from(66u64)
                 }
             }),
             base_fee: options.base_fee.or_else(|| {
-                if hardfork.into() >= SpecId::LONDON {
+                if hardfork.into() >= l1::SpecId::LONDON {
                     Some(if let Some(parent) = &parent {
                         calculate_next_base_fee_per_gas::<ChainSpecT>(hardfork, parent)
                     } else {
@@ -264,7 +265,7 @@ impl PartialHeader {
                 }
             }),
             blob_gas: options.blob_gas.or_else(|| {
-                if hardfork.into() >= SpecId::CANCUN {
+                if hardfork.into() >= l1::SpecId::CANCUN {
                     let excess_gas = parent.and_then(|parent| parent.blob_gas.as_ref()).map_or(
                         // For the first (post-fork) block, both parent.blob_gas_used and
                         // parent.excess_blob_gas are evaluated as 0.
@@ -272,7 +273,9 @@ impl PartialHeader {
                         |BlobGas {
                              gas_used,
                              excess_gas,
-                         }| calc_excess_blob_gas(*excess_gas, *gas_used),
+                         }| {
+                            eip4844::calc_excess_blob_gas(*excess_gas, *gas_used)
+                        },
                     );
 
                     Some(BlobGas {
@@ -284,7 +287,7 @@ impl PartialHeader {
                 }
             }),
             parent_beacon_block_root: options.parent_beacon_block_root.or_else(|| {
-                if hardfork.into() >= SpecId::CANCUN {
+                if hardfork.into() >= l1::SpecId::CANCUN {
                     // Initial value from https://eips.ethereum.org/EIPS/eip-4788
                     Some(B256::ZERO)
                 } else {
@@ -377,7 +380,7 @@ pub fn calculate_next_base_fee_per_blob_gas(parent: &Header) -> U256 {
         .blob_gas
         .as_ref()
         .map_or(U256::ZERO, |BlobGas { excess_gas, .. }| {
-            U256::from(calc_blob_gasprice(*excess_gas))
+            U256::from(eip4844::calc_blob_gasprice(*excess_gas))
         })
 }
 

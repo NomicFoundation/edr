@@ -13,9 +13,9 @@ mod remote {
                     async fn [<remote_block_receipt_root_ $name>]() -> anyhow::Result<()> {
                         use edr_eth::{
                             eips::eip2718::TypedEnvelope,
+                            l1::L1ChainSpec,
                             log::FilterLog,
                             receipt,
-                            spec::L1ChainSpec,
                             trie::ordered_trie_root,
                             PreEip1898BlockSpec,
                         };
@@ -70,9 +70,9 @@ mod remote {
                         use alloy_rlp::Decodable as _;
                         use edr_eth::{
                             eips::eip2718::TypedEnvelope,
+                            l1::L1ChainSpec,
                             log::{ExecutionLog, FilterLog},
                             receipt::{self, MapReceiptLogs as _},
-                            spec::L1ChainSpec,
                             B256
                         };
                         use edr_rpc_eth::{client::EthRpcClient};

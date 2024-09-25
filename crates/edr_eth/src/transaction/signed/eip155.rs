@@ -1,12 +1,13 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use revm_primitives::{keccak256, AuthorizationList};
 
 use crate::{
+    eips::{eip2930, eip7702},
+    keccak256,
     signature::{self, Signature},
     transaction::{self, ExecutableTransaction, Transaction, TxKind},
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -123,7 +124,7 @@ impl Transaction for Eip155 {
         Some(v_to_chain_id(self.signature.v()))
     }
 
-    fn access_list(&self) -> &[AccessListItem] {
+    fn access_list(&self) -> &[eip2930::AccessListItem] {
         &[]
     }
 
@@ -139,7 +140,7 @@ impl Transaction for Eip155 {
         None
     }
 
-    fn authorization_list(&self) -> Option<&AuthorizationList> {
+    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         None
     }
 }
