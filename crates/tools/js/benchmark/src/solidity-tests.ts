@@ -10,6 +10,9 @@ import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 import {
   SolidityTestRunnerConfigArgs,
   FsAccessPermission,
+  Artifact,
+  ArtifactId,
+  ContractData,
 } from "@nomicfoundation/edr";
 
 const EXPECTED_RESULTS = 15;
@@ -48,34 +51,15 @@ export async function setupForgeStdRepo() {
 }
 
 export async function runForgeStdTests(forgeStdRepoPath: string) {
-  const start = performance.now();
-
   const artifactsDir = path.join(forgeStdRepoPath, "artifacts");
   const hardhatConfig = require(
     path.join(forgeStdRepoPath, "hardhat.config.js")
   );
 
-  let artifacts = listFilesRecursively(artifactsDir)
-    .filter((p) => !p.endsWith(".dbg.json") && !p.includes("build-info"))
-    .map((artifactPath) => loadArtifact(hardhatConfig, artifactPath))
-    .filter((a) => a !== undefined);
-
-  const testSuiteIds = artifacts
-    .filter(
-      (a) =>
-        a.contract !== undefined &&
-        a.contract.abi !== undefined &&
-        a.contract.abi.some(
-          (item: { type: string; name: string }) =>
-            item.type === "function" && item.name.startsWith("test")
-        )
-    )
-    .map((a) => a.id);
-
-  artifacts = artifacts.map((a) => {
-    a.contract.abi = JSON.stringify(a.contract.abi);
-    return a;
-  });
+  const { artifacts, testSuiteIds } = loadArtifacts(
+    artifactsDir,
+    hardhatConfig
+  );
 
   const configs: SolidityTestRunnerConfigArgs = {
     projectRoot: forgeStdRepoPath,
@@ -96,6 +80,8 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
       seed: "0x1234567890123456789012345678901234567890",
     },
   };
+
+  const start = performance.now();
 
   const results = await runAllSolidityTests(artifacts, testSuiteIds, configs);
 
@@ -126,6 +112,50 @@ function computeElapsedSec(since: number) {
   return Math.round(elapsedSec * 1000) / 1000;
 }
 
+// Load contracts built with Hardhat
+function loadArtifacts(
+  artifactsDir: string,
+  hardhatConfig: { solidity: { version: string } }
+) {
+  const artifacts: Artifact[] = [];
+  const testSuiteIds: ArtifactId[] = [];
+
+  for (const artifactPath of listFilesRecursively(artifactsDir)) {
+    // Not a contract artifact file
+    if (
+      !artifactPath.endsWith(".json") ||
+      artifactPath.endsWith(".dbg.json") ||
+      artifactPath.includes("build-info")
+    ) {
+      continue;
+    }
+    const compiledContract = require(artifactPath);
+
+    const id: ArtifactId = {
+      name: compiledContract.contractName,
+      solcVersion: hardhatConfig.solidity.version,
+      source: compiledContract.sourceName,
+    };
+
+    if (isTestSuite(compiledContract)) {
+      testSuiteIds.push(id);
+    }
+
+    const contract: ContractData = {
+      abi: JSON.stringify(compiledContract.abi),
+      bytecode: compiledContract.bytecode,
+      deployedBytecode: compiledContract.deployedBytecode,
+    };
+
+    artifacts.push({ id, contract });
+  }
+
+  return {
+    artifacts,
+    testSuiteIds,
+  };
+}
+
 function listFilesRecursively(dir: string, fileList: string[] = []): string[] {
   const files = fs.readdirSync(dir);
 
@@ -141,30 +171,14 @@ function listFilesRecursively(dir: string, fileList: string[] = []): string[] {
   return fileList;
 }
 
-// Load a contract built with Hardhat
-function loadArtifact(hardhatConfig: any, artifactPath: string) {
-  let compiledContract;
-  try {
-    compiledContract = require(artifactPath);
-  } catch (e) {
-    console.error("Failed to load artifact", artifactPath);
-    return undefined;
-  }
-
-  const artifactId = {
-    name: compiledContract.contractName,
-    solcVersion: hardhatConfig.solidity.version,
-    source: compiledContract.sourceName,
-  } as { name: string; solcVersion: string; source: string };
-
-  const contract = {
-    abi: compiledContract.abi,
-    bytecode: compiledContract.bytecode,
-    deployedBytecode: compiledContract.deployedBytecode,
-  };
-
-  return {
-    id: artifactId,
-    contract: contract,
-  };
+function isTestSuite(artifact: {
+  abi: undefined | [{ type: string; name: string }];
+}) {
+  return (
+    artifact.abi !== undefined &&
+    artifact.abi.some(
+      (item: { type: string; name: string }) =>
+        item.type === "function" && item.name.startsWith("test")
+    )
+  );
 }
