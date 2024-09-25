@@ -1173,7 +1173,7 @@ impl ErrorInferrer {
                 _ => return Ok(false),
             };
 
-            let inst = subtrace_bytecode.get_instruction(step.pc)?;
+            let inst = bytecode.get_instruction(step.pc)?;
 
             // All the remaining locations should be valid, as they are part of the inline
             // asm
