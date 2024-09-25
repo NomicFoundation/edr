@@ -1,5 +1,5 @@
 {
-  "name": "@nomicfoundation/edr",
+  "name": "@ignored/edr",
   "version": "0.6.1",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",

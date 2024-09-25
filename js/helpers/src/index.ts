@@ -7,7 +7,7 @@ import {
   Artifact,
   SolidityTestRunnerConfigArgs,
   TestResult,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr";
 
 /**
  * Run all the given solidity tests and returns the whole results after finishing.
