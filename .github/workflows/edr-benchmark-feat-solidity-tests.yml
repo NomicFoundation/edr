@@ -47,7 +47,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       - name: Rust cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index/
@@ -55,7 +55,9 @@ jobs:
             ~/.cargo/git/db/
             .cargo-cache
             target/
-          key: benchmark-rs-cache-v1
+          save-always: true
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Install packages
         run: pnpm install --frozen-lockfile --prefer-offline
