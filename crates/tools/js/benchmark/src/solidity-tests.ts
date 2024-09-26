@@ -117,12 +117,12 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
     allResults.push(results);
   }
 
-  const results = getResults(runs);
+  const measurements = getMeasurements(runs);
 
   // Log info to stderr so that it doesn't pollute stdout where we write the results
-  console.error("median total elapsed (s)", displaySec(results[0].value));
+  console.error("median total elapsed (s)", displaySec(measurements[0].value));
 
-  console.log(JSON.stringify(results));
+  console.log(JSON.stringify(measurements));
 }
 
 function getConfig(forgeStdRepoPath: string): SolidityTestRunnerConfigArgs {
@@ -146,8 +146,8 @@ function getConfig(forgeStdRepoPath: string): SolidityTestRunnerConfigArgs {
   };
 }
 
-function getResults(runs: Map<string, number[]>) {
-  const results: { name: string; unit: string; value: number }[] = [];
+function getMeasurements(runs: Map<string, number[]>) {
+  const results: Array<{ name: string; unit: string; value: number }> = [];
 
   const total = runs.get(TOTAL_NAME)!;
   results.push({ name: TOTAL_NAME, unit: "ms", value: medianMs(total) });
