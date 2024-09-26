@@ -13,7 +13,7 @@ import {
   Artifact,
   ArtifactId,
   ContractData,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr";
 
 const EXPECTED_RESULTS = 15;
 // This is automatically cached in CI
