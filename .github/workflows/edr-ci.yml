@@ -28,10 +28,7 @@ jobs:
       - uses: taiki-e/install-action@cargo-hack
 
       - name: Cargo check no default features for all crates
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all --no-default-features
+        run: cargo check --all --no-default-features
 
       - name: Cargo hack for EDR crates
         run: |
@@ -59,25 +56,16 @@ jobs:
           key: edr-rs-rpc-cache-v1
 
       - name: Build cargo tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --all-targets --all-features --no-run
+        run: cargo test --workspace --all-targets --all-features --no-run
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
           INFURA_URL: ${{ secrets.INFURA_URL }}
-        with:
-          command: test
-          args: --workspace --all-targets --all-features
+        run: cargo test --workspace --all-targets --all-features
 
       - name: Doctests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --doc --workspace --features tracing
+        run: cargo test --doc --workspace --features tracing
 
       # disable until:
       # 1) https://github.com/napi-rs/napi-rs/issues/1405 is resolved (Windows-only)
@@ -89,13 +77,10 @@ jobs:
       #   uses: taiki-e/install-action@nextest
 
       # - name: Test with latest nextest release
-      #   uses: actions-rs/cargo@v1
       #   env:
       #     CARGO_INCREMENTAL: ${{ matrix.CARGO_INCREMENTAL }}
       #     ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
-      #   with:
-      #     command: nextest
-      #     args: run --workspace --all-features --all-targets
+      #   run: cargo nextest run --workspace --all-features --all-targets
 
   edr-style:
     name: Check EDR Style
@@ -103,29 +88,18 @@ jobs:
     needs: check-edr
     steps:
       - uses: actions/checkout@v3
-
-      - name: Install nightly rustfmt
-        uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/setup-rust
         with:
-          toolchain: nightly
-          profile: minimal
-          components: rustfmt
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
           components: clippy
 
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
+      - name: Install nightly rustfmt
+        uses: ./.github/actions/setup-rust
         with:
           toolchain: nightly
-          command: fmt
-          args: --all --check
+          components: rustfmt
+
+      - name: Run cargo fmt
+        run: cargo +nightly fmt --all --check
 
       - name: Run cargo clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
