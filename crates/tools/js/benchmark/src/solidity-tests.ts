@@ -15,7 +15,7 @@ import {
   ContractData,
 } from "@ignored/edr";
 
-const EXPECTED_RESULTS = 15;
+const EXPECTED_RESULTS = 14;
 // This is automatically cached in CI
 const RPC_CACHE_PATH = "./edr-cache";
 const SAMPLES = 9;
@@ -28,6 +28,9 @@ const EXCLUDED_TESTS = new Set([
   // This relies on the `deriveKey` and `rememberKey` cheatcodes which are not supported by EDR.
   "test_DeriveRememberKey()",
 ]);
+
+// This just has one test to check against accidental modifications in the `forge-std` repo.
+const EXCLUDED_TEST_SUITES = new Set(["VmTest"]);
 
 const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
@@ -214,7 +217,7 @@ function loadArtifacts(
       source: compiledContract.sourceName,
     };
 
-    if (isTestSuite(compiledContract)) {
+    if (isTestSuite(compiledContract) && !EXCLUDED_TEST_SUITES.has(id.name)) {
       testSuiteIds.push(id);
     }
 
