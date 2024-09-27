@@ -143,6 +143,9 @@ importers:
       '@metamask/eth-sig-util':
         specifier: ^4.0.0
         version: 4.0.1
+      '@nomicfoundation/edr':
+        specifier: workspace:*
+        version: link:../crates/edr_napi
       '@nomicfoundation/ethereumjs-block':
         specifier: 5.0.4
         version: 5.0.4
