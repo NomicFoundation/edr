@@ -323,15 +323,13 @@ function compareStackTraces(
       `Stack trace of tx ${txIndex} entry ${i} type is incorrect: expected ${expectedErrorType}, got ${actualErrorType}`
     );
 
-    const actualMessage = "message" in actual ? actual.message : undefined;
-
     // actual.message is a ReturnData in revert errors but in custom errors
     // we need to decode it
     const decodedMessage =
       "message" in actual
         ? actual.message
         : "returnData" in actual &&
-          new ReturnData(actual.returnData).isErrorReturnData()
+            new ReturnData(actual.returnData).isErrorReturnData()
           ? new ReturnData(actual.returnData).decodeError()
           : "";
 
@@ -720,13 +718,13 @@ const onlyLatestSolcVersions =
 
 const filterSolcVersionBy =
   (versionRange: string) =>
-    ({ solidityVersion, latestSolcVersion }: SolidityCompiler) => {
-      if (onlyLatestSolcVersions && latestSolcVersion !== true) {
-        return false;
-      }
+  ({ solidityVersion, latestSolcVersion }: SolidityCompiler) => {
+    if (onlyLatestSolcVersions && latestSolcVersion !== true) {
+      return false;
+    }
 
-      return semver.satisfies(solidityVersion, versionRange);
-    };
+    return semver.satisfies(solidityVersion, versionRange);
+  };
 
 const solidity05Compilers = solidityCompilers.filter(
   filterSolcVersionBy("^0.5.0")
