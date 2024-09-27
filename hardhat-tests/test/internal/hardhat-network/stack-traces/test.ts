@@ -249,7 +249,7 @@ async function compileIfNecessary(
     fs.statSync(inputPath).ctimeMs > maxSourceCtime &&
     fs.statSync(outputPath).ctimeMs > maxSourceCtime;
 
-  const usingCustomSolc = process.env.HARDHAT_TESTS_SOLC_PATH !== undefined;
+  const usingCustomSolc = process.env.EDR_TESTS_SOLC_PATH !== undefined;
 
   if (!usingCustomSolc && isCached) {
     const inputJson = fs.readFileSync(inputPath, "utf8");
@@ -714,7 +714,7 @@ async function runCallTransactionTest(
 }
 
 const onlyLatestSolcVersions =
-  process.env.HARDHAT_TESTS_ALL_SOLC_VERSIONS === undefined;
+  process.env.EDR_TESTS_ALL_SOLC_VERSIONS === undefined;
 
 const filterSolcVersionBy =
   (versionRange: string) =>
@@ -744,19 +744,19 @@ describe("Stack traces", function () {
 
   // if a path to a solc file was specified, we only run these tests and use
   // that compiler
-  const customSolcPath = process.env.HARDHAT_TESTS_SOLC_PATH;
+  const customSolcPath = process.env.EDR_TESTS_SOLC_PATH;
   if (customSolcPath !== undefined) {
-    const customSolcVersion = process.env.HARDHAT_TESTS_SOLC_VERSION;
+    const customSolcVersion = process.env.EDR_TESTS_SOLC_VERSION;
 
     if (customSolcVersion === undefined) {
       console.error(
-        "HARDHAT_TESTS_SOLC_VERSION has to be set when using HARDHAT_TESTS_SOLC_PATH"
+        "EDR_TESTS_SOLC_VERSION has to be set when using EDR_TESTS_SOLC_PATH"
       );
       process.exit(1);
     }
 
     if (!path.isAbsolute(customSolcPath)) {
-      console.error("HARDHAT_TESTS_SOLC_PATH has to be an absolute path");
+      console.error("EDR_TESTS_SOLC_PATH has to be an absolute path");
       process.exit(1);
     }
 
