@@ -1,6 +1,19 @@
-// Baseline
-// foundryup --commit 0a5b22f07
-// forge test --no-match-test "test_ChainBubbleUp()|test_DeriveRememberKey()"
+/* 
+Baseline
+
+Source: https://github.com/NomicFoundation/forge-std/tree/js-benchmark-config
+
+Foundry version: foundryup --commit 0a5b22f07
+
+Commands:
+
+forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --no-match-test "test_ChainBubbleUp()|test_DeriveRememberKey()"
+forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --match-contract "StdCheatsTest"
+forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --match-contract "StdCheatsForkTest"
+forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --match-contract "StdMathTest"
+forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --match-contract "StdStorageTest"
+forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --match-contract "StdUtilsForkTest"
+ */
 
 import fs from "fs";
 import { execSync } from "child_process";
@@ -15,11 +28,8 @@ import {
   ContractData,
 } from "@ignored/edr";
 
-const EXPECTED_RESULTS = 14;
 // This is automatically cached in CI
 const RPC_CACHE_PATH = "./edr-cache";
-const SAMPLES = 9;
-const TOTAL_NAME = "Total";
 
 // Hack: since EDR currently doesn't support filtering certain tests in test suites, we run them, but ignore their failures.
 const EXCLUDED_TESTS = new Set([
@@ -29,8 +39,21 @@ const EXCLUDED_TESTS = new Set([
   "test_DeriveRememberKey()",
 ]);
 
-// This just has one test to check against accidental modifications in the `forge-std` repo.
-const EXCLUDED_TEST_SUITES = new Set(["VmTest"]);
+// Total run for all test suites in the  `forge-std` repo
+const TOTAL_NAME = "Total";
+const TOTAL_EXPECTED_RESULTS = 15;
+
+const DEFAULT_SAMPLES = 5;
+
+// Map of test suites to benchmark individually to number of samples (how many times to run the test suite)
+const TEST_SUITES = {
+  [TOTAL_NAME]: DEFAULT_SAMPLES,
+  StdCheatsTest: DEFAULT_SAMPLES,
+  StdCheatsForkTest: 15,
+  StdMathTest: 9,
+  StdStorageTest: DEFAULT_SAMPLES,
+  StdUtilsForkTest: 15,
+};
 
 const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
@@ -76,45 +99,58 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
   const runs = new Map<string, number[]>();
   const recordRun = recordTime.bind(null, runs);
 
-  for (let i = 0; i < SAMPLES; i++) {
-    const start = performance.now();
-    const results = await runAllSolidityTests(artifacts, testSuiteIds, config);
-    const elapsed = performance.now() - start;
+  for (const [name, samples] of Object.entries(TEST_SUITES)) {
+    for (let i = 0; i < samples; i++) {
+      let ids = testSuiteIds;
+      if (name !== TOTAL_NAME) {
+        ids = ids.filter((id) => id.name === name);
+      }
 
-    if (results.length !== EXPECTED_RESULTS) {
-      throw new Error(
-        `Expected ${EXPECTED_RESULTS} results, got ${results.length}`
-      );
-    }
+      const start = performance.now();
+      const results = await runAllSolidityTests(artifacts, ids, config);
+      const elapsed = performance.now() - start;
 
-    const failed = new Set();
-    for (const res of results) {
-      for (const r of res.testResults) {
-        if (r.status !== "Success" && !EXCLUDED_TESTS.has(r.name)) {
-          failed.add(
-            `${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`
-          );
+      let expectedResults = name === TOTAL_NAME ? TOTAL_EXPECTED_RESULTS : 1;
+      if (results.length !== expectedResults) {
+        throw new Error(
+          `Expected ${expectedResults} results for ${name}, got ${results.length}`
+        );
+      }
+
+      const failed = new Set();
+      for (const res of results) {
+        for (const r of res.testResults) {
+          if (r.status !== "Success" && !EXCLUDED_TESTS.has(r.name)) {
+            failed.add(
+              `${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`
+            );
+          }
         }
       }
-    }
-    if (failed.size !== 0) {
-      console.error(failed);
-      throw new Error(`Some tests failed`);
-    }
+      if (failed.size !== 0) {
+        console.error(failed);
+        throw new Error(`Some tests failed`);
+      }
 
-    recordRun(TOTAL_NAME, elapsed);
-    console.error(
-      `elapsed (s) on run ${i + 1}/${SAMPLES}: ${displaySec(elapsed)}`
-    );
+      // Log to stderr so that it doesn't pollute stdout where we write the results
+      console.error(
+        `elapsed (s) on run ${i + 1}/${samples} for ${name}: ${displaySec(elapsed)}`
+      );
 
-    for (const testSuiteResult of results) {
-      // `durationMs` is u64 in Rust which doesn't fit into JS `number`, but the JS `number` integer limit is 2^53-1
-      // which is thousands of years, so we can safely cast it to `number`
-      recordRun(testSuiteResult.id.name, Number(testSuiteResult.durationMs));
+      if (name === TOTAL_NAME) {
+        recordRun(TOTAL_NAME, elapsed);
+      } else {
+        if (results.length !== 1) {
+          throw new Error(
+            `Expected 1 result for ${name}, got ${results.length}`
+          );
+        }
+        recordRun(results[0].id.name, elapsed);
+      }
+
+      // Hold on to all results to prevent GC from interfering with the benchmark
+      allResults.push(results);
     }
-
-    // Hold on to all results to prevent GC from interfering with the benchmark
-    allResults.push(results);
   }
 
   const measurements = getMeasurements(runs);
@@ -217,7 +253,7 @@ function loadArtifacts(
       source: compiledContract.sourceName,
     };
 
-    if (isTestSuite(compiledContract) && !EXCLUDED_TEST_SUITES.has(id.name)) {
+    if (isTestSuite(compiledContract)) {
       testSuiteIds.push(id);
     }
 
