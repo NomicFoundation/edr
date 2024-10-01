@@ -1,3 +1,4 @@
+import { stackTraceEntryTypeToString } from "@ignored/edr";
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
@@ -23,7 +24,7 @@ import {
   StackTraceEntryType,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
 import { SolidityTracer } from "hardhat/internal/hardhat-network/stack-traces/solidityTracer";
-import { VmTraceDecoder } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
+import { VmTraceDecoderT } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
 import { SUPPORTED_SOLIDITY_VERSION_RANGE } from "hardhat/internal/hardhat-network/stack-traces/constants";
 import {
   BuildInfo,
@@ -248,7 +249,7 @@ async function compileIfNecessary(
     fs.statSync(inputPath).ctimeMs > maxSourceCtime &&
     fs.statSync(outputPath).ctimeMs > maxSourceCtime;
 
-  const usingCustomSolc = process.env.HARDHAT_TESTS_SOLC_PATH !== undefined;
+  const usingCustomSolc = process.env.EDR_TESTS_SOLC_PATH !== undefined;
 
   if (!usingCustomSolc && isCached) {
     const inputJson = fs.readFileSync(inputPath, "utf8");
@@ -303,7 +304,11 @@ function compareStackTraces(
     const actual = trace[i];
     const expected = description[i];
 
-    const actualErrorType = StackTraceEntryType[actual.type];
+    // This cast is necessary, because the function takes `import("@ignored/edr").StackTraceEntryType` as
+    // argument, but the actual type from Hardhat is `import("@nomicfoundation/edr").StackTraceEntryType`.
+    // TODO: Remove this cast once we switch back to the official `@nomicfoundation/edr` package.
+    // https://github.com/NomicFoundation/edr/issues/685
+    const actualErrorType = stackTraceEntryTypeToString(actual.type as any);
     const expectedErrorType = expected.type;
 
     if (
@@ -322,19 +327,15 @@ function compareStackTraces(
       `Stack trace of tx ${txIndex} entry ${i} type is incorrect: expected ${expectedErrorType}, got ${actualErrorType}`
     );
 
-    const actualMessage = "message" in actual ? actual.message : undefined;
-
-    // actual.message is a ReturnData in revert errors, but a string
-    // in custom errors
-    let decodedMessage = "";
-    if (typeof actualMessage === "string") {
-      decodedMessage = actualMessage;
-    } else if (
-      actualMessage instanceof ReturnData &&
-      actualMessage.isErrorReturnData()
-    ) {
-      decodedMessage = actualMessage.decodeError();
-    }
+    // actual.message is a ReturnData in revert errors but in custom errors
+    // we need to decode it
+    const decodedMessage =
+      "message" in actual
+        ? actual.message
+        : "returnData" in actual &&
+            new ReturnData(actual.returnData).isErrorReturnData()
+          ? new ReturnData(actual.returnData).decodeError()
+          : "";
 
     if (expected.message !== undefined) {
       assert.equal(
@@ -482,6 +483,7 @@ async function runTest(
   };
 
   const logger = new FakeModulesLogger();
+  const solidityTracer = new SolidityTracer();
   const provider = await instantiateProvider(
     {
       enabled: false,
@@ -529,17 +531,15 @@ async function runTest(
       );
     }
 
-    compareConsoleLogs(logger.lines, tx.consoleLogs);
-
     // eslint-disable-next-line @typescript-eslint/dot-notation
-    const vmTraceDecoder = provider["_vmTraceDecoder"] as VmTraceDecoder;
+    const vmTraceDecoder = provider["_vmTraceDecoder"] as VmTraceDecoderT;
     const decodedTrace = vmTraceDecoder.tryToDecodeMessageTrace(trace);
 
     try {
       if (tx.stackTrace === undefined) {
         assert.isFalse(
           trace.exit.isError(),
-          `Transaction ${txIndex} shouldn't have failed`
+          `Transaction ${txIndex} shouldn't have failed (${trace.exit.getReason()})`
         );
       } else {
         assert.isDefined(
@@ -554,7 +554,6 @@ async function runTest(
     }
 
     if (trace.exit.isError()) {
-      const solidityTracer = new SolidityTracer();
       const stackTrace = solidityTracer.getStackTrace(decodedTrace);
 
       try {
@@ -575,6 +574,8 @@ async function runTest(
         throw err;
       }
     }
+
+    compareConsoleLogs(logger.lines, tx.consoleLogs);
   }
 }
 
@@ -717,7 +718,7 @@ async function runCallTransactionTest(
 }
 
 const onlyLatestSolcVersions =
-  process.env.HARDHAT_TESTS_ALL_SOLC_VERSIONS === undefined;
+  process.env.EDR_TESTS_ALL_SOLC_VERSIONS === undefined;
 
 const filterSolcVersionBy =
   (versionRange: string) =>
@@ -747,19 +748,19 @@ describe("Stack traces", function () {
 
   // if a path to a solc file was specified, we only run these tests and use
   // that compiler
-  const customSolcPath = process.env.HARDHAT_TESTS_SOLC_PATH;
+  const customSolcPath = process.env.EDR_TESTS_SOLC_PATH;
   if (customSolcPath !== undefined) {
-    const customSolcVersion = process.env.HARDHAT_TESTS_SOLC_VERSION;
+    const customSolcVersion = process.env.EDR_TESTS_SOLC_VERSION;
 
     if (customSolcVersion === undefined) {
       console.error(
-        "HARDHAT_TESTS_SOLC_VERSION has to be set when using HARDHAT_TESTS_SOLC_PATH"
+        "EDR_TESTS_SOLC_VERSION has to be set when using EDR_TESTS_SOLC_PATH"
       );
       process.exit(1);
     }
 
     if (!path.isAbsolute(customSolcPath)) {
-      console.error("HARDHAT_TESTS_SOLC_PATH has to be an absolute path");
+      console.error("EDR_TESTS_SOLC_PATH has to be an absolute path");
       process.exit(1);
     }
 

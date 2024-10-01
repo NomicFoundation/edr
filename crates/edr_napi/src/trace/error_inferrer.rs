@@ -2206,14 +2206,44 @@ fn format_dyn_sol_value(val: &DynSolValue) -> String {
         // surround string values with quotes
         DynSolValue::String(s) => format!("\"{s}\""),
 
-        DynSolValue::Address(address) => format!("\"0x{address}\""),
-        DynSolValue::Bytes(bytes) => format!("\"0x{}\"", hex::encode(bytes)),
+        DynSolValue::Address(address) => format!("\"{address}\""),
+        DynSolValue::Bytes(bytes) => format!("\"{}\"", hex::encode_prefixed(bytes)),
         DynSolValue::FixedBytes(word, size) => {
-            format!("\"0x{}\"", hex::encode(&word.0.as_slice()[..*size]))
+            format!("\"{}\"", hex::encode_prefixed(&word.0.as_slice()[..*size]))
         }
         DynSolValue::Bool(b) => b.to_string(),
         DynSolValue::Function(_) => "<function>".to_string(),
         DynSolValue::Int(int, _bits) => int.to_string(),
         DynSolValue::Uint(uint, _bits) => uint.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sol_value_to_string() {
+        assert_eq!(
+            format_dyn_sol_value(&DynSolValue::String("hello".to_string())),
+            "\"hello\""
+        );
+        // Uniform, 0-prefixed hex strings
+        assert_eq!(
+            format_dyn_sol_value(&DynSolValue::Address([0u8; 20].into())),
+            format!(r#""0x{}""#, "0".repeat(2 * 20))
+        );
+        assert_eq!(
+            format_dyn_sol_value(&DynSolValue::Bytes(vec![0u8; 32])),
+            format!(r#""0x{}""#, "0".repeat(2 * 32))
+        );
+        assert_eq!(
+            format_dyn_sol_value(&DynSolValue::FixedBytes([0u8; 32].into(), 10)),
+            format!(r#""0x{}""#, "0".repeat(2 * 10))
+        );
+        assert_eq!(
+            format_dyn_sol_value(&DynSolValue::FixedBytes([0u8; 32].into(), 32)),
+            format!(r#""0x{}""#, "0".repeat(2 * 32))
+        );
     }
 }

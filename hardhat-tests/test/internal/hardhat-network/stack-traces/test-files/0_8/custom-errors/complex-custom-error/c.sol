@@ -6,7 +6,7 @@ contract C {
     uint y;
   }
 
-  error MyError(uint x, uint[] xs, bytes4 b, Point p, Point[] ps);
+  error MyError(uint x, uint[] xs, address a, bytes4 b, Point p, Point[] ps);
 
   function test() public {
     uint x = 0;
@@ -18,12 +18,14 @@ contract C {
 
     bytes4 b = 0x12345678;
 
+    address a = address(0xDEADBEEF);
+
     Point memory p = Point(4, 5);
 
     Point[] memory ps = new Point[](2);
     ps[0] = Point(6,7);
     ps[1] = Point(8,9);
 
-    revert MyError(x, xs, b, p, ps);
+    revert MyError(x, xs, a, b, p, ps);
   }
 }

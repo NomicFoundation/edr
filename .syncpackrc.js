@@ -12,8 +12,12 @@ const config = {
     },
     {
       packages: ["**"],
-      dependencies: ["@ignored/edr", "@nomicfoundation/edr-helpers", "hardhat-solidity-tests"],
-      dependencyTypes: ["local"]
+      dependencies: [
+        "@ignored/edr",
+        "@nomicfoundation/edr-helpers",
+        "hardhat-solidity-tests",
+      ],
+      dependencyTypes: ["local"],
     },
   ],
   semverGroups: [
