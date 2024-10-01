@@ -177,6 +177,7 @@ function getConfig(forgeStdRepoPath: string): SolidityTestRunnerConfigArgs {
       arbitrum_one_sepolia: "https://sepolia-rollup.arbitrum.io/rpc/",
     },
     fuzz: {
+      // Used to ensure deterministic fuzz execution
       seed: "0x1234567890123456789012345678901234567890",
     },
   };
