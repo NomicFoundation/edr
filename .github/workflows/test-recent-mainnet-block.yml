@@ -20,11 +20,7 @@ jobs:
             **/edr-cache
           key: test-recent-mainnet-block-rpc-cache-v1
 
-      - name: Run test
-        uses: actions-rs/cargo@v1
-        with:
-          command: replay-block
-          args: -u ${{ secrets.ALCHEMY_URL }} -c l1
+      - run: cargo replay-block -u ${{ secrets.ALCHEMY_URL }} -c l1
 
       - name: Notify failures
         if: failure()

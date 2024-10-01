@@ -14,13 +14,7 @@ jobs:
         with:
           ref: feat/multichain
 
-      - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          override: true
-
-      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-rust
 
       - name: Cache EDR RPC cache
         uses: actions/cache@v4
@@ -29,11 +23,7 @@ jobs:
             **/edr-cache
           key: test-recent-optimism-block-rpc-cache-v1
 
-      - name: Run test
-        uses: actions-rs/cargo@v1
-        with:
-          command: replay-block
-          args: -u ${{ secrets.ALCHEMY_URL }} -c optimism
+      - run: cargo replay-block -u ${{ secrets.ALCHEMY_URL }} -c optimism
 
       - name: Notify failures
         if: failure()

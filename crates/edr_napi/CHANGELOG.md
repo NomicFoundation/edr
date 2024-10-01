@@ -1,5 +1,19 @@
 # @nomicfoundation/edr
 
+## 0.6.2
+
+### Patch Changes
+
+- af56289: fix(tracing): Decode unmapped instructions only at the opcode boundary
+- debac88: fix(tracing): Use correct subtrace when detecting error error propagation across delegatecall
+
+## 0.6.1
+
+### Patch Changes
+
+- c8fbf3b: Allow forked block time offset to be negative
+- bb3808b: Handle optional solc settings better in the tracing engine
+
 ## 0.6.0
 
 ### Minor Changes
