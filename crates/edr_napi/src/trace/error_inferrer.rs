@@ -1302,7 +1302,9 @@ impl ErrorInferrer {
             .expect("The TS code type-checks this to always have bytecode");
         let contract = bytecode.contract.borrow();
 
-        let version = Version::parse(&bytecode.compiler_version).unwrap();
+        let version =
+            Version::parse(&bytecode.compiler_version).expect("Failed to parse SemVer version");
+
         // this only makes sense when receive functions are available
         if version < FIRST_SOLC_VERSION_RECEIVE_FUNCTION {
             return Ok(false);
@@ -1586,7 +1588,11 @@ impl ErrorInferrer {
         trace: &CallMessageTrace,
         func: &ContractFunction,
     ) -> napi::Result<bool> {
-        let last_step = trace.steps.last().unwrap();
+        let last_step = trace
+            .steps
+            .last()
+            .expect("There should at least be one step");
+
         let last_step = match last_step {
             Either4::A(step) => step,
             _ => panic!("JS code asserted this is always an EvmStep"),
