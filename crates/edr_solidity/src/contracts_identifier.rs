@@ -97,7 +97,12 @@ impl BytecodeTrie {
 fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
     let mut byte = 0;
     while byte < last_byte {
-        let opcode = OpCode::new(code[byte as usize]).unwrap();
+        // It's possible we don't recognize the opcode if it's from an unknown chain, so
+        // just return false in that case.
+        let Some(opcode) = OpCode::new(code[byte as usize]) else {
+            return false;
+        };
+
         let next = code.get(byte as usize + 1).copied().and_then(OpCode::new);
 
         if opcode == OpCode::REVERT && next == Some(OpCode::INVALID) {
