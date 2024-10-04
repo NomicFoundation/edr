@@ -2,7 +2,6 @@ use std::{
     collections::BTreeMap,
     fmt::Debug,
     num::NonZeroU64,
-    str::FromStr,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -111,14 +110,11 @@ where
 
         let evm_spec_id = hardfork.into();
         if evm_spec_id >= l1::SpecId::CANCUN {
-            let beacon_roots_address =
-                Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
-            let beacon_roots_contract = Bytecode::new_raw(
-                Bytes::from_str(BEACON_ROOTS_BYTECODE).expect("Is valid bytecode"),
-            );
+            let beacon_roots_contract =
+                Bytecode::new_raw(Bytes::from_static(&BEACON_ROOTS_BYTECODE));
 
             genesis_diff.apply_account_change(
-                beacon_roots_address,
+                BEACON_ROOTS_ADDRESS,
                 AccountInfo {
                     code_hash: beacon_roots_contract.hash_slow(),
                     code: Some(beacon_roots_contract),
