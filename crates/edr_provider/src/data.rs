@@ -42,11 +42,11 @@ use edr_evm::{
     },
     trace::Trace,
     transaction::{self, SignedTransaction as _},
-    Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockAndTotalDifficulty, BlockEnv,
-    Bytecode, CfgEnv, CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig,
-    DebugTraceResultWithTraces, Eip3155AndRawTracers, EvmStorageSlot, ExecutionResult, HashMap,
-    HashSet, IntoRemoteBlock, MemPool, MineBlockResultAndState, OrderedTransaction, Precompile,
-    RandomHashGenerator, RemoteBlockCreationError, SyncBlock, TxEnv, KECCAK_EMPTY,
+    Account, AccountInfo, BlobExcessGasAndPrice, Block as _, BlockEnv, Bytecode, CfgEnv,
+    CfgEnvWithHandlerCfg, DebugContext, DebugTraceConfig, DebugTraceResultWithTraces,
+    Eip3155AndRawTracers, EvmStorageSlot, ExecutionResult, HashMap, HashSet, IntoRemoteBlock,
+    MemPool, MineBlockResultAndState, OrderedTransaction, Precompile, RandomHashGenerator,
+    RemoteBlockCreationError, SyncBlock, TxEnv, KECCAK_EMPTY,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -1145,7 +1145,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
 
         let result = self.mine_block(mine_fn, options)?;
 
-        let block_and_total_difficulty = self
+        let block = self
             .blockchain
             .insert_block(result.block, result.state_diff)
             .map_err(ProviderError::Blockchain)?;
@@ -1167,15 +1167,12 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.parent_beacon_block_root_generator.generate_next();
         self.prev_randao_generator.generate_next();
 
-        self.notify_subscribers_about_mined_block(&block_and_total_difficulty)?;
+        self.notify_subscribers_about_mined_block(&block)?;
 
-        self.add_state_to_cache(
-            result.state,
-            block_and_total_difficulty.block.header().number,
-        );
+        self.add_state_to_cache(result.state, block.header().number);
 
         Ok(DebugMineBlockResult {
-            block: block_and_total_difficulty.block,
+            block,
             transaction_results: result.transaction_results,
             transaction_traces: result.transaction_traces,
             console_log_inputs: result.console_log_inputs,
@@ -1848,15 +1845,6 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         self.impersonated_accounts.remove(&address)
     }
 
-    pub fn total_difficulty_by_hash(
-        &self,
-        hash: &B256,
-    ) -> Result<Option<U256>, ProviderError<LoggerErrorT>> {
-        self.blockchain
-            .total_difficulty_by_hash(hash)
-            .map_err(ProviderError::Blockchain)
-    }
-
     /// Get a transaction by hash from the blockchain or from the mempool if
     /// it's not mined yet.
     pub fn transaction_by_hash(
@@ -2351,9 +2339,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// about the mined block.
     fn notify_subscribers_about_mined_block(
         &mut self,
-        block_and_total_difficulty: &BlockAndTotalDifficulty<L1ChainSpec, BlockchainError>,
+        block: &Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     ) -> Result<(), BlockchainError> {
-        let block = &block_and_total_difficulty.block;
         for (filter_id, filter) in self.filters.iter_mut() {
             match &mut filter.data {
                 FilterData::Logs { criteria, logs } => {
@@ -2377,9 +2364,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                     if filter.is_subscription {
                         (self.subscriber_callback)(SubscriptionEvent {
                             filter_id: *filter_id,
-                            result: SubscriptionEventData::NewHeads(
-                                block_and_total_difficulty.clone(),
-                            ),
+                            result: SubscriptionEventData::NewHeads(Arc::clone(block)),
                         });
                     } else {
                         block_hashes.push(*block.hash());

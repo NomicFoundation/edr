@@ -1256,17 +1256,14 @@ describe("Hardhat module", function () {
           });
         });
 
-        describe("difficulty and totalDifficulty", function () {
+        describe("difficulty", function () {
           const getBlockDifficulty = async (blockNumber: number) => {
             const block = await this.ctx.provider.send("eth_getBlockByNumber", [
               numberToRpcQuantity(blockNumber),
               false,
             ]);
 
-            return {
-              difficulty: rpcQuantityToBigInt(block.difficulty),
-              totalDifficulty: rpcQuantityToBigInt(block.totalDifficulty),
-            };
+            return rpcQuantityToBigInt(block.difficulty);
           };
 
           it("reserved blocks should have a difficulty of 0", async function () {
@@ -1280,30 +1277,7 @@ describe("Hardhat module", function () {
               previousBlockNumber + 10
             );
 
-            assert.equal(middleBlockDifficulty.difficulty, 0n);
-          });
-
-          it("reserved blocks should have consistent difficulty values", async function () {
-            const previousBlockNumber = await getLatestBlockNumber();
-
-            await this.provider.send("hardhat_mine", [numberToRpcQuantity(20)]);
-
-            let previousBlockDifficulty =
-              await getBlockDifficulty(previousBlockNumber);
-
-            for (let i = 1; i <= 20; i++) {
-              const blockDifficulty = await getBlockDifficulty(
-                previousBlockNumber + i
-              );
-
-              assert.equal(
-                blockDifficulty.totalDifficulty,
-                previousBlockDifficulty.totalDifficulty +
-                  blockDifficulty.difficulty
-              );
-
-              previousBlockDifficulty = blockDifficulty;
-            }
+            assert.equal(middleBlockDifficulty, 0n);
           });
         });
       });

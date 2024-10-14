@@ -39,8 +39,6 @@ pub struct Block<TransactionT> {
     pub timestamp: u64,
     /// integer of the difficulty for this blocket
     pub difficulty: U256,
-    /// integer of the total difficulty of the chain until this block
-    pub total_difficulty: Option<U256>,
     /// Array of uncle hashes
     #[serde(default)]
     pub uncles: Vec<B256>,

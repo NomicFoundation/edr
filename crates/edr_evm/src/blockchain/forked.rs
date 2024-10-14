@@ -6,7 +6,7 @@ use edr_eth::{
     log::FilterLog,
     receipt::BlockReceipt,
     spec::{chain_hardfork_activations, chain_name, HardforkActivations},
-    AccountInfo, Address, BlockSpec, Bytes, B256, U256,
+    AccountInfo, Address, BlockSpec, Bytes, B256,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -29,8 +29,7 @@ use super::{
 use crate::{
     chain_spec::SyncChainSpec,
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, LocalBlock, RandomHashGenerator, RemoteBlockCreationError,
-    SyncBlock,
+    Block, LocalBlock, RandomHashGenerator, RemoteBlockCreationError, SyncBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -529,18 +528,6 @@ where
 
         Ok(Box::new(state))
     }
-
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError> {
-        if let Some(difficulty) = self.local_storage.total_difficulty_by_hash(hash) {
-            Ok(Some(difficulty))
-        } else {
-            Ok(tokio::task::block_in_place(move || {
-                self.runtime()
-                    .block_on(self.remote.total_difficulty_by_hash(hash))
-            })?)
-        }
-    }
 }
 
 impl<ChainSpecT> BlockchainMut<ChainSpecT> for ForkedBlockchain<ChainSpecT>
@@ -554,26 +541,14 @@ where
         &mut self,
         block: LocalBlock<ChainSpecT>,
         state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficulty<ChainSpecT, Self::Error>, Self::Error> {
+    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = Self::Error>>, Self::Error> {
         let last_block = self.last_block()?;
 
         validate_next_block(self.spec_id, &last_block, &block)?;
 
-        let previous_total_difficulty = self
-            .total_difficulty_by_hash(last_block.hash())
-            .expect("No error can occur as it is stored locally")
-            .expect("Must exist as its block is stored");
+        let block = self.local_storage.insert_block(block, state_diff)?;
 
-        let total_difficulty = previous_total_difficulty + block.header().difficulty;
-
-        let block = self
-            .local_storage
-            .insert_block(block, state_diff, total_difficulty)?;
-
-        Ok(BlockAndTotalDifficulty {
-            block: block.clone(),
-            total_difficulty: Some(total_difficulty),
-        })
+        Ok(Arc::clone(block))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -585,9 +560,6 @@ where
         };
 
         let last_block = self.last_block()?;
-        let previous_total_difficulty = self
-            .total_difficulty_by_hash(last_block.hash())?
-            .expect("Must exist as its block is stored");
 
         let last_header = last_block.header();
         self.local_storage.reserve_blocks(
@@ -595,7 +567,6 @@ where
             interval,
             last_header.base_fee_per_gas,
             last_header.state_root,
-            previous_total_difficulty,
             self.spec_id,
         );
 

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use edr_eth::{
     filter::OneOrMore, log::FilterLog, receipt::BlockReceipt, Address, BlockSpec,
-    PreEip1898BlockSpec, B256, U256,
+    PreEip1898BlockSpec, B256,
 };
 use edr_rpc_eth::client::EthRpcClient;
 use revm::primitives::HashSet;
@@ -12,8 +12,7 @@ use tokio::runtime;
 use super::storage::SparseBlockchainStorage;
 use crate::{
     blockchain::ForkedBlockchainError, chain_spec::ChainSpec,
-    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, IntoRemoteBlock,
-    RemoteBlock,
+    transaction::remote::EthRpcTransaction as _, Block, IntoRemoteBlock, RemoteBlock,
 };
 
 #[derive(Debug)]
@@ -193,33 +192,6 @@ where
         &self.runtime
     }
 
-    /// Retrieves the total difficulty at the block with the provided hash.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub async fn total_difficulty_by_hash(
-        &self,
-        hash: &B256,
-    ) -> Result<Option<U256>, ForkedBlockchainError> {
-        let cache = self.cache.upgradable_read().await;
-
-        if let Some(difficulty) = cache.total_difficulty_by_hash(hash).cloned() {
-            Ok(Some(difficulty))
-        } else if let Some(block) = self
-            .client
-            .get_block_by_hash_with_transaction_data(*hash)
-            .await?
-        {
-            let total_difficulty = *block
-                .total_difficulty()
-                .expect("Must be present as this is not a pending transaction");
-
-            self.fetch_and_cache_block(cache, block).await?;
-
-            Ok(Some(total_difficulty))
-        } else {
-            Ok(None)
-        }
-    }
-
     /// Fetches detailed block information and caches the block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     async fn fetch_and_cache_block(
@@ -227,10 +199,6 @@ where
         cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT, ChainSpecT>>,
         block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
     ) -> Result<BlockT, ForkedBlockchainError> {
-        let total_difficulty = *block
-            .total_difficulty()
-            .expect("Must be present as this is not a pending block");
-
         let block: RemoteBlock<ChainSpecT> =
             block.into_remote_block(self.client.clone(), self.runtime.clone())?;
 
@@ -245,7 +213,7 @@ where
         if is_cacheable {
             let mut remote_cache = RwLockUpgradableReadGuard::upgrade(cache).await;
 
-            Ok(remote_cache.insert_block(block, total_difficulty)?.clone())
+            Ok(remote_cache.insert_block(block)?.clone())
         } else {
             Ok(block)
         }

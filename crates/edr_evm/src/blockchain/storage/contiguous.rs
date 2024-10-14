@@ -23,7 +23,6 @@ where
 {
     blocks: Vec<BlockT>,
     hash_to_block: HashMap<B256, BlockT>,
-    total_difficulties: Vec<U256>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
     transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt>>,
     phantom: PhantomData<ChainSpecT>,
@@ -82,7 +81,6 @@ where
             return false;
         }
 
-        self.total_difficulties.truncate(block_index + 1);
         let removed_blocks = self.blocks.split_off(block_index + 1);
 
         for block in removed_blocks {
@@ -95,29 +93,6 @@ where
 
         true
     }
-
-    /// Retrieves the instance's total difficulties.
-    pub fn total_difficulties(&self) -> &[U256] {
-        &self.total_difficulties
-    }
-
-    /// Retrieves the total difficulty of the block with the provided hash.
-    pub fn total_difficulty_by_hash(&self, hash: &B256) -> Option<&U256> {
-        self.hash_to_block.get(hash).map(|block| {
-            let first_block_number = self
-                .blocks
-                .first()
-                .expect("A block must exist since we found one")
-                .header()
-                .number;
-
-            let local_block_number = usize::try_from(block.header().number - first_block_number)
-                .expect("No blocks with a number larger than usize::MAX are inserted");
-
-            // SAFETY: A total difficulty is inserted for each block
-            unsafe { self.total_difficulties.get_unchecked(local_block_number) }
-        })
-    }
 }
 
 impl<BlockT, ChainSpecT> ContiguousBlockchainStorage<BlockT, ChainSpecT>
@@ -126,7 +101,7 @@ where
     ChainSpecT: ChainSpec,
 {
     /// Constructs a new instance with the provided block.
-    pub fn with_block(block: LocalBlock<ChainSpecT>, total_difficulty: U256) -> Self {
+    pub fn with_block(block: LocalBlock<ChainSpecT>) -> Self {
         let block_hash = *block.hash();
 
         let transaction_hash_to_receipt = block
@@ -147,7 +122,6 @@ where
         hash_to_block.insert(block_hash, block.clone());
 
         Self {
-            total_difficulties: vec![total_difficulty],
             blocks: vec![block],
             hash_to_block,
             transaction_hash_to_block,
@@ -157,11 +131,7 @@ where
     }
 
     /// Inserts a block, failing if a block with the same hash already exists.
-    pub fn insert_block(
-        &mut self,
-        block: LocalBlock<ChainSpecT>,
-        total_difficulty: U256,
-    ) -> Result<&BlockT, InsertError> {
+    pub fn insert_block(&mut self, block: LocalBlock<ChainSpecT>) -> Result<&BlockT, InsertError> {
         let block_hash = block.hash();
 
         // As blocks are contiguous, we are guaranteed that the block number won't exist
@@ -183,7 +153,7 @@ where
         }
 
         // SAFETY: We checked that block hash doesn't exist yet
-        Ok(unsafe { self.insert_block_unchecked(block, total_difficulty) })
+        Ok(unsafe { self.insert_block_unchecked(block) })
     }
 
     /// Inserts a block without checking its validity.
@@ -192,11 +162,7 @@ where
     ///
     /// Ensure that the instance does not contain a block with the same hash,
     /// nor any transactions with the same hash.
-    pub unsafe fn insert_block_unchecked(
-        &mut self,
-        block: LocalBlock<ChainSpecT>,
-        total_difficulty: U256,
-    ) -> &BlockT {
+    pub unsafe fn insert_block_unchecked(&mut self, block: LocalBlock<ChainSpecT>) -> &BlockT {
         self.transaction_hash_to_receipt.extend(
             block
                 .transaction_receipts()
@@ -214,7 +180,6 @@ where
         );
 
         self.blocks.push(block.clone());
-        self.total_difficulties.push(total_difficulty);
         self.hash_to_block
             .insert_unique_unchecked(*block.hash(), block)
             .1

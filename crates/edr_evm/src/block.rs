@@ -6,7 +6,7 @@ use std::{fmt::Debug, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    block, receipt::BlockReceipt, transaction::Transaction, withdrawal::Withdrawal, B256, U256,
+    block, receipt::BlockReceipt, transaction::Transaction, withdrawal::Withdrawal, B256,
 };
 
 pub use self::{
@@ -63,40 +63,19 @@ where
 {
 }
 
-/// The result returned by requesting a block by number.
-#[derive(Debug)]
-pub struct BlockAndTotalDifficulty<ChainSpecT: ChainSpec, BlockchainErrorT> {
-    /// The block
-    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
-    /// The total difficulty with the block
-    pub total_difficulty: Option<U256>,
-}
-
-impl<BlockchainErrorT, ChainSpecT: ChainSpec> Clone
-    for BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>
-{
-    fn clone(&self) -> Self {
-        Self {
-            block: self.block.clone(),
-            total_difficulty: self.total_difficulty,
-        }
-    }
-}
-
 impl<BlockchainErrorT, ChainSpecT: ChainSpec>
-    From<BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>> for edr_rpc_eth::Block<B256>
+    From<&dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>> for edr_rpc_eth::Block<B256>
 {
-    fn from(value: BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>) -> Self {
-        let transactions = value
-            .block
+    fn from(block: &dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>) -> Self {
+        let transactions = block
             .transactions()
             .iter()
             .map(|tx| *tx.transaction_hash())
             .collect();
 
-        let header = value.block.header();
+        let header = block.header();
         edr_rpc_eth::Block {
-            hash: Some(*value.block.hash()),
+            hash: Some(*block.hash()),
             parent_hash: header.parent_hash,
             sha3_uncles: header.ommers_hash,
             state_root: header.state_root,
@@ -109,16 +88,14 @@ impl<BlockchainErrorT, ChainSpecT: ChainSpec>
             logs_bloom: header.logs_bloom,
             timestamp: header.timestamp,
             difficulty: header.difficulty,
-            total_difficulty: value.total_difficulty,
-            uncles: value.block.ommer_hashes().to_vec(),
+            uncles: block.ommer_hashes().to_vec(),
             transactions,
-            size: value.block.rlp_size(),
+            size: block.rlp_size(),
             mix_hash: Some(header.mix_hash),
             nonce: Some(header.nonce),
             base_fee_per_gas: header.base_fee_per_gas,
             miner: Some(header.beneficiary),
-            withdrawals: value
-                .block
+            withdrawals: block
                 .withdrawals()
                 .map(<[edr_eth::withdrawal::Withdrawal]>::to_vec),
             withdrawals_root: header.withdrawals_root,

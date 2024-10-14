@@ -115,27 +115,6 @@ fn create_dummy_block_with_number(
     create_dummy_block_with_hash(blockchain.spec_id(), number, parent_hash)
 }
 
-fn create_dummy_block_with_difficulty(
-    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
-    number: u64,
-    difficulty: u64,
-) -> LocalBlock<L1ChainSpec> {
-    let parent_hash = *blockchain
-        .last_block()
-        .expect("Failed to retrieve last block")
-        .hash();
-
-    create_dummy_block_with_header(
-        blockchain.spec_id(),
-        PartialHeader {
-            number,
-            parent_hash,
-            difficulty: U256::from(difficulty),
-            ..PartialHeader::default()
-        },
-    )
-}
-
 fn create_dummy_block_with_hash(
     spec_id: SpecId,
     number: u64,
@@ -209,10 +188,10 @@ fn insert_dummy_block_with_transaction(
         Some(Vec::new()),
     );
     let block = blockchain.insert_block(block, StateDiff::default())?;
-    assert_eq!(block.block.transactions().len(), 1);
+    assert_eq!(block.transactions().len(), 1);
 
     Ok(DummyBlockAndTransaction {
-        block: block.block,
+        block,
         transaction_hash,
         transaction_receipt,
     })
@@ -232,7 +211,7 @@ async fn get_last_block() -> anyhow::Result<()> {
         let next_block = create_dummy_block(blockchain.as_ref());
         let expected = blockchain.insert_block(next_block, StateDiff::default())?;
 
-        assert_eq!(blockchain.last_block()?.hash(), expected.block.hash());
+        assert_eq!(blockchain.last_block()?.hash(), expected.hash());
     }
 
     Ok(())
@@ -251,11 +230,11 @@ async fn block_by_hash_some() {
 
         assert_eq!(
             blockchain
-                .block_by_hash(expected.block.hash())
+                .block_by_hash(expected.hash())
                 .unwrap()
                 .unwrap()
                 .hash(),
-            expected.block.hash()
+            expected.hash()
         );
     }
 }
@@ -311,11 +290,11 @@ async fn block_by_number_some() {
 
         assert_eq!(
             blockchain
-                .block_by_number(expected.block.header().number)
+                .block_by_number(expected.header().number)
                 .unwrap()
                 .unwrap()
                 .hash(),
-            expected.block.hash(),
+            expected.hash(),
         );
     }
 }
@@ -431,14 +410,14 @@ async fn insert_block_multiple() -> anyhow::Result<()> {
 
         assert_eq!(
             blockchain
-                .block_by_number(one.block.header().number)?
+                .block_by_number(one.header().number)?
                 .unwrap()
                 .hash(),
-            one.block.hash()
+            one.hash()
         );
         assert_eq!(
-            blockchain.block_by_hash(two.block.hash())?.unwrap().hash(),
-            two.block.hash()
+            blockchain.block_by_hash(two.hash())?.unwrap().hash(),
+            two.hash()
         );
     }
 
@@ -637,22 +616,18 @@ async fn revert_to_block_local() -> anyhow::Result<()> {
         );
 
         // Blocks 1 and 2 are gone
-        assert!(blockchain
-            .block_by_number(one.block.header().number)?
-            .is_none());
+        assert!(blockchain.block_by_number(one.header().number)?.is_none());
 
-        assert!(blockchain
-            .block_by_number(two.block.header().number)?
-            .is_none());
+        assert!(blockchain.block_by_number(two.header().number)?.is_none());
 
-        assert!(blockchain.block_by_hash(one.block.hash())?.is_none());
-        assert!(blockchain.block_by_hash(two.block.hash())?.is_none());
+        assert!(blockchain.block_by_hash(one.hash())?.is_none());
+        assert!(blockchain.block_by_hash(two.hash())?.is_none());
 
         // Can insert a new block after reverting
         let new = create_dummy_block(blockchain.as_ref());
         let new = blockchain.insert_block(new.clone(), StateDiff::default())?;
 
-        assert_eq!(blockchain.last_block()?.hash(), new.block.hash());
+        assert_eq!(blockchain.last_block()?.hash(), new.hash());
     }
 
     Ok(())
@@ -691,85 +666,6 @@ async fn revert_to_block_invalid_number() {
             .expect_err("Should fail to insert block");
 
         assert!(matches!(error, BlockchainError::UnknownBlockNumber));
-    }
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[serial]
-async fn block_total_difficulty_by_hash() {
-    let blockchains: Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>> =
-        create_dummy_blockchains().await;
-
-    for mut blockchain in blockchains {
-        let last_block = blockchain.last_block().unwrap();
-        let last_block_header = last_block.header();
-
-        let one = create_dummy_block_with_difficulty(
-            blockchain.as_ref(),
-            last_block_header.number + 1,
-            1000,
-        );
-        let one = blockchain.insert_block(one, StateDiff::default()).unwrap();
-
-        let two = create_dummy_block_with_difficulty(
-            blockchain.as_ref(),
-            last_block_header.number + 2,
-            2000,
-        );
-        let two = blockchain.insert_block(two, StateDiff::default()).unwrap();
-
-        let last_block_difficulty = blockchain
-            .total_difficulty_by_hash(last_block.hash())
-            .unwrap()
-            .expect("total difficulty must exist");
-
-        assert_eq!(
-            blockchain
-                .total_difficulty_by_hash(one.block.hash())
-                .unwrap(),
-            Some(last_block_difficulty + one.block.header().difficulty)
-        );
-
-        assert_eq!(
-            blockchain
-                .total_difficulty_by_hash(two.block.hash())
-                .unwrap(),
-            Some(
-                last_block_difficulty
-                    + one.block.header().difficulty
-                    + two.block.header().difficulty
-            )
-        );
-
-        blockchain
-            .revert_to_block(one.block.header().number)
-            .unwrap();
-
-        // Block 1 has a total difficulty
-        assert_eq!(
-            blockchain
-                .total_difficulty_by_hash(one.block.hash())
-                .unwrap(),
-            Some(last_block_difficulty + one.block.header().difficulty)
-        );
-
-        // Block 2 no longer stores a total difficulty
-        assert!(blockchain
-            .total_difficulty_by_hash(two.block.hash())
-            .unwrap()
-            .is_none());
-    }
-}
-
-#[tokio::test(flavor = "multi_thread")]
-#[serial]
-async fn block_total_difficulty_by_hash_invalid_hash() {
-    let blockchains = create_dummy_blockchains().await;
-
-    for blockchain in blockchains {
-        let difficulty = blockchain.total_difficulty_by_hash(&B256::ZERO).unwrap();
-
-        assert!(difficulty.is_none());
     }
 }
 

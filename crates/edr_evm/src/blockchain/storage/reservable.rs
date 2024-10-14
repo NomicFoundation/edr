@@ -16,7 +16,6 @@ struct Reservation {
     interval: u64,
     previous_base_fee_per_gas: Option<U256>,
     previous_state_root: B256,
-    previous_total_difficulty: U256,
     previous_diff_index: usize,
     spec_id: SpecId,
 }
@@ -47,10 +46,10 @@ where
 {
     /// Constructs a new instance with the provided block as genesis block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn with_genesis_block(block: BlockT, diff: StateDiff, total_difficulty: U256) -> Self {
+    pub fn with_genesis_block(block: BlockT, diff: StateDiff) -> Self {
         Self {
             reservations: RwLock::new(Vec::new()),
-            storage: RwLock::new(SparseBlockchainStorage::with_block(block, total_difficulty)),
+            storage: RwLock::new(SparseBlockchainStorage::with_block(block)),
             state_diffs: vec![(0, diff)],
             number_to_diff_index: std::iter::once((0, 0)).collect(),
             last_block_number: 0,
@@ -149,7 +148,6 @@ where
         interval: u64,
         previous_base_fee: Option<U256>,
         previous_state_root: B256,
-        previous_total_difficulty: U256,
         spec_id: SpecId,
     ) {
         let reservation = Reservation {
@@ -158,7 +156,6 @@ where
             interval,
             previous_base_fee_per_gas: previous_base_fee,
             previous_state_root,
-            previous_total_difficulty,
             previous_diff_index: self.state_diffs.len() - 1,
             spec_id,
         };
@@ -223,12 +220,6 @@ where
 
         true
     }
-
-    /// Retrieves the total difficulty of the block with the provided hash.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn total_difficulty_by_hash(&self, hash: &B256) -> Option<U256> {
-        self.storage.read().total_difficulty_by_hash(hash).cloned()
-    }
 }
 
 impl<BlockT, ChainSpecT> ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
@@ -251,7 +242,6 @@ where
         &mut self,
         block: LocalBlock<ChainSpecT>,
         state_diff: StateDiff,
-        total_difficulty: U256,
     ) -> Result<&BlockT, InsertError> {
         self.last_block_number = block.header().number;
         self.number_to_diff_index
@@ -264,7 +254,7 @@ where
 
         self.storage.get_mut().insert_receipts(receipts)?;
 
-        self.storage.get_mut().insert_block(block, total_difficulty)
+        self.storage.get_mut().insert_block(block)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -324,9 +314,7 @@ where
 
                 {
                     let mut storage = RwLockUpgradableReadGuard::upgrade(storage);
-                    Ok(storage
-                        .insert_block(block.into(), reservation.previous_total_difficulty)?
-                        .clone())
+                    Ok(storage.insert_block(block.into())?.clone())
                 }
             })
             .transpose()

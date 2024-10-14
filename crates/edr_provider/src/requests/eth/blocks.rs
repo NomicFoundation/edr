@@ -1,9 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::{
-    transaction::Transaction as _, BlockSpec, PreEip1898BlockSpec, SpecId, B256, U256, U64,
-};
+use edr_eth::{transaction::Transaction as _, BlockSpec, PreEip1898BlockSpec, SpecId, B256, U64};
 use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, SyncBlock};
 
 use crate::{
@@ -27,15 +25,8 @@ pub fn handle_get_block_by_hash_request<LoggerErrorT: Debug, TimerT: Clone + Tim
 ) -> Result<Option<edr_rpc_eth::Block<HashOrTransaction>>, ProviderError<LoggerErrorT>> {
     data.block_by_hash(&block_hash)?
         .map(|block| {
-            let total_difficulty = data.total_difficulty_by_hash(block.hash())?;
             let pending = false;
-            block_to_rpc_output(
-                data.spec_id(),
-                block,
-                pending,
-                total_difficulty,
-                transaction_detail_flag,
-            )
+            block_to_rpc_output(data.spec_id(), block, pending, transaction_detail_flag)
         })
         .transpose()
 }
@@ -46,21 +37,9 @@ pub fn handle_get_block_by_number_request<LoggerErrorT: Debug, TimerT: Clone + T
     transaction_detail_flag: bool,
 ) -> Result<Option<edr_rpc_eth::Block<HashOrTransaction>>, ProviderError<LoggerErrorT>> {
     block_by_number(data, &block_spec.into())?
-        .map(
-            |BlockByNumberResult {
-                 block,
-                 pending,
-                 total_difficulty,
-             }| {
-                block_to_rpc_output(
-                    data.spec_id(),
-                    block,
-                    pending,
-                    total_difficulty,
-                    transaction_detail_flag,
-                )
-            },
-        )
+        .map(|BlockByNumberResult { block, pending }| {
+            block_to_rpc_output(data.spec_id(), block, pending, transaction_detail_flag)
+        })
         .transpose()
 }
 
@@ -94,8 +73,6 @@ struct BlockByNumberResult {
     pub block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     /// Whether the block is a pending block.
     pub pending: bool,
-    /// The total difficulty with the block
-    pub total_difficulty: Option<U256>,
 }
 
 fn block_by_number<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
@@ -105,30 +82,19 @@ fn block_by_number<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     validate_post_merge_block_tags(data.spec_id(), block_spec)?;
 
     match data.block_by_block_spec(block_spec) {
-        Ok(Some(block)) => {
-            let total_difficulty = data.total_difficulty_by_hash(block.hash())?;
-            Ok(Some(BlockByNumberResult {
-                block,
-                pending: false,
-                total_difficulty,
-            }))
-        }
+        Ok(Some(block)) => Ok(Some(BlockByNumberResult {
+            block,
+            pending: false,
+        })),
         // Pending block
         Ok(None) => {
             let result = data.mine_pending_block()?;
             let block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>> =
                 Arc::new(result.block);
 
-            let last_block = data.last_block()?;
-            let previous_total_difficulty = data
-                .total_difficulty_by_hash(last_block.hash())?
-                .expect("last block has total difficulty");
-            let total_difficulty = previous_total_difficulty + block.header().difficulty;
-
             Ok(Some(BlockByNumberResult {
                 block,
                 pending: true,
-                total_difficulty: Some(total_difficulty),
             }))
         }
         Err(ProviderError::InvalidBlockNumberOrHash { .. }) => Ok(None),
@@ -140,7 +106,6 @@ fn block_to_rpc_output<LoggerErrorT: Debug>(
     spec_id: SpecId,
     block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
     pending: bool,
-    total_difficulty: Option<U256>,
     transaction_detail_flag: bool,
 ) -> Result<edr_rpc_eth::Block<HashOrTransaction>, ProviderError<LoggerErrorT>> {
     let header = block.header();
@@ -186,7 +151,6 @@ fn block_to_rpc_output<LoggerErrorT: Debug>(
         logs_bloom: header.logs_bloom,
         timestamp: header.timestamp,
         difficulty: header.difficulty,
-        total_difficulty,
         uncles: block.ommer_hashes().to_vec(),
         transactions,
         size: block.rlp_size(),

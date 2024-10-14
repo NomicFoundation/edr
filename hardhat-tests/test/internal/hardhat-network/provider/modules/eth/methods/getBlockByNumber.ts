@@ -150,57 +150,6 @@ describe("Eth module", function () {
             await this.provider.send("eth_getTransactionByHash", [txHash])
           );
         });
-
-        it(
-          "should return the right block total difficulty",
-          isFork ? testTotalDifficultyFork : testTotalDifficulty
-        );
-
-        async function testTotalDifficultyFork(this: Context) {
-          const forkBlockNumber: number = rpcQuantityToNumber(
-            await this.provider.send("eth_blockNumber")
-          );
-
-          const forkBlock: RpcBlockOutput = await this.provider.send(
-            "eth_getBlockByNumber",
-            [numberToRpcQuantity(forkBlockNumber), false]
-          );
-
-          await sendTxToZeroAddress(this.provider);
-
-          const block: RpcBlockOutput = await this.provider.send(
-            "eth_getBlockByNumber",
-            [numberToRpcQuantity(forkBlockNumber + 1), false]
-          );
-
-          assertQuantity(
-            block.totalDifficulty,
-            rpcQuantityToBigInt(forkBlock.totalDifficulty) +
-              rpcQuantityToBigInt(block.difficulty)
-          );
-        }
-
-        async function testTotalDifficulty(this: Context) {
-          const genesisBlock: RpcBlockOutput = await this.provider.send(
-            "eth_getBlockByNumber",
-            [numberToRpcQuantity(0), false]
-          );
-
-          assertQuantity(genesisBlock.totalDifficulty, 1);
-          assertQuantity(genesisBlock.difficulty, 1);
-
-          await sendTxToZeroAddress(this.provider);
-
-          const block: RpcBlockOutput = await this.provider.send(
-            "eth_getBlockByNumber",
-            [numberToRpcQuantity(1), false]
-          );
-
-          assertQuantity(
-            block.totalDifficulty,
-            rpcQuantityToNumber(block.difficulty) + 1
-          );
-        }
       });
     });
   });

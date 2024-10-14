@@ -7,9 +7,7 @@ pub mod storage;
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
-use edr_eth::{
-    log::FilterLog, receipt::BlockReceipt, spec::HardforkActivations, Address, B256, U256,
-};
+use edr_eth::{log::FilterLog, receipt::BlockReceipt, spec::HardforkActivations, Address, B256};
 use revm::{
     db::BlockHashRef,
     primitives::{HashSet, SpecId},
@@ -24,7 +22,7 @@ pub use self::{
 use crate::{
     chain_spec::{ChainSpec, SyncChainSpec},
     state::{StateDiff, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
+    Block, LocalBlock, SyncBlock,
 };
 
 /// Combinatorial error for the blockchain API.
@@ -53,7 +51,8 @@ pub enum BlockchainError {
         expected: B256,
     },
     /// Missing hardfork activation history
-    #[error("No known hardfork for execution on historical block {block_number} (relative to fork block number {fork_block_number}) in chain with id {chain_id}. The node was not configured with a hardfork activation history.")]
+    #[error("No known hardfork for execution on historical block {block_number} (relative to fork block number {fork_block_number}) in chain with id {chain_id}. The node was not configured with a hardfork activation history."
+    )]
     MissingHardforkActivations {
         /// Block number
         block_number: u64,
@@ -69,7 +68,8 @@ pub enum BlockchainError {
     #[error("Unknown block number")]
     UnknownBlockNumber,
     /// No hardfork found for block
-    #[error("Could not find a hardfork to run for block {block_number}, after having looked for one in the hardfork activation history, which was: {hardfork_activations:?}.")]
+    #[error("Could not find a hardfork to run for block {block_number}, after having looked for one in the hardfork activation history, which was: {hardfork_activations:?}."
+    )]
     UnknownBlockSpec {
         /// Block number
         block_number: u64,
@@ -177,9 +177,6 @@ where
         // Block number -> state overrides
         state_overrides: &BTreeMap<u64, StateOverride>,
     ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError>;
-
-    /// Retrieves the total difficulty at the block with the provided hash.
-    fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError>;
 }
 
 /// Trait for implementations of a mutable Ethereum blockchain
@@ -193,7 +190,7 @@ pub trait BlockchainMut<ChainSpecT: ChainSpec> {
         &mut self,
         block: LocalBlock<ChainSpecT>,
         state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficulty<ChainSpecT, Self::Error>, Self::Error>;
+    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = Self::Error>>, Self::Error>;
 
     /// Reserves the provided number of blocks, starting from the next block
     /// number.

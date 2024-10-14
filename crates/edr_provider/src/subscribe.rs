@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use dyn_clone::DynClone;
 use edr_eth::{filter::LogOutput, B256, U256};
-use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, BlockAndTotalDifficulty};
+use edr_evm::{blockchain::BlockchainError, chain_spec::L1ChainSpec, SyncBlock};
 
 /// Subscription event.
 #[derive(Clone, Debug)]
@@ -13,7 +15,7 @@ pub struct SubscriptionEvent {
 #[derive(Clone, Debug)]
 pub enum SubscriptionEventData {
     Logs(Vec<LogOutput>),
-    NewHeads(BlockAndTotalDifficulty<L1ChainSpec, BlockchainError>),
+    NewHeads(Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>),
     NewPendingTransactions(B256),
 }
 

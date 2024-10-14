@@ -1,12 +1,12 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_eth::{receipt::BlockReceipt, transaction::Transaction as _, SpecId, B256, U256};
+use edr_eth::{receipt::BlockReceipt, transaction::Transaction as _, SpecId, B256};
 use edr_evm::{
     blockchain::{Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     chain_spec::L1ChainSpec,
     db::BlockHashRef,
     state::{StateDiff, StateError, StateOverride, SyncState},
-    BlockAndTotalDifficulty, LocalBlock, SyncBlock,
+    LocalBlock, SyncBlock,
 };
 
 /// A blockchain with a pending block.
@@ -177,21 +177,6 @@ impl<'blockchain> Blockchain<L1ChainSpec> for BlockchainWithPending<'blockchain>
                 .state_at_block_number(block_number, state_overrides)
         }
     }
-
-    fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError> {
-        if hash == self.pending_block.hash() {
-            let previous_total_difficulty = self
-                .blockchain
-                .total_difficulty_by_hash(&self.pending_block.header().parent_hash)?
-                .expect("At least one block should exist before the pending block.");
-
-            Ok(Some(
-                previous_total_difficulty + self.pending_block.header().difficulty,
-            ))
-        } else {
-            self.blockchain.total_difficulty_by_hash(hash)
-        }
-    }
 }
 
 impl<'blockchain> BlockchainMut<L1ChainSpec> for BlockchainWithPending<'blockchain> {
@@ -201,7 +186,7 @@ impl<'blockchain> BlockchainMut<L1ChainSpec> for BlockchainWithPending<'blockcha
         &mut self,
         _block: LocalBlock<L1ChainSpec>,
         _state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficulty<L1ChainSpec, Self::Error>, Self::Error> {
+    ) -> Result<Arc<dyn SyncBlock<L1ChainSpec, Error = Self::Error>>, Self::Error> {
         panic!("Inserting blocks into a pending blockchain is not supported.");
     }
 

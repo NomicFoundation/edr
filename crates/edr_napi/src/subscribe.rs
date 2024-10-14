@@ -28,7 +28,7 @@ impl SubscriberCallback {
                 let result = match ctx.value.result {
                     edr_provider::SubscriptionEventData::Logs(logs) => ctx.env.to_js_value(&logs),
                     edr_provider::SubscriptionEventData::NewHeads(block) => {
-                        let block = edr_rpc_eth::Block::<B256>::from(block);
+                        let block = edr_rpc_eth::Block::<B256>::from(block.as_ref());
                         ctx.env.to_js_value(&block)
                     }
                     edr_provider::SubscriptionEventData::NewPendingTransactions(tx_hash) => {

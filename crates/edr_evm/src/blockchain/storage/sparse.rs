@@ -4,7 +4,7 @@ use edr_eth::{
     log::{matches_address_filter, matches_topics_filter},
     receipt::BlockReceipt,
     transaction::Transaction,
-    Address, B256, U256,
+    Address, B256,
 };
 use revm::primitives::{HashMap, HashSet};
 
@@ -19,7 +19,6 @@ where
     ChainSpecT: ChainSpec,
 {
     hash_to_block: HashMap<B256, BlockT>,
-    hash_to_total_difficulty: HashMap<B256, U256>,
     number_to_block: HashMap<u64, BlockT>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
     transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt>>,
@@ -33,7 +32,7 @@ where
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn with_block(block: BlockT, total_difficulty: U256) -> Self {
+    pub fn with_block(block: BlockT) -> Self {
         let block_hash = block.hash();
 
         let transaction_hash_to_block = block
@@ -45,15 +44,11 @@ where
         let mut hash_to_block = HashMap::new();
         hash_to_block.insert(*block_hash, block.clone());
 
-        let mut hash_to_total_difficulty = HashMap::new();
-        hash_to_total_difficulty.insert(*block_hash, total_difficulty);
-
         let mut number_to_block = HashMap::new();
         number_to_block.insert(block.header().number, block);
 
         Self {
             hash_to_block,
-            hash_to_total_difficulty,
             number_to_block,
             transaction_hash_to_block,
             transaction_hash_to_receipt: HashMap::new(),
@@ -108,7 +103,6 @@ where
             let block_hash = block.hash();
 
             self.hash_to_block.remove(block_hash);
-            self.hash_to_total_difficulty.remove(block_hash);
 
             for transaction in block.transactions() {
                 let transaction_hash = transaction.transaction_hash();
@@ -119,25 +113,14 @@ where
         }
     }
 
-    /// Retrieves the total difficulty of the block with the provided hash.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn total_difficulty_by_hash(&self, hash: &B256) -> Option<&U256> {
-        self.hash_to_total_difficulty.get(hash)
-    }
-
     /// Inserts a block. Errors if a block with the same hash or number already
     /// exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn insert_block(
-        &mut self,
-        block: BlockT,
-        total_difficulty: U256,
-    ) -> Result<&BlockT, InsertError> {
+    pub fn insert_block(&mut self, block: BlockT) -> Result<&BlockT, InsertError> {
         let block_hash = block.hash();
         let block_header = block.header();
 
         if self.hash_to_block.contains_key(block_hash)
-            || self.hash_to_total_difficulty.contains_key(block_hash)
             || self.number_to_block.contains_key(&block_header.number)
         {
             return Err(InsertError::DuplicateBlock {
@@ -166,9 +149,6 @@ where
         // ok to use unchecked.
         self.hash_to_block
             .insert_unique_unchecked(*block_hash, block.clone());
-
-        self.hash_to_total_difficulty
-            .insert_unique_unchecked(*block_hash, total_difficulty);
 
         Ok(self
             .number_to_block
@@ -226,7 +206,6 @@ where
     fn default() -> Self {
         Self {
             hash_to_block: HashMap::default(),
-            hash_to_total_difficulty: HashMap::default(),
             number_to_block: HashMap::default(),
             transaction_hash_to_block: HashMap::default(),
             transaction_hash_to_receipt: HashMap::default(),
