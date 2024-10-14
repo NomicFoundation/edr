@@ -1,7 +1,6 @@
 import { assert } from "chai";
 import {
   numberToRpcQuantity,
-  rpcQuantityToBigInt,
   rpcQuantityToNumber,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
 import {
@@ -9,7 +8,6 @@ import {
   RpcTransactionOutput,
 } from "hardhat/internal/hardhat-network/provider/output";
 import { DEFAULT_COINBASE } from "hardhat/internal/hardhat-network/provider/provider";
-import { Context } from "mocha";
 
 import { workaroundWindowsCiFailures } from "../../../../../../utils/workaround-windows-ci-failures";
 import { assertQuantity } from "../../../../helpers/assertions";
