@@ -1,3 +1,5 @@
+use ruint::aliases::U256;
+
 /// The default secret keys from which the local accounts will be derived.
 pub const SECRET_KEYS: [&str; 20] = [
     // these were taken from the standard output of a run of `hardhat node`
@@ -36,3 +38,6 @@ pub const MIX_HASH_SEED: &str = "randomMixHashSeed";
 
 /// Seed value for the generator of state root hashes.
 pub const STATE_ROOT_HASH_SEED: &str = "seed";
+
+/// Terminal total difficulty for the Merge on main net
+pub const TERMINAL_TOTAL_DIFFICULTY: U256 = ruint::uint!(58750000000000000000000_U256);

@@ -1079,6 +1079,9 @@ dependencies = [
 [[package]]
 name = "edr_defaults"
 version = "0.3.5"
+dependencies = [
+ "ruint",
+]
 
 [[package]]
 name = "edr_eth"
