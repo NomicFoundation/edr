@@ -1,6 +1,6 @@
 {
   "name": "@ignored/edr",
-  "version": "0.6.2-alpha.0",
+  "version": "0.6.3",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@types/chai": "^4.2.0",
@@ -58,7 +58,7 @@
     "build:publish": "napi build --platform --profile napi-publish",
     "build:scenarios": "napi build --platform --release --features scenarios",
     "build:tracing": "napi build --platform --release --features tracing",
-    "clean": "rm -rf @nomicfoundation/edr.node",
+    "clean": "rm -rf @ignored/edr.node",
     "eslint": "eslint 'test/**/*.ts'",
     "lint": "pnpm run prettier && pnpm run eslint",
     "lint:fix": "pnpm run prettier --write",
