@@ -2,3 +2,12 @@
 cache/
 out/
 .lock
+
+# Node files
+node_modules/
+
+# Hardhat files
+artifacts
+
+# Test debug files
+test_dump_state_*.json

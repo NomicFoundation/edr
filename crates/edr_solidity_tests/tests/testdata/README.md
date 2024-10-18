@@ -10,3 +10,13 @@ A test suite that tests different aspects of the Solidity test runner.
 - [`fuzz`](fuzz): Tests for the fuzzer
 - [`trace`](trace): Tests for the tracer
 - [`fork`](fork): Tests for the Solidity test runner's forking capabilities
+
+---
+
+### Running the tests using Hardhat
+
+First, link your local checkout of hardhat v3 to node modules.
+
+```bash
+npm link $PATH_TO_HARDHAT/hardhat/v-next/hardhat
+```
