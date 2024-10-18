@@ -20,3 +20,11 @@ First, link your local checkout of hardhat v3 to node modules.
 ```bash
 npm link $PATH_TO_HARDHAT/hardhat/v-next/hardhat
 ```
+
+Then, run the tests using the following command:
+
+```bash
+npx hardhat test
+```
+
+Go to [hardhat.config.js](hardhat.config.js) to enable/disable test suites.
