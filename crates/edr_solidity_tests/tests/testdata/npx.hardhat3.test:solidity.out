@@ -1,0 +1,2815 @@
+Compiled 1 Solidity file with solc 0.8.15 (evm target: london)
+Compiled 146 Solidity files with solc 0.8.18 (evm target: paris)
+Compiled 1 Solidity file with solc 0.8.20 (evm target: shanghai)
+Compiled 22 Solidity files with solc 0.8.25 (evm target: cancun)
+
+Running Solidity tests...
+
+Ran 1 tests for cancun/cheats/Blobhashes.t.sol:BlobhashesTest (v0.8.25)
+✔ Passed: testSetAndGetBlobhashes() (duration: 0 ms, consumedGas: 5926)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for cancun/cheats/BlobBaseFee.t.sol:BlobBaseFeeTest (v0.8.25)
+✔ Passed: test_blob_base_fee() (duration: 0 ms, consumedGas: 3836)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/trace/ConflictingSignatures.t.sol:ConflictingSignaturesTest (v0.8.18)
+✔ Passed: testTraceWithConflictingSignatures() (duration: 0 ms, consumedGas: 17257)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/cheats/Base64.t.sol:Base64Test (v0.8.18)
+✔ Passed: test_toBase64URL() (duration: 0 ms, consumedGas: 5488)
+✔ Passed: test_toBase64() (duration: 0 ms, consumedGas: 5466)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/cheats/ChainId.t.sol:DealTest (v0.8.18)
+✔ Passed: testChainId() (duration: 0 ms, consumedGas: 3203)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/core/ContractEnvironment.t.sol:ContractEnvironmentTest (v0.8.18)
+✔ Passed: testEnvironment() (duration: 0 ms, consumedGas: 926)
+✔ Passed: testAddresses() (duration: 0 ms, consumedGas: 513)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/cheats/Addr.t.sol:AddrTest (v0.8.18)
+✘ Failed(1): testFailPrivKeyZero() (duration: 0 ms, consumedGas: 3164)
+✔ Passed: testAddr() (duration: 0 ms, consumedGas: 3491)
+✘ Suite Failed: 2 tests, 1 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/core/DSStyle.t.sol:DSStyleTest (v0.8.18)
+✘ Failed(2): testFailingAssertions() (duration: 0 ms, consumedGas: 30819)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/cheats/Assume.t.sol:AssumeTest (v0.8.18)
+✔ Passed: testAssume(uint8) (duration: 7 ms, runs: 256, meanGas: 3527, medianGas: 3527)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 8 ms)
+
+Ran 1 tests for default/cheats/Deal.t.sol:DealTest (v0.8.18)
+✔ Passed: testDeal(uint256) (duration: 8 ms, runs: 256, meanGas: 5232, medianGas: 5232)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 8 ms)
+
+Ran 1 tests for default/cheats/EnsNamehash.t.sol:EnsNamehashTest (v0.8.18)
+✔ Passed: testEnsNamehash() (duration: 0 ms, consumedGas: 5079)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/cheats/Cool.t.sol:CoolTest (v0.8.18)
+✔ Passed: testCool_SLOAD_normal() (duration: 0 ms, consumedGas: 2906)
+✔ Passed: testCool_SLOAD() (duration: 0 ms, consumedGas: 8280)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 152 ms)
+
+Ran 19 tests for default/logs/DebugLogs.t.sol:DebugLogsTest (v0.8.18)
+✔ Passed: testLogs() (duration: 0 ms, consumedGas: 2314)
+✔ Passed: testLogString() (duration: 0 ms, consumedGas: 2057)
+✔ Passed: testLogNamedUint() (duration: 0 ms, consumedGas: 2371)
+✔ Passed: testLogNamedString() (duration: 0 ms, consumedGas: 3028)
+✔ Passed: testLogNamedInt() (duration: 0 ms, consumedGas: 2350)
+✔ Passed: testLogNamedDecimalUint() (duration: 0 ms, consumedGas: 2732)
+✔ Passed: testLogNamedDecimalInt() (duration: 0 ms, consumedGas: 2731)
+✔ Passed: testLogNamedBytes32() (duration: 0 ms, consumedGas: 2350)
+✔ Passed: testLogNamedBytes() (duration: 0 ms, consumedGas: 3306)
+✔ Passed: testLogNamedAddress() (duration: 0 ms, consumedGas: 2398)
+✔ Passed: testLogInt() (duration: 0 ms, consumedGas: 1423)
+✔ Passed: testLogBytes32() (duration: 0 ms, consumedGas: 1359)
+✔ Passed: testLogBytes() (duration: 0 ms, consumedGas: 2270)
+✔ Passed: testLogAddress() (duration: 0 ms, consumedGas: 1406)
+✔ Passed: testLog() (duration: 0 ms, consumedGas: 1969)
+✘ Failed(3): testFailWithRevert() (duration: 0 ms, consumedGas: 343104)
+✘ Failed(4): testFailWithRequire() (duration: 0 ms, consumedGas: 1566)
+✔ Passed: test2() (duration: 0 ms, consumedGas: 1575)
+✔ Passed: test1() (duration: 0 ms, consumedGas: 1597)
+✘ Suite Failed: 19 tests, 17 passed, 2 failed, 0 skipped (duration: 152 ms)
+
+Ran 5 tests for default/fs/Default.t.sol:DefaultAccessTest (v0.8.18)
+✔ Passed: testWriteLine() (duration: 0 ms, consumedGas: 4453)
+✔ Passed: testWriteFile() (duration: 0 ms, consumedGas: 6126)
+✔ Passed: testRemoveFile() (duration: 0 ms, consumedGas: 3962)
+✘ Failed(5): testReadLine() (duration: 0 ms, consumedGas: 3449)
+✘ Failed(6): testReadFile() (duration: 0 ms, consumedGas: 3450)
+✘ Suite Failed: 5 tests, 3 passed, 2 failed, 0 skipped (duration: 152 ms)
+
+Ran 5 tests for default/fs/Disabled.t.sol:DisabledTest (v0.8.18)
+✔ Passed: testWriteLine() (duration: 0 ms, consumedGas: 4453)
+✔ Passed: testWriteFile() (duration: 0 ms, consumedGas: 4496)
+✔ Passed: testRemoveFile() (duration: 0 ms, consumedGas: 3962)
+✔ Passed: testReadLine() (duration: 0 ms, consumedGas: 6300)
+✔ Passed: testReadFile() (duration: 0 ms, consumedGas: 6301)
+✔ Suite Passed: 5 tests, 5 passed, 0 failed, 0 skipped (duration: 153 ms)
+
+Ran 4 tests for default/cheats/dumpState.t.sol:DumpStateTest (v0.8.18)
+✘ Failed(7): testDumpStateMultipleAccounts() (duration: 0 ms, consumedGas: 10845)
+✘ Failed(8): testDumpStateEmptyAccount() (duration: 0 ms, consumedGas: 75144)
+✘ Failed(9): testDumpStateDeployment() (duration: 0 ms, consumedGas: 73756)
+✘ Failed(10): testDumpStateCheatAccount() (duration: 0 ms, consumedGas: 10752)
+✘ Suite Failed: 4 tests, 0 passed, 4 failed, 0 skipped (duration: 155 ms)
+
+Ran 2 tests for default/cheats/Etch.t.sol:EtchTest (v0.8.18)
+✔ Passed: testEtchNotAvailableOnPrecompiles() (duration: 0 ms, consumedGas: 4794)
+✔ Passed: testEtch() (duration: 0 ms, consumedGas: 5010)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 4 ms)
+
+Ran 1 tests for default/core/ExecutionContext.t.sol:ExecutionContextTest (v0.8.18)
+✔ Passed: testContext() (duration: 0 ms, consumedGas: 6798)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 65 tests for default/cheats/Env.t.sol:EnvTest (v0.8.18)
+✔ Passed: testSetEnv() (duration: 0 ms, consumedGas: 4152)
+✔ Passed: testEnvWithDefaultBytesEmptyArrKey() (duration: 0 ms, consumedGas: 6855)
+✔ Passed: testEnvWithDefaultBytesEmptyArrDefault() (duration: 0 ms, consumedGas: 5599)
+✔ Passed: testEnvUintEmptyArr() (duration: 0 ms, consumedGas: 7178)
+✔ Passed: testEnvUintArr() (duration: 0 ms, consumedGas: 10840)
+✔ Passed: testEnvUint() (duration: 0 ms, consumedGas: 19551)
+✔ Passed: testEnvStringEmptyArr() (duration: 0 ms, consumedGas: 6356)
+✔ Passed: testEnvStringArr() (duration: 0 ms, consumedGas: 11189)
+✔ Passed: testEnvString() (duration: 0 ms, consumedGas: 12403)
+✔ Passed: testEnvOrUintKey() (duration: 0 ms, consumedGas: 21261)
+✔ Passed: testEnvOrUintEmptyArrKey() (duration: 0 ms, consumedGas: 7600)
+✔ Passed: testEnvOrUintEmptyArrDefault() (duration: 0 ms, consumedGas: 6322)
+✔ Passed: testEnvOrUintDefault() (duration: 0 ms, consumedGas: 11760)
+✔ Passed: testEnvOrUintArrKey() (duration: 0 ms, consumedGas: 12672)
+✔ Passed: testEnvOrUintArrDefault() (duration: 0 ms, consumedGas: 10845)
+✔ Passed: testEnvOrStringKey() (duration: 0 ms, consumedGas: 13500)
+✔ Passed: testEnvOrStringEmptyArrKey() (duration: 0 ms, consumedGas: 6856)
+✔ Passed: testEnvOrStringEmptyArrDefault() (duration: 0 ms, consumedGas: 5597)
+✔ Passed: testEnvOrStringDefault() (duration: 0 ms, consumedGas: 10453)
+✔ Passed: testEnvOrStringArrKey() (duration: 0 ms, consumedGas: 13209)
+✔ Passed: testEnvOrStringArrDefault() (duration: 0 ms, consumedGas: 11803)
+✔ Passed: testEnvOrIntKey() (duration: 0 ms, consumedGas: 14840)
+✔ Passed: testEnvOrIntEmptyArrKey() (duration: 0 ms, consumedGas: 7643)
+✔ Passed: testEnvOrIntEmptyArrDefault() (duration: 0 ms, consumedGas: 6387)
+✔ Passed: testEnvOrIntDefault() (duration: 0 ms, consumedGas: 8862)
+✔ Passed: testEnvOrIntArrKey() (duration: 0 ms, consumedGas: 12938)
+✔ Passed: testEnvOrIntArrDefault() (duration: 0 ms, consumedGas: 10886)
+✔ Passed: testEnvOrBytesKey() (duration: 0 ms, consumedGas: 13233)
+✔ Passed: testEnvOrBytesDefault() (duration: 0 ms, consumedGas: 10231)
+✔ Passed: testEnvOrBytesArrKey() (duration: 0 ms, consumedGas: 12758)
+✔ Passed: testEnvOrBytesArrDefault() (duration: 0 ms, consumedGas: 11316)
+✔ Passed: testEnvOrBytes32Key() (duration: 0 ms, consumedGas: 9216)
+✔ Passed: testEnvOrBytes32EmptyArrKey() (duration: 0 ms, consumedGas: 7623)
+✔ Passed: testEnvOrBytes32EmptyArrDefault() (duration: 0 ms, consumedGas: 6322)
+✔ Passed: testEnvOrBytes32Default() (duration: 0 ms, consumedGas: 5888)
+✔ Passed: testEnvOrBytes32ArrKey() (duration: 0 ms, consumedGas: 10246)
+✔ Passed: testEnvOrBytes32ArrDefault() (duration: 0 ms, consumedGas: 8635)
+✔ Passed: testEnvOrBoolKey() (duration: 0 ms, consumedGas: 8913)
+✔ Passed: testEnvOrBoolEmptyArrKey() (duration: 0 ms, consumedGas: 7644)
+✔ Passed: testEnvOrBoolEmptyArrDefault() (duration: 0 ms, consumedGas: 6365)
+✔ Passed: testEnvOrBoolDefault() (duration: 0 ms, consumedGas: 5928)
+✔ Passed: testEnvOrBoolArrKey() (duration: 0 ms, consumedGas: 9977)
+✔ Passed: testEnvOrBoolArrDefault() (duration: 0 ms, consumedGas: 8670)
+✔ Passed: testEnvOrAddressKey() (duration: 0 ms, consumedGas: 9260)
+✔ Passed: testEnvOrAddressEmptyArrKey() (duration: 0 ms, consumedGas: 7647)
+✔ Passed: testEnvOrAddressEmptyArrDefault() (duration: 0 ms, consumedGas: 6323)
+✔ Passed: testEnvOrAddressDefault() (duration: 0 ms, consumedGas: 6121)
+✔ Passed: testEnvOrAddressArrKey() (duration: 0 ms, consumedGas: 10510)
+✔ Passed: testEnvOrAddressArrDefault() (duration: 0 ms, consumedGas: 9006)
+✔ Passed: testEnvIntEmptyArr() (duration: 0 ms, consumedGas: 7157)
+✔ Passed: testEnvIntArr() (duration: 0 ms, consumedGas: 11127)
+✔ Passed: testEnvInt() (duration: 0 ms, consumedGas: 14259)
+✔ Passed: testEnvExists() (duration: 0 ms, consumedGas: 6244)
+✔ Passed: testEnvBytesEmptyArr() (duration: 0 ms, consumedGas: 6355)
+✔ Passed: testEnvBytesArr() (duration: 0 ms, consumedGas: 11196)
+✔ Passed: testEnvBytes32EmptyArr() (duration: 0 ms, consumedGas: 7156)
+✔ Passed: testEnvBytes32Arr() (duration: 0 ms, consumedGas: 9138)
+✔ Passed: testEnvBytes32() (duration: 0 ms, consumedGas: 8870)
+✔ Passed: testEnvBytes() (duration: 0 ms, consumedGas: 11970)
+✔ Passed: testEnvBoolEmptyArr() (duration: 0 ms, consumedGas: 7156)
+✔ Passed: testEnvBoolArr() (duration: 0 ms, consumedGas: 8836)
+✔ Passed: testEnvBool() (duration: 0 ms, consumedGas: 8266)
+✔ Passed: testEnvAddressEmptyArr() (duration: 0 ms, consumedGas: 7177)
+✔ Passed: testEnvAddressArr() (duration: 0 ms, consumedGas: 9214)
+✔ Passed: testEnvAddress() (duration: 0 ms, consumedGas: 8925)
+✔ Suite Passed: 65 tests, 65 passed, 0 failed, 0 skipped (duration: 158 ms)
+
+Ran 5 tests for default/cheats/ExpectCall.t.sol:ExpectCallMixedTest (v0.8.18)
+✘ Failed(11): testFailOverrideNoCountWithCount() (duration: 0 ms, consumedGas: 174147)
+✘ Failed(12): testFailOverrideCountWithNoCount() (duration: 0 ms, consumedGas: 174193)
+✘ Failed(13): testFailOverrideCountWithCount() (duration: 0 ms, consumedGas: 174360)
+✔ Passed: testExpectMatchPartialAndFullFlipped() (duration: 0 ms, consumedGas: 178692)
+✔ Passed: testExpectMatchPartialAndFull() (duration: 0 ms, consumedGas: 178737)
+✘ Suite Failed: 5 tests, 2 passed, 3 failed, 0 skipped (duration: 12 ms)
+
+Ran 23 tests for default/cheats/ExpectCall.t.sol:ExpectCallTest (v0.8.18)
+✘ Failed(14): testFailExpectSelectorCall() (duration: 0 ms, consumedGas: 171521)
+✘ Failed(15): testFailExpectMultipleCallsWithDataAdditive() (duration: 0 ms, consumedGas: 182047)
+✘ Failed(16): testFailExpectInnerCall() (duration: 0 ms, consumedGas: 577744)
+✘ Failed(17): testFailExpectCallWithRevertDisallowed() (duration: 0 ms, consumedGas: 176272)
+✘ Failed(18): testFailExpectCallWithNoValueAndWrongMinGas() (duration: 0 ms, consumedGas: 580007)
+✘ Failed(19): testFailExpectCallWithNoValueAndWrongGas() (duration: 0 ms, consumedGas: 580031)
+✘ Failed(20): testFailExpectCallWithMoreParameters() (duration: 0 ms, consumedGas: 178843)
+✘ Failed(21): testFailExpectCallWithData() (duration: 0 ms, consumedGas: 176841)
+✘ Failed(22): testFailExpectCallValue() (duration: 0 ms, consumedGas: 172134)
+✔ Passed: testExpectSelectorCall() (duration: 0 ms, consumedGas: 175935)
+✔ Passed: testExpectMultipleCallsWithDataAdditiveLowerBound() (duration: 0 ms, consumedGas: 182140)
+✔ Passed: testExpectMultipleCallsWithDataAdditive() (duration: 0 ms, consumedGas: 180228)
+✔ Passed: testExpectMultipleCallsWithData() (duration: 0 ms, consumedGas: 178452)
+✔ Passed: testExpectInnerCall() (duration: 0 ms, consumedGas: 578857)
+✔ Passed: testExpectCallWithValueWithoutParameters() (duration: 0 ms, consumedGas: 181814)
+✔ Passed: testExpectCallWithValueAndMinGas() (duration: 0 ms, consumedGas: 592536)
+✔ Passed: testExpectCallWithValueAndGas() (duration: 0 ms, consumedGas: 592492)
+✔ Passed: testExpectCallWithValue() (duration: 0 ms, consumedGas: 182176)
+✔ Passed: testExpectCallWithNoValueAndMinGas() (duration: 0 ms, consumedGas: 579985)
+✔ Passed: testExpectCallWithNoValueAndGas() (duration: 0 ms, consumedGas: 579984)
+✔ Passed: testExpectCallWithData() (duration: 0 ms, consumedGas: 176541)
+✔ Passed: testExpectCallMultipleFunctionsFlattened() (duration: 0 ms, consumedGas: 581798)
+✔ Passed: testExpectCallMultipleFunctions() (duration: 0 ms, consumedGas: 592812)
+✘ Suite Failed: 23 tests, 14 passed, 9 failed, 0 skipped (duration: 6 ms)
+
+Ran 18 tests for default/cheats/ExpectCall.t.sol:ExpectCallCountTest (v0.8.18)
+✘ Failed(23): testFailExpectCountInnerCall() (duration: 0 ms, consumedGas: 576705)
+✘ Failed(24): testFailExpectCallCountWithWrongCount() (duration: 0 ms, consumedGas: 174376)
+✘ Failed(25): testFailExpectCallCountWithNoValueAndWrongMinGas() (duration: 0 ms, consumedGas: 580851)
+✘ Failed(26): testFailExpectCallCountWithNoValueAndWrongGas() (duration: 0 ms, consumedGas: 584042)
+✘ Failed(27): testFailExpectCallCountValue() (duration: 0 ms, consumedGas: 189112)
+✔ Passed: testExpectZeroCallCountWithNoValueAndWrongGas() (duration: 0 ms, consumedGas: 580875)
+✔ Passed: testExpectZeroCallCountValue() (duration: 0 ms, consumedGas: 189071)
+✔ Passed: testExpectZeroCallCountAssert() (duration: 0 ms, consumedGas: 174418)
+✔ Passed: testExpectCountInnerCall() (duration: 0 ms, consumedGas: 577830)
+✔ Passed: testExpectCountInnerAndOuterCalls() (duration: 0 ms, consumedGas: 580474)
+✔ Passed: testExpectCallZeroCountWithNoValueAndWrongMinGas() (duration: 0 ms, consumedGas: 580851)
+✔ Passed: testExpectCallCountWithValueWithoutParameters() (duration: 0 ms, consumedGas: 197553)
+✔ Passed: testExpectCallCountWithValueAndMinGas() (duration: 0 ms, consumedGas: 592705)
+✔ Passed: testExpectCallCountWithValueAndGas() (duration: 0 ms, consumedGas: 608627)
+✔ Passed: testExpectCallCountWithValue() (duration: 0 ms, consumedGas: 189113)
+✔ Passed: testExpectCallCountWithNoValueAndMinGas() (duration: 0 ms, consumedGas: 584042)
+✔ Passed: testExpectCallCountWithNoValueAndGas() (duration: 0 ms, consumedGas: 580830)
+✔ Passed: testExpectCallCountWithData() (duration: 0 ms, consumedGas: 179671)
+✘ Suite Failed: 18 tests, 13 passed, 5 failed, 0 skipped (duration: 22 ms)
+
+Ran 18 tests for default/cheats/ExpectRevert.t.sol:ExpectRevertTest (v0.8.18)
+✔ Passed: testexpectCheatcodeRevert() (duration: 0 ms, consumedGas: 6464)
+✘ Failed(28): testFailexpectCheatcodeRevertForExtCall() (duration: 0 ms, consumedGas: 443892)
+✘ Failed(29): testFailexpectCheatcodeRevertForCreate() (duration: 0 ms, consumedGas: 37140)
+✘ Failed(30): testFailRevertNotOnImmediateNextCall() (duration: 0 ms, consumedGas: 442521)
+✘ Failed(31): testFailExpectRevertWrongString() (duration: 0 ms, consumedGas: 444118)
+✘ Failed(32): testFailExpectRevertErrorDoesNotMatch() (duration: 0 ms, consumedGas: 444080)
+✘ Failed(33): testFailExpectRevertDidNotRevert() (duration: 0 ms, consumedGas: 442558)
+✘ Failed(34): testFailExpectRevertDangling() (duration: 0 ms, consumedGas: 3300)
+✘ Failed(35): testFailExpectRevertAnyRevertDidNotRevert() (duration: 0 ms, consumedGas: 442297)
+✔ Passed: testExpectRevertString() (duration: 0 ms, consumedGas: 444063)
+✔ Passed: testExpectRevertNoReason() (duration: 0 ms, consumedGas: 442736)
+✔ Passed: testExpectRevertNested() (duration: 0 ms, consumedGas: 884981)
+✔ Passed: testExpectRevertCustomError() (duration: 0 ms, consumedGas: 442961)
+✔ Passed: testExpectRevertConstructor() (duration: 0 ms, consumedGas: 37325)
+✔ Passed: testExpectRevertCallsThenReverts() (duration: 0 ms, consumedGas: 753855)
+✔ Passed: testExpectRevertBuiltin() (duration: 0 ms, consumedGas: 443617)
+✔ Passed: testExpectRevertAnyRevert() (duration: 0 ms, consumedGas: 1237713)
+✔ Passed: testDummyReturnDataForBigType() (duration: 0 ms, consumedGas: 318644)
+✘ Suite Failed: 18 tests, 10 passed, 8 failed, 0 skipped (duration: 23 ms)
+
+Ran 1 tests for default/core/FailingSetup.t.sol:FailingSetupTest (v0.8.18)
+✘ Failed(36): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/core/FailingTestAfterFailedSetup.t.sol:FailingTestAfterFailedSetupTest (v0.8.18)
+✘ Failed(37): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/cheats/Fee.t.sol:FeeTest (v0.8.18)
+✔ Passed: testFeeFuzzed(uint256) (duration: 10 ms, runs: 256, meanGas: 3526, medianGas: 3526)
+✔ Passed: testFee() (duration: 0 ms, consumedGas: 3371)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 19 ms)
+
+Ran 2 tests for default/cheats/Ffi.t.sol:FfiTest (v0.8.18)
+✘ Failed(38): testFfiString() (duration: 0 ms, consumedGas: 5743)
+✘ Failed(39): testFfi() (duration: 0 ms, consumedGas: 6274)
+✘ Suite Failed: 2 tests, 0 passed, 2 failed, 0 skipped (duration: 9 ms)
+
+Ran 34 tests for default/cheats/ExpectEmit.t.sol:ExpectEmitTest (v0.8.18)
+✘ Failed(40): testFailNoEmitDirectlyOnNextCall() (duration: 0 ms, consumedGas: 141489)
+✘ Failed(41): testFailMatchRepeatedEventsOutOfOrder() (duration: 0 ms, consumedGas: 25707)
+✘ Failed(42): testFailLowLevelWithoutEmit() (duration: 0 ms, consumedGas: 141511)
+✘ Failed(43): testFailExpectEmitNested(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (duration: 44 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(44): testFailExpectEmitDanglingWithReference() (duration: 0 ms, consumedGas: 6026)
+✘ Failed(45): testFailExpectEmitDanglingNoReference() (duration: 0 ms, consumedGas: 3578)
+✘ Failed(46): testFailExpectEmitCanMatchWithoutExactOrder() (duration: 0 ms, consumedGas: 25163)
+✘ Failed(47): testFailExpectEmitAddressWithArgs() (duration: 0 ms, consumedGas: 15469)
+✘ Failed(48): testFailExpectEmitAddress() (duration: 0 ms, consumedGas: 15083)
+✘ Failed(49): testFailExpectEmit(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (duration: 9 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(50): testFailEventsOnTwoCalls() (duration: 0 ms, consumedGas: 17751)
+✘ Failed(51): testFailEmitWindowWithRevertDisallowed() (duration: 0 ms, consumedGas: 16123)
+✘ Failed(52): testFailEmitOnlyAppliesToNextCall() (duration: 0 ms, consumedGas: 34385)
+✘ Failed(53): testFailDifferentIndexedParameters() (duration: 0 ms, consumedGas: 11618)
+✘ Failed(54): testFailCanMatchConsecutiveEvents() (duration: 0 ms, consumedGas: 23696)
+✔ Passed: testExpectedEmitMultipleNested() (duration: 0 ms, consumedGas: 20117)
+✔ Passed: testExpectEmitNested(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (duration: 46 ms, runs: 256, meanGas: 787864, medianGas: 787864)
+✔ Passed: testExpectEmitMultipleWithArgs() (duration: 0 ms, consumedGas: 26930)
+✔ Passed: testExpectEmitMultiple() (duration: 0 ms, consumedGas: 25979)
+✔ Passed: testExpectEmitCanMatchWithoutExactOrder2() (duration: 0 ms, consumedGas: 22106)
+✔ Passed: testExpectEmitCanMatchWithoutExactOrder() (duration: 0 ms, consumedGas: 23152)
+✔ Passed: testExpectEmitAddressWithArgs() (duration: 0 ms, consumedGas: 15690)
+✔ Passed: testExpectEmitAddress() (duration: 0 ms, consumedGas: 15175)
+✔ Passed: testExpectEmit(bool,bool,bool,bool,uint128,uint128,uint128,uint128) (duration: 12 ms, runs: 256, meanGas: 16855, medianGas: 16860)
+✔ Passed: testEmitWindowAndOnTest() (duration: 0 ms, consumedGas: 20789)
+✔ Passed: testCanMatchSingleEventFromConsecutive() (duration: 0 ms, consumedGas: 15783)
+✔ Passed: testCanMatchRepeatedEvents() (duration: 0 ms, consumedGas: 29643)
+✔ Passed: testCanMatchConsecutiveSubtreeEvents() (duration: 0 ms, consumedGas: 32516)
+✔ Passed: testCanMatchConsecutiveNestedEvents() (duration: 0 ms, consumedGas: 33607)
+✔ Passed: testCanMatchConsecutiveEventsSkipped2() (duration: 0 ms, consumedGas: 17699)
+✔ Passed: testCanMatchConsecutiveEventsSkipped() (duration: 0 ms, consumedGas: 19703)
+✔ Passed: testCanMatchConsecutiveEvents() (duration: 0 ms, consumedGas: 23666)
+✔ Passed: testCanDoStaticCall() (duration: 0 ms, consumedGas: 16393)
+✔ Passed: testAdditiveBehavior() (duration: 0 ms, consumedGas: 24058)
+✘ Suite Failed: 34 tests, 19 passed, 15 failed, 0 skipped (duration: 60 ms)
+
+Ran 2 tests for default/cheats/Travel.t.sol:ChainIdTest (v0.8.18)
+✔ Passed: testChainIdFuzzed(uint64) (duration: 7 ms, runs: 256, meanGas: 3673, medianGas: 3673)
+✔ Passed: testChainId() (duration: 0 ms, consumedGas: 3371)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 418 ms)
+
+Ran 18 tests for default/cheats/Assert.t.sol:AssertionsTest (v0.8.18)
+✔ Passed: testFuzzAssertGtLt(uint256,uint256,uint256) (duration: 345 ms, runs: 256, meanGas: 101242, medianGas: 81875)
+✔ Passed: testFuzzAssertGtLt(int256,int256,uint256) (duration: 342 ms, runs: 256, meanGas: 108693, medianGas: 88964)
+✔ Passed: testFuzzAssertGeLe(uint256,uint256,uint256) (duration: 318 ms, runs: 256, meanGas: 59157, medianGas: 46667)
+✔ Passed: testFuzzAssertGeLe(int256,int256,uint256) (duration: 320 ms, runs: 256, meanGas: 62457, medianGas: 50136)
+✔ Passed: testFuzzAssertEqNotEq(uint256,uint256,uint256) (duration: 164 ms, runs: 256, meanGas: 59403, medianGas: 45366)
+✔ Passed: testFuzzAssertEqNotEq(string,string) (duration: 30 ms, runs: 256, meanGas: 19735, medianGas: 19808)
+✔ Passed: testFuzzAssertEqNotEq(int256,int256,uint256) (duration: 183 ms, runs: 256, meanGas: 61867, medianGas: 50978)
+✔ Passed: testFuzzAssertEqNotEq(bytes32,bytes32) (duration: 47 ms, runs: 256, meanGas: 19659, medianGas: 19659)
+✔ Passed: testFuzzAssertEqNotEq(bytes,bytes) (duration: 38 ms, runs: 256, meanGas: 27446, medianGas: 26311)
+✔ Passed: testFuzzAssertEqNotEq(bool,bool) (duration: 26 ms, runs: 256, meanGas: 18048, medianGas: 18050)
+✔ Passed: testFuzzAssertEqNotEq(address,address) (duration: 36 ms, runs: 256, meanGas: 19797, medianGas: 19797)
+✔ Passed: testFuzzAssertApproxEqRel(uint256,uint256,uint256) (duration: 222 ms, runs: 256, meanGas: 58451, medianGas: 48482)
+✔ Passed: testFuzzAssertApproxEqRel(int256,int256,uint256) (duration: 441 ms, runs: 256, meanGas: 62080, medianGas: 52579)
+✔ Passed: testFuzzAssertApproxEqAbs(uint256,uint256,uint256) (duration: 149 ms, runs: 256, meanGas: 51661, medianGas: 41094)
+✔ Passed: testFuzzAssertApproxEqAbs(int256,int256,uint256) (duration: 155 ms, runs: 256, meanGas: 50342, medianGas: 42481)
+✔ Passed: testAssertEqNotEqArrays() (duration: 0 ms, consumedGas: 111491)
+✔ Passed: testAssertBool() (duration: 0 ms, consumedGas: 10323)
+✔ Passed: testAssertApproxEqRel() (duration: 0 ms, consumedGas: 12825)
+✔ Suite Passed: 18 tests, 18 passed, 0 failed, 0 skipped (duration: 454 ms)
+
+Ran 2 tests for default/cheats/Bank.t.sol:CoinbaseTest (v0.8.18)
+✔ Passed: testCoinbaseFuzzed(address) (duration: 7 ms, runs: 256, meanGas: 3636, medianGas: 3636)
+✔ Passed: testCoinbase() (duration: 0 ms, consumedGas: 3303)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 454 ms)
+
+Ran 1 tests for default/cheats/Fork2.t.sol:ForkTest (v0.8.18)
+✘ Failed(55): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest (v0.8.18)
+✘ Failed(56): test_persist_fuzzed_failure(uint256,int256,address,bool,string,(address,uint256),address[]) (duration: 0 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 1 ms)
+
+Ran 16 tests for default/cheats/Fs.t.sol:FsTest (v0.8.18)
+✔ Passed: testWriteLineFoundrytoml() (duration: 0 ms, consumedGas: 9777)
+✘ Failed(57): testWriteLine() (duration: 0 ms, consumedGas: 4180)
+✔ Passed: testWriteFoundrytoml() (duration: 0 ms, consumedGas: 9732)
+✘ Failed(58): testWriteFile() (duration: 0 ms, consumedGas: 4201)
+✘ Failed(59): testRemoveFile() (duration: 0 ms, consumedGas: 4158)
+✘ Failed(60): testReadLine() (duration: 0 ms, consumedGas: 3563)
+✘ Failed(61): testReadFile() (duration: 0 ms, consumedGas: 3497)
+✘ Failed(62): testReadDir() (duration: 0 ms, consumedGas: 3540)
+✘ Failed(63): testIsFile() (duration: 0 ms, consumedGas: 3566)
+✘ Failed(64): testIsDir() (duration: 0 ms, consumedGas: 3477)
+✘ Failed(65): testFsMetadata() (duration: 0 ms, consumedGas: 3198)
+✘ Failed(66): testExists() (duration: 0 ms, consumedGas: 3523)
+✘ Failed(67): testCreateRemoveDir() (duration: 0 ms, consumedGas: 4379)
+✘ Failed(68): testCopyFile() (duration: 0 ms, consumedGas: 3990)
+✘ Failed(69): testCloseFile() (duration: 0 ms, consumedGas: 3475)
+✔ Passed: testCheatCodeErrorPrefix() (duration: 0 ms, consumedGas: 57859)
+✘ Suite Failed: 16 tests, 3 passed, 13 failed, 0 skipped (duration: 19 ms)
+
+Ran 10 tests for default/fuzz/FuzzInt.t.sol:FuzzNumbersTest (v0.8.18)
+✔ Passed: testPositive(int256) (duration: 7 ms, runs: 256, meanGas: 563, medianGas: 563)
+✘ Failed(70): testNegativeMin1(int256) (duration: 7 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(71): testNegativeMin0(int256) (duration: 2 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(72): testNegativeMax1(int256) (duration: 4 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(73): testNegativeMax0(int256) (duration: 4 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(74): testNegativeHalf(int256) (duration: 4 ms, runs: 83, meanGas: 481, medianGas: 481)
+✘ Failed(75): testNegative2(int128) (duration: 1 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(76): testNegative1(int256) (duration: 5 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(77): testNegative0(int256) (duration: 7 ms, runs: 1, meanGas: 502, medianGas: 502)
+✘ Failed(78): testEquality(int256,int256) (duration: 14 ms, runs: 2, meanGas: 922, medianGas: 922)
+✘ Suite Failed: 10 tests, 1 passed, 9 failed, 0 skipped (duration: 39 ms)
+
+Ran 7 tests for default/fuzz/FuzzUint.t.sol:FuzzNumbersTest (v0.8.18)
+✔ Passed: testPositive(uint256) (duration: 7 ms, runs: 256, meanGas: 541, medianGas: 541)
+✘ Failed(79): testNegativeMax(uint256) (duration: 7 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(80): testNegativeHalf(uint256) (duration: 6 ms, runs: 75, meanGas: 458, medianGas: 458)
+✘ Failed(81): testNegative2Max(uint256) (duration: 16 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(82): testNegative2(uint256) (duration: 6 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(83): testNegative0(uint256) (duration: 3 ms, runs: 1, meanGas: 503, medianGas: 503)
+✘ Failed(84): testEquality(uint256,uint256) (duration: 0 ms, runs: 2, meanGas: 922, medianGas: 922)
+✘ Suite Failed: 7 tests, 1 passed, 6 failed, 0 skipped (duration: 21 ms)
+
+Ran 3 tests for default/fuzz/Fuzz.t.sol:FuzzTest (v0.8.18)
+✔ Passed: testToStringFuzz(bytes32) (duration: 9 ms, runs: 256, meanGas: 4415, medianGas: 4415)
+✔ Passed: testSuccessfulFuzz(uint128,uint128) (duration: 7 ms, runs: 256, meanGas: 2851, medianGas: 2851)
+✘ Failed(85): testFailFuzz(uint8) (duration: 0 ms, runs: 1, meanGas: 2288, medianGas: 2288)
+✘ Suite Failed: 3 tests, 2 passed, 1 failed, 0 skipped (duration: 20 ms)
+
+Ran 3 tests for default/fuzz/FuzzPositive.t.sol:FuzzPositive (v0.8.18)
+✔ Passed: testSuccessChecker3(uint32) (duration: 14 ms, runs: 256, meanGas: 647, medianGas: 647)
+✔ Passed: testSuccessChecker2(int256) (duration: 8 ms, runs: 256, meanGas: 407, medianGas: 407)
+✔ Passed: testSuccessChecker(uint256) (duration: 6 ms, runs: 256, meanGas: 474, medianGas: 474)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 32 ms)
+
+Ran 3 tests for default/cheats/getBlockNumber.t.sol:GetBlockNumberTest (v0.8.18)
+✔ Passed: testGetBlockNumberWithRollFuzzed(uint128) (duration: 8 ms, runs: 256, meanGas: 4990, medianGas: 4990)
+✔ Passed: testGetBlockNumberWithRoll() (duration: 0 ms, consumedGas: 3894)
+✔ Passed: testGetBlockNumber() (duration: 0 ms, consumedGas: 3296)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 9 ms)
+
+Ran 3 tests for default/cheats/GetBlockTimestamp.t.sol:GetBlockTimestampTest (v0.8.18)
+✔ Passed: testGetTimestampWithWarpFuzzed(uint128) (duration: 9 ms, runs: 256, meanGas: 4958, medianGas: 4958)
+✔ Passed: testGetTimestampWithWarp() (duration: 0 ms, consumedGas: 4511)
+✔ Passed: testGetTimestamp() (duration: 0 ms, consumedGas: 3353)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 13 ms)
+
+Ran 3 tests for default/cheats/GasMetering.t.sol:GasMeteringTest (v0.8.18)
+✔ Passed: testGasMeteringExternal() (duration: 0 ms, consumedGas: 73924)
+✔ Passed: testGasMeteringContractCreate() (duration: 0 ms, consumedGas: 3142)
+✔ Passed: testGasMetering() (duration: 36 ms, consumedGas: 7383819)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 37 ms)
+
+Ran 5 tests for default/cheats/GetCode.t.sol:GetCodeTest (v0.8.18)
+✔ Passed: testWithVersion() (duration: 0 ms, consumedGas: 38192)
+✘ Failed(86): testWithPath() (duration: 0 ms, consumedGas: 3159)
+✔ Passed: testRevert() (duration: 0 ms, consumedGas: 6010)
+✔ Passed: testByNameAndVersion() (duration: 0 ms, consumedGas: 34611)
+✔ Passed: testByName() (duration: 1 ms, consumedGas: 34566)
+✘ Suite Failed: 5 tests, 4 passed, 1 failed, 0 skipped (duration: 5 ms)
+
+Ran 1 tests for default/cheats/GetLabel.t.sol:GetLabelTest (v0.8.25)
+✔ Passed: testGetLabel() (duration: 0 ms, consumedGas: 5528)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/cheats/GetNonce.t.sol:GetNonceTest (v0.8.18)
+✔ Passed: testGetNonce() (duration: 0 ms, consumedGas: 93956)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 3 tests for default/cheats/GetDeployedCode.t.sol:GetDeployedCodeTest (v0.8.18)
+✔ Passed: testWithVersion() (duration: 0 ms, consumedGas: 73645)
+✔ Passed: testWithPath() (duration: 0 ms, consumedGas: 5945)
+✔ Passed: testCanEtchStatelessOverride() (duration: 0 ms, consumedGas: 16539)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 5 ms)
+
+Ran 52 tests for default/logs/HardhatLogs.t.sol:HardhatLogsTest (v0.8.18)
+✔ Passed: testStrings() (duration: 0 ms, consumedGas: 3593)
+✔ Passed: testMisc() (duration: 0 ms, consumedGas: 4801)
+✔ Passed: testLogUint() (duration: 0 ms, consumedGas: 5318)
+✔ Passed: testLogString() (duration: 0 ms, consumedGas: 6331)
+✔ Passed: testLogInt() (duration: 0 ms, consumedGas: 5318)
+✔ Passed: testLogBytes9() (duration: 0 ms, consumedGas: 6057)
+✔ Passed: testLogBytes8() (duration: 0 ms, consumedGas: 5971)
+✔ Passed: testLogBytes7() (duration: 0 ms, consumedGas: 6037)
+✔ Passed: testLogBytes6() (duration: 0 ms, consumedGas: 5972)
+✔ Passed: testLogBytes5() (duration: 0 ms, consumedGas: 5994)
+✔ Passed: testLogBytes4() (duration: 0 ms, consumedGas: 5993)
+✔ Passed: testLogBytes32() (duration: 0 ms, consumedGas: 5961)
+✔ Passed: testLogBytes31() (duration: 0 ms, consumedGas: 5993)
+✔ Passed: testLogBytes30() (duration: 0 ms, consumedGas: 5993)
+✔ Passed: testLogBytes3() (duration: 0 ms, consumedGas: 5993)
+✔ Passed: testLogBytes29() (duration: 0 ms, consumedGas: 6015)
+✔ Passed: testLogBytes28() (duration: 0 ms, consumedGas: 6037)
+✔ Passed: testLogBytes27() (duration: 0 ms, consumedGas: 6016)
+✔ Passed: testLogBytes26() (duration: 0 ms, consumedGas: 6038)
+✔ Passed: testLogBytes25() (duration: 0 ms, consumedGas: 5993)
+✔ Passed: testLogBytes24() (duration: 0 ms, consumedGas: 6060)
+✔ Passed: testLogBytes23() (duration: 0 ms, consumedGas: 6037)
+✔ Passed: testLogBytes22() (duration: 0 ms, consumedGas: 6036)
+✔ Passed: testLogBytes21() (duration: 0 ms, consumedGas: 5991)
+✔ Passed: testLogBytes20() (duration: 0 ms, consumedGas: 6037)
+✔ Passed: testLogBytes2() (duration: 0 ms, consumedGas: 6059)
+✔ Passed: testLogBytes19() (duration: 0 ms, consumedGas: 6035)
+✔ Passed: testLogBytes18() (duration: 0 ms, consumedGas: 5992)
+✔ Passed: testLogBytes17() (duration: 0 ms, consumedGas: 6015)
+✔ Passed: testLogBytes16() (duration: 0 ms, consumedGas: 6015)
+✔ Passed: testLogBytes15() (duration: 0 ms, consumedGas: 6015)
+✔ Passed: testLogBytes14() (duration: 0 ms, consumedGas: 6013)
+✔ Passed: testLogBytes13() (duration: 0 ms, consumedGas: 6036)
+✔ Passed: testLogBytes12() (duration: 0 ms, consumedGas: 6082)
+✔ Passed: testLogBytes11() (duration: 0 ms, consumedGas: 6014)
+✔ Passed: testLogBytes10() (duration: 0 ms, consumedGas: 5992)
+✔ Passed: testLogBytes1() (duration: 0 ms, consumedGas: 5912)
+✔ Passed: testLogBytes() (duration: 0 ms, consumedGas: 6376)
+✔ Passed: testLogBool() (duration: 0 ms, consumedGas: 5404)
+✔ Passed: testLogAddress() (duration: 0 ms, consumedGas: 5432)
+✔ Passed: testInts() (duration: 0 ms, consumedGas: 4655)
+✔ Passed: testConsoleLogUint() (duration: 0 ms, consumedGas: 5275)
+✔ Passed: testConsoleLogString() (duration: 0 ms, consumedGas: 6332)
+✔ Passed: testConsoleLogFormatUint() (duration: 0 ms, consumedGas: 5845)
+✔ Passed: testConsoleLogFormatString() (duration: 0 ms, consumedGas: 6859)
+✔ Passed: testConsoleLogFormatSpill() (duration: 0 ms, consumedGas: 9023)
+✔ Passed: testConsoleLogFormatMulti() (duration: 0 ms, consumedGas: 9000)
+✔ Passed: testConsoleLogFormatEscape() (duration: 0 ms, consumedGas: 6815)
+✔ Passed: testConsoleLogFormatAddress() (duration: 0 ms, consumedGas: 6002)
+✔ Passed: testConsoleLogBool() (duration: 0 ms, consumedGas: 5383)
+✔ Passed: testConsoleLogAddress() (duration: 0 ms, consumedGas: 5497)
+✔ Passed: testConsoleLog() (duration: 0 ms, consumedGas: 6376)
+✔ Suite Passed: 52 tests, 52 passed, 0 failed, 0 skipped (duration: 15 ms)
+
+Ran 1 tests for default/fuzz/invariant/target/ExcludeSenders.t.sol:ExcludeSenders (v0.8.18)
+✔ Passed: invariantTrueWorld() (duration: 2697 ms, runs: 256, calls: 128000, reverts: 128000)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 2700 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantScrapeValues.t.sol:FindFromReturnValueTest (v0.8.25)
+✘ Failed(87): invariant_value_not_found() (duration: 5764 ms, runs: 256, calls: 127508, reverts: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 5766 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantScrapeValues.t.sol:FindFromLogValueTest (v0.8.25)
+✘ Failed(88): invariant_value_not_found() (duration: 6231 ms, runs: 256, calls: 127514, reverts: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 6234 ms)
+
+Ran 7 tests for default/cheats/Fork.t.sol:ForkTest (v0.8.18)
+✔ Passed: testForksHaveSeparatedStorage() (duration: 4625 ms, consumedGas: 26864)
+✔ Passed: testForkIdDiffer() (duration: 0 ms, consumedGas: 4367)
+✔ Passed: testCreateSelect() (duration: 3725 ms, consumedGas: 4076)
+✔ Passed: testCanSwitchForks() (duration: 3246 ms, consumedGas: 9109)
+✔ Passed: testCanShareDataAcrossSwaps() (duration: 3246 ms, consumedGas: 14175)
+✔ Passed: testCanChangeChainId() (duration: 3246 ms, consumedGas: 5908)
+✔ Passed: testCanAutoUpdateChainId() (duration: 3396 ms, consumedGas: 3566)
+✔ Suite Passed: 7 tests, 7 passed, 0 failed, 0 skipped (duration: 6528 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantCalldataDictionary.t.sol:InvariantCalldataDictionary (v0.8.18)
+✘ Failed(89): invariant_owner_never_changes() (duration: 6522 ms, runs: 256, calls: 127753, reverts: 127730)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 6525 ms)
+
+Ran 1 tests for default/fuzz/invariant/target/ExcludeContracts.t.sol:ExcludeContracts (v0.8.18)
+✔ Passed: invariantTrueWorld() (duration: 7420 ms, runs: 256, calls: 128000, reverts: 0)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 7422 ms)
+
+Ran 1 tests for default/fuzz/invariant/targetAbi/ExcludeArtifacts.t.sol:ExcludeArtifacts (v0.8.18)
+✔ Passed: invariantShouldPass() (duration: 7530 ms, runs: 256, calls: 128000, reverts: 0)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 7533 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantCustomError.t.sol:InvariantCustomError (v0.8.25)
+✔ Passed: invariant_decode_error() (duration: 7353 ms, runs: 256, calls: 128000, reverts: 95986)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 7355 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantReentrancy.t.sol:InvariantReentrancy (v0.8.18)
+✔ Passed: invariantNotStolen() (duration: 3308 ms, runs: 256, calls: 128000, reverts: 128000)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 3310 ms)
+
+Ran 1 tests for default/fuzz/invariant/target/FuzzedTargetContracts.t.sol:DynamicTargetContract (v0.8.18)
+✔ Passed: invariant_dynamic_targets() (duration: 11732 ms, runs: 256, calls: 128000, reverts: 42662)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 11736 ms)
+
+Ran 1 tests for default/repros/Issue2623.t.sol:Issue2623Test (v0.8.18)
+✘ Failed(90): testRollFork() (duration: 0 ms, consumedGas: 3372)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue2629.t.sol:Issue2629Test (v0.8.18)
+✘ Failed(91): testSelectFork() (duration: 0 ms, consumedGas: 3427)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue2723.t.sol:Issue2723Test (v0.8.18)
+✘ Failed(92): testRollFork() (duration: 0 ms, consumedGas: 3380)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/repros/Issue2898.t.sol:Issue2898Test (v0.8.18)
+✔ Passed: testSetNonce() (duration: 0 ms, consumedGas: 3454)
+✔ Passed: testDealBalance() (duration: 0 ms, consumedGas: 2970)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 1 ms)
+
+Ran 1 tests for default/repros/Issue2956.t.sol:Issue2956Test (v0.8.18)
+✘ Failed(93): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/repros/Issue2984.t.sol:Issue2984Test (v0.8.18)
+✔ Passed: testForkSelectSnapshot() (duration: 1369 ms, consumedGas: 3679)
+✔ Passed: testForkRevertSnapshot() (duration: 233 ms, consumedGas: 5472)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 2693 ms)
+
+Ran 3 tests for default/repros/Issue3055.t.sol:Issue3055Test (v0.8.18)
+✘ Failed(94): test_snapshot3(uint256) (duration: 5 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(95): test_snapshot2() (duration: 0 ms, consumedGas: 13142)
+✘ Failed(96): test_snapshot() (duration: 0 ms, consumedGas: 17669)
+✘ Suite Failed: 3 tests, 0 passed, 3 failed, 0 skipped (duration: 20 ms)
+
+Ran 1 tests for default/repros/Issue3119.t.sol:Issue3119Test (v0.8.18)
+✘ Failed(97): testRollFork() (duration: 0 ms, consumedGas: 3162)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3189.t.sol:Issue3189Test (v0.8.18)
+✘ Failed(98): testFoo() (duration: 0 ms, consumedGas: 819421)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3190.t.sol:Issue3190Test (v0.8.18)
+✔ Passed: testChainId() (duration: 0 ms, consumedGas: 3397)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3192.t.sol:Issue3192Test (v0.8.18)
+✘ Failed(99): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3220.t.sol:Issue3220Test (v0.8.18)
+✘ Failed(100): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3221.t.sol:Issue3221Test (v0.8.18)
+✘ Failed(101): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/fuzz/invariant/target/FuzzedTargetContracts.t.sol:ExplicitTargetContract (v0.8.18)
+✔ Passed: invariant_explicit_target() (duration: 14296 ms, runs: 256, calls: 128000, reverts: 0)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 14299 ms)
+
+Ran 1 tests for default/repros/Issue3347.t.sol:Issue3347Test (v0.8.18)
+✔ Passed: test() (duration: 0 ms, consumedGas: 1974)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3223.t.sol:Issue3223Test (v0.8.18)
+✘ Failed(102): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3437.t.sol:Issue3347Test (v0.8.25)
+✔ Passed: testFailExample() (duration: 0 ms, consumedGas: 2986)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3653.t.sol:Issue3653Test (v0.8.18)
+✘ Failed(103): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3596.t.sol:Issue3596Test (v0.8.18)
+✘ Failed(104): testDealTransfer() (duration: 0 ms, consumedGas: 11772)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3661.t.sol:Issue3661Test (v0.8.18)
+✔ Passed: testSameSender() (duration: 0 ms, consumedGas: 2364)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3674.t.sol:Issue3674Test (v0.8.18)
+✘ Failed(105): testNonceCreateSelect() (duration: 0 ms, consumedGas: 3115)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/repros/Issue3685.t.sol:Issue3685Test (v0.8.18)
+✔ Passed: test_wrong_balance() (duration: 0 ms, consumedGas: 37831)
+✔ Passed: test_panic() (duration: 0 ms, consumedGas: 52859)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 2 ms)
+
+Ran 1 tests for default/repros/Issue3708.t.sol:Issue3708Test (v0.8.18)
+✔ Passed: test_deployer() (duration: 0 ms, consumedGas: 25746)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 1861 ms)
+
+Ran 1 tests for default/repros/Issue3723.t.sol:Issue3723Test (v0.8.25)
+✔ Passed: testFailExample() (duration: 0 ms, consumedGas: 2963)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3753.t.sol:Issue3753Test (v0.8.18)
+✔ Passed: test_repro() (duration: 0 ms, consumedGas: 4141)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/repros/Issue4402.t.sol:Issue4402Test (v0.8.18)
+✘ Failed(106): testReadNonEmptyArray() (duration: 0 ms, consumedGas: 3452)
+✘ Failed(107): testReadEmptyArray() (duration: 0 ms, consumedGas: 3430)
+✘ Suite Failed: 2 tests, 0 passed, 2 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue4586.t.sol:Issue4586Test (v0.8.18)
+✘ Failed(108): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/repros/Issue4630.t.sol:Issue4630Test (v0.8.18)
+✘ Failed(109): testMissingValue() (duration: 0 ms, consumedGas: 3474)
+✘ Failed(110): testExistingValue() (duration: 0 ms, consumedGas: 3430)
+✘ Suite Failed: 2 tests, 0 passed, 2 failed, 0 skipped (duration: 9 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantAssume.t.sol:InvariantAssume (v0.8.25)
+✔ Passed: invariant_dummy() (duration: 16035 ms, runs: 256, calls: 128000, reverts: 0)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 16037 ms)
+
+Ran 1 tests for default/repros/Issue4832.t.sol:Issue4832Test (v0.8.25)
+✔ Passed: testFailExample() (duration: 0 ms, consumedGas: 16189)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 12 tests for default/repros/Issue5038.t.sol:Issue5038Test (v0.8.18)
+✔ Passed: test_parse_1e20() (duration: 0 ms, consumedGas: 5105)
+✔ Passed: testParseMinUint256() (duration: 0 ms, consumedGas: 5251)
+✔ Passed: testParseMaxUint64() (duration: 0 ms, consumedGas: 5129)
+✔ Passed: testParseMaxUint256() (duration: 0 ms, consumedGas: 5272)
+✔ Passed: testParse1e76Plus10() (duration: 0 ms, consumedGas: 5249)
+✔ Passed: testParse1e76() (duration: 0 ms, consumedGas: 5272)
+✔ Passed: testParse1e43plus5() (duration: 0 ms, consumedGas: 5169)
+✔ Passed: testParse1e42plusOne() (duration: 0 ms, consumedGas: 5213)
+✔ Passed: testParse1e42() (duration: 0 ms, consumedGas: 5235)
+✔ Passed: testParse1e21() (duration: 0 ms, consumedGas: 5192)
+✔ Passed: testParse1e19() (duration: 0 ms, consumedGas: 5128)
+✔ Passed: testParse18446744073709551616000() (duration: 0 ms, consumedGas: 5235)
+✔ Suite Passed: 12 tests, 12 passed, 0 failed, 0 skipped (duration: 16 ms)
+
+Ran 2 tests for default/repros/Issue5529.t.sol:Issue5529Test (v0.8.25)
+✘ Failed(111): testCreate2FactoryUsedWhenPranking() (duration: 0 ms, consumedGas: 133632)
+✘ Failed(112): testCreate2FactoryUsedInTests() (duration: 0 ms, consumedGas: 133131)
+✘ Suite Failed: 2 tests, 0 passed, 2 failed, 0 skipped (duration: 10 ms)
+
+Ran 1 tests for default/repros/Issue5808.t.sol:Issue5808Test (v0.8.18)
+✔ Passed: testReadInt() (duration: 0 ms, consumedGas: 8808)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue5929.t.sol:Issue5929Test (v0.8.18)
+✘ Failed(113): test_transact_not_working() (duration: 0 ms, consumedGas: 3369)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantPreserveState.t.sol:InvariantPreserveState (v0.8.18)
+✔ Passed: invariant_preserve_state() (duration: 11682 ms, runs: 256, calls: 128000, reverts: 63282)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 11684 ms)
+
+Ran 1 tests for default/repros/Issue5948.t.sol:Issue5948Test (v0.8.18)
+✘ Failed(114): testSleepFuzzed(uint256) (duration: 2 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 2 ms)
+
+Ran 1 tests for default/repros/Issue6032.t.sol:Issue6032Test (v0.8.18)
+✘ Failed(115): testEtchFork() (duration: 0 ms, consumedGas: 119936)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 3 tests for default/repros/Issue6006.t.sol:Issue6066Test (v0.8.18)
+✔ Passed: test_parse_2e_sci() (duration: 0 ms, consumedGas: 5105)
+✔ Passed: test_parse_22e20_sci() (duration: 0 ms, consumedGas: 5039)
+✔ Passed: test_parse_11e20_sci() (duration: 0 ms, consumedGas: 5061)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 12 ms)
+
+Ran 1 tests for default/repros/Issue6070.t.sol:Issue6066Test (v0.8.18)
+✔ Passed: testNonPrefixed() (duration: 0 ms, consumedGas: 4828)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 3 tests for default/repros/Issue6115.t.sol:Issue6115Test (v0.8.18)
+✔ Passed: testFuzz_SetNumber3(uint256,bytes12) (duration: 9 ms, runs: 256, meanGas: 29082, medianGas: 29471)
+✔ Passed: testFuzz_SetNumber2(uint256,bytes8) (duration: 9 ms, runs: 256, meanGas: 29116, medianGas: 29427)
+✔ Passed: testFuzz_SetNumber(uint256,bytes4) (duration: 15 ms, runs: 256, meanGas: 29259, medianGas: 29493)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 22 ms)
+
+Ran 1 tests for default/repros/Issue6170.t.sol:Issue6170Test (v0.8.18)
+✘ Failed(116): test() (duration: 0 ms, consumedGas: 12829)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue6180.t.sol:Issue6180Test (v0.8.18)
+✔ Passed: test_timebug() (duration: 0 ms, consumedGas: 7193)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue6293.t.sol:Issue6293Test (v0.8.18)
+✔ Passed: test() (duration: 0 ms, consumedGas: 225)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 3 tests for default/repros/Issue6355.t.sol:Issue6355Test (v0.8.18)
+✔ Passed: test_shouldPass() (duration: 0 ms, consumedGas: 5694)
+✘ Failed(117): test_shouldFailWithRevertTo() (duration: 0 ms, consumedGas: 24708)
+✘ Failed(118): test_shouldFail() (duration: 0 ms, consumedGas: 21934)
+✘ Suite Failed: 3 tests, 1 passed, 2 failed, 0 skipped (duration: 16 ms)
+
+Ran 3 tests for default/repros/Issue6437.t.sol:Issue6437Test (v0.8.18)
+✔ Passed: test2() (duration: 0 ms, consumedGas: 5416)
+✔ Passed: test1() (duration: 0 ms, consumedGas: 4959)
+✔ Passed: test0() (duration: 0 ms, consumedGas: 4498)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 1 ms)
+
+Ran 1 tests for default/repros/Issue6501.t.sol:Issue6501Test (v0.8.18)
+✔ Passed: test_hhLogs() (duration: 0 ms, consumedGas: 4967)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue6538.t.sol:Issue6538Test (v0.8.18)
+✘ Failed(119): test_transact() (duration: 0 ms, consumedGas: 3235)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue6554.t.sol:Issue6554Test (v0.8.18)
+✘ Failed(120): testPermissions() (duration: 0 ms, consumedGas: 3472)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue6616.t.sol:Issue6616Test (v0.8.18)
+✘ Failed(121): testCreateForkRollLatestBlock() (duration: 0 ms, consumedGas: 3115)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue6759.t.sol:Issue6759Test (v0.8.18)
+✘ Failed(122): testCreateMulti() (duration: 0 ms, consumedGas: 3350)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue6966.t.sol:Issue6966Test (v0.8.18)
+✔ Passed: testEcrecover() (duration: 0 ms, consumedGas: 3918)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue7481.t.sol:Issue7481Test (v0.8.18)
+✘ Failed(123): testFailTransact() (duration: 0 ms, consumedGas: 3347)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/cheats/Label.t.sol:LabelTest (v0.8.18)
+✔ Passed: testLabel() (duration: 0 ms, consumedGas: 3385)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 4 tests for default/cheats/LastCallGas.t.sol:LastCallGasDefaultTest (v0.8.18)
+✔ Passed: testRevertNoCachedLastCallGas() (duration: 0 ms, consumedGas: 3247)
+✘ Failed(124): testRecordLastCallGas() (duration: 0 ms, consumedGas: 233118)
+✘ Failed(125): testRecordGasRefund() (duration: 0 ms, consumedGas: 213201)
+✘ Failed(126): testRecordGasMemory() (duration: 2 ms, consumedGas: 459745)
+✘ Suite Failed: 4 tests, 1 passed, 3 failed, 0 skipped (duration: 6 ms)
+
+Ran 4 tests for default/cheats/LastCallGas.t.sol:LastCallGasIsolatedTest (v0.8.18)
+✔ Passed: testRevertNoCachedLastCallGas() (duration: 0 ms, consumedGas: 3247)
+✘ Failed(127): testRecordLastCallGas() (duration: 0 ms, consumedGas: 259967)
+✘ Failed(128): testRecordGasRefund() (duration: 0 ms, consumedGas: 231098)
+✘ Failed(129): testRecordGasMemory() (duration: 2 ms, consumedGas: 459745)
+✘ Suite Failed: 4 tests, 1 passed, 3 failed, 0 skipped (duration: 2 ms)
+
+Ran 4 tests for default/cheats/loadAllocs.t.sol:LoadAllocsTest (v0.8.18)
+✔ Passed: testLoadAllocsStaticSetup() (duration: 0 ms, consumedGas: 7134)
+✔ Passed: testLoadAllocsStatic() (duration: 0 ms, consumedGas: 9069)
+✔ Passed: testLoadAllocsPartialOverride() (duration: 0 ms, consumedGas: 10754)
+✔ Passed: testLoadAllocsOverride() (duration: 0 ms, consumedGas: 12783)
+✔ Suite Passed: 4 tests, 4 passed, 0 failed, 0 skipped (duration: 5 ms)
+
+Ran 3 tests for default/cheats/Load.t.sol:LoadTest (v0.8.18)
+✔ Passed: testLoadOwnStorage() (duration: 0 ms, consumedGas: 3635)
+✔ Passed: testLoadOtherStorage() (duration: 0 ms, consumedGas: 5803)
+✔ Passed: testLoadNotAvailableOnPrecompiles() (duration: 0 ms, consumedGas: 5781)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 1 ms)
+
+Ran 47 tests for default/cheats/MemSafety.t.sol:MemSafetyTest (v0.8.18)
+✔ Passed: testStopExpectSafeMemory_freeMemUpdate() (duration: 0 ms, consumedGas: 3951)
+✔ Passed: testStopExpectSafeMemory() (duration: 0 ms, consumedGas: 3930)
+✘ Failed(130): testFailStopExpectSafeMemory() (duration: 0 ms, consumedGas: 3555)
+✘ Failed(131): testFailExpectSafeMemory_STATICCALL() (duration: 0 ms, consumedGas: 186242)
+✘ Failed(132): testFailExpectSafeMemory_SHA3() (duration: 0 ms, consumedGas: 3640)
+✘ Failed(133): testFailExpectSafeMemory_REVERT() (duration: 0 ms, consumedGas: 187636)
+✘ Failed(134): testFailExpectSafeMemory_RETURNDATACOPY() (duration: 0 ms, consumedGas: 187088)
+✘ Failed(135): testFailExpectSafeMemory_RETURN() (duration: 0 ms, consumedGas: 3630)
+✘ Failed(136): testFailExpectSafeMemory_MSTORE_Low() (duration: 0 ms, consumedGas: 3637)
+✘ Failed(137): testFailExpectSafeMemory_MSTORE_High() (duration: 0 ms, consumedGas: 3682)
+✘ Failed(138): testFailExpectSafeMemory_MSTORE8_Low() (duration: 0 ms, consumedGas: 3682)
+✘ Failed(139): testFailExpectSafeMemory_MSTORE8_High() (duration: 0 ms, consumedGas: 3659)
+✘ Failed(140): testFailExpectSafeMemory_MLOAD() (duration: 0 ms, consumedGas: 3593)
+✘ Failed(141): testFailExpectSafeMemory_LOG0() (duration: 0 ms, consumedGas: 3660)
+✘ Failed(142): testFailExpectSafeMemory_EXTCODECOPY() (duration: 0 ms, consumedGas: 3679)
+✘ Failed(143): testFailExpectSafeMemory_DELEGATECALL() (duration: 0 ms, consumedGas: 186307)
+✘ Failed(144): testFailExpectSafeMemory_CREATE2() (duration: 0 ms, consumedGas: 3644)
+✘ Failed(145): testFailExpectSafeMemory_CREATE() (duration: 0 ms, consumedGas: 3619)
+✘ Failed(146): testFailExpectSafeMemory_CODECOPY() (duration: 0 ms, consumedGas: 3676)
+✘ Failed(147): testFailExpectSafeMemory_CALLDATACOPY(uint256) (duration: 4 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(148): testFailExpectSafeMemory_CALLCODE() (duration: 0 ms, consumedGas: 186266)
+✘ Failed(149): testFailExpectSafeMemory_CALL() (duration: 0 ms, consumedGas: 186289)
+✘ Failed(150): testFailExpectSafeMemoryCall() (duration: 0 ms, consumedGas: 187779)
+✔ Passed: testExpectSafeMemory_multiRange_MSTORE8() (duration: 0 ms, consumedGas: 4519)
+✔ Passed: testExpectSafeMemory_multiRange_MSTORE() (duration: 0 ms, consumedGas: 4476)
+✔ Passed: testExpectSafeMemory_STATICCALL() (duration: 0 ms, consumedGas: 187131)
+✔ Passed: testExpectSafeMemory_SHA3() (duration: 0 ms, consumedGas: 3901)
+✔ Passed: testExpectSafeMemory_REVERT() (duration: 0 ms, consumedGas: 187655)
+✔ Passed: testExpectSafeMemory_RETURNDATACOPY() (duration: 0 ms, consumedGas: 187135)
+✔ Passed: testExpectSafeMemory_RETURN() (duration: 0 ms, consumedGas: 3659)
+✔ Passed: testExpectSafeMemory_MSTORE_respectsDepth() (duration: 0 ms, consumedGas: 187474)
+✔ Passed: testExpectSafeMemory_MSTORE8_respectsDepth() (duration: 0 ms, consumedGas: 187605)
+✔ Passed: testExpectSafeMemory_MSTORE8() (duration: 0 ms, consumedGas: 3627)
+✔ Passed: testExpectSafeMemory_MSTORE() (duration: 0 ms, consumedGas: 3627)
+✔ Passed: testExpectSafeMemory_MLOAD_REVERT() (duration: 0 ms, consumedGas: 4034)
+✔ Passed: testExpectSafeMemory_MLOAD() (duration: 0 ms, consumedGas: 3862)
+✔ Passed: testExpectSafeMemory_LOG0_REVERT() (duration: 0 ms, consumedGas: 3944)
+✔ Passed: testExpectSafeMemory_LOG0() (duration: 0 ms, consumedGas: 4284)
+✔ Passed: testExpectSafeMemory_EXTCODECOPY() (duration: 0 ms, consumedGas: 3881)
+✔ Passed: testExpectSafeMemory_DELEGATECALL() (duration: 0 ms, consumedGas: 187155)
+✔ Passed: testExpectSafeMemory_CREATE2() (duration: 0 ms, consumedGas: 35690)
+✔ Passed: testExpectSafeMemory_CREATE() (duration: 0 ms, consumedGas: 35703)
+✔ Passed: testExpectSafeMemory_CODECOPY() (duration: 0 ms, consumedGas: 3739)
+✔ Passed: testExpectSafeMemory_CALLDATACOPY(uint256) (duration: 8 ms, runs: 256, meanGas: 3896, medianGas: 3896)
+✔ Passed: testExpectSafeMemory_CALLCODE() (duration: 0 ms, consumedGas: 187180)
+✔ Passed: testExpectSafeMemory_CALL() (duration: 0 ms, consumedGas: 187115)
+✔ Passed: testExpectSafeMemoryCall() (duration: 0 ms, consumedGas: 187607)
+✘ Suite Failed: 47 tests, 26 passed, 21 failed, 0 skipped (duration: 31 ms)
+
+Ran 11 tests for default/cheats/MockCall.t.sol:MockCallRevertTest (v0.8.18)
+✔ Passed: testMockRevertWithCustomError() (duration: 0 ms, consumedGas: 191476)
+✔ Passed: testMockNestedRevert() (duration: 0 ms, consumedGas: 382852)
+✔ Passed: testMockGettersRevert() (duration: 0 ms, consumedGas: 189919)
+✔ Passed: testMockCalldataRevert() (duration: 0 ms, consumedGas: 195069)
+✔ Passed: testMockCallRevertWithValue() (duration: 0 ms, consumedGas: 197929)
+✔ Passed: testMockCallRevertWithCall() (duration: 0 ms, consumedGas: 221555)
+✔ Passed: testMockCallRevertResetsMockCall() (duration: 0 ms, consumedGas: 191243)
+✔ Passed: testMockCallRevertPartialMatch() (duration: 0 ms, consumedGas: 190674)
+✔ Passed: testMockCallResetsMockCallRevert() (duration: 0 ms, consumedGas: 189305)
+✔ Passed: testMockCallEmptyAccount() (duration: 0 ms, consumedGas: 8699)
+✔ Passed: testClearMockRevertedCalls() (duration: 1 ms, consumedGas: 188495)
+✔ Suite Passed: 11 tests, 11 passed, 0 failed, 0 skipped (duration: 21 ms)
+
+Ran 9 tests for default/cheats/MockCall.t.sol:MockCallTest (v0.8.18)
+✔ Passed: testMockSelector() (duration: 0 ms, consumedGas: 189738)
+✔ Passed: testMockNested() (duration: 0 ms, consumedGas: 383950)
+✔ Passed: testMockGetters() (duration: 0 ms, consumedGas: 189861)
+✔ Passed: testMockCalldata() (duration: 0 ms, consumedGas: 194496)
+✔ Passed: testMockCallWithValueCalldataPrecedence() (duration: 0 ms, consumedGas: 205050)
+✔ Passed: testMockCallWithValue() (duration: 1 ms, consumedGas: 439601)
+✔ Passed: testMockCallMultiplePartialMatch() (duration: 0 ms, consumedGas: 194656)
+✔ Passed: testMockCallEmptyAccount() (duration: 0 ms, consumedGas: 7475)
+✔ Passed: testClearMockedCalls() (duration: 2 ms, consumedGas: 190234)
+✔ Suite Passed: 9 tests, 9 passed, 0 failed, 0 skipped (duration: 22 ms)
+
+Ran 1 tests for default/core/MultipleSetup.t.sol:MultipleSetup (v0.8.18)
+Warning: Found invalid setup function "setup()" did you mean "setUp()"?
+✘ Failed(151): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/cheats/Json.t.sol:ParseJsonTest (v0.8.18)
+✘ Failed(152): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 1 ms)
+
+Ran 14 tests for default/cheats/Parse.t.sol:ParseTest (v0.8.18)
+✔ Passed: testParseUintStringBytes() (duration: 0 ms, consumedGas: 3817)
+✔ Passed: testParseUintFuzzed(uint256) (duration: 10 ms, runs: 256, meanGas: 5439, medianGas: 5348)
+✔ Passed: testParseUintBytes() (duration: 0 ms, consumedGas: 5527)
+✔ Passed: testParseUint() (duration: 0 ms, consumedGas: 3884)
+✔ Passed: testParseIntFuzzed(int256) (duration: 9 ms, runs: 256, meanGas: 5457, medianGas: 5371)
+✔ Passed: testParseInt() (duration: 0 ms, consumedGas: 3883)
+✔ Passed: testParseBytesFuzzed(bytes) (duration: 28 ms, runs: 256, meanGas: 21439, medianGas: 17764)
+✔ Passed: testParseBytes32Fuzzed(bytes32) (duration: 9 ms, runs: 256, meanGas: 5695, medianGas: 5695)
+✔ Passed: testParseBytes32() (duration: 0 ms, consumedGas: 5193)
+✔ Passed: testParseBytes() (duration: 0 ms, consumedGas: 19820)
+✔ Passed: testParseBoolFuzzed(bool) (duration: 10 ms, runs: 256, meanGas: 5423, medianGas: 5423)
+✔ Passed: testParseBool() (duration: 0 ms, consumedGas: 3836)
+✔ Passed: testParseAddressFuzzed(address) (duration: 11 ms, runs: 256, meanGas: 5648, medianGas: 5648)
+✔ Passed: testParseAddress() (duration: 0 ms, consumedGas: 5297)
+✔ Suite Passed: 14 tests, 14 passed, 0 failed, 0 skipped (duration: 37 ms)
+
+Ran 1 tests for default/cheats/Toml.t.sol:ParseTomlTest (v0.8.18)
+✘ Failed(153): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/core/PaymentFailure.t.sol:PaymentFailureTest (v0.8.18)
+✘ Failed(154): testCantPay() (duration: 0 ms, consumedGas: 61851)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 15 tests for default/cheats/Prank.t.sol:PrankTest (v0.8.18)
+✔ Passed: testTxOriginInNestedPrank(address,address) (duration: 20 ms, runs: 256, meanGas: 640839, medianGas: 640839)
+✔ Passed: testStartPrank1AfterStartPrank0(address,address) (duration: 33 ms, runs: 256, meanGas: 278530, medianGas: 278530)
+✔ Passed: testStartPrank0AfterStartPrank1(address,address) (duration: 23 ms, runs: 256, meanGas: 275309, medianGas: 275309)
+✔ Passed: testStartPrank0AfterPrank1(address,address) (duration: 20 ms, runs: 256, meanGas: 272024, medianGas: 272024)
+✔ Passed: testPrankStartStopConstructor(address,address) (duration: 23 ms, runs: 256, meanGas: 529212, medianGas: 529212)
+✔ Passed: testPrankStartStop(address,address) (duration: 20 ms, runs: 256, meanGas: 271561, medianGas: 271561)
+✔ Passed: testPrankSender(address) (duration: 23 ms, runs: 256, meanGas: 267519, medianGas: 267519)
+✔ Passed: testPrankOrigin(address,address) (duration: 18 ms, runs: 256, meanGas: 267903, medianGas: 267903)
+✔ Passed: testPrankConstructorSender(address) (duration: 16 ms, runs: 256, meanGas: 267719, medianGas: 267719)
+✔ Passed: testPrankConstructorOrigin(address,address) (duration: 17 ms, runs: 256, meanGas: 268168, medianGas: 268168)
+✔ Passed: testPrankComplex(address,address) (duration: 38 ms, runs: 256, meanGas: 1091603, medianGas: 1091681)
+✔ Passed: testPrank1AfterPrank0(address,address) (duration: 32 ms, runs: 256, meanGas: 274982, medianGas: 274982)
+✔ Passed: testPrank0AfterPrank1(address,address) (duration: 24 ms, runs: 256, meanGas: 274916, medianGas: 274916)
+✘ Failed(155): testFailOverwriteUnusedPrankAfterSuccessfulPrank(address,address) (duration: 11 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(156): testFailOverwriteUnusedPrank(address,address) (duration: 7 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Suite Failed: 15 tests, 13 passed, 2 failed, 0 skipped (duration: 106 ms)
+
+Ran 3 tests for default/cheats/Prevrandao.t.sol:PrevrandaoTest (v0.8.18)
+✔ Passed: testPrevrandaoSnapshotFuzzed(uint256) (duration: 13 ms, runs: 256, meanGas: 5249, medianGas: 5249)
+✔ Passed: testPrevrandaoFuzzed(uint256) (duration: 11 ms, runs: 256, meanGas: 4088, medianGas: 4088)
+✔ Passed: testPrevrandao() (duration: 0 ms, consumedGas: 3320)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 30 ms)
+
+Ran 1 tests for default/cheats/ProjectRoot.t.sol:ProjectRootTest (v0.8.18)
+✘ Failed(157): testProjectRoot() (duration: 0 ms, consumedGas: 3137)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue4640.t.sol:Issue4640Test (v0.8.18)
+✔ Passed: testArbitrumBlockNumber() (duration: 2957 ms, consumedGas: 3723)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 2957 ms)
+
+Ran 9 tests for default/cheats/ReadCallers.t.sol:ReadCallersTest (v0.8.25)
+✔ Passed: testReadCallersWithNoActivePrankOrBroadcast() (duration: 0 ms, consumedGas: 3914)
+✔ Passed: testReadCallersWithActiveRecurrentMsgSenderPrank(address) (duration: 14 ms, runs: 256, meanGas: 65460, medianGas: 65460)
+✔ Passed: testReadCallersWithActiveRecurrentMsgSenderAndTxOriginPrank(address,address) (duration: 15 ms, runs: 256, meanGas: 65792, medianGas: 65792)
+✔ Passed: testReadCallersWithActivePrankForMsgSenderAndTxOrigin(address,address) (duration: 26 ms, runs: 256, meanGas: 5155, medianGas: 5155)
+✔ Passed: testReadCallersWithActivePrankForMsgSender(address) (duration: 7 ms, runs: 256, meanGas: 4690, medianGas: 4690)
+✔ Passed: testReadCallersAfterStoppingRecurrentMsgSenderPrank(address) (duration: 8 ms, runs: 256, meanGas: 5070, medianGas: 5070)
+✔ Passed: testReadCallersAfterStoppingRecurrentMsgSenderAndTxOriginPrank(address,address) (duration: 8 ms, runs: 256, meanGas: 5458, medianGas: 5458)
+✔ Passed: testReadCallersAfterConsumingMsgSenderPrank(address) (duration: 9 ms, runs: 256, meanGas: 58588, medianGas: 58588)
+✔ Passed: testReadCallersAfterConsumingMsgSenderAndTxOriginPrank(address,address) (duration: 16 ms, runs: 256, meanGas: 58932, medianGas: 58932)
+✔ Suite Passed: 9 tests, 9 passed, 0 failed, 0 skipped (duration: 112 ms)
+
+Ran 13 tests for default/cheats/RecordAccountAccesses.t.sol:RecordAccountAccessesTest (v0.8.18)
+✔ Passed: testStorageAccesses() (duration: 0 ms, consumedGas: 111382)
+✔ Passed: testStorageAccessDelegateCall() (duration: 0 ms, consumedGas: 151371)
+✔ Passed: testSelfDestruct() (duration: 0 ms, consumedGas: 301612)
+✔ Passed: testRevertingCall() (duration: 0 ms, consumedGas: 104367)
+✔ Passed: testRecordAccountAccesses() (duration: 1 ms, consumedGas: 406824)
+✔ Passed: testNested_Revert() (duration: 0 ms, consumedGas: 401116)
+✔ Passed: testNested_LowerDepth_Revert() (duration: 0 ms, consumedGas: 413779)
+✔ Passed: testNested_LowerDepth() (duration: 0 ms, consumedGas: 414105)
+✔ Passed: testNestedStorage() (duration: 0 ms, consumedGas: 156225)
+✔ Passed: testNested() (duration: 0 ms, consumedGas: 401441)
+✔ Passed: testExtOpcodes() (duration: 0 ms, consumedGas: 44117)
+✔ Passed: testCreateRevert() (duration: 1 ms, consumedGas: 324912)
+✔ Passed: testConstructorStorage() (duration: 2 ms, consumedGas: 498615)
+✔ Suite Passed: 13 tests, 13 passed, 0 failed, 0 skipped (duration: 20 ms)
+
+Ran 7 tests for default/cheats/RecordLogs.t.sol:RecordLogsTest (v0.8.18)
+✔ Passed: testRecordsConsumednAsRead() (duration: 0 ms, consumedGas: 155875)
+✔ Passed: testRecordOnSingleLogTopic0() (duration: 0 ms, consumedGas: 64060)
+✔ Passed: testRecordOnSingleLog() (duration: 0 ms, consumedGas: 21288)
+✔ Passed: testRecordOnNoLogs() (duration: 0 ms, consumedGas: 4136)
+✔ Passed: testRecordOnEmitDifferentDepths() (duration: 0 ms, consumedGas: 729849)
+✔ Passed: testRecordOffGetsNothing() (duration: 0 ms, consumedGas: 60532)
+✔ Passed: testEmitRecordEmit() (duration: 0 ms, consumedGas: 70351)
+✔ Suite Passed: 7 tests, 7 passed, 0 failed, 0 skipped (duration: 12 ms)
+
+Ran 1 tests for default/cheats/Mapping.t.sol:RecordMappingTest (v0.8.25)
+✔ Passed: testRecordMapping() (duration: 0 ms, consumedGas: 274470)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/cheats/Record.t.sol:RecordTest (v0.8.18)
+✔ Passed: testRecordAccess() (duration: 0 ms, consumedGas: 264289)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/cheats/ResetNonce.t.sol:ResetNonce (v0.8.25)
+✔ Passed: testResetNonceEOA() (duration: 0 ms, consumedGas: 8078)
+✔ Passed: testResetNonceContract() (duration: 0 ms, consumedGas: 11223)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 8 ms)
+
+Ran 1 tests for default/core/Reverting.t.sol:RevertingTest (v0.8.18)
+✘ Failed(158): testFailRevert() (duration: 0 ms, consumedGas: 428)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 3 tests for default/cheats/Roll.t.sol:RollTest (v0.8.18)
+✔ Passed: testRollHash() (duration: 0 ms, consumedGas: 5121)
+✔ Passed: testRollFuzzed(uint128) (duration: 9 ms, runs: 256, meanGas: 3953, medianGas: 3953)
+✔ Passed: testRoll() (duration: 0 ms, consumedGas: 3393)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 18 ms)
+
+Ran 2 tests for default/cheats/RpcUrls.t.sol:RpcUrlTest (v0.8.18)
+✔ Passed: testRevertsOnMissingEnv() (duration: 0 ms, consumedGas: 6218)
+✘ Failed(159): testCanGetRpcUrl() (duration: 0 ms, consumedGas: 3137)
+✘ Suite Failed: 2 tests, 1 passed, 1 failed, 0 skipped (duration: 10 ms)
+
+Ran 1 tests for default/repros/Issue5935.t.sol:Issue5935Test (v0.8.25)
+✔ Passed: testFork() (duration: 3174 ms, consumedGas: 215363)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 3174 ms)
+
+Ran 2 tests for default/cheats/SetNonce.t.sol:SetNonceTest (v0.8.18)
+✔ Passed: testSetNonce() (duration: 0 ms, consumedGas: 8633)
+✘ Failed(160): testFailInvalidNonce() (duration: 0 ms, consumedGas: 6641)
+✘ Suite Failed: 2 tests, 1 passed, 1 failed, 0 skipped (duration: 959 ms)
+
+Ran 2 tests for default/cheats/SetNonceUnsafe.t.sol:SetNonceTest (v0.8.18)
+✔ Passed: testSetNonceUnsafe() (duration: 0 ms, consumedGas: 8633)
+✔ Passed: testDoesNotFailDecreasingNonce() (duration: 0 ms, consumedGas: 7590)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 10 ms)
+
+Ran 2 tests for default/core/SetupConsistency.t.sol:SetupConsistencyCheck (v0.8.18)
+✔ Passed: testMultiply() (duration: 0 ms, consumedGas: 26924)
+✔ Passed: testAdd() (duration: 0 ms, consumedGas: 26882)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 18 ms)
+
+Ran 1 tests for default/spec/ShanghaiCompat.t.sol:ShanghaiCompat (v0.8.20)
+✔ Passed: testPush0() (duration: 0 ms, consumedGas: 5543)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest (v0.8.18)
+✘ Failed(161): statefulFuzz_neverFalseWithInvariantAlias() (duration: 10479 ms, runs: 256, calls: 127650, reverts: 0)
+✘ Failed(162): invariant_neverFalse() (duration: 10332 ms, runs: 256, calls: 127576, reverts: 0)
+✘ Suite Failed: 2 tests, 0 passed, 2 failed, 0 skipped (duration: 10485 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantFixtures.t.sol:InvariantFixtures (v0.8.25)
+✔ Passed: invariant_target_not_compromised() (duration: 17800 ms, runs: 256, calls: 128000, reverts: 0)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 17803 ms)
+
+Ran 2 tests for default/cheats/Sign.t.sol:SignTest (v0.8.18)
+✔ Passed: testSignMessage(uint248,bytes) (duration: 124 ms, runs: 256, meanGas: 10177, medianGas: 10170)
+✔ Passed: testSignDigest(uint248,bytes32) (duration: 114 ms, runs: 256, meanGas: 9575, medianGas: 9575)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 124 ms)
+
+Ran 1 tests for default/cheats/SignP256.t.sol:SignTest (v0.8.18)
+✔ Passed: testSignP256() (duration: 0 ms, consumedGas: 3735)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 5 tests for default/cheats/Skip.t.sol:SkipTest (v0.8.18)
+- Skipped: testSkip()
+- Skipped: testFuzzSkip(uint256)
+✘ Failed(163): testFailNotSkip() (duration: 0 ms, consumedGas: 3510)
+✘ Failed(164): testFailFuzzSkip(uint256) (duration: 1 ms, runs: 0, meanGas: 0, medianGas: 0)
+- Skipped: statefulFuzzSkip()
+✘ Suite Failed: 5 tests, 0 passed, 2 failed, 3 skipped (duration: 9 ms)
+
+Ran 2 tests for default/cheats/Sleep.t.sol:SleepTest (v0.8.18)
+✘ Failed(165): testSleepFuzzed(uint256) (duration: 3 ms, runs: 0, meanGas: 0, medianGas: 0)
+✘ Failed(166): testSleep() (duration: 0 ms, consumedGas: 4954)
+✘ Suite Failed: 2 tests, 0 passed, 2 failed, 0 skipped (duration: 14 ms)
+
+Ran 6 tests for default/cheats/Snapshots.t.sol:SnapshotTest (v0.8.18)
+✔ Passed: testSnapshotsMany() (duration: 1 ms, consumedGas: 212045)
+✔ Passed: testSnapshotRevertDelete() (duration: 0 ms, consumedGas: 19422)
+✔ Passed: testSnapshotDeleteAll() (duration: 0 ms, consumedGas: 14329)
+✔ Passed: testSnapshotDelete() (duration: 0 ms, consumedGas: 14612)
+✔ Passed: testSnapshot() (duration: 0 ms, consumedGas: 18703)
+✔ Passed: testBlockValues() (duration: 0 ms, consumedGas: 6252)
+✔ Suite Passed: 6 tests, 6 passed, 0 failed, 0 skipped (duration: 9 ms)
+
+Ran 3 tests for default/cheats/Store.t.sol:StoreTest (v0.8.18)
+✔ Passed: testStoreNotAvailableOnPrecompiles() (duration: 0 ms, consumedGas: 17059)
+✔ Passed: testStoreFuzzed(uint256,uint256) (duration: 14 ms, runs: 256, meanGas: 18376, medianGas: 18376)
+✔ Passed: testStore() (duration: 0 ms, consumedGas: 17036)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 23 ms)
+
+Ran 6 tests for default/cheats/StringUtils.t.sol:StringManipulationTest (v0.8.18)
+✔ Passed: testTrim() (duration: 0 ms, consumedGas: 5473)
+✔ Passed: testToUppercase() (duration: 0 ms, consumedGas: 5472)
+✔ Passed: testToLowercase() (duration: 0 ms, consumedGas: 5517)
+✔ Passed: testSplit() (duration: 0 ms, consumedGas: 10531)
+✔ Passed: testReplace() (duration: 0 ms, consumedGas: 5881)
+✔ Passed: testIndexOf() (duration: 0 ms, consumedGas: 8979)
+✔ Suite Passed: 6 tests, 6 passed, 0 failed, 0 skipped (duration: 7 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantShrinkWithAssert.t.sol:InvariantShrinkWithAssert (v0.8.25)
+✘ Failed(167): invariant_with_assert() (duration: 17011 ms, runs: 256, calls: 127533, reverts: 1052)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 17013 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantShrinkWithAssert.t.sol:InvariantShrinkWithRequire (v0.8.25)
+✘ Failed(168): invariant_with_require() (duration: 17182 ms, runs: 256, calls: 127640, reverts: 1012)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 17187 ms)
+
+Ran 4 tests for default/fuzz/invariant/storage/InvariantStorageTest.t.sol:InvariantStorageTest (v0.8.25)
+✘ Failed(169): invariantPush() (duration: 17648 ms, runs: 256, calls: 127913, reverts: 0)
+✘ Failed(170): invariantChangeUint() (duration: 16978 ms, runs: 256, calls: 127710, reverts: 0)
+✔ Passed: invariantChangeString() (duration: 17712 ms, runs: 256, calls: 128000, reverts: 0)
+✘ Failed(171): invariantChangeAddress() (duration: 16896 ms, runs: 256, calls: 127590, reverts: 0)
+✘ Suite Failed: 4 tests, 1 passed, 3 failed, 0 skipped (duration: 17727 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantInnerContract.t.sol:InvariantInnerContract (v0.8.18)
+✘ Failed(172): invariantHideJesus() (duration: 22396 ms, runs: 256, calls: 127504, reverts: 111479)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 22399 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantShrinkFailOnRevert.t.sol:ShrinkFailOnRevertTest (v0.8.25)
+✔ Passed: invariant_shrink_fail_on_revert() (duration: 7977 ms, runs: 256, calls: 128000, reverts: 22771)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 7980 ms)
+
+Ran 3 tests for default/fuzz/FuzzCollection.t.sol:SampleContractTest (v0.8.15)
+✔ Passed: testNeedle(uint256) (duration: 8 ms, runs: 256, meanGas: 9273, medianGas: 9273)
+✔ Passed: testIncrement(address) (duration: 9 ms, runs: 256, meanGas: 14612, medianGas: 14612)
+✘ Failed(173): invariantCounter() (duration: 9804 ms, runs: 256, calls: 127947, reverts: 42315)
+✘ Suite Failed: 3 tests, 2 passed, 1 failed, 0 skipped (duration: 9816 ms)
+
+Ran 1 tests for default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequenceTest (v0.8.25)
+✘ Failed(174): invariant_shrink_big_sequence() (duration: 9502 ms, runs: 256, calls: 127892, reverts: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 9508 ms)
+
+Ran 1 tests for default/repros/Issue3110.t.sol:TestFork (v0.8.18)
+✘ Failed(175): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/repros/Issue3792.t.sol:TestSetup (v0.8.18)
+✔ Passed: testSnapshotStorageShift() (duration: 0 ms, consumedGas: 6541)
+✔ Passed: test() (duration: 0 ms, consumedGas: 2555)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 6 tests for default/cheats/ToString.t.sol:ToStringTest (v0.8.18)
+✔ Passed: testUintToString() (duration: 0 ms, consumedGas: 5169)
+✔ Passed: testIntToString() (duration: 0 ms, consumedGas: 5103)
+✔ Passed: testBytesToString() (duration: 0 ms, consumedGas: 5801)
+✔ Passed: testBytes32ToString() (duration: 0 ms, consumedGas: 5603)
+✔ Passed: testBoolToString() (duration: 0 ms, consumedGas: 5132)
+✔ Passed: testAddressToString() (duration: 0 ms, consumedGas: 5415)
+✔ Suite Passed: 6 tests, 6 passed, 0 failed, 0 skipped (duration: 1 ms)
+
+Ran 2 tests for default/trace/Trace.t.sol:TraceTest (v0.8.18)
+✔ Passed: testRecurseCreate() (duration: 0 ms, consumedGas: 3691009)
+✔ Passed: testRecurseCall() (duration: 0 ms, consumedGas: 44043)
+✔ Suite Passed: 2 tests, 2 passed, 0 failed, 0 skipped (duration: 1 ms)
+
+Ran 1 tests for default/fuzz/invariant/targetAbi/TargetArtifactSelectors.t.sol:TargetArtifactSelectors (v0.8.18)
+✔ Passed: invariantShouldPass() (duration: 7842 ms, runs: 256, calls: 128000, reverts: 0)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 7845 ms)
+
+Ran 1 tests for default/cheats/Setup.t.sol:VmSetupTest (v0.8.18)
+✔ Passed: testCheatEnvironment() (duration: 0 ms, consumedGas: 6482)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 0 ms)
+
+Ran 3 tests for default/cheats/Warp.t.sol:WarpTest (v0.8.18)
+✔ Passed: testWarpFuzzed(uint128) (duration: 7 ms, runs: 256, meanGas: 3931, medianGas: 3931)
+✔ Passed: testWarp2() (duration: 0 ms, consumedGas: 3375)
+✔ Passed: testWarp() (duration: 0 ms, consumedGas: 3437)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 7 ms)
+
+Ran 8 tests for default/cheats/Json.t.sol:WriteJsonTest (v0.8.18)
+✘ Failed(176): test_writeJson() (duration: 0 ms, consumedGas: 8211)
+✔ Passed: test_serializeRootObject() (duration: 0 ms, consumedGas: 16890)
+✘ Failed(177): test_serializeNotSimpleJson() (duration: 0 ms, consumedGas: 14050)
+✔ Passed: test_serializeJson() (duration: 0 ms, consumedGas: 23991)
+✘ Failed(178): test_serializeArray() (duration: 0 ms, consumedGas: 19903)
+✘ Failed(179): test_retrieveEntireJson() (duration: 0 ms, consumedGas: 3585)
+✘ Failed(180): test_checkKeyExistsJson() (duration: 0 ms, consumedGas: 3584)
+✘ Failed(181): test_checkKeyDoesNotExistJson() (duration: 0 ms, consumedGas: 3563)
+✘ Suite Failed: 8 tests, 2 passed, 6 failed, 0 skipped (duration: 0 ms)
+
+Ran 5 tests for default/cheats/Toml.t.sol:WriteTomlTest (v0.8.18)
+✘ Failed(182): test_writeToml() (duration: 0 ms, consumedGas: 8100)
+✘ Failed(183): test_serializeNotSimpleToml() (duration: 0 ms, consumedGas: 14094)
+✘ Failed(184): test_retrieveEntireToml() (duration: 0 ms, consumedGas: 3607)
+✘ Failed(185): test_checkKeyExists() (duration: 0 ms, consumedGas: 3563)
+✘ Failed(186): test_checkKeyDoesNotExist() (duration: 0 ms, consumedGas: 3585)
+✘ Suite Failed: 5 tests, 0 passed, 5 failed, 0 skipped (duration: 0 ms)
+
+Ran 1 tests for default/repros/Issue3077.t.sol:testing (v0.8.18)
+✘ Failed(187): setUp() (duration: 0 ms, consumedGas: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 0 ms)
+
+Ran 2 tests for default/cheats/UnixTime.t.sol:UnixTimeTest (v0.8.18)
+✘ Failed(188): testUnixTimeAgainstDate() (duration: 0 ms, consumedGas: 4943)
+✔ Passed: testUnixTime() (duration: 2004 ms, consumedGas: 5334)
+✘ Suite Failed: 2 tests, 1 passed, 1 failed, 0 skipped (duration: 2004 ms)
+
+Ran 1 tests for default/fuzz/invariant/target/TargetSenders.t.sol:TargetSenders (v0.8.18)
+✘ Failed(189): invariantTrueWorld() (duration: 4364 ms, runs: 256, calls: 127501, reverts: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 4366 ms)
+
+Ran 2 tests for default/fuzz/invariant/targetAbi/TargetArtifacts.t.sol:TargetArtifacts (v0.8.18)
+✔ Passed: invariantShouldPass() (duration: 9738 ms, runs: 256, calls: 128000, reverts: 0)
+✘ Failed(190): invariantShouldFail() (duration: 6970 ms, runs: 256, calls: 127504, reverts: 0)
+✘ Suite Failed: 2 tests, 1 passed, 1 failed, 0 skipped (duration: 9740 ms)
+
+Ran 1 tests for default/fuzz/invariant/target/TargetContracts.t.sol:TargetContracts (v0.8.18)
+✔ Passed: invariantTrueWorld() (duration: 6691 ms, runs: 256, calls: 128000, reverts: 0)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 6693 ms)
+
+Ran 1 tests for default/fuzz/invariant/target/TargetInterfaces.t.sol:TargetWorldInterfaces (v0.8.18)
+✘ Failed(191): invariantTrueWorld() (duration: 5835 ms, runs: 256, calls: 127502, reverts: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 5839 ms)
+
+Ran 1 tests for default/fuzz/invariant/target/TargetSelectors.t.sol:TargetSelectors (v0.8.18)
+✔ Passed: invariantTrueWorld() (duration: 6700 ms, runs: 256, calls: 128000, reverts: 0)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 6701 ms)
+
+Ran 1 tests for default/fuzz/invariant/targetAbi/TargetArtifactSelectors2.t.sol:TargetArtifactSelectors2 (v0.8.18)
+✘ Failed(192): invariantShouldFail() (duration: 28202 ms, runs: 256, calls: 127502, reverts: 0)
+✘ Suite Failed: 1 tests, 0 passed, 1 failed, 0 skipped (duration: 28204 ms)
+
+
+
+
+
+Ran 3 tests for default/cheats/Prompt.t.sol:PromptTest (v0.8.18)
+✔ Passed: testPrompt_revertNotATerminal() (duration: 120006 ms, consumedGas: 9588)
+✔ Passed: testPrompt_Uint() (duration: 120004 ms, consumedGas: 3824)
+✔ Passed: testPrompt_Address() (duration: 120005 ms, consumedGas: 3807)
+✔ Suite Passed: 3 tests, 3 passed, 0 failed, 0 skipped (duration: 120016 ms)
+
+Ran 1 tests for default/repros/Issue3703.t.sol:Issue3703Test (v0.8.18)
+✔ Passed: testStatePool1() (duration: 0 ms, consumedGas: 10069)
+✔ Suite Passed: 1 tests, 1 passed, 0 failed, 0 skipped (duration: 313674 ms)
+
+✘ Run Failed: 701 tests, 506 passed, 192 failed, 3 skipped (duration: 757184 ms)
+
+Failure (1): testFailPrivKeyZero()
+Reason: private key cannot be 0
+
+Failure (2): testFailingAssertions()
+Decoded Logs: assertionOne
+Error: a == b not satisfied [uint]
+  Expected: 2
+    Actual: 1
+assertionTwo
+Error: a == b not satisfied [uint]
+  Expected: 4
+    Actual: 3
+done
+
+Failure (3): testFailWithRevert()
+Decoded Logs: 0
+1
+4
+100
+Reason: EvmError: Revert
+
+Failure (4): testFailWithRequire()
+Decoded Logs: 0
+1
+5
+Reason: EvmError: Revert
+
+Failure (5): testReadLine()
+Reason: the path fixtures/File/read.txt is not allowed to be accessed for read operations
+
+Failure (6): testReadFile()
+Reason: the path fixtures/File/read.txt is not allowed to be accessed for read operations
+
+Failure (7): testDumpStateMultipleAccounts()
+Reason: the path fixtures/Json/test_dump_state_multiple_accounts.json is not allowed to be accessed for read operations
+
+Failure (8): testDumpStateEmptyAccount()
+Reason: the path fixtures/Json/test_dump_state_empty_account.json is not allowed to be accessed for read operations
+
+Failure (9): testDumpStateDeployment()
+Reason: the path fixtures/Json/test_dump_state_deployment.json is not allowed to be accessed for read operations
+
+Failure (10): testDumpStateCheatAccount()
+Reason: the path fixtures/Json/test_dump_state_cheat.json is not allowed to be accessed for read operations
+
+Failure (11): testFailOverrideNoCountWithCount()
+Reason: counted expected calls can only bet set once
+
+Failure (12): testFailOverrideCountWithNoCount()
+Reason: cannot overwrite a counted expectCall with a non-counted expectCall
+
+Failure (13): testFailOverrideCountWithCount()
+Reason: counted expected calls can only bet set once
+
+Failure (14): testFailExpectSelectorCall()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f7 to be called 1 time, but was called 0 times
+
+Failure (15): testFailExpectMultipleCallsWithDataAdditive()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002 to be called 3 times, but was called 2 times
+
+Failure (16): testFailExpectInnerCall()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x3fc7c698 to be called 1 time, but was called 0 times
+
+Failure (17): testFailExpectCallWithRevertDisallowed()
+Reason: call did not revert as expected
+
+Failure (18): testFailExpectCallWithNoValueAndWrongMinGas()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001, value 0, minimum gas 50001 to be called 1 time, but was called 0 times
+
+Failure (19): testFailExpectCallWithNoValueAndWrongGas()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001, value 0, gas 25000 to be called 1 time, but was called 0 times
+
+Failure (20): testFailExpectCallWithMoreParameters()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f7000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003 to be called 1 time, but was called 0 times
+
+Failure (21): testFailExpectCallWithData()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002 to be called 1 time, but was called 0 times
+
+Failure (22): testFailExpectCallValue()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0xc290d6910000000000000000000000000000000000000000000000000000000000000002, value 1 to be called 1 time, but was called 0 times
+
+Failure (23): testFailExpectCountInnerCall()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x3fc7c698 to be called 1 time, but was called 0 times
+
+Failure (24): testFailExpectCallCountWithWrongCount()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002 to be called 2 times, but was called 1 time
+
+Failure (25): testFailExpectCallCountWithNoValueAndWrongMinGas()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001, value 0, minimum gas 50001 to be called 1 time, but was called 0 times
+
+Failure (26): testFailExpectCallCountWithNoValueAndWrongGas()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0x771602f700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001, value 0, gas 25000 to be called 2 times, but was called 0 times
+
+Failure (27): testFailExpectCallCountValue()
+Reason: expected call to 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f with data 0xc290d6910000000000000000000000000000000000000000000000000000000000000002, value 1 to be called 1 time, but was called 0 times
+
+Failure (28): testFailexpectCheatcodeRevertForExtCall()
+Reason: revert: revert
+
+Failure (29): testFailexpectCheatcodeRevertForCreate()
+Reason: revert: some message
+
+Failure (30): testFailRevertNotOnImmediateNextCall()
+Reason: call did not revert as expected
+
+Failure (31): testFailExpectRevertWrongString()
+Reason: Error != expected error: my cool error != my not so cool error
+
+Failure (32): testFailExpectRevertErrorDoesNotMatch()
+Reason: Error != expected error: but reverts with this message != should revert with this message
+
+Failure (33): testFailExpectRevertDidNotRevert()
+Reason: call did not revert as expected
+
+Failure (34): testFailExpectRevertDangling()
+Reason: call did not revert as expected
+
+Failure (35): testFailExpectRevertAnyRevertDidNotRevert()
+Reason: call did not revert as expected
+
+Failure (36): setUp()
+Reason: setup failed: revert: setup failed predictably
+
+Failure (37): setUp()
+Decoded Logs: Error: Assertion Failed
+Reason: setup failed: execution error
+
+Failure (38): testFfiString()
+Reason: FFI is disabled; add the `--ffi` flag to allow tests to call external commands
+
+Failure (39): testFfi()
+Reason: FFI is disabled; add the `--ffi` flag to allow tests to call external commands
+
+Failure (40): testFailNoEmitDirectlyOnNextCall()
+Reason: log != expected log
+
+Failure (41): testFailMatchRepeatedEventsOutOfOrder()
+Reason: log != expected log
+
+Failure (42): testFailLowLevelWithoutEmit()
+Reason: log != expected log
+
+Failure (43): testFailExpectEmitNested(bool,bool,bool,bool,uint128,uint128,uint128,uint128)
+Reason: log != expected log
+Counterexample: {
+  calldata: <Buffer 1e 1e 11 fc 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ... 210 more bytes>,
+  args: 'false, false, true, false, 0, 0, 0, 0'
+}
+
+Failure (44): testFailExpectEmitDanglingWithReference()
+Reason: expected an emit, but no logs were emitted afterwards. you might have mismatched events or not enough events were emitted
+
+Failure (45): testFailExpectEmitDanglingNoReference()
+Reason: expected an emit, but no logs were emitted afterwards. you might have mismatched events or not enough events were emitted
+
+Failure (46): testFailExpectEmitCanMatchWithoutExactOrder()
+Reason: log != expected log
+
+Failure (47): testFailExpectEmitAddressWithArgs()
+Reason: log != expected log
+
+Failure (48): testFailExpectEmitAddress()
+Reason: log != expected log
+
+Failure (49): testFailExpectEmit(bool,bool,bool,bool,uint128,uint128,uint128,uint128)
+Reason: log != expected log
+Counterexample: {
+  calldata: <Buffer 9e 83 ee 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ... 210 more bytes>,
+  args: 'false, false, false, true, 0, 0, 0, 0'
+}
+
+Failure (50): testFailEventsOnTwoCalls()
+Reason: log != expected log
+
+Failure (51): testFailEmitWindowWithRevertDisallowed()
+Reason: call did not revert as expected
+
+Failure (52): testFailEmitOnlyAppliesToNextCall()
+Reason: log != expected log
+
+Failure (53): testFailDifferentIndexedParameters()
+Reason: log != expected log
+
+Failure (54): testFailCanMatchConsecutiveEvents()
+Reason: log != expected log
+
+Failure (55): setUp()
+Reason: setup failed: invalid rpc url: rpcAlias
+
+Failure (56): test_persist_fuzzed_failure(uint256,int256,address,bool,string,(address,uint256),address[])
+Reason: EvmError: Revert
+Counterexample: {
+  calldata: <Buffer 52 61 63 da 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 1a 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ... 7442 more bytes>,
+  args: '1050, 254, 0x000000000000000000000000000000000000013c, true, "¾$\\u{fe23}Z🪿kfὌ\\"*{Ⱥ", TestTuple({ user: 0x0000000000000000000000000000000000000702, amount: 2569270804358363591819424978948840055813033276 \x1B[2m[2.569e45]\x1B[0m }), [0x000000000000000000000000000000000000078F, 0x0000000000000000000000000000000000000065, 0x007335C84a675d7d3909028b52C2e0498B6DCd3b, 0x0000000000000000000000000000000000000480, 0x0000000000000000000000000000000000000579, 0x0000000000000000000000000000000000000787, 0x0000000000000000000000000000000000000000, 0x00000000000000000000000000000000000004c1, 0x0000000000000000000000000000000000000661, 0x00000000000000000000000000000000000000A9, 0x00000000000000000000000000000000000003C1, 0x00000000000000000000000000000000000006de, 0x0000000000000000000000000000000000000650, 0x000000000000000000000000000000000000084B, 0x0000000000000000000000000000000000000424, 0x00000000000000000000000000000000FFFFfFFF, 0x0000000000000000000000000000000000000521, 0x00000000000000000000000000000000f6e62afC, 0x00000000000000000000000000000000000005a7, 0x000000000000000000000000000000004C63e562, 0x00000000000000000000000000000000000006ed, 0x0000000000000000000000000000000000000759, 0x0000000000000000000000000000000000000711, 0x000000000000000000000000000000000000013b, 0x00000000000000000000000000000000000007da, 0x0000000000000000000000000000000000000540, 0x00000000000000000000000000000000526163Db, 0x00000000000000000000000000000000000000C7, 0x007335C84A675D7d3909028b52C2e0498B6DCd3a, 0x000000000000000000000000000000000000086d, 0x0000000000000000000000000000000000000508, 0x0000000000000063430008120033000000000001, 0x000000000000000000000000000000000000041a, 0x0000000000000000000000000000000000000542, 0x000000000000000000000000000000000000051e, 0x00000000000000000000000000000000000007be, 0x000000000000000000000000000000000000088f, 0x000000000000000000000000000000000000039C, 0x007335C84A675D7d3909028b52C2e0498B6DCd3a, 0x0000000000000000000000000000000000000713, 0x00000000000000000000000000000000000007A8, 0x0000000000000000000000000000000000000082, 0x00000000000000000000000000000000000006c2, 0x00000000000000000000000000000000000006e0, 0x0000000000000000000000000000000000000518, 0x00000000000000000000000000000000000003b9, 0x00000000000000000000000000000000000000B0, 0x0000000000000000000000000000000000000052, 0x00000000000000000000000000000000000007C1, 0x0000000000000000000000000000000000000000, 0x0000000000000000000000000000000000000841, 0x000000000000000000000000000000000000013c, 0x000000000000000000000000000000000000064e, 0x0000000000000000000000000000000000000791, 0x0000000000000000000000000000000000000840, 0x0000000000000000000000000000000000000650, 0x0000000000000000000000000000000000000858, 0x000000000000000000000000000000000000001e, 0x000000000000000000000000000000000000041b, 0x00000000000000000000000000000000000000A9, 0x007335c84a675D7D3909028b52c2E0498b6dcd3C, 0x000000000000000000000000000000000000063F, 0x00000000000000000000000000000000000007bc, 0x00000000000000000000000000000000000007be, 0x0000000000000000000000000000000000000154, 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D, 0x0000000000000000000000000000000000000000, 0x000000000000000000000000000000000000062d, 0x00000000000000000000000000000000000004c2, 0x0000000000000000000000000000000000000081, 0x0000000000000000000000000000000000000041, 0x0000000000000000000000000000000000000719, 0x0000000000000000000000000000000000000060, 0x0000000000000000000000000000000000000703, 0x3fAB184622Dc19b6109349B94811493BF2a45362, 0x5C22070dafC36aD75f3dcf5E7237B22ade9aeCc5, 0x000000000000000000000000000000004C63e562, 0x0000000000000000000000000000000000000717, 0x000000000000000000000000000000000000044C, 0x0000000000000000000000000000000000000732, 0x0000000000000000000000000000000000000516, 0x0000000000000000000000000000000000000866, 0x00000000000000000000000000000000000004f2, 0x0000000000000000000000000000000000000101, 0x000000000000000000000000000000000000055F, 0x0000000000000000000000000000000000000507, 0x0000000000000000000000000000000000000704, 0x0000000000000000000000000000000000000153, 0x0000000000000000000000000000000000000786, 0x00000000000000000000000000000000000004ba, 0x0000000000000000000000000000000000000061, 0x0000000000000000000000000000000000000411, 0x0000000000000000000000000000000000000067, 0x0000000000000000000000000000000000000050, 0x00000000000000000000000000000000000005a7, 0x0000000000000000000000000000000000000465, 0x0000000000000000000000000000000000000712, 0x0000000000000000000000000000000000000890, 0x0000000000000000000000000000000000000003, 0x000000000000000000000000000000000000007f, 0x0000000000000000000000000000000000000731, 0x0000000000000000039716ee06e7AaeE571c71c6, 0x000000000000000000000000000000000000042D, 0x00000000000000000000000000000000Ba414fA7, 0x000000000000000000000000000000000000006a, 0x000000000000000000000000fFFFFFffFFFFfffF, 0x0000000000000000000000000000000000000866, 0x0000000000000000000000000000000000000540, 0xfffFFFfFFfFFfFffFffFffFffffFFfFFFfffFFE1, 0x7109709ecFA91A80626Ff3989D68f67f5b1Dd12E, 0x00000000000000000000000000000000000005d9, 0x000000000000000000000000000000000000068C, 0x000000000000000000000000000000000000046E, 0x0000000000000000000000000000000000000321, 0x0000000000000000000000000000000000000000, 0x000000000000000000000000000000000000059B, 0x0000000000000000000000000000000000000719, 0x0000000000000000000000000000000000000321, 0x0000000000000000000000000000000000000066, 0x00000000000000000000000000000000000004c1, 0x0000000000000000000000000000000000000487, 0x00000000000000000000000000000000000001f9, 0x000000000000000000000000000000000000068e, 0x000000000000000000000000000000000000020E, 0x0000000000000000000000000000000000000819, 0x00000000000000000000000000000000000003C1, 0x0000000000000000000000000000000000000752, 0x000000000000000000000000000000000000006C, 0x0000000000000000000000000000000000000583, 0x00000000000000000000000000000000526163Db, 0x0000000000000000000000000000000000000583, 0x0000000000000000000000000000000000000504, 0x000000000000000000000000000000000000079D, 0x000000000000000000000000000000000000052b, 0x000000000000000000000000000000000000057c, 0x0000000000000000000000000000000000000015, 0x0000000000000000000000000000000000000786, 0x0000000000000000000000000000000000000722, 0x0000000000000000000000000000000000000702, 0x00000000000000000000000000000000000005a5, 0x000000000000000000000000000000000000052b, 0x0000000000000000000000000000000000000486, 0x0000000000000000000000000000000000000005, 0x000000000000000000000000000000000000062C, 0x000000000000000000000000000000000000083F, 0x0000000000000000000000000000000000000076, 0x0000000000000000000000000000000000000709, 0x000000000000000000000000000000000000078F, 0x0000000000000000000000000000006970667359, 0x00000000000000000000000000000000000001F8, 0x00000000000000000000000000000000000004a8, 0x00000000000000000000000000000000000005f6, 0x00000000000000000000000000000000000003Bb, 0x0000000000000000000000000000000000000415, 0x000000000000000000000000000000000000011F, 0x00000000000000000000000000000000000005fc, 0x0000000000000000000000000000000000000004, 0x000000000000000000000000000000000000079b, 0x0000000000000000000000000000000000000120, 0x00000000000000000000000000000000000001E2, 0x00000000000000000000000000000000000004f2, 0x0000000000000000000000000000000000000067, 0x00000000000000000000000000000000000005a5, 0x00000000000000000000000000000000FA7626d3, 0x0000000000000000000000000000000000000682, 0x0000000000000000000000000000000000000417, 0x00000000000000000000000000000000000005a5, 0x000000000000000000000000000000000000059E, 0x0000000000000000000000000000000000000465, 0x000000000000000000000000000000000000001e, 0x0000000000000000000000000000000000000169, 0x000000000000000000000000000000000000008A, 0x00000000000000000000000000000000000004a6, 0x0000000000000000000000000000000000000082, 0x0000000000000000000000000000000000000825, 0x0000000000000000000000000000006970667358, 0x00000000000000000000000000000000000000B0, 0x0000000000000000000000000000000000000759, 0x00000000000000000000000000000000FFFFfFFF, 0x000000000000000000000000000000000000057a, 0x00000000000000000000000000000000000001e0, 0x0000000000000000000000000000000000000020, 0x0000000000000000000000000000000000000003, 0x00000000000000000000000000000000000001e1, 0x000000000000000000000000000000000000059E, 0x00000000000000000000000000000000000007DB, 0x000000000000000000000000000000000000075b, 0x00000000000000000000000000000000000004B3, 0x000000000000000000000000000000000000006b, 0x000000000000000000000000000000000000063e, 0x00000000000000000000000000000000000000dF, 0x000000000000000000000000000000000000000d, 0x0000000000000000000000000000000000000711, 0x0000000000000000000000000000000000000101, 0x0000000000000000000000000000000000000473, 0x00000000000000000000000000000000000000ff, 0x00000000000000000000000000000000000005BB, 0x0000000000000000000000000000000000000509, 0x0000000000000000000000000000000000000504, 0x0000000000000000000000000000000000000718, 0x00000000000000000000000000000000000007A0, 0x00000000000000000000000000000000000003C1, 0x007335C84A675D7d3909028b52C2e0498B6DCd3a, 0x0000000000000000000000000000000000000528, 0x000000000000000000000000000000000000003a, 0x0000000000000000000000000000000000000509, 0x0000000000000000000000000000000000000167, 0x000000000000000000000000000000000000006D, 0x0000000000000000000000000000000000000482, 0x0000000000000000000000000000000000000759, 0x000000000000000000000000000000000000039f, 0x00000000000000000000000000000000000000b2, 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38, 0x00000000000000000000000000000000000004DE, 0x00000000000000000000000000000000fFFfFFfe, 0x0000000000000000000000000000000000000452, 0x0000000000000000000000000000000000000472, 0x0000000000000000000000000000000000000452, 0x0000000000000000000000000000000000000480, 0x0000000000000000000000000000000000000819, 0x000000000000000000000000000000000000062C, 0x000000000000000000000000000000000000046E, 0x000'... 38 more characters
+}
+
+Failure (57): testWriteLine()
+Reason: the path fixtures/File/write_line.txt is not allowed to be accessed for write operations
+
+Failure (58): testWriteFile()
+Reason: the path fixtures/File/write_file.txt is not allowed to be accessed for write operations
+
+Failure (59): testRemoveFile()
+Reason: the path fixtures/File/remove_file.txt is not allowed to be accessed for write operations
+
+Failure (60): testReadLine()
+Reason: the path fixtures/File/read.txt is not allowed to be accessed for read operations
+
+Failure (61): testReadFile()
+Reason: the path fixtures/File/read.txt is not allowed to be accessed for read operations
+
+Failure (62): testReadDir()
+Reason: the path fixtures/Dir is not allowed to be accessed for read operations
+
+Failure (63): testIsFile()
+Reason: the path fixtures/File/read.txt is not allowed to be accessed for read operations
+
+Failure (64): testIsDir()
+Reason: the path fixtures/File is not allowed to be accessed for read operations
+
+Failure (65): testFsMetadata()
+Reason: the path fixtures/File is not allowed to be accessed for read operations
+
+Failure (66): testExists()
+Reason: the path fixtures/File/read.txt is not allowed to be accessed for read operations
+
+Failure (67): testCreateRemoveDir()
+Reason: the path fixtures/CreateRemoveDir/remove_dir is not allowed to be accessed for write operations
+
+Failure (68): testCopyFile()
+Reason: the path fixtures/File/read.txt is not allowed to be accessed for read operations
+
+Failure (69): testCloseFile()
+Reason: the path fixtures/File/read.txt is not allowed to be accessed for read operations
+
+Failure (70): testNegativeMin1(int256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 1f 41 14 85 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (71): testNegativeMin0(int256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 9b 5c e7 3a 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (72): testNegativeMax1(int256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 91 74 87 92 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (73): testNegativeMax0(int256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 35 92 d9 d6 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (74): testNegativeHalf(int256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 89 eb 7a 1c 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff>,
+  args: '340282366920938463463374607431768211455 \x1B[2m[3.402e38]\x1B[0m'
+}
+
+Failure (75): testNegative2(int128)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 37 a8 e3 fd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (76): testNegative1(int256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 55 aa c0 ad 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (77): testNegative0(int256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer cf e3 2e 32 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01>,
+  args: '1'
+}
+
+Failure (78): testEquality(int256,int256)
+Decoded Logs: Error: a == b not satisfied [int]
+  Expected: 0
+    Actual: 1
+Counterexample: {
+  calldata: <Buffer 33 92 01 77 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ... 18 more bytes>,
+  args: '0, 0'
+}
+
+Failure (79): testNegativeMax(uint256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 13 ad b2 8b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (80): testNegativeHalf(uint256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer ae 3d d6 69 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff>,
+  args: '340282366920938463463374607431768211455 \x1B[2m[3.402e38]\x1B[0m'
+}
+
+Failure (81): testNegative2Max(uint256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer cd 1a 2a cd 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (82): testNegative2(uint256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 1a 23 a5 da 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (83): testNegative0(uint256)
+Decoded Logs: Error: Assertion Failed
+Counterexample: {
+  calldata: <Buffer 1b c9 b6 53 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01>,
+  args: '1'
+}
+
+Failure (84): testEquality(uint256,uint256)
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 0
+    Actual: 1
+Counterexample: {
+  calldata: <Buffer 26 5b 96 86 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 22 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ... 18 more bytes>,
+  args: '34, 3143'
+}
+
+Failure (85): testFailFuzz(uint8)
+Decoded Logs: constructor
+setUp
+testFailFuzz
+Reason: revert: should revert
+Counterexample: {
+  calldata: <Buffer 77 12 80 be 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (86): testWithPath()
+Reason: No matching artifact found
+
+Failure (87): invariant_value_not_found()
+Reason: revert: value from return found
+Counterexample: {
+  sender: <Buffer 12 b2 0e 8a 61 50 12 51 78 a1 e4 e6 d2 52 72 3c 2e b4 b4 49>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer f4 44 0e a3 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 39 52>,
+  contractName: 'default/fuzz/invariant/common/InvariantScrapeValues.t.sol:FindFromReturnValue',
+  signature: 'find(int256)',
+  args: '14674 \x1B[2m[1.467e4]\x1B[0m'
+}
+
+Failure (88): invariant_value_not_found()
+Reason: revert: value from logs found
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 92>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer f4 44 0e a3 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 39 52>,
+  contractName: 'default/fuzz/invariant/common/InvariantScrapeValues.t.sol:FindFromLogValue',
+  signature: 'find(int256)',
+  args: '14674 \x1B[2m[1.467e4]\x1B[0m'
+}
+
+Failure (89): invariant_owner_never_changes()
+Decoded Logs: Error: a == b not satisfied [address]
+  Expected: 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496
+    Actual: 0x0000000000000000000000000000000000000Faf
+Reason: <empty revert data>
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0c e9>,
+  address: <Buffer 2e 23 4d ae 75 c7 93 f6 7a 35 08 9c 9d 99 24 5e 1c 58 47 0b>,
+  calldata: <Buffer 6d 43 54 21 00 00 00 00 00 00 00 00 00 00 00 00 7f a9 38 5b e1 02 ac 3e ac 29 74 83 dd 62 33 d6 2b 3e 14 96 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ... 18 more bytes>,
+  contractName: 'default/fuzz/invariant/common/InvariantCalldataDictionary.t.sol:Handler',
+  signature: 'transferOwnership(address,address)',
+  args: '0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496, 0x0000000000000000000000000000000000000Faf'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0f af>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 79 ba 50 97>,
+  contractName: 'default/fuzz/invariant/common/InvariantCalldataDictionary.t.sol:Owned',
+  signature: 'acceptOwnership()',
+  args: ''
+}
+
+Failure (90): testRollFork()
+Reason: invalid rpc url: rpcAlias
+
+Failure (91): testSelectFork()
+Reason: invalid rpc url: rpcAlias
+
+Failure (92): testRollFork()
+Reason: invalid rpc url: rpcAlias
+
+Failure (93): setUp()
+Reason: setup failed: invalid rpc url: rpcAliasSepolia
+
+Failure (94): test_snapshot3(uint256)
+Decoded Logs: Error: Assertion Failed
+Reason: call did not revert as expected
+Counterexample: {
+  calldata: <Buffer c4 24 c5 53 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (95): test_snapshot2()
+Decoded Logs: Error: Assertion Failed
+
+Failure (96): test_snapshot()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 1
+    Actual: 0
+
+Failure (97): testRollFork()
+Reason: invalid rpc url: rpcAlias
+
+Failure (98): testFoo()
+Decoded Logs: Error: Invariant failed
+Error: a == b not satisfied [uint]
+  Expected: 124
+    Actual: 125
+
+Failure (99): setUp()
+Reason: setup failed: invalid rpc url: rpcAlias
+
+Failure (100): setUp()
+Reason: setup failed: invalid rpc url: rpcAlias
+
+Failure (101): setUp()
+Reason: setup failed: invalid rpc url: rpcAliasSepolia
+
+Failure (102): setUp()
+Reason: setup failed: invalid rpc url: rpcAliasSepolia
+
+Failure (103): setUp()
+Reason: invalid rpc url: rpcAlias
+
+Failure (104): testDealTransfer()
+Reason: EvmError: Revert
+
+Failure (105): testNonceCreateSelect()
+Reason: invalid rpc url: rpcAliasSepolia
+
+Failure (106): testReadNonEmptyArray()
+Reason: the path fixtures/Json/Issue4402.json is not allowed to be accessed for read operations
+
+Failure (107): testReadEmptyArray()
+Reason: the path fixtures/Json/Issue4402.json is not allowed to be accessed for read operations
+
+Failure (108): setUp()
+Reason: setup failed: invalid rpc url: rpcAlias
+
+Failure (109): testMissingValue()
+Reason: the path fixtures/Json/Issue4630.json is not allowed to be accessed for read operations
+
+Failure (110): testExistingValue()
+Reason: the path fixtures/Json/Issue4630.json is not allowed to be accessed for read operations
+
+Failure (111): testCreate2FactoryUsedWhenPranking()
+Reason: revert: create2 address mismatch
+
+Failure (112): testCreate2FactoryUsedInTests()
+Reason: revert: create2 address mismatch
+
+Failure (113): test_transact_not_working()
+Reason: invalid rpc url: rpcAlias
+
+Failure (114): testSleepFuzzed(uint256)
+Reason: FFI is disabled; add the `--ffi` flag to allow tests to call external commands
+Counterexample: {
+  calldata: <Buffer 80 87 57 ca 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (115): testEtchFork()
+Reason: invalid rpc url: rpcAlias
+
+Failure (116): test()
+Reason: log != expected log
+
+Failure (117): test_shouldFailWithRevertTo()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 2
+    Actual: 3
+
+Failure (118): test_shouldFail()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 2
+    Actual: 3
+
+Failure (119): test_transact()
+Reason: invalid rpc url: rpcAlias
+
+Failure (120): testPermissions()
+Reason: the path out/default/Issue6554.t.sol/cachedFile.txt is not allowed to be accessed for write operations
+
+Failure (121): testCreateForkRollLatestBlock()
+Reason: invalid rpc url: rpcAlias
+
+Failure (122): testCreateMulti()
+Reason: invalid rpc url: rpcAlias
+
+Failure (123): testFailTransact()
+Reason: invalid rpc url: rpcAlias
+
+Failure (124): testRecordLastCallGas()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 64
+    Actual: 65
+Error: a == b not satisfied [uint]
+  Expected: 64
+    Actual: 65
+Error: a == b not satisfied [uint]
+  Expected: 64
+    Actual: 65
+
+Failure (125): testRecordGasRefund()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 216
+    Actual: 236
+
+Failure (126): testRecordGasMemory()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 186470
+    Actual: 249820
+
+Failure (127): testRecordLastCallGas()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 21064
+    Actual: 65
+Error: a == b not satisfied [uint]
+  Expected: 0
+    Actual: 9
+Error: a == b not satisfied [uint]
+  Expected: 21064
+    Actual: 65
+Error: a == b not satisfied [uint]
+  Expected: 0
+    Actual: 9
+Error: a == b not satisfied [uint]
+  Expected: 21064
+    Actual: 65
+Error: a == b not satisfied [uint]
+  Expected: 0
+    Actual: 9
+
+Failure (128): testRecordGasRefund()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 21380
+    Actual: 236
+Error: a == b not satisfied [uint]
+  Expected: 0
+    Actual: 9
+Error: a == b not satisfied [int]
+  Expected: 4800
+    Actual: 19900
+
+Failure (129): testRecordGasMemory()
+Decoded Logs: Error: a == b not satisfied [uint]
+  Expected: 186470
+    Actual: 249820
+
+Failure (130): testFailStopExpectSafeMemory()
+Reason: memory write at offset 0xA0 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0xA0]
+
+Failure (131): testFailExpectSafeMemory_STATICCALL()
+Reason: memory write at offset 0x100 of size 0x60 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (132): testFailExpectSafeMemory_SHA3()
+Reason: memory write at offset 0x100 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (133): testFailExpectSafeMemory_REVERT()
+Reason: EvmError: Revert
+
+Failure (134): testFailExpectSafeMemory_RETURNDATACOPY()
+Reason: memory write at offset 0x100 of size 0x60 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (135): testFailExpectSafeMemory_RETURN()
+Reason: memory write at offset 0x100 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (136): testFailExpectSafeMemory_MSTORE_Low()
+Reason: memory write at offset 0x60 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0xA0]
+
+Failure (137): testFailExpectSafeMemory_MSTORE_High()
+Reason: memory write at offset 0xA0 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0xA0]
+
+Failure (138): testFailExpectSafeMemory_MSTORE8_Low()
+Reason: memory write at offset 0x60 of size 0x01 not allowed; safe range: (0x00, 0x60] U (0x80, 0x81]
+
+Failure (139): testFailExpectSafeMemory_MSTORE8_High()
+Reason: memory write at offset 0x81 of size 0x01 not allowed; safe range: (0x00, 0x60] U (0x80, 0x81]
+
+Failure (140): testFailExpectSafeMemory_MLOAD()
+Reason: memory write at offset 0x100 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (141): testFailExpectSafeMemory_LOG0()
+Reason: memory write at offset 0x100 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (142): testFailExpectSafeMemory_EXTCODECOPY()
+Reason: memory write at offset 0xA0 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0xA0]
+
+Failure (143): testFailExpectSafeMemory_DELEGATECALL()
+Reason: memory write at offset 0x100 of size 0x60 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (144): testFailExpectSafeMemory_CREATE2()
+Reason: memory write at offset 0x100 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (145): testFailExpectSafeMemory_CREATE()
+Reason: memory write at offset 0x100 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (146): testFailExpectSafeMemory_CODECOPY()
+Reason: memory write at offset 0x80 of size 0x41AD not allowed; safe range: (0x00, 0x60] U (0x80, 0xA0]
+
+Failure (147): testFailExpectSafeMemory_CALLDATACOPY(uint256)
+Reason: memory write at offset 0xA0 of size 0x20 not allowed; safe range: (0x00, 0x60] U (0x80, 0xA0]
+Counterexample: {
+  calldata: <Buffer ac a0 9c a2 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (148): testFailExpectSafeMemory_CALLCODE()
+Reason: memory write at offset 0x100 of size 0x60 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (149): testFailExpectSafeMemory_CALL()
+Reason: memory write at offset 0x100 of size 0x60 not allowed; safe range: (0x00, 0x60] U (0x80, 0x100]
+
+Failure (150): testFailExpectSafeMemoryCall()
+Reason: revert: Expected call to fail
+
+Failure (151): setUp()
+Reason: multiple setUp functions
+
+Failure (152): setUp()
+Reason: setup failed: the path fixtures/Json/test.json is not allowed to be accessed for read operations
+
+Failure (153): setUp()
+Reason: setup failed: the path fixtures/Toml/test.toml is not allowed to be accessed for read operations
+
+Failure (154): testCantPay()
+Reason: EvmError: Revert
+
+Failure (155): testFailOverwriteUnusedPrankAfterSuccessfulPrank(address,address)
+Reason: cannot overwrite a prank until it is applied at least once
+Counterexample: {
+  calldata: <Buffer 8e 7a 04 a3 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ... 18 more bytes>,
+  args: '0x0000000000000000000000000000000000000000, 0x0000000000000000000000000000000000000000'
+}
+
+Failure (156): testFailOverwriteUnusedPrank(address,address)
+Reason: cannot overwrite a prank until it is applied at least once
+Counterexample: {
+  calldata: <Buffer fd 8e 16 70 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ... 18 more bytes>,
+  args: '0x0000000000000000000000000000000000000000, 0x0000000000000000000000000000000000000000'
+}
+
+Failure (157): testProjectRoot()
+Reason: environment variable "CARGO_MANIFEST_DIR" not found
+
+Failure (158): testFailRevert()
+Reason: revert: should revert here
+
+Failure (159): testCanGetRpcUrl()
+Reason: invalid rpc url: rpcAlias
+
+Failure (160): testFailInvalidNonce()
+Reason: new nonce (5) must be strictly equal to or higher than the account's current nonce (10)
+
+Failure (161): statefulFuzz_neverFalseWithInvariantAlias()
+Reason: revert: false
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 63 29 7f da>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer d9 0b ab de 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  contractName: 'default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantBreaker',
+  signature: 'set0(int256)',
+  args: '0'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 49>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer e4 8f 28 d2 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 14>,
+  contractName: 'default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantBreaker',
+  signature: 'set1(int256)',
+  args: '1300'
+}
+
+Failure (162): invariant_neverFalse()
+Reason: revert: false
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 e5>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer d9 0b ab de 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  contractName: 'default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantBreaker',
+  signature: 'set0(int256)',
+  args: '0'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 03>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer e4 8f 28 d2 00 11 86 f9 e0 3c 6e bf d2 4e b6 ce 2f 24 5d 7b a3 93 9a bf a2 67 2c 35 93 ae 2e 0b f1 bd e8 8a>,
+  contractName: 'default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantBreaker',
+  signature: 'set1(int256)',
+  args: '30967970753236459044393374331094771848137831756608362498997721350660810890 \x1B[2m[3.096e73]\x1B[0m'
+}
+
+Failure (163): testFailNotSkip()
+Reason: revert: This test should fail
+
+Failure (164): testFailFuzzSkip(uint256)
+Reason: revert: This test should fail
+Counterexample: {
+  calldata: <Buffer 01 69 63 36 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (165): testSleepFuzzed(uint256)
+Reason: FFI is disabled; add the `--ffi` flag to allow tests to call external commands
+Counterexample: {
+  calldata: <Buffer 80 87 57 ca 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  args: '0'
+}
+
+Failure (166): testSleep()
+Reason: FFI is disabled; add the `--ffi` flag to allow tests to call external commands
+
+Failure (167): invariant_with_assert()
+Decoded Logs: Error: Assertion Failed
+Reason: <empty revert data>
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0c 94>,
+  address: <Buffer 2e 23 4d ae 75 c7 93 f6 7a 35 08 9c 9d 99 24 5e 1c 58 47 0b>,
+  calldata: <Buffer 3f b5 c1 cb 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 21>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkWithAssert.t.sol:Handler',
+  signature: 'setNumber(uint256)',
+  args: '33'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 27>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer a6 dc 67 71>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkWithAssert.t.sol:Counter',
+  signature: 'third()',
+  args: ''
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 7c>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer bd 5b 5f 77>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkWithAssert.t.sol:Counter',
+  signature: 'quarter()',
+  args: ''
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 41>,
+  address: <Buffer 2e 23 4d ae 75 c7 93 f6 7a 35 08 9c 9d 99 24 5e 1c 58 47 0b>,
+  calldata: <Buffer d0 9d e0 8a>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkWithAssert.t.sol:Handler',
+  signature: 'increment()',
+  args: ''
+}
+
+Failure (168): invariant_with_require()
+Reason: revert: wrong counter
+Counterexample: {
+  sender: <Buffer c8 f5 d4 42 3d 94 0b d3 ec a8 bc 5e 56 ee e4 4c 78 be 79 38>,
+  address: <Buffer 2e 23 4d ae 75 c7 93 f6 7a 35 08 9c 9d 99 24 5e 1c 58 47 0b>,
+  calldata: <Buffer 3f b5 c1 cb 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkWithAssert.t.sol:Handler',
+  signature: 'setNumber(uint256)',
+  args: '3'
+}
+
+Failure (169): invariantPush()
+Reason: revert: pushUint
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 4d>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 95 9a c4 84 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 44>,
+  contractName: 'default/fuzz/invariant/storage/InvariantStorageTest.t.sol:Contract',
+  signature: 'push(uint256)',
+  args: '68'
+}
+
+Failure (170): invariantChangeUint()
+Reason: revert: changedUint
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 08 96>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer a0 e2 9d f6 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 39>,
+  contractName: 'default/fuzz/invariant/storage/InvariantStorageTest.t.sol:Contract',
+  signature: 'changeUint(uint256)',
+  args: '1337'
+}
+
+Failure (171): invariantChangeAddress()
+Reason: revert: changedAddr
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 22>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer fe 64 d6 ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 be ef>,
+  contractName: 'default/fuzz/invariant/storage/InvariantStorageTest.t.sol:Contract',
+  signature: 'changeAddress(address)',
+  args: '0x000000000000000000000000000000000000bEEF'
+}
+
+Failure (172): invariantHideJesus()
+Reason: revert: jesus betrayed
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 49>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 3a 1e ac 6a>,
+  contractName: 'default/fuzz/invariant/common/InvariantInnerContract.t.sol:Jesus',
+  signature: 'create_fren()',
+  args: ''
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 52>,
+  address: <Buffer 10 4f bc 01 6f 4b b3 34 d7 75 a1 9e 8a 65 10 10 9a c6 3e 00>,
+  calldata: <Buffer dd b1 03 fd>,
+  contractName: 'default/fuzz/invariant/common/InvariantInnerContract.t.sol:Judas',
+  signature: 'betray()',
+  args: ''
+}
+
+Failure (173): invariantCounter()
+Reason: revert: broken counter.
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 be ef>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 03 df 17 9c 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 d9 f2 ab 13 30 0d d7 9a 5d f6>,
+  contractName: 'default/fuzz/FuzzCollection.t.sol:SampleContract',
+  signature: 'incrementBy(uint256)',
+  args: '4656007424941879300087286 \x1B[2m[4.656e24]\x1B[0m'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 44>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 9f 16 16 8e 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 55 56>,
+  contractName: 'default/fuzz/FuzzCollection.t.sol:SampleContract',
+  signature: 'breakTheInvariant(uint256)',
+  args: '21846 \x1B[2m[2.184e4]\x1B[0m'
+}
+
+Failure (174): invariant_shrink_big_sequence()
+Reason: revert: condition met
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0e>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 5f>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1375'
+}
+Counterexample: {
+  sender: <Buffer f8 63 26 68 da 95 31 26 87 f0 d0 8d 6c ad 5e 45 05 57 d7 01>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 79>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1401'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 51>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 f5>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1013'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 35>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 23>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1315'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 c5>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '17'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 39>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 03>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '259'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 22>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 13>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1299'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 d2>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 61>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '97'
+}
+Counterexample: {
+  sender: <Buffer eb e4 5f 1f ee 5d 5a 1a 90 e6 2b 3f 28 51 2e 39 39 e3 7d 25>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 a7>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 6e>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 09>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 a5>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '421'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 43>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 09>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '9'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 e0>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 39>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1337'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 34>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 db>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '731'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 bb>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1211'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 64>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '5'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 4c>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 d5>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1237'
+}
+Counterexample: {
+  sender: <Buffer 44 3e 1b 2c 66 76 8f 7b 9c 6e 0f 4f 78 48 1f a7 3a 7e 28 c2>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 c5>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '965'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 44>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 51>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '81'
+}
+Counterexample: {
+  sender: <Buffer 86 45 ce f4 3c a2 60 96 5d 30 b0 cb 29 aa 9e 9d 1c c8 64 ea>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 5b>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '859'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 21>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 85>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '901'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 be>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 7f>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '127'
+}
+Counterexample: {
+  sender: <Buffer 9b 6c 27 a6 64 55 b4 fb c3 5e 3e 75 34 24 09 23 cd 38 e1 48>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 79>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1145'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 c8>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 9f>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '415'
+}
+Counterexample: {
+  sender: <Buffer e3 1e 4a f2 f7 62 54 69 49 6b 32 23 4c 78 bb df 3f f1 f4 5f>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 15>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '789'
+}
+Counterexample: {
+  sender: <Buffer 74 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '3'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 5f>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '3'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 05>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 83>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '643'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 b1>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 6f>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '367'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 1b>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 e1>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '225'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 e5>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 31>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1073'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 22>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '17'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 85>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 15>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '789'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 62>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 79>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1145'
+}
+Counterexample: {
+  sender: <Buffer 6c db 8a 12 b9 62 60 0d cf 5c 47 c4 13 a3 99 a0 f6 0d a7 d9>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 c5>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1221'
+}
+Counterexample: {
+  sender: <Buffer a6 26 d8 07 d8 ba 6d d1 00 77 7e be 74 10 37 78 70 e3 05 7d>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '3'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 23 27>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 51>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '81'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 09>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 35>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '821'
+}
+Counterexample: {
+  sender: <Buffer 01 ba 70 77 1e 81 02 52 81 9e a7 da 6d e8 6b 26 91 94 d1 c1>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 a3>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1187'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 11>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 ab>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '427'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 38>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 4d>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '77'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 bf>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 ed>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1261'
+}
+Counterexample: {
+  sender: <Buffer de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f 00 00>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 2f>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '303'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ff>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '255'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 1d>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 bf>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '703'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 6f>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 3f>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '831'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 7b>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 55>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 43>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '323'
+}
+Counterexample: {
+  sender: <Buffer 64 73 6f 6c 63 43 00 08 19 00 32 ff ff ff ff ff ff ff ff ff>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 09>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '9'
+}
+Counterexample: {
+  sender: <Buffer 56 11 43 10 71 0f 0e b5 37 30 e1 0a af 47 77 7b 00 5d ad 68>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 d7>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '471'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 9f>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 db>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '731'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 56>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 db>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '731'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 a2>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0b 89>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '2953'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 91>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 1d>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1053'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 79>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 c7>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '199'
+}
+Counterexample: {
+  sender: <Buffer 2d ed cc 10 4e 83 18 e5 fe b3 8b 57 f6 30 b5 7e 09 ae b3 06>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 cd>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '461'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2e>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 41>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '321'
+}
+Counterexample: {
+  sender: <Buffer 06 47 48 ec dd cb 8d e7 a7 d8 2d 1c 08 2b ce 2f d7 60 38 50>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 1d>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '29'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 17>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 51>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '849'
+}
+Counterexample: {
+  sender: <Buffer 76 0c 3a 43 28 b2 43 45 9c 82 3d 7f ab ef 62 14 c2 2a b3 9d>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1'
+}
+Counterexample: {
+  sender: <Buffer 90 77 c6 3a 86 16 03 63 86 9f 8f 41 ee 4a b9 bd d3 31 13 94>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 7f>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '127'
+}
+Counterexample: {
+  sender: <Buffer ae 66 e8 2d a2 66 7f 86 31 3a ef eb 33 56 b1 61 89 75 c5 f4>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 13>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1299'
+}
+Counterexample: {
+  sender: <Buffer ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff fe>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 5d>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '93'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 4e>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 ab>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '427'
+}
+Counterexample: {
+  sender: <Buffer ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff df>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 63>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '99'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 12>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 7b>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '123'
+}
+Counterexample: {
+  sender: <Buffer 57 95 5c af 85 7b 9f c0 89 42 78 a2 98 31 be 6c 82 5b 3c bf>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 fb>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1275'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 15>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 37>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1335'
+}
+Counterexample: {
+  sender: <Buffer 32 cf c6 ef 09 d7 5b 81 69 ab 0d af 50 de f5 55 49 4b 5f 98>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '3'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ee>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '3'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0f>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 35>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '821'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 05 6f>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 43>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '323'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 3a>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 07>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '519'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 04 a2>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '17'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2c>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '1'
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 36>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 58 58 d1 61 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 7b>,
+  contractName: 'default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequence',
+  signature: 'work(uint256)',
+  args: '123'
+}
+
+Failure (175): setUp()
+Reason: setup failed: invalid rpc url: rpcAlias
+
+Failure (176): test_writeJson()
+Reason: the path fixtures/Json/write_test.json is not allowed to be accessed for write operations
+
+Failure (177): test_serializeNotSimpleJson()
+Decoded Logs: {"a":123,"b":"test","c":{"a":123,"b":"test"}}
+Reason: the path fixtures/Json/write_complex_test.json is not allowed to be accessed for write operations
+
+Failure (178): test_serializeArray()
+Reason: the path fixtures/Json/write_test_array.json is not allowed to be accessed for write operations
+
+Failure (179): test_retrieveEntireJson()
+Reason: the path fixtures/Json/write_complex_test.json is not allowed to be accessed for read operations
+
+Failure (180): test_checkKeyExistsJson()
+Reason: the path fixtures/Json/write_complex_test.json is not allowed to be accessed for read operations
+
+Failure (181): test_checkKeyDoesNotExistJson()
+Reason: the path fixtures/Json/write_complex_test.json is not allowed to be accessed for read operations
+
+Failure (182): test_writeToml()
+Reason: the path fixtures/Toml/write_test.toml is not allowed to be accessed for write operations
+
+Failure (183): test_serializeNotSimpleToml()
+Decoded Logs: {"a":123,"b":"test","c":{"a":123,"b":"test"}}
+Reason: the path fixtures/Toml/write_complex_test.toml is not allowed to be accessed for write operations
+
+Failure (184): test_retrieveEntireToml()
+Reason: the path fixtures/Toml/write_complex_test.toml is not allowed to be accessed for read operations
+
+Failure (185): test_checkKeyExists()
+Reason: the path fixtures/Toml/write_complex_test.toml is not allowed to be accessed for read operations
+
+Failure (186): test_checkKeyDoesNotExist()
+Reason: the path fixtures/Toml/write_complex_test.toml is not allowed to be accessed for read operations
+
+Failure (187): setUp()
+Reason: setup failed: invalid rpc url: rpcAlias
+
+Failure (188): testUnixTimeAgainstDate()
+Reason: FFI is disabled; add the `--ffi` flag to allow tests to call external commands
+
+Failure (189): invariantTrueWorld()
+Reason: revert: false world
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 de ad be ef>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 2e e7 9d ed>,
+  contractName: 'default/fuzz/invariant/target/TargetSenders.t.sol:Hello',
+  signature: 'change()',
+  args: ''
+}
+
+Failure (190): invariantShouldFail()
+Reason: revert: false world
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0b 31>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer 2e e7 9d ed>,
+  contractName: 'default/fuzz/invariant/targetAbi/TargetArtifacts.t.sol:Targeted',
+  signature: 'change()',
+  args: ''
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 06 22>,
+  address: <Buffer 2e 23 4d ae 75 c7 93 f6 7a 35 08 9c 9d 99 24 5e 1c 58 47 0b>,
+  calldata: <Buffer 2e e7 9d ed>,
+  contractName: 'default/fuzz/invariant/targetAbi/TargetArtifacts.t.sol:Targeted',
+  signature: 'change()',
+  args: ''
+}
+
+Failure (191): invariantTrueWorld()
+Reason: revert: false world
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 07 f1>,
+  address: <Buffer 2e 23 4d ae 75 c7 93 f6 7a 35 08 9c 9d 99 24 5e 1c 58 47 0b>,
+  calldata: <Buffer 2e 2a 1b 7d>
+}
+
+Failure (192): invariantShouldFail()
+Reason: revert: it's false
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 63>,
+  address: <Buffer 56 15 de b7 98 bb 3e 4d fa 01 39 df a1 b3 d4 33 cc 23 b7 2f>,
+  calldata: <Buffer ef c8 1a 8c>,
+  contractName: 'default/fuzz/invariant/targetAbi/TargetArtifactSelectors2.t.sol:Parent',
+  signature: 'create()',
+  args: ''
+}
+Counterexample: {
+  sender: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 0c 56>,
+  address: <Buffer 10 4f bc 01 6f 4b b3 34 d7 75 a1 9e 8a 65 10 10 9a c6 3e 00>,
+  calldata: <Buffer c1 ed 87 b1>,
+  contractName: 'default/fuzz/invariant/targetAbi/TargetArtifactSelectors2.t.sol:Child',
+  signature: 'change_parent()',
+  args: ''
+}
