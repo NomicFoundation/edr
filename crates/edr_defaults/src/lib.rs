@@ -1,4 +1,5 @@
 use alloy_primitives::{address, Address};
+use ruint::aliases::U256;
 
 /// The default secret keys from which the local accounts will be derived.
 pub const SECRET_KEYS: [&str; 20] = [
@@ -53,3 +54,6 @@ pub const DEV_CHAIN_ID: u64 = 31337;
 /// The first four bytes of the call data for a function call specifies the
 /// function to be called.
 pub const SELECTOR_LEN: usize = 4;
+
+/// Terminal total difficulty for the Merge on main net
+pub const TERMINAL_TOTAL_DIFFICULTY: U256 = ruint::uint!(58750000000000000000000_U256);

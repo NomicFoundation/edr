@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.6.4
+
+### Patch Changes
+
+- 14620c9: Fix panic due to remote nodes not returning total difficulty by adding fallback value
+
 ## 0.6.3
 
 ### Patch Changes
