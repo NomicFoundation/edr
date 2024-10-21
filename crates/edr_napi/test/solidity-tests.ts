@@ -57,6 +57,25 @@ describe("Solidity Tests", () => {
       Error
     );
   });
+
+  it("error callback is called if contract bytecode is invalid", async function () {
+    const artifacts = [
+      loadContract("./artifacts/SetupConsistencyCheck.json"),
+      loadContract("./artifacts/PaymentFailureTest.json"),
+    ];
+    // All artifacts are test suites.
+    const testSuites = artifacts.map((artifact) => artifact.id);
+    const config = {
+      projectRoot: __dirname,
+    };
+
+    artifacts[0].contract.bytecode = "invalid bytecode";
+
+    await assert.isRejected(
+      runAllSolidityTests(artifacts, testSuites, config),
+      "Invalid hex bytecode for contract"
+    );
+  });
 });
 
 // Load a contract built with Hardhat into a test suite

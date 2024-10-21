@@ -3,10 +3,10 @@ mod config;
 mod runner;
 mod test_results;
 
-use std::{collections::BTreeMap, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use artifact::Artifact;
-use edr_solidity_tests::{contracts::ContractsByArtifact, TestFilter};
+use edr_solidity_tests::TestFilter;
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -52,23 +52,6 @@ pub fn run_solidity_tests(
             |ctx: ThreadSafeCallContext<napi::Error>| Ok(vec![ctx.value]),
         )?;
 
-    let known_contracts: ContractsByArtifact = artifacts
-        .into_iter()
-        .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
-        .collect::<Result<
-            BTreeMap<
-                edr_solidity_tests::contracts::ArtifactId,
-                edr_solidity_tests::contracts::ContractData,
-            >,
-            napi::Error,
-        >>()?
-        .into();
-
-    let test_suites = test_suites
-        .into_iter()
-        .map(TryInto::try_into)
-        .collect::<Result<Vec<_>, _>>()?;
-
     let (tx_results, mut rx_results) = tokio::sync::mpsc::unbounded_channel::<(
         edr_solidity_tests::contracts::ArtifactId,
         edr_solidity_tests::result::SuiteResult,
@@ -76,7 +59,7 @@ pub fn run_solidity_tests(
 
     let runtime = runtime::Handle::current();
     runtime.spawn(async move {
-        let runner = match build_runner(known_contracts, test_suites, config_args).await {
+        let runner = match build_runner(artifacts, test_suites, config_args).await {
             Ok(runner) => runner,
             Err(error) => {
                 let call_status =
