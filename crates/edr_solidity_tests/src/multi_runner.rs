@@ -2,12 +2,11 @@
 
 use std::{collections::BTreeMap, fmt::Debug, path::PathBuf, sync::Arc, time::Instant};
 
-use alloy_json_abi::{Function, JsonAbi};
+use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
 use eyre::Result;
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
-    abi::TestFunctionExt,
     backend::Backend,
     contracts::{get_contract_name, ArtifactId, ContractsByArtifact},
     decode::RevertDecoder,
@@ -229,7 +228,7 @@ impl MultiContractRunner {
     ) -> impl Iterator<Item = (&ArtifactId, &TestContract)> {
         self.test_contracts
             .iter()
-            .filter(|&(id, TestContract { abi, .. })| matches_contract(id, abi, filter))
+            .filter(|&(id, _)| matches_contract(id, filter))
     }
 
     fn run_tests(
@@ -295,13 +294,6 @@ impl MultiContractRunner {
     }
 }
 
-fn matches_contract(id: &ArtifactId, abi: &JsonAbi, filter: &dyn TestFilter) -> bool {
-    (filter.matches_path(&id.source) && filter.matches_contract(&id.name))
-        && abi.functions().any(|func| is_matching_test(func, filter))
-}
-
-/// Returns `true` if the function is a test function that matches the given
-/// filter.
-pub(crate) fn is_matching_test(func: &Function, filter: &dyn TestFilter) -> bool {
-    (func.is_test() || func.is_invariant_test()) && filter.matches_test(&func.signature())
+fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
+    filter.matches_path(&id.source) && filter.matches_contract(&id.name)
 }

@@ -38,7 +38,7 @@ use rayon::prelude::*;
 
 use crate::{
     fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
-    multi_runner::{is_matching_test, TestContract},
+    multi_runner::TestContract,
     result::{SuiteResult, TestKind, TestResult, TestSetup, TestStatus},
     traces::Traces,
     TestFilter, TestOptions,
@@ -1016,4 +1016,10 @@ fn merge_coverages(mut coverage: Option<HitMaps>, other: Option<HitMaps>) -> Opt
         (Some(old_coverage), None) => Some(old_coverage),
         (None, None) => None,
     }
+}
+
+/// Returns `true` if the function is a test function that matches the given
+/// filter.
+fn is_matching_test(func: &Function, filter: &dyn TestFilter) -> bool {
+    (func.is_test() || func.is_invariant_test()) && filter.matches_test(&func.signature())
 }
