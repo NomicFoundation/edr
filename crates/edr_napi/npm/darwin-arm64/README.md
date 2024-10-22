@@ -1,3 +1,3 @@
-# `@nomicfoundation/edr-darwin-arm64`
+# `@ignored/edr-optimism-darwin-arm64`
 
-This is the **aarch64-apple-darwin** binary for `@nomicfoundation/edr`
+This is the **aarch64-apple-darwin** binary for `@ignored/edr-optimism`

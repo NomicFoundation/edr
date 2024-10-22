@@ -1,4 +1,4 @@
-import { stackTraceEntryTypeToString } from "@nomicfoundation/edr";
+import { stackTraceEntryTypeToString } from "@ignored/edr-optimism";
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
