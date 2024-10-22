@@ -1,5 +1,18 @@
 # @nomicfoundation/edr
 
+## 0.6.4
+
+### Patch Changes
+
+- 14620c9: Fix panic due to remote nodes not returning total difficulty by adding fallback value
+
+## 0.6.3
+
+### Patch Changes
+
+- a1cee4f: fix(tracing): Make sure to correctly 0x-prefix hex encoded strings in custom error message
+- 7047e6c: Fixed panic from unknown opcode in stack traces
+
 ## 0.6.2
 
 ### Patch Changes

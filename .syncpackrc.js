@@ -10,6 +10,11 @@ const config = {
       // latest ethers v5 version
       pinVersion: "5.7.2",
     },
+    {
+      packages: ["**"],
+      dependencies: ["@nomicfoundation/edr"],
+      dependencyTypes: ["local"],
+    },
   ],
   semverGroups: [
     {

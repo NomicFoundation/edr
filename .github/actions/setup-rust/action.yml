@@ -26,5 +26,3 @@ runs:
         # By default, we do not override the toolchain from rust-toolchain.
         # The user needs to explicitly use `<cmd> +<toolchain>` for clarity.
         override: false
-
-    - uses: Swatinem/rust-cache@v2

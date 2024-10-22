@@ -215,9 +215,13 @@ where
             .get_block_by_hash_with_transaction_data(*hash)
             .await?
         {
+            // Geth has recently removed the total difficulty field from block RPC
+            // responses, so we fall back to the terminal total difficulty of main net to
+            // provide backwards compatibility.
+            // TODO https://github.com/NomicFoundation/edr/issues/696
             let total_difficulty = *block
                 .total_difficulty()
-                .expect("Must be present as this is not a pending transaction");
+                .unwrap_or(&edr_defaults::TERMINAL_TOTAL_DIFFICULTY);
 
             self.fetch_and_cache_block(cache, block).await?;
 
@@ -234,9 +238,13 @@ where
         cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT, ChainSpecT>>,
         block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
     ) -> Result<BlockT, ForkedBlockchainError<ChainSpecT>> {
+        // Geth has recently removed the total difficulty field from block RPC
+        // responses, so we fall back to the terminal total difficulty of main net to
+        // provide backwards compatibility.
+        // TODO https://github.com/NomicFoundation/edr/issues/696
         let total_difficulty = *block
             .total_difficulty()
-            .expect("Must be present as this is not a pending block");
+            .unwrap_or(&edr_defaults::TERMINAL_TOTAL_DIFFICULTY);
 
         let block = RemoteBlock::new(block, self.client.clone(), self.runtime.clone())
             .map_err(ForkedBlockchainError::BlockCreation)?;

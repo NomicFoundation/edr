@@ -4,6 +4,7 @@
   "author": "Nomic Foundation",
   "devDependencies": {
     "@metamask/eth-sig-util": "^4.0.0",
+    "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/ethereumjs-block": "5.0.4",
     "@nomicfoundation/ethereumjs-common": "^4.0.4",
     "@nomicfoundation/ethereumjs-tx": "^5.0.4",
@@ -38,7 +39,7 @@
     "ethereumjs-abi": "^0.6.8",
     "ethers": "^6.1.0",
     "fs-extra": "^7.0.1",
-    "hardhat": "2.22.10",
+    "hardhat": "2.22.13",
     "mocha": "^10.0.0",
     "prettier": "^3.2.5",
     "rimraf": "^3.0.2",
