@@ -520,6 +520,18 @@ fn rpc_endpoints() -> RpcEndpoints {
             ),
         ),
         (
+            "mainnet2",
+            RpcEndpoint::Url(
+                "https://eth-mainnet.alchemyapi.io/v2/9VWGraLx0tMiSWx05WH-ywgSVmMxs66W".to_string(),
+            ),
+        ),
+        (
+            "mainnet3",
+            RpcEndpoint::Url(
+                "https://eth-mainnet.alchemyapi.io/v2/QC55XC151AgkS3FNtWvz9VZGeu9Xd9lb".to_string(),
+            ),
+        ),
+        (
             "rpcAliasSepolia",
             RpcEndpoint::Url(
                 "https://eth-sepolia.g.alchemy.com/v2/Lc7oIGYeL_QvInzI0Wiu_pOZZDEKBrdf".to_string(),
@@ -528,6 +540,19 @@ fn rpc_endpoints() -> RpcEndpoints {
         (
             "rpcEnvAlias",
             RpcEndpoint::Env("${RPC_ENV_ALIAS}".to_string()),
+        ),
+        (
+            "optimism",
+            RpcEndpoint::Url(
+                "https://opt-mainnet.g.alchemy.com/v2/UVatYU2Ax0rX6bDiqddeTRDdcCxzdpoE".to_string(),
+            ),
+        ),
+        (
+            "polygon",
+            RpcEndpoint::Url(
+                "https://polygon-mainnet.g.alchemy.com/v2/bVjX9v-FpmUhf5R_oHIgwJx2kXvYPRbx"
+                    .to_string(),
+            ),
         ),
     ])
 }

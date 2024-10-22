@@ -36,7 +36,7 @@ contract ForkTest is DSTest {
     // this will create two _different_ forks during setup
     function setUp() public {
         mainnetFork = vm.createFork("rpcAlias");
-        optimismFork = vm.createFork("https://opt-mainnet.g.alchemy.com/v2/UVatYU2Ax0rX6bDiqddeTRDdcCxzdpoE");
+        optimismFork = vm.createFork("optimism");
     }
 
     // ensures forks use different ids
