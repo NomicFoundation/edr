@@ -5,12 +5,15 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  hardhat>@nomicfoundation/edr: workspace:*
+  hardhat>@ignored/edr-optimism: workspace:*
 
 patchedDependencies:
   '@defi-wonderland/smock@2.4.0':
     hash: zemhiof4b3pqw5bzdzeiyb46dm
     path: patches/@defi-wonderland__smock@2.4.0.patch
+  hardhat@2.23.1-alpha.0:
+    hash: kxz7bity7g7575gq6l2ny4tn3u
+    path: patches/hardhat@2.23.1-alpha.0.patch
 
 importers:
 
@@ -132,7 +135,7 @@ importers:
         version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
       hardhat:
         specifier: 2.23.1-alpha.0
-        version: 2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
+        version: 2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
       lodash:
         specifier: ^4.17.11
         version: 4.17.21
@@ -148,12 +151,12 @@ importers:
 
   hardhat-tests:
     devDependencies:
+      '@ignored/edr-optimism':
+        specifier: workspace:*
+        version: link:../crates/edr_napi
       '@metamask/eth-sig-util':
         specifier: ^4.0.0
         version: 4.0.1
-      '@nomicfoundation/edr':
-        specifier: workspace:*
-        version: link:../crates/edr_napi
       '@nomicfoundation/ethereumjs-block':
         specifier: 5.0.4
         version: 5.0.4
@@ -258,7 +261,7 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 2.23.1-alpha.0
-        version: 2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
+        version: 2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
@@ -288,10 +291,10 @@ importers:
     devDependencies:
       '@defi-wonderland/smock':
         specifier: ^2.4.0
-        version: 2.4.0(patch_hash=zemhiof4b3pqw5bzdzeiyb46dm)(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)))(ethers@5.7.2)(hardhat@2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))
+        version: 2.4.0(patch_hash=zemhiof4b3pqw5bzdzeiyb46dm)(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)))(ethers@5.7.2)(hardhat@2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))
       '@nomiclabs/hardhat-ethers':
         specifier: ^2.2.3
-        version: 2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))
+        version: 2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))
       '@types/node':
         specifier: ^20.0.0
         version: 20.16.1
@@ -303,7 +306,7 @@ importers:
         version: 5.7.2
       hardhat:
         specifier: 2.23.1-alpha.0
-        version: 2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
+        version: 2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
@@ -740,6 +743,38 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@nomicfoundation/edr-darwin-arm64@0.12.0-alpha.0':
+    resolution: {integrity: sha512-UQ/wcobsLDBNAIGu4jQJepk4c4v0HiInAQ9y0f6VEU4cd7x2eZfJsGL97f4TRQp0CWR9QoHrSUSl6ksSS34wYw==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-darwin-x64@0.12.0-alpha.0':
+    resolution: {integrity: sha512-LWvGzpmdNSOHCJPOPi4Ix6TXbAQjg79EuvSReCdWsmEVaHCFVMe2V7869QcmzxL5kghjDa3ErAwTrMJBGK4Hqg==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-linux-arm64-gnu@0.12.0-alpha.0':
+    resolution: {integrity: sha512-mrlGr/jUy07UD08bM1bat0ijbqQ1tBBxQjD3dwM4tlFj27fKDOZEleW70esR0AbVXPQQuFHnbfda75cey5kGKA==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-linux-arm64-musl@0.12.0-alpha.0':
+    resolution: {integrity: sha512-UHA5p6tODWOUM/k7olsJ+8TdpZva0SaDAd8Nnq53ewCrrLRl/2ezX8TIegbBMMcridOAH7fwRdRSqxuEkL37Qw==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-linux-x64-gnu@0.12.0-alpha.0':
+    resolution: {integrity: sha512-9IvRZLxTkPISY9o48c7rDVEEOZrOLEBJ7dvwoZtoDxkZEIOoBLXFVpdRjf/wqSgLVzcgsL7HkwzFM5CSkZqscw==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-linux-x64-musl@0.12.0-alpha.0':
+    resolution: {integrity: sha512-ts3XmtJJNIJY/kk32sBpR1U+n2zU2eaSXoQpEORTkHUilm+buQ6iVd48JxsmY01z1gUobwo6d7vwHtk99f+ESQ==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr-win32-x64-msvc@0.12.0-alpha.0':
+    resolution: {integrity: sha512-0/6cRpQjq+HHLeAFJNl6RPqLqlx7afnsRqPmG4XSmZtqDC+FenMaLaMZZxSvaJVkmsNuzTU49QLXIfvHJ10Nyw==}
+    engines: {node: '>= 18'}
+
+  '@nomicfoundation/edr@0.12.0-alpha.0':
+    resolution: {integrity: sha512-ddH6KfWkQ44TPgUPfULinN3bFTsDdY1UqIAeAxFnLFDqV5sXuHHvjGKSyBBe+pVdvmt8CWgF9mXdlScMNkzCSA==}
+    engines: {node: '>= 18'}
 
   '@nomicfoundation/ethereumjs-block@5.0.4':
     resolution: {integrity: sha512-AcyacJ9eX/uPEvqsPiB+WO1ymE+kyH48qGGiGV+YTojdtas8itUTW5dehDSOXEEItWGbbzEJ4PRqnQZlWaPvDw==}
@@ -3394,16 +3429,16 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@defi-wonderland/smock@2.4.0(patch_hash=zemhiof4b3pqw5bzdzeiyb46dm)(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)))(ethers@5.7.2)(hardhat@2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))':
+  '@defi-wonderland/smock@2.4.0(patch_hash=zemhiof4b3pqw5bzdzeiyb46dm)(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)))(ethers@5.7.2)(hardhat@2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))':
     dependencies:
       '@ethersproject/abi': 5.7.0
       '@ethersproject/abstract-provider': 5.7.0
       '@ethersproject/abstract-signer': 5.7.0
       '@nomicfoundation/ethereumjs-util': 9.0.4
-      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))
+      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))
       diff: 5.0.0
       ethers: 5.7.2
-      hardhat: 2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
+      hardhat: 2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
       lodash.isequal: 4.5.0
       lodash.isequalwith: 4.4.0
       rxjs: 7.8.1
@@ -3853,6 +3888,30 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.17.1
 
+  '@nomicfoundation/edr-darwin-arm64@0.12.0-alpha.0': {}
+
+  '@nomicfoundation/edr-darwin-x64@0.12.0-alpha.0': {}
+
+  '@nomicfoundation/edr-linux-arm64-gnu@0.12.0-alpha.0': {}
+
+  '@nomicfoundation/edr-linux-arm64-musl@0.12.0-alpha.0': {}
+
+  '@nomicfoundation/edr-linux-x64-gnu@0.12.0-alpha.0': {}
+
+  '@nomicfoundation/edr-linux-x64-musl@0.12.0-alpha.0': {}
+
+  '@nomicfoundation/edr-win32-x64-msvc@0.12.0-alpha.0': {}
+
+  '@nomicfoundation/edr@0.12.0-alpha.0':
+    dependencies:
+      '@nomicfoundation/edr-darwin-arm64': 0.12.0-alpha.0
+      '@nomicfoundation/edr-darwin-x64': 0.12.0-alpha.0
+      '@nomicfoundation/edr-linux-arm64-gnu': 0.12.0-alpha.0
+      '@nomicfoundation/edr-linux-arm64-musl': 0.12.0-alpha.0
+      '@nomicfoundation/edr-linux-x64-gnu': 0.12.0-alpha.0
+      '@nomicfoundation/edr-linux-x64-musl': 0.12.0-alpha.0
+      '@nomicfoundation/edr-win32-x64-msvc': 0.12.0-alpha.0
+
   '@nomicfoundation/ethereumjs-block@5.0.4':
     dependencies:
       '@nomicfoundation/ethereumjs-common': 4.0.4
@@ -3938,10 +3997,10 @@ snapshots:
       '@nomicfoundation/solidity-analyzer-win32-ia32-msvc': 0.1.1
       '@nomicfoundation/solidity-analyzer-win32-x64-msvc': 0.1.1
 
-  '@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))':
+  '@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4))':
     dependencies:
       ethers: 5.7.2
-      hardhat: 2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
+      hardhat: 2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4)
 
   '@pkgr/core@0.1.1': {}
 
@@ -5275,11 +5334,11 @@ snapshots:
 
   hard-rejection@2.1.0: {}
 
-  hardhat@2.23.1-alpha.0(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4):
+  hardhat@2.23.1-alpha.0(patch_hash=kxz7bity7g7575gq6l2ny4tn3u)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.0.4))(typescript@5.0.4):
     dependencies:
       '@ethereumjs/util': 9.1.0
       '@ethersproject/abi': 5.7.0
-      '@nomicfoundation/edr': link:crates/edr_napi
+      '@nomicfoundation/edr': 0.12.0-alpha.0
       '@nomicfoundation/solidity-analyzer': 0.1.1
       '@sentry/node': 5.30.0
       '@types/bn.js': 5.1.5

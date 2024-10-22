@@ -3,7 +3,7 @@ import {
   linkHexStringBytecode,
   stackTraceEntryTypeToString,
   TracingConfigWithBuffers,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr-optimism";
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
