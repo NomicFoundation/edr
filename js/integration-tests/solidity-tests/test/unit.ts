@@ -8,6 +8,15 @@ describe("Unit tests", () => {
     testContext = await TestContext.setup();
   });
 
+  // Empty test suite should still return a result.
+  it("Empty", async function () {
+    const { totalTests, failedTests } =
+      await testContext.runTestsWithStats("EmptyTest");
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 0);
+  });
+
   it("SuccessAndFailure", async function () {
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
       "SuccessAndFailureTest"

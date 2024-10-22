@@ -11,7 +11,7 @@ async fn test_cheats_fork_revert() {
     let filter = SolidityTestFilter::new(
         "testNonExistingContractRevert",
         ".*",
-        &format!(".*cheats{RE_PATH_SEPARATOR}Fork"),
+        &format!(".*cheats{RE_PATH_SEPARATOR}Fork2"),
     );
     let runner = TEST_DATA_DEFAULT.runner().await;
     let suite_result = runner.test_collect(filter).await;
