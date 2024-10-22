@@ -37,7 +37,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./edr.android-arm64.node')
           } else {
-            nativeBinding = require('@nomicfoundation/edr-android-arm64')
+            nativeBinding = require('@ignored/edr-optimism-android-arm64')
           }
         } catch (e) {
           loadError = e
@@ -49,7 +49,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./edr.android-arm-eabi.node')
           } else {
-            nativeBinding = require('@nomicfoundation/edr-android-arm-eabi')
+            nativeBinding = require('@ignored/edr-optimism-android-arm-eabi')
           }
         } catch (e) {
           loadError = e
@@ -69,7 +69,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./edr.win32-x64-msvc.node')
           } else {
-            nativeBinding = require('@nomicfoundation/edr-win32-x64-msvc')
+            nativeBinding = require('@ignored/edr-optimism-win32-x64-msvc')
           }
         } catch (e) {
           loadError = e
@@ -83,7 +83,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./edr.win32-ia32-msvc.node')
           } else {
-            nativeBinding = require('@nomicfoundation/edr-win32-ia32-msvc')
+            nativeBinding = require('@ignored/edr-optimism-win32-ia32-msvc')
           }
         } catch (e) {
           loadError = e
@@ -97,7 +97,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./edr.win32-arm64-msvc.node')
           } else {
-            nativeBinding = require('@nomicfoundation/edr-win32-arm64-msvc')
+            nativeBinding = require('@ignored/edr-optimism-win32-arm64-msvc')
           }
         } catch (e) {
           loadError = e
@@ -113,7 +113,7 @@ switch (platform) {
       if (localFileExisted) {
         nativeBinding = require('./edr.darwin-universal.node')
       } else {
-        nativeBinding = require('@nomicfoundation/edr-darwin-universal')
+        nativeBinding = require('@ignored/edr-optimism-darwin-universal')
       }
       break
     } catch {}
@@ -124,7 +124,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./edr.darwin-x64.node')
           } else {
-            nativeBinding = require('@nomicfoundation/edr-darwin-x64')
+            nativeBinding = require('@ignored/edr-optimism-darwin-x64')
           }
         } catch (e) {
           loadError = e
@@ -138,7 +138,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./edr.darwin-arm64.node')
           } else {
-            nativeBinding = require('@nomicfoundation/edr-darwin-arm64')
+            nativeBinding = require('@ignored/edr-optimism-darwin-arm64')
           }
         } catch (e) {
           loadError = e
@@ -157,7 +157,7 @@ switch (platform) {
       if (localFileExisted) {
         nativeBinding = require('./edr.freebsd-x64.node')
       } else {
-        nativeBinding = require('@nomicfoundation/edr-freebsd-x64')
+        nativeBinding = require('@ignored/edr-optimism-freebsd-x64')
       }
     } catch (e) {
       loadError = e
@@ -174,7 +174,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./edr.linux-x64-musl.node')
             } else {
-              nativeBinding = require('@nomicfoundation/edr-linux-x64-musl')
+              nativeBinding = require('@ignored/edr-optimism-linux-x64-musl')
             }
           } catch (e) {
             loadError = e
@@ -187,7 +187,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./edr.linux-x64-gnu.node')
             } else {
-              nativeBinding = require('@nomicfoundation/edr-linux-x64-gnu')
+              nativeBinding = require('@ignored/edr-optimism-linux-x64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -203,7 +203,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./edr.linux-arm64-musl.node')
             } else {
-              nativeBinding = require('@nomicfoundation/edr-linux-arm64-musl')
+              nativeBinding = require('@ignored/edr-optimism-linux-arm64-musl')
             }
           } catch (e) {
             loadError = e
@@ -216,7 +216,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./edr.linux-arm64-gnu.node')
             } else {
-              nativeBinding = require('@nomicfoundation/edr-linux-arm64-gnu')
+              nativeBinding = require('@ignored/edr-optimism-linux-arm64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -232,7 +232,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./edr.linux-arm-musleabihf.node')
             } else {
-              nativeBinding = require('@nomicfoundation/edr-linux-arm-musleabihf')
+              nativeBinding = require('@ignored/edr-optimism-linux-arm-musleabihf')
             }
           } catch (e) {
             loadError = e
@@ -245,7 +245,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./edr.linux-arm-gnueabihf.node')
             } else {
-              nativeBinding = require('@nomicfoundation/edr-linux-arm-gnueabihf')
+              nativeBinding = require('@ignored/edr-optimism-linux-arm-gnueabihf')
             }
           } catch (e) {
             loadError = e
@@ -261,7 +261,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./edr.linux-riscv64-musl.node')
             } else {
-              nativeBinding = require('@nomicfoundation/edr-linux-riscv64-musl')
+              nativeBinding = require('@ignored/edr-optimism-linux-riscv64-musl')
             }
           } catch (e) {
             loadError = e
@@ -274,7 +274,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./edr.linux-riscv64-gnu.node')
             } else {
-              nativeBinding = require('@nomicfoundation/edr-linux-riscv64-gnu')
+              nativeBinding = require('@ignored/edr-optimism-linux-riscv64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -289,7 +289,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./edr.linux-s390x-gnu.node')
           } else {
-            nativeBinding = require('@nomicfoundation/edr-linux-s390x-gnu')
+            nativeBinding = require('@ignored/edr-optimism-linux-s390x-gnu')
           }
         } catch (e) {
           loadError = e
@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1GenesisState, l1HardforkFromString, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, MineOrdering, EdrContext, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, linkHexStringBytecode, printStackTrace, Exit, ExitCode, BytecodeWrapper, ContractFunctionType, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, RawTrace, getLatestSupportedSolcVersion } = nativeBinding
+const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1GenesisState, l1HardforkFromString, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, OPTIMISM_CHAIN_TYPE, optimismProviderFactory, MineOrdering, EdrContext, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, linkHexStringBytecode, printStackTrace, Exit, ExitCode, BytecodeWrapper, ContractFunctionType, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, RawTrace, getLatestSupportedSolcVersion } = nativeBinding
 
 module.exports.GENERIC_CHAIN_TYPE = GENERIC_CHAIN_TYPE
 module.exports.genericChainProviderFactory = genericChainProviderFactory
@@ -340,6 +340,8 @@ module.exports.CANCUN = CANCUN
 module.exports.PRAGUE = PRAGUE
 module.exports.PRAGUE_EOF = PRAGUE_EOF
 module.exports.LATEST = LATEST
+module.exports.OPTIMISM_CHAIN_TYPE = OPTIMISM_CHAIN_TYPE
+module.exports.optimismProviderFactory = optimismProviderFactory
 module.exports.MineOrdering = MineOrdering
 module.exports.EdrContext = EdrContext
 module.exports.ProviderFactory = ProviderFactory
