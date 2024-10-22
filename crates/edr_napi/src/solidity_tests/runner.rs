@@ -1,17 +1,33 @@
+use std::collections::BTreeMap;
+
 use edr_solidity_tests::{
-    contracts::{ArtifactId, ContractsByArtifact},
+    contracts::{ArtifactId, ContractData, ContractsByArtifact},
     decode::RevertDecoder,
     multi_runner::{TestContract, TestContracts},
     MultiContractRunner, SolidityTestRunnerConfig,
 };
 
-use crate::solidity_tests::config::SolidityTestRunnerConfigArgs;
+use crate::solidity_tests::{
+    artifact::{Artifact as JsArtifact, ArtifactId as JsArtifactId},
+    config::SolidityTestRunnerConfigArgs,
+};
 
 pub(super) async fn build_runner(
-    known_contracts: ContractsByArtifact,
-    test_suites: Vec<ArtifactId>,
+    artifacts: Vec<JsArtifact>,
+    test_suites: Vec<JsArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
 ) -> napi::Result<MultiContractRunner> {
+    let known_contracts: ContractsByArtifact = artifacts
+        .into_iter()
+        .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
+        .collect::<Result<BTreeMap<ArtifactId, ContractData>, napi::Error>>()?
+        .into();
+
+    let test_suites = test_suites
+        .into_iter()
+        .map(TryInto::try_into)
+        .collect::<Result<Vec<ArtifactId>, _>>()?;
+
     let config: SolidityTestRunnerConfig = config_args.try_into()?;
 
     // Build revert decoder from ABIs of all artifacts.
