@@ -15,6 +15,7 @@ use alloy_primitives::U256;
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
+    revm::primitives::SpecId,
     MultiContractRunner, SolidityTestRunnerConfig,
 };
 use edr_test_utils::new_fd_lock;
@@ -91,6 +92,7 @@ impl ForgeTestProfile {
             initial_balance: U256::MAX,
             ffi: true,
             memory_limit: 1 << 26,
+            spec: SpecId::CANCUN,
             ..EvmOpts::default()
         }
     }

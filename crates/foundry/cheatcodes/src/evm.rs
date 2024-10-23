@@ -436,7 +436,7 @@ impl Cheatcode for etchCall {
         } = self;
         ensure_not_precompile!(target, ccx);
         ccx.ecx.load_account(*target)?;
-        let bytecode = Bytecode::new_raw(Bytes::copy_from_slice(newRuntimeBytecode)).to_checked();
+        let bytecode = Bytecode::new_raw(Bytes::copy_from_slice(newRuntimeBytecode));
         ccx.ecx.journaled_state.set_code(*target, bytecode);
         Ok(Vec::default())
     }

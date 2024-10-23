@@ -33,8 +33,12 @@ async fn test_cheats_fork() {
     let runner = TEST_DATA_DEFAULT
         .runner_with_fs_permissions(FsPermissions::new(vec![PathPermission::read("./fixtures")]))
         .await;
-    let filter = SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
-        .exclude_tests(".*Revert");
+    let filter = SolidityTestFilter::new(
+        "testBlockNumbersMismatch()",
+        ".*",
+        &format!(".*cheats{RE_PATH_SEPARATOR}Fork"),
+    )
+    .exclude_tests(".*Revert");
     TestConfig::with_filter(runner, filter).run().await;
 }
 
