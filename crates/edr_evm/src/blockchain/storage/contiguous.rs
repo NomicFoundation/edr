@@ -8,31 +8,31 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use edr_eth::{receipt::BlockReceipt, transaction::Transaction, B256, U256};
+use edr_eth::{transaction::ExecutableTransaction as _, B256, U256};
 use revm::primitives::HashMap;
 
 use super::InsertError;
-use crate::{chain_spec::ChainSpec, Block, LocalBlock};
+use crate::{spec::RuntimeSpec, Block, BlockReceipt, LocalBlock};
 
 /// A storage solution for storing a Blockchain's blocks contiguously in-memory.
 #[derive(Clone, Default, Debug)]
 pub struct ContiguousBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone + ?Sized,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     blocks: Vec<BlockT>,
     hash_to_block: HashMap<B256, BlockT>,
     total_difficulties: Vec<U256>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
-    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt>>,
+    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt<ChainSpecT>>>,
     phantom: PhantomData<ChainSpecT>,
 }
 
 impl<BlockT, ChainSpecT> ContiguousBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     /// Retrieves the instance's blocks.
     pub fn blocks(&self) -> &[BlockT] {
@@ -55,7 +55,7 @@ where
     pub fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Option<&Arc<BlockReceipt>> {
+    ) -> Option<&Arc<BlockReceipt<ChainSpecT>>> {
         self.transaction_hash_to_receipt.get(transaction_hash)
     }
 
@@ -123,7 +123,7 @@ where
 impl<BlockT, ChainSpecT> ContiguousBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone + From<LocalBlock<ChainSpecT>>,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     /// Constructs a new instance with the provided block.
     pub fn with_block(block: LocalBlock<ChainSpecT>, total_difficulty: U256) -> Self {

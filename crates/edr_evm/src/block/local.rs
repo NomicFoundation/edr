@@ -1,32 +1,35 @@
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
+use derive_where::derive_where;
 use edr_eth::{
     block::{self, Header, PartialHeader},
-    log::{FilterLog, FullBlockLog, Log, ReceiptLog},
-    receipt::{BlockReceipt, TransactionReceipt, TypedReceipt},
+    keccak256, l1,
+    log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
+    receipt::{BlockReceipt, MapReceiptLogs as _, TransactionReceipt},
+    transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
     B256,
 };
 use itertools::izip;
-use revm::primitives::keccak256;
 
 use crate::{
     blockchain::BlockchainError,
-    chain_spec::{ChainSpec, SyncChainSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     transaction::DetailedTransaction,
-    Block, SpecId, SyncBlock,
+    Block, SyncBlock,
 };
 
 /// A locally mined block, which contains complete information.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
+#[derive(PartialEq, Eq, RlpEncodable)]
+#[derive_where(Clone, Debug; ChainSpecT::ExecutionReceipt<FilterLog>, ChainSpecT::SignedTransaction)]
 #[rlp(trailing)]
-pub struct LocalBlock<ChainSpecT: ChainSpec> {
+pub struct LocalBlock<ChainSpecT: RuntimeSpec> {
     header: block::Header,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     #[rlp(skip)]
-    transaction_receipts: Vec<Arc<BlockReceipt>>,
+    transaction_receipts: Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
     ommers: Vec<block::Header>,
     #[rlp(skip)]
     ommer_hashes: Vec<B256>,
@@ -35,10 +38,10 @@ pub struct LocalBlock<ChainSpecT: ChainSpec> {
     hash: B256,
 }
 
-impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
     /// Constructs an empty block, i.e. no transactions.
-    pub fn empty(spec_id: SpecId, partial_header: PartialHeader) -> Self {
-        let withdrawals = if spec_id >= SpecId::SHANGHAI {
+    pub fn empty(spec_id: ChainSpecT::Hardfork, partial_header: PartialHeader) -> Self {
+        let withdrawals = if spec_id.into() >= l1::SpecId::SHANGHAI {
             Some(Vec::default())
         } else {
             None
@@ -57,13 +60,16 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
     pub fn new(
         partial_header: PartialHeader,
         transactions: Vec<ChainSpecT::SignedTransaction>,
-        transaction_receipts: Vec<TransactionReceipt<Log>>,
+        transaction_receipts: Vec<
+            TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>,
+        >,
         ommers: Vec<Header>,
         withdrawals: Option<Vec<Withdrawal>>,
     ) -> Self {
         let ommer_hashes = ommers.iter().map(Header::hash).collect::<Vec<_>>();
         let ommers_hash = keccak256(alloy_rlp::encode(&ommers));
-        let transactions_root = trie::ordered_trie_root(transactions.iter().map(alloy_rlp::encode));
+        let transactions_root =
+            trie::ordered_trie_root(transactions.iter().map(ExecutableTransaction::rlp_encoding));
 
         let withdrawals_root = withdrawals
             .as_ref()
@@ -78,7 +84,7 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
 
         let hash = header.hash();
         let transaction_receipts =
-            transaction_to_block_receipts(&hash, header.number, transaction_receipts);
+            transaction_to_block_receipts::<ChainSpecT>(&hash, header.number, transaction_receipts);
 
         Self {
             header,
@@ -92,7 +98,9 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
     }
 
     /// Returns the receipts of the block's transactions.
-    pub fn transaction_receipts(&self) -> &[Arc<BlockReceipt>] {
+    pub fn transaction_receipts(
+        &self,
+    ) -> &[Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>] {
         &self.transaction_receipts
     }
 
@@ -109,8 +117,8 @@ impl<ChainSpecT: ChainSpec> LocalBlock<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
-    type Error = BlockchainError;
+impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
+    type Error = BlockchainError<ChainSpecT>;
 
     fn hash(&self) -> &B256 {
         &self.hash
@@ -131,7 +139,9 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
         &self.transactions
     }
 
-    fn transaction_receipts(&self) -> Result<Vec<Arc<BlockReceipt>>, Self::Error> {
+    fn transaction_receipts(
+        &self,
+    ) -> Result<Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>, Self::Error> {
         Ok(self.transaction_receipts.clone())
     }
 
@@ -144,11 +154,11 @@ impl<ChainSpecT: ChainSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
     }
 }
 
-fn transaction_to_block_receipts(
+fn transaction_to_block_receipts<ChainSpecT: RuntimeSpec>(
     block_hash: &B256,
     block_number: u64,
-    receipts: Vec<TransactionReceipt<Log>>,
-) -> Vec<Arc<BlockReceipt>> {
+    receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>>,
+) -> Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>> {
     let mut log_index = 0;
 
     receipts
@@ -156,46 +166,29 @@ fn transaction_to_block_receipts(
         .enumerate()
         .map(|(transaction_index, receipt)| {
             let transaction_index = transaction_index as u64;
+            let transaction_hash = receipt.transaction_hash;
 
             Arc::new(BlockReceipt {
-                inner: TransactionReceipt {
-                    inner: TypedReceipt {
-                        cumulative_gas_used: receipt.inner.cumulative_gas_used,
-                        logs_bloom: receipt.inner.logs_bloom,
-                        logs: receipt
-                            .inner
-                            .logs
-                            .into_iter()
-                            .map(|log| FilterLog {
-                                inner: FullBlockLog {
-                                    inner: ReceiptLog {
-                                        inner: log,
-                                        transaction_hash: receipt.transaction_hash,
-                                    },
-                                    block_hash: *block_hash,
-                                    block_number,
-                                    log_index: {
-                                        let index = log_index;
-                                        log_index += 1;
-                                        index
-                                    },
-                                    transaction_index,
-                                },
-                                // Assuming a local block is never reorged out.
-                                removed: false,
-                            })
-                            .collect(),
-                        data: receipt.inner.data,
-                        spec_id: receipt.inner.spec_id,
-                    },
-                    transaction_hash: receipt.transaction_hash,
-                    transaction_index,
-                    from: receipt.from,
-                    to: receipt.to,
-                    contract_address: receipt.contract_address,
-                    gas_used: receipt.gas_used,
-                    effective_gas_price: receipt.effective_gas_price,
-                },
+                inner: receipt.map_logs(|log| {
+                    FilterLog {
+                        inner: FullBlockLog {
+                            inner: ReceiptLog {
+                                inner: log,
+                                transaction_hash,
+                            },
+                            block_hash: *block_hash,
+                            block_number,
+                            log_index: {
+                                let index = log_index;
+                                log_index += 1;
+                                index
+                            },
+                            transaction_index,
+                        },
+                        // Assuming a local block is never reorged out.
+                        removed: false,
+                    }
+                }),
                 block_hash: *block_hash,
                 block_number,
             })
@@ -204,9 +197,9 @@ fn transaction_to_block_receipts(
 }
 
 impl<ChainSpecT> From<LocalBlock<ChainSpecT>>
-    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError>>
+    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     fn from(value: LocalBlock<ChainSpecT>) -> Self {
         Arc::new(value)

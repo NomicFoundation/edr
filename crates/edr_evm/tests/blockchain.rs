@@ -1,21 +1,23 @@
 #![cfg(feature = "test-utils")]
 
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use edr_eth::{
     block::PartialHeader,
-    log::FilterLog,
-    receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
-    transaction::Transaction,
-    Address, Bloom, Bytes, B256, U256,
+    eips::eip2718::TypedEnvelope,
+    l1::{self, L1ChainSpec},
+    log::{ExecutionLog, FilterLog},
+    receipt::{Receipt as _, TransactionReceipt},
+    result::{ExecutionResult, Output, SuccessReason},
+    transaction::ExecutableTransaction as _,
+    Address, Bytes, HashSet, B256, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain},
-    chain_spec::L1ChainSpec,
+    receipt::{self, ExecutionReceiptBuilder as _},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    transaction::SignedTransaction as _,
-    HashSet, LocalBlock, Log, SpecId, SyncBlock,
+    LocalBlock, SyncBlock,
 };
 use serial_test::serial;
 
@@ -37,10 +39,9 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 #[cfg(feature = "test-remote")]
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
-) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>> {
-    use edr_evm::{
-        blockchain::ForkedBlockchain, state::IrregularState, HashMap, RandomHashGenerator,
-    };
+) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>> {
+    use edr_eth::{l1, HashMap};
+    use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use parking_lot::Mutex;
@@ -54,7 +55,7 @@ async fn create_forked_dummy_blockchain(
         ForkedBlockchain::new(
             tokio::runtime::Handle::current().clone(),
             None,
-            SpecId::LATEST,
+            l1::SpecId::LATEST,
             Arc::new(rpc_client),
             fork_block_number,
             &mut irregular_state,
@@ -71,14 +72,14 @@ async fn create_forked_dummy_blockchain(
 // The cache directory is only used when the `test-remote` feature is enabled
 #[allow(unused_variables)]
 async fn create_dummy_blockchains(
-) -> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>> {
+) -> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>>> {
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
     const DEFAULT_INITIAL_BASE_FEE: u64 = 1000000000;
 
     let local_blockchain = LocalBlockchain::new(
         StateDiff::default(),
         1,
-        SpecId::LATEST,
+        l1::SpecId::LATEST,
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -96,7 +97,7 @@ async fn create_dummy_blockchains(
 }
 
 fn create_dummy_block(
-    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
 ) -> LocalBlock<L1ChainSpec> {
     let block_number = blockchain.last_block_number() + 1;
 
@@ -104,7 +105,7 @@ fn create_dummy_block(
 }
 
 fn create_dummy_block_with_number(
-    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
     number: u64,
 ) -> LocalBlock<L1ChainSpec> {
     let parent_hash = *blockchain
@@ -116,7 +117,7 @@ fn create_dummy_block_with_number(
 }
 
 fn create_dummy_block_with_difficulty(
-    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
     number: u64,
     difficulty: u64,
 ) -> LocalBlock<L1ChainSpec> {
@@ -137,7 +138,7 @@ fn create_dummy_block_with_difficulty(
 }
 
 fn create_dummy_block_with_hash(
-    spec_id: SpecId,
+    spec_id: l1::SpecId,
     number: u64,
     parent_hash: B256,
 ) -> LocalBlock<L1ChainSpec> {
@@ -152,21 +153,22 @@ fn create_dummy_block_with_hash(
 }
 
 fn create_dummy_block_with_header(
-    spec_id: SpecId,
+    spec_id: l1::SpecId,
     partial_header: PartialHeader,
 ) -> LocalBlock<L1ChainSpec> {
     LocalBlock::empty(spec_id, partial_header)
 }
 
 struct DummyBlockAndTransaction {
-    block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError>>,
+    block: Arc<dyn SyncBlock<L1ChainSpec, Error = BlockchainError<L1ChainSpec>>>,
     transaction_hash: B256,
-    transaction_receipt: TransactionReceipt<Log>,
+    transaction_receipt:
+        TransactionReceipt<TypedEnvelope<receipt::Execution<ExecutionLog>>, ExecutionLog>,
 }
 
 /// Returns the transaction's hash.
 fn insert_dummy_block_with_transaction(
-    blockchain: &mut dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>,
+    blockchain: &mut dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>,
 ) -> anyhow::Result<DummyBlockAndTransaction> {
     const GAS_USED: u64 = 100;
 
@@ -181,25 +183,37 @@ fn insert_dummy_block_with_transaction(
         ..PartialHeader::default()
     };
 
-    let transaction_receipt = TransactionReceipt {
-        inner: TypedReceipt {
-            cumulative_gas_used: GAS_USED,
-            logs_bloom: Bloom::default(),
-            logs: vec![
-                Log::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
-                Log::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
-            ],
-            data: TypedReceiptData::PostEip658Legacy { status: 1 },
-            spec_id: blockchain.spec_id(),
-        },
-        transaction_hash: *transaction.transaction_hash(),
-        transaction_index: 0,
-        from: *transaction.caller(),
-        to: transaction.kind().to().copied(),
-        contract_address: None,
+    let state_overrides = BTreeMap::new();
+    let state = blockchain.state_at_block_number(header.number - 1, &state_overrides)?;
+
+    let receipt_builder = receipt::Builder::new_receipt_builder(state, &transaction)?;
+
+    let execution_result = ExecutionResult::Success {
+        reason: SuccessReason::Stop,
         gas_used: GAS_USED,
-        effective_gas_price: None,
+        gas_refunded: 0,
+        logs: vec![
+            ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
+            ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
+        ],
+        output: Output::Call(Bytes::new()),
     };
+
+    let execution_receipt = receipt_builder.build_receipt(
+        &header,
+        &transaction,
+        &execution_result,
+        blockchain.spec_id(),
+    );
+
+    let transaction_receipt = TransactionReceipt::new(
+        execution_receipt,
+        &transaction,
+        &execution_result,
+        0,
+        U256::ZERO,
+        blockchain.spec_id(),
+    );
 
     let block = LocalBlock::new(
         header,
@@ -326,7 +340,7 @@ async fn block_by_number_some() {
 async fn block_by_number_with_create() -> anyhow::Result<()> {
     use std::str::FromStr;
 
-    use edr_eth::transaction::TxKind;
+    use edr_eth::transaction::{Transaction as _, TxKind};
 
     const DAI_CREATION_BLOCK_NUMBER: u64 = 4_719_568;
     const DAI_CREATION_TRANSACTION_INDEX: usize = 85;
@@ -499,7 +513,7 @@ async fn insert_block_invalid_parent_hash() {
 #[tokio::test(flavor = "multi_thread")]
 #[serial]
 async fn logs_local() -> anyhow::Result<()> {
-    fn assert_eq_logs(actual: &[FilterLog], expected: &[Log]) {
+    fn assert_eq_logs(actual: &[FilterLog], expected: &[ExecutionLog]) {
         assert_eq!(expected.len(), actual.len());
 
         for (log, filter_log) in expected.iter().zip(actual.iter()) {
@@ -527,17 +541,17 @@ async fn logs_local() -> anyhow::Result<()> {
             &[],
         )?;
 
-        assert_eq_logs(&filtered_logs, &transaction_receipt.logs);
+        assert_eq_logs(&filtered_logs, transaction_receipt.transaction_logs());
 
-        let logs = transaction_receipt.logs.iter();
+        let logs = transaction_receipt.transaction_logs().iter();
         let DummyBlockAndTransaction {
             block: two,
             transaction_receipt,
             ..
         } = insert_dummy_block_with_transaction(blockchain.as_mut())?;
 
-        let logs: Vec<Log> = logs
-            .chain(transaction_receipt.logs.iter())
+        let logs: Vec<ExecutionLog> = logs
+            .chain(transaction_receipt.transaction_logs().iter())
             .cloned()
             .collect();
 
@@ -697,8 +711,9 @@ async fn revert_to_block_invalid_number() {
 #[tokio::test(flavor = "multi_thread")]
 #[serial]
 async fn block_total_difficulty_by_hash() {
-    let blockchains: Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError, StateError>>> =
-        create_dummy_blockchains().await;
+    let blockchains: Vec<
+        Box<dyn SyncBlockchain<L1ChainSpec, BlockchainError<L1ChainSpec>, StateError>>,
+    > = create_dummy_blockchains().await;
 
     for mut blockchain in blockchains {
         let last_block = blockchain.last_block().unwrap();

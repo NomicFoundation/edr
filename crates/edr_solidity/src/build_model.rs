@@ -18,7 +18,7 @@ use std::{
 
 use alloy_dyn_abi::ErrorExt;
 use anyhow::{self, Context as _};
-use edr_evm::{hex, interpreter::OpCode};
+use edr_eth::{bytecode::opcode::OpCode, hex};
 use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::Value;

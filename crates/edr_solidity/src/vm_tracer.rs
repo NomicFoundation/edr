@@ -2,12 +2,11 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use edr_eth::Bytes;
-use edr_evm::{
-    alloy_primitives::U160,
-    trace::{BeforeMessage, Step},
-    ExecutionResult,
+use edr_eth::{
+    result::{ExecutionResult, HaltReason},
+    Bytes, U160,
 };
+use edr_evm::trace::{BeforeMessage, Step};
 
 use crate::message_trace::{
     BaseEvmMessageTrace, BaseMessageTrace, CallMessageTrace, CreateMessageTrace, EvmStep, ExitCode,
@@ -67,7 +66,7 @@ impl VmTracer {
     }
 
     /// Observes a trace, collecting information about the execution of the EVM.
-    pub fn observe(&mut self, trace: &edr_evm::trace::Trace) {
+    pub fn observe(&mut self, trace: &edr_evm::trace::Trace<HaltReason>) {
         for msg in &trace.messages {
             match msg.clone() {
                 edr_evm::trace::TraceMessage::Before(before) => {
@@ -232,7 +231,7 @@ impl VmTracer {
         self.tracing_steps.push(step);
     }
 
-    fn add_after_message(&mut self, result: ExecutionResult) {
+    fn add_after_message(&mut self, result: ExecutionResult<HaltReason>) {
         if !self.should_keep_tracing() {
             return;
         }

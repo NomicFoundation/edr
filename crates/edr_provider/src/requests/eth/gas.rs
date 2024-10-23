@@ -1,39 +1,50 @@
-use core::fmt::Debug;
-
 use edr_eth::{
-    fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, transaction, BlockSpec,
-    SpecId, U256, U64,
+    fee_history::FeeHistoryResult,
+    l1,
+    result::InvalidTransaction,
+    reward_percentile::RewardPercentile,
+    transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
+    BlockSpec, U256, U64,
 };
-use edr_evm::{state::StateOverrides, trace::Trace};
-use edr_rpc_eth::CallRequest;
+use edr_evm::{state::StateOverrides, transaction};
 
-use super::resolve_call_request_inner;
 use crate::{
     data::ProviderData,
-    requests::validation::{validate_call_request, validate_post_merge_block_tags},
+    requests::validation::validate_post_merge_block_tags,
+    spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError,
+    ProviderError, ProviderResultWithTraces,
 };
 
-pub fn handle_estimate_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
-    call_request: CallRequest,
+pub fn handle_estimate_gas<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
+        Block: Default,
+        SignedTransaction: Default
+                               + TransactionMut
+                               + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
+    request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
-) -> Result<(U64, Vec<Trace>), ProviderError<LoggerErrorT>> {
+) -> ProviderResultWithTraces<U64, ChainSpecT> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
 
-    validate_call_request(data.spec_id(), &call_request, &block_spec)?;
+    let hardfork = data.hardfork();
 
     let transaction =
-        resolve_estimate_gas_request(data, call_request, &block_spec, &StateOverrides::default())?;
+        resolve_estimate_gas_request(data, request, &block_spec, &StateOverrides::default())?;
 
     let result = data.estimate_gas(transaction.clone(), &block_spec);
     if let Err(ProviderError::EstimateGasTransactionFailure(failure)) = result {
-        let spec_id = data.spec_id();
         data.logger_mut()
-            .log_estimate_gas_failure(spec_id, &transaction, &failure)
+            .log_estimate_gas_failure(hardfork, &transaction, &failure)
             .map_err(ProviderError::Logger)?;
 
         Err(ProviderError::TransactionFailed(
@@ -45,13 +56,23 @@ pub fn handle_estimate_gas<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     }
 }
 
-pub fn handle_fee_history<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
+pub fn handle_fee_history<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
+        Block: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
     block_count: U256,
     newest_block: BlockSpec,
     reward_percentiles: Option<Vec<f64>>,
-) -> Result<FeeHistoryResult, ProviderError<LoggerErrorT>> {
-    if data.spec_id() < SpecId::LONDON {
+) -> Result<FeeHistoryResult, ProviderError<ChainSpecT>> {
+    if data.evm_spec_id() < l1::SpecId::LONDON {
         return Err(ProviderError::InvalidInput(
             "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
                 .into(),
@@ -72,7 +93,7 @@ pub fn handle_fee_history<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
         ));
     }
 
-    validate_post_merge_block_tags(data.spec_id(), &newest_block)?;
+    validate_post_merge_block_tags(data.hardfork(), &newest_block)?;
 
     let reward_percentiles = reward_percentiles.map(|percentiles| {
         let mut validated_percentiles = Vec::with_capacity(percentiles.len());
@@ -98,19 +119,33 @@ The reward percentiles should be in non-decreasing order, but the percentile num
     data.fee_history(block_count, &newest_block, reward_percentiles)
 }
 
-fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
-    data: &mut ProviderData<LoggerErrorT, TimerT>,
-    request: CallRequest,
+fn resolve_estimate_gas_request<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
+        Block: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<InvalidTransaction> + PartialEq,
+        >,
+    >,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
+    request: ChainSpecT::RpcCallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<transaction::Signed, ProviderError<LoggerErrorT>> {
-    resolve_call_request_inner(
+) -> Result<ChainSpecT::SignedTransaction, ProviderError<ChainSpecT>> {
+    let sender = request
+        .maybe_sender()
+        .copied()
+        .unwrap_or_else(|| data.default_caller());
+
+    let context = CallContext {
         data,
-        request,
         block_spec,
         state_overrides,
-        ProviderData::gas_price,
-        |data, max_fee_per_gas, max_priority_fee_per_gas| {
+        default_gas_price_fn: ProviderData::gas_price,
+        max_fees_fn: |data, block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
             let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or_else(|| {
                 const DEFAULT: u64 = 1_000_000_000;
                 let default = U256::from(DEFAULT);
@@ -123,7 +158,7 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
             });
 
             let max_fee_per_gas = max_fee_per_gas.map_or_else(
-                || -> Result<U256, ProviderError<LoggerErrorT>> {
+                || -> Result<U256, ProviderError<ChainSpecT>> {
                     let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
                         max_priority_fee_per_gas
                             + block.header().base_fee_per_gas.unwrap_or(U256::ZERO)
@@ -143,12 +178,19 @@ fn resolve_estimate_gas_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
 
             Ok((max_fee_per_gas, max_priority_fee_per_gas))
         },
-    )
+    };
+
+    let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
+    let transaction = request.fake_sign(sender);
+
+    transaction::validate(transaction, l1::SpecId::LATEST)
+        .map_err(ProviderError::TransactionCreationError)
 }
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction::Transaction, BlockTag};
+    use edr_eth::{transaction::Transaction as _, BlockTag};
+    use edr_rpc_eth::CallRequest;
 
     use super::*;
     use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};
@@ -174,9 +216,9 @@ mod tests {
             &StateOverrides::default(),
         )?;
 
-        assert_eq!(resolved.gas_price(), max_fee_per_gas);
+        assert_eq!(*resolved.gas_price(), max_fee_per_gas);
         assert_eq!(
-            resolved.max_priority_fee_per_gas(),
+            resolved.max_priority_fee_per_gas().cloned(),
             Some(U256::from(1_000_000_000u64))
         );
 
@@ -209,11 +251,11 @@ mod tests {
         )?;
 
         assert_eq!(
-            resolved.gas_price(),
+            *resolved.gas_price(),
             U256::from(2) * base_fee + max_priority_fee_per_gas
         );
         assert_eq!(
-            resolved.max_priority_fee_per_gas(),
+            resolved.max_priority_fee_per_gas().cloned(),
             Some(max_priority_fee_per_gas)
         );
 
@@ -250,14 +292,14 @@ mod tests {
         )?;
 
         assert_eq!(
-            Some(resolved.gas_price()),
+            Some(*resolved.gas_price()),
             last_block
                 .header()
                 .base_fee_per_gas
                 .map(|base_fee| base_fee + max_priority_fee_per_gas)
         );
         assert_eq!(
-            resolved.max_priority_fee_per_gas(),
+            resolved.max_priority_fee_per_gas().cloned(),
             Some(max_priority_fee_per_gas)
         );
 
@@ -287,8 +329,11 @@ mod tests {
             &StateOverrides::default(),
         )?;
 
-        assert_eq!(resolved.gas_price(), max_fee_per_gas);
-        assert_eq!(resolved.max_priority_fee_per_gas(), Some(max_fee_per_gas));
+        assert_eq!(*resolved.gas_price(), max_fee_per_gas);
+        assert_eq!(
+            resolved.max_priority_fee_per_gas().cloned(),
+            Some(max_fee_per_gas)
+        );
 
         Ok(())
     }

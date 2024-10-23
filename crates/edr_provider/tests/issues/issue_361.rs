@@ -1,22 +1,24 @@
 use edr_eth::{
-    filter::LogFilterOptions, transaction::EthTransactionRequest, AccountInfo, Address, BlockSpec,
-    SpecId,
+    account::AccountInfo,
+    filter::LogFilterOptions,
+    l1::{self, L1ChainSpec},
+    Address, BlockSpec, KECCAK_EMPTY,
 };
-use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
+use edr_rpc_eth::TransactionRequest;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_361() -> anyhow::Result<()> {
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::MUIR_GLACIER;
+    config.hardfork = l1::SpecId::MUIR_GLACIER;
 
     let impersonated_account = Address::random();
     config.genesis_accounts.insert(
@@ -42,10 +44,10 @@ async fn issue_361() -> anyhow::Result<()> {
     ))?;
 
     provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-        EthTransactionRequest {
+        TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
-            ..EthTransactionRequest::default()
+            ..TransactionRequest::default()
         },
     )))?;
 

@@ -1,6 +1,6 @@
 use std::str::FromStr as _;
 
-use edr_eth::B256;
+use edr_eth::{l1::L1ChainSpec, B256};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
@@ -11,7 +11,7 @@ use tokio::runtime;
 // https://github.com/NomicFoundation/edr/issues/533
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_533() -> anyhow::Result<()> {
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {

@@ -3,15 +3,23 @@ import { JsonStreamStringify } from "json-stream-stringify";
 import {
   ContractAndFunctionName,
   EdrContext,
+  GENERIC_CHAIN_TYPE,
+  genericChainProviderFactory,
   MineOrdering,
-  Provider,
-  SpecId,
   SubscriptionEvent,
 } from "..";
 import { ALCHEMY_URL, isCI } from "./helpers";
 
 describe("Provider", () => {
   const context = new EdrContext();
+
+  before(async () => {
+    await context.registerProviderFactory(
+      GENERIC_CHAIN_TYPE,
+      genericChainProviderFactory()
+    );
+  });
+
   const providerConfig = {
     allowBlocksWithSameTimestamp: false,
     allowUnlimitedContractSize: true,
@@ -29,7 +37,7 @@ describe("Provider", () => {
         balance: 1000n * 10n ** 18n,
       },
     ],
-    hardfork: SpecId.Latest,
+    hardfork: "Latest",
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
@@ -70,10 +78,10 @@ describe("Provider", () => {
     }
 
     // This test is slow because the debug_traceTransaction is performed on a large transaction.
-    this.timeout(240_000);
+    this.timeout(1_800_000);
 
-    const provider = await Provider.withConfig(
-      context,
+    const provider = await context.createProvider(
+      GENERIC_CHAIN_TYPE,
       {
         fork: {
           jsonRpcUrl: ALCHEMY_URL,
@@ -82,7 +90,9 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
-      (_event: SubscriptionEvent) => {}
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      }
     );
 
     const debugTraceTransaction = `{

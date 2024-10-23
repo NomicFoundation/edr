@@ -1,8 +1,58 @@
-use edr_provider::test_utils::run_full_block;
-use edr_rpc_eth::{client::EthRpcClient, spec::EthRpcSpec};
+use core::fmt::Debug;
 
-pub async fn replay(url: String, block_number: Option<u64>, chain_id: u64) -> anyhow::Result<()> {
-    let rpc_client = EthRpcClient::<EthRpcSpec>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
+use clap::ValueEnum;
+use edr_eth::{
+    l1::L1ChainSpec, log::FilterLog, result::InvalidTransaction, transaction::TransactionValidation,
+};
+use edr_evm::test_utils::run_full_block;
+use edr_optimism::OptimismChainSpec;
+use edr_provider::spec::SyncRuntimeSpec;
+use edr_rpc_eth::client::EthRpcClient;
+
+#[derive(Clone, ValueEnum)]
+pub enum SupportedChainTypes {
+    L1,
+    Optimism,
+}
+
+pub async fn replay(
+    chain_type: SupportedChainTypes,
+    url: String,
+    block_number: Option<u64>,
+) -> anyhow::Result<()> {
+    match chain_type {
+        SupportedChainTypes::L1 => {
+            replay_chain_specific_block::<L1ChainSpec>("L1", url, block_number).await
+        }
+        SupportedChainTypes::Optimism => {
+            replay_chain_specific_block::<OptimismChainSpec>(
+                "optimism",
+                url.replace("eth-", "opt-"),
+                block_number,
+            )
+            .await
+        }
+    }
+}
+
+pub async fn replay_chain_specific_block<ChainSpecT>(
+    chain_type: &str,
+    url: String,
+    block_number: Option<u64>,
+) -> anyhow::Result<()>
+where
+    ChainSpecT: Debug
+        + SyncRuntimeSpec<
+            Block: Default,
+            Hardfork: Debug,
+            ExecutionReceipt<FilterLog>: PartialEq,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<InvalidTransaction> + Send + Sync,
+            >,
+        >,
+{
+    let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
 
     let block_number = if let Some(block_number) = block_number {
         block_number
@@ -13,6 +63,6 @@ pub async fn replay(url: String, block_number: Option<u64>, chain_id: u64) -> an
             .map(|block_number| block_number - 20)?
     };
 
-    println!("Testing block {block_number}");
-    run_full_block(url, block_number, chain_id).await
+    println!("Testing block {block_number} for chain type {chain_type}");
+    run_full_block::<ChainSpecT>(url, block_number).await
 }

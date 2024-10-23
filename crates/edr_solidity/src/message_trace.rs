@@ -2,8 +2,7 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use edr_eth::{Address, Bytes, U256};
-use edr_evm::HaltReason;
+use edr_eth::{result::HaltReason, Address, Bytes, U256};
 
 use crate::build_model::Bytecode;
 

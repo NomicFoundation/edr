@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use edr_eth::{Address, Bytes, SpecId, U256};
+use edr_eth::{
+    l1::{self, L1ChainSpec},
+    Address, Bytes, U256,
+};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
@@ -20,7 +23,7 @@ async fn issue_324() -> anyhow::Result<()> {
 
     let contract_address = Address::from_str(TEST_CONTRACT_ADDRESS).unwrap();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
@@ -28,7 +31,7 @@ async fn issue_324() -> anyhow::Result<()> {
         block_number: Some(DEPLOYMENT_BLOCK_NUMBER),
         http_headers: None,
     }));
-    config.hardfork = SpecId::CANCUN;
+    config.hardfork = l1::SpecId::CANCUN;
 
     let provider = Provider::new(
         runtime::Handle::current(),

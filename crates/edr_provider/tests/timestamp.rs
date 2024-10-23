@@ -1,8 +1,8 @@
 #![cfg(feature = "test-utils")]
 
-use std::{convert::Infallible, sync::Arc};
+use std::sync::Arc;
 
-use edr_eth::{PreEip1898BlockSpec, B256};
+use edr_eth::{l1::L1ChainSpec, PreEip1898BlockSpec, B256};
 use edr_provider::{
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
@@ -11,13 +11,13 @@ use edr_provider::{
 use tokio::runtime;
 
 struct TimestampFixture {
-    provider: Provider<Infallible, Arc<MockTime>>,
+    provider: Provider<L1ChainSpec, Arc<MockTime>>,
     mock_timer: Arc<MockTime>,
 }
 
 impl TimestampFixture {
     fn new(allow_blocks_with_same_timestamp: bool) -> anyhow::Result<Self> {
-        let logger = Box::<NoopLogger>::default();
+        let logger = Box::<NoopLogger<L1ChainSpec>>::default();
         let subscription_callback_noop = Box::new(|_| ());
 
         let mut config = create_test_config();

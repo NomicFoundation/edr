@@ -1,35 +1,37 @@
 use std::{marker::PhantomData, sync::Arc};
 
+use derive_where::derive_where;
 use edr_eth::{
-    log::{matches_address_filter, matches_topics_filter},
-    receipt::BlockReceipt,
-    transaction::Transaction,
+    log::{matches_address_filter, matches_topics_filter, FilterLog},
+    receipt::{BlockReceipt, Receipt as _},
+    transaction::ExecutableTransaction,
     Address, B256, U256,
 };
-use revm::primitives::{HashMap, HashSet};
+use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};
 
 use super::InsertError;
-use crate::{chain_spec::ChainSpec, hash_map::OccupiedError, Block};
+use crate::{spec::RuntimeSpec, Block};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
-#[derive(Debug)]
+#[derive_where(Debug; BlockT)]
 pub struct SparseBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
-    ChainSpecT: ChainSpec,
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: RuntimeSpec,
 {
     hash_to_block: HashMap<B256, BlockT>,
     hash_to_total_difficulty: HashMap<B256, U256>,
     number_to_block: HashMap<u64, BlockT>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
-    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt>>,
+    transaction_hash_to_receipt:
+        HashMap<B256, Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
     phantom: PhantomData<ChainSpecT>,
 }
 
 impl<BlockT, ChainSpecT> SparseBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
-    ChainSpecT: ChainSpec,
+    BlockT: Block<ChainSpecT> + Clone,
+    ChainSpecT: RuntimeSpec,
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -92,7 +94,7 @@ where
     pub fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Option<&Arc<BlockReceipt>> {
+    ) -> Option<&Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>> {
         self.transaction_hash_to_receipt.get(transaction_hash)
     }
 
@@ -180,8 +182,8 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn insert_receipt(
         &mut self,
-        receipt: BlockReceipt,
-    ) -> Result<&Arc<BlockReceipt>, InsertError> {
+        receipt: BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>,
+    ) -> Result<&Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>, InsertError> {
         let receipt = Arc::new(receipt);
 
         let receipt = self
@@ -198,7 +200,10 @@ where
 
     /// Inserts receipts. Errors if they already exist.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn insert_receipts(&mut self, receipts: Vec<Arc<BlockReceipt>>) -> Result<(), InsertError> {
+    pub fn insert_receipts(
+        &mut self,
+        receipts: Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
+    ) -> Result<(), InsertError> {
         if let Some(receipt) = receipts.iter().find(|receipt| {
             self.transaction_hash_to_receipt
                 .contains_key(&receipt.transaction_hash)
@@ -221,7 +226,7 @@ where
 impl<BlockT, ChainSpecT> Default for SparseBlockchainStorage<BlockT, ChainSpecT>
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     fn default() -> Self {
         Self {
@@ -245,7 +250,7 @@ pub fn logs<BlockT, ChainSpecT>(
 ) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error>
 where
     BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: ChainSpec,
+    ChainSpecT: RuntimeSpec,
 {
     let mut logs = Vec::new();
     let addresses: HashSet<Address> = addresses.iter().copied().collect();
@@ -254,7 +259,7 @@ where
         if let Some(block) = storage.block_by_number(block_number) {
             let receipts = block.transaction_receipts()?;
             for receipt in receipts {
-                let filtered_logs = receipt.logs.iter().filter(|log| {
+                let filtered_logs = receipt.transaction_logs().iter().filter(|log| {
                     matches_address_filter(&log.address, &addresses)
                         && matches_topics_filter(log.topics(), topics_filter)
                 });

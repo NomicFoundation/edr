@@ -1,21 +1,23 @@
 use edr_eth::{
-    transaction::EthTransactionRequest, AccountInfo, Address, PreEip1898BlockSpec, SpecId, B256,
+    account::AccountInfo,
+    l1::{self, L1ChainSpec},
+    Address, PreEip1898BlockSpec, B256, KECCAK_EMPTY,
 };
-use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
     MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
+use edr_rpc_eth::TransactionRequest;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_325() -> anyhow::Result<()> {
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = SpecId::CANCUN;
+    config.hardfork = l1::SpecId::CANCUN;
     config.mining = MiningConfig {
         auto_mine: false,
         ..MiningConfig::default()
@@ -45,10 +47,10 @@ async fn issue_325() -> anyhow::Result<()> {
     ))?;
 
     let result = provider.handle_request(ProviderRequest::Single(
-        MethodInvocation::SendTransaction(EthTransactionRequest {
+        MethodInvocation::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
-            ..EthTransactionRequest::default()
+            ..TransactionRequest::default()
         }),
     ))?;
 

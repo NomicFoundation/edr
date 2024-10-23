@@ -4,7 +4,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 
 use anyhow::{self, Context as _};
-use edr_evm::{alloy_primitives::keccak256, hex};
+use edr_eth::{hex, keccak256};
 use indexmap::IndexMap;
 
 use crate::{

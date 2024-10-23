@@ -63,6 +63,10 @@ export interface CallOverrideResult {
   result: Buffer
   shouldRevert: boolean
 }
+export const GENERIC_CHAIN_TYPE: string
+export declare function genericChainProviderFactory(): ProviderFactory
+export const L1_CHAIN_TYPE: string
+export declare function l1ProviderFactory(): ProviderFactory
 /** Identifier for the Ethereum spec. */
 export const enum SpecId {
   /** Frontier */
@@ -104,55 +108,27 @@ export const enum SpecId {
   /** Latest */
   Latest = 18
 }
-export interface DebugTraceResult {
-  pass: boolean
-  gasUsed: bigint
-  output?: Buffer
-  structLogs: Array<DebugTraceLogItem>
-}
-export interface DebugTraceLogItem {
-  /** Program Counter */
-  pc: bigint
-  op: number
-  /** Gas left before executing this operation as hex number. */
-  gas: string
-  /** Gas cost of this operation as hex number. */
-  gasCost: string
-  /** Array of all values (hex numbers) on the stack */
-  stack?: Array<string>
-  /** Depth of the call stack */
-  depth: bigint
-  /** Size of memory array */
-  memSize: bigint
-  /** Name of the operation */
-  opName: string
-  /** Description of an error as a hex string. */
-  error?: string
-  /** Array of all allocated values as hex strings. */
-  memory?: Array<string>
-  /** Map of all stored values with keys and values encoded as hex strings. */
-  storage?: Record<string, string>
-}
-/** Ethereum execution log. */
-export interface ExecutionLog {
-  address: Buffer
-  topics: Array<Buffer>
-  data: Buffer
-}
-export interface ContractAndFunctionName {
-  /** The contract name. */
-  contractName: string
-  /** The function name. Only present for calls. */
-  functionName?: string
-}
-export interface LoggerConfig {
-  /** Whether to enable the logger. */
-  enable: boolean
-  decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
-  /** Used to resolve the contract and function name when logging. */
-  getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
-  printLineCallback: (message: string, replace: boolean) => void
-}
+export const FRONTIER: string
+export const FRONTIER_THAWING: string
+export const HOMESTEAD: string
+export const DAO_FORK: string
+export const TANGERINE: string
+export const SPURIOUS_DRAGON: string
+export const BYZANTIUM: string
+export const CONSTANTINOPLE: string
+export const PETERSBURG: string
+export const ISTANBUL: string
+export const MUIR_GLACIER: string
+export const BERLIN: string
+export const LONDON: string
+export const ARROW_GLACIER: string
+export const GRAY_GLACIER: string
+export const MERGE: string
+export const SHANGHAI: string
+export const CANCUN: string
+export const PRAGUE: string
+export const PRAGUE_EOF: string
+export const LATEST: string
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
@@ -181,7 +157,7 @@ export interface HardforkActivation {
   /** The block number at which the hardfork is activated */
   blockNumber: bigint
   /** The activated hardfork */
-  specId: SpecId
+  specId: string
 }
 /**The type of ordering to use when selecting blocks to mine. */
 export const enum MineOrdering {
@@ -234,7 +210,7 @@ export interface ProviderConfig {
   /** The genesis accounts of the blockchain */
   genesisAccounts: Array<GenesisAccount>
   /** The hardfork of the blockchain */
-  hardfork: SpecId
+  hardfork: string
   /**
    * The initial base fee per gas of the blockchain. Required for EIP-1559
    * transactions and later
@@ -255,6 +231,55 @@ export interface ProviderConfig {
   mining: MiningConfig
   /** The network ID of the blockchain */
   networkId: bigint
+}
+export interface DebugTraceResult {
+  pass: boolean
+  gasUsed: bigint
+  output?: Buffer
+  structLogs: Array<DebugTraceLogItem>
+}
+export interface DebugTraceLogItem {
+  /** Program Counter */
+  pc: bigint
+  op: number
+  /** Gas left before executing this operation as hex number. */
+  gas: string
+  /** Gas cost of this operation as hex number. */
+  gasCost: string
+  /** Array of all values (hex numbers) on the stack */
+  stack?: Array<string>
+  /** Depth of the call stack */
+  depth: bigint
+  /** Size of memory array */
+  memSize: bigint
+  /** Name of the operation */
+  opName: string
+  /** Description of an error as a hex string. */
+  error?: string
+  /** Array of all allocated values as hex strings. */
+  memory?: Array<string>
+  /** Map of all stored values with keys and values encoded as hex strings. */
+  storage?: Record<string, string>
+}
+/** Ethereum execution log. */
+export interface ExecutionLog {
+  address: Buffer
+  topics: Array<Buffer>
+  data: Buffer
+}
+export interface ContractAndFunctionName {
+  /** The contract name. */
+  contractName: string
+  /** The function name. Only present for calls. */
+  functionName?: string
+}
+export interface LoggerConfig {
+  /** Whether to enable the logger. */
+  enable: boolean
+  decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
+  /** Used to resolve the contract and function name when logging. */
+  getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
+  printLineCallback: (message: string, replace: boolean) => void
 }
 /** The possible reasons for successful termination of the EVM. */
 export const enum SuccessReason {
@@ -323,7 +348,9 @@ export const enum ExceptionalHalt {
   /** Aud data is smaller then already present data size. */
   EofAuxDataTooSmall = 15,
   /** EOF Subroutine stack overflow */
-  EOFFunctionStackOverflow = 16
+  EOFFunctionStackOverflow = 16,
+  /** Check for target address validity is only done inside subcall. */
+  InvalidEXTCALLTarget = 17
 }
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
@@ -341,6 +368,11 @@ export interface ExecutionResult {
   result: SuccessResult | RevertResult | HaltResult
   /** Optional contract address if the transaction created a new contract. */
   contractAddress?: Buffer
+}
+/** Configuration for subscriptions. */
+export interface SubscriptionConfig {
+  /** Callback to be called when a new event is received. */
+  subscriptionCallback: (event: SubscriptionEvent) => void
 }
 export interface SubscriptionEvent {
   filterId: bigint
@@ -639,27 +671,32 @@ export interface Withdrawal {
 export declare class EdrContext {
   /**Creates a new [`EdrContext`] instance. Should only be called once! */
   constructor()
+  /**Constructs a new provider with the provided configuration. */
+  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig): Promise<Provider>
+  /**Registers a new provider factory for the provided chain type. */
+  registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
+}
+export declare class ProviderFactory { }
+export declare class Response {
+  /**Returns the response data as a JSON string or a JSON object. */
+  get data(): string | any
+  /**Returns the Solidity trace of the transaction that failed to execute, if any. */
+  get solidityTrace(): RawTrace | null
+  /**Returns the raw traces of executed contracts. This maybe contain zero or more traces. */
+  get traces(): Array<RawTrace>
 }
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {
-  /**Constructs a new provider with the provided configuration. */
-  static withConfig(context: EdrContext, config: ProviderConfig, loggerConfig: LoggerConfig, subscriberCallback: (event: SubscriptionEvent) => void): Promise<Provider>
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
-  handleRequest(jsonRequest: string): Promise<Response>
-  setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): void
+  handleRequest(request: string): Promise<Response>
+  setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): Promise<void>
   /**
    * Set to `true` to make the traces returned with `eth_call`,
    * `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
    * `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
    * `false` to disable this.
    */
-  setVerboseTracing(verboseTracing: boolean): void
-}
-export declare class Response {
-  /** Returns the response data as a JSON string or a JSON object. */
-  get data(): string | any
-  get solidityTrace(): RawTrace | null
-  get traces(): Array<RawTrace>
+  setVerboseTracing(verboseTracing: boolean): Promise<void>
 }
 /**
  * Opaque handle to the `Bytecode` struct.

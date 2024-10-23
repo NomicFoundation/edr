@@ -1,7 +1,7 @@
 //! Utility functions for decoding the Solidity compiler source maps.
 use std::rc::Rc;
 
-use edr_evm::interpreter::OpCode;
+use edr_eth::bytecode::opcode::OpCode;
 
 use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
 
@@ -212,7 +212,7 @@ pub fn decode_instructions(
 
 #[cfg(test)]
 mod tests {
-    use edr_evm::interpreter::opcode;
+    use edr_eth::bytecode::opcode;
 
     use super::*;
 

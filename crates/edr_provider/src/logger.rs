@@ -1,18 +1,16 @@
 use core::fmt::Debug;
-use std::convert::Infallible;
+use std::marker::PhantomData;
 
+use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_eth::transaction;
-use edr_evm::blockchain::BlockchainError;
+use edr_evm::{blockchain::BlockchainError, spec::RuntimeSpec};
 
 use crate::{
     data::CallResult, debug_mine::DebugMineBlockResult, error::EstimateGasFailure, ProviderError,
 };
 
-pub trait Logger {
+pub trait Logger<ChainSpecT: RuntimeSpec<Hardfork: Debug>> {
     type BlockchainError;
-
-    type LoggerError: Debug;
 
     /// Whether the logger is enabled.
     fn is_enabled(&self) -> bool;
@@ -22,11 +20,11 @@ pub trait Logger {
 
     fn log_call(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        result: &CallResult,
-    ) -> Result<(), Self::LoggerError> {
-        let _spec_id = spec_id;
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::SignedTransaction,
+        result: &CallResult<ChainSpecT::HaltReason>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let _hardfork = hardfork;
         let _transaction = transaction;
         let _result = result;
 
@@ -35,11 +33,11 @@ pub trait Logger {
 
     fn log_estimate_gas_failure(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        result: &EstimateGasFailure,
-    ) -> Result<(), Self::LoggerError> {
-        let _spec_id = spec_id;
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::SignedTransaction,
+        result: &EstimateGasFailure<ChainSpecT::HaltReason>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let _hardfork = hardfork;
         let _transaction = transaction;
         let _failure = result;
 
@@ -48,10 +46,10 @@ pub trait Logger {
 
     fn log_interval_mined(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        result: &DebugMineBlockResult<Self::BlockchainError>,
-    ) -> Result<(), Self::LoggerError> {
-        let _spec_id = spec_id;
+        hardfork: ChainSpecT::Hardfork,
+        result: &DebugMineBlockResult<ChainSpecT, Self::BlockchainError>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let _hardfork = hardfork;
         let _result = result;
 
         Ok(())
@@ -59,10 +57,10 @@ pub trait Logger {
 
     fn log_mined_block(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        results: &[DebugMineBlockResult<Self::BlockchainError>],
-    ) -> Result<(), Self::LoggerError> {
-        let _spec_id = spec_id;
+        hardfork: ChainSpecT::Hardfork,
+        results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let _hardfork = hardfork;
         let _results = results;
 
         Ok(())
@@ -70,11 +68,11 @@ pub trait Logger {
 
     fn log_send_transaction(
         &mut self,
-        spec_id: edr_eth::SpecId,
-        transaction: &transaction::Signed,
-        mining_results: &[DebugMineBlockResult<Self::BlockchainError>],
-    ) -> Result<(), Self::LoggerError> {
-        let _spec_id = spec_id;
+        hardfork: ChainSpecT::Hardfork,
+        transaction: &ChainSpecT::SignedTransaction,
+        mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let _hardfork = hardfork;
         let _transaction = transaction;
         let _mining_results = mining_results;
 
@@ -88,16 +86,24 @@ pub trait Logger {
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderError<Self::LoggerError>>,
-    ) -> Result<(), Self::LoggerError>;
+        error: Option<&ProviderError<ChainSpecT>>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
-pub trait SyncLogger: Logger + DynClone + Send + Sync {}
+pub trait SyncLogger<ChainSpecT: RuntimeSpec<Hardfork: Debug>>:
+    Logger<ChainSpecT> + DynClone + Send + Sync
+{
+}
 
-impl<T> SyncLogger for T where T: Logger + DynClone + Send + Sync {}
+impl<ChainSpecT, T> SyncLogger<ChainSpecT> for T
+where
+    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
+    T: Logger<ChainSpecT> + DynClone + Send + Sync,
+{
+}
 
-impl<BlockchainErrorT, LoggerErrorT> Clone
-    for Box<dyn SyncLogger<BlockchainError = BlockchainErrorT, LoggerError = LoggerErrorT>>
+impl<ChainSpecT: RuntimeSpec<Hardfork: Debug>, BlockchainErrorT> Clone
+    for Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorT>>
 {
     fn clone(&self) -> Self {
         dyn_clone::clone_box(&**self)
@@ -105,13 +111,13 @@ impl<BlockchainErrorT, LoggerErrorT> Clone
 }
 
 /// A logger that does nothing.
-#[derive(Clone, Default)]
-pub struct NoopLogger;
+#[derive_where(Clone, Default)]
+pub struct NoopLogger<ChainSpecT: RuntimeSpec> {
+    _phantom: PhantomData<ChainSpecT>,
+}
 
-impl Logger for NoopLogger {
-    type BlockchainError = BlockchainError;
-
-    type LoggerError = Infallible;
+impl<ChainSpecT: RuntimeSpec<Hardfork: Debug>> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
+    type BlockchainError = BlockchainError<ChainSpecT>;
 
     fn is_enabled(&self) -> bool {
         false
@@ -122,8 +128,8 @@ impl Logger for NoopLogger {
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderError<Infallible>>,
-    ) -> Result<(), Infallible> {
+        _error: Option<&ProviderError<ChainSpecT>>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }
 }

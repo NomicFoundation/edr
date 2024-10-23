@@ -1,25 +1,26 @@
 #![cfg(feature = "test-utils")]
 
-use std::{convert::Infallible, str::FromStr};
+use std::str::FromStr;
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
+    account::AccountInfo,
+    eips::eip4844::EnvKzgSettings,
+    l1::{self, L1ChainSpec},
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
-        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction, Transaction,
-        TransactionType,
+        self, pooled::PooledTransaction, ExecutableTransaction as _, Transaction as _,
+        TransactionType as _,
     },
-    AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
-    U256,
+    Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, B256, BYTES_PER_BLOB, KECCAK_EMPTY, U256,
 };
-use edr_evm::{EnvKzgSettings, KECCAK_EMPTY};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
+use edr_rpc_eth::{CallRequest, TransactionRequest};
 use tokio::runtime;
 
 /// Helper struct to modify the pooled transaction from the value in
@@ -139,82 +140,84 @@ fn fake_transaction() -> transaction::Signed {
     fake_pooled_transaction().into_payload()
 }
 
-fn fake_call_request() -> anyhow::Result<CallRequest> {
+fn fake_call_request() -> CallRequest {
     let transaction = fake_pooled_transaction();
-    let blobs = transaction.blobs().map(|blobs| {
-        blobs
-            .iter()
-            .map(|blob| Bytes::copy_from_slice(blob.as_ref()))
-            .collect()
-    });
+    let blobs = transaction.blobs().map(<[Blob]>::to_vec);
     let transaction = transaction.into_payload();
     let from = transaction.caller();
 
-    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
+    let access_list = if transaction.transaction_type() >= transaction::Type::Eip2930 {
         Some(transaction.access_list().to_vec())
     } else {
         None
     };
 
-    Ok(CallRequest {
+    let blob_hashes = if transaction.transaction_type() == transaction::Type::Eip4844 {
+        Some(transaction.blob_hashes().to_vec())
+    } else {
+        None
+    };
+
+    CallRequest {
         from: Some(*from),
         to: transaction.kind().to().copied(),
-        max_fee_per_gas: transaction.max_fee_per_gas(),
-        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
+        max_fee_per_gas: transaction.max_fee_per_gas().copied(),
+        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas().cloned(),
         gas: Some(transaction.gas_limit()),
-        value: Some(transaction.value()),
+        value: Some(*transaction.value()),
         data: Some(transaction.data().clone()),
         access_list,
         blobs,
-        blob_hashes: transaction.blob_hashes(),
+        blob_hashes,
         ..CallRequest::default()
-    })
+    }
 }
 
-fn fake_transaction_request() -> EthTransactionRequest {
+fn fake_transaction_request() -> TransactionRequest {
     let transaction = fake_pooled_transaction();
-    let blobs = transaction.blobs().map(|blobs| {
-        blobs
-            .iter()
-            .map(|blob| Bytes::copy_from_slice(blob.as_ref()))
-            .collect()
-    });
+    let blobs = transaction.blobs().map(<[edr_eth::Blob]>::to_vec);
 
     let transaction = transaction.into_payload();
     let from = *transaction.caller();
 
-    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
+    let access_list = if transaction.transaction_type() >= transaction::Type::Eip2930 {
         Some(transaction.access_list().to_vec())
     } else {
         None
     };
 
-    EthTransactionRequest {
+    let blob_hashes = if transaction.transaction_type() == transaction::Type::Eip4844 {
+        Some(transaction.blob_hashes().to_vec())
+    } else {
+        None
+    };
+
+    TransactionRequest {
         from,
         to: transaction.kind().to().copied(),
-        max_fee_per_gas: transaction.max_fee_per_gas(),
-        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
+        max_fee_per_gas: transaction.max_fee_per_gas().copied(),
+        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas().cloned(),
         gas: Some(transaction.gas_limit()),
-        value: Some(transaction.value()),
+        value: Some(*transaction.value()),
         data: Some(transaction.data().clone()),
         nonce: Some(transaction.nonce()),
         chain_id: transaction.chain_id(),
         access_list,
         transaction_type: Some(transaction.transaction_type().into()),
         blobs,
-        blob_hashes: transaction.blob_hashes(),
-        ..EthTransactionRequest::default()
+        blob_hashes,
+        ..TransactionRequest::default()
     }
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn call_unsupported() -> anyhow::Result<()> {
-    let request = fake_call_request()?;
+    let request = fake_call_request();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = SpecId::SHANGHAI;
+    config.hardfork = l1::SpecId::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -240,12 +243,12 @@ async fn call_unsupported() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas_unsupported() -> anyhow::Result<()> {
-    let request = fake_call_request()?;
+    let request = fake_call_request();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = SpecId::SHANGHAI;
+    config.hardfork = l1::SpecId::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -273,7 +276,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
 async fn send_transaction_unsupported() -> anyhow::Result<()> {
     let transaction = fake_transaction_request();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = transaction.chain_id.expect("Blob transaction has chain ID");
@@ -306,7 +309,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
 
     let expected = fake_transaction();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
@@ -345,7 +348,7 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     let expected = fake_transaction();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
@@ -378,7 +381,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: edr_rpc_eth::Transaction = serde_json::from_value(result.result)?;
+    let transaction: edr_rpc_eth::TransactionWithSignature = serde_json::from_value(result.result)?;
     let transaction = transaction::Signed::try_from(transaction)?;
 
     assert_eq!(transaction, expected);
@@ -390,7 +393,7 @@ async fn get_transaction() -> anyhow::Result<()> {
 async fn block_header() -> anyhow::Result<()> {
     let raw_eip4844_transaction = fake_raw_transaction();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = fake_transaction()
@@ -525,7 +528,7 @@ async fn block_header() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn blob_hash_opcode() -> anyhow::Result<()> {
     fn assert_blob_hash_opcodes(
-        provider: &Provider<Infallible>,
+        provider: &Provider<L1ChainSpec>,
         contract_address: &Address,
         num_blobs: usize,
         nonce: u64,
@@ -575,7 +578,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         bytecode: Bytes,
     }
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = fake_transaction()

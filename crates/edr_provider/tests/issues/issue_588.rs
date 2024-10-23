@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use edr_eth::l1::L1ChainSpec;
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::MockTime,
     NoopLogger, Provider,
@@ -13,7 +14,7 @@ use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_588() -> anyhow::Result<()> {
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let early_mainnet_fork = create_test_config_with_fork(Some(ForkConfig {

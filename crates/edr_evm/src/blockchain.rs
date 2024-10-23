@@ -7,14 +7,8 @@ pub mod storage;
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
-use edr_eth::{
-    log::FilterLog, receipt::BlockReceipt, spec::HardforkActivations, Address, B256, U256,
-};
-use revm::{
-    db::BlockHashRef,
-    primitives::{HashSet, SpecId},
-    DatabaseCommit,
-};
+use derive_where::derive_where;
+use edr_eth::{l1, log::FilterLog, Address, HashSet, B256, U256};
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
@@ -22,17 +16,19 @@ pub use self::{
     local::{CreationError as LocalCreationError, GenesisBlockOptions, LocalBlockchain},
 };
 use crate::{
-    chain_spec::{ChainSpec, SyncChainSpec},
-    state::{StateDiff, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
+    hardfork::Activations,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
+    state::{StateCommit, StateDiff, StateOverride, SyncState},
+    Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
 };
 
 /// Combinatorial error for the blockchain API.
-#[derive(Debug, thiserror::Error)]
-pub enum BlockchainError {
+#[derive(thiserror::Error)]
+#[derive_where(Debug; ChainSpecT::Hardfork, ChainSpecT::RpcBlockConversionError)]
+pub enum BlockchainError<ChainSpecT: RuntimeSpec> {
     /// Forked blockchain error
     #[error(transparent)]
-    Forked(#[from] ForkedBlockchainError),
+    Forked(#[from] ForkedBlockchainError<ChainSpecT>),
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
     Insert(#[from] storage::InsertError),
@@ -74,15 +70,25 @@ pub enum BlockchainError {
         /// Block number
         block_number: u64,
         /// Hardfork activation history
-        hardfork_activations: HardforkActivations,
+        hardfork_activations: Activations<ChainSpecT>,
     },
+}
+
+/// Trait for retrieving a block's hash by number.
+#[auto_impl(&, &mut, Box, Rc, Arc)]
+pub trait BlockHash {
+    /// The blockchain's error type.
+    type Error;
+
+    /// Retrieves the block hash at the provided number.
+    fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error>;
 }
 
 /// Trait for implementations of an Ethereum blockchain.
 #[auto_impl(&)]
 pub trait Blockchain<ChainSpecT>
 where
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
     /// The blockchain's error type
     type BlockchainError;
@@ -157,14 +163,17 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt>>, Self::BlockchainError>;
+    ) -> Result<Option<Arc<BlockReceipt<ChainSpecT>>>, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification of the block at the provided
     /// number.
-    fn spec_at_block_number(&self, block_number: u64) -> Result<SpecId, Self::BlockchainError>;
+    fn spec_at_block_number(
+        &self,
+        block_number: u64,
+    ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification used for new blocks.
-    fn spec_id(&self) -> SpecId;
+    fn spec_id(&self) -> ChainSpecT::Hardfork;
 
     /// Retrieves the state at a given block.
     ///
@@ -183,7 +192,7 @@ where
 }
 
 /// Trait for implementations of a mutable Ethereum blockchain
-pub trait BlockchainMut<ChainSpecT: ChainSpec> {
+pub trait BlockchainMut<ChainSpecT: RuntimeSpec> {
     /// The blockchain's error type
     type Error;
 
@@ -208,13 +217,13 @@ pub trait BlockchainMut<ChainSpecT: ChainSpec> {
 pub trait SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>:
     Blockchain<ChainSpecT, BlockchainError = BlockchainErrorT, StateError = StateErrorT>
     + BlockchainMut<ChainSpecT, Error = BlockchainErrorT>
-    + BlockHashRef<Error = BlockchainErrorT>
+    + BlockHash<Error = BlockchainErrorT>
     + Send
     + Sync
     + Debug
 where
     BlockchainErrorT: Debug + Send,
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
 }
 
@@ -223,17 +232,17 @@ impl<BlockchainT, ChainSpecT, BlockchainErrorT, StateErrorT>
 where
     BlockchainT: Blockchain<ChainSpecT, BlockchainError = BlockchainErrorT, StateError = StateErrorT>
         + BlockchainMut<ChainSpecT, Error = BlockchainErrorT>
-        + BlockHashRef<Error = BlockchainErrorT>
+        + BlockHash<Error = BlockchainErrorT>
         + Send
         + Sync
         + Debug,
     BlockchainErrorT: Debug + Send,
-    ChainSpecT: SyncChainSpec,
+    ChainSpecT: SyncRuntimeSpec,
 {
 }
 
-fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: ChainSpec>(
-    state: &mut dyn DatabaseCommit,
+fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: RuntimeSpec>(
+    state: &mut dyn StateCommit,
     local_storage: &ReservableSparseBlockchainStorage<BlockT, ChainSpecT>,
     first_local_block_number: u64,
     last_local_block_number: u64,
@@ -267,11 +276,11 @@ fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: ChainSp
 }
 
 /// Validates whether a block is a valid next block.
-fn validate_next_block<ChainSpecT: ChainSpec>(
-    spec_id: SpecId,
-    last_block: &dyn Block<ChainSpecT, Error = BlockchainError>,
-    next_block: &dyn Block<ChainSpecT, Error = BlockchainError>,
-) -> Result<(), BlockchainError> {
+fn validate_next_block<ChainSpecT: RuntimeSpec>(
+    spec_id: ChainSpecT::Hardfork,
+    last_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+    next_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+) -> Result<(), BlockchainError<ChainSpecT>> {
     let last_header = last_block.header();
     let next_header = next_block.header();
 
@@ -290,7 +299,7 @@ fn validate_next_block<ChainSpecT: ChainSpec>(
         });
     }
 
-    if spec_id >= SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if spec_id.into() >= l1::SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 
