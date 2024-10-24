@@ -14,8 +14,8 @@ use revm::{
     inspectors::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{
-        Account, AccountInfo, Bytecode, Env, EnvWithHandlerCfg, HashMap as Map, Log,
-        ResultAndState, SpecId, State, StorageSlot, TransactTo, KECCAK_EMPTY,
+        Account, AccountInfo, Bytecode, Env, EnvWithHandlerCfg, EvmState, EvmStorageSlot,
+        HashMap as Map, Log, ResultAndState, SpecId, TxKind, KECCAK_EMPTY,
     },
     Database, DatabaseCommit, JournaledState,
 };
@@ -820,8 +820,8 @@ impl Backend {
         self.set_spec_id(env.handler_cfg.spec_id);
 
         let test_contract = match env.tx.transact_to {
-            TransactTo::Call(to) => to,
-            TransactTo::Create => env.tx.caller.create(env.tx.nonce.unwrap_or_default()),
+            TxKind::Call(to) => to,
+            TxKind::Create => env.tx.caller.create(env.tx.nonce.unwrap_or_default()),
         };
         self.set_test_contract(test_contract);
     }
@@ -1436,7 +1436,7 @@ impl DatabaseExt for Backend {
                         let slot = U256::from_be_bytes(slot.0);
                         (
                             slot,
-                            StorageSlot::new_changed(
+                            EvmStorageSlot::new_changed(
                                 state_acc
                                     .storage
                                     .get(&slot)
@@ -2004,7 +2004,7 @@ fn commit_transaction<I: InspectorExt<Backend>>(
 
 /// Helper method which updates data in the state with the data from the
 /// database.
-pub fn update_state<DB: Database>(state: &mut State, db: &mut DB) -> Result<(), DB::Error> {
+pub fn update_state<DB: Database>(state: &mut EvmState, db: &mut DB) -> Result<(), DB::Error> {
     for (addr, acc) in state.iter_mut() {
         acc.info = db.basic(*addr)?.unwrap_or_default();
         for (key, val) in acc.storage.iter_mut() {

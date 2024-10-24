@@ -5,7 +5,7 @@ use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_rpc_types::{Block, Transaction};
 use eyre::ContextCompat;
-pub use revm::primitives::State as StateChangeset;
+pub use revm::primitives::EvmState as StateChangeset;
 use revm::{
     db::WrapDatabaseRef,
     handler::register::EvmHandler,
@@ -13,7 +13,7 @@ use revm::{
         return_ok, CallInputs, CallOutcome, CallScheme, CallValue, CreateInputs, CreateOutcome,
         Gas, InstructionResult, InterpreterResult,
     },
-    primitives::{CreateScheme, EVMError, SpecId, TransactTo, KECCAK_EMPTY},
+    primitives::{CreateScheme, EVMError, SpecId, TxKind, KECCAK_EMPTY},
     FrameOrResult, FrameResult,
 };
 
@@ -101,7 +101,7 @@ pub fn configure_tx_env(env: &mut revm::primitives::Env, tx: &Transaction) {
         .collect();
     env.tx.value = tx.value.to();
     env.tx.data = alloy_primitives::Bytes(tx.input.0.clone());
-    env.tx.transact_to = tx.to.map_or_else(TransactTo::create, TransactTo::Call);
+    env.tx.transact_to = tx.to.map_or(TxKind::Create, TxKind::Call);
 }
 
 /// Get the gas used, accounting for refunds
