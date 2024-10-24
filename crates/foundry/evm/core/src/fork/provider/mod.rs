@@ -13,8 +13,8 @@ use std::{
 
 use alloy_chains::NamedChain;
 use alloy_provider::{
-    fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, SignerFiller},
-    network::{AnyNetwork, EthereumSigner},
+    fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
+    network::{AnyNetwork, EthereumWallet},
     Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
 };
 use alloy_rpc_client::ClientBuilder;
@@ -33,7 +33,7 @@ pub type RetryProvider<N = AnyNetwork> = RootProvider<RetryBackoffService<Runtim
 pub type RetryProviderWithSigner<N = AnyNetwork> = FillProvider<
     JoinFill<
         JoinFill<JoinFill<JoinFill<Identity, GasFiller>, NonceFiller>, ChainIdFiller>,
-        SignerFiller<EthereumSigner>,
+        WalletFiller<EthereumWallet>,
     >,
     RootProvider<RetryBackoffService<RuntimeTransport>, N>,
     RetryBackoffService<RuntimeTransport>,
@@ -283,7 +283,7 @@ impl ProviderBuilder {
     }
 
     /// Constructs the `RetryProvider` with a signer
-    pub fn build_with_signer(self, signer: EthereumSigner) -> Result<RetryProviderWithSigner> {
+    pub fn build_with_signer(self, wallet: EthereumWallet) -> Result<RetryProviderWithSigner> {
         let ProviderBuilder {
             url,
             chain: _,
@@ -317,7 +317,7 @@ impl ProviderBuilder {
 
         let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
             .with_recommended_fillers()
-            .signer(signer)
+            .wallet(wallet)
             .on_provider(RootProvider::new(client));
 
         Ok(provider)

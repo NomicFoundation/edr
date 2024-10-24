@@ -7,7 +7,8 @@ use std::{
 
 use alloy_genesis::GenesisAccount;
 use alloy_primitives::{address, b256, keccak256, Address, B256, U256};
-use alloy_rpc_types::{Block, BlockNumberOrTag, BlockTransactions, Transaction, WithOtherFields};
+use alloy_rpc_types::{Block, BlockNumberOrTag, BlockTransactions, Transaction};
+use alloy_serde::WithOtherFields;
 use eyre::Context;
 use revm::{
     db::{CacheDB, DatabaseRef},

@@ -12,7 +12,8 @@ use std::{
 
 use alloy_primitives::{keccak256, Address, Bytes, B256, U256};
 use alloy_provider::{network::AnyNetwork, Provider};
-use alloy_rpc_types::{Block, BlockId, Transaction, WithOtherFields};
+use alloy_rpc_types::{Block, BlockId, Transaction};
+use alloy_serde::WithOtherFields;
 use alloy_transport::Transport;
 use eyre::WrapErr;
 use futures::{
@@ -267,7 +268,7 @@ where
         let provider = self.provider.clone();
         let fut = Box::pin(async move {
             let block = provider
-                .get_block(number, true)
+                .get_block(number, true.into())
                 .await
                 .wrap_err("could not fetch block {number:?}");
             (sender, block, number)

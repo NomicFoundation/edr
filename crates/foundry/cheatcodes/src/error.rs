@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt};
 
 use alloy_primitives::{Address, Bytes};
 use alloy_signer::Error as SignerError;
-use alloy_signer_wallet::WalletError;
+use alloy_signer_local::LocalSignerError;
 use alloy_sol_types::SolError;
 use edr_common::errors::FsPathError;
 use foundry_evm_core::backend::DatabaseError;
@@ -307,7 +307,7 @@ impl_from!(
     std::num::TryFromIntError,
     std::str::Utf8Error,
     std::string::FromUtf8Error,
-    WalletError,
+    LocalSignerError,
     SignerError,
 );
 
