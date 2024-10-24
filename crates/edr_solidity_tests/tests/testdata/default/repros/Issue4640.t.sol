@@ -10,7 +10,7 @@ contract Issue4640Test is DSTest {
 
     function testArbitrumBlockNumber() public {
         // <https://arbiscan.io/block/75219831>
-        vm.createSelectFork("rpcAlias", 75219831);
+        vm.createSelectFork("rpcAliasArbitrum", 75219831);
         // L1 block number
         assertEq(block.number, 16939475);
     }

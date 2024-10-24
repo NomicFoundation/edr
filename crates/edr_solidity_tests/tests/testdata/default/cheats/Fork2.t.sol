@@ -36,7 +36,7 @@ contract ForkTest is DSTest {
     // this will create two _different_ forks during setup
     function setUp() public {
         mainnetFork = vm.createFork("rpcAlias");
-        optimismFork = vm.createFork("optimism");
+        optimismFork = vm.createFork("rpcAliasOptimism");
     }
 
     // ensures forks use different ids
