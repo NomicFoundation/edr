@@ -136,7 +136,7 @@ pub(crate) fn step(mapping_slots: &mut HashMap<Address, MappingSlots>, interpret
     match interpreter.current_opcode() {
         opcode::KECCAK256 => {
             if interpreter.stack.peek(1) == Ok(U256::from(0x40)) {
-                let address = interpreter.contract.address;
+                let address = interpreter.contract.target_address;
                 let offset = interpreter
                     .stack
                     .peek(0)
@@ -155,7 +155,8 @@ pub(crate) fn step(mapping_slots: &mut HashMap<Address, MappingSlots>, interpret
             }
         }
         opcode::SSTORE => {
-            if let Some(mapping_slots) = mapping_slots.get_mut(&interpreter.contract.address) {
+            if let Some(mapping_slots) = mapping_slots.get_mut(&interpreter.contract.target_address)
+            {
                 if let Ok(slot) = interpreter.stack.peek(0) {
                     mapping_slots.insert(slot.into());
                 }
