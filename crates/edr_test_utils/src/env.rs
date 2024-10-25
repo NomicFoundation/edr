@@ -52,9 +52,9 @@ pub fn get_alchemy_url_for_network(network_type: NetworkType) -> String {
         .expect("Failed to remove alchemy url network prefix");
     match network_type {
         NetworkType::Ethereum => alchemy_url,
-        NetworkType::Sepolia => format!("https://eth-sepolia{}", url_without_network),
-        NetworkType::Optimism => format!("https://opt-mainnet{}", url_without_network),
-        NetworkType::Arbitrum => format!("https://arb-mainnet{}", url_without_network),
-        NetworkType::Polygon => format!("https://polygon-mainnet{}", url_without_network),
+        NetworkType::Sepolia => format!("https://eth-sepolia{url_without_network}"),
+        NetworkType::Optimism => format!("https://opt-mainnet{url_without_network}"),
+        NetworkType::Arbitrum => format!("https://arb-mainnet{url_without_network}"),
+        NetworkType::Polygon => format!("https://polygon-mainnet{url_without_network}"),
     }
 }
