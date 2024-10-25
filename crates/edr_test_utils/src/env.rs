@@ -45,7 +45,6 @@ pub enum NetworkType {
 ///
 /// Panics if the environment variable is not defined, or if it is empty.
 pub fn get_alchemy_url_for_network(network_type: NetworkType) -> String {
-    // The get_alchemy_url function is used to get the Alchemy URL for the main network.
     let alchemy_url = get_alchemy_url();
 
     let url_without_network = alchemy_url

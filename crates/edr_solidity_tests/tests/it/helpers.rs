@@ -17,7 +17,10 @@ use edr_solidity_tests::{
     multi_runner::{TestContract, TestContracts},
     MultiContractRunner, SolidityTestRunnerConfig,
 };
-use edr_test_utils::{env::NetworkType, new_fd_lock};
+use edr_test_utils::{
+    env::{get_alchemy_url_for_network, NetworkType},
+    new_fd_lock,
+};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpoint, RpcEndpoints};
 use foundry_compilers::{
     artifacts::{CompactContractBytecode, Libraries},
@@ -40,7 +43,6 @@ use serde::{Deserialize, Serialize};
 use crate::helpers::{
     integration_test_config::IntegrationTestConfig, tracing::init_tracing_for_solidity_tests,
 };
-use edr_test_utils::env::get_alchemy_url_for_network;
 
 pub const RE_PATH_SEPARATOR: &str = "/";
 static PROJECT_ROOT: Lazy<PathBuf> = Lazy::new(|| {
@@ -510,13 +512,11 @@ pub static TEST_DATA_CANCUN: Lazy<ForgeTestData> =
 pub static TEST_DATA_MULTI_VERSION: Lazy<ForgeTestData> =
     Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion));
 
-// TODO use alchemy from env
-// https://github.com/NomicFoundation/edr/issues/643
 fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
-            "rpcAlias",
-            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Ethereum)),
+            "rpcAliasFake",
+            RpcEndpoint::Url("https://example.com".to_string()),
         ),
         (
             "rpcAliasMainnet",

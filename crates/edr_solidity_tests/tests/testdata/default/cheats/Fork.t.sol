@@ -23,8 +23,8 @@ contract ForkTest is DSTest {
 
     // this will create two _different_ forks during setup
     function setUp() public {
-        forkA = vm.createFork("rpcAlias", mainblock);
-        forkB = vm.createFork("rpcAlias", mainblock - 1);
+        forkA = vm.createFork("rpcAliasMainnet", mainblock);
+        forkB = vm.createFork("rpcAliasMainnet", mainblock - 1);
         testValue = 999;
     }
 
@@ -35,7 +35,7 @@ contract ForkTest is DSTest {
 
     // ensures we can create and select in one step
     function testCreateSelect() public {
-        uint256 fork = vm.createSelectFork("rpcAlias");
+        uint256 fork = vm.createSelectFork("rpcAliasMainnet");
         assertEq(fork, vm.activeFork());
     }
 
