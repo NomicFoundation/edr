@@ -12,11 +12,12 @@ use std::{
     fmt::Display,
     ops::{AddAssign, Deref, DerefMut},
     path::PathBuf,
+    sync::Arc,
 };
 
 use alloy_primitives::{Bytes, B256};
 use eyre::{Context, Result};
-use foundry_compilers::sourcemap::SourceElement;
+use foundry_compilers::sourcemap::SourceMap;
 use semver::Version;
 
 pub mod analysis;
@@ -43,7 +44,7 @@ pub struct CoverageReport {
     /// All the bytecode hits for the codebase
     pub bytecode_hits: HashMap<ContractId, HitMap>,
     /// The bytecode -> source mappings
-    pub source_maps: HashMap<ContractId, (Vec<SourceElement>, Vec<SourceElement>)>,
+    pub source_maps: HashMap<ContractId, (SourceMap, SourceMap)>,
 }
 
 impl CoverageReport {
@@ -55,27 +56,27 @@ impl CoverageReport {
     }
 
     /// Get the source ID for a specific source file path.
-    pub fn get_source_id(&self, version: Version, path: PathBuf) -> Option<&usize> {
-        self.source_paths_to_ids.get(&(version, path))
+    pub fn get_source_id(&self, version: Version, path: PathBuf) -> Option<usize> {
+        self.source_paths_to_ids.get(&(version, path)).copied()
     }
 
     /// Add the source maps
     pub fn add_source_maps(
         &mut self,
-        source_maps: HashMap<ContractId, (Vec<SourceElement>, Vec<SourceElement>)>,
+        source_maps: impl IntoIterator<Item = (ContractId, (SourceMap, SourceMap))>,
     ) {
         self.source_maps.extend(source_maps);
     }
 
     /// Add coverage items to this report
-    pub fn add_items(&mut self, version: Version, items: Vec<CoverageItem>) {
+    pub fn add_items(&mut self, version: Version, items: impl IntoIterator<Item = CoverageItem>) {
         self.items.entry(version).or_default().extend(items);
     }
 
     /// Add anchors to this report
     pub fn add_anchors(
         &mut self,
-        anchors: HashMap<ContractId, (Vec<ItemAnchor>, Vec<ItemAnchor>)>,
+        anchors: impl IntoIterator<Item = (ContractId, (Vec<ItemAnchor>, Vec<ItemAnchor>))>,
     ) {
         self.anchors.extend(anchors);
     }
@@ -137,12 +138,8 @@ impl CoverageReport {
             .bytecode_hits
             .entry(contract_id.clone())
             .or_insert_with(|| HitMap::new(hit_map.bytecode.clone()));
-        e.merge(hit_map).context(format!(
-            "contract_id {:?}, hash {}, hash {}",
-            contract_id,
-            e.bytecode.clone(),
-            hit_map.bytecode.clone(),
-        ))?;
+        e.merge(hit_map)
+            .wrap_err_with(|| format!("{contract_id:?}"))?;
 
         // Add source level hits
         if let Some(anchors) = self.anchors.get(contract_id) {
@@ -152,7 +149,7 @@ impl CoverageReport {
                 &anchors.0
             };
             for anchor in anchors {
-                if let Some(hits) = hit_map.hits.get(&anchor.instruction) {
+                if let Some(&hits) = hit_map.hits.get(&anchor.instruction) {
                     self.items
                         .get_mut(&contract_id.version)
                         .and_then(|items| items.get_mut(anchor.item_id))
@@ -254,7 +251,7 @@ impl HitMap {
 pub struct ContractId {
     pub version: Version,
     pub source_id: usize,
-    pub contract_name: String,
+    pub contract_name: Arc<str>,
 }
 
 impl Display for ContractId {
@@ -343,7 +340,7 @@ pub struct SourceLocation {
     /// The source ID.
     pub source_id: usize,
     /// The contract this source range is in.
-    pub contract_name: String,
+    pub contract_name: Arc<str>,
     /// Start byte in the source code.
     pub start: usize,
     /// Number of bytes in the source code.
