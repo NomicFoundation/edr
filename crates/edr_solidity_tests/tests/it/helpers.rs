@@ -18,7 +18,10 @@ use edr_solidity_tests::{
     revm::primitives::SpecId,
     MultiContractRunner, SolidityTestRunnerConfig,
 };
-use edr_test_utils::new_fd_lock;
+use edr_test_utils::{
+    env::{get_alchemy_url_for_network, NetworkType},
+    new_fd_lock,
+};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpoint, RpcEndpoints};
 use foundry_compilers::{
     artifacts::{CompactContractBytecode, Libraries},
@@ -511,25 +514,35 @@ pub static TEST_DATA_CANCUN: Lazy<ForgeTestData> =
 pub static TEST_DATA_MULTI_VERSION: Lazy<ForgeTestData> =
     Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion));
 
-// TODO use alchemy from env
-// https://github.com/NomicFoundation/edr/issues/643
 fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
-            "rpcAlias",
-            RpcEndpoint::Url(
-                "https://eth-mainnet.alchemyapi.io/v2/Lc7oIGYeL_QvInzI0Wiu_pOZZDEKBrdf".to_string(),
-            ),
+            "rpcAliasFake",
+            RpcEndpoint::Url("https://example.com".to_string()),
+        ),
+        (
+            "rpcAliasMainnet",
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Ethereum)),
         ),
         (
             "rpcAliasSepolia",
-            RpcEndpoint::Url(
-                "https://eth-sepolia.g.alchemy.com/v2/Lc7oIGYeL_QvInzI0Wiu_pOZZDEKBrdf".to_string(),
-            ),
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Sepolia)),
         ),
         (
             "rpcEnvAlias",
             RpcEndpoint::Env("${RPC_ENV_ALIAS}".to_string()),
+        ),
+        (
+            "rpcAliasOptimism",
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Optimism)),
+        ),
+        (
+            "rpcAliasPolygon",
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Polygon)),
+        ),
+        (
+            "rpcAliasArbitrum",
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Arbitrum)),
         ),
     ])
 }
