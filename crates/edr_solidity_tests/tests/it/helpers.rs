@@ -18,7 +18,7 @@ use edr_solidity_tests::{
     revm::primitives::SpecId,
     MultiContractRunner, SolidityTestRunnerConfig,
 };
-use edr_test_utils::new_fd_lock;
+use edr_test_utils::{env::NetworkType, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpoint, RpcEndpoints};
 use foundry_compilers::{
     artifacts::{CompactContractBytecode, Libraries},
@@ -41,6 +41,7 @@ use serde::{Deserialize, Serialize};
 use crate::helpers::{
     integration_test_config::IntegrationTestConfig, tracing::init_tracing_for_solidity_tests,
 };
+use edr_test_utils::env::get_alchemy_url_for_network;
 
 pub const RE_PATH_SEPARATOR: &str = "/";
 static PROJECT_ROOT: Lazy<PathBuf> = Lazy::new(|| {
@@ -517,19 +518,31 @@ fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
             "rpcAlias",
-            RpcEndpoint::Url(
-                "https://eth-mainnet.alchemyapi.io/v2/Lc7oIGYeL_QvInzI0Wiu_pOZZDEKBrdf".to_string(),
-            ),
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Ethereum)),
+        ),
+        (
+            "rpcAliasMainnet",
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Ethereum)),
         ),
         (
             "rpcAliasSepolia",
-            RpcEndpoint::Url(
-                "https://eth-sepolia.g.alchemy.com/v2/Lc7oIGYeL_QvInzI0Wiu_pOZZDEKBrdf".to_string(),
-            ),
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Sepolia)),
         ),
         (
             "rpcEnvAlias",
             RpcEndpoint::Env("${RPC_ENV_ALIAS}".to_string()),
+        ),
+        (
+            "rpcAliasOptimism",
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Optimism)),
+        ),
+        (
+            "rpcAliasPolygon",
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Polygon)),
+        ),
+        (
+            "rpcAliasArbitrum",
+            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Arbitrum)),
         ),
     ])
 }
