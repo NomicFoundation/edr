@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use alloy_primitives::{Address, B256, U256};
 use alloy_rpc_types::BlockId;
+use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
 use parking_lot::Mutex;
 use revm::{
     db::{CacheDB, DatabaseRef},
@@ -12,8 +13,7 @@ use revm::{
 };
 
 use crate::{
-    backend::{DatabaseError, RevertSnapshotAction, StateSnapshot},
-    fork::{BlockchainDb, SharedBackend},
+    backend::{RevertSnapshotAction, StateSnapshot},
     snapshot::Snapshots,
 };
 
@@ -289,7 +289,7 @@ mod tests {
     use revm::primitives::{BlockEnv, CfgEnv};
 
     use super::*;
-    use crate::fork::{provider::get_http_provider, BlockchainDbMeta};
+    use crate::{backend::BlockchainDbMeta, fork::provider::get_http_provider};
 
     /// Demonstrates that `Database::basic` for `ForkedDatabase` will always
     /// return the `AccountInfo`

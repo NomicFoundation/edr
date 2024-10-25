@@ -1,12 +1,13 @@
 //! The in memory DB
 use alloy_primitives::{Address, B256, U256};
+use foundry_fork_db::DatabaseError;
 use revm::{
     db::{CacheDB, DatabaseRef, EmptyDB},
     primitives::{Account, AccountInfo, Bytecode, HashMap as Map},
     Database, DatabaseCommit,
 };
 
-use crate::{backend::error::DatabaseError, snapshot::Snapshots};
+use crate::snapshot::Snapshots;
 
 /// Type alias for an in memory database
 ///

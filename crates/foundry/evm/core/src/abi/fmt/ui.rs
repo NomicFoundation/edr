@@ -1,11 +1,11 @@
 //! Helper trait and functions to format Ethereum types.
 
-use alloy_consensus::{AnyReceiptEnvelope, Receipt, ReceiptWithBloom, TxType};
+use alloy_consensus::{AnyReceiptEnvelope, Eip658Value, Receipt, ReceiptWithBloom, TxType};
 use alloy_primitives::{hex, Address, Bloom, Bytes, FixedBytes, Uint, B256, I256, U256, U64};
 use alloy_rpc_types::{
-    other::OtherFields, AnyTransactionReceipt, Block, BlockTransactions, Log, Transaction,
-    TransactionReceipt,
+    AnyTransactionReceipt, Block, BlockTransactions, Log, Transaction, TransactionReceipt,
 };
+use alloy_serde::OtherFields;
 use serde::Deserialize;
 
 use crate::abi::fmt::transactions::TransactionReceiptWithRevertReason;
@@ -148,8 +148,13 @@ impl UIfmt for [u8] {
     }
 }
 
-pub fn pretty_status(status: bool) -> String {
-    if status { "1 (success)" } else { "0 (failed)" }.to_string()
+impl UIfmt for Eip658Value {
+    fn pretty(&self) -> String {
+        match self {
+            Self::Eip658(status) => if *status { "1 (success)" } else { "0 (failed)" }.to_string(),
+            Self::PostState(state) => state.pretty(),
+        }
+    }
 }
 
 impl UIfmt for AnyTransactionReceipt {
@@ -215,7 +220,7 @@ blobGasUsed             {}",
             serde_json::to_string(&logs).unwrap(),
             logs_bloom.pretty(),
             state_root.pretty(),
-            pretty_status(*status),
+            status.pretty(),
             transaction_hash.pretty(),
             transaction_index.pretty(),
             transaction_type,
@@ -446,9 +451,9 @@ pub fn get_pretty_tx_receipt_attr(
         ),
         "logsBloom" | "logs_bloom" => Some(receipt.receipt.inner.inner.inner.logs_bloom.pretty()),
         "root" | "stateRoot" | "state_root " => Some(receipt.receipt.state_root.pretty()),
-        "status" | "statusCode" | "status_code" => Some(pretty_status(
-            receipt.receipt.inner.inner.inner.receipt.status,
-        )),
+        "status" | "statusCode" | "status_code" => {
+            Some(receipt.receipt.inner.inner.inner.receipt.status.pretty())
+        }
         "transactionHash" | "transaction_hash" => Some(receipt.receipt.transaction_hash.pretty()),
         "transactionIndex" | "transaction_index" => {
             Some(receipt.receipt.transaction_index.pretty())

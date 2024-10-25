@@ -22,14 +22,15 @@ alloy-primitives = { workspace = true, features = ["serde", "getrandom", "arbitr
 alloy-genesis.workspace = true
 alloy-provider.workspace = true
 alloy-pubsub.workspace = true
-alloy-rpc-types-engine.workspace = true
 alloy-rpc-client.workspace = true
-alloy-rpc-types.workspace = true
+alloy-rpc-types = { workspace = true, features = ["eth", "engine"] }
+alloy-serde.workspace = true
 alloy-sol-types.workspace = true
 alloy-transport.workspace = true
 alloy-transport-http = { workspace = true, features = ["reqwest", "reqwest-rustls-tls"] }
 alloy-transport-ws.workspace = true
 alloy-transport-ipc.workspace = true
+foundry-fork-db.workspace = true
 
 revm = { workspace = true, features = [
     "std",

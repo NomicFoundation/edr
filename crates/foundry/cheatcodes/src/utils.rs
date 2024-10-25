@@ -2,7 +2,7 @@
 
 use alloy_primitives::{B256, U256};
 use alloy_signer::SignerSync;
-use alloy_signer_wallet::LocalWallet;
+use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
 use foundry_evm_core::constants::DEFAULT_CREATE2_DEPLOYER;
 use k256::{ecdsa::SigningKey, elliptic_curve::Curve, Secp256k1};
@@ -85,12 +85,8 @@ fn encode_vrs(sig: alloy_primitives::Signature) -> Vec<u8> {
 pub(super) fn sign(private_key: &U256, digest: &B256) -> Result {
     // The `ecrecover` precompile does not use EIP-155. No chain ID is needed.
     let wallet = parse_wallet(private_key)?;
-
     let sig = wallet.sign_hash_sync(digest)?;
-    let recovered = sig.recover_address_from_prehash(digest)?;
-
-    assert_eq!(recovered, wallet.address());
-
+    debug_assert_eq!(sig.recover_address_from_prehash(digest)?, wallet.address());
     Ok(encode_vrs(sig))
 }
 
@@ -124,8 +120,8 @@ pub(super) fn parse_private_key(private_key: &U256) -> Result<SigningKey> {
     SigningKey::from_bytes((&bytes).into()).map_err(Into::into)
 }
 
-pub(super) fn parse_wallet(private_key: &U256) -> Result<LocalWallet> {
-    parse_private_key(private_key).map(LocalWallet::from)
+pub(super) fn parse_wallet(private_key: &U256) -> Result<PrivateKeySigner> {
+    parse_private_key(private_key).map(PrivateKeySigner::from)
 }
 
 #[cfg(test)]

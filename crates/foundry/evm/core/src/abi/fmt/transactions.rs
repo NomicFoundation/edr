@@ -1,6 +1,7 @@
 //! wrappers for transactions
 use alloy_provider::{network::AnyNetwork, Provider};
-use alloy_rpc_types::{AnyTransactionReceipt, BlockId, WithOtherFields};
+use alloy_rpc_types::{AnyTransactionReceipt, BlockId};
+use alloy_serde::WithOtherFields;
 use alloy_transport::Transport;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -20,7 +21,14 @@ pub struct TransactionReceiptWithRevertReason {
 impl TransactionReceiptWithRevertReason {
     /// Returns if the status of the transaction is 0 (failure)
     pub fn is_failure(&self) -> bool {
-        !self.receipt.inner.inner.inner.receipt.status
+        !self
+            .receipt
+            .inner
+            .inner
+            .inner
+            .receipt
+            .status
+            .coerce_status()
     }
 
     /// Updates the revert reason field using `eth_call` and returns an Err
