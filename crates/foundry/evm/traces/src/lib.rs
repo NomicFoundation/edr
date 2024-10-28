@@ -26,7 +26,7 @@ pub mod abi;
 mod decoder;
 pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
-use revm_inspectors::tracing::types::LogCallOrder;
+use revm_inspectors::tracing::types::TraceMemberOrder;
 pub use revm_inspectors::tracing::{
     types::{CallKind, CallTrace, CallTraceNode},
     CallTraceArena, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType, TracingInspector,
@@ -93,8 +93,8 @@ pub async fn render_trace_arena(
             let right_prefix = format!("{child}{PIPE}");
             for child in &node.ordering {
                 match child {
-                    LogCallOrder::Log(index) => {
-                        let log = render_trace_log(&node.logs[*index], decoder).await?;
+                    TraceMemberOrder::Log(index) => {
+                        let log = render_trace_log(&node.logs[*index].raw_log, decoder).await?;
 
                         // Prepend our tree structure symbols to each line of the displayed log
                         log.lines().enumerate().try_for_each(|(i, line)| {
@@ -106,7 +106,7 @@ pub async fn render_trace_arena(
                             )
                         })?;
                     }
-                    LogCallOrder::Call(index) => {
+                    TraceMemberOrder::Call(index) => {
                         inner(
                             arena,
                             decoder,
@@ -117,6 +117,7 @@ pub async fn render_trace_arena(
                         )
                         .await?;
                     }
+                    TraceMemberOrder::Step(_) => {}
                 }
             }
 
