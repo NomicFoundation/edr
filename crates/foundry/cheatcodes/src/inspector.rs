@@ -756,7 +756,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
         }
     }
 
-    fn log(&mut self, _context: &mut EvmContext<DB>, log: &Log) {
+    fn log(&mut self, _interpreter: &mut Interpreter, _context: &mut EvmContext<DB>, log: &Log) {
         if !self.expected_emits.is_empty() {
             expect::handle_expect_emit(self, log);
         }
@@ -926,10 +926,14 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                 old_balance = U256::ZERO;
             }
             let kind = match call.scheme {
-                CallScheme::Call => crate::Vm::AccountAccessKind::Call,
+                CallScheme::Call | CallScheme::ExtCall => crate::Vm::AccountAccessKind::Call,
                 CallScheme::CallCode => crate::Vm::AccountAccessKind::CallCode,
-                CallScheme::DelegateCall => crate::Vm::AccountAccessKind::DelegateCall,
-                CallScheme::StaticCall => crate::Vm::AccountAccessKind::StaticCall,
+                CallScheme::DelegateCall | CallScheme::ExtDelegateCall => {
+                    crate::Vm::AccountAccessKind::DelegateCall
+                }
+                CallScheme::StaticCall | CallScheme::ExtStaticCall => {
+                    crate::Vm::AccountAccessKind::StaticCall
+                }
             };
             // Record this call by pushing it to a new pending vector; all subsequent calls
             // at that depth will be pushed to the same vector. When the call
