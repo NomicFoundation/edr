@@ -374,6 +374,8 @@ impl InspectorStack {
                 record_memory_snapshots: false,
                 record_stack_snapshots: StackSnapshotType::None,
                 record_state_diff: false,
+                record_returndata_snapshots: false,
+                record_opcodes_filter: None,
                 exclude_precompile_calls: false,
                 record_logs: true,
             })
@@ -397,7 +399,7 @@ impl InspectorStack {
                         .collect()
                 })
                 .unwrap_or_default(),
-            traces: self.tracer.map(|tracer| tracer.get_traces().clone()),
+            traces: self.tracer.map(TracingInspector::into_traces),
             coverage: self.coverage.map(|coverage| coverage.maps),
             cheatcodes: self.cheatcodes,
             chisel_state: self.chisel_state.and_then(|state| state.state),
