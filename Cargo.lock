@@ -2581,7 +2581,6 @@ dependencies = [
  "edr_defaults",
  "eyre",
  "foundry-evm-core",
- "futures",
  "itertools 0.12.1",
  "once_cell",
  "reqwest 0.12.7",
@@ -2592,7 +2591,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
- "yansi",
 ]
 
 [[package]]

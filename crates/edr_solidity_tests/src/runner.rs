@@ -442,8 +442,8 @@ impl<'a> ContractRunner<'a> {
             find_time,
         );
 
-        let identified_contracts =
-            has_invariants.then(|| load_contracts(setup.traces.clone(), &known_contracts));
+        let identified_contracts = has_invariants
+            .then(|| load_contracts(setup.traces.iter().map(|(_, t)| t), &known_contracts));
         let test_results = functions
             .par_iter()
             .map(|&func| {

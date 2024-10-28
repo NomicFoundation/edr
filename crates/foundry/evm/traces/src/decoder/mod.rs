@@ -3,6 +3,7 @@ use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Error, Event, Function, JsonAbi};
 use alloy_primitives::{Address, LogData, Selector, B256};
+use edr_defaults::SELECTOR_LEN;
 use foundry_evm_core::{
     abi::{fmt::format_token, Console, HardhatConsole, Vm, HARDHAT_CONSOLE_SELECTOR_PATCHES},
     constants::{
@@ -14,6 +15,7 @@ use foundry_evm_core::{
 };
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
+use revm_inspectors::tracing::types::{DecodedCallLog, DecodedCallTrace};
 use rustc_hash::FxHashMap;
 
 use crate::{
@@ -21,7 +23,7 @@ use crate::{
     identifier::{
         AddressIdentity, LocalTraceIdentifier, SingleSignaturesIdentifier, TraceIdentifier,
     },
-    CallTrace, CallTraceArena, CallTraceNode, DecodedCallData, DecodedCallLog, DecodedCallTrace,
+    CallTrace, CallTraceArena, CallTraceNode, DecodedCallData,
 };
 
 mod precompiles;
@@ -203,7 +205,7 @@ impl CallTraceDecoder {
     ///
     /// Unknown contracts are contracts that either lack a label or an ABI.
     pub fn identify(&mut self, trace: &CallTraceArena, identifier: &mut impl TraceIdentifier) {
-        self.collect_identities(identifier.identify_addresses(self.addresses(trace)));
+        self.collect_identities(identifier.identify_addresses(self.trace_addresses(trace)));
     }
 
     /// Adds a single event to the decoder.
@@ -236,7 +238,8 @@ impl CallTraceDecoder {
         self.revert_decoder.push_error(error);
     }
 
-    fn addresses<'a>(
+    /// Returns an iterator over the trace addresses.
+    pub fn trace_addresses<'a>(
         &'a self,
         arena: &'a CallTraceArena,
     ) -> impl Iterator<Item = (&'a Address, Option<&'a [u8]>)> + Clone + 'a {
@@ -306,68 +309,71 @@ impl CallTraceDecoder {
         }
     }
 
+    /// Populates the traces with decoded data by mutating the
+    /// [`CallTrace`] in place. See [`CallTraceDecoder::decode_function`] and
+    /// [`CallTraceDecoder::decode_event`] for more details.
+    pub async fn populate_traces(&self, traces: &mut Vec<CallTraceNode>) {
+        for node in traces {
+            node.trace.decoded = self.decode_function(&node.trace).await;
+            for log in node.logs.iter_mut() {
+                log.decoded = self.decode_event(&log.raw_log).await;
+            }
+        }
+    }
+
+    /// Decodes a call trace.
     pub async fn decode_function(&self, trace: &CallTrace) -> DecodedCallTrace {
-        // Decode precompile
-        if let Some((label, func)) = precompiles::decode(trace, 1) {
-            return DecodedCallTrace {
-                label: Some(label),
-                return_data: None,
-                contract: None,
-                func: Some(func),
-            };
+        if let Some(trace) = precompiles::decode(trace, 1) {
+            return trace;
         }
 
-        // Set label
         let label = self.labels.get(&trace.address).cloned();
-
-        // Set contract name
-        let contract = self.contracts.get(&trace.address).cloned();
 
         let cdata = &trace.data;
         if trace.address == DEFAULT_CREATE2_DEPLOYER {
             return DecodedCallTrace {
                 label,
+                call_data: Some(DecodedCallData {
+                    signature: "create2".to_string(),
+                    args: vec![],
+                }),
                 return_data: (!trace.status.is_ok()).then(|| {
                     self.revert_decoder
                         .decode(&trace.output, Some(trace.status))
                 }),
-                contract,
-                func: Some(DecodedCallData {
-                    signature: "create2".to_string(),
-                    args: vec![],
-                }),
             };
         }
 
-        if cdata.len() >= edr_defaults::SELECTOR_LEN {
-            let selector = &cdata[..edr_defaults::SELECTOR_LEN];
+        if cdata.len() >= SELECTOR_LEN {
+            let selector = &cdata[..SELECTOR_LEN];
             let mut functions = Vec::new();
-            let functions = if let Some(fs) = self.functions.get(selector) {
-                fs
-            } else {
-                if let Some(identifier) = &self.signature_identifier {
-                    if let Some(function) =
-                        identifier.write().await.identify_function(selector).await
-                    {
-                        functions.push(function);
+            // The Clippy suggestion makes the code more difficult to read in this case.
+            #[allow(clippy::single_match_else)]
+            let functions = match self.functions.get(selector) {
+                Some(fs) => fs,
+                None => {
+                    if let Some(identifier) = &self.signature_identifier {
+                        if let Some(function) =
+                            identifier.write().await.identify_function(selector).await
+                        {
+                            functions.push(function);
+                        }
                     }
+                    &functions
                 }
-                &functions
             };
             let [func, ..] = &functions[..] else {
                 return DecodedCallTrace {
                     label,
+                    call_data: None,
                     return_data: None,
-                    contract,
-                    func: None,
                 };
             };
 
             DecodedCallTrace {
                 label,
-                func: Some(self.decode_function_input(trace, func)),
+                call_data: Some(self.decode_function_input(trace, func)),
                 return_data: self.decode_function_output(trace, functions),
-                contract,
             }
         } else {
             let has_receive = self.receive_contracts.contains(&trace.address);
@@ -384,6 +390,7 @@ impl CallTraceDecoder {
             };
             DecodedCallTrace {
                 label,
+                call_data: Some(DecodedCallData { signature, args }),
                 return_data: if !trace.success {
                     Some(
                         self.revert_decoder
@@ -392,8 +399,6 @@ impl CallTraceDecoder {
                 } else {
                     None
                 },
-                contract,
-                func: Some(DecodedCallData { signature, args }),
             }
         }
     }
@@ -579,41 +584,52 @@ impl CallTraceDecoder {
     }
 
     /// Decodes an event.
-    pub async fn decode_event<'a>(&self, log: &'a LogData) -> DecodedCallLog<'a> {
+    pub async fn decode_event(&self, log: &LogData) -> DecodedCallLog {
         let &[t0, ..] = log.topics() else {
-            return DecodedCallLog::Raw(log);
+            return DecodedCallLog {
+                name: None,
+                params: None,
+            };
         };
 
         let mut events = Vec::new();
-        let events = if let Some(es) = self.events.get(&(t0, log.topics().len() - 1)) {
-            es
-        } else {
-            if let Some(identifier) = &self.signature_identifier {
-                if let Some(event) = identifier.write().await.identify_event(&t0[..]).await {
-                    events.push(get_indexed_event(event, log));
+        // The Clippy suggestion makes the code more difficult to read in this case.
+        #[allow(clippy::single_match_else)]
+        let events = match self.events.get(&(t0, log.topics().len() - 1)) {
+            Some(es) => es,
+            None => {
+                if let Some(identifier) = &self.signature_identifier {
+                    if let Some(event) = identifier.write().await.identify_event(&t0[..]).await {
+                        events.push(get_indexed_event(event, log));
+                    }
                 }
+                &events
             }
-            &events
         };
         for event in events {
             if let Ok(decoded) = event.decode_log(log, false) {
                 let params = reconstruct_params(event, &decoded);
-                return DecodedCallLog::Decoded(
-                    event.name.clone(),
-                    params
-                        .into_iter()
-                        .zip(event.inputs.iter())
-                        .map(|(param, input)| {
-                            // undo patched names
-                            let name = input.name.clone();
-                            (name, self.apply_label(&param))
-                        })
-                        .collect(),
-                );
+                return DecodedCallLog {
+                    name: Some(event.name.clone()),
+                    params: Some(
+                        params
+                            .into_iter()
+                            .zip(event.inputs.iter())
+                            .map(|(param, input)| {
+                                // undo patched names
+                                let name = input.name.clone();
+                                (name, self.apply_label(&param))
+                            })
+                            .collect(),
+                    ),
+                };
             }
         }
 
-        DecodedCallLog::Raw(log)
+        DecodedCallLog {
+            name: None,
+            params: None,
+        }
     }
 
     /// Prefetches function and event signatures into the identifier cache
