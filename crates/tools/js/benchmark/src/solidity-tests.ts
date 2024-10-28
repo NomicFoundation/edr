@@ -1,4 +1,4 @@
-/* 
+/*
 Baseline
 
 Source: https://github.com/NomicFoundation/forge-std/tree/js-benchmark-config
@@ -27,6 +27,7 @@ import {
   ArtifactId,
   ContractData,
 } from "@ignored/edr";
+import TOML from "smol-toml";
 
 // This is automatically cached in CI
 const RPC_CACHE_PATH = "./edr-cache";
@@ -94,7 +95,6 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
   );
 
   const config = getConfig(forgeStdRepoPath);
-
   const allResults = [];
   const runs = new Map<string, number[]>();
   const recordRun = recordTime.bind(null, runs);
@@ -162,6 +162,19 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
 }
 
 function getConfig(forgeStdRepoPath: string): SolidityTestRunnerConfigArgs {
+  const foundryTomlPath = path.join(forgeStdRepoPath, "foundry.toml");
+
+  if (!fs.existsSync(foundryTomlPath)) {
+    throw new Error(`Get config failed: could not find ${foundryTomlPath}`);
+  }
+  const foundryToml = fs.readFileSync(foundryTomlPath, "utf8");
+  const foundryTomlConfig = TOML.parse(foundryToml);
+
+  const rpcEndpoints = foundryTomlConfig.rpc_endpoints as Record<
+    string,
+    string
+  >;
+
   return {
     projectRoot: forgeStdRepoPath,
     rpcCachePath: RPC_CACHE_PATH,
@@ -169,13 +182,7 @@ function getConfig(forgeStdRepoPath: string): SolidityTestRunnerConfigArgs {
       { path: forgeStdRepoPath, access: FsAccessPermission.ReadWrite },
     ],
     testFail: true,
-    rpcEndpoints: {
-      // These are hardcoded in the `forge-std` foundry.toml
-      mainnet:
-        "https://eth-mainnet.alchemyapi.io/v2/WV407BEiBmjNJfKo9Uo_55u0z0ITyCOX",
-      optimism_sepolia: "https://sepolia.optimism.io/",
-      arbitrum_one_sepolia: "https://sepolia-rollup.arbitrum.io/rpc/",
-    },
+    rpcEndpoints,
     fuzz: {
       // Used to ensure deterministic fuzz execution
       seed: "0x1234567890123456789012345678901234567890",
