@@ -311,6 +311,8 @@ impl Cheatcode for getDeployedCodeCall {
 /// - `ContractName`
 /// - `ContractName:0.8.23`
 fn get_artifact_code(state: &Cheatcodes, path: &str, deployed: bool) -> Result<Bytes> {
+    const NO_MATCHING_ARTIFACT: &str = "No matching artifact found";
+
     let mut parts = path.split(':');
 
     let mut file = None;
@@ -369,31 +371,31 @@ fn get_artifact_code(state: &Cheatcodes, path: &str, deployed: bool) -> Result<B
         })
         .collect::<Vec<_>>();
 
-    let artifact = match filtered.len() {
-        0 => Err(fmt_err!("No matching artifact found")),
-        1 => Ok(filtered[0]),
-        _ => {
+    let artifact = match filtered.as_slice() {
+        [] => Err(fmt_err!(NO_MATCHING_ARTIFACT)),
+        [(_id, artifact)] => Ok(*artifact),
+        filtered => {
             // If we know the current script/test contract solc version, try to filter by it
-            state
-                .config
-                .running_version
-                .as_ref()
-                .and_then(|version| {
-                    let filtered = filtered
-                        .into_iter()
-                        .filter(|(id, _)| id.version == *version)
-                        .collect::<Vec<_>>();
-
-                    (filtered.len() == 1).then_some(filtered[0])
-                })
-                .ok_or_else(|| fmt_err!("Multiple matching artifacts found"))
+            let mut result = None;
+            if let Some(version) = state.config.running_version.as_ref() {
+                for (id, artifact) in filtered {
+                    if id.version == *version {
+                        if result.is_some() {
+                            return Err(fmt_err!("Multiple matching artifacts found"));
+                        } else {
+                            result = Some(*artifact);
+                        }
+                    }
+                }
+            }
+            result.ok_or_else(|| fmt_err!(NO_MATCHING_ARTIFACT))
         }
     }?;
 
     let maybe_bytecode = if deployed {
-        artifact.1.deployed_bytecode.clone()
+        artifact.deployed_bytecode.clone()
     } else {
-        artifact.1.bytecode.clone()
+        artifact.bytecode.clone()
     };
 
     maybe_bytecode.ok_or_else(|| fmt_err!("No bytecode for contract. Is it abstract or unlinked?"))

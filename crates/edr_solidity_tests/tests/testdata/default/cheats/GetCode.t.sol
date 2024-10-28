@@ -3,6 +3,7 @@ pragma solidity 0.8.18;
 
 import "ds-test/test.sol";
 import "cheats/Vm.sol";
+import "default/cheats/GetCode/Override.sol";
 
 contract TestContract {}
 
@@ -12,7 +13,8 @@ contract GetCodeTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
     function testWithPath() public {
-        bytes memory code = vm.getCode("default/fork/DssExecLib.sol");
+        bytes memory code = vm.getCode("default/cheats/GetCode/Override.sol");
+        assertEq(type(Override).creationCode, code);
     }
 
     function testRevert() public {
