@@ -378,6 +378,7 @@ impl InspectorStack {
                 record_opcodes_filter: None,
                 exclude_precompile_calls: false,
                 record_logs: true,
+                record_immediate_bytes: false,
             })
         });
     }

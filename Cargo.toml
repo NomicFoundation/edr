@@ -1,19 +1,19 @@
 [workspace]
 members = [
     # EDR
-    #    "crates/edr_common",
-    #    "crates/edr_defaults",
-    #    "crates/edr_eth",
-    #    "crates/edr_evm",
-    #    "crates/edr_macros",
-    #    "crates/edr_napi",
-    #    "crates/edr_provider",
-    #    "crates/edr_rpc_client",
-    #    "crates/edr_rpc_eth",
-    #    "crates/edr_solidity",
+    "crates/edr_common",
+    "crates/edr_defaults",
+    "crates/edr_eth",
+    "crates/edr_evm",
+    "crates/edr_macros",
+    "crates/edr_napi",
+    "crates/edr_provider",
+    "crates/edr_rpc_client",
+    "crates/edr_rpc_eth",
+    "crates/edr_solidity",
     "crates/edr_solidity_tests",
-    #    "crates/edr_test_utils",
-    #    "crates/tools",
+    "crates/edr_test_utils",
+    "crates/tools",
     # Foundry
     "crates/foundry/cheatcodes",
     "crates/foundry/cheatcodes/spec",
@@ -177,13 +177,13 @@ foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 # solc & compilation utilities
 foundry-block-explorers = { version = "=0.2.7", default-features = false }
 foundry-compilers = { version = "0.4.3", features = ["full"] }
-foundry-fork-db = "=0.2.0"
+foundry-fork-db = "=0.2.1"
 
 ## revm
 # no default features to avoid c-kzg
-revm = { version = "=12.1.0", default-features = false }
-revm-primitives = { version = "=7.1.0", default-features = false }
-revm-inspectors = { version = "=0.5.1", features = ["serde"] }
+revm = { version = "=13.0.0", default-features = false }
+revm-primitives = { version = "=8.0.0", default-features = false }
+revm-inspectors = { version = "=0.5.6", features = ["serde"] }
 
 ## ethers
 ethers-contract-abigen = { version = "2.0.14", default-features = false }
