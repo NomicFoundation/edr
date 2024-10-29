@@ -378,6 +378,7 @@ impl InspectorStack {
                 record_opcodes_filter: None,
                 exclude_precompile_calls: false,
                 record_logs: true,
+                record_immediate_bytes: false,
             })
         });
     }
@@ -658,7 +659,7 @@ impl<DB: DatabaseExt + DatabaseCommit> Inspector<&mut DB> for InspectorStack {
         );
     }
 
-    fn log(&mut self, ecx: &mut EvmContext<&mut DB>, log: &Log) {
+    fn log(&mut self, interpreter: &mut Interpreter, ecx: &mut EvmContext<&mut DB>, log: &Log) {
         call_inspectors_adjust_depth!(
             #[no_ret]
             [
@@ -667,7 +668,7 @@ impl<DB: DatabaseExt + DatabaseCommit> Inspector<&mut DB> for InspectorStack {
                 &mut self.cheatcodes,
                 &mut self.printer
             ],
-            |inspector| inspector.log(ecx, log),
+            |inspector| inspector.log(interpreter, ecx, log),
             self,
             ecx
         );

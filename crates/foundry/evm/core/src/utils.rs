@@ -89,15 +89,6 @@ pub fn configure_tx_env(env: &mut revm::primitives::Env, tx: &Transaction) {
         .unwrap_or_default()
         .0
         .into_iter()
-        .map(|item| {
-            (
-                item.address,
-                item.storage_keys
-                    .into_iter()
-                    .map(|key| alloy_primitives::U256::from_be_bytes(key.0))
-                    .collect(),
-            )
-        })
         .collect();
     env.tx.value = tx.value.to();
     env.tx.data = alloy_primitives::Bytes(tx.input.0.clone());
