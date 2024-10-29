@@ -6,13 +6,14 @@ use edr_eth::{
     receipt::BlockReceipt,
     signature::secret_key_from_str,
     spec::chain_hardfork_activations,
-    transaction::EthTransactionRequest,
+    transaction::{EthTransactionRequest, Transaction},
     trie::KECCAK_NULL_RLP,
     withdrawal::Withdrawal,
     Address, Bytes, HashMap, PreEip1898BlockSpec, SpecId, B256, U256,
 };
 use edr_evm::{
     alloy_primitives::U160,
+    b256,
     blockchain::{Blockchain as _, ForkedBlockchain},
     chain_spec::L1ChainSpec,
     state::IrregularState,
@@ -215,6 +216,12 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
             evm_context: _,
         } = builder.add_transaction(&blockchain, &mut state, transaction.clone(), debug_context);
 
+        if *transaction.transaction_hash()
+            == b256!("f426a00be16acc8a53e4817bf7cb128efb5ab6c35dbb59a3c7ef719b91e1b493")
+        {
+            println!("{result:?}");
+        }
+
         result?;
     }
 
@@ -269,8 +276,10 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
         debug_assert_eq!(
             expected.gas_used,
             actual.gas_used,
-            "{:?}",
-            replay_block.transactions()[expected.transaction_index as usize]
+            "Transaction: {:?}. Expected receipt: {:?}. Actual receipt: {:?}.",
+            replay_block.transactions()[expected.transaction_index as usize],
+            expected,
+            actual,
         );
         debug_assert_eq!(
             expected.effective_gas_price,

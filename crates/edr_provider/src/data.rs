@@ -4222,6 +4222,11 @@ mod tests {
                 chain_id: 1,
                 url: get_alchemy_url(),
             },
+            mainnet_issue_722 => {
+                block_number: 21041283,
+                chain_id: 1,
+                url: get_alchemy_url(),
+            },
         }
     }
 }
