@@ -1,70 +1,8 @@
 //! ABI related helper functions.
 
-use alloy_dyn_abi::{DynSolType, DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Event, Function};
-use alloy_primitives::{hex, LogData};
+use alloy_primitives::LogData;
 use eyre::{Context, Result};
-
-/// Given a function and a vector of string arguments, it proceeds to convert
-/// the args to alloy [`DynSolValue`]s and then ABI encode them.
-pub fn encode_function_args<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let params = std::iter::zip(&func.inputs, args)
-        .map(|(input, arg)| coerce_value(&input.selector_type(), arg.as_ref()))
-        .collect::<Result<Vec<_>>>()?;
-    func.abi_encode_input(params.as_slice()).map_err(Into::into)
-}
-
-/// Given a function and a vector of string arguments, it proceeds to convert
-/// the args to alloy [`DynSolValue`]s and encode them using the packed
-/// encoding.
-pub fn encode_function_args_packed<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let params: Vec<Vec<u8>> = std::iter::zip(&func.inputs, args)
-        .map(|(input, arg)| coerce_value(&input.selector_type(), arg.as_ref()))
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .map(|v| v.abi_encode_packed())
-        .collect();
-
-    Ok(params.concat())
-}
-
-/// Decodes the calldata of the function
-pub fn abi_decode_calldata(
-    sig: &str,
-    calldata: &str,
-    input: bool,
-    fn_selector: bool,
-) -> Result<Vec<DynSolValue>> {
-    let func = get_func(sig)?;
-    let calldata = hex::decode(calldata)?;
-
-    let mut calldata = calldata.as_slice();
-    // If function selector is prefixed in "calldata", remove it (first 4 bytes)
-    if input && fn_selector && calldata.len() >= 4 {
-        calldata = &calldata[4..];
-    }
-
-    let res = if input {
-        func.abi_decode_input(calldata, false)
-    } else {
-        func.abi_decode_output(calldata, false)
-    }?;
-
-    // in case the decoding worked but nothing was decoded
-    if res.is_empty() {
-        eyre::bail!("no data was decoded")
-    }
-
-    Ok(res)
-}
 
 /// Given a function signature string, it tries to parse it as a `Function`
 pub fn get_func(sig: &str) -> Result<Function> {
@@ -103,15 +41,9 @@ pub fn get_indexed_event(mut event: Event, raw_log: &LogData) -> Event {
     event
 }
 
-/// Helper function to coerce a value to a [`DynSolValue`] given a type string
-pub fn coerce_value(ty: &str, arg: &str) -> Result<DynSolValue> {
-    let ty = DynSolType::parse(ty)?;
-    Ok(DynSolType::coerce_str(&ty, arg)?)
-}
-
 #[cfg(test)]
 mod tests {
-    use alloy_dyn_abi::EventExt;
+    use alloy_dyn_abi::{DynSolValue, EventExt};
     use alloy_primitives::{Address, B256, U256};
 
     use super::*;

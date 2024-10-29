@@ -134,6 +134,11 @@ impl MultiContractRunner {
         })
     }
 
+    /// Returns the known contracts.
+    pub fn known_contracts(&self) -> &ContractsByArtifact {
+        &self.known_contracts
+    }
+
     /// Executes _all_ tests that match the given `filter`.
     ///
     /// The same as [`test`](Self::test), but returns the results instead of
