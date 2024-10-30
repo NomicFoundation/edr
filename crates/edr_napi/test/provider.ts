@@ -3,7 +3,6 @@ import chaiAsPromised from "chai-as-promised";
 
 import {
   ContractAndFunctionName,
-  EdrContext,
   MineOrdering,
   Provider,
   SpecId,
