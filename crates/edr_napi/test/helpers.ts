@@ -1,4 +1,9 @@
-import { TracingMessage, TracingMessageResult, TracingStep } from "..";
+import {
+  EdrContext,
+  TracingMessage,
+  TracingMessageResult,
+  TracingStep,
+} from "..";
 
 function getEnv(key: string): string | undefined {
   const variable = process.env[key];
@@ -15,6 +20,15 @@ export const ALCHEMY_URL = getEnv("ALCHEMY_URL");
 
 export function isCI(): boolean {
   return getEnv("CI") === "true";
+}
+
+let context: EdrContext | undefined;
+
+export function getContext(): EdrContext {
+  if (context === undefined) {
+    context = new EdrContext();
+  }
+  return context;
 }
 
 /**
