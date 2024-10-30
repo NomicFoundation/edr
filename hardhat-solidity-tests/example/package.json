@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "author": "Nomic Foundation",
   "devDependencies": {
-    "hardhat": "2.22.12",
+    "hardhat": "2.22.15",
     "hardhat-solidity-tests": "workspace:*",
     "ts-node": "^10.8.0"
   },
