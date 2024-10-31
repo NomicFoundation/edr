@@ -68,7 +68,7 @@ export declare function genericChainProviderFactory(): ProviderFactory
 export const L1_CHAIN_TYPE: string
 export declare function l1ProviderFactory(): ProviderFactory
 /** Identifier for the Ethereum spec. */
-export const enum SpecId {
+export enum SpecId {
   /** Frontier */
   Frontier = 0,
   /** Frontier Thawing */
@@ -160,7 +160,7 @@ export interface HardforkActivation {
   specId: string
 }
 /**The type of ordering to use when selecting blocks to mine. */
-export const enum MineOrdering {
+export enum MineOrdering {
   /**Insertion order */
   Fifo = 'Fifo',
   /**Effective miner fee */
@@ -282,7 +282,7 @@ export interface LoggerConfig {
   printLineCallback: (message: string, replace: boolean) => void
 }
 /** The possible reasons for successful termination of the EVM. */
-export const enum SuccessReason {
+export enum SuccessReason {
   /** The opcode `STOP` was called */
   Stop = 0,
   /** The opcode `RETURN` was called */
@@ -325,7 +325,7 @@ export interface RevertResult {
  * Indicates that the EVM has experienced an exceptional halt. This causes
  * execution to immediately end with all gas being consumed.
  */
-export const enum ExceptionalHalt {
+export enum ExceptionalHalt {
   OutOfGas = 0,
   OpcodeNotFound = 1,
   InvalidFEOpcode = 2,
@@ -380,7 +380,7 @@ export interface SubscriptionEvent {
 }
 export declare function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<BytecodeWrapper>
 export declare function linkHexStringBytecode(code: string, address: string, position: number): string
-export const enum ContractFunctionType {
+export enum ContractFunctionType {
   CONSTRUCTOR = 0,
   FUNCTION = 1,
   FALLBACK = 2,
@@ -392,7 +392,7 @@ export const enum ContractFunctionType {
 export declare function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
 export declare function printStackTrace(trace: SolidityStackTrace): void
 /** Represents the exit code of the EVM. */
-export const enum ExitCode {
+export enum ExitCode {
   /** Execution was successful. */
   SUCCESS = 0,
   /** Execution was reverted. */
@@ -456,7 +456,7 @@ export interface CallMessageTrace {
   address: Uint8Array
   codeAddress: Uint8Array
 }
-export const enum StackTraceEntryType {
+export enum StackTraceEntryType {
   CALLSTACK_ENTRY = 0,
   UNRECOGNIZED_CREATE_CALLSTACK_ENTRY = 1,
   UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY = 2,
