@@ -1,6 +1,5 @@
 use std::{ops::Deref, sync::Arc};
 
-use napi::Status;
 use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
@@ -67,12 +66,12 @@ impl Context {
         #[cfg(feature = "tracing")]
         let subscriber = subscriber.with(flame_layer);
 
-        tracing::subscriber::set_global_default(subscriber).map_err(|err| {
-            napi::Error::new(
-                Status::GenericFailure,
-                format!("Failed to set global tracing subscriber with error: {err:?}"),
-            )
-        })?;
+        if let Err(error) = tracing::subscriber::set_global_default(subscriber) {
+            println!(
+                "Failed to set global tracing subscriber with error: {error}\n\
+                Please only initialize EdrContext once per process to avoid this error."
+            );
+        }
 
         Ok(Self {
             #[cfg(feature = "tracing")]
