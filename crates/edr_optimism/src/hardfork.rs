@@ -80,8 +80,6 @@ const SEPOLIA_HARDFORKS: &[(ForkCondition, OptimismSpecId)] = &[
     (ForkCondition::Block(0), OptimismSpecId::MERGE),
     (ForkCondition::Block(0), OptimismSpecId::BEDROCK),
     (ForkCondition::Block(0), OptimismSpecId::REGOLITH),
-    (ForkCondition::Block(0), OptimismSpecId::BEDROCK),
-    (ForkCondition::Block(0), OptimismSpecId::REGOLITH),
     (
         ForkCondition::Timestamp(1_699_981_200),
         OptimismSpecId::SHANGHAI,

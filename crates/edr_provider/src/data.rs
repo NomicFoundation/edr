@@ -1233,7 +1233,7 @@ where
 
     /// Creates a configuration, taking into account the hardfork at the
     /// provided `BlockSpec`.
-    fn create_evm_config_at_block_spec(
+    pub fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
     ) -> Result<(CfgEnv, ChainSpecT::Hardfork), ProviderError<ChainSpecT>> {

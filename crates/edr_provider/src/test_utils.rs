@@ -156,7 +156,6 @@ impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<Chai
     }
 
     /// Creates a new `ProviderTestFixture` with a forked provider.
-    #[cfg(feature = "test-remote")]
     pub fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
         use edr_test_utils::env::get_alchemy_url;
 
