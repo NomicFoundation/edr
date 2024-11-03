@@ -2815,150 +2815,6 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
     }
 }
 
-#[cfg(test)]
-pub(crate) mod test_utils {
-    use anyhow::anyhow;
-    use edr_eth::{
-        l1::L1ChainSpec,
-        transaction::{self, TxKind},
-    };
-
-    use super::*;
-    use crate::{
-        test_utils::{create_test_config_with_fork, one_ether, FORK_BLOCK_NUMBER},
-        NoopLogger, ProviderConfig,
-    };
-
-    pub(crate) struct ProviderTestFixture {
-        _runtime: runtime::Runtime,
-        pub config: ProviderConfig<L1ChainSpec>,
-        pub provider_data: ProviderData<L1ChainSpec>,
-        pub impersonated_account: Address,
-    }
-
-    impl ProviderTestFixture {
-        pub(crate) fn new_local() -> anyhow::Result<Self> {
-            Self::with_fork(None)
-        }
-
-        #[cfg(feature = "test-remote")]
-        pub(crate) fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
-            use edr_test_utils::env::get_alchemy_url;
-
-            let fork_url = url.unwrap_or(get_alchemy_url());
-            Self::with_fork(Some(fork_url))
-        }
-
-        fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
-            let fork = fork.map(|json_rpc_url| {
-                ForkConfig {
-                    json_rpc_url,
-                    // Random recent block for better cache consistency
-                    block_number: Some(FORK_BLOCK_NUMBER),
-                    http_headers: None,
-                }
-            });
-
-            let config = create_test_config_with_fork(fork);
-
-            let runtime = runtime::Builder::new_multi_thread()
-                .worker_threads(1)
-                .enable_all()
-                .thread_name("provider-data-test")
-                .build()?;
-
-            Self::new(runtime, config)
-        }
-
-        pub fn new(
-            runtime: tokio::runtime::Runtime,
-            mut config: ProviderConfig<L1ChainSpec>,
-        ) -> anyhow::Result<Self> {
-            let logger = Box::<NoopLogger<L1ChainSpec>>::default();
-            let subscription_callback_noop = Box::new(|_| ());
-
-            let impersonated_account = Address::random();
-            config.genesis_accounts.insert(
-                impersonated_account,
-                AccountInfo {
-                    balance: one_ether(),
-                    nonce: 0,
-                    code: None,
-                    code_hash: KECCAK_EMPTY,
-                },
-            );
-
-            let mut provider_data = ProviderData::new(
-                runtime.handle().clone(),
-                logger,
-                subscription_callback_noop,
-                None,
-                config.clone(),
-                CurrentTime,
-            )?;
-
-            provider_data.impersonate_account(impersonated_account);
-
-            Ok(Self {
-                _runtime: runtime,
-                config,
-                provider_data,
-                impersonated_account,
-            })
-        }
-
-        pub fn dummy_transaction_request(
-            &self,
-            local_account_index: usize,
-            gas_limit: u64,
-            nonce: Option<u64>,
-        ) -> anyhow::Result<TransactionRequestAndSender<transaction::Request>> {
-            let request = transaction::Request::Eip155(transaction::request::Eip155 {
-                kind: TxKind::Call(Address::ZERO),
-                gas_limit,
-                gas_price: U256::from(42_000_000_000_u64),
-                value: U256::from(1),
-                input: Bytes::default(),
-                nonce: nonce.unwrap_or(0),
-                chain_id: self.config.chain_id,
-            });
-
-            let sender = self.nth_local_account(local_account_index)?;
-            Ok(TransactionRequestAndSender { request, sender })
-        }
-
-        /// Retrieves the nth local account.
-        ///
-        /// # Panics
-        ///
-        /// Panics if there are not enough local accounts
-        pub fn nth_local_account(&self, index: usize) -> anyhow::Result<Address> {
-            self.provider_data
-                .local_accounts
-                .keys()
-                .nth(index)
-                .copied()
-                .ok_or(anyhow!("the requested local account does not exist"))
-        }
-
-        pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<transaction::Signed> {
-            let mut transaction = self.dummy_transaction_request(0, 30_000, None)?;
-            transaction.sender = self.impersonated_account;
-
-            Ok(self.provider_data.sign_transaction_request(transaction)?)
-        }
-
-        pub fn signed_dummy_transaction(
-            &self,
-            local_account_index: usize,
-            nonce: Option<u64>,
-        ) -> anyhow::Result<transaction::Signed> {
-            let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
-            Ok(self.provider_data.sign_transaction_request(transaction)?)
-        }
-    }
-}
-
 fn get_skip_unsupported_transaction_types_from_env() -> bool {
     std::env::var(EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES)
         .map_or(DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES, |s| s == "true")
@@ -2987,10 +2843,10 @@ mod tests {
     use edr_evm::MineOrdering;
     use serde_json::json;
 
-    use super::{test_utils::ProviderTestFixture, *};
+    use super::*;
     use crate::{
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
-        test_utils::{create_test_config, one_ether},
+        test_utils::{create_test_config, one_ether, ProviderTestFixture},
         MemPoolConfig, MiningConfig, ProviderConfig,
     };
 

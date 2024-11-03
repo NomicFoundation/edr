@@ -193,7 +193,7 @@ mod tests {
     use edr_rpc_eth::CallRequest;
 
     use super::*;
-    use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};
+    use crate::test_utils::{pending_base_fee, ProviderTestFixture};
 
     #[test]
     fn resolve_estimate_gas_request_with_default_max_priority_fee() -> anyhow::Result<()> {

@@ -14,6 +14,7 @@ edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
+edr_test_utils = { version = "0.3.5", path = "../edr_test_utils", optional = true }
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
 itertools = { version = "0.12.0", default-features = false, features = ["use_alloc"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
@@ -44,7 +45,7 @@ cargo_toml = { version = "0.15.3", default-features = false }
 toml = { version = "0.5.9", default-features = false }
 
 [features]
-test-utils = ["dep:anyhow"]
+test-utils = ["dep:anyhow", "dep:edr_test_utils"]
 tracing = ["dep:tracing", "edr_eth/tracing", "edr_evm/tracing"]
 test-remote = []
 

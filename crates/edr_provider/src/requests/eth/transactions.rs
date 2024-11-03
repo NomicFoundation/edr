@@ -317,7 +317,7 @@ mod tests {
     use transaction::{signed::FakeSign as _, TxKind};
 
     use super::*;
-    use crate::{data::test_utils::ProviderTestFixture, test_utils::one_ether};
+    use crate::test_utils::{one_ether, ProviderTestFixture};
 
     #[test]
     fn transaction_by_hash_for_impersonated_account() -> anyhow::Result<()> {
