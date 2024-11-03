@@ -1,3 +1,4 @@
+use core::fmt::Debug;
 use std::{num::NonZeroU64, time::SystemTime};
 
 use anyhow::anyhow;
@@ -20,7 +21,7 @@ use crate::{
     requests::hardhat::rpc_types::ForkConfig,
     time::{CurrentTime, TimeSinceEpoch},
     AccountConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData,
-    ProviderError, ProviderRequest, SyncProviderSpec,
+    ProviderError, ProviderRequest, ProviderSpec, SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =
@@ -141,14 +142,14 @@ where
 }
 
 /// Fixture for testing `ProviderData`.
-pub struct ProviderTestFixture {
+pub struct ProviderTestFixture<ChainSpecT: ProviderSpec<CurrentTime>> {
     _runtime: runtime::Runtime,
-    pub config: ProviderConfig<L1ChainSpec>,
-    pub provider_data: ProviderData<L1ChainSpec>,
+    pub config: ProviderConfig<ChainSpecT>,
+    pub provider_data: ProviderData<ChainSpecT, CurrentTime>,
     pub impersonated_account: Address,
 }
 
-impl ProviderTestFixture {
+impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<ChainSpecT> {
     /// Creates a new `ProviderTestFixture` with a local provider.
     pub fn new_local() -> anyhow::Result<Self> {
         Self::with_fork(None)
@@ -186,9 +187,9 @@ impl ProviderTestFixture {
 
     pub fn new(
         runtime: tokio::runtime::Runtime,
-        mut config: ProviderConfig<L1ChainSpec>,
+        mut config: ProviderConfig<ChainSpecT>,
     ) -> anyhow::Result<Self> {
-        let logger = Box::<NoopLogger<L1ChainSpec>>::default();
+        let logger = Box::<NoopLogger<ChainSpecT>>::default();
         let subscription_callback_noop = Box::new(|_| ());
 
         let impersonated_account = Address::random();
@@ -202,7 +203,7 @@ impl ProviderTestFixture {
             },
         );
 
-        let mut provider_data = ProviderData::new(
+        let mut provider_data = ProviderData::<ChainSpecT>::new(
             runtime.handle().clone(),
             logger,
             subscription_callback_noop,
@@ -221,6 +222,21 @@ impl ProviderTestFixture {
         })
     }
 
+    /// Retrieves the nth local account.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there are not enough local accounts
+    pub fn nth_local_account(&self, index: usize) -> anyhow::Result<Address> {
+        self.provider_data
+            .accounts()
+            .nth(index)
+            .copied()
+            .ok_or(anyhow!("the requested local account does not exist"))
+    }
+}
+
+impl ProviderTestFixture<L1ChainSpec> {
     pub fn dummy_transaction_request(
         &self,
         local_account_index: usize,
@@ -239,19 +255,6 @@ impl ProviderTestFixture {
 
         let sender = self.nth_local_account(local_account_index)?;
         Ok(TransactionRequestAndSender { request, sender })
-    }
-
-    /// Retrieves the nth local account.
-    ///
-    /// # Panics
-    ///
-    /// Panics if there are not enough local accounts
-    pub fn nth_local_account(&self, index: usize) -> anyhow::Result<Address> {
-        self.provider_data
-            .accounts()
-            .nth(index)
-            .copied()
-            .ok_or(anyhow!("the requested local account does not exist"))
     }
 
     pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<transaction::Signed> {

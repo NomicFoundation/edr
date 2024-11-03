@@ -313,7 +313,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{Address, Bytes, U256};
+    use edr_eth::{l1::L1ChainSpec, Address, Bytes, U256};
     use transaction::{signed::FakeSign as _, TxKind};
 
     use super::*;
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn transaction_by_hash_for_impersonated_account() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let impersonated_account: Address = "0x20620fa0ad46516e915029c94e3c87c9cd7861ff".parse()?;
         fixture

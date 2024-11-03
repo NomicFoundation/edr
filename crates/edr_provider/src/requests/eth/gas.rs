@@ -191,13 +191,14 @@ fn resolve_estimate_gas_request<
 mod tests {
     use edr_eth::{transaction::Transaction as _, BlockTag};
     use edr_rpc_eth::CallRequest;
+    use l1::L1ChainSpec;
 
     use super::*;
     use crate::test_utils::{pending_base_fee, ProviderTestFixture};
 
     #[test]
     fn resolve_estimate_gas_request_with_default_max_priority_fee() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let max_fee_per_gas =
             pending_base_fee(&mut fixture.provider_data)?.max(U256::from(10_000_000_000u64));
@@ -231,7 +232,7 @@ mod tests {
         let base_fee = U256::from(10);
         let max_priority_fee_per_gas = U256::from(1);
 
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
         fixture
             .provider_data
             .set_next_block_base_fee_per_gas(base_fee)?;
@@ -265,7 +266,7 @@ mod tests {
     #[test]
     fn resolve_estimate_gas_request_with_default_max_fee_when_historic_block() -> anyhow::Result<()>
     {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
         fixture
             .provider_data
             .set_next_block_base_fee_per_gas(U256::from(10))?;
@@ -308,7 +309,7 @@ mod tests {
 
     #[test]
     fn resolve_estimate_gas_request_with_capped_max_priority_fee() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
         fixture
             .provider_data
             .set_next_block_base_fee_per_gas(U256::ZERO)?;
