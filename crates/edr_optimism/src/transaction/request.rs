@@ -88,7 +88,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
             ..
         } = value;
 
-        let chain_id = data.chain_id();
+        let chain_id = data.chain_id_at_block_spec(block_spec)?;
         let sender = from.unwrap_or_else(|| data.default_caller());
         let gas_limit = gas.unwrap_or_else(|| data.block_gas_limit());
         let input = input.map_or(Bytes::new(), Bytes::from);
