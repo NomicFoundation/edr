@@ -22,6 +22,7 @@ tokio = { version = "1.21.2", default-features = false, features = ["macros", "r
 anyhow = "1.0.89"
 edr_defaults = { path = "../edr_defaults" }
 edr_evm = { path = "../edr_evm", features = ["test-utils"] }
+edr_provider = { path = "../edr_provider", features = ["test-utils"] }
 edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }
 edr_test_utils = { path = "../edr_test_utils" }
 parking_lot = { version = "0.12.1", default-features = false }

@@ -80,8 +80,6 @@ const SEPOLIA_HARDFORKS: &[(ForkCondition, OptimismSpecId)] = &[
     (ForkCondition::Block(0), OptimismSpecId::MERGE),
     (ForkCondition::Block(0), OptimismSpecId::BEDROCK),
     (ForkCondition::Block(0), OptimismSpecId::REGOLITH),
-    (ForkCondition::Block(0), OptimismSpecId::BEDROCK),
-    (ForkCondition::Block(0), OptimismSpecId::REGOLITH),
     (
         ForkCondition::Timestamp(1_699_981_200),
         OptimismSpecId::SHANGHAI,
@@ -126,7 +124,7 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<OptimismChainSp
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
         hardforks.insert(10, mainnet_config());
-        hardforks.insert(11_155_111, sepolia_config());
+        hardforks.insert(11_155_420, sepolia_config());
 
         hardforks
     })

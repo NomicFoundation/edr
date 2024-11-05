@@ -235,7 +235,7 @@ mod tests {
     use edr_rpc_eth::CallRequest;
 
     use super::*;
-    use crate::{data::test_utils::ProviderTestFixture, test_utils::pending_base_fee};
+    use crate::test_utils::{pending_base_fee, ProviderTestFixture};
 
     #[test]
     fn resolve_call_request_with_gas_price() -> anyhow::Result<()> {

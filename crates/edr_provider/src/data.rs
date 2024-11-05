@@ -1233,7 +1233,7 @@ where
 
     /// Creates a configuration, taking into account the hardfork at the
     /// provided `BlockSpec`.
-    fn create_evm_config_at_block_spec(
+    pub fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
     ) -> Result<(CfgEnv, ChainSpecT::Hardfork), ProviderError<ChainSpecT>> {
@@ -2815,150 +2815,6 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
     }
 }
 
-#[cfg(test)]
-pub(crate) mod test_utils {
-    use anyhow::anyhow;
-    use edr_eth::{
-        l1::L1ChainSpec,
-        transaction::{self, TxKind},
-    };
-
-    use super::*;
-    use crate::{
-        test_utils::{create_test_config_with_fork, one_ether, FORK_BLOCK_NUMBER},
-        NoopLogger, ProviderConfig,
-    };
-
-    pub(crate) struct ProviderTestFixture {
-        _runtime: runtime::Runtime,
-        pub config: ProviderConfig<L1ChainSpec>,
-        pub provider_data: ProviderData<L1ChainSpec>,
-        pub impersonated_account: Address,
-    }
-
-    impl ProviderTestFixture {
-        pub(crate) fn new_local() -> anyhow::Result<Self> {
-            Self::with_fork(None)
-        }
-
-        #[cfg(feature = "test-remote")]
-        pub(crate) fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
-            use edr_test_utils::env::get_alchemy_url;
-
-            let fork_url = url.unwrap_or(get_alchemy_url());
-            Self::with_fork(Some(fork_url))
-        }
-
-        fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
-            let fork = fork.map(|json_rpc_url| {
-                ForkConfig {
-                    json_rpc_url,
-                    // Random recent block for better cache consistency
-                    block_number: Some(FORK_BLOCK_NUMBER),
-                    http_headers: None,
-                }
-            });
-
-            let config = create_test_config_with_fork(fork);
-
-            let runtime = runtime::Builder::new_multi_thread()
-                .worker_threads(1)
-                .enable_all()
-                .thread_name("provider-data-test")
-                .build()?;
-
-            Self::new(runtime, config)
-        }
-
-        pub fn new(
-            runtime: tokio::runtime::Runtime,
-            mut config: ProviderConfig<L1ChainSpec>,
-        ) -> anyhow::Result<Self> {
-            let logger = Box::<NoopLogger<L1ChainSpec>>::default();
-            let subscription_callback_noop = Box::new(|_| ());
-
-            let impersonated_account = Address::random();
-            config.genesis_accounts.insert(
-                impersonated_account,
-                AccountInfo {
-                    balance: one_ether(),
-                    nonce: 0,
-                    code: None,
-                    code_hash: KECCAK_EMPTY,
-                },
-            );
-
-            let mut provider_data = ProviderData::new(
-                runtime.handle().clone(),
-                logger,
-                subscription_callback_noop,
-                None,
-                config.clone(),
-                CurrentTime,
-            )?;
-
-            provider_data.impersonate_account(impersonated_account);
-
-            Ok(Self {
-                _runtime: runtime,
-                config,
-                provider_data,
-                impersonated_account,
-            })
-        }
-
-        pub fn dummy_transaction_request(
-            &self,
-            local_account_index: usize,
-            gas_limit: u64,
-            nonce: Option<u64>,
-        ) -> anyhow::Result<TransactionRequestAndSender<transaction::Request>> {
-            let request = transaction::Request::Eip155(transaction::request::Eip155 {
-                kind: TxKind::Call(Address::ZERO),
-                gas_limit,
-                gas_price: U256::from(42_000_000_000_u64),
-                value: U256::from(1),
-                input: Bytes::default(),
-                nonce: nonce.unwrap_or(0),
-                chain_id: self.config.chain_id,
-            });
-
-            let sender = self.nth_local_account(local_account_index)?;
-            Ok(TransactionRequestAndSender { request, sender })
-        }
-
-        /// Retrieves the nth local account.
-        ///
-        /// # Panics
-        ///
-        /// Panics if there are not enough local accounts
-        pub fn nth_local_account(&self, index: usize) -> anyhow::Result<Address> {
-            self.provider_data
-                .local_accounts
-                .keys()
-                .nth(index)
-                .copied()
-                .ok_or(anyhow!("the requested local account does not exist"))
-        }
-
-        pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<transaction::Signed> {
-            let mut transaction = self.dummy_transaction_request(0, 30_000, None)?;
-            transaction.sender = self.impersonated_account;
-
-            Ok(self.provider_data.sign_transaction_request(transaction)?)
-        }
-
-        pub fn signed_dummy_transaction(
-            &self,
-            local_account_index: usize,
-            nonce: Option<u64>,
-        ) -> anyhow::Result<transaction::Signed> {
-            let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
-            Ok(self.provider_data.sign_transaction_request(transaction)?)
-        }
-    }
-}
-
 fn get_skip_unsupported_transaction_types_from_env() -> bool {
     std::env::var(EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES)
         .map_or(DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES, |s| s == "true")
@@ -2987,16 +2843,16 @@ mod tests {
     use edr_evm::MineOrdering;
     use serde_json::json;
 
-    use super::{test_utils::ProviderTestFixture, *};
+    use super::*;
     use crate::{
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
-        test_utils::{create_test_config, one_ether},
+        test_utils::{create_test_config, one_ether, ProviderTestFixture},
         MemPoolConfig, MiningConfig, ProviderConfig,
     };
 
     #[test]
     fn test_local_account_balance() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let account = *fixture
             .provider_data
@@ -3018,7 +2874,7 @@ mod tests {
     #[cfg(feature = "test-remote")]
     #[test]
     fn test_local_account_balance_forked() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_forked(None)?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_forked(None)?;
 
         let account = *fixture
             .provider_data
@@ -3039,7 +2895,7 @@ mod tests {
 
     #[test]
     fn test_sign_transaction_request() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_local()?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction = fixture.signed_dummy_transaction(0, None)?;
         let recovered_address = transaction.caller();
@@ -3054,7 +2910,7 @@ mod tests {
 
     #[test]
     fn test_sign_transaction_request_impersonated_account() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_local()?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction = fixture.impersonated_dummy_transaction()?;
 
@@ -3064,7 +2920,7 @@ mod tests {
     }
 
     fn test_add_pending_transaction(
-        fixture: &mut ProviderTestFixture,
+        fixture: &mut ProviderTestFixture<L1ChainSpec>,
         transaction: transaction::Signed,
     ) -> anyhow::Result<()> {
         let filter_id = fixture
@@ -3097,7 +2953,7 @@ mod tests {
 
     #[test]
     fn add_pending_transaction() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
         let transaction = fixture.signed_dummy_transaction(0, None)?;
 
         test_add_pending_transaction(&mut fixture, transaction)
@@ -3105,7 +2961,7 @@ mod tests {
 
     #[test]
     fn add_pending_transaction_from_impersonated_account() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
         let transaction = fixture.impersonated_dummy_transaction()?;
 
         test_add_pending_transaction(&mut fixture, transaction)
@@ -3113,7 +2969,7 @@ mod tests {
 
     #[test]
     fn block_by_block_spec_earliest() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_local()?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let block_spec = BlockSpec::Tag(BlockTag::Earliest);
 
@@ -3129,7 +2985,7 @@ mod tests {
 
     #[test]
     fn block_by_block_spec_finalized_safe_latest() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         // Mine a block to make sure we're not getting the genesis block
         fixture
@@ -3156,7 +3012,7 @@ mod tests {
 
     #[test]
     fn block_by_block_spec_pending() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_local()?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let block_spec = BlockSpec::Tag(BlockTag::Pending);
 
@@ -3170,7 +3026,7 @@ mod tests {
     // Make sure executing a transaction in a pending block context doesn't panic.
     #[test]
     fn execute_in_block_context_pending() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let block_spec = Some(BlockSpec::Tag(BlockTag::Pending));
 
@@ -3190,7 +3046,7 @@ mod tests {
 
     #[test]
     fn chain_id() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_local()?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let chain_id = fixture.provider_data.chain_id();
         assert_eq!(chain_id, fixture.config.chain_id);
@@ -3201,7 +3057,7 @@ mod tests {
     #[cfg(feature = "test-remote")]
     #[test]
     fn chain_id_fork_mode() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_forked(None)?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_forked(None)?;
 
         let chain_id = fixture.provider_data.chain_id();
         assert_eq!(chain_id, fixture.config.chain_id);
@@ -3217,7 +3073,7 @@ mod tests {
     #[cfg(feature = "test-remote")]
     #[test]
     fn fork_metadata_fork_mode() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_forked(None)?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_forked(None)?;
 
         let fork_metadata = fixture
             .provider_data
@@ -3230,7 +3086,7 @@ mod tests {
 
     #[test]
     fn console_log_mine_block() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
         let ConsoleLogTransaction {
             transaction,
             expected_call_data,
@@ -3262,7 +3118,7 @@ mod tests {
 
     #[test]
     fn console_log_run_call() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
         let ConsoleLogTransaction {
             transaction,
             expected_call_data,
@@ -3287,7 +3143,7 @@ mod tests {
 
     #[test]
     fn mine_and_commit_block_empty() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let previous_block_number = fixture.provider_data.last_block_number();
 
@@ -3315,7 +3171,7 @@ mod tests {
 
     #[test]
     fn mine_and_commit_blocks_empty() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         fixture
             .provider_data
@@ -3337,7 +3193,7 @@ mod tests {
 
     #[test]
     fn mine_and_commit_block_single_transaction() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction = fixture.signed_dummy_transaction(0, None)?;
         let expected = *transaction.value();
@@ -3366,7 +3222,7 @@ mod tests {
 
     #[test]
     fn mine_and_commit_block_two_transactions_different_senders() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction1 = fixture.signed_dummy_transaction(0, None)?;
         let transaction2 = fixture.signed_dummy_transaction(1, None)?;
@@ -3403,7 +3259,7 @@ mod tests {
 
     #[test]
     fn mine_and_commit_block_two_transactions_same_sender() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction1 = fixture.signed_dummy_transaction(0, Some(0))?;
         let transaction2 = fixture.signed_dummy_transaction(0, Some(1))?;
@@ -3440,7 +3296,7 @@ mod tests {
 
     #[test]
     fn mine_and_commit_block_removes_mined_transactions() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction = fixture.signed_dummy_transaction(0, None)?;
 
@@ -3465,7 +3321,7 @@ mod tests {
 
     #[test]
     fn mine_and_commit_block_leaves_unmined_transactions() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         // SAFETY: literal is non-zero
         fixture
@@ -3548,7 +3404,7 @@ mod tests {
             .thread_name("provider-data-test")
             .build()?;
 
-        let mut fixture = ProviderTestFixture::new(runtime, config)?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new(runtime, config)?;
 
         let transaction1 = fixture.signed_dummy_transaction(0, None)?;
         let transaction2 = fixture.signed_dummy_transaction(1, None)?;
@@ -3585,7 +3441,7 @@ mod tests {
 
     #[test]
     fn mine_and_commit_block_correct_gas_used() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction1 = fixture.signed_dummy_transaction(0, None)?;
         let transaction2 = fixture.signed_dummy_transaction(1, None)?;
@@ -3634,7 +3490,7 @@ mod tests {
             .thread_name("provider-data-test")
             .build()?;
 
-        let mut fixture = ProviderTestFixture::new(runtime, config)?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new(runtime, config)?;
 
         let miner = fixture.provider_data.beneficiary;
         let previous_miner_balance = fixture
@@ -3663,7 +3519,7 @@ mod tests {
     fn mine_and_commit_blocks_increases_block_number() -> anyhow::Result<()> {
         const NUM_MINED_BLOCKS: u64 = 10;
 
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let previous_block_number = fixture.provider_data.last_block_number();
 
@@ -3687,7 +3543,7 @@ mod tests {
     fn mine_and_commit_blocks_works_with_snapshots() -> anyhow::Result<()> {
         const NUM_MINED_BLOCKS: u64 = 10;
 
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction1 = fixture.signed_dummy_transaction(0, None)?;
         let transaction2 = fixture.signed_dummy_transaction(1, None)?;
@@ -3750,7 +3606,7 @@ mod tests {
 
     #[test]
     fn next_filter_id() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let mut prev_filter_id = fixture.provider_data.last_filter_id;
         for _ in 0..10 {
@@ -3764,7 +3620,7 @@ mod tests {
 
     #[test]
     fn pending_transactions_returns_pending_and_queued() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local().unwrap();
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local().unwrap();
 
         let transaction1 = fixture.signed_dummy_transaction(0, Some(0))?;
         fixture
@@ -3797,7 +3653,7 @@ mod tests {
 
     #[test]
     fn set_balance_updates_mem_pool() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction = fixture.impersonated_dummy_transaction()?;
         let transaction_hash = fixture.provider_data.add_pending_transaction(transaction)?;
@@ -3823,7 +3679,7 @@ mod tests {
 
     #[test]
     fn transaction_by_invalid_hash() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_local()?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let non_existing_tx = fixture.provider_data.transaction_by_hash(&B256::ZERO)?;
 
@@ -3834,7 +3690,7 @@ mod tests {
 
     #[test]
     fn pending_transaction_by_hash() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction_request = fixture.signed_dummy_transaction(0, None)?;
         let transaction_hash = fixture
@@ -3856,7 +3712,7 @@ mod tests {
 
     #[test]
     fn transaction_by_hash() -> anyhow::Result<()> {
-        let mut fixture = ProviderTestFixture::new_local()?;
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         let transaction_request = fixture.signed_dummy_transaction(0, None)?;
         let transaction_hash = fixture
@@ -3891,7 +3747,7 @@ mod tests {
 
     #[test]
     fn sign_typed_data_v4() -> anyhow::Result<()> {
-        let fixture = ProviderTestFixture::new_local()?;
+        let fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
         // This test was taken from the `eth_signTypedData` example from the
         // EIP-712 specification via Hardhat.
@@ -3959,7 +3815,7 @@ mod tests {
 
         #[test]
         fn reset_local_to_forking() -> anyhow::Result<()> {
-            let mut fixture = ProviderTestFixture::new_local()?;
+            let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
             let fork_config = Some(ForkConfig {
                 json_rpc_url: get_alchemy_url(),
@@ -3987,7 +3843,7 @@ mod tests {
 
         #[test]
         fn reset_forking_to_local() -> anyhow::Result<()> {
-            let mut fixture = ProviderTestFixture::new_forked(None)?;
+            let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_forked(None)?;
 
             // We're fetching a specific block instead of the last block number for the
             // forked blockchain, because the last block number query cannot be
@@ -4069,7 +3925,7 @@ mod tests {
                 ..default_config
             };
 
-            let mut fixture = ProviderTestFixture::new(runtime, config)?;
+            let mut fixture = ProviderTestFixture::<L1ChainSpec>::new(runtime, config)?;
 
             let default_call = CallRequest {
                 from: Some(fixture.nth_local_account(0)?),
