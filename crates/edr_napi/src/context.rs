@@ -1,5 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
+#[cfg(feature = "tracing")]
+use napi::Status;
 use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
