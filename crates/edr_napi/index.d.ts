@@ -70,7 +70,7 @@ export interface CallOverrideResult {
   shouldRevert: boolean
 }
 /** Identifier for the Ethereum spec. */
-export const enum SpecId {
+export enum SpecId {
   /** Frontier */
   Frontier = 0,
   /** Frontier Thawing */
@@ -190,7 +190,7 @@ export interface HardforkActivation {
   specId: SpecId
 }
 /**The type of ordering to use when selecting blocks to mine. */
-export const enum MineOrdering {
+export enum MineOrdering {
   /**Insertion order */
   Fifo = 'Fifo',
   /**Effective miner fee */
@@ -284,7 +284,7 @@ export interface BuildInfoAndOutput {
   output: Uint8Array
 }
 /** The possible reasons for successful termination of the EVM. */
-export const enum SuccessReason {
+export enum SuccessReason {
   /** The opcode `STOP` was called */
   Stop = 0,
   /** The opcode `RETURN` was called */
@@ -327,7 +327,7 @@ export interface RevertResult {
  * Indicates that the EVM has experienced an exceptional halt. This causes
  * execution to immediately end with all gas being consumed.
  */
-export const enum ExceptionalHalt {
+export enum ExceptionalHalt {
   OutOfGas = 0,
   OpcodeNotFound = 1,
   InvalidFEOpcode = 2,
@@ -376,9 +376,19 @@ export interface SubscriptionEvent {
   result: any
 }
 export declare function linkHexStringBytecode(code: string, address: string, position: number): string
+export enum ContractFunctionType {
+  CONSTRUCTOR = 0,
+  FUNCTION = 1,
+  FALLBACK = 2,
+  RECEIVE = 3,
+  GETTER = 4,
+  MODIFIER = 5,
+  FREE_FUNCTION = 6
+}
+export declare function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
 export declare function printStackTrace(trace: SolidityStackTrace): void
 /** Represents the exit code of the EVM. */
-export const enum ExitCode {
+export enum ExitCode {
   /** Execution was successful. */
   SUCCESS = 0,
   /** Execution was reverted. */
@@ -407,7 +417,7 @@ export const enum ContractFunctionType {
   MODIFIER = 5,
   FREE_FUNCTION = 6
 }
-export const enum StackTraceEntryType {
+export enum StackTraceEntryType {
   CALLSTACK_ENTRY = 0,
   UNRECOGNIZED_CREATE_CALLSTACK_ENTRY = 1,
   UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY = 2,
