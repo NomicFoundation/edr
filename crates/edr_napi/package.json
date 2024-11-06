@@ -1,6 +1,6 @@
 {
   "name": "@ignored/edr",
-  "version": "0.6.4-alpha.1",
+  "version": "0.6.4-alpha.2",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@types/chai": "^4.2.0",
