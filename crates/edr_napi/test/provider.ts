@@ -3,18 +3,22 @@ import chaiAsPromised from "chai-as-promised";
 
 import {
   ContractAndFunctionName,
-  EdrContext,
   MineOrdering,
   Provider,
   SpecId,
   SubscriptionEvent,
 } from "..";
-import { collectMessages, collectSteps, ALCHEMY_URL } from "./helpers";
+import {
+  collectMessages,
+  collectSteps,
+  ALCHEMY_URL,
+  getContext,
+} from "./helpers";
 
 chai.use(chaiAsPromised);
 
 describe("Provider", () => {
-  const context = new EdrContext();
+  const context = getContext();
   const providerConfig = {
     allowBlocksWithSameTimestamp: false,
     allowUnlimitedContractSize: true,
