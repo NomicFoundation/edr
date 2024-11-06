@@ -1,5 +1,6 @@
-use std::{io, ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
+#[cfg(feature = "tracing")]
 use napi::Status;
 use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
@@ -23,8 +24,7 @@ impl EdrContext {
     #[doc = "Creates a new [`EdrContext`] instance. Should only be called once!"]
     #[napi(constructor)]
     pub fn new() -> napi::Result<Self> {
-        let context =
-            Context::new().map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))?;
+        let context = Context::new()?;
 
         Ok(Self {
             inner: Arc::new(context),
@@ -34,14 +34,13 @@ impl EdrContext {
 
 #[derive(Debug)]
 pub struct Context {
-    _subscriber_guard: tracing::subscriber::DefaultGuard,
     #[cfg(feature = "tracing")]
     _tracing_write_guard: tracing_flame::FlushGuard<std::io::BufWriter<std::fs::File>>,
 }
 
 impl Context {
     /// Creates a new [`Context`] instance. Should only be called once!
-    pub fn new() -> io::Result<Self> {
+    pub fn new() -> napi::Result<Self> {
         let fmt_layer = tracing_subscriber::fmt::layer()
             .with_file(true)
             .with_line_number(true)
@@ -54,8 +53,13 @@ impl Context {
 
         #[cfg(feature = "tracing")]
         let (flame_layer, guard) = {
-            let (flame_layer, guard) =
-                tracing_flame::FlameLayer::with_file("tracing.folded").unwrap();
+            let (flame_layer, guard) = tracing_flame::FlameLayer::with_file("tracing.folded")
+                .map_err(|err| {
+                    napi::Error::new(
+                        Status::GenericFailure,
+                        format!("Failed to create tracing.folded file with error: {err:?}"),
+                    )
+                })?;
 
             let flame_layer = flame_layer.with_empty_samples(false);
             (flame_layer, guard)
@@ -64,10 +68,14 @@ impl Context {
         #[cfg(feature = "tracing")]
         let subscriber = subscriber.with(flame_layer);
 
-        let subscriber_guard = tracing::subscriber::set_default(subscriber);
+        if let Err(error) = tracing::subscriber::set_global_default(subscriber) {
+            println!(
+                "Failed to set global tracing subscriber with error: {error}\n\
+                Please only initialize EdrContext once per process to avoid this error."
+            );
+        }
 
         Ok(Self {
-            _subscriber_guard: subscriber_guard,
             #[cfg(feature = "tracing")]
             _tracing_write_guard: guard,
         })

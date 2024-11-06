@@ -2,16 +2,15 @@ import { JsonStreamStringify } from "json-stream-stringify";
 
 import {
   ContractAndFunctionName,
-  EdrContext,
   MineOrdering,
   Provider,
   SpecId,
   SubscriptionEvent,
 } from "..";
-import { ALCHEMY_URL, isCI } from "./helpers";
+import { ALCHEMY_URL, getContext, isCI } from "./helpers";
 
 describe("Provider", () => {
-  const context = new EdrContext();
+  const context = getContext();
   const providerConfig = {
     allowBlocksWithSameTimestamp: false,
     allowUnlimitedContractSize: true,
