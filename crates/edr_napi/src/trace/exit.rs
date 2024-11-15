@@ -30,6 +30,8 @@ pub enum ExitCode {
     CODESIZE_EXCEEDS_MAXIMUM,
     /// Create collision.
     CREATE_COLLISION,
+    /// Unknown halt reason.
+    UNKNOWN_HALT_REASON,
 }
 
 impl fmt::Display for ExitCode {
@@ -43,6 +45,7 @@ impl fmt::Display for ExitCode {
             ExitCode::STACK_UNDERFLOW => write!(f, "Stack underflow"),
             ExitCode::CODESIZE_EXCEEDS_MAXIMUM => write!(f, "Codesize exceeds maximum"),
             ExitCode::CREATE_COLLISION => write!(f, "Create collision"),
+            ExitCode::UNKNOWN_HALT_REASON => write!(f, "Unknown halt reason"),
         }
     }
 }
@@ -62,7 +65,7 @@ impl From<edr_solidity::message_trace::ExitCode> for ExitCode {
             ExitCode::Halt(HaltReason::StackUnderflow) => Self::STACK_UNDERFLOW,
             ExitCode::Halt(HaltReason::CreateContractSizeLimit) => Self::CODESIZE_EXCEEDS_MAXIMUM,
             ExitCode::Halt(HaltReason::CreateCollision) => Self::CREATE_COLLISION,
-            halt @ ExitCode::Halt(_) => panic!("Unmatched EDR exceptional halt: {halt:?}"),
+            ExitCode::Halt(_) => Self::UNKNOWN_HALT_REASON,
         }
     }
 }
