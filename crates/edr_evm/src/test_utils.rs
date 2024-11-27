@@ -17,10 +17,10 @@ use edr_rpc_eth::client::EthRpcClient;
 use crate::{
     blockchain::{Blockchain as _, ForkedBlockchain},
     config::CfgEnv,
-    spec::SyncRuntimeSpec,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{AccountTrie, IrregularState, StateError, TrieState},
-    transaction, Block, BlockBuilder, DebugContext, ExecutionResultWithContext, MemPool,
-    MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
+    transaction, Block, BlockBuilder, MemPool, MemPoolAddTransactionError, RandomHashGenerator,
+    RemoteBlock,
 };
 
 /// A test fixture for `MemPool`.
@@ -162,7 +162,6 @@ pub async fn run_full_block<
     ChainSpecT: Debug
         + SyncRuntimeSpec<
             Block: Default,
-            Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,
             SignedTransaction: Default
                                    + TransactionValidation<
@@ -217,12 +216,14 @@ pub async fn run_full_block<
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 
-    let parent = blockchain.last_block()?;
+    let state =
+        blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
 
-    let mut builder = BlockBuilder::new(
-        cfg,
+    let mut builder = <ChainSpecT as RuntimeSpec>::BlockBuilder::<'_, _, (), _>::new_block_builder(
+        &blockchain,
+        state,
         hardfork,
-        &parent,
+        cfg,
         BlockOptions {
             beneficiary: Some(replay_header.beneficiary),
             gas_limit: Some(replay_header.gas_limit),
@@ -235,28 +236,22 @@ pub async fn run_full_block<
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
             ..BlockOptions::default()
         },
+        None,
     )?;
 
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);
 
-    let mut state =
-        blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
-
     for transaction in replay_block.transactions() {
-        let debug_context: Option<DebugContext<'_, ChainSpecT, _, (), _>> = None;
-        let ExecutionResultWithContext {
-            result,
-            evm_context: _,
-        } = builder.add_transaction(&blockchain, &mut state, transaction.clone(), debug_context);
-
-        result?;
+        builder = builder
+            .add_transaction(transaction.clone())
+            .map_err(|error| error.error)?;
     }
 
     let rewards = vec![(
         replay_header.beneficiary,
         miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
     )];
-    let mined_block = builder.finalize(&mut state, rewards)?;
+    let mined_block = builder.finalize(rewards)?;
 
     let mined_header = mined_block.block.header();
     for (expected, actual) in replay_block

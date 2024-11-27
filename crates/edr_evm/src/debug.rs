@@ -29,26 +29,13 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
 /// `EvmBuilder`.
 pub struct DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
-    ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
+    ChainSpecT: RuntimeSpec,
     StateT: State,
 {
     /// The contextual data.
     pub data: DebugDataT,
     /// The function to register handles.
     pub register_handles_fn: HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>,
-}
-
-pub struct EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
-where
-    ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
-    StateT: State,
-{
-    pub debug: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
-    pub state: StateT,
 }
 
 /// Trait for getting contextual data.

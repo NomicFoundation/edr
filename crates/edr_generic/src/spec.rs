@@ -10,6 +10,7 @@ use edr_evm::{
     spec::{L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
+    EthBlockBuilder,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
@@ -30,6 +31,13 @@ impl EthHeaderConstants for GenericChainSpec {
 }
 
 impl RuntimeSpec for GenericChainSpec {
+    type BlockBuilder<
+        'blockchain,
+        BlockchainErrorT: 'blockchain,
+        DebugDataT,
+        StateErrorT: 'blockchain + std::fmt::Debug + Send,
+    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
+
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
 

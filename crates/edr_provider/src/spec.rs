@@ -22,7 +22,6 @@ use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, Transaction
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RuntimeSpec<
-    Hardfork: Debug,
     RpcBlock<B256>: From<BlockAndTotalDifficulty<Self, BlockchainError<Self>>>,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,

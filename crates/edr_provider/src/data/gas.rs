@@ -45,7 +45,6 @@ pub(super) fn check_gas_limit<ChainSpecT>(
 where
     ChainSpecT: SyncRuntimeSpec<
         Block: Default,
-        Hardfork: Debug,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
@@ -107,7 +106,6 @@ pub(super) fn binary_search_estimation<ChainSpecT>(
 where
     ChainSpecT: SyncRuntimeSpec<
         Block: Default,
-        Hardfork: Debug,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,

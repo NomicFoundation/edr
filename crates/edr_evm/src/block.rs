@@ -18,8 +18,8 @@ use edr_rpc_eth::spec::RpcSpec;
 
 pub use self::{
     builder::{
-        BlockBuilder, BlockBuilderCreationError, BlockTransactionError, BuildBlockResult,
-        ExecutionResultWithContext,
+        BlockBuilder, BlockBuilderAndError, BlockBuilderCreationError, BlockTransactionError,
+        EthBlockBuilder,
     },
     local::LocalBlock,
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},

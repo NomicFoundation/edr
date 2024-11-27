@@ -44,7 +44,6 @@ where
     ChainSpecT: Debug
         + SyncRuntimeSpec<
             Block: Default,
-            Hardfork: Debug,
             ExecutionReceipt<FilterLog>: PartialEq,
             SignedTransaction: Default
                                    + TransactionValidation<

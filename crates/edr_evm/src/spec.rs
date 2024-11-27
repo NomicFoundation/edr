@@ -24,7 +24,8 @@ use crate::{
         remote::EthRpcTransaction, Transaction, TransactionError, TransactionType,
         TransactionValidation,
     },
-    BlockReceipt, EthBlockData, EthRpcBlock, RemoteBlockConversionError,
+    BlockBuilder, BlockReceipt, EthBlockBuilder, EthBlockData, EthRpcBlock,
+    RemoteBlockConversionError,
 };
 
 /// A trait for defining a chain's associated types.
@@ -36,6 +37,7 @@ pub trait RuntimeSpec:
     + EthHeaderConstants
     + ChainSpec<
         Block: BlockEnvConstructor<block::Header> + BlockEnvConstructor<PartialHeader> + Default,
+        Hardfork: Debug,
         SignedTransaction: alloy_rlp::Encodable
           + Clone
           + Debug
@@ -44,7 +46,8 @@ pub trait RuntimeSpec:
           + Eq
           + ExecutableTransaction
           + Transaction
-          + TransactionType,
+          + TransactionType
+          + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >
     // Defines an RPC spec and conversion between RPC <-> EVM types
     + RpcSpec<
@@ -65,6 +68,19 @@ pub trait RuntimeSpec:
     >
     + Sized
 {
+    /// Type representing a block builder.
+    type BlockBuilder<
+        'blockchain,
+        BlockchainErrorT: 'blockchain,
+        DebugDataT,
+        StateErrorT: 'blockchain + Debug + Send
+    >: BlockBuilder<
+        'blockchain,
+        Self,
+        DebugDataT,
+        BlockchainError = BlockchainErrorT,
+        StateError = StateErrorT>;
+
     /// Type representing an implementation of `EvmWiring` for this chain.
     type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
         ExternalContext = ExternalContexT,
@@ -225,6 +241,13 @@ where
 impl RuntimeSpec for L1ChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
+
+    type BlockBuilder<
+        'blockchain,
+        BlockchainErrorT: 'blockchain,
+        DebugDataT,
+        StateErrorT: 'blockchain + Debug + Send,
+    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
 
     type ReceiptBuilder = receipt::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;

@@ -4,6 +4,7 @@ pub mod receipt;
 pub mod transaction;
 
 use edr_eth::{eips::eip7702, log::FilterLog, Address, Bloom, B256, U256};
+use op_alloy_rpc_types::receipt::L1BlockInfo;
 use serde::{Deserialize, Serialize};
 
 /// Transaction receipt
@@ -85,6 +86,8 @@ pub struct BlockReceipt {
         with = "alloy_serde::quantity::opt"
     )]
     pub deposit_receipt_version: Option<u8>,
+    #[serde(flatten)]
+    pub l1_block_info: L1BlockInfo,
     /// The authorization list is a list of tuples that store the address to
     /// code which the signer desires to execute in the context of their
     /// EOA.

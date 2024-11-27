@@ -6,7 +6,7 @@ use edr_eth::{
     transaction::{ExecutableTransaction as _, TransactionValidation},
     Address, HashMap,
 };
-use revm::{precompile::Precompile, ContextPrecompile, Evm};
+use revm::{precompile::Precompile, wiring::HaltReasonTrait, ContextPrecompile, Evm};
 
 use crate::{
     blockchain::SyncBlockchain,
@@ -14,7 +14,7 @@ use crate::{
     debug::DebugContext,
     precompile::register_precompiles_handles,
     spec::RuntimeSpec,
-    state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
+    state::{DatabaseComponents, EvmState, State, StateCommit, WrapDatabaseRef},
     transaction::TransactionError,
 };
 
@@ -25,9 +25,19 @@ pub type SyncDatabase<'blockchain, 'state, ChainSpecT, BlockchainErrorT, StateEr
         &'state dyn State<Error = StateErrorT>,
     >;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChainResult<ChainContextT, HaltReasonT: HaltReasonTrait> {
+    /// Status of execution
+    pub result: ExecutionResult<HaltReasonT>,
+    /// State that got updated
+    pub state: EvmState,
+    /// Chain context
+    pub chain_context: ChainContextT,
+}
+
 /// Runs a transaction without committing the state.
 // `DebugContext` cannot be simplified further
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, StateT>(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
@@ -39,7 +49,7 @@ pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, Stat
     custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
-    ResultAndState<ChainSpecT::HaltReason>,
+    ChainResult<ChainSpecT::Context, ChainSpecT::HaltReason>,
     TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
 >
 where
@@ -74,6 +84,11 @@ where
                 .build();
 
             evm.transact()
+                .map(|ResultAndState { result, state }| ChainResult {
+                    result,
+                    state,
+                    chain_context: evm.into_context().evm.inner.chain,
+                })
         } else {
             let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
                 .iter()
@@ -93,6 +108,11 @@ where
                 .build();
 
             evm.transact()
+                .map(|ResultAndState { result, state }| ChainResult {
+                    result,
+                    state,
+                    chain_context: evm.into_context().evm.inner.chain,
+                })
         }
     };
 
@@ -102,7 +122,7 @@ where
 /// Runs a transaction without committing the state, while disabling balance
 /// checks and creating accounts for new addresses.
 // `DebugContext` cannot be simplified further
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn guaranteed_dry_run<
     'blockchain,
@@ -122,7 +142,7 @@ pub fn guaranteed_dry_run<
     custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
-    ResultAndState<ChainSpecT::HaltReason>,
+    ChainResult<ChainSpecT::Context, ChainSpecT::HaltReason>,
     TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
 >
 where

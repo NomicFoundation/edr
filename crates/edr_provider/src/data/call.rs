@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{
     block::Header,
     result::{ExecutionResult, InvalidTransaction},
@@ -57,7 +55,6 @@ where
     'a: 'evm,
     ChainSpecT: SyncRuntimeSpec<
         Block: Default,
-        Hardfork: Debug,
         SignedTransaction: Default
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
