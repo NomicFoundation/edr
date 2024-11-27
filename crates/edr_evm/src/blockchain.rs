@@ -19,7 +19,7 @@ use crate::{
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateCommit, StateDiff, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
+    Block, BlockAndTotalDifficulty, BlockReceipt, SyncBlock,
 };
 
 /// Combinatorial error for the blockchain API.
@@ -200,7 +200,7 @@ pub trait BlockchainMut<ChainSpecT: RuntimeSpec> {
     /// the inserted block.
     fn insert_block(
         &mut self,
-        block: LocalBlock<ChainSpecT>,
+        block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
     ) -> Result<BlockAndTotalDifficulty<ChainSpecT, Self::Error>, Self::Error>;
 

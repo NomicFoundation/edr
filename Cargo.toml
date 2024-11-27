@@ -2,7 +2,7 @@
 members = [
     "crates/edr_defaults",
     "crates/edr_eth",
-    "crates/edr_evm", "crates/edr_l1",
+    "crates/edr_evm",
     "crates/edr_napi",
     "crates/edr_provider",
     "crates/edr_rpc_client",

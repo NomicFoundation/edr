@@ -1439,14 +1439,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "edr_l1"
-version = "0.3.5"
-dependencies = [
- "edr_eth",
- "edr_evm",
-]
-
-[[package]]
 name = "edr_napi"
 version = "0.3.5"
 dependencies = [

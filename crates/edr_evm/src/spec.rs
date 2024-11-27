@@ -24,7 +24,7 @@ use crate::{
         remote::EthRpcTransaction, Transaction, TransactionError, TransactionType,
         TransactionValidation,
     },
-    BlockBuilder, BlockReceipt, EthBlockBuilder, EthBlockData, EthRpcBlock,
+    BlockBuilder, BlockReceipt, EthBlockBuilder, EthBlockData, EthRpcBlock, LocalBlock,
     RemoteBlockConversionError,
 };
 
@@ -91,6 +91,8 @@ pub trait RuntimeSpec:
         Hardfork = <Self as ChainSpec>::Hardfork,
         HaltReason = <Self as ChainSpec>::HaltReason
     >;
+
+    type LocalBlock;
 
     /// Type representing a builder that constructs an execution receipt.
     type ReceiptBuilder: ExecutionReceiptBuilder<
@@ -249,6 +251,7 @@ impl RuntimeSpec for L1ChainSpec {
         StateErrorT: 'blockchain + Debug + Send,
     > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
 
+    type LocalBlock = LocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
     type ReceiptBuilder = receipt::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
     type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;

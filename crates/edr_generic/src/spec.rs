@@ -1,6 +1,7 @@
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
     l1::{self, L1ChainSpec},
+    log::FilterLog,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
@@ -10,7 +11,7 @@ use edr_evm::{
     spec::{L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
-    EthBlockBuilder,
+    EthBlockBuilder, LocalBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
@@ -41,6 +42,7 @@ impl RuntimeSpec for GenericChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
 
+    type LocalBlock = LocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;

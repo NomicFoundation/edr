@@ -4,6 +4,7 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     l1,
+    log::FilterLog,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
 };
@@ -26,7 +27,11 @@ use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
 use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{eip2718::TypedEnvelope, hardfork, receipt, rpc, transaction};
+use crate::{
+    block::{self, LocalBlock},
+    eip2718::TypedEnvelope,
+    hardfork, receipt, rpc, transaction,
+};
 
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
@@ -86,8 +91,11 @@ where
 }
 
 impl RuntimeSpec for OptimismChainSpec {
-    type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
+    type BlockBuilder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT> =
+        block::Builder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
 
+    type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
+    type LocalBlock = LocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
     type ReceiptBuilder = receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
     type RpcReceiptConversionError = rpc::receipt::ConversionError;

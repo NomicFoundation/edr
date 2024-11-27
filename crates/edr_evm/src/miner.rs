@@ -56,7 +56,7 @@ where
     ChainSpecT: RuntimeSpec,
 {
     /// Mined block
-    pub block: LocalBlock<ChainSpecT>,
+    pub block: ChainSpecT::LocalBlock,
     /// State after mining the block
     pub state: Box<dyn SyncState<StateErrorT>>,
     /// State diff applied by block

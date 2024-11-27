@@ -6,7 +6,7 @@ use edr_eth::{
     block::{self, Header, PartialHeader},
     keccak256, l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
-    receipt::{BlockReceipt, MapReceiptLogs as _, TransactionReceipt},
+    receipt::{BlockReceipt, MapReceiptLogs as _, Receipt, TransactionReceipt},
     transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
@@ -22,14 +22,13 @@ use crate::{
 };
 
 /// A locally mined block, which contains complete information.
-#[derive(PartialEq, Eq, RlpEncodable)]
-#[derive_where(Clone, Debug; ChainSpecT::ExecutionReceipt<FilterLog>, ChainSpecT::SignedTransaction)]
+#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
 #[rlp(trailing)]
-pub struct LocalBlock<ChainSpecT: RuntimeSpec> {
+pub struct LocalBlock<ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT> {
     header: block::Header,
-    transactions: Vec<ChainSpecT::SignedTransaction>,
+    transactions: Vec<SignedTransactionT>,
     #[rlp(skip)]
-    transaction_receipts: Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
+    transaction_receipts: Vec<Arc<BlockReceipt<ExecutionReceiptT>>>,
     ommers: Vec<block::Header>,
     #[rlp(skip)]
     ommer_hashes: Vec<B256>,
