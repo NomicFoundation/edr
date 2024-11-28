@@ -12,8 +12,7 @@ use tokio::runtime;
 use super::storage::SparseBlockchainStorage;
 use crate::{
     blockchain::ForkedBlockchainError, spec::RuntimeSpec,
-    transaction::remote::EthRpcTransaction as _, Block, BlockReceipt, EthRpcBlock as _,
-    RemoteBlock,
+    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, RemoteBlock,
 };
 
 #[derive_where(Debug; BlockT)]

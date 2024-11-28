@@ -29,7 +29,7 @@ use crate::{
 #[rlp(trailing)]
 pub struct LocalBlock<
     ExecutionReceiptHigherKindedT: HigherKinded<ExecutionLog> + HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-    SignedTransactionT: ExecutableTransaction,
+    SignedTransactionT: ExecutableTransaction + alloy_rlp::Encodable,
 > {
     header: block::Header,
     transactions: Vec<SignedTransactionT>,
@@ -46,7 +46,7 @@ pub struct LocalBlock<
 
 impl<
         ExecutionReceiptHigherKindedT: HigherKinded<ExecutionLog> + HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-        SignedTransactionT: ExecutableTransaction,
+        SignedTransactionT: ExecutableTransaction + alloy_rlp::Encodable,
     > LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>
 {
     /// Constructs an empty block, i.e. no transactions.
@@ -136,11 +136,17 @@ impl<
 }
 
 impl<
+        BlockConversionErrorT,
         ExecutionReceiptHigherKindedT: HigherKinded<ExecutionLog> + HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+        HardforkT,
+        ReceiptConversionErrorT,
         SignedTransactionT: ExecutableTransaction,
-    > Block<ChainSpecT> for LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>
+    > Block<ExecutionReceiptHigherKindedT, SignedTransactionT>
+    for LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>
+where
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
-    type Error = BlockchainError<ChainSpecT>;
+    type Error = BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>;
 
     fn hash(&self) -> &B256 {
         &self.hash
@@ -157,13 +163,16 @@ impl<
             .expect("usize fits into u64")
     }
 
-    fn transactions(&self) -> &[ChainSpecT::SignedTransaction] {
+    fn transactions(&self) -> &[SignedTransactionT] {
         &self.transactions
     }
 
     fn transaction_receipts(
         &self,
-    ) -> Result<Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>, Self::Error> {
+    ) -> Result<
+        Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
+        BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+    > {
         Ok(self.transaction_receipts.clone())
     }
 

@@ -8,7 +8,9 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use derive_where::derive_where;
-use edr_eth::{l1, log::FilterLog, receipt::BlockReceipt, Address, HashSet, B256, U256};
+use edr_eth::{
+    l1, log::FilterLog, receipt::BlockReceipt, spec::HardforkTrait, Address, HashSet, B256, U256,
+};
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
@@ -23,12 +25,14 @@ use crate::{
 };
 
 /// Combinatorial error for the blockchain API.
-#[derive(thiserror::Error)]
-#[derive_where(Debug; ChainSpecT::Hardfork, ChainSpecT::RpcBlockConversionError)]
-pub enum BlockchainError<ChainSpecT: RuntimeSpec> {
+#[derive(Debug, thiserror::Error)]
+pub enum BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>
+where
+    HardforkT: HardforkTrait,
+{
     /// Forked blockchain error
     #[error(transparent)]
-    Forked(#[from] ForkedBlockchainError<ChainSpecT>),
+    Forked(#[from] ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT>),
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
     Insert(#[from] storage::InsertError),
@@ -70,7 +74,7 @@ pub enum BlockchainError<ChainSpecT: RuntimeSpec> {
         /// Block number
         block_number: u64,
         /// Hardfork activation history
-        hardfork_activations: Activations<ChainSpecT>,
+        hardfork_activations: Activations<HardforkT>,
     },
 }
 

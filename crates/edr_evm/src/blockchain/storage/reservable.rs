@@ -1,18 +1,20 @@
-use std::{marker::PhantomData, num::NonZeroU64, sync::Arc};
+use core::fmt::Debug;
+use std::{num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
     block::PartialHeader,
-    log::FilterLog,
+    log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, Receipt},
-    Address, B256, U256,
+    spec::HardforkTrait,
+    transaction::ExecutableTransaction,
+    Address, HashMap, HashSet, B256, U256,
 };
 use edr_utils::types::HigherKinded;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
-use revm::primitives::{HashMap, HashSet};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{spec::RuntimeSpec, state::StateDiff, Block, LocalBlock};
+use crate::{state::StateDiff, Block, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
@@ -25,19 +27,19 @@ struct Reservation<HardforkT> {
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
-    spec_id: HardforkT,
+    hardfork: HardforkT,
 }
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory,
 /// while lazily loading blocks that have been reserved.
-#[derive_where(Debug; BlockT, HardforkT)]
+#[derive_where(Debug; BlockT, <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type, HardforkT)]
 pub struct ReservableSparseBlockchainStorage<
     BlockT,
     ExecutionReceiptHigherKindedT,
     HardforkT,
     SignedTransactionT,
 > where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>,
     ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
     reservations: RwLock<Vec<Reservation<HardforkT>>>,
@@ -62,6 +64,7 @@ impl<BlockT, ExecutionReceiptHigherKindedT, HardforkT, SignedTransactionT>
 where
     BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
     ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    SignedTransactionT: ExecutableTransaction,
 {
     /// Constructs a new instance with the provided block as genesis block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -167,7 +170,7 @@ where
         previous_base_fee: Option<U256>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        spec_id: HardforkT,
+        hardfork: HardforkT,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,
@@ -177,7 +180,7 @@ where
             previous_state_root,
             previous_total_difficulty,
             previous_diff_index: self.state_diffs.len() - 1,
-            spec_id,
+            hardfork,
         };
 
         self.reservations.get_mut().push(reservation);
@@ -248,10 +251,21 @@ where
     }
 }
 
-impl<BlockT, ChainSpecT> ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
+impl<BlockT, ExecutionReceiptHigherKindedT, HardforkT, SignedTransactionT>
+    ReservableSparseBlockchainStorage<
+        BlockT,
+        ExecutionReceiptHigherKindedT,
+        HardforkT,
+        SignedTransactionT,
+    >
 where
-    BlockT: Block<ChainSpecT> + Clone + From<LocalBlock<ChainSpecT>>,
-    ChainSpecT: RuntimeSpec,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>
+        + Clone
+        + From<LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>>,
+    ExecutionReceiptHigherKindedT:
+        HigherKinded<ExecutionLog> + HigherKinded<FilterLog, Type: Debug + Receipt<FilterLog>>,
+    HardforkT: HardforkTrait,
+    SignedTransactionT: Debug + ExecutableTransaction,
 {
     /// Retrieves the block by number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -266,7 +280,7 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn insert_block(
         &mut self,
-        block: LocalBlock<ChainSpecT>,
+        block: LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>,
         state_diff: StateDiff,
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertError> {
@@ -329,7 +343,7 @@ where
                 );
 
                 let block = LocalBlock::empty(
-                    reservation.spec_id,
+                    reservation.hardfork.into(),
                     PartialHeader {
                         number: block_number,
                         state_root: reservation.previous_state_root,
@@ -351,15 +365,21 @@ where
 }
 
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-fn calculate_timestamp_for_reserved_block<BlockT, ChainSpecT>(
-    storage: &SparseBlockchainStorage<BlockT, ChainSpecT>,
-    reservations: &Vec<Reservation<ChainSpecT>>,
-    reservation: &Reservation<ChainSpecT>,
+fn calculate_timestamp_for_reserved_block<
+    BlockT,
+    ExecutionReceiptHigherKindedT,
+    HardforkT,
+    SignedTransactionT,
+>(
+    storage: &SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>,
+    reservations: &Vec<Reservation<HardforkT>>,
+    reservation: &Reservation<HardforkT>,
     block_number: u64,
 ) -> u64
 where
-    BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: RuntimeSpec,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    SignedTransactionT: ExecutableTransaction,
 {
     let previous_block_number = reservation.first_number - 1;
     let previous_timestamp =
@@ -381,10 +401,10 @@ where
     previous_timestamp + reservation.interval * (block_number - reservation.first_number + 1)
 }
 
-fn find_reservation<ChainSpecT: RuntimeSpec>(
-    reservations: &[Reservation<ChainSpecT>],
+fn find_reservation<HardforkT>(
+    reservations: &[Reservation<HardforkT>],
     number: u64,
-) -> Option<&Reservation<ChainSpecT>> {
+) -> Option<&Reservation<HardforkT>> {
     reservations
         .iter()
         .find(|reservation| reservation.first_number <= number && number <= reservation.last_number)

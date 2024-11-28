@@ -28,7 +28,7 @@ use crate::{
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, RandomHashGenerator, SyncBlock,
+    Block, BlockAndTotalDifficulty, LocalBlock, RandomHashGenerator, SyncBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -61,12 +61,11 @@ where
 }
 
 /// Error type for [`ForkedBlockchain`].
-#[derive(thiserror::Error)]
-#[derive_where(Debug; ChainSpecT::RpcBlockConversionError, ChainSpecT::RpcReceiptConversionError)]
-pub enum ForkedBlockchainError<ChainSpecT: RuntimeSpec> {
+#[derive(Debug, thiserror::Error)]
+pub enum ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT> {
     /// Remote block creation error
     #[error(transparent)]
-    BlockCreation(ChainSpecT::RpcBlockConversionError),
+    BlockCreation(BlockConversionErrorT),
     /// Remote blocks cannot be deleted
     #[error("Cannot delete remote block.")]
     CannotDeleteRemote,
@@ -84,7 +83,7 @@ pub enum ForkedBlockchainError<ChainSpecT: RuntimeSpec> {
     },
     /// An error occurred when converting an RPC receipt to an internal type.
     #[error(transparent)]
-    ReceiptConversion(ChainSpecT::RpcReceiptConversionError),
+    ReceiptConversion(ReceiptConversionErrorT),
 }
 
 /// A blockchain that forked from a remote blockchain.

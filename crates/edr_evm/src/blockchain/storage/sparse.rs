@@ -11,13 +11,13 @@ use edr_utils::types::HigherKinded;
 use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};
 
 use super::InsertError;
-use crate::{spec::RuntimeSpec, Block};
+use crate::Block;
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
 #[derive_where(Debug; BlockT, <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type)]
 pub struct SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
 where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>,
     ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
     hash_to_block: HashMap<B256, BlockT>,
@@ -99,7 +99,8 @@ where
     pub fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Option<&Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>> {
+    ) -> Option<&Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>
+    {
         self.transaction_hash_to_receipt.get(transaction_hash)
     }
 
@@ -187,8 +188,11 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn insert_receipt(
         &mut self,
-        receipt: BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>,
-    ) -> Result<&Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>, InsertError> {
+        receipt: BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>,
+    ) -> Result<
+        &Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>,
+        InsertError,
+    > {
         let receipt = Arc::new(receipt);
 
         let receipt = self
@@ -207,7 +211,9 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn insert_receipts(
         &mut self,
-        receipts: Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
+        receipts: Vec<
+            Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>,
+        >,
     ) -> Result<(), InsertError> {
         if let Some(receipt) = receipts.iter().find(|receipt| {
             self.transaction_hash_to_receipt
@@ -228,10 +234,11 @@ where
     }
 }
 
-impl<BlockT, ChainSpecT> Default for SparseBlockchainStorage<BlockT, ChainSpecT>
+impl<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT> Default
+    for SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
 where
-    BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: RuntimeSpec,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
     fn default() -> Self {
         Self {
@@ -246,16 +253,17 @@ where
 }
 
 /// Retrieves the logs that match the provided filter.
-pub fn logs<BlockT, ChainSpecT>(
-    storage: &SparseBlockchainStorage<BlockT, ChainSpecT>,
+pub fn logs<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>(
+    storage: &SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>,
     from_block: u64,
     to_block: u64,
     addresses: &HashSet<Address>,
     topics_filter: &[Option<Vec<B256>>],
 ) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error>
 where
-    BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: RuntimeSpec,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    SignedTransactionT: ExecutableTransaction,
 {
     let mut logs = Vec::new();
     let addresses: HashSet<Address> = addresses.iter().copied().collect();

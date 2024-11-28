@@ -26,7 +26,7 @@ use crate::{
     state::{
         StateCommit as _, StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState,
     },
-    Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
+    Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
