@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use derive_where::derive_where;
-use edr_eth::{l1, log::FilterLog, Address, HashSet, B256, U256};
+use edr_eth::{l1, log::FilterLog, receipt::BlockReceipt, Address, HashSet, B256, U256};
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
@@ -19,7 +19,7 @@ use crate::{
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateCommit, StateDiff, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, BlockReceipt, SyncBlock,
+    Block, BlockAndTotalDifficulty, SyncBlock,
 };
 
 /// Combinatorial error for the blockchain API.
@@ -102,7 +102,15 @@ where
         &self,
         hash: &B256,
     ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Option<
+            Arc<
+                dyn SyncBlock<
+                    ExecutionReceiptHigherKindedT,
+                    SignedTransactionT,
+                    Error = Self::BlockchainError,
+                >,
+            >,
+        >,
         Self::BlockchainError,
     >;
 
@@ -112,7 +120,15 @@ where
         &self,
         number: u64,
     ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Option<
+            Arc<
+                dyn SyncBlock<
+                    ExecutionReceiptHigherKindedT,
+                    SignedTransactionT,
+                    Error = Self::BlockchainError,
+                >,
+            >,
+        >,
         Self::BlockchainError,
     >;
 
@@ -123,7 +139,15 @@ where
         &self,
         transaction_hash: &B256,
     ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
+        Option<
+            Arc<
+                dyn SyncBlock<
+                    ExecutionReceiptHigherKindedT,
+                    SignedTransactionT,
+                    Error = Self::BlockchainError,
+                >,
+            >,
+        >,
         Self::BlockchainError,
     >;
 
@@ -141,7 +165,16 @@ where
     /// Retrieves the last block in the blockchain.
     fn last_block(
         &self,
-    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>, Self::BlockchainError>;
+    ) -> Result<
+        Arc<
+            dyn SyncBlock<
+                ExecutionReceiptHigherKindedT,
+                SignedTransactionT,
+                Error = Self::BlockchainError,
+            >,
+        >,
+        Self::BlockchainError,
+    >;
 
     /// Retrieves the last block number in the blockchain.
     fn last_block_number(&self) -> u64;
@@ -163,7 +196,7 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt<ChainSpecT>>>, Self::BlockchainError>;
+    ) -> Result<Option<Arc<BlockReceipt<ExecutionReceiptHigherKindedT>>>, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification of the block at the provided
     /// number.
@@ -202,7 +235,10 @@ pub trait BlockchainMut<ChainSpecT: RuntimeSpec> {
         &mut self,
         block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficulty<ChainSpecT, Self::Error>, Self::Error>;
+    ) -> Result<
+        BlockAndTotalDifficulty<Self::Error, ExecutionReceiptHigherKindedT, SignedTransactionT>,
+        Self::Error,
+    >;
 
     /// Reserves the provided number of blocks, starting from the next block
     /// number.
@@ -241,7 +277,11 @@ where
 {
 }
 
-fn compute_state_at_block<BlockT: Block<ChainSpecT> + Clone, ChainSpecT: RuntimeSpec>(
+fn compute_state_at_block<
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    ExecutionReceiptHigherKindedT,
+    SignedTransactionT,
+>(
     state: &mut dyn StateCommit,
     local_storage: &ReservableSparseBlockchainStorage<BlockT, ChainSpecT>,
     first_local_block_number: u64,

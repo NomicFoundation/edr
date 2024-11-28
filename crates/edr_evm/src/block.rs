@@ -10,11 +10,13 @@ use auto_impl::auto_impl;
 use derive_where::derive_where;
 use edr_eth::{
     block::{self, BlobGas, Header},
+    log::FilterLog,
+    receipt::{BlockReceipt, Receipt},
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     B256, U256,
 };
-use edr_rpc_eth::spec::RpcSpec;
+use edr_utils::types::HigherKinded;
 
 pub use self::{
     builder::{
@@ -26,14 +28,12 @@ pub use self::{
 };
 use crate::spec::RuntimeSpec;
 
-/// A block receipt with filter logs for the specified RPC specification.
-pub type BlockReceipt<RpcSpecT> = edr_eth::receipt::BlockReceipt<
-    <RpcSpecT as RpcSpec>::ExecutionReceipt<edr_eth::log::FilterLog>,
->;
-
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]
-pub trait Block<ChainSpecT: RuntimeSpec>: Debug {
+pub trait Block<ExecutionReceiptHigherKindedT, SignedTransactionT>: Debug
+where
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+{
     /// The blockchain error type.
     type Error;
 
@@ -50,26 +50,33 @@ pub trait Block<ChainSpecT: RuntimeSpec>: Debug {
     fn rlp_size(&self) -> u64;
 
     /// Returns the block's transactions.
-    fn transactions(&self) -> &[ChainSpecT::SignedTransaction];
+    fn transactions(&self) -> &[SignedTransactionT];
 
     /// Returns the receipts of the block's transactions.
-    fn transaction_receipts(&self) -> Result<Vec<Arc<BlockReceipt<ChainSpecT>>>, Self::Error>;
+    fn transaction_receipts(
+        &self,
+    ) -> Result<
+        Vec<Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>,
+        Self::Error,
+    >;
 
     /// Withdrawals
     fn withdrawals(&self) -> Option<&[Withdrawal]>;
 }
 
 /// Trait that meets all requirements for a synchronous block.
-pub trait SyncBlock<ChainSpecT>: Block<ChainSpecT> + Send + Sync
+pub trait SyncBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>:
+    Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Send + Sync
 where
-    ChainSpecT: RuntimeSpec,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
 }
 
-impl<BlockT, ChainSpecT> SyncBlock<ChainSpecT> for BlockT
+impl<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
+    SyncBlock<ExecutionReceiptHigherKindedT, SignedTransactionT> for BlockT
 where
-    BlockT: Block<ChainSpecT> + Send + Sync,
-    ChainSpecT: RuntimeSpec,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Send + Sync,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
 }
 
@@ -154,17 +161,38 @@ impl<ChainSpecT: RuntimeSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransact
 
 /// The result returned by requesting a block by number.
 #[derive_where(Clone, Debug)]
-pub struct BlockAndTotalDifficulty<ChainSpecT: RuntimeSpec, BlockchainErrorT> {
+pub struct BlockAndTotalDifficulty<
+    BlockchainErrorT,
+    ExecutionReceiptHigherKindedT,
+    SignedTransactionT,
+> {
     /// The block
-    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
+    pub block: Arc<
+        dyn SyncBlock<ExecutionReceiptHigherKindedT, SignedTransactionT, Error = BlockchainErrorT>,
+    >,
     /// The total difficulty with the block
     pub total_difficulty: Option<U256>,
 }
 
-impl<BlockchainErrorT, ChainSpecT: RuntimeSpec>
-    From<BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>> for edr_rpc_eth::Block<B256>
+impl<BlockchainErrorT, ExecutionReceiptHigherKindedT, SignedTransactionT>
+    From<
+        BlockAndTotalDifficulty<
+            BlockchainErrorT,
+            ExecutionReceiptHigherKindedT,
+            SignedTransactionT,
+        >,
+    > for edr_rpc_eth::Block<B256>
+where
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    SignedTransactionT: ExecutableTransaction,
 {
-    fn from(value: BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>) -> Self {
+    fn from(
+        value: BlockAndTotalDifficulty<
+            BlockchainErrorT,
+            ExecutionReceiptHigherKindedT,
+            SignedTransactionT,
+        >,
+    ) -> Self {
         let transactions = value
             .block
             .transactions()

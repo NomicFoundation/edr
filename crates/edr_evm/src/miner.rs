@@ -1,12 +1,17 @@
 use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
+use derive_where::derive_where;
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
+    log::FilterLog,
+    receipt::Receipt,
     result::{ExecutionResult, InvalidTransaction},
     signature::SignatureError,
     transaction::{ExecutableTransaction as _, Transaction, TransactionValidation},
     U256,
 };
+use edr_utils::types::HigherKinded;
+use revm::wiring::HaltReasonTrait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -19,34 +24,29 @@ use crate::{
     state::{StateDiff, SyncState},
     trace::Trace,
     transaction::TransactionError,
-    BlockBuilder, BlockBuilderAndError, BlockTransactionError, LocalBlock, MemPool, SyncBlock,
+    BlockBuilder, BlockBuilderAndError, BlockTransactionError, MemPool, SyncBlock,
 };
 
 /// The result of mining a block, after having been committed to the blockchain.
 #[derive(Debug)]
-pub struct MineBlockResult<ChainSpecT, BlockchainErrorT>
-where
-    ChainSpecT: RuntimeSpec,
+#[derive_where(Clone; HaltReasonT)]
+pub struct MineBlockResult<
+    BlockchainErrorT,
+    ExecutionReceiptHigherKindedT,
+    HaltReasonT,
+    SignedTransactionT,
+> where
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    HaltReasonT: HaltReasonTrait,
 {
     /// Mined block
-    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
+    pub block: Arc<
+        dyn SyncBlock<ExecutionReceiptHigherKindedT, SignedTransactionT, Error = BlockchainErrorT>,
+    >,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
+    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace<ChainSpecT::HaltReason>>,
-}
-
-impl<BlockchainErrorT, ChainSpecT> Clone for MineBlockResult<ChainSpecT, BlockchainErrorT>
-where
-    ChainSpecT: RuntimeSpec,
-{
-    fn clone(&self) -> Self {
-        Self {
-            block: self.block.clone(),
-            transaction_results: self.transaction_results.clone(),
-            transaction_traces: self.transaction_traces.clone(),
-        }
-    }
+    pub transaction_traces: Vec<Trace<HaltReasonT>>,
 }
 
 /// The result of mining a block, including the state. This result needs to be

@@ -1,17 +1,23 @@
 use std::{marker::PhantomData, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{block::PartialHeader, Address, B256, U256};
+use edr_eth::{
+    block::PartialHeader,
+    log::FilterLog,
+    receipt::{BlockReceipt, Receipt},
+    Address, B256, U256,
+};
+use edr_utils::types::HigherKinded;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use revm::primitives::{HashMap, HashSet};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{spec::RuntimeSpec, state::StateDiff, Block, BlockReceipt, LocalBlock};
+use crate::{spec::RuntimeSpec, state::StateDiff, Block, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
-#[derive_where(Debug; ChainSpecT::Hardfork)]
-struct Reservation<ChainSpecT: RuntimeSpec> {
+#[derive(Debug)]
+struct Reservation<HardforkT> {
     first_number: u64,
     last_number: u64,
     interval: u64,
@@ -19,32 +25,43 @@ struct Reservation<ChainSpecT: RuntimeSpec> {
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
-    spec_id: ChainSpecT::Hardfork,
+    spec_id: HardforkT,
 }
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory,
 /// while lazily loading blocks that have been reserved.
-#[derive_where(Debug; BlockT, ChainSpecT::Hardfork)]
-pub struct ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
-where
-    BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: RuntimeSpec,
+#[derive_where(Debug; BlockT, HardforkT)]
+pub struct ReservableSparseBlockchainStorage<
+    BlockT,
+    ExecutionReceiptHigherKindedT,
+    HardforkT,
+    SignedTransactionT,
+> where
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
-    reservations: RwLock<Vec<Reservation<ChainSpecT>>>,
-    storage: RwLock<SparseBlockchainStorage<BlockT, ChainSpecT>>,
+    reservations: RwLock<Vec<Reservation<HardforkT>>>,
+    storage:
+        RwLock<SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>>,
     // We can store the state diffs contiguously, as reservations don't contain any diffs.
     // Diffs are a mapping from one state to the next, so the genesis block contains the initial
     // state.
     state_diffs: Vec<(u64, StateDiff)>,
     number_to_diff_index: HashMap<u64, usize>,
     last_block_number: u64,
-    phantom: PhantomData<ChainSpecT>,
+    // phantom: PhantomData<ChainSpecT>,
 }
 
-impl<BlockT, ChainSpecT> ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
+impl<BlockT, ExecutionReceiptHigherKindedT, HardforkT, SignedTransactionT>
+    ReservableSparseBlockchainStorage<
+        BlockT,
+        ExecutionReceiptHigherKindedT,
+        HardforkT,
+        SignedTransactionT,
+    >
 where
-    BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: RuntimeSpec,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
     /// Constructs a new instance with the provided block as genesis block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -55,7 +72,6 @@ where
             state_diffs: vec![(0, diff)],
             number_to_diff_index: std::iter::once((0, 0)).collect(),
             last_block_number: 0,
-            phantom: PhantomData,
         }
     }
 
@@ -68,7 +84,6 @@ where
             state_diffs: Vec::new(),
             number_to_diff_index: HashMap::new(),
             last_block_number,
-            phantom: PhantomData,
         }
     }
 
@@ -134,7 +149,8 @@ where
     pub fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Option<Arc<BlockReceipt<ChainSpecT>>> {
+    ) -> Option<Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>
+    {
         self.storage
             .read()
             .receipt_by_transaction_hash(transaction_hash)
@@ -151,7 +167,7 @@ where
         previous_base_fee: Option<U256>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        spec_id: ChainSpecT::Hardfork,
+        spec_id: HardforkT,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,

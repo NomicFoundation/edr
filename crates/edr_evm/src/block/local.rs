@@ -4,14 +4,16 @@ use alloy_rlp::RlpEncodable;
 use derive_where::derive_where;
 use edr_eth::{
     block::{self, Header, PartialHeader},
+    eips::eip2718::TypedEnvelope,
     keccak256, l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
-    receipt::{BlockReceipt, MapReceiptLogs as _, Receipt, TransactionReceipt},
+    receipt::{BlockReceipt, MapReceiptLogs, Receipt, TransactionReceipt},
     transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
     B256,
 };
+use edr_utils::types::HigherKinded;
 use itertools::izip;
 
 use crate::{
@@ -22,13 +24,18 @@ use crate::{
 };
 
 /// A locally mined block, which contains complete information.
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
+#[derive(RlpEncodable)]
+#[derive_where(Clone, Debug, PartialEq, Eq; <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type, SignedTransactionT)]
 #[rlp(trailing)]
-pub struct LocalBlock<ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT> {
+pub struct LocalBlock<
+    ExecutionReceiptHigherKindedT: HigherKinded<ExecutionLog> + HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    SignedTransactionT: ExecutableTransaction,
+> {
     header: block::Header,
     transactions: Vec<SignedTransactionT>,
     #[rlp(skip)]
-    transaction_receipts: Vec<Arc<BlockReceipt<ExecutionReceiptT>>>,
+    transaction_receipts:
+        Vec<Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>,
     ommers: Vec<block::Header>,
     #[rlp(skip)]
     ommer_hashes: Vec<B256>,
@@ -37,10 +44,14 @@ pub struct LocalBlock<ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT>
     hash: B256,
 }
 
-impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
+impl<
+        ExecutionReceiptHigherKindedT: HigherKinded<ExecutionLog> + HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+        SignedTransactionT: ExecutableTransaction,
+    > LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>
+{
     /// Constructs an empty block, i.e. no transactions.
-    pub fn empty(spec_id: ChainSpecT::Hardfork, partial_header: PartialHeader) -> Self {
-        let withdrawals = if spec_id.into() >= l1::SpecId::SHANGHAI {
+    pub fn empty(spec_id: l1::SpecId, partial_header: PartialHeader) -> Self {
+        let withdrawals = if spec_id >= l1::SpecId::SHANGHAI {
             Some(Vec::default())
         } else {
             None
@@ -58,9 +69,12 @@ impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
     /// Constructs a new instance with the provided data.
     pub fn new(
         partial_header: PartialHeader,
-        transactions: Vec<ChainSpecT::SignedTransaction>,
+        transactions: Vec<SignedTransactionT>,
         transaction_receipts: Vec<
-            TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>,
+            TransactionReceipt<
+                <ExecutionReceiptHigherKindedT as HigherKinded<ExecutionLog>>::Type,
+                ExecutionLog,
+            >,
         >,
         ommers: Vec<Header>,
         withdrawals: Option<Vec<Withdrawal>>,
@@ -82,8 +96,11 @@ impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
         );
 
         let hash = header.hash();
-        let transaction_receipts =
-            transaction_to_block_receipts::<ChainSpecT>(&hash, header.number, transaction_receipts);
+        let transaction_receipts = transaction_to_block_receipts::<ExecutionReceiptHigherKindedT>(
+            &hash,
+            header.number,
+            transaction_receipts,
+        );
 
         Self {
             header,
@@ -99,14 +116,16 @@ impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
     /// Returns the receipts of the block's transactions.
     pub fn transaction_receipts(
         &self,
-    ) -> &[Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>] {
+    ) -> &[Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>]
+    {
         &self.transaction_receipts
     }
 
     /// Retrieves the block's transactions.
     pub fn detailed_transactions(
         &self,
-    ) -> impl Iterator<Item = DetailedTransaction<'_, ChainSpecT>> {
+    ) -> impl Iterator<Item = DetailedTransaction<'_, ExecutionReceiptHigherKindedT, SignedTransactionT>>
+    {
         izip!(self.transactions.iter(), self.transaction_receipts.iter()).map(
             |(transaction, receipt)| DetailedTransaction {
                 transaction,
@@ -116,7 +135,11 @@ impl<ChainSpecT: RuntimeSpec> LocalBlock<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
+impl<
+        ExecutionReceiptHigherKindedT: HigherKinded<ExecutionLog> + HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+        SignedTransactionT: ExecutableTransaction,
+    > Block<ChainSpecT> for LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>
+{
     type Error = BlockchainError<ChainSpecT>;
 
     fn hash(&self) -> &B256 {
@@ -153,11 +176,26 @@ impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for LocalBlock<ChainSpecT> {
     }
 }
 
-fn transaction_to_block_receipts<ChainSpecT: RuntimeSpec>(
+fn transaction_to_block_receipts<ExecutionReceiptHigherKindedT>(
     block_hash: &B256,
     block_number: u64,
-    receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>>,
-) -> Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>> {
+    receipts: Vec<
+        TransactionReceipt<
+            <ExecutionReceiptHigherKindedT as HigherKinded<ExecutionLog>>::Type,
+            ExecutionLog,
+        >,
+    >,
+) -> Vec<Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>
+where
+    ExecutionReceiptHigherKindedT: HigherKinded<
+            ExecutionLog,
+            Type: MapReceiptLogs<
+                ExecutionLog,
+                FilterLog,
+                <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type,
+            >,
+        > + HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+{
     let mut log_index = 0;
 
     receipts

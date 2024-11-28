@@ -3,35 +3,40 @@ use std::{marker::PhantomData, sync::Arc};
 use derive_where::derive_where;
 use edr_eth::{
     log::{matches_address_filter, matches_topics_filter, FilterLog},
-    receipt::{BlockReceipt, Receipt as _},
+    receipt::{BlockReceipt, Receipt},
     transaction::ExecutableTransaction,
     Address, B256, U256,
 };
+use edr_utils::types::HigherKinded;
 use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};
 
 use super::InsertError;
 use crate::{spec::RuntimeSpec, Block};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
-#[derive_where(Debug; BlockT)]
-pub struct SparseBlockchainStorage<BlockT, ChainSpecT>
+#[derive_where(Debug; BlockT, <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type)]
+pub struct SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
 where
-    BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: RuntimeSpec,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
 {
     hash_to_block: HashMap<B256, BlockT>,
     hash_to_total_difficulty: HashMap<B256, U256>,
     number_to_block: HashMap<u64, BlockT>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
-    transaction_hash_to_receipt:
-        HashMap<B256, Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
-    phantom: PhantomData<ChainSpecT>,
+    transaction_hash_to_receipt: HashMap<
+        B256,
+        Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>,
+    >,
+    phantom: PhantomData<SignedTransactionT>,
 }
 
-impl<BlockT, ChainSpecT> SparseBlockchainStorage<BlockT, ChainSpecT>
+impl<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
+    SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
 where
-    BlockT: Block<ChainSpecT> + Clone,
-    ChainSpecT: RuntimeSpec,
+    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
+    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    SignedTransactionT: ExecutableTransaction,
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
