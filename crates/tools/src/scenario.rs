@@ -186,7 +186,7 @@ struct DisabledLogger<ChainSpecT: RuntimeSpec> {
     _phantom: PhantomData<ChainSpecT>,
 }
 
-impl<ChainSpecT: RuntimeSpec<Hardfork: Debug>> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
     type BlockchainError = BlockchainError<L1ChainSpec>;
 
     fn is_enabled(&self) -> bool {

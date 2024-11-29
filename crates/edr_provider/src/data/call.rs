@@ -5,7 +5,7 @@ use edr_eth::{
     Address, HashMap, U256,
 };
 use edr_evm::{
-    blockchain::{BlockchainError, SyncBlockchain},
+    blockchain::{BlockchainError, BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     guaranteed_dry_run,
     precompile::Precompile,
@@ -26,7 +26,8 @@ pub(super) struct RunCallArgs<
 > where
     'a: 'evm,
 {
-    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
+    pub blockchain:
+        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -40,7 +41,7 @@ pub(super) struct RunCallArgs<
         DebugContext<
             'evm,
             ChainSpecT,
-            BlockchainError<ChainSpecT>,
+            BlockchainErrorForChainSpec<ChainSpecT>,
             DebugDataT,
             StateRefOverrider<'a, &'evm dyn SyncState<StateError>>,
         >,

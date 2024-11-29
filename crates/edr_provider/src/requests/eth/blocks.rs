@@ -2,13 +2,14 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
+    log::FilterLog,
     result::InvalidTransaction,
     transaction::{ExecutableTransaction as _, TransactionValidation},
     BlockSpec, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
-    blockchain::BlockchainError,
+    blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
     SyncBlock,
 };
@@ -117,7 +118,13 @@ pub fn handle_get_block_transaction_count_by_block_number<
 #[derive(Debug, Clone)]
 struct BlockByNumberResult<ChainSpecT: RuntimeSpec> {
     /// The block
-    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
+    pub block: Arc<
+        dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
     /// Whether the block is a pending block.
     pub pending: bool,
     /// The total difficulty with the block
@@ -152,8 +159,13 @@ fn block_by_number<
         // Pending block
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>> =
-                Arc::new(result.block);
+            let block: Arc<
+                dyn SyncBlock<
+                    ChainSpecT::ExecutionReceipt<FilterLog>,
+                    ChainSpecT::SignedTransaction,
+                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
+                >,
+            > = Arc::new(result.block);
 
             let last_block = data.last_block()?;
             let previous_total_difficulty = data
@@ -172,9 +184,15 @@ fn block_by_number<
     }
 }
 
-fn block_to_rpc_output<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+fn block_to_rpc_output<ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
-    block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
+    block: Arc<
+        dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
     is_pending: bool,
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,

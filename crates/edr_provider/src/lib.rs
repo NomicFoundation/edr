@@ -69,7 +69,7 @@ pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {
     pub traces: Vec<Trace<HaltReasonT>>,
 }
 
-fn to_json<T: serde::Serialize, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+fn to_json<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
     value: T,
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
@@ -80,7 +80,7 @@ fn to_json<T: serde::Serialize, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     })
 }
 
-fn to_json_with_trace<T: serde::Serialize, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+fn to_json_with_trace<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
     value: (T, Trace<ChainSpecT::HaltReason>),
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
@@ -91,7 +91,7 @@ fn to_json_with_trace<T: serde::Serialize, ChainSpecT: RuntimeSpec<Hardfork: Deb
     })
 }
 
-fn to_json_with_traces<T: serde::Serialize, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+fn to_json_with_traces<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
     value: (T, Vec<Trace<ChainSpecT::HaltReason>>),
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;

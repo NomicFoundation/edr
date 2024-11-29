@@ -4,7 +4,7 @@ use edr_eth::{
     transaction::signed::{FakeSign, Sign},
     Address, Bytes, U256,
 };
-use edr_evm::blockchain::BlockchainError;
+use edr_evm::blockchain::{BlockchainError, BlockchainErrorForChainSpec};
 use edr_provider::{
     requests::validation::{validate_call_request, validate_send_transaction_request},
     spec::{CallContext, FromRpcType, TransactionContext},
@@ -69,7 +69,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
             max_fees_fn,
         } = context;
 
-        validate_call_request(data.evm_spec_id(), &value, block_spec)?;
+        validate_call_request(data.hardfork(), &value, block_spec)?;
 
         let CallRequest {
             from,
@@ -158,7 +158,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
         fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
             data: &ProviderData<GenericChainSpec, TimerT>,
             max_priority_fee_per_gas: U256,
-        ) -> Result<U256, BlockchainError<GenericChainSpec>> {
+        ) -> Result<U256, BlockchainErrorForChainSpec<GenericChainSpec>> {
             let base_fee_per_gas = data
                 .next_block_base_fee_per_gas()?
                 .expect("We already validated that the block is post-London.");

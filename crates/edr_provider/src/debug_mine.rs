@@ -2,37 +2,42 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use derive_where::derive_where;
-use edr_eth::{result::ExecutionResult, transaction::ExecutableTransaction, Bytes, B256};
+use edr_eth::{
+    log::FilterLog, result::ExecutionResult, spec::HaltReasonTrait,
+    transaction::ExecutableTransaction, Bytes, B256,
+};
 use edr_evm::{
     spec::RuntimeSpec,
     state::{StateDiff, SyncState},
     trace::Trace,
-    EthLocalBlock, MineBlockResultAndState, SyncBlock,
+    MineBlockResultAndState, SyncBlock,
 };
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.
-pub struct DebugMineBlockResultAndState<ChainSpecT: RuntimeSpec, StateErrorT> {
+pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT> {
     /// Mined block
-    pub block: EthLocalBlock<ChainSpecT>,
+    pub block: LocalBlockT,
     /// State after mining the block
     pub state: Box<dyn SyncState<StateErrorT>>,
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
+    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace<ChainSpecT::HaltReason>>,
+    pub transaction_traces: Vec<Trace<HaltReasonT>>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }
 
-impl<ChainSpecT: RuntimeSpec, StateErrorT> DebugMineBlockResultAndState<ChainSpecT, StateErrorT> {
+impl<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT>
+    DebugMineBlockResultAndState<HaltReasonT, LocalBlockT, StateErrorT>
+{
     /// Constructs a new instance from a [`MineBlockResultAndState`],
     /// transaction traces, and decoded console log messages.
     pub fn new(
-        result: MineBlockResultAndState<ChainSpecT, StateErrorT>,
-        transaction_traces: Vec<Trace<ChainSpecT::HaltReason>>,
+        result: MineBlockResultAndState<HaltReasonT, LocalBlockT, StateErrorT>,
+        transaction_traces: Vec<Trace<HaltReasonT>>,
         console_log_decoded_messages: Vec<Bytes>,
     ) -> Self {
         Self {
@@ -52,7 +57,13 @@ impl<ChainSpecT: RuntimeSpec, StateErrorT> DebugMineBlockResultAndState<ChainSpe
 #[derive_where(Clone; ChainSpecT::HaltReason)]
 pub struct DebugMineBlockResult<ChainSpecT: RuntimeSpec, BlockchainErrorT> {
     /// Mined block
-    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
+    pub block: Arc<
+        dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorT,
+        >,
+    >,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
     /// Transaction traces

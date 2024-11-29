@@ -3,9 +3,11 @@ use std::{fmt::Display, marker::PhantomData, sync::Arc};
 
 use ansi_term::{Color, Style};
 use derive_where::derive_where;
-use edr_eth::{result::ExecutionResult, transaction::ExecutableTransaction, Bytes, B256, U256};
+use edr_eth::{
+    log::FilterLog, result::ExecutionResult, transaction::ExecutableTransaction, Bytes, B256, U256,
+};
 use edr_evm::{
-    blockchain::BlockchainError,
+    blockchain::BlockchainErrorForChainSpec,
     precompile::{self, Precompiles},
     trace::{AfterMessage, Trace, TraceMessage},
     transaction::Transaction as _,
@@ -116,7 +118,7 @@ impl<ChainSpecT> edr_provider::Logger<ChainSpecT> for Logger<ChainSpecT>
 where
     ChainSpecT: ProviderSpec<CurrentTime>,
 {
-    type BlockchainError = BlockchainError<ChainSpecT>;
+    type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
 
     fn is_enabled(&self) -> bool {
         self.collector.config.enable
@@ -351,7 +353,10 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     pub fn log_mined_blocks(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        mining_results: &[DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>],
+        mining_results: &[DebugMineBlockResult<
+            ChainSpecT,
+            BlockchainErrorForChainSpec<ChainSpecT>,
+        >],
     ) -> Result<(), LoggerError> {
         let num_results = mining_results.len();
         for (idx, mining_result) in mining_results.iter().enumerate() {
@@ -382,7 +387,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     pub fn log_interval_mined(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        mining_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        mining_result: &DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), LoggerError> {
         let block_header = mining_result.block.header();
         let block_number = block_header.number;
@@ -428,7 +433,10 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::SignedTransaction,
-        mining_results: &[DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>],
+        mining_results: &[DebugMineBlockResult<
+            ChainSpecT,
+            BlockchainErrorForChainSpec<ChainSpecT>,
+        >],
     ) -> Result<(), LoggerError> {
         if !mining_results.is_empty() {
             self.state = LoggingState::Empty;
@@ -534,7 +542,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_auto_mined_block_results(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        results: &[DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>],
+        results: &[DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>],
         sent_transaction_hash: &B256,
     ) -> Result<(), LoggerError> {
         for result in results {
@@ -553,7 +561,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_block_from_auto_mine(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        result: &DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
         transaction_hash_to_highlight: &edr_eth::B256,
     ) -> Result<(), LoggerError> {
         let DebugMineBlockResult {
@@ -610,7 +618,11 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
     fn log_block_hash(
         &mut self,
-        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+        block: &dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
     ) {
         let block_hash = block.block_hash();
 
@@ -619,7 +631,11 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
     fn log_block_id(
         &mut self,
-        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+        block: &dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
     ) {
         let block_number = block.header().number;
         let block_hash = block.block_hash();
@@ -629,7 +645,11 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
     fn log_block_number(
         &mut self,
-        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+        block: &dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
     ) {
         let block_number = block.header().number;
 
@@ -811,7 +831,11 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
     fn log_empty_block(
         &mut self,
-        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+        block: &dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
     ) {
         let block_header = block.header();
         let block_number = block_header.number;
@@ -837,7 +861,11 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
     fn log_hardhat_mined_empty_block(
         &mut self,
-        block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+        block: &dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
         empty_blocks_range_start: Option<u64>,
     ) -> Result<(), LoggerError> {
         self.indented(|logger| {
@@ -860,7 +888,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_interval_mined_block(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        result: &DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), LoggerError> {
         let DebugMineBlockResult {
             block,
@@ -909,7 +937,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_hardhat_mined_block(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        result: &DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), LoggerError> {
         let DebugMineBlockResult {
             block,
@@ -1002,7 +1030,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_currently_sent_transaction(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        block_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        block_result: &DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
         transaction: &ChainSpecT::SignedTransaction,
         transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
         trace: &Trace<ChainSpecT::HaltReason>,
@@ -1028,7 +1056,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_single_transaction_mining_result(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        result: &DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
         transaction: &ChainSpecT::SignedTransaction,
     ) -> Result<(), LoggerError> {
         let trace = result
@@ -1049,7 +1077,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
     fn log_transaction(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        block_result: &DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        block_result: &DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
         transaction: &ChainSpecT::SignedTransaction,
         transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
         trace: &Trace<ChainSpecT::HaltReason>,

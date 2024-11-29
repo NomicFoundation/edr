@@ -16,9 +16,8 @@ use crate::{
 };
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
-#[derive(thiserror::Error)]
-#[derive_where(Debug; ChainSpecT::RpcTransactionConversionError)]
-pub enum ConversionError<ChainSpecT: RuntimeSpec> {
+#[derive(Debug, thiserror::Error)]
+pub enum ConversionError<TransactionConversionErrorT> {
     /// Missing hash
     #[error("Missing hash")]
     MissingHash,
@@ -36,7 +35,7 @@ pub enum ConversionError<ChainSpecT: RuntimeSpec> {
     MissingNumber,
     /// Transaction conversion error
     #[error(transparent)]
-    TransactionConversionError(ChainSpecT::RpcTransactionConversionError),
+    TransactionConversionError(TransactionConversionErrorT),
 }
 
 /// A remote block, which lazily loads receipts.

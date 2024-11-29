@@ -97,7 +97,7 @@ impl RuntimeSpec for OptimismChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
     type LocalBlock = LocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
     type ReceiptBuilder = receipt::execution::Builder;
-    type RpcBlockConversionError = RemoteBlockConversionError<Self>;
+    type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
     type RpcReceiptConversionError = rpc::receipt::ConversionError;
     type RpcTransactionConversionError = rpc::transaction::ConversionError;
 

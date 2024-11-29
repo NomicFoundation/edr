@@ -1,9 +1,11 @@
 use core::fmt::Debug;
+use std::sync::Arc;
 
 pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
     eips::eip2930,
     l1::L1ChainSpec,
+    log::FilterLog,
     result::HaltReason,
     rlp,
     transaction::{
@@ -14,7 +16,8 @@ use edr_eth::{
 };
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
-    blockchain::BlockchainError, state::StateOverrides, transaction, BlockAndTotalDifficulty,
+    blockchain::BlockchainErrorForChainSpec, state::StateOverrides, transaction,
+    BlockAndTotalDifficulty, BlockReceipts, DynSyncBlockForChainSpec,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
@@ -22,7 +25,18 @@ use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, Transaction
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RuntimeSpec<
-    RpcBlock<B256>: From<BlockAndTotalDifficulty<Self, BlockchainError<Self>>>,
+    LocalBlock: Into<Arc<DynSyncBlockForChainSpec<Self>>>
+                    + BlockReceipts<
+        Self::ExecutionReceipt<FilterLog>,
+        Error = BlockchainErrorForChainSpec<Self>,
+    >,
+    RpcBlock<B256>: From<
+        BlockAndTotalDifficulty<
+            BlockchainErrorForChainSpec<Self>,
+            Self::ExecutionReceipt<FilterLog>,
+            Self::SignedTransaction,
+        >,
+    >,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,
     SignedTransaction: IsSupported,

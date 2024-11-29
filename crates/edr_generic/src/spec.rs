@@ -1,14 +1,13 @@
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
     l1::{self, L1ChainSpec},
-    log::FilterLog,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
 };
 use edr_evm::{
     hardfork::Activations,
-    spec::{L1Wiring, RuntimeSpec},
+    spec::{ExecutionReceiptHigherKindedForChainSpec, L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
     EthBlockBuilder, EthLocalBlock,
@@ -42,7 +41,13 @@ impl RuntimeSpec for GenericChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
 
-    type LocalBlock = EthLocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
+    type LocalBlock = EthLocalBlock<
+        Self::RpcBlockConversionError,
+        ExecutionReceiptHigherKindedForChainSpec<Self>,
+        Self::Hardfork,
+        Self::RpcReceiptConversionError,
+        Self::SignedTransaction,
+    >;
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;
@@ -62,8 +67,8 @@ impl RuntimeSpec for GenericChainSpec {
         }
     }
 
-    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self>> {
-        L1ChainSpec::chain_hardfork_activations(chain_id).map(Activations::as_chain_spec)
+    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>> {
+        L1ChainSpec::chain_hardfork_activations(chain_id)
     }
 
     fn chain_name(chain_id: u64) -> Option<&'static str> {

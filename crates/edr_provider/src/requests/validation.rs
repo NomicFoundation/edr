@@ -172,7 +172,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-fn validate_transaction_spec<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
     spec_id: l1::SpecId,
     value: &impl HardforkValidationData,
 ) -> Result<(), ProviderError<ChainSpecT>> {
@@ -243,7 +243,7 @@ fn validate_transaction_spec<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
 }
 
 /// Validates a `CallRequest` and `BlockSpec` against the provided hardfork.
-pub fn validate_call_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub fn validate_call_request<ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
     call_request: &CallRequest,
     block_spec: &BlockSpec,
@@ -269,7 +269,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-pub(crate) fn validate_transaction_and_call_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub(crate) fn validate_transaction_and_call_request<ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
     validation_data: &impl HardforkValidationData,
 ) -> Result<(), ProviderError<ChainSpecT>> {
@@ -287,7 +287,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: RuntimeSpec>(
     spec_id: l1::SpecId,
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
@@ -338,7 +338,7 @@ impl<'a> From<ValidationBlockSpec<'a>> for BlockSpec {
     }
 }
 
-pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
 ) -> Result<(), ProviderError<ChainSpecT>> {

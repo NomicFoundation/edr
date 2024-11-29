@@ -8,11 +8,12 @@ use edr_eth::{
     l1::L1ChainSpec,
     result::InvalidTransaction,
     signature::secret_key_from_str,
+    spec::HardforkTrait,
     transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, KECCAK_EMPTY, U160, U256,
 };
-use edr_evm::{spec::RuntimeSpec, Block};
+use edr_evm::Block as _;
 use edr_rpc_eth::TransactionRequest;
 use tokio::runtime;
 
@@ -34,7 +35,7 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
-pub fn create_test_config<ChainSpecT: RuntimeSpec>() -> ProviderConfig<ChainSpecT> {
+pub fn create_test_config<HardforkT: HardforkTrait>() -> ProviderConfig<HardforkT> {
     create_test_config_with_fork(None)
 }
 
@@ -42,9 +43,9 @@ pub fn one_ether() -> U256 {
     U256::from(10).pow(U256::from(18))
 }
 
-pub fn create_test_config_with_fork<ChainSpecT: RuntimeSpec>(
+pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
     fork: Option<ForkConfig>,
-) -> ProviderConfig<ChainSpecT> {
+) -> ProviderConfig<HardforkT> {
     ProviderConfig {
         accounts: vec![
             AccountConfig {
@@ -70,7 +71,7 @@ pub fn create_test_config_with_fork<ChainSpecT: RuntimeSpec>(
         enable_rip_7212: false,
         fork,
         genesis_accounts: HashMap::new(),
-        hardfork: ChainSpecT::Hardfork::default(),
+        hardfork: HardforkT::default(),
         initial_base_fee_per_gas: Some(U256::from(1000000000)),
         initial_blob_gas: Some(BlobGas {
             gas_used: 0,
@@ -144,7 +145,7 @@ where
 /// Fixture for testing `ProviderData`.
 pub struct ProviderTestFixture<ChainSpecT: ProviderSpec<CurrentTime>> {
     _runtime: runtime::Runtime,
-    pub config: ProviderConfig<ChainSpecT>,
+    pub config: ProviderConfig<ChainSpecT::Hardfork>,
     pub provider_data: ProviderData<ChainSpecT, CurrentTime>,
     pub impersonated_account: Address,
 }
@@ -186,7 +187,7 @@ impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<Chai
 
     pub fn new(
         runtime: tokio::runtime::Runtime,
-        mut config: ProviderConfig<ChainSpecT>,
+        mut config: ProviderConfig<ChainSpecT::Hardfork>,
     ) -> anyhow::Result<Self> {
         let logger = Box::<NoopLogger<ChainSpecT>>::default();
         let subscription_callback_noop = Box::new(|_| ());

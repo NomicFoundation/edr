@@ -23,7 +23,7 @@ use edr_eth::{
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
     log::FilterLog,
-    receipt::Receipt as _,
+    receipt::{BlockReceipt, Receipt as _},
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
@@ -40,8 +40,9 @@ use edr_eth::{
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::{
-        Blockchain, BlockchainError, ForkedBlockchain, ForkedCreationError, GenesisBlockOptions,
-        LocalBlockchain, LocalCreationError, SyncBlockchain,
+        Blockchain, BlockchainError, BlockchainErrorForChainSpec, ForkedBlockchain,
+        ForkedCreationError, GenesisBlockOptions, LocalBlockchain, LocalCreationError,
+        SyncBlockchain,
     },
     config::CfgEnv,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
@@ -54,7 +55,7 @@ use edr_evm::{
         StateOverrides, SyncState,
     },
     trace::Trace,
-    transaction, Block as _, BlockAndTotalDifficulty, BlockReceipt, DebugContext, DebugTraceConfig,
+    transaction, Block as _, BlockAndTotalDifficulty, DebugContext, DebugTraceConfig,
     DebugTraceResultWithTraces, Eip3155AndRawTracers, MemPool, MineBlockResultAndState,
     OrderedTransaction, RandomHashGenerator, SyncBlock,
 };
@@ -114,7 +115,8 @@ pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
 
 pub struct SendTransactionResult<ChainSpecT: RuntimeSpec> {
     pub transaction_hash: B256,
-    pub mining_results: Vec<DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>>,
+    pub mining_results:
+        Vec<DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>>,
 }
 
 /// The result of executing a transaction.
@@ -164,14 +166,14 @@ impl<ChainSpecT: RuntimeSpec> From<SendTransactionResult<ChainSpecT>>
 #[derive(Debug, thiserror::Error)]
 pub enum CreationError<ChainSpecT>
 where
-    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec,
 {
     /// A blockchain error
     #[error(transparent)]
-    Blockchain(BlockchainError<ChainSpecT>),
+    Blockchain(BlockchainErrorForChainSpec<ChainSpecT>),
     /// An error that occurred while constructing a forked blockchain.
     #[error(transparent)]
-    ForkedBlockchainCreation(#[from] ForkedCreationError<ChainSpecT>),
+    ForkedBlockchainCreation(#[from] ForkedCreationError<ChainSpecT::Hardfork>),
     #[error("Invalid HTTP header name: {0}")]
     InvalidHttpHeaders(HttpError),
     /// Invalid initial date
@@ -192,8 +194,9 @@ pub struct ProviderData<
     TimerT: Clone + TimeSinceEpoch = CurrentTime,
 > {
     runtime_handle: runtime::Handle,
-    initial_config: ProviderConfig<ChainSpecT>,
-    blockchain: Box<dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>>,
+    initial_config: ProviderConfig<ChainSpecT::Hardfork>,
+    blockchain:
+        Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT>,
     beneficiary: Address,
@@ -221,7 +224,8 @@ pub struct ProviderData<
     local_accounts: IndexMap<Address, k256::SecretKey>,
     filters: HashMap<U256, Filter>,
     last_filter_id: U256,
-    logger: Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainError<ChainSpecT>>>,
+    logger:
+        Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>>,
     impersonated_accounts: HashSet<Address>,
     subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
     timer: TimerT,
@@ -313,7 +317,8 @@ where
 
     pub fn logger_mut(
         &mut self,
-    ) -> &mut dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainError<ChainSpecT>> {
+    ) -> &mut dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>
+    {
         &mut *self.logger
     }
 
@@ -412,10 +417,11 @@ where
     fn notify_subscribers_about_mined_block(
         &mut self,
         block_and_total_difficulty: &BlockAndTotalDifficulty<
-            ChainSpecT,
-            BlockchainError<ChainSpecT>,
+            BlockchainErrorForChainSpec<ChainSpecT>,
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
         >,
-    ) -> Result<(), BlockchainError<ChainSpecT>> {
+    ) -> Result<(), BlockchainErrorForChainSpec<ChainSpecT>> {
         let block = &block_and_total_difficulty.block;
         for (filter_id, filter) in self.filters.iter_mut() {
             match &mut filter.data {
@@ -580,10 +586,12 @@ where
 {
     pub fn new(
         runtime_handle: runtime::Handle,
-        logger: Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainError<ChainSpecT>>>,
+        logger: Box<
+            dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
+        >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
         call_override: Option<Arc<dyn SyncCallOverride>>,
-        config: ProviderConfig<ChainSpecT>,
+        config: ProviderConfig<ChainSpecT::Hardfork>,
         timer: TimerT,
     ) -> Result<Self, CreationError<ChainSpecT>> {
         let InitialAccounts {
@@ -741,7 +749,15 @@ where
         &self,
         block_spec: &BlockSpec,
     ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>>,
+        Option<
+            Arc<
+                dyn SyncBlock<
+                    ChainSpecT::ExecutionReceipt<FilterLog>,
+                    ChainSpecT::SignedTransaction,
+                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
+                >,
+            >,
+        >,
         ProviderError<ChainSpecT>,
     > {
         let result = match block_spec {
@@ -800,7 +816,15 @@ where
         &self,
         block_hash: &B256,
     ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>>,
+        Option<
+            Arc<
+                dyn SyncBlock<
+                    ChainSpecT::ExecutionReceipt<FilterLog>,
+                    ChainSpecT::SignedTransaction,
+                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
+                >,
+            >,
+        >,
         ProviderError<ChainSpecT>,
     > {
         self.blockchain
@@ -1159,7 +1183,10 @@ where
     pub fn transaction_receipt(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt<ChainSpecT>>>, ProviderError<ChainSpecT>> {
+    ) -> Result<
+        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
+        ProviderError<ChainSpecT>,
+    > {
         self.blockchain
             .receipt_by_transaction_hash(transaction_hash)
             .map_err(ProviderError::Blockchain)
@@ -1295,12 +1322,12 @@ where
             BlockOptions,
             &mut Debugger<ChainSpecT::HaltReason>,
         ) -> Result<
-            MineBlockResultAndState<ChainSpecT, StateError>,
+            MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
             ProviderError<ChainSpecT>,
         >,
         mut options: BlockOptions,
     ) -> Result<
-        DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
         ProviderError<ChainSpecT>,
     > {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
@@ -1356,12 +1383,14 @@ where
             BlockOptions,
             &mut Debugger<ChainSpecT::HaltReason>,
         ) -> Result<
-            MineBlockResultAndState<ChainSpecT, StateError>,
+            MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
             ProviderError<ChainSpecT>,
         >,
         mut options: BlockOptions,
-    ) -> Result<DebugMineBlockResultAndState<ChainSpecT, StateError>, ProviderError<ChainSpecT>>
-    {
+    ) -> Result<
+        DebugMineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+        ProviderError<ChainSpecT>,
+    > {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
@@ -1562,8 +1591,14 @@ where
     pub fn last_block(
         &self,
     ) -> Result<
-        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
-        BlockchainError<ChainSpecT>,
+        Arc<
+            dyn SyncBlock<
+                ChainSpecT::ExecutionReceipt<FilterLog>,
+                ChainSpecT::SignedTransaction,
+                Error = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
+        >,
+        BlockchainErrorForChainSpec<ChainSpecT>,
     > {
         self.blockchain.last_block()
     }
@@ -1597,7 +1632,9 @@ where
     }
 
     /// Calculates the next block's base fee per gas.
-    pub fn next_block_base_fee_per_gas(&self) -> Result<Option<U256>, BlockchainError<ChainSpecT>> {
+    pub fn next_block_base_fee_per_gas(
+        &self,
+    ) -> Result<Option<U256>, BlockchainErrorForChainSpec<ChainSpecT>> {
         if self.evm_spec_id() < l1::SpecId::LONDON {
             return Ok(None);
         }
@@ -1620,7 +1657,7 @@ where
     /// Calculates the next block's base fee per blob gas.
     pub fn next_block_base_fee_per_blob_gas(
         &self,
-    ) -> Result<Option<U256>, BlockchainError<ChainSpecT>> {
+    ) -> Result<Option<U256>, BlockchainErrorForChainSpec<ChainSpecT>> {
         if self.evm_spec_id() < l1::SpecId::CANCUN {
             return Ok(None);
         }
@@ -1632,7 +1669,7 @@ where
     }
 
     /// Calculates the gas price for the next block.
-    pub fn next_gas_price(&self) -> Result<U256, BlockchainError<ChainSpecT>> {
+    pub fn next_gas_price(&self) -> Result<U256, BlockchainErrorForChainSpec<ChainSpecT>> {
         if let Some(next_block_base_fee_per_gas) = self.next_block_base_fee_per_gas()? {
             let suggested_priority_fee_per_gas = U256::from(1_000_000_000u64);
             Ok(next_block_base_fee_per_gas + suggested_priority_fee_per_gas)
@@ -1948,7 +1985,7 @@ where
         &mut self,
         options: BlockOptions,
     ) -> Result<
-        DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+        DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
         ProviderError<ChainSpecT>,
     > {
         self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
@@ -1961,7 +1998,7 @@ where
         number_of_blocks: u64,
         interval: u64,
     ) -> Result<
-        Vec<DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>>,
+        Vec<DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>>,
         ProviderError<ChainSpecT>,
     > {
         // There should be at least 2 blocks left for the reservation to work,
@@ -1975,7 +2012,7 @@ where
 
         let mine_block_with_interval = |data: &mut ProviderData<ChainSpecT, TimerT>,
                                         mined_blocks: &mut Vec<
-            DebugMineBlockResult<ChainSpecT, BlockchainError<ChainSpecT>>,
+            DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
         >|
          -> Result<(), ProviderError<ChainSpecT>> {
             let previous_timestamp = mined_blocks
@@ -2057,8 +2094,10 @@ where
     /// Mines a pending block, without modifying any values.
     pub fn mine_pending_block(
         &mut self,
-    ) -> Result<DebugMineBlockResultAndState<ChainSpecT, StateError>, ProviderError<ChainSpecT>>
-    {
+    ) -> Result<
+        DebugMineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+        ProviderError<ChainSpecT>,
+    > {
         let (block_timestamp, _new_offset) = self.next_block_timestamp(None)?;
 
         // Mining a pending block shouldn't affect the mix hash.
@@ -2152,8 +2191,14 @@ where
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
-            &dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
-            &Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
+            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+            &Arc<
+                dyn SyncBlock<
+                    ChainSpecT::ExecutionReceipt<FilterLog>,
+                    ChainSpecT::SignedTransaction,
+                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
+                >,
+            >,
             &Box<dyn SyncState<StateError>>,
         ) -> T,
     ) -> Result<T, ProviderError<ChainSpecT>> {
@@ -2191,7 +2236,10 @@ where
         hardfork: ChainSpecT::Hardfork,
         options: BlockOptions,
         debugger: &mut Debugger<ChainSpecT::HaltReason>,
-    ) -> Result<MineBlockResultAndState<ChainSpecT, StateError>, ProviderError<ChainSpecT>> {
+    ) -> Result<
+        MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+        ProviderError<ChainSpecT>,
+    > {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block(
             self.blockchain.as_ref(),
@@ -2220,7 +2268,10 @@ where
         options: BlockOptions,
         transaction: ChainSpecT::SignedTransaction,
         debugger: &mut Debugger<ChainSpecT::HaltReason>,
-    ) -> Result<MineBlockResultAndState<ChainSpecT, StateError>, ProviderError<ChainSpecT>> {
+    ) -> Result<
+        MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+        ProviderError<ChainSpecT>,
+    > {
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
@@ -2588,8 +2639,8 @@ impl StateId {
     }
 }
 
-fn block_time_offset_seconds<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-    config: &ProviderConfig<ChainSpecT>,
+fn block_time_offset_seconds<ChainSpecT: RuntimeSpec>(
+    config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &impl TimeSinceEpoch,
 ) -> Result<i64, CreationError<ChainSpecT>> {
     config.initial_date.map_or(Ok(0), |initial_date| {
@@ -2609,7 +2660,8 @@ fn block_time_offset_seconds<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
 }
 
 struct BlockchainAndState<ChainSpecT: SyncRuntimeSpec> {
-    blockchain: Box<dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>>,
+    blockchain:
+        Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
     fork_metadata: Option<ForkMetadata>,
     rpc_client: Option<Arc<EthRpcClient<ChainSpecT>>>,
     state: Box<dyn SyncState<StateError>>,
@@ -2619,9 +2671,12 @@ struct BlockchainAndState<ChainSpecT: SyncRuntimeSpec> {
     next_block_base_fee_per_gas: Option<U256>,
 }
 
-fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
+fn create_blockchain_and_state<
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     runtime: runtime::Handle,
-    config: &ProviderConfig<ChainSpecT>,
+    config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &impl TimeSinceEpoch,
     mut genesis_accounts: HashMap<Address, Account>,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationError<ChainSpecT>> {
@@ -2644,8 +2699,8 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
             http_headers.clone(),
         )?);
 
-        let (blockchain, mut irregular_state) =
-            tokio::task::block_in_place(|| -> Result<_, ForkedCreationError<ChainSpecT>> {
+        let (blockchain, mut irregular_state) = tokio::task::block_in_place(
+            || -> Result<_, ForkedCreationError<ChainSpecT::Hardfork>> {
                 let mut irregular_state = IrregularState::default();
                 let blockchain = runtime.block_on(ForkedBlockchain::<ChainSpecT>::new(
                     runtime.clone(),
@@ -2659,7 +2714,8 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
                 ))?;
 
                 Ok((blockchain, irregular_state))
-            })?;
+            },
+        )?;
 
         let fork_block_number = blockchain.last_block_number();
 
@@ -2820,7 +2876,7 @@ fn get_skip_unsupported_transaction_types_from_env() -> bool {
         .map_or(DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES, |s| s == "true")
 }
 
-fn get_max_cached_states_from_env<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+fn get_max_cached_states_from_env<ChainSpecT: RuntimeSpec>(
 ) -> Result<NonZeroUsize, CreationError<ChainSpecT>> {
     std::env::var(EDR_MAX_CACHED_STATES_ENV_VAR).map_or_else(
         |err| match err {

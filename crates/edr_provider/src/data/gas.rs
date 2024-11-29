@@ -1,14 +1,15 @@
-use core::{cmp, fmt::Debug};
+use core::cmp;
 
 use edr_eth::{
     block::Header,
+    log::FilterLog,
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut, TransactionValidation},
     Address, HashMap, U256,
 };
 use edr_evm::{
-    blockchain::{BlockchainError, SyncBlockchain},
+    blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     precompile::Precompile,
     spec::{RuntimeSpec, SyncRuntimeSpec},
@@ -24,7 +25,8 @@ use crate::{
 };
 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
+    pub blockchain:
+        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -84,7 +86,8 @@ where
 }
 
 pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
+    pub blockchain:
+        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -182,8 +185,12 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-    block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+pub(super) fn compute_rewards<ChainSpecT: RuntimeSpec>(
+    block: &dyn SyncBlock<
+        ChainSpecT::ExecutionReceipt<FilterLog>,
+        ChainSpecT::SignedTransaction,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
     reward_percentiles: &[RewardPercentile],
 ) -> Result<Vec<U256>, ProviderError<ChainSpecT>> {
     if block.transactions().is_empty() {

@@ -2,7 +2,7 @@ use edr_eth::{
     l1::{self, L1ChainSpec},
     Bytes, U256,
 };
-use edr_evm::{blockchain::BlockchainError, transaction};
+use edr_evm::{blockchain::BlockchainErrorForChainSpec, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use super::validation::validate_call_request;
@@ -119,7 +119,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
         fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
             data: &ProviderData<L1ChainSpec, TimerT>,
             max_priority_fee_per_gas: U256,
-        ) -> Result<U256, BlockchainError<L1ChainSpec>> {
+        ) -> Result<U256, BlockchainErrorForChainSpec<L1ChainSpec>> {
             let base_fee_per_gas = data
                 .next_block_base_fee_per_gas()?
                 .expect("We already validated that the block is post-London.");

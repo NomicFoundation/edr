@@ -18,10 +18,13 @@ use edr_evm::{
         SyncBlockchain,
     },
     receipt::{self, ExecutionReceiptBuilder as _},
+    spec::ExecutionReceiptHigherKindedForChainSpec,
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    EthLocalBlock, EthLocalBlockForChainSpec, LocalBlock as _, SyncBlock,
+    transaction, EthLocalBlock, EthLocalBlockForChainSpec, LocalBlock as _,
+    RemoteBlockConversionError, SyncBlock,
 };
+use edr_rpc_eth::TransactionConversionError;
 use serial_test::serial;
 
 #[cfg(feature = "test-remote")]
@@ -178,8 +181,8 @@ fn create_dummy_block_with_header(
 struct DummyBlockAndTransaction {
     block: Arc<
         dyn SyncBlock<
-            L1ChainSpec::ExecutionReceipt<FilterLog>,
-            L1ChainSpec::SignedTransaction,
+            TypedEnvelope<receipt::Execution<FilterLog>>,
+            transaction::Signed,
             Error = BlockchainErrorForChainSpec<L1ChainSpec>,
         >,
     >,
@@ -241,7 +244,13 @@ fn insert_dummy_block_with_transaction(
         blockchain.hardfork(),
     );
 
-    let block = EthLocalBlock::new(
+    let block = EthLocalBlock::<
+        RemoteBlockConversionError<TransactionConversionError>,
+        ExecutionReceiptHigherKindedForChainSpec<L1ChainSpec>,
+        l1::SpecId,
+        edr_rpc_eth::receipt::ConversionError,
+        transaction::Signed,
+    >::new(
         header,
         vec![transaction],
         vec![transaction_receipt.clone()],

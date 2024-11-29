@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_evm::blockchain::BlockchainError;
+use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_provider::{time::CurrentTime, SyncLogger};
 use napi::tokio::runtime;
 
@@ -13,16 +13,19 @@ pub trait Builder: Send {
 }
 
 pub struct ProviderBuilder<ChainSpecT: SyncNapiSpec> {
-    logger: Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainError<ChainSpecT>>>,
-    provider_config: edr_provider::ProviderConfig<ChainSpecT>,
+    logger:
+        Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>>,
+    provider_config: edr_provider::ProviderConfig<ChainSpecT::Hardfork>,
     subscription_callback: subscription::Callback<ChainSpecT>,
 }
 
 impl<ChainSpecT: SyncNapiSpec> ProviderBuilder<ChainSpecT> {
     /// Constructs a new instance.
     pub fn new(
-        logger: Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainError<ChainSpecT>>>,
-        provider_config: edr_provider::ProviderConfig<ChainSpecT>,
+        logger: Box<
+            dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
+        >,
+        provider_config: edr_provider::ProviderConfig<ChainSpecT::Hardfork>,
         subscription_callback: subscription::Callback<ChainSpecT>,
     ) -> Self {
         Self {

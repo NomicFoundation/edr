@@ -3,15 +3,13 @@ use std::sync::Arc;
 use derive_where::derive_where;
 use edr_eth::{
     l1::{self, L1ChainSpec},
+    log::FilterLog,
     transaction::SignedTransaction as _,
 };
 use edr_rpc_eth::RpcTypeFrom;
 
 use super::SyncBlock;
-use crate::{
-    blockchain::BlockchainErrorForChainSpec,
-    spec::{ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec},
-};
+use crate::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
 
 /// The result returned by requesting a transaction.
 #[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
@@ -30,7 +28,7 @@ pub struct BlockDataForTransaction<ChainSpecT: RuntimeSpec> {
     /// The block in which the transaction is found.
     pub block: Arc<
         dyn SyncBlock<
-            ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>,
+            ChainSpecT::ExecutionReceipt<FilterLog>,
             ChainSpecT::SignedTransaction,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,

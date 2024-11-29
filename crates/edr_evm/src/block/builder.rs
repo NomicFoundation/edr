@@ -50,7 +50,7 @@ pub struct BlockBuilderAndError<BlockBuilderT, ErrorT> {
 
 pub trait BlockBuilder<'blockchain, ChainSpecT, DebugDataT>: Sized
 where
-    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec,
 {
     /// The blockchain's error type.
     type BlockchainError;

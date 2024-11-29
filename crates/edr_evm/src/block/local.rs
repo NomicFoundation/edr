@@ -43,7 +43,7 @@ pub struct EthLocalBlock<
     ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
     HardforkT: HardforkTrait,
     ReceiptConversionErrorT,
-    SignedTransactionT: Debug,
+    SignedTransactionT,
 > {
     header: block::Header,
     transactions: Vec<SignedTransactionT>,
@@ -122,8 +122,13 @@ impl<
     /// Retrieves the block's transactions.
     pub fn detailed_transactions(
         &self,
-    ) -> impl Iterator<Item = DetailedTransaction<'_, ExecutionReceiptHigherKindedT, SignedTransactionT>>
-    {
+    ) -> impl Iterator<
+        Item = DetailedTransaction<
+            '_,
+            <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type,
+            SignedTransactionT,
+        >,
+    > {
         izip!(self.transactions.iter(), self.transaction_receipts.iter()).map(
             |(transaction, receipt)| DetailedTransaction {
                 transaction,
@@ -155,7 +160,7 @@ impl<
             + self
                 .withdrawals
                 .as_ref()
-                .map_or(0, |withdrawals| withdrawals.length())
+                .map_or(0, alloy_rlp::Encodable::length)
     }
 }
 

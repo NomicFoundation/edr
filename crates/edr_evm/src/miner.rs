@@ -30,19 +30,13 @@ use crate::{
 /// The result of mining a block, after having been committed to the blockchain.
 #[derive(Debug)]
 #[derive_where(Clone; HaltReasonT)]
-pub struct MineBlockResult<
-    BlockchainErrorT,
-    ExecutionReceiptHigherKindedT,
-    HaltReasonT,
-    SignedTransactionT,
-> where
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+pub struct MineBlockResult<BlockchainErrorT, ExecutionReceiptT, HaltReasonT, SignedTransactionT>
+where
+    ExecutionReceiptT: Receipt<FilterLog>,
     HaltReasonT: HaltReasonTrait,
 {
     /// Mined block
-    pub block: Arc<
-        dyn SyncBlock<ExecutionReceiptHigherKindedT, SignedTransactionT, Error = BlockchainErrorT>,
-    >,
+    pub block: Arc<dyn SyncBlock<ExecutionReceiptT, SignedTransactionT, Error = BlockchainErrorT>>,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction traces
@@ -75,7 +69,7 @@ pub enum MineOrdering {
 #[derive(Debug, thiserror::Error)]
 pub enum MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
@@ -200,7 +194,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]

@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Type for interval mining on a separate thread.
-pub struct IntervalMiner<ChainSpecT: RuntimeSpec<Hardfork: Debug>, TimerT> {
+pub struct IntervalMiner<ChainSpecT: RuntimeSpec, TimerT> {
     inner: Option<Inner<ChainSpecT>>,
     runtime: runtime::Handle,
     phantom: PhantomData<TimerT>,
@@ -23,7 +23,7 @@ pub struct IntervalMiner<ChainSpecT: RuntimeSpec<Hardfork: Debug>, TimerT> {
 
 /// Inner type for interval mining on a separate thread, required for
 /// implementation of `Drop`.
-struct Inner<ChainSpecT: RuntimeSpec<Hardfork: Debug>> {
+struct Inner<ChainSpecT: RuntimeSpec> {
     cancellation_sender: oneshot::Sender<()>,
     background_task: JoinHandle<Result<(), ProviderError<ChainSpecT>>>,
 }
@@ -103,7 +103,7 @@ async fn interval_mining_loop<
     }
 }
 
-impl<ChainSpecT: RuntimeSpec<Hardfork: Debug>, TimerT> Drop for IntervalMiner<ChainSpecT, TimerT> {
+impl<ChainSpecT: RuntimeSpec, TimerT> Drop for IntervalMiner<ChainSpecT, TimerT> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn drop(&mut self) {
         if let Some(Inner {

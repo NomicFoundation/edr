@@ -4,7 +4,7 @@ use edr_eth::{
     result::InvalidTransaction,
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
-use edr_evm::blockchain::BlockchainError;
+use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use parking_lot::Mutex;
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
@@ -97,9 +97,11 @@ impl<
     /// Constructs a new instance.
     pub fn new(
         runtime: runtime::Handle,
-        logger: Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainError<ChainSpecT>>>,
+        logger: Box<
+            dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
+        >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
-        config: ProviderConfig<ChainSpecT>,
+        config: ProviderConfig<ChainSpecT::Hardfork>,
         timer: TimerT,
     ) -> Result<Self, CreationError<ChainSpecT>> {
         let data = ProviderData::new(

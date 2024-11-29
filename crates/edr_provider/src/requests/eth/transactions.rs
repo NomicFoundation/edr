@@ -2,6 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
+    log::FilterLog,
     result::InvalidTransaction,
     rlp::Decodable,
     transaction::{
@@ -12,7 +13,7 @@ use edr_eth::{
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
-    blockchain::BlockchainError,
+    blockchain::{BlockchainError, BlockchainErrorForChainSpec},
     spec::RuntimeSpec,
     transaction, SyncBlock,
 };
@@ -74,8 +75,13 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         // Pending block requested
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>> =
-                Arc::new(result.block);
+            let block: Arc<
+                dyn SyncBlock<
+                    ChainSpecT::ExecutionReceipt<FilterLog>,
+                    ChainSpecT::SignedTransaction,
+                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
+                >,
+            > = Arc::new(result.block);
             Some((block, true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
@@ -111,7 +117,7 @@ pub fn handle_pending_transactions<
     Ok(transactions)
 }
 
-fn rpc_index_to_usize<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+fn rpc_index_to_usize<ChainSpecT: RuntimeSpec>(
     index: &U256,
 ) -> Result<usize, ProviderError<ChainSpecT>> {
     index
@@ -148,7 +154,13 @@ pub fn handle_get_transaction_receipt<
 }
 
 fn transaction_from_block<ChainSpecT: RuntimeSpec>(
-    block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
+    block: Arc<
+        dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
     transaction_index: usize,
     is_pending: bool,
 ) -> Option<TransactionAndBlock<ChainSpecT>> {

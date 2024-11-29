@@ -18,7 +18,6 @@ use edr_eth::{
     B256, U256,
 };
 use edr_rpc_eth::RpcSpec;
-use edr_utils::types::HigherKinded;
 
 pub use self::{
     builder::{
@@ -124,7 +123,7 @@ pub struct EthBlockData<ChainSpecT: RuntimeSpec> {
 impl<ChainSpecT: RuntimeSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransaction>>
     for EthBlockData<ChainSpecT>
 {
-    type Error = RemoteBlockConversionError<ChainSpecT>;
+    type Error = RemoteBlockConversionError<ChainSpecT::RpcTransactionConversionError>;
 
     fn try_from(
         value: edr_rpc_eth::Block<ChainSpecT::RpcTransaction>,
@@ -201,7 +200,7 @@ impl<BlockchainErrorT, ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT
     From<BlockAndTotalDifficulty<BlockchainErrorT, ExecutionReceiptT, SignedTransactionT>>
     for edr_rpc_eth::Block<B256>
 where
-    ExecutionReceiptT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    ExecutionReceiptT: Receipt<FilterLog>,
     SignedTransactionT: ExecutableTransaction,
 {
     fn from(

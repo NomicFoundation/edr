@@ -8,6 +8,7 @@ use edr_eth::{
     l1,
     log::FilterLog,
     receipt::BlockReceipt,
+    spec::HardforkTrait,
     Address, BlockSpec, Bytecode, Bytes, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256,
     U256,
 };
@@ -35,10 +36,7 @@ use crate::{
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError<ChainSpecT>
-where
-    ChainSpecT: RuntimeSpec,
-{
+pub enum CreationError<HardforkT: HardforkTrait> {
     /// JSON-RPC error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -58,7 +56,7 @@ where
         /// Chain name
         chain_name: String,
         /// Detected hardfork
-        hardfork: ChainSpecT::Hardfork,
+        hardfork: HardforkT,
     },
 }
 
@@ -149,7 +147,7 @@ impl<ChainSpecT: SyncRuntimeSpec> ForkedBlockchain<ChainSpecT> {
         irregular_state: &mut IrregularState,
         state_root_generator: Arc<Mutex<RandomHashGenerator>>,
         hardfork_activation_overrides: &HashMap<ChainId, Activations<ChainSpecT::Hardfork>>,
-    ) -> Result<Self, CreationError<ChainSpecT>> {
+    ) -> Result<Self, CreationError<ChainSpecT::Hardfork>> {
         let ForkMetadata {
             chain_id: remote_chain_id,
             network_id,

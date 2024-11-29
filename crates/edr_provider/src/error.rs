@@ -10,7 +10,7 @@ use edr_eth::{
     Address, BlockSpec, BlockTag, Bytes, B256, U256,
 };
 use edr_evm::{
-    blockchain::BlockchainError,
+    blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
@@ -27,7 +27,7 @@ use crate::{
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError<ChainSpecT>
 where
-    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec,
 {
     /// Account override conversion error.
     #[error(transparent)]
@@ -58,11 +58,13 @@ where
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(#[from] BlockchainError<ChainSpecT>),
+    Blockchain(#[from] BlockchainErrorForChainSpec<ChainSpecT>),
     #[error(transparent)]
     Creation(#[from] CreationError<ChainSpecT>),
     #[error(transparent)]
-    DebugTrace(#[from] DebugTraceError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
+    DebugTrace(
+        #[from] DebugTraceError<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+    ),
     #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
     Eip4844CallRequestUnsupported,
     #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
@@ -131,11 +133,14 @@ where
     MemPoolUpdate(StateError),
     /// An error occurred while mining a block.
     #[error(transparent)]
-    MineBlock(#[from] MineBlockError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
+    MineBlock(
+        #[from] MineBlockError<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+    ),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
     MineTransaction(
-        #[from] MineTransactionError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
+        #[from]
+        MineTransactionError<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     ),
     /// Rpc client error
     #[error(transparent)]
@@ -145,7 +150,9 @@ where
     RpcVersion(jsonrpc::Version),
     /// Error while running a transaction
     #[error(transparent)]
-    RunTransaction(#[from] TransactionError<ChainSpecT, BlockchainError<ChainSpecT>, StateError>),
+    RunTransaction(
+        #[from] TransactionError<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+    ),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
     #[error("hardhat_setMinGasPrice is not supported when EIP-1559 is active")]

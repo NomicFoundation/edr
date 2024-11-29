@@ -305,7 +305,7 @@ impl RuntimeSpec for L1ChainSpec {
         Self::SignedTransaction,
     >;
     type ReceiptBuilder = receipt::Builder;
-    type RpcBlockConversionError = RemoteBlockConversionError<Self>;
+    type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
     type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;
     type RpcTransactionConversionError = TransactionConversionError;
 
