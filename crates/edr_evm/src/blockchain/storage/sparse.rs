@@ -7,41 +7,37 @@ use edr_eth::{
     transaction::ExecutableTransaction,
     Address, B256, U256,
 };
-use edr_utils::types::HigherKinded;
 use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};
 
 use super::InsertError;
-use crate::Block;
+use crate::{Block, BlockReceipts};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
-#[derive_where(Debug; BlockT, <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type)]
-pub struct SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>,
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-{
+#[derive_where(Debug; BlockT, ExecutionReceiptT)]
+#[derive_where(Default)]
+pub struct SparseBlockchainStorage<
+    BlockT,
+    ExecutionReceiptT: Receipt<FilterLog>,
+    SignedTransactionT,
+> {
     hash_to_block: HashMap<B256, BlockT>,
     hash_to_total_difficulty: HashMap<B256, U256>,
     number_to_block: HashMap<u64, BlockT>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
-    transaction_hash_to_receipt: HashMap<
-        B256,
-        Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>,
-    >,
+    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt<ExecutionReceiptT>>>,
     phantom: PhantomData<SignedTransactionT>,
 }
 
-impl<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-    SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-    SignedTransactionT: ExecutableTransaction,
+impl<
+        BlockT: Block<SignedTransactionT> + Clone,
+        ExecutionReceiptT: Receipt<FilterLog>,
+        SignedTransactionT: ExecutableTransaction,
+    > SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn with_block(block: BlockT, total_difficulty: U256) -> Self {
-        let block_hash = block.hash();
+        let block_hash = block.block_hash();
 
         let transaction_hash_to_block = block
             .transactions()
@@ -68,71 +64,6 @@ where
         }
     }
 
-    /// Retrieves the block by hash, if it exists.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn block_by_hash(&self, hash: &B256) -> Option<&BlockT> {
-        self.hash_to_block.get(hash)
-    }
-
-    /// Retrieves the block by number, if it exists.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn block_by_number(&self, number: u64) -> Option<&BlockT> {
-        self.number_to_block.get(&number)
-    }
-
-    /// Retrieves the block that contains the transaction with the provided
-    /// hash, if it exists.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn block_by_transaction_hash(&self, transaction_hash: &B256) -> Option<&BlockT> {
-        self.transaction_hash_to_block.get(transaction_hash)
-    }
-
-    /// Retrieves whether a block with the provided number exists.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn contains_block_number(&self, block_number: u64) -> bool {
-        self.number_to_block.contains_key(&block_number)
-    }
-
-    /// Retrieves the receipt of the transaction with the provided hash, if it
-    /// exists.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn receipt_by_transaction_hash(
-        &self,
-        transaction_hash: &B256,
-    ) -> Option<&Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>
-    {
-        self.transaction_hash_to_receipt.get(transaction_hash)
-    }
-
-    /// Reverts to the block with the provided number, deleting all later
-    /// blocks.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn revert_to_block(&mut self, block_number: u64) {
-        let removed_blocks = self
-            .number_to_block
-            .extract_if(|number, _| *number > block_number);
-
-        for (_, block) in removed_blocks {
-            let block_hash = block.hash();
-
-            self.hash_to_block.remove(block_hash);
-            self.hash_to_total_difficulty.remove(block_hash);
-
-            for transaction in block.transactions() {
-                let transaction_hash = transaction.transaction_hash();
-
-                self.transaction_hash_to_block.remove(transaction_hash);
-                self.transaction_hash_to_receipt.remove(transaction_hash);
-            }
-        }
-    }
-
-    /// Retrieves the total difficulty of the block with the provided hash.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn total_difficulty_by_hash(&self, hash: &B256) -> Option<&U256> {
-        self.hash_to_total_difficulty.get(hash)
-    }
-
     /// Inserts a block. Errors if a block with the same hash or number already
     /// exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -141,7 +72,7 @@ where
         block: BlockT,
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertError> {
-        let block_hash = block.hash();
+        let block_hash = block.block_hash();
         let block_header = block.header();
 
         if self.hash_to_block.contains_key(block_hash)
@@ -184,15 +115,80 @@ where
             .1)
     }
 
+    /// Reverts to the block with the provided number, deleting all later
+    /// blocks.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn revert_to_block(&mut self, block_number: u64) {
+        let removed_blocks = self
+            .number_to_block
+            .extract_if(|number, _| *number > block_number);
+
+        for (_, block) in removed_blocks {
+            let block_hash = block.block_hash();
+
+            self.hash_to_block.remove(block_hash);
+            self.hash_to_total_difficulty.remove(block_hash);
+
+            for transaction in block.transactions() {
+                let transaction_hash = transaction.transaction_hash();
+
+                self.transaction_hash_to_block.remove(transaction_hash);
+                self.transaction_hash_to_receipt.remove(transaction_hash);
+            }
+        }
+    }
+}
+
+impl<BlockT, ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT>
+    SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
+{
+    /// Retrieves the block by hash, if it exists.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn block_by_hash(&self, hash: &B256) -> Option<&BlockT> {
+        self.hash_to_block.get(hash)
+    }
+
+    /// Retrieves the block by number, if it exists.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn block_by_number(&self, number: u64) -> Option<&BlockT> {
+        self.number_to_block.get(&number)
+    }
+
+    /// Retrieves the block that contains the transaction with the provided
+    /// hash, if it exists.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn block_by_transaction_hash(&self, transaction_hash: &B256) -> Option<&BlockT> {
+        self.transaction_hash_to_block.get(transaction_hash)
+    }
+
+    /// Retrieves whether a block with the provided number exists.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn contains_block_number(&self, block_number: u64) -> bool {
+        self.number_to_block.contains_key(&block_number)
+    }
+
+    /// Retrieves the receipt of the transaction with the provided hash, if it
+    /// exists.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn receipt_by_transaction_hash(
+        &self,
+        transaction_hash: &B256,
+    ) -> Option<&Arc<BlockReceipt<ExecutionReceiptT>>> {
+        self.transaction_hash_to_receipt.get(transaction_hash)
+    }
+
+    /// Retrieves the total difficulty of the block with the provided hash.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn total_difficulty_by_hash(&self, hash: &B256) -> Option<&U256> {
+        self.hash_to_total_difficulty.get(hash)
+    }
+
     /// Inserts a receipt. Errors if it already exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn insert_receipt(
         &mut self,
-        receipt: BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>,
-    ) -> Result<
-        &Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>,
-        InsertError,
-    > {
+        receipt: BlockReceipt<ExecutionReceiptT>,
+    ) -> Result<&Arc<BlockReceipt<ExecutionReceiptT>>, InsertError> {
         let receipt = Arc::new(receipt);
 
         let receipt = self
@@ -211,9 +207,7 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn insert_receipts(
         &mut self,
-        receipts: Vec<
-            Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>,
-        >,
+        receipts: Vec<Arc<BlockReceipt<ExecutionReceiptT>>>,
     ) -> Result<(), InsertError> {
         if let Some(receipt) = receipts.iter().find(|receipt| {
             self.transaction_hash_to_receipt
@@ -234,43 +228,24 @@ where
     }
 }
 
-impl<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT> Default
-    for SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>,
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-{
-    fn default() -> Self {
-        Self {
-            hash_to_block: HashMap::default(),
-            hash_to_total_difficulty: HashMap::default(),
-            number_to_block: HashMap::default(),
-            transaction_hash_to_block: HashMap::default(),
-            transaction_hash_to_receipt: HashMap::default(),
-            phantom: PhantomData,
-        }
-    }
-}
-
 /// Retrieves the logs that match the provided filter.
-pub fn logs<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>(
-    storage: &SparseBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>,
+pub fn logs<
+    BlockT: BlockReceipts<ExecutionReceiptT>,
+    ExecutionReceiptT: Receipt<FilterLog>,
+    SignedTransactionT,
+>(
+    storage: &SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>,
     from_block: u64,
     to_block: u64,
     addresses: &HashSet<Address>,
     topics_filter: &[Option<Vec<B256>>],
-) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error>
-where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-    SignedTransactionT: ExecutableTransaction,
-{
+) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error> {
     let mut logs = Vec::new();
     let addresses: HashSet<Address> = addresses.iter().copied().collect();
 
     for block_number in from_block..=to_block {
         if let Some(block) = storage.block_by_number(block_number) {
-            let receipts = block.transaction_receipts()?;
+            let receipts = block.fetch_transaction_receipts()?;
             for receipt in receipts {
                 let filtered_logs = receipt.transaction_logs().iter().filter(|log| {
                     matches_address_filter(&log.address, &addresses)

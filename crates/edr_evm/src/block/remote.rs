@@ -2,14 +2,15 @@ use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::Header, transaction::ExecutableTransaction as _, withdrawal::Withdrawal, B256, U256,
+    block::Header, log::FilterLog, transaction::ExecutableTransaction as _, withdrawal::Withdrawal,
+    B256, U256,
 };
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 
-use super::BlockReceipt;
+use super::{BlockReceipt, BlockReceipts};
 use crate::{
-    blockchain::{BlockchainError, ForkedBlockchainError},
+    blockchain::{BlockchainErrorForChainSpec, ForkedBlockchainError},
     spec::{RuntimeSpec, SyncRuntimeSpec},
     Block, EthBlockData, SyncBlock,
 };
@@ -44,7 +45,7 @@ pub struct RemoteBlock<ChainSpecT: RuntimeSpec> {
     header: Header,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     /// The receipts of the block's transactions
-    receipts: OnceLock<Vec<Arc<BlockReceipt<ChainSpecT>>>>,
+    receipts: OnceLock<Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>>,
     /// The hashes of the block's ommers
     ommer_hashes: Vec<B256>,
     /// The staking withdrawals
@@ -81,10 +82,8 @@ impl<ChainSpecT: RuntimeSpec> RemoteBlock<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
-    type Error = BlockchainError<ChainSpecT>;
-
-    fn hash(&self) -> &B256 {
+impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT::SignedTransaction> for RemoteBlock<ChainSpecT> {
+    fn block_hash(&self) -> &B256 {
         &self.hash
     }
 
@@ -104,28 +103,41 @@ impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
         &self.transactions
     }
 
-    fn transaction_receipts(&self) -> Result<Vec<Arc<BlockReceipt<ChainSpecT>>>, Self::Error> {
+    fn withdrawals(&self) -> Option<&[Withdrawal]> {
+        self.withdrawals.as_deref()
+    }
+}
+
+impl<ChainSpecT: RuntimeSpec> BlockReceipts<ChainSpecT::ExecutionReceipt<FilterLog>>
+    for RemoteBlock<ChainSpecT>
+{
+    type Error = BlockchainErrorForChainSpec<ChainSpecT>;
+
+    fn fetch_transaction_receipts(
+        &self,
+    ) -> Result<Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>, Self::Error> {
         if let Some(receipts) = self.receipts.get() {
             return Ok(receipts.clone());
         }
 
-        let receipts: Vec<Arc<BlockReceipt<ChainSpecT>>> = tokio::task::block_in_place(|| {
-            self.runtime.block_on(
-                self.rpc_client.get_transaction_receipts(
-                    self.transactions
-                        .iter()
-                        .map(ChainSpecT::SignedTransaction::transaction_hash),
-                ),
-            )
-        })
-        .map_err(ForkedBlockchainError::RpcClient)?
-        .ok_or_else(|| ForkedBlockchainError::MissingReceipts {
-            block_hash: *self.hash(),
-        })?
-        .into_iter()
-        .map(|receipt| receipt.try_into().map(Arc::new))
-        .collect::<Result<_, _>>()
-        .map_err(ForkedBlockchainError::ReceiptConversion)?;
+        let receipts: Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>> =
+            tokio::task::block_in_place(|| {
+                self.runtime.block_on(
+                    self.rpc_client.get_transaction_receipts(
+                        self.transactions
+                            .iter()
+                            .map(ChainSpecT::SignedTransaction::transaction_hash),
+                    ),
+                )
+            })
+            .map_err(ForkedBlockchainError::RpcClient)?
+            .ok_or_else(|| ForkedBlockchainError::MissingReceipts {
+                block_hash: *self.block_hash(),
+            })?
+            .into_iter()
+            .map(|receipt| receipt.try_into().map(Arc::new))
+            .collect::<Result<_, _>>()
+            .map_err(ForkedBlockchainError::ReceiptConversion)?;
 
         self.receipts
             .set(receipts.clone())
@@ -133,14 +145,16 @@ impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT> for RemoteBlock<ChainSpecT> {
 
         Ok(receipts)
     }
-
-    fn withdrawals(&self) -> Option<&[Withdrawal]> {
-        self.withdrawals.as_deref()
-    }
 }
 
 impl<ChainSpecT> From<RemoteBlock<ChainSpecT>>
-    for Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>
+    for Arc<
+        dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >
 where
     ChainSpecT: SyncRuntimeSpec,
 {

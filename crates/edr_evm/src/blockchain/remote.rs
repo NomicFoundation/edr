@@ -3,13 +3,14 @@ use std::sync::Arc;
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use derive_where::derive_where;
 use edr_eth::{
-    filter::OneOrMore, log::FilterLog, Address, BlockSpec, PreEip1898BlockSpec, B256, U256,
+    filter::OneOrMore, log::FilterLog, receipt::BlockReceipt, Address, BlockSpec,
+    PreEip1898BlockSpec, B256, U256,
 };
 use edr_rpc_eth::client::EthRpcClient;
 use revm::primitives::HashSet;
 use tokio::runtime;
 
-use super::storage::SparseBlockchainStorage;
+use super::{forked::ForkedBlockchainErrorForChainSpec, storage::SparseBlockchainStorage};
 use crate::{
     blockchain::ForkedBlockchainError, spec::RuntimeSpec,
     transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, RemoteBlock,
@@ -18,18 +19,24 @@ use crate::{
 #[derive_where(Debug; BlockT)]
 pub struct RemoteBlockchain<BlockT, ChainSpecT, const FORCE_CACHING: bool>
 where
-    BlockT: Block<ChainSpecT> + Clone,
+    BlockT: Block<ChainSpecT::SignedTransaction> + Clone,
     ChainSpecT: RuntimeSpec,
 {
     client: Arc<EthRpcClient<ChainSpecT>>,
-    cache: RwLock<SparseBlockchainStorage<BlockT, ChainSpecT>>,
+    cache: RwLock<
+        SparseBlockchainStorage<
+            BlockT,
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+        >,
+    >,
     runtime: runtime::Handle,
 }
 
 impl<BlockT, ChainSpecT, const FORCE_CACHING: bool>
     RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>
 where
-    BlockT: Block<ChainSpecT> + Clone + From<RemoteBlock<ChainSpecT>>,
+    BlockT: Block<ChainSpecT::SignedTransaction> + Clone + From<RemoteBlock<ChainSpecT>>,
     ChainSpecT: RuntimeSpec,
 {
     /// Constructs a new instance with the provided RPC client.
@@ -46,7 +53,7 @@ where
     pub async fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<BlockT>, ForkedBlockchainError<ChainSpecT>> {
+    ) -> Result<Option<BlockT>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(block) = cache.block_by_hash(hash).cloned() {
@@ -71,7 +78,7 @@ where
     pub async fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<BlockT, ForkedBlockchainError<ChainSpecT>> {
+    ) -> Result<BlockT, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(block) = cache.block_by_number(number).cloned() {
@@ -92,7 +99,7 @@ where
     pub async fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<BlockT>, ForkedBlockchainError<ChainSpecT>> {
+    ) -> Result<Option<BlockT>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
         // This block ensure that the read lock is dropped
         {
             if let Some(block) = self
@@ -129,7 +136,7 @@ where
         to_block: BlockSpec,
         addresses: &HashSet<Address>,
         normalized_topics: &[Option<Vec<B256>>],
-    ) -> Result<Vec<FilterLog>, ForkedBlockchainError<ChainSpecT>> {
+    ) -> Result<Vec<FilterLog>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
         self.client
             .get_logs_by_range(
                 from_block,
@@ -171,7 +178,10 @@ where
     pub async fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt<ChainSpecT>>>, ForkedBlockchainError<ChainSpecT>> {
+    ) -> Result<
+        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
+        ForkedBlockchainErrorForChainSpec<ChainSpecT>,
+    > {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(receipt) = cache.receipt_by_transaction_hash(transaction_hash) {
@@ -204,7 +214,7 @@ where
     pub async fn total_difficulty_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<U256>, ForkedBlockchainError<ChainSpecT>> {
+    ) -> Result<Option<U256>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(difficulty) = cache.total_difficulty_by_hash(hash).cloned() {
@@ -234,9 +244,16 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     async fn fetch_and_cache_block(
         &self,
-        cache: RwLockUpgradableReadGuard<'_, SparseBlockchainStorage<BlockT, ChainSpecT>>,
+        cache: RwLockUpgradableReadGuard<
+            '_,
+            SparseBlockchainStorage<
+                BlockT,
+                ChainSpecT::ExecutionReceipt<FilterLog>,
+                ChainSpecT::SignedTransaction,
+            >,
+        >,
         block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
-    ) -> Result<BlockT, ForkedBlockchainError<ChainSpecT>> {
+    ) -> Result<BlockT, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
         // Geth has recently removed the total difficulty field from block RPC
         // responses, so we fall back to the terminal total difficulty of main net to
         // provide backwards compatibility.

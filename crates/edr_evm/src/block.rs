@@ -9,13 +9,15 @@ use std::{fmt::Debug, sync::Arc};
 use auto_impl::auto_impl;
 use derive_where::derive_where;
 use edr_eth::{
-    block::{self, BlobGas, Header},
+    block::{self, BlobGas, Header, PartialHeader},
     log::FilterLog,
     receipt::{BlockReceipt, Receipt},
+    spec::{ChainSpec, HardforkTrait},
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     B256, U256,
 };
+use edr_rpc_eth::RpcSpec;
 use edr_utils::types::HigherKinded;
 
 pub use self::{
@@ -23,22 +25,16 @@ pub use self::{
         BlockBuilder, BlockBuilderAndError, BlockBuilderCreationError, BlockTransactionError,
         EthBlockBuilder,
     },
-    local::LocalBlock,
+    local::{EthLocalBlock, EthLocalBlockForChainSpec},
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
 };
-use crate::spec::RuntimeSpec;
+use crate::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]
-pub trait Block<ExecutionReceiptHigherKindedT, SignedTransactionT>: Debug
-where
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-{
-    /// The blockchain error type.
-    type Error;
-
+pub trait Block<SignedTransactionT>: Debug {
     /// Returns the block's hash.
-    fn hash(&self) -> &B256;
+    fn block_hash(&self) -> &B256;
 
     /// Returns the block's header.
     fn header(&self) -> &block::Header;
@@ -52,31 +48,60 @@ where
     /// Returns the block's transactions.
     fn transactions(&self) -> &[SignedTransactionT];
 
-    /// Returns the receipts of the block's transactions.
-    fn transaction_receipts(
-        &self,
-    ) -> Result<
-        Vec<Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>,
-        Self::Error,
-    >;
-
     /// Withdrawals
     fn withdrawals(&self) -> Option<&[Withdrawal]>;
 }
 
-/// Trait that meets all requirements for a synchronous block.
-pub trait SyncBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>:
-    Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Send + Sync
+#[auto_impl(Arc)]
+pub trait BlockReceipts<ExecutionReceiptT>
 where
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    ExecutionReceiptT: Receipt<FilterLog>,
+{
+    /// The blockchain error type.
+    type Error;
+
+    /// Fetches the receipts of the block's transactions.
+    ///
+    /// This may block if the receipts are stored remotely.
+    fn fetch_transaction_receipts(
+        &self,
+    ) -> Result<Vec<Arc<BlockReceipt<ExecutionReceiptT>>>, Self::Error>;
+}
+
+/// Trait for locally mined blocks.
+pub trait LocalBlock<
+    ExecutionReceiptT: Receipt<FilterLog>,
+    HardforkT: HardforkTrait,
+    SignedTransactionT,
+>: Block<SignedTransactionT>
+{
+    /// Constructs an empty block, i.e. no transactions.
+    fn empty(spec_id: HardforkT, partial_header: PartialHeader) -> Self;
+
+    /// Returns the receipts of the block's transactions.
+    fn transaction_receipts(&self) -> &[Arc<BlockReceipt<ExecutionReceiptT>>];
+}
+
+/// Helper type for a synchronous block for a chain spec.
+pub type DynSyncBlockForChainSpec<ChainSpecT> = dyn SyncBlock<
+    <ChainSpecT as RpcSpec>::ExecutionReceipt<FilterLog>,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+    Error = BlockchainErrorForChainSpec<ChainSpecT>,
+>;
+
+/// Trait that meets all requirements for a synchronous block.
+pub trait SyncBlock<ExecutionReceiptT, SignedTransactionT>:
+    Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT> + Send + Sync
+where
+    ExecutionReceiptT: Receipt<FilterLog>,
 {
 }
 
-impl<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-    SyncBlock<ExecutionReceiptHigherKindedT, SignedTransactionT> for BlockT
+impl<BlockT, ExecutionReceiptT, SignedTransactionT> SyncBlock<ExecutionReceiptT, SignedTransactionT>
+    for BlockT
 where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Send + Sync,
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    BlockT: Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT> + Send + Sync,
+    ExecutionReceiptT: Receipt<FilterLog>,
 {
 }
 
@@ -163,35 +188,24 @@ impl<ChainSpecT: RuntimeSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransact
 #[derive_where(Clone, Debug)]
 pub struct BlockAndTotalDifficulty<
     BlockchainErrorT,
-    ExecutionReceiptHigherKindedT,
+    ExecutionReceiptT: Receipt<FilterLog>,
     SignedTransactionT,
 > {
     /// The block
-    pub block: Arc<
-        dyn SyncBlock<ExecutionReceiptHigherKindedT, SignedTransactionT, Error = BlockchainErrorT>,
-    >,
+    pub block: Arc<dyn SyncBlock<ExecutionReceiptT, SignedTransactionT, Error = BlockchainErrorT>>,
     /// The total difficulty with the block
     pub total_difficulty: Option<U256>,
 }
 
-impl<BlockchainErrorT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-    From<
-        BlockAndTotalDifficulty<
-            BlockchainErrorT,
-            ExecutionReceiptHigherKindedT,
-            SignedTransactionT,
-        >,
-    > for edr_rpc_eth::Block<B256>
+impl<BlockchainErrorT, ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT>
+    From<BlockAndTotalDifficulty<BlockchainErrorT, ExecutionReceiptT, SignedTransactionT>>
+    for edr_rpc_eth::Block<B256>
 where
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+    ExecutionReceiptT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
     SignedTransactionT: ExecutableTransaction,
 {
     fn from(
-        value: BlockAndTotalDifficulty<
-            BlockchainErrorT,
-            ExecutionReceiptHigherKindedT,
-            SignedTransactionT,
-        >,
+        value: BlockAndTotalDifficulty<BlockchainErrorT, ExecutionReceiptT, SignedTransactionT>,
     ) -> Self {
         let transactions = value
             .block
@@ -202,7 +216,7 @@ where
 
         let header = value.block.header();
         edr_rpc_eth::Block {
-            hash: Some(*value.block.hash()),
+            hash: Some(*value.block.block_hash()),
             parent_hash: header.parent_hash,
             sha3_uncles: header.ommers_hash,
             state_root: header.state_root,

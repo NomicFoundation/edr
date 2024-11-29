@@ -8,7 +8,10 @@ use edr_eth::{
 use edr_rpc_eth::RpcTypeFrom;
 
 use super::SyncBlock;
-use crate::{blockchain::BlockchainError, spec::RuntimeSpec};
+use crate::{
+    blockchain::BlockchainErrorForChainSpec,
+    spec::{ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec},
+};
 
 /// The result returned by requesting a transaction.
 #[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
@@ -25,7 +28,13 @@ pub struct TransactionAndBlock<ChainSpecT: RuntimeSpec> {
 #[derive_where(Clone, Debug)]
 pub struct BlockDataForTransaction<ChainSpecT: RuntimeSpec> {
     /// The block in which the transaction is found.
-    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
+    pub block: Arc<
+        dyn SyncBlock<
+            ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
     /// The index of the transaction in the block.
     pub transaction_index: u64,
 }

@@ -11,7 +11,7 @@ use edr_evm::{
     spec::{L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
-    EthBlockBuilder, LocalBlock,
+    EthBlockBuilder, EthLocalBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
@@ -42,7 +42,7 @@ impl RuntimeSpec for GenericChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
 
-    type LocalBlock = LocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
+    type LocalBlock = EthLocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;

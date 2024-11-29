@@ -28,7 +28,7 @@ pub fn handle_metadata_request<
         chain_id: data.chain_id(),
         instance_id: *data.instance_id(),
         latest_block_number: data.last_block_number(),
-        latest_block_hash: *data.last_block()?.hash(),
+        latest_block_hash: *data.last_block()?.block_hash(),
         forked_network: data.fork_metadata().cloned(),
     })
 }

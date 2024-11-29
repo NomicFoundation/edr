@@ -17,10 +17,10 @@ use edr_rpc_eth::client::EthRpcClient;
 use crate::{
     blockchain::{Blockchain as _, ForkedBlockchain},
     config::CfgEnv,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::SyncRuntimeSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
-    transaction, Block, BlockBuilder, MemPool, MemPoolAddTransactionError, RandomHashGenerator,
-    RemoteBlock,
+    transaction, Block, BlockBuilder, BlockReceipts as _, DynSyncBlockForChainSpec,
+    LocalBlock as _, MemPool, MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
 };
 
 /// A test fixture for `MemPool`.
@@ -162,6 +162,7 @@ pub async fn run_full_block<
     ChainSpecT: Debug
         + SyncRuntimeSpec<
             Block: Default,
+            LocalBlock: Into<Arc<DynSyncBlockForChainSpec<ChainSpecT>>>,
             ExecutionReceipt<FilterLog>: PartialEq,
             SignedTransaction: Default
                                    + TransactionValidation<
@@ -219,7 +220,7 @@ pub async fn run_full_block<
     let state =
         blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
 
-    let mut builder = <ChainSpecT as RuntimeSpec>::BlockBuilder::<'_, _, (), _>::new_block_builder(
+    let mut builder = ChainSpecT::BlockBuilder::<'_, _, (), _>::new_block_builder(
         &blockchain,
         state,
         hardfork,
@@ -255,7 +256,7 @@ pub async fn run_full_block<
 
     let mined_header = mined_block.block.header();
     for (expected, actual) in replay_block
-        .transaction_receipts()?
+        .fetch_transaction_receipts()?
         .into_iter()
         .zip(mined_block.block.transaction_receipts().iter())
     {

@@ -6,7 +6,7 @@ use edr_evm::{
     blockchain::{BlockHash, Blockchain, BlockchainError, BlockchainMut, SyncBlockchain},
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
-    BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
+    BlockAndTotalDifficulty, BlockReceipt, EthLocalBlock, SyncBlock,
 };
 
 /// A blockchain with a pending block.
@@ -36,7 +36,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain
             BlockchainError<ChainSpecT>,
             StateError,
         >,
-        pending_block: LocalBlock<ChainSpecT>,
+        pending_block: EthLocalBlock<ChainSpecT>,
         pending_state_diff: StateDiff,
     ) -> Self {
         Self {
@@ -61,7 +61,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
         Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
         Self::BlockchainError,
     > {
-        if hash == self.pending_block.hash() {
+        if hash == self.pending_block.block_hash() {
             Ok(Some(self.pending_block.clone()))
         } else {
             self.blockchain.block_by_hash(hash)
@@ -137,7 +137,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
     ) -> Result<Option<Arc<BlockReceipt<ChainSpecT>>>, Self::BlockchainError> {
         let pending_receipt = self
             .pending_block
-            .transaction_receipts()?
+            .fetch_transaction_receipts()?
             .into_iter()
             .find(|receipt| receipt.transaction_hash == *transaction_hash);
 
@@ -154,14 +154,14 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
         block_number: u64,
     ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError> {
         if block_number == self.pending_block.header().number {
-            Ok(self.blockchain.spec_id())
+            Ok(self.blockchain.hardfork())
         } else {
             self.blockchain.spec_at_block_number(block_number)
         }
     }
 
-    fn spec_id(&self) -> ChainSpecT::Hardfork {
-        self.blockchain.spec_id()
+    fn hardfork(&self) -> ChainSpecT::Hardfork {
+        self.blockchain.hardfork()
     }
 
     fn state_at_block_number(
@@ -189,7 +189,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
     }
 
     fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError> {
-        if hash == self.pending_block.hash() {
+        if hash == self.pending_block.block_hash() {
             let previous_total_difficulty = self
                 .blockchain
                 .total_difficulty_by_hash(&self.pending_block.header().parent_hash)?
@@ -211,7 +211,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT>
 
     fn insert_block(
         &mut self,
-        _block: LocalBlock<ChainSpecT>,
+        _block: EthLocalBlock<ChainSpecT>,
         _state_diff: StateDiff,
     ) -> Result<BlockAndTotalDifficulty<ChainSpecT, Self::Error>, Self::Error> {
         panic!("Inserting blocks into a pending blockchain is not supported.");
@@ -233,7 +233,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockHash
 
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
         if block_number == self.pending_block.header().number {
-            Ok(*self.pending_block.hash())
+            Ok(*self.pending_block.block_hash())
         } else {
             self.blockchain.block_hash_by_number(block_number)
         }

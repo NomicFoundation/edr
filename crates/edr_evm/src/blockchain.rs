@@ -7,9 +7,12 @@ pub mod storage;
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
-use derive_where::derive_where;
 use edr_eth::{
-    l1, log::FilterLog, receipt::BlockReceipt, spec::HardforkTrait, Address, HashSet, B256, U256,
+    l1,
+    log::FilterLog,
+    receipt::{BlockReceipt, Receipt},
+    spec::{ChainSpec, HardforkTrait},
+    Address, HashSet, B256, U256,
 };
 
 use self::storage::ReservableSparseBlockchainStorage;
@@ -23,6 +26,12 @@ use crate::{
     state::{StateCommit, StateDiff, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, SyncBlock,
 };
+
+pub type BlockchainErrorForChainSpec<ChainSpecT> = BlockchainError<
+    <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
+    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
+>;
 
 /// Combinatorial error for the blockchain API.
 #[derive(Debug, thiserror::Error)]
@@ -109,8 +118,8 @@ where
         Option<
             Arc<
                 dyn SyncBlock<
-                    ExecutionReceiptHigherKindedT,
-                    SignedTransactionT,
+                    ChainSpecT::ExecutionReceipt<FilterLog>,
+                    ChainSpecT::SignedTransaction,
                     Error = Self::BlockchainError,
                 >,
             >,
@@ -127,8 +136,8 @@ where
         Option<
             Arc<
                 dyn SyncBlock<
-                    ExecutionReceiptHigherKindedT,
-                    SignedTransactionT,
+                    ChainSpecT::ExecutionReceipt<FilterLog>,
+                    ChainSpecT::SignedTransaction,
                     Error = Self::BlockchainError,
                 >,
             >,
@@ -146,8 +155,8 @@ where
         Option<
             Arc<
                 dyn SyncBlock<
-                    ExecutionReceiptHigherKindedT,
-                    SignedTransactionT,
+                    ChainSpecT::ExecutionReceipt<FilterLog>,
+                    ChainSpecT::SignedTransaction,
                     Error = Self::BlockchainError,
                 >,
             >,
@@ -172,8 +181,8 @@ where
     ) -> Result<
         Arc<
             dyn SyncBlock<
-                ExecutionReceiptHigherKindedT,
-                SignedTransactionT,
+                ChainSpecT::ExecutionReceipt<FilterLog>,
+                ChainSpecT::SignedTransaction,
                 Error = Self::BlockchainError,
             >,
         >,
@@ -200,7 +209,10 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt<ExecutionReceiptHigherKindedT>>>, Self::BlockchainError>;
+    ) -> Result<
+        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
+        Self::BlockchainError,
+    >;
 
     /// Retrieves the hardfork specification of the block at the provided
     /// number.
@@ -210,7 +222,7 @@ where
     ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification used for new blocks.
-    fn spec_id(&self) -> ChainSpecT::Hardfork;
+    fn hardfork(&self) -> ChainSpecT::Hardfork;
 
     /// Retrieves the state at a given block.
     ///
@@ -240,7 +252,11 @@ pub trait BlockchainMut<ChainSpecT: RuntimeSpec> {
         block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
     ) -> Result<
-        BlockAndTotalDifficulty<Self::Error, ExecutionReceiptHigherKindedT, SignedTransactionT>,
+        BlockAndTotalDifficulty<
+            Self::Error,
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+        >,
         Self::Error,
     >;
 
@@ -282,12 +298,18 @@ where
 }
 
 fn compute_state_at_block<
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT> + Clone,
-    ExecutionReceiptHigherKindedT,
+    BlockT: Block<SignedTransactionT> + Clone,
+    ExecutionReceiptT: Receipt<FilterLog>,
+    HardforkT: HardforkTrait,
     SignedTransactionT,
 >(
     state: &mut dyn StateCommit,
-    local_storage: &ReservableSparseBlockchainStorage<BlockT, ChainSpecT>,
+    local_storage: &ReservableSparseBlockchainStorage<
+        BlockT,
+        ExecutionReceiptT,
+        HardforkT,
+        SignedTransactionT,
+    >,
     first_local_block_number: u64,
     last_local_block_number: u64,
     state_overrides: &BTreeMap<u64, StateOverride>,
@@ -322,9 +344,9 @@ fn compute_state_at_block<
 /// Validates whether a block is a valid next block.
 fn validate_next_block<ChainSpecT: RuntimeSpec>(
     spec_id: ChainSpecT::Hardfork,
-    last_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
-    next_block: &dyn Block<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
-) -> Result<(), BlockchainError<ChainSpecT>> {
+    last_block: &dyn Block<ChainSpecT::SignedTransaction>,
+    next_block: &dyn Block<ChainSpecT::SignedTransaction>,
+) -> Result<(), BlockchainErrorForChainSpec<ChainSpecT>> {
     let last_header = last_block.header();
     let next_header = next_block.header();
 
@@ -336,10 +358,10 @@ fn validate_next_block<ChainSpecT: RuntimeSpec>(
         });
     }
 
-    if next_header.parent_hash != *last_block.hash() {
+    if next_header.parent_hash != *last_block.block_hash() {
         return Err(BlockchainError::InvalidParentHash {
             actual: next_header.parent_hash,
-            expected: *last_block.hash(),
+            expected: *last_block.block_hash(),
         });
     }
 

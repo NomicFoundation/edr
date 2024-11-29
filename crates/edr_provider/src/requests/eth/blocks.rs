@@ -36,7 +36,7 @@ pub fn handle_get_block_by_hash_request<
 ) -> Result<Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>, ProviderError<ChainSpecT>> {
     data.block_by_hash(&block_hash)?
         .map(|block| {
-            let total_difficulty = data.total_difficulty_by_hash(block.hash())?;
+            let total_difficulty = data.total_difficulty_by_hash(block.block_hash())?;
             let pending = false;
             block_to_rpc_output(
                 data.hardfork(),
@@ -142,7 +142,7 @@ fn block_by_number<
 
     match data.block_by_block_spec(block_spec) {
         Ok(Some(block)) => {
-            let total_difficulty = data.total_difficulty_by_hash(block.hash())?;
+            let total_difficulty = data.total_difficulty_by_hash(block.block_hash())?;
             Ok(Some(BlockByNumberResult {
                 block,
                 pending: false,
@@ -157,7 +157,7 @@ fn block_by_number<
 
             let last_block = data.last_block()?;
             let previous_total_difficulty = data
-                .total_difficulty_by_hash(last_block.hash())?
+                .total_difficulty_by_hash(last_block.block_hash())?
                 .expect("last block has total difficulty");
             let total_difficulty = previous_total_difficulty + block.header().difficulty;
 
@@ -220,7 +220,7 @@ fn block_to_rpc_output<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     };
 
     Ok(edr_rpc_eth::Block {
-        hash: Some(*block.hash()),
+        hash: Some(*block.block_hash()),
         parent_hash: header.parent_hash,
         sha3_uncles: header.ommers_hash,
         state_root: header.state_root,

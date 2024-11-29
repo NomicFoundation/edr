@@ -7,14 +7,14 @@ use edr_evm::{
     spec::RuntimeSpec,
     state::{StateDiff, SyncState},
     trace::Trace,
-    LocalBlock, MineBlockResultAndState, SyncBlock,
+    EthLocalBlock, MineBlockResultAndState, SyncBlock,
 };
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.
 pub struct DebugMineBlockResultAndState<ChainSpecT: RuntimeSpec, StateErrorT> {
     /// Mined block
-    pub block: LocalBlock<ChainSpecT>,
+    pub block: EthLocalBlock<ChainSpecT>,
     /// State after mining the block
     pub state: Box<dyn SyncState<StateErrorT>>,
     /// State diff applied by block

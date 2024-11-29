@@ -612,7 +612,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         &mut self,
         block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     ) {
-        let block_hash = block.hash();
+        let block_hash = block.block_hash();
 
         self.log(format!("Block: {block_hash}"));
     }
@@ -622,7 +622,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
     ) {
         let block_number = block.header().number;
-        let block_hash = block.hash();
+        let block_hash = block.block_hash();
 
         self.log(format!("Block #{block_number}: {block_hash}"));
     }
@@ -1075,7 +1075,10 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
             );
 
             let block_number = block_result.block.header().number;
-            logger.log_with_title(format!("Block #{block_number}"), block_result.block.hash());
+            logger.log_with_title(
+                format!("Block #{block_number}"),
+                block_result.block.block_hash(),
+            );
 
             logger.log_console_log_messages(&block_result.console_log_inputs)?;
 

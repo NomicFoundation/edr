@@ -10,12 +10,12 @@ use std::{marker::PhantomData, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    log::{ExecutionLog, FilterLog},
+    log::FilterLog,
     receipt::{BlockReceipt, Receipt},
+    spec::HardforkTrait,
     transaction::ExecutableTransaction,
     B256, U256,
 };
-use edr_utils::types::HigherKinded;
 use revm::primitives::HashMap;
 
 use super::InsertError;
@@ -23,28 +23,22 @@ use crate::{Block, LocalBlock};
 
 /// A storage solution for storing a Blockchain's blocks contiguously in-memory.
 #[derive(Default)]
-#[derive_where(Clone, Debug; BlockT, <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type)]
-pub struct ContiguousBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>,
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-{
+#[derive_where(Clone, Debug; BlockT, ExecutionReceiptT)]
+pub struct ContiguousBlockchainStorage<
+    BlockT,
+    ExecutionReceiptT: Receipt<FilterLog>,
+    SignedTransactionT,
+> {
     blocks: Vec<BlockT>,
     hash_to_block: HashMap<B256, BlockT>,
     total_difficulties: Vec<U256>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
-    transaction_hash_to_receipt: HashMap<
-        B256,
-        Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>,
-    >,
+    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt<ExecutionReceiptT>>>,
     phantom: PhantomData<SignedTransactionT>,
 }
 
-impl<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-    ContiguousBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>,
-    ExecutionReceiptHigherKindedT: HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
+impl<BlockT, ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT>
+    ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
 {
     /// Retrieves the instance's blocks.
     pub fn blocks(&self) -> &[BlockT] {
@@ -67,11 +61,22 @@ where
     pub fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Option<&Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>
-    {
+    ) -> Option<&Arc<BlockReceipt<ExecutionReceiptT>>> {
         self.transaction_hash_to_receipt.get(transaction_hash)
     }
 
+    /// Retrieves the instance's total difficulties.
+    pub fn total_difficulties(&self) -> &[U256] {
+        &self.total_difficulties
+    }
+}
+
+impl<
+        BlockT: Block<SignedTransactionT>,
+        ExecutionReceiptT: Receipt<FilterLog>,
+        SignedTransactionT,
+    > ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
+{
     /// Reverts to the block with the provided number, deleting all later
     /// blocks.
     pub fn revert_to_block(&mut self, block_number: &U256) -> bool {
@@ -99,7 +104,7 @@ where
         let removed_blocks = self.blocks.split_off(block_index + 1);
 
         for block in removed_blocks {
-            let block_hash = block.hash();
+            let block_hash = block.block_hash();
 
             self.hash_to_block.remove(block_hash);
             self.transaction_hash_to_block.remove(block_hash);
@@ -107,11 +112,6 @@ where
         }
 
         true
-    }
-
-    /// Retrieves the instance's total difficulties.
-    pub fn total_difficulties(&self) -> &[U256] {
-        &self.total_difficulties
     }
 
     /// Retrieves the total difficulty of the block with the provided hash.
@@ -133,22 +133,21 @@ where
     }
 }
 
-impl<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-    ContiguousBlockchainStorage<BlockT, ExecutionReceiptHigherKindedT, SignedTransactionT>
-where
-    BlockT: Block<ExecutionReceiptHigherKindedT, SignedTransactionT>
-        + Clone
-        + From<LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>>,
-    ExecutionReceiptHigherKindedT:
-        HigherKinded<ExecutionLog> + HigherKinded<FilterLog, Type: Receipt<FilterLog>>,
-    SignedTransactionT: ExecutableTransaction,
+impl<
+        BlockT: Block<SignedTransactionT> + Clone,
+        ExecutionReceiptT: Receipt<FilterLog>,
+        SignedTransactionT: ExecutableTransaction,
+    > ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
-    pub fn with_block(
-        block: LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>,
+    pub fn with_block<
+        HardforkT: HardforkTrait,
+        LocalBlockT: Into<BlockT> + LocalBlock<ExecutionReceiptT, HardforkT, SignedTransactionT>,
+    >(
+        block: LocalBlockT,
         total_difficulty: U256,
     ) -> Self {
-        let block_hash = *block.hash();
+        let block_hash = *block.block_hash();
 
         let transaction_hash_to_receipt = block
             .transaction_receipts()
@@ -156,7 +155,7 @@ where
             .map(|receipt| (receipt.transaction_hash, receipt.clone()))
             .collect();
 
-        let block = BlockT::from(block);
+        let block = block.into();
 
         let transaction_hash_to_block = block
             .transactions()
@@ -178,12 +177,15 @@ where
     }
 
     /// Inserts a block, failing if a block with the same hash already exists.
-    pub fn insert_block(
+    pub fn insert_block<
+        HardforkT: HardforkTrait,
+        LocalBlockT: Into<BlockT> + LocalBlock<ExecutionReceiptT, HardforkT, SignedTransactionT>,
+    >(
         &mut self,
-        block: LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>,
+        block: LocalBlockT,
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertError> {
-        let block_hash = block.hash();
+        let block_hash = block.block_hash();
 
         // As blocks are contiguous, we are guaranteed that the block number won't exist
         // if its hash is not present.
@@ -213,9 +215,12 @@ where
     ///
     /// Ensure that the instance does not contain a block with the same hash,
     /// nor any transactions with the same hash.
-    pub unsafe fn insert_block_unchecked(
+    pub unsafe fn insert_block_unchecked<
+        HardforkT: HardforkTrait,
+        LocalBlockT: Into<BlockT> + LocalBlock<ExecutionReceiptT, HardforkT, SignedTransactionT>,
+    >(
         &mut self,
-        block: LocalBlock<ExecutionReceiptHigherKindedT, SignedTransactionT>,
+        block: LocalBlockT,
         total_difficulty: U256,
     ) -> &BlockT {
         self.transaction_hash_to_receipt.extend(
@@ -225,7 +230,7 @@ where
                 .map(|receipt| (receipt.transaction_hash, receipt.clone())),
         );
 
-        let block = BlockT::from(block);
+        let block = block.into();
 
         self.transaction_hash_to_block.extend(
             block
@@ -237,7 +242,7 @@ where
         self.blocks.push(block.clone());
         self.total_difficulties.push(total_difficulty);
         self.hash_to_block
-            .insert_unique_unchecked(*block.hash(), block)
+            .insert_unique_unchecked(*block.block_hash(), block)
             .1
     }
 }

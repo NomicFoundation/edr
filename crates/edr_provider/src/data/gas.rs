@@ -193,7 +193,7 @@ pub(super) fn compute_rewards<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     let base_fee_per_gas = block.header().base_fee_per_gas.unwrap_or_default();
 
     let gas_used_and_effective_reward = block
-        .transaction_receipts()?
+        .fetch_transaction_receipts()?
         .iter()
         .enumerate()
         .map(|(i, receipt)| {

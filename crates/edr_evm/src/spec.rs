@@ -5,13 +5,14 @@ use edr_eth::{
     eips::eip4844,
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
-    receipt::MapReceiptLogs,
+    receipt::{BlockReceipt, MapReceiptLogs, Receipt},
     result::InvalidTransaction,
     spec::{ChainSpec, EthHeaderConstants},
     transaction::ExecutableTransaction,
     B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
+use edr_utils::types::HigherKinded;
 pub use revm::EvmWiring;
 
 use crate::{
@@ -24,9 +25,46 @@ use crate::{
         remote::EthRpcTransaction, Transaction, TransactionError, TransactionType,
         TransactionValidation,
     },
-    BlockBuilder, BlockReceipt, EthBlockBuilder, EthBlockData, EthRpcBlock, LocalBlock,
-    RemoteBlockConversionError,
+    BlockBuilder, BlockReceipts, EthBlockBuilder, EthBlockData, EthLocalBlock, EthRpcBlock,
+    LocalBlock, RemoteBlockConversionError,
 };
+
+pub struct ExecutionReceiptHigherKindedForChainSpec<ChainSpecT: RpcSpec> {
+    phantom: PhantomData<ChainSpecT>,
+}
+
+impl<ChainSpecT: RpcSpec> HigherKinded<ExecutionLog>
+    for ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>
+{
+    type Type = ChainSpecT::ExecutionReceipt<ExecutionLog>;
+}
+
+impl<ChainSpecT: RpcSpec> HigherKinded<FilterLog>
+    for ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>
+{
+    type Type = ChainSpecT::ExecutionReceipt<FilterLog>;
+}
+
+pub trait ExecutionReceiptHigherKindedBounds:
+    HigherKinded<
+        ExecutionLog,
+        Type: MapReceiptLogs<ExecutionLog, FilterLog, <Self as HigherKinded<FilterLog>>::Type>
+                  + Receipt<ExecutionLog>,
+    > + HigherKinded<FilterLog, Type: Debug + Receipt<FilterLog>>
+{
+}
+
+impl<HigherKindedT> ExecutionReceiptHigherKindedBounds for HigherKindedT where
+    HigherKindedT: HigherKinded<
+            ExecutionLog,
+            Type: MapReceiptLogs<
+                ExecutionLog,
+                FilterLog,
+                <Self as HigherKinded<FilterLog>>::Type,
+            > + Receipt<ExecutionLog>,
+        > + HigherKinded<FilterLog, Type: Debug + Receipt<FilterLog>>
+{
+}
 
 /// A trait for defining a chain's associated types.
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
@@ -54,8 +92,8 @@ pub trait RuntimeSpec:
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
           + TryInto<EthBlockData<Self>, Error = Self::RpcBlockConversionError>,
         RpcReceipt: Debug
-          + RpcTypeFrom<BlockReceipt<Self>, Hardfork = Self::Hardfork>
-          + TryInto<BlockReceipt<Self>, Error = Self::RpcReceiptConversionError>,
+          + RpcTypeFrom<BlockReceipt<Self::ExecutionReceipt<FilterLog>>, Hardfork = Self::Hardfork>
+          + TryInto<BlockReceipt<Self::ExecutionReceipt<FilterLog>>, Error = Self::RpcReceiptConversionError>,
         RpcTransaction: EthRpcTransaction
           + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
           + TryInto<Self::SignedTransaction, Error = Self::RpcTransactionConversionError>,
@@ -92,7 +130,13 @@ pub trait RuntimeSpec:
         HaltReason = <Self as ChainSpec>::HaltReason
     >;
 
-    type LocalBlock;
+    /// Type representing a locally mined block.
+    type LocalBlock: BlockReceipts<
+        Self::ExecutionReceipt<FilterLog>> + LocalBlock<
+        Self::ExecutionReceipt<FilterLog>,
+        Self::Hardfork,
+        Self::SignedTransaction
+    >;
 
     /// Type representing a builder that constructs an execution receipt.
     type ReceiptBuilder: ExecutionReceiptBuilder<
@@ -122,7 +166,7 @@ pub trait RuntimeSpec:
 
     /// Returns the hardfork activations corresponding to the provided chain ID,
     /// if it is associated with this chain specification.
-    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self>>;
+    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>>;
 
     /// Returns the name corresponding to the provided chain ID, if it is
     /// associated with this chain specification.
@@ -185,6 +229,7 @@ pub trait SyncRuntimeSpec:
         ExecutionReceipt<FilterLog>: Send + Sync,
         HaltReason: Send + Sync,
         Hardfork: Send + Sync,
+        LocalBlock: Send + Sync,
         RpcBlockConversionError: Send + Sync,
         RpcReceiptConversionError: Send + Sync,
         SignedTransaction: TransactionValidation<ValidationError: Send + Sync> + Send + Sync,
@@ -199,6 +244,7 @@ impl<ChainSpecT> SyncRuntimeSpec for ChainSpecT where
             ExecutionReceipt<FilterLog>: Send + Sync,
             HaltReason: Send + Sync,
             Hardfork: Send + Sync,
+            LocalBlock: Send + Sync,
             RpcBlockConversionError: Send + Sync,
             RpcReceiptConversionError: Send + Sync,
             SignedTransaction: TransactionValidation<ValidationError: Send + Sync> + Send + Sync,
@@ -251,7 +297,13 @@ impl RuntimeSpec for L1ChainSpec {
         StateErrorT: 'blockchain + Debug + Send,
     > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
 
-    type LocalBlock = LocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
+    type LocalBlock = EthLocalBlock<
+        Self::RpcBlockConversionError,
+        ExecutionReceiptHigherKindedForChainSpec<Self>,
+        Self::Hardfork,
+        Self::RpcReceiptConversionError,
+        Self::SignedTransaction,
+    >;
     type ReceiptBuilder = receipt::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self>;
     type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;
@@ -268,7 +320,7 @@ impl RuntimeSpec for L1ChainSpec {
         }
     }
 
-    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self>> {
+    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>> {
         hardfork::l1::chain_hardfork_activations(chain_id)
     }
 

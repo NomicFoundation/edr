@@ -51,18 +51,15 @@ pub struct MineBlockResult<
 
 /// The result of mining a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.
-pub struct MineBlockResultAndState<ChainSpecT, StateErrorT>
-where
-    ChainSpecT: RuntimeSpec,
-{
+pub struct MineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT> {
     /// Mined block
-    pub block: ChainSpecT::LocalBlock,
+    pub block: LocalBlockT,
     /// State after mining the block
     pub state: Box<dyn SyncState<StateErrorT>>,
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
+    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
 }
 
 /// The type of ordering to use when selecting blocks to mine.
@@ -123,7 +120,7 @@ pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, S
         >,
     >,
 ) -> Result<
-    MineBlockResultAndState<ChainSpecT, StateErrorT>,
+    MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
@@ -309,7 +306,7 @@ pub fn mine_block_with_single_transaction<
         >,
     >,
 ) -> Result<
-    MineBlockResultAndState<ChainSpecT, StateErrorT>,
+    MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where

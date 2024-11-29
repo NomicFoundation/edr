@@ -203,7 +203,7 @@ impl<BlockchainErrorT, ChainSpecT: RuntimeSpec>
 
         let header = value.block.header();
         crate::rpc::block::Block {
-            hash: Some(*value.block.hash()),
+            hash: Some(*value.block.block_hash()),
             parent_hash: header.parent_hash,
             sha3_uncles: header.ommers_hash,
             state_root: header.state_root,

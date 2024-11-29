@@ -422,7 +422,7 @@ where
                 FilterData::Logs { criteria, logs } => {
                     let bloom = &block.header().logs_bloom;
                     if bloom_contains_log_filter(bloom, criteria) {
-                        let receipts = block.transaction_receipts()?;
+                        let receipts = block.fetch_transaction_receipts()?;
                         let new_logs = receipts
                             .iter()
                             .flat_map(|receipt| receipt.transaction_logs());
@@ -447,7 +447,7 @@ where
                             ),
                         });
                     } else {
-                        block_hashes.push(*block.hash());
+                        block_hashes.push(*block.block_hash());
                     }
                 }
                 FilterData::NewPendingTransactions(_) => (),
@@ -691,7 +691,7 @@ where
     pub fn add_block_filter<const IS_SUBSCRIPTION: bool>(
         &mut self,
     ) -> Result<U256, ProviderError<ChainSpecT>> {
-        let block_hash = *self.last_block()?.hash();
+        let block_hash = *self.last_block()?.block_hash();
 
         let filter_id = self.next_filter_id();
         self.filters.insert(
@@ -1242,7 +1242,7 @@ where
         let spec_id = if let Some(block_number) = block_number {
             self.spec_at_block_number(block_number, block_spec)?
         } else {
-            self.blockchain.spec_id()
+            self.blockchain.hardfork()
         };
 
         let chain_id = if let Some(block_number) = block_number {
@@ -1367,7 +1367,7 @@ where
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
         let evm_config = self.create_evm_config(self.blockchain.chain_id());
-        let hardfork = self.blockchain.spec_id();
+        let hardfork = self.blockchain.hardfork();
 
         let evm_spec_id = hardfork.into();
         if options.mix_hash.is_none() && evm_spec_id >= l1::SpecId::MERGE {
@@ -1555,7 +1555,7 @@ where
 
     /// Returns the local hardfork.
     pub fn hardfork(&self) -> ChainSpecT::Hardfork {
-        self.blockchain.spec_id()
+        self.blockchain.hardfork()
     }
 
     /// Returns the last block in the blockchain.
@@ -1608,7 +1608,7 @@ where
                     let last_block = self.last_block()?;
 
                     Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        self.blockchain.spec_id(),
+                        self.blockchain.hardfork(),
                         last_block.header(),
                     ))
                 },
@@ -1868,7 +1868,7 @@ where
                 result
                     .base_fee_per_gas
                     .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        self.blockchain.spec_id(),
+                        self.blockchain.hardfork(),
                         block.header(),
                     ));
             }
@@ -2759,7 +2759,7 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
                     .block_by_number(fork_block_number)
                     .map_err(CreationError::Blockchain)?
                     .expect("Fork block must exist")
-                    .hash(),
+                    .block_hash(),
             }),
             rpc_client: Some(rpc_client),
             blockchain: Box::new(blockchain),

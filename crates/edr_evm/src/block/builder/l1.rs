@@ -6,7 +6,7 @@ use std::{
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     eips::eip4844,
-    l1::{self, L1ChainSpec},
+    l1,
     log::ExecutionLog,
     receipt::{Receipt as _, TransactionReceipt},
     result::{ExecutionResult, ResultAndState},
@@ -22,11 +22,14 @@ use crate::{
     blockchain::SyncBlockchain,
     config::{CfgEnv, Env},
     debug::DebugContext,
-    receipt::{self, ExecutionReceiptBuilder as _},
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
+    receipt::ExecutionReceiptBuilder as _,
+    spec::{
+        BlockEnvConstructor as _, ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec,
+        SyncRuntimeSpec,
+    },
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    BlockBuilderCreationError, LocalBlock, MineBlockResultAndState,
+    BlockBuilderCreationError, EthLocalBlock, MineBlockResultAndState,
 };
 
 /// A builder for constructing Ethereum L1 blocks.
@@ -86,7 +89,18 @@ impl<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
     BlockBuilder<'blockchain, ChainSpecT, DebugDataT>
     for EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
 where
-    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
+    ChainSpecT: SyncRuntimeSpec<
+        Hardfork: Debug,
+        LocalBlock: From<
+            EthLocalBlock<
+                ChainSpecT::RpcBlockConversionError,
+                ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>,
+                ChainSpecT::Hardfork,
+                ChainSpecT::RpcReceiptConversionError,
+                ChainSpecT::SignedTransaction,
+            >,
+        >,
+    >,
     StateErrorT: Debug + Send,
 {
     type BlockchainError = BlockchainErrorT;
@@ -138,7 +152,7 @@ where
             }
         });
 
-        options.parent_hash = Some(*parent_block.hash());
+        options.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(hardfork, options, Some(parent_header));
 
         Ok(Self {
@@ -237,12 +251,7 @@ where
                 let revm::Context {
                     evm:
                         revm::EvmContext {
-                            inner:
-                                revm::InnerEvmContext {
-                                    db,
-                                    chain: chain_context,
-                                    ..
-                                },
+                            inner: revm::InnerEvmContext { db, .. },
                             ..
                         },
                     external,
@@ -277,12 +286,7 @@ where
                 let revm::Context {
                     evm:
                         revm::EvmContext {
-                            inner:
-                                revm::InnerEvmContext {
-                                    db,
-                                    chain: chain_context,
-                                    ..
-                                },
+                            inner: revm::InnerEvmContext { db, .. },
                             ..
                         },
                     ..
@@ -340,7 +344,10 @@ where
     fn finalize(
         mut self,
         rewards: Vec<(Address, U256)>,
-    ) -> Result<MineBlockResultAndState<ChainSpecT, Self::StateError>, Self::StateError> {
+    ) -> Result<
+        MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, Self::StateError>,
+        Self::StateError,
+    > {
         for (address, reward) in rewards {
             if reward > U256::ZERO {
                 let account_info = self.state.modify_account(
@@ -385,7 +392,13 @@ where
         }
 
         // TODO: handle ommers
-        let block = LocalBlock::new(
+        let block = EthLocalBlock::<
+            ChainSpecT::RpcBlockConversionError,
+            ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>,
+            ChainSpecT::Hardfork,
+            ChainSpecT::RpcReceiptConversionError,
+            ChainSpecT::SignedTransaction,
+        >::new(
             self.header,
             self.transactions,
             self.receipts,
@@ -394,21 +407,10 @@ where
         );
 
         Ok(MineBlockResultAndState {
-            block,
+            block: block.into(),
             state: self.state,
             state_diff: self.state_diff,
             transaction_results: self.transaction_results,
         })
     }
 }
-
-// impl<ChainSpecT> Builder<ChainSpecT> where
-//     ChainSpecT: RuntimeSpec<
-//         Block: Default,
-//         SignedTransaction: Clone
-//                                + Default
-//                                + TransactionValidation<ValidationError:
-//                                  From<InvalidTransaction>>,
-//     >
-// {
-// }

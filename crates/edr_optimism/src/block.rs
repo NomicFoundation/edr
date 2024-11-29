@@ -1,6 +1,6 @@
 use edr_eth::block::PartialHeader;
 use edr_evm::{
-    block::LocalBlock as L1LocalBlock,
+    block::EthLocalBlock as L1LocalBlock,
     state::{DatabaseComponents, WrapDatabaseRef},
     BlockBuilder, EthBlockBuilder, MineBlockResultAndState,
 };

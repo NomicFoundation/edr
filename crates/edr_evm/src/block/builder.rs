@@ -99,5 +99,8 @@ where
     fn finalize(
         self,
         rewards: Vec<(Address, U256)>,
-    ) -> Result<MineBlockResultAndState<ChainSpecT, Self::StateError>, Self::StateError>;
+    ) -> Result<
+        MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, Self::StateError>,
+        Self::StateError,
+    >;
 }
