@@ -1,5 +1,4 @@
 use auto_impl::auto_impl;
-use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
 
 use crate::{
     blockchain::SyncBlockchain,

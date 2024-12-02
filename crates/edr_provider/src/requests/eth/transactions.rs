@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
@@ -13,11 +12,12 @@ use edr_eth::{
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
-    blockchain::{BlockchainError, BlockchainErrorForChainSpec},
+    blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
     transaction, SyncBlock,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
+use edr_utils::r#async::RuntimeHandle;
 
 use crate::{
     data::ProviderData,
@@ -148,7 +148,35 @@ pub fn handle_get_transaction_receipt<
     data: &ProviderData<ChainSpecT, TimerT>,
     transaction_hash: B256,
 ) -> Result<Option<ChainSpecT::RpcReceipt>, ProviderError<ChainSpecT>> {
+    let runtime_wrapper = RuntimeHandle::from(data.runtime().clone());
+
+    let block = runtime_wrapper.into_scope().spawn_blocking(|scope| {
+        blockchain
+            .block_by_transaction_hash(transaction_hash)
+            .map_err(ProviderError::Blockchain)
+
+        // let block_future = scope.spawn_blocking(|| {
+        //     let blockchain = &self.blockchain;
+        // });
+        // let receipt_future = scope.spawn_blocking(|| {
+        //     let blockchain = &self.blockchain;
+        //     blockchain
+        //         .receipt_by_transaction_hash(transaction_hash)
+        //         .map_err(ProviderError::Blockchain)
+        // });
+
+        // tokio::try_join!(block_future, receipt_future).expect("Failed to join
+        // future")
+    });
     let receipt = data.transaction_receipt(&transaction_hash)?;
+
+    if let Some(receipt) = receipt {
+        let block = data
+            .block_by_hash(&receipt.block_hash)?
+            .expect("Block should exist for a transaction receipt");
+    } else {
+        Ok(None)
+    }
 
     Ok(receipt.map(|receipt| ChainSpecT::RpcReceipt::rpc_type_from(&receipt, data.hardfork())))
 }

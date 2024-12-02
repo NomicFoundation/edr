@@ -3,5 +3,9 @@ name = "edr_utils"
 version = "0.3.5"
 edition = "2021"
 
+[dependencies]
+async-scoped = { version = "0.9.0", default-features = false }
+tokio = { version = "1.21.2", default-features = false }
+
 [lints]
 workspace = true

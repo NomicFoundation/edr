@@ -75,7 +75,7 @@ pub trait LocalBlock<
 >: Block<SignedTransactionT>
 {
     /// Constructs an empty block, i.e. no transactions.
-    fn empty(spec_id: HardforkT, partial_header: PartialHeader) -> Self;
+    fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self;
 
     /// Returns the receipts of the block's transactions.
     fn transaction_receipts(&self) -> &[Arc<BlockReceipt<ExecutionReceiptT>>];

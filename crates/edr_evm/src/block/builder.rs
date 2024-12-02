@@ -10,19 +10,38 @@ use edr_eth::{
 
 pub use self::l1::EthBlockBuilder;
 use crate::{
-    blockchain::SyncBlockchain, config::CfgEnv, spec::RuntimeSpec, state::SyncState,
-    transaction::TransactionError, DebugContext, MineBlockResultAndState,
+    blockchain::SyncBlockchain,
+    config::CfgEnv,
+    spec::RuntimeSpec,
+    state::{DatabaseComponentError, SyncState},
+    transaction::TransactionError,
+    DebugContext, MineBlockResultAndState,
 };
 
 /// An error caused during construction of a block builder.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockBuilderCreationError<BlockchainErrorT, HardforkT: Debug> {
+pub enum BlockBuilderCreationError<BlockchainErrorT, HardforkT: Debug, StateErrorT> {
     /// Blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
+    /// State error
+    #[error(transparent)]
+    State(StateErrorT),
     /// Unsupported hardfork. Hardforks older than Byzantium are not supported
     #[error("Unsupported hardfork: {0:?}. Hardforks older than Byzantium are not supported.")]
     UnsupportedHardfork(HardforkT),
+}
+
+impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
+    From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+    for BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT>
+{
+    fn from(value: DatabaseComponentError<BlockchainErrorT, StateErrorT>) -> Self {
+        match value {
+            DatabaseComponentError::Blockchain(error) => Self::Blockchain(error),
+            DatabaseComponentError::State(error) => Self::State(error),
+        }
+    }
 }
 
 /// An error caused during execution of a transaction while building a block.
@@ -78,7 +97,10 @@ where
                 Box<dyn SyncState<Self::StateError>>,
             >,
         >,
-    ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork>>;
+    ) -> Result<
+        Self,
+        BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,
+    >;
 
     /// Returns the block's [`PartialHeader`].
     fn header(&self) -> &PartialHeader;

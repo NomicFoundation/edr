@@ -5,7 +5,7 @@ use edr_eth::{
     Address, HashMap, U256,
 };
 use edr_evm::{
-    blockchain::{BlockchainError, BlockchainErrorForChainSpec, SyncBlockchain},
+    blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     guaranteed_dry_run,
     precompile::Precompile,

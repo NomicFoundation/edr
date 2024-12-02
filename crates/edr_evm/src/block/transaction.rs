@@ -4,12 +4,27 @@ use derive_where::derive_where;
 use edr_eth::{
     l1::{self, L1ChainSpec},
     log::FilterLog,
+    receipt::BlockReceipt,
     transaction::SignedTransaction as _,
 };
 use edr_rpc_eth::RpcTypeFrom;
 
 use super::SyncBlock;
 use crate::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
+
+#[derive_where(Clone, Debug)]
+pub struct BlockAndTransactionReceipt<ChainSpecT: RuntimeSpec> {
+    /// The block in which the transaction is found.
+    pub block: Arc<
+        dyn SyncBlock<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
+    /// The receipt.
+    pub receipt: Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>,
+}
 
 /// The result returned by requesting a transaction.
 #[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]

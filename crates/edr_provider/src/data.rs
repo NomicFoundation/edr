@@ -353,6 +353,11 @@ where
         self.mem_pool.remove_transaction(transaction_hash)
     }
 
+    /// Retrieves the runtime handle.
+    pub fn runtime(&self) -> &runtime::Handle {
+        &self.runtime_handle
+    }
+
     /// Sets whether the miner should mine automatically.
     pub fn set_auto_mining(&mut self, enabled: bool) {
         self.is_auto_mining = enabled;

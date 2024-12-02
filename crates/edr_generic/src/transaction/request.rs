@@ -4,7 +4,7 @@ use edr_eth::{
     transaction::signed::{FakeSign, Sign},
     Address, Bytes, U256,
 };
-use edr_evm::blockchain::{BlockchainError, BlockchainErrorForChainSpec};
+use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_provider::{
     requests::validation::{validate_call_request, validate_send_transaction_request},
     spec::{CallContext, FromRpcType, TransactionContext},

@@ -10,7 +10,6 @@ use edr_eth::{
     transaction::{ExecutableTransaction as _, Transaction, TransactionValidation},
     U256,
 };
-use edr_utils::types::HigherKinded;
 use revm::wiring::HaltReasonTrait;
 use serde::{Deserialize, Serialize};
 
@@ -73,7 +72,9 @@ where
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
-    BlockBuilderCreation(#[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork>),
+    BlockBuilderCreation(
+        #[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>,
+    ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
@@ -178,7 +179,7 @@ where
                 }
                 error => Err(MineBlockError::BlockTransaction(error)),
             },
-            |block_builder| Ok(block_builder),
+            Ok,
         )?;
     }
 
@@ -198,7 +199,9 @@ where
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
-    BlockBuilderCreation(#[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork>),
+    BlockBuilderCreation(
+        #[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>,
+    ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),

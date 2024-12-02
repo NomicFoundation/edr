@@ -1,10 +1,10 @@
+use core::fmt::Debug;
 use std::marker::PhantomData;
 
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     l1,
-    log::FilterLog,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
 };
@@ -91,11 +91,15 @@ where
 }
 
 impl RuntimeSpec for OptimismChainSpec {
-    type BlockBuilder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT> =
-        block::Builder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
+    type BlockBuilder<
+        'blockchain,
+        BlockchainErrorT: 'blockchain,
+        DebugDataT,
+        StateErrorT: 'blockchain + Debug + Send,
+    > = block::Builder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT>;
 
     type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
-    type LocalBlock = LocalBlock<Self::ExecutionReceipt<FilterLog>, Self::SignedTransaction>;
+    type LocalBlock = LocalBlock;
     type ReceiptBuilder = receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
     type RpcReceiptConversionError = rpc::receipt::ConversionError;
@@ -115,7 +119,7 @@ impl RuntimeSpec for OptimismChainSpec {
 
     fn chain_hardfork_activations(
         chain_id: u64,
-    ) -> Option<&'static edr_evm::hardfork::Activations<Self>> {
+    ) -> Option<&'static edr_evm::hardfork::Activations<Self::Hardfork>> {
         hardfork::chain_hardfork_activations(chain_id)
     }
 

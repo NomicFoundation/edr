@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{Address, U256, U64};
 use edr_evm::spec::RuntimeSpec;
 
@@ -39,8 +37,7 @@ pub fn handle_max_priority_fee_per_gas<ChainSpecT: RuntimeSpec>(
     Ok(U256::from(1_000_000_000))
 }
 
-pub fn handle_mining<ChainSpecT: RuntimeSpec>(
-) -> Result<bool, ProviderError<ChainSpecT>> {
+pub fn handle_mining<ChainSpecT: RuntimeSpec>() -> Result<bool, ProviderError<ChainSpecT>> {
     Ok(false)
 }
 
@@ -63,7 +60,6 @@ pub fn handle_net_version_request<
     Ok(data.network_id())
 }
 
-pub fn handle_syncing<ChainSpecT: RuntimeSpec>(
-) -> Result<bool, ProviderError<ChainSpecT>> {
+pub fn handle_syncing<ChainSpecT: RuntimeSpec>() -> Result<bool, ProviderError<ChainSpecT>> {
     Ok(false)
 }

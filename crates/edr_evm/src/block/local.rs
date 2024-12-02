@@ -254,8 +254,8 @@ impl<
         SignedTransactionT,
     >
 {
-    fn empty(spec_id: HardforkT, partial_header: PartialHeader) -> Self {
-        let withdrawals = if spec_id.into() >= l1::SpecId::SHANGHAI {
+    fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
+        let withdrawals = if hardfork.into() >= l1::SpecId::SHANGHAI {
             Some(Vec::default())
         } else {
             None

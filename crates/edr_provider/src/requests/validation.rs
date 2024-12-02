@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{
     eips::eip2930,
     l1,

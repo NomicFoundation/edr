@@ -7,6 +7,7 @@ edition = "2021"
 alloy-dyn-abi = { version = "0.8.3", features = ["eip712"] }
 alloy-sol-types = { version = "0.8.3", default-features = false, features = ["std"] }
 anyhow = { version = "1.0.89", optional = true }
+async-scoped = { version = "0.9.0", default-features = false }
 auto_impl = { version = "1.2", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
 dyn-clone = { version = "1.0.13", default-features = false }
@@ -15,11 +16,13 @@ edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils", optional = true }
+edr_utils = { version = "0.3.5", path = "../edr_utils" }
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
 itertools = { version = "0.12.0", default-features = false, features = ["use_alloc"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
 lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.20", default-features = false }
+lru = "0.12.2"
 parking_lot = { version = "0.12.1", default-features = false }
 rand = { version = "0.8.5", default-features = false }
 revm-precompile = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", version = "11.0", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
@@ -30,7 +33,6 @@ sha3 = { version = "0.10.6", default-features = false }
 thiserror = { version = "1.0.37", default-features = false }
 tokio = { version = "1.21.2", default-features = false, features = ["macros"] }
 tracing = { version = "0.1.37", features = ["attributes", "std"], optional = true }
-lru = "0.12.2"
 
 [dev-dependencies]
 anyhow = "1.0.89"

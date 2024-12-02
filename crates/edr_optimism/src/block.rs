@@ -1,26 +1,16 @@
+mod local;
+
 use core::fmt::Debug;
 
 use edr_eth::block::PartialHeader;
 use edr_evm::{
-    block::EthLocalBlock,
-    spec::ExecutionReceiptHigherKindedForChainSpec,
     state::{DatabaseComponents, WrapDatabaseRef},
-    BlockBuilder, EthBlockBuilder, MineBlockResultAndState, RemoteBlockConversionError,
+    BlockBuilder, BlockBuilderAndError, EthBlockBuilder, MineBlockResultAndState,
 };
-use revm_optimism::{L1BlockInfo, OptimismSpecId};
+use revm_optimism::{L1BlockInfo, OptimismHaltReason, OptimismSpecId};
 
-use crate::{rpc, transaction, OptimismChainSpec};
-
-pub struct LocalBlock {
-    eth: EthLocalBlock<
-        RemoteBlockConversionError<rpc::transaction::ConversionError>,
-        ExecutionReceiptHigherKindedForChainSpec<OptimismChainSpec>,
-        OptimismSpecId,
-        rpc::receipt::ConversionError,
-        transaction::Signed,
-    >,
-    l1_block_info: L1BlockInfo,
-}
+pub use self::local::LocalBlock;
+use crate::{transaction, OptimismChainSpec};
 
 pub struct Builder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT> {
     eth: EthBlockBuilder<'blockchain, BlockchainErrorT, OptimismChainSpec, DebugDataT, StateErrorT>,
@@ -36,7 +26,7 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
 
     fn new_block_builder(
         blockchain: &'blockchain dyn edr_evm::blockchain::SyncBlockchain<
-            BlockchainErrorT,
+            OptimismChainSpec,
             Self::BlockchainError,
             Self::StateError,
         >,
@@ -53,20 +43,15 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
                 Box<dyn edr_evm::state::SyncState<Self::StateError>>,
             >,
         >,
-    ) -> Result<Self, edr_evm::BlockBuilderCreationError<Self::BlockchainError, OptimismSpecId>>
-    {
+    ) -> Result<
+        Self,
+        edr_evm::BlockBuilderCreationError<Self::BlockchainError, OptimismSpecId, Self::StateError>,
+    > {
         let mut db = WrapDatabaseRef(DatabaseComponents { blockchain, state });
         let l1_block_info = L1BlockInfo::try_fetch(&mut db, hardfork)?;
         let DatabaseComponents { blockchain, state } = db.0;
 
-        let eth = EthBlockBuilder::new_block_builder(
-            blockchain,
-            state,
-            hardfork,
-            cfg,
-            options,
-            debug_context,
-        )?;
+        let eth = EthBlockBuilder::new(blockchain, state, hardfork, cfg, options, debug_context)?;
 
         Ok(Self { eth, l1_block_info })
     }
@@ -83,19 +68,36 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
         edr_evm::BlockBuilderAndError<
             Self,
             edr_evm::BlockTransactionError<
-                BlockchainErrorT,
+                OptimismChainSpec,
                 Self::BlockchainError,
                 Self::StateError,
             >,
         >,
     > {
-        self.eth.add_transaction(transaction)
+        let Self { eth, l1_block_info } = self;
+
+        match eth.add_transaction(transaction) {
+            Ok(eth) => Ok(Self { eth, l1_block_info }),
+            Err(BlockBuilderAndError {
+                block_builder,
+                error,
+            }) => Err(BlockBuilderAndError {
+                block_builder: Self {
+                    eth: block_builder,
+                    l1_block_info,
+                },
+                error,
+            }),
+        }
     }
 
     fn finalize(
         self,
         rewards: Vec<(edr_eth::Address, edr_eth::U256)>,
-    ) -> Result<MineBlockResultAndState<BlockchainErrorT, Self::StateError>, Self::StateError> {
+    ) -> Result<
+        MineBlockResultAndState<OptimismHaltReason, LocalBlock, Self::StateError>,
+        Self::StateError,
+    > {
         let MineBlockResultAndState {
             block: l1,
             state,

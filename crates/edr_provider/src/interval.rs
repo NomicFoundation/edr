@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 
 use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};

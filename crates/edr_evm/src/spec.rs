@@ -29,6 +29,8 @@ use crate::{
     LocalBlock, RemoteBlockConversionError,
 };
 
+/// Helper type to determine higher kinded execution receipt types for a chain
+/// spec.
 pub struct ExecutionReceiptHigherKindedForChainSpec<ChainSpecT: RpcSpec> {
     phantom: PhantomData<ChainSpecT>,
 }
@@ -45,6 +47,7 @@ impl<ChainSpecT: RpcSpec> HigherKinded<FilterLog>
     type Type = ChainSpecT::ExecutionReceipt<FilterLog>;
 }
 
+/// Helper trait to define the higher kinded bounds for execution receipts.
 pub trait ExecutionReceiptHigherKindedBounds:
     HigherKinded<
         ExecutionLog,
