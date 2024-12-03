@@ -1,6 +1,6 @@
 use edr_eth::{Address, Bytes, B256, B64, U256};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer},
+    bindgen_prelude::{BigInt, Buffer, Uint8Array},
     Status,
 };
 

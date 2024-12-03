@@ -17,7 +17,6 @@ use std::{
 };
 
 use alloy_dyn_abi::ErrorExt;
-use anyhow::{self, Context as _};
 use edr_evm::{hex, interpreter::OpCode};
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -322,6 +321,12 @@ pub enum JumpType {
     InternalJump,
 }
 
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum BytecodeError {
+    #[error("Instruction not found at PC {pc}")]
+    InstructionNotFound { pc: u32 },
+}
+
 /// A resolved bytecode.
 #[derive(Debug)]
 pub struct Bytecode {
@@ -376,10 +381,19 @@ impl Bytecode {
     }
 
     /// Returns the [`Instruction`] at the provided program counter (PC).
-    pub fn get_instruction(&self, pc: u32) -> anyhow::Result<&Instruction> {
+    pub fn get_instruction(&self, pc: u32) -> Result<&Instruction, BytecodeError> {
         self.pc_to_instruction
             .get(&pc)
-            .with_context(|| format!("Instruction at PC {pc} not found"))
+            .ok_or_else(|| BytecodeError::InstructionNotFound { pc })
+    }
+
+    /// Returns the [`Instruction`] at the provided program counter (PC). The
+    /// error type is `anyhow::Error` which can be converted to
+    /// `napi::Error` automatically. Usage of this method is deprecated and
+    /// call sites in `edr_napi` will be removed.
+    #[deprecated = "Use `get_instruction` instead"]
+    pub fn get_instruction_napi(&self, pc: u32) -> anyhow::Result<&Instruction> {
+        self.get_instruction(pc).map_err(anyhow::Error::from)
     }
 
     /// Whether the bytecode has an instruction at the provided program counter

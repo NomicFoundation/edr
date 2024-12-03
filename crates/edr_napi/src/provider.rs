@@ -10,10 +10,11 @@ use napi_derive::napi;
 use self::config::ProviderConfig;
 use crate::{
     call_override::CallOverrideCallback,
+    cast::TryCast,
     context::EdrContext,
     logger::{Logger, LoggerConfig, LoggerError},
     subscribe::SubscriberCallback,
-    trace::RawTrace,
+    trace::{solidity_stack_trace::SolidityStackTrace, RawTrace},
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -248,6 +249,53 @@ impl Response {
         self.solidity_trace
             .as_ref()
             .map(|trace| RawTrace::new(trace.clone()))
+    }
+
+    // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
+    #[doc = "Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as fallback."]
+    #[napi]
+    pub fn stack_trace(
+        &self,
+        config: serde_json::Value,
+    ) -> napi::Result<Option<Either<SolidityStackTrace, String>>> {
+        let Some(trace) = &self.solidity_trace else {
+            return Ok(None);
+        };
+        let mut vm_tracer = edr_solidity::vm_tracer::VmTracer::new();
+        vm_tracer.observe(trace);
+
+        let mut vm_trace = vm_tracer.get_last_top_level_message_trace();
+        let vm_tracer_error = vm_tracer.get_last_error();
+
+        // TODO get actual type as argument
+        let tracing_config: edr_solidity::vm_trace_decoder::TracingConfig =
+            serde_json::from_value(config)?;
+        let mut vm_trace_decoder = edr_solidity::vm_trace_decoder::VmTraceDecoder::new();
+        edr_solidity::vm_trace_decoder::initialize_vm_trace_decoder(
+            &mut vm_trace_decoder,
+            tracing_config,
+        )?;
+
+        vm_trace = vm_trace.map(|trace| vm_trace_decoder.try_to_decode_message_trace(trace));
+
+        if let Some(vm_trace) = vm_trace {
+            let stack_trace =
+                edr_solidity::solidity_tracer::get_stack_trace(vm_trace).map_err(|err| {
+                    napi::Error::from_reason(format!(
+                        "Error converting to solidity stack trace: {err}"
+                    ))
+                })?;
+            let stack_trace = stack_trace
+                .into_iter()
+                .map(|stack_trace| stack_trace.try_cast())
+                .collect::<Result<Vec<_>, _>>()?;
+
+            Ok(Some(Either::A(stack_trace)))
+        } else if let Some(vm_tracer_error) = vm_tracer_error {
+            Ok(Some(Either::B(vm_tracer_error.to_string())))
+        } else {
+            Ok(None)
+        }
     }
 
     #[napi(getter)]

@@ -77,20 +77,20 @@ pub struct CallMessageTrace {
     pub code_address: Uint8Array,
 }
 
-/// Converts [`edr_solidity::message_trace::MessageTraceStep`] to the N-API
-/// representation.
+/// Converts [`edr_solidity::message_trace::VmTracerMessageTraceStep`] to the
+/// N-API representation.
 ///
 /// # Panics
 /// This function will panic if the value is mutably borrowed.
 pub fn message_trace_step_to_napi(
-    value: edr_solidity::message_trace::MessageTraceStep,
+    value: edr_solidity::message_trace::VmTracerMessageTraceStep,
     env: Env,
 ) -> napi::Result<Either4<EvmStep, PrecompileMessageTrace, CallMessageTrace, CreateMessageTrace>> {
     Ok(match value {
-        edr_solidity::message_trace::MessageTraceStep::Evm(step) => {
+        edr_solidity::message_trace::VmTracerMessageTraceStep::Evm(step) => {
             Either4::A(EvmStep { pc: step.pc as u32 })
         }
-        edr_solidity::message_trace::MessageTraceStep::Message(msg) => {
+        edr_solidity::message_trace::VmTracerMessageTraceStep::Message(msg) => {
             // Immediately drop the borrow lock to err on the safe side as we
             // may be recursing.
             let owned = msg.borrow().clone();

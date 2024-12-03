@@ -26,7 +26,7 @@ mod exit;
 mod mapped_inlined_internal_functions_heuristics;
 mod message_trace;
 mod return_data;
-mod solidity_stack_trace;
+pub mod solidity_stack_trace;
 mod solidity_tracer;
 mod vm_trace_decoder;
 mod vm_tracer;
@@ -149,7 +149,7 @@ impl TracingStep {
 
         Self {
             depth: step.depth as u8,
-            pc: BigInt::from(step.pc),
+            pc: BigInt::from(u64::from(step.pc)),
             opcode: OpCode::name_by_op(step.opcode).to_string(),
             stack,
             memory,
@@ -157,7 +157,7 @@ impl TracingStep {
     }
 }
 
-fn u256_to_bigint(v: &edr_evm::U256) -> BigInt {
+pub(crate) fn u256_to_bigint(v: &edr_evm::U256) -> BigInt {
     BigInt {
         sign_bit: false,
         words: v.into_limbs().to_vec(),
