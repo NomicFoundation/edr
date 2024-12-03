@@ -5,7 +5,7 @@ use edr_evm::{hex, interpreter::OpCode};
 use edr_solidity::build_model::JumpType;
 use napi::{
     bindgen_prelude::{Either24, Either3, Either4},
-    Either, Env,
+    Either, Env, Status,
 };
 use napi_derive::napi;
 
@@ -200,7 +200,7 @@ fn trace_steps(
         let pc = format!("{:>5}", format!("{:03}", step.pc));
 
         if let Some(bytecode) = bytecode {
-            let inst = bytecode.get_instruction(step.pc)?;
+            let inst = bytecode.get_instruction_napi(step.pc)?;
 
             let location = inst
                 .location

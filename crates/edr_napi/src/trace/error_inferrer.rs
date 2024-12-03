@@ -331,7 +331,7 @@ impl ErrorInferrer {
                 _ => return Ok(Heuristic::Miss(stacktrace)),
             };
 
-            let inst = bytecode.get_instruction(step.pc)?;
+            let inst = bytecode.get_instruction_napi(step.pc)?;
 
             if let (OpCode::CALL | OpCode::CREATE, Either4::A(EvmStep { .. })) =
                 (inst.opcode, next_step)
@@ -537,7 +537,7 @@ impl ErrorInferrer {
             _ => panic!("This should not happen: MessageTrace should be preceded by a EVM step"),
         };
 
-        let call_inst = bytecode.get_instruction(call_step.pc)?;
+        let call_inst = bytecode.get_instruction_napi(call_step.pc)?;
         let call_stack_frame = instruction_to_callstack_stack_trace_entry(bytecode, call_inst)?;
 
         let (call_stack_frame_source_reference, call_stack_frame) = match call_stack_frame {
@@ -765,7 +765,7 @@ impl ErrorInferrer {
             _ => panic!("This should not happen: MessageTrace ends with a subtrace"),
         };
 
-        let last_instruction = bytecode.get_instruction(last_step.pc)?;
+        let last_instruction = bytecode.get_instruction_napi(last_step.pc)?;
 
         let revert_or_invalid_stacktrace = Self::check_revert_or_invalid_opcode(
             trace,
@@ -989,7 +989,7 @@ impl ErrorInferrer {
             return Ok(false);
         };
 
-        let last_inst = bytecode.get_instruction(last_step.pc)?;
+        let last_inst = bytecode.get_instruction_napi(last_step.pc)?;
         if last_inst.opcode != OpCode::REVERT {
             return Ok(false);
         }
@@ -999,7 +999,7 @@ impl ErrorInferrer {
             Some(Either4::A(step)) => step,
             _ => panic!("JS code asserts this is always an EvmStep"),
         };
-        let call_inst = bytecode.get_instruction(call_opcode_step.pc)?;
+        let call_inst = bytecode.get_instruction_napi(call_opcode_step.pc)?;
 
         // Calls are always made from within functions
         let call_inst_location = call_inst
@@ -1041,7 +1041,7 @@ impl ErrorInferrer {
                 _ => return Ok(false),
             };
 
-            let step_inst = bytecode.get_instruction(step.pc)?;
+            let step_inst = bytecode.get_instruction_napi(step.pc)?;
 
             if let Some(step_inst_location) = &step_inst.location {
                 if **step_inst_location != *location {
@@ -1133,7 +1133,7 @@ impl ErrorInferrer {
             _ => return Ok(false),
         };
 
-        let call_inst = bytecode.get_instruction(call_step.pc)?;
+        let call_inst = bytecode.get_instruction_napi(call_step.pc)?;
 
         if call_inst.opcode != OpCode::DELEGATECALL {
             return Ok(false);
@@ -1173,7 +1173,7 @@ impl ErrorInferrer {
                 _ => return Ok(false),
             };
 
-            let inst = bytecode.get_instruction(step.pc)?;
+            let inst = bytecode.get_instruction_napi(step.pc)?;
 
             // All the remaining locations should be valid, as they are part of the inline
             // asm
@@ -1193,7 +1193,7 @@ impl ErrorInferrer {
             Some(Either4::A(step)) => step,
             _ => panic!("Expected last step to be an EvmStep"),
         };
-        let last_inst = bytecode.get_instruction(last_step.pc)?;
+        let last_inst = bytecode.get_instruction_napi(last_step.pc)?;
 
         Ok(last_inst.opcode == OpCode::REVERT)
     }
@@ -1449,7 +1449,7 @@ impl ErrorInferrer {
             return Ok(false);
         };
 
-        let last_inst = bytecode.get_instruction(last_step.pc)?;
+        let last_inst = bytecode.get_instruction_napi(last_step.pc)?;
 
         if last_inst.opcode != OpCode::REVERT || last_inst.location.is_some() {
             return Ok(false);
@@ -1462,7 +1462,7 @@ impl ErrorInferrer {
                 _ => return Ok(false),
             };
 
-            let inst = bytecode.get_instruction(step.pc)?;
+            let inst = bytecode.get_instruction_napi(step.pc)?;
 
             if let Some(inst_location) = &inst.location {
                 if contract.location != *inst_location && constructor.location != *inst_location {
@@ -1548,7 +1548,7 @@ impl ErrorInferrer {
                 _ => continue,
             };
 
-            let inst = bytecode.get_instruction(step.pc)?;
+            let inst = bytecode.get_instruction_napi(step.pc)?;
 
             let Some(location) = &inst.location else {
                 continue;
@@ -1602,7 +1602,7 @@ impl ErrorInferrer {
             .bytecode
             .as_ref()
             .expect("The TS code type-checks this to always have bytecode")
-            .get_instruction(last_step.pc)?;
+            .get_instruction_napi(last_step.pc)?;
 
         Ok(match &last_instruction.location {
             Some(last_instruction_location) => {
@@ -1737,7 +1737,7 @@ impl ErrorInferrer {
             _ => return Ok(false),
         };
 
-        let last_instruction = bytecode.get_instruction(last_step.pc)?;
+        let last_instruction = bytecode.get_instruction_napi(last_step.pc)?;
 
         let Ok(version) = Version::parse(&bytecode.compiler_version) else {
             return Ok(false);
@@ -1845,7 +1845,7 @@ impl ErrorInferrer {
         let has_next_inst = bytecode.has_instruction(next_inst_pc);
 
         if has_next_inst {
-            let next_inst = bytecode.get_instruction(next_inst_pc)?;
+            let next_inst = bytecode.get_instruction_napi(next_inst_pc)?;
 
             let prev_loc = prev_inst.and_then(|i| i.location.as_deref());
             let next_loc = next_inst.location.as_deref();
@@ -2019,7 +2019,7 @@ impl ErrorInferrer {
             _ => panic!("We know this is an EVM step"),
         };
 
-        let last_inst = bytecode.get_instruction(last_step.pc)?;
+        let last_inst = bytecode.get_instruction_napi(last_step.pc)?;
 
         if last_inst.opcode != OpCode::ISZERO {
             return Ok(false);
@@ -2030,7 +2030,7 @@ impl ErrorInferrer {
             _ => panic!("We know this is an EVM step"),
         };
 
-        let prev_inst = bytecode.get_instruction(prev_step.pc)?;
+        let prev_inst = bytecode.get_instruction_napi(prev_step.pc)?;
 
         Ok(prev_inst.opcode == OpCode::EXTCODESIZE)
     }
@@ -2053,7 +2053,7 @@ impl ErrorInferrer {
                 _ => return Ok(None),
             };
 
-            let inst = bytecode.get_instruction(step.pc)?;
+            let inst = bytecode.get_instruction_napi(step.pc)?;
 
             if inst.location.is_some() {
                 return Ok(Some(i as u32));
@@ -2083,7 +2083,7 @@ impl ErrorInferrer {
 
         match &steps.get(last_location_index as usize) {
             Some(Either4::A(step)) => {
-                let inst = bytecode.get_instruction(step.pc)?;
+                let inst = bytecode.get_instruction_napi(step.pc)?;
 
                 Ok(Some(inst))
             }

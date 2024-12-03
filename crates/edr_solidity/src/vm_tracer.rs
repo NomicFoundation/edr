@@ -11,7 +11,7 @@ use edr_evm::{
 
 use crate::message_trace::{
     BaseEvmMessageTrace, BaseMessageTrace, CallMessageTrace, CreateMessageTrace, EvmStep, ExitCode,
-    MessageTrace, MessageTraceStep, PrecompileMessageTrace,
+    MessageTrace, PrecompileMessageTrace, VmTracerMessageTraceStep,
 };
 
 type MessageTraceRefCell = Rc<RefCell<MessageTrace>>;
@@ -199,7 +199,7 @@ impl VmTracer {
 
             parent_trace
                 .steps
-                .push(MessageTraceStep::Message(Rc::clone(&trace)));
+                .push(VmTracerMessageTraceStep::Message(Rc::clone(&trace)));
             parent_trace.number_of_subtraces += 1;
         }
 
@@ -226,7 +226,7 @@ impl VmTracer {
 
             parent_trace
                 .steps
-                .push(MessageTraceStep::Evm(EvmStep { pc: step.pc }));
+                .push(VmTracerMessageTraceStep::Evm(EvmStep { pc: step.pc }));
         }
 
         self.tracing_steps.push(step);
