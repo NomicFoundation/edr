@@ -14,6 +14,8 @@ import {
 import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/provider";
 import { VMTracer } from "hardhat/internal/hardhat-network/stack-traces/vm-tracer";
 import { LoggerConfig } from "hardhat/internal/hardhat-network/provider/modules/logger";
+import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
+import { Response } from "@nomicfoundation/edr";
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));
@@ -104,34 +106,60 @@ interface TxData {
 
 export async function traceTransaction(
   provider: EdrProviderWrapper,
-  txData: TxData
-): Promise<MessageTrace> {
-  const vmTracer = new VMTracer();
-  provider.setVmTracer(vmTracer);
+  txData: TxData,
+  tracingConfig: TracingConfig,
+): Promise<SolidityStackTrace | string | undefined> {
+  const stringifiedArgs = JSON.stringify({
+    method: "eth_sendTransaction",
+    params: [
+      {
+        from: senderAddress,
+        data: bytesToHex(txData.data),
+        to: txData.to !== undefined ? bytesToHex(txData.to) : undefined,
+        value: bigIntToHex(txData.value ?? 0n),
+        // If the test didn't define a gasLimit, we assume 4M is enough
+        gas: bigIntToHex(txData.gas ?? 4000000n),
+        gasPrice: bigIntToHex(10n),
+      },
+    ],
+  });
 
-  try {
-    await provider.request({
-      method: "eth_sendTransaction",
-      params: [
-        {
-          from: senderAddress,
-          data: bytesToHex(txData.data),
-          to: txData.to !== undefined ? bytesToHex(txData.to) : undefined,
-          value: bigIntToHex(txData.value ?? 0n),
-          // If the test didn't define a gasLimit, we assume 4M is enough
-          gas: bigIntToHex(txData.gas ?? 4000000n),
-          gasPrice: bigIntToHex(10n),
-        },
-      ],
-    });
+  if (txData.to !== undefined) {
+    const code = await provider.request({
+      method: "eth_getCode",
+      params: [bytesToHex(txData.to), "latest"],
+    })
 
-    const trace = vmTracer.getLastTopLevelMessageTrace();
-    if (trace === undefined) {
-      const error = vmTracer.getLastError();
-      throw error ?? new Error("Cannot get last top level message trace");
-    }
-    return trace;
-  } finally {
-    provider.setVmTracer(undefined);
+    // uncomment to see code and calldata
+    // console.log(code)
+    // console.log(bytesToHex(txData.data))
   }
+
+  const responseObject: Response = await provider["_provider"].handleRequest(stringifiedArgs)
+
+  let response;
+  if (typeof responseObject.data === "string") {
+    response = JSON.parse(responseObject.data);
+  } else {
+    response = responseObject.data;
+  }
+
+  const receipt: any = await provider.request({
+    method: "eth_getTransactionReceipt",
+    params: [response.result],
+  })
+
+  const stackTrace = responseObject.stackTrace(tracingConfig);
+
+  const contractAddress = receipt.contractAddress?.slice(2);
+
+  if (typeof stackTrace === "string") {
+    throw new Error("shouldn't happen"); // FVTODO
+  }
+
+  if (stackTrace === null) {
+    return contractAddress;
+  }
+
+  return stackTrace;
 }
