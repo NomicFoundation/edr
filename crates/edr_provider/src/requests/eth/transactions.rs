@@ -16,7 +16,7 @@ use edr_evm::{
     },
     blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
-    transaction, SyncBlock,
+    transaction, Block, SyncBlock,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
 
@@ -167,17 +167,11 @@ pub fn handle_get_transaction_receipt<
     }
 }
 
-fn transaction_from_block<ChainSpecT: RuntimeSpec>(
-    block: Arc<
-        dyn SyncBlock<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
-            ChainSpecT::SignedTransaction,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >,
+fn transaction_from_block<BlockT: Block<SignedTransactionT> + Clone, SignedTransactionT: Clone>(
+    block: BlockT,
     transaction_index: usize,
     is_pending: bool,
-) -> Option<TransactionAndBlock<ChainSpecT>> {
+) -> Option<TransactionAndBlock<BlockT, SignedTransactionT>> {
     block
         .transactions()
         .get(transaction_index)

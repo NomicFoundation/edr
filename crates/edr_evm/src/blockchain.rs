@@ -101,7 +101,7 @@ pub trait BlockHash {
 #[auto_impl(&)]
 pub trait Blockchain<ChainSpecT>
 where
-    ChainSpecT: SyncRuntimeSpec,
+    ChainSpecT: RuntimeSpec,
 {
     /// The blockchain's error type
     type BlockchainError;

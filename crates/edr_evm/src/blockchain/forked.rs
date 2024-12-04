@@ -96,7 +96,7 @@ pub enum ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT> {
 #[derive_where(Debug; ChainSpecT::Hardfork)]
 pub struct ForkedBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncRuntimeSpec,
+    ChainSpecT: RuntimeSpec,
 {
     local_storage: ReservableSparseBlockchainStorage<
         Arc<ChainSpecT::LocalBlock>,
@@ -118,7 +118,7 @@ where
     hardfork_activations: Option<Activations<ChainSpecT::Hardfork>>,
 }
 
-impl<ChainSpecT: SyncRuntimeSpec> ForkedBlockchain<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
     /// Constructs a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
@@ -639,7 +639,7 @@ where
     }
 }
 
-impl<ChainSpecT: SyncRuntimeSpec> BlockHash for ForkedBlockchain<ChainSpecT> {
+impl<ChainSpecT: RuntimeSpec> BlockHash for ForkedBlockchain<ChainSpecT> {
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]

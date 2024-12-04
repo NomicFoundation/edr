@@ -2,6 +2,7 @@ use core::cmp;
 
 use edr_eth::{
     block::Header,
+    log::FilterLog,
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut, TransactionValidation},
@@ -11,16 +12,16 @@ use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     precompile::Precompile,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::SyncRuntimeSpec,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    Block as _, BlockReceipts as _, DebugContext,
+    Block as _, BlockReceipts, DebugContext,
 };
 use itertools::Itertools;
 
 use crate::{
     data::call::{self, RunCallArgs},
-    ProviderError, ProviderSpec,
+    ProviderError,
 };
 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
@@ -184,10 +185,18 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT: ProviderSpec>(
+pub(super) fn compute_rewards<ChainSpecT>(
     block: &ChainSpecT::Block,
     reward_percentiles: &[RewardPercentile],
-) -> Result<Vec<U256>, ProviderError<ChainSpecT>> {
+) -> Result<Vec<U256>, ProviderError<ChainSpecT>>
+where
+    ChainSpecT: SyncRuntimeSpec<
+        Block: BlockReceipts<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
+{
     if block.transactions().is_empty() {
         return Ok(reward_percentiles.iter().map(|_| U256::ZERO).collect());
     }

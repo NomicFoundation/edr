@@ -2,16 +2,14 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
-    log::FilterLog,
     result::InvalidTransaction,
     transaction::{ExecutableTransaction as _, TransactionValidation},
     BlockSpec, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
-    blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
-    SyncBlock,
+    Block as _,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
 
@@ -115,16 +113,10 @@ pub fn handle_get_block_transaction_count_by_block_number<
 }
 
 /// The result returned by requesting a block by number.
-#[derive(Debug, Clone)]
-struct BlockByNumberResult<ChainSpecT: RuntimeSpec> {
+#[derive(Clone, Debug)]
+struct BlockByNumberResult<BlockT> {
     /// The block
-    pub block: Arc<
-        dyn SyncBlock<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
-            ChainSpecT::SignedTransaction,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >,
+    pub block: BlockT,
     /// Whether the block is a pending block.
     pub pending: bool,
     /// The total difficulty with the block
@@ -144,7 +136,7 @@ fn block_by_number<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: &BlockSpec,
-) -> Result<Option<BlockByNumberResult<ChainSpecT>>, ProviderError<ChainSpecT>> {
+) -> Result<Option<BlockByNumberResult<Arc<ChainSpecT::Block>>>, ProviderError<ChainSpecT>> {
     validate_post_merge_block_tags(data.hardfork(), block_spec)?;
 
     match data.block_by_block_spec(block_spec) {
@@ -159,22 +151,16 @@ fn block_by_number<
         // Pending block
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
-                >,
-            > = Arc::new(result.block);
+            let pending_block = Arc::new(result.block);
 
             let last_block = data.last_block()?;
             let previous_total_difficulty = data
                 .total_difficulty_by_hash(last_block.block_hash())?
                 .expect("last block has total difficulty");
-            let total_difficulty = previous_total_difficulty + block.header().difficulty;
+            let total_difficulty = previous_total_difficulty + pending_block.header().difficulty;
 
             Ok(Some(BlockByNumberResult {
-                block,
+                block: ChainSpecT::cast_local_block(pending_block),
                 pending: true,
                 total_difficulty: Some(total_difficulty),
             }))
@@ -186,13 +172,7 @@ fn block_by_number<
 
 fn block_to_rpc_output<ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
-    block: Arc<
-        dyn SyncBlock<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
-            ChainSpecT::SignedTransaction,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >,
+    block: Arc<ChainSpecT::Block>,
     is_pending: bool,
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,
@@ -212,9 +192,14 @@ fn block_to_rpc_output<ChainSpecT: RuntimeSpec>(
                 }),
                 is_pending,
             })
-            .map(|transaction_and_block: TransactionAndBlock<ChainSpecT>| {
-                ChainSpecT::RpcTransaction::rpc_type_from(&transaction_and_block, hardfork)
-            })
+            .map(
+                |transaction_and_block: TransactionAndBlock<
+                    Arc<ChainSpecT::Block>,
+                    ChainSpecT::SignedTransaction,
+                >| {
+                    ChainSpecT::RpcTransaction::rpc_type_from(&transaction_and_block, hardfork)
+                },
+            )
             .map(HashOrTransaction::Transaction)
             .collect()
     } else {

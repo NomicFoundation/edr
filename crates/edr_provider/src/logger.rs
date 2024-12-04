@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
@@ -46,7 +46,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec> {
     fn log_interval_mined(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        result: &DebugMineBlockResult<ChainSpecT, Self::BlockchainError>,
+        result: &DebugMineBlockResult<Arc<ChainSpecT::Block>, ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
         let _result = result;
@@ -57,7 +57,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec> {
     fn log_mined_block(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
+        results: &[DebugMineBlockResult<Arc<ChainSpecT::Block>, ChainSpecT::HaltReason>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
         let _results = results;
@@ -69,7 +69,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::SignedTransaction,
-        mining_results: &[DebugMineBlockResult<ChainSpecT, Self::BlockchainError>],
+        mining_results: &[DebugMineBlockResult<Arc<ChainSpecT::Block>, ChainSpecT::HaltReason>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
         let _transaction = transaction;

@@ -6,7 +6,7 @@ use edr_eth::{
     transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
     BlockSpec, U256, U64,
 };
-use edr_evm::{state::StateOverrides, transaction};
+use edr_evm::{state::StateOverrides, transaction, Block as _};
 
 use crate::{
     data::ProviderData,

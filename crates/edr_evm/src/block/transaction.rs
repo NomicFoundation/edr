@@ -5,12 +5,12 @@ use edr_eth::{
     l1::{self, L1ChainSpec},
     log::FilterLog,
     receipt::{BlockReceipt, Receipt},
+    spec::ChainSpec,
     transaction::SignedTransaction as _,
 };
 use edr_rpc_eth::{RpcSpec, RpcTypeFrom};
 
-use super::SyncBlock;
-use crate::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
+use crate::spec::RuntimeSpec;
 
 /// Helper type for a chain-specific [`BlockAndTransactionReceipt`].
 pub type TransactionReceiptAndBlockForChainSpec<ChainSpecT> = TransactionReceiptAndBlock<
@@ -28,13 +28,19 @@ pub struct TransactionReceiptAndBlock<BlockT: ?Sized, ExecutionReceiptT: Receipt
     pub receipt: Arc<BlockReceipt<ExecutionReceiptT>>,
 }
 
+/// Helper type for a chain-specific [`TransactionAndBlock`].
+pub type TransactionAndBlockForChainSpec<ChainSpecT> = TransactionAndBlock<
+    Arc<<ChainSpecT as RuntimeSpec>::Block>,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
+
 /// The result returned by requesting a transaction.
-#[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
-pub struct TransactionAndBlock<ChainSpecT: RuntimeSpec> {
+#[derive(Clone, Debug)]
+pub struct TransactionAndBlock<BlockT, SignedTransactionT> {
     /// The transaction.
-    pub transaction: ChainSpecT::SignedTransaction,
+    pub transaction: SignedTransactionT,
     /// Block data in which the transaction is found if it has been mined.
-    pub block_data: Option<BlockDataForTransaction<ChainSpecT>>,
+    pub block_data: Option<BlockDataForTransaction<BlockT>>,
     /// Whether the transaction is pending
     pub is_pending: bool,
 }
@@ -53,18 +59,23 @@ impl RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<L1ChainSpec>>
 }
 
 /// Block metadata for a transaction.
-#[derive_where(Clone, Debug)]
-pub struct BlockDataForTransaction<ChainSpecT: RuntimeSpec> {
+#[derive(Clone, Debug)]
+pub struct BlockDataForTransaction<BlockT> {
     /// The block in which the transaction is found.
-    pub block: Arc<ChainSpecT::Block>,
+    pub block: BlockT,
     /// The index of the transaction in the block.
     pub transaction_index: u64,
 }
 
-impl RpcTypeFrom<TransactionAndBlock<L1ChainSpec>> for edr_rpc_eth::TransactionWithSignature {
+impl RpcTypeFrom<TransactionAndBlockForChainSpec<L1ChainSpec>>
+    for edr_rpc_eth::TransactionWithSignature
+{
     type Hardfork = l1::SpecId;
 
-    fn rpc_type_from(value: &TransactionAndBlock<L1ChainSpec>, hardfork: Self::Hardfork) -> Self {
+    fn rpc_type_from(
+        value: &TransactionAndBlockForChainSpec<L1ChainSpec>,
+        hardfork: Self::Hardfork,
+    ) -> Self {
         let (header, transaction_index) = value
             .block_data
             .as_ref()

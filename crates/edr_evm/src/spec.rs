@@ -16,7 +16,10 @@ use edr_utils::types::HigherKinded;
 pub use revm::EvmWiring;
 
 use crate::{
-    block::transaction::{TransactionAndBlock, TransactionReceiptAndBlockForChainSpec},
+    block::transaction::{
+        TransactionAndBlock, TransactionAndBlockForChainSpec,
+        TransactionReceiptAndBlockForChainSpec,
+    },
     evm::PrimitiveEvmWiring,
     hardfork::{self, Activations},
     receipt::{self, ExecutionReceiptBuilder},
@@ -99,7 +102,7 @@ pub trait RuntimeSpec:
           + RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<Self>, Hardfork = Self::Hardfork>
           + TryInto<BlockReceipt<Self::ExecutionReceipt<FilterLog>>, Error = Self::RpcReceiptConversionError>,
         RpcTransaction: EthRpcTransaction
-          + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
+          + RpcTypeFrom<TransactionAndBlockForChainSpec<Self>, Hardfork = Self::Hardfork>
           + TryInto<Self::SignedTransaction, Error = Self::RpcTransactionConversionError>,
     >
     + RpcSpec<ExecutionReceipt<FilterLog>: Debug>

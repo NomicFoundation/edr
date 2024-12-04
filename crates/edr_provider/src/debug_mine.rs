@@ -1,10 +1,11 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use derive_where::derive_where;
 use edr_eth::{
-    result::ExecutionResult, spec::HaltReasonTrait, transaction::ExecutableTransaction as _, Bytes,
-    B256,
+    result::ExecutionResult,
+    spec::{ChainSpec, HaltReasonTrait},
+    transaction::ExecutableTransaction as _,
+    Bytes, B256,
 };
 use edr_evm::{
     spec::RuntimeSpec,
@@ -51,22 +52,25 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT>
     }
 }
 
+/// Helper trait for a chain-specific [`DebugMineBlockResult`].
+pub type DebugMineBlockResultForChainSpec<ChainSpecT> =
+    DebugMineBlockResult<<ChainSpecT as RuntimeSpec>::Block, <ChainSpecT as ChainSpec>::HaltReason>;
+
 /// The result of mining a block in debug mode, after having been committed to
 /// the blockchain.
-#[derive(Debug)]
-#[derive_where(Clone; ChainSpecT::HaltReason)]
-pub struct DebugMineBlockResult<ChainSpecT: RuntimeSpec> {
+#[derive(Clone, Debug)]
+pub struct DebugMineBlockResult<BlockT, HaltReasonT: HaltReasonTrait> {
     /// Mined block
-    pub block: Arc<ChainSpecT::Block>,
+    pub block: Arc<BlockT>,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
+    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace<ChainSpecT::HaltReason>>,
+    pub transaction_traces: Vec<Trace<HaltReasonT>>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }
 
-impl<ChainSpecT: RuntimeSpec> DebugMineBlockResult<ChainSpecT> {
+impl<BlockT, HaltReasonT: HaltReasonTrait> DebugMineBlockResult<BlockT, HaltReasonT> {
     /// Whether the block contains a transaction with the given hash.
     pub fn has_transaction(&self, transaction_hash: &B256) -> bool {
         self.block

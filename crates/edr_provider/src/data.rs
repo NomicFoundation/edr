@@ -57,7 +57,7 @@ use edr_evm::{
     trace::Trace,
     transaction, Block as _, BlockAndTotalDifficulty, BlockReceipts as _, DebugContext,
     DebugTraceConfig, DebugTraceResultWithTraces, Eip3155AndRawTracers, MemPool,
-    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, SyncBlock,
+    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -113,20 +113,20 @@ pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
     pub traces: Vec<Trace<HaltReasonT>>,
 }
 
-pub struct SendTransactionResult<ChainSpecT: RuntimeSpec> {
+pub struct SendTransactionResult<BlockT, HaltReasonT: HaltReasonTrait> {
     pub transaction_hash: B256,
-    pub mining_results: Vec<DebugMineBlockResult<ChainSpecT>>,
+    pub mining_results: Vec<DebugMineBlockResult<BlockT, HaltReasonT>>,
 }
 
 /// The result of executing a transaction.
-pub type ExecutionResultAndTrace<'provider, ChainSpecT> = (
-    &'provider ExecutionResult<<ChainSpecT as ChainSpec>::HaltReason>,
-    &'provider Trace<<ChainSpecT as ChainSpec>::HaltReason>,
+pub type ExecutionResultAndTrace<'provider, HaltReasonT> = (
+    &'provider ExecutionResult<HaltReasonT>,
+    &'provider Trace<HaltReasonT>,
 );
 
-impl<ChainSpecT: RuntimeSpec> SendTransactionResult<ChainSpecT> {
+impl<BlockT, HaltReasonT: HaltReasonTrait> SendTransactionResult<BlockT, HaltReasonT> {
     /// Present if the transaction was auto-mined.
-    pub fn transaction_result_and_trace(&self) -> Option<ExecutionResultAndTrace<'_, ChainSpecT>> {
+    pub fn transaction_result_and_trace(&self) -> Option<ExecutionResultAndTrace<'_, HaltReasonT>> {
         self.mining_results.iter().find_map(|result| {
             izip!(
                 result.block.transactions().iter(),
@@ -1965,7 +1965,7 @@ where
         &mut self,
         options: BlockOptions,
     ) -> Result<
-        DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
+        DebugMineBlockResultForChainSpec<ChainSpecT::Block>>,
         ProviderError<ChainSpecT>,
     > {
         self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
