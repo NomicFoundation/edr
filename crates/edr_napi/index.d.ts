@@ -645,7 +645,7 @@ export declare class EdrContext {
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {
   /**Constructs a new provider with the provided configuration. */
-  static withConfig(context: EdrContext, config: ProviderConfig, loggerConfig: LoggerConfig, subscriberCallback: (event: SubscriptionEvent) => void): Promise<Provider>
+  static withConfig(context: EdrContext, config: ProviderConfig, loggerConfig: LoggerConfig, tracingConfig: any, subscriberCallback: (event: SubscriptionEvent) => void): Promise<Provider>
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(jsonRequest: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): void
@@ -661,8 +661,8 @@ export declare class Response {
   /** Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
   get solidityTrace(): RawTrace | null
-  /**Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as fallback. */
-  stackTrace(config: any): SolidityStackTrace | string | null
+  /**Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as a fallback. */
+  stackTrace(): SolidityStackTrace | string | null
   get traces(): Array<RawTrace>
 }
 /**

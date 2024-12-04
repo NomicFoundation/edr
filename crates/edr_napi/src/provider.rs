@@ -22,6 +22,7 @@ use crate::{
 pub struct Provider {
     provider: Arc<edr_provider::Provider<LoggerError>>,
     runtime: runtime::Handle,
+    tracing_config: Arc<edr_solidity::vm_trace_decoder::TracingConfig>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -36,6 +37,8 @@ impl Provider {
         _context: &EdrContext,
         config: ProviderConfig,
         logger_config: LoggerConfig,
+        // TODO avoid opaque type
+        tracing_config: serde_json::Value,
         #[napi(ts_arg_type = "(event: SubscriptionEvent) => void")] subscriber_callback: JsFunction,
     ) -> napi::Result<JsObject> {
         let config = edr_provider::ProviderConfig::try_from(config)?;
@@ -44,6 +47,10 @@ impl Provider {
         let logger = Box::new(Logger::new(&env, logger_config)?);
         let subscriber_callback = SubscriberCallback::new(&env, subscriber_callback)?;
         let subscriber_callback = Box::new(move |event| subscriber_callback.call(event));
+
+        // TODO get actual type as argument
+        let tracing_config: edr_solidity::vm_trace_decoder::TracingConfig =
+            serde_json::from_value(tracing_config)?;
 
         let (deferred, promise) = env.create_deferred()?;
         runtime.clone().spawn_blocking(move || {
@@ -67,6 +74,7 @@ impl Provider {
                     Ok(Provider {
                         provider: Arc::new(provider),
                         runtime,
+                        tracing_config: Arc::new(tracing_config),
                         #[cfg(feature = "scenarios")]
                         scenario_file,
                     })
@@ -125,6 +133,7 @@ impl Provider {
                         solidity_trace: None,
                         data: Either::A(json),
                         traces: Vec::new(),
+                        tracing_config: Arc::clone(&self.tracing_config),
                     });
             }
         };
@@ -189,6 +198,7 @@ impl Provider {
                 solidity_trace,
                 data,
                 traces: traces.into_iter().map(Arc::new).collect(),
+                tracing_config: Arc::clone(&self.tracing_config),
             })
     }
 
@@ -234,6 +244,7 @@ pub struct Response {
     solidity_trace: Option<Arc<edr_evm::trace::Trace>>,
     /// This may contain zero or more traces, depending on the (batch) request
     traces: Vec<Arc<edr_evm::trace::Trace>>,
+    tracing_config: Arc<edr_solidity::vm_trace_decoder::TracingConfig>,
 }
 
 #[napi]
@@ -252,12 +263,9 @@ impl Response {
     }
 
     // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
-    #[doc = "Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as fallback."]
+    #[doc = "Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as a fallback."]
     #[napi]
-    pub fn stack_trace(
-        &self,
-        config: serde_json::Value,
-    ) -> napi::Result<Option<Either<SolidityStackTrace, String>>> {
+    pub fn stack_trace(&self) -> napi::Result<Option<Either<SolidityStackTrace, String>>> {
         let Some(trace) = &self.solidity_trace else {
             return Ok(None);
         };
@@ -267,13 +275,10 @@ impl Response {
         let mut vm_trace = vm_tracer.get_last_top_level_message_trace();
         let vm_tracer_error = vm_tracer.get_last_error();
 
-        // TODO get actual type as argument
-        let tracing_config: edr_solidity::vm_trace_decoder::TracingConfig =
-            serde_json::from_value(config)?;
         let mut vm_trace_decoder = edr_solidity::vm_trace_decoder::VmTraceDecoder::new();
         edr_solidity::vm_trace_decoder::initialize_vm_trace_decoder(
             &mut vm_trace_decoder,
-            tracing_config,
+            &self.tracing_config,
         )?;
 
         vm_trace = vm_trace.map(|trace| vm_trace_decoder.try_to_decode_message_trace(trace));

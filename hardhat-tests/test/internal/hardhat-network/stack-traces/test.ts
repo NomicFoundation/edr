@@ -501,8 +501,7 @@ async function runTest(
         tx,
         provider,
         compilerOutput,
-        txIndexToContract,
-        tracingConfig,
+        txIndexToContract
       );
 
       if (typeof stackTraceOrContractAddress === "string") {
@@ -525,21 +524,22 @@ async function runTest(
         tx,
         provider,
         compilerOutput,
-        contract!,
-        tracingConfig,
+        contract!
       );
     }
 
     try {
       if (tx.stackTrace === undefined) {
         assert.isTrue(
-          stackTraceOrContractAddress === undefined || typeof stackTraceOrContractAddress === "string",
+          stackTraceOrContractAddress === undefined ||
+            typeof stackTraceOrContractAddress === "string",
           // FVTODO
           `Transaction ${txIndex} shouldn't have failed`
         );
       } else {
         assert.isFalse(
-          stackTraceOrContractAddress === undefined || typeof stackTraceOrContractAddress === "string",
+          stackTraceOrContractAddress === undefined ||
+            typeof stackTraceOrContractAddress === "string",
           `Transaction ${txIndex} should have failed`
         );
       }
@@ -549,7 +549,10 @@ async function runTest(
       throw error;
     }
 
-    if (stackTraceOrContractAddress !== undefined && typeof stackTraceOrContractAddress !== "string") {
+    if (
+      stackTraceOrContractAddress !== undefined &&
+      typeof stackTraceOrContractAddress !== "string"
+    ) {
       try {
         compareStackTraces(
           txIndex,
@@ -630,8 +633,7 @@ async function runDeploymentTransactionTest(
   tx: DeploymentTransaction,
   provider: EdrProviderWrapper,
   compilerOutput: CompilerOutput,
-  txIndexToContract: Map<number, DeployedContract>,
-  tracingConfig: TracingConfig,
+  txIndexToContract: Map<number, DeployedContract>
 ): Promise<SolidityStackTrace | string | undefined> {
   const file = compilerOutput.contracts[tx.file];
 
@@ -665,7 +667,7 @@ async function runDeploymentTransactionTest(
     value: tx.value !== undefined ? BigInt(tx.value) : undefined,
     data,
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
-  }, tracingConfig);
+  });
 
   return trace;
 }
@@ -675,8 +677,7 @@ async function runCallTransactionTest(
   tx: CallTransaction,
   provider: EdrProviderWrapper,
   compilerOutput: CompilerOutput,
-  contract: DeployedContract,
-  tracingConfig: TracingConfig,
+  contract: DeployedContract
 ): Promise<SolidityStackTrace | string | undefined> {
   const compilerContract =
     compilerOutput.contracts[contract.file][contract.name];
@@ -700,7 +701,7 @@ async function runCallTransactionTest(
     value: tx.value !== undefined ? BigInt(tx.value) : undefined,
     data,
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
-  }, tracingConfig);
+  });
 
   return trace;
 }
