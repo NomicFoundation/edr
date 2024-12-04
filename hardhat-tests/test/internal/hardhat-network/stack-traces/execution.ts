@@ -49,7 +49,7 @@ export async function instantiateProvider(
       },
     ],
     allowUnlimitedContractSize: false,
-    throwOnTransactionFailures: false,
+    throwOnTransactionFailures: true,
     throwOnCallFailures: false,
     allowBlocksWithSameTimestamp: false,
     coinbase: "0x0000000000000000000000000000000000000000",
@@ -107,7 +107,7 @@ interface TxData {
 export async function traceTransaction(
   provider: EdrProviderWrapper,
   txData: TxData,
-  tracingConfig: TracingConfig,
+  tracingConfig: TracingConfig
 ): Promise<SolidityStackTrace | string | undefined> {
   const stringifiedArgs = JSON.stringify({
     method: "eth_sendTransaction",
@@ -128,14 +128,15 @@ export async function traceTransaction(
     const code = await provider.request({
       method: "eth_getCode",
       params: [bytesToHex(txData.to), "latest"],
-    })
+    });
 
     // uncomment to see code and calldata
     // console.log(code)
     // console.log(bytesToHex(txData.data))
   }
 
-  const responseObject: Response = await provider["_provider"].handleRequest(stringifiedArgs)
+  const responseObject: Response =
+    await provider["_provider"].handleRequest(stringifiedArgs);
 
   let response;
   if (typeof responseObject.data === "string") {
@@ -146,8 +147,8 @@ export async function traceTransaction(
 
   const receipt: any = await provider.request({
     method: "eth_getTransactionReceipt",
-    params: [response.result],
-  })
+    params: [response.result ?? response.error.data.transactionHash],
+  });
 
   const stackTrace = responseObject.stackTrace(tracingConfig);
 
