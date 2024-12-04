@@ -18,13 +18,13 @@ use edr_utils::types::HigherKinded;
 use itertools::izip;
 
 use crate::{
-    block::{BlockReceipts, LocalBlock},
+    block::{BlockReceipts, BlockTraitObject, EmptyBlock, LocalBlock},
     blockchain::BlockchainError,
     spec::{
         ExecutionReceiptHigherKindedBounds, ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec,
     },
     transaction::DetailedTransaction,
-    Block, SyncBlock,
+    Block,
 };
 
 /// Helper type for a local Ethereum block for a given chain spec.
@@ -240,12 +240,7 @@ impl<
         HardforkT: HardforkTrait,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
-    >
-    LocalBlock<
-        <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type,
-        HardforkT,
-        SignedTransactionT,
-    >
+    > EmptyBlock<HardforkT>
     for EthLocalBlock<
         BlockConversionErrorT,
         ExecutionReceiptHigherKindedT,
@@ -269,7 +264,23 @@ impl<
             withdrawals,
         )
     }
+}
 
+impl<
+        BlockConversionErrorT,
+        ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
+        HardforkT: HardforkTrait,
+        ReceiptConversionErrorT,
+        SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
+    > LocalBlock<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>
+    for EthLocalBlock<
+        BlockConversionErrorT,
+        ExecutionReceiptHigherKindedT,
+        HardforkT,
+        ReceiptConversionErrorT,
+        SignedTransactionT,
+    >
+{
     fn transaction_receipts(
         &self,
     ) -> &[Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>]
@@ -362,41 +373,4 @@ fn transaction_to_block_receipts<
             })
         })
         .collect()
-}
-
-impl<
-        BlockConversionErrorT: Send + Sync + 'static,
-        ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds + HigherKinded<FilterLog, Type: Send + Sync> + 'static,
-        HardforkT: HardforkTrait + Send + Sync + 'static,
-        ReceiptConversionErrorT: Send + Sync + 'static,
-        SignedTransactionT: Debug + alloy_rlp::Encodable + Send + Sync + 'static,
-    >
-    From<
-        EthLocalBlock<
-            BlockConversionErrorT,
-            ExecutionReceiptHigherKindedT,
-            HardforkT,
-            ReceiptConversionErrorT,
-            SignedTransactionT,
-        >,
-    >
-    for Arc<
-        dyn SyncBlock<
-            <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type,
-            SignedTransactionT,
-            Error = BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
-        >,
-    >
-{
-    fn from(
-        value: EthLocalBlock<
-            BlockConversionErrorT,
-            ExecutionReceiptHigherKindedT,
-            HardforkT,
-            ReceiptConversionErrorT,
-            SignedTransactionT,
-        >,
-    ) -> Self {
-        Arc::new(value)
-    }
 }

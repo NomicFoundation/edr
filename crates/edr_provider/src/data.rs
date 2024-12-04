@@ -55,9 +55,9 @@ use edr_evm::{
         StateOverrides, SyncState,
     },
     trace::Trace,
-    transaction, Block as _, BlockAndTotalDifficulty, DebugContext, DebugTraceConfig,
-    DebugTraceResultWithTraces, Eip3155AndRawTracers, MemPool, MineBlockResultAndState,
-    OrderedTransaction, RandomHashGenerator, SyncBlock,
+    transaction, Block as _, BlockAndTotalDifficulty, BlockReceipts as _, DebugContext,
+    DebugTraceConfig, DebugTraceResultWithTraces, Eip3155AndRawTracers, MemPool,
+    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator, SyncBlock,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -115,8 +115,7 @@ pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
 
 pub struct SendTransactionResult<ChainSpecT: RuntimeSpec> {
     pub transaction_hash: B256,
-    pub mining_results:
-        Vec<DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>>,
+    pub mining_results: Vec<DebugMineBlockResult<ChainSpecT>>,
 }
 
 /// The result of executing a transaction.
@@ -422,8 +421,7 @@ where
     fn notify_subscribers_about_mined_block(
         &mut self,
         block_and_total_difficulty: &BlockAndTotalDifficulty<
-            BlockchainErrorForChainSpec<ChainSpecT>,
-            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Arc<ChainSpecT::Block>,
             ChainSpecT::SignedTransaction,
         >,
     ) -> Result<(), BlockchainErrorForChainSpec<ChainSpecT>> {
@@ -753,18 +751,7 @@ where
     pub fn block_by_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
-                >,
-            >,
-        >,
-        ProviderError<ChainSpecT>,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, ProviderError<ChainSpecT>> {
         let result = match block_spec {
             BlockSpec::Number(block_number) => Some(
                 self.blockchain
@@ -815,23 +802,23 @@ where
         Ok(result)
     }
 
+    /// Retrieves the block that contains a transaction with the provided hash,
+    /// if it exists.
+    pub fn block_by_transaction_hash(
+        &self,
+        transaction_hash: &B256,
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, ProviderError<ChainSpecT>> {
+        self.blockchain
+            .block_by_transaction_hash(transaction_hash)
+            .map_err(ProviderError::Blockchain)
+    }
+
     // `SyncBlock` cannot be simplified further
     #[allow(clippy::type_complexity)]
     pub fn block_by_hash(
         &self,
         block_hash: &B256,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
-                >,
-            >,
-        >,
-        ProviderError<ChainSpecT>,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, ProviderError<ChainSpecT>> {
         self.blockchain
             .block_by_hash(block_hash)
             .map_err(ProviderError::Blockchain)
@@ -1331,10 +1318,7 @@ where
             ProviderError<ChainSpecT>,
         >,
         mut options: BlockOptions,
-    ) -> Result<
-        DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
-        ProviderError<ChainSpecT>,
-    > {
+    ) -> Result<DebugMineBlockResult<ChainSpecT>, ProviderError<ChainSpecT>> {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
         options.timestamp = Some(block_timestamp);
 
@@ -1595,16 +1579,7 @@ where
     /// Returns the last block in the blockchain.
     pub fn last_block(
         &self,
-    ) -> Result<
-        Arc<
-            dyn SyncBlock<
-                ChainSpecT::ExecutionReceipt<FilterLog>,
-                ChainSpecT::SignedTransaction,
-                Error = BlockchainErrorForChainSpec<ChainSpecT>,
-            >,
-        >,
-        BlockchainErrorForChainSpec<ChainSpecT>,
-    > {
+    ) -> Result<Arc<ChainSpecT::Block>, BlockchainErrorForChainSpec<ChainSpecT>> {
         self.blockchain.last_block()
     }
 
@@ -1707,7 +1682,7 @@ impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
@@ -2197,13 +2172,7 @@ where
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
             &dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
-            &Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
-                >,
-            >,
+            &Arc<ChainSpecT::Block>,
             &Box<dyn SyncState<StateError>>,
         ) -> T,
     ) -> Result<T, ProviderError<ChainSpecT>> {
@@ -2301,7 +2270,7 @@ impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
@@ -2406,7 +2375,7 @@ impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Clone + Default,
+        BlockEnv: Clone + Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
@@ -2441,7 +2410,7 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::Block::new_block_env(header, hardfork.into());
+                let block_env = ChainSpecT::BlockEnv::new_block_env(header, hardfork.into());
 
                 debug_trace_transaction(
                     blockchain,
@@ -2497,7 +2466,7 @@ impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<

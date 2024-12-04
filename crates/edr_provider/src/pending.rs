@@ -11,7 +11,7 @@ use edr_evm::{
     },
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
-    BlockAndTotalDifficulty, DynSyncBlockForChainSpec, SyncBlock,
+    Block as _, BlockAndTotalDifficulty, BlockReceipts, SyncBlock,
 };
 
 /// A blockchain with a pending block.
@@ -31,21 +31,11 @@ pub(crate) struct BlockchainWithPending<'blockchain, ChainSpecT: SyncRuntimeSpec
         BlockchainErrorForChainSpec<ChainSpecT>,
         StateError,
     >,
-    pending_block: Arc<
-        dyn SyncBlock<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
-            ChainSpecT::SignedTransaction,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >,
+    pending_block: Arc<ChainSpecT::LocalBlock>,
     pending_state_diff: StateDiff,
 }
 
-impl<
-        'blockchain,
-        ChainSpecT: SyncRuntimeSpec<LocalBlock: Into<Arc<DynSyncBlockForChainSpec<ChainSpecT>>>>,
-    > BlockchainWithPending<'blockchain, ChainSpecT>
-{
+impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain, ChainSpecT> {
     /// Constructs a new instance with the provided blockchain and pending
     /// block.
     pub fn new(
@@ -67,6 +57,13 @@ impl<
 
 impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
     for BlockchainWithPending<'blockchain, ChainSpecT>
+where
+    ChainSpecT: SyncRuntimeSpec<
+        LocalBlock: BlockReceipts<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
 {
     type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
 
@@ -75,20 +72,11 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
     fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
         if hash == self.pending_block.block_hash() {
-            Ok(Some(self.pending_block.clone()))
+            Ok(Some(ChainSpecT::cast_local_block(
+                self.pending_block.clone(),
+            )))
         } else {
             self.blockchain.block_by_hash(hash)
         }
@@ -97,20 +85,11 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
     fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
         if number == self.pending_block.header().number {
-            Ok(Some(self.pending_block.clone()))
+            Ok(Some(ChainSpecT::cast_local_block(
+                self.pending_block.clone(),
+            )))
         } else {
             self.blockchain.block_by_number(number)
         }
@@ -119,18 +98,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
         let contains_transaction = self
             .pending_block
             .transactions()
@@ -138,7 +106,9 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
             .any(|tx| tx.transaction_hash() == transaction_hash);
 
         if contains_transaction {
-            Ok(Some(self.pending_block.clone()))
+            Ok(Some(ChainSpecT::cast_local_block(
+                self.pending_block.clone(),
+            )))
         } else {
             self.blockchain.block_by_transaction_hash(transaction_hash)
         }
@@ -148,19 +118,8 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
         self.blockchain.chain_id()
     }
 
-    fn last_block(
-        &self,
-    ) -> Result<
-        Arc<
-            dyn SyncBlock<
-                ChainSpecT::ExecutionReceipt<FilterLog>,
-                ChainSpecT::SignedTransaction,
-                Error = Self::BlockchainError,
-            >,
-        >,
-        Self::BlockchainError,
-    > {
-        Ok(self.pending_block.clone())
+    fn last_block(&self) -> Result<Arc<ChainSpecT::Block>, Self::BlockchainError> {
+        Ok(ChainSpecT::cast_local_block(self.pending_block.clone()))
     }
 
     fn last_block_number(&self) -> u64 {
@@ -267,11 +226,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT>
         _block: ChainSpecT::LocalBlock,
         _state_diff: StateDiff,
     ) -> Result<
-        BlockAndTotalDifficulty<
-            Self::Error,
-            ChainSpecT::ExecutionReceipt<FilterLog>,
-            ChainSpecT::SignedTransaction,
-        >,
+        BlockAndTotalDifficulty<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>,
         Self::Error,
     > {
         panic!("Inserting blocks into a pending blockchain is not supported.");

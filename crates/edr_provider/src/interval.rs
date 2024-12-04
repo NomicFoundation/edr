@@ -30,7 +30,7 @@ struct Inner<ChainSpecT: RuntimeSpec> {
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            Block: Default,
+            BlockEnv: Default,
             SignedTransaction: Default
                                    + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + PartialEq,
@@ -63,7 +63,7 @@ impl<
 async fn interval_mining_loop<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,

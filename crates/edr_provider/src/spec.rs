@@ -17,7 +17,7 @@ use edr_eth::{
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec, state::StateOverrides, transaction,
-    BlockAndTotalDifficulty, BlockReceipts, DynSyncBlockForChainSpec,
+    BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
@@ -25,18 +25,11 @@ use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, Transaction
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RuntimeSpec<
-    LocalBlock: Into<Arc<DynSyncBlockForChainSpec<Self>>>
-                    + BlockReceipts<
+    Block: BlockReceipts<
         Self::ExecutionReceipt<FilterLog>,
         Error = BlockchainErrorForChainSpec<Self>,
     >,
-    RpcBlock<B256>: From<
-        BlockAndTotalDifficulty<
-            BlockchainErrorForChainSpec<Self>,
-            Self::ExecutionReceipt<FilterLog>,
-            Self::SignedTransaction,
-        >,
-    >,
+    RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,
     SignedTransaction: IsSupported,

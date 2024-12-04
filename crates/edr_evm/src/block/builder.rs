@@ -63,10 +63,13 @@ where
 
 /// A wrapper around a block builder and an error.
 pub struct BlockBuilderAndError<BlockBuilderT, ErrorT> {
+    /// The block builder.
     pub block_builder: BlockBuilderT,
+    /// The error.
     pub error: ErrorT,
 }
 
+/// A trait for building blocks.
 pub trait BlockBuilder<'blockchain, ChainSpecT, DebugDataT>: Sized
 where
     ChainSpecT: RuntimeSpec,

@@ -4,20 +4,18 @@ mod remote;
 /// Block-related transaction types.
 pub mod transaction;
 
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use auto_impl::auto_impl;
-use derive_where::derive_where;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
     log::FilterLog,
     receipt::{BlockReceipt, Receipt},
-    spec::{ChainSpec, HardforkTrait},
+    spec::HardforkTrait,
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     B256, U256,
 };
-use edr_rpc_eth::RpcSpec;
 
 pub use self::{
     builder::{
@@ -27,7 +25,10 @@ pub use self::{
     local::{EthLocalBlock, EthLocalBlockForChainSpec},
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
 };
-use crate::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
+use crate::{
+    blockchain::BlockchainErrorForChainSpec,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
+};
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]
@@ -51,11 +52,9 @@ pub trait Block<SignedTransactionT>: Debug {
     fn withdrawals(&self) -> Option<&[Withdrawal]>;
 }
 
+/// Trait for fetching the receipts of a block's transactions.
 #[auto_impl(Arc)]
-pub trait BlockReceipts<ExecutionReceiptT>
-where
-    ExecutionReceiptT: Receipt<FilterLog>,
-{
+pub trait BlockReceipts<ExecutionReceiptT: Receipt<FilterLog>> {
     /// The blockchain error type.
     type Error;
 
@@ -67,30 +66,54 @@ where
     ) -> Result<Vec<Arc<BlockReceipt<ExecutionReceiptT>>>, Self::Error>;
 }
 
-/// Trait for locally mined blocks.
-pub trait LocalBlock<
-    ExecutionReceiptT: Receipt<FilterLog>,
-    HardforkT: HardforkTrait,
-    SignedTransactionT,
->: Block<SignedTransactionT>
-{
-    /// Constructs an empty block, i.e. no transactions.
-    fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self;
+/// A trait for constructing a block trait object.
+pub trait BlockTraitObject<ChainSpecT: RuntimeSpec> {
+    /// Creates a block trait object from a remote block.
+    fn from_remote(remote: RemoteBlock<ChainSpecT>) -> Arc<Self>;
 
+    /// Creates a block trait object from a local block.
+    fn from_local(local: ChainSpecT::LocalBlock) -> Arc<Self>;
+}
+
+/// Trait for creating an empty block.
+pub trait EmptyBlock<HardforkT: HardforkTrait> {
+    fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self;
+}
+
+impl<BlockT: EmptyBlock<HardforkT>, HardforkT: HardforkTrait> EmptyBlock<HardforkT>
+    for Arc<BlockT>
+{
+    fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
+        Arc::new(BlockT::empty(hardfork, partial_header))
+    }
+}
+
+/// Trait for locally mined blocks.
+#[auto_impl(Arc)]
+pub trait LocalBlock<ExecutionReceiptT: Receipt<FilterLog>> {
     /// Returns the receipts of the block's transactions.
     fn transaction_receipts(&self) -> &[Arc<BlockReceipt<ExecutionReceiptT>>];
 }
 
-/// Helper type for a synchronous block for a chain spec.
-pub type DynSyncBlockForChainSpec<ChainSpecT> = dyn SyncBlock<
-    <ChainSpecT as RpcSpec>::ExecutionReceipt<FilterLog>,
-    <ChainSpecT as ChainSpec>::SignedTransaction,
-    Error = BlockchainErrorForChainSpec<ChainSpecT>,
->;
+/// Trait that meets all requirements for an Ethereum block.
+pub trait EthBlock<ExecutionReceiptT, SignedTransactionT>:
+    Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT>
+where
+    ExecutionReceiptT: Receipt<FilterLog>,
+{
+}
+
+impl<BlockT, ExecutionReceiptT, SignedTransactionT> EthBlock<ExecutionReceiptT, SignedTransactionT>
+    for BlockT
+where
+    BlockT: Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT>,
+    ExecutionReceiptT: Receipt<FilterLog>,
+{
+}
 
 /// Trait that meets all requirements for a synchronous block.
 pub trait SyncBlock<ExecutionReceiptT, SignedTransactionT>:
-    Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT> + Send + Sync
+    EthBlock<ExecutionReceiptT, SignedTransactionT> + Send + Sync
 where
     ExecutionReceiptT: Receipt<FilterLog>,
 {
@@ -99,9 +122,30 @@ where
 impl<BlockT, ExecutionReceiptT, SignedTransactionT> SyncBlock<ExecutionReceiptT, SignedTransactionT>
     for BlockT
 where
-    BlockT: Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT> + Send + Sync,
+    BlockT: EthBlock<ExecutionReceiptT, SignedTransactionT> + Send + Sync,
     ExecutionReceiptT: Receipt<FilterLog>,
 {
+}
+
+impl<ChainSpecT: SyncRuntimeSpec> BlockTraitObject<ChainSpecT>
+    for dyn SyncBlock<
+        ChainSpecT::ExecutionReceipt<FilterLog>,
+        ChainSpecT::SignedTransaction,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >
+where
+    ChainSpecT::LocalBlock: BlockReceipts<
+        ChainSpecT::ExecutionReceipt<FilterLog>,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
+{
+    fn from_remote(remote: RemoteBlock<ChainSpecT>) -> Arc<Self> {
+        Arc::new(remote)
+    }
+
+    fn from_local(local: ChainSpecT::LocalBlock) -> Arc<Self> {
+        Arc::new(local)
+    }
 }
 
 /// A type containing the relevant data for an Ethereum block.
@@ -184,28 +228,32 @@ impl<ChainSpecT: RuntimeSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransact
 }
 
 /// The result returned by requesting a block by number.
-#[derive_where(Clone, Debug)]
-pub struct BlockAndTotalDifficulty<
-    BlockchainErrorT,
-    ExecutionReceiptT: Receipt<FilterLog>,
-    SignedTransactionT,
-> {
+#[derive(Clone, Debug)]
+pub struct BlockAndTotalDifficulty<BlockT, SignedTransactionT> {
     /// The block
-    pub block: Arc<dyn SyncBlock<ExecutionReceiptT, SignedTransactionT, Error = BlockchainErrorT>>,
+    pub block: BlockT,
     /// The total difficulty with the block
     pub total_difficulty: Option<U256>,
+    phantom: PhantomData<SignedTransactionT>,
 }
 
-impl<BlockchainErrorT, ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT>
-    From<BlockAndTotalDifficulty<BlockchainErrorT, ExecutionReceiptT, SignedTransactionT>>
-    for edr_rpc_eth::Block<B256>
+impl<BlockT, SignedTransactionT> BlockAndTotalDifficulty<BlockT, SignedTransactionT> {
+    /// Creates a new block and total difficulty.
+    pub fn new(block: BlockT, total_difficulty: Option<U256>) -> Self {
+        Self {
+            block,
+            total_difficulty,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<BlockT: Block<SignedTransactionT>, SignedTransactionT>
+    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for edr_rpc_eth::Block<B256>
 where
-    ExecutionReceiptT: Receipt<FilterLog>,
     SignedTransactionT: ExecutableTransaction,
 {
-    fn from(
-        value: BlockAndTotalDifficulty<BlockchainErrorT, ExecutionReceiptT, SignedTransactionT>,
-    ) -> Self {
+    fn from(value: BlockAndTotalDifficulty<BlockT, SignedTransactionT>) -> Self {
         let transactions = value
             .block
             .transactions()

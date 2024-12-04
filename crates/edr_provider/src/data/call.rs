@@ -55,7 +55,7 @@ pub(super) fn run_call<'a, 'evm, ChainSpecT, DebugDataT>(
 where
     'a: 'evm,
     ChainSpecT: SyncRuntimeSpec<
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
@@ -76,7 +76,7 @@ where
     let mut header = header.clone();
     header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
 
-    let block = ChainSpecT::Block::new_block_env(&header, hardfork.into());
+    let block = ChainSpecT::BlockEnv::new_block_env(&header, hardfork.into());
 
     let state_overrider = StateRefOverrider::new(state_overrides, state);
 

@@ -85,7 +85,7 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            Block: Default,
+            BlockEnv: Default,
             SignedTransaction: Default
                                    + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + PartialEq,
@@ -150,7 +150,7 @@ impl<
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            Block: Clone + Default,
+            BlockEnv: Clone + Default,
             PooledTransaction: IsEip155,
             SignedTransaction: Default
                                    + TransactionMut

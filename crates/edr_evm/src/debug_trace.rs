@@ -83,7 +83,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     evm_config: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     trace_config: DebugTraceConfig,
-    block: ChainSpecT::Block,
+    block: ChainSpecT::BlockEnv,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     verbose_tracing: bool,
@@ -93,7 +93,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
 >
 where
     ChainSpecT: RuntimeSpec<
-        Block: Clone,
+        BlockEnv: Clone,
         SignedTransaction: Default
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,

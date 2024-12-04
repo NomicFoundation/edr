@@ -90,7 +90,7 @@ pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
 pub fn pending_base_fee<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,

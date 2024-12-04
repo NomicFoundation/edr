@@ -21,7 +21,7 @@ use edr_evm::{
     spec::ExecutionReceiptHigherKindedForChainSpec,
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    transaction, EthLocalBlock, EthLocalBlockForChainSpec, LocalBlock as _,
+    transaction, EmptyBlock as _, EthLocalBlock, EthLocalBlockForChainSpec,
     RemoteBlockConversionError, SyncBlock,
 };
 use edr_rpc_eth::TransactionConversionError;

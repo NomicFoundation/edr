@@ -45,7 +45,7 @@ pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, Stat
     cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     transaction: ChainSpecT::SignedTransaction,
-    block: ChainSpecT::Block,
+    block: ChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
@@ -138,7 +138,7 @@ pub fn guaranteed_dry_run<
     mut cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     transaction: ChainSpecT::SignedTransaction,
-    block: ChainSpecT::Block,
+    block: ChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
@@ -178,7 +178,7 @@ pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
     cfg: CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     transaction: ChainSpecT::SignedTransaction,
-    block: ChainSpecT::Block,
+    block: ChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<

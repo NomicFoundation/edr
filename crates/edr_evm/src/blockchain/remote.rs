@@ -36,7 +36,7 @@ where
 impl<BlockT, ChainSpecT, const FORCE_CACHING: bool>
     RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>
 where
-    BlockT: Block<ChainSpecT::SignedTransaction> + Clone + From<RemoteBlock<ChainSpecT>>,
+    BlockT: Block<ChainSpecT::SignedTransaction> + Clone,
     ChainSpecT: RuntimeSpec,
 {
     /// Constructs a new instance with the provided RPC client.
@@ -45,83 +45,6 @@ where
             client,
             cache: RwLock::new(SparseBlockchainStorage::default()),
             runtime,
-        }
-    }
-
-    /// Retrieves the block with the provided hash, if it exists.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub async fn block_by_hash(
-        &self,
-        hash: &B256,
-    ) -> Result<Option<BlockT>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
-        let cache = self.cache.upgradable_read().await;
-
-        if let Some(block) = cache.block_by_hash(hash).cloned() {
-            return Ok(Some(block));
-        }
-
-        if let Some(block) = self
-            .client
-            .get_block_by_hash_with_transaction_data(*hash)
-            .await?
-        {
-            self.fetch_and_cache_block(cache, block)
-                .await
-                .map(Option::Some)
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Retrieves the block with the provided number, if it exists.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub async fn block_by_number(
-        &self,
-        number: u64,
-    ) -> Result<BlockT, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
-        let cache = self.cache.upgradable_read().await;
-
-        if let Some(block) = cache.block_by_number(number).cloned() {
-            Ok(block)
-        } else {
-            let block = self
-                .client
-                .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(number))
-                .await?;
-
-            self.fetch_and_cache_block(cache, block).await
-        }
-    }
-
-    /// Retrieves the block that contains a transaction with the provided hash,
-    /// if it exists.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub async fn block_by_transaction_hash(
-        &self,
-        transaction_hash: &B256,
-    ) -> Result<Option<BlockT>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
-        // This block ensure that the read lock is dropped
-        {
-            if let Some(block) = self
-                .cache
-                .read()
-                .await
-                .block_by_transaction_hash(transaction_hash)
-                .cloned()
-            {
-                return Ok(Some(block));
-            }
-        }
-
-        if let Some(transaction) = self
-            .client
-            .get_transaction_by_hash(*transaction_hash)
-            .await?
-        {
-            self.block_by_hash(transaction.block_hash().expect("Not a pending transaction"))
-                .await
-        } else {
-            Ok(None)
         }
     }
 
@@ -207,6 +130,90 @@ where
     /// Retrieves the blockchain's runtime.
     pub fn runtime(&self) -> &runtime::Handle {
         &self.runtime
+    }
+}
+
+impl<BlockT, ChainSpecT, const FORCE_CACHING: bool>
+    RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>
+where
+    BlockT: Block<ChainSpecT::SignedTransaction> + Clone + From<RemoteBlock<ChainSpecT>>,
+    ChainSpecT: RuntimeSpec,
+{
+    /// Retrieves the block with the provided hash, if it exists.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub async fn block_by_hash(
+        &self,
+        hash: &B256,
+    ) -> Result<Option<BlockT>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
+        let cache = self.cache.upgradable_read().await;
+
+        if let Some(block) = cache.block_by_hash(hash).cloned() {
+            return Ok(Some(block));
+        }
+
+        if let Some(block) = self
+            .client
+            .get_block_by_hash_with_transaction_data(*hash)
+            .await?
+        {
+            self.fetch_and_cache_block(cache, block)
+                .await
+                .map(Option::Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Retrieves the block with the provided number, if it exists.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub async fn block_by_number(
+        &self,
+        number: u64,
+    ) -> Result<BlockT, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
+        let cache = self.cache.upgradable_read().await;
+
+        if let Some(block) = cache.block_by_number(number).cloned() {
+            Ok(block)
+        } else {
+            let block = self
+                .client
+                .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(number))
+                .await?;
+
+            self.fetch_and_cache_block(cache, block).await
+        }
+    }
+
+    /// Retrieves the block that contains a transaction with the provided hash,
+    /// if it exists.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub async fn block_by_transaction_hash(
+        &self,
+        transaction_hash: &B256,
+    ) -> Result<Option<BlockT>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
+        // This block ensure that the read lock is dropped
+        {
+            if let Some(block) = self
+                .cache
+                .read()
+                .await
+                .block_by_transaction_hash(transaction_hash)
+                .cloned()
+            {
+                return Ok(Some(block));
+            }
+        }
+
+        if let Some(transaction) = self
+            .client
+            .get_transaction_by_hash(*transaction_hash)
+            .await?
+        {
+            self.block_by_hash(transaction.block_hash().expect("Not a pending transaction"))
+                .await
+        } else {
+            Ok(None)
+        }
     }
 
     /// Retrieves the total difficulty at the block with the provided hash.

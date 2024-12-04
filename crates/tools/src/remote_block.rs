@@ -43,7 +43,7 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
 where
     ChainSpecT: Debug
         + SyncRuntimeSpec<
-            Block: Default,
+            BlockEnv: Default,
             ExecutionReceipt<FilterLog>: PartialEq,
             SignedTransaction: Default
                                    + TransactionValidation<

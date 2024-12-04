@@ -29,7 +29,8 @@ use crate::{
     },
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    BlockBuilderCreationError, EthLocalBlock, EthLocalBlockForChainSpec, MineBlockResultAndState,
+    Block as _, BlockBuilderCreationError, EthLocalBlock, EthLocalBlockForChainSpec,
+    MineBlockResultAndState,
 };
 
 /// A builder for constructing Ethereum L1 blocks.
@@ -192,7 +193,7 @@ where
             }
         }
 
-        let block = ChainSpecT::Block::new_block_env(&self.header, self.hardfork.into());
+        let block = ChainSpecT::BlockEnv::new_block_env(&self.header, self.hardfork.into());
 
         let receipt_builder =
             match ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction) {

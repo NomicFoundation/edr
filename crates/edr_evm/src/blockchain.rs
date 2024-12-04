@@ -24,7 +24,7 @@ use crate::{
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateCommit, StateDiff, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, SyncBlock,
+    Block, BlockAndTotalDifficulty,
 };
 
 pub type BlockchainErrorForChainSpec<ChainSpecT> = BlockchainError<
@@ -114,36 +114,14 @@ where
     fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    >;
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError>;
 
     /// Retrieves the block with the provided number, if it exists.
     #[allow(clippy::type_complexity)]
     fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    >;
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError>;
 
     /// Retrieves the block that contains a transaction with the provided hash,
     /// if it exists.
@@ -151,18 +129,7 @@ where
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    >;
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError>;
 
     /// Retrieves the instances chain ID.
     fn chain_id(&self) -> u64;
@@ -176,18 +143,7 @@ where
     }
 
     /// Retrieves the last block in the blockchain.
-    fn last_block(
-        &self,
-    ) -> Result<
-        Arc<
-            dyn SyncBlock<
-                ChainSpecT::ExecutionReceipt<FilterLog>,
-                ChainSpecT::SignedTransaction,
-                Error = Self::BlockchainError,
-            >,
-        >,
-        Self::BlockchainError,
-    >;
+    fn last_block(&self) -> Result<Arc<ChainSpecT::Block>, Self::BlockchainError>;
 
     /// Retrieves the last block number in the blockchain.
     fn last_block_number(&self) -> u64;
@@ -252,11 +208,7 @@ pub trait BlockchainMut<ChainSpecT: RuntimeSpec> {
         block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
     ) -> Result<
-        BlockAndTotalDifficulty<
-            Self::Error,
-            ChainSpecT::ExecutionReceipt<FilterLog>,
-            ChainSpecT::SignedTransaction,
-        >,
+        BlockAndTotalDifficulty<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>,
         Self::Error,
     >;
 

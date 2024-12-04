@@ -13,7 +13,7 @@ use edr_eth::{
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{state::StateDiff, Block, BlockReceipts, LocalBlock};
+use crate::{state::StateDiff, Block, BlockReceipts, EmptyBlock, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
@@ -264,7 +264,7 @@ impl<
 }
 
 impl<
-        BlockT: Block<SignedTransactionT> + Clone,
+        BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<ExecutionReceiptT>,
         ExecutionReceiptT: Receipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT: ExecutableTransaction,
@@ -272,25 +272,18 @@ impl<
 {
     /// Retrieves the block by number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn block_by_number<
-        LocalBlockT: LocalBlock<ExecutionReceiptT, HardforkT, SignedTransactionT> + Into<BlockT>,
-    >(
-        &self,
-        number: u64,
-    ) -> Result<Option<BlockT>, InsertError> {
+    pub fn block_by_number(&self, number: u64) -> Result<Option<BlockT>, InsertError> {
         Ok(self
-            .try_fulfilling_reservation::<LocalBlockT>(number)?
+            .try_fulfilling_reservation(number)?
             .or_else(|| self.storage.read().block_by_number(number).cloned()))
     }
 
     /// Insert a block into the storage. Errors if a block with the same hash or
     /// number already exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn insert_block<
-        LocalBlockT: LocalBlock<ExecutionReceiptT, HardforkT, SignedTransactionT> + Into<BlockT>,
-    >(
+    pub fn insert_block(
         &mut self,
-        block: LocalBlockT,
+        block: BlockT,
         state_diff: StateDiff,
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertError> {
@@ -309,12 +302,7 @@ impl<
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn try_fulfilling_reservation<
-        LocalBlockT: LocalBlock<ExecutionReceiptT, HardforkT, SignedTransactionT> + Into<BlockT>,
-    >(
-        &self,
-        block_number: u64,
-    ) -> Result<Option<BlockT>, InsertError> {
+    fn try_fulfilling_reservation(&self, block_number: u64) -> Result<Option<BlockT>, InsertError> {
         let reservations = self.reservations.upgradable_read();
 
         reservations
@@ -357,7 +345,7 @@ impl<
                     block_number,
                 );
 
-                let block = LocalBlockT::empty(
+                let block = BlockT::empty(
                     reservation.hardfork,
                     PartialHeader {
                         number: block_number,

@@ -5,21 +5,26 @@ use edr_eth::{
     receipt::{Receipt as _, TransactionReceipt},
     transaction::TransactionType as _,
 };
+use edr_evm::block::transaction::{
+    TransactionReceiptAndBlock, TransactionReceiptAndBlockForChainSpec,
+};
 use edr_rpc_eth::RpcTypeFrom;
 use revm_optimism::OptimismSpecId;
 
 use super::BlockReceipt;
-use crate::{eip2718::TypedEnvelope, receipt, transaction};
+use crate::{
+    block::OptimismBlock as _, eip2718::TypedEnvelope, receipt, transaction, OptimismChainSpec,
+};
 
-impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>
-    for BlockReceipt
-{
+impl RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<OptimismChainSpec>> for BlockReceipt {
     type Hardfork = OptimismSpecId;
 
     fn rpc_type_from(
-        receipt: &receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
+        value: &TransactionReceiptAndBlockForChainSpec<OptimismChainSpec>,
         hardfork: Self::Hardfork,
     ) -> Self {
+        let TransactionReceiptAndBlock { block, receipt } = value;
+
         let transaction_type = if hardfork >= OptimismSpecId::BERLIN {
             Some(u8::from(receipt.inner.transaction_type()))
         } else {
@@ -57,6 +62,7 @@ impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLo
                 receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => receipt.deposit_receipt_version,
             },
+            l1_block_info: block.l1_block_info().clone(),
             authorization_list: None,
         }
     }

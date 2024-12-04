@@ -8,11 +8,11 @@ use edr_eth::{
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 
-use super::{BlockReceipt, BlockReceipts};
 use crate::{
+    block::{BlockReceipt, BlockReceipts},
     blockchain::{BlockchainErrorForChainSpec, ForkedBlockchainError},
-    spec::{RuntimeSpec, SyncRuntimeSpec},
-    Block, EthBlockData, SyncBlock,
+    spec::RuntimeSpec,
+    Block, EthBlockData,
 };
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
@@ -143,22 +143,6 @@ impl<ChainSpecT: RuntimeSpec> BlockReceipts<ChainSpecT::ExecutionReceipt<FilterL
             .expect("We checked that receipts are not set");
 
         Ok(receipts)
-    }
-}
-
-impl<ChainSpecT> From<RemoteBlock<ChainSpecT>>
-    for Arc<
-        dyn SyncBlock<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
-            ChainSpecT::SignedTransaction,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >
-where
-    ChainSpecT: SyncRuntimeSpec,
-{
-    fn from(value: RemoteBlock<ChainSpecT>) -> Self {
-        Arc::new(value)
     }
 }
 

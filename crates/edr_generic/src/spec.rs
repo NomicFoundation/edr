@@ -1,6 +1,7 @@
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
     l1::{self, L1ChainSpec},
+    log::FilterLog,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
@@ -10,14 +11,14 @@ use edr_evm::{
     spec::{ExecutionReceiptHigherKindedForChainSpec, L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
-    EthBlockBuilder, EthLocalBlock,
+    EthBlockBuilder, EthLocalBlock, SyncBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
 use crate::GenericChainSpec;
 
 impl ChainSpec for GenericChainSpec {
-    type Block = l1::BlockEnv;
+    type BlockEnv = l1::BlockEnv;
     type Context = ();
     type HaltReason = HaltReason;
     type Hardfork = l1::SpecId;
@@ -31,6 +32,12 @@ impl EthHeaderConstants for GenericChainSpec {
 }
 
 impl RuntimeSpec for GenericChainSpec {
+    type Block<BlockchainErrorT> = dyn SyncBlock<
+        Self::ExecutionReceipt<FilterLog>,
+        Self::SignedTransaction,
+        Error = BlockchainErrorT,
+    >;
+
     type BlockBuilder<
         'blockchain,
         BlockchainErrorT: 'blockchain,

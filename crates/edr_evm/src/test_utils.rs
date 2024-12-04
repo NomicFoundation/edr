@@ -15,12 +15,12 @@ use edr_eth::{
 use edr_rpc_eth::client::EthRpcClient;
 
 use crate::{
-    blockchain::{Blockchain as _, ForkedBlockchain},
+    blockchain::{Blockchain as _, BlockchainErrorForChainSpec, ForkedBlockchain},
     config::CfgEnv,
     spec::SyncRuntimeSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
-    transaction, Block, BlockBuilder, BlockReceipts as _, DynSyncBlockForChainSpec,
-    LocalBlock as _, MemPool, MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
+    transaction, Block, BlockBuilder, BlockReceipts, LocalBlock as _, MemPool,
+    MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
 };
 
 /// A test fixture for `MemPool`.
@@ -161,9 +161,12 @@ pub fn dummy_eip1559_transaction(
 pub async fn run_full_block<
     ChainSpecT: Debug
         + SyncRuntimeSpec<
-            Block: Default,
-            LocalBlock: Into<Arc<DynSyncBlockForChainSpec<ChainSpecT>>>,
+            BlockEnv: Default,
             ExecutionReceipt<FilterLog>: PartialEq,
+            LocalBlock: BlockReceipts<
+                ChainSpecT::ExecutionReceipt<FilterLog>,
+                Error = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
             SignedTransaction: Default
                                    + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + Send + Sync,

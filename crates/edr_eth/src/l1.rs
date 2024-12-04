@@ -13,7 +13,7 @@ use crate::{
 pub struct L1ChainSpec;
 
 impl ChainSpec for L1ChainSpec {
-    type Block = BlockEnv;
+    type BlockEnv = BlockEnv;
     type Context = ();
     type HaltReason = HaltReason;
     type Hardfork = SpecId;

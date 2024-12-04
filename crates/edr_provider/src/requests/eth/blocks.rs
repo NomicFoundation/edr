@@ -53,7 +53,7 @@ pub fn handle_get_block_by_hash_request<
 pub fn handle_get_block_by_number_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
@@ -99,7 +99,7 @@ pub fn handle_get_block_transaction_count_by_hash_request<
 pub fn handle_get_block_transaction_count_by_block_number<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
@@ -134,7 +134,7 @@ struct BlockByNumberResult<ChainSpecT: RuntimeSpec> {
 fn block_by_number<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,

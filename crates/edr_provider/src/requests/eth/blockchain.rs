@@ -28,7 +28,7 @@ pub fn handle_chain_id_request<
 pub fn handle_get_transaction_count_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,

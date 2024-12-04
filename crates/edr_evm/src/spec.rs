@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_eth::{
     block::{self, BlobGas, PartialHeader},
@@ -16,7 +16,7 @@ use edr_utils::types::HigherKinded;
 pub use revm::EvmWiring;
 
 use crate::{
-    block::transaction::TransactionAndBlock,
+    block::transaction::{TransactionAndBlock, TransactionReceiptAndBlockForChainSpec},
     evm::PrimitiveEvmWiring,
     hardfork::{self, Activations},
     receipt::{self, ExecutionReceiptBuilder},
@@ -25,8 +25,9 @@ use crate::{
         remote::EthRpcTransaction, Transaction, TransactionError, TransactionType,
         TransactionValidation,
     },
-    BlockBuilder, BlockReceipts, EthBlockBuilder, EthBlockData, EthLocalBlock, EthRpcBlock,
-    LocalBlock, RemoteBlockConversionError,
+    Block, BlockBuilder, BlockReceipts, BlockTraitObject, EmptyBlock, EthBlockBuilder,
+    EthBlockData, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock, RemoteBlockConversionError,
+    SyncBlock,
 };
 
 /// Helper type to determine higher kinded execution receipt types for a chain
@@ -77,7 +78,7 @@ pub trait RuntimeSpec:
     // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
     + ChainSpec<
-        Block: BlockEnvConstructor<block::Header> + BlockEnvConstructor<PartialHeader> + Default,
+        BlockEnv: BlockEnvConstructor<block::Header> + BlockEnvConstructor<PartialHeader> + Default,
         Hardfork: Debug,
         SignedTransaction: alloy_rlp::Encodable
           + Clone
@@ -95,7 +96,7 @@ pub trait RuntimeSpec:
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
           + TryInto<EthBlockData<Self>, Error = Self::RpcBlockConversionError>,
         RpcReceipt: Debug
-          + RpcTypeFrom<BlockReceipt<Self::ExecutionReceipt<FilterLog>>, Hardfork = Self::Hardfork>
+          + RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<Self>, Hardfork = Self::Hardfork>
           + TryInto<BlockReceipt<Self::ExecutionReceipt<FilterLog>>, Error = Self::RpcReceiptConversionError>,
         RpcTransaction: EthRpcTransaction
           + RpcTypeFrom<TransactionAndBlock<Self>, Hardfork = Self::Hardfork>
@@ -109,6 +110,12 @@ pub trait RuntimeSpec:
     >
     + Sized
 {
+    /// Trait for representing block trait objects.
+    type Block: Block<Self::SignedTransaction>
+        + BlockReceipts<Self::ExecutionReceipt<FilterLog>>
+        + BlockTraitObject<Self>
+        + ?Sized;
+
     /// Type representing a block builder.
     type BlockBuilder<
         'blockchain,
@@ -127,19 +134,17 @@ pub trait RuntimeSpec:
         ExternalContext = ExternalContexT,
         ChainContext = <Self as ChainSpec>::Context,
         Database = DatabaseT,
-        Block = <Self as ChainSpec>::Block,
+        Block = <Self as ChainSpec>::BlockEnv,
         Transaction = <Self as ChainSpec>::SignedTransaction,
         Hardfork = <Self as ChainSpec>::Hardfork,
         HaltReason = <Self as ChainSpec>::HaltReason
     >;
 
     /// Type representing a locally mined block.
-    type LocalBlock: BlockReceipts<
-        Self::ExecutionReceipt<FilterLog>> + LocalBlock<
-        Self::ExecutionReceipt<FilterLog>,
-        Self::Hardfork,
-        Self::SignedTransaction
-    >;
+    type LocalBlock: Block<Self::SignedTransaction> +
+        BlockReceipts<Self::ExecutionReceipt<FilterLog>> +
+        EmptyBlock<Self::Hardfork> +
+        LocalBlock<Self::ExecutionReceipt<FilterLog>>;
 
     /// Type representing a builder that constructs an execution receipt.
     type ReceiptBuilder: ExecutionReceiptBuilder<
@@ -158,6 +163,10 @@ pub trait RuntimeSpec:
     /// Type representing an error that occurs when converting an RPC
     /// transaction.
     type RpcTransactionConversionError: std::error::Error;
+
+    fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block>;
+
+    fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block>;
 
     /// Casts a transaction validation error into a `TransactionError`.
     ///
@@ -268,7 +277,7 @@ impl<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> PrimitiveEvmW
     type ExternalContext = ExternalContextT;
     type ChainContext = ChainSpecT::Context;
     type Database = DatabaseT;
-    type Block = ChainSpecT::Block;
+    type Block = ChainSpecT::BlockEnv;
     type Transaction = ChainSpecT::SignedTransaction;
     type Hardfork = ChainSpecT::Hardfork;
     type HaltReason = ChainSpecT::HaltReason;
@@ -278,7 +287,7 @@ impl<ChainSpecT, DatabaseT, ExternalContextT> revm::EvmWiring
     for L1Wiring<ChainSpecT, DatabaseT, ExternalContextT>
 where
     ChainSpecT: ChainSpec<
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
@@ -292,6 +301,12 @@ where
 impl RuntimeSpec for L1ChainSpec {
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
+
+    type Block = dyn SyncBlock<
+        Self::ExecutionReceipt<FilterLog>,
+        Self::SignedTransaction,
+        Error = <Self::LocalBlock as BlockReceipts<Self::ExecutionReceipt<FilterLog>>>::Error,
+    >;
 
     type BlockBuilder<
         'blockchain,
@@ -311,6 +326,14 @@ impl RuntimeSpec for L1ChainSpec {
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
     type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;
     type RpcTransactionConversionError = TransactionConversionError;
+
+    fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block> {
+        local_block
+    }
+
+    fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block> {
+        remote_block
+    }
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,

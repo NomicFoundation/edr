@@ -28,7 +28,7 @@ use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpec
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::{self, LocalBlock},
+    block::{self, LocalBlock, OptimismBlock, SyncOptimismBlock},
     eip2718::TypedEnvelope,
     hardfork, receipt, rpc, transaction,
 };
@@ -50,7 +50,7 @@ impl RpcSpec for OptimismChainSpec {
 }
 
 impl ChainSpec for OptimismChainSpec {
-    type Block = l1::BlockEnv;
+    type BlockEnv = l1::BlockEnv;
     type Context = revm_optimism::Context;
     type HaltReason = OptimismHaltReason;
     type Hardfork = OptimismSpecId;
@@ -69,7 +69,7 @@ where
     type ExternalContext = ExternalContextT;
     type ChainContext = <OptimismChainSpec as ChainSpec>::Context;
     type Database = DatabaseT;
-    type Block = <OptimismChainSpec as ChainSpec>::Block;
+    type Block = <OptimismChainSpec as ChainSpec>::BlockEnv;
     type Transaction = <OptimismChainSpec as ChainSpec>::SignedTransaction;
     type Hardfork = <OptimismChainSpec as ChainSpec>::Hardfork;
     type HaltReason = <OptimismChainSpec as ChainSpec>::HaltReason;
@@ -91,6 +91,8 @@ where
 }
 
 impl RuntimeSpec for OptimismChainSpec {
+    type Block<BlockchainErrorT> = dyn SyncOptimismBlock<Error = BlockchainErrorT>;
+
     type BlockBuilder<
         'blockchain,
         BlockchainErrorT: 'blockchain,

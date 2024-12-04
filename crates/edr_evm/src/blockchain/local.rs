@@ -23,11 +23,12 @@ use super::{
     BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec, BlockchainMut,
 };
 use crate::{
+    block::EmptyBlock as _,
     spec::SyncRuntimeSpec,
     state::{
         StateCommit as _, StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState,
     },
-    Block, BlockAndTotalDifficulty, BlockReceipts, DynSyncBlockForChainSpec, LocalBlock, SyncBlock,
+    Block as _, BlockAndTotalDifficulty, BlockReceipts,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
@@ -82,13 +83,7 @@ where
     ChainSpecT: SyncRuntimeSpec,
 {
     storage: ReservableSparseBlockchainStorage<
-        Arc<
-            dyn SyncBlock<
-                ChainSpecT::ExecutionReceipt<FilterLog>,
-                ChainSpecT::SignedTransaction,
-                Error = BlockchainErrorForChainSpec<ChainSpecT>,
-            >,
-        >,
+        Arc<ChainSpecT::LocalBlock>,
         ChainSpecT::ExecutionReceipt<FilterLog>,
         ChainSpecT::Hardfork,
         ChainSpecT::SignedTransaction,
@@ -100,8 +95,7 @@ where
 impl<ChainSpecT> LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
-        LocalBlock: Into<Arc<DynSyncBlockForChainSpec<ChainSpecT>>>
-                        + BlockReceipts<
+        LocalBlock: BlockReceipts<
             ChainSpecT::ExecutionReceipt<FilterLog>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,
@@ -213,11 +207,9 @@ where
         chain_id: u64,
         hardfork: ChainSpecT::Hardfork,
     ) -> Self {
-        let genesis_block: Arc<DynSyncBlockForChainSpec<ChainSpecT>> = Arc::new(genesis_block);
-
         let total_difficulty = genesis_block.header().difficulty;
         let storage = ReservableSparseBlockchainStorage::with_genesis_block(
-            genesis_block,
+            Arc::new(genesis_block),
             genesis_diff,
             total_difficulty,
         );
@@ -230,9 +222,12 @@ where
     }
 }
 
-impl<ChainSpecT> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
+impl<ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncRuntimeSpec<LocalBlock: Into<Arc<DynSyncBlockForChainSpec<ChainSpecT>>>>,
+    ChainSpecT::LocalBlock: BlockReceipts<
+        ChainSpecT::ExecutionReceipt<FilterLog>,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
 {
     type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
 
@@ -243,19 +238,10 @@ where
     fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    > {
-        Ok(self.storage.block_by_hash(hash))
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+        let local_block = self.storage.block_by_hash(hash);
+
+        Ok(local_block.map(ChainSpecT::cast_local_block))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -263,21 +249,10 @@ where
     fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    > {
-        Ok(self
-            .storage
-            .block_by_number::<ChainSpecT::LocalBlock>(number)?)
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+        let local_block = self.storage.block_by_number(number)?;
+
+        Ok(local_block.map(ChainSpecT::cast_local_block))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -285,19 +260,10 @@ where
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<
-            Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = Self::BlockchainError,
-                >,
-            >,
-        >,
-        Self::BlockchainError,
-    > {
-        Ok(self.storage.block_by_transaction_hash(transaction_hash))
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+        let local_block = self.storage.block_by_transaction_hash(transaction_hash);
+
+        Ok(local_block.map(ChainSpecT::cast_local_block))
     }
 
     fn chain_id(&self) -> u64 {
@@ -305,22 +271,13 @@ where
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn last_block(
-        &self,
-    ) -> Result<
-        Arc<
-            dyn SyncBlock<
-                ChainSpecT::ExecutionReceipt<FilterLog>,
-                ChainSpecT::SignedTransaction,
-                Error = Self::BlockchainError,
-            >,
-        >,
-        Self::BlockchainError,
-    > {
-        Ok(self
+    fn last_block(&self) -> Result<Arc<ChainSpecT::Block>, Self::BlockchainError> {
+        let local_block = self
             .storage
-            .block_by_number::<ChainSpecT::LocalBlock>(self.storage.last_block_number())?
-            .expect("Block must exist"))
+            .block_by_number(self.storage.last_block_number())?
+            .expect("Block must exist");
+
+        Ok(ChainSpecT::cast_local_block(local_block))
     }
 
     fn last_block_number(&self) -> u64 {
@@ -391,9 +348,12 @@ where
     }
 }
 
-impl<ChainSpecT> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
+impl<ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncRuntimeSpec<LocalBlock: Into<Arc<DynSyncBlockForChainSpec<ChainSpecT>>>>,
+    ChainSpecT::LocalBlock: BlockReceipts<
+        ChainSpecT::ExecutionReceipt<FilterLog>,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
 {
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
@@ -403,11 +363,7 @@ where
         block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
     ) -> Result<
-        BlockAndTotalDifficulty<
-            Self::Error,
-            ChainSpecT::ExecutionReceipt<FilterLog>,
-            ChainSpecT::SignedTransaction,
-        >,
+        BlockAndTotalDifficulty<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>,
         Self::Error,
     > {
         let last_block = self.last_block()?;
@@ -423,12 +379,12 @@ where
 
         let block = self
             .storage
-            .insert_block(block, state_diff, total_difficulty)?;
+            .insert_block(Arc::new(block), state_diff, total_difficulty)?;
 
-        Ok(BlockAndTotalDifficulty {
-            block: block.clone(),
-            total_difficulty: Some(total_difficulty),
-        })
+        Ok(BlockAndTotalDifficulty::new(
+            ChainSpecT::cast_local_block(block.clone()),
+            Some(total_difficulty),
+        ))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -468,16 +424,13 @@ where
     }
 }
 
-impl<ChainSpecT> BlockHash for LocalBlockchain<ChainSpecT>
-where
-    ChainSpecT: SyncRuntimeSpec<LocalBlock: Into<Arc<DynSyncBlockForChainSpec<ChainSpecT>>>>,
-{
+impl<ChainSpecT: SyncRuntimeSpec> BlockHash for LocalBlockchain<ChainSpecT> {
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
         self.storage
-            .block_by_number::<ChainSpecT::LocalBlock>(block_number)?
+            .block_by_number(block_number)?
             .map(|block| *block.block_hash())
             .ok_or(BlockchainError::UnknownBlockNumber)
     }

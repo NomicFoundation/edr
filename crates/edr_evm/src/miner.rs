@@ -23,7 +23,7 @@ use crate::{
     state::{StateDiff, SyncState},
     trace::Trace,
     transaction::TransactionError,
-    BlockBuilder, BlockBuilderAndError, BlockTransactionError, MemPool, SyncBlock,
+    Block as _, BlockBuilder, BlockBuilderAndError, BlockTransactionError, MemPool, SyncBlock,
 };
 
 /// The result of mining a block, after having been committed to the blockchain.

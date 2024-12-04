@@ -44,7 +44,7 @@ impl<HaltReasonT: HaltReasonTrait> From<String> for Response<HaltReasonT> {
 pub trait SyncNapiSpec:
     SyncProviderSpec<
     CurrentTime,
-    Block: Clone + Default,
+    BlockEnv: Clone + Default,
     PooledTransaction: IsEip155,
     SignedTransaction: Default
                            + TransactionMut

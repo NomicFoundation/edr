@@ -2,7 +2,6 @@ use core::cmp;
 
 use edr_eth::{
     block::Header,
-    log::FilterLog,
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut, TransactionValidation},
@@ -15,13 +14,13 @@ use edr_evm::{
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    DebugContext, SyncBlock,
+    Block as _, BlockReceipts as _, DebugContext,
 };
 use itertools::Itertools;
 
 use crate::{
     data::call::{self, RunCallArgs},
-    ProviderError,
+    ProviderError, ProviderSpec,
 };
 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
@@ -46,7 +45,7 @@ pub(super) fn check_gas_limit<ChainSpecT>(
 ) -> Result<bool, ProviderError<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
@@ -108,7 +107,7 @@ pub(super) fn binary_search_estimation<ChainSpecT>(
 ) -> Result<u64, ProviderError<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
@@ -185,12 +184,8 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT: RuntimeSpec>(
-    block: &dyn SyncBlock<
-        ChainSpecT::ExecutionReceipt<FilterLog>,
-        ChainSpecT::SignedTransaction,
-        Error = BlockchainErrorForChainSpec<ChainSpecT>,
-    >,
+pub(super) fn compute_rewards<ChainSpecT: ProviderSpec>(
+    block: &ChainSpecT::Block,
     reward_percentiles: &[RewardPercentile],
 ) -> Result<Vec<U256>, ProviderError<ChainSpecT>> {
     if block.transactions().is_empty() {

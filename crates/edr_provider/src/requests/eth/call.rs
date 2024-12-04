@@ -17,7 +17,7 @@ use crate::{
 pub fn handle_call_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Clone
                                + Default
                                + TransactionValidation<
@@ -70,7 +70,7 @@ pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>)
 pub(crate) fn resolve_call_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
