@@ -20,6 +20,7 @@ import {
   MessageTrace,
 } from "hardhat/internal/hardhat-network/stack-traces/message-trace";
 import {
+  SolidityStackTrace,
   SolidityStackTraceEntry,
   StackTraceEntryType,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
@@ -492,22 +493,23 @@ async function runTest(
   const txIndexToContract: Map<number, DeployedContract> = new Map();
 
   for (const [txIndex, tx] of testDefinition.transactions.entries()) {
-    let trace: MessageTrace;
+    let stackTraceOrContractAddress: SolidityStackTrace | string | undefined;
 
     if ("file" in tx) {
-      trace = await runDeploymentTransactionTest(
+      stackTraceOrContractAddress = await runDeploymentTransactionTest(
         txIndex,
         tx,
         provider,
         compilerOutput,
-        txIndexToContract
+        txIndexToContract,
+        tracingConfig,
       );
 
-      if (trace.deployedContract !== undefined) {
+      if (typeof stackTraceOrContractAddress === "string") {
         txIndexToContract.set(txIndex, {
           file: tx.file,
           name: tx.contract,
-          address: Buffer.from(trace.deployedContract),
+          address: Buffer.from(stackTraceOrContractAddress, "hex"),
         });
       }
     } else {
@@ -518,54 +520,50 @@ async function runTest(
         `No contract was deployed in tx ${tx.to} but transaction ${txIndex} is trying to call it`
       );
 
-      trace = await runCallTransactionTest(
+      stackTraceOrContractAddress = await runCallTransactionTest(
         txIndex,
         tx,
         provider,
         compilerOutput,
-        contract!
+        contract!,
+        tracingConfig,
       );
     }
 
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    const vmTraceDecoder = provider["_vmTraceDecoder"] as VmTraceDecoderT;
-    const decodedTrace = vmTraceDecoder.tryToDecodeMessageTrace(trace);
-
     try {
       if (tx.stackTrace === undefined) {
-        assert.isFalse(
-          trace.exit.isError(),
-          `Transaction ${txIndex} shouldn't have failed (${trace.exit.getReason()})`
+        assert.isTrue(
+          stackTraceOrContractAddress === undefined || typeof stackTraceOrContractAddress === "string",
+          // FVTODO
+          `Transaction ${txIndex} shouldn't have failed`
         );
       } else {
-        assert.isDefined(
-          trace.exit.isError(),
+        assert.isFalse(
+          stackTraceOrContractAddress === undefined || typeof stackTraceOrContractAddress === "string",
           `Transaction ${txIndex} should have failed`
         );
       }
     } catch (error) {
-      printMessageTrace(decodedTrace);
+      // printMessageTrace(decodedTrace); FVTODo
 
       throw error;
     }
 
-    if (trace.exit.isError()) {
-      const stackTrace = solidityTracer.getStackTrace(decodedTrace);
-
+    if (stackTraceOrContractAddress !== undefined && typeof stackTraceOrContractAddress !== "string") {
       try {
         compareStackTraces(
           txIndex,
-          stackTrace,
+          stackTraceOrContractAddress,
           tx.stackTrace!,
           compilerOptions.optimizer
         );
         if (testDefinition.print !== undefined && testDefinition.print) {
           console.log(`Transaction ${txIndex} stack trace`);
-          printStackTrace(stackTrace);
+          printStackTrace(stackTraceOrContractAddress);
         }
       } catch (err) {
-        printMessageTrace(decodedTrace);
-        printStackTrace(stackTrace);
+        // printMessageTrace(decodedTrace); TODO
+        printStackTrace(stackTraceOrContractAddress);
 
         throw err;
       }
@@ -632,8 +630,9 @@ async function runDeploymentTransactionTest(
   tx: DeploymentTransaction,
   provider: EdrProviderWrapper,
   compilerOutput: CompilerOutput,
-  txIndexToContract: Map<number, DeployedContract>
-): Promise<CreateMessageTrace> {
+  txIndexToContract: Map<number, DeployedContract>,
+  tracingConfig: TracingConfig,
+): Promise<SolidityStackTrace | string | undefined> {
   const file = compilerOutput.contracts[tx.file];
 
   assert.isDefined(
@@ -666,11 +665,7 @@ async function runDeploymentTransactionTest(
     value: tx.value !== undefined ? BigInt(tx.value) : undefined,
     data,
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
-  });
-
-  if ("precompile" in trace || "calldata" in trace) {
-    assert.fail("Expected trace to be a deployment trace");
-  }
+  }, tracingConfig);
 
   return trace;
 }
@@ -680,8 +675,9 @@ async function runCallTransactionTest(
   tx: CallTransaction,
   provider: EdrProviderWrapper,
   compilerOutput: CompilerOutput,
-  contract: DeployedContract
-): Promise<CallMessageTrace> {
+  contract: DeployedContract,
+  tracingConfig: TracingConfig,
+): Promise<SolidityStackTrace | string | undefined> {
   const compilerContract =
     compilerOutput.contracts[contract.file][contract.name];
 
@@ -704,11 +700,7 @@ async function runCallTransactionTest(
     value: tx.value !== undefined ? BigInt(tx.value) : undefined,
     data,
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
-  });
-
-  if (!("calldata" in trace) || "precompile" in trace) {
-    assert.fail("Expected trace to be a call trace");
-  }
+  }, tracingConfig);
 
   return trace;
 }
