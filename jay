@@ -1,0 +1,3 @@
+mkdir HoroscopeNFT
+cd HoroscopeNFT
+npm install --save-dev hardhat@2.20.0
