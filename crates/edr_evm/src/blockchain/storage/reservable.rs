@@ -296,9 +296,7 @@ impl<
         let receipts: Vec<_> = block.transaction_receipts().to_vec();
         self.storage.get_mut().insert_receipts(receipts)?;
 
-        self.storage
-            .get_mut()
-            .insert_block(block.into(), total_difficulty)
+        self.storage.get_mut().insert_block(block, total_difficulty)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -359,7 +357,7 @@ impl<
                 {
                     let mut storage = RwLockUpgradableReadGuard::upgrade(storage);
                     Ok(storage
-                        .insert_block(block.into(), reservation.previous_total_difficulty)?
+                        .insert_block(block, reservation.previous_total_difficulty)?
                         .clone())
                 }
             })
