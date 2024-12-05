@@ -183,13 +183,13 @@ pub struct ContractAndFunctionName {
 
 pub fn initialize_vm_trace_decoder(
     vm_trace_decoder: &mut VmTraceDecoder,
-    config: TracingConfig,
+    config: &TracingConfig,
 ) -> anyhow::Result<()> {
-    let Some(build_infos) = config.build_infos else {
+    let Some(build_infos) = &config.build_infos else {
         return Ok(());
     };
 
-    for build_info in &build_infos {
+    for build_info in build_infos {
         let bytecodes = create_models_and_decode_bytecodes(
             build_info.solc_version.clone(),
             &build_info.input,

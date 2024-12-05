@@ -1,0 +1,13 @@
+diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
+index a4b921c8a37b7d5967955d0449df3d05dbe725a8..7ff9eac18cb9a587aa6bd13ff69904cb4b610611 100644
+--- a/internal/hardhat-network/provider/provider.js
++++ b/internal/hardhat-network/provider/provider.js
+@@ -196,7 +196,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+                     printLineFn(message);
+                 }
+             },
+-        }, (event) => {
++        }, tracingConfig ?? {}, (event) => {
+             eventAdapter.emit("ethEvent", event);
+         });
+         const minimalEthereumJsNode = {
