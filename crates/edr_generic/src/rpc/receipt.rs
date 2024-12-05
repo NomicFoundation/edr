@@ -1,11 +1,10 @@
 use std::marker::PhantomData;
 
 use edr_eth::{l1, log::FilterLog};
-use edr_evm::block::transaction::TransactionReceiptAndBlockForChainSpec;
 use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
-use crate::{eip2718::TypedEnvelope, GenericChainSpec};
+use crate::eip2718::TypedEnvelope;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
@@ -127,16 +126,5 @@ impl RpcTypeFrom<crate::receipt::BlockReceipt<TypedEnvelope<Execution<FilterLog>
             effective_gas_price: value.inner.effective_gas_price,
             authorization_list: None,
         })
-    }
-}
-
-impl RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<GenericChainSpec>> for BlockReceipt {
-    type Hardfork = l1::SpecId;
-
-    fn rpc_type_from(
-        value: &TransactionReceiptAndBlockForChainSpec<GenericChainSpec>,
-        hardfork: Self::Hardfork,
-    ) -> Self {
-        Self::rpc_type_from(value.receipt.as_ref(), hardfork)
     }
 }

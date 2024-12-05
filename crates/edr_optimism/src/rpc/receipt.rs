@@ -5,9 +5,6 @@ use edr_eth::{
     receipt::{ExecutionReceipt as _, TransactionReceipt},
     transaction::TransactionType as _,
 };
-use edr_evm::block::transaction::{
-    TransactionReceiptAndBlock, TransactionReceiptAndBlockForChainSpec,
-};
 use edr_rpc_eth::RpcTypeFrom;
 use revm_optimism::OptimismSpecId;
 
@@ -18,7 +15,7 @@ impl RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<OptimismChainSpec>> for 
     type Hardfork = OptimismSpecId;
 
     fn rpc_type_from(
-        value: &TransactionReceiptAndBlockForChainSpec<OptimismChainSpec>,
+        value: &BlockReceipt< TransactionReceiptAndBlockForChainSpec<OptimismChainSpec>,
         hardfork: Self::Hardfork,
     ) -> Self {
         let TransactionReceiptAndBlock { block, receipt } = value;

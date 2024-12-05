@@ -10,9 +10,7 @@ use edr_eth::{
     Bytes, PreEip1898BlockSpec, B256, U256,
 };
 use edr_evm::{
-    block::transaction::{
-        BlockDataForTransaction, TransactionAndBlock, TransactionReceiptAndBlock,
-    },
+    block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     spec::RuntimeSpec,
     transaction, Block,
 };
@@ -143,20 +141,10 @@ pub fn handle_get_transaction_receipt<
 ) -> Result<Option<ChainSpecT::RpcReceipt>, ProviderError<ChainSpecT>> {
     let receipt = data.transaction_receipt(&transaction_hash)?;
 
-    if let Some(receipt) = receipt {
-        let block = data
-            .block_by_transaction_hash(&transaction_hash)?
-            .expect("Block should exist for a transaction receipt");
+    let rpc_receipt =
+        receipt.map(|receipt| ChainSpecT::RpcReceipt::rpc_type_from(&receipt, data.hardfork()));
 
-        let block_and_receipt = TransactionReceiptAndBlock { block, receipt };
-
-        Ok(Some(ChainSpecT::RpcReceipt::rpc_type_from(
-            &block_and_receipt,
-            data.hardfork(),
-        )))
-    } else {
-        Ok(None)
-    }
+    Ok(rpc_receipt)
 }
 
 fn transaction_from_block<BlockT: Block<SignedTransactionT> + Clone, SignedTransactionT: Clone>(

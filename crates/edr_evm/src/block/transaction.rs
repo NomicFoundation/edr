@@ -1,35 +1,13 @@
 use std::sync::Arc;
 
-use derive_where::derive_where;
 use edr_eth::{
     l1::{self, L1ChainSpec},
-    log::FilterLog,
-    receipt::{BlockReceipt, ExecutionReceipt},
     spec::ChainSpec,
     transaction::SignedTransaction as _,
 };
-use edr_rpc_eth::{RpcSpec, RpcTypeFrom};
+use edr_rpc_eth::RpcTypeFrom;
 
 use crate::spec::RuntimeSpec;
-
-/// Helper type for a chain-specific [`BlockAndTransactionReceipt`].
-pub type TransactionReceiptAndBlockForChainSpec<ChainSpecT> = TransactionReceiptAndBlock<
-    <ChainSpecT as RuntimeSpec>::Block,
-    <ChainSpecT as RpcSpec>::ExecutionReceipt<FilterLog>,
->;
-
-/// A transaction receipt and the block in which it is found.
-#[derive(Debug)]
-#[derive_where(Clone)]
-pub struct TransactionReceiptAndBlock<
-    BlockT: ?Sized,
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
-> {
-    /// The block in which the transaction is found.
-    pub block: Arc<BlockT>,
-    /// The receipt.
-    pub receipt: Arc<BlockReceipt<ExecutionReceiptT>>,
-}
 
 /// Helper type for a chain-specific [`TransactionAndBlock`].
 pub type TransactionAndBlockForChainSpec<ChainSpecT> = TransactionAndBlock<
@@ -46,19 +24,6 @@ pub struct TransactionAndBlock<BlockT, SignedTransactionT> {
     pub block_data: Option<BlockDataForTransaction<BlockT>>,
     /// Whether the transaction is pending
     pub is_pending: bool,
-}
-
-impl RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<L1ChainSpec>>
-    for edr_rpc_eth::receipt::Block
-{
-    type Hardfork = l1::SpecId;
-
-    fn rpc_type_from(
-        value: &TransactionReceiptAndBlockForChainSpec<L1ChainSpec>,
-        hardfork: Self::Hardfork,
-    ) -> Self {
-        Self::rpc_type_from(value.receipt.as_ref(), hardfork)
-    }
 }
 
 /// Block metadata for a transaction.
