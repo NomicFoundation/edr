@@ -660,7 +660,6 @@ export declare class Provider {
 export declare class Response {
   /** Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
-  get solidityTrace(): RawTrace | null
   /**Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as a fallback. */
   stackTrace(): SolidityStackTrace | string | null
   get traces(): Array<RawTrace>
