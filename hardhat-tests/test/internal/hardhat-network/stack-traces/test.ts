@@ -9,23 +9,13 @@ import {
   ConsoleLogs,
   ConsoleLogger,
 } from "hardhat/internal/hardhat-network/stack-traces/consoleLogger";
-import {
-  printMessageTrace,
-  printStackTrace,
-} from "hardhat/internal/hardhat-network/stack-traces/debug";
+import { printStackTrace } from "hardhat/internal/hardhat-network/stack-traces/debug";
 import { linkHexStringBytecode } from "hardhat/internal/hardhat-network/stack-traces/library-utils";
-import {
-  CallMessageTrace,
-  CreateMessageTrace,
-  MessageTrace,
-} from "hardhat/internal/hardhat-network/stack-traces/message-trace";
 import {
   SolidityStackTrace,
   SolidityStackTraceEntry,
   StackTraceEntryType,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
-import { SolidityTracer } from "hardhat/internal/hardhat-network/stack-traces/solidityTracer";
-import { VmTraceDecoderT } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
 import { SUPPORTED_SOLIDITY_VERSION_RANGE } from "hardhat/internal/hardhat-network/stack-traces/constants";
 import {
   BuildInfo,
@@ -480,7 +470,6 @@ async function runTest(
   };
 
   const logger = new FakeModulesLogger();
-  const solidityTracer = new SolidityTracer();
   const provider = await instantiateProvider(
     {
       enabled: false,

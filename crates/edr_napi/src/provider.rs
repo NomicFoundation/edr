@@ -264,6 +264,14 @@ impl Response {
         self.data.clone()
     }
 
+    #[napi(getter)]
+    pub fn traces(&self) -> Vec<RawTrace> {
+        self.traces
+            .iter()
+            .map(|trace| RawTrace::new(trace.clone()))
+            .collect()
+    }
+
     // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
     #[doc = "Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as a fallback."]
     #[napi]
@@ -300,13 +308,5 @@ impl Response {
         } else {
             Ok(None)
         }
-    }
-
-    #[napi(getter)]
-    pub fn traces(&self) -> Vec<RawTrace> {
-        self.traces
-            .iter()
-            .map(|trace| RawTrace::new(trace.clone()))
-            .collect()
     }
 }
