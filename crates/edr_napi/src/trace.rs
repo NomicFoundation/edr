@@ -16,20 +16,11 @@ use napi_derive::napi;
 
 use crate::result::ExecutionResult;
 
-mod compiler;
-mod library_utils;
-mod model;
-
 mod debug;
-mod error_inferrer;
 mod exit;
-mod mapped_inlined_internal_functions_heuristics;
-mod message_trace;
+mod model;
 mod return_data;
 pub mod solidity_stack_trace;
-mod solidity_tracer;
-mod vm_trace_decoder;
-mod vm_tracer;
 
 #[napi(object)]
 pub struct TracingMessage {
