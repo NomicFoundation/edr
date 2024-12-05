@@ -18,7 +18,7 @@ use crate::{
     message_trace::{MessageTrace, MessageTraceStep},
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TracingConfig {
     pub build_infos: Option<Vec<BuildInfo>>,

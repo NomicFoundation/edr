@@ -133,7 +133,6 @@ impl Provider {
                         solidity_trace: None,
                         data: Either::A(json),
                         traces: Vec::new(),
-                        tracing_config: Arc::clone(&self.tracing_config),
                     });
             }
         };
@@ -194,11 +193,16 @@ impl Provider {
                 }
             })
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
-            .map(|data| Response {
-                solidity_trace,
-                data,
-                traces: traces.into_iter().map(Arc::new).collect(),
-                tracing_config: Arc::clone(&self.tracing_config),
+            .map(|data| {
+                let solidity_trace = solidity_trace.map(|trace| SolidityTraceData {
+                    trace,
+                    config: Arc::clone(&self.tracing_config),
+                });
+                Response {
+                    solidity_trace,
+                    data,
+                    traces: traces.into_iter().map(Arc::new).collect(),
+                }
             })
     }
 
@@ -233,6 +237,12 @@ impl Provider {
     }
 }
 
+#[derive(Debug)]
+struct SolidityTraceData {
+    trace: Arc<edr_evm::trace::Trace>,
+    config: Arc<edr_solidity::vm_trace_decoder::TracingConfig>,
+}
+
 #[napi]
 pub struct Response {
     // N-API is known to be slow when marshalling `serde_json::Value`s, so we try to return a
@@ -241,10 +251,9 @@ pub struct Response {
     data: Either<String, serde_json::Value>,
     /// When a transaction fails to execute, the provider returns a trace of the
     /// transaction.
-    solidity_trace: Option<Arc<edr_evm::trace::Trace>>,
+    solidity_trace: Option<SolidityTraceData>,
     /// This may contain zero or more traces, depending on the (batch) request
     traces: Vec<Arc<edr_evm::trace::Trace>>,
-    tracing_config: Arc<edr_solidity::vm_trace_decoder::TracingConfig>,
 }
 
 #[napi]
@@ -255,18 +264,11 @@ impl Response {
         self.data.clone()
     }
 
-    #[napi(getter)]
-    pub fn solidity_trace(&self) -> Option<RawTrace> {
-        self.solidity_trace
-            .as_ref()
-            .map(|trace| RawTrace::new(trace.clone()))
-    }
-
     // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
     #[doc = "Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as a fallback."]
     #[napi]
     pub fn stack_trace(&self) -> napi::Result<Option<Either<SolidityStackTrace, String>>> {
-        let Some(trace) = &self.solidity_trace else {
+        let Some(SolidityTraceData { trace, config }) = &self.solidity_trace else {
             return Ok(None);
         };
         let mut vm_tracer = edr_solidity::vm_tracer::VmTracer::new();
@@ -276,10 +278,7 @@ impl Response {
         let vm_tracer_error = vm_tracer.get_last_error();
 
         let mut vm_trace_decoder = edr_solidity::vm_trace_decoder::VmTraceDecoder::new();
-        edr_solidity::vm_trace_decoder::initialize_vm_trace_decoder(
-            &mut vm_trace_decoder,
-            &self.tracing_config,
-        )?;
+        edr_solidity::vm_trace_decoder::initialize_vm_trace_decoder(&mut vm_trace_decoder, config)?;
 
         vm_trace = vm_trace.map(|trace| vm_trace_decoder.try_to_decode_message_trace(trace));
 
