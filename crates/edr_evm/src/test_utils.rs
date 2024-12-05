@@ -6,7 +6,7 @@ use edr_eth::{
     block::{miner_reward, BlockOptions},
     l1::{self, L1ChainSpec},
     log::FilterLog,
-    receipt::Receipt as _,
+    receipt::ExecutionReceipt as _,
     result::InvalidTransaction,
     transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,

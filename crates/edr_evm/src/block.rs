@@ -10,7 +10,7 @@ use auto_impl::auto_impl;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
     log::FilterLog,
-    receipt::{BlockReceipt, Receipt},
+    receipt::{BlockReceipt, ExecutionReceipt},
     spec::{ChainSpec, HardforkTrait},
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
@@ -51,7 +51,7 @@ pub trait Block<SignedTransactionT>: Debug {
 
 /// Trait for fetching the receipts of a block's transactions.
 #[auto_impl(Arc)]
-pub trait BlockReceipts<ExecutionReceiptT: Receipt<FilterLog>> {
+pub trait BlockReceipts<ExecutionReceiptT: ExecutionReceipt<FilterLog>> {
     /// The blockchain error type.
     type Error;
 
@@ -79,7 +79,7 @@ impl<BlockT: EmptyBlock<HardforkT>, HardforkT: HardforkTrait> EmptyBlock<Hardfor
 
 /// Trait for locally mined blocks.
 #[auto_impl(Arc)]
-pub trait LocalBlock<ExecutionReceiptT: Receipt<FilterLog>> {
+pub trait LocalBlock<ExecutionReceiptT: ExecutionReceipt<FilterLog>> {
     /// Returns the receipts of the block's transactions.
     fn transaction_receipts(&self) -> &[Arc<BlockReceipt<ExecutionReceiptT>>];
 }
@@ -88,7 +88,7 @@ pub trait LocalBlock<ExecutionReceiptT: Receipt<FilterLog>> {
 pub trait EthBlock<ExecutionReceiptT, SignedTransactionT>:
     Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT>
 where
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
 {
 }
 
@@ -96,7 +96,7 @@ impl<BlockT, ExecutionReceiptT, SignedTransactionT> EthBlock<ExecutionReceiptT, 
     for BlockT
 where
     BlockT: Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT>,
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
 {
 }
 
@@ -104,7 +104,7 @@ where
 pub trait SyncBlock<ExecutionReceiptT, SignedTransactionT>:
     EthBlock<ExecutionReceiptT, SignedTransactionT> + Send + Sync
 where
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
 {
 }
 
@@ -112,7 +112,7 @@ impl<BlockT, ExecutionReceiptT, SignedTransactionT> SyncBlock<ExecutionReceiptT,
     for BlockT
 where
     BlockT: EthBlock<ExecutionReceiptT, SignedTransactionT> + Send + Sync,
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
 {
 }
 

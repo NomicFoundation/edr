@@ -4,7 +4,7 @@ use edr_eth::{
     eips::{eip2718::TypedEnvelope, eip7702},
     l1,
     log::FilterLog,
-    receipt::{self, Execution, Receipt as _, TransactionReceipt},
+    receipt::{self, Execution, ExecutionReceipt as _, TransactionReceipt},
     transaction::{self, TransactionType as _},
     Address, Bloom, B256, U256,
 };

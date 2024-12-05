@@ -3,7 +3,7 @@ use std::{marker::PhantomData, sync::Arc};
 use derive_where::derive_where;
 use edr_eth::{
     log::{matches_address_filter, matches_topics_filter, FilterLog},
-    receipt::{BlockReceipt, Receipt},
+    receipt::{BlockReceipt, ExecutionReceipt},
     transaction::ExecutableTransaction,
     Address, B256, U256,
 };
@@ -17,7 +17,7 @@ use crate::{Block, BlockReceipts};
 #[derive_where(Default)]
 pub struct SparseBlockchainStorage<
     BlockT,
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
     SignedTransactionT,
 > {
     hash_to_block: HashMap<B256, BlockT>,
@@ -30,7 +30,7 @@ pub struct SparseBlockchainStorage<
 
 impl<
         BlockT: Block<SignedTransactionT> + Clone,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         SignedTransactionT: ExecutableTransaction,
     > SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
 {
@@ -139,7 +139,7 @@ impl<
     }
 }
 
-impl<BlockT, ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT>
+impl<BlockT, ExecutionReceiptT: ExecutionReceipt<FilterLog>, SignedTransactionT>
     SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
 {
     /// Retrieves the block by hash, if it exists.
@@ -231,7 +231,7 @@ impl<BlockT, ExecutionReceiptT: Receipt<FilterLog>, SignedTransactionT>
 /// Retrieves the logs that match the provided filter.
 pub fn logs<
     BlockT: BlockReceipts<ExecutionReceiptT>,
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
     SignedTransactionT,
 >(
     storage: &SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>,

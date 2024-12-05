@@ -5,7 +5,7 @@ use edr_eth::{
     eips::eip4844,
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
-    receipt::{BlockReceipt, MapReceiptLogs, Receipt},
+    receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs},
     result::InvalidTransaction,
     spec::{ChainSpec, EthHeaderConstants},
     transaction::ExecutableTransaction,
@@ -52,8 +52,8 @@ pub trait ExecutionReceiptHigherKindedBounds:
     HigherKinded<
         ExecutionLog,
         Type: MapReceiptLogs<ExecutionLog, FilterLog, <Self as HigherKinded<FilterLog>>::Type>
-                  + Receipt<ExecutionLog>,
-    > + HigherKinded<FilterLog, Type: Debug + Receipt<FilterLog>>
+                  + ExecutionReceipt<ExecutionLog>,
+    > + HigherKinded<FilterLog, Type: Debug + ExecutionReceipt<FilterLog>>
 {
 }
 
@@ -64,8 +64,8 @@ impl<HigherKindedT> ExecutionReceiptHigherKindedBounds for HigherKindedT where
                 ExecutionLog,
                 FilterLog,
                 <Self as HigherKinded<FilterLog>>::Type,
-            > + Receipt<ExecutionLog>,
-        > + HigherKinded<FilterLog, Type: Debug + Receipt<FilterLog>>
+            > + ExecutionReceipt<ExecutionLog>,
+        > + HigherKinded<FilterLog, Type: Debug + ExecutionReceipt<FilterLog>>
 {
 }
 

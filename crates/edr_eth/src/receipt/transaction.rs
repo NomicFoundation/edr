@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use alloy_rlp::BufMut;
 
-use super::{MapReceiptLogs, Receipt};
+use super::{MapReceiptLogs, ExecutionReceipt};
 use crate::{
     l1,
     result::{ExecutionResult, Output},
@@ -37,7 +37,7 @@ pub struct TransactionReceipt<ExecutionReceiptT, LogT> {
     pub phantom: PhantomData<LogT>,
 }
 
-impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
+impl<ExecutionReceiptT: ExecutionReceipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
     /// Returns a reference to the inner execution receipt.
     pub fn as_execution_receipt(&self) -> &ExecutionReceiptT {
         &self.inner
@@ -49,7 +49,7 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
     }
 }
 
-impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
+impl<ExecutionReceiptT: ExecutionReceipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
     /// Constructs a new instance using the provided execution receipt an
     /// transaction
     pub fn new<HaltReasonT: HaltReasonTrait, HardforkT: HardforkTrait>(
@@ -98,8 +98,8 @@ impl<OldExecutionReceiptT, NewExecutionReceiptT, OldLogT, NewLogT>
     MapReceiptLogs<OldLogT, NewLogT, TransactionReceipt<NewExecutionReceiptT, NewLogT>>
     for TransactionReceipt<OldExecutionReceiptT, OldLogT>
 where
-    OldExecutionReceiptT: MapReceiptLogs<OldLogT, NewLogT, NewExecutionReceiptT> + Receipt<OldLogT>,
-    NewExecutionReceiptT: Receipt<NewLogT>,
+    OldExecutionReceiptT: MapReceiptLogs<OldLogT, NewLogT, NewExecutionReceiptT> + ExecutionReceipt<OldLogT>,
+    NewExecutionReceiptT: ExecutionReceipt<NewLogT>,
 {
     fn map_logs(
         self,
@@ -119,7 +119,7 @@ where
     }
 }
 
-impl<ExecutionReceiptT: Receipt<LogT>, LogT> Receipt<LogT>
+impl<ExecutionReceiptT: ExecutionReceipt<LogT>, LogT> ExecutionReceipt<LogT>
     for TransactionReceipt<ExecutionReceiptT, LogT>
 {
     fn cumulative_gas_used(&self) -> u64 {
@@ -151,7 +151,7 @@ impl<ExecutionReceiptT: TransactionType, LogT> TransactionType
 
 impl<ExecutionReceiptT, LogT> alloy_rlp::Encodable for TransactionReceipt<ExecutionReceiptT, LogT>
 where
-    ExecutionReceiptT: Receipt<LogT> + alloy_rlp::Encodable,
+    ExecutionReceiptT: ExecutionReceipt<LogT> + alloy_rlp::Encodable,
 {
     fn encode(&self, out: &mut dyn BufMut) {
         self.inner.encode(out);

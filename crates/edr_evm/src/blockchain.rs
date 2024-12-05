@@ -10,7 +10,7 @@ use auto_impl::auto_impl;
 use edr_eth::{
     l1,
     log::FilterLog,
-    receipt::{BlockReceipt, Receipt},
+    receipt::{BlockReceipt, ExecutionReceipt},
     spec::{ChainSpec, HardforkTrait},
     Address, HashSet, B256, U256,
 };
@@ -252,7 +252,7 @@ where
 
 fn compute_state_at_block<
     BlockT: Block<SignedTransactionT> + Clone,
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
     HardforkT: HardforkTrait,
     SignedTransactionT,
 >(

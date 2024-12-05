@@ -18,7 +18,7 @@ pub enum ConversionError {
 use edr_eth::{
     receipt::{
         execution::{Eip658, Legacy},
-        Execution, Receipt, TransactionReceipt,
+        Execution, ExecutionReceipt, TransactionReceipt,
     },
     transaction::TransactionType,
 };

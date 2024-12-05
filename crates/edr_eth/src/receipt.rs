@@ -35,7 +35,7 @@ pub enum RootOrStatus<'root> {
 }
 
 /// Trait for a receipt that's generated after execution of a transaction.
-pub trait Receipt<LogT> {
+pub trait ExecutionReceipt<LogT> {
     /// Returns the cumulative gas used in the block after this transaction was
     /// executed.
     fn cumulative_gas_used(&self) -> u64;

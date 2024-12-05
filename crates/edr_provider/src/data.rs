@@ -23,7 +23,7 @@ use edr_eth::{
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
     log::FilterLog,
-    receipt::{BlockReceipt, Receipt as _},
+    receipt::{BlockReceipt, ExecutionReceipt as _},
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},

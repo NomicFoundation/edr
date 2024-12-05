@@ -1,7 +1,7 @@
 use alloy_rlp::Buf as _;
 
 use crate::{
-    receipt::{self, MapReceiptLogs, Receipt},
+    receipt::{self, MapReceiptLogs, ExecutionReceipt},
     transaction::{self, TransactionType},
     Bloom,
 };
@@ -111,7 +111,7 @@ where
     }
 }
 
-impl<DataT: Receipt<LogT>, LogT> Receipt<LogT> for TypedEnvelope<DataT> {
+impl<DataT: ExecutionReceipt<LogT>, LogT> ExecutionReceipt<LogT> for TypedEnvelope<DataT> {
     fn cumulative_gas_used(&self) -> u64 {
         self.data().cumulative_gas_used()
     }

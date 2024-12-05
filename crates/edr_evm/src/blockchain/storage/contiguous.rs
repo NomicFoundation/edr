@@ -11,7 +11,7 @@ use std::{marker::PhantomData, sync::Arc};
 use derive_where::derive_where;
 use edr_eth::{
     log::FilterLog,
-    receipt::{BlockReceipt, Receipt},
+    receipt::{BlockReceipt, ExecutionReceipt},
     spec::HardforkTrait,
     transaction::ExecutableTransaction,
     B256, U256,
@@ -25,7 +25,7 @@ use crate::{Block, EmptyBlock, LocalBlock};
 #[derive_where(Clone, Debug, Default; BlockT, ExecutionReceiptT)]
 pub struct ContiguousBlockchainStorage<
     BlockT,
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
     HardforkT: HardforkTrait,
     SignedTransactionT,
 > {
@@ -39,7 +39,7 @@ pub struct ContiguousBlockchainStorage<
 
 impl<
         BlockT,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT,
     > ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
@@ -77,7 +77,7 @@ impl<
 
 impl<
         BlockT: Block<SignedTransactionT>,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT,
     > ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
@@ -140,7 +140,7 @@ impl<
 
 impl<
         BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<ExecutionReceiptT> + Clone,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT: ExecutableTransaction,
     > ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>

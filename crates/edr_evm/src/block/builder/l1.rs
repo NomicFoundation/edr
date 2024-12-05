@@ -8,7 +8,7 @@ use edr_eth::{
     eips::eip4844,
     l1,
     log::ExecutionLog,
-    receipt::{Receipt as _, TransactionReceipt},
+    receipt::{ExecutionReceipt as _, TransactionReceipt},
     result::{ExecutionResult, ResultAndState},
     transaction::{ExecutableTransaction as _, Transaction as _},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},

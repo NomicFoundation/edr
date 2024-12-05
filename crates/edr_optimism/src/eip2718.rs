@@ -1,6 +1,6 @@
 use alloy_rlp::Buf as _;
 use edr_eth::{
-    receipt::{MapReceiptLogs, Receipt, RootOrStatus},
+    receipt::{MapReceiptLogs, ExecutionReceipt, RootOrStatus},
     transaction::TransactionType,
     Bloom,
 };
@@ -118,7 +118,7 @@ where
     }
 }
 
-impl<DataT: Receipt<LogT>, LogT> Receipt<LogT> for TypedEnvelope<DataT> {
+impl<DataT: ExecutionReceipt<LogT>, LogT> ExecutionReceipt<LogT> for TypedEnvelope<DataT> {
     fn cumulative_gas_used(&self) -> u64 {
         self.data().cumulative_gas_used()
     }

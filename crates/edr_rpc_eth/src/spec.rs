@@ -1,4 +1,4 @@
-use edr_eth::{eips::eip2718::TypedEnvelope, l1::L1ChainSpec, receipt::Receipt};
+use edr_eth::{eips::eip2718::TypedEnvelope, l1::L1ChainSpec, receipt::ExecutionReceipt};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{receipt::Block, CallRequest};
@@ -6,7 +6,7 @@ use crate::{receipt::Block, CallRequest};
 /// Trait for specifying Ethereum-based JSON-RPC method types.
 pub trait RpcSpec {
     /// Type representing an RPC execution receipt.
-    type ExecutionReceipt<Log>: Receipt<Log>;
+    type ExecutionReceipt<Log>: ExecutionReceipt<Log>;
 
     /// Type representing an RPC block
     type RpcBlock<Data>: GetBlockNumber + DeserializeOwned + Serialize

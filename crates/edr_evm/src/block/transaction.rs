@@ -4,7 +4,7 @@ use derive_where::derive_where;
 use edr_eth::{
     l1::{self, L1ChainSpec},
     log::FilterLog,
-    receipt::{BlockReceipt, Receipt},
+    receipt::{BlockReceipt, ExecutionReceipt},
     spec::ChainSpec,
     transaction::SignedTransaction as _,
 };
@@ -21,7 +21,10 @@ pub type TransactionReceiptAndBlockForChainSpec<ChainSpecT> = TransactionReceipt
 /// A transaction receipt and the block in which it is found.
 #[derive(Debug)]
 #[derive_where(Clone)]
-pub struct TransactionReceiptAndBlock<BlockT: ?Sized, ExecutionReceiptT: Receipt<FilterLog>> {
+pub struct TransactionReceiptAndBlock<
+    BlockT: ?Sized,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
+> {
     /// The block in which the transaction is found.
     pub block: Arc<BlockT>,
     /// The receipt.

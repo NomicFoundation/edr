@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use edr_eth::{
     log::FilterLog,
-    receipt::{Receipt as _, TransactionReceipt},
+    receipt::{ExecutionReceipt as _, TransactionReceipt},
     transaction::TransactionType as _,
 };
 use edr_evm::block::transaction::{

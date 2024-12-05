@@ -7,7 +7,7 @@ use edr_eth::{
     eips::eip2718::TypedEnvelope,
     l1::{self, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
-    receipt::{Receipt as _, TransactionReceipt},
+    receipt::{ExecutionReceipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
     transaction::ExecutableTransaction as _,
     Address, Bytes, HashSet, B256, U256,

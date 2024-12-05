@@ -5,7 +5,7 @@ use derive_where::derive_where;
 use edr_eth::{
     block::PartialHeader,
     log::FilterLog,
-    receipt::{BlockReceipt, Receipt},
+    receipt::{BlockReceipt, ExecutionReceipt},
     spec::HardforkTrait,
     transaction::ExecutableTransaction,
     Address, HashMap, HashSet, B256, U256,
@@ -34,7 +34,7 @@ struct Reservation<HardforkT: HardforkTrait> {
 #[derive_where(Debug; BlockT, ExecutionReceiptT, HardforkT)]
 pub struct ReservableSparseBlockchainStorage<
     BlockT,
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
     HardforkT: HardforkTrait,
     SignedTransactionT,
 > {
@@ -50,7 +50,7 @@ pub struct ReservableSparseBlockchainStorage<
 
 impl<
         BlockT,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT,
     > ReservableSparseBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
@@ -70,7 +70,7 @@ impl<
 
 impl<
         BlockT: Block<SignedTransactionT> + Clone,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
@@ -147,7 +147,7 @@ impl<
 
 impl<
         BlockT: BlockReceipts<ExecutionReceiptT>,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT,
     > ReservableSparseBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
@@ -167,7 +167,7 @@ impl<
 
 impl<
         BlockT: Clone,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT,
     > ReservableSparseBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
@@ -265,7 +265,7 @@ impl<
 
 impl<
         BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<ExecutionReceiptT>,
-        ExecutionReceiptT: Receipt<FilterLog>,
+        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
@@ -368,7 +368,7 @@ impl<
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 fn calculate_timestamp_for_reserved_block<
     BlockT: Block<SignedTransactionT>,
-    ExecutionReceiptT: Receipt<FilterLog>,
+    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
     HardforkT: HardforkTrait,
     SignedTransactionT,
 >(
