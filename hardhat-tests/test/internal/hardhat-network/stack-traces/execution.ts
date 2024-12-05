@@ -106,8 +106,7 @@ interface TxData {
 
 export async function traceTransaction(
   provider: EdrProviderWrapper,
-  txData: TxData,
-  tracingConfig: TracingConfig
+  txData: TxData
 ): Promise<SolidityStackTrace | string | undefined> {
   const stringifiedArgs = JSON.stringify({
     method: "eth_sendTransaction",
@@ -150,7 +149,7 @@ export async function traceTransaction(
     params: [response.result ?? response.error.data.transactionHash],
   });
 
-  const stackTrace = responseObject.stackTrace(tracingConfig);
+  const stackTrace = responseObject.stackTrace();
 
   const contractAddress = receipt.contractAddress?.slice(2);
 
