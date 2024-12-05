@@ -1,10 +1,11 @@
 use core::fmt::Debug;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     l1,
+    log::FilterLog,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
 };
@@ -16,7 +17,7 @@ use edr_evm::{
     spec::RuntimeSpec,
     state::Database,
     transaction::{TransactionError, TransactionValidation},
-    RemoteBlockConversionError,
+    BlockReceipts, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 use edr_napi_core::{
     napi,
@@ -28,7 +29,7 @@ use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpec
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::{self, LocalBlock, OptimismBlock, SyncOptimismBlock},
+    block::{self, LocalBlock},
     eip2718::TypedEnvelope,
     hardfork, receipt, rpc, transaction,
 };
@@ -91,7 +92,11 @@ where
 }
 
 impl RuntimeSpec for OptimismChainSpec {
-    type Block<BlockchainErrorT> = dyn SyncOptimismBlock<Error = BlockchainErrorT>;
+    type Block = dyn SyncBlock<
+        Self::ExecutionReceipt<FilterLog>,
+        Self::SignedTransaction,
+        Error = <Self::LocalBlock as BlockReceipts<Self::ExecutionReceipt<FilterLog>>>::Error,
+    >;
 
     type BlockBuilder<
         'blockchain,
@@ -106,6 +111,14 @@ impl RuntimeSpec for OptimismChainSpec {
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
     type RpcReceiptConversionError = rpc::receipt::ConversionError;
     type RpcTransactionConversionError = rpc::transaction::ConversionError;
+
+    fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block> {
+        local_block
+    }
+
+    fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block> {
+        remote_block
+    }
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
     l1::{self, L1ChainSpec},
@@ -11,7 +13,7 @@ use edr_evm::{
     spec::{ExecutionReceiptHigherKindedForChainSpec, L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
-    EthBlockBuilder, EthLocalBlock, SyncBlock,
+    BlockReceipts, EthBlockBuilder, EthLocalBlock, RemoteBlock, SyncBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
@@ -32,10 +34,10 @@ impl EthHeaderConstants for GenericChainSpec {
 }
 
 impl RuntimeSpec for GenericChainSpec {
-    type Block<BlockchainErrorT> = dyn SyncBlock<
+    type Block = dyn SyncBlock<
         Self::ExecutionReceipt<FilterLog>,
         Self::SignedTransaction,
-        Error = BlockchainErrorT,
+        Error = <Self::LocalBlock as BlockReceipts<Self::ExecutionReceipt<FilterLog>>>::Error,
     >;
 
     type BlockBuilder<
@@ -59,6 +61,14 @@ impl RuntimeSpec for GenericChainSpec {
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;
     type RpcTransactionConversionError = crate::rpc::transaction::ConversionError;
+
+    fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block> {
+        local_block
+    }
+
+    fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block> {
+        remote_block
+    }
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,

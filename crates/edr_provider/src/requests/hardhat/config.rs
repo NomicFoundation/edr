@@ -1,4 +1,5 @@
 use edr_eth::{Address, B256, U256};
+use edr_evm::Block as _;
 
 use crate::{
     data::ProviderData,

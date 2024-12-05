@@ -11,7 +11,7 @@ use edr_evm::{
     },
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
-    Block as _, BlockAndTotalDifficulty, BlockReceipts, SyncBlock,
+    Block as _, BlockAndTotalDifficulty, BlockReceipts,
 };
 
 /// A blockchain with a pending block.

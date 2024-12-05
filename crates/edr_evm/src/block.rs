@@ -11,7 +11,7 @@ use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
     log::FilterLog,
     receipt::{BlockReceipt, Receipt},
-    spec::HardforkTrait,
+    spec::{ChainSpec, HardforkTrait},
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     B256, U256,
@@ -25,10 +25,7 @@ pub use self::{
     local::{EthLocalBlock, EthLocalBlockForChainSpec},
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
 };
-use crate::{
-    blockchain::BlockchainErrorForChainSpec,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
-};
+use crate::spec::RuntimeSpec;
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]
@@ -66,17 +63,9 @@ pub trait BlockReceipts<ExecutionReceiptT: Receipt<FilterLog>> {
     ) -> Result<Vec<Arc<BlockReceipt<ExecutionReceiptT>>>, Self::Error>;
 }
 
-/// A trait for constructing a block trait object.
-pub trait BlockTraitObject<ChainSpecT: RuntimeSpec> {
-    /// Creates a block trait object from a remote block.
-    fn from_remote(remote: RemoteBlock<ChainSpecT>) -> Arc<Self>;
-
-    /// Creates a block trait object from a local block.
-    fn from_local(local: ChainSpecT::LocalBlock) -> Arc<Self>;
-}
-
 /// Trait for creating an empty block.
 pub trait EmptyBlock<HardforkT: HardforkTrait> {
+    /// Constructs an empty block.
     fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self;
 }
 
@@ -125,27 +114,6 @@ where
     BlockT: EthBlock<ExecutionReceiptT, SignedTransactionT> + Send + Sync,
     ExecutionReceiptT: Receipt<FilterLog>,
 {
-}
-
-impl<ChainSpecT: SyncRuntimeSpec> BlockTraitObject<ChainSpecT>
-    for dyn SyncBlock<
-        ChainSpecT::ExecutionReceipt<FilterLog>,
-        ChainSpecT::SignedTransaction,
-        Error = BlockchainErrorForChainSpec<ChainSpecT>,
-    >
-where
-    ChainSpecT::LocalBlock: BlockReceipts<
-        ChainSpecT::ExecutionReceipt<FilterLog>,
-        Error = BlockchainErrorForChainSpec<ChainSpecT>,
-    >,
-{
-    fn from_remote(remote: RemoteBlock<ChainSpecT>) -> Arc<Self> {
-        Arc::new(remote)
-    }
-
-    fn from_local(local: ChainSpecT::LocalBlock) -> Arc<Self> {
-        Arc::new(local)
-    }
 }
 
 /// A type containing the relevant data for an Ethereum block.
@@ -226,6 +194,12 @@ impl<ChainSpecT: RuntimeSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransact
         })
     }
 }
+
+/// Helper type for a chain-specific [`BlockAndTotalDifficulty`].
+pub type BlockAndTotalDifficultyForChainSpec<ChainSpecT> = BlockAndTotalDifficulty<
+    Arc<<ChainSpecT as RuntimeSpec>::Block>,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
 
 /// The result returned by requesting a block by number.
 #[derive(Clone, Debug)]

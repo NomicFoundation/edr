@@ -12,9 +12,7 @@ use edr_rpc_eth::RpcTypeFrom;
 use revm_optimism::OptimismSpecId;
 
 use super::BlockReceipt;
-use crate::{
-    block::OptimismBlock as _, eip2718::TypedEnvelope, receipt, transaction, OptimismChainSpec,
-};
+use crate::{eip2718::TypedEnvelope, receipt, transaction, OptimismChainSpec};
 
 impl RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<OptimismChainSpec>> for BlockReceipt {
     type Hardfork = OptimismSpecId;

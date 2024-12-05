@@ -27,6 +27,7 @@ use crate::{
     Block, BlockAndTotalDifficulty,
 };
 
+/// Helper type for a chain-specific [`BlockchainError`].
 pub type BlockchainErrorForChainSpec<ChainSpecT> = BlockchainError<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
     <ChainSpecT as ChainSpec>::Hardfork,

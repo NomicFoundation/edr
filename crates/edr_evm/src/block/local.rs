@@ -18,7 +18,7 @@ use edr_utils::types::HigherKinded;
 use itertools::izip;
 
 use crate::{
-    block::{BlockReceipts, BlockTraitObject, EmptyBlock, LocalBlock},
+    block::{BlockReceipts, EmptyBlock, LocalBlock},
     blockchain::BlockchainError,
     spec::{
         ExecutionReceiptHigherKindedBounds, ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec,

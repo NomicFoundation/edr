@@ -36,7 +36,7 @@ use lazy_static::lazy_static;
 pub use self::{
     config::*,
     data::{CallResult, ProviderData},
-    debug_mine::DebugMineBlockResult,
+    debug_mine::{DebugMineBlockResult, DebugMineBlockResultForChainSpec},
     error::{EstimateGasFailure, ProviderError, TransactionFailure, TransactionFailureReason},
     logger::{Logger, NoopLogger, SyncLogger},
     mock::{CallOverrideResult, SyncCallOverride},

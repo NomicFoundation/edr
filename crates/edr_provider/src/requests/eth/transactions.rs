@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    log::FilterLog,
     result::InvalidTransaction,
     rlp::Decodable,
     transaction::{
@@ -14,9 +13,8 @@ use edr_evm::{
     block::transaction::{
         BlockDataForTransaction, TransactionAndBlock, TransactionReceiptAndBlock,
     },
-    blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
-    transaction, Block, SyncBlock,
+    transaction, Block,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
 
@@ -76,14 +74,8 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         // Pending block requested
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<
-                dyn SyncBlock<
-                    ChainSpecT::ExecutionReceipt<FilterLog>,
-                    ChainSpecT::SignedTransaction,
-                    Error = BlockchainErrorForChainSpec<ChainSpecT>,
-                >,
-            > = Arc::new(result.block);
-            Some((block, true))
+            let pending_block = Arc::new(result.block);
+            Some((ChainSpecT::cast_local_block(pending_block), true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
         Err(ProviderError::InvalidBlockNumberOrHash { .. }) => None,

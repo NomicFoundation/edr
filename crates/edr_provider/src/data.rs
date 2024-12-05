@@ -31,14 +31,16 @@ use edr_eth::{
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
-        ExecutableTransaction as _, IsEip4844, IsSupported as _, Transaction as _, TransactionMut,
+        ExecutableTransaction, IsEip4844, IsSupported as _, Transaction as _, TransactionMut,
         TransactionType, TransactionValidation,
     },
     Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet, B256,
     KECCAK_EMPTY, U256,
 };
 use edr_evm::{
-    block::transaction::{BlockDataForTransaction, TransactionAndBlock},
+    block::transaction::{
+        BlockDataForTransaction, TransactionAndBlock, TransactionAndBlockForChainSpec,
+    },
     blockchain::{
         Blockchain, BlockchainError, BlockchainErrorForChainSpec, ForkedBlockchain,
         ForkedCreationError, GenesisBlockOptions, LocalBlockchain, LocalCreationError,
@@ -55,7 +57,7 @@ use edr_evm::{
         StateOverrides, SyncState,
     },
     trace::Trace,
-    transaction, Block as _, BlockAndTotalDifficulty, BlockReceipts as _, DebugContext,
+    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, DebugContext,
     DebugTraceConfig, DebugTraceResultWithTraces, Eip3155AndRawTracers, MemPool,
     MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
@@ -77,7 +79,9 @@ use crate::{
         call::{run_call, RunCallArgs},
         gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
     },
-    debug_mine::{DebugMineBlockResult, DebugMineBlockResultAndState},
+    debug_mine::{
+        DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
+    },
     debugger::{register_debugger_handles, Debugger},
     error::{EstimateGasFailure, TransactionFailure, TransactionFailureWithTraces},
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
@@ -113,18 +117,24 @@ pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
     pub traces: Vec<Trace<HaltReasonT>>,
 }
 
-pub struct SendTransactionResult<BlockT, HaltReasonT: HaltReasonTrait> {
+/// Helper type for a chain-specific [`SendTransactionResult`].
+pub type SendTransactionResultForChainSpec<ChainSpecT> = SendTransactionResult<
+    Arc<<ChainSpecT as RuntimeSpec>::Block>,
+    <ChainSpecT as ChainSpec>::HaltReason,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
+
+pub struct SendTransactionResult<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT> {
     pub transaction_hash: B256,
-    pub mining_results: Vec<DebugMineBlockResult<BlockT, HaltReasonT>>,
+    pub mining_results: Vec<DebugMineBlockResult<BlockT, HaltReasonT, SignedTransactionT>>,
 }
 
-/// The result of executing a transaction.
-pub type ExecutionResultAndTrace<'provider, HaltReasonT> = (
-    &'provider ExecutionResult<HaltReasonT>,
-    &'provider Trace<HaltReasonT>,
-);
-
-impl<BlockT, HaltReasonT: HaltReasonTrait> SendTransactionResult<BlockT, HaltReasonT> {
+impl<
+        BlockT: Block<SignedTransactionT>,
+        HaltReasonT: HaltReasonTrait,
+        SignedTransactionT: ExecutableTransaction,
+    > SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>
+{
     /// Present if the transaction was auto-mined.
     pub fn transaction_result_and_trace(&self) -> Option<ExecutionResultAndTrace<'_, HaltReasonT>> {
         self.mining_results.iter().find_map(|result| {
@@ -144,13 +154,15 @@ impl<BlockT, HaltReasonT: HaltReasonTrait> SendTransactionResult<BlockT, HaltRea
     }
 }
 
-impl<ChainSpecT: RuntimeSpec> From<SendTransactionResult<ChainSpecT>>
-    for (B256, Vec<Trace<ChainSpecT::HaltReason>>)
+impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
+    From<SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>>
+    for (B256, Vec<Trace<HaltReasonT>>)
 {
-    fn from(value: SendTransactionResult<ChainSpecT>) -> Self {
+    fn from(value: SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>) -> Self {
         let SendTransactionResult {
             transaction_hash,
             mining_results,
+            ..
         } = value;
 
         let traces = mining_results
@@ -161,6 +173,12 @@ impl<ChainSpecT: RuntimeSpec> From<SendTransactionResult<ChainSpecT>>
         (transaction_hash, traces)
     }
 }
+
+/// The result of executing a transaction.
+pub type ExecutionResultAndTrace<'provider, HaltReasonT> = (
+    &'provider ExecutionResult<HaltReasonT>,
+    &'provider Trace<HaltReasonT>,
+);
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreationError<ChainSpecT>
@@ -1135,7 +1153,8 @@ where
     pub fn transaction_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<TransactionAndBlock<ChainSpecT>>, ProviderError<ChainSpecT>> {
+    ) -> Result<Option<TransactionAndBlockForChainSpec<ChainSpecT>>, ProviderError<ChainSpecT>>
+    {
         let transaction = if let Some(tx) = self.mem_pool.transaction_by_hash(hash) {
             Some(TransactionAndBlock {
                 transaction: tx.pending().clone(),
@@ -1318,7 +1337,7 @@ where
             ProviderError<ChainSpecT>,
         >,
         mut options: BlockOptions,
-    ) -> Result<DebugMineBlockResult<ChainSpecT>, ProviderError<ChainSpecT>> {
+    ) -> Result<DebugMineBlockResultForChainSpec<ChainSpecT>, ProviderError<ChainSpecT>> {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
         options.timestamp = Some(block_timestamp);
 
@@ -1353,12 +1372,12 @@ where
             block_and_total_difficulty.block.header().number,
         );
 
-        Ok(DebugMineBlockResult {
-            block: block_and_total_difficulty.block,
-            transaction_results: result.transaction_results,
-            transaction_traces: result.transaction_traces,
-            console_log_inputs: result.console_log_inputs,
-        })
+        Ok(DebugMineBlockResult::new(
+            block_and_total_difficulty.block,
+            result.transaction_results,
+            result.transaction_traces,
+            result.console_log_inputs,
+        ))
     }
 
     /// Mines a block using the provided options. If an option has not been
@@ -1858,7 +1877,7 @@ where
                         .push(gas_used_ratio(header.gas_used, header.gas_limit));
 
                     if let Some((ref mut reward, percentiles)) = reward_and_percentile.as_mut() {
-                        reward.push(compute_rewards(&block, percentiles)?);
+                        reward.push(compute_rewards(block.as_ref(), percentiles)?);
                     }
                 }
             } else if block_number == pending_block_number {
@@ -1964,10 +1983,7 @@ where
     pub fn mine_and_commit_block(
         &mut self,
         options: BlockOptions,
-    ) -> Result<
-        DebugMineBlockResultForChainSpec<ChainSpecT::Block>>,
-        ProviderError<ChainSpecT>,
-    > {
+    ) -> Result<DebugMineBlockResultForChainSpec<ChainSpecT>, ProviderError<ChainSpecT>> {
         self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
     }
 
@@ -1977,10 +1993,7 @@ where
         &mut self,
         number_of_blocks: u64,
         interval: u64,
-    ) -> Result<
-        Vec<DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>>,
-        ProviderError<ChainSpecT>,
-    > {
+    ) -> Result<Vec<DebugMineBlockResultForChainSpec<ChainSpecT>>, ProviderError<ChainSpecT>> {
         // There should be at least 2 blocks left for the reservation to work,
         // because we always mine a block after it. But here we use a bigger
         // number to err on the side of safety.
@@ -1990,28 +2003,27 @@ where
             return Ok(Vec::new());
         }
 
-        let mine_block_with_interval = |data: &mut ProviderData<ChainSpecT, TimerT>,
-                                        mined_blocks: &mut Vec<
-            DebugMineBlockResult<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>>,
-        >|
-         -> Result<(), ProviderError<ChainSpecT>> {
-            let previous_timestamp = mined_blocks
-                .last()
-                .expect("at least one block was mined")
-                .block
-                .header()
-                .timestamp;
+        let mine_block_with_interval =
+            |data: &mut ProviderData<ChainSpecT, TimerT>,
+             mined_blocks: &mut Vec<DebugMineBlockResultForChainSpec<ChainSpecT>>|
+             -> Result<(), ProviderError<ChainSpecT>> {
+                let previous_timestamp = mined_blocks
+                    .last()
+                    .expect("at least one block was mined")
+                    .block
+                    .header()
+                    .timestamp;
 
-            let options = BlockOptions {
-                timestamp: Some(previous_timestamp + interval),
-                ..BlockOptions::default()
+                let options = BlockOptions {
+                    timestamp: Some(previous_timestamp + interval),
+                    ..BlockOptions::default()
+                };
+
+                let mined_block = data.mine_and_commit_block(options)?;
+                mined_blocks.push(mined_block);
+
+                Ok(())
             };
-
-            let mined_block = data.mine_and_commit_block(options)?;
-            mined_blocks.push(mined_block);
-
-            Ok(())
-        };
 
         // Limit the pre-allocated capacity based on the minimum reservable number of
         // blocks to avoid too large allocations.
@@ -2282,7 +2294,7 @@ where
     pub fn send_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-    ) -> Result<SendTransactionResult<ChainSpecT>, ProviderError<ChainSpecT>> {
+    ) -> Result<SendTransactionResultForChainSpec<ChainSpecT>, ProviderError<ChainSpecT>> {
         if transaction.transaction_type().is_eip4844() {
             if !self.is_auto_mining || mempool::has_transactions(&self.mem_pool) {
                 return Err(ProviderError::BlobMemPoolUnsupported);

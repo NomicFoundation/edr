@@ -63,37 +63,19 @@ impl BlockReceipts<TypedEnvelope<receipt::Execution<FilterLog>>> for LocalBlock 
     }
 }
 
-impl
-    edr_evm::LocalBlock<
-        TypedEnvelope<receipt::Execution<FilterLog>>,
-        OptimismSpecId,
-        transaction::Signed,
-    > for LocalBlock
-{
+impl edr_evm::EmptyBlock<OptimismSpecId> for LocalBlock {
     fn empty(hardfork: OptimismSpecId, partial_header: block::PartialHeader) -> Self {
         Self {
             eth: EthLocalBlock::empty(hardfork, partial_header),
             l1_block_info: todo!(),
         }
     }
+}
 
+impl edr_evm::LocalBlock<TypedEnvelope<receipt::Execution<FilterLog>>> for LocalBlock {
     fn transaction_receipts(
         &self,
     ) -> &[Arc<BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>] {
         self.eth.transaction_receipts()
-    }
-}
-
-impl From<LocalBlock>
-    for Arc<
-        dyn SyncBlock<
-            TypedEnvelope<receipt::Execution<FilterLog>>,
-            transaction::Signed,
-            Error = BlockchainErrorForChainSpec<OptimismChainSpec>,
-        >,
-    >
-{
-    fn from(block: LocalBlock) -> Self {
-        Arc::new(block)
     }
 }

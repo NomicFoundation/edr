@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use edr_eth::{signature::Signature, transaction::MaybeSignedTransaction, B256};
 use edr_evm::{
-    block::transaction::{BlockDataForTransaction, TransactionAndBlock},
+    block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::{remote::EthRpcTransaction, TxKind},
 };
 use edr_rpc_eth::{
@@ -122,11 +122,11 @@ impl TryFrom<Transaction> for transaction::Signed {
     }
 }
 
-impl RpcTypeFrom<TransactionAndBlock<OptimismChainSpec>> for Transaction {
+impl RpcTypeFrom<TransactionAndBlockForChainSpec<OptimismChainSpec>> for Transaction {
     type Hardfork = OptimismSpecId;
 
     fn rpc_type_from(
-        value: &TransactionAndBlock<OptimismChainSpec>,
+        value: &TransactionAndBlockForChainSpec<OptimismChainSpec>,
         hardfork: Self::Hardfork,
     ) -> Self {
         let (header, transaction_index) = value

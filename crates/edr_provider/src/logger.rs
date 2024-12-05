@@ -1,11 +1,12 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
 
 use crate::{
-    data::CallResult, debug_mine::DebugMineBlockResult, error::EstimateGasFailure, ProviderError,
+    data::CallResult, debug_mine::DebugMineBlockResultForChainSpec, error::EstimateGasFailure,
+    ProviderError,
 };
 
 pub trait Logger<ChainSpecT: RuntimeSpec> {
@@ -46,7 +47,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec> {
     fn log_interval_mined(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        result: &DebugMineBlockResult<Arc<ChainSpecT::Block>, ChainSpecT::HaltReason>,
+        result: &DebugMineBlockResultForChainSpec<ChainSpecT>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
         let _result = result;
@@ -57,7 +58,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec> {
     fn log_mined_block(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        results: &[DebugMineBlockResult<Arc<ChainSpecT::Block>, ChainSpecT::HaltReason>],
+        results: &[DebugMineBlockResultForChainSpec<ChainSpecT>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
         let _results = results;
@@ -69,7 +70,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec> {
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::SignedTransaction,
-        mining_results: &[DebugMineBlockResult<Arc<ChainSpecT::Block>, ChainSpecT::HaltReason>],
+        mining_results: &[DebugMineBlockResultForChainSpec<ChainSpecT>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _hardfork = hardfork;
         let _transaction = transaction;

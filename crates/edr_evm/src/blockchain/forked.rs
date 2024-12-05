@@ -31,7 +31,8 @@ use crate::{
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, BlockReceipts, RandomHashGenerator, RemoteBlock,
+    Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
+    RandomHashGenerator, RemoteBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -567,10 +568,7 @@ where
         &mut self,
         block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
-    ) -> Result<
-        BlockAndTotalDifficulty<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>,
-        Self::Error,
-    > {
+    ) -> Result<BlockAndTotalDifficultyForChainSpec<ChainSpecT>, Self::Error> {
         let last_block = self.last_block()?;
 
         validate_next_block::<ChainSpecT>(self.hardfork, &last_block, &block)?;

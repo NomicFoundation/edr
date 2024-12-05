@@ -29,6 +29,10 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
         Self::ExecutionReceipt<FilterLog>,
         Error = BlockchainErrorForChainSpec<Self>,
     >,
+    LocalBlock: BlockReceipts<
+        Self::ExecutionReceipt<FilterLog>,
+        Error = BlockchainErrorForChainSpec<Self>,
+    >,
     RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,

@@ -1,10 +1,7 @@
-use std::{cmp::Ordering, fmt::Debug, sync::Arc};
+use std::{cmp::Ordering, fmt::Debug};
 
-use derive_where::derive_where;
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
-    log::FilterLog,
-    receipt::Receipt,
     result::{ExecutionResult, InvalidTransaction},
     signature::SignatureError,
     transaction::{ExecutableTransaction as _, Transaction, TransactionValidation},
@@ -21,26 +18,9 @@ use crate::{
     mempool::OrderedTransaction,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, SyncState},
-    trace::Trace,
     transaction::TransactionError,
-    Block as _, BlockBuilder, BlockBuilderAndError, BlockTransactionError, MemPool, SyncBlock,
+    Block as _, BlockBuilder, BlockBuilderAndError, BlockTransactionError, MemPool,
 };
-
-/// The result of mining a block, after having been committed to the blockchain.
-#[derive(Debug)]
-#[derive_where(Clone; HaltReasonT)]
-pub struct MineBlockResult<BlockchainErrorT, ExecutionReceiptT, HaltReasonT, SignedTransactionT>
-where
-    ExecutionReceiptT: Receipt<FilterLog>,
-    HaltReasonT: HaltReasonTrait,
-{
-    /// Mined block
-    pub block: Arc<dyn SyncBlock<ExecutionReceiptT, SignedTransactionT, Error = BlockchainErrorT>>,
-    /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
-    /// Transaction traces
-    pub transaction_traces: Vec<Trace<HaltReasonT>>,
-}
 
 /// The result of mining a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.

@@ -1,8 +1,6 @@
 use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, Header},
-    log::FilterLog,
-    receipt::Receipt,
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
@@ -192,16 +190,10 @@ where
     }
 }
 
-impl<
-        BlockchainErrorT,
-        ExecutionReceiptT: Receipt<FilterLog>,
-        SignedTransactionT: ExecutableTransaction,
-    > From<BlockAndTotalDifficulty<BlockchainErrorT, ExecutionReceiptT, SignedTransactionT>>
-    for crate::rpc::block::Block<B256>
+impl<BlockT: edr_evm::Block<SignedTransactionT>, SignedTransactionT: ExecutableTransaction>
+    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for crate::rpc::block::Block<B256>
 {
-    fn from(
-        value: BlockAndTotalDifficulty<BlockchainErrorT, ExecutionReceiptT, SignedTransactionT>,
-    ) -> Self {
+    fn from(value: BlockAndTotalDifficulty<BlockT, SignedTransactionT>) -> Self {
         let transactions = value
             .block
             .transactions()

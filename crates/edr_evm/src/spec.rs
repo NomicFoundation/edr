@@ -16,10 +16,7 @@ use edr_utils::types::HigherKinded;
 pub use revm::EvmWiring;
 
 use crate::{
-    block::transaction::{
-        TransactionAndBlock, TransactionAndBlockForChainSpec,
-        TransactionReceiptAndBlockForChainSpec,
-    },
+    block::transaction::{TransactionAndBlockForChainSpec, TransactionReceiptAndBlockForChainSpec},
     evm::PrimitiveEvmWiring,
     hardfork::{self, Activations},
     receipt::{self, ExecutionReceiptBuilder},
@@ -28,9 +25,8 @@ use crate::{
         remote::EthRpcTransaction, Transaction, TransactionError, TransactionType,
         TransactionValidation,
     },
-    Block, BlockBuilder, BlockReceipts, BlockTraitObject, EmptyBlock, EthBlockBuilder,
-    EthBlockData, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock, RemoteBlockConversionError,
-    SyncBlock,
+    Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthLocalBlock,
+    EthRpcBlock, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 
 /// Helper type to determine higher kinded execution receipt types for a chain
@@ -116,7 +112,6 @@ pub trait RuntimeSpec:
     /// Trait for representing block trait objects.
     type Block: Block<Self::SignedTransaction>
         + BlockReceipts<Self::ExecutionReceipt<FilterLog>>
-        + BlockTraitObject<Self>
         + ?Sized;
 
     /// Type representing a block builder.
@@ -167,8 +162,10 @@ pub trait RuntimeSpec:
     /// transaction.
     type RpcTransactionConversionError: std::error::Error;
 
+    /// Casts an [`Arc`] of the [`Self::LocalBlock`] type into an [`Arc`] of the [`Self::Block`] type.
     fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block>;
 
+    /// Casts an [`Arc`] of the [`RemoteBlock`] type into an [`Arc`] of the [`Self::Block`] type.
     fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block>;
 
     /// Casts a transaction validation error into a `TransactionError`.
