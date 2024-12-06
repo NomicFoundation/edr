@@ -179,7 +179,6 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
                 contract_address: value.contract_address,
                 gas_used: value.gas_used,
                 effective_gas_price: value.effective_gas_price,
-                phantom: PhantomData,
             },
         })
     }

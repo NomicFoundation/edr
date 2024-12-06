@@ -2,14 +2,13 @@ use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::Header, log::FilterLog, transaction::ExecutableTransaction as _, withdrawal::Withdrawal,
-    B256, U256,
+    block::Header, transaction::ExecutableTransaction as _, withdrawal::Withdrawal, B256, U256,
 };
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 
 use crate::{
-    block::{BlockReceipt, BlockReceipts},
+    block::BlockReceipts,
     blockchain::{BlockchainErrorForChainSpec, ForkedBlockchainError},
     spec::RuntimeSpec,
     Block, EthBlockData,
@@ -39,12 +38,13 @@ pub enum ConversionError<TransactionConversionErrorT> {
 }
 
 /// A remote block, which lazily loads receipts.
-#[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
+#[derive_where(Clone; ChainSpecT::SignedTransaction)]
+#[derive_where(Debug; ChainSpecT::SignedTransaction, ChainSpecT::BlockReceipt)]
 pub struct RemoteBlock<ChainSpecT: RuntimeSpec> {
     header: Header,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     /// The receipts of the block's transactions
-    receipts: OnceLock<Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>>,
+    receipts: OnceLock<Vec<Arc<ChainSpecT::BlockReceipt>>>,
     /// The hashes of the block's ommers
     ommer_hashes: Vec<B256>,
     /// The staking withdrawals
@@ -107,36 +107,35 @@ impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT::SignedTransaction> for RemoteBlo
     }
 }
 
-impl<ChainSpecT: RuntimeSpec> BlockReceipts<ChainSpecT::ExecutionReceipt<FilterLog>>
+impl<ChainSpecT: RuntimeSpec> BlockReceipts<Arc<ChainSpecT::BlockReceipt>>
     for RemoteBlock<ChainSpecT>
 {
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
     fn fetch_transaction_receipts(
         &self,
-    ) -> Result<Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>, Self::Error> {
+    ) -> Result<Vec<Arc<ChainSpecT::BlockReceipt>>, Self::Error> {
         if let Some(receipts) = self.receipts.get() {
             return Ok(receipts.clone());
         }
 
-        let receipts: Vec<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>> =
-            tokio::task::block_in_place(|| {
-                self.runtime.block_on(
-                    self.rpc_client.get_transaction_receipts(
-                        self.transactions
-                            .iter()
-                            .map(ChainSpecT::SignedTransaction::transaction_hash),
-                    ),
-                )
-            })
-            .map_err(ForkedBlockchainError::RpcClient)?
-            .ok_or_else(|| ForkedBlockchainError::MissingReceipts {
-                block_hash: *self.block_hash(),
-            })?
-            .into_iter()
-            .map(|receipt| receipt.try_into().map(Arc::new))
-            .collect::<Result<_, _>>()
-            .map_err(ForkedBlockchainError::ReceiptConversion)?;
+        let receipts: Vec<Arc<ChainSpecT::BlockReceipt>> = tokio::task::block_in_place(|| {
+            self.runtime.block_on(
+                self.rpc_client.get_transaction_receipts(
+                    self.transactions
+                        .iter()
+                        .map(ChainSpecT::SignedTransaction::transaction_hash),
+                ),
+            )
+        })
+        .map_err(ForkedBlockchainError::RpcClient)?
+        .ok_or_else(|| ForkedBlockchainError::MissingReceipts {
+            block_hash: *self.block_hash(),
+        })?
+        .into_iter()
+        .map(|receipt| receipt.try_into().map(Arc::new))
+        .collect::<Result<_, _>>()
+        .map_err(ForkedBlockchainError::ReceiptConversion)?;
 
         self.receipts
             .set(receipts.clone())

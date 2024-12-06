@@ -1346,6 +1346,7 @@ dependencies = [
  "alloy-rlp",
  "anyhow",
  "assert-json-diff",
+ "auto_impl",
  "c-kzg",
  "derive-where",
  "edr_defaults",

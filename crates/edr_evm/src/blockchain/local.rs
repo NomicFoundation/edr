@@ -14,7 +14,6 @@ use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     l1,
     log::FilterLog,
-    receipt::BlockReceipt,
     Address, Bytecode, Bytes, HashSet, B256, U256,
 };
 
@@ -83,8 +82,8 @@ where
     ChainSpecT: SyncRuntimeSpec,
 {
     storage: ReservableSparseBlockchainStorage<
+        Arc<ChainSpecT::BlockReceipt>,
         Arc<ChainSpecT::LocalBlock>,
-        ChainSpecT::ExecutionReceipt<FilterLog>,
         ChainSpecT::Hardfork,
         ChainSpecT::SignedTransaction,
     >,
@@ -96,7 +95,7 @@ impl<ChainSpecT> LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
         LocalBlock: BlockReceipts<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Arc<ChainSpecT::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,
     >,
@@ -225,7 +224,7 @@ where
 impl<ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT::LocalBlock: BlockReceipts<
-        ChainSpecT::ExecutionReceipt<FilterLog>,
+        Arc<ChainSpecT::BlockReceipt>,
         Error = BlockchainErrorForChainSpec<ChainSpecT>,
     >,
 {
@@ -303,10 +302,7 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
-        Self::BlockchainError,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, Self::BlockchainError> {
         Ok(self.storage.receipt_by_transaction_hash(transaction_hash))
     }
 
@@ -351,7 +347,7 @@ where
 impl<ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT::LocalBlock: BlockReceipts<
-        ChainSpecT::ExecutionReceipt<FilterLog>,
+        Arc<ChainSpecT::BlockReceipt>,
         Error = BlockchainErrorForChainSpec<ChainSpecT>,
     >,
 {

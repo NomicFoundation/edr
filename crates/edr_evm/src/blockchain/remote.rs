@@ -3,8 +3,7 @@ use std::sync::Arc;
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use derive_where::derive_where;
 use edr_eth::{
-    filter::OneOrMore, log::FilterLog, receipt::BlockReceipt, Address, BlockSpec,
-    PreEip1898BlockSpec, B256, U256,
+    filter::OneOrMore, log::FilterLog, Address, BlockSpec, PreEip1898BlockSpec, B256, U256,
 };
 use edr_rpc_eth::client::EthRpcClient;
 use revm::primitives::HashSet;
@@ -25,8 +24,8 @@ where
     client: Arc<EthRpcClient<ChainSpecT>>,
     cache: RwLock<
         SparseBlockchainStorage<
+            Arc<ChainSpecT::BlockReceipt>,
             BlockT,
-            ChainSpecT::ExecutionReceipt<FilterLog>,
             ChainSpecT::SignedTransaction,
         >,
     >,
@@ -101,10 +100,8 @@ where
     pub async fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
-        ForkedBlockchainErrorForChainSpec<ChainSpecT>,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, ForkedBlockchainErrorForChainSpec<ChainSpecT>>
+    {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(receipt) = cache.receipt_by_transaction_hash(transaction_hash) {
@@ -120,7 +117,7 @@ where
 
             Ok(Some({
                 let mut cache = RwLockUpgradableReadGuard::upgrade(cache).await;
-                cache.insert_receipt(receipt)?.clone()
+                cache.insert_receipt(Arc::new(receipt))?.clone()
             }))
         } else {
             Ok(None)
@@ -254,8 +251,8 @@ where
         cache: RwLockUpgradableReadGuard<
             '_,
             SparseBlockchainStorage<
+                Arc<ChainSpecT::BlockReceipt>,
                 BlockT,
-                ChainSpecT::ExecutionReceipt<FilterLog>,
                 ChainSpecT::SignedTransaction,
             >,
         >,

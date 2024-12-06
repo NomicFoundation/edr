@@ -10,7 +10,7 @@ use auto_impl::auto_impl;
 use edr_eth::{
     l1,
     log::FilterLog,
-    receipt::{BlockReceipt, ExecutionReceipt},
+    receipt::ReceiptTrait,
     spec::{ChainSpec, HardforkTrait},
     Address, HashSet, B256, U256,
 };
@@ -166,10 +166,7 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
-        Self::BlockchainError,
-    >;
+    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, Self::BlockchainError>;
 
     /// Retrieves the hardfork specification of the block at the provided
     /// number.
@@ -251,15 +248,15 @@ where
 }
 
 fn compute_state_at_block<
+    BlockReceiptT: Clone + ReceiptTrait,
     BlockT: Block<SignedTransactionT> + Clone,
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
     HardforkT: HardforkTrait,
     SignedTransactionT,
 >(
     state: &mut dyn StateCommit,
     local_storage: &ReservableSparseBlockchainStorage<
+        BlockReceiptT,
         BlockT,
-        ExecutionReceiptT,
         HardforkT,
         SignedTransactionT,
     >,

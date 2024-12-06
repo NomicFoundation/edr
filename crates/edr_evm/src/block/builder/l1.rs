@@ -23,14 +23,10 @@ use crate::{
     config::{CfgEnv, Env},
     debug::DebugContext,
     receipt::ExecutionReceiptBuilder as _,
-    spec::{
-        BlockEnvConstructor as _, ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec,
-        SyncRuntimeSpec,
-    },
+    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    Block as _, BlockBuilderCreationError, EthLocalBlock, EthLocalBlockForChainSpec,
-    MineBlockResultAndState,
+    Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
 };
 
 /// A builder for constructing Ethereum L1 blocks.
@@ -52,7 +48,7 @@ where
     hardfork: ChainSpecT::Hardfork,
     header: PartialHeader,
     parent_gas_limit: Option<u64>,
-    receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>, ExecutionLog>>,
+    receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>>>,
     state: Box<dyn SyncState<StateErrorT>>,
     state_diff: StateDiff,
     transactions: Vec<ChainSpecT::SignedTransaction>,
@@ -388,13 +384,7 @@ where
         }
 
         // TODO: handle ommers
-        let block = EthLocalBlock::<
-            ChainSpecT::RpcBlockConversionError,
-            ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>,
-            ChainSpecT::Hardfork,
-            ChainSpecT::RpcReceiptConversionError,
-            ChainSpecT::SignedTransaction,
-        >::new(
+        let block = EthLocalBlockForChainSpec::<ChainSpecT>::new(
             self.header,
             self.transactions,
             self.receipts,
@@ -415,18 +405,8 @@ impl<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
     BlockBuilder<'blockchain, ChainSpecT, DebugDataT>
     for EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
 where
-    ChainSpecT: SyncRuntimeSpec<
-        Hardfork: Debug,
-        LocalBlock: From<
-            EthLocalBlock<
-                ChainSpecT::RpcBlockConversionError,
-                ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>,
-                ChainSpecT::Hardfork,
-                ChainSpecT::RpcReceiptConversionError,
-                ChainSpecT::SignedTransaction,
-            >,
-        >,
-    >,
+    ChainSpecT:
+        SyncRuntimeSpec<Hardfork: Debug, LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>>,
     StateErrorT: Debug + Send,
 {
     type BlockchainError = BlockchainErrorT;

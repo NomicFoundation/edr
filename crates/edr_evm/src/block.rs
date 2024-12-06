@@ -9,8 +9,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use auto_impl::auto_impl;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
-    log::FilterLog,
-    receipt::{BlockReceipt, ExecutionReceipt},
+    receipt::ReceiptTrait,
     spec::{ChainSpec, HardforkTrait},
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
@@ -51,16 +50,14 @@ pub trait Block<SignedTransactionT>: Debug {
 
 /// Trait for fetching the receipts of a block's transactions.
 #[auto_impl(Arc)]
-pub trait BlockReceipts<ExecutionReceiptT: ExecutionReceipt<FilterLog>> {
+pub trait BlockReceipts<BlockReceiptT: ReceiptTrait> {
     /// The blockchain error type.
     type Error;
 
     /// Fetches the receipts of the block's transactions.
     ///
     /// This may block if the receipts are stored remotely.
-    fn fetch_transaction_receipts(
-        &self,
-    ) -> Result<Vec<Arc<BlockReceipt<ExecutionReceiptT>>>, Self::Error>;
+    fn fetch_transaction_receipts(&self) -> Result<Vec<BlockReceiptT>, Self::Error>;
 }
 
 /// Trait for creating an empty block.
@@ -79,40 +76,36 @@ impl<BlockT: EmptyBlock<HardforkT>, HardforkT: HardforkTrait> EmptyBlock<Hardfor
 
 /// Trait for locally mined blocks.
 #[auto_impl(Arc)]
-pub trait LocalBlock<ExecutionReceiptT: ExecutionReceipt<FilterLog>> {
+pub trait LocalBlock<BlockReceiptT> {
     /// Returns the receipts of the block's transactions.
-    fn transaction_receipts(&self) -> &[Arc<BlockReceipt<ExecutionReceiptT>>];
+    fn transaction_receipts(&self) -> &[BlockReceiptT];
 }
 
 /// Trait that meets all requirements for an Ethereum block.
-pub trait EthBlock<ExecutionReceiptT, SignedTransactionT>:
-    Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT>
-where
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
+pub trait EthBlock<BlockReceiptT: ReceiptTrait, SignedTransactionT>:
+    Block<SignedTransactionT> + BlockReceipts<BlockReceiptT>
 {
 }
 
-impl<BlockT, ExecutionReceiptT, SignedTransactionT> EthBlock<ExecutionReceiptT, SignedTransactionT>
+impl<BlockReceiptT, BlockT, SignedTransactionT> EthBlock<BlockReceiptT, SignedTransactionT>
     for BlockT
 where
-    BlockT: Block<SignedTransactionT> + BlockReceipts<ExecutionReceiptT>,
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
+    BlockReceiptT: ReceiptTrait,
+    BlockT: Block<SignedTransactionT> + BlockReceipts<BlockReceiptT>,
 {
 }
 
 /// Trait that meets all requirements for a synchronous block.
-pub trait SyncBlock<ExecutionReceiptT, SignedTransactionT>:
-    EthBlock<ExecutionReceiptT, SignedTransactionT> + Send + Sync
-where
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
+pub trait SyncBlock<BlockReceiptT: ReceiptTrait, SignedTransactionT>:
+    EthBlock<BlockReceiptT, SignedTransactionT> + Send + Sync
 {
 }
 
-impl<BlockT, ExecutionReceiptT, SignedTransactionT> SyncBlock<ExecutionReceiptT, SignedTransactionT>
+impl<BlockReceiptT, BlockT, SignedTransactionT> SyncBlock<BlockReceiptT, SignedTransactionT>
     for BlockT
 where
-    BlockT: EthBlock<ExecutionReceiptT, SignedTransactionT> + Send + Sync,
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
+    BlockReceiptT: ReceiptTrait,
+    BlockT: EthBlock<BlockReceiptT, SignedTransactionT> + Send + Sync,
 {
 }
 

@@ -164,7 +164,7 @@ pub async fn run_full_block<
             BlockEnv: Default,
             ExecutionReceipt<FilterLog>: PartialEq,
             LocalBlock: BlockReceipts<
-                ChainSpecT::ExecutionReceipt<FilterLog>,
+                Arc<ChainSpecT::BlockReceipt>,
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
             SignedTransaction: Default

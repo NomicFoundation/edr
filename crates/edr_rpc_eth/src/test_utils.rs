@@ -9,8 +9,6 @@ macro_rules! impl_execution_receipt_tests {
             paste::item! {
                 #[test]
                 fn [<typed_receipt_rpc_receipt_roundtrip_ $name>]() -> anyhow::Result<()> {
-                    use std::marker::PhantomData;
-
                     use edr_eth::{
                         log::{FilterLog, FullBlockLog, ReceiptLog},
                         receipt::{BlockReceipt, MapReceiptLogs as _, TransactionReceipt},
@@ -55,7 +53,6 @@ macro_rules! impl_execution_receipt_tests {
                         contract_address: Some(Address::random()),
                         gas_used: 100,
                         effective_gas_price: Some(U256::from(100u64)),
-                        phantom: PhantomData,
                     };
                     let block_receipt = BlockReceipt {
                         inner: transaction_receipt,

@@ -1,9 +1,9 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use edr_eth::{
     log::{matches_address_filter, matches_topics_filter, FilterLog},
-    receipt::{BlockReceipt, ExecutionReceipt},
+    receipt::{ExecutionReceipt, ReceiptTrait},
     transaction::ExecutableTransaction,
     Address, B256, U256,
 };
@@ -13,26 +13,22 @@ use super::InsertError;
 use crate::{Block, BlockReceipts};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
-#[derive_where(Debug; BlockT, ExecutionReceiptT)]
+#[derive_where(Debug; BlockReceiptT, BlockT)]
 #[derive_where(Default)]
-pub struct SparseBlockchainStorage<
-    BlockT,
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
-    SignedTransactionT,
-> {
+pub struct SparseBlockchainStorage<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT> {
     hash_to_block: HashMap<B256, BlockT>,
     hash_to_total_difficulty: HashMap<B256, U256>,
     number_to_block: HashMap<u64, BlockT>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
-    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt<ExecutionReceiptT>>>,
+    transaction_hash_to_receipt: HashMap<B256, BlockReceiptT>,
     phantom: PhantomData<SignedTransactionT>,
 }
 
 impl<
+        BlockReceiptT: ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone,
-        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         SignedTransactionT: ExecutableTransaction,
-    > SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
+    > SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -139,8 +135,8 @@ impl<
     }
 }
 
-impl<BlockT, ExecutionReceiptT: ExecutionReceipt<FilterLog>, SignedTransactionT>
-    SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>
+impl<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT>
+    SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>
 {
     /// Retrieves the block by hash, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -170,10 +166,7 @@ impl<BlockT, ExecutionReceiptT: ExecutionReceipt<FilterLog>, SignedTransactionT>
     /// Retrieves the receipt of the transaction with the provided hash, if it
     /// exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn receipt_by_transaction_hash(
-        &self,
-        transaction_hash: &B256,
-    ) -> Option<&Arc<BlockReceipt<ExecutionReceiptT>>> {
+    pub fn receipt_by_transaction_hash(&self, transaction_hash: &B256) -> Option<&BlockReceiptT> {
         self.transaction_hash_to_receipt.get(transaction_hash)
     }
 
@@ -187,17 +180,15 @@ impl<BlockT, ExecutionReceiptT: ExecutionReceipt<FilterLog>, SignedTransactionT>
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn insert_receipt(
         &mut self,
-        receipt: BlockReceipt<ExecutionReceiptT>,
-    ) -> Result<&Arc<BlockReceipt<ExecutionReceiptT>>, InsertError> {
-        let receipt = Arc::new(receipt);
-
+        receipt: BlockReceiptT,
+    ) -> Result<&BlockReceiptT, InsertError> {
         let receipt = self
             .transaction_hash_to_receipt
-            .try_insert(receipt.transaction_hash, receipt)
+            .try_insert(*receipt.transaction_hash(), receipt)
             .map_err(|err| {
                 let OccupiedError { value, .. } = err;
                 InsertError::DuplicateReceipt {
-                    transaction_hash: value.transaction_hash,
+                    transaction_hash: *value.transaction_hash(),
                 }
             })?;
         Ok(receipt)
@@ -205,23 +196,20 @@ impl<BlockT, ExecutionReceiptT: ExecutionReceipt<FilterLog>, SignedTransactionT>
 
     /// Inserts receipts. Errors if they already exist.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn insert_receipts(
-        &mut self,
-        receipts: Vec<Arc<BlockReceipt<ExecutionReceiptT>>>,
-    ) -> Result<(), InsertError> {
+    pub fn insert_receipts(&mut self, receipts: Vec<BlockReceiptT>) -> Result<(), InsertError> {
         if let Some(receipt) = receipts.iter().find(|receipt| {
             self.transaction_hash_to_receipt
-                .contains_key(&receipt.transaction_hash)
+                .contains_key(receipt.transaction_hash())
         }) {
             return Err(InsertError::DuplicateReceipt {
-                transaction_hash: receipt.transaction_hash,
+                transaction_hash: *receipt.transaction_hash(),
             });
         }
 
         self.transaction_hash_to_receipt.extend(
             receipts
-                .iter()
-                .map(|receipt| (receipt.transaction_hash, receipt.clone())),
+                .into_iter()
+                .map(|receipt| (*receipt.transaction_hash(), receipt)),
         );
 
         Ok(())
@@ -230,11 +218,11 @@ impl<BlockT, ExecutionReceiptT: ExecutionReceipt<FilterLog>, SignedTransactionT>
 
 /// Retrieves the logs that match the provided filter.
 pub fn logs<
-    BlockT: BlockReceipts<ExecutionReceiptT>,
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
+    BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
+    BlockT: BlockReceipts<BlockReceiptT>,
     SignedTransactionT,
 >(
-    storage: &SparseBlockchainStorage<BlockT, ExecutionReceiptT, SignedTransactionT>,
+    storage: &SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>,
     from_block: u64,
     to_block: u64,
     addresses: &HashSet<Address>,

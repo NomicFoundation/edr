@@ -7,7 +7,6 @@ use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     l1,
     log::FilterLog,
-    receipt::BlockReceipt,
     spec::HardforkTrait,
     Address, BlockSpec, Bytecode, Bytes, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256,
     U256,
@@ -100,8 +99,8 @@ where
     ChainSpecT: RuntimeSpec,
 {
     local_storage: ReservableSparseBlockchainStorage<
+        Arc<ChainSpecT::BlockReceipt>,
         Arc<ChainSpecT::LocalBlock>,
-        ChainSpecT::ExecutionReceipt<FilterLog>,
         ChainSpecT::Hardfork,
         ChainSpecT::SignedTransaction,
     >,
@@ -276,7 +275,7 @@ impl<ChainSpecT> Blockchain<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
         LocalBlock: BlockReceipts<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Arc<ChainSpecT::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,
     >,
@@ -428,10 +427,7 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
-        Self::BlockchainError,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, Self::BlockchainError> {
         if let Some(receipt) = self
             .local_storage
             .receipt_by_transaction_hash(transaction_hash)
@@ -556,7 +552,7 @@ impl<ChainSpecT> BlockchainMut<ChainSpecT> for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
         LocalBlock: BlockReceipts<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Arc<ChainSpecT::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,
     >,

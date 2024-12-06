@@ -6,15 +6,11 @@
 //! [^1]: for that, we internally use the sparse implementation via
 //! [`SparseBlockchainStorage`](super::sparse::SparseBlockchainStorage).
 
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use edr_eth::{
-    log::FilterLog,
-    receipt::{BlockReceipt, ExecutionReceipt},
-    spec::HardforkTrait,
-    transaction::ExecutableTransaction,
-    B256, U256,
+    receipt::ReceiptTrait, spec::HardforkTrait, transaction::ExecutableTransaction, B256, U256,
 };
 use revm::primitives::HashMap;
 
@@ -22,10 +18,10 @@ use super::InsertError;
 use crate::{Block, EmptyBlock, LocalBlock};
 
 /// A storage solution for storing a Blockchain's blocks contiguously in-memory.
-#[derive_where(Clone, Debug, Default; BlockT, ExecutionReceiptT)]
+#[derive_where(Clone, Debug, Default; BlockReceiptT, BlockT)]
 pub struct ContiguousBlockchainStorage<
+    BlockReceiptT,
     BlockT,
-    ExecutionReceiptT: ExecutionReceipt<FilterLog>,
     HardforkT: HardforkTrait,
     SignedTransactionT,
 > {
@@ -33,16 +29,12 @@ pub struct ContiguousBlockchainStorage<
     hash_to_block: HashMap<B256, BlockT>,
     total_difficulties: Vec<U256>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
-    transaction_hash_to_receipt: HashMap<B256, Arc<BlockReceipt<ExecutionReceiptT>>>,
+    transaction_hash_to_receipt: HashMap<B256, BlockReceiptT>,
     phantom: PhantomData<(HardforkT, SignedTransactionT)>,
 }
 
-impl<
-        BlockT,
-        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
-        HardforkT: HardforkTrait,
-        SignedTransactionT,
-    > ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
+impl<BlockReceiptT, BlockT, HardforkT: HardforkTrait, SignedTransactionT>
+    ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the instance's blocks.
     pub fn blocks(&self) -> &[BlockT] {
@@ -62,10 +54,7 @@ impl<
 
     /// Retrieves the receipt of the transaction with the provided hash, if it
     /// exists.
-    pub fn receipt_by_transaction_hash(
-        &self,
-        transaction_hash: &B256,
-    ) -> Option<&Arc<BlockReceipt<ExecutionReceiptT>>> {
+    pub fn receipt_by_transaction_hash(&self, transaction_hash: &B256) -> Option<&BlockReceiptT> {
         self.transaction_hash_to_receipt.get(transaction_hash)
     }
 
@@ -76,11 +65,11 @@ impl<
 }
 
 impl<
+        BlockReceiptT,
         BlockT: Block<SignedTransactionT>,
-        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
         HardforkT: HardforkTrait,
         SignedTransactionT,
-    > ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
+    > ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Reverts to the block with the provided number, deleting all later
     /// blocks.
@@ -139,11 +128,11 @@ impl<
 }
 
 impl<
-        BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<ExecutionReceiptT> + Clone,
-        ExecutionReceiptT: ExecutionReceipt<FilterLog>,
+        BlockReceiptT: Clone + ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT> + Clone,
         HardforkT: HardforkTrait,
         SignedTransactionT: ExecutableTransaction,
-    > ContiguousBlockchainStorage<BlockT, ExecutionReceiptT, HardforkT, SignedTransactionT>
+    > ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     pub fn with_block(block: BlockT, total_difficulty: U256) -> Self {
@@ -152,7 +141,7 @@ impl<
         let transaction_hash_to_receipt = block
             .transaction_receipts()
             .iter()
-            .map(|receipt| (receipt.transaction_hash, receipt.clone()))
+            .map(|receipt| (*receipt.transaction_hash(), receipt.clone()))
             .collect();
 
         let transaction_hash_to_block = block
@@ -219,7 +208,7 @@ impl<
             block
                 .transaction_receipts()
                 .iter()
-                .map(|receipt| (receipt.transaction_hash, receipt.clone())),
+                .map(|receipt| (*receipt.transaction_hash(), receipt.clone())),
         );
 
         self.transaction_hash_to_block.extend(

@@ -6,12 +6,12 @@ use crate::{receipt::Block, CallRequest};
 /// Trait for specifying Ethereum-based JSON-RPC method types.
 pub trait RpcSpec {
     /// Type representing an RPC execution receipt.
-    type ExecutionReceipt<Log>: ExecutionReceipt<Log>;
+    type ExecutionReceipt<LogT>: ExecutionReceipt<Log = LogT>;
 
     /// Type representing an RPC block
-    type RpcBlock<Data>: GetBlockNumber + DeserializeOwned + Serialize
+    type RpcBlock<DataT>: GetBlockNumber + DeserializeOwned + Serialize
     where
-        Data: Default + DeserializeOwned + Serialize;
+        DataT: Default + DeserializeOwned + Serialize;
 
     /// Type representing an RPC `eth_call` request.
     type RpcCallRequest: DeserializeOwned + Serialize;
@@ -31,11 +31,11 @@ pub trait GetBlockNumber {
 }
 
 impl RpcSpec for L1ChainSpec {
-    type ExecutionReceipt<Log> = TypedEnvelope<edr_eth::receipt::Execution<Log>>;
-    type RpcBlock<Data>
-        = crate::block::Block<Data>
+    type ExecutionReceipt<LogT> = TypedEnvelope<edr_eth::receipt::Execution<LogT>>;
+    type RpcBlock<DataT>
+        = crate::block::Block<DataT>
     where
-        Data: Default + DeserializeOwned + Serialize;
+        DataT: Default + DeserializeOwned + Serialize;
     type RpcCallRequest = CallRequest;
     type RpcReceipt = Block;
     type RpcTransaction = crate::transaction::TransactionWithSignature;

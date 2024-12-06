@@ -7,7 +7,7 @@ use edr_eth::{
     block::{self, Header, PartialHeader},
     keccak256, l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
-    receipt::{BlockReceipt, MapReceiptLogs, TransactionReceipt},
+    receipt::{BlockReceipt, MapReceiptLogs, ReceiptTrait, TransactionReceipt},
     spec::{ChainSpec, HardforkTrait},
     transaction::ExecutableTransaction,
     trie,
@@ -30,6 +30,7 @@ use crate::{
 /// Helper type for a local Ethereum block for a given chain spec.
 pub type EthLocalBlockForChainSpec<ChainSpecT> = EthLocalBlock<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
+    <ChainSpecT as RuntimeSpec>::BlockReceipt,
     ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>,
     <ChainSpecT as ChainSpec>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
@@ -37,9 +38,11 @@ pub type EthLocalBlockForChainSpec<ChainSpecT> = EthLocalBlock<
 >;
 
 /// A locally mined block, which contains complete information.
-#[derive_where(Clone, Debug, PartialEq, Eq; <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type, SignedTransactionT)]
+#[derive_where(Clone; SignedTransactionT)]
+#[derive_where(Debug, PartialEq, Eq; BlockReceiptT, SignedTransactionT)]
 pub struct EthLocalBlock<
     BlockConversionErrorT,
+    BlockReceiptT: ReceiptTrait,
     ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
     HardforkT: HardforkTrait,
     ReceiptConversionErrorT,
@@ -47,24 +50,30 @@ pub struct EthLocalBlock<
 > {
     header: block::Header,
     transactions: Vec<SignedTransactionT>,
-    transaction_receipts:
-        Vec<Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>,
+    transaction_receipts: Vec<Arc<BlockReceiptT>>,
     ommers: Vec<block::Header>,
     ommer_hashes: Vec<B256>,
     withdrawals: Option<Vec<Withdrawal>>,
     hash: B256,
-    phantom: PhantomData<(BlockConversionErrorT, HardforkT, ReceiptConversionErrorT)>,
+    phantom: PhantomData<(
+        BlockConversionErrorT,
+        ExecutionReceiptHigherKindedT,
+        HardforkT,
+        ReceiptConversionErrorT,
+    )>,
 }
 
 impl<
         BlockConversionErrorT,
-        ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
+        BlockReceiptT: ReceiptTrait,
         HardforkT: HardforkTrait,
+        ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction,
     >
     EthLocalBlock<
         BlockConversionErrorT,
+        BlockReceiptT,
         ExecutionReceiptHigherKindedT,
         HardforkT,
         ReceiptConversionErrorT,
@@ -76,10 +85,7 @@ impl<
         partial_header: PartialHeader,
         transactions: Vec<SignedTransactionT>,
         transaction_receipts: Vec<
-            TransactionReceipt<
-                <ExecutionReceiptHigherKindedT as HigherKinded<ExecutionLog>>::Type,
-                ExecutionLog,
-            >,
+            TransactionReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<ExecutionLog>>::Type>,
         >,
         ommers: Vec<Header>,
         withdrawals: Option<Vec<Withdrawal>>,
@@ -101,11 +107,10 @@ impl<
         );
 
         let hash = header.hash();
-        let transaction_receipts = transaction_to_block_receipts::<ExecutionReceiptHigherKindedT>(
-            &hash,
-            header.number,
-            transaction_receipts,
-        );
+        let transaction_receipts = transaction_to_block_receipts::<
+            BlockReceiptT,
+            ExecutionReceiptHigherKindedT,
+        >(&hash, header.number, transaction_receipts);
 
         Self {
             header,
@@ -122,13 +127,7 @@ impl<
     /// Retrieves the block's transactions.
     pub fn detailed_transactions(
         &self,
-    ) -> impl Iterator<
-        Item = DetailedTransaction<
-            '_,
-            <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type,
-            SignedTransactionT,
-        >,
-    > {
+    ) -> impl Iterator<Item = DetailedTransaction<'_, SignedTransactionT, Arc<BlockReceiptT>>> {
         izip!(self.transactions.iter(), self.transaction_receipts.iter()).map(
             |(transaction, receipt)| DetailedTransaction {
                 transaction,
@@ -140,6 +139,7 @@ impl<
 
 impl<
         BlockConversionErrorT,
+        BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
         ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
         HardforkT: HardforkTrait,
         ReceiptConversionErrorT,
@@ -147,6 +147,7 @@ impl<
     >
     EthLocalBlock<
         BlockConversionErrorT,
+        BlockReceiptT,
         ExecutionReceiptHigherKindedT,
         HardforkT,
         ReceiptConversionErrorT,
@@ -166,6 +167,7 @@ impl<
 
 impl<
         BlockConversionErrorT,
+        BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
         ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
         HardforkT: HardforkTrait,
         ReceiptConversionErrorT,
@@ -173,6 +175,7 @@ impl<
     > Block<SignedTransactionT>
     for EthLocalBlock<
         BlockConversionErrorT,
+        BlockReceiptT,
         ExecutionReceiptHigherKindedT,
         HardforkT,
         ReceiptConversionErrorT,
@@ -209,13 +212,15 @@ impl<
 
 impl<
         BlockConversionErrorT,
+        BlockReceiptT: ReceiptTrait + Debug + alloy_rlp::Encodable,
         ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
         HardforkT: HardforkTrait,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
-    > BlockReceipts<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>
+    > BlockReceipts<Arc<BlockReceiptT>>
     for EthLocalBlock<
         BlockConversionErrorT,
+        BlockReceiptT,
         ExecutionReceiptHigherKindedT,
         HardforkT,
         ReceiptConversionErrorT,
@@ -227,7 +232,7 @@ impl<
     fn fetch_transaction_receipts(
         &self,
     ) -> Result<
-        Vec<Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>>,
+        Vec<Arc<BlockReceiptT>>,
         BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
     > {
         Ok(self.transaction_receipts.clone())
@@ -236,6 +241,7 @@ impl<
 
 impl<
         BlockConversionErrorT,
+        BlockReceiptT: ReceiptTrait,
         ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
         HardforkT: HardforkTrait,
         ReceiptConversionErrorT,
@@ -243,6 +249,7 @@ impl<
     > EmptyBlock<HardforkT>
     for EthLocalBlock<
         BlockConversionErrorT,
+        BlockReceiptT,
         ExecutionReceiptHigherKindedT,
         HardforkT,
         ReceiptConversionErrorT,
@@ -268,29 +275,29 @@ impl<
 
 impl<
         BlockConversionErrorT,
+        BlockReceiptT: ReceiptTrait,
         ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
         HardforkT: HardforkTrait,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
-    > LocalBlock<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>
+    > LocalBlock<Arc<BlockReceiptT>>
     for EthLocalBlock<
         BlockConversionErrorT,
+        BlockReceiptT,
         ExecutionReceiptHigherKindedT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
     >
 {
-    fn transaction_receipts(
-        &self,
-    ) -> &[Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>]
-    {
+    fn transaction_receipts(&self) -> &[Arc<BlockReceiptT>] {
         &self.transaction_receipts
     }
 }
 
 impl<
         BlockConversionErrorT,
+        BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
         ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
         HardforkT: HardforkTrait,
         ReceiptConversionErrorT,
@@ -298,6 +305,7 @@ impl<
     > alloy_rlp::Encodable
     for EthLocalBlock<
         BlockConversionErrorT,
+        BlockReceiptT,
         ExecutionReceiptHigherKindedT,
         HardforkT,
         ReceiptConversionErrorT,
@@ -326,18 +334,16 @@ impl<
     }
 }
 
-fn transaction_to_block_receipts<
-    ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
->(
+fn transaction_to_block_receipts<BlockReceiptT, ExecutionReceiptHigherKindedT>(
     block_hash: &B256,
     block_number: u64,
     receipts: Vec<
-        TransactionReceipt<
-            <ExecutionReceiptHigherKindedT as HigherKinded<ExecutionLog>>::Type,
-            ExecutionLog,
-        >,
+        TransactionReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<ExecutionLog>>::Type>,
     >,
-) -> Vec<Arc<BlockReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>>> {
+) -> Vec<Arc<BlockReceiptT>>
+where
+    ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
+{
     let mut log_index = 0;
 
     receipts

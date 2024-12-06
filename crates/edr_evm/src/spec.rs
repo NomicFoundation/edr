@@ -5,7 +5,7 @@ use edr_eth::{
     eips::eip4844,
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
-    receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs},
+    receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::InvalidTransaction,
     spec::{ChainSpec, EthHeaderConstants},
     transaction::ExecutableTransaction,
@@ -52,8 +52,8 @@ pub trait ExecutionReceiptHigherKindedBounds:
     HigherKinded<
         ExecutionLog,
         Type: MapReceiptLogs<ExecutionLog, FilterLog, <Self as HigherKinded<FilterLog>>::Type>
-                  + ExecutionReceipt<ExecutionLog>,
-    > + HigherKinded<FilterLog, Type: Debug + ExecutionReceipt<FilterLog>>
+                  + ExecutionReceipt<Log = ExecutionLog>,
+    > + HigherKinded<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
 {
 }
 
@@ -64,8 +64,8 @@ impl<HigherKindedT> ExecutionReceiptHigherKindedBounds for HigherKindedT where
                 ExecutionLog,
                 FilterLog,
                 <Self as HigherKinded<FilterLog>>::Type,
-            > + ExecutionReceipt<ExecutionLog>,
-        > + HigherKinded<FilterLog, Type: Debug + ExecutionReceipt<FilterLog>>
+            > + ExecutionReceipt<Log = ExecutionLog>,
+        > + HigherKinded<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
 {
 }
 
@@ -95,8 +95,7 @@ pub trait RuntimeSpec:
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
           + TryInto<EthBlockData<Self>, Error = Self::RpcBlockConversionError>,
         RpcReceipt: Debug
-          + RpcTypeFrom<BlockReceipt<Self::ExecutionReceipt<FilterLog>>, Hardfork = Self::Hardfork>
-          + TryInto<BlockReceipt<Self::ExecutionReceipt<FilterLog>>, Error = Self::RpcReceiptConversionError>,
+          + RpcTypeFrom<Self::BlockReceipt, Hardfork = Self::Hardfork>,
         RpcTransaction: EthRpcTransaction
           + RpcTypeFrom<TransactionAndBlockForChainSpec<Self>, Hardfork = Self::Hardfork>
           + TryInto<Self::SignedTransaction, Error = Self::RpcTransactionConversionError>,
@@ -111,7 +110,7 @@ pub trait RuntimeSpec:
 {
     /// Trait for representing block trait objects.
     type Block: Block<Self::SignedTransaction>
-        + BlockReceipts<Self::ExecutionReceipt<FilterLog>>
+        + BlockReceipts<Arc<Self::BlockReceipt>>
         + ?Sized;
 
     /// Type representing a block builder.
@@ -127,6 +126,9 @@ pub trait RuntimeSpec:
         BlockchainError = BlockchainErrorT,
         StateError = StateErrorT>;
 
+    /// Type representing a transaction's receipt in a block.
+    type BlockReceipt: Debug + ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<Self::RpcReceipt, Error = Self::RpcReceiptConversionError>;
+
     /// Type representing an implementation of `EvmWiring` for this chain.
     type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
         ExternalContext = ExternalContexT,
@@ -140,9 +142,9 @@ pub trait RuntimeSpec:
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction> +
-        BlockReceipts<Self::ExecutionReceipt<FilterLog>> +
+        BlockReceipts<Arc<Self::BlockReceipt>> +
         EmptyBlock<Self::Hardfork> +
-        LocalBlock<Self::ExecutionReceipt<FilterLog>>;
+        LocalBlock<Arc<Self::BlockReceipt>>;
 
     /// Type representing a builder that constructs an execution receipt.
     type ReceiptBuilder: ExecutionReceiptBuilder<
@@ -238,6 +240,7 @@ impl BlockEnvConstructor<block::Header> for BlockEnv {
 /// A supertrait for [`RuntimeSpec`] that is safe to send between threads.
 pub trait SyncRuntimeSpec:
     RuntimeSpec<
+        BlockReceipt: Send + Sync,
         ExecutionReceipt<FilterLog>: Send + Sync,
         HaltReason: Send + Sync,
         Hardfork: Send + Sync,
@@ -253,6 +256,7 @@ pub trait SyncRuntimeSpec:
 
 impl<ChainSpecT> SyncRuntimeSpec for ChainSpecT where
     ChainSpecT: RuntimeSpec<
+            BlockReceipt: Send + Sync,
             ExecutionReceipt<FilterLog>: Send + Sync,
             HaltReason: Send + Sync,
             Hardfork: Send + Sync,
@@ -303,10 +307,12 @@ impl RuntimeSpec for L1ChainSpec {
         L1Wiring<Self, DatabaseT, ExternalContexT>;
 
     type Block = dyn SyncBlock<
-        Self::ExecutionReceipt<FilterLog>,
+        Arc<Self::BlockReceipt>,
         Self::SignedTransaction,
-        Error = <Self::LocalBlock as BlockReceipts<Self::ExecutionReceipt<FilterLog>>>::Error,
+        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
     >;
+
+    type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
 
     type BlockBuilder<
         'blockchain,
@@ -317,6 +323,7 @@ impl RuntimeSpec for L1ChainSpec {
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
+        Self::BlockReceipt,
         ExecutionReceiptHigherKindedForChainSpec<Self>,
         Self::Hardfork,
         Self::RpcReceiptConversionError,
