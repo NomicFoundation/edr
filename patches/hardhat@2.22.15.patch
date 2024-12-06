@@ -1,8 +1,100 @@
 diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
-index a4b921c8a37b7d5967955d0449df3d05dbe725a8..7ff9eac18cb9a587aa6bd13ff69904cb4b610611 100644
+index a4b921c8a37b7d5967955d0449df3d05dbe725a8..2a5ed80f3defa71f18c0df97b719820622460fba 100644
 --- a/internal/hardhat-network/provider/provider.js
 +++ b/internal/hardhat-network/provider/provider.js
-@@ -196,7 +196,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -1,52 +1,22 @@
+ "use strict";
+-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+-    if (k2 === undefined) k2 = k;
+-    var desc = Object.getOwnPropertyDescriptor(m, k);
+-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+-      desc = { enumerable: true, get: function() { return m[k]; } };
+-    }
+-    Object.defineProperty(o, k2, desc);
+-}) : (function(o, m, k, k2) {
+-    if (k2 === undefined) k2 = k;
+-    o[k2] = m[k];
+-}));
+-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+-    Object.defineProperty(o, "default", { enumerable: true, value: v });
+-}) : function(o, v) {
+-    o["default"] = v;
+-});
+-var __importStar = (this && this.__importStar) || function (mod) {
+-    if (mod && mod.__esModule) return mod;
+-    var result = {};
+-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+-    __setModuleDefault(result, mod);
+-    return result;
+-};
+ var __importDefault = (this && this.__importDefault) || function (mod) {
+     return (mod && mod.__esModule) ? mod : { "default": mod };
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.createHardhatNetworkProvider = exports.EdrProviderWrapper = exports.getNodeConfig = exports.getGlobalEdrContext = exports.DEFAULT_COINBASE = void 0;
+-const chalk_1 = __importDefault(require("chalk"));
++const picocolors_1 = __importDefault(require("picocolors"));
+ const debug_1 = __importDefault(require("debug"));
+ const events_1 = require("events");
+ const fs_extra_1 = __importDefault(require("fs-extra"));
+-const t = __importStar(require("io-ts"));
+ const semver_1 = __importDefault(require("semver"));
+ const napi_rs_1 = require("../../../common/napi-rs");
+ const constants_1 = require("../../constants");
+-const solc_1 = require("../../core/jsonrpc/types/input/solc");
+-const validation_1 = require("../../core/jsonrpc/types/input/validation");
+ const errors_1 = require("../../core/providers/errors");
+ const http_1 = require("../../core/providers/http");
+ const hardforks_1 = require("../../util/hardforks");
+-const compiler_to_model_1 = require("../stack-traces/compiler-to-model");
+ const consoleLogger_1 = require("../stack-traces/consoleLogger");
+-const vm_trace_decoder_1 = require("../stack-traces/vm-trace-decoder");
+ const constants_2 = require("../stack-traces/constants");
+ const solidity_errors_1 = require("../stack-traces/solidity-errors");
+-const solidityTracer_1 = require("../stack-traces/solidityTracer");
+-const vm_tracer_1 = require("../stack-traces/vm-tracer");
+ const packageInfo_1 = require("../../util/packageInfo");
+ const convertToEdr_1 = require("./utils/convertToEdr");
+ const makeCommon_1 = require("./utils/makeCommon");
+@@ -94,18 +64,13 @@ class EdrProviderEventAdapter extends events_1.EventEmitter {
+ class EdrProviderWrapper extends events_1.EventEmitter {
+     constructor(_provider, 
+     // we add this for backwards-compatibility with plugins like solidity-coverage
+-    _node, _vmTraceDecoder, 
++    _node, 
+     // The common configuration for EthereumJS VM is not used by EDR, but tests expect it as part of the provider.
+-    _common, tracingConfig) {
++    _common) {
+         super();
+         this._provider = _provider;
+         this._node = _node;
+-        this._vmTraceDecoder = _vmTraceDecoder;
+         this._common = _common;
+-        this._failedStackTraces = 0;
+-        if (tracingConfig !== undefined) {
+-            (0, vm_trace_decoder_1.initializeVmTraceDecoder)(this._vmTraceDecoder, tracingConfig);
+-        }
+     }
+     static async create(config, loggerConfig, tracingConfig) {
+         const { Provider } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
+@@ -138,7 +103,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+         const eventAdapter = new EdrProviderEventAdapter();
+         const printLineFn = loggerConfig.printLineFn ?? logger_1.printLine;
+         const replaceLastLineFn = loggerConfig.replaceLastLineFn ?? logger_1.replaceLastLine;
+-        const vmTraceDecoder = new vm_trace_decoder_1.VmTraceDecoder();
+         const hardforkName = (0, hardforks_1.getHardforkName)(config.hardfork);
+         const provider = await Provider.withConfig(getGlobalEdrContext(), {
+             allowBlocksWithSameTimestamp: config.allowBlocksWithSameTimestamp ?? false,
+@@ -186,7 +150,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             enable: loggerConfig.enabled,
+             decodeConsoleLogInputsCallback: consoleLogger_1.ConsoleLogger.getDecodedLogs,
+             getContractAndFunctionNameCallback: (code, calldata) => {
+-                return vmTraceDecoder.getContractAndFunctionNamesForCall(code, calldata);
++                return { contractName: "", functionName: "" };
+             },
+             printLineCallback: (message, replace) => {
+                 if (replace) {
+@@ -196,14 +160,14 @@ class EdrProviderWrapper extends events_1.EventEmitter {
                      printLineFn(message);
                  }
              },
@@ -11,3 +103,128 @@ index a4b921c8a37b7d5967955d0449df3d05dbe725a8..7ff9eac18cb9a587aa6bd13ff69904cb
              eventAdapter.emit("ethEvent", event);
          });
          const minimalEthereumJsNode = {
+             _vm: (0, minimal_vm_1.getMinimalEthereumJsVm)(provider),
+         };
+         const common = (0, makeCommon_1.makeCommon)(getNodeConfig(config));
+-        const wrapper = new EdrProviderWrapper(provider, minimalEthereumJsNode, vmTraceDecoder, common, tracingConfig);
++        const wrapper = new EdrProviderWrapper(provider, minimalEthereumJsNode, common);
+         // Pass through all events from the provider
+         eventAdapter.addListener("ethEvent", wrapper._ethEventListener.bind(wrapper));
+         return wrapper;
+@@ -213,12 +177,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             throw new errors_1.InvalidInputError("Hardhat Network doesn't support JSON-RPC params sent as an object");
+         }
+         const params = args.params ?? [];
+-        if (args.method === "hardhat_addCompilationResult") {
+-            return this._addCompilationResultAction(...this._addCompilationResultParams(params));
+-        }
+-        else if (args.method === "hardhat_getStackTraceFailuresCount") {
+-            return this._getStackTraceFailuresCountAction(...this._getStackTraceFailuresCountParams(params));
+-        }
+         const stringifiedArgs = JSON.stringify({
+             method: args.method,
+             params,
+@@ -232,12 +190,10 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             response = responseObject.data;
+         }
+         const needsTraces = this._node._vm.evm.events.eventNames().length > 0 ||
+-            this._node._vm.events.eventNames().length > 0 ||
+-            this._vmTracer !== undefined;
++            this._node._vm.events.eventNames().length > 0;
+         if (needsTraces) {
+             const rawTraces = responseObject.traces;
+             for (const rawTrace of rawTraces) {
+-                this._vmTracer?.observe(rawTrace);
+                 // For other consumers in JS we need to marshall the entire trace over FFI
+                 const trace = rawTrace.trace();
+                 // beforeTx event
+@@ -272,12 +228,8 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+         }
+         if ((0, http_1.isErrorResponse)(response)) {
+             let error;
+-            const solidityTrace = responseObject.solidityTrace;
+-            let stackTrace;
+-            if (solidityTrace !== null) {
+-                stackTrace = await this._rawTraceToSolidityStackTrace(solidityTrace);
+-            }
+-            if (stackTrace !== undefined) {
++            const stackTrace = responseObject.stackTrace();
++            if (stackTrace !== null) {
+                 error = (0, solidity_errors_1.encodeSolidityStackTrace)(response.error.message, stackTrace);
+                 // Pass data and transaction hash from the original error
+                 error.data = response.error.data?.data ?? undefined;
+@@ -315,14 +267,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             return response.result;
+         }
+     }
+-    /**
+-     * Sets a `VMTracer` that observes EVM throughout requests.
+-     *
+-     * Used for internal stack traces integration tests.
+-     */
+-    setVmTracer(vmTracer) {
+-        this._vmTracer = vmTracer;
+-    }
+     // temporarily added to make smock work with HH+EDR
+     _setCallOverrideCallback(callback) {
+         this._callOverrideCallback = callback;
+@@ -357,50 +301,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+         };
+         this.emit("message", message);
+     }
+-    _addCompilationResultParams(params) {
+-        return (0, validation_1.validateParams)(params, t.string, solc_1.rpcCompilerInput, solc_1.rpcCompilerOutput);
+-    }
+-    async _addCompilationResultAction(solcVersion, compilerInput, compilerOutput) {
+-        let bytecodes;
+-        try {
+-            bytecodes = (0, compiler_to_model_1.createModelsAndDecodeBytecodes)(solcVersion, compilerInput, compilerOutput);
+-        }
+-        catch (error) {
+-            console.warn(chalk_1.default.yellow("The Hardhat Network tracing engine could not be updated. Run Hardhat with --verbose to learn more."));
+-            log("VmTraceDecoder failed to be updated. Please report this to help us improve Hardhat.\n", error);
+-            return false;
+-        }
+-        for (const bytecode of bytecodes) {
+-            this._vmTraceDecoder.addBytecode(bytecode);
+-        }
+-        return true;
+-    }
+-    _getStackTraceFailuresCountParams(params) {
+-        return (0, validation_1.validateParams)(params);
+-    }
+-    _getStackTraceFailuresCountAction() {
+-        return this._failedStackTraces;
+-    }
+-    async _rawTraceToSolidityStackTrace(rawTrace) {
+-        const vmTracer = new vm_tracer_1.VMTracer();
+-        vmTracer.observe(rawTrace);
+-        let vmTrace = vmTracer.getLastTopLevelMessageTrace();
+-        const vmTracerError = vmTracer.getLastError();
+-        if (vmTrace !== undefined) {
+-            vmTrace = this._vmTraceDecoder.tryToDecodeMessageTrace(vmTrace);
+-        }
+-        try {
+-            if (vmTrace === undefined || vmTracerError !== undefined) {
+-                throw vmTracerError;
+-            }
+-            const solidityTracer = new solidityTracer_1.SolidityTracer();
+-            return solidityTracer.getStackTrace(vmTrace);
+-        }
+-        catch (err) {
+-            this._failedStackTraces += 1;
+-            log("Could not generate stack trace. Please report this to help us improve Hardhat.\n", err);
+-        }
+-    }
+ }
+ exports.EdrProviderWrapper = EdrProviderWrapper;
+ async function clientVersion(edrClientVersion) {
+@@ -433,7 +333,7 @@ async function makeTracingConfig(artifacts) {
+             };
+         }
+         catch (error) {
+-            console.warn(chalk_1.default.yellow("Stack traces engine could not be initialized. Run Hardhat with --verbose to learn more."));
++            console.warn(picocolors_1.default.yellow("Stack traces engine could not be initialized. Run Hardhat with --verbose to learn more."));
+             log("Solidity stack traces disabled: Failed to read solc's input and output files. Please report this to help us improve Hardhat.\n", error);
+         }
+     }
