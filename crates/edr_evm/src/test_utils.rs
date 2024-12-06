@@ -6,7 +6,7 @@ use edr_eth::{
     block::{miner_reward, BlockOptions},
     l1::{self, L1ChainSpec},
     log::FilterLog,
-    receipt::ExecutionReceipt as _,
+    receipt::{ExecutionReceipt as _, ReceiptTrait as _},
     result::InvalidTransaction,
     transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,
@@ -264,14 +264,14 @@ pub async fn run_full_block<
         .zip(mined_block.block.transaction_receipts().iter())
     {
         debug_assert_eq!(
-            expected.block_number,
-            actual.block_number,
+            expected.block_number(),
+            actual.block_number(),
             "{:?}",
             replay_block.transactions()[expected.transaction_index as usize]
         );
         debug_assert_eq!(
-            expected.transaction_hash,
-            actual.transaction_hash,
+            expected.transaction_hash(),
+            actual.transaction_hash(),
             "{:?}",
             replay_block.transactions()[expected.transaction_index as usize]
         );
@@ -282,26 +282,26 @@ pub async fn run_full_block<
             replay_block.transactions()[expected.transaction_index as usize]
         );
         debug_assert_eq!(
-            expected.from,
-            actual.from,
+            expected.from(),
+            actual.from(),
             "{:?}",
             replay_block.transactions()[expected.transaction_index as usize]
         );
         debug_assert_eq!(
-            expected.to,
-            actual.to,
+            expected.to(),
+            actual.to(),
             "{:?}",
             replay_block.transactions()[expected.transaction_index as usize]
         );
         debug_assert_eq!(
-            expected.contract_address,
-            actual.contract_address,
+            expected.contract_address(),
+            actual.contract_address(),
             "{:?}",
             replay_block.transactions()[expected.transaction_index as usize]
         );
         debug_assert_eq!(
-            expected.gas_used,
-            actual.gas_used,
+            expected.gas_used(),
+            actual.gas_used(),
             "{:?}",
             replay_block.transactions()[expected.transaction_index as usize]
         );

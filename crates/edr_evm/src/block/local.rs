@@ -353,27 +353,29 @@ where
             let transaction_index = transaction_index as u64;
             let transaction_hash = receipt.transaction_hash;
 
-            Arc::new(BlockReceipt {
-                inner: receipt.map_logs(|log| {
-                    FilterLog {
-                        inner: FullBlockLog {
-                            inner: ReceiptLog {
-                                inner: log,
-                                transaction_hash,
-                            },
-                            block_hash: *block_hash,
-                            block_number,
-                            log_index: {
-                                let index = log_index;
-                                log_index += 1;
-                                index
-                            },
-                            transaction_index,
+            let receipt = receipt.map_logs(|log| {
+                FilterLog {
+                    inner: FullBlockLog {
+                        inner: ReceiptLog {
+                            inner: log,
+                            transaction_hash,
                         },
-                        // Assuming a local block is never reorged out.
-                        removed: false,
-                    }
-                }),
+                        block_hash: *block_hash,
+                        block_number,
+                        log_index: {
+                            let index = log_index;
+                            log_index += 1;
+                            index
+                        },
+                        transaction_index,
+                    },
+                    // Assuming a local block is never reorged out.
+                    removed: false,
+                }
+            });
+
+            Arc::new(BlockReceipt {
+                inner: receipt,
                 block_hash: *block_hash,
                 block_number,
             })

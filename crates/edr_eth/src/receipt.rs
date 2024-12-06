@@ -14,7 +14,7 @@ mod transaction;
 use auto_impl::auto_impl;
 
 pub use self::{block::BlockReceipt, transaction::TransactionReceipt};
-use crate::{Bloom, B256};
+use crate::{Address, Bloom, B256, U256};
 
 /// Log generated after execution of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -60,6 +60,22 @@ pub trait MapReceiptLogs<OldLogT, NewLogT, OutputT> {
 
 #[auto_impl(Box, Arc)]
 pub trait ReceiptTrait {
+    fn block_number(&self) -> u64;
+
+    fn block_hash(&self) -> &B256;
+
+    fn contract_address(&self) -> Option<&Address>;
+
+    fn effective_gas_price(&self) -> Option<&U256>;
+
+    fn from(&self) -> &Address;
+
+    fn gas_used(&self) -> u64;
+
+    fn to(&self) -> Option<&Address>;
+
     /// Returns the transaction hash.
     fn transaction_hash(&self) -> &B256;
+
+    fn transaction_index(&self) -> u64;
 }
