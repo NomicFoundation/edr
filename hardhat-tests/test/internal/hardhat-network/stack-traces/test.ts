@@ -1,4 +1,4 @@
-import { stackTraceEntryTypeToString } from "@nomicfoundation/edr";
+import { linkHexStringBytecode, stackTraceEntryTypeToString } from "@nomicfoundation/edr";
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
@@ -9,8 +9,6 @@ import {
   ConsoleLogs,
   ConsoleLogger,
 } from "hardhat/internal/hardhat-network/stack-traces/consoleLogger";
-import { printStackTrace } from "hardhat/internal/hardhat-network/stack-traces/debug";
-import { linkHexStringBytecode } from "hardhat/internal/hardhat-network/stack-traces/library-utils";
 import {
   SolidityStackTrace,
   SolidityStackTraceEntry,
@@ -320,7 +318,7 @@ function compareStackTraces(
       "message" in actual
         ? actual.message
         : "returnData" in actual &&
-            new ReturnData(actual.returnData).isErrorReturnData()
+          new ReturnData(actual.returnData).isErrorReturnData()
           ? new ReturnData(actual.returnData).decodeError()
           : "";
 
@@ -519,21 +517,21 @@ async function runTest(
 
     try {
       if (tx.stackTrace === undefined) {
-        assert.isTrue(
-          stackTraceOrContractAddress === undefined ||
-            typeof stackTraceOrContractAddress === "string",
-          // FVTODO
-          `Transaction ${txIndex} shouldn't have failed`
-        );
+        if (!(stackTraceOrContractAddress === undefined ||
+          typeof stackTraceOrContractAddress === "string")) {
+          assert.fail(
+            `Transaction ${txIndex} shouldn't have failed`
+          );
+        }
       } else {
         assert.isFalse(
           stackTraceOrContractAddress === undefined ||
-            typeof stackTraceOrContractAddress === "string",
+          typeof stackTraceOrContractAddress === "string",
           `Transaction ${txIndex} should have failed`
         );
       }
     } catch (error) {
-      // printMessageTrace(decodedTrace); FVTODo
+      // printMessageTrace(decodedTrace); FVTODO
 
       throw error;
     }
@@ -551,12 +549,8 @@ async function runTest(
         );
         if (testDefinition.print !== undefined && testDefinition.print) {
           console.log(`Transaction ${txIndex} stack trace`);
-          printStackTrace(stackTraceOrContractAddress);
         }
       } catch (err) {
-        // printMessageTrace(decodedTrace); TODO
-        printStackTrace(stackTraceOrContractAddress);
-
         throw err;
       }
     }
@@ -700,13 +694,13 @@ const onlyLatestSolcVersions =
 
 const filterSolcVersionBy =
   (versionRange: string) =>
-  ({ solidityVersion, latestSolcVersion }: SolidityCompiler) => {
-    if (onlyLatestSolcVersions && latestSolcVersion !== true) {
-      return false;
-    }
+    ({ solidityVersion, latestSolcVersion }: SolidityCompiler) => {
+      if (onlyLatestSolcVersions && latestSolcVersion !== true) {
+        return false;
+      }
 
-    return semver.satisfies(solidityVersion, versionRange);
-  };
+      return semver.satisfies(solidityVersion, versionRange);
+    };
 
 const solidity05Compilers = solidityCompilers.filter(
   filterSolcVersionBy("^0.5.0")

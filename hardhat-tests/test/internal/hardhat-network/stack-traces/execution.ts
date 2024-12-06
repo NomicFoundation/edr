@@ -5,14 +5,12 @@ import {
   toBytes,
 } from "@nomicfoundation/ethereumjs-util";
 
-import { MessageTrace } from "hardhat/internal/hardhat-network/stack-traces/message-trace";
 import { defaultHardhatNetworkParams } from "hardhat/internal/core/config/default-config";
 import {
   MempoolOrder,
   TracingConfig,
 } from "hardhat/internal/hardhat-network/provider/node-types";
 import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/provider";
-import { VMTracer } from "hardhat/internal/hardhat-network/stack-traces/vm-tracer";
 import { LoggerConfig } from "hardhat/internal/hardhat-network/provider/modules/logger";
 import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
 import { Response } from "@nomicfoundation/edr";
@@ -128,10 +126,6 @@ export async function traceTransaction(
       method: "eth_getCode",
       params: [bytesToHex(txData.to), "latest"],
     });
-
-    // uncomment to see code and calldata
-    // console.log(code)
-    // console.log(bytesToHex(txData.data))
   }
 
   const responseObject: Response =
