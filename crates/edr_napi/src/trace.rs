@@ -16,6 +16,8 @@ use napi_derive::napi;
 
 use crate::result::ExecutionResult;
 
+mod library_utils;
+
 mod debug;
 mod exit;
 mod model;

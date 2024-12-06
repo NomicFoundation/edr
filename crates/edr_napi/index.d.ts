@@ -344,6 +344,7 @@ export interface SubscriptionEvent {
   filterId: bigint
   result: any
 }
+export declare function linkHexStringBytecode(code: string, address: string, position: number): string
 export declare function printStackTrace(trace: SolidityStackTrace): void
 /** Represents the exit code of the EVM. */
 export const enum ExitCode {
