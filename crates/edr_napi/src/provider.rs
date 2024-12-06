@@ -41,16 +41,22 @@ impl Provider {
         tracing_config: serde_json::Value,
         #[napi(ts_arg_type = "(event: SubscriptionEvent) => void")] subscriber_callback: JsFunction,
     ) -> napi::Result<JsObject> {
-        let config = edr_provider::ProviderConfig::try_from(config)?;
         let runtime = runtime::Handle::current();
 
-        let logger = Box::new(Logger::new(&env, logger_config)?);
-        let subscriber_callback = SubscriberCallback::new(&env, subscriber_callback)?;
-        let subscriber_callback = Box::new(move |event| subscriber_callback.call(event));
+        let config = edr_provider::ProviderConfig::try_from(config)?;
 
         // TODO get actual type as argument
         let tracing_config: edr_solidity::vm_trace_decoder::TracingConfig =
             serde_json::from_value(tracing_config)?;
+        let tracing_config = Arc::new(tracing_config);
+
+        let logger = Box::new(Logger::new(
+            &env,
+            logger_config,
+            Arc::clone(&tracing_config),
+        )?);
+        let subscriber_callback = SubscriberCallback::new(&env, subscriber_callback)?;
+        let subscriber_callback = Box::new(move |event| subscriber_callback.call(event));
 
         let (deferred, promise) = env.create_deferred()?;
         runtime.clone().spawn_blocking(move || {
@@ -74,7 +80,7 @@ impl Provider {
                     Ok(Provider {
                         provider: Arc::new(provider),
                         runtime,
-                        tracing_config: Arc::new(tracing_config),
+                        tracing_config,
                         #[cfg(feature = "scenarios")]
                         scenario_file,
                     })
