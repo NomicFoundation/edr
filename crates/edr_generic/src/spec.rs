@@ -4,6 +4,7 @@ use edr_eth::{
     eips::eip1559::BaseFeeParams,
     l1::{self, L1ChainSpec},
     log::FilterLog,
+    receipt::BlockReceipt,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
@@ -13,7 +14,7 @@ use edr_evm::{
     spec::{ExecutionReceiptHigherKindedForChainSpec, L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
-    BlockReceipts, EthBlockBuilder, EthLocalBlock, RemoteBlock, SyncBlock,
+    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
@@ -35,9 +36,9 @@ impl EthHeaderConstants for GenericChainSpec {
 
 impl RuntimeSpec for GenericChainSpec {
     type Block = dyn SyncBlock<
-        Self::ExecutionReceipt<FilterLog>,
+        Arc<Self::BlockReceipt>,
         Self::SignedTransaction,
-        Error = <Self::LocalBlock as BlockReceipts<Self::ExecutionReceipt<FilterLog>>>::Error,
+        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
     >;
 
     type BlockBuilder<
@@ -47,16 +48,22 @@ impl RuntimeSpec for GenericChainSpec {
         StateErrorT: 'blockchain + std::fmt::Debug + Send,
     > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
 
+    type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
+
+    type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
+
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
+        Self::BlockReceipt,
         ExecutionReceiptHigherKindedForChainSpec<Self>,
         Self::Hardfork,
         Self::RpcReceiptConversionError,
         Self::SignedTransaction,
     >;
+
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;

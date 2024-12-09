@@ -8,7 +8,7 @@ use edr_eth::{
     Address, U256,
 };
 
-pub use self::l1::EthBlockBuilder;
+pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -20,7 +20,7 @@ use crate::{
 
 /// An error caused during construction of a block builder.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockBuilderCreationError<BlockchainErrorT, HardforkT: Debug, StateErrorT> {
+pub enum BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT> {
     /// Blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),

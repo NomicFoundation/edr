@@ -1,19 +1,21 @@
 use std::{
     fmt::Debug,
+    marker::PhantomData,
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
     eips::eip4844,
     l1,
-    log::ExecutionLog,
-    receipt::{ExecutionReceipt as _, TransactionReceipt},
+    log::{ExecutionLog, FilterLog},
+    receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
     result::{ExecutionResult, ResultAndState},
     transaction::{ExecutableTransaction as _, Transaction as _},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
-    Address, Bloom, U256,
+    Address, Bloom, B256, U256,
 };
 use revm::Evm;
 
@@ -22,7 +24,7 @@ use crate::{
     blockchain::SyncBlockchain,
     config::{CfgEnv, Env},
     debug::DebugContext,
-    receipt::ExecutionReceiptBuilder as _,
+    receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
@@ -331,6 +333,10 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn finalize(
         mut self,
+        receipt_factory: impl ReceiptFactory<
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Output = ChainSpecT::BlockReceipt,
+        >,
         rewards: Vec<(Address, U256)>,
     ) -> Result<
         MineBlockResultAndState<
@@ -385,6 +391,7 @@ where
 
         // TODO: handle ommers
         let block = EthLocalBlockForChainSpec::<ChainSpecT>::new(
+            receipt_factory,
             self.header,
             self.transactions,
             self.receipts,
@@ -463,12 +470,14 @@ where
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, Self::StateError>,
         Self::StateError,
     > {
+        let receipt_factory = ChainSpecT::BlockReceiptFactory::default();
+
         let MineBlockResultAndState {
             block,
             state,
             state_diff,
             transaction_results,
-        } = self.finalize(rewards)?;
+        } = self.finalize(receipt_factory, rewards)?;
 
         Ok(MineBlockResultAndState {
             block: block.into(),
@@ -476,5 +485,31 @@ where
             state_diff,
             transaction_results,
         })
+    }
+}
+
+/// Factory for creating [`EthLocalBlock`]s for chain specs with a
+/// [`BlockReceipt`].
+#[derive_where(Default)]
+pub struct EthBlockReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
+    phantom: PhantomData<ExecutionReceiptT>,
+}
+
+impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> ReceiptFactory<ExecutionReceiptT>
+    for EthBlockReceiptFactory<ExecutionReceiptT>
+{
+    type Output = BlockReceipt<ExecutionReceiptT>;
+
+    fn create_receipt(
+        &self,
+        transaction_receipt: TransactionReceipt<ExecutionReceiptT>,
+        block_hash: &B256,
+        block_number: u64,
+    ) -> Self::Output {
+        BlockReceipt {
+            inner: transaction_receipt,
+            block_hash: *block_hash,
+            block_number,
+        }
     }
 }

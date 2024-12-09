@@ -7,12 +7,12 @@ use edr_eth::{
     block::{self, Header, PartialHeader},
     keccak256, l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
-    receipt::{BlockReceipt, MapReceiptLogs, ReceiptTrait, TransactionReceipt},
+    receipt::{ExecutionReceipt, MapReceiptLogs, ReceiptTrait, TransactionReceipt},
     spec::{ChainSpec, HardforkTrait},
     transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
-    B256,
+    B256, KECCAK_EMPTY,
 };
 use edr_utils::types::HigherKinded;
 use itertools::izip;
@@ -20,6 +20,7 @@ use itertools::izip;
 use crate::{
     block::{BlockReceipts, EmptyBlock, LocalBlock},
     blockchain::BlockchainError,
+    receipt::ReceiptFactory,
     spec::{
         ExecutionReceiptHigherKindedBounds, ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec,
     },
@@ -82,6 +83,10 @@ impl<
 {
     /// Constructs a new instance with the provided data.
     pub fn new(
+        receipt_factory: impl ReceiptFactory<
+            <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type,
+            Output = BlockReceiptT,
+        >,
         partial_header: PartialHeader,
         transactions: Vec<SignedTransactionT>,
         transaction_receipts: Vec<
@@ -107,10 +112,15 @@ impl<
         );
 
         let hash = header.hash();
-        let transaction_receipts = transaction_to_block_receipts::<
-            BlockReceiptT,
-            ExecutionReceiptHigherKindedT,
-        >(&hash, header.number, transaction_receipts);
+        let transaction_receipts = map_transaction_receipt_logs::<ExecutionReceiptHigherKindedT>(
+            hash,
+            header.number,
+            transaction_receipts,
+        )
+        .map(|transaction_receipt| {
+            Arc::new(receipt_factory.create_receipt(transaction_receipt, &hash, header.number))
+        })
+        .collect();
 
         Self {
             header,
@@ -257,19 +267,26 @@ impl<
     >
 {
     fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
-        let withdrawals = if hardfork.into() >= l1::SpecId::SHANGHAI {
-            Some(Vec::default())
+        let (withdrawals, withdrawals_root) = if hardfork.into() >= l1::SpecId::SHANGHAI {
+            Some((Vec::new(), KECCAK_EMPTY))
         } else {
             None
-        };
+        }
+        .unzip();
 
-        Self::new(
-            partial_header,
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
+        let header = Header::new(partial_header, KECCAK_EMPTY, KECCAK_EMPTY, withdrawals_root);
+        let hash = header.hash();
+
+        Self {
+            header,
+            transactions: Vec::new(),
+            transaction_receipts: Vec::new(),
+            ommers: Vec::new(),
+            ommer_hashes: Vec::new(),
             withdrawals,
-        )
+            hash,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -334,33 +351,36 @@ impl<
     }
 }
 
-fn transaction_to_block_receipts<BlockReceiptT, ExecutionReceiptHigherKindedT>(
-    block_hash: &B256,
+/// Maps the logs of the transaction receipts from [`ExecutionLog`] to
+/// [`FilterLog`].
+fn map_transaction_receipt_logs<
+    ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
+>(
+    block_hash: B256,
     block_number: u64,
     receipts: Vec<
         TransactionReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<ExecutionLog>>::Type>,
     >,
-) -> Vec<Arc<BlockReceiptT>>
-where
-    ExecutionReceiptHigherKindedT: ExecutionReceiptHigherKindedBounds,
-{
+) -> impl Iterator<
+    Item = TransactionReceipt<<ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type>,
+> {
     let mut log_index = 0;
 
     receipts
         .into_iter()
         .enumerate()
-        .map(|(transaction_index, receipt)| {
+        .map(move |(transaction_index, receipt)| {
             let transaction_index = transaction_index as u64;
             let transaction_hash = receipt.transaction_hash;
 
-            let receipt = receipt.map_logs(|log| {
+            receipt.map_logs(|log| {
                 FilterLog {
                     inner: FullBlockLog {
                         inner: ReceiptLog {
                             inner: log,
                             transaction_hash,
                         },
-                        block_hash: *block_hash,
+                        block_hash,
                         block_number,
                         log_index: {
                             let index = log_index;
@@ -372,13 +392,6 @@ where
                     // Assuming a local block is never reorged out.
                     removed: false,
                 }
-            });
-
-            Arc::new(BlockReceipt {
-                inner: receipt,
-                block_hash: *block_hash,
-                block_number,
             })
         })
-        .collect()
 }

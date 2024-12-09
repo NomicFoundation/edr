@@ -1,14 +1,16 @@
+use auto_impl::auto_impl;
 // Re-export the receipt types from `edr_eth`.
 pub use edr_eth::receipt::*;
 use edr_eth::{
     block,
     eips::eip2718::TypedEnvelope,
     l1,
-    log::{self, ExecutionLog},
+    log::{self, ExecutionLog, FilterLog},
     receipt,
     result::ExecutionResult,
     spec::{HaltReasonTrait, HardforkTrait},
     transaction::{self, Transaction, TransactionType as _, TransactionValidation},
+    B256,
 };
 
 use crate::state::State;
@@ -80,4 +82,21 @@ impl ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::Signed> fo
 
         TypedEnvelope::new(receipt, transaction.transaction_type())
     }
+}
+
+/// Trait for constructing a receipt from a transaction receipt and the block it
+/// was executed in.
+#[auto_impl(&, Box, Arc)]
+pub trait ReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
+    /// Type of the receipt that the factory constructs.
+    type Output: ExecutionReceipt<Log = FilterLog> + ReceiptTrait;
+
+    /// Constructs a new instance from a transaction receipt and the block it
+    /// was executed in.
+    fn create_receipt(
+        &self,
+        transaction_receipt: TransactionReceipt<ExecutionReceiptT>,
+        block_hash: &B256,
+        block_number: u64,
+    ) -> Self::Output;
 }

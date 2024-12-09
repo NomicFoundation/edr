@@ -81,7 +81,6 @@ impl TryFrom<BlockReceipt> for crate::receipt::BlockReceipt<TypedEnvelope<Execut
                 contract_address: value.contract_address,
                 gas_used: value.gas_used,
                 effective_gas_price: value.effective_gas_price,
-                phantom: PhantomData,
             },
         })
     }

@@ -7,7 +7,7 @@ use edr_eth::{
     eips::eip2718::TypedEnvelope,
     l1::{self, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
-    receipt::{ExecutionReceipt as _, TransactionReceipt},
+    receipt::{BlockReceipt, ExecutionReceipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
     transaction::ExecutableTransaction as _,
     Address, Bytes, HashSet, B256, U256,
@@ -21,7 +21,7 @@ use edr_evm::{
     spec::ExecutionReceiptHigherKindedForChainSpec,
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    transaction, EmptyBlock as _, EthLocalBlock, EthLocalBlockForChainSpec,
+    transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
     RemoteBlockConversionError, SyncBlock,
 };
 use edr_rpc_eth::TransactionConversionError;
@@ -181,14 +181,13 @@ fn create_dummy_block_with_header(
 struct DummyBlockAndTransaction {
     block: Arc<
         dyn SyncBlock<
-            TypedEnvelope<receipt::Execution<FilterLog>>,
+            Arc<BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>,
             transaction::Signed,
             Error = BlockchainErrorForChainSpec<L1ChainSpec>,
         >,
     >,
     transaction_hash: B256,
-    transaction_receipt:
-        TransactionReceipt<TypedEnvelope<receipt::Execution<ExecutionLog>>, ExecutionLog>,
+    transaction_receipt: TransactionReceipt<TypedEnvelope<receipt::Execution<ExecutionLog>>>,
 }
 
 /// Returns the transaction's hash.
@@ -244,13 +243,17 @@ fn insert_dummy_block_with_transaction(
         blockchain.hardfork(),
     );
 
+    let receipt_factory = EthBlockReceiptFactory::default();
+
     let block = EthLocalBlock::<
         RemoteBlockConversionError<TransactionConversionError>,
+        BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
         ExecutionReceiptHigherKindedForChainSpec<L1ChainSpec>,
         l1::SpecId,
         edr_rpc_eth::receipt::ConversionError,
         transaction::Signed,
     >::new(
+        &receipt_factory,
         header,
         vec![transaction],
         vec![transaction_receipt.clone()],

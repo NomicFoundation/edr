@@ -2,8 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    log::FilterLog, receipt::BlockReceipt, transaction::ExecutableTransaction as _, HashSet, B256,
-    U256,
+    receipt::ReceiptTrait as _, transaction::ExecutableTransaction as _, HashSet, B256, U256,
 };
 use edr_evm::{
     blockchain::{
@@ -55,12 +54,12 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain
     }
 }
 
-impl<'blockchain, ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT>
+impl<'blockchain, ChainSpecT> Blockchain<ChainSpecT>
     for BlockchainWithPending<'blockchain, ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
         LocalBlock: BlockReceipts<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Arc<ChainSpecT::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,
     >,
@@ -143,15 +142,12 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
-        Self::BlockchainError,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, Self::BlockchainError> {
         let pending_receipt = self
             .pending_block
             .fetch_transaction_receipts()?
             .into_iter()
-            .find(|receipt| receipt.transaction_hash == *transaction_hash);
+            .find(|receipt| receipt.transaction_hash() == transaction_hash);
 
         if let Some(pending_receipt) = pending_receipt {
             Ok(Some(pending_receipt))

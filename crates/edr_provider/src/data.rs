@@ -23,7 +23,7 @@ use edr_eth::{
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
     log::FilterLog,
-    receipt::{BlockReceipt, ExecutionReceipt as _},
+    receipt::{BlockReceipt, ExecutionReceipt as _, ReceiptTrait as _},
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
@@ -1166,7 +1166,7 @@ where
                 .blockchain
                 .receipt_by_transaction_hash(hash)?
                 .expect("If the transaction was inserted in a block, it must have a receipt")
-                .transaction_index;
+                .transaction_index();
             let tx_index =
                 usize::try_from(tx_index_u64).expect("Indices cannot be larger than usize::MAX");
 
@@ -1194,10 +1194,7 @@ where
     pub fn transaction_receipt(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>>,
-        ProviderError<ChainSpecT>,
-    > {
+    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, ProviderError<ChainSpecT>> {
         self.blockchain
             .receipt_by_transaction_hash(transaction_hash)
             .map_err(ProviderError::Blockchain)

@@ -1,8 +1,9 @@
 use core::cmp;
+use std::sync::Arc;
 
 use edr_eth::{
     block::Header,
-    log::FilterLog,
+    receipt::ReceiptTrait as _,
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut, TransactionValidation},
@@ -192,7 +193,7 @@ pub(super) fn compute_rewards<ChainSpecT>(
 where
     ChainSpecT: SyncRuntimeSpec<
         Block: BlockReceipts<
-            ChainSpecT::ExecutionReceipt<FilterLog>,
+            Arc<ChainSpecT::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,
     >,
@@ -210,7 +211,7 @@ where
         .map(|(i, receipt)| {
             let transaction = &block.transactions()[i];
 
-            let gas_used = receipt.gas_used;
+            let gas_used = receipt.gas_used();
             // gas price pre EIP-1559 and max fee per gas post EIP-1559
             let gas_price = transaction.gas_price();
 

@@ -2,8 +2,7 @@ use core::fmt::Debug;
 
 use edr_eth::block::PartialHeader;
 use edr_evm::{
-    state::{DatabaseComponents, WrapDatabaseRef},
-    BlockBuilder, BlockBuilderAndError, EthBlockBuilder, MineBlockResultAndState,
+    receipt::ReceiptFactory, state::{DatabaseComponents, WrapDatabaseRef}, BlockBuilder, BlockBuilderAndError, EthBlockBuilder, MineBlockResultAndState
 };
 use revm_optimism::{L1BlockInfo, OptimismHaltReason, OptimismSpecId};
 
@@ -96,12 +95,14 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
         MineBlockResultAndState<OptimismHaltReason, LocalBlock, Self::StateError>,
         Self::StateError,
     > {
+        let receipt_factory =
+
         let MineBlockResultAndState {
             block: l1,
             state,
             state_diff,
             transaction_results,
-        } = self.eth.finalize(rewards)?;
+        } = self.eth.finalize( rewards)?;
 
         Ok(MineBlockResultAndState {
             block: LocalBlock {
@@ -112,5 +113,17 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
             state_diff,
             transaction_results,
         })
+    }
+}
+
+struct OptimismReceiptFactory {
+    l1_block_info: L1BlockInfo,
+}
+
+impl ReceiptFactory for OptimismReceiptFactory {
+type Output;
+
+fn create_receipt(&self,transaction_receipt:TransactionReceipt<ExecutionReceiptT> ,block_hash: &B256,block_number:u64,) -> Self::Output {
+        todo!()
     }
 }

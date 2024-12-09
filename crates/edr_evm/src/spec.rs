@@ -19,14 +19,15 @@ use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
     evm::PrimitiveEvmWiring,
     hardfork::{self, Activations},
-    receipt::{self, ExecutionReceiptBuilder},
+    receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
     state::Database,
     transaction::{
         remote::EthRpcTransaction, Transaction, TransactionError, TransactionType,
         TransactionValidation,
     },
-    Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthLocalBlock,
-    EthRpcBlock, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
+    Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
+    EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock,
+    RemoteBlockConversionError, SyncBlock,
 };
 
 /// Helper type to determine higher kinded execution receipt types for a chain
@@ -127,7 +128,13 @@ pub trait RuntimeSpec:
         StateError = StateErrorT>;
 
     /// Type representing a transaction's receipt in a block.
-    type BlockReceipt: Debug + ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<Self::RpcReceipt, Error = Self::RpcReceiptConversionError>;
+    type BlockReceipt: Debug +  ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<Self::RpcReceipt, Error = Self::RpcReceiptConversionError>;
+
+    /// Type representing a factory for block receipts.
+    type BlockReceiptFactory: Default + ReceiptFactory<
+        Self::ExecutionReceipt<FilterLog>,
+        Output = Self::BlockReceipt
+    >;
 
     /// Type representing an implementation of `EvmWiring` for this chain.
     type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
@@ -303,16 +310,11 @@ where
 }
 
 impl RuntimeSpec for L1ChainSpec {
-    type EvmWiring<DatabaseT: Database, ExternalContexT> =
-        L1Wiring<Self, DatabaseT, ExternalContexT>;
-
     type Block = dyn SyncBlock<
         Arc<Self::BlockReceipt>,
         Self::SignedTransaction,
         Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
     >;
-
-    type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
 
     type BlockBuilder<
         'blockchain,
@@ -320,6 +322,13 @@ impl RuntimeSpec for L1ChainSpec {
         DebugDataT,
         StateErrorT: 'blockchain + Debug + Send,
     > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
+
+    type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
+
+    type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
+
+    type EvmWiring<DatabaseT: Database, ExternalContexT> =
+        L1Wiring<Self, DatabaseT, ExternalContexT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,

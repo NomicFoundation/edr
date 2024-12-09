@@ -52,7 +52,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT>
     }
 }
 
-/// Helper trait for a chain-specific [`DebugMineBlockResult`].
+/// Helper type for a chain-specific [`DebugMineBlockResult`].
 pub type DebugMineBlockResultForChainSpec<ChainSpecT> = DebugMineBlockResult<
     Arc<<ChainSpecT as RuntimeSpec>::Block>,
     <ChainSpecT as ChainSpec>::HaltReason,

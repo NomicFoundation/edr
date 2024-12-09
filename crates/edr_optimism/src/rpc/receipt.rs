@@ -6,58 +6,91 @@ use edr_eth::{
     transaction::TransactionType as _,
 };
 use edr_rpc_eth::RpcTypeFrom;
+use op_alloy_rpc_types::receipt::L1BlockInfo;
 use revm_optimism::OptimismSpecId;
 
-use super::BlockReceipt;
-use crate::{eip2718::TypedEnvelope, receipt, transaction, OptimismChainSpec};
+use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction};
 
-impl RpcTypeFrom<TransactionReceiptAndBlockForChainSpec<OptimismChainSpec>> for BlockReceipt {
+impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
     type Hardfork = OptimismSpecId;
 
-    fn rpc_type_from(
-        value: &BlockReceipt< TransactionReceiptAndBlockForChainSpec<OptimismChainSpec>,
-        hardfork: Self::Hardfork,
-    ) -> Self {
-        let TransactionReceiptAndBlock { block, receipt } = value;
-
+    fn rpc_type_from(value: &receipt::Block, hardfork: Self::Hardfork) -> Self {
         let transaction_type = if hardfork >= OptimismSpecId::BERLIN {
-            Some(u8::from(receipt.inner.transaction_type()))
+            Some(u8::from(value.eth.inner.transaction_type()))
         } else {
             None
         };
 
         Self {
-            block_hash: receipt.block_hash,
-            block_number: receipt.block_number,
-            transaction_hash: receipt.inner.transaction_hash,
-            transaction_index: receipt.inner.transaction_index,
+            block_hash: value.eth.block_hash,
+            block_number: value.eth.block_number,
+            transaction_hash: value.eth.inner.transaction_hash,
+            transaction_index: value.eth.inner.transaction_index,
             transaction_type,
-            from: receipt.inner.from,
-            to: receipt.inner.to,
-            cumulative_gas_used: receipt.inner.cumulative_gas_used(),
-            gas_used: receipt.inner.gas_used,
-            contract_address: receipt.inner.contract_address,
-            logs: receipt.inner.transaction_logs().to_vec(),
-            logs_bloom: *receipt.inner.logs_bloom(),
-            state_root: match receipt.inner.as_execution_receipt().data() {
+            from: value.eth.inner.from,
+            to: value.eth.inner.to,
+            cumulative_gas_used: value.eth.inner.cumulative_gas_used(),
+            gas_used: value.eth.inner.gas_used,
+            contract_address: value.eth.inner.contract_address,
+            logs: value.eth.inner.transaction_logs().to_vec(),
+            logs_bloom: *value.eth.inner.logs_bloom(),
+            state_root: match value.eth.inner.as_execution_receipt().data() {
                 receipt::Execution::Legacy(receipt) => Some(receipt.root),
                 receipt::Execution::Eip658(_) | receipt::Execution::Deposit(_) => None,
             },
-            status: match receipt.inner.as_execution_receipt().data() {
+            status: match value.eth.inner.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) => None,
                 receipt::Execution::Eip658(receipt) => Some(receipt.status),
                 receipt::Execution::Deposit(receipt) => Some(receipt.status),
             },
-            effective_gas_price: receipt.inner.effective_gas_price,
-            deposit_nonce: match receipt.inner.as_execution_receipt().data() {
+            effective_gas_price: value.eth.inner.effective_gas_price,
+            deposit_nonce: match value.eth.inner.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => Some(receipt.deposit_nonce),
             },
-            deposit_receipt_version: match receipt.inner.as_execution_receipt().data() {
+            deposit_receipt_version: match value.eth.inner.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => receipt.deposit_receipt_version,
             },
-            l1_block_info: block.l1_block_info().clone(),
+            l1_block_info: L1BlockInfo {
+                l1_gas_price: Some(
+                    value
+                        .l1_block_info
+                        .l1_base_fee
+                        .try_into()
+                        .expect("L1 gas price cannot be larger than u128::max"),
+                ),
+                // Not supported, as it was deprecated post-Fjord
+                l1_gas_used: None,
+                l1_fee: Some(
+                    value
+                        .l1_block_info
+                        .l1_base_fee
+                        .try_into()
+                        .expect("L1 fee cannot be larger than u128::max"),
+                ),
+                // Not supported, as it was deprecated post-Ecotone
+                l1_fee_scalar: None,
+                l1_base_fee_scalar: Some(
+                    value
+                        .l1_block_info
+                        .l1_base_fee_scalar
+                        .try_into()
+                        .expect("L1 base fee scalar cannot be larger than u128::max"),
+                ),
+                l1_blob_base_fee: value.l1_block_info.l1_blob_base_fee.map(|scalar| {
+                    scalar
+                        .try_into()
+                        .expect("L1 blob base fee cannot be larger than u128::max")
+                }),
+                l1_blob_base_fee_scalar: value.l1_block_info.l1_blob_base_fee_scalar.map(
+                    |scalar| {
+                        scalar
+                            .try_into()
+                            .expect("L1 blob base fee scalar cannot be larger than u128::max")
+                    },
+                ),
+            },
             authorization_list: None,
         }
     }
@@ -86,10 +119,10 @@ pub enum ConversionError {
     UnknownType(u8),
 }
 
-impl TryFrom<BlockReceipt> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>> {
+impl TryFrom<rpc::BlockReceipt> for receipt::Block {
     type Error = ConversionError;
 
-    fn try_from(value: BlockReceipt) -> Result<Self, Self::Error> {
+    fn try_from(value: rpc::BlockReceipt) -> Result<Self, Self::Error> {
         let transaction_type = value
             .transaction_type
             .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
@@ -137,7 +170,7 @@ impl TryFrom<BlockReceipt> for receipt::BlockReceipt<TypedEnvelope<receipt::Exec
 
         let enveloped = TypedEnvelope::new(execution, transaction_type);
 
-        Ok(Self {
+        let eth = edr_eth::receipt::BlockReceipt {
             block_hash: value.block_hash,
             block_number: value.block_number,
             inner: TransactionReceipt {
@@ -149,8 +182,20 @@ impl TryFrom<BlockReceipt> for receipt::BlockReceipt<TypedEnvelope<receipt::Exec
                 contract_address: value.contract_address,
                 gas_used: value.gas_used,
                 effective_gas_price: value.effective_gas_price,
-                phantom: PhantomData,
             },
+        };
+
+        let l1_block_info: crate::L1BlockInfo {
+            l1_base_fee: todo!(),
+            l1_fee_overhead: todo!(),
+            l1_base_fee_scalar: todo!(),
+            l1_blob_base_fee: todo!(),
+            l1_blob_base_fee_scalar: todo!(),
+        };
+
+        Ok(Self {
+            eth,
+            l1_block_info,
         })
     }
 }

@@ -3,12 +3,13 @@ mod deposit;
 pub use edr_eth::receipt::execution::{Eip658, Legacy};
 use edr_eth::{
     log::ExecutionLog,
-    receipt::{MapReceiptLogs, ExecutionReceipt, RootOrStatus},
+    receipt::{ExecutionReceipt, MapReceiptLogs, RootOrStatus},
     result::ExecutionResult,
     transaction::{Transaction as _, TransactionType as _},
     Bloom,
 };
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
+use log::Log;
 use revm_optimism::{OptimismHaltReason, OptimismSpecId};
 
 use self::deposit::Eip658OrDeposit;
@@ -175,7 +176,9 @@ impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Execution<NewLogT>> for Execut
     }
 }
 
-impl<LogT> ExecutionReceipt<LogT> for Execution<LogT> {
+impl<LogT> ExecutionReceipt for Execution<LogT> {
+    type Log = LogT;
+
     fn cumulative_gas_used(&self) -> u64 {
         match self {
             Execution::Legacy(receipt) => receipt.cumulative_gas_used,
