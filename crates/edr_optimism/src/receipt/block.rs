@@ -3,12 +3,18 @@ use edr_eth::{
     receipt::{ExecutionReceipt, ReceiptTrait, RootOrStatus},
     Address, Bloom, B256, U256,
 };
+use op_alloy_rpc_types::receipt::L1BlockInfo;
 
-use crate::{eip2718::TypedEnvelope, receipt, L1BlockInfo};
+use crate::{eip2718::TypedEnvelope, receipt};
 
+/// An Optimism block receipt.
+///
+/// Includes the L1 block info for non-deposit transactions.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
+    /// The underlying Ethereum block receipt.
     pub eth: edr_eth::receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
+    /// The L1 block info, if not a deposit transaction.
     pub l1_block_info: Option<L1BlockInfo>,
 }
 

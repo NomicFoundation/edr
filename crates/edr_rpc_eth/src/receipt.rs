@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use edr_eth::{
     eips::{eip2718::TypedEnvelope, eip7702},
     l1,
@@ -188,6 +186,7 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
 mod test {
     use assert_json_diff::assert_json_eq;
     use edr_eth::{eips::eip2718::TypedEnvelope, l1::L1ChainSpec, log::ExecutionLog, Bloom, Bytes};
+    use edr_evm::block::EthBlockReceiptFactory;
     use serde_json::json;
 
     use crate::{impl_execution_receipt_tests, receipt};
@@ -238,7 +237,7 @@ mod test {
     }
 
     impl_execution_receipt_tests! {
-        L1ChainSpec => {
+        L1ChainSpec, EthBlockReceiptFactory::default() => {
             legacy => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,

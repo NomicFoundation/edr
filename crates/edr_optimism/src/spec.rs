@@ -28,9 +28,11 @@ use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpec
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::{self, BlockReceiptFactory, LocalBlock},
+    block::{self, LocalBlock},
     eip2718::TypedEnvelope,
-    hardfork, receipt, rpc, transaction,
+    hardfork,
+    receipt::{self, BlockReceiptFactory},
+    rpc, transaction,
 };
 
 /// Chain specification for the Ethereum JSON-RPC API.
@@ -109,6 +111,7 @@ impl RuntimeSpec for OptimismChainSpec {
 
     type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
     type LocalBlock = LocalBlock;
+
     type ReceiptBuilder = receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
     type RpcReceiptConversionError = rpc::receipt::ConversionError;

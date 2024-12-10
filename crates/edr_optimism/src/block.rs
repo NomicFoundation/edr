@@ -1,12 +1,9 @@
 mod builder;
-mod local;
 
-use edr_eth::log::FilterLog;
-use edr_evm::{RemoteBlock, SyncBlock};
-use revm_optimism::L1BlockInfo;
+use edr_evm::EthLocalBlockForChainSpec;
 
-pub use self::{
-    builder::{BlockReceiptFactory, Builder},
-    local::LocalBlock,
-};
-use crate::{eip2718::TypedEnvelope, receipt, transaction, OptimismChainSpec};
+pub use self::builder::Builder;
+use crate::OptimismChainSpec;
+
+/// Local block type for Optimism.
+pub type LocalBlock = EthLocalBlockForChainSpec<OptimismChainSpec>;

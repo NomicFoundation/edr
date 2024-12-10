@@ -131,7 +131,7 @@ pub trait RuntimeSpec:
     type BlockReceipt: Debug +  ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<Self::RpcReceipt, Error = Self::RpcReceiptConversionError>;
 
     /// Type representing a factory for block receipts.
-    type BlockReceiptFactory: Default + ReceiptFactory<
+    type BlockReceiptFactory: ReceiptFactory<
         Self::ExecutionReceipt<FilterLog>,
         Output = Self::BlockReceipt
     >;

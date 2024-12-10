@@ -21,7 +21,9 @@ use tokio::runtime;
 use super::{
     compute_state_at_block,
     remote::RemoteBlockchain,
-    storage::{self, ReservableSparseBlockchainStorage},
+    storage::{
+        self, ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec,
+    },
     validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
     BlockchainMut,
 };
@@ -98,12 +100,7 @@ pub struct ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: RuntimeSpec,
 {
-    local_storage: ReservableSparseBlockchainStorage<
-        Arc<ChainSpecT::BlockReceipt>,
-        Arc<ChainSpecT::LocalBlock>,
-        ChainSpecT::Hardfork,
-        ChainSpecT::SignedTransaction,
-    >,
+    local_storage: ReservableSparseBlockchainStorageForChainSpec<ChainSpecT>,
     // We can force caching here because we only fork from a safe block number.
     remote: RemoteBlockchain<Arc<RemoteBlock<ChainSpecT>>, ChainSpecT, true>,
     state_root_generator: Arc<Mutex<RandomHashGenerator>>,

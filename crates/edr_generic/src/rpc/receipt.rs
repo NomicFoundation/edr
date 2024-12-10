@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use edr_eth::{l1, log::FilterLog};
 use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};

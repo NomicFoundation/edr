@@ -9,7 +9,6 @@ use edr_eth::{
     Bloom,
 };
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
-use log::Log;
 use revm_optimism::{OptimismHaltReason, OptimismSpecId};
 
 use self::deposit::Eip658OrDeposit;

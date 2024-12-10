@@ -7,7 +7,7 @@ use edr_eth::{
     block::{self, Header, PartialHeader},
     keccak256, l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
-    receipt::{ExecutionReceipt, MapReceiptLogs, ReceiptTrait, TransactionReceipt},
+    receipt::{MapReceiptLogs, ReceiptTrait, TransactionReceipt},
     spec::{ChainSpec, HardforkTrait},
     transaction::ExecutableTransaction,
     trie,

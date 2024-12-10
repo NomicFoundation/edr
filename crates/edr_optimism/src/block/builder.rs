@@ -1,16 +1,13 @@
 use core::fmt::Debug;
 
-use edr_eth::{block::PartialHeader, log::FilterLog, receipt::TransactionReceipt, B256};
+use edr_eth::block::PartialHeader;
 use edr_evm::{
-    receipt::ReceiptFactory,
     state::{DatabaseComponents, WrapDatabaseRef},
-    BlockBuilder, BlockBuilderAndError, EthBlockBuilder, EthBlockReceiptFactory,
-    MineBlockResultAndState,
+    BlockBuilder, BlockBuilderAndError, EthBlockBuilder, MineBlockResultAndState,
 };
-use revm_optimism::{OptimismHaltReason, OptimismSpecId};
+use revm_optimism::{L1BlockInfo, OptimismHaltReason, OptimismSpecId};
 
-use super::LocalBlock;
-use crate::{eip2718::TypedEnvelope, receipt, transaction, L1BlockInfo, OptimismChainSpec};
+use crate::{block::LocalBlock, receipt::BlockReceiptFactory, transaction, OptimismChainSpec};
 
 /// Block builder for Optimism.
 pub struct Builder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT> {
@@ -54,10 +51,46 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
 
         let eth = EthBlockBuilder::new(blockchain, state, hardfork, cfg, options, debug_context)?;
 
-        Ok(Self {
-            eth,
-            l1_block_info: l1_block_info.into(),
-        })
+        Ok(Self { eth, l1_block_info })
+    }
+
+    fn block_receipt_factory(&self) -> BlockReceiptFactory {
+        let l1_block_info = op_alloy_rpc_types::receipt::L1BlockInfo {
+            l1_gas_price: Some(
+                self.l1_block_info
+                    .l1_base_fee
+                    .try_into()
+                    .expect("L1 gas price cannot be larger than u128::max"),
+            ),
+            // Not supported, as it was deprecated post-Fjord
+            l1_gas_used: None,
+            l1_fee: Some(
+                self.l1_block_info
+                    .l1_base_fee
+                    .try_into()
+                    .expect("L1 fee cannot be larger than u128::max"),
+            ),
+            // Not supported, as it was deprecated post-Ecotone
+            l1_fee_scalar: None,
+            l1_base_fee_scalar: Some(
+                self.l1_block_info
+                    .l1_base_fee_scalar
+                    .try_into()
+                    .expect("L1 base fee scalar cannot be larger than u128::max"),
+            ),
+            l1_blob_base_fee: self.l1_block_info.l1_blob_base_fee.map(|scalar| {
+                scalar
+                    .try_into()
+                    .expect("L1 blob base fee cannot be larger than u128::max")
+            }),
+            l1_blob_base_fee_scalar: self.l1_block_info.l1_blob_base_fee_scalar.map(|scalar| {
+                scalar
+                    .try_into()
+                    .expect("L1 blob base fee scalar cannot be larger than u128::max")
+            }),
+        };
+
+        BlockReceiptFactory { l1_block_info }
     }
 
     fn header(&self) -> &PartialHeader {
@@ -102,53 +135,7 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
         MineBlockResultAndState<OptimismHaltReason, LocalBlock, Self::StateError>,
         Self::StateError,
     > {
-        let receipt_factory = BlockReceiptFactory::default();
-
-        let MineBlockResultAndState {
-            block: l1,
-            state,
-            state_diff,
-            transaction_results,
-        } = self.eth.finalize(&receipt_factory, rewards)?;
-
-        Ok(MineBlockResultAndState {
-            block: LocalBlock {
-                eth: l1,
-                l1_block_info: self.l1_block_info,
-            },
-            state,
-            state_diff,
-            transaction_results,
-        })
-    }
-}
-
-/// Block receipt factory for Optimism.
-#[derive(Default)]
-pub struct BlockReceiptFactory {
-    l1_block_info: L1BlockInfo,
-}
-
-impl ReceiptFactory<TypedEnvelope<receipt::Execution<FilterLog>>> for BlockReceiptFactory {
-    type Output = receipt::Block;
-
-    fn create_receipt(
-        &self,
-        transaction_receipt: TransactionReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
-        block_hash: &B256,
-        block_number: u64,
-    ) -> Self::Output {
-        let l1_block_info = if matches!(transaction_receipt.inner, TypedEnvelope::Deposit(_)) {
-            None
-        } else {
-            Some(self.l1_block_info.clone())
-        };
-
-        let eth = {
-            let receipt_factory = EthBlockReceiptFactory::default();
-            receipt_factory.create_receipt(transaction_receipt, block_hash, block_number)
-        };
-
-        receipt::Block { eth, l1_block_info }
+        let receipt_factory = self.block_receipt_factory();
+        self.eth.finalize(&receipt_factory, rewards)
     }
 }

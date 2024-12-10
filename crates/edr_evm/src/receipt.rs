@@ -1,16 +1,14 @@
-use auto_impl::auto_impl;
 // Re-export the receipt types from `edr_eth`.
 pub use edr_eth::receipt::*;
 use edr_eth::{
     block,
     eips::eip2718::TypedEnvelope,
     l1,
-    log::{self, ExecutionLog, FilterLog},
+    log::{self, ExecutionLog},
     receipt,
     result::ExecutionResult,
     spec::{HaltReasonTrait, HardforkTrait},
     transaction::{self, Transaction, TransactionType as _, TransactionValidation},
-    B256,
 };
 
 use crate::state::State;

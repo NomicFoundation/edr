@@ -5,7 +5,6 @@ use edr_eth::{
     account::AccountInfo,
     block::{miner_reward, BlockOptions},
     l1::{self, L1ChainSpec},
-    log::FilterLog,
     receipt::{ExecutionReceipt as _, ReceiptTrait as _},
     result::InvalidTransaction,
     transaction::{TransactionValidation, TxKind},

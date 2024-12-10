@@ -4,6 +4,7 @@ use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
     result::{ExecutionResult, InvalidTransaction},
     signature::SignatureError,
+    spec::ChainSpec,
     transaction::{ExecutableTransaction as _, Transaction, TransactionValidation},
     U256,
 };
@@ -34,6 +35,13 @@ pub struct MineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, St
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
 }
+
+/// Helper type for a chain-specific [`MineBlockResultAndState`].
+pub type MineBlockResultAndStateForChainSpec<ChainSpecT, StateErrorT> = MineBlockResultAndState<
+    <ChainSpecT as ChainSpec>::HaltReason,
+    <ChainSpecT as RuntimeSpec>::LocalBlock,
+    StateErrorT,
+>;
 
 /// The type of ordering to use when selecting blocks to mine.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

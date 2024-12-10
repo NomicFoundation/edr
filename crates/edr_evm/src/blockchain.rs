@@ -24,7 +24,7 @@ use crate::{
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateCommit, StateDiff, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty,
+    Block, BlockAndTotalDifficultyForChainSpec,
 };
 
 /// Helper type for a chain-specific [`BlockchainError`].
@@ -205,10 +205,7 @@ pub trait BlockchainMut<ChainSpecT: RuntimeSpec> {
         &mut self,
         block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
-    ) -> Result<
-        BlockAndTotalDifficulty<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>,
-        Self::Error,
-    >;
+    ) -> Result<BlockAndTotalDifficultyForChainSpec<ChainSpecT>, Self::Error>;
 
     /// Reserves the provided number of blocks, starting from the next block
     /// number.

@@ -86,6 +86,7 @@ pub struct BlockReceipt {
         with = "alloy_serde::quantity::opt"
     )]
     pub deposit_receipt_version: Option<u8>,
+    /// L1 block info, for non-deposit Optimism transactions.
     #[serde(flatten)]
     pub l1_block_info: L1BlockInfo,
     /// The authorization list is a list of tuples that store the address to

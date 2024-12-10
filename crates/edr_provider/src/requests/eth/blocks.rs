@@ -112,6 +112,10 @@ pub fn handle_get_block_transaction_count_by_block_number<
         .map(|BlockByNumberResult { block, .. }| U64::from(block.transactions().len())))
 }
 
+/// Helper type for a chain-specific [`BlockByNumberResult`].
+type BlockByNumberResultForChainSpec<ChainSpecT> =
+    BlockByNumberResult<Arc<<ChainSpecT as RuntimeSpec>::Block>>;
+
 /// The result returned by requesting a block by number.
 #[derive(Clone, Debug)]
 struct BlockByNumberResult<BlockT> {
@@ -136,7 +140,7 @@ fn block_by_number<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: &BlockSpec,
-) -> Result<Option<BlockByNumberResult<Arc<ChainSpecT::Block>>>, ProviderError<ChainSpecT>> {
+) -> Result<Option<BlockByNumberResultForChainSpec<ChainSpecT>>, ProviderError<ChainSpecT>> {
     validate_post_merge_block_tags(data.hardfork(), block_spec)?;
 
     match data.block_by_block_spec(block_spec) {

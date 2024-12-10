@@ -19,11 +19,13 @@ use edr_eth::{
 };
 use revm::Evm;
 
-use super::{BlockBuilder, BlockBuilderAndError, BlockTransactionError};
+use super::{
+    BlockBuilder, BlockBuilderAndError, BlockBuilderAndTransactionError, BlockTransactionError,
+};
 use crate::{
     blockchain::SyncBlockchain,
     config::{CfgEnv, Env},
-    debug::DebugContext,
+    debug::{DebugContext, DebugContextForChainSpec},
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
@@ -39,12 +41,12 @@ where
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     cfg: CfgEnv,
     debug_context: Option<
-        DebugContext<
+        DebugContextForChainSpec<
             'blockchain,
-            ChainSpecT,
             BlockchainErrorT,
+            ChainSpecT,
             DebugDataT,
-            Box<dyn SyncState<StateErrorT>>,
+            StateErrorT,
         >,
     >,
     hardfork: ChainSpecT::Hardfork,
@@ -103,12 +105,12 @@ where
         cfg: CfgEnv,
         mut options: BlockOptions,
         debug_context: Option<
-            DebugContext<
+            DebugContextForChainSpec<
                 'blockchain,
-                ChainSpecT,
                 BlockchainErrorT,
+                ChainSpecT,
                 DebugDataT,
-                Box<dyn SyncState<StateErrorT>>,
+                StateErrorT,
             >,
         >,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
@@ -163,10 +165,7 @@ where
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<
         Self,
-        BlockBuilderAndError<
-            Self,
-            BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
-        >,
+        BlockBuilderAndTransactionError<Self, BlockchainErrorT, ChainSpecT, StateErrorT>,
     > {
         // The transaction's gas limit cannot be greater than the remaining gas in the
         // block
@@ -412,8 +411,11 @@ impl<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
     BlockBuilder<'blockchain, ChainSpecT, DebugDataT>
     for EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
 where
-    ChainSpecT:
-        SyncRuntimeSpec<Hardfork: Debug, LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>>,
+    ChainSpecT: SyncRuntimeSpec<
+        BlockReceiptFactory: Default,
+        Hardfork: Debug,
+        LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>,
+    >,
     StateErrorT: Debug + Send,
 {
     type BlockchainError = BlockchainErrorT;
@@ -446,6 +448,10 @@ where
         Self::new(blockchain, state, hardfork, cfg, options, debug_context)
     }
 
+    fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory {
+        ChainSpecT::BlockReceiptFactory::default()
+    }
+
     fn header(&self) -> &PartialHeader {
         self.header()
     }
@@ -470,7 +476,7 @@ where
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, Self::StateError>,
         Self::StateError,
     > {
-        let receipt_factory = ChainSpecT::BlockReceiptFactory::default();
+        let receipt_factory = self.block_receipt_factory();
 
         let MineBlockResultAndState {
             block,

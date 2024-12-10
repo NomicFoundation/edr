@@ -23,7 +23,7 @@ use edr_eth::{
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
     log::FilterLog,
-    receipt::{BlockReceipt, ExecutionReceipt as _, ReceiptTrait as _},
+    receipt::{ExecutionReceipt, ReceiptTrait as _},
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
@@ -162,7 +162,6 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
         let SendTransactionResult {
             transaction_hash,
             mining_results,
-            ..
         } = value;
 
         let traces = mining_results
@@ -450,9 +449,7 @@ where
                     let bloom = &block.header().logs_bloom;
                     if bloom_contains_log_filter(bloom, criteria) {
                         let receipts = block.fetch_transaction_receipts()?;
-                        let new_logs = receipts
-                            .iter()
-                            .flat_map(|receipt| receipt.transaction_logs());
+                        let new_logs = receipts.iter().flat_map(ExecutionReceipt::transaction_logs);
 
                         let mut filtered_logs = filter_logs(new_logs, criteria);
                         if filter.is_subscription {

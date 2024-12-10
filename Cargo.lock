@@ -1597,6 +1597,7 @@ dependencies = [
  "assert-json-diff",
  "derive-where",
  "edr_eth",
+ "edr_evm",
  "edr_rpc_client",
  "edr_test_utils",
  "futures",

@@ -18,8 +18,10 @@ use edr_eth::{
 };
 
 use super::{
-    compute_state_at_block, storage::ReservableSparseBlockchainStorage, validate_next_block,
-    BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec, BlockchainMut,
+    compute_state_at_block,
+    storage::{ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec},
+    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
+    BlockchainMut,
 };
 use crate::{
     block::EmptyBlock as _,
@@ -27,7 +29,7 @@ use crate::{
     state::{
         StateCommit as _, StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState,
     },
-    Block as _, BlockAndTotalDifficulty, BlockReceipts,
+    Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
@@ -81,12 +83,7 @@ pub struct LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec,
 {
-    storage: ReservableSparseBlockchainStorage<
-        Arc<ChainSpecT::BlockReceipt>,
-        Arc<ChainSpecT::LocalBlock>,
-        ChainSpecT::Hardfork,
-        ChainSpecT::SignedTransaction,
-    >,
+    storage: ReservableSparseBlockchainStorageForChainSpec<ChainSpecT>,
     chain_id: u64,
     hardfork: ChainSpecT::Hardfork,
 }
@@ -358,10 +355,7 @@ where
         &mut self,
         block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
-    ) -> Result<
-        BlockAndTotalDifficulty<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>,
-        Self::Error,
-    > {
+    ) -> Result<BlockAndTotalDifficultyForChainSpec<ChainSpecT>, Self::Error> {
         let last_block = self.last_block()?;
 
         validate_next_block::<ChainSpecT>(self.hardfork, &last_block, &block)?;

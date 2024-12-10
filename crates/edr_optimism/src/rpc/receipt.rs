@@ -1,12 +1,8 @@
-use std::marker::PhantomData;
-
 use edr_eth::{
-    log::FilterLog,
     receipt::{ExecutionReceipt as _, TransactionReceipt},
     transaction::TransactionType as _,
 };
 use edr_rpc_eth::RpcTypeFrom;
-use op_alloy_rpc_types::receipt::L1BlockInfo;
 use revm_optimism::OptimismSpecId;
 
 use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction};
@@ -52,44 +48,7 @@ impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
                 receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => receipt.deposit_receipt_version,
             },
-            l1_block_info: L1BlockInfo {
-                l1_gas_price: value.l1_block_info.as_ref().map(|l1_block_info| {
-                    l1_block_info
-                        .l1_base_fee
-                        .try_into()
-                        .expect("L1 gas price cannot be larger than u128::max")
-                }),
-                // Not supported, as it was deprecated post-Fjord
-                l1_gas_used: None,
-                l1_fee: value.l1_block_info.as_ref().map(|l1_block_info| {
-                    l1_block_info
-                        .l1_base_fee
-                        .try_into()
-                        .expect("L1 fee cannot be larger than u128::max")
-                }),
-                // Not supported, as it was deprecated post-Ecotone
-                l1_fee_scalar: None,
-                l1_base_fee_scalar: value.l1_block_info.as_ref().map(|l1_block_info| {
-                    l1_block_info
-                        .l1_base_fee_scalar
-                        .try_into()
-                        .expect("L1 base fee scalar cannot be larger than u128::max")
-                }),
-                l1_blob_base_fee: value.l1_block_info.as_ref().and_then(|l1_block_info| {
-                    l1_block_info.l1_blob_base_fee.map(|scalar| {
-                        scalar
-                            .try_into()
-                            .expect("L1 blob base fee cannot be larger than u128::max")
-                    })
-                }),
-                l1_blob_base_fee_scalar: value.l1_block_info.as_ref().and_then(|l1_block_info| {
-                    l1_block_info.l1_blob_base_fee_scalar.map(|scalar| {
-                        scalar
-                            .try_into()
-                            .expect("L1 blob base fee scalar cannot be larger than u128::max")
-                    })
-                }),
-            },
+            l1_block_info: value.l1_block_info.unwrap_or_default(),
             authorization_list: None,
         }
     }
@@ -169,14 +128,6 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
                 (execution, None)
             }
             _ => {
-                let l1_block_info = crate::L1BlockInfo {
-                    l1_base_fee: todo!(),
-                    l1_fee_overhead: todo!(),
-                    l1_base_fee_scalar: todo!(),
-                    l1_blob_base_fee: todo!(),
-                    l1_blob_base_fee_scalar: todo!(),
-                };
-
                 let execution = receipt::Execution::Eip658(receipt::execution::Eip658 {
                     status: value.status.ok_or(ConversionError::MissingStatus)?,
                     cumulative_gas_used: value.cumulative_gas_used,
@@ -184,7 +135,7 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
                     logs: value.logs,
                 });
 
-                (execution, Some(l1_block_info))
+                (execution, Some(value.l1_block_info))
             }
         };
 
@@ -213,12 +164,22 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 mod tests {
     use edr_eth::{log::ExecutionLog, Bloom, Bytes};
     use edr_rpc_eth::impl_execution_receipt_tests;
+    use op_alloy_rpc_types::receipt::L1BlockInfo;
+    use receipt::BlockReceiptFactory;
 
     use super::*;
     use crate::OptimismChainSpec;
 
     impl_execution_receipt_tests! {
-        OptimismChainSpec => {
+        OptimismChainSpec, BlockReceiptFactory { l1_block_info: L1BlockInfo {
+            l1_gas_price: Some(1234),
+            l1_gas_used: Some(5678),
+            l1_fee: Some(91011),
+            l1_fee_scalar: Some(0.1234f64),
+            l1_base_fee_scalar: Some(5678),
+            l1_blob_base_fee: Some(9012),
+            l1_blob_base_fee_scalar: Some(3456),
+        } } => {
             legacy => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,

@@ -1,19 +1,19 @@
 use core::fmt::Debug;
-use std::num::NonZeroU64;
+use std::{num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
     block::PartialHeader,
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait},
-    spec::HardforkTrait,
+    spec::{ChainSpec, HardforkTrait},
     transaction::ExecutableTransaction,
     Address, HashMap, HashSet, B256, U256,
 };
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{state::StateDiff, Block, BlockReceipts, EmptyBlock, LocalBlock};
+use crate::{spec::RuntimeSpec, state::StateDiff, Block, BlockReceipts, EmptyBlock, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
@@ -28,6 +28,15 @@ struct Reservation<HardforkT: HardforkTrait> {
     previous_diff_index: usize,
     hardfork: HardforkT,
 }
+
+/// Helper type for a chain-specific [`ReservableSparseBlockchainStorage`].
+pub type ReservableSparseBlockchainStorageForChainSpec<ChainSpecT> =
+    ReservableSparseBlockchainStorage<
+        Arc<<ChainSpecT as RuntimeSpec>::BlockReceipt>,
+        Arc<<ChainSpecT as RuntimeSpec>::LocalBlock>,
+        <ChainSpecT as ChainSpec>::Hardfork,
+        <ChainSpecT as ChainSpec>::SignedTransaction,
+    >;
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory,
 /// while lazily loading blocks that have been reserved.

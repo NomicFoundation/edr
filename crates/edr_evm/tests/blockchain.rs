@@ -18,11 +18,11 @@ use edr_evm::{
         SyncBlockchain,
     },
     receipt::{self, ExecutionReceiptBuilder as _},
-    spec::ExecutionReceiptHigherKindedForChainSpec,
+    spec::{ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
     transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
-    RemoteBlockConversionError, SyncBlock,
+    RemoteBlockConversionError,
 };
 use edr_rpc_eth::TransactionConversionError;
 use serial_test::serial;
@@ -179,13 +179,7 @@ fn create_dummy_block_with_header(
 }
 
 struct DummyBlockAndTransaction {
-    block: Arc<
-        dyn SyncBlock<
-            Arc<BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>,
-            transaction::Signed,
-            Error = BlockchainErrorForChainSpec<L1ChainSpec>,
-        >,
-    >,
+    block: Arc<<L1ChainSpec as RuntimeSpec>::Block>,
     transaction_hash: B256,
     transaction_receipt: TransactionReceipt<TypedEnvelope<receipt::Execution<ExecutionLog>>>,
 }

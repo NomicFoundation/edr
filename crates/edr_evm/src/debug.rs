@@ -3,7 +3,7 @@ use auto_impl::auto_impl;
 use crate::{
     blockchain::SyncBlockchain,
     spec::RuntimeSpec,
-    state::{DatabaseComponents, State, WrapDatabaseRef},
+    state::{DatabaseComponents, State, SyncState, WrapDatabaseRef},
 };
 
 /// Type for registering handles, specialised for EDR database component types.
@@ -23,6 +23,10 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
             DebugDataT,
         >,
     >;
+
+/// Helper type for a chain-specific [`DebugContext`].
+pub type DebugContextForChainSpec<'evm, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT> =
+    DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, Box<dyn SyncState<StateErrorT>>>;
 
 /// Type for encapsulating contextual data and handler registration in an
 /// `EvmBuilder`.

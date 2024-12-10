@@ -12,10 +12,11 @@ pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
+    debug::DebugContextForChainSpec,
     spec::RuntimeSpec,
     state::{DatabaseComponentError, SyncState},
     transaction::TransactionError,
-    DebugContext, MineBlockResultAndState,
+    MineBlockResultAndStateForChainSpec,
 };
 
 /// An error caused during construction of a block builder.
@@ -31,6 +32,10 @@ pub enum BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT> {
     #[error("Unsupported hardfork: {0:?}. Hardforks older than Byzantium are not supported.")]
     UnsupportedHardfork(HardforkT),
 }
+
+/// Helper type for a chain-specific [`BlockBuilderCreationError`].
+pub type BlockBuilderCreationErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
+    BlockBuilderCreationError<BlockchainErrorT, <ChainSpecT as ChainSpec>::Hardfork, StateErrorT>;
 
 impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
     From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
@@ -60,6 +65,13 @@ where
     #[error(transparent)]
     Transaction(#[from] TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
 }
+
+/// Helper type for a [`BlockBuilderAndError`] with a [`BlockTransactionError`].
+pub type BlockBuilderAndTransactionError<BlockBuilderT, BlockchainErrorT, ChainSpecT, StateErrorT> =
+    BlockBuilderAndError<
+        BlockBuilderT,
+        BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    >;
 
 /// A wrapper around a block builder and an error.
 pub struct BlockBuilderAndError<BlockBuilderT, ErrorT> {
@@ -92,18 +104,21 @@ where
         cfg: CfgEnv,
         options: BlockOptions,
         debug_context: Option<
-            DebugContext<
+            DebugContextForChainSpec<
                 'blockchain,
-                ChainSpecT,
                 Self::BlockchainError,
+                ChainSpecT,
                 DebugDataT,
-                Box<dyn SyncState<Self::StateError>>,
+                Self::StateError,
             >,
         >,
     ) -> Result<
         Self,
-        BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,
+        BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
     >;
+
+    /// Returns the block's receipt factory.
+    fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory;
 
     /// Returns the block's [`PartialHeader`].
     fn header(&self) -> &PartialHeader;
@@ -114,18 +129,12 @@ where
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<
         Self,
-        BlockBuilderAndError<
-            Self,
-            BlockTransactionError<ChainSpecT, Self::BlockchainError, Self::StateError>,
-        >,
+        BlockBuilderAndTransactionError<Self, Self::BlockchainError, ChainSpecT, Self::StateError>,
     >;
 
     /// Finalizes the block, applying rewards to the state.
     fn finalize(
         self,
         rewards: Vec<(Address, U256)>,
-    ) -> Result<
-        MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, Self::StateError>,
-        Self::StateError,
-    >;
+    ) -> Result<MineBlockResultAndStateForChainSpec<ChainSpecT, Self::StateError>, Self::StateError>;
 }

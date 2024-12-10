@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! impl_execution_receipt_tests {
-    ($chain_spec:ty => {
+    ($chain_spec:ty, $block_receipt_factory:expr => {
         $(
             $name:ident => $receipt:expr,
         )+
@@ -55,8 +55,8 @@ macro_rules! impl_execution_receipt_tests {
                         effective_gas_price: Some(U256::from(100u64)),
                     };
 
-                    let receipt_factory = <$chain_spec as RuntimeSpec>::BlockReceiptFactory::default();
-                    let block_receipt = receipt_factory.create_receipt(transcation_receipt, &block_hash, block_number);
+                    let receipt_factory = $block_receipt_factory;
+                    let block_receipt = receipt_factory.create_receipt(transaction_receipt, &block_hash, block_number);
 
                     let rpc_receipt = <$chain_spec as RpcSpec>::RpcReceipt::rpc_type_from(&block_receipt, Default::default());
 
