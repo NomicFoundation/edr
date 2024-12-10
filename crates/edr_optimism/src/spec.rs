@@ -5,7 +5,6 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     l1,
-    log::FilterLog,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
 };
@@ -29,7 +28,7 @@ use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpec
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::{self, LocalBlock},
+    block::{self, BlockReceiptFactory, LocalBlock},
     eip2718::TypedEnvelope,
     hardfork, receipt, rpc, transaction,
 };
@@ -93,9 +92,9 @@ where
 
 impl RuntimeSpec for OptimismChainSpec {
     type Block = dyn SyncBlock<
-        Self::ExecutionReceipt<FilterLog>,
+        Arc<Self::BlockReceipt>,
         Self::SignedTransaction,
-        Error = <Self::LocalBlock as BlockReceipts<Self::ExecutionReceipt<FilterLog>>>::Error,
+        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
     >;
 
     type BlockBuilder<
@@ -104,6 +103,9 @@ impl RuntimeSpec for OptimismChainSpec {
         DebugDataT,
         StateErrorT: 'blockchain + Debug + Send,
     > = block::Builder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT>;
+
+    type BlockReceipt = receipt::Block;
+    type BlockReceiptFactory = BlockReceiptFactory;
 
     type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
     type LocalBlock = LocalBlock;

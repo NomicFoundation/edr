@@ -53,43 +53,42 @@ impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
                 receipt::Execution::Deposit(receipt) => receipt.deposit_receipt_version,
             },
             l1_block_info: L1BlockInfo {
-                l1_gas_price: Some(
-                    value
-                        .l1_block_info
+                l1_gas_price: value.l1_block_info.as_ref().map(|l1_block_info| {
+                    l1_block_info
                         .l1_base_fee
                         .try_into()
-                        .expect("L1 gas price cannot be larger than u128::max"),
-                ),
+                        .expect("L1 gas price cannot be larger than u128::max")
+                }),
                 // Not supported, as it was deprecated post-Fjord
                 l1_gas_used: None,
-                l1_fee: Some(
-                    value
-                        .l1_block_info
+                l1_fee: value.l1_block_info.as_ref().map(|l1_block_info| {
+                    l1_block_info
                         .l1_base_fee
                         .try_into()
-                        .expect("L1 fee cannot be larger than u128::max"),
-                ),
+                        .expect("L1 fee cannot be larger than u128::max")
+                }),
                 // Not supported, as it was deprecated post-Ecotone
                 l1_fee_scalar: None,
-                l1_base_fee_scalar: Some(
-                    value
-                        .l1_block_info
+                l1_base_fee_scalar: value.l1_block_info.as_ref().map(|l1_block_info| {
+                    l1_block_info
                         .l1_base_fee_scalar
                         .try_into()
-                        .expect("L1 base fee scalar cannot be larger than u128::max"),
-                ),
-                l1_blob_base_fee: value.l1_block_info.l1_blob_base_fee.map(|scalar| {
-                    scalar
-                        .try_into()
-                        .expect("L1 blob base fee cannot be larger than u128::max")
+                        .expect("L1 base fee scalar cannot be larger than u128::max")
                 }),
-                l1_blob_base_fee_scalar: value.l1_block_info.l1_blob_base_fee_scalar.map(
-                    |scalar| {
+                l1_blob_base_fee: value.l1_block_info.as_ref().and_then(|l1_block_info| {
+                    l1_block_info.l1_blob_base_fee.map(|scalar| {
+                        scalar
+                            .try_into()
+                            .expect("L1 blob base fee cannot be larger than u128::max")
+                    })
+                }),
+                l1_blob_base_fee_scalar: value.l1_block_info.as_ref().and_then(|l1_block_info| {
+                    l1_block_info.l1_blob_base_fee_scalar.map(|scalar| {
                         scalar
                             .try_into()
                             .expect("L1 blob base fee scalar cannot be larger than u128::max")
-                    },
-                ),
+                    })
+                }),
             },
             authorization_list: None,
         }
@@ -104,6 +103,11 @@ pub enum ConversionError {
     /// Only occurs for deposit receipts.
     #[error("Missing deposit nonce")]
     MissingDepositNonce,
+    /// Missing L1 block info.
+    ///
+    /// Only occurs for non-deposit receipts.
+    #[error("Missing L1 block info for a non-deposit receipt")]
+    MissingL1BlockInfo,
     /// Missing state root or status.
     ///
     /// Only occurs for legacy receipts.
@@ -128,9 +132,9 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
             .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
             .map_err(ConversionError::UnknownType)?;
 
-        let execution = match transaction_type {
+        let (execution, l1_block_info) = match transaction_type {
             transaction::Type::Legacy => {
-                if let Some(status) = value.status {
+                let execution = if let Some(status) = value.status {
                     receipt::Execution::Eip658(receipt::execution::Eip658 {
                         status,
                         cumulative_gas_used: value.cumulative_gas_used,
@@ -146,10 +150,12 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
                     })
                 } else {
                     return Err(ConversionError::MissingStateRootOrStatus);
-                }
+                };
+
+                (execution, None)
             }
             transaction::Type::Deposit => {
-                receipt::Execution::Deposit(receipt::execution::Deposit {
+                let execution = receipt::Execution::Deposit(receipt::execution::Deposit {
                     status: value.status.ok_or(ConversionError::MissingStatus)?,
                     cumulative_gas_used: value.cumulative_gas_used,
                     logs_bloom: value.logs_bloom,
@@ -158,14 +164,28 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
                         .deposit_nonce
                         .ok_or(ConversionError::MissingDepositNonce)?,
                     deposit_receipt_version: value.deposit_receipt_version,
-                })
+                });
+
+                (execution, None)
             }
-            _ => receipt::Execution::Eip658(receipt::execution::Eip658 {
-                status: value.status.ok_or(ConversionError::MissingStatus)?,
-                cumulative_gas_used: value.cumulative_gas_used,
-                logs_bloom: value.logs_bloom,
-                logs: value.logs,
-            }),
+            _ => {
+                let l1_block_info = crate::L1BlockInfo {
+                    l1_base_fee: todo!(),
+                    l1_fee_overhead: todo!(),
+                    l1_base_fee_scalar: todo!(),
+                    l1_blob_base_fee: todo!(),
+                    l1_blob_base_fee_scalar: todo!(),
+                };
+
+                let execution = receipt::Execution::Eip658(receipt::execution::Eip658 {
+                    status: value.status.ok_or(ConversionError::MissingStatus)?,
+                    cumulative_gas_used: value.cumulative_gas_used,
+                    logs_bloom: value.logs_bloom,
+                    logs: value.logs,
+                });
+
+                (execution, Some(l1_block_info))
+            }
         };
 
         let enveloped = TypedEnvelope::new(execution, transaction_type);
@@ -185,18 +205,7 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
             },
         };
 
-        let l1_block_info: crate::L1BlockInfo {
-            l1_base_fee: todo!(),
-            l1_fee_overhead: todo!(),
-            l1_base_fee_scalar: todo!(),
-            l1_blob_base_fee: todo!(),
-            l1_blob_base_fee_scalar: todo!(),
-        };
-
-        Ok(Self {
-            eth,
-            l1_block_info,
-        })
+        Ok(Self { eth, l1_block_info })
     }
 }
 

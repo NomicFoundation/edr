@@ -11,7 +11,7 @@ macro_rules! impl_execution_receipt_tests {
                 fn [<typed_receipt_rpc_receipt_roundtrip_ $name>]() -> anyhow::Result<()> {
                     use edr_eth::{
                         log::{FilterLog, FullBlockLog, ReceiptLog},
-                        receipt::{BlockReceipt, MapReceiptLogs as _, TransactionReceipt},
+                        receipt::{ MapReceiptLogs as _, ReceiptFactory as _, TransactionReceipt},
                         Address, B256, U256,
                     };
 
@@ -54,11 +54,9 @@ macro_rules! impl_execution_receipt_tests {
                         gas_used: 100,
                         effective_gas_price: Some(U256::from(100u64)),
                     };
-                    let block_receipt = BlockReceipt {
-                        inner: transaction_receipt,
-                        block_hash,
-                        block_number,
-                    };
+
+                    let receipt_factory = <$chain_spec as RuntimeSpec>::BlockReceiptFactory::default();
+                    let block_receipt = receipt_factory.create_receipt(transcation_receipt, &block_hash, block_number);
 
                     let rpc_receipt = <$chain_spec as RpcSpec>::RpcReceipt::rpc_type_from(&block_receipt, Default::default());
 

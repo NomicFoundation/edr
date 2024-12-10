@@ -9,11 +9,12 @@
 mod block;
 /// Types for execution receipts.
 pub mod execution;
+mod factory;
 mod transaction;
 
 use auto_impl::auto_impl;
 
-pub use self::{block::BlockReceipt, transaction::TransactionReceipt};
+pub use self::{block::BlockReceipt, factory::ReceiptFactory, transaction::TransactionReceipt};
 use crate::{Address, Bloom, B256, U256};
 
 /// Log generated after execution of a transaction.

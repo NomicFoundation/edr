@@ -324,7 +324,6 @@ impl RuntimeSpec for L1ChainSpec {
     > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
 
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
-
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
     type EvmWiring<DatabaseT: Database, ExternalContexT> =

@@ -1,25 +1,35 @@
 use std::sync::Arc;
 
-use edr_eth::{block, log::FilterLog, receipt::BlockReceipt, withdrawal::Withdrawal, B256};
+use edr_eth::{block, log::FilterLog, withdrawal::Withdrawal, B256};
 use edr_evm::{
     blockchain::BlockchainError, spec::ExecutionReceiptHigherKindedForChainSpec, Block,
     BlockReceipts, EthLocalBlock, RemoteBlockConversionError,
 };
-use revm_optimism::{L1BlockInfo, OptimismSpecId};
+use revm_optimism::OptimismSpecId;
 
-use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, OptimismChainSpec};
+use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, L1BlockInfo, OptimismChainSpec};
 
 #[derive(Debug)]
 pub struct LocalBlock {
     pub(super) eth: EthLocalBlock<
         RemoteBlockConversionError<rpc::transaction::ConversionError>,
-        BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
+        receipt::Block,
         ExecutionReceiptHigherKindedForChainSpec<OptimismChainSpec>,
         OptimismSpecId,
         rpc::receipt::ConversionError,
         transaction::Signed,
     >,
     pub(super) l1_block_info: L1BlockInfo,
+}
+
+impl alloy_rlp::Encodable for LocalBlock {
+    fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
+        self.eth.encode(out);
+    }
+
+    fn length(&self) -> usize {
+        self.eth.length()
+    }
 }
 
 impl Block<transaction::Signed> for LocalBlock {
@@ -48,17 +58,14 @@ impl Block<transaction::Signed> for LocalBlock {
     }
 }
 
-impl BlockReceipts<Arc<BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>> for LocalBlock {
+impl BlockReceipts<Arc<receipt::Block>> for LocalBlock {
     type Error = BlockchainError<
         RemoteBlockConversionError<rpc::transaction::ConversionError>,
         OptimismSpecId,
         rpc::receipt::ConversionError,
     >;
 
-    fn fetch_transaction_receipts(
-        &self,
-    ) -> Result<Vec<Arc<BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>>, Self::Error>
-    {
+    fn fetch_transaction_receipts(&self) -> Result<Vec<Arc<receipt::Block>>, Self::Error> {
         self.eth.fetch_transaction_receipts()
     }
 }
@@ -72,12 +79,8 @@ impl edr_evm::EmptyBlock<OptimismSpecId> for LocalBlock {
     }
 }
 
-impl edr_evm::LocalBlock<Arc<BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>>
-    for LocalBlock
-{
-    fn transaction_receipts(
-        &self,
-    ) -> &[Arc<BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>] {
+impl edr_evm::LocalBlock<Arc<receipt::Block>> for LocalBlock {
+    fn transaction_receipts(&self) -> &[Arc<receipt::Block>] {
         self.eth.transaction_receipts()
     }
 }
