@@ -636,7 +636,7 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
             }
             StackTraceEntry::PrecompileError { precompile } => PrecompileErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
-                precompile: precompile.into(),
+                precompile,
                 source_reference: None,
             }
             .into(),
@@ -657,7 +657,7 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
             } => PanicErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
                 error_code: u256_to_bigint(&error_code),
-                source_reference: source_reference.map(|x| x.into()),
+                source_reference: source_reference.map(std::convert::Into::into),
             }
             .into(),
             StackTraceEntry::CustomError {
@@ -665,7 +665,7 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
                 source_reference,
             } => CustomErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
-                message: message.into(),
+                message,
                 source_reference: source_reference.into(),
             }
             .into(),
@@ -770,21 +770,21 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
             StackTraceEntry::OtherExecutionError { source_reference } => {
                 OtherExecutionErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.map(|x| x.into()),
+                    source_reference: source_reference.map(std::convert::Into::into),
                 }
                 .into()
             }
             StackTraceEntry::UnmappedSolc0_6_3RevertError { source_reference } => {
                 UnmappedSolc063RevertErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.map(|x| x.into()),
+                    source_reference: source_reference.map(std::convert::Into::into),
                 }
                 .into()
             }
             StackTraceEntry::ContractTooLargeError { source_reference } => {
                 ContractTooLargeErrorStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.map(|x| x.into()),
+                    source_reference: source_reference.map(std::convert::Into::into),
                 }
                 .into()
             }
@@ -793,14 +793,14 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
                 source_reference,
             } => InternalFunctionCallStackEntry {
                 type_: StackTraceEntryTypeConst,
-                pc: pc.into(),
+                pc,
                 source_reference: source_reference.into(),
             }
             .into(),
             StackTraceEntry::ContractCallRunOutOfGasError { source_reference } => {
                 ContractCallRunOutOfGasError {
                     type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.map(|x| x.into()),
+                    source_reference: source_reference.map(std::convert::Into::into),
                 }
                 .into()
             }

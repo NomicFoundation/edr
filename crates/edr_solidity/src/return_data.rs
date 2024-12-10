@@ -43,16 +43,6 @@ impl ReturnData {
         self.selector == Some(Panic::SELECTOR)
     }
 
-    pub fn decode_error(&self) -> Result<String, alloy_sol_types::Error> {
-        if self.is_empty() {
-            return Ok(String::new());
-        }
-
-        let result = Error::abi_decode(&self.value[..], false)?;
-
-        Ok(result._0)
-    }
-
     /// Decodes the panic error code from the return data.
     pub fn decode_panic(&self) -> Result<U256, alloy_sol_types::Error> {
         Panic::abi_decode(&self.value[..], false).map(|p| p._0)

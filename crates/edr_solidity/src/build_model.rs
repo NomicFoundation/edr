@@ -7,7 +7,7 @@
 //!   - related contract and free [`ContractFunction`]s and their name, location
 //!     and parameters
 //!   - related [`CustomError`]s and their name, location and parameters
-//! - the resolved [`Bytecode`] of the contract
+//! - the resolved [`ContractMetadata`] of the contract
 //!   - related resolved [`Instruction`]s and their location
 
 use std::{
@@ -133,7 +133,7 @@ impl SourceLocation {
     /// # Panics
     /// This function panics if the source location is dangling, i.e. source
     /// files mapping has been dropped (currently only owned by the
-    /// [`Bytecode`]).
+    /// [`ContractMetadata`]).
     pub fn file(&self) -> Rc<RefCell<SourceFile>> {
         match self.sources.upgrade() {
             Some(ref sources) => sources.get(&self.file_id).unwrap().clone(),
@@ -294,7 +294,7 @@ impl CustomError {
 }
 
 /// A decoded EVM instruction.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Instruction {
     /// The program counter (PC) of the instruction in a bytecode.
     pub pc: u32,
@@ -321,15 +321,20 @@ pub enum JumpType {
     InternalJump,
 }
 
+/// A [`ContractMetadata`] error.
 #[derive(Clone, Debug, thiserror::Error)]
-pub enum BytecodeError {
+pub enum ContractMetadataError {
+    /// The instruction was not found at the provided program counter (PC).
     #[error("Instruction not found at PC {pc}")]
-    InstructionNotFound { pc: u32 },
+    InstructionNotFound {
+        /// The program counter (PC) of the instruction.
+        pc: u32,
+    },
 }
 
 /// A resolved bytecode.
 #[derive(Debug)]
-pub struct Bytecode {
+pub struct ContractMetadata {
     pc_to_instruction: HashMap<u32, Instruction>,
 
     // This owns the source files transitively used by the source locations
@@ -350,8 +355,8 @@ pub struct Bytecode {
     pub compiler_version: String,
 }
 
-impl Bytecode {
-    /// Creates a new [`Bytecode`] with the provided arguments.
+impl ContractMetadata {
+    /// Creates a new [`ContractMetadata`] with the provided arguments.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         sources: Rc<BuildModelSources>,
@@ -362,13 +367,13 @@ impl Bytecode {
         library_address_positions: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
         compiler_version: String,
-    ) -> Bytecode {
+    ) -> ContractMetadata {
         let mut pc_to_instruction = HashMap::new();
         for inst in instructions {
             pc_to_instruction.insert(inst.pc, inst);
         }
 
-        Bytecode {
+        ContractMetadata {
             pc_to_instruction,
             _sources: sources,
             contract,
@@ -381,10 +386,10 @@ impl Bytecode {
     }
 
     /// Returns the [`Instruction`] at the provided program counter (PC).
-    pub fn get_instruction(&self, pc: u32) -> Result<&Instruction, BytecodeError> {
+    pub fn get_instruction(&self, pc: u32) -> Result<&Instruction, ContractMetadataError> {
         self.pc_to_instruction
             .get(&pc)
-            .ok_or_else(|| BytecodeError::InstructionNotFound { pc })
+            .ok_or(ContractMetadataError::InstructionNotFound { pc })
     }
 
     /// Returns the [`Instruction`] at the provided program counter (PC). The

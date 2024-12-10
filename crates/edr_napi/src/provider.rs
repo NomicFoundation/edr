@@ -10,7 +10,6 @@ use napi_derive::napi;
 use self::config::ProviderConfig;
 use crate::{
     call_override::CallOverrideCallback,
-    cast::TryCast,
     context::EdrContext,
     logger::{Logger, LoggerConfig, LoggerError},
     subscribe::SubscriberCallback,
@@ -22,7 +21,7 @@ use crate::{
 pub struct Provider {
     provider: Arc<edr_provider::Provider<LoggerError>>,
     runtime: runtime::Handle,
-    tracing_config: Arc<edr_solidity::vm_trace_decoder::TracingConfig>,
+    tracing_config: Arc<edr_solidity::nested_trace_decoder::TracingConfig>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -46,7 +45,7 @@ impl Provider {
         let config = edr_provider::ProviderConfig::try_from(config)?;
 
         // TODO get actual type as argument
-        let tracing_config: edr_solidity::vm_trace_decoder::TracingConfig =
+        let tracing_config: edr_solidity::nested_trace_decoder::TracingConfig =
             serde_json::from_value(tracing_config)?;
         let tracing_config = Arc::new(tracing_config);
 
@@ -246,7 +245,7 @@ impl Provider {
 #[derive(Debug)]
 struct SolidityTraceData {
     trace: Arc<edr_evm::trace::Trace>,
-    config: Arc<edr_solidity::vm_trace_decoder::TracingConfig>,
+    config: Arc<edr_solidity::nested_trace_decoder::TracingConfig>,
 }
 
 #[napi]
@@ -285,31 +284,35 @@ impl Response {
         let Some(SolidityTraceData { trace, config }) = &self.solidity_trace else {
             return Ok(None);
         };
-        let mut vm_tracer = edr_solidity::vm_tracer::VmTracer::new();
-        vm_tracer.observe(trace);
+        let hierarchical_trace =
+            edr_solidity::nested_tracer::convert_trace_messages_to_hierarchical_trace(
+                trace.as_ref().clone(),
+            );
 
-        let mut vm_trace = vm_tracer.get_last_top_level_message_trace();
-        let vm_tracer_error = vm_tracer.get_last_error();
+        if let Some(vm_trace) = hierarchical_trace.result {
+            let mut nested_trace_decoder =
+                edr_solidity::nested_trace_decoder::NestedTraceDecoder::new(config).map_err(
+                    |err| {
+                        napi::Error::from_reason(format!(
+                            "Error initializing trace decoder: '{err}'"
+                        ))
+                    },
+                )?;
 
-        let mut vm_trace_decoder = edr_solidity::vm_trace_decoder::VmTraceDecoder::new();
-        edr_solidity::vm_trace_decoder::initialize_vm_trace_decoder(&mut vm_trace_decoder, config)?;
-
-        vm_trace = vm_trace.map(|trace| vm_trace_decoder.try_to_decode_message_trace(trace));
-
-        if let Some(vm_trace) = vm_trace {
-            let stack_trace =
-                edr_solidity::solidity_tracer::get_stack_trace(vm_trace).map_err(|err| {
+            let decoded_trace = nested_trace_decoder.try_to_decode_message_trace(vm_trace);
+            let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
+                .map_err(|err| {
                     napi::Error::from_reason(format!(
-                        "Error converting to solidity stack trace: {err}"
+                        "Error converting to solidity stack trace: '{err}'"
                     ))
                 })?;
             let stack_trace = stack_trace
                 .into_iter()
-                .map(|stack_trace| stack_trace.try_cast())
+                .map(super::cast::TryCast::try_cast)
                 .collect::<Result<Vec<_>, _>>()?;
 
             Ok(Some(Either::A(stack_trace)))
-        } else if let Some(vm_tracer_error) = vm_tracer_error {
+        } else if let Some(vm_tracer_error) = hierarchical_trace.error {
             Ok(Some(Either::B(vm_tracer_error.to_string())))
         } else {
             Ok(None)

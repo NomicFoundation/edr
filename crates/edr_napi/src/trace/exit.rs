@@ -51,9 +51,9 @@ impl fmt::Display for ExitCode {
 }
 
 #[allow(clippy::fallible_impl_from)] // naively ported for now
-impl From<edr_solidity::message_trace::ExitCode> for ExitCode {
-    fn from(code: edr_solidity::message_trace::ExitCode) -> Self {
-        use edr_solidity::message_trace::ExitCode;
+impl From<edr_solidity::exit_code::ExitCode> for ExitCode {
+    fn from(code: edr_solidity::exit_code::ExitCode) -> Self {
+        use edr_solidity::exit_code::ExitCode;
 
         match code {
             ExitCode::Success => Self::SUCCESS,

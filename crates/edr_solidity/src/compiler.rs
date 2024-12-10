@@ -10,8 +10,9 @@ use indexmap::IndexMap;
 use crate::{
     artifacts::{CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry},
     build_model::{
-        BuildModel, BuildModelSources, Bytecode, Contract, ContractFunction, ContractFunctionType,
-        ContractFunctionVisibility, ContractKind, CustomError, SourceFile, SourceLocation,
+        BuildModel, BuildModelSources, Contract, ContractFunction, ContractFunctionType,
+        ContractFunctionVisibility, ContractKind, ContractMetadata, CustomError, SourceFile,
+        SourceLocation,
     },
     library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
     source_map::decode_instructions,
@@ -28,7 +29,7 @@ pub fn create_models_and_decode_bytecodes(
     solc_version: String,
     compiler_input: &CompilerInput,
     compiler_output: &CompilerOutput,
-) -> anyhow::Result<Vec<Bytecode>> {
+) -> anyhow::Result<Vec<ContractMetadata>> {
     let build_model = create_sources_model_from_ast(compiler_output, compiler_input)?;
     let build_model = Rc::new(build_model);
 
@@ -594,7 +595,7 @@ fn ast_src_to_source_location(
 }
 
 fn correct_selectors(
-    bytecodes: &[Bytecode],
+    bytecodes: &[ContractMetadata],
     compiler_output: &CompilerOutput,
 ) -> anyhow::Result<()> {
     for bytecode in bytecodes.iter().filter(|b| !b.is_deployment) {
@@ -660,7 +661,7 @@ fn decode_evm_bytecode(
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
     build_model: &Rc<BuildModel>,
-) -> anyhow::Result<Bytecode> {
+) -> anyhow::Result<ContractMetadata> {
     let library_address_positions = get_library_address_positions(compiler_bytecode);
 
     let immutable_references = compiler_bytecode
@@ -688,7 +689,7 @@ fn decode_evm_bytecode(
         is_deployment,
     );
 
-    Ok(Bytecode::new(
+    Ok(ContractMetadata::new(
         Rc::clone(&build_model.file_id_to_source_file),
         contract,
         is_deployment,
@@ -704,7 +705,7 @@ fn decode_bytecodes(
     solc_version: String,
     compiler_output: &CompilerOutput,
     build_model: &Rc<BuildModel>,
-) -> anyhow::Result<Vec<Bytecode>> {
+) -> anyhow::Result<Vec<ContractMetadata>> {
     let mut bytecodes = Vec::new();
 
     for contract in build_model.contract_id_to_contract.values() {
