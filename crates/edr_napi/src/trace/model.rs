@@ -1,5 +1,33 @@
+use std::rc::Rc;
+
+use edr_solidity::build_model::ContractMetadata;
 use napi_derive::napi;
 use serde::Serialize;
+
+/// Opaque handle to the `Bytecode` struct.
+/// Only used on the JS side by the `VmTraceDecoder` class.
+// NOTE: Needed, because we store the resolved `Bytecode` in the MessageTrace
+// JS plain objects and those need a dedicated (class) type.
+#[napi]
+pub struct BytecodeWrapper(pub(crate) Rc<ContractMetadata>);
+
+impl BytecodeWrapper {
+    pub fn new(bytecode: Rc<ContractMetadata>) -> Self {
+        Self(bytecode)
+    }
+
+    pub fn inner(&self) -> &Rc<ContractMetadata> {
+        &self.0
+    }
+}
+
+impl std::ops::Deref for BytecodeWrapper {
+    type Target = ContractMetadata;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[allow(non_camel_case_types)] // intentionally mimicks the original case in TS

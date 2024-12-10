@@ -1,25 +1,38 @@
+//! Stack trace entries for Solidity errors.
+
 use edr_eth::{Address, Bytes, U256};
 
 use crate::build_model::ContractFunctionType;
 
-pub const FALLBACK_FUNCTION_NAME: &str = "<fallback>";
-pub const RECEIVE_FUNCTION_NAME: &str = "<receive>";
-pub const CONSTRUCTOR_FUNCTION_NAME: &str = "constructor";
-pub const UNRECOGNIZED_FUNCTION_NAME: &str = "<unrecognized-selector>";
-pub const UNKNOWN_FUNCTION_NAME: &str = "<unknown>";
-pub const PRECOMPILE_FUNCTION_NAME: &str = "<precompile>";
-pub const UNRECOGNIZED_CONTRACT_NAME: &str = "<UnrecognizedContract>";
+pub(crate) const FALLBACK_FUNCTION_NAME: &str = "<fallback>";
+pub(crate) const RECEIVE_FUNCTION_NAME: &str = "<receive>";
+pub(crate) const CONSTRUCTOR_FUNCTION_NAME: &str = "constructor";
+pub(crate) const UNRECOGNIZED_FUNCTION_NAME: &str = "<unrecognized-selector>";
+#[allow(unused)]
+pub(crate) const UNKNOWN_FUNCTION_NAME: &str = "<unknown>";
+#[allow(unused)]
+pub(crate) const PRECOMPILE_FUNCTION_NAME: &str = "<precompile>";
+pub(crate) const UNRECOGNIZED_CONTRACT_NAME: &str = "<UnrecognizedContract>";
 
+/// A Solidity source reference.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SourceReference {
+    /// The name of the source file.
     pub source_name: String,
+    /// The content of the source file.
     pub source_content: String,
+    /// The name of the contract.
     pub contract: Option<String>,
+    /// The name of the function.
     pub function: Option<String>,
+    /// The line number.
     pub line: u32,
+    /// The character range on the line.
     pub range: (u32, u32),
 }
 
+// The names are self-explanatory.
+#[allow(missing_docs)]
 #[derive(Debug, Clone)]
 pub enum StackTraceEntry {
     CallstackEntry {
@@ -110,6 +123,7 @@ pub enum StackTraceEntry {
 }
 
 impl StackTraceEntry {
+    /// Get the source reference of the stack trace entry if any.
     pub fn source_reference(&self) -> Option<&SourceReference> {
         match self {
             StackTraceEntry::CallstackEntry {

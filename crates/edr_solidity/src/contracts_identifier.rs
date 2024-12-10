@@ -10,12 +10,12 @@ use std::{borrow::Cow, collections::HashMap, rc::Rc};
 use edr_eth::Address;
 use edr_evm::interpreter::OpCode;
 
-use crate::build_model::Bytecode;
+use crate::build_model::ContractMetadata;
 
 /// The result of searching for a bytecode in a [`BytecodeTrie`].
 enum TrieSearch<'a> {
     /// An exact match was found.
-    ExactHit(Rc<Bytecode>),
+    ExactHit(Rc<ContractMetadata>),
     /// No exact match found; a node with the longest prefix is returned.
     LongestPrefixNode(&'a BytecodeTrie),
 }
@@ -27,8 +27,8 @@ enum TrieSearch<'a> {
 #[derive(Clone)]
 struct BytecodeTrie {
     child_nodes: HashMap<u8, Box<BytecodeTrie>>,
-    descendants: Vec<Rc<Bytecode>>,
-    match_: Option<Rc<Bytecode>>,
+    descendants: Vec<Rc<ContractMetadata>>,
+    match_: Option<Rc<ContractMetadata>>,
     depth: Option<u32>,
 }
 
@@ -42,7 +42,7 @@ impl BytecodeTrie {
         }
     }
 
-    fn add(&mut self, bytecode: Rc<Bytecode>) {
+    fn add(&mut self, bytecode: Rc<ContractMetadata>) {
         let mut cursor = self;
 
         let bytecode_normalized_code = &bytecode.normalized_code;
@@ -118,7 +118,7 @@ fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
 /// A data structure that allows searching for well-known bytecodes.
 pub struct ContractsIdentifier {
     trie: BytecodeTrie,
-    cache: HashMap<Vec<u8>, Rc<Bytecode>>,
+    cache: HashMap<Vec<u8>, Rc<ContractMetadata>>,
     enable_cache: bool,
 }
 
@@ -141,12 +141,16 @@ impl ContractsIdentifier {
     }
 
     /// Adds a bytecode to the tree.
-    pub fn add_bytecode(&mut self, bytecode: Rc<Bytecode>) {
+    pub fn add_bytecode(&mut self, bytecode: Rc<ContractMetadata>) {
         self.trie.add(bytecode);
         self.cache.clear();
     }
 
-    fn search_bytecode_from_root(&mut self, is_create: bool, code: &[u8]) -> Option<Rc<Bytecode>> {
+    fn search_bytecode_from_root(
+        &mut self,
+        is_create: bool,
+        code: &[u8],
+    ) -> Option<Rc<ContractMetadata>> {
         let normalize_libraries = true;
         let first_byte_to_search = 0;
 
@@ -165,7 +169,7 @@ impl ContractsIdentifier {
         normalize_libraries: bool,
         trie: &BytecodeTrie,
         first_byte_to_search: u32,
-    ) -> Option<Rc<Bytecode>> {
+    ) -> Option<Rc<ContractMetadata>> {
         let search_result = match trie.search(code, first_byte_to_search) {
             None => return None,
             Some(TrieSearch::ExactHit(bytecode)) => return Some(bytecode.clone()),
@@ -257,7 +261,11 @@ impl ContractsIdentifier {
     }
 
     /// Searches for a bytecode that matches the given (call/create) code.
-    pub fn get_bytecode_for_call(&mut self, code: &[u8], is_create: bool) -> Option<Rc<Bytecode>> {
+    pub fn get_bytecode_for_call(
+        &mut self,
+        code: &[u8],
+        is_create: bool,
+    ) -> Option<Rc<ContractMetadata>> {
         let normalized_code = normalize_library_runtime_bytecode_if_necessary(code);
 
         if self.enable_cache {
@@ -332,7 +340,7 @@ mod tests {
         )))
     }
 
-    fn create_test_bytecode(normalized_code: Vec<u8>) -> Rc<Bytecode> {
+    fn create_test_bytecode(normalized_code: Vec<u8>) -> Rc<ContractMetadata> {
         let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = false;
@@ -341,7 +349,7 @@ mod tests {
         let library_offsets = vec![];
         let immutable_references = vec![];
 
-        Rc::new(Bytecode::new(
+        Rc::new(ContractMetadata::new(
             sources,
             contract,
             is_deployment,
@@ -353,7 +361,7 @@ mod tests {
         ))
     }
 
-    fn create_test_deployment_bytecode(normalized_code: Vec<u8>) -> Rc<Bytecode> {
+    fn create_test_deployment_bytecode(normalized_code: Vec<u8>) -> Rc<ContractMetadata> {
         let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = true;
@@ -362,7 +370,7 @@ mod tests {
         let library_offsets = vec![];
         let immutable_references = vec![];
 
-        Rc::new(Bytecode::new(
+        Rc::new(ContractMetadata::new(
             sources,
             contract,
             is_deployment,
@@ -378,14 +386,14 @@ mod tests {
         normalized_code: Vec<u8>,
         library_offsets: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
-    ) -> Rc<Bytecode> {
+    ) -> Rc<ContractMetadata> {
         let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = false;
 
         let instructions = vec![];
 
-        Rc::new(Bytecode::new(
+        Rc::new(ContractMetadata::new(
             sources,
             contract,
             is_deployment,

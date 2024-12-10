@@ -3,16 +3,16 @@ use std::{borrow::Cow, collections::HashSet, mem};
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_eth::U256;
 use edr_evm::{hex, interpreter::OpCode, HaltReason};
-use either::Either;
 use semver::{Version, VersionReq};
 
 use crate::{
     build_model::{
-        Bytecode, BytecodeError, ContractFunction, ContractFunctionType, ContractKind, Instruction,
-        JumpType, SourceLocation,
+        ContractFunction, ContractFunctionType, ContractKind, ContractMetadata,
+        ContractMetadataError, Instruction, JumpType, SourceLocation,
     },
-    message_trace::{
-        CallMessageTrace, CreateMessageTrace, ExitCode, MessageTrace, MessageTraceStep,
+    exit_code::ExitCode,
+    nested_trace::{
+        CallMessage, CreateMessage, CreateOrCallMessageRef, NestedTrace, NestedTraceStep,
     },
     return_data::ReturnData,
     solidity_stack_trace::{
@@ -37,29 +37,40 @@ pub enum Heuristic {
     Miss(Vec<StackTraceEntry>),
 }
 
+/// Data that is used to infer the stack trace of a submessage.
 #[derive(Clone, Debug)]
-pub struct SubmessageData {
-    pub message_trace: MessageTrace,
+pub(crate) struct SubmessageData {
+    pub message_trace: NestedTrace,
     pub stacktrace: Vec<StackTraceEntry>,
     pub step_index: u32,
 }
 
+/// Errors that can occur during the inference of the stack trace.
 #[derive(Debug, thiserror::Error)]
 pub enum InferrerError {
+    /// Errors that can occur when decoding the ABI.
     #[error("{0}")]
     Abi(String),
+    /// Errors that can occur when decoding the contract metadata.
     #[error(transparent)]
-    BytecodeError(#[from] BytecodeError),
+    ContractMetadata(#[from] ContractMetadataError),
+    /// Invalid input or logic error: Expected an EVM step.
     #[error("Expected EVM step")]
     ExpectedEvmStep,
+    /// Invalid input or logic error: Missing contract metadata.
     #[error("Missing contract")]
     MissingContract,
+    /// Invalid input or logic error: The call trace has no functionJumpdest but
+    /// has already jumped into a function.
     #[error("call trace has no functionJumpdest but has already jumped into a function")]
-    MissingFunctionJumpDest(CallMessageTrace),
+    MissingFunctionJumpDest(CallMessage),
+    /// Invalid input or logic error: Missing source reference.
     #[error("Missing source reference")]
     MissingSourceReference,
+    /// Serde JSON error.
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    /// Solidity types error.
     #[error(transparent)]
     SolidityTypes(#[from] alloy_sol_types::Error),
 }
@@ -72,7 +83,7 @@ impl From<alloy_dyn_abi::Error> for InferrerError {
     }
 }
 
-pub fn filter_redundant_frames(
+pub(crate) fn filter_redundant_frames(
     stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Vec<StackTraceEntry>, InferrerError> {
     // To work around the borrow checker, we'll collect the indices of the frames we
@@ -150,8 +161,8 @@ pub fn filter_redundant_frames(
         .collect())
 }
 
-pub fn infer_after_tracing(
-    trace: &Either<CallMessageTrace, CreateMessageTrace>,
+pub(crate) fn infer_after_tracing(
+    trace: CreateOrCallMessageRef<'_>,
     stacktrace: Vec<StackTraceEntry>,
     function_jumpdests: &[&Instruction],
     jumped_into_function: bool,
@@ -166,12 +177,6 @@ pub fn infer_after_tracing(
             }
         };
     }
-
-    // TODO clean this up
-    let trace = match trace {
-        Either::Left(call) => Either::Left(call),
-        Either::Right(create) => Either::Right(create),
-    };
 
     let result = check_last_submessage(trace, stacktrace, last_submessage_data)?;
     let stacktrace = return_if_hit!(result);
@@ -197,15 +202,18 @@ pub fn infer_after_tracing(
     Ok(stacktrace)
 }
 
-pub fn infer_before_tracing_call_message(
-    trace: &CallMessageTrace,
+pub(crate) fn infer_before_tracing_call_message(
+    trace: &CallMessage,
 ) -> Result<Option<Vec<StackTraceEntry>>, InferrerError> {
     if is_direct_library_call(trace)? {
         return Ok(Some(get_direct_library_call_error_stack_trace(trace)?));
     }
 
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     let called_function =
         contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
@@ -214,20 +222,18 @@ pub fn infer_before_tracing_call_message(
         if is_function_not_payable_error(trace, called_function)? {
             return Ok(Some(vec![StackTraceEntry::FunctionNotPayableError {
                 source_reference: get_function_start_source_reference(
-                    Either::Left(trace),
+                    trace.into(),
                     called_function,
                 )?,
-                value: trace.value().clone(),
-            }
-            .into()]));
+                value: trace.value,
+            }]));
         }
     }
 
     let called_function = called_function.map(AsRef::as_ref);
 
     if is_missing_function_and_fallback_error(trace, called_function)? {
-        let source_reference =
-            get_contract_start_without_function_source_reference(Either::Left(trace))?;
+        let source_reference = get_contract_start_without_function_source_reference(trace.into())?;
 
         if empty_calldata_and_no_receive(trace)? {
             return Ok(Some(vec![StackTraceEntry::MissingFallbackOrReceiveError {
@@ -247,27 +253,27 @@ pub fn infer_before_tracing_call_message(
             return Ok(Some(vec![
                 StackTraceEntry::FallbackNotPayableAndNoReceiveError {
                     source_reference,
-                    value: trace.value().clone(),
+                    value: trace.value,
                 },
             ]));
         }
 
         return Ok(Some(vec![StackTraceEntry::FallbackNotPayableError {
             source_reference,
-            value: trace.value().clone(),
+            value: trace.value,
         }]));
     }
 
     Ok(None)
 }
 
-pub fn infer_before_tracing_create_message(
-    trace: &CreateMessageTrace,
+pub(crate) fn infer_before_tracing_create_message(
+    trace: &CreateMessage,
 ) -> Result<Option<Vec<StackTraceEntry>>, InferrerError> {
     if is_constructor_not_payable_error(trace)? {
         return Ok(Some(vec![StackTraceEntry::FunctionNotPayableError {
             source_reference: get_constructor_start_source_reference(trace)?,
-            value: trace.value().clone(),
+            value: trace.value,
         }]));
     }
 
@@ -280,11 +286,11 @@ pub fn infer_before_tracing_create_message(
     Ok(None)
 }
 
-pub fn instruction_to_callstack_stack_trace_entry(
-    bytecode: &Bytecode,
+pub(crate) fn instruction_to_callstack_stack_trace_entry(
+    contract_meta: &ContractMetadata,
     inst: &Instruction,
 ) -> Result<StackTraceEntry, InferrerError> {
-    let contract = bytecode.contract.borrow();
+    let contract = contract_meta.contract.borrow();
 
     // This means that a jump is made from within an internal solc function.
     // These are normally made from yul code, so they don't map to any Solidity
@@ -311,12 +317,13 @@ pub fn instruction_to_callstack_stack_trace_entry(
     };
 
     if let Some(func) = inst_location.get_containing_function() {
-        let source_reference = source_location_to_source_reference(bytecode, Some(inst_location))
-            .ok_or(InferrerError::MissingSourceReference)?;
+        let source_reference =
+            source_location_to_source_reference(contract_meta, Some(inst_location))
+                .ok_or(InferrerError::MissingSourceReference)?;
 
         return Ok(StackTraceEntry::CallstackEntry {
             source_reference,
-            function_type: func.r#type.into(),
+            function_type: func.r#type,
         });
     };
 
@@ -335,17 +342,17 @@ pub fn instruction_to_callstack_stack_trace_entry(
                 inst_location.offset + inst_location.length,
             ),
         },
-        function_type: ContractFunctionType::Function.into(),
+        function_type: ContractFunctionType::Function,
     })
 }
 
 fn call_instruction_to_call_failed_to_execute_stack_trace_entry(
-    bytecode: &Bytecode,
+    contract_meta: &ContractMetadata,
     call_inst: &Instruction,
 ) -> Result<StackTraceEntry, InferrerError> {
     let location = call_inst.location.as_deref();
 
-    let source_reference = source_location_to_source_reference(bytecode, location)
+    let source_reference = source_location_to_source_reference(contract_meta, location)
         .ok_or(InferrerError::MissingSourceReference)?;
 
     // Calls only happen within functions
@@ -353,11 +360,11 @@ fn call_instruction_to_call_failed_to_execute_stack_trace_entry(
 }
 
 fn check_contract_too_large(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
 ) -> Result<Option<Vec<StackTraceEntry>>, InferrerError> {
-    if let Either::Right(create) = trace {
+    if let CreateOrCallMessageRef::Create(create) = trace {
         if matches!(
-            create.exit(),
+            create.exit,
             ExitCode::Halt(HaltReason::CreateContractSizeLimit)
         ) {
             return Ok(Some(vec![StackTraceEntry::ContractTooLargeError {
@@ -369,17 +376,15 @@ fn check_contract_too_large(
 }
 
 fn check_custom_errors(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     stacktrace: Vec<StackTraceEntry>,
     last_instruction: &Instruction,
 ) -> Result<Heuristic, InferrerError> {
-    let (bytecode, return_data) = match &trace {
-        Either::Left(call) => (call.bytecode(), call.return_data()),
-        Either::Right(create) => (create.bytecode(), create.return_data()),
-    };
-
-    let bytecode = bytecode.ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
+    let return_data = trace.return_data();
 
     let return_data = ReturnData::new(return_data.clone());
 
@@ -421,8 +426,7 @@ fn check_custom_errors(
             trace,
             last_instruction,
             error_message,
-        )?
-        .into(),
+        )?,
     );
 
     fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit)
@@ -430,15 +434,13 @@ fn check_custom_errors(
 
 /// Check if the last call/create that was done failed.
 fn check_failed_last_call(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Heuristic, InferrerError> {
-    let (bytecode, steps) = match &trace {
-        Either::Left(call) => (call.bytecode(), call.steps()),
-        Either::Right(create) => (create.bytecode(), create.steps()),
-    };
-
-    let bytecode = bytecode.as_ref().expect("JS code asserts");
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     if steps.is_empty() {
         return Ok(Heuristic::Miss(stacktrace));
@@ -446,18 +448,20 @@ fn check_failed_last_call(
 
     for step_index in (0..steps.len() - 1).rev() {
         let (step, next_step) = match &steps[step_index..][..2] {
-            &[MessageTraceStep::Evm(ref step), ref next_step] => (step, next_step),
+            &[NestedTraceStep::Evm(ref step), ref next_step] => (step, next_step),
             _ => return Ok(Heuristic::Miss(stacktrace)),
         };
 
-        let inst = bytecode.get_instruction(step.pc)?;
+        let inst = contract_meta.get_instruction(step.pc)?;
 
-        if let (OpCode::CALL | OpCode::CREATE, MessageTraceStep::Evm(_)) = (inst.opcode, next_step)
-        {
+        if let (OpCode::CALL | OpCode::CREATE, NestedTraceStep::Evm(_)) = (inst.opcode, next_step) {
             if is_call_failed_error(trace, step_index as u32, inst)? {
                 let mut inferred_stacktrace = stacktrace.clone();
                 inferred_stacktrace.push(
-                    call_instruction_to_call_failed_to_execute_stack_trace_entry(bytecode, inst)?,
+                    call_instruction_to_call_failed_to_execute_stack_trace_entry(
+                        &contract_meta,
+                        inst,
+                    )?,
                 );
 
                 return Ok(Heuristic::Hit(fix_initial_modifier(
@@ -472,27 +476,26 @@ fn check_failed_last_call(
 }
 
 fn check_last_instruction(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     stacktrace: Vec<StackTraceEntry>,
     function_jumpdests: &[&Instruction],
     jumped_into_function: bool,
 ) -> Result<Heuristic, InferrerError> {
-    let (bytecode, steps) = match &trace {
-        Either::Left(call) => (call.bytecode(), call.steps()),
-        Either::Right(create) => (create.bytecode(), create.steps()),
-    };
-    let bytecode = bytecode.ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     if steps.is_empty() {
         return Ok(Heuristic::Miss(stacktrace));
     }
 
     let last_step = match steps.last() {
-        Some(MessageTraceStep::Evm(step)) => step,
+        Some(NestedTraceStep::Evm(step)) => step,
         _ => panic!("This should not happen: MessageTrace ends with a subtrace"),
     };
 
-    let last_instruction = bytecode.get_instruction(last_step.pc)?;
+    let last_instruction = contract_meta.get_instruction(last_step.pc)?;
 
     let revert_or_invalid_stacktrace = check_revert_or_invalid_opcode(
         trace,
@@ -506,8 +509,8 @@ fn check_last_instruction(
         Heuristic::Miss(stacktrace) => stacktrace,
     };
 
-    let (Either::Left(trace @ CallMessageTrace { ref calldata, .. }), false) =
-        (&trace, jumped_into_function)
+    let (CreateOrCallMessageRef::Call(trace @ CallMessage { calldata, .. }), false) =
+        (trace, jumped_into_function)
     else {
         return Ok(Heuristic::Miss(stacktrace));
     };
@@ -516,11 +519,11 @@ fn check_last_instruction(
         || has_failed_inside_the_receive_function(trace)?
     {
         let frame = instruction_within_function_to_revert_stack_trace_entry(
-            Either::Left(trace),
+            CreateOrCallMessageRef::Call(trace),
             last_instruction,
         )?;
 
-        return Ok(Heuristic::Hit(vec![frame.into()]));
+        return Ok(Heuristic::Hit(vec![frame]));
     }
 
     // Sometimes we do fail inside of a function but there's no jump into
@@ -530,18 +533,18 @@ fn check_last_instruction(
         if let Some(failing_function) = failing_function {
             let frame = StackTraceEntry::RevertError {
                 source_reference: get_function_start_source_reference(
-                    Either::Left(trace),
+                    CreateOrCallMessageRef::Call(trace),
                     &failing_function,
                 )?,
-                return_data: trace.return_data().clone(),
+                return_data: trace.return_data.clone(),
                 is_invalid_opcode_error: last_instruction.opcode == OpCode::INVALID,
             };
 
-            return Ok(Heuristic::Hit(vec![frame.into()]));
+            return Ok(Heuristic::Hit(vec![frame]));
         }
     }
 
-    let contract = bytecode.contract.borrow();
+    let contract = contract_meta.contract.borrow();
 
     let selector = calldata.get(..4).unwrap_or(&calldata[..]);
     let calldata = &calldata.get(4..).unwrap_or(&[]);
@@ -560,40 +563,38 @@ fn check_last_instruction(
         if !is_valid_calldata {
             let frame = StackTraceEntry::InvalidParamsError {
                 source_reference: get_function_start_source_reference(
-                    Either::Left(trace),
+                    CreateOrCallMessageRef::Call(trace),
                     called_function,
                 )?,
             };
 
-            return Ok(Heuristic::Hit(vec![frame.into()]));
+            return Ok(Heuristic::Hit(vec![frame]));
         }
     }
 
-    if solidity_0_6_3_maybe_unmapped_revert(Either::Left(trace))? {
+    if solidity_0_6_3_maybe_unmapped_revert(CreateOrCallMessageRef::Call(trace))? {
         let revert_frame = solidity_0_6_3_get_frame_for_unmapped_revert_before_function(trace)?;
 
         if let Some(revert_frame) = revert_frame {
-            return Ok(Heuristic::Hit(vec![revert_frame.into()]));
+            return Ok(Heuristic::Hit(vec![revert_frame]));
         }
     }
 
     let frame = get_other_error_before_called_function_stack_trace_entry(trace)?;
 
-    Ok(Heuristic::Hit(vec![frame.into()]))
+    Ok(Heuristic::Hit(vec![frame]))
 }
 
 /// Check if the last submessage can be used to generate the stack trace.
 fn check_last_submessage(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     stacktrace: Vec<StackTraceEntry>,
     last_submessage_data: Option<SubmessageData>,
 ) -> Result<Heuristic, InferrerError> {
-    let (bytecode, steps) = match &trace {
-        Either::Left(call) => (call.bytecode(), call.steps()),
-        Either::Right(create) => (create.bytecode(), create.steps()),
-    };
-
-    let bytecode = bytecode.as_ref().expect("JS code asserts");
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     let Some(last_submessage_data) = last_submessage_data else {
         return Ok(Heuristic::Miss(stacktrace));
@@ -603,12 +604,12 @@ fn check_last_submessage(
 
     // get the instruction before the submessage and add it to the stack trace
     let call_step = match steps.get(last_submessage_data.step_index as usize - 1) {
-        Some(MessageTraceStep::Evm(call_step)) => call_step,
+        Some(NestedTraceStep::Evm(call_step)) => call_step,
         _ => panic!("This should not happen: MessageTrace should be preceded by a EVM step"),
     };
 
-    let call_inst = bytecode.get_instruction(call_step.pc)?;
-    let call_stack_frame = instruction_to_callstack_stack_trace_entry(bytecode, call_inst)?;
+    let call_inst = contract_meta.get_instruction(call_step.pc)?;
+    let call_stack_frame = instruction_to_callstack_stack_trace_entry(&contract_meta, call_inst)?;
     // TODO: remove this expect
     let call_stack_frame_source_reference = call_stack_frame
         .source_reference()
@@ -616,9 +617,9 @@ fn check_last_submessage(
         .expect("Callstack entry must have source reference");
 
     let last_message_failed = match &last_submessage_data.message_trace {
-        MessageTrace::Create(create) => create.exit().is_error(),
-        MessageTrace::Call(call) => call.exit().is_error(),
-        MessageTrace::Precompile(precompile) => precompile.exit().is_error(),
+        NestedTrace::Create(create) => create.exit.is_error(),
+        NestedTrace::Call(call) => call.exit.is_error(),
+        NestedTrace::Precompile(precompile) => precompile.exit.is_error(),
     };
     if last_message_failed {
         // add the call/create that generated the message to the stack trace
@@ -663,17 +664,11 @@ fn check_last_submessage(
 
 /// Check if the trace reverted with a panic error.
 fn check_panic(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     mut stacktrace: Vec<StackTraceEntry>,
     last_instruction: &Instruction,
 ) -> Result<Heuristic, InferrerError> {
-    let return_data = ReturnData::new(
-        match &trace {
-            Either::Left(call) => call.return_data(),
-            Either::Right(create) => create.return_data(),
-        }
-        .clone(),
-    );
+    let return_data = ReturnData::new(trace.return_data().clone());
 
     if !return_data.is_panic_return_data() {
         return Ok(Heuristic::Miss(stacktrace));
@@ -694,20 +689,17 @@ fn check_panic(
         stacktrace.pop();
     }
 
-    stacktrace.push(
-        instruction_within_function_to_panic_stack_trace_entry(
-            trace,
-            last_instruction,
-            error_code,
-        )?
-        .into(),
-    );
+    stacktrace.push(instruction_within_function_to_panic_stack_trace_entry(
+        trace,
+        last_instruction,
+        error_code,
+    )?);
 
     fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit)
 }
 
 fn check_non_contract_called(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     mut stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Heuristic, InferrerError> {
     if is_called_non_contract_account_error(trace)? {
@@ -730,7 +722,7 @@ fn check_non_contract_called(
 
 /// Check if the execution stopped with a revert or an invalid opcode.
 fn check_revert_or_invalid_opcode(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     stacktrace: Vec<StackTraceEntry>,
     last_instruction: &Instruction,
     function_jumpdests: &[&Instruction],
@@ -741,16 +733,15 @@ fn check_revert_or_invalid_opcode(
         _ => return Ok(Heuristic::Miss(stacktrace)),
     }
 
-    let (bytecode, return_data) = match &trace {
-        Either::Left(call) => (call.bytecode(), call.return_data()),
-        Either::Right(create) => (create.bytecode(), create.return_data()),
-    };
-    let bytecode = bytecode.as_ref().expect("JS code asserts");
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let return_data = trace.return_data();
 
     let mut inferred_stacktrace = stacktrace.clone();
 
     if let Some(location) = &last_instruction.location {
-        if jumped_into_function || matches!(trace, Either::Right(CreateMessageTrace { .. })) {
+        if jumped_into_function || matches!(trace, CreateOrCallMessageRef::Create(_)) {
             // There should always be a function here, but that's not the case with
             // optimizations.
             //
@@ -787,7 +778,7 @@ fn check_revert_or_invalid_opcode(
     };
 
     if let Some(location) = &last_instruction.location {
-        if jumped_into_function || matches!(trace, Either::Right(CreateMessageTrace { .. })) {
+        if jumped_into_function || matches!(trace, CreateOrCallMessageRef::Create(_)) {
             let failing_function = location.get_containing_function();
 
             if failing_function.is_some() {
@@ -796,13 +787,13 @@ fn check_revert_or_invalid_opcode(
                     last_instruction,
                 )?;
 
-                inferred_stacktrace.push(frame.into());
+                inferred_stacktrace.push(frame);
             } else {
                 let is_invalid_opcode_error = last_instruction.opcode == OpCode::INVALID;
 
                 match &trace {
-                    Either::Left(CallMessageTrace { calldata, .. }) => {
-                        let contract = bytecode.contract.borrow();
+                    CreateOrCallMessageRef::Call(CallMessage { calldata, .. }) => {
+                        let contract = contract_meta.contract.borrow();
 
                         // This is here because of the optimizations
                         let function_from_selector = contract
@@ -821,17 +812,17 @@ fn check_revert_or_invalid_opcode(
                             is_invalid_opcode_error,
                         };
 
-                        inferred_stacktrace.push(frame.into());
+                        inferred_stacktrace.push(frame);
                     }
-                    Either::Right(trace @ CreateMessageTrace { .. }) => {
+                    CreateOrCallMessageRef::Create(create) => {
                         // This is here because of the optimizations
                         let frame = StackTraceEntry::RevertError {
-                            source_reference: get_constructor_start_source_reference(trace)?,
+                            source_reference: get_constructor_start_source_reference(create)?,
                             return_data: return_data.clone(),
                             is_invalid_opcode_error,
                         };
 
-                        inferred_stacktrace.push(frame.into());
+                        inferred_stacktrace.push(frame);
                     }
                 }
             }
@@ -849,7 +840,7 @@ fn check_revert_or_invalid_opcode(
             is_invalid_opcode_error: last_instruction.opcode == OpCode::INVALID,
         };
 
-        inferred_stacktrace.push(revert_frame.into());
+        inferred_stacktrace.push(revert_frame);
 
         return fix_initial_modifier(trace, inferred_stacktrace).map(Heuristic::Hit);
     }
@@ -858,14 +849,14 @@ fn check_revert_or_invalid_opcode(
 }
 
 fn check_solidity_0_6_3_unmapped_revert(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     mut stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Heuristic, InferrerError> {
     if solidity_0_6_3_maybe_unmapped_revert(trace)? {
         let revert_frame = solidity_0_6_3_get_frame_for_unmapped_revert_within_function(trace)?;
 
         if let Some(revert_frame) = revert_frame {
-            stacktrace.push(revert_frame.into());
+            stacktrace.push(revert_frame);
 
             return Ok(Heuristic::Hit(stacktrace));
         }
@@ -876,12 +867,15 @@ fn check_solidity_0_6_3_unmapped_revert(
     Ok(Heuristic::Miss(stacktrace))
 }
 
-fn empty_calldata_and_no_receive(trace: &CallMessageTrace) -> Result<bool, InferrerError> {
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+fn empty_calldata_and_no_receive(trace: &CallMessage) -> Result<bool, InferrerError> {
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     let version =
-        Version::parse(&bytecode.compiler_version).expect("Failed to parse SemVer version");
+        Version::parse(&contract_meta.compiler_version).expect("Failed to parse SemVer version");
 
     // this only makes sense when receive functions are available
     if version < FIRST_SOLC_VERSION_RECEIVE_FUNCTION {
@@ -892,31 +886,29 @@ fn empty_calldata_and_no_receive(trace: &CallMessageTrace) -> Result<bool, Infer
 }
 
 fn fails_right_after_call(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     call_subtrace_step_index: u32,
 ) -> Result<bool, InferrerError> {
-    let (bytecode, steps) = match &trace {
-        Either::Left(call) => (call.bytecode(), call.steps()),
-        Either::Right(create) => (create.bytecode(), create.steps()),
-    };
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
-    let bytecode = bytecode.ok_or(InferrerError::MissingContract)?;
-
-    let Some(MessageTraceStep::Evm(last_step)) = steps.last() else {
+    let Some(NestedTraceStep::Evm(last_step)) = steps.last() else {
         return Ok(false);
     };
 
-    let last_inst = bytecode.get_instruction(last_step.pc)?;
+    let last_inst = contract_meta.get_instruction(last_step.pc)?;
     if last_inst.opcode != OpCode::REVERT {
         return Ok(false);
     }
 
     let call_opcode_step = steps.get(call_subtrace_step_index as usize - 1);
     let call_opcode_step = match call_opcode_step {
-        Some(MessageTraceStep::Evm(step)) => step,
+        Some(NestedTraceStep::Evm(step)) => step,
         _ => return Err(InferrerError::ExpectedEvmStep),
     };
-    let call_inst = bytecode.get_instruction(call_opcode_step.pc)?;
+    let call_inst = contract_meta.get_instruction(call_opcode_step.pc)?;
 
     // Calls are always made from within functions
     let call_inst_location = call_inst
@@ -928,7 +920,7 @@ fn fails_right_after_call(
 }
 
 fn fix_initial_modifier(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     mut stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Vec<StackTraceEntry>, InferrerError> {
     if let Some(StackTraceEntry::CallstackEntry {
@@ -980,10 +972,13 @@ fn format_dyn_sol_value(val: &DynSolValue) -> String {
 }
 
 fn get_constructor_start_source_reference(
-    trace: &CreateMessageTrace,
+    trace: &CreateMessage,
 ) -> Result<SourceReference, InferrerError> {
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
     let contract_location = &contract.location;
 
     let line = match &contract.constructor {
@@ -1008,15 +1003,13 @@ fn get_constructor_start_source_reference(
 }
 
 fn get_contract_start_without_function_source_reference(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
 ) -> Result<SourceReference, InferrerError> {
-    let bytecode = match &trace {
-        Either::Left(create) => create.bytecode(),
-        Either::Right(call) => call.bytecode(),
-    };
-
-    let contract = &bytecode.ok_or(InferrerError::MissingContract)?.contract;
-    let contract = contract.borrow();
+    let contract_meta = trace
+        .contract_meta()
+        .clone()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     let location = &contract.location;
     let file = location.file();
@@ -1034,20 +1027,24 @@ fn get_contract_start_without_function_source_reference(
 }
 
 fn get_direct_library_call_error_stack_trace(
-    trace: &CallMessageTrace,
+    trace: &CallMessage,
 ) -> Result<Vec<StackTraceEntry>, InferrerError> {
-    let contract = &trace
-        .bytecode()
-        .ok_or(InferrerError::MissingContract)?
-        .contract;
-    let contract = contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     let func =
         contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
     let source_reference = match func {
-        Some(func) => get_function_start_source_reference(Either::Left(trace), func)?,
-        None => get_contract_start_without_function_source_reference(Either::Left(trace))?,
+        Some(func) => {
+            get_function_start_source_reference(CreateOrCallMessageRef::Call(trace), func)?
+        }
+        None => get_contract_start_without_function_source_reference(
+            CreateOrCallMessageRef::Call(trace),
+        )?,
     };
 
     Ok(vec![StackTraceEntry::DirectLibraryCallError {
@@ -1056,16 +1053,13 @@ fn get_direct_library_call_error_stack_trace(
 }
 
 fn get_function_start_source_reference(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     func: &ContractFunction,
 ) -> Result<SourceReference, InferrerError> {
-    let bytecode = match &trace {
-        Either::Left(create) => create.bytecode(),
-        Either::Right(call) => call.bytecode(),
-    };
-
-    let contract = &bytecode.ok_or(InferrerError::MissingContract)?.contract;
-    let contract = contract.borrow();
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     let file = func.location.file();
     let file = file.borrow();
@@ -1084,28 +1078,32 @@ fn get_function_start_source_reference(
 }
 
 fn get_entry_before_initial_modifier_callstack_entry(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
 ) -> Result<StackTraceEntry, InferrerError> {
     let trace = match trace {
-        Either::Right(create) => {
+        CreateOrCallMessageRef::Create(create) => {
             return Ok(StackTraceEntry::CallstackEntry {
                 source_reference: get_constructor_start_source_reference(create)?,
-                function_type: ContractFunctionType::Constructor.into(),
+                function_type: ContractFunctionType::Constructor,
             })
         }
-        Either::Left(call) => call,
+        CreateOrCallMessageRef::Call(call) => call,
     };
 
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     let called_function =
         contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
 
     let source_reference = match called_function {
-        Some(called_function) => {
-            get_function_start_source_reference(Either::Left(trace), called_function)?
-        }
+        Some(called_function) => get_function_start_source_reference(
+            CreateOrCallMessageRef::Call(trace),
+            called_function,
+        )?,
         None => get_fallback_start_source_reference(trace)?,
     };
 
@@ -1116,24 +1114,22 @@ fn get_entry_before_initial_modifier_callstack_entry(
 
     Ok(StackTraceEntry::CallstackEntry {
         source_reference,
-        function_type: function_type.into(),
+        function_type,
     })
 }
 
 fn get_entry_before_failure_in_modifier(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     function_jumpdests: &[&Instruction],
 ) -> Result<StackTraceEntry, InferrerError> {
-    let bytecode = match &trace {
-        Either::Left(call) => call.bytecode(),
-        Either::Right(create) => create.bytecode(),
-    };
-    let bytecode = bytecode.as_ref().expect("JS code asserts");
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
 
     // If there's a jumpdest, this modifier belongs to the last function that it
     // represents
     if let Some(last_jumpdest) = function_jumpdests.last() {
-        let entry = instruction_to_callstack_stack_trace_entry(bytecode, last_jumpdest)?;
+        let entry = instruction_to_callstack_stack_trace_entry(&contract_meta, last_jumpdest)?;
 
         return Ok(entry);
     }
@@ -1141,22 +1137,27 @@ fn get_entry_before_failure_in_modifier(
     // This function is only called after we jumped into the initial function in
     // call traces, so there should always be at least a function jumpdest.
     let trace = match trace {
-        Either::Left(call) => return Err(InferrerError::MissingFunctionJumpDest(call.clone())),
-        Either::Right(create) => create,
+        CreateOrCallMessageRef::Call(call) => {
+            return Err(InferrerError::MissingFunctionJumpDest(call.clone()))
+        }
+        CreateOrCallMessageRef::Create(create) => create,
     };
 
     // If there's no jump dest, we point to the constructor.
     Ok(StackTraceEntry::CallstackEntry {
         source_reference: get_constructor_start_source_reference(trace)?,
-        function_type: ContractFunctionType::Constructor.into(),
+        function_type: ContractFunctionType::Constructor,
     })
 }
 
 fn get_fallback_start_source_reference(
-    trace: &CallMessageTrace,
+    trace: &CallMessage,
 ) -> Result<SourceReference, InferrerError> {
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     let func = match &contract.fallback {
         Some(func) => func,
@@ -1178,22 +1179,20 @@ fn get_fallback_start_source_reference(
 }
 
 fn get_last_instruction_with_valid_location_step_index(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
 ) -> Result<Option<u32>, InferrerError> {
-    let (bytecode, steps) = match &trace {
-        Either::Left(create) => (create.bytecode(), create.steps()),
-        Either::Right(call) => (call.bytecode(), call.steps()),
-    };
-
-    let bytecode = bytecode.ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     for (i, step) in steps.iter().enumerate().rev() {
         let step = match step {
-            MessageTraceStep::Evm(step) => step,
+            NestedTraceStep::Evm(step) => step,
             _ => return Ok(None),
         };
 
-        let inst = bytecode.get_instruction(step.pc)?;
+        let inst = contract_meta.get_instruction(step.pc)?;
 
         if inst.location.is_some() {
             return Ok(Some(i as u32));
@@ -1203,54 +1202,50 @@ fn get_last_instruction_with_valid_location_step_index(
     Ok(None)
 }
 
-fn get_last_instruction_with_valid_location<'a>(
-    trace: Either<&'a CallMessageTrace, &'a CreateMessageTrace>,
-) -> Result<Option<&'a Instruction>, InferrerError> {
+fn get_last_instruction_with_valid_location(
+    trace: CreateOrCallMessageRef<'_>,
+) -> Result<Option<Instruction>, InferrerError> {
     let last_location_index = get_last_instruction_with_valid_location_step_index(trace)?;
 
     let Some(last_location_index) = last_location_index else {
         return Ok(None);
     };
 
-    let (bytecode, steps) = match &trace {
-        Either::Left(create) => (create.bytecode(), create.steps()),
-        Either::Right(call) => (call.bytecode(), call.steps()),
-    };
-
-    let bytecode = bytecode.ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     match &steps.get(last_location_index as usize) {
-        Some(MessageTraceStep::Evm(step)) => {
-            let inst = bytecode.get_instruction(step.pc)?;
+        Some(NestedTraceStep::Evm(step)) => {
+            let contract_meta = trace
+                .contract_meta()
+                .ok_or(InferrerError::MissingContract)?;
+            let inst = contract_meta.get_instruction(step.pc)?;
 
-            Ok(Some(inst))
+            Ok(Some(inst.clone()))
         }
         _ => Ok(None),
     }
 }
 fn get_last_source_reference(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
 ) -> Result<Option<SourceReference>, InferrerError> {
-    let (bytecode, steps) = match trace {
-        Either::Left(create) => (create.bytecode(), create.steps()),
-        Either::Right(call) => (call.bytecode(), call.steps()),
-    };
-
-    let bytecode = bytecode.ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     for step in steps.iter().rev() {
         let step = match step {
-            MessageTraceStep::Evm(step) => step,
+            NestedTraceStep::Evm(step) => step,
             _ => continue,
         };
 
-        let inst = bytecode.get_instruction(step.pc)?;
+        let inst = contract_meta.get_instruction(step.pc)?;
 
         let Some(location) = &inst.location else {
             continue;
         };
 
-        let source_reference = source_location_to_source_reference(bytecode, Some(location));
+        let source_reference = source_location_to_source_reference(&contract_meta, Some(location));
 
         if let Some(source_reference) = source_reference {
             return Ok(Some(source_reference));
@@ -1261,21 +1256,20 @@ fn get_last_source_reference(
 }
 
 fn get_other_error_before_called_function_stack_trace_entry(
-    trace: &CallMessageTrace,
+    trace: &CallMessage,
 ) -> Result<StackTraceEntry, InferrerError> {
     let source_reference =
-        get_contract_start_without_function_source_reference(Either::Left(trace))?;
+        get_contract_start_without_function_source_reference(CreateOrCallMessageRef::Call(trace))?;
 
     Ok(StackTraceEntry::OtherExecutionError {
         source_reference: Some(source_reference),
     })
 }
 
-fn has_failed_inside_the_fallback_function(
-    trace: &CallMessageTrace,
-) -> Result<bool, InferrerError> {
+fn has_failed_inside_the_fallback_function(trace: &CallMessage) -> Result<bool, InferrerError> {
     let contract = &trace
-        .bytecode()
+        .contract_meta
+        .as_ref()
         .ok_or(InferrerError::MissingContract)?
         .contract;
     let contract = contract.borrow();
@@ -1286,9 +1280,10 @@ fn has_failed_inside_the_fallback_function(
     }
 }
 
-fn has_failed_inside_the_receive_function(trace: &CallMessageTrace) -> Result<bool, InferrerError> {
+fn has_failed_inside_the_receive_function(trace: &CallMessage) -> Result<bool, InferrerError> {
     let contract = &trace
-        .bytecode()
+        .contract_meta
+        .as_ref()
         .ok_or(InferrerError::MissingContract)?
         .contract;
     let contract = contract.borrow();
@@ -1300,24 +1295,26 @@ fn has_failed_inside_the_receive_function(trace: &CallMessageTrace) -> Result<bo
 }
 
 fn has_failed_inside_function(
-    trace: &CallMessageTrace,
+    trace: &CallMessage,
     func: &ContractFunction,
 ) -> Result<bool, InferrerError> {
     let last_step = trace
-        .steps()
-        .into_iter()
+        .steps
+        .iter()
         .last()
         .expect("There should at least be one step");
 
     let last_step = match last_step {
-        MessageTraceStep::Evm(step) => step,
-        _ => panic!("JS code asserted this is always an EvmStep"),
+        NestedTraceStep::Evm(step) => step,
+        _ => return Err(InferrerError::ExpectedEvmStep),
     };
 
-    let last_instruction = trace
-        .bytecode()
-        .ok_or(InferrerError::MissingContract)?
-        .get_instruction(last_step.pc)?;
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+
+    let last_instruction = contract_meta.get_instruction(last_step.pc)?;
 
     Ok(match &last_instruction.location {
         Some(last_instruction_location) => {
@@ -1329,7 +1326,7 @@ fn has_failed_inside_function(
 }
 
 fn instruction_within_function_to_custom_error_stack_trace_entry(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     inst: &Instruction,
     message: String,
 ) -> Result<StackTraceEntry, InferrerError> {
@@ -1337,13 +1334,12 @@ fn instruction_within_function_to_custom_error_stack_trace_entry(
     let last_source_reference =
         last_source_reference.expect("Expected source reference to be defined");
 
-    let bytecode = match &trace {
-        Either::Left(create) => create.bytecode(),
-        Either::Right(call) => call.bytecode(),
-    }
-    .ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
 
-    let source_reference = source_location_to_source_reference(bytecode, inst.location.as_deref());
+    let source_reference =
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref());
 
     let source_reference = source_reference.unwrap_or(last_source_reference);
 
@@ -1354,19 +1350,18 @@ fn instruction_within_function_to_custom_error_stack_trace_entry(
 }
 
 fn instruction_within_function_to_panic_stack_trace_entry(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     inst: &Instruction,
     error_code: U256,
 ) -> Result<StackTraceEntry, InferrerError> {
     let last_source_reference = get_last_source_reference(trace)?;
 
-    let bytecode = match &trace {
-        Either::Left(create) => create.bytecode(),
-        Either::Right(call) => call.bytecode(),
-    }
-    .ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
 
-    let source_reference = source_location_to_source_reference(bytecode, inst.location.as_deref());
+    let source_reference =
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref());
 
     let source_reference = source_reference.or(last_source_reference);
 
@@ -1377,58 +1372,49 @@ fn instruction_within_function_to_panic_stack_trace_entry(
 }
 
 fn instruction_within_function_to_revert_stack_trace_entry(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     inst: &Instruction,
 ) -> Result<StackTraceEntry, InferrerError> {
-    let bytecode = match &trace {
-        Either::Left(create) => create.bytecode(),
-        Either::Right(call) => call.bytecode(),
-    }
-    .ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
 
-    let source_reference = source_location_to_source_reference(bytecode, inst.location.as_deref())
-        .ok_or(InferrerError::MissingSourceReference)?;
-
-    let return_data = match &trace {
-        Either::Left(create) => create.return_data(),
-        Either::Right(call) => call.return_data(),
-    };
+    let source_reference =
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref())
+            .ok_or(InferrerError::MissingSourceReference)?;
 
     Ok(StackTraceEntry::RevertError {
         source_reference,
         is_invalid_opcode_error: inst.opcode == OpCode::INVALID,
-        return_data: return_data.clone(),
+        return_data: trace.return_data().clone(),
     })
 }
 
 fn instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_reference(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     inst: &Instruction,
 ) -> Result<Option<SourceReference>, InferrerError> {
-    let bytecode = match &trace {
-        Either::Left(create) => create.bytecode(),
-        Either::Right(call) => call.bytecode(),
-    }
-    .ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
 
-    let source_reference = source_location_to_source_reference(bytecode, inst.location.as_deref());
+    let source_reference =
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref());
 
     Ok(source_reference)
 }
 
 fn is_called_non_contract_account_error(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
 ) -> Result<bool, InferrerError> {
     // We could change this to checking that the last valid location maps to a call,
     // but it's way more complex as we need to get the ast node from that
     // location.
 
-    let (bytecode, steps) = match &trace {
-        Either::Left(create) => (create.bytecode(), create.steps()),
-        Either::Right(call) => (call.bytecode(), call.steps()),
-    };
-
-    let bytecode = bytecode.ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     let last_index = get_last_instruction_with_valid_location_step_index(trace)?;
 
@@ -1438,28 +1424,28 @@ fn is_called_non_contract_account_error(
     };
 
     let last_step = match &steps[last_index] {
-        MessageTraceStep::Evm(step) => step,
+        NestedTraceStep::Evm(step) => step,
         _ => panic!("We know this is an EVM step"),
     };
 
-    let last_inst = bytecode.get_instruction(last_step.pc)?;
+    let last_inst = contract_meta.get_instruction(last_step.pc)?;
 
     if last_inst.opcode != OpCode::ISZERO {
         return Ok(false);
     }
 
     let prev_step = match &steps[last_index - 1] {
-        MessageTraceStep::Evm(step) => step,
+        NestedTraceStep::Evm(step) => step,
         _ => panic!("We know this is an EVM step"),
     };
 
-    let prev_inst = bytecode.get_instruction(prev_step.pc)?;
+    let prev_inst = contract_meta.get_instruction(prev_step.pc)?;
 
     Ok(prev_inst.opcode == OpCode::EXTCODESIZE)
 }
 
 fn is_call_failed_error(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     inst_index: u32,
     call_instruction: &Instruction,
 ) -> Result<bool, InferrerError> {
@@ -1473,15 +1459,16 @@ fn is_call_failed_error(
 
 /// Returns a source reference pointing to the constructor if it exists, or
 /// to the contract otherwise.
-fn is_constructor_invalid_arguments_error(
-    trace: &CreateMessageTrace,
-) -> Result<bool, InferrerError> {
-    if trace.return_data().len() > 0 {
+fn is_constructor_invalid_arguments_error(trace: &CreateMessage) -> Result<bool, InferrerError> {
+    if trace.return_data.len() > 0 {
         return Ok(false);
     }
 
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     // This function is only matters with contracts that have constructors defined.
     // The ones that don't are abstract contracts, or their constructor
@@ -1490,32 +1477,32 @@ fn is_constructor_invalid_arguments_error(
         return Ok(false);
     };
 
-    let Ok(version) = Version::parse(&bytecode.compiler_version) else {
+    let Ok(version) = Version::parse(&contract_meta.compiler_version) else {
         return Ok(false);
     };
     if version < FIRST_SOLC_VERSION_CREATE_PARAMS_VALIDATION {
         return Ok(false);
     }
 
-    let last_step = trace.steps().into_iter().last();
-    let Some(MessageTraceStep::Evm(last_step)) = last_step else {
+    let last_step = trace.steps.last();
+    let Some(NestedTraceStep::Evm(last_step)) = last_step else {
         return Ok(false);
     };
 
-    let last_inst = bytecode.get_instruction(last_step.pc)?;
+    let last_inst = contract_meta.get_instruction(last_step.pc)?;
 
     if last_inst.opcode != OpCode::REVERT || last_inst.location.is_some() {
         return Ok(false);
     }
 
     let mut has_read_deployment_code_size = false;
-    for step in trace.steps() {
+    for step in trace.steps.iter() {
         let step = match step {
-            MessageTraceStep::Evm(step) => step,
+            NestedTraceStep::Evm(step) => step,
             _ => return Ok(false),
         };
 
-        let inst = bytecode.get_instruction(step.pc)?;
+        let inst = contract_meta.get_instruction(step.pc)?;
 
         if let Some(inst_location) = &inst.location {
             if contract.location != *inst_location && constructor.location != *inst_location {
@@ -1531,14 +1518,17 @@ fn is_constructor_invalid_arguments_error(
     Ok(has_read_deployment_code_size)
 }
 
-fn is_constructor_not_payable_error(trace: &CreateMessageTrace) -> Result<bool, InferrerError> {
+fn is_constructor_not_payable_error(trace: &CreateMessage) -> Result<bool, InferrerError> {
     // This error doesn't return data
-    if !trace.return_data().is_empty() {
+    if !trace.return_data.is_empty() {
         return Ok(false);
     }
 
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     // This function is only matters with contracts that have constructors defined.
     // The ones that don't are abstract contracts, or their constructor
@@ -1548,32 +1538,31 @@ fn is_constructor_not_payable_error(trace: &CreateMessageTrace) -> Result<bool, 
         None => return Ok(false),
     };
 
-    let value = trace.value();
-    if value.is_zero() {
+    if trace.value.is_zero() {
         return Ok(false);
     }
 
     Ok(constructor.is_payable != Some(true))
 }
 
-fn is_direct_library_call(trace: &CallMessageTrace) -> Result<bool, InferrerError> {
+fn is_direct_library_call(trace: &CallMessage) -> Result<bool, InferrerError> {
     let contract = &trace
-        .bytecode()
+        .contract_meta
+        .as_ref()
         .ok_or(InferrerError::MissingContract)?
         .contract;
     let contract = contract.borrow();
 
-    Ok(trace.depth() == 0 && contract.r#type == ContractKind::Library)
+    Ok(trace.depth == 0 && contract.r#type == ContractKind::Library)
 }
 
 fn is_contract_call_run_out_of_gas_error(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     call_step_index: u32,
 ) -> Result<bool, InferrerError> {
-    let (steps, return_data, exit_code) = match &trace {
-        Either::Left(call) => (call.steps(), call.return_data(), call.exit()),
-        Either::Right(create) => (create.steps(), create.return_data(), create.exit()),
-    };
+    let steps = trace.steps();
+    let return_data = trace.return_data();
+    let exit_code = trace.exit_code();
 
     if return_data.len() > 0 {
         return Ok(false);
@@ -1584,10 +1573,10 @@ fn is_contract_call_run_out_of_gas_error(
     }
 
     let call_exit = match steps.get(call_step_index as usize) {
-        None | Some(MessageTraceStep::Evm(_)) => panic!("Expected call to be a message trace"),
-        Some(MessageTraceStep::Precompile(precompile)) => precompile.exit(),
-        Some(MessageTraceStep::Call(call)) => call.exit(),
-        Some(MessageTraceStep::Create(create)) => create.exit(),
+        None | Some(NestedTraceStep::Evm(_)) => panic!("Expected call to be a message trace"),
+        Some(NestedTraceStep::Precompile(precompile)) => precompile.exit.clone(),
+        Some(NestedTraceStep::Call(call)) => call.exit.clone(),
+        Some(NestedTraceStep::Create(create)) => create.exit.clone(),
     };
 
     if !call_exit.is_out_of_gas_error() {
@@ -1598,15 +1587,15 @@ fn is_contract_call_run_out_of_gas_error(
 }
 
 fn is_fallback_not_payable_error(
-    trace: &CallMessageTrace,
+    trace: &CallMessage,
     called_function: Option<&ContractFunction>,
 ) -> Result<bool, InferrerError> {
     // This error doesn't return data
-    if !trace.return_data().is_empty() {
+    if !trace.return_data.is_empty() {
         return Ok(false);
     }
 
-    if trace.value().is_zero() {
+    if trace.value.is_zero() {
         return Ok(false);
     }
 
@@ -1615,8 +1604,11 @@ fn is_fallback_not_payable_error(
         return Ok(false);
     }
 
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     match &contract.fallback {
         Some(fallback) => Ok(fallback.is_payable != Some(true)),
@@ -1625,20 +1617,23 @@ fn is_fallback_not_payable_error(
 }
 
 fn is_function_not_payable_error(
-    trace: &CallMessageTrace,
+    trace: &CallMessage,
     called_function: &ContractFunction,
 ) -> Result<bool, InferrerError> {
     // This error doesn't return data
-    if !trace.return_data().is_empty() {
+    if !trace.return_data.is_empty() {
         return Ok(false);
     }
 
-    if trace.value().is_zero() {
+    if trace.value.is_zero() {
         return Ok(false);
     }
 
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     // Libraries don't have a nonpayable check
     if contract.r#type == ContractKind::Library {
@@ -1649,24 +1644,22 @@ fn is_function_not_payable_error(
 }
 
 fn is_last_location(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     from_step: u32,
     location: &SourceLocation,
 ) -> Result<bool, InferrerError> {
-    let (bytecode, steps) = match &trace {
-        Either::Left(call) => (call.bytecode(), call.steps()),
-        Either::Right(create) => (create.bytecode(), create.steps()),
-    };
-
-    let bytecode = bytecode.as_ref().expect("JS code asserts");
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     for step in steps.iter().skip(from_step as usize) {
         let step = match step {
-            MessageTraceStep::Evm(step) => step,
+            NestedTraceStep::Evm(step) => step,
             _ => return Ok(false),
         };
 
-        let step_inst = bytecode.get_instruction(step.pc)?;
+        let step_inst = contract_meta.get_instruction(step.pc)?;
 
         if let Some(step_inst_location) = &step_inst.location {
             if **step_inst_location != *location {
@@ -1679,11 +1672,11 @@ fn is_last_location(
 }
 
 fn is_missing_function_and_fallback_error(
-    trace: &CallMessageTrace,
+    trace: &CallMessage,
     called_function: Option<&ContractFunction>,
 ) -> Result<bool, InferrerError> {
     // This error doesn't return data
-    if trace.return_data().len() > 0 {
+    if trace.return_data.len() > 0 {
         return Ok(false);
     }
 
@@ -1692,8 +1685,11 @@ fn is_missing_function_and_fallback_error(
         return Ok(false);
     }
 
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
     // there's a receive function and no calldata
     if trace.calldata.len() == 0 && contract.receive.is_some() {
@@ -1704,66 +1700,61 @@ fn is_missing_function_and_fallback_error(
 }
 
 fn is_proxy_error_propagated(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     call_subtrace_step_index: u32,
 ) -> Result<bool, InferrerError> {
     let trace = match &trace {
-        Either::Left(call) => call,
-        Either::Right(_) => return Ok(false),
+        CreateOrCallMessageRef::Call(call) => call,
+        CreateOrCallMessageRef::Create(_) => return Ok(false),
     };
 
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
 
-    let steps = trace.steps();
-    let call_step = match steps.get(call_subtrace_step_index as usize - 1) {
-        Some(MessageTraceStep::Evm(step)) => step,
+    let call_step = match trace.steps.get(call_subtrace_step_index as usize - 1) {
+        Some(NestedTraceStep::Evm(step)) => step,
         _ => return Ok(false),
     };
 
-    let call_inst = bytecode.get_instruction(call_step.pc)?;
+    let call_inst = contract_meta.get_instruction(call_step.pc)?;
 
     if call_inst.opcode != OpCode::DELEGATECALL {
         return Ok(false);
     }
 
-    let steps = trace.steps();
-    let subtrace = match steps.get(call_subtrace_step_index as usize) {
-        None | Some(MessageTraceStep::Evm(_) | MessageTraceStep::Precompile(_)) => {
-            return Ok(false)
-        }
-        Some(MessageTraceStep::Call(call)) => Either::Left(call),
-        Some(MessageTraceStep::Create(create)) => Either::Right(create),
+    let subtrace = match trace.steps.get(call_subtrace_step_index as usize) {
+        None | Some(NestedTraceStep::Evm(_) | NestedTraceStep::Precompile(_)) => return Ok(false),
+        Some(NestedTraceStep::Call(call)) => CreateOrCallMessageRef::Call(call),
+        Some(NestedTraceStep::Create(create)) => CreateOrCallMessageRef::Create(create),
     };
 
-    let (subtrace_bytecode, subtrace_return_data) = match &subtrace {
-        Either::Left(call) => (call.bytecode(), call.return_data()),
-        Either::Right(create) => (create.bytecode(), create.return_data()),
-    };
-    let subtrace_bytecode = match subtrace_bytecode {
-        Some(bytecode) => bytecode,
-        // If we can't recognize the implementation we'd better don't consider it as such
-        None => return Ok(false),
+    let Some(subtrace_contract_meta) = subtrace.contract_meta() else {
+        // If we can't recognize the implementation we'd better don't consider it as
+        // such
+        return Ok(false);
     };
 
-    if subtrace_bytecode.contract.borrow().r#type == ContractKind::Library {
+    if subtrace_contract_meta.contract.borrow().r#type == ContractKind::Library {
         return Ok(false);
     }
 
-    if trace.return_data().as_ref() != subtrace_return_data.as_ref() {
+    if trace.return_data.as_ref() != subtrace.return_data().as_ref() {
         return Ok(false);
     }
 
     for step in trace
-        .steps()
+        .steps
         .iter()
         .skip(call_subtrace_step_index as usize + 1)
     {
         let step = match step {
-            MessageTraceStep::Evm(step) => step,
+            NestedTraceStep::Evm(step) => step,
             _ => return Ok(false),
         };
 
-        let inst = bytecode.get_instruction(step.pc)?;
+        let inst = contract_meta.get_instruction(step.pc)?;
 
         // All the remaining locations should be valid, as they are part of the inline
         // asm
@@ -1779,32 +1770,32 @@ fn is_proxy_error_propagated(
         }
     }
 
-    let steps = trace.steps();
-    let last_step = match steps.last() {
-        Some(MessageTraceStep::Evm(step)) => step,
-        _ => panic!("Expected last step to be an EvmStep"),
+    let last_step = match trace.steps.last() {
+        Some(NestedTraceStep::Evm(step)) => step,
+        _ => return Err(InferrerError::ExpectedEvmStep),
     };
-    let last_inst = bytecode.get_instruction(last_step.pc)?;
+    let last_inst = contract_meta.get_instruction(last_step.pc)?;
 
     Ok(last_inst.opcode == OpCode::REVERT)
 }
 
 fn is_subtrace_error_propagated(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     call_subtrace_step_index: u32,
 ) -> Result<bool, InferrerError> {
-    let (return_data, exit, steps) = match &trace {
-        Either::Left(call) => (call.return_data(), call.exit(), call.steps()),
-        Either::Right(create) => (create.return_data(), create.exit(), create.steps()),
-    };
+    let return_data = trace.return_data();
+    let steps = trace.steps();
+    let exit = trace.exit_code();
 
     let (call_return_data, call_exit) = match steps.get(call_subtrace_step_index as usize) {
-        None | Some(MessageTraceStep::Evm(_)) => panic!("Expected call to be a message trace"),
-        Some(MessageTraceStep::Precompile(precompile)) => {
-            (precompile.return_data(), precompile.exit())
+        None | Some(NestedTraceStep::Evm(_)) => panic!("Expected call to be a message trace"),
+        Some(NestedTraceStep::Precompile(ref precompile)) => {
+            (precompile.return_data.clone(), precompile.exit.clone())
         }
-        Some(MessageTraceStep::Call(call)) => (call.return_data(), call.exit()),
-        Some(MessageTraceStep::Create(create)) => (create.return_data(), create.exit()),
+        Some(NestedTraceStep::Call(ref call)) => (call.return_data.clone(), call.exit.clone()),
+        Some(NestedTraceStep::Create(ref create)) => {
+            (create.return_data.clone(), create.exit.clone())
+        }
     };
 
     if return_data.as_ref() != call_return_data.as_ref() {
@@ -1825,28 +1816,24 @@ fn is_subtrace_error_propagated(
 }
 
 fn other_execution_error_stacktrace(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
     mut stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Vec<StackTraceEntry>, InferrerError> {
     let other_execution_error_frame = StackTraceEntry::OtherExecutionError {
         source_reference: get_last_source_reference(trace)?,
     };
 
-    stacktrace.push(other_execution_error_frame.into());
+    stacktrace.push(other_execution_error_frame);
     Ok(stacktrace)
 }
 
 fn solidity_0_6_3_maybe_unmapped_revert(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
 ) -> Result<bool, InferrerError> {
-    let (bytecode, steps) = match &trace {
-        Either::Left(create) => (create.bytecode(), create.steps()),
-        Either::Right(call) => (call.bytecode(), call.steps()),
-    };
-
-    let bytecode = bytecode
-        .as_ref()
-        .expect("JS code only accepted variants that had bytecode defined");
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let steps = trace.steps();
 
     if steps.is_empty() {
         return Ok(false);
@@ -1854,13 +1841,13 @@ fn solidity_0_6_3_maybe_unmapped_revert(
 
     let last_step = steps.last();
     let last_step = match last_step {
-        Some(MessageTraceStep::Evm(step)) => step,
+        Some(NestedTraceStep::Evm(step)) => step,
         _ => return Ok(false),
     };
 
-    let last_instruction = bytecode.get_instruction(last_step.pc)?;
+    let last_instruction = contract_meta.get_instruction(last_step.pc)?;
 
-    let Ok(version) = Version::parse(&bytecode.compiler_version) else {
+    let Ok(version) = Version::parse(&contract_meta.compiler_version) else {
         return Ok(false);
     };
     let req = VersionReq::parse(&format!("^{FIRST_SOLC_VERSION_WITH_UNMAPPED_REVERTS}"))
@@ -1872,13 +1859,17 @@ fn solidity_0_6_3_maybe_unmapped_revert(
 // Solidity 0.6.3 unmapped reverts special handling
 // For more info: https://github.com/ethereum/solidity/issues/9006
 fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function(
-    trace: &CallMessageTrace,
+    trace: &CallMessage,
 ) -> Result<Option<StackTraceEntry>, InferrerError> {
-    let bytecode = trace.bytecode().ok_or(InferrerError::MissingContract)?;
-    let contract = bytecode.contract.borrow();
+    let contract_meta = trace
+        .contract_meta
+        .as_ref()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
-    let revert_frame =
-        solidity_0_6_3_get_frame_for_unmapped_revert_within_function(Either::Left(trace))?;
+    let revert_frame = solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
+        CreateOrCallMessageRef::Call(trace),
+    )?;
 
     let revert_frame = match revert_frame {
         None
@@ -1943,33 +1934,29 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function(
 }
 
 fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
-    trace: Either<&CallMessageTrace, &CreateMessageTrace>,
+    trace: CreateOrCallMessageRef<'_>,
 ) -> Result<Option<StackTraceEntry>, InferrerError> {
-    let (bytecode, steps) = match &trace {
-        Either::Left(create) => (create.bytecode(), create.steps()),
-        Either::Right(call) => (call.bytecode(), call.steps()),
-    };
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+    let contract = contract_meta.contract.borrow();
 
-    let bytecode = bytecode
-        .as_ref()
-        .expect("JS code only accepted variants that had bytecode defined");
-
-    let contract = bytecode.contract.borrow();
+    let steps = trace.steps();
 
     // If we are within a function there's a last valid location. It may
     // be the entire contract.
     let prev_inst = get_last_instruction_with_valid_location(trace)?;
     let last_step = match steps.last() {
-        Some(MessageTraceStep::Evm(step)) => step,
-        _ => panic!("JS code asserts this is always an EvmStep"),
+        Some(NestedTraceStep::Evm(step)) => step,
+        _ => return Err(InferrerError::ExpectedEvmStep),
     };
     let next_inst_pc = last_step.pc + 1;
-    let has_next_inst = bytecode.has_instruction(next_inst_pc);
+    let has_next_inst = contract_meta.has_instruction(next_inst_pc);
 
     if has_next_inst {
-        let next_inst = bytecode.get_instruction(next_inst_pc)?;
+        let next_inst = contract_meta.get_instruction(next_inst_pc)?;
 
-        let prev_loc = prev_inst.and_then(|i| i.location.as_deref());
+        let prev_loc = prev_inst.as_ref().and_then(|i| i.location.as_deref());
         let next_loc = next_inst.location.as_deref();
 
         let prev_func = prev_loc.and_then(SourceLocation::get_containing_function);
@@ -2010,7 +1997,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
         }));
     }
 
-    if matches!(trace, Either::Right(CreateMessageTrace { .. })) && prev_inst.is_some() {
+    if matches!(trace, CreateOrCallMessageRef::Create(_)) && prev_inst.is_some() {
         // Solidity is smart enough to stop emitting extra instructions after
         // an unconditional revert happens in a constructor. If this is the case
         // we just return a special error.
@@ -2020,29 +2007,32 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
                 trace,
                 prev_inst.as_ref().unwrap(),
             )?
-            .map(solidity_0_6_3_correct_line_number)
-            .unwrap_or_else(|| {
-                // When the latest instruction is not within a function we need
-                // some default sourceReference to show to the user
-                let location = &contract.location;
-                let file = location.file();
-                let file = file.borrow();
+            .map_or_else(
+                || {
+                    // When the latest instruction is not within a function we need
+                    // some default sourceReference to show to the user
+                    let location = &contract.location;
+                    let file = location.file();
+                    let file = file.borrow();
 
-                let mut default_source_reference = SourceReference {
-                    function: Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
-                    contract: Some(contract.name.clone()),
-                    source_name: file.source_name.clone(),
-                    source_content: file.content.clone(),
-                    line: location.get_starting_line_number(),
-                    range: (location.offset, location.offset + location.length),
-                };
+                    let mut default_source_reference = SourceReference {
+                        function: Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
+                        contract: Some(contract.name.clone()),
+                        source_name: file.source_name.clone(),
+                        source_content: file.content.clone(),
+                        line: location.get_starting_line_number(),
+                        range: (location.offset, location.offset + location.length),
+                    };
 
-                if let Some(constructor) = &contract.constructor {
-                    default_source_reference.line = constructor.location.get_starting_line_number();
-                }
+                    if let Some(constructor) = &contract.constructor {
+                        default_source_reference.line =
+                            constructor.location.get_starting_line_number();
+                    }
 
-                default_source_reference
-            });
+                    default_source_reference
+                },
+                solidity_0_6_3_correct_line_number,
+            );
 
         return Ok(Some(StackTraceEntry::UnmappedSolc0_6_3RevertError {
             source_reference: Some(source_reference),
@@ -2056,7 +2046,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
         // points to.
         let source_reference =
             instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_reference(
-                trace, prev_inst,
+                trace, &prev_inst,
             )?
             .map(solidity_0_6_3_correct_line_number);
 
@@ -2094,15 +2084,11 @@ fn solidity_0_6_3_correct_line_number(mut source_reference: SourceReference) -> 
 }
 
 fn source_location_to_source_reference(
-    bytecode: &Bytecode,
+    contract_meta: &ContractMetadata,
     location: Option<&SourceLocation>,
 ) -> Option<SourceReference> {
-    let Some(location) = location else {
-        return None;
-    };
-    let Some(func) = location.get_containing_function() else {
-        return None;
-    };
+    let location = location?;
+    let func = location.get_containing_function()?;
 
     let func_name = match func.r#type {
         ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
@@ -2119,7 +2105,7 @@ fn source_location_to_source_reference(
         contract: if func.r#type == ContractFunctionType::FreeFunction {
             None
         } else {
-            Some(bytecode.contract.borrow().name.clone())
+            Some(contract_meta.contract.borrow().name.clone())
         },
         source_name: func_location_file.source_name.clone(),
         source_content: func_location_file.content.clone(),

@@ -614,6 +614,11 @@ export declare class Exit {
   isError(): boolean
   getReason(): string
 }
+/**
+ * Opaque handle to the `Bytecode` struct.
+ * Only used on the JS side by the `VmTraceDecoder` class.
+ */
+export declare class BytecodeWrapper { }
 export declare class ReturnData {
   readonly value: Uint8Array
   constructor(value: Uint8Array)

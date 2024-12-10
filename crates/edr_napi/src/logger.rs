@@ -17,7 +17,7 @@ use edr_evm::{
     ExecutionResult, SyncBlock,
 };
 use edr_provider::{ProviderError, TransactionFailure};
-use edr_solidity::vm_trace_decoder::{initialize_vm_trace_decoder, TracingConfig, VmTraceDecoder};
+use edr_solidity::nested_trace_decoder::{NestedTraceDecoder, TracingConfig};
 use itertools::izip;
 use napi::{
     threadsafe_function::{
@@ -536,12 +536,11 @@ impl LogCollector {
     ) -> (String, Option<String>) {
         // TODO this is hyper inefficient. Doing it like this for now because Bytecode
         // is not Send. Will refactor.
-        let mut vm_trace_decoder = VmTraceDecoder::default();
         // TODO remove expect
-        initialize_vm_trace_decoder(&mut vm_trace_decoder, self.tracing_config.as_ref())
-            .expect("can initialize vm trace decoder");
+        let mut vm_trace_decoder =
+            NestedTraceDecoder::new(&self.tracing_config).expect("can initialize vm trace decoder");
 
-        let edr_solidity::vm_trace_decoder::ContractAndFunctionName {
+        let edr_solidity::nested_trace_decoder::ContractAndFunctionName {
             contract_name,
             function_name,
         } = vm_trace_decoder.get_contract_and_function_names_for_call(&code, calldata.as_ref());

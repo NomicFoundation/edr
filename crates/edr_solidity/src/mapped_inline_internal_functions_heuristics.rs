@@ -17,12 +17,11 @@
 //! provide more meaningful errors.
 
 use edr_evm::interpreter::OpCode;
-use either::Either;
 use semver::Version;
 
 use crate::{
-    build_model::BytecodeError,
-    message_trace::{CallMessageTrace, CreateMessageTrace, EvmStep, MessageTraceStep},
+    build_model::ContractMetadataError,
+    nested_trace::{CreateOrCallMessageRef, EvmStep, NestedTraceStep},
     solidity_stack_trace::StackTraceEntry,
 };
 
@@ -31,20 +30,18 @@ const FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS: Version = Version
 #[derive(Debug, thiserror::Error)]
 pub enum HeuristicsError {
     #[error(transparent)]
-    BytecodeError(#[from] BytecodeError),
+    BytecodeError(#[from] ContractMetadataError),
     #[error("Missing contract")]
     MissingContract,
 }
 
 pub fn stack_trace_may_require_adjustments(
-    stacktrace: &Vec<StackTraceEntry>,
-    decoded_trace: &Either<CallMessageTrace, CreateMessageTrace>,
+    stacktrace: &[StackTraceEntry],
+    decoded_trace: CreateOrCallMessageRef<'_>,
 ) -> Result<bool, HeuristicsError> {
-    let bytecode = match &decoded_trace {
-        Either::Left(create) => create.bytecode(),
-        Either::Right(call) => call.bytecode(),
-    };
-    let bytecode = bytecode.ok_or(HeuristicsError::MissingContract)?;
+    let contract_meta = decoded_trace
+        .contract_meta()
+        .ok_or(HeuristicsError::MissingContract)?;
 
     let Some(last_frame) = stacktrace.last() else {
         return Ok(false);
@@ -58,7 +55,7 @@ pub fn stack_trace_may_require_adjustments(
     {
         let result = !is_invalid_opcode_error
             && return_data.is_empty()
-            && Version::parse(&bytecode.compiler_version)
+            && Version::parse(&contract_meta.compiler_version)
                 .map(|version| version >= FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS)
                 .unwrap_or(false);
         return Ok(result);
@@ -69,7 +66,7 @@ pub fn stack_trace_may_require_adjustments(
 
 pub fn adjust_stack_trace(
     mut stacktrace: Vec<StackTraceEntry>,
-    decoded_trace: &Either<CallMessageTrace, CreateMessageTrace>,
+    decoded_trace: CreateOrCallMessageRef<'_>,
 ) -> Result<Vec<StackTraceEntry>, HeuristicsError> {
     let Some(StackTraceEntry::RevertError {
         source_reference, ..
@@ -111,7 +108,7 @@ pub fn adjust_stack_trace(
 }
 
 fn is_non_contract_account_called_error(
-    decoded_trace: &Either<CallMessageTrace, CreateMessageTrace>,
+    decoded_trace: CreateOrCallMessageRef<'_>,
 ) -> Result<bool, HeuristicsError> {
     match_opcodes(
         decoded_trace,
@@ -126,7 +123,7 @@ fn is_non_contract_account_called_error(
 }
 
 fn is_constructor_invalid_params_error(
-    decoded_trace: &Either<CallMessageTrace, CreateMessageTrace>,
+    decoded_trace: CreateOrCallMessageRef<'_>,
 ) -> Result<bool, HeuristicsError> {
     Ok(match_opcodes(decoded_trace, -20, &[OpCode::CODESIZE])?
         && match_opcodes(decoded_trace, -15, &[OpCode::CODECOPY])?
@@ -134,22 +131,21 @@ fn is_constructor_invalid_params_error(
 }
 
 fn is_call_invalid_params_error(
-    decoded_trace: &Either<CallMessageTrace, CreateMessageTrace>,
+    decoded_trace: CreateOrCallMessageRef<'_>,
 ) -> Result<bool, HeuristicsError> {
     Ok(match_opcodes(decoded_trace, -11, &[OpCode::CALLDATASIZE])?
         && match_opcodes(decoded_trace, -7, &[OpCode::LT, OpCode::ISZERO])?)
 }
 
 fn match_opcodes(
-    decoded_trace: &Either<CallMessageTrace, CreateMessageTrace>,
+    decoded_trace: CreateOrCallMessageRef<'_>,
     first_step_index: i32,
     opcodes: &[OpCode],
 ) -> Result<bool, HeuristicsError> {
-    let (bytecode, steps) = match &decoded_trace {
-        Either::Left(call) => (call.bytecode(), call.steps()),
-        Either::Right(create) => (create.bytecode(), create.steps()),
-    };
-    let bytecode = bytecode.as_ref().expect("JS code asserts");
+    let contract_meta = decoded_trace
+        .contract_meta()
+        .ok_or(HeuristicsError::MissingContract)?;
+    let steps = decoded_trace.steps();
 
     // If the index is negative, we start from the end of the trace,
     // just like in the original JS code
@@ -163,11 +159,11 @@ fn match_opcodes(
     };
 
     for opcode in opcodes {
-        let Some(MessageTraceStep::Evm(EvmStep { pc })) = steps.get(index) else {
+        let Some(NestedTraceStep::Evm(EvmStep { pc })) = steps.get(index) else {
             return Ok(false);
         };
 
-        let instruction = bytecode.get_instruction(*pc)?;
+        let instruction = contract_meta.get_instruction(*pc)?;
 
         if instruction.opcode != *opcode {
             return Ok(false);
