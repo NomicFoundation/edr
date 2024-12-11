@@ -248,6 +248,7 @@ fn insert_dummy_block_with_transaction(
         transaction::Signed,
     >::new(
         &receipt_factory,
+        blockchain.hardfork(),
         header,
         vec![transaction],
         vec![transaction_receipt.clone()],

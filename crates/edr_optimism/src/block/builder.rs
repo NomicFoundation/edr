@@ -63,7 +63,6 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
 
     fn block_receipt_factory(&self) -> BlockReceiptFactory {
         BlockReceiptFactory {
-            hardfork: self.hardfork,
             l1_block_info: self.l1_block_info.clone(),
         }
     }

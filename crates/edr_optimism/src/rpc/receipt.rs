@@ -167,11 +167,10 @@ mod tests {
     use receipt::BlockReceiptFactory;
 
     use super::*;
-    use crate::{L1BlockInfo, OptimismChainSpec, OptimismSpecId};
+    use crate::{L1BlockInfo, OptimismChainSpec};
 
     impl_execution_receipt_tests! {
         OptimismChainSpec, BlockReceiptFactory {
-            hardfork: OptimismSpecId::FJORD,
             l1_block_info: L1BlockInfo {
                 l1_base_fee: U256::from(1234),
                 l1_fee_overhead: None,
@@ -180,7 +179,7 @@ mod tests {
                 l1_blob_base_fee_scalar: None,
             }.into(),
         } => {
-            legacy => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
+            legacy, OptimismSpecId::LATEST => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -189,7 +188,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930 => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip2930, OptimismSpecId::LATEST => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -198,7 +197,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559 => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip1559, OptimismSpecId::LATEST => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -207,7 +206,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844 => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip4844, OptimismSpecId::LATEST => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -216,7 +215,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            deposit => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
+            deposit, OptimismSpecId::LATEST => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),

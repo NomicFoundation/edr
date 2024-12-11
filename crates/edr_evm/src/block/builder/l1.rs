@@ -12,6 +12,7 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
     result::{ExecutionResult, ResultAndState},
+    spec::HardforkTrait,
     transaction::{ExecutableTransaction as _, Transaction as _},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
@@ -334,6 +335,7 @@ where
         mut self,
         receipt_factory: impl ReceiptFactory<
             ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::Hardfork,
             ChainSpecT::SignedTransaction,
             Output = ChainSpecT::BlockReceipt,
         >,
@@ -392,6 +394,7 @@ where
         // TODO: handle ommers
         let block = EthLocalBlockForChainSpec::<ChainSpecT>::new(
             receipt_factory,
+            self.hardfork,
             self.header,
             self.transactions,
             self.receipts,
@@ -502,19 +505,29 @@ pub struct EthBlockReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = Filt
     phantom: PhantomData<ExecutionReceiptT>,
 }
 
-impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>, SignedTransactionT>
-    ReceiptFactory<ExecutionReceiptT, SignedTransactionT>
+impl<
+        ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
+        HardforkT: HardforkTrait + Into<l1::SpecId>,
+        SignedTransactionT,
+    > ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
     for EthBlockReceiptFactory<ExecutionReceiptT>
 {
     type Output = BlockReceipt<ExecutionReceiptT>;
 
     fn create_receipt(
         &self,
+        hardfork: HardforkT,
         _transaction: &SignedTransactionT,
-        transaction_receipt: TransactionReceipt<ExecutionReceiptT>,
+        mut transaction_receipt: TransactionReceipt<ExecutionReceiptT>,
         block_hash: &B256,
         block_number: u64,
     ) -> Self::Output {
+        // The JSON-RPC layer should not return the gas price as effective gas price for
+        // receipts in pre-London hardforks.
+        if hardfork.into() < l1::SpecId::LONDON {
+            transaction_receipt.effective_gas_price = None;
+        }
+
         BlockReceipt {
             inner: transaction_receipt,
             block_hash: *block_hash,

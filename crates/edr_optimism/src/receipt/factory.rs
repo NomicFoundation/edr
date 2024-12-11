@@ -10,24 +10,28 @@ use crate::{eip2718::TypedEnvelope, receipt, transaction, OptimismSpecId};
 
 /// Block receipt factory for Optimism.
 pub struct BlockReceiptFactory {
-    pub(crate) hardfork: OptimismSpecId,
     pub(crate) l1_block_info: L1BlockInfo,
 }
 
-impl ReceiptFactory<TypedEnvelope<receipt::Execution<FilterLog>>, transaction::Signed>
-    for BlockReceiptFactory
+impl
+    ReceiptFactory<
+        TypedEnvelope<receipt::Execution<FilterLog>>,
+        OptimismSpecId,
+        transaction::Signed,
+    > for BlockReceiptFactory
 {
     type Output = receipt::Block;
 
     fn create_receipt(
         &self,
+        hardfork: OptimismSpecId,
         transaction: &transaction::Signed,
         transaction_receipt: TransactionReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
         block_hash: &B256,
         block_number: u64,
     ) -> Self::Output {
         let l1_block_info = to_rpc_l1_block_info(
-            self.hardfork,
+            hardfork,
             &self.l1_block_info,
             transaction,
             &transaction_receipt,
@@ -36,6 +40,7 @@ impl ReceiptFactory<TypedEnvelope<receipt::Execution<FilterLog>>, transaction::S
         let eth = {
             let receipt_factory = EthBlockReceiptFactory::default();
             receipt_factory.create_receipt(
+                hardfork,
                 transaction,
                 transaction_receipt,
                 block_hash,

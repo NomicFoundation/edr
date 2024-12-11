@@ -85,9 +85,11 @@ impl<
     pub fn new(
         receipt_factory: impl ReceiptFactory<
             <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type,
+            HardforkT,
             SignedTransactionT,
             Output = BlockReceiptT,
         >,
+        hardfork: HardforkT,
         partial_header: PartialHeader,
         transactions: Vec<SignedTransactionT>,
         transaction_receipts: Vec<
@@ -121,6 +123,7 @@ impl<
         .zip(transactions.iter())
         .map(|(transaction_receipt, transaction)| {
             Arc::new(receipt_factory.create_receipt(
+                hardfork,
                 transaction,
                 transaction_receipt,
                 &hash,
