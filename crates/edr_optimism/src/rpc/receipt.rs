@@ -1,5 +1,5 @@
 use edr_eth::{
-    receipt::{ExecutionReceipt as _, TransactionReceipt},
+    receipt::{AsExecutionReceipt as _, ExecutionReceipt as _, TransactionReceipt},
     transaction::TransactionType as _,
 };
 use edr_rpc_eth::RpcTypeFrom;
@@ -30,21 +30,21 @@ impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
             contract_address: value.eth.inner.contract_address,
             logs: value.eth.inner.transaction_logs().to_vec(),
             logs_bloom: *value.eth.inner.logs_bloom(),
-            state_root: match value.eth.inner.as_execution_receipt().data() {
+            state_root: match value.as_execution_receipt().data() {
                 receipt::Execution::Legacy(receipt) => Some(receipt.root),
                 receipt::Execution::Eip658(_) | receipt::Execution::Deposit(_) => None,
             },
-            status: match value.eth.inner.as_execution_receipt().data() {
+            status: match value.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) => None,
                 receipt::Execution::Eip658(receipt) => Some(receipt.status),
                 receipt::Execution::Deposit(receipt) => Some(receipt.status),
             },
             effective_gas_price: value.eth.inner.effective_gas_price,
-            deposit_nonce: match value.eth.inner.as_execution_receipt().data() {
+            deposit_nonce: match value.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => Some(receipt.deposit_nonce),
             },
-            deposit_receipt_version: match value.eth.inner.as_execution_receipt().data() {
+            deposit_receipt_version: match value.as_execution_receipt().data() {
                 receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => receipt.deposit_receipt_version,
             },

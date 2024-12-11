@@ -5,7 +5,8 @@ use edr_eth::{
     account::AccountInfo,
     block::{miner_reward, BlockOptions},
     l1::{self, L1ChainSpec},
-    receipt::{ExecutionReceipt as _, ReceiptTrait as _},
+    log::FilterLog,
+    receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
     result::InvalidTransaction,
     transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,
@@ -161,7 +162,10 @@ pub async fn run_full_block<
     ChainSpecT: Debug
         + SyncRuntimeSpec<
             BlockEnv: Default,
-            BlockReceipt: PartialEq,
+            BlockReceipt: AsExecutionReceipt<
+                ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
+            ExecutionReceipt<FilterLog>: PartialEq,
             LocalBlock: BlockReceipts<
                 Arc<ChainSpecT::BlockReceipt>,
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
@@ -350,14 +354,14 @@ pub async fn run_full_block<
             replay_block.transactions()[expected.transaction_index() as usize]
         );
         debug_assert_eq!(
-            expected,
-            *actual,
+            expected.as_execution_receipt(),
+            actual.as_execution_receipt(),
             "{:?}",
             replay_block.transactions()[expected.transaction_index() as usize]
         );
     }
 
-    assert_eq!(mined_header, replay_header);
+    assert_eq!(replay_header, mined_header);
 
     Ok(())
 }

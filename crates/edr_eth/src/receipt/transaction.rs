@@ -1,6 +1,6 @@
 use alloy_rlp::BufMut;
 
-use super::{ExecutionReceipt, MapReceiptLogs};
+use super::{AsExecutionReceipt, ExecutionReceipt, MapReceiptLogs};
 use crate::{
     l1,
     result::{ExecutionResult, Output},
@@ -34,12 +34,17 @@ pub struct TransactionReceipt<ExecutionReceiptT: ExecutionReceipt> {
     pub effective_gas_price: Option<U256>,
 }
 
-impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> {
-    /// Returns a reference to the inner execution receipt.
-    pub fn as_execution_receipt(&self) -> &ExecutionReceiptT {
+impl<ExecutionReceiptT: ExecutionReceipt> AsExecutionReceipt
+    for TransactionReceipt<ExecutionReceiptT>
+{
+    type ExecutionReceipt = ExecutionReceiptT;
+
+    fn as_execution_receipt(&self) -> &ExecutionReceiptT {
         &self.inner
     }
+}
 
+impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> {
     /// Converts the instance into the inner execution receipt.
     pub fn into_execution_receipt(self) -> ExecutionReceiptT {
         self.inner

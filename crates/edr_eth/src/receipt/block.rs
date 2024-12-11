@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use alloy_rlp::BufMut;
 
-use super::{ExecutionReceipt, ReceiptTrait, RootOrStatus, TransactionReceipt};
+use super::{AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus, TransactionReceipt};
 use crate::{log::FilterLog, Address, Bloom, B256, U256};
 
 /// Type for a receipt that's included in a block.
@@ -13,6 +13,16 @@ pub struct BlockReceipt<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
     pub block_hash: B256,
     /// Number of the block that this is part of
     pub block_number: u64,
+}
+
+impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> AsExecutionReceipt
+    for BlockReceipt<ExecutionReceiptT>
+{
+    type ExecutionReceipt = ExecutionReceiptT;
+
+    fn as_execution_receipt(&self) -> &ExecutionReceiptT {
+        self.inner.as_execution_receipt()
+    }
 }
 
 impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> Deref

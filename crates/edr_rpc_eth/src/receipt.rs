@@ -2,7 +2,9 @@ use edr_eth::{
     eips::{eip2718::TypedEnvelope, eip7702},
     l1,
     log::FilterLog,
-    receipt::{self, Execution, ExecutionReceipt as _, TransactionReceipt},
+    receipt::{
+        self, AsExecutionReceipt as _, Execution, ExecutionReceipt as _, TransactionReceipt,
+    },
     transaction::{self, TransactionType as _},
     Address, Bloom, B256, U256,
 };
@@ -103,11 +105,11 @@ impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLo
             contract_address: value.inner.contract_address,
             logs: value.inner.transaction_logs().to_vec(),
             logs_bloom: *value.inner.logs_bloom(),
-            state_root: match value.inner.as_execution_receipt().data() {
+            state_root: match value.as_execution_receipt().data() {
                 Execution::Legacy(receipt) => Some(receipt.root),
                 Execution::Eip658(_) => None,
             },
-            status: match value.inner.as_execution_receipt().data() {
+            status: match value.as_execution_receipt().data() {
                 Execution::Legacy(_) => None,
                 Execution::Eip658(receipt) => Some(receipt.status),
             },

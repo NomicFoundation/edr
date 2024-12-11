@@ -2,7 +2,10 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use clap::ValueEnum;
-use edr_eth::{l1::L1ChainSpec, result::InvalidTransaction, transaction::TransactionValidation};
+use edr_eth::{
+    l1::L1ChainSpec, log::FilterLog, receipt::AsExecutionReceipt, result::InvalidTransaction,
+    transaction::TransactionValidation,
+};
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};
 use edr_optimism::OptimismChainSpec;
 use edr_provider::spec::SyncRuntimeSpec;
@@ -43,7 +46,10 @@ where
     ChainSpecT: Debug
         + SyncRuntimeSpec<
             BlockEnv: Default,
-            BlockReceipt: PartialEq,
+            BlockReceipt: AsExecutionReceipt<
+                ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
+            ExecutionReceipt<FilterLog>: PartialEq,
             LocalBlock: BlockReceipts<
                 Arc<ChainSpecT::BlockReceipt>,
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,

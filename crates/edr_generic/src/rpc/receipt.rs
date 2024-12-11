@@ -1,4 +1,4 @@
-use edr_eth::{l1, log::FilterLog};
+use edr_eth::{l1, log::FilterLog, receipt::AsExecutionReceipt as _};
 use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
@@ -112,11 +112,11 @@ impl RpcTypeFrom<crate::receipt::BlockReceipt<TypedEnvelope<Execution<FilterLog>
             contract_address: value.inner.contract_address,
             logs: value.inner.transaction_logs().to_vec(),
             logs_bloom: *value.inner.logs_bloom(),
-            state_root: match value.inner.as_execution_receipt().data() {
+            state_root: match value.as_execution_receipt().data() {
                 Execution::Legacy(receipt) => Some(receipt.root),
                 Execution::Eip658(_) => None,
             },
-            status: match value.inner.as_execution_receipt().data() {
+            status: match value.as_execution_receipt().data() {
                 Execution::Legacy(_) => None,
                 Execution::Eip658(receipt) => Some(receipt.status),
             },

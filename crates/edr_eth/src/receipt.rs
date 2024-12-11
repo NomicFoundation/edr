@@ -37,6 +37,15 @@ pub enum RootOrStatus<'root> {
     Status(bool),
 }
 
+/// Trait for a receipt that internally contains an execution receipt.
+pub trait AsExecutionReceipt {
+    /// The type of the inner execution receipt.
+    type ExecutionReceipt: ExecutionReceipt;
+
+    /// Returns a reference to the inner execution receipt.
+    fn as_execution_receipt(&self) -> &Self::ExecutionReceipt;
+}
+
 /// Trait for a receipt that's generated after execution of a transaction.
 #[auto_impl(Box, Arc)]
 pub trait ExecutionReceipt {

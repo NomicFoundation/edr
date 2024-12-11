@@ -1,6 +1,6 @@
 use edr_eth::{
     log::FilterLog,
-    receipt::{ExecutionReceipt, ReceiptTrait, RootOrStatus},
+    receipt::{AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus},
     Address, Bloom, B256, U256,
 };
 use op_alloy_rpc_types::receipt::L1BlockInfo;
@@ -16,6 +16,14 @@ pub struct Block {
     pub eth: edr_eth::receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
     /// The L1 block info, if not a deposit transaction.
     pub l1_block_info: Option<L1BlockInfo>,
+}
+
+impl AsExecutionReceipt for Block {
+    type ExecutionReceipt = TypedEnvelope<receipt::Execution<FilterLog>>;
+
+    fn as_execution_receipt(&self) -> &Self::ExecutionReceipt {
+        self.eth.as_execution_receipt()
+    }
 }
 
 impl alloy_rlp::Encodable for Block {
