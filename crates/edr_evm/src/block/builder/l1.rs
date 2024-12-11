@@ -498,7 +498,7 @@ where
     }
 }
 
-/// Factory for creating [`EthLocalBlock`]s for chain specs with a
+/// Factory for creating [`crate::block::EthLocalBlock`]s for chain specs with a
 /// [`BlockReceipt`].
 #[derive_where(Default)]
 pub struct EthBlockReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
