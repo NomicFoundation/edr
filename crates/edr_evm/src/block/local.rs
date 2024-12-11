@@ -85,6 +85,7 @@ impl<
     pub fn new(
         receipt_factory: impl ReceiptFactory<
             <ExecutionReceiptHigherKindedT as HigherKinded<FilterLog>>::Type,
+            SignedTransactionT,
             Output = BlockReceiptT,
         >,
         partial_header: PartialHeader,
@@ -117,8 +118,14 @@ impl<
             header.number,
             transaction_receipts,
         )
-        .map(|transaction_receipt| {
-            Arc::new(receipt_factory.create_receipt(transaction_receipt, &hash, header.number))
+        .zip(transactions.iter())
+        .map(|(transaction_receipt, transaction)| {
+            Arc::new(receipt_factory.create_receipt(
+                transaction,
+                transaction_receipt,
+                &hash,
+                header.number,
+            ))
         })
         .collect();
 

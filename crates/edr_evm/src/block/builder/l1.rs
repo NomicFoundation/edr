@@ -334,6 +334,7 @@ where
         mut self,
         receipt_factory: impl ReceiptFactory<
             ChainSpecT::ExecutionReceipt<FilterLog>,
+            ChainSpecT::SignedTransaction,
             Output = ChainSpecT::BlockReceipt,
         >,
         rewards: Vec<(Address, U256)>,
@@ -501,13 +502,15 @@ pub struct EthBlockReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = Filt
     phantom: PhantomData<ExecutionReceiptT>,
 }
 
-impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> ReceiptFactory<ExecutionReceiptT>
+impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>, SignedTransactionT>
+    ReceiptFactory<ExecutionReceiptT, SignedTransactionT>
     for EthBlockReceiptFactory<ExecutionReceiptT>
 {
     type Output = BlockReceipt<ExecutionReceiptT>;
 
     fn create_receipt(
         &self,
+        _transaction: &SignedTransactionT,
         transaction_receipt: TransactionReceipt<ExecutionReceiptT>,
         block_hash: &B256,
         block_number: u64,

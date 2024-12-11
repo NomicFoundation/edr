@@ -133,6 +133,7 @@ pub trait RuntimeSpec:
     /// Type representing a factory for block receipts.
     type BlockReceiptFactory: ReceiptFactory<
         Self::ExecutionReceipt<FilterLog>,
+        Self::SignedTransaction,
         Output = Self::BlockReceipt
     >;
 

@@ -9,7 +9,7 @@ use crate::{
 /// Trait for constructing a receipt from a transaction receipt and the block it
 /// was executed in.
 #[auto_impl(&, Box, Arc)]
-pub trait ReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
+pub trait ReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>, SignedTransactionT> {
     /// Type of the receipt that the factory constructs.
     type Output: ExecutionReceipt<Log = FilterLog> + ReceiptTrait;
 
@@ -17,6 +17,7 @@ pub trait ReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
     /// was executed in.
     fn create_receipt(
         &self,
+        transaction: &SignedTransactionT,
         transaction_receipt: TransactionReceipt<ExecutionReceiptT>,
         block_hash: &B256,
         block_number: u64,

@@ -164,22 +164,22 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 mod tests {
     use edr_eth::{log::ExecutionLog, Bloom, Bytes};
     use edr_rpc_eth::impl_execution_receipt_tests;
-    use op_alloy_rpc_types::receipt::L1BlockInfo;
     use receipt::BlockReceiptFactory;
 
     use super::*;
-    use crate::OptimismChainSpec;
+    use crate::{L1BlockInfo, OptimismChainSpec, OptimismSpecId};
 
     impl_execution_receipt_tests! {
-        OptimismChainSpec, BlockReceiptFactory { l1_block_info: L1BlockInfo {
-            l1_gas_price: Some(1234),
-            l1_gas_used: Some(5678),
-            l1_fee: Some(91011),
-            l1_fee_scalar: Some(0.1234f64),
-            l1_base_fee_scalar: Some(5678),
-            l1_blob_base_fee: Some(9012),
-            l1_blob_base_fee_scalar: Some(3456),
-        } } => {
+        OptimismChainSpec, BlockReceiptFactory {
+            hardfork: OptimismSpecId::FJORD,
+            l1_block_info: L1BlockInfo {
+                l1_base_fee: U256::from(1234),
+                l1_fee_overhead: None,
+                l1_base_fee_scalar: U256::from(5678),
+                l1_blob_base_fee: None,
+                l1_blob_base_fee_scalar: None,
+            }.into(),
+        } => {
             legacy => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,

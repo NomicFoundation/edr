@@ -5,13 +5,16 @@ use edr_evm::{
     state::{DatabaseComponents, WrapDatabaseRef},
     BlockBuilder, BlockBuilderAndError, EthBlockBuilder, MineBlockResultAndState,
 };
-use revm_optimism::{L1BlockInfo, OptimismHaltReason, OptimismSpecId};
+use revm_optimism::{L1BlockInfo, OptimismHaltReason};
 
-use crate::{block::LocalBlock, receipt::BlockReceiptFactory, transaction, OptimismChainSpec};
+use crate::{
+    block::LocalBlock, receipt::BlockReceiptFactory, transaction, OptimismChainSpec, OptimismSpecId,
+};
 
 /// Block builder for Optimism.
 pub struct Builder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT> {
     eth: EthBlockBuilder<'blockchain, BlockchainErrorT, OptimismChainSpec, DebugDataT, StateErrorT>,
+    hardfork: OptimismSpecId,
     l1_block_info: L1BlockInfo,
 }
 
@@ -51,46 +54,18 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
 
         let eth = EthBlockBuilder::new(blockchain, state, hardfork, cfg, options, debug_context)?;
 
-        Ok(Self { eth, l1_block_info })
+        Ok(Self {
+            eth,
+            hardfork,
+            l1_block_info,
+        })
     }
 
     fn block_receipt_factory(&self) -> BlockReceiptFactory {
-        let l1_block_info = op_alloy_rpc_types::receipt::L1BlockInfo {
-            l1_gas_price: Some(
-                self.l1_block_info
-                    .l1_base_fee
-                    .try_into()
-                    .expect("L1 gas price cannot be larger than u128::max"),
-            ),
-            // Not supported, as it was deprecated post-Fjord
-            l1_gas_used: None,
-            l1_fee: Some(
-                self.l1_block_info
-                    .l1_base_fee
-                    .try_into()
-                    .expect("L1 fee cannot be larger than u128::max"),
-            ),
-            // Not supported, as it was deprecated post-Ecotone
-            l1_fee_scalar: None,
-            l1_base_fee_scalar: Some(
-                self.l1_block_info
-                    .l1_base_fee_scalar
-                    .try_into()
-                    .expect("L1 base fee scalar cannot be larger than u128::max"),
-            ),
-            l1_blob_base_fee: self.l1_block_info.l1_blob_base_fee.map(|scalar| {
-                scalar
-                    .try_into()
-                    .expect("L1 blob base fee cannot be larger than u128::max")
-            }),
-            l1_blob_base_fee_scalar: self.l1_block_info.l1_blob_base_fee_scalar.map(|scalar| {
-                scalar
-                    .try_into()
-                    .expect("L1 blob base fee scalar cannot be larger than u128::max")
-            }),
-        };
-
-        BlockReceiptFactory { l1_block_info }
+        BlockReceiptFactory {
+            hardfork: self.hardfork,
+            l1_block_info: self.l1_block_info.clone(),
+        }
     }
 
     fn header(&self) -> &PartialHeader {
@@ -111,16 +86,25 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
             >,
         >,
     > {
-        let Self { eth, l1_block_info } = self;
+        let Self {
+            eth,
+            hardfork,
+            l1_block_info,
+        } = self;
 
         match eth.add_transaction(transaction) {
-            Ok(eth) => Ok(Self { eth, l1_block_info }),
+            Ok(eth) => Ok(Self {
+                eth,
+                hardfork,
+                l1_block_info,
+            }),
             Err(BlockBuilderAndError {
                 block_builder,
                 error,
             }) => Err(BlockBuilderAndError {
                 block_builder: Self {
                     eth: block_builder,
+                    hardfork,
                     l1_block_info,
                 },
                 error,
