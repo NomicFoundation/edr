@@ -32,6 +32,8 @@ pub struct ForkConfig {
     pub block_number: Option<BigInt>,
     /// The HTTP headers to use when making requests to the JSON-RPC endpoint
     pub http_headers: Option<Vec<HttpHeader>>,
+    /// The directory to cache remote JSON-RPC responses
+    pub cache_dir: Option<String>,
 }
 
 #[napi(object)]
@@ -91,8 +93,6 @@ pub struct ProviderConfig {
     pub bail_on_transaction_failure: bool,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
-    /// The directory to cache remote JSON-RPC responses
-    pub cache_dir: Option<String>,
     /// The chain ID of the blockchain
     pub chain_id: BigInt,
     /// The configuration for chains
@@ -256,7 +256,7 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit,
-            cache_dir: value.cache_dir,
+            cache_dir: value.fork.as_ref().and_then(|fork_config| fork_config.cache_dir.clone()),
             chain_id: value.chain_id.try_cast()?,
             chains,
             coinbase: value.coinbase.try_cast()?,
