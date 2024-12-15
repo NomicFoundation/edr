@@ -4259,6 +4259,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_generic",
  "edr_napi_core",
  "edr_optimism",
  "edr_provider",
