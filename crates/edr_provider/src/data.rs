@@ -2609,7 +2609,7 @@ fn create_blockchain_and_state(
             .transpose()?;
 
         let rpc_client = Arc::new(EthRpcClient::<L1ChainSpec>::new(
-            &fork_config.json_rpc_url,
+            &fork_config.url,
             config.cache_dir.clone(),
             http_headers.clone(),
         )?);
@@ -2837,9 +2837,9 @@ pub(crate) mod test_utils {
         }
 
         fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
-            let fork = fork.map(|json_rpc_url| {
+            let fork = fork.map(|url| {
                 ForkConfig {
-                    json_rpc_url,
+                    url,
                     // Random recent block for better cache consistency
                     block_number: Some(FORK_BLOCK_NUMBER),
                     http_headers: None,
@@ -3948,7 +3948,7 @@ mod tests {
             let mut fixture = ProviderTestFixture::new_local()?;
 
             let fork_config = Some(ForkConfig {
-                json_rpc_url: get_alchemy_url(),
+                url: get_alchemy_url(),
                 // Random recent block for better cache consistency
                 block_number: Some(FORK_BLOCK_NUMBER),
                 http_headers: None,
@@ -4040,7 +4040,7 @@ mod tests {
                 .build()?;
 
             let default_config = create_test_config_with_fork(Some(ForkConfig {
-                json_rpc_url: get_alchemy_url(),
+                url: get_alchemy_url(),
                 block_number: Some(EIP_1559_ACTIVATION_BLOCK),
                 http_headers: None,
             }));

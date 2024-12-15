@@ -135,7 +135,7 @@ where
 pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Handle::current();
     let default_config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: url.clone(),
+        url: url.clone(),
         block_number: Some(block_number - 1),
         http_headers: None,
     }));
