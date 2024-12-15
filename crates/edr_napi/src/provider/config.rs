@@ -27,12 +27,14 @@ pub struct ChainConfig {
 #[napi(object)]
 pub struct ForkConfig {
     /// The URL of the JSON-RPC endpoint to fork from
-    pub json_rpc_url: String,
+    pub url: String,
     /// The block number to fork from. If not provided, the latest safe block is
     /// used.
     pub block_number: Option<BigInt>,
     /// The HTTP headers to use when making requests to the JSON-RPC endpoint
     pub http_headers: Option<Vec<HttpHeader>>,
+    /// The directory to cache remote JSON-RPC responses
+    pub cache_dir: Option<String>,
 }
 
 #[napi(object)]
@@ -92,8 +94,6 @@ pub struct ProviderConfig {
     pub bail_on_transaction_failure: bool,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
-    /// The directory to cache remote JSON-RPC responses
-    pub cache_dir: Option<String>,
     /// The chain ID of the blockchain
     pub chain_id: BigInt,
     /// The configuration for chains
@@ -140,7 +140,7 @@ impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
         });
 
         Ok(Self {
-            json_rpc_url: value.json_rpc_url,
+            url: value.url,
             block_number,
             http_headers,
         })
@@ -255,11 +255,12 @@ impl TryFrom<ProviderConfig> for edr_provider::ProviderConfig {
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit,
-            cache_dir: PathBuf::from(
-                value
-                    .cache_dir
-                    .unwrap_or(String::from(edr_defaults::CACHE_DIR)),
-            ),
+            cache_dir: value
+                .fork
+                .as_ref()
+                .and_then(|fork_config| fork_config.cache_dir.clone())
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(edr_defaults::CACHE_DIR)),
             chain_id: value.chain_id.try_cast()?,
             chains,
             coinbase: value.coinbase.try_cast()?,

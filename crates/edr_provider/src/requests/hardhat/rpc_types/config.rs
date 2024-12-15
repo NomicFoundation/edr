@@ -9,7 +9,7 @@ pub struct ResetProviderConfig {
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ForkConfig {
-    pub json_rpc_url: String,
+    pub url: String,
     pub block_number: Option<u64>,
     pub http_headers: Option<HashMap<String, String>>,
 }

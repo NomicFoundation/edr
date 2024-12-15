@@ -2609,7 +2609,7 @@ fn create_blockchain_and_state(
             .transpose()?;
 
         let rpc_client = Arc::new(EthRpcClient::<L1ChainSpec>::new(
-            &fork_config.json_rpc_url,
+            &fork_config.url,
             config.cache_dir.clone(),
             http_headers.clone(),
         )?);
@@ -2839,7 +2839,7 @@ pub(crate) mod test_utils {
         fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
             let fork = fork.map(|json_rpc_url| {
                 ForkConfig {
-                    json_rpc_url,
+                    url: json_rpc_url,
                     // Random recent block for better cache consistency
                     block_number: Some(FORK_BLOCK_NUMBER),
                     http_headers: None,
