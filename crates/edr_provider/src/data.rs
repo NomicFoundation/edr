@@ -2639,7 +2639,7 @@ fn create_blockchain_and_state<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>>(
             .transpose()?;
 
         let rpc_client = Arc::new(EthRpcClient::<ChainSpecT>::new(
-            &fork_config.json_rpc_url,
+            &fork_config.url,
             config.cache_dir.clone(),
             http_headers.clone(),
         )?);

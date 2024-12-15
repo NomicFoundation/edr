@@ -139,7 +139,7 @@ export interface ChainConfig {
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
   /** The URL of the JSON-RPC endpoint to fork from */
-  jsonRpcUrl: string
+  url: string
   /**
    * The block number to fork from. If not provided, the latest safe block is
    * used.

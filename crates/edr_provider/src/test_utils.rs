@@ -166,7 +166,7 @@ impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<Chai
     fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
         let fork = fork.map(|json_rpc_url| {
             ForkConfig {
-                json_rpc_url,
+                url: json_rpc_url,
                 // Random recent block for better cache consistency
                 block_number: Some(FORK_BLOCK_NUMBER),
                 http_headers: None,

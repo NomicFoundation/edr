@@ -97,7 +97,7 @@ describe("Provider", () => {
       GENERIC_CHAIN_TYPE,
       {
         fork: {
-          jsonRpcUrl: ALCHEMY_URL,
+          url: ALCHEMY_URL,
         },
         ...providerConfig,
       },

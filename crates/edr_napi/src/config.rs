@@ -26,7 +26,7 @@ pub struct ChainConfig {
 #[napi(object)]
 pub struct ForkConfig {
     /// The URL of the JSON-RPC endpoint to fork from
-    pub json_rpc_url: String,
+    pub url: String,
     /// The block number to fork from. If not provided, the latest safe block is
     /// used.
     pub block_number: Option<BigInt>,
@@ -139,7 +139,7 @@ impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
         });
 
         Ok(Self {
-            json_rpc_url: value.json_rpc_url,
+            url: value.url,
             block_number,
             http_headers,
         })
