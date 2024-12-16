@@ -12,7 +12,7 @@ use edr_eth::{
     B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
-use edr_utils::types::HigherKinded;
+use edr_utils::types::TypeConstructor;
 pub use revm::EvmWiring;
 
 use crate::{
@@ -30,43 +30,46 @@ use crate::{
     RemoteBlockConversionError, SyncBlock,
 };
 
-/// Helper type to determine higher kinded execution receipt types for a chain
-/// spec.
-pub struct ExecutionReceiptHigherKindedForChainSpec<ChainSpecT: RpcSpec> {
+/// Helper type to construct execution receipt types for a chain spec.
+pub struct ExecutionReceiptTypeConstructorForChainSpec<ChainSpecT: RpcSpec> {
     phantom: PhantomData<ChainSpecT>,
 }
 
-impl<ChainSpecT: RpcSpec> HigherKinded<ExecutionLog>
-    for ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>
+impl<ChainSpecT: RpcSpec> TypeConstructor<ExecutionLog>
+    for ExecutionReceiptTypeConstructorForChainSpec<ChainSpecT>
 {
     type Type = ChainSpecT::ExecutionReceipt<ExecutionLog>;
 }
 
-impl<ChainSpecT: RpcSpec> HigherKinded<FilterLog>
-    for ExecutionReceiptHigherKindedForChainSpec<ChainSpecT>
+impl<ChainSpecT: RpcSpec> TypeConstructor<FilterLog>
+    for ExecutionReceiptTypeConstructorForChainSpec<ChainSpecT>
 {
     type Type = ChainSpecT::ExecutionReceipt<FilterLog>;
 }
 
-/// Helper trait to define the higher kinded bounds for execution receipts.
-pub trait ExecutionReceiptHigherKindedBounds:
-    HigherKinded<
+/// Helper trait to define the bounds for a type constructor of execution
+/// receipts.
+pub trait ExecutionReceiptTypeConstructorBounds:
+    TypeConstructor<
         ExecutionLog,
-        Type: MapReceiptLogs<ExecutionLog, FilterLog, <Self as HigherKinded<FilterLog>>::Type>
-                  + ExecutionReceipt<Log = ExecutionLog>,
-    > + HigherKinded<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
+        Type: MapReceiptLogs<
+            ExecutionLog,
+            FilterLog,
+            <Self as TypeConstructor<FilterLog>>::Type,
+        > + ExecutionReceipt<Log = ExecutionLog>,
+    > + TypeConstructor<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
 {
 }
 
-impl<HigherKindedT> ExecutionReceiptHigherKindedBounds for HigherKindedT where
-    HigherKindedT: HigherKinded<
+impl<TypeConstructorT> ExecutionReceiptTypeConstructorBounds for TypeConstructorT where
+    TypeConstructorT: TypeConstructor<
             ExecutionLog,
             Type: MapReceiptLogs<
                 ExecutionLog,
                 FilterLog,
-                <Self as HigherKinded<FilterLog>>::Type,
+                <Self as TypeConstructor<FilterLog>>::Type,
             > + ExecutionReceipt<Log = ExecutionLog>,
-        > + HigherKinded<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
+        > + TypeConstructor<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
 {
 }
 
@@ -334,7 +337,7 @@ impl RuntimeSpec for L1ChainSpec {
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
         Self::BlockReceipt,
-        ExecutionReceiptHigherKindedForChainSpec<Self>,
+        ExecutionReceiptTypeConstructorForChainSpec<Self>,
         Self::Hardfork,
         Self::RpcReceiptConversionError,
         Self::SignedTransaction,

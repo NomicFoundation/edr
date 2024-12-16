@@ -18,7 +18,7 @@ use edr_evm::{
         SyncBlockchain,
     },
     receipt::{self, ExecutionReceiptBuilder as _},
-    spec::{ExecutionReceiptHigherKindedForChainSpec, RuntimeSpec},
+    spec::{ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
     transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
@@ -242,7 +242,7 @@ fn insert_dummy_block_with_transaction(
     let block = EthLocalBlock::<
         RemoteBlockConversionError<TransactionConversionError>,
         BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
-        ExecutionReceiptHigherKindedForChainSpec<L1ChainSpec>,
+        ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
         l1::SpecId,
         edr_rpc_eth::receipt::ConversionError,
         transaction::Signed,

@@ -11,7 +11,7 @@ use edr_eth::{
 };
 use edr_evm::{
     hardfork::Activations,
-    spec::{ExecutionReceiptHigherKindedForChainSpec, L1Wiring, RuntimeSpec},
+    spec::{ExecutionReceiptTypeConstructorForChainSpec, L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
     BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
@@ -58,7 +58,7 @@ impl RuntimeSpec for GenericChainSpec {
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
         Self::BlockReceipt,
-        ExecutionReceiptHigherKindedForChainSpec<Self>,
+        ExecutionReceiptTypeConstructorForChainSpec<Self>,
         Self::Hardfork,
         Self::RpcReceiptConversionError,
         Self::SignedTransaction,
