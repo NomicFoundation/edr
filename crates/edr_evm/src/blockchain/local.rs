@@ -18,15 +18,18 @@ use edr_eth::{
 };
 
 use super::{
-    compute_state_at_block, storage::ReservableSparseBlockchainStorage, validate_next_block,
-    BlockHash, Blockchain, BlockchainError, BlockchainMut,
+    compute_state_at_block,
+    storage::{ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec},
+    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
+    BlockchainMut,
 };
 use crate::{
+    block::EmptyBlock as _,
     spec::SyncRuntimeSpec,
     state::{
         StateCommit as _, StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState,
     },
-    Block, BlockAndTotalDifficulty, BlockReceipt, LocalBlock, SyncBlock,
+    Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
@@ -80,17 +83,19 @@ pub struct LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec,
 {
-    storage: ReservableSparseBlockchainStorage<
-        Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
-        ChainSpecT,
-    >,
+    storage: ReservableSparseBlockchainStorageForChainSpec<ChainSpecT>,
     chain_id: u64,
-    spec_id: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::Hardfork,
 }
 
 impl<ChainSpecT> LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncRuntimeSpec,
+    ChainSpecT: SyncRuntimeSpec<
+        LocalBlock: BlockReceipts<
+            Arc<ChainSpecT::BlockReceipt>,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
 {
     /// Constructs a new instance using the provided arguments to build a
     /// genesis block.
@@ -99,12 +104,12 @@ where
     pub fn new(
         mut genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: ChainSpecT::Hardfork,
+        hardfork: ChainSpecT::Hardfork,
         options: GenesisBlockOptions,
     ) -> Result<Self, CreationError> {
         const EXTRA_DATA: &[u8] = b"\x12\x34";
 
-        let evm_spec_id = spec_id.into();
+        let evm_spec_id = hardfork.into();
         if evm_spec_id >= l1::SpecId::CANCUN {
             let beacon_roots_address =
                 Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
@@ -147,13 +152,13 @@ where
 
         options.extra_data = Some(Bytes::from(EXTRA_DATA));
 
-        let partial_header = PartialHeader::new::<ChainSpecT>(spec_id, options, None);
+        let partial_header = PartialHeader::new::<ChainSpecT>(hardfork, options, None);
         Ok(unsafe {
             Self::with_genesis_block_unchecked(
-                LocalBlock::empty(spec_id, partial_header),
+                ChainSpecT::LocalBlock::empty(hardfork, partial_header),
                 genesis_diff,
                 chain_id,
-                spec_id,
+                hardfork,
             )
         })
     }
@@ -162,10 +167,10 @@ where
     /// zero block number.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn with_genesis_block(
-        genesis_block: LocalBlock<ChainSpecT>,
+        genesis_block: ChainSpecT::LocalBlock,
         genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: ChainSpecT::Hardfork,
+        hardfork: ChainSpecT::Hardfork,
     ) -> Result<Self, InsertBlockError> {
         let genesis_header = genesis_block.header();
 
@@ -176,12 +181,12 @@ where
             });
         }
 
-        if spec_id.into() >= l1::SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
+        if hardfork.into() >= l1::SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InsertBlockError::MissingWithdrawals);
         }
 
         Ok(unsafe {
-            Self::with_genesis_block_unchecked(genesis_block, genesis_diff, chain_id, spec_id)
+            Self::with_genesis_block_unchecked(genesis_block, genesis_diff, chain_id, hardfork)
         })
     }
 
@@ -193,17 +198,14 @@ where
     /// Ensure that the genesis block's number is zero.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub unsafe fn with_genesis_block_unchecked(
-        genesis_block: LocalBlock<ChainSpecT>,
+        genesis_block: ChainSpecT::LocalBlock,
         genesis_diff: StateDiff,
         chain_id: u64,
-        spec_id: ChainSpecT::Hardfork,
+        hardfork: ChainSpecT::Hardfork,
     ) -> Self {
-        let genesis_block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>> =
-            Arc::new(genesis_block);
-
         let total_difficulty = genesis_block.header().difficulty;
         let storage = ReservableSparseBlockchainStorage::with_genesis_block(
-            genesis_block,
+            Arc::new(genesis_block),
             genesis_diff,
             total_difficulty,
         );
@@ -211,16 +213,19 @@ where
         Self {
             storage,
             chain_id,
-            spec_id,
+            hardfork,
         }
     }
 }
 
-impl<ChainSpecT> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
+impl<ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncRuntimeSpec,
+    ChainSpecT::LocalBlock: BlockReceipts<
+        Arc<ChainSpecT::BlockReceipt>,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
 {
-    type BlockchainError = BlockchainError<ChainSpecT>;
+    type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
 
     type StateError = StateError;
 
@@ -229,11 +234,10 @@ where
     fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
-        Self::BlockchainError,
-    > {
-        Ok(self.storage.block_by_hash(hash))
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+        let local_block = self.storage.block_by_hash(hash);
+
+        Ok(local_block.map(ChainSpecT::cast_local_block))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -241,11 +245,10 @@ where
     fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
-        Self::BlockchainError,
-    > {
-        Ok(self.storage.block_by_number(number)?)
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+        let local_block = self.storage.block_by_number(number)?;
+
+        Ok(local_block.map(ChainSpecT::cast_local_block))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -253,11 +256,10 @@ where
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<
-        Option<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>>,
-        Self::BlockchainError,
-    > {
-        Ok(self.storage.block_by_transaction_hash(transaction_hash))
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+        let local_block = self.storage.block_by_transaction_hash(transaction_hash);
+
+        Ok(local_block.map(ChainSpecT::cast_local_block))
     }
 
     fn chain_id(&self) -> u64 {
@@ -265,14 +267,13 @@ where
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn last_block(
-        &self,
-    ) -> Result<Arc<dyn SyncBlock<ChainSpecT, Error = Self::BlockchainError>>, Self::BlockchainError>
-    {
-        Ok(self
+    fn last_block(&self) -> Result<Arc<ChainSpecT::Block>, Self::BlockchainError> {
+        let local_block = self
             .storage
             .block_by_number(self.storage.last_block_number())?
-            .expect("Block must exist"))
+            .expect("Block must exist");
+
+        Ok(ChainSpecT::cast_local_block(local_block))
     }
 
     fn last_block_number(&self) -> u64 {
@@ -298,7 +299,7 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceipt<ChainSpecT>>>, Self::BlockchainError> {
+    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, Self::BlockchainError> {
         Ok(self.storage.receipt_by_transaction_hash(transaction_hash))
     }
 
@@ -311,11 +312,11 @@ where
             return Err(BlockchainError::UnknownBlockNumber);
         }
 
-        Ok(self.spec_id)
+        Ok(self.hardfork)
     }
 
-    fn spec_id(&self) -> ChainSpecT::Hardfork {
-        self.spec_id
+    fn hardfork(&self) -> ChainSpecT::Hardfork {
+        self.hardfork
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -340,24 +341,27 @@ where
     }
 }
 
-impl<ChainSpecT> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
+impl<ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
-    ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>,
+    ChainSpecT::LocalBlock: BlockReceipts<
+        Arc<ChainSpecT::BlockReceipt>,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
 {
-    type Error = BlockchainError<ChainSpecT>;
+    type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_block(
         &mut self,
-        block: LocalBlock<ChainSpecT>,
+        block: ChainSpecT::LocalBlock,
         state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficulty<ChainSpecT, Self::Error>, Self::Error> {
+    ) -> Result<BlockAndTotalDifficultyForChainSpec<ChainSpecT>, Self::Error> {
         let last_block = self.last_block()?;
 
-        validate_next_block(self.spec_id, &last_block, &block)?;
+        validate_next_block::<ChainSpecT>(self.hardfork, &last_block, &block)?;
 
         let previous_total_difficulty = self
-            .total_difficulty_by_hash(last_block.hash())
+            .total_difficulty_by_hash(last_block.block_hash())
             .expect("No error can occur as it is stored locally")
             .expect("Must exist as its block is stored");
 
@@ -365,12 +369,12 @@ where
 
         let block = self
             .storage
-            .insert_block(block, state_diff, total_difficulty)?;
+            .insert_block(Arc::new(block), state_diff, total_difficulty)?;
 
-        Ok(BlockAndTotalDifficulty {
-            block: block.clone(),
-            total_difficulty: Some(total_difficulty),
-        })
+        Ok(BlockAndTotalDifficulty::new(
+            ChainSpecT::cast_local_block(block.clone()),
+            Some(total_difficulty),
+        ))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -383,7 +387,7 @@ where
 
         let last_block = self.last_block()?;
         let previous_total_difficulty = self
-            .total_difficulty_by_hash(last_block.hash())?
+            .total_difficulty_by_hash(last_block.block_hash())?
             .expect("Must exist as its block is stored");
 
         let last_header = last_block.header();
@@ -394,7 +398,7 @@ where
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            self.spec_id,
+            self.hardfork,
         );
 
         Ok(())
@@ -410,14 +414,14 @@ where
     }
 }
 
-impl<ChainSpecT: SyncRuntimeSpec<Hardfork: Debug>> BlockHash for LocalBlockchain<ChainSpecT> {
-    type Error = BlockchainError<ChainSpecT>;
+impl<ChainSpecT: SyncRuntimeSpec> BlockHash for LocalBlockchain<ChainSpecT> {
+    type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
         self.storage
             .block_by_number(block_number)?
-            .map(|block| *block.hash())
+            .map(|block| *block.block_hash())
             .ok_or(BlockchainError::UnknownBlockNumber)
     }
 }

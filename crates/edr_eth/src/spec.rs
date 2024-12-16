@@ -11,7 +11,7 @@ use crate::{
 /// Trait for chain specifications.
 pub trait ChainSpec {
     /// The chain's block type.
-    type Block: Block;
+    type BlockEnv: Block;
     /// The chain's type for contextual information.
     type Context: Debug + Default;
     /// The chian's halt reason type.

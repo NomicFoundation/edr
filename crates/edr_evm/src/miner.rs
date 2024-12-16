@@ -1,12 +1,14 @@
-use std::{cmp::Ordering, fmt::Debug, sync::Arc};
+use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
     result::{ExecutionResult, InvalidTransaction},
     signature::SignatureError,
+    spec::ChainSpec,
     transaction::{ExecutableTransaction as _, Transaction, TransactionValidation},
     U256,
 };
+use revm::wiring::HaltReasonTrait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,54 +19,29 @@ use crate::{
     mempool::OrderedTransaction,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, SyncState},
-    trace::Trace,
     transaction::TransactionError,
-    BlockBuilder, BlockTransactionError, BuildBlockResult, ExecutionResultWithContext, LocalBlock,
-    MemPool, SyncBlock,
+    Block as _, BlockBuilder, BlockBuilderAndError, BlockTransactionError, MemPool,
 };
-
-/// The result of mining a block, after having been committed to the blockchain.
-#[derive(Debug)]
-pub struct MineBlockResult<ChainSpecT, BlockchainErrorT>
-where
-    ChainSpecT: RuntimeSpec,
-{
-    /// Mined block
-    pub block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainErrorT>>,
-    /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
-    /// Transaction traces
-    pub transaction_traces: Vec<Trace<ChainSpecT::HaltReason>>,
-}
-
-impl<BlockchainErrorT, ChainSpecT> Clone for MineBlockResult<ChainSpecT, BlockchainErrorT>
-where
-    ChainSpecT: RuntimeSpec,
-{
-    fn clone(&self) -> Self {
-        Self {
-            block: self.block.clone(),
-            transaction_results: self.transaction_results.clone(),
-            transaction_traces: self.transaction_traces.clone(),
-        }
-    }
-}
 
 /// The result of mining a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.
-pub struct MineBlockResultAndState<ChainSpecT, StateErrorT>
-where
-    ChainSpecT: RuntimeSpec,
-{
+pub struct MineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT> {
     /// Mined block
-    pub block: LocalBlock<ChainSpecT>,
+    pub block: LocalBlockT,
     /// State after mining the block
     pub state: Box<dyn SyncState<StateErrorT>>,
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
+    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
 }
+
+/// Helper type for a chain-specific [`MineBlockResultAndState`].
+pub type MineBlockResultAndStateForChainSpec<ChainSpecT, StateErrorT> = MineBlockResultAndState<
+    <ChainSpecT as ChainSpec>::HaltReason,
+    <ChainSpecT as RuntimeSpec>::LocalBlock,
+    StateErrorT,
+>;
 
 /// The type of ordering to use when selecting blocks to mine.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -79,11 +56,13 @@ pub enum MineOrdering {
 #[derive(Debug, thiserror::Error)]
 pub enum MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
-    BlockBuilderCreation(#[from] BlockBuilderCreationError<ChainSpecT>),
+    BlockBuilderCreation(
+        #[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>,
+    ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
@@ -106,7 +85,7 @@ where
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-    mut state: Box<dyn SyncState<StateErrorT>>,
+    state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool<ChainSpecT>,
     cfg: &CfgEnv,
     hardfork: ChainSpecT::Hardfork,
@@ -114,7 +93,7 @@ pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, S
     min_gas_price: U256,
     mine_ordering: MineOrdering,
     reward: U256,
-    mut debug_context: Option<
+    debug_context: Option<
         DebugContext<
             'evm,
             ChainSpecT,
@@ -124,13 +103,12 @@ pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, S
         >,
     >,
 ) -> Result<
-    MineBlockResultAndState<ChainSpecT, StateErrorT>,
+    MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
     'blockchain: 'evm,
     ChainSpecT: SyncRuntimeSpec<
-        Hardfork: Debug,
         SignedTransaction: TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
@@ -138,11 +116,14 @@ where
     BlockchainErrorT: Debug + Send,
     StateErrorT: Debug + Send,
 {
-    let parent_block = blockchain
-        .last_block()
-        .map_err(MineBlockError::Blockchain)?;
-
-    let mut block_builder = BlockBuilder::new(cfg.clone(), hardfork, &parent_block, options)?;
+    let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
+        blockchain,
+        state,
+        hardfork,
+        cfg.clone(),
+        options,
+        debug_context,
+    )?;
 
     let mut pending_transactions = {
         type MineOrderComparator<ChainSpecT> = dyn Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering
@@ -159,8 +140,6 @@ where
         mem_pool.iter(comparator)
     };
 
-    let mut results = Vec::new();
-
     while let Some(transaction) = pending_transactions.next() {
         if *transaction.gas_price() < min_gas_price {
             pending_transactions.remove_caller(transaction.caller());
@@ -168,57 +147,49 @@ where
         }
 
         let caller = *transaction.caller();
-        let ExecutionResultWithContext {
-            result,
-            evm_context,
-        } = block_builder.add_transaction(blockchain, state, transaction, debug_context);
 
-        state = evm_context.state;
-        debug_context = evm_context.debug;
+        block_builder = block_builder.add_transaction(transaction).map_or_else(
+            |BlockBuilderAndError {
+                 block_builder,
+                 error,
+             }| match error {
+                BlockTransactionError::ExceedsBlockGasLimit => {
+                    pending_transactions.remove_caller(&caller);
 
-        match result {
-            Err(BlockTransactionError::ExceedsBlockGasLimit) => {
-                pending_transactions.remove_caller(&caller);
-                continue;
-            }
-            Err(BlockTransactionError::Transaction(TransactionError::InvalidTransaction(
-                error,
-            ))) if error == InvalidTransaction::GasPriceLessThanBasefee.into() => {
-                pending_transactions.remove_caller(&caller);
-                continue;
-            }
-            Err(error) => {
-                return Err(MineBlockError::BlockTransaction(error));
-            }
-            Ok(result) => {
-                results.push(result);
-            }
-        }
+                    Ok(block_builder)
+                }
+                BlockTransactionError::Transaction(TransactionError::InvalidTransaction(error))
+                    if error == InvalidTransaction::GasPriceLessThanBasefee.into() =>
+                {
+                    pending_transactions.remove_caller(&caller);
+
+                    Ok(block_builder)
+                }
+                error => Err(MineBlockError::BlockTransaction(error)),
+            },
+            Ok,
+        )?;
     }
 
     let beneficiary = block_builder.header().beneficiary;
     let rewards = vec![(beneficiary, reward)];
-    let BuildBlockResult { block, state_diff } = block_builder
-        .finalize(&mut state, rewards)
-        .map_err(MineBlockError::BlockFinalize)?;
 
-    Ok(MineBlockResultAndState {
-        block,
-        state,
-        state_diff,
-        transaction_results: results,
-    })
+    block_builder
+        .finalize(rewards)
+        .map_err(MineBlockError::BlockFinalize)
 }
 
 /// An error that occurred while mining a block with a single transaction.
 #[derive(Debug, thiserror::Error)]
 pub enum MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: RuntimeSpec<Hardfork: Debug>,
+    ChainSpecT: RuntimeSpec,
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
-    BlockBuilderCreation(#[from] BlockBuilderCreationError<ChainSpecT>),
+    BlockBuilderCreation(
+        #[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>,
+    ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
@@ -320,13 +291,12 @@ pub fn mine_block_with_single_transaction<
         >,
     >,
 ) -> Result<
-    MineBlockResultAndState<ChainSpecT, StateErrorT>,
+    MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
     'blockchain: 'evm,
     ChainSpecT: SyncRuntimeSpec<
-        Hardfork: Debug,
         SignedTransaction: TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
         >,
@@ -400,29 +370,28 @@ where
         }
     }
 
-    let mut block_builder =
-        BlockBuilder::new(cfg.clone(), hardfork, parent_block.as_ref(), options)?;
-
-    let ExecutionResultWithContext {
-        result,
-        evm_context,
-    } = block_builder.add_transaction(blockchain, state, transaction, debug_context);
-
-    let result = result?;
-    let mut state = evm_context.state;
+    let block_builder = ChainSpecT::BlockBuilder::<
+        '_,
+        BlockchainErrorT,
+        DebugDataT,
+        StateErrorT,
+    >::new_block_builder(
+        blockchain,
+        state,
+        hardfork,
+        cfg.clone(),
+        options,
+        debug_context,
+    )?;
 
     let beneficiary = block_builder.header().beneficiary;
     let rewards = vec![(beneficiary, reward)];
-    let BuildBlockResult { block, state_diff } = block_builder
-        .finalize(&mut state, rewards)
-        .map_err(MineTransactionError::State)?;
 
-    Ok(MineBlockResultAndState {
-        block,
-        state,
-        state_diff,
-        transaction_results: vec![result],
-    })
+    block_builder
+        .add_transaction(transaction)
+        .map_err(|BlockBuilderAndError { error, .. }| error)?
+        .finalize(rewards)
+        .map_err(MineTransactionError::State)
 }
 
 fn effective_miner_fee(transaction: &impl Transaction, base_fee: Option<U256>) -> U256 {

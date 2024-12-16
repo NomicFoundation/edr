@@ -102,7 +102,7 @@ impl<'a> InvalidRequestReason<'a> {
     }
 
     /// Converts the invalid request reason into a provider error.
-    pub fn provider_error<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+    pub fn provider_error<ChainSpecT: RuntimeSpec>(
         &self,
     ) -> Option<(&str, ProviderError<ChainSpecT>)> {
         match self {

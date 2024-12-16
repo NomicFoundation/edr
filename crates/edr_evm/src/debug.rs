@@ -1,10 +1,9 @@
 use auto_impl::auto_impl;
-use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
 
 use crate::{
     blockchain::SyncBlockchain,
     spec::RuntimeSpec,
-    state::{DatabaseComponents, State, WrapDatabaseRef},
+    state::{DatabaseComponents, State, SyncState, WrapDatabaseRef},
 };
 
 /// Type for registering handles, specialised for EDR database component types.
@@ -25,30 +24,21 @@ pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT> 
         >,
     >;
 
+/// Helper type for a chain-specific [`DebugContext`].
+pub type DebugContextForChainSpec<'evm, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT> =
+    DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, Box<dyn SyncState<StateErrorT>>>;
+
 /// Type for encapsulating contextual data and handler registration in an
 /// `EvmBuilder`.
 pub struct DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
 where
-    ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
+    ChainSpecT: RuntimeSpec,
     StateT: State,
 {
     /// The contextual data.
     pub data: DebugDataT,
     /// The function to register handles.
     pub register_handles_fn: HandleRegister<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>,
-}
-
-pub struct EvmContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>
-where
-    ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
-    StateT: State,
-{
-    pub debug: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
-    pub state: StateT,
 }
 
 /// Trait for getting contextual data.

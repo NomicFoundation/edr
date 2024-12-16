@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
 use derive_where::derive_where;
 use dyn_clone::DynClone;
 use edr_eth::{filter::LogOutput, B256, U256};
-use edr_evm::{blockchain::BlockchainError, spec::RuntimeSpec, BlockAndTotalDifficulty};
+use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty};
 
 /// Subscription event.
 #[derive_where(Clone, Debug)]
@@ -14,7 +16,7 @@ pub struct SubscriptionEvent<ChainSpecT: RuntimeSpec> {
 #[derive_where(Clone, Debug)]
 pub enum SubscriptionEventData<ChainSpecT: RuntimeSpec> {
     Logs(Vec<LogOutput>),
-    NewHeads(BlockAndTotalDifficulty<ChainSpecT, BlockchainError<ChainSpecT>>),
+    NewHeads(BlockAndTotalDifficulty<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>),
     NewPendingTransactions(B256),
 }
 

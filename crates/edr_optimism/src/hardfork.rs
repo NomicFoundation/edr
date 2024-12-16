@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use edr_eth::HashMap;
 use edr_evm::hardfork::{Activations, ChainConfig, ForkCondition};
 
-use crate::{OptimismChainSpec, OptimismSpecId};
+use crate::OptimismSpecId;
 
 const MAINNET_HARDFORKS: &[(ForkCondition, OptimismSpecId)] = &[
     (ForkCondition::Block(0), OptimismSpecId::FRONTIER),
@@ -50,8 +50,8 @@ const MAINNET_HARDFORKS: &[(ForkCondition, OptimismSpecId)] = &[
     ),
 ];
 
-fn mainnet_config() -> &'static ChainConfig<OptimismChainSpec> {
-    static CONFIG: OnceLock<ChainConfig<OptimismChainSpec>> = OnceLock::new();
+fn mainnet_config() -> &'static ChainConfig<OptimismSpecId> {
+    static CONFIG: OnceLock<ChainConfig<OptimismSpecId>> = OnceLock::new();
 
     CONFIG.get_or_init(|| {
         let hardfork_activations = MAINNET_HARDFORKS.into();
@@ -102,8 +102,8 @@ const SEPOLIA_HARDFORKS: &[(ForkCondition, OptimismSpecId)] = &[
     ),
 ];
 
-fn sepolia_config() -> &'static ChainConfig<OptimismChainSpec> {
-    static CONFIG: OnceLock<ChainConfig<OptimismChainSpec>> = OnceLock::new();
+fn sepolia_config() -> &'static ChainConfig<OptimismSpecId> {
+    static CONFIG: OnceLock<ChainConfig<OptimismSpecId>> = OnceLock::new();
 
     CONFIG.get_or_init(|| {
         let hardfork_activations = SEPOLIA_HARDFORKS.into();
@@ -117,9 +117,8 @@ fn sepolia_config() -> &'static ChainConfig<OptimismChainSpec> {
 
 // Source:
 // <https://docs.optimism.io/builders/node-operators/network-upgrades>
-fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<OptimismChainSpec>> {
-    static CONFIGS: OnceLock<HashMap<u64, &'static ChainConfig<OptimismChainSpec>>> =
-        OnceLock::new();
+fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<OptimismSpecId>> {
+    static CONFIGS: OnceLock<HashMap<u64, &'static ChainConfig<OptimismSpecId>>> = OnceLock::new();
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
@@ -139,9 +138,7 @@ pub fn chain_name(chain_id: u64) -> Option<&'static str> {
 
 /// Returns the hardfork activations corresponding to the provided chain ID, if
 /// it is supported.
-pub fn chain_hardfork_activations(
-    chain_id: u64,
-) -> Option<&'static Activations<OptimismChainSpec>> {
+pub fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<OptimismSpecId>> {
     chain_configs()
         .get(&chain_id)
         .map(|config| &config.hardfork_activations)

@@ -1,8 +1,6 @@
-use std::marker::PhantomData;
-
 use alloy_rlp::BufMut;
 
-use super::{MapReceiptLogs, Receipt};
+use super::{AsExecutionReceipt, ExecutionReceipt, MapReceiptLogs};
 use crate::{
     l1,
     result::{ExecutionResult, Output},
@@ -13,7 +11,7 @@ use crate::{
 
 /// Type for a receipt that's created when processing a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TransactionReceipt<ExecutionReceiptT, LogT> {
+pub struct TransactionReceipt<ExecutionReceiptT: ExecutionReceipt> {
     pub inner: ExecutionReceiptT,
     /// Hash of the transaction
     pub transaction_hash: B256,
@@ -34,22 +32,26 @@ pub struct TransactionReceipt<ExecutionReceiptT, LogT> {
     /// maxPriorityFeePerGas) after EIP-1559. Following Hardhat, only present if
     /// the hardfork is at least London.
     pub effective_gas_price: Option<U256>,
-    pub phantom: PhantomData<LogT>,
 }
 
-impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
-    /// Returns a reference to the inner execution receipt.
-    pub fn as_execution_receipt(&self) -> &ExecutionReceiptT {
+impl<ExecutionReceiptT: ExecutionReceipt> AsExecutionReceipt
+    for TransactionReceipt<ExecutionReceiptT>
+{
+    type ExecutionReceipt = ExecutionReceiptT;
+
+    fn as_execution_receipt(&self) -> &ExecutionReceiptT {
         &self.inner
     }
+}
 
+impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> {
     /// Converts the instance into the inner execution receipt.
     pub fn into_execution_receipt(self) -> ExecutionReceiptT {
         self.inner
     }
 }
 
-impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceiptT, LogT> {
+impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> {
     /// Constructs a new instance using the provided execution receipt an
     /// transaction
     pub fn new<HaltReasonT: HaltReasonTrait, HardforkT: HardforkTrait>(
@@ -89,22 +91,22 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> TransactionReceipt<ExecutionReceipt
             contract_address,
             gas_used: result.gas_used(),
             effective_gas_price,
-            phantom: PhantomData,
         }
     }
 }
 
 impl<OldExecutionReceiptT, NewExecutionReceiptT, OldLogT, NewLogT>
-    MapReceiptLogs<OldLogT, NewLogT, TransactionReceipt<NewExecutionReceiptT, NewLogT>>
-    for TransactionReceipt<OldExecutionReceiptT, OldLogT>
+    MapReceiptLogs<OldLogT, NewLogT, TransactionReceipt<NewExecutionReceiptT>>
+    for TransactionReceipt<OldExecutionReceiptT>
 where
-    OldExecutionReceiptT: MapReceiptLogs<OldLogT, NewLogT, NewExecutionReceiptT> + Receipt<OldLogT>,
-    NewExecutionReceiptT: Receipt<NewLogT>,
+    OldExecutionReceiptT:
+        MapReceiptLogs<OldLogT, NewLogT, NewExecutionReceiptT> + ExecutionReceipt<Log = OldLogT>,
+    NewExecutionReceiptT: ExecutionReceipt<Log = NewLogT>,
 {
     fn map_logs(
         self,
         map_fn: impl FnMut(OldLogT) -> NewLogT,
-    ) -> TransactionReceipt<NewExecutionReceiptT, NewLogT> {
+    ) -> TransactionReceipt<NewExecutionReceiptT> {
         TransactionReceipt {
             inner: self.inner.map_logs(map_fn),
             transaction_hash: self.transaction_hash,
@@ -114,14 +116,15 @@ where
             contract_address: self.contract_address,
             gas_used: self.gas_used,
             effective_gas_price: self.effective_gas_price,
-            phantom: PhantomData,
         }
     }
 }
 
-impl<ExecutionReceiptT: Receipt<LogT>, LogT> Receipt<LogT>
-    for TransactionReceipt<ExecutionReceiptT, LogT>
+impl<ExecutionReceiptT: ExecutionReceipt> ExecutionReceipt
+    for TransactionReceipt<ExecutionReceiptT>
 {
+    type Log = ExecutionReceiptT::Log;
+
     fn cumulative_gas_used(&self) -> u64 {
         self.inner.cumulative_gas_used()
     }
@@ -130,7 +133,7 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> Receipt<LogT>
         self.inner.logs_bloom()
     }
 
-    fn transaction_logs(&self) -> &[LogT] {
+    fn transaction_logs(&self) -> &[Self::Log] {
         self.inner.transaction_logs()
     }
 
@@ -139,8 +142,8 @@ impl<ExecutionReceiptT: Receipt<LogT>, LogT> Receipt<LogT>
     }
 }
 
-impl<ExecutionReceiptT: TransactionType, LogT> TransactionType
-    for TransactionReceipt<ExecutionReceiptT, LogT>
+impl<ExecutionReceiptT: ExecutionReceipt + TransactionType> TransactionType
+    for TransactionReceipt<ExecutionReceiptT>
 {
     type Type = ExecutionReceiptT::Type;
 
@@ -149,9 +152,9 @@ impl<ExecutionReceiptT: TransactionType, LogT> TransactionType
     }
 }
 
-impl<ExecutionReceiptT, LogT> alloy_rlp::Encodable for TransactionReceipt<ExecutionReceiptT, LogT>
+impl<ExecutionReceiptT> alloy_rlp::Encodable for TransactionReceipt<ExecutionReceiptT>
 where
-    ExecutionReceiptT: Receipt<LogT> + alloy_rlp::Encodable,
+    ExecutionReceiptT: ExecutionReceipt + alloy_rlp::Encodable,
 {
     fn encode(&self, out: &mut dyn BufMut) {
         self.inner.encode(out);

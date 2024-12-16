@@ -1,13 +1,7 @@
-use std::sync::Arc;
-
-use edr_eth::{log::FilterLog, receipt::BlockReceipt};
-
-use crate::spec::RuntimeSpec;
-
 /// Wrapper struct for a transaction and its receipt.
-pub struct DetailedTransaction<'transaction, ChainSpecT: RuntimeSpec> {
+pub struct DetailedTransaction<'transaction, SignedTransactionT, TransactionReceipT> {
     /// The transaction
-    pub transaction: &'transaction ChainSpecT::SignedTransaction,
+    pub transaction: &'transaction SignedTransactionT,
     /// The transaction's receipt
-    pub receipt: &'transaction Arc<BlockReceipt<ChainSpecT::ExecutionReceipt<FilterLog>>>,
+    pub receipt: &'transaction TransactionReceipT,
 }

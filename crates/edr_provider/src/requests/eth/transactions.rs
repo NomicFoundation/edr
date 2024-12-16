@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
@@ -12,9 +11,8 @@ use edr_eth::{
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
-    blockchain::BlockchainError,
     spec::RuntimeSpec,
-    transaction, SyncBlock,
+    transaction, Block,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
 
@@ -53,7 +51,7 @@ pub fn handle_get_transaction_by_block_hash_and_index<
 pub fn handle_get_transaction_by_block_spec_and_index<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
@@ -74,9 +72,8 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         // Pending block requested
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>> =
-                Arc::new(result.block);
-            Some((block, true))
+            let pending_block = Arc::new(result.block);
+            Some((ChainSpecT::cast_local_block(pending_block), true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
         Err(ProviderError::InvalidBlockNumberOrHash { .. }) => None,
@@ -111,7 +108,7 @@ pub fn handle_pending_transactions<
     Ok(transactions)
 }
 
-fn rpc_index_to_usize<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+fn rpc_index_to_usize<ChainSpecT: RuntimeSpec>(
     index: &U256,
 ) -> Result<usize, ProviderError<ChainSpecT>> {
     index
@@ -144,14 +141,17 @@ pub fn handle_get_transaction_receipt<
 ) -> Result<Option<ChainSpecT::RpcReceipt>, ProviderError<ChainSpecT>> {
     let receipt = data.transaction_receipt(&transaction_hash)?;
 
-    Ok(receipt.map(|receipt| ChainSpecT::RpcReceipt::rpc_type_from(&receipt, data.hardfork())))
+    let rpc_receipt =
+        receipt.map(|receipt| ChainSpecT::RpcReceipt::rpc_type_from(&receipt, data.hardfork()));
+
+    Ok(rpc_receipt)
 }
 
-fn transaction_from_block<ChainSpecT: RuntimeSpec>(
-    block: Arc<dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>>,
+fn transaction_from_block<BlockT: Block<SignedTransactionT> + Clone, SignedTransactionT: Clone>(
+    block: BlockT,
     transaction_index: usize,
     is_pending: bool,
-) -> Option<TransactionAndBlock<ChainSpecT>> {
+) -> Option<TransactionAndBlock<BlockT, SignedTransactionT>> {
     block
         .transactions()
         .get(transaction_index)
@@ -168,7 +168,7 @@ fn transaction_from_block<ChainSpecT: RuntimeSpec>(
 pub fn handle_send_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
@@ -194,7 +194,7 @@ pub fn handle_send_transaction_request<
 pub fn handle_send_raw_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
@@ -229,7 +229,7 @@ pub fn handle_send_raw_transaction_request<
 fn send_raw_transaction_and_log<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<

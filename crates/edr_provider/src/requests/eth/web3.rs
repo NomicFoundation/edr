@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{Bytes, B256};
 use edr_evm::spec::RuntimeSpec;
 use sha3::{Digest, Keccak256};
@@ -14,12 +12,12 @@ pub fn client_version() -> String {
     )
 }
 
-pub fn handle_web3_client_version_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub fn handle_web3_client_version_request<ChainSpecT: RuntimeSpec>(
 ) -> Result<String, ProviderError<ChainSpecT>> {
     Ok(client_version())
 }
 
-pub fn handle_web3_sha3_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub fn handle_web3_sha3_request<ChainSpecT: RuntimeSpec>(
     message: Bytes,
 ) -> Result<B256, ProviderError<ChainSpecT>> {
     let hash = Keccak256::digest(&message[..]);

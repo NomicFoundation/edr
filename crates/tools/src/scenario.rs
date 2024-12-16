@@ -8,8 +8,10 @@ use std::{
 
 use anyhow::Context;
 use derive_where::derive_where;
-use edr_eth::l1::L1ChainSpec;
-use edr_evm::{blockchain::BlockchainError, spec::RuntimeSpec};
+use edr_eth::l1;
+use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
+use edr_generic::GenericChainSpec;
+use edr_napi_core::spec::SyncNapiSpec;
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use flate2::bufread::GzDecoder;
@@ -33,9 +35,9 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         anyhow::bail!("This scenario expects logging, but logging is not yet implemented")
     }
 
-    let provider_config = edr_provider::ProviderConfig::<L1ChainSpec>::from(config.provider_config);
+    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(config.provider_config);
 
-    let logger = Box::<DisabledLogger<L1ChainSpec>>::default();
+    let logger = Box::<DisabledLogger<GenericChainSpec>>::default();
     let subscription_callback = Box::new(|_| ());
 
     #[cfg(feature = "tracing")]
@@ -108,7 +110,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
 
 async fn load_requests(
     scenario_path: &Path,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<L1ChainSpec>>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
     println!("Loading requests from {scenario_path:?}");
 
     match load_gzipped_json(scenario_path.to_path_buf()).await {
@@ -120,7 +122,7 @@ async fn load_requests(
 
 async fn load_gzipped_json(
     scenario_path: PathBuf,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<L1ChainSpec>>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
     use std::{
         fs::File,
         io::{BufRead, BufReader},
@@ -140,14 +142,17 @@ async fn load_gzipped_json(
             let config: ScenarioConfig = serde_json::from_str(&first_line)?;
 
             if let Some(chain_type) = &config.chain_type {
-                anyhow::ensure!(chain_type == "L1", "Unsupported chain type: {chain_type}");
+                anyhow::ensure!(
+                    chain_type == GenericChainSpec::CHAIN_TYPE,
+                    "Unsupported chain type: {chain_type}"
+                );
             }
 
-            let mut requests: Vec<ProviderRequest<L1ChainSpec>> = Vec::new();
+            let mut requests: Vec<ProviderRequest<GenericChainSpec>> = Vec::new();
 
             for gzipped_line in lines {
                 let line = gzipped_line.context("Invalid gzip")?;
-                let request: ProviderRequest<L1ChainSpec> = serde_json::from_str(&line)?;
+                let request: ProviderRequest<GenericChainSpec> = serde_json::from_str(&line)?;
                 requests.push(request);
             }
 
@@ -158,7 +163,7 @@ async fn load_gzipped_json(
 
 async fn load_json(
     scenario_path: &Path,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<L1ChainSpec>>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
     use tokio::io::AsyncBufReadExt;
 
     let reader = tokio::io::BufReader::new(tokio::fs::File::open(scenario_path).await?);
@@ -168,13 +173,16 @@ async fn load_json(
     let config: ScenarioConfig = serde_json::from_str(&first_line)?;
 
     if let Some(chain_type) = &config.chain_type {
-        anyhow::ensure!(chain_type == "L1", "Unsupported chain type: {chain_type}");
+        anyhow::ensure!(
+            chain_type == GenericChainSpec::CHAIN_TYPE,
+            "Unsupported chain type: {chain_type}"
+        );
     }
 
-    let mut requests: Vec<ProviderRequest<L1ChainSpec>> = Vec::new();
+    let mut requests: Vec<ProviderRequest<GenericChainSpec>> = Vec::new();
 
     while let Some(line) = lines.next_line().await? {
-        let request: ProviderRequest<L1ChainSpec> = serde_json::from_str(&line)?;
+        let request: ProviderRequest<GenericChainSpec> = serde_json::from_str(&line)?;
         requests.push(request);
     }
 
@@ -186,8 +194,8 @@ struct DisabledLogger<ChainSpecT: RuntimeSpec> {
     _phantom: PhantomData<ChainSpecT>,
 }
 
-impl<ChainSpecT: RuntimeSpec<Hardfork: Debug>> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
-    type BlockchainError = BlockchainError<L1ChainSpec>;
+impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
+    type BlockchainError = BlockchainErrorForChainSpec<GenericChainSpec>;
 
     fn is_enabled(&self) -> bool {
         false

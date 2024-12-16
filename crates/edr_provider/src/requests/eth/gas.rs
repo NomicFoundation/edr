@@ -6,7 +6,7 @@ use edr_eth::{
     transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
     BlockSpec, U256, U64,
 };
-use edr_evm::{state::StateOverrides, transaction};
+use edr_evm::{state::StateOverrides, transaction, Block as _};
 
 use crate::{
     data::ProviderData,
@@ -19,7 +19,7 @@ use crate::{
 pub fn handle_estimate_gas<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<
@@ -59,7 +59,7 @@ pub fn handle_estimate_gas<
 pub fn handle_fee_history<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,
@@ -122,7 +122,7 @@ The reward percentiles should be in non-decreasing order, but the percentile num
 fn resolve_estimate_gas_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,

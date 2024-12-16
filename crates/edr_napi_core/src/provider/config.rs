@@ -1,11 +1,13 @@
 use core::num::NonZeroU64;
 use std::{path::PathBuf, time::SystemTime};
 
-use edr_eth::{account::AccountInfo, block::BlobGas, Address, ChainId, HashMap, B256, U256};
+use edr_eth::{
+    account::AccountInfo, block::BlobGas, spec::HardforkTrait, Address, ChainId, HashMap, B256,
+    U256,
+};
 use edr_provider::{
     hardfork::{Activations, ForkCondition},
     hardhat_rpc_types::ForkConfig,
-    spec::RuntimeSpec,
     AccountConfig, MiningConfig,
 };
 use serde::{Deserialize, Serialize};
@@ -47,9 +49,9 @@ pub struct Config {
     pub network_id: u64,
 }
 
-impl<ChainSpecT> From<Config> for edr_provider::ProviderConfig<ChainSpecT>
+impl<HardforkT> From<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    ChainSpecT: RuntimeSpec<Hardfork: for<'s> From<&'s str>>,
+    HardforkT: for<'s> From<&'s str> + HardforkTrait,
 {
     fn from(value: Config) -> Self {
         let cache_dir = PathBuf::from(
@@ -70,7 +72,7 @@ where
                              hardfork,
                          }| {
                             let condition = ForkCondition::Block(block_number);
-                            let hardfork = ChainSpecT::Hardfork::from(&hardfork);
+                            let hardfork = HardforkT::from(&hardfork);
 
                             (condition, hardfork)
                         },
@@ -81,7 +83,7 @@ where
             })
             .collect();
 
-        let hardfork = ChainSpecT::Hardfork::from(&value.hardfork);
+        let hardfork = HardforkT::from(&value.hardfork);
 
         Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,

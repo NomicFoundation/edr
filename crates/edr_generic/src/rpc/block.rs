@@ -1,7 +1,7 @@
 use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, Header},
-    transaction::ExecutableTransaction as _,
+    transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
@@ -190,10 +190,10 @@ where
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT: RuntimeSpec>
-    From<BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>> for crate::rpc::block::Block<B256>
+impl<BlockT: edr_evm::Block<SignedTransactionT>, SignedTransactionT: ExecutableTransaction>
+    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for crate::rpc::block::Block<B256>
 {
-    fn from(value: BlockAndTotalDifficulty<ChainSpecT, BlockchainErrorT>) -> Self {
+    fn from(value: BlockAndTotalDifficulty<BlockT, SignedTransactionT>) -> Self {
         let transactions = value
             .block
             .transactions()
@@ -203,7 +203,7 @@ impl<BlockchainErrorT, ChainSpecT: RuntimeSpec>
 
         let header = value.block.header();
         crate::rpc::block::Block {
-            hash: Some(*value.block.hash()),
+            hash: Some(*value.block.block_hash()),
             parent_hash: header.parent_hash,
             sha3_uncles: header.ommers_hash,
             state_root: header.state_root,

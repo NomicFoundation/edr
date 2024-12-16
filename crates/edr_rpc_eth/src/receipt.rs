@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
-
 use edr_eth::{
     eips::{eip2718::TypedEnvelope, eip7702},
     l1,
     log::FilterLog,
-    receipt::{self, Execution, Receipt as _, TransactionReceipt},
+    receipt::{
+        self, AsExecutionReceipt as _, Execution, ExecutionReceipt as _, TransactionReceipt,
+    },
     transaction::{self, TransactionType as _},
     Address, Bloom, B256, U256,
 };
@@ -105,11 +105,11 @@ impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLo
             contract_address: value.inner.contract_address,
             logs: value.inner.transaction_logs().to_vec(),
             logs_bloom: *value.inner.logs_bloom(),
-            state_root: match value.inner.as_execution_receipt().data() {
+            state_root: match value.as_execution_receipt().data() {
                 Execution::Legacy(receipt) => Some(receipt.root),
                 Execution::Eip658(_) => None,
             },
-            status: match value.inner.as_execution_receipt().data() {
+            status: match value.as_execution_receipt().data() {
                 Execution::Legacy(_) => None,
                 Execution::Eip658(receipt) => Some(receipt.status),
             },
@@ -179,7 +179,6 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
                 contract_address: value.contract_address,
                 gas_used: value.gas_used,
                 effective_gas_price: value.effective_gas_price,
-                phantom: PhantomData,
             },
         })
     }
@@ -188,7 +187,13 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
 #[cfg(test)]
 mod test {
     use assert_json_diff::assert_json_eq;
-    use edr_eth::{eips::eip2718::TypedEnvelope, l1::L1ChainSpec, log::ExecutionLog, Bloom, Bytes};
+    use edr_eth::{
+        eips::eip2718::TypedEnvelope,
+        l1::{self, L1ChainSpec},
+        log::ExecutionLog,
+        Bloom, Bytes,
+    };
+    use edr_evm::block::EthBlockReceiptFactory;
     use serde_json::json;
 
     use crate::{impl_execution_receipt_tests, receipt};
@@ -239,8 +244,8 @@ mod test {
     }
 
     impl_execution_receipt_tests! {
-        L1ChainSpec => {
-            legacy => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
+        L1ChainSpec, EthBlockReceiptFactory::default() => {
+            legacy, l1::SpecId::LATEST => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -249,7 +254,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930 => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip2930, l1::SpecId::LATEST => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -258,7 +263,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559 => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip1559, l1::SpecId::LATEST => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -267,7 +272,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844 => TypedEnvelope::Eip4844(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip4844, l1::SpecId::LATEST => TypedEnvelope::Eip4844(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),

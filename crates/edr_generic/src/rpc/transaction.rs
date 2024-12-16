@@ -1,6 +1,6 @@
 use edr_eth::{l1, transaction::SignedTransaction as _};
 use edr_evm::{
-    block::transaction::{BlockDataForTransaction, TransactionAndBlock},
+    block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::remote::EthRpcTransaction,
 };
 use edr_rpc_eth::RpcTypeFrom;
@@ -29,11 +29,11 @@ impl From<edr_rpc_eth::TransactionWithSignature> for TransactionWithSignature {
     }
 }
 
-impl RpcTypeFrom<TransactionAndBlock<GenericChainSpec>> for TransactionWithSignature {
+impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for TransactionWithSignature {
     type Hardfork = l1::SpecId;
 
     fn rpc_type_from(
-        value: &TransactionAndBlock<GenericChainSpec>,
+        value: &TransactionAndBlockForChainSpec<GenericChainSpec>,
         hardfork: Self::Hardfork,
     ) -> Self {
         let (header, transaction_index) = value

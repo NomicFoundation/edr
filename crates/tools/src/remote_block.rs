@@ -1,10 +1,12 @@
 use core::fmt::Debug;
+use std::sync::Arc;
 
 use clap::ValueEnum;
 use edr_eth::{
-    l1::L1ChainSpec, log::FilterLog, result::InvalidTransaction, transaction::TransactionValidation,
+    l1::L1ChainSpec, log::FilterLog, receipt::AsExecutionReceipt, result::InvalidTransaction,
+    transaction::TransactionValidation,
 };
-use edr_evm::test_utils::run_full_block;
+use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};
 use edr_optimism::OptimismChainSpec;
 use edr_provider::spec::SyncRuntimeSpec;
 use edr_rpc_eth::client::EthRpcClient;
@@ -43,9 +45,15 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
 where
     ChainSpecT: Debug
         + SyncRuntimeSpec<
-            Block: Default,
-            Hardfork: Debug,
+            BlockEnv: Default,
+            BlockReceipt: AsExecutionReceipt<
+                ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
             ExecutionReceipt<FilterLog>: PartialEq,
+            LocalBlock: BlockReceipts<
+                Arc<ChainSpecT::BlockReceipt>,
+                Error = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
             SignedTransaction: Default
                                    + TransactionValidation<
                 ValidationError: From<InvalidTransaction> + Send + Sync,

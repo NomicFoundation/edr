@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::l1::L1ChainSpec;
+use edr_eth::l1::{self, L1ChainSpec};
 use edr_napi_core::{
     logger::Logger,
     provider::{self, ProviderBuilder, SyncProviderFactory},
@@ -23,7 +23,7 @@ impl SyncProviderFactory for L1ProviderFactory {
     ) -> napi::Result<Box<dyn provider::Builder>> {
         let logger = Logger::<L1ChainSpec>::new(logger_config)?;
 
-        let provider_config = edr_provider::ProviderConfig::<L1ChainSpec>::from(provider_config);
+        let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(provider_config);
 
         let subscription_callback =
             subscription::Callback::new(env, subscription_config.subscription_callback)?;

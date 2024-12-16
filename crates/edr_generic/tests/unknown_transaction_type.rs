@@ -44,7 +44,7 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
         .block_by_number(BLOCK_NUMBER_WITH_TRANSACTIONS)?
         .expect("Block must exist");
 
-    let _receipts = block_with_transactions.transaction_receipts()?;
+    let _receipts = block_with_transactions.fetch_transaction_receipts()?;
 
     Ok(())
 }

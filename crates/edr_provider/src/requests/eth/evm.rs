@@ -27,7 +27,7 @@ pub fn handle_increase_time_request<
 pub fn handle_mine_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: Default,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<InvalidTransaction> + PartialEq,

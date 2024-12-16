@@ -1,20 +1,22 @@
-use core::{cmp, fmt::Debug};
+use core::cmp;
+use std::sync::Arc;
 
 use edr_eth::{
     block::Header,
+    receipt::ReceiptTrait as _,
     result::{ExecutionResult, InvalidTransaction},
     reward_percentile::RewardPercentile,
     transaction::{Transaction as _, TransactionMut, TransactionValidation},
     Address, HashMap, U256,
 };
 use edr_evm::{
-    blockchain::{BlockchainError, SyncBlockchain},
+    blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     precompile::Precompile,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::SyncRuntimeSpec,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    DebugContext, SyncBlock,
+    Block as _, BlockReceipts, DebugContext,
 };
 use itertools::Itertools;
 
@@ -24,7 +26,8 @@ use crate::{
 };
 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
+    pub blockchain:
+        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -44,8 +47,7 @@ pub(super) fn check_gas_limit<ChainSpecT>(
 ) -> Result<bool, ProviderError<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
-        Block: Default,
-        Hardfork: Debug,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
@@ -85,7 +87,8 @@ where
 }
 
 pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
+    pub blockchain:
+        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -106,8 +109,7 @@ pub(super) fn binary_search_estimation<ChainSpecT>(
 ) -> Result<u64, ProviderError<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
-        Block: Default,
-        Hardfork: Debug,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
@@ -184,10 +186,18 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-    block: &dyn SyncBlock<ChainSpecT, Error = BlockchainError<ChainSpecT>>,
+pub(super) fn compute_rewards<ChainSpecT>(
+    block: &ChainSpecT::Block,
     reward_percentiles: &[RewardPercentile],
-) -> Result<Vec<U256>, ProviderError<ChainSpecT>> {
+) -> Result<Vec<U256>, ProviderError<ChainSpecT>>
+where
+    ChainSpecT: SyncRuntimeSpec<
+        Block: BlockReceipts<
+            Arc<ChainSpecT::BlockReceipt>,
+            Error = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
+{
     if block.transactions().is_empty() {
         return Ok(reward_percentiles.iter().map(|_| U256::ZERO).collect());
     }
@@ -195,13 +205,13 @@ pub(super) fn compute_rewards<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
     let base_fee_per_gas = block.header().base_fee_per_gas.unwrap_or_default();
 
     let gas_used_and_effective_reward = block
-        .transaction_receipts()?
+        .fetch_transaction_receipts()?
         .iter()
         .enumerate()
         .map(|(i, receipt)| {
             let transaction = &block.transactions()[i];
 
-            let gas_used = receipt.gas_used;
+            let gas_used = receipt.gas_used();
             // gas price pre EIP-1559 and max fee per gas post EIP-1559
             let gas_price = transaction.gas_price();
 

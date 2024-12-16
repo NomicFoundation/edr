@@ -9,6 +9,7 @@ members = [
     "crates/edr_rpc_eth",
     "crates/edr_solidity",
     "crates/edr_test_utils",
+    "crates/edr_utils",
     "crates/tools",
 ]
 resolver = "2"

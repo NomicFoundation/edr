@@ -11,6 +11,7 @@ use edr_evm::{
 use edr_optimism::{hardfork, transaction, OptimismChainSpec};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;
+use op_alloy_rpc_types::receipt::L1BlockInfo;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -107,7 +108,7 @@ async fn transaction_and_receipt_pre_bedrock() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn transaction_and_receipt_regolith() -> anyhow::Result<()> {
+async fn deposit_transaction_and_receipt_regolith() -> anyhow::Result<()> {
     const TRANSACTION_HASH: B256 =
         b256!("dd8e089476419b44cc37d72e631c44c57b38ac5a25fe5dea7b38688b83022fa1");
 
@@ -132,12 +133,13 @@ async fn transaction_and_receipt_regolith() -> anyhow::Result<()> {
         Some(transaction::Type::Deposit.into())
     );
     assert!(receipt.deposit_receipt_version.is_none());
+    assert_l1_block_info_is_none(&receipt.l1_block_info);
 
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn transaction_and_receipt_canyon() -> anyhow::Result<()> {
+async fn deposit_transaction_and_receipt_canyon() -> anyhow::Result<()> {
     const TRANSACTION_HASH: B256 =
         b256!("64c32c8d474e8befdea12e25338ad86d53950b1156c413f409e785112cfed4d3");
 
@@ -162,12 +164,13 @@ async fn transaction_and_receipt_canyon() -> anyhow::Result<()> {
         Some(transaction::Type::Deposit.into())
     );
     assert_eq!(receipt.deposit_receipt_version, Some(1));
+    assert_l1_block_info_is_none(&receipt.l1_block_info);
 
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn transaction_and_receipt_ecotone() -> anyhow::Result<()> {
+async fn deposit_transaction_and_receipt_ecotone() -> anyhow::Result<()> {
     const TRANSACTION_HASH: B256 =
         b256!("cca2f31992022e3a833959c505de021285a7c5339c8d1b8ad75100074e1c6aea");
 
@@ -192,6 +195,41 @@ async fn transaction_and_receipt_ecotone() -> anyhow::Result<()> {
         Some(transaction::Type::Deposit.into())
     );
     assert_eq!(receipt.deposit_receipt_version, Some(1));
+    assert_l1_block_info_is_none(&receipt.l1_block_info);
 
     Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn receipt_with_l1_block_info() -> anyhow::Result<()> {
+    const TRANSACTION_HASH: B256 =
+        b256!("f0b04a1c6f61b2818ac2c62ed0c3fc22cd7ebd2f51161759714f75dd27fa7caa");
+
+    let url = get_alchemy_url().replace("eth-", "opt-");
+    let rpc_client = EthRpcClient::<OptimismChainSpec>::new(&url, CACHE_DIR.into(), None)?;
+
+    let receipt = rpc_client
+        .get_transaction_receipt(TRANSACTION_HASH)
+        .await?
+        .expect("Receipt must exist");
+
+    assert_eq!(receipt.l1_block_info.l1_gas_price, Some(0x5f3a77dd6));
+    assert_eq!(receipt.l1_block_info.l1_gas_used, Some(0x640));
+    assert_eq!(receipt.l1_block_info.l1_fee, Some(0x1c3441e5e02));
+    assert_eq!(receipt.l1_block_info.l1_fee_scalar, None);
+    assert_eq!(receipt.l1_block_info.l1_base_fee_scalar, Some(0x146b));
+    assert_eq!(receipt.l1_block_info.l1_blob_base_fee, Some(0x3f5694c1f));
+    assert_eq!(receipt.l1_block_info.l1_blob_base_fee_scalar, Some(0xf79c5));
+
+    Ok(())
+}
+
+fn assert_l1_block_info_is_none(l1_block_info: &L1BlockInfo) {
+    assert!(l1_block_info.l1_gas_price.is_none());
+    assert!(l1_block_info.l1_gas_used.is_none());
+    assert!(l1_block_info.l1_fee.is_none());
+    assert!(l1_block_info.l1_fee_scalar.is_none());
+    assert!(l1_block_info.l1_base_fee_scalar.is_none());
+    assert!(l1_block_info.l1_blob_base_fee.is_none());
+    assert!(l1_block_info.l1_blob_base_fee_scalar.is_none());
 }

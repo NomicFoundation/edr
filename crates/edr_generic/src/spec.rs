@@ -1,22 +1,27 @@
+use std::sync::Arc;
+
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
     l1::{self, L1ChainSpec},
+    log::FilterLog,
+    receipt::BlockReceipt,
     result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
 };
 use edr_evm::{
     hardfork::Activations,
-    spec::{L1Wiring, RuntimeSpec},
+    spec::{ExecutionReceiptTypeConstructorForChainSpec, L1Wiring, RuntimeSpec},
     state::Database,
     transaction::TransactionError,
+    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
 use crate::GenericChainSpec;
 
 impl ChainSpec for GenericChainSpec {
-    type Block = l1::BlockEnv;
+    type BlockEnv = l1::BlockEnv;
     type Context = ();
     type HaltReason = HaltReason;
     type Hardfork = l1::SpecId;
@@ -30,13 +35,47 @@ impl EthHeaderConstants for GenericChainSpec {
 }
 
 impl RuntimeSpec for GenericChainSpec {
+    type Block = dyn SyncBlock<
+        Arc<Self::BlockReceipt>,
+        Self::SignedTransaction,
+        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
+    >;
+
+    type BlockBuilder<
+        'blockchain,
+        BlockchainErrorT: 'blockchain,
+        DebugDataT,
+        StateErrorT: 'blockchain + std::fmt::Debug + Send,
+    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
+
+    type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
+
+    type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
+
     type EvmWiring<DatabaseT: Database, ExternalContexT> =
         L1Wiring<Self, DatabaseT, ExternalContexT>;
+
+    type LocalBlock = EthLocalBlock<
+        Self::RpcBlockConversionError,
+        Self::BlockReceipt,
+        ExecutionReceiptTypeConstructorForChainSpec<Self>,
+        Self::Hardfork,
+        Self::RpcReceiptConversionError,
+        Self::SignedTransaction,
+    >;
 
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
     type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;
     type RpcTransactionConversionError = crate::rpc::transaction::ConversionError;
+
+    fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block> {
+        local_block
+    }
+
+    fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block> {
+        remote_block
+    }
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
@@ -52,8 +91,8 @@ impl RuntimeSpec for GenericChainSpec {
         }
     }
 
-    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self>> {
-        L1ChainSpec::chain_hardfork_activations(chain_id).map(Activations::as_chain_spec)
+    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>> {
+        L1ChainSpec::chain_hardfork_activations(chain_id)
     }
 
     fn chain_name(chain_id: u64) -> Option<&'static str> {

@@ -1,4 +1,5 @@
-use std::marker::PhantomData;
+use core::fmt::Debug;
+use std::{marker::PhantomData, sync::Arc};
 
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
@@ -15,7 +16,7 @@ use edr_evm::{
     spec::RuntimeSpec,
     state::Database,
     transaction::{TransactionError, TransactionValidation},
-    RemoteBlockConversionError,
+    BlockReceipts, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 use edr_napi_core::{
     napi,
@@ -26,7 +27,13 @@ use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
 use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{eip2718::TypedEnvelope, hardfork, receipt, rpc, transaction};
+use crate::{
+    block::{self, LocalBlock},
+    eip2718::TypedEnvelope,
+    hardfork,
+    receipt::{self, BlockReceiptFactory},
+    rpc, transaction,
+};
 
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
@@ -45,7 +52,7 @@ impl RpcSpec for OptimismChainSpec {
 }
 
 impl ChainSpec for OptimismChainSpec {
-    type Block = l1::BlockEnv;
+    type BlockEnv = l1::BlockEnv;
     type Context = revm_optimism::Context;
     type HaltReason = OptimismHaltReason;
     type Hardfork = OptimismSpecId;
@@ -64,7 +71,7 @@ where
     type ExternalContext = ExternalContextT;
     type ChainContext = <OptimismChainSpec as ChainSpec>::Context;
     type Database = DatabaseT;
-    type Block = <OptimismChainSpec as ChainSpec>::Block;
+    type Block = <OptimismChainSpec as ChainSpec>::BlockEnv;
     type Transaction = <OptimismChainSpec as ChainSpec>::SignedTransaction;
     type Hardfork = <OptimismChainSpec as ChainSpec>::Hardfork;
     type HaltReason = <OptimismChainSpec as ChainSpec>::HaltReason;
@@ -86,12 +93,37 @@ where
 }
 
 impl RuntimeSpec for OptimismChainSpec {
+    type Block = dyn SyncBlock<
+        Arc<Self::BlockReceipt>,
+        Self::SignedTransaction,
+        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
+    >;
+
+    type BlockBuilder<
+        'blockchain,
+        BlockchainErrorT: 'blockchain,
+        DebugDataT,
+        StateErrorT: 'blockchain + Debug + Send,
+    > = block::Builder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT>;
+
+    type BlockReceipt = receipt::Block;
+    type BlockReceiptFactory = BlockReceiptFactory;
+
     type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
+    type LocalBlock = LocalBlock;
 
     type ReceiptBuilder = receipt::execution::Builder;
-    type RpcBlockConversionError = RemoteBlockConversionError<Self>;
+    type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
     type RpcReceiptConversionError = rpc::receipt::ConversionError;
     type RpcTransactionConversionError = rpc::transaction::ConversionError;
+
+    fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block> {
+        local_block
+    }
+
+    fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block> {
+        remote_block
+    }
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
@@ -107,7 +139,7 @@ impl RuntimeSpec for OptimismChainSpec {
 
     fn chain_hardfork_activations(
         chain_id: u64,
-    ) -> Option<&'static edr_evm::hardfork::Activations<Self>> {
+    ) -> Option<&'static edr_evm::hardfork::Activations<Self::Hardfork>> {
         hardfork::chain_hardfork_activations(chain_id)
     }
 

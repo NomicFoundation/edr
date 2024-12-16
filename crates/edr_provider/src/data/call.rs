@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{
     block::Header,
     result::{ExecutionResult, InvalidTransaction},
@@ -7,7 +5,7 @@ use edr_eth::{
     Address, HashMap, U256,
 };
 use edr_evm::{
-    blockchain::{BlockchainError, SyncBlockchain},
+    blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     guaranteed_dry_run,
     precompile::Precompile,
@@ -28,7 +26,8 @@ pub(super) struct RunCallArgs<
 > where
     'a: 'evm,
 {
-    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainError<ChainSpecT>, StateError>,
+    pub blockchain:
+        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
@@ -42,7 +41,7 @@ pub(super) struct RunCallArgs<
         DebugContext<
             'evm,
             ChainSpecT,
-            BlockchainError<ChainSpecT>,
+            BlockchainErrorForChainSpec<ChainSpecT>,
             DebugDataT,
             StateRefOverrider<'a, &'evm dyn SyncState<StateError>>,
         >,
@@ -56,8 +55,7 @@ pub(super) fn run_call<'a, 'evm, ChainSpecT, DebugDataT>(
 where
     'a: 'evm,
     ChainSpecT: SyncRuntimeSpec<
-        Block: Default,
-        Hardfork: Debug,
+        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
@@ -78,7 +76,7 @@ where
     let mut header = header.clone();
     header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
 
-    let block = ChainSpecT::Block::new_block_env(&header, hardfork.into());
+    let block = ChainSpecT::BlockEnv::new_block_env(&header, hardfork.into());
 
     let state_overrider = StateRefOverrider::new(state_overrides, state);
 

@@ -3,7 +3,7 @@ mod legacy;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 
-use super::{Execution, MapReceiptLogs, Receipt};
+use super::{Execution, ExecutionReceipt, MapReceiptLogs};
 use crate::{Bloom, B256};
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpDecodable, RlpEncodable)]
@@ -109,7 +109,9 @@ where
     }
 }
 
-impl<LogT> Receipt<LogT> for Execution<LogT> {
+impl<LogT> ExecutionReceipt for Execution<LogT> {
+    type Log = LogT;
+
     fn cumulative_gas_used(&self) -> u64 {
         match self {
             Execution::Legacy(receipt) => receipt.cumulative_gas_used,

@@ -1,5 +1,3 @@
-use core::fmt::Debug;
-
 use edr_eth::{Address, U256, U64};
 use edr_evm::spec::RuntimeSpec;
 
@@ -33,23 +31,22 @@ pub fn handle_coinbase_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone +
     Ok(data.coinbase())
 }
 
-pub fn handle_max_priority_fee_per_gas<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub fn handle_max_priority_fee_per_gas<ChainSpecT: RuntimeSpec>(
 ) -> Result<U256, ProviderError<ChainSpecT>> {
     // 1 gwei
     Ok(U256::from(1_000_000_000))
 }
 
-pub fn handle_mining<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-) -> Result<bool, ProviderError<ChainSpecT>> {
+pub fn handle_mining<ChainSpecT: RuntimeSpec>() -> Result<bool, ProviderError<ChainSpecT>> {
     Ok(false)
 }
 
-pub fn handle_net_listening_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub fn handle_net_listening_request<ChainSpecT: RuntimeSpec>(
 ) -> Result<bool, ProviderError<ChainSpecT>> {
     Ok(true)
 }
 
-pub fn handle_net_peer_count_request<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
+pub fn handle_net_peer_count_request<ChainSpecT: RuntimeSpec>(
 ) -> Result<U64, ProviderError<ChainSpecT>> {
     Ok(U64::from(0))
 }
@@ -63,7 +60,6 @@ pub fn handle_net_version_request<
     Ok(data.network_id())
 }
 
-pub fn handle_syncing<ChainSpecT: RuntimeSpec<Hardfork: Debug>>(
-) -> Result<bool, ProviderError<ChainSpecT>> {
+pub fn handle_syncing<ChainSpecT: RuntimeSpec>() -> Result<bool, ProviderError<ChainSpecT>> {
     Ok(false)
 }

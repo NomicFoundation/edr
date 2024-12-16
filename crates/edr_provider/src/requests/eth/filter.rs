@@ -4,6 +4,7 @@ use edr_eth::{
     filter::{FilteredEvents, LogFilterOptions, LogOutput, OneOrMore, SubscriptionType},
     BlockSpec, BlockTag, Eip1898BlockSpec, HashSet, U256,
 };
+use edr_evm::Block as _;
 
 use crate::{
     data::ProviderData,

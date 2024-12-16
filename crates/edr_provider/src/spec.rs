@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use std::sync::Arc;
 
 pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
@@ -14,7 +15,8 @@ use edr_eth::{
 };
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
-    blockchain::BlockchainError, state::StateOverrides, transaction, BlockAndTotalDifficulty,
+    blockchain::BlockchainErrorForChainSpec, state::StateOverrides, transaction,
+    BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
@@ -22,8 +24,9 @@ use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, Transaction
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RuntimeSpec<
-    Hardfork: Debug,
-    RpcBlock<B256>: From<BlockAndTotalDifficulty<Self, BlockchainError<Self>>>,
+    Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+    LocalBlock: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+    RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,
     SignedTransaction: IsSupported,
