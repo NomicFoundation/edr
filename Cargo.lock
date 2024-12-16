@@ -1348,6 +1348,7 @@ dependencies = [
  "alloy-json-abi 0.7.7",
  "alloy-sol-types 0.5.4",
  "derive-where",
+ "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_generic",

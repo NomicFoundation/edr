@@ -1,4 +1,4 @@
-use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
+use std::{num::NonZeroU64, time::SystemTime};
 
 use derive_where::derive_where;
 use edr_eth::{account::AccountInfo, block::BlobGas, Address, ChainId, HashMap, B256, U256};
@@ -85,7 +85,6 @@ pub struct ProviderConfig<ChainSpecT: RuntimeSpec> {
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
-    pub cache_dir: PathBuf,
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, hardfork::Activations<ChainSpecT>>,
     pub coinbase: Address,

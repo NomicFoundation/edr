@@ -100,6 +100,7 @@ fn serde_hardhat_reset() {
                 url: String::from("http://whatever.com/whatever"),
                 block_number: Some(123456),
                 http_headers: None,
+                cache_dir: edr_defaults::CACHE_DIR.into(),
             }),
         },
     )));

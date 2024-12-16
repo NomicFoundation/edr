@@ -27,9 +27,10 @@ async fn issue_324() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url().replace("mainnet", "sepolia"),
+        url: get_alchemy_url().replace("mainnet", "sepolia"),
         block_number: Some(DEPLOYMENT_BLOCK_NUMBER),
         http_headers: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
     }));
     config.hardfork = l1::SpecId::CANCUN;
 

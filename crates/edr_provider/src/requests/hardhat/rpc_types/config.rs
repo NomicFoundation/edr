@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct ResetProviderConfig {
@@ -12,4 +12,5 @@ pub struct ForkConfig {
     pub url: String,
     pub block_number: Option<u64>,
     pub http_headers: Option<HashMap<String, String>>,
+    pub cache_dir: PathBuf,
 }

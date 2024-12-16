@@ -18,9 +18,10 @@ async fn issue_503() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url(),
+        url: get_alchemy_url(),
         block_number: Some(19_909_475),
         http_headers: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
     }));
     config.hardfork = l1::SpecId::CANCUN;
 

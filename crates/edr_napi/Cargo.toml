@@ -33,6 +33,7 @@ tracing-flame = { version = "0.2.0", default-features = false, features = ["smal
 tracing-subscriber = { version = "0.3.18", default-features = false, features = ["ansi", "env-filter", "fmt", "parking_lot", "smallvec", "std"] }
 parking_lot = { version = "0.12.1", default-features = false }
 lazy_static = { version = "1.4.0", features = [] }
+edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }

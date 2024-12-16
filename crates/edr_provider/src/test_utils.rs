@@ -81,7 +81,6 @@ pub fn create_test_config_with_fork<ChainSpecT: RuntimeSpec>(
         min_gas_price: U256::ZERO,
         mining: MiningConfig::default(),
         network_id: 123,
-        cache_dir: edr_defaults::CACHE_DIR.into(),
     }
 }
 
@@ -170,6 +169,7 @@ impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<Chai
                 // Random recent block for better cache consistency
                 block_number: Some(FORK_BLOCK_NUMBER),
                 http_headers: None,
+                cache_dir: edr_defaults::CACHE_DIR.into(),
             }
         });
 

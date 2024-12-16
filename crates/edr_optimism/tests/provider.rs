@@ -50,6 +50,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
         url: sepolia_url(),
         block_number: None,
         http_headers: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
     }));
 
     // Set a different chain ID than the forked chain ID

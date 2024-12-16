@@ -15,9 +15,10 @@ async fn issue_533() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url(),
+        url: get_alchemy_url(),
         block_number: Some(20_384_300),
         http_headers: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
     }));
 
     // The default chain id set by Hardhat

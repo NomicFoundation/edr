@@ -1,5 +1,5 @@
 use core::num::NonZeroU64;
-use std::{path::PathBuf, time::SystemTime};
+use std::time::SystemTime;
 
 use edr_eth::{account::AccountInfo, block::BlobGas, Address, ChainId, HashMap, B256, U256};
 use edr_provider::{
@@ -52,12 +52,6 @@ where
     ChainSpecT: RuntimeSpec<Hardfork: for<'s> From<&'s str>>,
 {
     fn from(value: Config) -> Self {
-        let cache_dir = PathBuf::from(
-            value
-                .cache_dir
-                .unwrap_or(String::from(edr_defaults::CACHE_DIR)),
-        );
-
         let chains = value
             .chains
             .into_iter()
@@ -90,7 +84,6 @@ where
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
-            cache_dir,
             chain_id: value.chain_id,
             chains,
             coinbase: value.coinbase,

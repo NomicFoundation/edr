@@ -1,8 +1,10 @@
 use std::{
     num::NonZeroU64,
+    path::PathBuf,
     time::{Duration, SystemTime},
 };
 
+use edr_defaults;
 use edr_eth::HashMap;
 use edr_provider::AccountConfig;
 use napi::{
@@ -142,6 +144,9 @@ impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
             url: value.url,
             block_number,
             http_headers,
+            cache_dir: value
+                .cache_dir
+                .map_or(edr_defaults::CACHE_DIR.into(), PathBuf::from),
         })
     }
 }

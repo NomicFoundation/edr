@@ -25,6 +25,7 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
         url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
         block_number: Some(BLOCK_NUMBER),
         http_headers: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
     }));
 
     config.chains.insert(
