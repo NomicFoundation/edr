@@ -3,18 +3,22 @@ import chaiAsPromised from "chai-as-promised";
 
 import {
   ContractAndFunctionName,
-  EdrContext,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
   MineOrdering,
   SubscriptionEvent,
 } from "..";
-import { collectMessages, collectSteps, ALCHEMY_URL } from "./helpers";
+import {
+  collectMessages,
+  collectSteps,
+  ALCHEMY_URL,
+  getContext,
+} from "./helpers";
 
 chai.use(chaiAsPromised);
 
 describe("Provider", () => {
-  const context = new EdrContext();
+  const context = getContext();
 
   before(async () => {
     await context.registerProviderFactory(

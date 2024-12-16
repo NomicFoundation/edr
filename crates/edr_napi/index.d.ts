@@ -129,6 +129,8 @@ export const CANCUN: string
 export const PRAGUE: string
 export const PRAGUE_EOF: string
 export const LATEST: string
+export const OPTIMISM_CHAIN_TYPE: string
+export declare function optimismProviderFactory(): ProviderFactory
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
@@ -408,7 +410,9 @@ export enum ExitCode {
   /** Create init code size exceeds limit (runtime). */
   CODESIZE_EXCEEDS_MAXIMUM = 6,
   /** Create collision. */
-  CREATE_COLLISION = 7
+  CREATE_COLLISION = 7,
+  /** Unknown halt reason. */
+  UNKNOWN_HALT_REASON = 8
 }
 export interface EvmStep {
   pc: number

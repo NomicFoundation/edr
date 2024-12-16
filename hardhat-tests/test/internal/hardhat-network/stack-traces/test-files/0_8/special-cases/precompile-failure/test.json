@@ -1,0 +1,13 @@
+{
+  "description": "This test checks that EDR doesn't crash when a precompile call results in an error. See https://github.com/NomicFoundation/edr/issues/727",
+  "transactions": [
+    {
+      "file": "c.sol",
+      "contract": "C"
+    },
+    {
+      "to": 0,
+      "function": "test"
+    }
+  ]
+}
