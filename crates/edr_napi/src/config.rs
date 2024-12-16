@@ -261,7 +261,10 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit,
-            cache_dir: value.fork.as_ref().and_then(|fork_config| fork_config.cache_dir.clone()),
+            cache_dir: value
+                .fork
+                .as_ref()
+                .and_then(|fork_config| fork_config.cache_dir.clone()),
             chain_id: value.chain_id.try_cast()?,
             chains,
             coinbase: value.coinbase.try_cast()?,
