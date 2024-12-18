@@ -6,23 +6,23 @@ use edr_eth::{
 };
 use indexmap::IndexMap;
 
-use crate::{AccountConfig, ProviderConfig};
+use crate::config::{self, Provider};
 
 pub(super) struct InitialAccounts {
     pub local_accounts: IndexMap<Address, k256::SecretKey>,
-    pub genesis_accounts: HashMap<Address, Account>,
+    pub genesis_state: HashMap<Address, Account>,
 }
 
 pub(super) fn create_accounts<HardforkT: HardforkTrait>(
-    config: &ProviderConfig<HardforkT>,
+    config: &Provider<HardforkT>,
 ) -> InitialAccounts {
     let mut local_accounts = IndexMap::default();
 
-    let genesis_accounts = config
+    let genesis_state = config
         .accounts
         .iter()
         .map(
-            |AccountConfig {
+            |config::OwnedAccount {
                  secret_key,
                  balance,
              }| {
@@ -36,14 +36,14 @@ pub(super) fn create_accounts<HardforkT: HardforkTrait>(
 
                 local_accounts.insert(address, secret_key.clone());
 
-                (address, genesis_account)
+                (address, config::Account::from(genesis_account))
             },
         )
-        .chain(config.genesis_accounts.clone())
-        .map(|(address, account_info)| {
+        .chain(config.genesis_state.clone())
+        .map(|(address, config::Account { info, storage })| {
             let account = Account {
-                info: account_info,
-                storage: HashMap::new(),
+                info,
+                storage,
                 status: AccountStatus::Created | AccountStatus::Touched,
             };
 
@@ -53,6 +53,6 @@ pub(super) fn create_accounts<HardforkT: HardforkTrait>(
 
     InitialAccounts {
         local_accounts,
-        genesis_accounts,
+        genesis_state,
     }
 }

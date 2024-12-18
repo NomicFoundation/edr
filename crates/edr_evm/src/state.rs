@@ -20,7 +20,7 @@ use edr_rpc_eth::client::RpcClientError;
 use revm::DatabaseRef;
 pub use revm::{
     database_interface::{Database, DatabaseCommit as StateCommit, WrapDatabaseRef},
-    state::{EvmState, EvmStorageSlot},
+    state::{EvmState, EvmStorage, EvmStorageSlot},
 };
 
 pub use self::{
