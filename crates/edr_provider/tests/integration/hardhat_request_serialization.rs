@@ -1,5 +1,3 @@
-mod common;
-
 use edr_eth::{l1::L1ChainSpec, Address, Bytes, B256, U160, U256};
 use edr_provider::{
     hardhat_rpc_types::{CompilerInput, CompilerOutput, ForkConfig, ResetProviderConfig},
@@ -11,8 +9,8 @@ use crate::common::help_test_method_invocation_serde;
 #[test]
 fn serde_hardhat_compiler() {
     // these were taken from a run of TypeScript function compileLiteral
-    let compiler_input_json = include_str!("fixtures/compiler_input.json");
-    let compiler_output_json = include_str!("fixtures/compiler_output.json");
+    let compiler_input_json = include_str!("../fixtures/compiler_input.json");
+    let compiler_output_json = include_str!("../fixtures/compiler_output.json");
 
     let call = MethodInvocation::<L1ChainSpec>::AddCompilationResult(
         String::from("0.8.0"),
