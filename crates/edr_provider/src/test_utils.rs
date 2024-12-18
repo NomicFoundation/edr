@@ -18,11 +18,11 @@ use edr_rpc_eth::TransactionRequest;
 use tokio::runtime;
 
 use crate::{
-    config::MiningConfig,
+    config,
     requests::hardhat::rpc_types::ForkConfig,
     time::{CurrentTime, TimeSinceEpoch},
-    AccountConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData,
-    ProviderError, ProviderRequest, ProviderSpec, SyncProviderSpec,
+    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderError,
+    ProviderRequest, ProviderSpec, SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =
@@ -48,12 +48,12 @@ pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
 ) -> ProviderConfig<HardforkT> {
     ProviderConfig {
         accounts: vec![
-            AccountConfig {
+            config::OwnedAccount {
                 secret_key: secret_key_from_str(TEST_SECRET_KEY)
                     .expect("should construct secret key from string"),
                 balance: one_ether(),
             },
-            AccountConfig {
+            config::OwnedAccount {
                 secret_key: secret_key_from_str(TEST_SECRET_KEY_SIGN_TYPED_DATA_V4)
                     .expect("should construct secret key from string"),
                 balance: one_ether(),
@@ -70,7 +70,7 @@ pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
         coinbase: Address::from(U160::from(1)),
         enable_rip_7212: false,
         fork,
-        genesis_accounts: HashMap::new(),
+        genesis_state: HashMap::new(),
         hardfork: HardforkT::default(),
         initial_base_fee_per_gas: Some(U256::from(1000000000)),
         initial_blob_gas: Some(BlobGas {
@@ -80,7 +80,7 @@ pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
         initial_date: Some(SystemTime::now()),
         initial_parent_beacon_block_root: Some(KECCAK_NULL_RLP),
         min_gas_price: U256::ZERO,
-        mining: MiningConfig::default(),
+        mining: config::Mining::default(),
         network_id: 123,
         cache_dir: edr_defaults::CACHE_DIR.into(),
     }
@@ -193,14 +193,15 @@ impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<Chai
         let subscription_callback_noop = Box::new(|_| ());
 
         let impersonated_account = Address::random();
-        config.genesis_accounts.insert(
+        config.genesis_state.insert(
             impersonated_account,
             AccountInfo {
                 balance: one_ether(),
                 nonce: 0,
                 code: None,
                 code_hash: KECCAK_EMPTY,
-            },
+            }
+            .into(),
         );
 
         let mut provider_data = ProviderData::<ChainSpecT>::new(

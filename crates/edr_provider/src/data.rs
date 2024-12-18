@@ -614,7 +614,7 @@ where
     ) -> Result<Self, CreationError<ChainSpecT>> {
         let InitialAccounts {
             local_accounts,
-            genesis_accounts,
+            genesis_state: genesis_accounts,
         } = create_accounts(&config);
 
         let BlockchainAndState {

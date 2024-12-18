@@ -315,14 +315,15 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
 
-    config.genesis_accounts.insert(
+    config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
             code: None,
             code_hash: KECCAK_EMPTY,
-        },
+        }
+        .into(),
     );
 
     let provider = Provider::new(
@@ -354,14 +355,15 @@ async fn get_transaction() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.chain_id = expected.chain_id().expect("Blob transaction has chain ID");
 
-    config.genesis_accounts.insert(
+    config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
             code: None,
             code_hash: KECCAK_EMPTY,
-        },
+        }
+        .into(),
     );
 
     let provider = Provider::new(
@@ -401,14 +403,15 @@ async fn block_header() -> anyhow::Result<()> {
         .chain_id()
         .expect("Blob transaction has chain ID");
 
-    config.genesis_accounts.insert(
+    config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
             code: None,
             code_hash: KECCAK_EMPTY,
-        },
+        }
+        .into(),
     );
 
     let provider = Provider::new(
@@ -587,14 +590,15 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         .expect("Blob transaction has chain ID");
 
     let caller = secret_key_to_address(SECRET_KEYS[0])?;
-    config.genesis_accounts.insert(
+    config.genesis_state.insert(
         caller,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
             code: None,
             code_hash: KECCAK_EMPTY,
-        },
+        }
+        .into(),
     );
 
     let provider = Provider::new(

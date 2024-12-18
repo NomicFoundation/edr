@@ -21,7 +21,7 @@ use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 use serde::Serialize;
 
 use crate::{
-    data::CreationError, time::TimeSinceEpoch, IntervalConfigConversionError, ProviderSpec,
+    config::IntervalConfigConversionError, data::CreationError, time::TimeSinceEpoch, ProviderSpec,
 };
 
 #[derive(Debug, thiserror::Error)]
