@@ -89,6 +89,10 @@ export interface CallOverrideResult {
 export const GENERIC_CHAIN_TYPE: string
 export declare function genericChainProviderFactory(): ProviderFactory
 export const L1_CHAIN_TYPE: string
+/** The address of the beacon roots contract. */
+export const BEACON_ROOTS_ADDRESS: string
+/** The bytecode of the beacon roots contract. */
+export const BEACON_ROOTS_BYTECODE: string
 export declare function l1ProviderFactory(): ProviderFactory
 /** Identifier for the Ethereum spec. */
 export enum SpecId {
