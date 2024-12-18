@@ -1,5 +1,3 @@
-mod common;
-
 use edr_eth::{
     filter::{LogFilterOptions, LogOutput, OneOrMore},
     l1::L1ChainSpec,

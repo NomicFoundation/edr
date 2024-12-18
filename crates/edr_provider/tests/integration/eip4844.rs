@@ -126,7 +126,8 @@ impl Default for BlobTransactionBuilder {
 }
 
 fn fake_raw_transaction() -> Bytes {
-    Bytes::from_str(include_str!("fixtures/eip4844.txt")).expect("failed to parse raw transaction")
+    Bytes::from_str(include_str!("../fixtures/eip4844.txt"))
+        .expect("failed to parse raw transaction")
 }
 
 fn fake_pooled_transaction() -> PooledTransaction {
@@ -605,7 +606,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
     )?;
 
     let fixture: ContractFixture =
-        serde_json::from_str(include_str!("fixtures/blob_hash_opcode_contract.json"))?;
+        serde_json::from_str(include_str!("../fixtures/blob_hash_opcode_contract.json"))?;
 
     let contract_address = deploy_contract(&provider, caller, fixture.bytecode)?;
 
