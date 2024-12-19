@@ -1,5 +1,5 @@
 //! Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
-use std::rc::Rc;
+use std::sync::Arc;
 
 use edr_eth::Bytes;
 use serde::{Deserialize, Serialize};
@@ -19,10 +19,10 @@ use crate::{
     nested_trace::{NestedTrace, NestedTraceStep},
 };
 
-/// Configuration for the [`NestedTraceDecoder`].
-#[derive(Debug, Deserialize, Serialize)]
+/// Configuration for the [`ContractDecoder`].
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TracingConfig {
+pub struct BuildInfoConfig {
     /// Build information to use for decoding contracts.
     pub build_infos: Option<Vec<BuildInfo>>,
     /// Whether to ignore contracts.
@@ -31,34 +31,34 @@ pub struct TracingConfig {
 
 /// Errors that can occur during the decoding of the nested trace.
 #[derive(Debug, thiserror::Error)]
-pub enum NestedTraceDecoderError {
+pub enum ContractDecoderError {
     /// Errors that can occur when initializing the decoder.
     #[error("{0}")]
     Initialization(String),
 }
 
-/// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
-#[derive(Default)]
-pub struct NestedTraceDecoder {
+/// Get contract metadata from calldata and traces.
+#[derive(Debug, Default)]
+pub struct ContractDecoder {
     contracts_identifier: ContractsIdentifier,
 }
 
-impl NestedTraceDecoder {
-    /// Creates a new [`NestedTraceDecoder`].
-    pub fn new(config: &TracingConfig) -> Result<Self, NestedTraceDecoderError> {
+impl ContractDecoder {
+    /// Creates a new [`ContractDecoder`].
+    pub fn new(config: &BuildInfoConfig) -> Result<Self, ContractDecoderError> {
         let contracts_identifier = initialize_contracts_identifier(config)
-            .map_err(|err| NestedTraceDecoderError::Initialization(err.to_string()))?;
+            .map_err(|err| ContractDecoderError::Initialization(err.to_string()))?;
         Ok(Self {
             contracts_identifier,
         })
     }
 
-    /// Adds a bytecode to the decoder.
-    pub fn add_bytecode(&mut self, bytecode: ContractMetadata) {
-        self.contracts_identifier.add_bytecode(Rc::new(bytecode));
+    /// Adds contract metadata to the decoder.
+    pub fn add_contract_metadata(&mut self, bytecode: ContractMetadata) {
+        self.contracts_identifier.add_bytecode(Arc::new(bytecode));
     }
 
-    /// Decodes the nested trace.
+    /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
     pub fn try_to_decode_message_trace(&mut self, message_trace: NestedTrace) -> NestedTrace {
         match message_trace {
             precompile @ NestedTrace::Precompile(..) => precompile,
@@ -205,7 +205,9 @@ pub struct ContractAndFunctionName {
     pub function_name: Option<String>,
 }
 
-fn initialize_contracts_identifier(config: &TracingConfig) -> anyhow::Result<ContractsIdentifier> {
+fn initialize_contracts_identifier(
+    config: &BuildInfoConfig,
+) -> anyhow::Result<ContractsIdentifier> {
     let mut contracts_identifier = ContractsIdentifier::default();
 
     let Some(build_infos) = &config.build_infos else {
@@ -226,7 +228,7 @@ fn initialize_contracts_identifier(config: &TracingConfig) -> anyhow::Result<Con
                 continue;
             }
 
-            contracts_identifier.add_bytecode(Rc::new(bytecode));
+            contracts_identifier.add_bytecode(Arc::new(bytecode));
         }
     }
 

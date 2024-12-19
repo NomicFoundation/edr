@@ -22,10 +22,11 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_evm::{blockchain::BlockchainError, trace::Trace, HashSet};
+use edr_solidity::contract_decoder::ContractDecoder;
 use lazy_static::lazy_static;
 use logger::SyncLogger;
 use mock::SyncCallOverride;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use requests::{eth::handle_set_interval_mining, hardhat::rpc_types::ResetProviderConfig};
 use time::{CurrentTime, TimeSinceEpoch};
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
@@ -114,6 +115,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
         logger: Box<dyn SyncLogger<BlockchainError = BlockchainError, LoggerError = LoggerErrorT>>,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         config: ProviderConfig,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationError> {
         let data = ProviderData::new(
@@ -122,6 +124,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             subscriber_callback,
             None,
             config.clone(),
+            contract_decoder,
             timer,
         )?;
         let data = Arc::new(AsyncMutex::new(data));
@@ -391,9 +394,17 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             }
 
             // hardhat_* methods
-            MethodInvocation::AddCompilationResult(_, _, _) => Err(ProviderError::Unimplemented(
-                "AddCompilationResult".to_string(),
-            )),
+            MethodInvocation::AddCompilationResult(
+                solc_version,
+                compiler_input,
+                compiler_output,
+            ) => hardhat::handle_add_compilation_result(
+                data,
+                solc_version,
+                compiler_input,
+                compiler_output,
+            )
+            .and_then(to_json),
             MethodInvocation::DropTransaction(transaction_hash) => {
                 hardhat::handle_drop_transaction(data, transaction_hash).and_then(to_json)
             }

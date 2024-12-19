@@ -17,7 +17,7 @@ use edr_evm::{
     ExecutionResult, SyncBlock,
 };
 use edr_provider::{ProviderError, TransactionFailure};
-use edr_solidity::nested_trace_decoder::{NestedTraceDecoder, TracingConfig};
+use edr_solidity::contract_decoder::ContractDecoder;
 use itertools::izip;
 use napi::{
     threadsafe_function::{
@@ -26,6 +26,7 @@ use napi::{
     Env, JsFunction, Status,
 };
 use napi_derive::napi;
+use parking_lot::RwLock;
 
 use crate::cast::TryCast;
 
@@ -116,10 +117,10 @@ impl Logger {
     pub fn new(
         env: &Env,
         config: LoggerConfig,
-        tracing_config: Arc<TracingConfig>,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
     ) -> napi::Result<Self> {
         Ok(Self {
-            collector: LogCollector::new(env, config, tracing_config)?,
+            collector: LogCollector::new(env, config, contract_decoder)?,
         })
     }
 }
@@ -234,6 +235,15 @@ impl edr_provider::Logger for Logger {
 
         Ok(())
     }
+
+    fn print_contract_decoding_error(&mut self, error: &str) -> Result<(), Self::LoggerError> {
+        self.collector.log(
+            "Contract decoder failed to be updated. Please report this to help us improve Hardhat.",
+        );
+        self.collector.print_empty_line()?;
+        self.collector.log(error);
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -244,7 +254,7 @@ pub struct CollapsedMethod {
 
 #[derive(Clone)]
 struct LogCollector {
-    tracing_config: Arc<TracingConfig>,
+    contract_decoder: Arc<RwLock<ContractDecoder>>,
     decode_console_log_inputs_fn: ThreadsafeFunction<Vec<Bytes>, ErrorStrategy::Fatal>,
     indentation: usize,
     is_enabled: bool,
@@ -258,7 +268,7 @@ impl LogCollector {
     pub fn new(
         env: &Env,
         config: LoggerConfig,
-        tracing_config: Arc<TracingConfig>,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
     ) -> napi::Result<Self> {
         let mut decode_console_log_inputs_fn = config
             .decode_console_log_inputs_callback
@@ -301,7 +311,7 @@ impl LogCollector {
         print_line_fn.unref(env)?;
 
         Ok(Self {
-            tracing_config,
+            contract_decoder,
             decode_console_log_inputs_fn,
             indentation: 0,
             is_enabled: config.enable,
@@ -534,16 +544,13 @@ impl LogCollector {
         code: Bytes,
         calldata: Option<Bytes>,
     ) -> (String, Option<String>) {
-        // TODO this is hyper inefficient. Doing it like this for now because Bytecode
-        // is not Send. Will refactor.
-        // TODO remove expect
-        let mut vm_trace_decoder =
-            NestedTraceDecoder::new(&self.tracing_config).expect("can initialize vm trace decoder");
-
-        let edr_solidity::nested_trace_decoder::ContractAndFunctionName {
+        let edr_solidity::contract_decoder::ContractAndFunctionName {
             contract_name,
             function_name,
-        } = vm_trace_decoder.get_contract_and_function_names_for_call(&code, calldata.as_ref());
+        } = self
+            .contract_decoder
+            .write()
+            .get_contract_and_function_names_for_call(&code, calldata.as_ref());
         (contract_name, function_name)
     }
 

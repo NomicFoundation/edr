@@ -1,6 +1,6 @@
 //! Naive Rust port of the `MessageTrace` et al. from Hardhat.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use edr_eth::{Address, Bytes, U256};
 
@@ -58,7 +58,7 @@ pub struct CreateMessage {
     /// Children messages.
     pub steps: Vec<NestedTraceStep>,
     /// Resolved metadata of the contract that is being executed.
-    pub contract_meta: Option<Rc<ContractMetadata>>,
+    pub contract_meta: Option<Arc<ContractMetadata>>,
     /// Address of the deployed contract.
     pub deployed_contract: Option<Bytes>,
     /// Code of the contract that is being executed.
@@ -86,7 +86,7 @@ pub struct CallMessage {
     /// Children messages.
     pub steps: Vec<NestedTraceStep>,
     /// Resolved metadata of the contract that is being executed.
-    pub contract_meta: Option<Rc<ContractMetadata>>,
+    pub contract_meta: Option<Arc<ContractMetadata>>,
     /// Calldata buffer
     pub calldata: Bytes,
     /// Address of the contract that is being executed.
@@ -138,10 +138,10 @@ pub(crate) enum CreateOrCallMessageRef<'a> {
 }
 
 impl<'a> CreateOrCallMessageRef<'a> {
-    pub fn contract_meta(&self) -> Option<Rc<ContractMetadata>> {
+    pub fn contract_meta(&self) -> Option<Arc<ContractMetadata>> {
         match self {
-            CreateOrCallMessageRef::Create(create) => create.contract_meta.as_ref().map(Rc::clone),
-            CreateOrCallMessageRef::Call(call) => call.contract_meta.as_ref().map(Rc::clone),
+            CreateOrCallMessageRef::Create(create) => create.contract_meta.as_ref().map(Arc::clone),
+            CreateOrCallMessageRef::Call(call) => call.contract_meta.as_ref().map(Arc::clone),
         }
     }
 

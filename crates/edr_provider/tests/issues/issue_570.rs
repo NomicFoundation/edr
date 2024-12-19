@@ -1,14 +1,15 @@
-use std::{convert::Infallible, str::FromStr as _};
+use std::{convert::Infallible, str::FromStr as _, sync::Arc};
 
 use edr_eth::{spec::HardforkActivations, SpecId, B256};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
+use parking_lot::RwLock;
 use serial_test::serial;
 use tokio::runtime;
-
 // SAFETY: tests that modify the environment should be run serially.
 
 fn get_provider() -> anyhow::Result<Provider<Infallible>> {
@@ -36,6 +37,7 @@ fn get_provider() -> anyhow::Result<Provider<Infallible>> {
         logger,
         subscriber,
         config,
+        Arc::<RwLock<ContractDecoder>>::default(),
         CurrentTime,
     )?)
 }

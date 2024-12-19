@@ -4,8 +4,10 @@ use std::sync::Arc;
 
 use edr_provider::{time::CurrentTime, InvalidRequestReason};
 use edr_rpc_eth::jsonrpc;
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{tokio::runtime, Either, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
+use parking_lot::RwLock;
 
 use self::config::ProviderConfig;
 use crate::{
@@ -21,7 +23,7 @@ use crate::{
 pub struct Provider {
     provider: Arc<edr_provider::Provider<LoggerError>>,
     runtime: runtime::Handle,
-    tracing_config: Arc<edr_solidity::nested_trace_decoder::TracingConfig>,
+    contract_decoder: Arc<RwLock<ContractDecoder>>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -36,7 +38,6 @@ impl Provider {
         _context: &EdrContext,
         config: ProviderConfig,
         logger_config: LoggerConfig,
-        // TODO avoid opaque type
         tracing_config: serde_json::Value,
         #[napi(ts_arg_type = "(event: SubscriptionEvent) => void")] subscriber_callback: JsFunction,
     ) -> napi::Result<JsObject> {
@@ -44,15 +45,20 @@ impl Provider {
 
         let config = edr_provider::ProviderConfig::try_from(config)?;
 
-        // TODO get actual type as argument
-        let tracing_config: edr_solidity::nested_trace_decoder::TracingConfig =
+        // TODO parsing the build info config and creating the contract decoder
+        // shouldn't happen here as it's blocking the JS event loop,
+        // but it's not straightforward to do it in a non-blocking way, because `Env` is
+        // not `Send`.
+        let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
             serde_json::from_value(tracing_config)?;
-        let tracing_config = Arc::new(tracing_config);
+        let contract_decoder = ContractDecoder::new(&build_info_config)
+            .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+        let contract_decoder = Arc::new(RwLock::new(contract_decoder));
 
         let logger = Box::new(Logger::new(
             &env,
             logger_config,
-            Arc::clone(&tracing_config),
+            Arc::clone(&contract_decoder),
         )?);
         let subscriber_callback = SubscriberCallback::new(&env, subscriber_callback)?;
         let subscriber_callback = Box::new(move |event| subscriber_callback.call(event));
@@ -71,6 +77,7 @@ impl Provider {
                 logger,
                 subscriber_callback,
                 config,
+                Arc::clone(&contract_decoder),
                 CurrentTime,
             )
             .map_or_else(
@@ -79,7 +86,7 @@ impl Provider {
                     Ok(Provider {
                         provider: Arc::new(provider),
                         runtime,
-                        tracing_config,
+                        contract_decoder,
                         #[cfg(feature = "scenarios")]
                         scenario_file,
                     })
@@ -201,7 +208,7 @@ impl Provider {
             .map(|data| {
                 let solidity_trace = solidity_trace.map(|trace| SolidityTraceData {
                     trace,
-                    config: Arc::clone(&self.tracing_config),
+                    contract_decoder: Arc::clone(&self.contract_decoder),
                 });
                 Response {
                     solidity_trace,
@@ -245,7 +252,7 @@ impl Provider {
 #[derive(Debug)]
 struct SolidityTraceData {
     trace: Arc<edr_evm::trace::Trace>,
-    config: Arc<edr_solidity::nested_trace_decoder::TracingConfig>,
+    contract_decoder: Arc<RwLock<ContractDecoder>>,
 }
 
 #[napi]
@@ -281,7 +288,11 @@ impl Response {
     #[doc = "Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as a fallback."]
     #[napi]
     pub fn stack_trace(&self) -> napi::Result<Option<Either<SolidityStackTrace, String>>> {
-        let Some(SolidityTraceData { trace, config }) = &self.solidity_trace else {
+        let Some(SolidityTraceData {
+            trace,
+            contract_decoder,
+        }) = &self.solidity_trace
+        else {
             return Ok(None);
         };
         let hierarchical_trace =
@@ -290,16 +301,10 @@ impl Response {
             );
 
         if let Some(vm_trace) = hierarchical_trace.result {
-            let mut nested_trace_decoder =
-                edr_solidity::nested_trace_decoder::NestedTraceDecoder::new(config).map_err(
-                    |err| {
-                        napi::Error::from_reason(format!(
-                            "Error initializing trace decoder: '{err}'"
-                        ))
-                    },
-                )?;
-
-            let decoded_trace = nested_trace_decoder.try_to_decode_message_trace(vm_trace);
+            let decoded_trace = {
+                let mut decoder = contract_decoder.write();
+                decoder.try_to_decode_message_trace(vm_trace)
+            };
             let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
                 .map_err(|err| {
                     napi::Error::from_reason(format!(
