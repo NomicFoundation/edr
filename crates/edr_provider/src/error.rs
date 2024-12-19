@@ -195,7 +195,7 @@ where
     #[error(transparent)]
     TransactionCreationError(#[from] transaction::CreationError),
     /// `eth_sendTransaction` failed and
-    /// [`crate::config::ProviderConfig::bail_on_call_failure`] was enabled
+    /// [`crate::config::Provider::bail_on_call_failure`] was enabled
     #[error(transparent)]
     TransactionFailed(#[from] TransactionFailureWithTraces<ChainSpecT::HaltReason>),
     /// Failed to convert an integer type
