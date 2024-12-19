@@ -213,7 +213,7 @@ pub(crate) fn infer_before_tracing_call_message(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let called_function =
         contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
@@ -290,7 +290,7 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry(
     contract_meta: &ContractMetadata,
     inst: &Instruction,
 ) -> Result<StackTraceEntry, InferrerError> {
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     // This means that a jump is made from within an internal solc function.
     // These are normally made from yul code, so they don't map to any Solidity
@@ -299,7 +299,7 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry(
         None => {
             let location = &contract.location;
             let file = location.file();
-            let file = file.borrow();
+            let file = file.read();
 
             return Ok(StackTraceEntry::InternalFunctionCallstackEntry {
                 pc: inst.pc,
@@ -328,7 +328,7 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry(
     };
 
     let file = inst_location.file();
-    let file = file.borrow();
+    let file = file.read();
 
     Ok(StackTraceEntry::CallstackEntry {
         source_reference: SourceReference {
@@ -383,7 +383,7 @@ fn check_custom_errors(
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
     let return_data = trace.return_data();
 
     let return_data = ReturnData::new(return_data.clone());
@@ -544,7 +544,7 @@ fn check_last_instruction(
         }
     }
 
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let selector = calldata.get(..4).unwrap_or(&calldata[..]);
     let calldata = &calldata.get(4..).unwrap_or(&[]);
@@ -793,7 +793,7 @@ fn check_revert_or_invalid_opcode(
 
                 match &trace {
                     CreateOrCallMessageRef::Call(CallMessage { calldata, .. }) => {
-                        let contract = contract_meta.contract.borrow();
+                        let contract = contract_meta.contract.read();
 
                         // This is here because of the optimizations
                         let function_from_selector = contract
@@ -872,7 +872,7 @@ fn empty_calldata_and_no_receive(trace: &CallMessage) -> Result<bool, InferrerEr
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let version =
         Version::parse(&contract_meta.compiler_version).expect("Failed to parse SemVer version");
@@ -978,7 +978,7 @@ fn get_constructor_start_source_reference(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
     let contract_location = &contract.location;
 
     let line = match &contract.constructor {
@@ -987,7 +987,7 @@ fn get_constructor_start_source_reference(
     };
 
     let file = contract_location.file();
-    let file = file.borrow();
+    let file = file.read();
 
     Ok(SourceReference {
         source_name: file.source_name.clone(),
@@ -1009,11 +1009,11 @@ fn get_contract_start_without_function_source_reference(
         .contract_meta()
         .clone()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let location = &contract.location;
     let file = location.file();
-    let file = file.borrow();
+    let file = file.read();
 
     Ok(SourceReference {
         source_name: file.source_name.clone(),
@@ -1033,7 +1033,7 @@ fn get_direct_library_call_error_stack_trace(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let func =
         contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
@@ -1059,10 +1059,10 @@ fn get_function_start_source_reference(
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let file = func.location.file();
-    let file = file.borrow();
+    let file = file.read();
 
     let location = &func.location;
 
@@ -1094,7 +1094,7 @@ fn get_entry_before_initial_modifier_callstack_entry(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let called_function =
         contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
@@ -1157,7 +1157,7 @@ fn get_fallback_start_source_reference(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let func = match &contract.fallback {
         Some(func) => func,
@@ -1166,7 +1166,7 @@ fn get_fallback_start_source_reference(
 
     let location = &func.location;
     let file = location.file();
-    let file = file.borrow();
+    let file = file.read();
 
     Ok(SourceReference {
         source_name: file.source_name.clone(),
@@ -1272,7 +1272,7 @@ fn has_failed_inside_the_fallback_function(trace: &CallMessage) -> Result<bool, 
         .as_ref()
         .ok_or(InferrerError::MissingContract)?
         .contract;
-    let contract = contract.borrow();
+    let contract = contract.read();
 
     match &contract.fallback {
         Some(fallback) => has_failed_inside_function(trace, fallback),
@@ -1286,7 +1286,7 @@ fn has_failed_inside_the_receive_function(trace: &CallMessage) -> Result<bool, I
         .as_ref()
         .ok_or(InferrerError::MissingContract)?
         .contract;
-    let contract = contract.borrow();
+    let contract = contract.read();
 
     match &contract.receive {
         Some(receive) => has_failed_inside_function(trace, receive),
@@ -1468,7 +1468,7 @@ fn is_constructor_invalid_arguments_error(trace: &CreateMessage) -> Result<bool,
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     // This function is only matters with contracts that have constructors defined.
     // The ones that don't are abstract contracts, or their constructor
@@ -1528,7 +1528,7 @@ fn is_constructor_not_payable_error(trace: &CreateMessage) -> Result<bool, Infer
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     // This function is only matters with contracts that have constructors defined.
     // The ones that don't are abstract contracts, or their constructor
@@ -1551,7 +1551,7 @@ fn is_direct_library_call(trace: &CallMessage) -> Result<bool, InferrerError> {
         .as_ref()
         .ok_or(InferrerError::MissingContract)?
         .contract;
-    let contract = contract.borrow();
+    let contract = contract.read();
 
     Ok(trace.depth == 0 && contract.r#type == ContractKind::Library)
 }
@@ -1608,7 +1608,7 @@ fn is_fallback_not_payable_error(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     match &contract.fallback {
         Some(fallback) => Ok(fallback.is_payable != Some(true)),
@@ -1633,7 +1633,7 @@ fn is_function_not_payable_error(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     // Libraries don't have a nonpayable check
     if contract.r#type == ContractKind::Library {
@@ -1689,7 +1689,7 @@ fn is_missing_function_and_fallback_error(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     // there's a receive function and no calldata
     if trace.calldata.len() == 0 && contract.receive.is_some() {
@@ -1736,7 +1736,7 @@ fn is_proxy_error_propagated(
         return Ok(false);
     };
 
-    if subtrace_contract_meta.contract.borrow().r#type == ContractKind::Library {
+    if subtrace_contract_meta.contract.read().r#type == ContractKind::Library {
         return Ok(false);
     }
 
@@ -1865,7 +1865,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function(
         .contract_meta
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let revert_frame = solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
         CreateOrCallMessageRef::Call(trace),
@@ -1882,7 +1882,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function(
                 if let Some(fallback) = &contract.fallback {
                     let location = &fallback.location;
                     let file = location.file();
-                    let file = file.borrow();
+                    let file = file.read();
 
                     let source_reference = SourceReference {
                         contract: Some(contract.name.clone()),
@@ -1910,7 +1910,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function(
 
                 let location = &receive.location;
                 let file = location.file();
-                let file = file.borrow();
+                let file = file.read();
 
                 let source_reference = SourceReference {
                     contract: Some(contract.name.clone()),
@@ -1939,7 +1939,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.borrow();
+    let contract = contract_meta.contract.read();
 
     let steps = trace.steps();
 
@@ -2013,7 +2013,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
                     // some default sourceReference to show to the user
                     let location = &contract.location;
                     let file = location.file();
-                    let file = file.borrow();
+                    let file = file.read();
 
                     let mut default_source_reference = SourceReference {
                         function: Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
@@ -2098,14 +2098,14 @@ fn source_location_to_source_reference(
     };
 
     let func_location_file = func.location.file();
-    let func_location_file = func_location_file.borrow();
+    let func_location_file = func_location_file.read();
 
     Some(SourceReference {
         function: Some(func_name.clone()),
         contract: if func.r#type == ContractFunctionType::FreeFunction {
             None
         } else {
-            Some(contract_meta.contract.borrow().name.clone())
+            Some(contract_meta.contract.read().name.clone())
         },
         source_name: func_location_file.source_name.clone(),
         source_content: func_location_file.content.clone(),

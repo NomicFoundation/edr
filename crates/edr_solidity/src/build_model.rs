@@ -11,14 +11,14 @@
 //!   - related resolved [`Instruction`]s and their location
 
 use std::{
-    cell::{OnceCell, RefCell},
     collections::HashMap,
-    rc::{Rc, Weak},
+    sync::{Arc, OnceLock, Weak},
 };
 
 use alloy_dyn_abi::ErrorExt;
 use edr_evm::{hex, interpreter::OpCode};
 use indexmap::IndexMap;
+use parking_lot::RwLock;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -28,19 +28,19 @@ use crate::artifacts::{ContractAbiEntry, ImmutableReference};
 #[derive(Debug, Default)]
 pub struct BuildModel {
     /// Maps the contract ID to the contract.
-    pub contract_id_to_contract: IndexMap<u32, Rc<RefCell<Contract>>>,
+    pub contract_id_to_contract: IndexMap<u32, Arc<RwLock<Contract>>>,
     /// Maps the file ID to the source file.
-    pub file_id_to_source_file: Rc<BuildModelSources>,
+    pub file_id_to_source_file: Arc<BuildModelSources>,
 }
 
 /// Type alias for the source file mapping used by [`BuildModel`].
-pub type BuildModelSources = HashMap<u32, Rc<RefCell<SourceFile>>>;
+pub type BuildModelSources = HashMap<u32, Arc<RwLock<SourceFile>>>;
 
 /// A source file.
 #[derive(Debug)]
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
-    functions: Vec<Rc<ContractFunction>>,
+    functions: Vec<Arc<ContractFunction>>,
 
     /// The name of the source file.
     pub source_name: String,
@@ -62,7 +62,7 @@ impl SourceFile {
     /// Adds a [`ContractFunction`] to the source file.
     /// # Note
     /// Should only be called when resolving the source model.
-    pub fn add_function(&mut self, contract_function: Rc<ContractFunction>) {
+    pub fn add_function(&mut self, contract_function: Arc<ContractFunction>) {
         self.functions.push(contract_function);
     }
 
@@ -71,7 +71,7 @@ impl SourceFile {
     pub fn get_containing_function(
         &self,
         location: &SourceLocation,
-    ) -> Option<&Rc<ContractFunction>> {
+    ) -> Option<&Arc<ContractFunction>> {
         self.functions
             .iter()
             .find(|func| func.location.contains(location))
@@ -86,7 +86,7 @@ impl SourceFile {
 /// we can no longer access it through this reference.
 pub struct SourceLocation {
     /// Cached 1-based line number of the source location.
-    line: OnceCell<u32>,
+    line: OnceLock<u32>,
     /// A weak reference to the source files mapping.
     ///
     /// Used to access the source file when needed.
@@ -112,17 +112,17 @@ impl SourceLocation {
     /// Creates a new [`SourceLocation`] with the provided file ID, offset, and
     /// length.
     pub fn new(
-        sources: Rc<BuildModelSources>,
+        sources: Arc<BuildModelSources>,
         file_id: u32,
         offset: u32,
         length: u32,
     ) -> SourceLocation {
         SourceLocation {
-            line: OnceCell::new(),
+            line: OnceLock::new(),
             // We need to break the cycle between SourceLocation and SourceFile
             // (via ContractFunction); the Bytecode struct is owning the build
             // model sources, so we should always be alive.
-            sources: Rc::downgrade(&sources),
+            sources: Arc::downgrade(&sources),
             file_id,
             offset,
             length,
@@ -134,7 +134,7 @@ impl SourceLocation {
     /// This function panics if the source location is dangling, i.e. source
     /// files mapping has been dropped (currently only owned by the
     /// [`ContractMetadata`]).
-    pub fn file(&self) -> Rc<RefCell<SourceFile>> {
+    pub fn file(&self) -> Arc<RwLock<SourceFile>> {
         match self.sources.upgrade() {
             Some(ref sources) => sources.get(&self.file_id).unwrap().clone(),
             None => panic!("dangling SourceLocation; did you drop the owning Bytecode?"),
@@ -148,7 +148,7 @@ impl SourceLocation {
         }
 
         let file = self.file();
-        let contents = &file.borrow().content;
+        let contents = &file.read().content;
 
         *self.line.get_or_init(move || {
             let mut line = 1;
@@ -164,9 +164,9 @@ impl SourceLocation {
     }
 
     /// Returns the [`ContractFunction`] that contains the source location.
-    pub fn get_containing_function(&self) -> Option<Rc<ContractFunction>> {
+    pub fn get_containing_function(&self) -> Option<Arc<ContractFunction>> {
         let file = self.file();
-        let file = file.borrow();
+        let file = file.read();
         file.get_containing_function(self).cloned()
     }
 
@@ -216,7 +216,7 @@ pub struct ContractFunction {
     /// The type of the contract function.
     pub r#type: ContractFunctionType,
     /// The source location of the contract function.
-    pub location: Rc<SourceLocation>,
+    pub location: Arc<SourceLocation>,
     /// The name of the contract that contains the contract function.
     pub contract_name: Option<String>,
     /// The visibility of the contract function.
@@ -225,7 +225,7 @@ pub struct ContractFunction {
     pub is_payable: Option<bool>,
     /// The selector of the contract function.
     /// May be fixed up by [`Contract::correct_selector`].
-    pub selector: RefCell<Option<Vec<u8>>>,
+    pub selector: RwLock<Option<Vec<u8>>>,
     /// JSON ABI parameter types of the contract function.
     pub param_types: Option<Vec<Value>>,
 }
@@ -305,7 +305,7 @@ pub struct Instruction {
     /// The push data of the instruction, if it's a `PUSHx` instruction.
     pub push_data: Option<Vec<u8>>,
     /// The source location of the instruction, if any.
-    pub location: Option<Rc<SourceLocation>>,
+    pub location: Option<Arc<SourceLocation>>,
 }
 
 /// The type of a jump.
@@ -339,9 +339,9 @@ pub struct ContractMetadata {
 
     // This owns the source files transitively used by the source locations
     // in the Instruction structs.
-    _sources: Rc<BuildModelSources>,
+    _sources: Arc<BuildModelSources>,
     /// Contract that the bytecode belongs to.
-    pub contract: Rc<RefCell<Contract>>,
+    pub contract: Arc<RwLock<Contract>>,
     /// Whether the bytecode is a deployment bytecode.
     pub is_deployment: bool,
     /// Normalized code of the bytecode, i.e. replaced with zeroes for the
@@ -359,8 +359,8 @@ impl ContractMetadata {
     /// Creates a new [`ContractMetadata`] with the provided arguments.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        sources: Rc<BuildModelSources>,
-        contract: Rc<RefCell<Contract>>,
+        sources: Arc<BuildModelSources>,
+        contract: Arc<RwLock<Contract>>,
         is_deployment: bool,
         normalized_code: Vec<u8>,
         instructions: Vec<Instruction>,
@@ -424,21 +424,21 @@ pub struct Contract {
     /// Custom errors defined in the contract.
     pub custom_errors: Vec<CustomError>,
     /// The constructor function of the contract.
-    pub constructor: Option<Rc<ContractFunction>>,
+    pub constructor: Option<Arc<ContractFunction>>,
     /// The fallback function of the contract.
-    pub fallback: Option<Rc<ContractFunction>>,
+    pub fallback: Option<Arc<ContractFunction>>,
     /// The receive function of the contract.
-    pub receive: Option<Rc<ContractFunction>>,
+    pub receive: Option<Arc<ContractFunction>>,
 
-    local_functions: Vec<Rc<ContractFunction>>,
-    selector_hex_to_function: HashMap<String, Rc<ContractFunction>>,
+    local_functions: Vec<Arc<ContractFunction>>,
+    selector_hex_to_function: HashMap<String, Arc<ContractFunction>>,
 
     /// The contract's name.
     pub name: String,
     /// The contract's kind, i.e. contract or library.
     pub r#type: ContractKind,
     /// The source location of the contract.
-    pub location: Rc<SourceLocation>,
+    pub location: Arc<SourceLocation>,
 }
 
 impl Contract {
@@ -446,7 +446,7 @@ impl Contract {
     pub fn new(
         name: String,
         contract_type: ContractKind,
-        location: Rc<SourceLocation>,
+        location: Arc<SourceLocation>,
     ) -> Contract {
         Contract {
             custom_errors: Vec::new(),
@@ -464,16 +464,14 @@ impl Contract {
     /// Adds a local function to the contract.
     /// # Note
     /// Should only be called when resolving the source model.
-    pub fn add_local_function(&mut self, func: Rc<ContractFunction>) {
+    pub fn add_local_function(&mut self, func: Arc<ContractFunction>) {
         if matches!(
             func.visibility,
             Some(ContractFunctionVisibility::Public | ContractFunctionVisibility::External)
         ) {
             match func.r#type {
                 ContractFunctionType::Function | ContractFunctionType::Getter => {
-                    let selector = func.selector.try_borrow().expect(
-                        "Function selector to be corrected later after creating the source model",
-                    );
+                    let selector = func.selector.read();
                     // The original code unwrapped here
                     let selector = selector.as_ref().unwrap();
                     let selector = hex::encode(selector);
@@ -532,10 +530,9 @@ impl Contract {
 
             let selector = base_contract_function
                 .selector
-                .try_borrow()
-                .expect("Function selector to be corrected later after creating the source model")
+                .read()
                 .clone()
-                .unwrap();
+                .expect("selector exists");
             let selector_hex = hex::encode(&*selector);
 
             self.selector_hex_to_function
@@ -545,7 +542,7 @@ impl Contract {
     }
 
     /// Looks up the local [`ContractFunction`] with the provided selector.
-    pub fn get_function_from_selector(&self, selector: &[u8]) -> Option<&Rc<ContractFunction>> {
+    pub fn get_function_from_selector(&self, selector: &[u8]) -> Option<&Arc<ContractFunction>> {
         let selector_hex = hex::encode(selector);
 
         self.selector_hex_to_function.get(&selector_hex)
@@ -577,10 +574,7 @@ impl Contract {
         };
 
         {
-            let mut selector_to_be_corrected = function_to_correct
-                .selector
-                .try_borrow_mut()
-                .expect("Function selector to only be corrected after creating the source model");
+            let mut selector_to_be_corrected = function_to_correct.selector.write();
             if let Some(selector) = &*selector_to_be_corrected {
                 let selector_hex = hex::encode(selector);
                 self.selector_hex_to_function.remove(&selector_hex);
