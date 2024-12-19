@@ -744,7 +744,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8c3d2abadaa28e0d277f9f6d07a2052544f045d929cd4d6f7bcfb43567c9767"
 dependencies = [
  "hasher",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
  "rlp",
 ]
 
@@ -1139,7 +1139,7 @@ dependencies = [
  "lazy_static",
  "log",
  "once_cell",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
  "paste",
  "revm",
  "rpds",
@@ -1177,7 +1177,7 @@ dependencies = [
  "napi-build",
  "napi-derive",
  "openssl-sys",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
  "rand",
  "semver 1.0.23",
  "serde",
@@ -1203,6 +1203,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_rpc_eth",
+ "edr_solidity",
  "edr_test_utils",
  "indexmap 2.2.6",
  "itertools 0.12.1",
@@ -1210,7 +1211,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lru",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
  "paste",
  "rand",
  "revm-precompile",
@@ -1289,7 +1290,7 @@ dependencies = [
  "edr_evm",
  "either",
  "indexmap 2.2.6",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
  "semver 1.0.23",
  "serde",
  "serde_json",
@@ -2472,9 +2473,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
-version = "0.12.1"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
+checksum = "f1bf18183cf54e8d6059647fc3063646a1801cf30896933ec2311622cc4b9a27"
 dependencies = [
  "lock_api",
  "parking_lot_core 0.9.9",
@@ -3328,7 +3329,7 @@ dependencies = [
  "futures",
  "lazy_static",
  "log",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
  "serial_test_derive",
 ]
 
@@ -3692,7 +3693,7 @@ dependencies = [
  "libc",
  "mio",
  "num_cpus",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
  "pin-project-lite",
  "socket2",
  "tokio-macros",
@@ -3801,9 +3802,11 @@ dependencies = [
  "edr_evm",
  "edr_provider",
  "edr_rpc_eth",
+ "edr_solidity",
  "flate2",
  "indicatif",
  "mimalloc",
+ "parking_lot 0.12.3",
  "reqwest",
  "serde",
  "serde_json",
@@ -3873,7 +3876,7 @@ dependencies = [
  "matchers",
  "nu-ansi-term",
  "once_cell",
- "parking_lot 0.12.1",
+ "parking_lot 0.12.3",
  "regex",
  "sharded-slab",
  "smallvec",

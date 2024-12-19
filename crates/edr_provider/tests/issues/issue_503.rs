@@ -1,11 +1,13 @@
-use std::str::FromStr as _;
+use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::{Address, SpecId, U256};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 // https://github.com/NomicFoundation/edr/issues/503
@@ -26,6 +28,7 @@ async fn issue_503() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<RwLock<ContractDecoder>>::default(),
         CurrentTime,
     )?;
 

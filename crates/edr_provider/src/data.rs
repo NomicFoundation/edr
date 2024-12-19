@@ -53,10 +53,12 @@ use edr_rpc_eth::{
     error::HttpError,
     RpcTransactionType,
 };
+use edr_solidity::contract_decoder::{ContractDecoder, ContractDecoderError};
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
+use parking_lot::RwLock;
 use revm_precompile::secp256r1;
 use rpds::HashTrieMapSync;
 use tokio::runtime;
@@ -148,6 +150,9 @@ pub enum CreationError {
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainError),
+    /// A contract decoder error
+    #[error(transparent)]
+    ContractDecoder(#[from] ContractDecoderError),
     /// An error that occurred while constructing a forked blockchain.
     #[error(transparent)]
     ForkedBlockchainCreation(#[from] ForkedCreationError),
@@ -208,6 +213,9 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     block_state_cache: LruCache<StateId, Arc<Box<dyn SyncState<StateError>>>>,
     current_state_id: StateId,
     block_number_to_state_id: HashTrieMapSync<u64, StateId>,
+    // DEAD LOCK WARNING: This should only be written to from a `hardhat_addCompilationResult` or
+    // `hardhat_reset` handler. Otherwise there is a risk of deadlocks.
+    contract_decoder: Arc<RwLock<ContractDecoder>>,
 }
 
 impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErrorT, TimerT> {
@@ -217,6 +225,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         call_override: Option<Arc<dyn SyncCallOverride>>,
         config: ProviderConfig,
+        contract_metadata: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationError> {
         let InitialAccounts {
@@ -313,6 +322,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             block_state_cache,
             current_state_id,
             block_number_to_state_id,
+            contract_decoder: contract_metadata,
         })
     }
 
@@ -330,6 +340,9 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.subscriber_callback.clone(),
             self.call_override.clone(),
             config,
+            // `hardhat_reset` doesn't discard contract metadata added with
+            // `hardhat_addCompilationResult`
+            Arc::clone(&self.contract_decoder),
             self.timer.clone(),
         )?;
 
@@ -379,6 +392,11 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     /// Retrieves the gas limit of the next block.
     pub fn block_gas_limit(&self) -> u64 {
         self.mem_pool.block_gas_limit().get()
+    }
+
+    /// Get the locked contract decoder.
+    pub fn contract_decoder(&self) -> &RwLock<ContractDecoder> {
+        &self.contract_decoder
     }
 
     /// Returns the default caller.
@@ -2881,6 +2899,7 @@ pub(crate) mod test_utils {
                 subscription_callback_noop,
                 None,
                 config.clone(),
+                Arc::<RwLock<ContractDecoder>>::default(),
                 CurrentTime,
             )?;
 

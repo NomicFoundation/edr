@@ -90,6 +90,8 @@ pub trait Logger {
         method: &str,
         error: Option<&ProviderError<Self::LoggerError>>,
     ) -> Result<(), Self::LoggerError>;
+
+    fn print_contract_decoding_error(&mut self, error: &str) -> Result<(), Self::LoggerError>;
 }
 
 pub trait SyncLogger: Logger + DynClone + Send + Sync {}
@@ -124,6 +126,10 @@ impl Logger for NoopLogger {
         _method: &str,
         _error: Option<&ProviderError<Infallible>>,
     ) -> Result<(), Infallible> {
+        Ok(())
+    }
+
+    fn print_contract_decoding_error(&mut self, _error: &str) -> Result<(), Self::LoggerError> {
         Ok(())
     }
 }

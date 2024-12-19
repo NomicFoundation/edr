@@ -6,12 +6,10 @@ use edr_eth::{
     Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_rpc_eth::{CallRequest, StateOverrideOptions};
+use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
 
 use super::serde::{RpcAddress, Timestamp};
-use crate::requests::{
-    debug::DebugTraceConfig,
-    hardhat::rpc_types::{CompilerInput, CompilerOutput, ResetProviderConfig},
-};
+use crate::requests::{debug::DebugTraceConfig, hardhat::rpc_types::ResetProviderConfig};
 
 mod optional_block_spec {
     use super::BlockSpec;
