@@ -148,7 +148,7 @@ impl NestedTraceDecoder {
             .get_bytecode_for_call(code.as_ref(), is_create);
 
         let contract = bytecode.map(|bytecode| bytecode.contract.clone());
-        let contract = contract.as_ref().map(|c| c.borrow());
+        let contract = contract.as_ref().map(|c| c.read());
 
         let contract_name = contract.as_ref().map_or_else(
             || UNRECOGNIZED_CONTRACT_NAME.to_string(),
@@ -221,7 +221,7 @@ fn initialize_contracts_identifier(config: &TracingConfig) -> anyhow::Result<Con
 
         for bytecode in bytecodes {
             if config.ignore_contracts == Some(true)
-                && bytecode.contract.borrow().name.starts_with("Ignored")
+                && bytecode.contract.read().name.starts_with("Ignored")
             {
                 continue;
             }
