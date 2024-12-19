@@ -1,10 +1,32 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import {
+  Account,
+  BEACON_ROOTS_ADDRESS,
+  BEACON_ROOTS_BYTECODE,
   EdrContext,
   TracingMessage,
   TracingMessageResult,
   TracingStep,
 } from "..";
+
+/// Returns the genesis state for a local blockchain.
+export function localGenesisState(isPostCancun: boolean): Account[] {
+  if (!isPostCancun) {
+    return [];
+  }
+
+  return [
+    {
+      address: Uint8Array.from(
+        Buffer.from(BEACON_ROOTS_ADDRESS.slice(2), "hex")
+      ),
+      balance: 0n,
+      nonce: 0n,
+      code: Uint8Array.from(Buffer.from(BEACON_ROOTS_BYTECODE.slice(2), "hex")),
+      storage: [],
+    },
+  ];
+}
 
 function getEnv(key: string): string | undefined {
   const variable = process.env[key];

@@ -15,7 +15,7 @@ import {
   // @ts-ignore
   optimismProviderFactory,
 } from "..";
-import { ALCHEMY_URL, toBuffer } from "./helpers";
+import { ALCHEMY_URL, localGenesisState, toBuffer } from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -40,13 +40,6 @@ describe("Multi-chain", () => {
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
     enableRip7212: false,
-    genesisAccounts: [
-      {
-        secretKey:
-          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        balance: 1000n * 10n ** 18n,
-      },
-    ],
     hardfork: "Latest",
     initialBlobGas: {
       gasUsed: 0n,
@@ -64,6 +57,13 @@ describe("Multi-chain", () => {
       },
     },
     networkId: 123n,
+    ownedAccounts: [
+      {
+        secretKey:
+          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        balance: 1000n * 10n ** 18n,
+      },
+    ],
   };
 
   const loggerConfig = {
@@ -85,7 +85,10 @@ describe("Multi-chain", () => {
   it("initialize L1 provider", async function () {
     const provider = context.createProvider(
       L1_CHAIN_TYPE,
-      providerConfig,
+      {
+        genesisState: localGenesisState(true),
+        ...providerConfig,
+      },
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
@@ -98,7 +101,10 @@ describe("Multi-chain", () => {
   it("initialize Optimism provider", async function () {
     const provider = context.createProvider(
       OPTIMISM_CHAIN_TYPE,
-      providerConfig,
+      {
+        genesisState: localGenesisState(true),
+        ...providerConfig,
+      },
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
@@ -119,6 +125,7 @@ describe("Multi-chain", () => {
         fork: {
           jsonRpcUrl: ALCHEMY_URL.replace("eth-", "opt-"),
         },
+        genesisState: [],
         ...providerConfig,
       },
       loggerConfig,
@@ -137,7 +144,10 @@ describe("Multi-chain", () => {
 
       const provider = await context.createProvider(
         OPTIMISM_CHAIN_TYPE,
-        providerConfig,
+        {
+          genesisState: localGenesisState(true),
+          ...providerConfig,
+        },
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
