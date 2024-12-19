@@ -5,6 +5,7 @@ import {
   ContractAndFunctionName,
   EdrContext,
   L1_CHAIN_TYPE,
+  l1GenesisState,
   l1ProviderFactory,
   MineOrdering,
   SubscriptionEvent,
@@ -14,8 +15,9 @@ import {
   OPTIMISM_CHAIN_TYPE,
   // @ts-ignore
   optimismProviderFactory,
+  l1HardforkFromString,
 } from "..";
-import { ALCHEMY_URL, localGenesisState, toBuffer } from "./helpers";
+import { ALCHEMY_URL, toBuffer } from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -82,11 +84,13 @@ describe("Multi-chain", () => {
     printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
-  it("initialize L1 provider", async function () {
+  it("initialize local L1 provider", async function () {
     const provider = context.createProvider(
       L1_CHAIN_TYPE,
       {
-        genesisState: localGenesisState(true),
+        genesisState: l1GenesisState(
+          l1HardforkFromString(providerConfig.hardfork)
+        ),
         ...providerConfig,
       },
       loggerConfig,
@@ -98,11 +102,12 @@ describe("Multi-chain", () => {
     await assert.isFulfilled(provider);
   });
 
-  it("initialize Optimism provider", async function () {
+  it("initialize local Optimism provider", async function () {
     const provider = context.createProvider(
       OPTIMISM_CHAIN_TYPE,
       {
-        genesisState: localGenesisState(true),
+        // TODO: Add genesis state for Optimism
+        genesisState: [],
         ...providerConfig,
       },
       loggerConfig,
@@ -145,7 +150,7 @@ describe("Multi-chain", () => {
       const provider = await context.createProvider(
         OPTIMISM_CHAIN_TYPE,
         {
-          genesisState: localGenesisState(true),
+          genesisState: [],
           ...providerConfig,
         },
         loggerConfig,

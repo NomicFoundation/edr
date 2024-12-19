@@ -89,10 +89,14 @@ export interface CallOverrideResult {
 export const GENERIC_CHAIN_TYPE: string
 export declare function genericChainProviderFactory(): ProviderFactory
 export const L1_CHAIN_TYPE: string
-/** The address of the beacon roots contract. */
-export const BEACON_ROOTS_ADDRESS: string
-/** The bytecode of the beacon roots contract. */
-export const BEACON_ROOTS_BYTECODE: string
+export declare function l1GenesisState(hardfork: SpecId): Array<Account>
+/**
+ * Creates a new instance by matching the provided string.
+ *
+ * Defaults to `SpecId::Latest` if the string does not match any known
+ * hardfork.
+ */
+export declare function l1HardforkFromString(hardfork: string): SpecId
 export declare function l1ProviderFactory(): ProviderFactory
 /** Identifier for the Ethereum spec. */
 export enum SpecId {
@@ -133,7 +137,7 @@ export enum SpecId {
   /** Cancun */
   Cancun = 17,
   /** Latest */
-  Latest = 18
+  Latest = 2147483647
 }
 export const FRONTIER: string
 export const FRONTIER_THAWING: string

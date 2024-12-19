@@ -310,13 +310,13 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, MineOrdering, EdrContext, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, BytecodeWrapper, ContractFunctionType, printMessageTrace, printStackTrace, Exit, ExitCode, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
+const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1GenesisState, l1HardforkFromString, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, MineOrdering, EdrContext, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, BytecodeWrapper, ContractFunctionType, printMessageTrace, printStackTrace, Exit, ExitCode, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
 
 module.exports.GENERIC_CHAIN_TYPE = GENERIC_CHAIN_TYPE
 module.exports.genericChainProviderFactory = genericChainProviderFactory
 module.exports.L1_CHAIN_TYPE = L1_CHAIN_TYPE
-module.exports.BEACON_ROOTS_ADDRESS = BEACON_ROOTS_ADDRESS
-module.exports.BEACON_ROOTS_BYTECODE = BEACON_ROOTS_BYTECODE
+module.exports.l1GenesisState = l1GenesisState
+module.exports.l1HardforkFromString = l1HardforkFromString
 module.exports.l1ProviderFactory = l1ProviderFactory
 module.exports.SpecId = SpecId
 module.exports.FRONTIER = FRONTIER

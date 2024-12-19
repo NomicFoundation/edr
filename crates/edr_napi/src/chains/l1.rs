@@ -1,15 +1,19 @@
 use std::sync::Arc;
 
-use edr_eth::l1::{self, L1ChainSpec};
+use edr_eth::{
+    beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
+    l1::{self, L1ChainSpec},
+};
 use edr_napi_core::{
     logger::Logger,
     provider::{self, ProviderBuilder, SyncProviderFactory},
     spec::SyncNapiSpec as _,
     subscription,
 };
+use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
-use crate::provider::ProviderFactory;
+use crate::{account::Account, provider::ProviderFactory};
 
 pub struct L1ProviderFactory;
 
@@ -39,13 +43,29 @@ impl SyncProviderFactory for L1ProviderFactory {
 #[napi]
 pub const L1_CHAIN_TYPE: &str = L1ChainSpec::CHAIN_TYPE;
 
-/// The address of the beacon roots contract.
 #[napi]
-pub const BEACON_ROOTS_ADDRESS: &str = "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02";
+pub fn l1_genesis_state(hardfork: SpecId) -> Vec<Account> {
+    if hardfork < SpecId::Cancun {
+        return Vec::new();
+    }
 
-/// The bytecode of the beacon roots contract.
+    vec![Account {
+        address: Uint8Array::from(BEACON_ROOTS_ADDRESS.as_slice()),
+        balance: BigInt::from(0u64),
+        nonce: BigInt::from(0u64),
+        code: Some(Uint8Array::from(BEACON_ROOTS_BYTECODE)),
+        storage: Vec::new(),
+    }]
+}
+
+/// Creates a new instance by matching the provided string.
+///
+/// Defaults to `SpecId::Latest` if the string does not match any known
+/// hardfork.
 #[napi]
-pub const BEACON_ROOTS_BYTECODE: &str = "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500";
+pub fn l1_hardfork_from_string(hardfork: String) -> SpecId {
+    edr_eth::l1::SpecId::from(hardfork.as_str()).into()
+}
 
 #[napi]
 pub fn l1_provider_factory() -> ProviderFactory {
@@ -55,6 +75,7 @@ pub fn l1_provider_factory() -> ProviderFactory {
 
 /// Identifier for the Ethereum spec.
 #[napi]
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum SpecId {
     /// Frontier
     Frontier = 0,
@@ -93,7 +114,36 @@ pub enum SpecId {
     /// Cancun
     Cancun = 17,
     /// Latest
-    Latest = 18,
+    Latest = 2_147_483_647, // Maximum value of i32
+}
+
+impl From<edr_eth::l1::SpecId> for SpecId {
+    fn from(value: edr_eth::l1::SpecId) -> Self {
+        match value {
+            edr_eth::l1::SpecId::FRONTIER => SpecId::Frontier,
+            edr_eth::l1::SpecId::FRONTIER_THAWING => SpecId::FrontierThawing,
+            edr_eth::l1::SpecId::HOMESTEAD => SpecId::Homestead,
+            edr_eth::l1::SpecId::DAO_FORK => SpecId::DaoFork,
+            edr_eth::l1::SpecId::TANGERINE => SpecId::Tangerine,
+            edr_eth::l1::SpecId::SPURIOUS_DRAGON => SpecId::SpuriousDragon,
+            edr_eth::l1::SpecId::BYZANTIUM => SpecId::Byzantium,
+            edr_eth::l1::SpecId::CONSTANTINOPLE => SpecId::Constantinople,
+            edr_eth::l1::SpecId::PETERSBURG => SpecId::Petersburg,
+            edr_eth::l1::SpecId::ISTANBUL => SpecId::Istanbul,
+            edr_eth::l1::SpecId::MUIR_GLACIER => SpecId::MuirGlacier,
+            edr_eth::l1::SpecId::BERLIN => SpecId::Berlin,
+            edr_eth::l1::SpecId::LONDON => SpecId::London,
+            edr_eth::l1::SpecId::ARROW_GLACIER => SpecId::ArrowGlacier,
+            edr_eth::l1::SpecId::GRAY_GLACIER => SpecId::GrayGlacier,
+            edr_eth::l1::SpecId::MERGE => SpecId::Merge,
+            edr_eth::l1::SpecId::SHANGHAI => SpecId::Shanghai,
+            edr_eth::l1::SpecId::CANCUN => SpecId::Cancun,
+            // TODO: Add Prague and Prague EOF
+            edr_eth::l1::SpecId::PRAGUE
+            | edr_eth::l1::SpecId::PRAGUE_EOF
+            | edr_eth::l1::SpecId::LATEST => SpecId::Latest,
+        }
+    }
 }
 
 impl From<SpecId> for edr_eth::l1::SpecId {
