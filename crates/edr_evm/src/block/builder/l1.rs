@@ -61,8 +61,8 @@ where
     withdrawals: Option<Vec<Withdrawal>>,
 }
 
-impl<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
-    EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+impl<BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+    EthBlockBuilder<'_, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
 where
     ChainSpecT: RuntimeSpec,
 {
@@ -323,8 +323,8 @@ where
     }
 }
 
-impl<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
-    EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+impl<BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+    EthBlockBuilder<'_, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
 where
     ChainSpecT: SyncRuntimeSpec,
     StateErrorT: Debug,

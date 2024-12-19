@@ -54,8 +54,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain
     }
 }
 
-impl<'blockchain, ChainSpecT> Blockchain<ChainSpecT>
-    for BlockchainWithPending<'blockchain, ChainSpecT>
+impl<ChainSpecT> Blockchain<ChainSpecT> for BlockchainWithPending<'_, ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
         LocalBlock: BlockReceipts<
@@ -212,8 +211,8 @@ where
     }
 }
 
-impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT>
-    for BlockchainWithPending<'blockchain, ChainSpecT>
+impl<ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT>
+    for BlockchainWithPending<'_, ChainSpecT>
 {
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
@@ -237,9 +236,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT>
     }
 }
 
-impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockHash
-    for BlockchainWithPending<'blockchain, ChainSpecT>
-{
+impl<ChainSpecT: SyncRuntimeSpec> BlockHash for BlockchainWithPending<'_, ChainSpecT> {
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {

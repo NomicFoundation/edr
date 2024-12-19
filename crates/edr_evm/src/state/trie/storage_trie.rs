@@ -73,7 +73,7 @@ pub(super) struct StorageTrieMutation<'a> {
     trie_query: TrieQuery,
 }
 
-impl<'a> StorageTrieMutation<'a> {
+impl StorageTrieMutation<'_> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub fn set_storage_slots(&mut self, storage: &EvmStorage) {
         storage.iter().for_each(|(index, value)| {
@@ -102,7 +102,7 @@ impl<'a> StorageTrieMutation<'a> {
     }
 }
 
-impl<'a> Drop for StorageTrieMutation<'a> {
+impl Drop for StorageTrieMutation<'_> {
     fn drop(&mut self) {
         self.storage_trie.root = self.trie_query.root();
     }

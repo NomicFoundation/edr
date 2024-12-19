@@ -181,7 +181,7 @@ struct AccountTrieMutation<'a> {
     storage_tries: &'a mut StorageTries,
 }
 
-impl<'a> AccountTrieMutation<'a> {
+impl AccountTrieMutation<'_> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub fn init_account(&mut self, address: &Address, account_info: &AccountInfo) {
         let storage_trie = StorageTrie::default();
