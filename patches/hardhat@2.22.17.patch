@@ -21,7 +21,7 @@ index 9df47bce20ca6de26d13a2616bfce48eea655c67..b770da91169673b4a85d76e2770d1945
 +{"version":3,"file":"provider.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":";AAAA,OAAO,KAAK,EACV,SAAS,EAGT,eAAe,EAEf,0BAA0B,EAC1B,gBAAgB,EACjB,MAAM,gBAAgB,CAAC;AAExB,OAAO,KAAK,EAEV,UAAU,EAGV,QAAQ,IAAI,SAAS,EAKtB,MAAM,sBAAsB,CAAC;AAQ9B,OAAO,EAAE,YAAY,EAAE,MAAM,QAAQ,CAAC;AAmCtC,OAAO,EACL,UAAU,EACV,cAAc,EACd,oBAAoB,EACpB,YAAY,EACZ,UAAU,EACV,aAAa,EACd,MAAM,cAAc,CAAC;AAWtB,OAAO,EAAE,YAAY,EAA8B,MAAM,kBAAkB,CAAC;AAO5E,eAAO,MAAM,gBAAgB,+CAA+C,CAAC;AAI7E,wBAAsB,mBAAmB,IAAI,OAAO,CAAC,UAAU,CAAC,CAgB/D;AAED,UAAU,4BAA4B;IACpC,QAAQ,EAAE,MAAM,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,CAAC;IAClB,aAAa,EAAE,MAAM,CAAC;IACtB,WAAW,EAAE,MAAM,CAAC;IACpB,QAAQ,EAAE,OAAO,CAAC;IAClB,cAAc,EAAE,oBAAoB,CAAC;IACrC,YAAY,EAAE,YAAY,CAAC;IAC3B,MAAM,EAAE,0BAA0B,CAAC;IACnC,eAAe,EAAE,cAAc,EAAE,CAAC;IAClC,0BAA0B,EAAE,OAAO,CAAC;IACpC,0BAA0B,EAAE,OAAO,CAAC;IACpC,mBAAmB,EAAE,OAAO,CAAC;IAC7B,4BAA4B,EAAE,OAAO,CAAC;IAEtC,oBAAoB,CAAC,EAAE,MAAM,CAAC;IAC9B,WAAW,CAAC,EAAE,IAAI,CAAC;IACnB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,UAAU,CAAC,EAAE,UAAU,CAAC;IACxB,aAAa,CAAC,EAAE,MAAM,CAAC;IACvB,sBAAsB,EAAE,OAAO,CAAC;IAChC,aAAa,EAAE,OAAO,CAAC;CACxB;AAED,wBAAgB,aAAa,CAC3B,MAAM,EAAE,4BAA4B,EACpC,aAAa,CAAC,EAAE,aAAa,GAC5B,UAAU,CAsBZ;AA6BD,qBAAa,kBACX,SAAQ,YACR,YAAW,eAAe;IAWxB,OAAO,CAAC,QAAQ,CAAC,SAAS;IAE1B,OAAO,CAAC,QAAQ,CAAC,KAAK;IAGtB,OAAO,CAAC,QAAQ,CAAC,eAAe;IAEhC,OAAO,CAAC,QAAQ,CAAC,OAAO;IAhB1B,OAAO,CAAC,kBAAkB,CAAK;IAG/B,OAAO,CAAC,qBAAqB,CAAC,CAAuB;IAErD,2CAA2C;IAC3C,OAAO,CAAC,SAAS,CAAC,CAAY;IAE9B,OAAO;WAkBa,MAAM,CACxB,MAAM,EAAE,4BAA4B,EACpC,YAAY,EAAE,YAAY,EAC1B,aAAa,CAAC,EAAE,aAAa,GAC5B,OAAO,CAAC,kBAAkB,CAAC;IA2JjB,OAAO,CAAC,IAAI,EAAE,gBAAgB,GAAG,OAAO,CAAC,OAAO,CAAC;IA6I9D;;;;OAIG;IACI,WAAW,CAAC,QAAQ,CAAC,EAAE,SAAS;YAKzB,wBAAwB;YAYxB,kBAAkB;IAIhC,OAAO,CAAC,iBAAiB;IASzB,OAAO,CAAC,4BAA4B;IAOpC,OAAO,CAAC,6BAA6B;IAYrC,OAAO,CAAC,2BAA2B;YAWrB,2BAA2B;IAkCzC,OAAO,CAAC,iCAAiC;IAIzC,OAAO,CAAC,iCAAiC;YAI3B,6BAA6B;CA4B5C;AAQD,wBAAsB,4BAA4B,CAChD,4BAA4B,EAAE,4BAA4B,EAC1D,YAAY,EAAE,YAAY,EAC1B,SAAS,CAAC,EAAE,SAAS,GACpB,OAAO,CAAC,eAAe,CAAC,CAY1B"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
-index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..f8a69d88a4cbe658640c83dd8390e0ca9546c573 100644
+index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..2633498279ab74af9257c8ac4d1e347c44adca31 100644
 --- a/internal/hardhat-network/provider/provider.js
 +++ b/internal/hardhat-network/provider/provider.js
 @@ -27,6 +27,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
@@ -148,41 +148,6 @@ index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..f8a69d88a4cbe658640c83dd8390e0ca
      }
      _ethEventListener(event) {
          const subscription = `0x${event.filterId.toString(16)}`;
-@@ -410,32 +431,4 @@ async function clientVersion(edrClientVersion) {
- }
- async function createHardhatNetworkProvider(hardhatNetworkProviderConfig, loggerConfig, artifacts) {
-     log("Making tracing config");
--    const tracingConfig = await makeTracingConfig(artifacts);
--    log("Creating EDR provider");
--    const provider = await EdrProviderWrapper.create(hardhatNetworkProviderConfig, loggerConfig, tracingConfig);
--    log("EDR provider created");
--    return provider;
--}
--exports.createHardhatNetworkProvider = createHardhatNetworkProvider;
--async function makeTracingConfig(artifacts) {
--    if (artifacts !== undefined) {
--        const buildInfos = [];
--        const buildInfoFiles = await artifacts.getBuildInfoPaths();
--        try {
--            for (const buildInfoFile of buildInfoFiles) {
--                const buildInfo = await fs_extra_1.default.readJson(buildInfoFile);
--                if (semver_1.default.gte(buildInfo.solcVersion, constants_2.FIRST_SOLC_VERSION_SUPPORTED)) {
--                    buildInfos.push(buildInfo);
--                }
--            }
--            return {
--                buildInfos,
--            };
--        }
--        catch (error) {
--            console.warn(picocolors_1.default.yellow("Stack traces engine could not be initialized. Run Hardhat with --verbose to learn more."));
--            log("Solidity stack traces disabled: Failed to read solc's input and output files. Please report this to help us improve Hardhat.\n", error);
--        }
--    }
--}
--//# sourceMappingURL=provider.js.map
-\ No newline at end of file
-+    const tracingConfig = await make
 diff --git a/internal/hardhat-network/provider/provider.js.map b/internal/hardhat-network/provider/provider.js.map
 index a3f76bed476f594bb8cce9f42cfae119222b9651..8b4368704fa61146c0a2856eca12c06288ff0630 100644
 --- a/internal/hardhat-network/provider/provider.js.map
