@@ -122,6 +122,7 @@ export async function traceTransaction(
   });
 
   const responseObject: Response =
+    // eslint-disable-next-line @typescript-eslint/dot-notation
     await provider["_provider"].handleRequest(stringifiedArgs);
 
   let response;
