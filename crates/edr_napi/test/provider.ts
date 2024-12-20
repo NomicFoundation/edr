@@ -5,6 +5,8 @@ import {
   ContractAndFunctionName,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
+  l1GenesisState,
+  l1HardforkFromString,
   MineOrdering,
   SubscriptionEvent,
 } from "..";
@@ -37,13 +39,6 @@ describe("Provider", () => {
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
     enableRip7212: false,
-    genesisAccounts: [
-      {
-        secretKey:
-          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        balance: 1000n * 10n ** 18n,
-      },
-    ],
     hardfork: "Latest",
     initialBlobGas: {
       gasUsed: 0n,
@@ -61,6 +56,13 @@ describe("Provider", () => {
       },
     },
     networkId: 123n,
+    ownedAccounts: [
+      {
+        secretKey:
+          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        balance: 1000n * 10n ** 18n,
+      },
+    ],
   };
 
   const loggerConfig = {
@@ -82,7 +84,12 @@ describe("Provider", () => {
   it("initialize local", async function () {
     const provider = context.createProvider(
       GENERIC_CHAIN_TYPE,
-      providerConfig,
+      {
+        genesisState: l1GenesisState(
+          l1HardforkFromString(providerConfig.hardfork)
+        ),
+        ...providerConfig,
+      },
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
@@ -103,6 +110,7 @@ describe("Provider", () => {
         fork: {
           jsonRpcUrl: ALCHEMY_URL,
         },
+        genesisState: [],
         ...providerConfig,
       },
       loggerConfig,
@@ -118,7 +126,12 @@ describe("Provider", () => {
     it("should only include the top of the stack by default", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
-        providerConfig,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
 
         {
@@ -161,7 +174,12 @@ describe("Provider", () => {
     it("should only include the whole stack if verbose mode is enabled", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
-        providerConfig,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
@@ -208,7 +226,12 @@ describe("Provider", () => {
     it("should not include memory by default", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
-        providerConfig,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
@@ -249,7 +272,12 @@ describe("Provider", () => {
     it("should include memory if verbose mode is enabled", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
-        providerConfig,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
@@ -297,7 +325,12 @@ describe("Provider", () => {
     it("should include isStaticCall flag in tracing messages", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
-        providerConfig,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
 
         {
@@ -339,7 +372,12 @@ describe("Provider", () => {
     it("should have tracing information when debug_traceTransaction is used", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
-        providerConfig,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
 
         {
@@ -394,7 +432,12 @@ describe("Provider", () => {
     it("should have tracing information when debug_traceCall is used", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
-        providerConfig,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
 
         {

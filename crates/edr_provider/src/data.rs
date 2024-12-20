@@ -614,7 +614,7 @@ where
     ) -> Result<Self, CreationError<ChainSpecT>> {
         let InitialAccounts {
             local_accounts,
-            genesis_accounts,
+            genesis_state,
         } = create_accounts(&config);
 
         let BlockchainAndState {
@@ -626,7 +626,7 @@ where
             prev_randao_generator,
             block_time_offset_seconds,
             next_block_base_fee_per_gas,
-        } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer, genesis_accounts)?;
+        } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer, genesis_state)?;
 
         let max_cached_states = get_max_cached_states_from_env()?;
         let mut block_state_cache = LruCache::new(max_cached_states);
@@ -2658,7 +2658,7 @@ fn create_blockchain_and_state<
     runtime: runtime::Handle,
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &impl TimeSinceEpoch,
-    mut genesis_accounts: HashMap<Address, Account>,
+    mut genesis_state: HashMap<Address, Account>,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationError<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
@@ -2699,8 +2699,8 @@ fn create_blockchain_and_state<
 
         let fork_block_number = blockchain.last_block_number();
 
-        if !genesis_accounts.is_empty() {
-            let genesis_addresses = genesis_accounts.keys().cloned().collect::<Vec<_>>();
+        if !genesis_state.is_empty() {
+            let genesis_addresses = genesis_state.keys().cloned().collect::<Vec<_>>();
             let genesis_account_infos = tokio::task::block_in_place(|| {
                 runtime.block_on(rpc_client.get_account_infos(
                     &genesis_addresses,
@@ -2712,7 +2712,7 @@ fn create_blockchain_and_state<
             // state as we only want to overwrite the balance.
             for (address, account_info) in genesis_addresses.into_iter().zip(genesis_account_infos)
             {
-                genesis_accounts.entry(address).and_modify(|account| {
+                genesis_state.entry(address).and_modify(|account| {
                     let AccountInfo {
                         balance: _,
                         nonce,
@@ -2731,13 +2731,13 @@ fn create_blockchain_and_state<
                 .and_modify(|state_override| {
                     // No need to update the state_root, as it could only have been created by the
                     // `ForkedBlockchain` constructor.
-                    state_override.diff.apply_diff(genesis_accounts.clone());
+                    state_override.diff.apply_diff(genesis_state.clone());
                 })
                 .or_insert_with(|| {
                     let state_root = state_root_generator.lock().next_value();
 
                     StateOverride {
-                        diff: StateDiff::from(genesis_accounts),
+                        diff: StateDiff::from(genesis_state),
                         state_root,
                     }
                 });
@@ -2813,7 +2813,7 @@ fn create_blockchain_and_state<
         };
 
         let blockchain = LocalBlockchain::new(
-            StateDiff::from(genesis_accounts),
+            StateDiff::from(genesis_state),
             config.chain_id,
             config.hardfork,
             GenesisBlockOptions {

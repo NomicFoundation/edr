@@ -2,19 +2,16 @@ use std::{
     collections::BTreeMap,
     fmt::Debug,
     num::NonZeroU64,
-    str::FromStr,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use derive_where::derive_where;
 use edr_eth::{
-    account::AccountInfo,
-    beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
     block::{BlobGas, BlockOptions, PartialHeader},
     l1,
     log::FilterLog,
-    Address, Bytecode, Bytes, HashSet, B256, U256,
+    Address, Bytes, HashSet, B256, U256,
 };
 
 use super::{
@@ -102,34 +99,17 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        mut genesis_diff: StateDiff,
+        genesis_diff: StateDiff,
         chain_id: u64,
         hardfork: ChainSpecT::Hardfork,
         options: GenesisBlockOptions,
     ) -> Result<Self, CreationError> {
         const EXTRA_DATA: &[u8] = b"\x12\x34";
 
-        let evm_spec_id = hardfork.into();
-        if evm_spec_id >= l1::SpecId::CANCUN {
-            let beacon_roots_address =
-                Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
-            let beacon_roots_contract = Bytecode::new_raw(
-                Bytes::from_str(BEACON_ROOTS_BYTECODE).expect("Is valid bytecode"),
-            );
-
-            genesis_diff.apply_account_change(
-                beacon_roots_address,
-                AccountInfo {
-                    code_hash: beacon_roots_contract.hash_slow(),
-                    code: Some(beacon_roots_contract),
-                    ..AccountInfo::default()
-                },
-            );
-        }
-
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
 
+        let evm_spec_id = hardfork.into();
         if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
             return Err(CreationError::MissingPrevrandao);
         }

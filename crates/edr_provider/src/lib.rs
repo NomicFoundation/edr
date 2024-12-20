@@ -1,4 +1,5 @@
-mod config;
+/// Types for configuring the provider.
+pub mod config;
 mod console_log;
 mod data;
 mod debug_mine;
@@ -34,7 +35,10 @@ use edr_evm::{spec::RuntimeSpec, trace::Trace};
 use lazy_static::lazy_static;
 
 pub use self::{
-    config::*,
+    config::{
+        Account as AccountConfig, Interval as IntervalConfig, MemPool as MemPoolConfig,
+        Mining as MiningConfig, Provider as ProviderConfig,
+    },
     data::{CallResult, ProviderData},
     debug_mine::{DebugMineBlockResult, DebugMineBlockResultForChainSpec},
     error::{EstimateGasFailure, ProviderError, TransactionFailure, TransactionFailureReason},

@@ -24,14 +24,15 @@ async fn issue_325() -> anyhow::Result<()> {
     };
 
     let impersonated_account = Address::random();
-    config.genesis_accounts.insert(
+    config.genesis_state.insert(
         impersonated_account,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
             code: None,
             code_hash: KECCAK_EMPTY,
-        },
+        }
+        .into(),
     );
 
     let provider = Provider::new(

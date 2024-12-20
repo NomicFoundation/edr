@@ -1,14 +1,11 @@
 use core::num::NonZeroU64;
 use std::{path::PathBuf, time::SystemTime};
 
-use edr_eth::{
-    account::AccountInfo, block::BlobGas, spec::HardforkTrait, Address, ChainId, HashMap, B256,
-    U256,
-};
+use edr_eth::{block::BlobGas, spec::HardforkTrait, Address, ChainId, HashMap, B256, U256};
 use edr_provider::{
+    config,
     hardfork::{Activations, ForkCondition},
     hardhat_rpc_types::ForkConfig,
-    AccountConfig, MiningConfig,
 };
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +21,7 @@ pub struct HardforkActivation {
 pub struct Config {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
-    pub accounts: Vec<AccountConfig>,
+    pub accounts: Vec<config::OwnedAccount>,
     /// Whether to return an `Err` when `eth_call` fails
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
@@ -37,15 +34,14 @@ pub struct Config {
     #[serde(default)]
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
-    // Genesis accounts in addition to accounts. Useful for adding impersonated accounts for tests.
-    pub genesis_accounts: HashMap<Address, AccountInfo>,
+    pub genesis_state: HashMap<Address, config::Account>,
     pub hardfork: String,
     pub initial_base_fee_per_gas: Option<U256>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
     pub min_gas_price: U256,
-    pub mining: MiningConfig,
+    pub mining: config::Mining,
     pub network_id: u64,
 }
 
@@ -98,7 +94,7 @@ where
             coinbase: value.coinbase,
             enable_rip_7212: value.enable_rip_7212,
             fork: value.fork,
-            genesis_accounts: value.genesis_accounts,
+            genesis_state: value.genesis_state,
             hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
             initial_blob_gas: value.initial_blob_gas,

@@ -27,14 +27,15 @@ async fn issue_326() -> anyhow::Result<()> {
     config.initial_base_fee_per_gas = Some(U256::from_str("0x100").unwrap());
 
     let impersonated_account = Address::random();
-    config.genesis_accounts.insert(
+    config.genesis_state.insert(
         impersonated_account,
         AccountInfo {
             balance: one_ether(),
             nonce: 0,
             code: None,
             code_hash: KECCAK_EMPTY,
-        },
+        }
+        .into(),
     );
 
     let provider = Provider::new(

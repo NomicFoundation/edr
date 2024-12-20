@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
@@ -201,11 +201,8 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
 
             if remote_hardfork.into() < l1::SpecId::CANCUN && hardfork.into() >= l1::SpecId::CANCUN
             {
-                let beacon_roots_address =
-                    Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
-                let beacon_roots_contract = Bytecode::new_raw(
-                    Bytes::from_str(BEACON_ROOTS_BYTECODE).expect("Is valid bytecode"),
-                );
+                let beacon_roots_contract =
+                    Bytecode::new_raw(Bytes::from_static(&BEACON_ROOTS_BYTECODE));
 
                 let state_root = state_root_generator.lock().next_value();
 
@@ -213,7 +210,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                     .state_override_at_block_number(fork_block_number)
                     .and_modify(|state_override| {
                         state_override.diff.apply_account_change(
-                            beacon_roots_address,
+                            BEACON_ROOTS_ADDRESS,
                             AccountInfo {
                                 code_hash: beacon_roots_contract.hash_slow(),
                                 code: Some(beacon_roots_contract.clone()),
@@ -223,7 +220,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                     })
                     .or_insert_with(|| {
                         let accounts: HashMap<Address, Account> = [(
-                            beacon_roots_address,
+                            BEACON_ROOTS_ADDRESS,
                             Account {
                                 info: AccountInfo {
                                     code_hash: beacon_roots_contract.hash_slow(),

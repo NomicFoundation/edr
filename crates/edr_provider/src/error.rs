@@ -21,7 +21,7 @@ use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 use serde::Serialize;
 
 use crate::{
-    data::CreationError, time::TimeSinceEpoch, IntervalConfigConversionError, ProviderSpec,
+    config::IntervalConfigConversionError, data::CreationError, time::TimeSinceEpoch, ProviderSpec,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -195,7 +195,7 @@ where
     #[error(transparent)]
     TransactionCreationError(#[from] transaction::CreationError),
     /// `eth_sendTransaction` failed and
-    /// [`crate::config::ProviderConfig::bail_on_call_failure`] was enabled
+    /// [`crate::config::Provider::bail_on_call_failure`] was enabled
     #[error(transparent)]
     TransactionFailed(#[from] TransactionFailureWithTraces<ChainSpecT::HaltReason>),
     /// Failed to convert an integer type

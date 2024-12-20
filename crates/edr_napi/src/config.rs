@@ -3,15 +3,18 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use edr_eth::HashMap;
-use edr_provider::AccountConfig;
+use edr_eth::KECCAK_EMPTY;
 use napi::{
     bindgen_prelude::{BigInt, Buffer},
     Either,
 };
 use napi_derive::napi;
 
-use crate::{account::GenesisAccount, block::BlobGas, cast::TryCast};
+use crate::{
+    account::{Account, OwnedAccount, StorageSlot},
+    block::BlobGas,
+    cast::TryCast,
+};
 
 /// Configuration for a chain
 #[napi(object)]
@@ -104,8 +107,8 @@ pub struct ProviderConfig {
     /// The configuration for forking a blockchain. If not provided, a local
     /// blockchain will be created
     pub fork: Option<ForkConfig>,
-    /// The genesis accounts of the blockchain
-    pub genesis_accounts: Vec<GenesisAccount>,
+    /// The genesis state of the blockchain
+    pub genesis_state: Vec<Account>,
     /// The hardfork of the blockchain
     pub hardfork: String,
     /// The initial base fee per gas of the blockchain. Required for EIP-1559
@@ -124,6 +127,8 @@ pub struct ProviderConfig {
     pub mining: MiningConfig,
     /// The network ID of the blockchain
     pub network_id: BigInt,
+    /// Owned accounts, for which the secret key is known
+    pub owned_accounts: Vec<OwnedAccount>,
 }
 
 impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
@@ -206,6 +211,20 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
     type Error = napi::Error;
 
     fn try_from(value: ProviderConfig) -> Result<Self, Self::Error> {
+        let accounts = value
+            .owned_accounts
+            .into_iter()
+            .map(edr_provider::config::OwnedAccount::try_from)
+            .collect::<napi::Result<Vec<_>>>()?;
+
+        let block_gas_limit =
+            NonZeroU64::new(value.block_gas_limit.try_cast()?).ok_or_else(|| {
+                napi::Error::new(
+                    napi::Status::GenericFailure,
+                    "Block gas limit must be greater than 0",
+                )
+            })?;
+
         let chains = value
             .chains
             .into_iter()
@@ -237,20 +256,52 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
             )
             .collect::<napi::Result<_>>()?;
 
-        let block_gas_limit =
-            NonZeroU64::new(value.block_gas_limit.try_cast()?).ok_or_else(|| {
-                napi::Error::new(
-                    napi::Status::GenericFailure,
-                    "Block gas limit must be greater than 0",
-                )
-            })?;
+        let genesis_state = value
+            .genesis_state
+            .into_iter()
+            .map(
+                |Account {
+                     address,
+                     balance,
+                     nonce,
+                     code,
+                     storage,
+                 }| {
+                    let code: Option<edr_eth::Bytecode> =
+                        code.map(TryCast::try_cast).transpose()?;
+
+                    let code_hash = code
+                        .as_ref()
+                        .map_or(KECCAK_EMPTY, edr_eth::Bytecode::hash_slow);
+
+                    let info = edr_eth::account::AccountInfo {
+                        balance: balance.try_cast()?,
+                        nonce: nonce.try_cast()?,
+                        code_hash,
+                        code,
+                    };
+
+                    let storage = storage
+                        .into_iter()
+                        .map(|StorageSlot { index, value }| {
+                            let value = value.try_cast()?;
+                            let slot = edr_evm::state::EvmStorageSlot::new(value);
+
+                            let index: edr_eth::U256 = index.try_cast()?;
+                            Ok((index, slot))
+                        })
+                        .collect::<napi::Result<_>>()?;
+
+                    let address: edr_eth::Address = address.try_cast()?;
+                    let account = edr_provider::config::Account { info, storage };
+
+                    Ok((address, account))
+                },
+            )
+            .collect::<napi::Result<_>>()?;
 
         Ok(Self {
-            accounts: value
-                .genesis_accounts
-                .into_iter()
-                .map(AccountConfig::try_from)
-                .collect::<napi::Result<Vec<_>>>()?,
+            accounts,
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             bail_on_call_failure: value.bail_on_call_failure,
@@ -262,7 +313,7 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
             coinbase: value.coinbase.try_cast()?,
             enable_rip_7212: value.enable_rip_7212,
             fork: value.fork.map(TryInto::try_into).transpose()?,
-            genesis_accounts: HashMap::new(),
+            genesis_state,
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value
                 .initial_base_fee_per_gas
