@@ -81,6 +81,7 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
+      {},
       (_event: SubscriptionEvent) => {}
     );
 
