@@ -1,4 +1,7 @@
-import { linkHexStringBytecode, stackTraceEntryTypeToString } from "@nomicfoundation/edr";
+import {
+  linkHexStringBytecode,
+  stackTraceEntryTypeToString,
+} from "@nomicfoundation/edr";
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
@@ -318,7 +321,7 @@ function compareStackTraces(
       "message" in actual
         ? actual.message
         : "returnData" in actual &&
-          new ReturnData(actual.returnData).isErrorReturnData()
+            new ReturnData(actual.returnData).isErrorReturnData()
           ? new ReturnData(actual.returnData).decodeError()
           : "";
 
@@ -517,16 +520,18 @@ async function runTest(
 
     try {
       if (tx.stackTrace === undefined) {
-        if (!(stackTraceOrContractAddress === undefined ||
-          typeof stackTraceOrContractAddress === "string")) {
-          assert.fail(
-            `Transaction ${txIndex} shouldn't have failed`
-          );
+        if (
+          !(
+            stackTraceOrContractAddress === undefined ||
+            typeof stackTraceOrContractAddress === "string"
+          )
+        ) {
+          assert.fail(`Transaction ${txIndex} shouldn't have failed`);
         }
       } else {
         assert.isFalse(
           stackTraceOrContractAddress === undefined ||
-          typeof stackTraceOrContractAddress === "string",
+            typeof stackTraceOrContractAddress === "string",
           `Transaction ${txIndex} should have failed`
         );
       }
@@ -694,13 +699,13 @@ const onlyLatestSolcVersions =
 
 const filterSolcVersionBy =
   (versionRange: string) =>
-    ({ solidityVersion, latestSolcVersion }: SolidityCompiler) => {
-      if (onlyLatestSolcVersions && latestSolcVersion !== true) {
-        return false;
-      }
+  ({ solidityVersion, latestSolcVersion }: SolidityCompiler) => {
+    if (onlyLatestSolcVersions && latestSolcVersion !== true) {
+      return false;
+    }
 
-      return semver.satisfies(solidityVersion, versionRange);
-    };
+    return semver.satisfies(solidityVersion, versionRange);
+  };
 
 const solidity05Compilers = solidityCompilers.filter(
   filterSolcVersionBy("^0.5.0")
