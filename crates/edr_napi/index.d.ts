@@ -160,8 +160,32 @@ export const CANCUN: string
 export const PRAGUE: string
 export const PRAGUE_EOF: string
 export const LATEST: string
+/** Enumeration of supported Optimism hardforks. */
+export enum OptimismHardfork {
+  Bedrock = 16,
+  Regolith = 17,
+  Shanghai = 18,
+  Canyon = 19,
+  Cancun = 20,
+  Ecotone = 21,
+  Fjord = 22,
+  Granite = 23,
+  Latest = 2147483647
+}
 export const OPTIMISM_CHAIN_TYPE: string
+export declare function optimismGenesisState(hardfork: OptimismHardfork): Array<Account>
+/**
+ * Tries to parse the provided string to create an instance of
+ * [`OptimismHardfork`].
+ */
+export declare function optimismHardforkFromString(hardfork: string): OptimismHardfork
 export declare function optimismProviderFactory(): ProviderFactory
+export const BEDROCK: string
+export const REGOLITH: string
+export const CANYON: string
+export const ECOTONE: string
+export const FJORD: string
+export const GRANITE: string
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
