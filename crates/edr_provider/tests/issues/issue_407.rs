@@ -84,6 +84,7 @@ async fn issue_407_int() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<RwLock<ContractDecoder>>::default(),
         CurrentTime,
     )?;
 
