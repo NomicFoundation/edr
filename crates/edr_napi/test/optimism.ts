@@ -16,6 +16,8 @@ import {
   // @ts-ignore
   optimismProviderFactory,
   l1HardforkFromString,
+  optimismGenesisState,
+  optimismHardforkFromString,
 } from "..";
 import { ALCHEMY_URL, toBuffer } from "./helpers";
 
@@ -107,8 +109,9 @@ describe("Multi-chain", () => {
     const provider = context.createProvider(
       OPTIMISM_CHAIN_TYPE,
       {
-        // TODO: Add genesis state for Optimism
-        genesisState: [],
+        genesisState: optimismGenesisState(
+          optimismHardforkFromString(providerConfig.hardfork)
+        ),
         ...providerConfig,
       },
       loggerConfig,
@@ -132,6 +135,7 @@ describe("Multi-chain", () => {
         fork: {
           jsonRpcUrl: ALCHEMY_URL.replace("eth-", "opt-"),
         },
+        // TODO: Add support for overriding remote fork state when the local fork is different
         genesisState: [],
         ...providerConfig,
       },
@@ -153,7 +157,9 @@ describe("Multi-chain", () => {
       const provider = await context.createProvider(
         OPTIMISM_CHAIN_TYPE,
         {
-          genesisState: [],
+          genesisState: optimismGenesisState(
+            optimismHardforkFromString(providerConfig.hardfork)
+          ),
           ...providerConfig,
         },
         loggerConfig,
