@@ -1,6 +1,7 @@
 //! Processes the Solidity compiler standard JSON[^1] input and output AST and
 //! creates the source model used to perform the stack trace decoding.
-
+//!
+//! [^1]: See <https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description>.
 use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 
 use anyhow::{self, Context as _};
@@ -18,12 +19,10 @@ use crate::{
 };
 
 /// For the Solidity compiler version and its standard JSON input and
-/// output[^1], creates the source model, decodes the bytecode with source
+/// output, creates the source model, decodes the bytecode with source
 /// mapping and links them to the source files.
 ///
 /// Returns the decoded bytecodes that reference the resolved source model.
-///
-/// [^1]: See <https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description>.
 pub fn create_models_and_decode_bytecodes(
     solc_version: String,
     compiler_input: &CompilerInput,
