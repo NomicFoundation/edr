@@ -58,7 +58,6 @@ use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
-use parking_lot::RwLock;
 use revm_precompile::secp256r1;
 use rpds::HashTrieMapSync;
 use tokio::runtime;
@@ -213,9 +212,7 @@ pub struct ProviderData<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch = Cu
     block_state_cache: LruCache<StateId, Arc<Box<dyn SyncState<StateError>>>>,
     current_state_id: StateId,
     block_number_to_state_id: HashTrieMapSync<u64, StateId>,
-    // DEAD LOCK WARNING: This should only be written to from a `hardhat_addCompilationResult` or
-    // `hardhat_reset` handler. Otherwise there is a risk of deadlocks.
-    contract_decoder: Arc<RwLock<ContractDecoder>>,
+    contract_decoder: Arc<ContractDecoder>,
 }
 
 impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErrorT, TimerT> {
@@ -225,7 +222,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         call_override: Option<Arc<dyn SyncCallOverride>>,
         config: ProviderConfig,
-        contract_metadata: Arc<RwLock<ContractDecoder>>,
+        contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationError> {
         let InitialAccounts {
@@ -322,7 +319,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             block_state_cache,
             current_state_id,
             block_number_to_state_id,
-            contract_decoder: contract_metadata,
+            contract_decoder,
         })
     }
 
@@ -395,7 +392,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
     }
 
     /// Get the locked contract decoder.
-    pub fn contract_decoder(&self) -> &RwLock<ContractDecoder> {
+    pub fn contract_decoder(&self) -> &ContractDecoder {
         &self.contract_decoder
     }
 
@@ -2899,7 +2896,7 @@ pub(crate) mod test_utils {
                 subscription_callback_noop,
                 None,
                 config.clone(),
-                Arc::<RwLock<ContractDecoder>>::default(),
+                Arc::<ContractDecoder>::default(),
                 CurrentTime,
             )?;
 

@@ -12,7 +12,6 @@ use edr_rpc_eth::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
 use flate2::bufread::GzDecoder;
 use indicatif::ProgressBar;
-use parking_lot::RwLock;
 use serde::Deserialize;
 use tokio::{runtime, task};
 #[cfg(feature = "tracing")]
@@ -57,7 +56,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
             logger,
             subscription_callback,
             config.provider_config,
-            Arc::new(RwLock::new(ContractDecoder::default())),
+            Arc::new(ContractDecoder::default()),
             CurrentTime,
         )
     })

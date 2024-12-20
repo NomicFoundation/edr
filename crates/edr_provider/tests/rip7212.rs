@@ -10,7 +10,6 @@ use edr_provider::{
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::RwLock;
 use revm_precompile::secp256r1;
 use tokio::runtime;
 
@@ -30,7 +29,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<RwLock<ContractDecoder>>::default(),
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -61,7 +60,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<RwLock<ContractDecoder>>::default(),
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

@@ -26,7 +26,7 @@ use edr_solidity::contract_decoder::ContractDecoder;
 use lazy_static::lazy_static;
 use logger::SyncLogger;
 use mock::SyncCallOverride;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use requests::{eth::handle_set_interval_mining, hardhat::rpc_types::ResetProviderConfig};
 use time::{CurrentTime, TimeSinceEpoch};
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
@@ -109,7 +109,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
         logger: Box<dyn SyncLogger<BlockchainError = BlockchainError, LoggerError = LoggerErrorT>>,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         config: ProviderConfig,
-        contract_decoder: Arc<RwLock<ContractDecoder>>,
+        contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationError> {
         let data = ProviderData::new(

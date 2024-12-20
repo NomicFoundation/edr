@@ -11,7 +11,6 @@ use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::RwLock;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -38,7 +37,7 @@ async fn issue_361() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<RwLock<ContractDecoder>>::default(),
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

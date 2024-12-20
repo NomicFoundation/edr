@@ -7,7 +7,6 @@ use edr_rpc_eth::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{tokio::runtime, Either, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
-use parking_lot::RwLock;
 
 use self::config::ProviderConfig;
 use crate::{
@@ -23,7 +22,7 @@ use crate::{
 pub struct Provider {
     provider: Arc<edr_provider::Provider<LoggerError>>,
     runtime: runtime::Handle,
-    contract_decoder: Arc<RwLock<ContractDecoder>>,
+    contract_decoder: Arc<ContractDecoder>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -45,15 +44,11 @@ impl Provider {
 
         let config = edr_provider::ProviderConfig::try_from(config)?;
 
-        // TODO parsing the build info config and creating the contract decoder
-        // shouldn't happen here as it's blocking the JS event loop,
-        // but it's not straightforward to do it in a non-blocking way, because `Env` is
-        // not `Send`.
         let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
             serde_json::from_value(tracing_config)?;
         let contract_decoder = ContractDecoder::new(&build_info_config)
             .map_err(|error| napi::Error::from_reason(error.to_string()))?;
-        let contract_decoder = Arc::new(RwLock::new(contract_decoder));
+        let contract_decoder = Arc::new(contract_decoder);
 
         let logger = Box::new(Logger::new(
             &env,
@@ -252,7 +247,7 @@ impl Provider {
 #[derive(Debug)]
 struct SolidityTraceData {
     trace: Arc<edr_evm::trace::Trace>,
-    contract_decoder: Arc<RwLock<ContractDecoder>>,
+    contract_decoder: Arc<ContractDecoder>,
 }
 
 #[napi]
@@ -301,10 +296,7 @@ impl Response {
             );
 
         if let Some(vm_trace) = hierarchical_trace.result {
-            let decoded_trace = {
-                let mut decoder = contract_decoder.write();
-                decoder.try_to_decode_message_trace(vm_trace)
-            };
+            let decoded_trace = contract_decoder.try_to_decode_message_trace(vm_trace);
             let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
                 .map_err(|err| {
                     napi::Error::from_reason(format!(

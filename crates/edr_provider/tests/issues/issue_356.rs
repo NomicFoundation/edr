@@ -9,7 +9,6 @@ use edr_provider::{
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
-use parking_lot::RwLock;
 use sha3::{Digest, Keccak256};
 use tokio::runtime;
 
@@ -39,7 +38,7 @@ async fn issue_356() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<RwLock<ContractDecoder>>::default(),
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
