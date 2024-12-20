@@ -47,7 +47,6 @@ describe("Provider logs", function () {
           });
 
           it("should not log private methods", async function () {
-            await this.provider.send("hardhat_getStackTraceFailuresCount", []);
             await this.provider.send("hardhat_setLoggingEnabled", [true]);
 
             assert.lengthOf(this.logger.lines, 0);

@@ -56,11 +56,6 @@ fn serde_hardhat_get_automine() {
 }
 
 #[test]
-fn serde_hardhat_get_stack_trace_failures_count() {
-    help_test_method_invocation_serde(MethodInvocation::GetStackTraceFailuresCount(()));
-}
-
-#[test]
 fn serde_hardhat_impersonate_account() {
     help_test_method_invocation_serde(MethodInvocation::ImpersonateAccount(
         Address::from(U160::from(1)).into(),

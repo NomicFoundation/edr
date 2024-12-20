@@ -51,14 +51,8 @@ use self::{
 };
 
 lazy_static! {
-    pub static ref PRIVATE_RPC_METHODS: HashSet<&'static str> = {
-        [
-            "hardhat_getStackTraceFailuresCount",
-            "hardhat_setLoggingEnabled",
-        ]
-        .into_iter()
-        .collect()
-    };
+    pub static ref PRIVATE_RPC_METHODS: HashSet<&'static str> =
+        ["hardhat_setLoggingEnabled",].into_iter().collect();
 }
 
 #[derive(Clone, Debug)]
@@ -411,9 +405,6 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             MethodInvocation::GetAutomine(()) => {
                 hardhat::handle_get_automine_request(data).and_then(to_json)
             }
-            MethodInvocation::GetStackTraceFailuresCount(()) => Err(ProviderError::Unimplemented(
-                "GetStackTraceFailuresCount".to_string(),
-            )),
             MethodInvocation::ImpersonateAccount(address) => {
                 hardhat::handle_impersonate_account_request(data, *address).and_then(to_json)
             }
