@@ -121,13 +121,6 @@ export async function traceTransaction(
     ],
   });
 
-  if (txData.to !== undefined) {
-    const code = await provider.request({
-      method: "eth_getCode",
-      params: [bytesToHex(txData.to), "latest"],
-    });
-  }
-
   const responseObject: Response =
     await provider["_provider"].handleRequest(stringifiedArgs);
 
