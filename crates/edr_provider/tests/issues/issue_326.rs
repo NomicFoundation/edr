@@ -9,7 +9,6 @@ use edr_provider::{
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::RwLock;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -41,7 +40,7 @@ async fn issue_326() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<RwLock<ContractDecoder>>::default(),
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

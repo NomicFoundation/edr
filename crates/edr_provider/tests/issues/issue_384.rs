@@ -6,7 +6,6 @@ use edr_provider::{
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_infura_url;
-use parking_lot::RwLock;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -27,7 +26,7 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<RwLock<ContractDecoder>>::default(),
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

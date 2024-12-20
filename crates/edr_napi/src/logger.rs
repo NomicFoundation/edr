@@ -26,7 +26,6 @@ use napi::{
     Env, JsFunction, Status,
 };
 use napi_derive::napi;
-use parking_lot::RwLock;
 
 use crate::cast::TryCast;
 
@@ -117,7 +116,7 @@ impl Logger {
     pub fn new(
         env: &Env,
         config: LoggerConfig,
-        contract_decoder: Arc<RwLock<ContractDecoder>>,
+        contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Self> {
         Ok(Self {
             collector: LogCollector::new(env, config, contract_decoder)?,
@@ -254,7 +253,7 @@ pub struct CollapsedMethod {
 
 #[derive(Clone)]
 struct LogCollector {
-    contract_decoder: Arc<RwLock<ContractDecoder>>,
+    contract_decoder: Arc<ContractDecoder>,
     decode_console_log_inputs_fn: ThreadsafeFunction<Vec<Bytes>, ErrorStrategy::Fatal>,
     indentation: usize,
     is_enabled: bool,
@@ -268,7 +267,7 @@ impl LogCollector {
     pub fn new(
         env: &Env,
         config: LoggerConfig,
-        contract_decoder: Arc<RwLock<ContractDecoder>>,
+        contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Self> {
         let mut decode_console_log_inputs_fn = config
             .decode_console_log_inputs_callback
@@ -549,7 +548,6 @@ impl LogCollector {
             function_name,
         } = self
             .contract_decoder
-            .write()
             .get_contract_and_function_names_for_call(&code, calldata.as_ref());
         (contract_name, function_name)
     }

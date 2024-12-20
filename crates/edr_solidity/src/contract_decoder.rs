@@ -2,6 +2,7 @@
 use std::sync::Arc;
 
 use edr_eth::Bytes;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -40,7 +41,7 @@ pub enum ContractDecoderError {
 /// Get contract metadata from calldata and traces.
 #[derive(Debug, Default)]
 pub struct ContractDecoder {
-    contracts_identifier: ContractsIdentifier,
+    contracts_identifier: RwLock<ContractsIdentifier>,
 }
 
 impl ContractDecoder {
@@ -49,26 +50,30 @@ impl ContractDecoder {
         let contracts_identifier = initialize_contracts_identifier(config)
             .map_err(|err| ContractDecoderError::Initialization(err.to_string()))?;
         Ok(Self {
-            contracts_identifier,
+            contracts_identifier: RwLock::new(contracts_identifier),
         })
     }
 
     /// Adds contract metadata to the decoder.
-    pub fn add_contract_metadata(&mut self, bytecode: ContractMetadata) {
-        self.contracts_identifier.add_bytecode(Arc::new(bytecode));
+    pub fn add_contract_metadata(&self, bytecode: ContractMetadata) {
+        self.contracts_identifier
+            .write()
+            .add_bytecode(Arc::new(bytecode));
     }
 
     /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
-    pub fn try_to_decode_message_trace(&mut self, message_trace: NestedTrace) -> NestedTrace {
+    pub fn try_to_decode_message_trace(&self, message_trace: NestedTrace) -> NestedTrace {
         match message_trace {
             precompile @ NestedTrace::Precompile(..) => precompile,
             // NOTE: The branches below are the same with the difference of `is_create`
             NestedTrace::Call(mut call) => {
                 let is_create = false;
 
-                let contract_meta = self
-                    .contracts_identifier
-                    .get_bytecode_for_call(call.code.as_ref(), is_create);
+                let contract_meta = {
+                    self.contracts_identifier
+                        .write()
+                        .get_bytecode_for_call(call.code.as_ref(), is_create)
+                };
 
                 let steps = call
                     .steps
@@ -101,9 +106,11 @@ impl ContractDecoder {
             NestedTrace::Create(mut create @ CreateMessage { .. }) => {
                 let is_create = true;
 
-                let contract_meta = self
-                    .contracts_identifier
-                    .get_bytecode_for_call(create.code.as_ref(), is_create);
+                let contract_meta = {
+                    self.contracts_identifier
+                        .write()
+                        .get_bytecode_for_call(create.code.as_ref(), is_create)
+                };
 
                 let steps = create
                     .steps
@@ -138,14 +145,16 @@ impl ContractDecoder {
 
     /// Returns the contract and function names for the provided calldata.
     pub fn get_contract_and_function_names_for_call(
-        &mut self,
+        &self,
         code: &Bytes,
         calldata: Option<&Bytes>,
     ) -> ContractAndFunctionName {
         let is_create = calldata.is_none();
-        let bytecode = self
-            .contracts_identifier
-            .get_bytecode_for_call(code.as_ref(), is_create);
+        let bytecode = {
+            self.contracts_identifier
+                .write()
+                .get_bytecode_for_call(code.as_ref(), is_create)
+        };
 
         let contract = bytecode.map(|bytecode| bytecode.contract.clone());
         let contract = contract.as_ref().map(|c| c.read());

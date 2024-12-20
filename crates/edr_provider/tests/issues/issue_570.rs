@@ -7,7 +7,6 @@ use edr_provider::{
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
-use parking_lot::RwLock;
 use serial_test::serial;
 use tokio::runtime;
 // SAFETY: tests that modify the environment should be run serially.
@@ -37,7 +36,7 @@ fn get_provider() -> anyhow::Result<Provider<Infallible>> {
         logger,
         subscriber,
         config,
-        Arc::<RwLock<ContractDecoder>>::default(),
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?)
 }

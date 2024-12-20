@@ -38,7 +38,7 @@ fn add_compilation_result_inner<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEp
         create_models_and_decode_bytecodes(solc_version, &compiler_input, &compiler_output)
             .map_err(|err| ProviderError::SolcDecoding(err.to_string()))?;
 
-    let mut contract_decoder = data.contract_decoder().write();
+    let contract_decoder = data.contract_decoder();
     for contract in contracts {
         contract_decoder.add_contract_metadata(contract);
     }
