@@ -37,7 +37,7 @@ pub enum NestedTracerError {
     StepDuringPreCompile,
 }
 
-/// The result of converting a trace to a hierarchical trace.
+/// The result of converting a trace to a nested trace.
 /// If there was an error, the error is stored in `error` and the `result` is
 /// the last  successfully decoded trace if any.
 pub struct NestedTracerResult {
@@ -57,10 +57,8 @@ impl From<NestedTracerResult> for Result<Option<NestedTrace>, NestedTracerError>
 }
 
 /// Observes a trace, collecting information about the execution of the EVM.
-pub fn convert_trace_messages_to_hierarchical_trace(
-    trace: edr_evm::trace::Trace,
-) -> NestedTracerResult {
-    let mut tracer = HierarchicalTracer::new();
+pub fn convert_trace_messages_to_nested_trace(trace: edr_evm::trace::Trace) -> NestedTracerResult {
+    let mut tracer = NestedTracer::new();
 
     let error = tracer.add_messages(trace.messages).err();
     let result = tracer.get_last_top_level_message_trace();
@@ -69,12 +67,12 @@ pub fn convert_trace_messages_to_hierarchical_trace(
 }
 
 /// Naive Rust port of the `VmTracer` from Hardhat.
-struct HierarchicalTracer {
+struct NestedTracer {
     tracing_steps: Vec<Step>,
     message_traces: Vec<Rc<RefCell<InternalNestedTrace>>>,
 }
 
-impl Default for HierarchicalTracer {
+impl Default for NestedTracer {
     fn default() -> Self {
         Self::new()
     }
@@ -86,10 +84,10 @@ impl Default for HierarchicalTracer {
 // precompiles, which start at 0x100).
 const MAX_PRECOMPILE_NUMBER: u16 = 10;
 
-impl HierarchicalTracer {
-    /// Creates a new [`HierarchicalTracer`].
+impl NestedTracer {
+    /// Creates a new [`NestedTracer`].
     const fn new() -> Self {
-        HierarchicalTracer {
+        NestedTracer {
             tracing_steps: Vec::new(),
             message_traces: Vec::new(),
         }
@@ -273,7 +271,7 @@ impl HierarchicalTracer {
     }
 }
 
-/// A hierarchical trace where the message steps are shared and mutable via a
+/// A nested trace where the message steps are shared and mutable via a
 /// refcell.
 #[derive(Clone, Debug)]
 enum InternalNestedTrace {
@@ -372,7 +370,7 @@ struct InternalCreateMessage {
 #[derive(Clone, Debug)]
 enum InternalNestedTraceStep {
     /// [`NestedTrace`] variant.
-    // It's both read and written to (updated) by the `[HierarchicalTracer]`.
+    // It's both read and written to (updated) by the `[NestedTracer]`.
     Message(Rc<RefCell<InternalNestedTrace>>),
     /// [`EvmStep`] variant.
     Evm(EvmStep),
