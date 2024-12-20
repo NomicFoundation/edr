@@ -309,12 +309,6 @@ pub enum MethodInvocation {
     /// `hardhat_getAutomine`
     #[serde(rename = "hardhat_getAutomine", with = "edr_eth::serde::empty_params")]
     GetAutomine(()),
-    /// `hardhat_getStackTraceFailuresCount`
-    #[serde(
-        rename = "hardhat_getStackTraceFailuresCount",
-        with = "edr_eth::serde::empty_params"
-    )]
-    GetStackTraceFailuresCount(()),
     /// `hardhat_impersonateAccount`
     #[serde(
         rename = "hardhat_impersonateAccount",
@@ -475,7 +469,6 @@ impl MethodInvocation {
             MethodInvocation::AddCompilationResult(_, _, _) => "hardhat_addCompilationResult",
             MethodInvocation::DropTransaction(_) => "hardhat_dropTransaction",
             MethodInvocation::GetAutomine(_) => "hardhat_getAutomine",
-            MethodInvocation::GetStackTraceFailuresCount(_) => "hardhat_getStackTraceFailuresCount",
             MethodInvocation::ImpersonateAccount(_) => "hardhat_impersonateAccount",
             MethodInvocation::IntervalMine(_) => "hardhat_intervalMine",
             MethodInvocation::Metadata(_) => "hardhat_metadata",
