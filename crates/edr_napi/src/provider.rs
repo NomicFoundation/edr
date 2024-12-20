@@ -290,12 +290,11 @@ impl Response {
         else {
             return Ok(None);
         };
-        let hierarchical_trace =
-            edr_solidity::nested_tracer::convert_trace_messages_to_hierarchical_trace(
-                trace.as_ref().clone(),
-            );
+        let nested_trace = edr_solidity::nested_tracer::convert_trace_messages_to_nested_trace(
+            trace.as_ref().clone(),
+        );
 
-        if let Some(vm_trace) = hierarchical_trace.result {
+        if let Some(vm_trace) = nested_trace.result {
             let decoded_trace = contract_decoder.try_to_decode_message_trace(vm_trace);
             let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
                 .map_err(|err| {
@@ -309,7 +308,7 @@ impl Response {
                 .collect::<Result<Vec<_>, _>>()?;
 
             Ok(Some(Either::A(stack_trace)))
-        } else if let Some(vm_tracer_error) = hierarchical_trace.error {
+        } else if let Some(vm_tracer_error) = nested_trace.error {
             Ok(Some(Either::B(vm_tracer_error.to_string())))
         } else {
             Ok(None)
