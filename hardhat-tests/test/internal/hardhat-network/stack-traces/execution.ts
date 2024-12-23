@@ -102,6 +102,11 @@ interface TxData {
   gas?: bigint;
 }
 
+/**
+ * Returns a SolidityStackTrace object if the transaction failed, the contract address if
+ * the transaction successfully deployed a contract, or undefined if the transaction
+ * succeeded and didn't deploy a contract.
+ */
 export async function traceTransaction(
   provider: EdrProviderWrapper,
   txData: TxData
@@ -137,13 +142,14 @@ export async function traceTransaction(
     params: [response.result ?? response.error.data.transactionHash],
   });
 
-  const stackTrace = responseObject.stackTrace();
-
-  const contractAddress = receipt.contractAddress?.slice(2);
+  const stackTrace: SolidityStackTrace | string | null =
+    responseObject.stackTrace();
 
   if (typeof stackTrace === "string") {
-    throw new Error("shouldn't happen"); // FVTODO
+    throw new Error("this shouldn't happen");
   }
+
+  const contractAddress = receipt.contractAddress?.slice(2);
 
   if (stackTrace === null) {
     return contractAddress;
