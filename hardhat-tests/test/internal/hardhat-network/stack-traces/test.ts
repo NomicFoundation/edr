@@ -483,10 +483,10 @@ async function runTest(
   const txIndexToContract: Map<number, DeployedContract> = new Map();
 
   for (const [txIndex, tx] of testDefinition.transactions.entries()) {
-    let stackTraceOrContractAddress: SolidityStackTrace | string | undefined;
+    let stackTrace: SolidityStackTrace | undefined;
 
     if ("file" in tx) {
-      stackTraceOrContractAddress = await runDeploymentTransactionTest(
+      const stackTraceOrContractAddress = await runDeploymentTransactionTest(
         txIndex,
         tx,
         provider,
@@ -500,6 +500,8 @@ async function runTest(
           name: tx.contract,
           address: Buffer.from(stackTraceOrContractAddress, "hex"),
         });
+      } else {
+        stackTrace = stackTraceOrContractAddress;
       }
     } else {
       const contract = txIndexToContract.get(tx.to);
@@ -509,7 +511,7 @@ async function runTest(
         `No contract was deployed in tx ${tx.to} but transaction ${txIndex} is trying to call it`
       );
 
-      stackTraceOrContractAddress = await runCallTransactionTest(
+      stackTrace = await runCallTransactionTest(
         txIndex,
         tx,
         provider,
@@ -518,45 +520,26 @@ async function runTest(
       );
     }
 
-    try {
-      if (tx.stackTrace === undefined) {
-        if (
-          !(
-            stackTraceOrContractAddress === undefined ||
-            typeof stackTraceOrContractAddress === "string"
-          )
-        ) {
-          assert.fail(`Transaction ${txIndex} shouldn't have failed`);
-        }
-      } else {
-        assert.isFalse(
-          stackTraceOrContractAddress === undefined ||
-            typeof stackTraceOrContractAddress === "string",
-          `Transaction ${txIndex} should have failed`
-        );
+    if (tx.stackTrace === undefined) {
+      if (stackTrace !== undefined) {
+        assert.fail(`Transaction ${txIndex} shouldn't have failed`);
       }
-    } catch (error) {
-      // printMessageTrace(decodedTrace); FVTODO
-
-      throw error;
+    } else {
+      assert.isFalse(
+        stackTrace === undefined,
+        `Transaction ${txIndex} should have failed`
+      );
     }
 
-    if (
-      stackTraceOrContractAddress !== undefined &&
-      typeof stackTraceOrContractAddress !== "string"
-    ) {
-      try {
-        compareStackTraces(
-          txIndex,
-          stackTraceOrContractAddress,
-          tx.stackTrace!,
-          compilerOptions.optimizer
-        );
-        if (testDefinition.print !== undefined && testDefinition.print) {
-          console.log(`Transaction ${txIndex} stack trace`);
-        }
-      } catch (err) {
-        throw err;
+    if (stackTrace !== undefined) {
+      compareStackTraces(
+        txIndex,
+        stackTrace,
+        tx.stackTrace!,
+        compilerOptions.optimizer
+      );
+      if (testDefinition.print !== undefined && testDefinition.print) {
+        console.log(`Transaction ${txIndex} stack trace`);
       }
     }
 
@@ -622,7 +605,7 @@ async function runDeploymentTransactionTest(
   provider: EdrProviderWrapper,
   compilerOutput: CompilerOutput,
   txIndexToContract: Map<number, DeployedContract>
-): Promise<SolidityStackTrace | string | undefined> {
+): Promise<SolidityStackTrace | string> {
   const file = compilerOutput.contracts[tx.file];
 
   assert.isDefined(
@@ -657,6 +640,12 @@ async function runDeploymentTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
+  if (trace === undefined) {
+    throw new Error(
+      "deployment transactions should either deploy a contract or fail"
+    );
+  }
+
   return trace;
 }
 
@@ -666,7 +655,7 @@ async function runCallTransactionTest(
   provider: EdrProviderWrapper,
   compilerOutput: CompilerOutput,
   contract: DeployedContract
-): Promise<SolidityStackTrace | string | undefined> {
+): Promise<SolidityStackTrace | undefined> {
   const compilerContract =
     compilerOutput.contracts[contract.file][contract.name];
 
@@ -690,6 +679,10 @@ async function runCallTransactionTest(
     data,
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
+
+  if (typeof trace === "string") {
+    throw new Error("call transactions should not deploy contracts");
+  }
 
   return trace;
 }
