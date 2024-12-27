@@ -1,4 +1,5 @@
 import {
+  getLatestSupportedSolcVersion,
   linkHexStringBytecode,
   stackTraceEntryTypeToString,
 } from "@nomicfoundation/edr";
@@ -820,6 +821,13 @@ describe("Solidity support", function () {
       semver.satisfies(nextMajorVersion, SUPPORTED_SOLIDITY_VERSION_RANGE),
       `Expected ${nextMajorVersion} to not be within the ${SUPPORTED_SOLIDITY_VERSION_RANGE} range`
     );
+  });
+
+  it("check that the latest tested version matches the one that EDR exports", async function () {
+    const latestSupportedVersion = getLatestTestedSolcVersion();
+    const edrLatestSupportedVersion = getLatestSupportedSolcVersion();
+
+    assert.equal(latestSupportedVersion, edrLatestSupportedVersion);
   });
 });
 

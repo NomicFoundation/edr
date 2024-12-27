@@ -573,6 +573,11 @@ export interface TracingMessageResult {
   /** Execution result */
   readonly executionResult: ExecutionResult
 }
+/**
+ * Returns the latest version of solc that EDR officially
+ * supports and is tested against.
+ */
+export declare function getLatestSupportedSolcVersion(): string
 export interface Withdrawal {
   /** The index of withdrawal */
   index: bigint
