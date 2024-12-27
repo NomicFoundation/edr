@@ -37,7 +37,7 @@ import {
   downloadCompiler,
 } from "./compilation";
 import {
-  getLatestSupportedVersion,
+  getLatestTestedSolcVersion,
   SolidityCompiler,
   SolidityCompilerOptimizer,
   solidityCompilers,
@@ -795,7 +795,7 @@ describe("Stack traces", function () {
 
 describe("Solidity support", function () {
   it("check that the latest tested version is within the supported version range", async function () {
-    const latestSupportedVersion = getLatestSupportedVersion();
+    const latestSupportedVersion = getLatestTestedSolcVersion();
     assert.isTrue(
       semver.satisfies(
         latestSupportedVersion,
