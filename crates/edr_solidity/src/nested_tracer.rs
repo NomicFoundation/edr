@@ -37,33 +37,15 @@ pub enum NestedTracerError {
     StepDuringPreCompile,
 }
 
-/// The result of converting a trace to a nested trace.
-/// If there was an error, the error is stored in `error` and the `result` is
-/// the last  successfully decoded trace if any.
-pub struct NestedTracerResult {
-    /// The error that occurred during the conversion.
-    pub error: Option<NestedTracerError>,
-    /// The last successfully decoded trace.
-    pub result: Option<NestedTrace>,
-}
-
-impl From<NestedTracerResult> for Result<Option<NestedTrace>, NestedTracerError> {
-    fn from(value: NestedTracerResult) -> Self {
-        match value.error {
-            Some(error) => Err(error),
-            None => Ok(value.result),
-        }
-    }
-}
-
 /// Observes a trace, collecting information about the execution of the EVM.
-pub fn convert_trace_messages_to_nested_trace(trace: edr_evm::trace::Trace) -> NestedTracerResult {
+pub fn convert_trace_messages_to_nested_trace(
+    trace: edr_evm::trace::Trace,
+) -> Result<Option<NestedTrace>, NestedTracerError> {
     let mut tracer = NestedTracer::new();
 
-    let error = tracer.add_messages(trace.messages).err();
-    let result = tracer.get_last_top_level_message_trace();
+    tracer.add_messages(trace.messages)?;
 
-    NestedTracerResult { error, result }
+    Ok(tracer.get_last_top_level_message_trace())
 }
 
 /// Naive Rust port of the `VmTracer` from Hardhat.

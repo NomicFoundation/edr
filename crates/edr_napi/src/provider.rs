@@ -280,9 +280,9 @@ impl Response {
     }
 
     // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
-    #[doc = "Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as a fallback."]
+    #[doc = "Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace."]
     #[napi]
-    pub fn stack_trace(&self) -> napi::Result<Option<Either<SolidityStackTrace, String>>> {
+    pub fn stack_trace(&self) -> napi::Result<Option<SolidityStackTrace>> {
         let Some(SolidityTraceData {
             trace,
             contract_decoder,
@@ -292,24 +292,19 @@ impl Response {
         };
         let nested_trace = edr_solidity::nested_tracer::convert_trace_messages_to_nested_trace(
             trace.as_ref().clone(),
-        );
+        )
+        .map_err(|err| napi::Error::from_reason(err.to_string()))?;
 
-        if let Some(vm_trace) = nested_trace.result {
+        if let Some(vm_trace) = nested_trace {
             let decoded_trace = contract_decoder.try_to_decode_message_trace(vm_trace);
             let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
-                .map_err(|err| {
-                    napi::Error::from_reason(format!(
-                        "Error converting to solidity stack trace: '{err}'"
-                    ))
-                })?;
+                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
             let stack_trace = stack_trace
                 .into_iter()
                 .map(super::cast::TryCast::try_cast)
                 .collect::<Result<Vec<_>, _>>()?;
 
-            Ok(Some(Either::A(stack_trace)))
-        } else if let Some(vm_tracer_error) = nested_trace.error {
-            Ok(Some(Either::B(vm_tracer_error.to_string())))
+            Ok(Some(stack_trace))
         } else {
             Ok(None)
         }
