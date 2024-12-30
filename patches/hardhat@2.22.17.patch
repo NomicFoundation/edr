@@ -148,7 +148,7 @@ index 9df47bce20ca6de26d13a2616bfce48eea655c67..a5e4a60cdb308c82a42bcc22dd045821
 +{"version":3,"file":"provider.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":";AAAA,OAAO,KAAK,EACV,SAAS,EACT,eAAe,EAEf,0BAA0B,EAC1B,gBAAgB,EACjB,MAAM,gBAAgB,CAAC;AAExB,OAAO,KAAK,EACV,UAAU,EAKX,MAAM,sBAAsB,CAAC;AAI9B,OAAO,EAAE,YAAY,EAAE,MAAM,QAAQ,CAAC;AAsBtC,OAAO,EACL,UAAU,EACV,cAAc,EACd,oBAAoB,EACpB,YAAY,EACZ,UAAU,EACV,aAAa,EACd,MAAM,cAAc,CAAC;AAWtB,OAAO,EAAE,YAAY,EAA8B,MAAM,kBAAkB,CAAC;AAO5E,eAAO,MAAM,gBAAgB,+CAA+C,CAAC;AAI7E,wBAAgB,mBAAmB,IAAI,UAAU,CAWhD;AAED,UAAU,4BAA4B;IACpC,QAAQ,EAAE,MAAM,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,CAAC;IAClB,aAAa,EAAE,MAAM,CAAC;IACtB,WAAW,EAAE,MAAM,CAAC;IACpB,QAAQ,EAAE,OAAO,CAAC;IAClB,cAAc,EAAE,oBAAoB,CAAC;IACrC,YAAY,EAAE,YAAY,CAAC;IAC3B,MAAM,EAAE,0BAA0B,CAAC;IACnC,eAAe,EAAE,cAAc,EAAE,CAAC;IAClC,0BAA0B,EAAE,OAAO,CAAC;IACpC,0BAA0B,EAAE,OAAO,CAAC;IACpC,mBAAmB,EAAE,OAAO,CAAC;IAC7B,4BAA4B,EAAE,OAAO,CAAC;IAEtC,oBAAoB,CAAC,EAAE,MAAM,CAAC;IAC9B,WAAW,CAAC,EAAE,IAAI,CAAC;IACnB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,UAAU,CAAC,EAAE,UAAU,CAAC;IACxB,aAAa,CAAC,EAAE,MAAM,CAAC;IACvB,sBAAsB,EAAE,OAAO,CAAC;IAChC,aAAa,EAAE,OAAO,CAAC;CACxB;AAED,wBAAgB,aAAa,CAC3B,MAAM,EAAE,4BAA4B,EACpC,aAAa,CAAC,EAAE,aAAa,GAC5B,UAAU,CAsBZ;AAWD,qBAAa,kBACX,SAAQ,YACR,YAAW,eAAe;IAQxB,OAAO,CAAC,QAAQ,CAAC,SAAS;IAE1B,OAAO,CAAC,QAAQ,CAAC,KAAK;IAItB,OAAO,CAAC,QAAQ,CAAC,OAAO;IAZ1B,OAAO,CAAC,kBAAkB,CAAK;IAG/B,OAAO,CAAC,qBAAqB,CAAC,CAAuB;IAErD,OAAO;WAYa,MAAM,CACxB,MAAM,EAAE,4BAA4B,EACpC,YAAY,EAAE,YAAY,EAC1B,aAAa,CAAC,EAAE,aAAa,GAC5B,OAAO,CAAC,kBAAkB,CAAC;IAwIjB,OAAO,CAAC,IAAI,EAAE,gBAAgB,GAAG,OAAO,CAAC,OAAO,CAAC;IAkI9D,OAAO,CAAC,wBAAwB;IAUhC,OAAO,CAAC,kBAAkB;IAI1B,OAAO,CAAC,iBAAiB;IASzB,OAAO,CAAC,4BAA4B;IAOpC,OAAO,CAAC,6BAA6B;CAWtC;AAQD,wBAAsB,4BAA4B,CAChD,4BAA4B,EAAE,4BAA4B,EAC1D,YAAY,EAAE,YAAY,EAC1B,SAAS,CAAC,EAAE,SAAS,GACpB,OAAO,CAAC,eAAe,CAAC,CAY1B"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
-index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..7d3ce8deb446e23a2b3c384bff765618c7bb180e 100644
+index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..e37766ee9184c9f8bd59446015f0e3070237dd6f 100644
 --- a/internal/hardhat-network/provider/provider.js
 +++ b/internal/hardhat-network/provider/provider.js
 @@ -1,27 +1,4 @@
@@ -287,7 +287,7 @@ index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..7d3ce8deb446e23a2b3c384bff765618
                  // For other consumers in JS we need to marshall the entire trace over FFI
                  const trace = rawTrace.trace();
                  // beforeTx event
-@@ -272,12 +230,8 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -272,12 +230,15 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          }
          if ((0, http_1.isErrorResponse)(response)) {
              let error;
@@ -295,14 +295,20 @@ index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..7d3ce8deb446e23a2b3c384bff765618
 -            let stackTrace;
 -            if (solidityTrace !== null) {
 -                stackTrace = await this._rawTraceToSolidityStackTrace(solidityTrace);
--            }
++            // const stackTrace: SolidityStackTrace | null = responseObject.stackTrace();
++            let stackTrace = null;
++            try {
++                stackTrace = responseObject.stackTrace();
++            }
++            catch (e) {
++                log("Failed to get stack trace: %O", e);
+             }
 -            if (stackTrace !== undefined) {
-+            const stackTrace = responseObject.stackTrace();
 +            if (stackTrace !== null) {
                  error = (0, solidity_errors_1.encodeSolidityStackTrace)(response.error.message, stackTrace);
                  // Pass data and transaction hash from the original error
                  error.data = response.error.data?.data ?? undefined;
-@@ -315,14 +269,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -315,14 +276,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
              return response.result;
          }
      }
@@ -317,7 +323,7 @@ index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..7d3ce8deb446e23a2b3c384bff765618
      // temporarily added to make smock work with HH+EDR
      _setCallOverrideCallback(callback) {
          this._callOverrideCallback = callback;
-@@ -357,50 +303,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -357,50 +310,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          };
          this.emit("message", message);
      }
@@ -414,7 +420,7 @@ index 174709d5296f4e26e80517eb05c241479f3a3e96..6eeb79514cd020c1824dc6cb164b80d9
  //# sourceMappingURL=debug.js.map
 \ No newline at end of file
 diff --git a/internal/hardhat-network/stack-traces/debug.js.map b/internal/hardhat-network/stack-traces/debug.js.map
-index 33b6b8cffb8fcd75aeec246eb1b4a1e76590ac35..a56ec7347c6710736698810e23e9b887e453824f 100644
+index 33b6b8cffb8fcd75aeec246eb1b4a1e76590ac35..949d865347ff533e23b19d6d4f36528b761e6d99 100644
 --- a/internal/hardhat-network/stack-traces/debug.js.map
 +++ b/internal/hardhat-network/stack-traces/debug.js.map
 @@ -1 +1 @@

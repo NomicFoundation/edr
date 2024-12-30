@@ -142,12 +142,7 @@ export async function traceTransaction(
     params: [response.result ?? response.error.data.transactionHash],
   });
 
-  const stackTrace: SolidityStackTrace | string | null =
-    responseObject.stackTrace();
-
-  if (typeof stackTrace === "string") {
-    throw new Error("this shouldn't happen");
-  }
+  const stackTrace: SolidityStackTrace | null = responseObject.stackTrace();
 
   const contractAddress = receipt.contractAddress?.slice(2);
 
