@@ -611,8 +611,8 @@ export declare class Response {
   /** Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
   get traces(): Array<RawTrace>
-  /**Compute the error stack trace. Return undefined if there was no error, returns the stack trace if it can be computed or returns the error message if available as a fallback. */
-  stackTrace(): SolidityStackTrace | string | null
+  /**Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace. */
+  stackTrace(): SolidityStackTrace | null
 }
 export declare class Exit {
   get kind(): ExitCode
