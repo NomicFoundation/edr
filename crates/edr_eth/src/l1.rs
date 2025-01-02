@@ -1,6 +1,7 @@
 use alloy_rlp::RlpEncodable;
+pub use revm_context::BlockEnv;
+pub use revm_context_interface::result::HaltReason;
 pub use revm_specification::hardfork::{self, SpecId};
-pub use revm_wiring::{default::block::BlockEnv, result::HaltReason};
 
 use crate::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},

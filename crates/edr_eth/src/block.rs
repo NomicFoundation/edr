@@ -11,7 +11,7 @@ mod reward;
 
 use alloy_eips::calc_next_block_base_fee;
 use alloy_rlp::{BufMut, Decodable, RlpDecodable, RlpEncodable};
-pub use revm_wiring::Block;
+pub use revm_context_interface::Block;
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{

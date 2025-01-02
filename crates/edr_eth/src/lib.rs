@@ -47,13 +47,14 @@ pub mod withdrawal;
 
 pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 pub use revm_bytecode::{self as bytecode, Bytecode};
+pub use revm_context_interface::result;
 pub use revm_primitives::{
     address,
     alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
     b256, bytes, hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet,
-    B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
+    B256, KECCAK_EMPTY, U256,
 };
-pub use revm_wiring::result;
+pub use revm_specification::constants::MAX_INITCODE_SIZE;
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};
 

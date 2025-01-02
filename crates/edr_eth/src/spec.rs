@@ -1,11 +1,12 @@
 use core::fmt::Debug;
 
-pub use revm_wiring::{evm_wiring::HardforkTrait, HaltReasonTrait};
+pub use revm_context_interface::result::HaltReasonTrait;
 
 use crate::{
     block::Block,
     eips::eip1559::BaseFeeParams,
-    transaction::{Transaction, TransactionValidation},
+    l1,
+    transaction::{ExecutableTransaction, TransactionValidation},
 };
 
 /// Trait for chain specifications.
@@ -17,9 +18,9 @@ pub trait ChainSpec {
     /// The chian's halt reason type.
     type HaltReason: HaltReasonTrait;
     /// The chain's hardfork type.
-    type Hardfork: HardforkTrait;
+    type Hardfork: Copy + Into<l1::SpecId>;
     /// The chain's signed transaction type.
-    type SignedTransaction: Transaction + TransactionValidation;
+    type SignedTransaction: ExecutableTransaction + TransactionValidation;
 }
 
 /// Constants for constructing Ethereum headers.

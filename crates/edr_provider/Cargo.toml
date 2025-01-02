@@ -4,7 +4,7 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
-alloy-dyn-abi = { version = "0.8.3", features = ["eip712"] }
+alloy-dyn-abi = { version = "0.8.15", features = ["eip712"] }
 alloy-sol-types = { version = "0.8.3", default-features = false, features = ["std"] }
 anyhow = { version = "1.0.89", optional = true }
 auto_impl = { version = "1.2", default-features = false }
@@ -24,7 +24,7 @@ log = { version = "0.4.20", default-features = false }
 lru = "0.12.2"
 parking_lot = { version = "0.12.1", default-features = false }
 rand = { version = "0.8.5", default-features = false }
-revm-precompile = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", version = "11.0", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
+revm-precompile = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "11.0", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { version = "1.0.209", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.127" }

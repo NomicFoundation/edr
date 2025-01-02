@@ -82,7 +82,6 @@ pub struct Transaction {
 impl Transaction {
     pub fn new(
         transaction: &(impl ExecutableTransaction
-              + edr_eth::transaction::Transaction
               + TransactionType
               + HasAccessList
               + IsEip4844

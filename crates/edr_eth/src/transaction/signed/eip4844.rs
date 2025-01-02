@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, GAS_PER_BLOB};
+use revm_primitives::keccak256;
 
 use crate::{
-    eips::{eip2930, eip7702},
+    eips::{eip2930, eip4844::GAS_PER_BLOB, eip7702},
     signature::{self, Fakeable},
-    transaction::{self, ExecutableTransaction, Transaction, TxKind},
+    transaction::{self, ExecutableTransaction, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
@@ -48,52 +48,6 @@ impl Eip4844 {
 }
 
 impl ExecutableTransaction for Eip4844 {
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
-        Some(
-            self.max_fee_per_gas
-                .min(block_base_fee + self.max_priority_fee_per_gas),
-        )
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        Some(&self.max_fee_per_gas)
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        self.rlp_encoding.get_or_init(|| {
-            let mut encoded = Vec::with_capacity(1 + self.length());
-            enveloped(Self::TYPE, self, &mut encoded);
-            encoded.into()
-        })
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        Some(total_blob_gas(self))
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
-    }
-}
-
-impl PartialEq for Eip4844 {
-    fn eq(&self, other: &Self) -> bool {
-        self.chain_id == other.chain_id
-            && self.nonce == other.nonce
-            && self.max_priority_fee_per_gas == other.max_priority_fee_per_gas
-            && self.max_fee_per_gas == other.max_fee_per_gas
-            && self.max_fee_per_blob_gas == other.max_fee_per_blob_gas
-            && self.gas_limit == other.gas_limit
-            && self.to == other.to
-            && self.value == other.value
-            && self.input == other.input
-            && self.access_list == other.access_list
-            && self.blob_hashes == other.blob_hashes
-            && self.signature == other.signature
-    }
-}
-
-impl Transaction for Eip4844 {
     fn caller(&self) -> &Address {
         self.signature.caller()
     }
@@ -130,6 +84,17 @@ impl Transaction for Eip4844 {
         &self.access_list.0
     }
 
+    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
+        Some(
+            self.max_fee_per_gas
+                .min(block_base_fee + self.max_priority_fee_per_gas),
+        )
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&U256> {
+        Some(&self.max_fee_per_gas)
+    }
+
     fn max_priority_fee_per_gas(&self) -> Option<&U256> {
         Some(&self.max_priority_fee_per_gas)
     }
@@ -142,8 +107,41 @@ impl Transaction for Eip4844 {
         Some(&self.max_fee_per_blob_gas)
     }
 
+    fn total_blob_gas(&self) -> Option<u64> {
+        Some(total_blob_gas(self))
+    }
+
     fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
+        })
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
+    }
+}
+
+impl PartialEq for Eip4844 {
+    fn eq(&self, other: &Self) -> bool {
+        self.chain_id == other.chain_id
+            && self.nonce == other.nonce
+            && self.max_priority_fee_per_gas == other.max_priority_fee_per_gas
+            && self.max_fee_per_gas == other.max_fee_per_gas
+            && self.max_fee_per_blob_gas == other.max_fee_per_blob_gas
+            && self.gas_limit == other.gas_limit
+            && self.to == other.to
+            && self.value == other.value
+            && self.input == other.input
+            && self.access_list == other.access_list
+            && self.blob_hashes == other.blob_hashes
+            && self.signature == other.signature
     }
 }
 

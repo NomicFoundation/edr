@@ -6,7 +6,7 @@ use crate::{
     eips::{eip2930, eip7702},
     keccak256,
     signature::{self, Fakeable},
-    transaction::{self, ExecutableTransaction, Transaction, TxKind},
+    transaction::{self, ExecutableTransaction, TxKind},
     Address, Bytes, B256, U256,
 };
 
@@ -40,41 +40,6 @@ impl Legacy {
 }
 
 impl ExecutableTransaction for Legacy {
-    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
-        None
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        None
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        self.rlp_encoding
-            .get_or_init(|| alloy_rlp::encode(self).into())
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        None
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
-    }
-}
-
-impl PartialEq for Legacy {
-    fn eq(&self, other: &Self) -> bool {
-        self.nonce == other.nonce
-            && self.gas_price == other.gas_price
-            && self.gas_limit == other.gas_limit
-            && self.kind == other.kind
-            && self.value == other.value
-            && self.input == other.input
-            && self.signature == other.signature
-    }
-}
-
-impl Transaction for Legacy {
     fn caller(&self) -> &Address {
         self.signature.caller()
     }
@@ -111,6 +76,14 @@ impl Transaction for Legacy {
         &[]
     }
 
+    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
+        None
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&U256> {
+        None
+    }
+
     fn max_priority_fee_per_gas(&self) -> Option<&U256> {
         None
     }
@@ -123,8 +96,33 @@ impl Transaction for Legacy {
         None
     }
 
+    fn total_blob_gas(&self) -> Option<u64> {
+        None
+    }
+
     fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding
+            .get_or_init(|| alloy_rlp::encode(self).into())
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
+    }
+}
+
+impl PartialEq for Legacy {
+    fn eq(&self, other: &Self) -> bool {
+        self.nonce == other.nonce
+            && self.gas_price == other.gas_price
+            && self.gas_limit == other.gas_limit
+            && self.kind == other.kind
+            && self.value == other.value
+            && self.input == other.input
+            && self.signature == other.signature
     }
 }
 

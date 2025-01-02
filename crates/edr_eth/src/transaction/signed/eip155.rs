@@ -6,7 +6,7 @@ use crate::{
     eips::{eip2930, eip7702},
     keccak256,
     signature::{self, Signature},
-    transaction::{self, ExecutableTransaction, Transaction, TxKind},
+    transaction::{self, ExecutableTransaction, TxKind},
     Address, Bytes, B256, U256,
 };
 
@@ -41,57 +41,6 @@ impl Eip155 {
 }
 
 impl ExecutableTransaction for Eip155 {
-    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
-        None
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        None
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        self.rlp_encoding
-            .get_or_init(|| alloy_rlp::encode(self).into())
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        None
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
-    }
-}
-
-impl From<transaction::signed::Legacy> for Eip155 {
-    fn from(tx: transaction::signed::Legacy) -> Self {
-        Self {
-            nonce: tx.nonce,
-            gas_price: tx.gas_price,
-            gas_limit: tx.gas_limit,
-            kind: tx.kind,
-            value: tx.value,
-            input: tx.input,
-            signature: tx.signature,
-            hash: tx.hash,
-            rlp_encoding: tx.rlp_encoding,
-        }
-    }
-}
-
-impl PartialEq for Eip155 {
-    fn eq(&self, other: &Self) -> bool {
-        self.nonce == other.nonce
-            && self.gas_price == other.gas_price
-            && self.gas_limit == other.gas_limit
-            && self.kind == other.kind
-            && self.value == other.value
-            && self.input == other.input
-            && self.signature == other.signature
-    }
-}
-
-impl Transaction for Eip155 {
     fn caller(&self) -> &Address {
         self.signature.caller()
     }
@@ -128,6 +77,14 @@ impl Transaction for Eip155 {
         &[]
     }
 
+    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
+        None
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&U256> {
+        None
+    }
+
     fn max_priority_fee_per_gas(&self) -> Option<&U256> {
         None
     }
@@ -140,8 +97,49 @@ impl Transaction for Eip155 {
         None
     }
 
+    fn total_blob_gas(&self) -> Option<u64> {
+        None
+    }
+
     fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
         None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding
+            .get_or_init(|| alloy_rlp::encode(self).into())
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
+    }
+}
+
+impl From<transaction::signed::Legacy> for Eip155 {
+    fn from(tx: transaction::signed::Legacy) -> Self {
+        Self {
+            nonce: tx.nonce,
+            gas_price: tx.gas_price,
+            gas_limit: tx.gas_limit,
+            kind: tx.kind,
+            value: tx.value,
+            input: tx.input,
+            signature: tx.signature,
+            hash: tx.hash,
+            rlp_encoding: tx.rlp_encoding,
+        }
+    }
+}
+
+impl PartialEq for Eip155 {
+    fn eq(&self, other: &Self) -> bool {
+        self.nonce == other.nonce
+            && self.gas_price == other.gas_price
+            && self.gas_limit == other.gas_limit
+            && self.kind == other.kind
+            && self.value == other.value
+            && self.input == other.input
+            && self.signature == other.signature
     }
 }
 

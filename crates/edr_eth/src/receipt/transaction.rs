@@ -4,8 +4,8 @@ use super::{AsExecutionReceipt, ExecutionReceipt, MapReceiptLogs};
 use crate::{
     l1,
     result::{ExecutionResult, Output},
-    spec::{HaltReasonTrait, HardforkTrait},
-    transaction::{ExecutableTransaction, Transaction, TransactionType},
+    spec::HaltReasonTrait,
+    transaction::{ExecutableTransaction, TransactionType},
     Address, Bloom, B256, U256,
 };
 
@@ -54,9 +54,9 @@ impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> 
 impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> {
     /// Constructs a new instance using the provided execution receipt an
     /// transaction
-    pub fn new<HaltReasonT: HaltReasonTrait, HardforkT: HardforkTrait>(
+    pub fn new<HaltReasonT: HaltReasonTrait, HardforkT: Into<l1::SpecId>>(
         execution_receipt: ExecutionReceiptT,
-        transaction: &(impl Transaction + ExecutableTransaction),
+        transaction: &impl ExecutableTransaction,
         result: &ExecutionResult<HaltReasonT>,
         transaction_index: u64,
         block_base_fee: U256,

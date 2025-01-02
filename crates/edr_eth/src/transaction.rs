@@ -12,13 +12,18 @@ pub mod request;
 /// Types for signed transactions.
 pub mod signed;
 
+use core::fmt::Debug;
 use std::str::FromStr;
 
 pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::{ruint, B256};
-pub use revm_wiring::{result::InvalidTransaction, Transaction, TransactionValidation};
 
-use crate::{signature::Signature, Bytes, U256, U8};
+use crate::{
+    eips::{eip2930, eip7702},
+    result::InvalidTransaction,
+    signature::Signature,
+    Address, Bytes, U256, U8,
+};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -163,6 +168,43 @@ impl serde::Serialize for Type {
 
 /// Trait for information about executable transactions.
 pub trait ExecutableTransaction {
+    /// Caller aka Author aka transaction signer.
+    fn caller(&self) -> &Address;
+
+    /// The maximum amount of gas the transaction can use.
+    fn gas_limit(&self) -> u64;
+
+    /// The gas price the sender is willing to pay.
+    fn gas_price(&self) -> &U256;
+
+    /// Returns what kind of transaction this is.
+    fn kind(&self) -> TxKind;
+
+    /// The value sent to the receiver of `TxKind::Call`.
+    fn value(&self) -> &U256;
+
+    /// Returns the input data of the transaction.
+    fn data(&self) -> &Bytes;
+
+    /// The nonce of the transaction.
+    fn nonce(&self) -> u64;
+
+    /// The chain ID of the transaction. If set to `None`, no checks are
+    /// performed.
+    ///
+    /// Incorporated as part of the Spurious Dragon upgrade via [EIP-155].
+    ///
+    /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
+    fn chain_id(&self) -> Option<u64>;
+
+    /// A list of addresses and storage keys that the transaction plans to
+    /// access.
+    ///
+    /// Added in [EIP-2930].
+    ///
+    /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+    fn access_list(&self) -> &[eip2930::AccessListItem];
+
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256>;
@@ -171,12 +213,42 @@ pub trait ExecutableTransaction {
     /// for post-EIP-1559 transactions.
     fn max_fee_per_gas(&self) -> Option<&U256>;
 
-    /// The enveloped (EIP-2718) RLP-encoding of the transaction.
-    fn rlp_encoding(&self) -> &Bytes;
+    /// The maximum priority fee per gas the sender is willing to pay.
+    ///
+    /// Incorporated as part of the London upgrade via [EIP-1559].
+    ///
+    /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    fn max_priority_fee_per_gas(&self) -> Option<&U256>;
+
+    /// The list of blob versioned hashes. Per EIP there should be at least
+    /// one blob present if [`Transaction::max_fee_per_blob_gas`] is `Some`.
+    ///
+    /// Incorporated as part of the Cancun upgrade via [EIP-4844].
+    ///
+    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    fn blob_hashes(&self) -> &[B256];
+
+    /// The maximum fee per blob gas the sender is willing to pay.
+    ///
+    /// Incorporated as part of the Cancun upgrade via [EIP-4844].
+    ///
+    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    fn max_fee_per_blob_gas(&self) -> Option<&U256>;
 
     /// The total amount of blob gas used by the transaction. Only applicable
     /// for EIP-4844 transactions.
     fn total_blob_gas(&self) -> Option<u64>;
+
+    /// List of authorizations, that contains the signature that authorizes this
+    /// caller to place the code to signer account.
+    ///
+    /// Set EOA account code for one transaction
+    ///
+    /// [EIP-Set EOA account code for one transaction](https://eips.ethereum.org/EIPS/eip-7702)
+    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList>;
+
+    /// The enveloped (EIP-2718) RLP-encoding of the transaction.
+    fn rlp_encoding(&self) -> &Bytes;
 
     /// The hash of the transaction.
     fn transaction_hash(&self) -> &B256;
@@ -215,6 +287,12 @@ pub trait TransactionType {
     fn transaction_type(&self) -> Self::Type;
 }
 
+/// Trait for validating a transaction.
+pub trait TransactionValidation {
+    /// An error that occurs when validating a transaction.
+    type ValidationError: Debug + std::error::Error;
+}
+
 /// Trait for determining whether a transaction has an access list.
 pub trait HasAccessList {
     /// Whether the transaction has an access list.
@@ -247,10 +325,10 @@ pub trait IsSupported {
     fn is_supported_transaction(&self) -> bool;
 }
 
-pub fn max_cost(transaction: &impl Transaction) -> U256 {
+pub fn max_cost(transaction: &impl ExecutableTransaction) -> U256 {
     U256::from(transaction.gas_limit()).saturating_mul(*transaction.gas_price())
 }
 
-pub fn upfront_cost(transaction: &impl Transaction) -> U256 {
+pub fn upfront_cost(transaction: &impl ExecutableTransaction) -> U256 {
     max_cost(transaction).saturating_add(*transaction.value())
 }
