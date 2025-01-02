@@ -27,12 +27,14 @@ use crate::artifacts::{ContractAbiEntry, ImmutableReference};
 /// A resolved build model from a Solidity compiler standard JSON output.
 #[derive(Debug, Default)]
 pub struct BuildModel {
+    // TODO https://github.com/NomicFoundation/edr/issues/759
     /// Maps the contract ID to the contract.
     pub contract_id_to_contract: IndexMap<u32, Arc<RwLock<Contract>>>,
     /// Maps the file ID to the source file.
     pub file_id_to_source_file: Arc<BuildModelSources>,
 }
 
+// TODO https://github.com/NomicFoundation/edr/issues/759
 /// Type alias for the source file mapping used by [`BuildModel`].
 pub type BuildModelSources = HashMap<u32, Arc<RwLock<SourceFile>>>;
 
@@ -340,6 +342,7 @@ pub struct ContractMetadata {
     // This owns the source files transitively used by the source locations
     // in the Instruction structs.
     _sources: Arc<BuildModelSources>,
+    // TODO https://github.com/NomicFoundation/edr/issues/759
     /// Contract that the bytecode belongs to.
     pub contract: Arc<RwLock<Contract>>,
     /// Whether the bytecode is a deployment bytecode.
