@@ -1288,7 +1288,6 @@ dependencies = [
  "anyhow",
  "edr_eth",
  "edr_evm",
- "either",
  "indexmap 2.2.6",
  "parking_lot 0.12.3",
  "semver 1.0.23",

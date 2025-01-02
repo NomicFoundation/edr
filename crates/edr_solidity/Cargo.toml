@@ -15,9 +15,8 @@ parking_lot = { version = "0.12.1", default-features = false }
 serde = { version = "1.0.158", default-features = false, features = ["std"] }
 serde_json = { version = "1.0.89", features = ["preserve_order"] }
 strum = { version = "0.26.0", features = ["derive"] }
-thiserror = "1.0.58"
 semver = "1.0.23"
-either = "1.10.0"
+thiserror = "1.0.58"
 
 [lints]
 workspace = true
