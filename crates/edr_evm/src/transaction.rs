@@ -91,7 +91,7 @@ pub enum CreationError {
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: Transaction>(
+pub fn validate<TransactionT: ExecutableTransaction>(
     transaction: TransactionT,
     spec_id: l1::SpecId,
 ) -> Result<TransactionT, CreationError> {
@@ -111,7 +111,7 @@ pub fn validate<TransactionT: Transaction>(
 }
 
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl Transaction, spec_id: l1::SpecId) -> u64 {
+pub fn initial_cost(transaction: &impl ExecutableTransaction, spec_id: l1::SpecId) -> u64 {
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),

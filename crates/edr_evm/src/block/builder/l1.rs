@@ -12,8 +12,7 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
     result::{ExecutionResult, ResultAndState},
-    spec::HardforkTrait,
-    transaction::{ExecutableTransaction as _, Transaction as _},
+    transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, B256, U256,
@@ -25,7 +24,7 @@ use super::{
 };
 use crate::{
     blockchain::SyncBlockchain,
-    config::{CfgEnv, Env},
+    config::CfgEnv,
     debug::{DebugContext, DebugContextForChainSpec},
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},

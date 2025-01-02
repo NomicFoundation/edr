@@ -4,11 +4,10 @@ use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
     result::{ExecutionResult, InvalidTransaction},
     signature::SignatureError,
-    spec::ChainSpec,
-    transaction::{ExecutableTransaction as _, Transaction, TransactionValidation},
+    spec::{ChainSpec, HaltReasonTrait},
+    transaction::{ExecutableTransaction, TransactionValidation},
     U256,
 };
-use revm::wiring::HaltReasonTrait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -394,7 +393,7 @@ where
         .map_err(MineTransactionError::State)
 }
 
-fn effective_miner_fee(transaction: &impl Transaction, base_fee: Option<U256>) -> U256 {
+fn effective_miner_fee(transaction: &impl ExecutableTransaction, base_fee: Option<U256>) -> U256 {
     let max_fee_per_gas = transaction.gas_price();
     let max_priority_fee_per_gas = *transaction
         .max_priority_fee_per_gas()

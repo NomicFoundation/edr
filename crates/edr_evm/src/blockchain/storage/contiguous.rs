@@ -9,9 +9,7 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_eth::{
-    receipt::ReceiptTrait, spec::HardforkTrait, transaction::ExecutableTransaction, B256, U256,
-};
+use edr_eth::{receipt::ReceiptTrait, transaction::ExecutableTransaction, B256, U256};
 use revm::primitives::HashMap;
 
 use super::InsertError;
@@ -19,12 +17,7 @@ use crate::{Block, EmptyBlock, LocalBlock};
 
 /// A storage solution for storing a Blockchain's blocks contiguously in-memory.
 #[derive_where(Clone, Debug, Default; BlockReceiptT, BlockT)]
-pub struct ContiguousBlockchainStorage<
-    BlockReceiptT,
-    BlockT,
-    HardforkT: HardforkTrait,
-    SignedTransactionT,
-> {
+pub struct ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT> {
     blocks: Vec<BlockT>,
     hash_to_block: HashMap<B256, BlockT>,
     total_difficulties: Vec<U256>,
@@ -33,7 +26,7 @@ pub struct ContiguousBlockchainStorage<
     phantom: PhantomData<(HardforkT, SignedTransactionT)>,
 }
 
-impl<BlockReceiptT, BlockT, HardforkT: HardforkTrait, SignedTransactionT>
+impl<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
     ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the instance's blocks.
@@ -64,12 +57,8 @@ impl<BlockReceiptT, BlockT, HardforkT: HardforkTrait, SignedTransactionT>
     }
 }
 
-impl<
-        BlockReceiptT,
-        BlockT: Block<SignedTransactionT>,
-        HardforkT: HardforkTrait,
-        SignedTransactionT,
-    > ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+impl<BlockReceiptT, BlockT: Block<SignedTransactionT>, HardforkT, SignedTransactionT>
+    ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Reverts to the block with the provided number, deleting all later
     /// blocks.
@@ -130,7 +119,7 @@ impl<
 impl<
         BlockReceiptT: Clone + ReceiptTrait,
         BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT> + Clone,
-        HardforkT: HardforkTrait,
+        HardforkT,
         SignedTransactionT: ExecutableTransaction,
     > ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {

@@ -7,8 +7,8 @@ use edr_eth::{
     log::{self, ExecutionLog},
     receipt,
     result::ExecutionResult,
-    spec::{HaltReasonTrait, HardforkTrait},
-    transaction::{self, Transaction, TransactionType as _, TransactionValidation},
+    spec::HaltReasonTrait,
+    transaction::{self, ExecutableTransaction, TransactionType as _, TransactionValidation},
 };
 
 use crate::state::State;
@@ -17,8 +17,7 @@ use crate::state::State;
 pub trait ExecutionReceiptBuilder<HaltReasonT, HardforkT, TransactionT>: Sized
 where
     HaltReasonT: HaltReasonTrait,
-    HardforkT: HardforkTrait,
-    TransactionT: Transaction + TransactionValidation,
+    TransactionT: ExecutableTransaction + TransactionValidation,
 {
     /// The receipt type that the builder constructs.
     type Receipt;

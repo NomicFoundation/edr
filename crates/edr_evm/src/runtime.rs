@@ -3,14 +3,15 @@ use std::fmt::Debug;
 use edr_eth::{
     l1,
     result::{ExecutionResult, InvalidTransaction, ResultAndState},
+    spec::HaltReasonTrait,
     transaction::{ExecutableTransaction as _, TransactionValidation},
     Address, HashMap,
 };
-use revm::{precompile::Precompile, wiring::HaltReasonTrait, ContextPrecompile, Evm};
+use revm::{precompile::Precompile, ContextPrecompile, Evm};
 
 use crate::{
     blockchain::SyncBlockchain,
-    config::{CfgEnv, Env},
+    config::CfgEnv,
     debug::DebugContext,
     precompile::register_precompiles_handles,
     spec::RuntimeSpec,

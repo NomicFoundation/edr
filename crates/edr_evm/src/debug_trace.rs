@@ -14,7 +14,7 @@ use revm::Evm;
 
 use crate::{
     blockchain::SyncBlockchain,
-    config::{CfgEnv, Env},
+    config::CfgEnv,
     debug::GetContextData,
     evm::{
         handler::register::EvmHandler,

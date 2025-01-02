@@ -3,7 +3,7 @@ use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 use derive_where::derive_where;
 use edr_eth::{
     account::AccountInfo,
-    transaction::{upfront_cost, ExecutableTransaction, Transaction},
+    transaction::{upfront_cost, ExecutableTransaction},
     Address, HashMap, B256, U256,
 };
 use indexmap::{map::Entry, IndexMap};
@@ -393,7 +393,7 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
         S::Error: Debug,
     {
         fn is_valid_tx(
-            transaction: &impl Transaction,
+            transaction: &impl ExecutableTransaction,
             block_gas_limit: NonZeroU64,
             sender: &AccountInfo,
         ) -> bool {
@@ -580,8 +580,8 @@ pub fn has_transactions<ChainSpecT: RuntimeSpec>(mem_pool: &MemPool<ChainSpecT>)
 }
 
 fn validate_replacement_transaction<StateError>(
-    old_transaction: &impl Transaction,
-    new_transaction: &impl Transaction,
+    old_transaction: &impl ExecutableTransaction,
+    new_transaction: &impl ExecutableTransaction,
 ) -> Result<(), MemPoolAddTransactionError<StateError>> {
     let min_new_max_fee_per_gas = min_new_fee(*old_transaction.gas_price());
     if *new_transaction.gas_price() < min_new_max_fee_per_gas {

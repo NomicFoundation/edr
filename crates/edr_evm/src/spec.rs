@@ -8,7 +8,6 @@ use edr_eth::{
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::InvalidTransaction,
     spec::{ChainSpec, EthHeaderConstants},
-    transaction::ExecutableTransaction,
     B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
@@ -22,7 +21,7 @@ use crate::{
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
     state::Database,
     transaction::{
-        remote::EthRpcTransaction, Transaction, TransactionError, TransactionType,
+        remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
         TransactionValidation,
     },
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
@@ -90,7 +89,6 @@ pub trait RuntimeSpec:
           + PartialEq
           + Eq
           + ExecutableTransaction
-          + Transaction
           + TransactionType
           + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >
@@ -209,7 +207,7 @@ impl BlockEnvConstructor<PartialHeader> for BlockEnv {
     fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self {
         Self {
             number: U256::from(header.number),
-            coinbase: header.beneficiary,
+            beneficiary: header.beneficiary,
             timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee.unwrap_or(U256::ZERO),
@@ -231,7 +229,7 @@ impl BlockEnvConstructor<block::Header> for BlockEnv {
     fn new_block_env(header: &block::Header, hardfork: l1::SpecId) -> Self {
         Self {
             number: U256::from(header.number),
-            coinbase: header.beneficiary,
+            beneficiary: header.beneficiary,
             timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee_per_gas.unwrap_or(U256::ZERO),
