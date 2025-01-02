@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use edr_provider::{test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider};
+use edr_solidity::contract_decoder::ContractDecoder;
 use serde_json::json;
 use tokio::runtime;
 
@@ -13,6 +16,7 @@ async fn issue_346() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

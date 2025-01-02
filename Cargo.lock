@@ -1989,6 +1989,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_rpc_eth",
+ "edr_solidity",
  "edr_test_utils",
  "indexmap 2.6.0",
  "itertools 0.12.1",
@@ -2069,13 +2070,17 @@ version = "0.3.8"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
+ "alloy-sol-types 0.7.7",
  "anyhow",
  "edr_eth",
  "edr_evm",
  "indexmap 2.6.0",
+ "parking_lot 0.12.3",
+ "semver 1.0.23",
  "serde",
  "serde_json",
  "strum",
+ "thiserror",
 ]
 
 [[package]]
@@ -6181,9 +6186,11 @@ dependencies = [
  "edr_evm",
  "edr_provider",
  "edr_rpc_eth",
+ "edr_solidity",
  "flate2",
  "indicatif",
  "mimalloc",
+ "parking_lot 0.12.3",
  "reqwest 0.11.27",
  "serde",
  "serde_json",

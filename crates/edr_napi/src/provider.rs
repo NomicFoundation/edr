@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use edr_provider::{time::CurrentTime, InvalidRequestReason};
 use edr_rpc_eth::jsonrpc;
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{tokio::runtime, Either, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 
@@ -13,7 +14,7 @@ use crate::{
     context::EdrContext,
     logger::{Logger, LoggerConfig, LoggerError},
     subscribe::SubscriberCallback,
-    trace::RawTrace,
+    trace::{solidity_stack_trace::SolidityStackTrace, RawTrace},
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -21,6 +22,7 @@ use crate::{
 pub struct Provider {
     provider: Arc<edr_provider::Provider<LoggerError>>,
     runtime: runtime::Handle,
+    contract_decoder: Arc<ContractDecoder>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -35,12 +37,25 @@ impl Provider {
         _context: &EdrContext,
         config: ProviderConfig,
         logger_config: LoggerConfig,
+        tracing_config: serde_json::Value,
         #[napi(ts_arg_type = "(event: SubscriptionEvent) => void")] subscriber_callback: JsFunction,
     ) -> napi::Result<JsObject> {
-        let config = edr_provider::ProviderConfig::try_from(config)?;
         let runtime = runtime::Handle::current();
 
-        let logger = Box::new(Logger::new(&env, logger_config)?);
+        let config = edr_provider::ProviderConfig::try_from(config)?;
+
+        // TODO https://github.com/NomicFoundation/edr/issues/760
+        let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
+            serde_json::from_value(tracing_config)?;
+        let contract_decoder = ContractDecoder::new(&build_info_config)
+            .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+        let contract_decoder = Arc::new(contract_decoder);
+
+        let logger = Box::new(Logger::new(
+            &env,
+            logger_config,
+            Arc::clone(&contract_decoder),
+        )?);
         let subscriber_callback = SubscriberCallback::new(&env, subscriber_callback)?;
         let subscriber_callback = Box::new(move |event| subscriber_callback.call(event));
 
@@ -58,6 +73,7 @@ impl Provider {
                 logger,
                 subscriber_callback,
                 config,
+                Arc::clone(&contract_decoder),
                 CurrentTime,
             )
             .map_or_else(
@@ -66,6 +82,7 @@ impl Provider {
                     Ok(Provider {
                         provider: Arc::new(provider),
                         runtime,
+                        contract_decoder,
                         #[cfg(feature = "scenarios")]
                         scenario_file,
                     })
@@ -184,10 +201,16 @@ impl Provider {
                 }
             })
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
-            .map(|data| Response {
-                solidity_trace,
-                data,
-                traces: traces.into_iter().map(Arc::new).collect(),
+            .map(|data| {
+                let solidity_trace = solidity_trace.map(|trace| SolidityTraceData {
+                    trace,
+                    contract_decoder: Arc::clone(&self.contract_decoder),
+                });
+                Response {
+                    solidity_trace,
+                    data,
+                    traces: traces.into_iter().map(Arc::new).collect(),
+                }
             })
     }
 
@@ -222,6 +245,12 @@ impl Provider {
     }
 }
 
+#[derive(Debug)]
+struct SolidityTraceData {
+    trace: Arc<edr_evm::trace::Trace>,
+    contract_decoder: Arc<ContractDecoder>,
+}
+
 #[napi]
 pub struct Response {
     // N-API is known to be slow when marshalling `serde_json::Value`s, so we try to return a
@@ -230,7 +259,7 @@ pub struct Response {
     data: Either<String, serde_json::Value>,
     /// When a transaction fails to execute, the provider returns a trace of the
     /// transaction.
-    solidity_trace: Option<Arc<edr_evm::trace::Trace>>,
+    solidity_trace: Option<SolidityTraceData>,
     /// This may contain zero or more traces, depending on the (batch) request
     traces: Vec<Arc<edr_evm::trace::Trace>>,
 }
@@ -244,17 +273,41 @@ impl Response {
     }
 
     #[napi(getter)]
-    pub fn solidity_trace(&self) -> Option<RawTrace> {
-        self.solidity_trace
-            .as_ref()
-            .map(|trace| RawTrace::new(trace.clone()))
-    }
-
-    #[napi(getter)]
     pub fn traces(&self) -> Vec<RawTrace> {
         self.traces
             .iter()
             .map(|trace| RawTrace::new(trace.clone()))
             .collect()
+    }
+
+    // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
+    #[doc = "Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace."]
+    #[napi]
+    pub fn stack_trace(&self) -> napi::Result<Option<SolidityStackTrace>> {
+        let Some(SolidityTraceData {
+            trace,
+            contract_decoder,
+        }) = &self.solidity_trace
+        else {
+            return Ok(None);
+        };
+        let nested_trace = edr_solidity::nested_tracer::convert_trace_messages_to_nested_trace(
+            trace.as_ref().clone(),
+        )
+        .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+
+        if let Some(vm_trace) = nested_trace {
+            let decoded_trace = contract_decoder.try_to_decode_message_trace(vm_trace);
+            let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
+                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+            let stack_trace = stack_trace
+                .into_iter()
+                .map(super::cast::TryCast::try_cast)
+                .collect::<Result<Vec<_>, _>>()?;
+
+            Ok(Some(stack_trace))
+        } else {
+            Ok(None)
+        }
     }
 }

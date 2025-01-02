@@ -9,6 +9,7 @@ use anyhow::Context;
 use edr_evm::blockchain::BlockchainError;
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
+use edr_solidity::contract_decoder::ContractDecoder;
 use flate2::bufread::GzDecoder;
 use indicatif::ProgressBar;
 use serde::Deserialize;
@@ -55,6 +56,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
             logger,
             subscription_callback,
             config.provider_config,
+            Arc::new(ContractDecoder::default()),
             CurrentTime,
         )
     })
@@ -184,6 +186,10 @@ impl Logger for DisabledLogger {
         _method: &str,
         _error: Option<&ProviderError<Infallible>>,
     ) -> Result<(), Infallible> {
+        Ok(())
+    }
+
+    fn print_contract_decoding_error(&mut self, _error: &str) -> Result<(), Self::LoggerError> {
         Ok(())
     }
 }

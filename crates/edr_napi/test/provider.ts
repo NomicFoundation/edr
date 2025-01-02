@@ -76,6 +76,7 @@ describe("Provider", () => {
       context,
       providerConfig,
       loggerConfig,
+      {},
       (_event: SubscriptionEvent) => {}
     );
 
@@ -96,6 +97,7 @@ describe("Provider", () => {
         ...providerConfig,
       },
       loggerConfig,
+      {},
       (_event: SubscriptionEvent) => {}
     );
 
@@ -108,6 +110,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
+        {},
         (_event: SubscriptionEvent) => {}
       );
 
@@ -148,6 +151,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
+        {},
         (_event: SubscriptionEvent) => {}
       );
 
@@ -193,6 +197,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
+        {},
         (_event: SubscriptionEvent) => {}
       );
 
@@ -232,6 +237,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
+        {},
         (_event: SubscriptionEvent) => {}
       );
 
@@ -278,6 +284,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
+        {},
         (_event: SubscriptionEvent) => {}
       );
 
@@ -317,6 +324,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
+        {},
         (_event: SubscriptionEvent) => {}
       );
 
@@ -369,6 +377,7 @@ describe("Provider", () => {
         context,
         providerConfig,
         loggerConfig,
+        {},
         (_event: SubscriptionEvent) => {}
       );
 

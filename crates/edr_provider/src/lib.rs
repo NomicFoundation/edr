@@ -22,6 +22,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_evm::{blockchain::BlockchainError, trace::Trace, HashSet};
+use edr_solidity::contract_decoder::ContractDecoder;
 use lazy_static::lazy_static;
 use logger::SyncLogger;
 use mock::SyncCallOverride;
@@ -50,14 +51,8 @@ use self::{
 };
 
 lazy_static! {
-    pub static ref PRIVATE_RPC_METHODS: HashSet<&'static str> = {
-        [
-            "hardhat_getStackTraceFailuresCount",
-            "hardhat_setLoggingEnabled",
-        ]
-        .into_iter()
-        .collect()
-    };
+    pub static ref PRIVATE_RPC_METHODS: HashSet<&'static str> =
+        ["hardhat_setLoggingEnabled",].into_iter().collect();
 }
 
 #[derive(Clone, Debug)]
@@ -114,6 +109,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
         logger: Box<dyn SyncLogger<BlockchainError = BlockchainError, LoggerError = LoggerErrorT>>,
         subscriber_callback: Box<dyn SyncSubscriberCallback>,
         config: ProviderConfig,
+        contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationError> {
         let data = ProviderData::new(
@@ -122,6 +118,7 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             subscriber_callback,
             None,
             config.clone(),
+            contract_decoder,
             timer,
         )?;
         let data = Arc::new(AsyncMutex::new(data));
@@ -391,18 +388,23 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             }
 
             // hardhat_* methods
-            MethodInvocation::AddCompilationResult(_, _, _) => Err(ProviderError::Unimplemented(
-                "AddCompilationResult".to_string(),
-            )),
+            MethodInvocation::AddCompilationResult(
+                solc_version,
+                compiler_input,
+                compiler_output,
+            ) => hardhat::handle_add_compilation_result(
+                data,
+                solc_version,
+                compiler_input,
+                compiler_output,
+            )
+            .and_then(to_json),
             MethodInvocation::DropTransaction(transaction_hash) => {
                 hardhat::handle_drop_transaction(data, transaction_hash).and_then(to_json)
             }
             MethodInvocation::GetAutomine(()) => {
                 hardhat::handle_get_automine_request(data).and_then(to_json)
             }
-            MethodInvocation::GetStackTraceFailuresCount(()) => Err(ProviderError::Unimplemented(
-                "GetStackTraceFailuresCount".to_string(),
-            )),
             MethodInvocation::ImpersonateAccount(address) => {
                 hardhat::handle_impersonate_account_request(data, *address).and_then(to_json)
             }

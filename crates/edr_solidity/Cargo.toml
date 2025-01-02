@@ -5,14 +5,18 @@ edition.workspace = true
 
 [dependencies]
 anyhow = { version = "1.0.75", default-features = false }
-alloy-dyn-abi = { version = "0.7.6", default-features = false }
+alloy-dyn-abi = { version = "0.7.6", default-features = false, features = ["eip712"] }
 alloy-json-abi = { version = "0.7.4", default-features = false }
+alloy-sol-types = { version = "0.7.4", default-features = false, features = ["std"] }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm" }
 indexmap = { version = "2", features = ["serde"] }
+parking_lot = { version = "0.12.1", default-features = false }
 serde = { version = "1.0.158", default-features = false, features = ["std"] }
 serde_json = { version = "1.0.89", features = ["preserve_order"] }
 strum = { version = "0.26.0", features = ["derive"] }
+semver = "1.0.23"
+thiserror = "1.0.58"
 
 [lints]
 workspace = true

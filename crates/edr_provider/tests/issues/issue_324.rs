@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use edr_eth::{Address, Bytes, SpecId, U256};
 use edr_provider::{
@@ -6,6 +6,7 @@ use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
 use tokio::runtime;
 
@@ -35,6 +36,7 @@ async fn issue_324() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

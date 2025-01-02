@@ -1,6 +1,6 @@
 #![cfg(feature = "test-utils")]
 
-use std::{convert::Infallible, str::FromStr};
+use std::{convert::Infallible, str::FromStr, sync::Arc};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
@@ -20,6 +20,7 @@ use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
+use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
 /// Helper struct to modify the pooled transaction from the value in
@@ -221,6 +222,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -252,6 +254,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -283,6 +286,7 @@ async fn send_transaction_unsupported() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -326,6 +330,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -365,6 +370,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -412,6 +418,7 @@ async fn block_header() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -598,6 +605,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

@@ -8,6 +8,7 @@ use napi_derive::napi;
 use serde::{Serialize, Serializer};
 
 use super::model::ContractFunctionType;
+use crate::{cast::TryCast, trace::u256_to_bigint};
 
 #[napi]
 #[repr(u8)]
@@ -77,6 +78,20 @@ pub struct SourceReference {
     pub range: Vec<u32>,
 }
 
+impl From<edr_solidity::solidity_stack_trace::SourceReference> for SourceReference {
+    fn from(value: edr_solidity::solidity_stack_trace::SourceReference) -> Self {
+        let (range_start, range_end) = value.range;
+        Self {
+            source_name: value.source_name,
+            source_content: value.source_content,
+            contract: value.contract,
+            function: value.function,
+            line: value.line,
+            range: vec![range_start, range_end],
+        }
+    }
+}
+
 /// A [`StackTraceEntryType`] constant that is convertible to/from a
 /// `napi_value`.
 ///
@@ -110,16 +125,6 @@ impl<const ENTRY_TYPE: u8> ToNapiValue for StackTraceEntryTypeConst<ENTRY_TYPE> 
         _val: Self,
     ) -> napi::Result<napi::sys::napi_value> {
         u8::to_napi_value(env, ENTRY_TYPE)
-    }
-}
-
-impl<const ENTRY_TYPE: u8> StackTraceEntryTypeConst<ENTRY_TYPE> {
-    #[allow(clippy::unused_self)] // less verbose than <value as ...>::as_value()
-    const fn as_value(&self) -> StackTraceEntryType {
-        match StackTraceEntryType::from_repr(ENTRY_TYPE) {
-            Some(val) => val,
-            None => panic!("Invalid StackTraceEntryType value"),
-        }
     }
 }
 
@@ -599,75 +604,214 @@ pub type SolidityStackTraceEntry = Either24<
     ContractCallRunOutOfGasError,
 >;
 
+impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::StackTraceEntry {
+    type Error = napi::Error;
+
+    fn try_cast(self) -> Result<SolidityStackTraceEntry, Self::Error> {
+        use edr_solidity::solidity_stack_trace::StackTraceEntry;
+        let result = match self {
+            StackTraceEntry::CallstackEntry {
+                source_reference,
+                function_type,
+            } => CallstackEntryStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.into(),
+                function_type: function_type.into(),
+            }
+            .into(),
+            StackTraceEntry::UnrecognizedCreateCallstackEntry => {
+                UnrecognizedCreateCallstackEntryStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: None,
+                }
+                .into()
+            }
+            StackTraceEntry::UnrecognizedContractCallstackEntry { address } => {
+                UnrecognizedContractCallstackEntryStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    address: Uint8Array::from(address.as_slice()),
+                    source_reference: None,
+                }
+                .into()
+            }
+            StackTraceEntry::PrecompileError { precompile } => PrecompileErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                precompile,
+                source_reference: None,
+            }
+            .into(),
+            StackTraceEntry::RevertError {
+                return_data,
+                source_reference,
+                is_invalid_opcode_error,
+            } => RevertErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                return_data: return_data.into(),
+                source_reference: source_reference.into(),
+                is_invalid_opcode_error,
+            }
+            .into(),
+            StackTraceEntry::PanicError {
+                error_code,
+                source_reference,
+            } => PanicErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                error_code: u256_to_bigint(&error_code),
+                source_reference: source_reference.map(std::convert::Into::into),
+            }
+            .into(),
+            StackTraceEntry::CustomError {
+                message,
+                source_reference,
+            } => CustomErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                message,
+                source_reference: source_reference.into(),
+            }
+            .into(),
+            StackTraceEntry::FunctionNotPayableError {
+                value,
+                source_reference,
+            } => FunctionNotPayableErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                value: u256_to_bigint(&value),
+                source_reference: source_reference.into(),
+            }
+            .into(),
+            StackTraceEntry::InvalidParamsError { source_reference } => {
+                InvalidParamsErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.into(),
+                }
+                .into()
+            }
+            StackTraceEntry::FallbackNotPayableError {
+                value,
+                source_reference,
+            } => FallbackNotPayableErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                value: u256_to_bigint(&value),
+                source_reference: source_reference.into(),
+            }
+            .into(),
+            StackTraceEntry::FallbackNotPayableAndNoReceiveError {
+                value,
+                source_reference,
+            } => FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                value: u256_to_bigint(&value),
+                source_reference: source_reference.into(),
+            }
+            .into(),
+            StackTraceEntry::UnrecognizedFunctionWithoutFallbackError { source_reference } => {
+                UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.into(),
+                }
+                .into()
+            }
+            StackTraceEntry::MissingFallbackOrReceiveError { source_reference } => {
+                MissingFallbackOrReceiveErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.into(),
+                }
+                .into()
+            }
+            StackTraceEntry::ReturndataSizeError { source_reference } => {
+                ReturndataSizeErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.into(),
+                }
+                .into()
+            }
+            StackTraceEntry::NoncontractAccountCalledError { source_reference } => {
+                NonContractAccountCalledErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.into(),
+                }
+                .into()
+            }
+            StackTraceEntry::CallFailedError { source_reference } => {
+                CallFailedErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.into(),
+                }
+                .into()
+            }
+            StackTraceEntry::DirectLibraryCallError { source_reference } => {
+                DirectLibraryCallErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.into(),
+                }
+                .into()
+            }
+            StackTraceEntry::UnrecognizedCreateError {
+                return_data,
+                is_invalid_opcode_error,
+            } => UnrecognizedCreateErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                return_data: return_data.into(),
+                is_invalid_opcode_error,
+                source_reference: None,
+            }
+            .into(),
+            StackTraceEntry::UnrecognizedContractError {
+                address,
+                return_data,
+                is_invalid_opcode_error,
+            } => UnrecognizedContractErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                address: Uint8Array::from(address.as_slice()),
+                return_data: return_data.into(),
+                is_invalid_opcode_error,
+                source_reference: None,
+            }
+            .into(),
+            StackTraceEntry::OtherExecutionError { source_reference } => {
+                OtherExecutionErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.map(std::convert::Into::into),
+                }
+                .into()
+            }
+            StackTraceEntry::UnmappedSolc0_6_3RevertError { source_reference } => {
+                UnmappedSolc063RevertErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.map(std::convert::Into::into),
+                }
+                .into()
+            }
+            StackTraceEntry::ContractTooLargeError { source_reference } => {
+                ContractTooLargeErrorStackTraceEntry {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.map(std::convert::Into::into),
+                }
+                .into()
+            }
+            StackTraceEntry::InternalFunctionCallstackEntry {
+                pc,
+                source_reference,
+            } => InternalFunctionCallStackEntry {
+                type_: StackTraceEntryTypeConst,
+                pc,
+                source_reference: source_reference.into(),
+            }
+            .into(),
+            StackTraceEntry::ContractCallRunOutOfGasError { source_reference } => {
+                ContractCallRunOutOfGasError {
+                    type_: StackTraceEntryTypeConst,
+                    source_reference: source_reference.map(std::convert::Into::into),
+                }
+                .into()
+            }
+        };
+        Ok(result)
+    }
+}
+
 #[allow(dead_code)]
 // Same as above, but for the `SolidityStackTrace` type.
 pub type SolidityStackTrace = Vec<SolidityStackTraceEntry>;
-
-pub trait SolidityStackTraceEntryExt {
-    fn type_(&self) -> StackTraceEntryType;
-    fn source_reference(&self) -> Option<&SourceReference>;
-}
-
-impl SolidityStackTraceEntryExt for SolidityStackTraceEntry {
-    fn type_(&self) -> StackTraceEntryType {
-        match self {
-            Either24::A(entry) => entry.type_.as_value(),
-            Either24::B(entry) => entry.type_.as_value(),
-            Either24::C(entry) => entry.type_.as_value(),
-            Either24::D(entry) => entry.type_.as_value(),
-            Either24::E(entry) => entry.type_.as_value(),
-            Either24::F(entry) => entry.type_.as_value(),
-            Either24::G(entry) => entry.type_.as_value(),
-            Either24::H(entry) => entry.type_.as_value(),
-            Either24::I(entry) => entry.type_.as_value(),
-            Either24::J(entry) => entry.type_.as_value(),
-            Either24::K(entry) => entry.type_.as_value(),
-            Either24::L(entry) => entry.type_.as_value(),
-            Either24::M(entry) => entry.type_.as_value(),
-            Either24::N(entry) => entry.type_.as_value(),
-            Either24::O(entry) => entry.type_.as_value(),
-            Either24::P(entry) => entry.type_.as_value(),
-            Either24::Q(entry) => entry.type_.as_value(),
-            Either24::R(entry) => entry.type_.as_value(),
-            Either24::S(entry) => entry.type_.as_value(),
-            Either24::T(entry) => entry.type_.as_value(),
-            Either24::U(entry) => entry.type_.as_value(),
-            Either24::V(entry) => entry.type_.as_value(),
-            Either24::W(entry) => entry.type_.as_value(),
-            Either24::X(entry) => entry.type_.as_value(),
-        }
-    }
-
-    #[allow(clippy::unnecessary_lazy_evaluations)] // guards against potential variant reordering
-    fn source_reference(&self) -> Option<&SourceReference> {
-        match self {
-            Either24::A(entry) => Some(&entry.source_reference),
-            Either24::B(entry) => entry.source_reference.and_then(|_: ()| None),
-            Either24::C(entry) => entry.source_reference.and_then(|_: ()| None),
-            Either24::D(entry) => entry.source_reference.and_then(|_: ()| None),
-            Either24::E(entry) => Some(&entry.source_reference),
-            Either24::F(entry) => entry.source_reference.as_ref(),
-            Either24::G(entry) => Some(&entry.source_reference),
-            Either24::H(entry) => Some(&entry.source_reference),
-            Either24::I(entry) => Some(&entry.source_reference),
-            Either24::J(entry) => Some(&entry.source_reference),
-            Either24::K(entry) => Some(&entry.source_reference),
-            Either24::L(entry) => Some(&entry.source_reference),
-            Either24::M(entry) => Some(&entry.source_reference),
-            Either24::N(entry) => Some(&entry.source_reference),
-            Either24::O(entry) => Some(&entry.source_reference),
-            Either24::P(entry) => Some(&entry.source_reference),
-            Either24::Q(entry) => Some(&entry.source_reference),
-            Either24::R(entry) => entry.source_reference.and_then(|_: ()| None),
-            Either24::S(entry) => entry.source_reference.and_then(|_: ()| None),
-            Either24::T(entry) => entry.source_reference.as_ref(),
-            Either24::U(entry) => entry.source_reference.as_ref(),
-            Either24::V(entry) => entry.source_reference.as_ref(),
-            Either24::W(entry) => Some(&entry.source_reference),
-            Either24::X(entry) => entry.source_reference.as_ref(),
-        }
-    }
-}
 
 const _: () = {
     const fn assert_to_from_napi_value<T: FromNapiValue + ToNapiValue>() {}

@@ -16,20 +16,13 @@ use napi_derive::napi;
 
 use crate::result::ExecutionResult;
 
-mod compiler;
 mod library_utils;
-mod model;
 
 mod debug;
-mod error_inferrer;
 mod exit;
-mod mapped_inlined_internal_functions_heuristics;
-mod message_trace;
+mod model;
 mod return_data;
-mod solidity_stack_trace;
-mod solidity_tracer;
-mod vm_trace_decoder;
-mod vm_tracer;
+pub mod solidity_stack_trace;
 
 #[napi(object)]
 pub struct TracingMessage {
@@ -149,7 +142,7 @@ impl TracingStep {
 
         Self {
             depth: step.depth as u8,
-            pc: BigInt::from(step.pc),
+            pc: BigInt::from(u64::from(step.pc)),
             opcode: OpCode::name_by_op(step.opcode).to_string(),
             stack,
             memory,
@@ -157,7 +150,7 @@ impl TracingStep {
     }
 }
 
-fn u256_to_bigint(v: &edr_evm::U256) -> BigInt {
+pub(crate) fn u256_to_bigint(v: &edr_evm::U256) -> BigInt {
     BigInt {
         sign_bit: false,
         words: v.into_limbs().to_vec(),
@@ -202,4 +195,11 @@ impl RawTrace {
             })
             .collect::<napi::Result<_>>()
     }
+}
+
+#[napi]
+/// Returns the latest version of solc that EDR officially
+/// supports and is tested against.
+pub fn get_latest_supported_solc_version() -> String {
+    "0.8.28".to_string()
 }

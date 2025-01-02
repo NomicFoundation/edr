@@ -1,4 +1,7 @@
-use std::{fmt::Display, sync::mpsc::channel};
+use std::{
+    fmt::Display,
+    sync::{mpsc::channel, Arc},
+};
 
 use ansi_term::{Color, Style};
 use edr_eth::{
@@ -14,6 +17,7 @@ use edr_evm::{
     ExecutionResult, SyncBlock,
 };
 use edr_provider::{ProviderError, TransactionFailure};
+use edr_solidity::contract_decoder::ContractDecoder;
 use itertools::izip;
 use napi::{
     threadsafe_function::{
@@ -41,21 +45,12 @@ impl TryCast<(String, Option<String>)> for ContractAndFunctionName {
     }
 }
 
-struct ContractAndFunctionNameCall {
-    code: Bytes,
-    /// Only present for calls.
-    calldata: Option<Bytes>,
-}
-
 #[napi(object)]
 pub struct LoggerConfig {
     /// Whether to enable the logger.
     pub enable: bool,
     #[napi(ts_type = "(inputs: Buffer[]) => string[]")]
     pub decode_console_log_inputs_callback: JsFunction,
-    #[napi(ts_type = "(code: Buffer, calldata?: Buffer) => ContractAndFunctionName")]
-    /// Used to resolve the contract and function name when logging.
-    pub get_contract_and_function_name_callback: JsFunction,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
     pub print_line_callback: JsFunction,
 }
@@ -118,9 +113,13 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub fn new(env: &Env, config: LoggerConfig) -> napi::Result<Self> {
+    pub fn new(
+        env: &Env,
+        config: LoggerConfig,
+        contract_decoder: Arc<ContractDecoder>,
+    ) -> napi::Result<Self> {
         Ok(Self {
-            collector: LogCollector::new(env, config)?,
+            collector: LogCollector::new(env, config, contract_decoder)?,
         })
     }
 }
@@ -235,6 +234,15 @@ impl edr_provider::Logger for Logger {
 
         Ok(())
     }
+
+    fn print_contract_decoding_error(&mut self, error: &str) -> Result<(), Self::LoggerError> {
+        self.collector.log(
+            "Contract decoder failed to be updated. Please report this to help us improve Hardhat.",
+        );
+        self.collector.print_empty_line()?;
+        self.collector.log(error);
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -245,9 +253,8 @@ pub struct CollapsedMethod {
 
 #[derive(Clone)]
 struct LogCollector {
+    contract_decoder: Arc<ContractDecoder>,
     decode_console_log_inputs_fn: ThreadsafeFunction<Vec<Bytes>, ErrorStrategy::Fatal>,
-    get_contract_and_function_name_fn:
-        ThreadsafeFunction<ContractAndFunctionNameCall, ErrorStrategy::Fatal>,
     indentation: usize,
     is_enabled: bool,
     logs: Vec<LogLine>,
@@ -257,7 +264,11 @@ struct LogCollector {
 }
 
 impl LogCollector {
-    pub fn new(env: &Env, config: LoggerConfig) -> napi::Result<Self> {
+    pub fn new(
+        env: &Env,
+        config: LoggerConfig,
+        contract_decoder: Arc<ContractDecoder>,
+    ) -> napi::Result<Self> {
         let mut decode_console_log_inputs_fn = config
             .decode_console_log_inputs_callback
             .create_threadsafe_function(0, |ctx: ThreadSafeCallContext<Vec<Bytes>>| {
@@ -281,34 +292,6 @@ impl LogCollector {
         // exiting.
         decode_console_log_inputs_fn.unref(env)?;
 
-        let mut get_contract_and_function_name_fn = config
-            .get_contract_and_function_name_callback
-            .create_threadsafe_function(
-                0,
-                |ctx: ThreadSafeCallContext<ContractAndFunctionNameCall>| {
-                    // Buffer
-                    let code = ctx
-                        .env
-                        .create_buffer_with_data(ctx.value.code.to_vec())?
-                        .into_unknown();
-
-                    // Option<Buffer>
-                    let calldata = if let Some(calldata) = ctx.value.calldata {
-                        ctx.env
-                            .create_buffer_with_data(calldata.to_vec())?
-                            .into_unknown()
-                    } else {
-                        ctx.env.get_undefined()?.into_unknown()
-                    };
-
-                    Ok(vec![code, calldata])
-                },
-            )?;
-
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
-        get_contract_and_function_name_fn.unref(env)?;
-
         let mut print_line_fn = config.print_line_callback.create_threadsafe_function(
             0,
             |ctx: ThreadSafeCallContext<(String, bool)>| {
@@ -327,8 +310,8 @@ impl LogCollector {
         print_line_fn.unref(env)?;
 
         Ok(Self {
+            contract_decoder,
             decode_console_log_inputs_fn,
-            get_contract_and_function_name_fn,
             indentation: 0,
             is_enabled: config.enable,
             logs: Vec::new(),
@@ -560,29 +543,13 @@ impl LogCollector {
         code: Bytes,
         calldata: Option<Bytes>,
     ) -> (String, Option<String>) {
-        let (sender, receiver) = channel();
-
-        let status = self
-            .get_contract_and_function_name_fn
-            .call_with_return_value(
-                ContractAndFunctionNameCall { code, calldata },
-                ThreadsafeFunctionCallMode::Blocking,
-                move |result: ContractAndFunctionName| {
-                    let contract_and_function_name = result.try_cast();
-                    sender.send(contract_and_function_name).map_err(|_error| {
-                        napi::Error::new(
-                            Status::GenericFailure,
-                            "Failed to send result from get_contract_and_function_name",
-                        )
-                    })
-                },
-            );
-        assert_eq!(status, Status::Ok);
-
-        receiver
-            .recv()
-            .unwrap()
-            .expect("Failed call to get_contract_and_function_name")
+        let edr_solidity::contract_decoder::ContractAndFunctionName {
+            contract_name,
+            function_name,
+        } = self
+            .contract_decoder
+            .get_contract_and_function_names_for_call(&code, calldata.as_ref());
+        (contract_name, function_name)
     }
 
     fn format(&self, message: impl ToString) -> String {

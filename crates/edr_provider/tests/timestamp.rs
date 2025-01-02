@@ -8,6 +8,7 @@ use edr_provider::{
     time::{MockTime, TimeSinceEpoch},
     MethodInvocation, NoopLogger, Provider, ProviderRequest, Timestamp,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
 struct TimestampFixture {
@@ -30,6 +31,7 @@ impl TimestampFixture {
             logger,
             subscription_callback_noop,
             config.clone(),
+            Arc::<ContractDecoder>::default(),
             mock_timer.clone(),
         )?;
 

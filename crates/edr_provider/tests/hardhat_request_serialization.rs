@@ -3,9 +3,10 @@ mod common;
 use edr_eth::{Address, Bytes, B256, U256};
 use edr_evm::alloy_primitives::U160;
 use edr_provider::{
-    hardhat_rpc_types::{CompilerInput, CompilerOutput, ForkConfig, ResetProviderConfig},
+    hardhat_rpc_types::{ForkConfig, ResetProviderConfig},
     MethodInvocation,
 };
+use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
 
 use crate::common::help_test_method_invocation_serde;
 
@@ -52,11 +53,6 @@ fn serde_hardhat_drop_transaction() {
 #[test]
 fn serde_hardhat_get_automine() {
     help_test_method_invocation_serde(MethodInvocation::GetAutomine(()));
-}
-
-#[test]
-fn serde_hardhat_get_stack_trace_failures_count() {
-    help_test_method_invocation_serde(MethodInvocation::GetStackTraceFailuresCount(()));
 }
 
 #[test]

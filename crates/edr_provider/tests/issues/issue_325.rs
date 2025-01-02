@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use edr_eth::{
     transaction::EthTransactionRequest, AccountInfo, Address, PreEip1898BlockSpec, SpecId, B256,
 };
@@ -7,6 +9,7 @@ use edr_provider::{
     time::CurrentTime,
     MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -37,6 +40,7 @@ async fn issue_325() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

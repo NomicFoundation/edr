@@ -159,6 +159,9 @@ pub enum ProviderError<LoggerErrorT> {
     /// An error occurred while recovering a signature.
     #[error(transparent)]
     Signature(#[from] edr_eth::signature::SignatureError),
+    /// An error occurred while decoding the contract metadata.
+    #[error("Error decoding contract metadata: {0}")]
+    SolcDecoding(String),
     /// State error
     #[error(transparent)]
     State(#[from] StateError),
@@ -270,6 +273,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
             ProviderError::SetNextBlockBaseFeePerGasUnsupported { .. } => INVALID_INPUT,
             ProviderError::SetNextPrevRandaoUnsupported { .. } => INVALID_INPUT,
             ProviderError::Signature(_) => INVALID_PARAMS,
+            ProviderError::SolcDecoding(_) => INVALID_INPUT,
             ProviderError::State(_) => INVALID_INPUT,
             ProviderError::TimestampLowerThanPrevious { .. } => INVALID_INPUT,
             ProviderError::TimestampEqualsPrevious { .. } => INVALID_INPUT,

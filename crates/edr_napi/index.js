@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, CachedChains, CachedEndpoints, FsAccessPermission, TestStatus, runSolidityTests, createModelsAndDecodeBytecodes, linkHexStringBytecode, BytecodeWrapper, ContractFunctionType, printMessageTrace, printStackTrace, Exit, ExitCode, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
+const { SpecId, EdrContext, MineOrdering, Provider, Response, SuccessReason, ExceptionalHalt, CachedChains, CachedEndpoints, FsAccessPermission, TestStatus, runSolidityTests, linkHexStringBytecode, printStackTrace, Exit, ExitCode, BytecodeWrapper, ContractFunctionType, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, RawTrace, getLatestSupportedSolcVersion } = nativeBinding
 
 module.exports.SpecId = SpecId
 module.exports.EdrContext = EdrContext
@@ -324,14 +324,12 @@ module.exports.CachedEndpoints = CachedEndpoints
 module.exports.FsAccessPermission = FsAccessPermission
 module.exports.TestStatus = TestStatus
 module.exports.runSolidityTests = runSolidityTests
-module.exports.createModelsAndDecodeBytecodes = createModelsAndDecodeBytecodes
 module.exports.linkHexStringBytecode = linkHexStringBytecode
-module.exports.BytecodeWrapper = BytecodeWrapper
-module.exports.ContractFunctionType = ContractFunctionType
-module.exports.printMessageTrace = printMessageTrace
 module.exports.printStackTrace = printStackTrace
 module.exports.Exit = Exit
 module.exports.ExitCode = ExitCode
+module.exports.BytecodeWrapper = BytecodeWrapper
+module.exports.ContractFunctionType = ContractFunctionType
 module.exports.ReturnData = ReturnData
 module.exports.StackTraceEntryType = StackTraceEntryType
 module.exports.stackTraceEntryTypeToString = stackTraceEntryTypeToString
@@ -342,8 +340,5 @@ module.exports.UNRECOGNIZED_FUNCTION_NAME = UNRECOGNIZED_FUNCTION_NAME
 module.exports.UNKNOWN_FUNCTION_NAME = UNKNOWN_FUNCTION_NAME
 module.exports.PRECOMPILE_FUNCTION_NAME = PRECOMPILE_FUNCTION_NAME
 module.exports.UNRECOGNIZED_CONTRACT_NAME = UNRECOGNIZED_CONTRACT_NAME
-module.exports.SolidityTracer = SolidityTracer
-module.exports.VmTraceDecoder = VmTraceDecoder
-module.exports.initializeVmTraceDecoder = initializeVmTraceDecoder
-module.exports.VmTracer = VmTracer
 module.exports.RawTrace = RawTrace
+module.exports.getLatestSupportedSolcVersion = getLatestSupportedSolcVersion
