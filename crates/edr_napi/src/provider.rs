@@ -44,6 +44,7 @@ impl Provider {
 
         let config = edr_provider::ProviderConfig::try_from(config)?;
 
+        // TODO https://github.com/NomicFoundation/edr/issues/760
         let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
             serde_json::from_value(tracing_config)?;
         let contract_decoder = ContractDecoder::new(&build_info_config)
