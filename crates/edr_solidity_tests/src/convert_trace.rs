@@ -1,0 +1,196 @@
+use edr_solidity::{
+    exit_code::ExitCode,
+    nested_trace::{
+        CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage,
+    },
+};
+use foundry_evm::traces::{CallTraceArena, CallTraceStep};
+
+use crate::revm::primitives::ruint::aliases::U160;
+
+#[derive(Debug, thiserror::Error)]
+pub enum TraceConversionError {
+    #[error("Invalid root node")]
+    InvalidRootNode,
+    #[error("Invalid call type")]
+    InvalidCallType,
+}
+
+pub(crate) fn convert_call_trace_arena_to_nested_trace(
+    arena: &CallTraceArena,
+) -> Result<NestedTrace, TraceConversionError> {
+    // Start conversion from the root node (index 0)
+    if arena.nodes().is_empty() {
+        return Err(TraceConversionError::InvalidRootNode);
+    }
+    convert_node_to_nested_trace(&arena, 0)
+}
+
+fn convert_node_to_nested_trace(
+    arena: &CallTraceArena,
+    node_idx: usize,
+) -> Result<NestedTrace, TraceConversionError> {
+    let node = &arena.nodes()[node_idx];
+    let trace = &node.trace;
+
+    // Based on https://github.com/paradigmxyz/revm-inspectors/blob/ceef3f3624ca51bf3c41c97d6c013606db3a6019/src/tracing/types.rs#L257
+    let mut steps = Vec::new();
+    let mut child_index = 0;
+    for step in &trace.steps {
+        if is_calllike_op(step) {
+            // The opcode of this step is a call, but it's possible that this step resulted
+            // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
+            if let Some(call_id) = node.children.get(child_index).copied() {
+                child_index += 1;
+                let child_trace = convert_node_to_nested_trace(arena, call_id)?;
+                steps.push(match child_trace {
+                    NestedTrace::Create(msg) => NestedTraceStep::Create(msg),
+                    NestedTrace::Call(msg) => NestedTraceStep::Call(msg),
+                    NestedTrace::Precompile(msg) => NestedTraceStep::Precompile(msg),
+                });
+            }
+        } else {
+            steps.push(NestedTraceStep::Evm(EvmStep { pc: step.pc as u32 }));
+        }
+    }
+
+    // Convert based on call type and precompile status
+    if node.is_precompile() {
+        let precompile: U160 = trace.address.into();
+        let precompile: u32 = precompile
+            .try_into()
+            .expect("MAX_PRECOMPILE_NUMBER is of type u16 so it fits");
+        Ok(NestedTrace::Precompile(PrecompileMessage {
+            precompile,
+            calldata: trace.data.clone(),
+            value: trace.value,
+            return_data: trace.output.clone(),
+            exit: convert_instruction_result_to_exit_code(trace.status),
+            gas_used: trace.gas_used,
+            depth: trace.depth,
+        }))
+    } else if trace.kind.is_any_create() {
+        Ok(NestedTrace::Create(CreateMessage {
+            number_of_subtraces: node.children.len() as u32,
+            steps,
+            contract_meta: None, // This would need to be populated from elsewhere
+            deployed_contract: Some(trace.output.clone()),
+            code: trace.data.clone(),
+            value: trace.value,
+            return_data: trace.output.clone(),
+            exit: convert_instruction_result_to_exit_code(trace.status),
+            gas_used: trace.gas_used,
+            depth: trace.depth,
+        }))
+    } else {
+        Ok(NestedTrace::Call(CallMessage {
+            number_of_subtraces: node.children.len() as u32,
+            steps,
+            contract_meta: None, // This would need to be populated from elsewhere
+            calldata: trace.data.clone(),
+            address: trace.address,
+            code_address: trace.address,
+            code: trace.data.clone(),
+            value: trace.value,
+            return_data: trace.output.clone(),
+            exit: convert_instruction_result_to_exit_code(trace.status),
+            gas_used: trace.gas_used,
+            depth: trace.depth,
+        }))
+    }
+}
+
+// EDR uses REVM 12 in this branch, but Foundry is on REVM 13.
+// We can't bump EDR to REVM 13, because it needs the `hashbrown` feature of
+// `revm-primitives`, but enabling that feature is incompatible with
+// `foundry-fork-db`.
+fn convert_halt_reason(
+    halt: revm_foundry::primitives::HaltReason,
+) -> revm_edr::primitives::HaltReason {
+    use revm_foundry::primitives::HaltReason;
+    match halt {
+        HaltReason::OutOfGas(err) => {
+            revm_edr::primitives::HaltReason::OutOfGas(convert_out_of_gas_error(err))
+        }
+        HaltReason::OpcodeNotFound => revm_edr::primitives::HaltReason::OpcodeNotFound,
+        HaltReason::InvalidFEOpcode => revm_edr::primitives::HaltReason::InvalidFEOpcode,
+        HaltReason::InvalidJump => revm_edr::primitives::HaltReason::InvalidJump,
+        HaltReason::NotActivated => revm_edr::primitives::HaltReason::NotActivated,
+        HaltReason::StackOverflow => revm_edr::primitives::HaltReason::StackOverflow,
+        HaltReason::StackUnderflow => revm_edr::primitives::HaltReason::StackUnderflow,
+        HaltReason::OutOfOffset => revm_edr::primitives::HaltReason::OutOfOffset,
+        HaltReason::CreateCollision => revm_edr::primitives::HaltReason::CreateCollision,
+        HaltReason::PrecompileError => revm_edr::primitives::HaltReason::PrecompileError,
+        HaltReason::NonceOverflow => revm_edr::primitives::HaltReason::NonceOverflow,
+        HaltReason::CreateContractSizeLimit => {
+            revm_edr::primitives::HaltReason::CreateContractSizeLimit
+        }
+        HaltReason::CreateContractStartingWithEF => {
+            revm_edr::primitives::HaltReason::CreateContractStartingWithEF
+        }
+        HaltReason::CreateInitCodeSizeLimit => {
+            revm_edr::primitives::HaltReason::CreateInitCodeSizeLimit
+        }
+        HaltReason::OverflowPayment => revm_edr::primitives::HaltReason::OverflowPayment,
+        HaltReason::StateChangeDuringStaticCall => {
+            revm_edr::primitives::HaltReason::StateChangeDuringStaticCall
+        }
+        HaltReason::CallNotAllowedInsideStatic => {
+            revm_edr::primitives::HaltReason::CallNotAllowedInsideStatic
+        }
+        HaltReason::OutOfFunds => revm_edr::primitives::HaltReason::OutOfFunds,
+        HaltReason::CallTooDeep => revm_edr::primitives::HaltReason::CallTooDeep,
+        HaltReason::EofAuxDataOverflow => revm_edr::primitives::HaltReason::EofAuxDataOverflow,
+        HaltReason::EofAuxDataTooSmall => revm_edr::primitives::HaltReason::EofAuxDataTooSmall,
+        HaltReason::EOFFunctionStackOverflow => {
+            revm_edr::primitives::HaltReason::EOFFunctionStackOverflow
+        }
+        // TODO discuss: this was added in REVM 13: https://github.com/bluealloy/revm/pull/1570
+        // This seems to be the closest error:
+        HaltReason::InvalidEXTCALLTarget => revm_edr::primitives::HaltReason::EofAuxDataTooSmall,
+        // TODO discuss: this is optimism only,but enabled the `optimism` feature for EDR REVM
+        // causes compilation errors
+        HaltReason::FailedDeposit => revm_edr::primitives::HaltReason::NotActivated,
+    }
+}
+
+fn convert_out_of_gas_error(
+    err: revm_foundry::primitives::OutOfGasError,
+) -> revm_edr::primitives::OutOfGasError {
+    use revm_foundry::primitives::OutOfGasError;
+    match err {
+        OutOfGasError::Basic => revm_edr::primitives::OutOfGasError::Basic,
+        OutOfGasError::Memory => revm_edr::primitives::OutOfGasError::Memory,
+        OutOfGasError::MemoryLimit => revm_edr::primitives::OutOfGasError::MemoryLimit,
+        OutOfGasError::Precompile => revm_edr::primitives::OutOfGasError::Precompile,
+        OutOfGasError::InvalidOperand => revm_edr::primitives::OutOfGasError::InvalidOperand,
+    }
+}
+
+fn convert_instruction_result_to_exit_code(
+    result: revm_foundry::interpreter::InstructionResult,
+) -> ExitCode {
+    let success_or_halt: revm_foundry::interpreter::SuccessOrHalt = result.into();
+    if success_or_halt.is_success() {
+        ExitCode::Success
+    } else if success_or_halt.is_revert() {
+        ExitCode::Revert
+    } else {
+        let halt = success_or_halt.to_halt().expect("must be a halt");
+        ExitCode::Halt(convert_halt_reason(halt))
+    }
+}
+
+fn is_calllike_op(step: &CallTraceStep) -> bool {
+    use revm_foundry::interpreter::opcode;
+
+    matches!(
+        step.op.get(),
+        opcode::CALL
+            | opcode::DELEGATECALL
+            | opcode::STATICCALL
+            | opcode::CREATE
+            | opcode::CALLCODE
+            | opcode::CREATE2
+    )
+}

@@ -143,6 +143,7 @@ impl<'a> ContractRunner<'a> {
                 Err(e) => {
                     return Ok(TestSetup::from_evm_error_with(
                         e,
+                        TraceKind::DeploymentError,
                         logs,
                         traces,
                         HashMap::default(),
@@ -172,6 +173,7 @@ impl<'a> ContractRunner<'a> {
             Err(e) => {
                 return Ok(TestSetup::from_evm_error_with(
                     e,
+                    TraceKind::DeploymentError,
                     logs,
                     traces,
                     HashMap::default(),
@@ -192,46 +194,49 @@ impl<'a> ContractRunner<'a> {
             let res = self
                 .executor
                 .setup(None, address, Some(self.revert_decoder));
-            let (setup_logs, setup_traces, labeled_addresses, reason, coverage) = match res {
-                Ok(RawCallResult {
-                    traces,
-                    labels,
-                    logs,
-                    coverage,
-                    ..
-                }) => {
-                    trace!(contract=%address, "successfully setUp test");
-                    (logs, traces, labels, None, coverage)
-                }
-                Err(EvmError::Execution(err)) => {
-                    let ExecutionErr {
-                        raw:
-                            RawCallResult {
-                                traces,
-                                labels,
-                                logs,
-                                coverage,
-                                ..
-                            },
-                        reason,
-                    } = *err;
-                    (
-                        logs,
+            let (setup_logs, setup_traces, trace_kind, labeled_addresses, reason, coverage) =
+                match res {
+                    Ok(RawCallResult {
                         traces,
                         labels,
-                        Some(format!("setup failed: {reason}")),
+                        logs,
                         coverage,
-                    )
-                }
-                Err(err) => (
-                    Vec::new(),
-                    None,
-                    HashMap::new(),
-                    Some(format!("setup failed: {err}")),
-                    None,
-                ),
-            };
-            traces.extend(setup_traces.map(|traces| (TraceKind::Setup, traces)));
+                        ..
+                    }) => {
+                        trace!(contract=%address, "successfully setUp test");
+                        (logs, traces, TraceKind::Setup, labels, None, coverage)
+                    }
+                    Err(EvmError::Execution(err)) => {
+                        let ExecutionErr {
+                            raw:
+                                RawCallResult {
+                                    traces,
+                                    labels,
+                                    logs,
+                                    coverage,
+                                    ..
+                                },
+                            reason,
+                        } = *err;
+                        (
+                            logs,
+                            traces,
+                            TraceKind::SetupError,
+                            labels,
+                            Some(format!("setup failed: {reason}")),
+                            coverage,
+                        )
+                    }
+                    Err(err) => (
+                        Vec::new(),
+                        None,
+                        TraceKind::SetupError,
+                        HashMap::new(),
+                        Some(format!("setup failed: {err}")),
+                        None,
+                    ),
+                };
+            traces.extend(setup_traces.map(|traces| (trace_kind, traces)));
             logs.extend(setup_logs);
 
             TestSetup {
@@ -573,17 +578,22 @@ impl<'a> ContractRunner<'a> {
             ..
         } = raw_call_result;
 
-        traces.extend(execution_trace.map(|traces| (TraceKind::Execution, traces)));
-        labeled_addresses.extend(new_labels);
-        logs.extend(execution_logs);
-        coverage = merge_coverages(coverage, execution_coverage);
-
         let success = executor.is_success(
             setup.address,
             reverted,
             Cow::Owned(state_changeset.unwrap()),
             should_fail,
         );
+
+        let trace_kind = if success {
+            TraceKind::Execution
+        } else {
+            TraceKind::ExecutionError
+        };
+        traces.extend(execution_trace.map(|traces| (trace_kind, traces)));
+        labeled_addresses.extend(new_labels);
+        logs.extend(execution_logs);
+        coverage = merge_coverages(coverage, execution_coverage);
 
         // Record test execution time
         let duration = start.elapsed();
@@ -881,7 +891,12 @@ impl<'a> ContractRunner<'a> {
         // Record logs, labels and traces
         logs.extend(result.logs);
         labeled_addresses.extend(result.labeled_addresses);
-        traces.extend(result.traces.map(|traces| (TraceKind::Execution, traces)));
+        let trace_kind = if result.success {
+            TraceKind::Execution
+        } else {
+            TraceKind::ExecutionError
+        };
+        traces.extend(result.traces.map(|traces| (trace_kind, traces)));
         coverage = merge_coverages(coverage, result.coverage);
 
         // Record test execution time

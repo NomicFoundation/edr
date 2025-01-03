@@ -10,8 +10,8 @@ extern crate tracing;
 
 pub use revm_inspectors::tracing::{
     types::{
-        CallKind, CallLog, CallTrace, CallTraceNode, DecodedCallData, DecodedCallLog,
-        DecodedCallTrace,
+        CallKind, CallLog, CallTrace, CallTraceNode, CallTraceStep, DecodedCallData,
+        DecodedCallLog, DecodedCallTrace,
     },
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
     TraceWriter, TracingInspector, TracingInspectorConfig,
@@ -57,8 +57,11 @@ pub fn render_trace_arena(arena: &CallTraceArena) -> String {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TraceKind {
     Deployment,
+    DeploymentError,
     Setup,
+    SetupError,
     Execution,
+    ExecutionError,
 }
 
 impl TraceKind {
@@ -67,7 +70,7 @@ impl TraceKind {
     /// [`Deployment`]: TraceKind::Deployment
     #[must_use]
     pub fn is_deployment(self) -> bool {
-        matches!(self, Self::Deployment)
+        matches!(self, Self::Deployment | Self::DeploymentError)
     }
 
     /// Returns `true` if the trace kind is [`Setup`].
@@ -75,7 +78,7 @@ impl TraceKind {
     /// [`Setup`]: TraceKind::Setup
     #[must_use]
     pub fn is_setup(self) -> bool {
-        matches!(self, Self::Setup)
+        matches!(self, Self::Setup | Self::SetupError)
     }
 
     /// Returns `true` if the trace kind is [`Execution`].
@@ -83,7 +86,15 @@ impl TraceKind {
     /// [`Execution`]: TraceKind::Execution
     #[must_use]
     pub fn is_execution(self) -> bool {
-        matches!(self, Self::Execution)
+        matches!(self, Self::Execution | Self::ExecutionError)
+    }
+
+    /// Returns `true` if the trace contains an error.
+    pub fn is_error(self) -> bool {
+        matches!(
+            self,
+            Self::DeploymentError | Self::ExecutionError | Self::SetupError
+        )
     }
 }
 

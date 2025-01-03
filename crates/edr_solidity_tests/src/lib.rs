@@ -24,8 +24,10 @@ pub use runner::ContractRunner;
 mod config;
 pub use config::{SolidityTestRunnerConfig, SolidityTestRunnerConfigError};
 
+mod convert_trace;
 pub mod result;
 mod test_filter;
+
 pub use foundry_evm::*;
 use foundry_evm::{executors::fuzz::FuzzConfig, fuzz::invariant::InvariantConfig};
 pub use test_filter::TestFilter;

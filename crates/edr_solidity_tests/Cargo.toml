@@ -5,10 +5,12 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+edr_common.workspace = true
 edr_defaults.workspace = true
+edr_evm.workspace = true
+edr_solidity.workspace = true
 
 foundry-cheatcodes.workspace = true
-edr_common.workspace = true
 foundry-compilers = { workspace = true }
 foundry-evm.workspace = true
 
@@ -28,10 +30,16 @@ alloy-dyn-abi.workspace = true
 alloy-json-abi.workspace = true
 alloy-primitives = { workspace = true, features = ["serde"] }
 
+revm_foundry = { version = "=13.0.0", package = "revm" }
+revm_primitives_foundry = { version = "=8.0.0", package = "revm-primitives" }
+revm_edr = { version = "=12.1.0", package = "revm" }
+revm_primitives_edr = { version = "=7.1.0", package = "revm-primitives" }
+
 tokio = { workspace = true, features = ["time"] }
 evm-disassembler.workspace = true
 thiserror = "1.0.61"
 log = "0.4.22"
+anyhow = "1.0.91"
 
 [dev-dependencies]
 edr_test_utils.workspace = true

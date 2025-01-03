@@ -8,6 +8,7 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
+use edr_solidity::{solidity_stack_trace::StackTraceEntry, solidity_tracer::get_stack_trace};
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
     contracts::{get_contract_name, get_file_name, ContractsByArtifact},
@@ -19,7 +20,7 @@ use foundry_evm::{
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
 
-use crate::gas_report::GasReport;
+use crate::{convert_trace::convert_call_trace_arena_to_nested_trace, gas_report::GasReport};
 
 /// The aggregated result of a test run.
 #[derive(Clone, Debug)]
@@ -440,6 +441,18 @@ impl TestResult {
     pub fn short_result(&self, name: &str) -> String {
         format!("{self} {name} {}", self.kind.report())
     }
+
+    // TODO error type
+    pub fn stack_traces(&self) -> anyhow::Result<Option<Vec<StackTraceEntry>>> {
+        for (kind, trace) in &self.traces {
+            if kind.is_error() {
+                let trace = convert_call_trace_arena_to_nested_trace(trace)?;
+                let stack_trace = get_stack_trace(trace)?;
+                return Ok(Some(stack_trace));
+            }
+        }
+        Ok(None)
+    }
 }
 
 /// Data report by a test.
@@ -573,6 +586,7 @@ pub struct TestSetup {
 impl TestSetup {
     pub fn from_evm_error_with(
         error: EvmError,
+        error_trace_kind: TraceKind,
         mut logs: Vec<Log>,
         mut traces: Traces,
         mut labeled_addresses: HashMap<Address, String>,
@@ -580,7 +594,7 @@ impl TestSetup {
         match error {
             EvmError::Execution(err) => {
                 // force the tracekind to be setup so a trace is shown.
-                traces.extend(err.raw.traces.map(|traces| (TraceKind::Setup, traces)));
+                traces.extend(err.raw.traces.map(|traces| (error_trace_kind, traces)));
                 logs.extend(err.raw.logs);
                 labeled_addresses.extend(err.raw.labels);
                 Self::failed_with(logs, traces, labeled_addresses, err.reason)
