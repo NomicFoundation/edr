@@ -1352,6 +1352,7 @@ dependencies = [
  "paste",
  "revm 14.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
  "revm-context",
+ "revm-handler-interface",
  "rpds",
  "serde",
  "serde_json",

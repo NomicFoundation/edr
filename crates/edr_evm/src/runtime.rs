@@ -7,13 +7,13 @@ use edr_eth::{
     transaction::{ExecutableTransaction as _, TransactionValidation},
     Address, HashMap,
 };
-use revm::{precompile::Precompile, ContextPrecompile, Evm};
+use revm::{precompile::PrecompileFn, Evm, JournaledState};
 
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     debug::DebugContext,
-    precompile::register_precompiles_handles,
+    precompile::{ContextWithCustomPrecompiles, OverriddenPrecompileProvider},
     spec::RuntimeSpec,
     state::{DatabaseComponents, EvmState, State, StateCommit, WrapDatabaseRef},
     transaction::TransactionError,
@@ -43,11 +43,10 @@ pub struct ChainResult<ChainContextT, HaltReasonT: HaltReasonTrait> {
 pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, StateT>(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
     state: StateT,
-    cfg: CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, Precompile>,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
     ChainResult<ChainSpecT::Context, ChainSpecT::HaltReason>,
@@ -61,27 +60,31 @@ where
     BlockchainErrorT: Debug + Send,
     StateT: State<Error: Debug + Send>,
 {
-    validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(hardfork, &transaction)?;
+    validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(cfg.spec, &transaction)?;
 
-    let env = Env::boxed(cfg, block, transaction);
+    let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
+    let context = {
+        let context = revm::Context {
+            block,
+            tx: transaction,
+            cfg,
+            journaled_state: JournaledState::new(cfg.spec.into(), database),
+            chain: ChainSpecT::Context::default(),
+            error: Ok(()),
+        };
+
+        ContextWithCustomPrecompiles {
+            context,
+            custom_precompiles: custom_precompiles.clone(),
+        }
+    };
+
     let result = {
         if let Some(debug_context) = debug_context {
-            let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
-                .iter()
-                .map(|(address, precompile)| {
-                    (*address, ContextPrecompile::from(precompile.clone()))
-                })
-                .collect();
+            let evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
 
             let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-                .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
-                .with_external_context(debug_context.data)
-                .with_env(env)
-                .with_spec_id(hardfork)
                 .append_handler_register(debug_context.register_handles_fn)
-                .append_handler_register_box(Box::new(move |handler| {
-                    register_precompiles_handles(handler, precompiles.clone());
-                }))
                 .build();
 
             evm.transact()
@@ -91,28 +94,13 @@ where
                     chain_context: evm.into_context().evm.inner.chain,
                 })
         } else {
-            let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
-                .iter()
-                .map(|(address, precompile)| {
-                    (*address, ContextPrecompile::from(precompile.clone()))
-                })
-                .collect();
+            let mut evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
 
-            let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-                .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
-                .with_external_context(())
-                .with_env(env)
-                .with_spec_id(hardfork)
-                .append_handler_register_box(Box::new(move |handler| {
-                    register_precompiles_handles(handler, precompiles.clone());
-                }))
-                .build();
-
-            evm.transact()
+            evm.exec()
                 .map(|ResultAndState { result, state }| ChainResult {
                     result,
                     state,
-                    chain_context: evm.into_context().evm.inner.chain,
+                    chain_context: evm.context.context.chain,
                 })
         }
     };

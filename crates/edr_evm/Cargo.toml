@@ -23,6 +23,7 @@ edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_utils = { version = "0.3.5", path = "../edr_utils" }
 revm = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "14.0", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
+revm-handler-interface = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
 revm-context = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { version = "1.0.209", default-features = false, features = ["std"] }

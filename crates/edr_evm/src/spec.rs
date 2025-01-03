@@ -12,14 +12,15 @@ use edr_eth::{
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-pub use revm::EvmWiring;
+use revm::handler::EthHandler;
+use revm_handler_interface::{
+    ExecutionHandler, Handler, PostExecutionHandler, PreExecutionHandler, ValidationHandler,
+};
 
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
-    evm::PrimitiveEvmWiring,
     hardfork::{self, Activations},
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
-    state::Database,
     transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
         TransactionValidation,
@@ -139,16 +140,24 @@ pub trait RuntimeSpec:
         Output = Self::BlockReceipt
     >;
 
-    /// Type representing an implementation of `EvmWiring` for this chain.
-    type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
-        ExternalContext = ExternalContexT,
-        ChainContext = <Self as ChainSpec>::Context,
-        Database = DatabaseT,
-        Block = <Self as ChainSpec>::BlockEnv,
-        Transaction = <Self as ChainSpec>::SignedTransaction,
-        Hardfork = <Self as ChainSpec>::Hardfork,
-        HaltReason = <Self as ChainSpec>::HaltReason
+    /// Type representing the EVM's handler for this chain.
+    type EvmHandler<ContextT, ErrorT>: Default + Handler<
+        Validation: ValidationHandler<Context = ContextT, Error = ErrorT>,
+        PreExecution: PreExecutionHandler<Context = ContextT, Error = ErrorT>,
+        Execution: ExecutionHandler<Context = ContextT, Error = ErrorT>,
+        PostExecution: PostExecutionHandler<Context = ContextT, Error = ErrorT>,
     >;
+
+    // /// Type representing an implementation of `EvmWiring` for this chain.
+    // type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
+    //     ExternalContext = ExternalContexT,
+    //     ChainContext = <Self as ChainSpec>::Context,
+    //     Database = DatabaseT,
+    //     Block = <Self as ChainSpec>::BlockEnv,
+    //     Transaction = <Self as ChainSpec>::SignedTransaction,
+    //     Hardfork = <Self as ChainSpec>::Hardfork,
+    //     HaltReason = <Self as ChainSpec>::HaltReason
+    // >;
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction> +
@@ -280,38 +289,6 @@ impl<ChainSpecT> SyncRuntimeSpec for ChainSpecT where
 {
 }
 
-/// EVM wiring for L1 chains.
-pub struct L1Wiring<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> {
-    _phantom: PhantomData<(ChainSpecT, DatabaseT, ExternalContextT)>,
-}
-
-impl<ChainSpecT: ChainSpec, DatabaseT: Database, ExternalContextT> PrimitiveEvmWiring
-    for L1Wiring<ChainSpecT, DatabaseT, ExternalContextT>
-{
-    type ExternalContext = ExternalContextT;
-    type ChainContext = ChainSpecT::Context;
-    type Database = DatabaseT;
-    type Block = ChainSpecT::BlockEnv;
-    type Transaction = ChainSpecT::SignedTransaction;
-    type Hardfork = ChainSpecT::Hardfork;
-    type HaltReason = ChainSpecT::HaltReason;
-}
-
-impl<ChainSpecT, DatabaseT, ExternalContextT> revm::EvmWiring
-    for L1Wiring<ChainSpecT, DatabaseT, ExternalContextT>
-where
-    ChainSpecT: ChainSpec<
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
-    DatabaseT: Database,
-{
-    fn handler<'evm>(hardfork: Self::Hardfork) -> revm::EvmHandler<'evm, Self> {
-        revm::EvmHandler::mainnet_with_spec(hardfork)
-    }
-}
-
 impl RuntimeSpec for L1ChainSpec {
     type Block = dyn SyncBlock<
         Arc<Self::BlockReceipt>,
@@ -329,8 +306,7 @@ impl RuntimeSpec for L1ChainSpec {
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
-    type EvmWiring<DatabaseT: Database, ExternalContexT> =
-        L1Wiring<Self, DatabaseT, ExternalContexT>;
+    type EvmHandler<ContextT, ErrorT> = EthHandler<ContextT, ErrorT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
