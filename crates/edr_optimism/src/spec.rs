@@ -24,6 +24,7 @@ use edr_napi_core::{
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
+use edr_solidity::contract_decoder::ContractDecoder;
 use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -166,12 +167,14 @@ impl SyncNapiSpec for OptimismChainSpec {
             edr_provider::ResponseWithTraces<OptimismHaltReason>,
             edr_provider::ProviderError<Self>,
         >,
+        _contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<edr_napi_core::spec::Response<HaltReason>> {
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
         marshal_response_data(response).map(|data| Response {
-            solidity_trace: None,
             data,
+            // TODO: Add support for Solidity stack traces in Optimism
+            solidity_trace: None,
             traces: Vec::new(),
         })
     }

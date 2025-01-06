@@ -10,6 +10,7 @@ use edr_napi_core::{
     spec::SyncNapiSpec as _,
     subscription,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
@@ -24,8 +25,9 @@ impl SyncProviderFactory for L1ProviderFactory {
         provider_config: edr_napi_core::provider::Config,
         logger_config: edr_napi_core::logger::Config,
         subscription_config: edr_napi_core::subscription::Config,
+        contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<L1ChainSpec>::new(logger_config)?;
+        let logger = Logger::<L1ChainSpec>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(provider_config);
 
@@ -33,6 +35,7 @@ impl SyncProviderFactory for L1ProviderFactory {
             subscription::Callback::new(env, subscription_config.subscription_callback)?;
 
         Ok(Box::new(ProviderBuilder::new(
+            contract_decoder,
             Box::new(logger),
             provider_config,
             subscription_callback,
@@ -64,7 +67,8 @@ pub fn l1_genesis_state(hardfork: SpecId) -> Vec<Account> {
 /// hardfork.
 #[napi]
 pub fn l1_hardfork_from_string(hardfork: String) -> SpecId {
-    edr_eth::l1::SpecId::from(hardfork.as_str()).into()
+    let hardfork = edr_eth::l1::SpecId::from(hardfork.as_str());
+    hardfork.into()
 }
 
 #[napi]

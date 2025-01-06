@@ -1,10 +1,13 @@
 #![cfg(feature = "test-utils")]
 
+use std::sync::Arc;
+
 use edr_eth::l1::L1ChainSpec;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -17,6 +20,7 @@ async fn eth_max_priority_fee_per_gas() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

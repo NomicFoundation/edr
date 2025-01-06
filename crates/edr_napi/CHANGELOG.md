@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.7.0
+
+### Minor Changes
+
+- d419f36: Add a `stackTrace` getter to the provider's response and remove the old, lower-level `solidityTrace` getter.
+
 ## 0.6.5
 
 ### Patch Changes

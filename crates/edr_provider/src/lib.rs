@@ -54,14 +54,8 @@ pub use self::{
 };
 
 lazy_static! {
-    pub static ref PRIVATE_RPC_METHODS: HashSet<&'static str> = {
-        [
-            "hardhat_getStackTraceFailuresCount",
-            "hardhat_setLoggingEnabled",
-        ]
-        .into_iter()
-        .collect()
-    };
+    pub static ref PRIVATE_RPC_METHODS: HashSet<&'static str> =
+        ["hardhat_setLoggingEnabled",].into_iter().collect();
 }
 
 pub type ProviderResultWithTraces<T, ChainSpecT> =

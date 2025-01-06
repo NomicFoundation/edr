@@ -2,17 +2,19 @@
 //! creates the source model used to perform the stack trace decoding.
 //!
 //! [^1]: See <https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description>.
-use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::{self, Context as _};
 use edr_eth::{hex, keccak256};
 use indexmap::IndexMap;
+use parking_lot::RwLock;
 
 use crate::{
     artifacts::{CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry},
     build_model::{
-        BuildModel, BuildModelSources, Bytecode, Contract, ContractFunction, ContractFunctionType,
-        ContractFunctionVisibility, ContractKind, CustomError, SourceFile, SourceLocation,
+        BuildModel, BuildModelSources, Contract, ContractFunction, ContractFunctionType,
+        ContractFunctionVisibility, ContractKind, ContractMetadata, CustomError, SourceFile,
+        SourceLocation,
     },
     library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
     source_map::decode_instructions,
@@ -27,9 +29,9 @@ pub fn create_models_and_decode_bytecodes(
     solc_version: String,
     compiler_input: &CompilerInput,
     compiler_output: &CompilerOutput,
-) -> anyhow::Result<Vec<Bytecode>> {
+) -> anyhow::Result<Vec<ContractMetadata>> {
     let build_model = create_sources_model_from_ast(compiler_output, compiler_input)?;
-    let build_model = Rc::new(build_model);
+    let build_model = Arc::new(build_model);
 
     let bytecodes = decode_bytecodes(solc_version, compiler_output, &build_model)?;
 
@@ -44,7 +46,7 @@ fn create_sources_model_from_ast(
 ) -> anyhow::Result<BuildModel> {
     // First, collect and store all the files to be able to resolve the source
     // locations
-    let sources: Rc<HashMap<_, _>> = Rc::new(
+    let sources: Arc<HashMap<_, _>> = Arc::new(
         compiler_output
             .sources
             .iter()
@@ -53,7 +55,7 @@ fn create_sources_model_from_ast(
                     source_name.clone(),
                     compiler_input.sources[source_name].content.clone(),
                 );
-                let file = Rc::new(RefCell::new(file));
+                let file = Arc::new(RwLock::new(file));
                 (source.id, file.clone())
             })
             .collect(),
@@ -118,11 +120,11 @@ fn create_sources_model_from_ast(
 }
 
 fn apply_contracts_inheritance(
-    contract_id_to_contract: &IndexMap<u32, Rc<RefCell<Contract>>>,
+    contract_id_to_contract: &IndexMap<u32, Arc<RwLock<Contract>>>,
     contract_id_to_linearized_base_contract_ids: &HashMap<u32, Vec<u32>>,
 ) {
     for (cid, contract) in contract_id_to_contract {
-        let mut contract = contract.borrow_mut();
+        let mut contract = contract.write();
 
         let inheritance_ids = &contract_id_to_linearized_base_contract_ids[cid];
 
@@ -136,7 +138,7 @@ fn apply_contracts_inheritance(
             };
 
             if cid != base_id {
-                let base_contract = &base_contract.borrow();
+                let base_contract = &base_contract.read();
                 contract.add_next_linearized_base_contract(base_contract);
             }
         }
@@ -144,13 +146,13 @@ fn apply_contracts_inheritance(
 }
 
 fn process_contract_ast_node(
-    file: &RefCell<SourceFile>,
+    file: &RwLock<SourceFile>,
     contract_node: &serde_json::Value,
     contract_type: ContractKind,
-    sources: &Rc<BuildModelSources>,
+    sources: &Arc<BuildModelSources>,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_abi: Option<&[ContractAbiEntry]>,
-) -> anyhow::Result<(u32, Rc<RefCell<Contract>>)> {
+) -> anyhow::Result<(u32, Arc<RwLock<Contract>>)> {
     let contract_location =
         ast_src_to_source_location(contract_node["src"].as_str().unwrap(), sources)?
             .expect("The original JS code always asserts that");
@@ -160,7 +162,7 @@ fn process_contract_ast_node(
         contract_type,
         contract_location,
     );
-    let contract = Rc::new(RefCell::new(contract));
+    let contract = Arc::new(RwLock::new(contract));
 
     let contract_id = contract_node["id"].as_u64().unwrap() as u32;
 
@@ -213,9 +215,9 @@ fn process_contract_ast_node(
 
 fn process_function_definition_ast_node(
     node: &serde_json::Value,
-    sources: &Rc<BuildModelSources>,
-    contract: Option<&RefCell<Contract>>,
-    file: &RefCell<SourceFile>,
+    sources: &Arc<BuildModelSources>,
+    contract: Option<&RwLock<Contract>>,
+    file: &RwLock<SourceFile>,
     function_abis: Option<Vec<&ContractAbiEntry>>,
 ) -> anyhow::Result<()> {
     if node.get("implemented").and_then(serde_json::Value::as_bool) == Some(false) {
@@ -278,20 +280,17 @@ fn process_function_definition_ast_node(
         name: node["name"].as_str().unwrap().to_string(),
         r#type: function_type,
         location: function_location,
-        contract_name: contract
-            .as_ref()
-            .map(|c| c.borrow())
-            .map(|c| c.name.clone()),
+        contract_name: contract.as_ref().map(|c| c.read()).map(|c| c.name.clone()),
         visibility: Some(visibility),
         is_payable: Some(node["stateMutability"].as_str().unwrap() == "payable"),
-        selector: RefCell::new(selector),
+        selector: RwLock::new(selector),
         param_types,
     };
-    let contract_func = Rc::new(contract_func);
+    let contract_func = Arc::new(contract_func);
 
-    file.borrow_mut().add_function(contract_func.clone());
+    file.write().add_function(contract_func.clone());
     if let Some(contract) = contract {
-        contract.borrow_mut().add_local_function(contract_func);
+        contract.write().add_local_function(contract_func);
     }
 
     Ok(())
@@ -299,9 +298,9 @@ fn process_function_definition_ast_node(
 
 fn process_modifier_definition_ast_node(
     node: &serde_json::Value,
-    sources: &Rc<BuildModelSources>,
-    contract: &RefCell<Contract>,
-    file: &RefCell<SourceFile>,
+    sources: &Arc<BuildModelSources>,
+    contract: &RwLock<Contract>,
+    file: &RwLock<SourceFile>,
 ) -> anyhow::Result<()> {
     let function_location = ast_src_to_source_location(node["src"].as_str().unwrap(), sources)?
         .expect("The original JS code always asserts that");
@@ -310,26 +309,26 @@ fn process_modifier_definition_ast_node(
         name: node["name"].as_str().unwrap().to_string(),
         r#type: ContractFunctionType::Modifier,
         location: function_location,
-        contract_name: Some(contract.borrow().name.clone()),
+        contract_name: Some(contract.read().name.clone()),
         visibility: None,
         is_payable: None,
-        selector: RefCell::new(None),
+        selector: RwLock::new(None),
         param_types: None,
     };
 
-    let contract_func = Rc::new(contract_func);
+    let contract_func = Arc::new(contract_func);
 
-    file.borrow_mut().add_function(contract_func.clone());
-    contract.borrow_mut().add_local_function(contract_func);
+    file.write().add_function(contract_func.clone());
+    contract.write().add_local_function(contract_func);
 
     Ok(())
 }
 
 fn process_variable_declaration_ast_node(
     node: &serde_json::Value,
-    sources: &Rc<BuildModelSources>,
-    contract: &RefCell<Contract>,
-    file: &RefCell<SourceFile>,
+    sources: &Arc<BuildModelSources>,
+    contract: &RwLock<Contract>,
+    file: &RwLock<SourceFile>,
     getter_abi: Option<&ContractAbiEntry>,
 ) -> anyhow::Result<()> {
     let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
@@ -351,18 +350,18 @@ fn process_variable_declaration_ast_node(
         name: node["name"].as_str().unwrap().to_string(),
         r#type: ContractFunctionType::Getter,
         location: function_location,
-        contract_name: Some(contract.borrow().name.clone()),
+        contract_name: Some(contract.read().name.clone()),
         visibility: Some(visibility),
         is_payable: Some(false), // Getters aren't payable
-        selector: RefCell::new(Some(
+        selector: RwLock::new(Some(
             get_public_variable_selector_from_declaration_ast_node(node)?,
         )),
         param_types,
     };
-    let contract_func = Rc::new(contract_func);
+    let contract_func = Arc::new(contract_func);
 
-    file.borrow_mut().add_function(contract_func.clone());
-    contract.borrow_mut().add_local_function(contract_func);
+    file.write().add_function(contract_func.clone());
+    contract.write().add_local_function(contract_func);
 
     Ok(())
 }
@@ -563,8 +562,8 @@ fn to_canonical_abi_type(type_: &str) -> String {
 
 fn ast_src_to_source_location(
     src: &str,
-    build_model_sources: &Rc<BuildModelSources>,
-) -> anyhow::Result<Option<Rc<SourceLocation>>> {
+    build_model_sources: &Arc<BuildModelSources>,
+) -> anyhow::Result<Option<Arc<SourceLocation>>> {
     let parts: Vec<&str> = src.split(':').collect();
     if parts.len() != 3 {
         return Ok(None);
@@ -584,8 +583,8 @@ fn ast_src_to_source_location(
         return Err(anyhow::anyhow!("Failed to find file by ID: {file_id}"));
     }
 
-    Ok(Some(Rc::new(SourceLocation::new(
-        Rc::clone(build_model_sources),
+    Ok(Some(Arc::new(SourceLocation::new(
+        Arc::clone(build_model_sources),
         file_id,
         offset,
         length,
@@ -593,15 +592,15 @@ fn ast_src_to_source_location(
 }
 
 fn correct_selectors(
-    bytecodes: &[Bytecode],
+    bytecodes: &[ContractMetadata],
     compiler_output: &CompilerOutput,
 ) -> anyhow::Result<()> {
     for bytecode in bytecodes.iter().filter(|b| !b.is_deployment) {
-        let mut contract = bytecode.contract.borrow_mut();
+        let mut contract = bytecode.contract.write();
         // Fetch the method identifiers for the contract from the compiler output
         let method_identifiers = match compiler_output
             .contracts
-            .get(&contract.location.file().borrow().source_name)
+            .get(&contract.location.file().read().source_name)
             .and_then(|file| file.get(&contract.name))
             .map(|contract| &contract.evm.method_identifiers)
         {
@@ -654,12 +653,12 @@ fn abi_method_id(name: &str, param_types: Vec<impl AsRef<str>>) -> Vec<u8> {
 }
 
 fn decode_evm_bytecode(
-    contract: Rc<RefCell<Contract>>,
+    contract: Arc<RwLock<Contract>>,
     solc_version: String,
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
-    build_model: &Rc<BuildModel>,
-) -> anyhow::Result<Bytecode> {
+    build_model: &Arc<BuildModel>,
+) -> anyhow::Result<ContractMetadata> {
     let library_address_positions = get_library_address_positions(compiler_bytecode);
 
     let immutable_references = compiler_bytecode
@@ -687,8 +686,8 @@ fn decode_evm_bytecode(
         is_deployment,
     );
 
-    Ok(Bytecode::new(
-        Rc::clone(&build_model.file_id_to_source_file),
+    Ok(ContractMetadata::new(
+        Arc::clone(&build_model.file_id_to_source_file),
         contract,
         is_deployment,
         normalized_code,
@@ -702,16 +701,16 @@ fn decode_evm_bytecode(
 fn decode_bytecodes(
     solc_version: String,
     compiler_output: &CompilerOutput,
-    build_model: &Rc<BuildModel>,
-) -> anyhow::Result<Vec<Bytecode>> {
+    build_model: &Arc<BuildModel>,
+) -> anyhow::Result<Vec<ContractMetadata>> {
     let mut bytecodes = Vec::new();
 
     for contract in build_model.contract_id_to_contract.values() {
         let contract_rc = contract.clone();
 
-        let mut contract = contract.borrow_mut();
+        let mut contract = contract.write();
 
-        let contract_file = &contract.location.file().borrow().source_name.clone();
+        let contract_file = &contract.location.file().read().source_name.clone();
         let contract_evm_output = &compiler_output.contracts[contract_file][&contract.name].evm;
         let contract_abi_output = &compiler_output.contracts[contract_file][&contract.name].abi;
 

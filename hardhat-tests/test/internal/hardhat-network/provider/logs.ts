@@ -15,6 +15,7 @@ import {
 } from "../helpers/providers";
 import { deployContract } from "../helpers/transactions";
 import { useHelpers } from "../helpers/useHelpers";
+import { exampleBuildInfo } from "../helpers/buildInfos";
 import { ansiColor } from "./utils/color";
 
 // eslint-disable  prefer-template
@@ -47,7 +48,6 @@ describe("Provider logs", function () {
           });
 
           it("should not log private methods", async function () {
-            await this.provider.send("hardhat_getStackTraceFailuresCount", []);
             await this.provider.send("hardhat_setLoggingEnabled", [true]);
 
             assert.lengthOf(this.logger.lines, 0);
@@ -334,6 +334,72 @@ describe("Provider logs", function () {
               assert.match(this.logger.lines[1], /^  WARNING: Calling an account which is not a contract$/);
               assert.match(this.logger.lines[2], /^  From: 0x[0-9a-f]{40}$/);
               assert.match(this.logger.lines[3], /^  To:   0x[0-9a-f]{40}$/);
+              assert.equal(this.logger.lines[4], "");
+            }
+          });
+
+          it("should update the logged information when a relevant compilation result is added", async function () {
+            // given: a deployed contract whose compilation info is not available
+            const address = await deployContract(
+              this.provider,
+              exampleBuildInfo.output.contracts["contracts/Example.sol"].Example
+                .evm.bytecode.object
+            );
+            this.logger.reset();
+
+            // when: a call is made to the contract
+            await this.provider.send("eth_call", [
+              {
+                from: DEFAULT_ACCOUNTS_ADDRESSES[0],
+                to: address,
+                gas: numberToRpcQuantity(1000000),
+                data: "0x0c55699c", // x()
+              },
+            ]);
+
+            // then: the log should not contain the contract name
+            assert.lengthOf(this.logger.lines, 5);
+            assert.equal(
+              this.logger.lines[0],
+              ansiColor(this.provider, "eth_call", chalk.green)
+            );
+            // prettier-ignore
+            {
+              assert.match(this.logger.lines[1], /^  Contract call:       <UnrecognizedContract>$/);
+              assert.match(this.logger.lines[2], /^  From:                0x[0-9a-f]{40}$/);
+              assert.match(this.logger.lines[3], /^  To:                  0x[0-9a-f]{40}$/);
+              assert.equal(this.logger.lines[4], "");
+            }
+
+            // when: the compilation result is added and the call is made again
+            await this.provider.send("hardhat_addCompilationResult", [
+              exampleBuildInfo.solcVersion,
+              exampleBuildInfo.input,
+              exampleBuildInfo.output,
+            ]);
+
+            this.logger.reset();
+
+            await this.provider.send("eth_call", [
+              {
+                from: DEFAULT_ACCOUNTS_ADDRESSES[0],
+                to: address,
+                gas: numberToRpcQuantity(1000000),
+                data: "0x0c55699c", // x()
+              },
+            ]);
+
+            // then: the log should contain the contract name
+            assert.lengthOf(this.logger.lines, 5);
+            assert.equal(
+              this.logger.lines[0],
+              ansiColor(this.provider, "eth_call", chalk.green)
+            );
+            // prettier-ignore
+            {
+              assert.match(this.logger.lines[1], /^  Contract call:       Example#x$/);
+              assert.match(this.logger.lines[2], /^  From:                0x[0-9a-f]{40}$/);
+              assert.match(this.logger.lines[3], /^  To:                  0x[0-9a-f]{40}$/);
               assert.equal(this.logger.lines[4], "");
             }
           });

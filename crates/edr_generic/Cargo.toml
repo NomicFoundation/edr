@@ -11,6 +11,7 @@ edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
+edr_solidity = { path = "../edr_solidity" }
 log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.209", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.37", default-features = false }

@@ -1,4 +1,8 @@
-import { stackTraceEntryTypeToString } from "@nomicfoundation/edr";
+import {
+  getLatestSupportedSolcVersion,
+  linkHexStringBytecode,
+  stackTraceEntryTypeToString,
+} from "@nomicfoundation/edr";
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
@@ -10,21 +14,10 @@ import {
   ConsoleLogger,
 } from "hardhat/internal/hardhat-network/stack-traces/consoleLogger";
 import {
-  printMessageTrace,
-  printStackTrace,
-} from "hardhat/internal/hardhat-network/stack-traces/debug";
-import { linkHexStringBytecode } from "hardhat/internal/hardhat-network/stack-traces/library-utils";
-import {
-  CallMessageTrace,
-  CreateMessageTrace,
-  MessageTrace,
-} from "hardhat/internal/hardhat-network/stack-traces/message-trace";
-import {
+  SolidityStackTrace,
   SolidityStackTraceEntry,
   StackTraceEntryType,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
-import { SolidityTracer } from "hardhat/internal/hardhat-network/stack-traces/solidityTracer";
-import { VmTraceDecoderT } from "hardhat/internal/hardhat-network/stack-traces/vm-trace-decoder";
 import { SUPPORTED_SOLIDITY_VERSION_RANGE } from "hardhat/internal/hardhat-network/stack-traces/constants";
 import {
   BuildInfo,
@@ -45,7 +38,7 @@ import {
   downloadCompiler,
 } from "./compilation";
 import {
-  getLatestSupportedVersion,
+  getLatestTestedSolcVersion,
   SolidityCompiler,
   SolidityCompilerOptimizer,
   solidityCompilers,
@@ -479,7 +472,6 @@ async function runTest(
   };
 
   const logger = new FakeModulesLogger();
-  const solidityTracer = new SolidityTracer();
   const provider = await instantiateProvider(
     {
       enabled: false,
@@ -492,10 +484,10 @@ async function runTest(
   const txIndexToContract: Map<number, DeployedContract> = new Map();
 
   for (const [txIndex, tx] of testDefinition.transactions.entries()) {
-    let trace: MessageTrace;
+    let stackTrace: SolidityStackTrace | undefined;
 
     if ("file" in tx) {
-      trace = await runDeploymentTransactionTest(
+      const stackTraceOrContractAddress = await runDeploymentTransactionTest(
         txIndex,
         tx,
         provider,
@@ -503,12 +495,14 @@ async function runTest(
         txIndexToContract
       );
 
-      if (trace.deployedContract !== undefined) {
+      if (typeof stackTraceOrContractAddress === "string") {
         txIndexToContract.set(txIndex, {
           file: tx.file,
           name: tx.contract,
-          address: Buffer.from(trace.deployedContract),
+          address: Buffer.from(stackTraceOrContractAddress, "hex"),
         });
+      } else {
+        stackTrace = stackTraceOrContractAddress;
       }
     } else {
       const contract = txIndexToContract.get(tx.to);
@@ -518,7 +512,7 @@ async function runTest(
         `No contract was deployed in tx ${tx.to} but transaction ${txIndex} is trying to call it`
       );
 
-      trace = await runCallTransactionTest(
+      stackTrace = await runCallTransactionTest(
         txIndex,
         tx,
         provider,
@@ -527,47 +521,26 @@ async function runTest(
       );
     }
 
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    const vmTraceDecoder = provider["_vmTraceDecoder"] as VmTraceDecoderT;
-    const decodedTrace = vmTraceDecoder.tryToDecodeMessageTrace(trace);
-
-    try {
-      if (tx.stackTrace === undefined) {
-        assert.isFalse(
-          trace.exit.isError(),
-          `Transaction ${txIndex} shouldn't have failed (${trace.exit.getReason()})`
-        );
-      } else {
-        assert.isDefined(
-          trace.exit.isError(),
-          `Transaction ${txIndex} should have failed`
-        );
+    if (tx.stackTrace === undefined) {
+      if (stackTrace !== undefined) {
+        assert.fail(`Transaction ${txIndex} shouldn't have failed`);
       }
-    } catch (error) {
-      printMessageTrace(decodedTrace);
-
-      throw error;
+    } else {
+      assert.isFalse(
+        stackTrace === undefined,
+        `Transaction ${txIndex} should have failed`
+      );
     }
 
-    if (trace.exit.isError()) {
-      const stackTrace = solidityTracer.getStackTrace(decodedTrace);
-
-      try {
-        compareStackTraces(
-          txIndex,
-          stackTrace,
-          tx.stackTrace!,
-          compilerOptions.optimizer
-        );
-        if (testDefinition.print !== undefined && testDefinition.print) {
-          console.log(`Transaction ${txIndex} stack trace`);
-          printStackTrace(stackTrace);
-        }
-      } catch (err) {
-        printMessageTrace(decodedTrace);
-        printStackTrace(stackTrace);
-
-        throw err;
+    if (stackTrace !== undefined) {
+      compareStackTraces(
+        txIndex,
+        stackTrace,
+        tx.stackTrace!,
+        compilerOptions.optimizer
+      );
+      if (testDefinition.print !== undefined && testDefinition.print) {
+        console.log(`Transaction ${txIndex} stack trace`);
       }
     }
 
@@ -633,7 +606,7 @@ async function runDeploymentTransactionTest(
   provider: EdrProviderWrapper,
   compilerOutput: CompilerOutput,
   txIndexToContract: Map<number, DeployedContract>
-): Promise<CreateMessageTrace> {
+): Promise<SolidityStackTrace | string> {
   const file = compilerOutput.contracts[tx.file];
 
   assert.isDefined(
@@ -668,8 +641,10 @@ async function runDeploymentTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
-  if ("precompile" in trace || "calldata" in trace) {
-    assert.fail("Expected trace to be a deployment trace");
+  if (trace === undefined) {
+    throw new Error(
+      "deployment transactions should either deploy a contract or fail"
+    );
   }
 
   return trace;
@@ -681,7 +656,7 @@ async function runCallTransactionTest(
   provider: EdrProviderWrapper,
   compilerOutput: CompilerOutput,
   contract: DeployedContract
-): Promise<CallMessageTrace> {
+): Promise<SolidityStackTrace | undefined> {
   const compilerContract =
     compilerOutput.contracts[contract.file][contract.name];
 
@@ -706,8 +681,8 @@ async function runCallTransactionTest(
     gas: tx.gas !== undefined ? BigInt(tx.gas) : undefined,
   });
 
-  if (!("calldata" in trace) || "precompile" in trace) {
-    assert.fail("Expected trace to be a call trace");
+  if (typeof trace === "string") {
+    throw new Error("call transactions should not deploy contracts");
   }
 
   return trace;
@@ -821,7 +796,7 @@ describe("Stack traces", function () {
 
 describe("Solidity support", function () {
   it("check that the latest tested version is within the supported version range", async function () {
-    const latestSupportedVersion = getLatestSupportedVersion();
+    const latestSupportedVersion = getLatestTestedSolcVersion();
     assert.isTrue(
       semver.satisfies(
         latestSupportedVersion,
@@ -846,6 +821,13 @@ describe("Solidity support", function () {
       semver.satisfies(nextMajorVersion, SUPPORTED_SOLIDITY_VERSION_RANGE),
       `Expected ${nextMajorVersion} to not be within the ${SUPPORTED_SOLIDITY_VERSION_RANGE} range`
     );
+  });
+
+  it("check that the latest tested version matches the one that EDR exports", async function () {
+    const latestSupportedVersion = getLatestTestedSolcVersion();
+    const edrLatestSupportedVersion = getLatestSupportedSolcVersion();
+
+    assert.equal(latestSupportedVersion, edrLatestSupportedVersion);
   });
 });
 

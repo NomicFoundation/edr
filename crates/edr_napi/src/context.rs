@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use edr_eth::HashMap;
 use edr_napi_core::provider::{self, SyncProviderFactory};
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
     tokio::{runtime, sync::Mutex as AsyncMutex},
     Env, JsObject,
@@ -42,9 +43,19 @@ impl EdrContext {
         provider_config: ProviderConfig,
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
+        tracing_config: serde_json::Value,
     ) -> napi::Result<JsObject> {
         let provider_config = edr_napi_core::provider::Config::try_from(provider_config)?;
         let logger_config = logger_config.resolve(&env)?;
+
+        // TODO: https://github.com/NomicFoundation/edr/issues/760
+        let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
+            serde_json::from_value(tracing_config)?;
+
+        let contract_decoder = ContractDecoder::new(&build_info_config).map_or_else(
+            |error| Err(napi::Error::from_reason(error.to_string())),
+            |contract_decoder| Ok(Arc::new(contract_decoder)),
+        )?;
 
         #[cfg(feature = "scenarios")]
         let scenario_file =
@@ -56,13 +67,17 @@ impl EdrContext {
 
         let runtime = runtime::Handle::current();
         let builder = {
+            // TODO: https://github.com/NomicFoundation/edr/issues/760
+            // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
+
             context.create_provider_builder(
                 &env,
                 &chain_type,
                 provider_config,
                 logger_config,
                 subscription_config.into(),
+                &contract_decoder,
             )?
         };
 
@@ -72,6 +87,7 @@ impl EdrContext {
                 Provider::new(
                     provider,
                     runtime,
+                    contract_decoder,
                     #[cfg(feature = "scenarios")]
                     scenario_file,
                 )
@@ -164,6 +180,7 @@ impl Context {
         provider_config: edr_napi_core::provider::Config,
         logger_config: edr_napi_core::logger::Config,
         subscription_config: edr_napi_core::subscription::Config,
+        contract_decoder: &Arc<ContractDecoder>,
     ) -> napi::Result<Box<dyn provider::Builder>> {
         if let Some(factory) = self.provider_factories.get(chain_type) {
             factory.create_provider_builder(
@@ -171,6 +188,7 @@ impl Context {
                 provider_config,
                 logger_config,
                 subscription_config,
+                contract_decoder.clone(),
             )
         } else {
             Err(napi::Error::new(

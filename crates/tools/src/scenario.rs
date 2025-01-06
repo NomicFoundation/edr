@@ -14,6 +14,7 @@ use edr_generic::GenericChainSpec;
 use edr_napi_core::spec::SyncNapiSpec;
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
+use edr_solidity::contract_decoder::ContractDecoder;
 use flate2::bufread::GzDecoder;
 use indicatif::ProgressBar;
 use serde::Deserialize;
@@ -63,6 +64,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
             logger,
             subscription_callback,
             provider_config,
+            Arc::new(ContractDecoder::default()),
             CurrentTime,
         )
     })
@@ -202,6 +204,13 @@ impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> 
     }
 
     fn set_is_enabled(&mut self, _is_enabled: bool) {}
+
+    fn print_contract_decoding_error(
+        &mut self,
+        _error: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Ok(())
+    }
 
     fn print_method_logs(
         &mut self,

@@ -1,8 +1,9 @@
 use edr_eth::{l1::L1ChainSpec, Address, Bytes, B256, U160, U256};
 use edr_provider::{
-    hardhat_rpc_types::{CompilerInput, CompilerOutput, ForkConfig, ResetProviderConfig},
+    hardhat_rpc_types::{ForkConfig, ResetProviderConfig},
     MethodInvocation,
 };
+use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
 
 use crate::common::help_test_method_invocation_serde;
 
@@ -14,7 +15,7 @@ fn serde_hardhat_compiler() {
 
     let call = MethodInvocation::<L1ChainSpec>::AddCompilationResult(
         String::from("0.8.0"),
-        serde_json::from_str::<CompilerInput>(compiler_input_json).unwrap(),
+        Box::new(serde_json::from_str::<CompilerInput>(compiler_input_json).unwrap()),
         serde_json::from_str::<CompilerOutput>(compiler_output_json).unwrap(),
     );
 
@@ -51,13 +52,6 @@ fn serde_hardhat_drop_transaction() {
 #[test]
 fn serde_hardhat_get_automine() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::GetAutomine(()));
-}
-
-#[test]
-fn serde_hardhat_get_stack_trace_failures_count() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::GetStackTraceFailuresCount(
-        (),
-    ));
 }
 
 #[test]

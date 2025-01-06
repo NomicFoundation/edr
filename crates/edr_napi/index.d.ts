@@ -310,8 +310,6 @@ export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
   decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
-  /** Used to resolve the contract and function name when logging. */
-  getContractAndFunctionNameCallback: (code: Buffer, calldata?: Buffer) => ContractAndFunctionName
   printLineCallback: (message: string, replace: boolean) => void
 }
 /** The possible reasons for successful termination of the EVM. */
@@ -411,18 +409,7 @@ export interface SubscriptionEvent {
   filterId: bigint
   result: any
 }
-export declare function createModelsAndDecodeBytecodes(solcVersion: string, compilerInput: any, compilerOutput: any): Array<BytecodeWrapper>
 export declare function linkHexStringBytecode(code: string, address: string, position: number): string
-export enum ContractFunctionType {
-  CONSTRUCTOR = 0,
-  FUNCTION = 1,
-  FALLBACK = 2,
-  RECEIVE = 3,
-  GETTER = 4,
-  MODIFIER = 5,
-  FREE_FUNCTION = 6
-}
-export declare function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
 export declare function printStackTrace(trace: SolidityStackTrace): void
 /** Represents the exit code of the EVM. */
 export enum ExitCode {
@@ -445,51 +432,14 @@ export enum ExitCode {
   /** Unknown halt reason. */
   UNKNOWN_HALT_REASON = 8
 }
-export interface EvmStep {
-  pc: number
-}
-export interface PrecompileMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  precompile: number
-  calldata: Uint8Array
-}
-export interface CreateMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
-  /**
-   * Reference to the resolved `Bytecode` EDR data.
-   * Only used on the JS side by the `VmTraceDecoder` class.
-   */
-  bytecode?: BytecodeWrapper
-  numberOfSubtraces: number
-  deployedContract?: Uint8Array | undefined
-}
-export interface CallMessageTrace {
-  value: bigint
-  returnData: Uint8Array
-  exit: Exit
-  gasUsed: bigint
-  depth: number
-  code: Uint8Array
-  steps: Array<EvmStep | PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace>
-  /**
-   * Reference to the resolved `Bytecode` EDR data.
-   * Only used on the JS side by the `VmTraceDecoder` class.
-   */
-  bytecode?: BytecodeWrapper
-  numberOfSubtraces: number
-  calldata: Uint8Array
-  address: Uint8Array
-  codeAddress: Uint8Array
+export enum ContractFunctionType {
+  CONSTRUCTOR = 0,
+  FUNCTION = 1,
+  FALLBACK = 2,
+  RECEIVE = 3,
+  GETTER = 4,
+  MODIFIER = 5,
+  FREE_FUNCTION = 6
 }
 export enum StackTraceEntryType {
   CALLSTACK_ENTRY = 0,
@@ -645,11 +595,6 @@ export interface ContractCallRunOutOfGasError {
   type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR
   sourceReference?: SourceReference
 }
-export interface ContractAndFunctionName {
-  contractName: string
-  functionName: string | undefined
-}
-export declare function initializeVmTraceDecoder(vmTraceDecoder: VmTraceDecoder, tracingConfig: any): void
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Buffer
@@ -693,6 +638,11 @@ export interface TracingMessageResult {
   /** Execution result */
   readonly executionResult: ExecutionResult
 }
+/**
+ * Returns the latest version of solc that EDR officially
+ * supports and is tested against.
+ */
+export declare function getLatestSupportedSolcVersion(): string
 export interface Withdrawal {
   /** The index of withdrawal */
   index: bigint
@@ -707,7 +657,7 @@ export declare class EdrContext {
   /**Creates a new [`EdrContext`] instance. Should only be called once! */
   constructor()
   /**Constructs a new provider with the provided configuration. */
-  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig): Promise<Provider>
+  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: any): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
 }
@@ -715,8 +665,8 @@ export declare class ProviderFactory { }
 export declare class Response {
   /**Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
-  /**Returns the Solidity trace of the transaction that failed to execute, if any. */
-  get solidityTrace(): RawTrace | null
+  /**Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace. */
+  stackTrace(): SolidityStackTrace | null
   /**Returns the raw traces of executed contracts. This maybe contain zero or more traces. */
   get traces(): Array<RawTrace>
 }
@@ -733,16 +683,16 @@ export declare class Provider {
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
 }
-/**
- * Opaque handle to the `Bytecode` struct.
- * Only used on the JS side by the `VmTraceDecoder` class.
- */
-export declare class BytecodeWrapper { }
 export declare class Exit {
   get kind(): ExitCode
   isError(): boolean
   getReason(): string
 }
+/**
+ * Opaque handle to the `Bytecode` struct.
+ * Only used on the JS side by the `VmTraceDecoder` class.
+ */
+export declare class BytecodeWrapper { }
 export declare class ReturnData {
   readonly value: Uint8Array
   constructor(value: Uint8Array)
@@ -751,26 +701,6 @@ export declare class ReturnData {
   isPanicReturnData(): boolean
   decodeError(): string
   decodePanic(): bigint
-}
-export declare class SolidityTracer {
-  
-  constructor()
-  getStackTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): SolidityStackTrace
-}
-export declare class VmTraceDecoder {
-  constructor()
-  addBytecode(bytecode: BytecodeWrapper): void
-  tryToDecodeMessageTrace(messageTrace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace
-  getContractAndFunctionNamesForCall(code: Uint8Array, calldata: Uint8Array | undefined): ContractAndFunctionName
-}
-export type VMTracer = VmTracer
-/** N-API bindings for the Rust port of `VMTracer` from Hardhat. */
-export declare class VmTracer {
-  constructor()
-  /** Observes a trace, collecting information about the execution of the EVM. */
-  observe(trace: RawTrace): void
-  getLastTopLevelMessageTrace(): PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace | undefined
-  getLastError(): Error | undefined
 }
 export declare class RawTrace {
   trace(): Array<TracingMessage | TracingStep | TracingMessageResult>

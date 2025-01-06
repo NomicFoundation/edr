@@ -20,12 +20,6 @@ pub struct ContractAndFunctionName {
     pub function_name: Option<String>,
 }
 
-struct ContractAndFunctionNameCall {
-    code: Bytes,
-    /// Only present for calls.
-    calldata: Option<Bytes>,
-}
-
 impl TryCast<(String, Option<String>)> for ContractAndFunctionName {
     type Error = napi::Error;
 
@@ -40,9 +34,6 @@ pub struct LoggerConfig {
     pub enable: bool,
     #[napi(ts_type = "(inputs: Buffer[]) => string[]")]
     pub decode_console_log_inputs_callback: JsFunction,
-    #[napi(ts_type = "(code: Buffer, calldata?: Buffer) => ContractAndFunctionName")]
-    /// Used to resolve the contract and function name when logging.
-    pub get_contract_and_function_name_callback: JsFunction,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
     pub print_line_callback: JsFunction,
 }
@@ -93,61 +84,6 @@ impl LoggerConfig {
             receiver.recv().unwrap()
         });
 
-        let mut get_contract_and_function_name_callback: ThreadsafeFunction<
-            _,
-            ErrorStrategy::Fatal,
-        > = self
-            .get_contract_and_function_name_callback
-            .create_threadsafe_function(
-                0,
-                |ctx: ThreadSafeCallContext<ContractAndFunctionNameCall>| {
-                    // Buffer
-                    let code = ctx
-                        .env
-                        .create_buffer_with_data(ctx.value.code.to_vec())?
-                        .into_unknown();
-
-                    // Option<Buffer>
-                    let calldata = if let Some(calldata) = ctx.value.calldata {
-                        ctx.env
-                            .create_buffer_with_data(calldata.to_vec())?
-                            .into_unknown()
-                    } else {
-                        ctx.env.get_undefined()?.into_unknown()
-                    };
-
-                    Ok(vec![code, calldata])
-                },
-            )?;
-
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
-        get_contract_and_function_name_callback.unref(env)?;
-
-        let get_contract_and_function_name_fn = Arc::new(move |code, calldata| {
-            let (sender, receiver) = channel();
-
-            let status = get_contract_and_function_name_callback.call_with_return_value(
-                ContractAndFunctionNameCall { code, calldata },
-                ThreadsafeFunctionCallMode::Blocking,
-                move |result: ContractAndFunctionName| {
-                    let contract_and_function_name = result.try_cast();
-                    sender.send(contract_and_function_name).map_err(|_error| {
-                        napi::Error::new(
-                            Status::GenericFailure,
-                            "Failed to send result from get_contract_and_function_name",
-                        )
-                    })
-                },
-            );
-            assert_eq!(status, Status::Ok);
-
-            receiver
-                .recv()
-                .unwrap()
-                .expect("Failed call to get_contract_and_function_name")
-        });
-
         let mut print_line_callback: ThreadsafeFunction<_, ErrorStrategy::Fatal> = self
             .print_line_callback
             .create_threadsafe_function(0, |ctx: ThreadSafeCallContext<(String, bool)>| {
@@ -178,7 +114,6 @@ impl LoggerConfig {
         Ok(edr_napi_core::logger::Config {
             enable: self.enable,
             decode_console_log_inputs_fn,
-            get_contract_and_function_name_fn,
             print_line_fn,
         })
     }

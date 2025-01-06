@@ -1,11 +1,14 @@
 #![cfg(feature = "test-utils")]
 
+use std::sync::Arc;
+
 use edr_eth::{bytes, l1::L1ChainSpec, Bytes};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
+use edr_solidity::contract_decoder::ContractDecoder;
 use revm_precompile::secp256r1;
 use tokio::runtime;
 
@@ -25,6 +28,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -55,6 +59,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

@@ -5,6 +5,7 @@ use edr_eth::{
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
+use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::Mutex;
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
@@ -102,6 +103,7 @@ impl<
         >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
         config: ProviderConfig<ChainSpecT::Hardfork>,
+        contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationError<ChainSpecT>> {
         let data = ProviderData::new(
@@ -110,6 +112,7 @@ impl<
             subscriber_callback,
             None,
             config.clone(),
+            contract_decoder,
             timer,
         )?;
         let data = Arc::new(AsyncMutex::new(data));
@@ -388,18 +391,23 @@ impl<
             }
 
             // hardhat_* methods
-            MethodInvocation::AddCompilationResult(_, _, _) => Err(ProviderError::Unimplemented(
-                "AddCompilationResult".to_string(),
-            )),
+            MethodInvocation::AddCompilationResult(
+                solc_version,
+                compiler_input,
+                compiler_output,
+            ) => hardhat::handle_add_compilation_result(
+                data,
+                solc_version,
+                *compiler_input,
+                compiler_output,
+            )
+            .and_then(to_json),
             MethodInvocation::DropTransaction(transaction_hash) => {
                 hardhat::handle_drop_transaction(data, transaction_hash).and_then(to_json)
             }
             MethodInvocation::GetAutomine(()) => {
                 hardhat::handle_get_automine_request(data).and_then(to_json)
             }
-            MethodInvocation::GetStackTraceFailuresCount(()) => Err(ProviderError::Unimplemented(
-                "GetStackTraceFailuresCount".to_string(),
-            )),
             MethodInvocation::ImpersonateAccount(address) => {
                 hardhat::handle_impersonate_account_request(data, *address).and_then(to_json)
             }

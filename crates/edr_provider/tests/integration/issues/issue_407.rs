@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use edr_eth::l1::L1ChainSpec;
 use edr_provider::{test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider};
+use edr_solidity::contract_decoder::ContractDecoder;
 use serde_json::json;
 use tokio::runtime;
 
@@ -15,6 +18,7 @@ async fn issue_407_uint() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 
@@ -80,6 +84,7 @@ async fn issue_407_int() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

@@ -5,6 +5,7 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 
@@ -15,6 +16,7 @@ use crate::call_override::CallOverrideCallback;
 /// A JSON-RPC provider for Ethereum.
 #[napi]
 pub struct Provider {
+    contract_decoder: Arc<ContractDecoder>,
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
@@ -26,11 +28,13 @@ impl Provider {
     pub fn new(
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
+        contract_decoder: Arc<ContractDecoder>,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
     ) -> Self {
         Self {
+            contract_decoder,
             provider,
             runtime,
             #[cfg(feature = "scenarios")]
@@ -51,8 +55,10 @@ impl Provider {
             crate::scenarios::write_request(scenario_file, &request).await?;
         }
 
+        let contract_decoder = Arc::clone(&self.contract_decoder);
+
         self.runtime
-            .spawn_blocking(move || provider.handle_request(request))
+            .spawn_blocking(move || provider.handle_request(request, contract_decoder))
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
             .map(Response::from)

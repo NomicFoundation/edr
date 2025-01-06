@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use std::{num::NonZeroU64, time::SystemTime};
+use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
 use edr_eth::{
@@ -15,6 +15,7 @@ use edr_eth::{
 };
 use edr_evm::Block as _;
 use edr_rpc_eth::TransactionRequest;
+use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
 use crate::{
@@ -210,6 +211,7 @@ impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<Chai
             subscription_callback_noop,
             None,
             config.clone(),
+            Arc::<ContractDecoder>::default(),
             CurrentTime,
         )?;
 

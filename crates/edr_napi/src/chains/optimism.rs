@@ -7,6 +7,7 @@ use edr_napi_core::{
     subscription,
 };
 use edr_optimism::{OptimismChainSpec, OptimismSpecId};
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi_derive::napi;
 
 use crate::provider::ProviderFactory;
@@ -20,8 +21,10 @@ impl SyncProviderFactory for OptimismProviderFactory {
         provider_config: provider::Config,
         logger_config: logger::Config,
         subscription_config: subscription::Config,
+        contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<OptimismChainSpec>::new(logger_config)?;
+        let logger =
+            Logger::<OptimismChainSpec>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config = edr_provider::ProviderConfig::<OptimismSpecId>::from(provider_config);
 
@@ -29,6 +32,7 @@ impl SyncProviderFactory for OptimismProviderFactory {
             subscription::Callback::new(env, subscription_config.subscription_callback)?;
 
         Ok(Box::new(ProviderBuilder::new(
+            contract_decoder,
             Box::new(logger),
             provider_config,
             subscription_callback,

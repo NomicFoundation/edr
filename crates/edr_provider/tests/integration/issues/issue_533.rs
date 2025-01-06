@@ -1,10 +1,11 @@
-use std::str::FromStr as _;
+use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::{l1::L1ChainSpec, B256};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
 use tokio::runtime;
 
@@ -28,6 +29,7 @@ async fn issue_533() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

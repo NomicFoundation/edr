@@ -96,7 +96,8 @@ describe("Multi-chain", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      }
+      },
+      {}
     );
 
     await assert.isFulfilled(provider);
@@ -113,7 +114,8 @@ describe("Multi-chain", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      }
+      },
+      {}
     );
 
     await assert.isFulfilled(provider);
@@ -136,7 +138,8 @@ describe("Multi-chain", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      }
+      },
+      {}
     );
 
     await assert.isFulfilled(provider);
@@ -156,7 +159,8 @@ describe("Multi-chain", () => {
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        }
+        },
+        {}
       );
 
       const block = provider.handleRequest(
