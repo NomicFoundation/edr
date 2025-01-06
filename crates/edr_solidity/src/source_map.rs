@@ -159,7 +159,10 @@ pub fn decode_instructions(
         let source_map = &source_maps[instructions.len()];
 
         let pc = bytes_index;
-        let opcode = OpCode::new(bytecode[pc]).expect("Invalid opcode");
+        let opcode = match OpCode::new(bytecode[pc]) {
+            Some(opcode) => opcode,
+            None => continue,
+        };
 
         let push_data = if opcode.is_push() {
             let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
