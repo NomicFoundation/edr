@@ -680,6 +680,7 @@ export interface TestResult {
   readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
   /** See [edr_solidity_tests::result::TestResult::duration] */
   readonly durationMs: bigint
+  readonly stackTrace?: SolidityStackTrace
 }
 /**The result of a test execution. */
 export const enum TestStatus {
@@ -746,7 +747,7 @@ export interface BaseCounterExample {
  * know when all tests are done.
  * The error callback is called if an invalid configuration value is provided.
  */
-export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
+export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: any, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
 export interface SubscriptionEvent {
   filterId: bigint
   result: any

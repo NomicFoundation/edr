@@ -35,6 +35,8 @@ task("test:solidity").setAction(async (_: any, hre: any) => {
   await runAllSolidityTests(
     artifacts,
     testSuiteIds,
+    // TODO
+    {},
     config,
     (suiteResult, testResult) => {
       let name = suiteResult.id.name + " | " + testResult.name;

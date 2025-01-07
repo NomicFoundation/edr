@@ -1,4 +1,6 @@
 import type { Artifacts as HardhatArtifacts } from "hardhat/types";
+import fsExtra from "fs-extra";
+import semver from "semver";
 
 import {
   ArtifactId,
@@ -8,6 +10,8 @@ import {
   SolidityTestRunnerConfigArgs,
   TestResult,
 } from "@ignored/edr";
+import { TracingConfig } from "hardhat/internal/hardhat-network/provider/node-types";
+import { FIRST_SOLC_VERSION_SUPPORTED } from "hardhat/internal/hardhat-network/stack-traces/constants";
 
 /**
  * Run all the given solidity tests and returns the whole results after finishing.
@@ -15,6 +19,7 @@ import {
 export async function runAllSolidityTests(
   artifacts: Artifact[],
   testSuites: ArtifactId[],
+  tracingConfig: TracingConfig,
   configArgs: SolidityTestRunnerConfigArgs,
   testResultCallback: (
     suiteResult: SuiteResult,
@@ -28,6 +33,7 @@ export async function runAllSolidityTests(
       artifacts,
       testSuites,
       configArgs,
+      tracingConfig,
       (suiteResult: SuiteResult) => {
         for (const testResult of suiteResult.testResults) {
           testResultCallback(suiteResult, testResult);
@@ -46,7 +52,11 @@ export async function runAllSolidityTests(
 export async function buildSolidityTestsInput(
   hardhatArtifacts: HardhatArtifacts,
   isTestArtifact: (artifact: Artifact) => boolean = () => true
-): Promise<{ artifacts: Artifact[]; testSuiteIds: ArtifactId[] }> {
+): Promise<{
+  artifacts: Artifact[];
+  testSuiteIds: ArtifactId[];
+  tracingConfig: TracingConfig;
+}> {
   const fqns = await hardhatArtifacts.getAllFullyQualifiedNames();
   const artifacts: Artifact[] = [];
   const testSuiteIds: ArtifactId[] = [];
@@ -78,5 +88,28 @@ export async function buildSolidityTestsInput(
     }
   }
 
-  return { artifacts, testSuiteIds };
+  const tracingConfig = await makeTracingConfig(hardhatArtifacts);
+
+  return { artifacts, testSuiteIds, tracingConfig };
+}
+
+// TODO: This is a temporary workaround for creating the tracing config.
+// Based on https://github.com/NomicFoundation/hardhat/blob/93bc3801849d0a761b659c472ada29983ae380c5/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts
+async function makeTracingConfig(
+  artifacts: HardhatArtifacts
+): Promise<TracingConfig> {
+  const buildInfos = [];
+
+  const buildInfoFiles = await artifacts.getBuildInfoPaths();
+
+  for (const buildInfoFile of buildInfoFiles) {
+    const buildInfo = await fsExtra.readJson(buildInfoFile);
+    if (semver.gte(buildInfo.solcVersion, FIRST_SOLC_VERSION_SUPPORTED)) {
+      buildInfos.push(buildInfo);
+    }
+  }
+
+  return {
+    buildInfos,
+  };
 }

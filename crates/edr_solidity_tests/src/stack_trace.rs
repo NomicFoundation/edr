@@ -1,35 +1,78 @@
+use std::collections::HashMap;
+
+use alloy_primitives::{Address, Bytes};
 use edr_solidity::{
+    contract_decoder::ContractDecoder,
     exit_code::ExitCode,
     nested_trace::{
         CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage,
     },
+    solidity_stack_trace::StackTraceEntry,
+    solidity_tracer::{self, SolidityTracerError},
 };
-use foundry_evm::traces::{CallTraceArena, CallTraceStep};
+use foundry_evm::traces::{CallTraceArena, CallTraceStep, TraceKind};
 
-use crate::revm::primitives::ruint::aliases::U160;
+use crate::{contracts::ContractsByArtifact, revm::primitives::ruint::aliases::U160};
 
 #[derive(Debug, thiserror::Error)]
-pub enum TraceConversionError {
-    #[error("Invalid root node")]
+pub enum StackTraceError {
+    #[error("Invalid root node in call trace arena")]
     InvalidRootNode,
-    #[error("Invalid call type")]
-    InvalidCallType,
+    #[error(transparent)]
+    Tracer(#[from] SolidityTracerError),
 }
 
-pub(crate) fn convert_call_trace_arena_to_nested_trace(
+pub fn get_stack_trace(
+    contract_decoder: &ContractDecoder,
+    traces: &[(TraceKind, CallTraceArena)],
+) -> Result<Option<Vec<StackTraceEntry>>, StackTraceError> {
+    let mut address_to_creation_code = HashMap::new();
+    let mut address_to_runtime_code = HashMap::new();
+
+    for arena in traces.into_iter().map(|(_, trace)| trace) {
+        for node in arena.nodes() {
+            let address = node.trace.address;
+            if node.trace.kind.is_any_create() {
+                address_to_creation_code.insert(address, &node.trace.data);
+                address_to_runtime_code.insert(address, &node.trace.output);
+            }
+        }
+    }
+
+    for (kind, trace) in traces {
+        if kind.is_error() {
+            let trace = convert_call_trace_arena_to_nested_trace(
+                &address_to_creation_code,
+                &address_to_runtime_code,
+                trace,
+            )?;
+            let trace = contract_decoder.try_to_decode_message_trace(trace);
+            let stack_trace = solidity_tracer::get_stack_trace(trace)?;
+            return Ok(Some(stack_trace));
+        }
+    }
+    Ok(None)
+}
+
+fn convert_call_trace_arena_to_nested_trace(
+    address_to_creation_code: &HashMap<Address, &Bytes>,
+    address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
-) -> Result<NestedTrace, TraceConversionError> {
+) -> Result<NestedTrace, StackTraceError> {
     // Start conversion from the root node (index 0)
     if arena.nodes().is_empty() {
-        return Err(TraceConversionError::InvalidRootNode);
+        return Err(StackTraceError::InvalidRootNode);
     }
-    convert_node_to_nested_trace(&arena, 0)
+
+    convert_node_to_nested_trace(address_to_creation_code, address_to_runtime_code, &arena, 0)
 }
 
 fn convert_node_to_nested_trace(
+    address_to_creation_code: &HashMap<Address, &Bytes>,
+    address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
     node_idx: usize,
-) -> Result<NestedTrace, TraceConversionError> {
+) -> Result<NestedTrace, StackTraceError> {
     let node = &arena.nodes()[node_idx];
     let trace = &node.trace;
 
@@ -42,7 +85,12 @@ fn convert_node_to_nested_trace(
             // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
             if let Some(call_id) = node.children.get(child_index).copied() {
                 child_index += 1;
-                let child_trace = convert_node_to_nested_trace(arena, call_id)?;
+                let child_trace = convert_node_to_nested_trace(
+                    address_to_creation_code,
+                    address_to_runtime_code,
+                    arena,
+                    call_id,
+                )?;
                 steps.push(match child_trace {
                     NestedTrace::Create(msg) => NestedTraceStep::Create(msg),
                     NestedTrace::Call(msg) => NestedTraceStep::Call(msg),
@@ -75,7 +123,11 @@ fn convert_node_to_nested_trace(
             steps,
             contract_meta: None, // This would need to be populated from elsewhere
             deployed_contract: Some(trace.output.clone()),
-            code: trace.data.clone(),
+            // TODO unwrap
+            code: address_to_creation_code
+                .get(&trace.address)
+                .map(|c| (*c).clone())
+                .unwrap(),
             value: trace.value,
             return_data: trace.output.clone(),
             exit: convert_instruction_result_to_exit_code(trace.status),
@@ -90,7 +142,10 @@ fn convert_node_to_nested_trace(
             calldata: trace.data.clone(),
             address: trace.address,
             code_address: trace.address,
-            code: trace.data.clone(),
+            code: address_to_runtime_code
+                .get(&trace.address)
+                .map(|c| (*c).clone())
+                .unwrap(),
             value: trace.value,
             return_data: trace.output.clone(),
             exit: convert_instruction_result_to_exit_code(trace.status),

@@ -18,9 +18,10 @@ describe("Unit tests", () => {
   });
 
   it("SuccessAndFailure", async function () {
-    const { totalTests, failedTests } = await testContext.runTestsWithStats(
-      "SuccessAndFailureTest"
-    );
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("SuccessAndFailureTest");
+
+    console.log(stackTraces);
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);

@@ -85,6 +85,7 @@ describe("Fuzz and invariant testing", function () {
     const results2 = await runAllSolidityTests(
       testContext.artifacts,
       testContext.matchingTest("FailingInvariantTest"),
+      testContext.tracingConfig,
       {
         ...testContext.defaultConfig(),
         invariant: {
@@ -106,6 +107,7 @@ describe("Fuzz and invariant testing", function () {
     const results3 = await runAllSolidityTests(
       testContext.artifacts,
       testContext.matchingTest("FailingInvariantTest"),
+      testContext.tracingConfig,
       {
         ...testContext.defaultConfig(),
         invariant: {

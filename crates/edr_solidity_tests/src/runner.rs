@@ -11,6 +11,7 @@ use std::{
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Log, U256};
+use edr_solidity::contract_decoder::ContractDecoder;
 use eyre::Result;
 use foundry_evm::{
     abi::TestFunctionExt,
@@ -54,6 +55,10 @@ pub struct ContractRunner<'a> {
     pub executor: Executor,
     /// Revert decoder. Contains all known errors.
     pub revert_decoder: &'a RevertDecoder,
+    /// Known contracts by artifact id
+    pub known_contracts: &'a ContractsByArtifact,
+    /// Provides contract metadata from calldata and traces.
+    pub contract_decoder: Arc<ContractDecoder>,
     /// The initial balance of the test contract
     pub initial_balance: U256,
     /// The address which will be used as the `from` field in all EVM calls
@@ -83,6 +88,8 @@ impl<'a> ContractRunner<'a> {
         executor: Executor,
         contract: &'a TestContract,
         revert_decoder: &'a RevertDecoder,
+        known_contracts: &'a ContractsByArtifact,
+        contract_decoder: Arc<ContractDecoder>,
         options: ContractRunnerOptions,
     ) -> Self {
         let ContractRunnerOptions {
@@ -97,6 +104,8 @@ impl<'a> ContractRunner<'a> {
             contract,
             executor,
             revert_decoder,
+            known_contracts,
+            contract_decoder,
             initial_balance,
             sender,
             test_fail,
@@ -109,10 +118,8 @@ impl<'a> ContractRunner<'a> {
     /// Deploys the test contract inside the runner from the sending account,
     /// and optionally runs the `setUp` function on the test contract.
     pub fn setup(&mut self, setup: bool) -> TestSetup {
-        match self._setup(setup) {
-            Ok(setup) => setup,
-            Err(err) => TestSetup::failed(err.to_string()),
-        }
+        self._setup(setup)
+            .unwrap_or_else(|err| TestSetup::failed(err.to_string()))
     }
 
     fn _setup(&mut self, setup: bool) -> Result<TestSetup> {
@@ -346,7 +353,6 @@ impl<'a> ContractRunner<'a> {
         mut self,
         filter: &dyn TestFilter,
         test_options: &TestOptions,
-        known_contracts: Arc<ContractsByArtifact>,
         handle: &tokio::runtime::Handle,
     ) -> SuiteResult {
         info!("starting tests");
@@ -384,7 +390,6 @@ impl<'a> ContractRunner<'a> {
                 .into(),
                 warnings,
                 self.contract.libraries.clone(),
-                known_contracts,
             );
         }
 
@@ -418,6 +423,7 @@ impl<'a> ContractRunner<'a> {
                         logs: setup.logs,
                         kind: TestKind::Standard(0),
                         traces: setup.traces,
+                        contract_decoder: Arc::clone(&self.contract_decoder),
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
                         ..Default::default()
@@ -426,7 +432,6 @@ impl<'a> ContractRunner<'a> {
                 .into(),
                 warnings,
                 self.contract.libraries.clone(),
-                known_contracts,
             );
         }
 
@@ -448,7 +453,7 @@ impl<'a> ContractRunner<'a> {
         );
 
         let identified_contracts = has_invariants
-            .then(|| load_contracts(setup.traces.iter().map(|(_, t)| t), &known_contracts));
+            .then(|| load_contracts(setup.traces.iter().map(|(_, t)| t), self.known_contracts));
         let test_results = functions
             .par_iter()
             .map(|&func| {
@@ -466,7 +471,7 @@ impl<'a> ContractRunner<'a> {
                         setup,
                         invariant_config.clone(),
                         func,
-                        &known_contracts,
+                        self.known_contracts,
                         identified_contracts.as_ref().unwrap(),
                     )
                 } else if func.is_fuzz_test() {
@@ -489,7 +494,6 @@ impl<'a> ContractRunner<'a> {
             test_results,
             warnings,
             self.contract.libraries.clone(),
-            known_contracts,
         );
         info!(
             duration=?suite_result.duration,
@@ -527,6 +531,7 @@ impl<'a> ContractRunner<'a> {
             ..
         } = setup;
 
+        println!("func name {}", &func.name);
         // Run unit test
         let mut executor = self.executor.clone();
         let start: Instant = Instant::now();
@@ -541,28 +546,32 @@ impl<'a> ContractRunner<'a> {
             Ok(res) => (res.raw, None),
             Err(EvmError::Execution(err)) => (err.raw, Some(err.reason)),
             Err(EvmError::SkipError) => {
+                println!("skip error traces len{}", &traces.len());
                 return TestResult {
                     status: TestStatus::Skipped,
                     reason: None,
                     decoded_logs: decode_console_logs(&logs),
                     traces,
+                    contract_decoder: Arc::clone(&self.contract_decoder),
                     labeled_addresses,
                     kind: TestKind::Standard(0),
                     duration: start.elapsed(),
                     ..Default::default()
-                }
+                };
             }
             Err(err) => {
+                println!("evm error traces len{}", &traces.len());
                 return TestResult {
                     status: TestStatus::Failure,
                     reason: Some(err.to_string()),
                     decoded_logs: decode_console_logs(&logs),
                     traces,
+                    contract_decoder: Arc::clone(&self.contract_decoder),
                     labeled_addresses,
                     kind: TestKind::Standard(0),
                     duration: start.elapsed(),
                     ..Default::default()
-                }
+                };
             }
         };
 
@@ -594,6 +603,7 @@ impl<'a> ContractRunner<'a> {
         labeled_addresses.extend(new_labels);
         logs.extend(execution_logs);
         coverage = merge_coverages(coverage, execution_coverage);
+        println!("traces len{}", traces.len());
 
         // Record test execution time
         let duration = start.elapsed();
@@ -610,6 +620,7 @@ impl<'a> ContractRunner<'a> {
             logs,
             kind: TestKind::Standard(gas.overflowing_sub(stipend).0),
             traces,
+            contract_decoder: Arc::clone(&self.contract_decoder),
             coverage,
             labeled_addresses,
             duration,
@@ -653,6 +664,7 @@ impl<'a> ContractRunner<'a> {
                 reason: None,
                 decoded_logs: decode_console_logs(&logs),
                 traces,
+                contract_decoder: Arc::clone(&self.contract_decoder),
                 labeled_addresses,
                 kind: TestKind::Invariant {
                     runs: 1,
@@ -719,6 +731,7 @@ impl<'a> ContractRunner<'a> {
                     )),
                     decoded_logs: decode_console_logs(&logs),
                     traces,
+                    contract_decoder: Arc::clone(&self.contract_decoder),
                     labeled_addresses,
                     kind: TestKind::Invariant {
                         runs: 0,
@@ -814,6 +827,7 @@ impl<'a> ContractRunner<'a> {
             },
             coverage,
             traces,
+            contract_decoder: Arc::clone(&self.contract_decoder),
             labeled_addresses: labeled_addresses.clone(),
             duration: start.elapsed(),
             gas_report_traces,
@@ -874,6 +888,7 @@ impl<'a> ContractRunner<'a> {
                 reason: None,
                 decoded_logs: decode_console_logs(&logs),
                 traces,
+                contract_decoder: Arc::clone(&self.contract_decoder),
                 labeled_addresses,
                 kind: TestKind::Standard(0),
                 coverage,
@@ -914,6 +929,7 @@ impl<'a> ContractRunner<'a> {
             logs,
             kind,
             traces,
+            contract_decoder: Arc::clone(&self.contract_decoder),
             coverage,
             labeled_addresses,
             duration,
@@ -993,6 +1009,7 @@ impl<'a> ContractRunner<'a> {
                         },
                         decoded_logs: decode_console_logs(logs),
                         traces: traces.clone(),
+                        contract_decoder: Arc::clone(&self.contract_decoder),
                         coverage: coverage.clone(),
                         counterexample: Some(CounterExample::Sequence(call_sequence)),
                         kind: TestKind::Invariant {

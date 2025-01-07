@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_solidity_tests::{
     contracts::{ArtifactId, ContractData, ContractsByArtifact},
     decode::RevertDecoder,
@@ -16,6 +17,7 @@ pub(super) async fn build_runner(
     artifacts: Vec<JsArtifact>,
     test_suites: Vec<JsArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
+    tracing_config: serde_json::Value,
 ) -> napi::Result<MultiContractRunner> {
     let known_contracts: ContractsByArtifact = artifacts
         .into_iter()
@@ -29,6 +31,11 @@ pub(super) async fn build_runner(
         .collect::<Result<Vec<ArtifactId>, _>>()?;
 
     let config: SolidityTestRunnerConfig = config_args.try_into()?;
+
+    let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
+        serde_json::from_value(tracing_config)?;
+    let contract_decoder = ContractDecoder::new(&build_info_config)
+        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
     // Build revert decoder from ABIs of all artifacts.
     let abis = known_contracts.iter().map(|(_, contract)| &contract.abi);
@@ -60,12 +67,18 @@ pub(super) async fn build_runner(
         })
         .collect::<napi::Result<TestContracts>>()?;
 
-    MultiContractRunner::new(config, contracts, known_contracts, revert_decoder)
-        .await
-        .map_err(|err| {
-            napi::Error::new(
-                napi::Status::GenericFailure,
-                format!("Failed to create multi contract runner: {err}"),
-            )
-        })
+    MultiContractRunner::new(
+        config,
+        contracts,
+        known_contracts,
+        contract_decoder,
+        revert_decoder,
+    )
+    .await
+    .map_err(|err| {
+        napi::Error::new(
+            napi::Status::GenericFailure,
+            format!("Failed to create multi contract runner: {err}"),
+        )
+    })
 }

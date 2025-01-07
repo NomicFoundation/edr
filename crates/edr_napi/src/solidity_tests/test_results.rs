@@ -6,11 +6,15 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::solidity_tests::artifact::ArtifactId;
+use crate::{
+    solidity_tests::artifact::ArtifactId,
+    trace::solidity_stack_trace::{SolidityStackTrace, SolidityStackTraceEntry},
+};
 
+// TODO add back debug
 /// See [edr_solidity_tests::result::SuiteResult]
 #[napi(object)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SuiteResult {
     /// The artifact id can be used to match input to result in the progress
     /// callback
@@ -52,9 +56,10 @@ impl
     }
 }
 
+// TODO add back debu
 /// See [edr_solidity_tests::result::TestResult]
 #[napi(object)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TestResult {
     /// The name of the test.
     #[napi(readonly)]
@@ -77,10 +82,31 @@ pub struct TestResult {
     /// See [edr_solidity_tests::result::TestResult::duration]
     #[napi(readonly)]
     pub duration_ms: BigInt,
+
+    #[napi(readonly)]
+    pub stack_trace: Option<SolidityStackTrace>,
 }
 
 impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
     fn from((name, test_result): (String, edr_solidity_tests::result::TestResult)) -> Self {
+        let stack_trace = if test_result.status.is_failure() {
+            // TODO handle errors
+            let stack_trace = edr_solidity_tests::get_stack_trace(
+                &test_result.contract_decoder,
+                &test_result.traces,
+            )
+            .unwrap();
+            stack_trace.map(|stack_trace| {
+                stack_trace
+                    .into_iter()
+                    .map(crate::cast::TryCast::try_cast)
+                    .collect::<Result<Vec<SolidityStackTraceEntry>, _>>()
+                    .unwrap()
+            })
+        } else {
+            None
+        };
+
         Self {
             name,
             status: test_result.status.into(),
@@ -129,6 +155,7 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
+            stack_trace,
         }
     }
 }

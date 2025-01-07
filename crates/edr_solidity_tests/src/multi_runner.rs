@@ -4,6 +4,7 @@ use std::{collections::BTreeMap, fmt::Debug, path::PathBuf, sync::Arc, time::Ins
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
+use edr_solidity::contract_decoder::ContractDecoder;
 use eyre::Result;
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
@@ -56,6 +57,8 @@ pub struct MultiContractRunner {
     test_contracts: TestContracts,
     /// Known contracts by artifact id
     known_contracts: Arc<ContractsByArtifact>,
+    /// Provides contract metadata from calldata and traces.
+    contract_decoder: Arc<ContractDecoder>,
     /// Cheats config.
     cheats_config_options: Arc<CheatsConfigOptions>,
     /// The EVM instance used in the test runner
@@ -84,6 +87,7 @@ impl MultiContractRunner {
         config: SolidityTestRunnerConfig,
         test_contracts: TestContracts,
         known_contracts: ContractsByArtifact,
+        contract_decoder: ContractDecoder,
         revert_decoder: RevertDecoder,
     ) -> Result<MultiContractRunner, SolidityTestRunnerConfigError> {
         let env = config
@@ -121,6 +125,7 @@ impl MultiContractRunner {
             project_root,
             test_contracts,
             known_contracts: Arc::new(known_contracts),
+            contract_decoder: Arc::new(contract_decoder),
             cheats_config_options: Arc::new(cheats_config_options),
             evm_opts,
             env,
@@ -279,6 +284,8 @@ impl MultiContractRunner {
             executor,
             contract,
             &self.revert_decoder,
+            &self.known_contracts,
+            Arc::clone(&self.contract_decoder),
             ContractRunnerOptions {
                 initial_balance: self.evm_opts.initial_balance,
                 sender: self.evm_opts.sender,
@@ -286,12 +293,7 @@ impl MultiContractRunner {
                 solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
             },
         );
-        let r = runner.run_tests(
-            filter,
-            &self.test_options,
-            self.known_contracts.clone(),
-            handle,
-        );
+        let r = runner.run_tests(filter, &self.test_options, handle);
 
         debug!(duration=?r.duration, "executed all tests in contract");
 

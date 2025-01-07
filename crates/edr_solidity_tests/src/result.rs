@@ -8,10 +8,14 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
-use edr_solidity::{solidity_stack_trace::StackTraceEntry, solidity_tracer::get_stack_trace};
+use edr_solidity::{
+    contract_decoder::ContractDecoder,
+    solidity_stack_trace::StackTraceEntry,
+    solidity_tracer::{get_stack_trace, SolidityTracerError},
+};
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
-    contracts::{get_contract_name, get_file_name, ContractsByArtifact},
+    contracts::{get_contract_name, get_file_name},
     coverage::HitMaps,
     executors::EvmError,
     fuzz::{CounterExample, FuzzFixtures},
@@ -20,7 +24,7 @@ use foundry_evm::{
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
 
-use crate::{convert_trace::convert_call_trace_arena_to_nested_trace, gas_report::GasReport};
+use crate::gas_report::GasReport;
 
 /// The aggregated result of a test run.
 #[derive(Clone, Debug)]
@@ -181,9 +185,6 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
     /// Libraries used to link test contract.
     pub libraries: Libraries,
-    /// Contracts linked with correct libraries.
-    #[serde(skip)]
-    pub known_contracts: Arc<ContractsByArtifact>,
 }
 
 impl SuiteResult {
@@ -192,14 +193,12 @@ impl SuiteResult {
         test_results: BTreeMap<String, TestResult>,
         warnings: Vec<String>,
         libraries: Libraries,
-        known_contracts: Arc<ContractsByArtifact>,
     ) -> Self {
         Self {
             duration,
             test_results,
             warnings,
             libraries,
-            known_contracts,
         }
     }
 
@@ -376,6 +375,9 @@ pub struct TestResult {
     #[serde(skip)]
     pub traces: Traces,
 
+    #[serde(skip)]
+    pub contract_decoder: Arc<ContractDecoder>,
+
     /// Additional traces to use for gas report.
     #[serde(skip)]
     pub gas_report_traces: Vec<Vec<CallTraceArena>>,
@@ -440,18 +442,6 @@ impl TestResult {
     /// Formats the test result into a string (for printing).
     pub fn short_result(&self, name: &str) -> String {
         format!("{self} {name} {}", self.kind.report())
-    }
-
-    // TODO error type
-    pub fn stack_traces(&self) -> anyhow::Result<Option<Vec<StackTraceEntry>>> {
-        for (kind, trace) in &self.traces {
-            if kind.is_error() {
-                let trace = convert_call_trace_arena_to_nested_trace(trace)?;
-                let stack_trace = get_stack_trace(trace)?;
-                return Ok(Some(stack_trace));
-            }
-        }
-        Ok(None)
     }
 }
 
