@@ -15,7 +15,7 @@ use edr_eth::{
     transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
-    Address, Bloom, B256, U256,
+    Address, Bloom, HashMap, B256, U256,
 };
 use revm::Evm;
 
@@ -26,7 +26,9 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     debug::{DebugContext, DebugContextForChainSpec},
+    dry_run,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
+    run,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
@@ -203,8 +205,6 @@ where
                 }
             };
 
-        let env = Env::boxed(self.cfg.clone(), block, transaction.clone());
-
         let Self {
             blockchain,
             debug_context,
@@ -212,6 +212,19 @@ where
             state,
             ..
         } = self;
+
+        let result = dry_run(
+            blockchain,
+            state,
+            self.cfg.clone(),
+            transaction.clone(),
+            block,
+            &HashMap::new(),
+            debug_context,
+        );
+
+        let env = Env::boxed(self.cfg.clone(), block, transaction.clone());
+
         let db = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
         let ResultAndState {

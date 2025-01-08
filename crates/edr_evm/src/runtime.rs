@@ -13,7 +13,7 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     debug::DebugContext,
-    precompile::{ContextWithCustomPrecompiles, OverriddenPrecompileProvider},
+    precompile::ContextWithCustomPrecompiles,
     spec::RuntimeSpec,
     state::{DatabaseComponents, EvmState, State, StateCommit, WrapDatabaseRef},
     transaction::TransactionError,
@@ -49,7 +49,7 @@ pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, Stat
     custom_precompiles: &HashMap<Address, PrecompileFn>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
-    ChainResult<ChainSpecT::Context, ChainSpecT::HaltReason>,
+    ResultAndState<ChainSpecT::HaltReason>,
     TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
 >
 where
@@ -79,30 +79,18 @@ where
         }
     };
 
-    let result = {
-        if let Some(debug_context) = debug_context {
-            let evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
+    let result = if let Some(debug_context) = debug_context {
+        let evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
 
-            let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-                .append_handler_register(debug_context.register_handles_fn)
-                .build();
+        let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
+            .append_handler_register(debug_context.register_handles_fn)
+            .build();
 
-            evm.transact()
-                .map(|ResultAndState { result, state }| ChainResult {
-                    result,
-                    state,
-                    chain_context: evm.into_context().evm.inner.chain,
-                })
-        } else {
-            let mut evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
+        evm.exec()
+    } else {
+        let mut evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
 
-            evm.exec()
-                .map(|ResultAndState { result, state }| ChainResult {
-                    result,
-                    state,
-                    chain_context: evm.context.context.chain,
-                })
-        }
+        evm.exec()
     };
 
     result.map_err(TransactionError::from)
@@ -124,11 +112,10 @@ pub fn guaranteed_dry_run<
 >(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
     state: StateT,
-    mut cfg: CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    mut cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, Precompile>,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
     ChainResult<ChainSpecT::Context, ChainSpecT::HaltReason>,
@@ -150,7 +137,6 @@ where
         blockchain,
         state,
         cfg,
-        hardfork,
         transaction,
         block,
         custom_precompiles,
@@ -163,12 +149,11 @@ where
 #[allow(clippy::too_many_arguments)]
 pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
-    state: StateT,
-    cfg: CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    mut state: StateT,
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, Precompile>,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
     debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
     ExecutionResult<ChainSpecT::HaltReason>,
@@ -183,52 +168,20 @@ where
     StateT: State + StateCommit,
     StateT::Error: Debug + Send,
 {
-    validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(hardfork, &transaction)?;
+    let ResultAndState {
+        result,
+        state: state_diff,
+    } = dry_run(
+        blockchain,
+        state,
+        cfg,
+        transaction,
+        block,
+        custom_precompiles,
+        debug_context,
+    )?;
 
-    let env = Env::boxed(cfg, block, transaction);
-
-    let result = if let Some(debug_context) = debug_context {
-        let precompiles: HashMap<Address, ContextPrecompile<ChainSpecT::EvmWiring<_, _>>> =
-            custom_precompiles
-                .iter()
-                .map(|(address, precompile)| {
-                    (*address, ContextPrecompile::from(precompile.clone()))
-                })
-                .collect();
-
-        let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-            .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
-            .with_external_context(debug_context.data)
-            .with_env(env)
-            .with_spec_id(hardfork)
-            .append_handler_register(debug_context.register_handles_fn)
-            .append_handler_register_box(Box::new(move |handler| {
-                register_precompiles_handles(handler, precompiles.clone());
-            }))
-            .build();
-
-        evm.transact_commit()
-    } else {
-        let precompiles: HashMap<Address, ContextPrecompile<ChainSpecT::EvmWiring<_, _>>> =
-            custom_precompiles
-                .iter()
-                .map(|(address, precompile)| {
-                    (*address, ContextPrecompile::from(precompile.clone()))
-                })
-                .collect();
-
-        let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-            .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
-            .with_external_context(())
-            .with_env(env)
-            .with_spec_id(hardfork)
-            .append_handler_register_box(Box::new(move |handler| {
-                register_precompiles_handles(handler, precompiles.clone());
-            }))
-            .build();
-
-        evm.transact_commit()
-    }?;
+    state.commit(state_diff);
 
     Ok(result)
 }
