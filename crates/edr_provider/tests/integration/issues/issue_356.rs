@@ -29,10 +29,11 @@ async fn issue_356() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url().replace("mainnet", "sepolia"),
         // Pre-cancun Sepolia block
         block_number: Some(4243456),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
         http_headers: None,
+        url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));
     config.hardfork = l1::SpecId::CANCUN;
 

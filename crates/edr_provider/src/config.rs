@@ -1,4 +1,4 @@
-use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
+use std::{num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{
     account::AccountInfo, block::BlobGas, spec::HardforkTrait, Address, ChainId, HashMap, B256,
@@ -102,7 +102,6 @@ pub struct Provider<HardforkT: HardforkTrait> {
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
-    pub cache_dir: PathBuf,
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, hardfork::Activations<HardforkT>>,
     pub coinbase: Address,

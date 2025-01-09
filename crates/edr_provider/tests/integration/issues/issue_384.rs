@@ -17,9 +17,10 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_infura_url().replace("mainnet", "avalanche-mainnet"),
         block_number: Some(BLOCK_NUMBER),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
         http_headers: None,
+        url: get_infura_url().replace("mainnet", "avalanche-mainnet"),
     }));
 
     let provider = Provider::new(

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct ResetProviderConfig {
@@ -9,7 +9,8 @@ pub struct ResetProviderConfig {
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ForkConfig {
-    pub json_rpc_url: String,
     pub block_number: Option<u64>,
+    pub cache_dir: PathBuf,
     pub http_headers: Option<HashMap<String, String>>,
+    pub url: String,
 }

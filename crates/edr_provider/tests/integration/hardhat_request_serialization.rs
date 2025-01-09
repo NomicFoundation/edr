@@ -89,9 +89,10 @@ fn serde_hardhat_reset() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::Reset(Some(
         ResetProviderConfig {
             forking: Some(ForkConfig {
-                json_rpc_url: String::from("http://whatever.com/whatever"),
                 block_number: Some(123456),
+                cache_dir: edr_defaults::CACHE_DIR.into(),
                 http_headers: None,
+                url: String::from("http://whatever.com/whatever"),
             }),
         },
     )));

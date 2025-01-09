@@ -1,5 +1,5 @@
 use core::num::NonZeroU64;
-use std::{path::PathBuf, time::SystemTime};
+use std::time::SystemTime;
 
 use edr_eth::{block::BlobGas, spec::HardforkTrait, Address, ChainId, HashMap, B256, U256};
 use edr_provider::{
@@ -27,7 +27,6 @@ pub struct Config {
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
-    pub cache_dir: Option<String>,
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
     pub coinbase: Address,
@@ -50,12 +49,6 @@ where
     HardforkT: for<'s> From<&'s str> + HardforkTrait,
 {
     fn from(value: Config) -> Self {
-        let cache_dir = PathBuf::from(
-            value
-                .cache_dir
-                .unwrap_or(String::from(edr_defaults::CACHE_DIR)),
-        );
-
         let chains = value
             .chains
             .into_iter()
@@ -88,7 +81,6 @@ where
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
-            cache_dir,
             chain_id: value.chain_id,
             chains,
             coinbase: value.coinbase,

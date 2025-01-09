@@ -195,15 +195,17 @@ export interface ChainConfig {
 }
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
-  /** The URL of the JSON-RPC endpoint to fork from */
-  jsonRpcUrl: string
   /**
    * The block number to fork from. If not provided, the latest safe block is
    * used.
    */
   blockNumber?: bigint
+  /** The directory to cache remote JSON-RPC responses */
+  cacheDir?: string
   /** The HTTP headers to use when making requests to the JSON-RPC endpoint */
   httpHeaders?: Array<HttpHeader>
+  /** The URL of the JSON-RPC endpoint to fork from */
+  url: string
 }
 export interface HttpHeader {
   name: string
@@ -249,8 +251,6 @@ export interface ProviderConfig {
   bailOnTransactionFailure: boolean
   /** The gas limit of each block */
   blockGasLimit: bigint
-  /** The directory to cache remote JSON-RPC responses */
-  cacheDir?: string
   /** The chain ID of the blockchain */
   chainId: bigint
   /** The configuration for chains */

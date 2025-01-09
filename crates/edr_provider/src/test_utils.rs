@@ -33,6 +33,7 @@ pub const TEST_SECRET_KEY: &str =
 pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
     "0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4";
 
+/// Random recent block for better cache consistency
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
@@ -83,7 +84,6 @@ pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
         min_gas_price: U256::ZERO,
         mining: config::Mining::default(),
         network_id: 123,
-        cache_dir: edr_defaults::CACHE_DIR.into(),
     }
 }
 
@@ -166,13 +166,11 @@ impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<Chai
     }
 
     fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
-        let fork = fork.map(|json_rpc_url| {
-            ForkConfig {
-                json_rpc_url,
-                // Random recent block for better cache consistency
-                block_number: Some(FORK_BLOCK_NUMBER),
-                http_headers: None,
-            }
+        let fork = fork.map(|json_rpc_url| ForkConfig {
+            block_number: Some(FORK_BLOCK_NUMBER),
+            cache_dir: edr_defaults::CACHE_DIR.into(),
+            url: json_rpc_url,
+            http_headers: None,
         });
 
         let config = create_test_config_with_fork(fork);

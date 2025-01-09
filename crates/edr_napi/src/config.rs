@@ -1,5 +1,6 @@
 use std::{
     num::NonZeroU64,
+    path::PathBuf,
     time::{Duration, SystemTime},
 };
 
@@ -28,13 +29,15 @@ pub struct ChainConfig {
 /// Configuration for forking a blockchain
 #[napi(object)]
 pub struct ForkConfig {
-    /// The URL of the JSON-RPC endpoint to fork from
-    pub json_rpc_url: String,
     /// The block number to fork from. If not provided, the latest safe block is
     /// used.
     pub block_number: Option<BigInt>,
+    /// The directory to cache remote JSON-RPC responses
+    pub cache_dir: Option<String>,
     /// The HTTP headers to use when making requests to the JSON-RPC endpoint
     pub http_headers: Option<Vec<HttpHeader>>,
+    /// The URL of the JSON-RPC endpoint to fork from
+    pub url: String,
 }
 
 #[napi(object)]
@@ -94,8 +97,6 @@ pub struct ProviderConfig {
     pub bail_on_transaction_failure: bool,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
-    /// The directory to cache remote JSON-RPC responses
-    pub cache_dir: Option<String>,
     /// The chain ID of the blockchain
     pub chain_id: BigInt,
     /// The configuration for chains
@@ -136,6 +137,13 @@ impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
 
     fn try_from(value: ForkConfig) -> Result<Self, Self::Error> {
         let block_number: Option<u64> = value.block_number.map(TryCast::try_cast).transpose()?;
+
+        let cache_dir = PathBuf::from(
+            value
+                .cache_dir
+                .unwrap_or(String::from(edr_defaults::CACHE_DIR)),
+        );
+
         let http_headers = value.http_headers.map(|http_headers| {
             http_headers
                 .into_iter()
@@ -144,9 +152,10 @@ impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
         });
 
         Ok(Self {
-            json_rpc_url: value.json_rpc_url,
             block_number,
+            cache_dir,
             http_headers,
+            url: value.url,
         })
     }
 }
@@ -307,7 +316,6 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit,
-            cache_dir: value.cache_dir,
             chain_id: value.chain_id.try_cast()?,
             chains,
             coinbase: value.coinbase.try_cast()?,
