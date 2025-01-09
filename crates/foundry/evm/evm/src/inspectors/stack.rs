@@ -370,7 +370,7 @@ impl InspectorStack {
     pub fn tracing(&mut self, yes: bool) {
         self.tracer = yes.then(|| {
             TracingInspector::new(TracingInspectorConfig {
-                record_steps: false,
+                record_steps: true, // TODO slowdown
                 record_memory_snapshots: false,
                 record_stack_snapshots: StackSnapshotType::None,
                 record_state_diff: false,

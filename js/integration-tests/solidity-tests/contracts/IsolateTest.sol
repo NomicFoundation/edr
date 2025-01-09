@@ -38,14 +38,4 @@ contract IsolateTest is DSTest {
 
         assertEq(val, 0, "test wasn't called with isolate mode enabld");
     }
-
-    function testIsolateTestFoo() public {
-        transientStorageStore.tstore(1, 2);
-
-        // a normal transaction would return 2 here because the value is stored in transient storage,
-        // but if isolate mode is enabled, the value should be 0
-        uint256 val = transientStorageStore.tload(1);
-
-        assertEq(val, 0, "test wasn't called with isolate mode enabld");
-    }
 }

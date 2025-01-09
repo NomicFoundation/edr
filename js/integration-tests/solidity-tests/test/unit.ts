@@ -1,5 +1,6 @@
 import { assert } from "chai";
 import { TestContext } from "./testContext";
+import { StackTraceEntryType } from "@ignored/edr";
 
 describe("Unit tests", () => {
   let testContext: TestContext;
@@ -21,7 +22,31 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("SuccessAndFailureTest");
 
-    console.log(stackTraces);
+    const results = stackTraces.get("testThatFails()");
+    if (results === undefined) {
+      console.log(stackTraces);
+      throw new Error("testThatFails not found in stackTraces");
+    }
+
+    const lastStackTraceEntry = results[0];
+    if (lastStackTraceEntry === undefined) {
+      throw new Error("lastStackTraceEntry not found");
+    }
+    if (lastStackTraceEntry.sourceReference === undefined) {
+      throw new Error("sourceReference not found");
+    }
+    assert.equal(lastStackTraceEntry.type, StackTraceEntryType.REVERT_ERROR);
+    assert.equal(
+      lastStackTraceEntry.sourceReference.contract,
+      "SuccessAndFailureTest"
+    );
+    assert.equal(lastStackTraceEntry.sourceReference.function, "testThatFails");
+    assert.equal(lastStackTraceEntry.sourceReference.line, 11);
+    assert(
+      lastStackTraceEntry.sourceReference.sourceContent.includes(
+        "function testThatFails()"
+      )
+    );
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);
