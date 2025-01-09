@@ -158,4 +158,44 @@ describe("Unit tests", () => {
     assert.equal(failedTests, 0);
     assert.equal(totalTests, 1);
   });
+
+  it("FailingSetup", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("FailingSetupTest");
+
+    assert.equal(failedTests, 1);
+    assert.equal(totalTests, 1);
+
+    const results = stackTraces.get("setUp()");
+    if (results === undefined) {
+      console.log(stackTraces);
+      throw new Error("setUp not found in stackTraces");
+    }
+
+    const callEntry = results[0];
+    console.log(callEntry);
+    if (callEntry === undefined) {
+      throw new Error("call entry not found");
+    }
+    if (callEntry.sourceReference === undefined) {
+      throw new Error("sourceReference not found");
+    }
+    assert.equal(callEntry.type, StackTraceEntryType.CALLSTACK_ENTRY);
+    assert.equal(callEntry.sourceReference.contract, "FailingSetupTest");
+    assert.equal(callEntry.sourceReference.function, "setUp");
+    assert.equal(callEntry.sourceReference.line, 11);
+    assert(
+      callEntry.sourceReference.sourceContent.includes("function setUp()")
+    );
+
+    const revertEntry = results[1];
+    if (revertEntry === undefined) {
+      throw new Error("revert entry not found");
+    }
+    if (revertEntry.sourceReference === undefined) {
+      throw new Error("sourceReference not found");
+    }
+    // TODO figure out what error type this should be. Should the source map to the interface file?
+    throw new Error("todo");
+  });
 });
