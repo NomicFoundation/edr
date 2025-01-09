@@ -296,8 +296,8 @@ impl Response {
         )
         .map_err(|err| napi::Error::from_reason(err.to_string()))?;
 
-        if let Some(vm_trace) = nested_trace {
-            let decoded_trace = contract_decoder.try_to_decode_message_trace(vm_trace);
+        if let Some(nested_trace) = nested_trace {
+            let decoded_trace = contract_decoder.try_to_decode_message_trace(nested_trace);
             let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
                 .map_err(|err| napi::Error::from_reason(err.to_string()))?;
             let stack_trace = stack_trace

@@ -12,7 +12,10 @@ use edr_solidity::{
 };
 use foundry_evm::traces::{CallTraceArena, CallTraceStep, TraceKind};
 
-use crate::{contracts::ContractsByArtifact, revm::primitives::ruint::aliases::U160};
+use crate::{
+    constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
+    revm::primitives::ruint::aliases::U160,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StackTraceError {
@@ -123,11 +126,10 @@ fn convert_node_to_nested_trace(
             steps,
             contract_meta: None, // This will be populated by the nested trace decoder
             deployed_contract: Some(trace.output.clone()),
-            // TODO unwrap
             code: address_to_creation_code
                 .get(&trace.address)
                 .map(|c| (*c).clone())
-                .unwrap(),
+                .expect("Create must have code"),
             value: trace.value,
             return_data: trace.output.clone(),
             exit: convert_instruction_result_to_exit_code(trace.status),
@@ -135,6 +137,19 @@ fn convert_node_to_nested_trace(
             depth: trace.depth,
         }))
     } else {
+        let code = if trace.address == HARDHAT_CONSOLE_ADDRESS || trace.address == CHEATCODE_ADDRESS
+        {
+            // HACK: use address as code if the library is implemented in Rust
+            // TODO: how should we handle contract metadata?
+            Bytes::from(trace.address.to_vec())
+        } else {
+            address_to_runtime_code
+                .get(&trace.address)
+                .map(|c| (*c).clone())
+                // Code might not exist if it's a mocked contract
+                // Mimicking behavior here: https://github.com/NomicFoundation/edr/blob/4e7491d8631da27b4bd1ba2bde4914bb704e2c52/crates/foundry/cheatcodes/src/evm/mock.rs#L75
+                .unwrap_or_else(|| Bytes::from_static(&[0u8]))
+        };
         Ok(NestedTrace::Call(CallMessage {
             number_of_subtraces: node.children.len() as u32,
             steps,
@@ -142,11 +157,7 @@ fn convert_node_to_nested_trace(
             calldata: trace.data.clone(),
             address: trace.address,
             code_address: trace.address,
-            // TODO unwrap
-            code: address_to_runtime_code
-                .get(&trace.address)
-                .map(|c| (*c).clone())
-                .unwrap(),
+            code,
             value: trace.value,
             return_data: trace.output.clone(),
             exit: convert_instruction_result_to_exit_code(trace.status),

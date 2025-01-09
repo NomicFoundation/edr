@@ -531,7 +531,6 @@ impl<'a> ContractRunner<'a> {
             ..
         } = setup;
 
-        println!("func name {}", &func.name);
         // Run unit test
         let mut executor = self.executor.clone();
         let start: Instant = Instant::now();
@@ -546,7 +545,6 @@ impl<'a> ContractRunner<'a> {
             Ok(res) => (res.raw, None),
             Err(EvmError::Execution(err)) => (err.raw, Some(err.reason)),
             Err(EvmError::SkipError) => {
-                println!("skip error traces len{}", &traces.len());
                 return TestResult {
                     status: TestStatus::Skipped,
                     reason: None,
@@ -560,7 +558,6 @@ impl<'a> ContractRunner<'a> {
                 };
             }
             Err(err) => {
-                println!("evm error traces len{}", &traces.len());
                 return TestResult {
                     status: TestStatus::Failure,
                     reason: Some(err.to_string()),
@@ -603,7 +600,6 @@ impl<'a> ContractRunner<'a> {
         labeled_addresses.extend(new_labels);
         logs.extend(execution_logs);
         coverage = merge_coverages(coverage, execution_coverage);
-        println!("traces len{}", traces.len());
 
         // Record test execution time
         let duration = start.elapsed();

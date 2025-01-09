@@ -74,11 +74,6 @@ impl ContractDecoder {
                         .write()
                         .get_bytecode_for_call(call.code.as_ref(), is_create)
                 };
-                if let Some(contract_meta) = contract_meta.as_ref() {
-                    println!("contract meta {}", contract_meta.contract.read().name);
-                } else {
-                    println!("no contract meta, code len: {}", call.code.len());
-                }
 
                 let steps = call
                     .steps

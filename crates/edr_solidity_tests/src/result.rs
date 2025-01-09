@@ -8,11 +8,7 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
-use edr_solidity::{
-    contract_decoder::ContractDecoder,
-    solidity_stack_trace::StackTraceEntry,
-    solidity_tracer::{get_stack_trace, SolidityTracerError},
-};
+use edr_solidity::contract_decoder::ContractDecoder;
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
     contracts::{get_contract_name, get_file_name},
