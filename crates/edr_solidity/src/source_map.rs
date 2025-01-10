@@ -2,6 +2,7 @@
 use std::sync::Arc;
 
 use edr_evm::interpreter::OpCode;
+use log::debug;
 
 use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
 
@@ -159,9 +160,15 @@ pub fn decode_instructions(
         let source_map = &source_maps[instructions.len()];
 
         let pc = bytes_index;
-        let opcode = match OpCode::new(bytecode[pc]) {
-            Some(opcode) => opcode,
-            None => continue,
+        let opcode = if let Some(opcode) = OpCode::new(bytecode[pc]) {
+            opcode
+        } else {
+            debug!("Invalid opcode {} at pc: {}", bytecode[pc], pc);
+
+            // We assume this happens because the source maps point to the metadata region
+            // of the bytecode. That means that the actual instructions have
+            // already been decoded and we can stop here.
+            return instructions;
         };
 
         let push_data = if opcode.is_push() {
