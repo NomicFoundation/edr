@@ -709,19 +709,23 @@ fn decode_bytecodes(
     for contract in build_model.contract_id_to_contract.values() {
         let contract_rc = contract.clone();
 
-        let mut contract = contract.write();
+        let contract_evm_output = {
+            let mut contract = contract.write();
 
-        let contract_file = &contract.location.file().read().source_name.clone();
-        let contract_evm_output = &compiler_output.contracts[contract_file][&contract.name].evm;
-        let contract_abi_output = &compiler_output.contracts[contract_file][&contract.name].abi;
+            let contract_file = &contract.location.file().read().source_name.clone();
+            let contract_evm_output = &compiler_output.contracts[contract_file][&contract.name].evm;
+            let contract_abi_output = &compiler_output.contracts[contract_file][&contract.name].abi;
 
-        for item in contract_abi_output {
-            if item.r#type.as_deref() == Some("error") {
-                if let Ok(custom_error) = CustomError::from_abi(item.clone()) {
-                    contract.add_custom_error(custom_error);
+            for item in contract_abi_output {
+                if item.r#type.as_deref() == Some("error") {
+                    if let Ok(custom_error) = CustomError::from_abi(item.clone()) {
+                        contract.add_custom_error(custom_error);
+                    }
                 }
             }
-        }
+
+            contract_evm_output
+        };
 
         // This is an abstract contract
         if contract_evm_output.bytecode.object.is_empty() {
