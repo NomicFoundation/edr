@@ -6,7 +6,7 @@ use std::{
 
 use edr_eth::KECCAK_EMPTY;
 use napi::{
-    bindgen_prelude::{BigInt, Buffer},
+    bindgen_prelude::{BigInt, Buffer, Uint8Array},
     Either,
 };
 use napi_derive::napi;
@@ -102,7 +102,7 @@ pub struct ProviderConfig {
     /// The configuration for chains
     pub chains: Vec<ChainConfig>,
     /// The address of the coinbase
-    pub coinbase: Buffer,
+    pub coinbase: Uint8Array,
     /// Enables RIP-7212
     pub enable_rip_7212: bool,
     /// The configuration for forking a blockchain. If not provided, a local

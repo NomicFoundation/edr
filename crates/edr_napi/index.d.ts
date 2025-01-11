@@ -256,7 +256,7 @@ export interface ProviderConfig {
   /** The configuration for chains */
   chains: Array<ChainConfig>
   /** The address of the coinbase */
-  coinbase: Buffer
+  coinbase: Uint8Array
   /** Enables RIP-7212 */
   enableRip7212: boolean
   /**
