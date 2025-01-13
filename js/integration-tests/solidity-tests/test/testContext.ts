@@ -12,6 +12,7 @@ import {
 import hre from "hardhat";
 import { TracingConfig } from "hardhat/internal/hardhat-network/provider/node-types";
 import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
+import { assert } from "chai";
 
 export class TestContext {
   readonly rpcUrl = process.env.ALCHEMY_URL;
@@ -102,4 +103,29 @@ interface SolidityTestsRunResult {
   totalTests: number;
   failedTests: number;
   stackTraces: Map<string, SolidityStackTrace>;
+}
+
+export function assertStackTraces(
+  stackTrace: SolidityStackTrace | undefined,
+  expectedEntries: {
+    function: string;
+    contract: string;
+  }[]
+) {
+  if (stackTrace === undefined) {
+    throw new Error("stack trace is undefined");
+  }
+  assert.equal(stackTrace.length, expectedEntries.length);
+  for (let i = 0; i < stackTrace.length; i += 1) {
+    const expected = expectedEntries[i];
+    const sourceReference = stackTrace[i].sourceReference;
+    if (sourceReference === undefined) {
+      throw new Error(
+        `source reference is undefined for contract '${expected.contract}' function '${expected.function}'`
+      );
+    }
+    assert.equal(sourceReference.contract, expected.contract);
+    assert.equal(sourceReference.function, expected.function);
+    assert(sourceReference.sourceContent.includes(expected.function));
+  }
 }

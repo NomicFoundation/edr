@@ -1,6 +1,5 @@
 import { assert } from "chai";
-import { TestContext } from "./testContext";
-import { StackTraceEntryType } from "@ignored/edr";
+import { assertStackTraces, TestContext } from "./testContext";
 
 describe("Unit tests", () => {
   let testContext: TestContext;
@@ -22,31 +21,9 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("SuccessAndFailureTest");
 
-    const results = stackTraces.get("testThatFails()");
-    if (results === undefined) {
-      console.log(stackTraces);
-      throw new Error("testThatFails not found in stackTraces");
-    }
-
-    const lastStackTraceEntry = results[0];
-    if (lastStackTraceEntry === undefined) {
-      throw new Error("lastStackTraceEntry not found");
-    }
-    if (lastStackTraceEntry.sourceReference === undefined) {
-      throw new Error("sourceReference not found");
-    }
-    assert.equal(lastStackTraceEntry.type, StackTraceEntryType.REVERT_ERROR);
-    assert.equal(
-      lastStackTraceEntry.sourceReference.contract,
-      "SuccessAndFailureTest"
-    );
-    assert.equal(lastStackTraceEntry.sourceReference.function, "testThatFails");
-    assert.equal(lastStackTraceEntry.sourceReference.line, 11);
-    assert(
-      lastStackTraceEntry.sourceReference.sourceContent.includes(
-        "function testThatFails()"
-      )
-    );
+    assertStackTraces(stackTraces.get("testThatFails()"), [
+      { contract: "SuccessAndFailureTest", function: "testThatFails" },
+    ]);
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);
@@ -166,36 +143,8 @@ describe("Unit tests", () => {
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);
 
-    const results = stackTraces.get("setUp()");
-    if (results === undefined) {
-      console.log(stackTraces);
-      throw new Error("setUp not found in stackTraces");
-    }
-
-    const callEntry = results[0];
-    console.log(callEntry);
-    if (callEntry === undefined) {
-      throw new Error("call entry not found");
-    }
-    if (callEntry.sourceReference === undefined) {
-      throw new Error("sourceReference not found");
-    }
-    assert.equal(callEntry.type, StackTraceEntryType.CALLSTACK_ENTRY);
-    assert.equal(callEntry.sourceReference.contract, "FailingSetupTest");
-    assert.equal(callEntry.sourceReference.function, "setUp");
-    assert.equal(callEntry.sourceReference.line, 11);
-    assert(
-      callEntry.sourceReference.sourceContent.includes("function setUp()")
-    );
-
-    const revertEntry = results[1];
-    if (revertEntry === undefined) {
-      throw new Error("revert entry not found");
-    }
-    if (revertEntry.sourceReference === undefined) {
-      throw new Error("sourceReference not found");
-    }
-    // TODO figure out what error type this should be. Should the source map to the interface file?
-    throw new Error("todo");
+    assertStackTraces(stackTraces.get("setUp()"), [
+      { contract: "FailingSetupTest", function: "setUp" },
+    ]);
   });
 });

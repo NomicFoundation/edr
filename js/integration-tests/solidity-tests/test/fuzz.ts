@@ -1,8 +1,8 @@
 import chai, { assert, expect } from "chai";
-import { TestContext } from "./testContext";
+import { assertStackTraces, TestContext } from "./testContext";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { FuzzTestKind } from "@ignored/edr";
+import { FuzzTestKind, InvariantTestKind } from "@ignored/edr";
 import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 describe("Fuzz and invariant testing", function () {
@@ -24,6 +24,14 @@ describe("Fuzz and invariant testing", function () {
     const result1 = await testContext.runTestsWithStats("OverflowTest");
     assert.equal(result1.failedTests, 1);
     assert.equal(result1.totalTests, 1);
+
+    assertStackTraces(
+      result1.stackTraces.get("testFuzzAddWithOverflow(uint256,uint256)"),
+      [
+        { contract: "OverflowTest", function: "testFuzzAddWithOverflow" },
+        { contract: "MyContract", function: "addWithOverflow" },
+      ]
+    );
 
     // The fuzz failure directory should not be created if we don't set the directory
     assert.isFalse(existsSync(failureDir));
