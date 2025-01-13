@@ -110,7 +110,7 @@ where
         genesis_state.commit(genesis_diff.clone().into());
 
         let evm_spec_id = hardfork.into();
-        if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
+        if evm_spec_id >= l1::Hardfork::MERGE && options.mix_hash.is_none() {
             return Err(CreationError::MissingPrevrandao);
         }
 
@@ -161,7 +161,7 @@ where
             });
         }
 
-        if hardfork.into() >= l1::SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
+        if hardfork.into() >= l1::Hardfork::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InsertBlockError::MissingWithdrawals);
         }
 
@@ -446,7 +446,7 @@ mod tests {
         let mut blockchain = LocalBlockchain::<L1ChainSpec>::new(
             genesis_diff,
             123,
-            l1::SpecId::SHANGHAI,
+            l1::Hardfork::SHANGHAI,
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),

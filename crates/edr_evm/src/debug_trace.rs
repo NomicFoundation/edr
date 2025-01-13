@@ -101,7 +101,7 @@ where
     StateErrorT: Debug + Send,
 {
     let evm_spec_id = hardfork.into();
-    if evm_spec_id < l1::SpecId::SPURIOUS_DRAGON {
+    if evm_spec_id < l1::Hardfork::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
         return Err(DebugTraceError::InvalidSpecId {
             spec_id: evm_spec_id,
@@ -212,7 +212,7 @@ where
     #[error("Invalid spec id: {spec_id:?}. `debug_traceTransaction` is not supported prior to Spurious Dragon")]
     InvalidSpecId {
         /// The hardfork.
-        spec_id: l1::SpecId,
+        spec_id: l1::Hardfork,
     },
     /// Invalid transaction hash argument.
     #[error("Transaction hash {transaction_hash} not found in block {block_number}")]

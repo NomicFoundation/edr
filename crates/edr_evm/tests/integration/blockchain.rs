@@ -61,7 +61,7 @@ async fn create_forked_dummy_blockchain(
         ForkedBlockchain::new(
             tokio::runtime::Handle::current().clone(),
             None,
-            l1::SpecId::LATEST,
+            l1::Hardfork::LATEST,
             Arc::new(rpc_client),
             fork_block_number,
             &mut irregular_state,
@@ -86,7 +86,7 @@ async fn create_dummy_blockchains(
     let local_blockchain = LocalBlockchain::new(
         StateDiff::default(),
         1,
-        l1::SpecId::LATEST,
+        l1::Hardfork::LATEST,
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -157,7 +157,7 @@ fn create_dummy_block_with_difficulty(
 }
 
 fn create_dummy_block_with_hash(
-    spec_id: l1::SpecId,
+    spec_id: l1::Hardfork,
     number: u64,
     parent_hash: B256,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
@@ -172,7 +172,7 @@ fn create_dummy_block_with_hash(
 }
 
 fn create_dummy_block_with_header(
-    spec_id: l1::SpecId,
+    spec_id: l1::Hardfork,
     partial_header: PartialHeader,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     EthLocalBlock::empty(spec_id, partial_header)
@@ -243,7 +243,7 @@ fn insert_dummy_block_with_transaction(
         RemoteBlockConversionError<TransactionConversionError>,
         BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
         ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
-        l1::SpecId,
+        l1::Hardfork,
         edr_rpc_eth::receipt::ConversionError,
         transaction::Signed,
     >::new(

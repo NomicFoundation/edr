@@ -13,7 +13,6 @@ use crate::{
 pub trait ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
 where
     ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
-    HardforkT: HardforkTrait,
 {
     /// Type of the receipt that the factory constructs.
     type Output: ExecutionReceipt<Log = FilterLog> + ReceiptTrait;

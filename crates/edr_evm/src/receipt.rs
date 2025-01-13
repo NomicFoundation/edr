@@ -42,7 +42,7 @@ where
 /// Builder for execution receipts.
 pub struct Builder;
 
-impl ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::Signed> for Builder {
+impl ExecutionReceiptBuilder<l1::HaltReason, l1::Hardfork, transaction::Signed> for Builder {
     type Receipt = TypedEnvelope<receipt::Execution<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
@@ -57,12 +57,12 @@ impl ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::Signed> fo
         header: &block::PartialHeader,
         transaction: &transaction::Signed,
         result: &ExecutionResult<l1::HaltReason>,
-        hardfork: l1::SpecId,
+        hardfork: l1::Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = log::logs_to_bloom(&logs);
 
-        let receipt = if hardfork >= l1::SpecId::BYZANTIUM {
+        let receipt = if hardfork >= l1::Hardfork::BYZANTIUM {
             receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: result.is_success(),
                 cumulative_gas_used: header.gas_used,

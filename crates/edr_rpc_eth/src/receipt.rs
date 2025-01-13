@@ -80,13 +80,13 @@ pub struct Block {
 }
 
 impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>> for Block {
-    type Hardfork = l1::SpecId;
+    type Hardfork = l1::Hardfork;
 
     fn rpc_type_from(
         value: &receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
+        let transaction_type = if hardfork >= l1::Hardfork::Berlin {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None
@@ -245,7 +245,7 @@ mod test {
 
     impl_execution_receipt_tests! {
         L1ChainSpec, EthBlockReceiptFactory::default() => {
-            legacy, l1::SpecId::LATEST => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
+            legacy, l1::Hardfork::LATEST => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -254,7 +254,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930, l1::SpecId::LATEST => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip2930, l1::Hardfork::LATEST => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -263,7 +263,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559, l1::SpecId::LATEST => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip1559, l1::Hardfork::LATEST => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -272,7 +272,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844, l1::SpecId::LATEST => TypedEnvelope::Eip4844(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip4844, l1::Hardfork::LATEST => TypedEnvelope::Eip4844(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),

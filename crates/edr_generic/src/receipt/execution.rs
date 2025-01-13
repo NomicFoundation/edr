@@ -14,7 +14,7 @@ use crate::{eip2718::TypedEnvelope, transaction};
 
 pub struct Builder;
 
-impl ExecutionReceiptBuilder<HaltReason, l1::SpecId, transaction::SignedWithFallbackToPostEip155>
+impl ExecutionReceiptBuilder<HaltReason, l1::Hardfork, transaction::SignedWithFallbackToPostEip155>
     for Builder
 {
     type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
@@ -31,12 +31,12 @@ impl ExecutionReceiptBuilder<HaltReason, l1::SpecId, transaction::SignedWithFall
         header: &edr_eth::block::PartialHeader,
         transaction: &crate::transaction::SignedWithFallbackToPostEip155,
         result: &ExecutionResult<HaltReason>,
-        hardfork: l1::SpecId,
+        hardfork: l1::Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = edr_eth::log::logs_to_bloom(&logs);
 
-        let receipt = if hardfork >= l1::SpecId::BYZANTIUM {
+        let receipt = if hardfork >= l1::Hardfork::BYZANTIUM {
             Execution::Eip658(Eip658 {
                 status: result.is_success(),
                 cumulative_gas_used: header.gas_used,

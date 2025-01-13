@@ -38,7 +38,7 @@ pub struct BlockDataForTransaction<BlockT> {
 impl RpcTypeFrom<TransactionAndBlockForChainSpec<L1ChainSpec>>
     for edr_rpc_eth::TransactionWithSignature
 {
-    type Hardfork = l1::SpecId;
+    type Hardfork = l1::Hardfork;
 
     fn rpc_type_from(
         value: &TransactionAndBlockForChainSpec<L1ChainSpec>,

@@ -248,7 +248,7 @@ fn validate_configuration<ChainSpecT: RuntimeSpec, BlockchainErrorT, StateErrorT
     hardfork: ChainSpecT::Hardfork,
     transaction: &ChainSpecT::SignedTransaction,
 ) -> Result<(), TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>> {
-    if transaction.max_fee_per_gas().is_some() && Into::into(hardfork) < l1::SpecId::LONDON {
+    if transaction.max_fee_per_gas().is_some() && Into::into(hardfork) < l1::Hardfork::LONDON {
         return Err(TransactionError::Eip1559Unsupported);
     }
 

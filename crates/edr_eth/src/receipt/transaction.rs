@@ -2,9 +2,8 @@ use alloy_rlp::BufMut;
 
 use super::{AsExecutionReceipt, ExecutionReceipt, MapReceiptLogs};
 use crate::{
-    l1,
     result::{ExecutionResult, Output},
-    spec::{HaltReasonTrait, HardforkTrait},
+    spec::{HaltReasonTrait, HardforkTrait, SpecId},
     transaction::{ExecutableTransaction, Transaction, TransactionType},
     Address, Bloom, B256, U256,
 };
@@ -72,7 +71,7 @@ impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> 
             None
         };
 
-        let effective_gas_price = if hardfork.into() >= l1::SpecId::LONDON {
+        let effective_gas_price = if hardfork.into() >= SpecId::LONDON {
             Some(
                 transaction
                     .effective_gas_price(block_base_fee)

@@ -33,7 +33,7 @@ async fn issue_324() -> anyhow::Result<()> {
         http_headers: None,
         url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));
-    config.hardfork = l1::SpecId::CANCUN;
+    config.hardfork = l1::Hardfork::CANCUN;
 
     let provider = Provider::new(
         runtime::Handle::current(),

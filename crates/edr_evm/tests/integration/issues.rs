@@ -65,7 +65,7 @@ async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     let _blockchain = ForkedBlockchain::new(
         runtime::Handle::current(),
         None,
-        l1::SpecId::LATEST,
+        l1::Hardfork::LATEST,
         Arc::new(rpc_client),
         Some(FORK_BLOCK_NUMBER),
         &mut irregular_state,

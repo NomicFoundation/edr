@@ -72,7 +72,7 @@ pub fn handle_fee_history<
     newest_block: BlockSpec,
     reward_percentiles: Option<Vec<f64>>,
 ) -> Result<FeeHistoryResult, ProviderError<ChainSpecT>> {
-    if data.evm_spec_id() < l1::SpecId::LONDON {
+    if data.evm_spec_id() < l1::Hardfork::LONDON {
         return Err(ProviderError::InvalidInput(
             "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
                 .into(),
@@ -183,7 +183,7 @@ fn resolve_estimate_gas_request<
     let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
-    transaction::validate(transaction, l1::SpecId::LATEST)
+    transaction::validate(transaction, l1::Hardfork::LATEST)
         .map_err(ProviderError::TransactionCreationError)
 }
 

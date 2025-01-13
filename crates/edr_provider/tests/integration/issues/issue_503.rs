@@ -24,7 +24,7 @@ async fn issue_503() -> anyhow::Result<()> {
         http_headers: None,
         url: get_alchemy_url(),
     }));
-    config.hardfork = l1::SpecId::CANCUN;
+    config.hardfork = l1::Hardfork::CANCUN;
 
     let provider = Provider::new(
         runtime::Handle::current(),

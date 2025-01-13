@@ -114,16 +114,10 @@ where
                 StateErrorT,
             >,
         >,
-    ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
-    {
+    ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, StateErrorT>> {
         let parent_block = blockchain
             .last_block()
             .map_err(BlockBuilderCreationError::Blockchain)?;
-
-        let eth_hardfork = hardfork.into();
-        if eth_hardfork < l1::SpecId::BYZANTIUM {
-            return Err(BlockBuilderCreationError::UnsupportedHardfork(hardfork));
-        }
 
         let parent_header = parent_block.header();
         let parent_gas_limit = if options.gas_limit.is_none() {
@@ -132,8 +126,9 @@ where
             None
         };
 
+        let l1_hardfork = Into::<l1::Hardfork>::into(hardfork);
         let withdrawals = std::mem::take(&mut options.withdrawals).or_else(|| {
-            if eth_hardfork >= l1::SpecId::SHANGHAI {
+            if l1_hardfork >= l1::Hardfork::Shanghai {
                 Some(Vec::new())
             } else {
                 None
@@ -433,7 +428,7 @@ where
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
-        hardfork: <ChainSpecT>::Hardfork,
+        hardfork: ChainSpecT::Hardfork,
         cfg: CfgEnv,
         options: BlockOptions,
         debug_context: Option<
@@ -445,10 +440,7 @@ where
                 Box<dyn SyncState<Self::StateError>>,
             >,
         >,
-    ) -> Result<
-        Self,
-        BlockBuilderCreationError<Self::BlockchainError, <ChainSpecT>::Hardfork, Self::StateError>,
-    > {
+    ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, Self::StateError>> {
         Self::new(blockchain, state, hardfork, cfg, options, debug_context)
     }
 
@@ -462,7 +454,7 @@ where
 
     fn add_transaction(
         self,
-        transaction: <ChainSpecT>::SignedTransaction,
+        transaction: ChainSpecT::SignedTransaction,
     ) -> Result<
         Self,
         BlockBuilderAndError<
@@ -507,7 +499,7 @@ pub struct EthBlockReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = Filt
 
 impl<
         ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
-        HardforkT: HardforkTrait + Into<l1::SpecId>,
+        HardforkT: HardforkTrait + Into<l1::Hardfork>,
         SignedTransactionT,
     > ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
     for EthBlockReceiptFactory<ExecutionReceiptT>
@@ -524,7 +516,7 @@ impl<
     ) -> Self::Output {
         // The JSON-RPC layer should not return the gas price as effective gas price for
         // receipts in pre-London hardforks.
-        if hardfork.into() < l1::SpecId::LONDON {
+        if Into::<l1::Hardfork>::into(hardfork) < l1::Hardfork::London {
             transaction_receipt.effective_gas_price = None;
         }
 

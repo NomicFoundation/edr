@@ -87,13 +87,13 @@ impl TryFrom<BlockReceipt> for crate::receipt::BlockReceipt<TypedEnvelope<Execut
 impl RpcTypeFrom<crate::receipt::BlockReceipt<TypedEnvelope<Execution<FilterLog>>>>
     for BlockReceipt
 {
-    type Hardfork = l1::SpecId;
+    type Hardfork = l1::Hardfork;
 
     fn rpc_type_from(
         value: &crate::receipt::BlockReceipt<TypedEnvelope<Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
+        let transaction_type = if hardfork >= l1::Hardfork::BERLIN {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None

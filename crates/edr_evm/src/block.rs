@@ -10,7 +10,7 @@ use auto_impl::auto_impl;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
     receipt::ReceiptTrait,
-    spec::{ChainSpec, HardforkTrait},
+    spec::ChainSpec,
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     B256, U256,
@@ -61,14 +61,12 @@ pub trait BlockReceipts<BlockReceiptT: ReceiptTrait> {
 }
 
 /// Trait for creating an empty block.
-pub trait EmptyBlock<HardforkT: HardforkTrait> {
+pub trait EmptyBlock<HardforkT> {
     /// Constructs an empty block.
     fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self;
 }
 
-impl<BlockT: EmptyBlock<HardforkT>, HardforkT: HardforkTrait> EmptyBlock<HardforkT>
-    for Arc<BlockT>
-{
+impl<BlockT: EmptyBlock<HardforkT>, HardforkT> EmptyBlock<HardforkT> for Arc<BlockT> {
     fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
         Arc::new(BlockT::empty(hardfork, partial_header))
     }

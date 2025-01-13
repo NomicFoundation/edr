@@ -46,7 +46,7 @@ pub struct EthLocalBlock<
     BlockConversionErrorT,
     BlockReceiptT: ReceiptTrait,
     ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-    HardforkT: HardforkTrait,
+    HardforkT,
     ReceiptConversionErrorT,
     SignedTransactionT,
 > {
@@ -68,7 +68,7 @@ pub struct EthLocalBlock<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
-        HardforkT: HardforkTrait,
+        HardforkT,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction,
@@ -267,7 +267,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: HardforkTrait,
+        HardforkT: Into<l1::Hardfork>,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
     > EmptyBlock<HardforkT>
@@ -281,12 +281,13 @@ impl<
     >
 {
     fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
-        let (withdrawals, withdrawals_root) = if hardfork.into() >= l1::SpecId::SHANGHAI {
-            Some((Vec::new(), KECCAK_EMPTY))
-        } else {
-            None
-        }
-        .unzip();
+        let (withdrawals, withdrawals_root) =
+            if Into::<l1::Hardfork>::into(hardfork) >= l1::Hardfork::Shanghai {
+                Some((Vec::new(), KECCAK_EMPTY))
+            } else {
+                None
+            }
+            .unzip();
 
         let header = Header::new(partial_header, KECCAK_EMPTY, KECCAK_EMPTY, withdrawals_root);
         let hash = header.hash();

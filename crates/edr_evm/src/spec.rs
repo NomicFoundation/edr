@@ -202,11 +202,11 @@ pub trait RuntimeSpec:
 /// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<HeaderT> {
     /// Converts the instance into an EVM block.
-    fn new_block_env(header: &HeaderT, hardfork: l1::SpecId) -> Self;
+    fn new_block_env(header: &HeaderT, hardfork: l1::Hardfork) -> Self;
 }
 
 impl BlockEnvConstructor<PartialHeader> for BlockEnv {
-    fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self {
+    fn new_block_env(header: &PartialHeader, hardfork: l1::Hardfork) -> Self {
         Self {
             number: U256::from(header.number),
             coinbase: header.beneficiary,
@@ -214,7 +214,7 @@ impl BlockEnvConstructor<PartialHeader> for BlockEnv {
             difficulty: header.difficulty,
             basefee: header.base_fee.unwrap_or(U256::ZERO),
             gas_limit: U256::from(header.gas_limit),
-            prevrandao: if hardfork >= l1::SpecId::MERGE {
+            prevrandao: if hardfork >= l1::Hardfork::MERGE {
                 Some(header.mix_hash)
             } else {
                 None
@@ -228,7 +228,7 @@ impl BlockEnvConstructor<PartialHeader> for BlockEnv {
 }
 
 impl BlockEnvConstructor<block::Header> for BlockEnv {
-    fn new_block_env(header: &block::Header, hardfork: l1::SpecId) -> Self {
+    fn new_block_env(header: &block::Header, hardfork: l1::Hardfork) -> Self {
         Self {
             number: U256::from(header.number),
             coinbase: header.beneficiary,
@@ -236,7 +236,7 @@ impl BlockEnvConstructor<block::Header> for BlockEnv {
             difficulty: header.difficulty,
             basefee: header.base_fee_per_gas.unwrap_or(U256::ZERO),
             gas_limit: U256::from(header.gas_limit),
-            prevrandao: if hardfork >= l1::SpecId::MERGE {
+            prevrandao: if hardfork >= l1::Hardfork::MERGE {
                 Some(header.mix_hash)
             } else {
                 None

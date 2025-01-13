@@ -24,7 +24,7 @@ impl ChainSpec for GenericChainSpec {
     type BlockEnv = l1::BlockEnv;
     type Context = ();
     type HaltReason = HaltReason;
-    type Hardfork = l1::SpecId;
+    type Hardfork = l1::Hardfork;
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 

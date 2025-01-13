@@ -90,7 +90,7 @@ impl Transaction {
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
         is_pending: bool,
-        hardfork: l1::SpecId,
+        hardfork: l1::Hardfork,
     ) -> Self {
         let base_fee = header.and_then(|header| header.base_fee_per_gas);
         let gas_price = if let Some(base_fee) = base_fee {
@@ -113,7 +113,7 @@ impl Transaction {
             }
         });
 
-        let show_transaction_type = hardfork >= l1::SpecId::BERLIN;
+        let show_transaction_type = hardfork >= l1::Hardfork::Berlin;
         let is_typed_transaction = !transaction.is_legacy();
         let transaction_type = if show_transaction_type || is_typed_transaction {
             Some(transaction.transaction_type())

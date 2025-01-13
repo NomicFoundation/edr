@@ -21,25 +21,17 @@ use crate::{
 
 /// An error caused during construction of a block builder.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT> {
+pub enum BlockBuilderCreationError<BlockchainErrorT, StateErrorT> {
     /// Blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
     /// State error
     #[error(transparent)]
     State(StateErrorT),
-    /// Unsupported hardfork. Hardforks older than Byzantium are not supported
-    #[error("Unsupported hardfork: {0:?}. Hardforks older than Byzantium are not supported.")]
-    UnsupportedHardfork(HardforkT),
 }
 
-/// Helper type for a chain-specific [`BlockBuilderCreationError`].
-pub type BlockBuilderCreationErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
-    BlockBuilderCreationError<BlockchainErrorT, <ChainSpecT as ChainSpec>::Hardfork, StateErrorT>;
-
-impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
-    From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-    for BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT>
+impl<BlockchainErrorT, StateErrorT> From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+    for BlockBuilderCreationError<BlockchainErrorT, StateErrorT>
 {
     fn from(value: DatabaseComponentError<BlockchainErrorT, StateErrorT>) -> Self {
         match value {
@@ -112,10 +104,7 @@ where
                 Self::StateError,
             >,
         >,
-    ) -> Result<
-        Self,
-        BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
-    >;
+    ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, Self::StateError>>;
 
     /// Returns the block's receipt factory.
     fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory;

@@ -219,7 +219,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = l1::SpecId::SHANGHAI;
+    config.hardfork = l1::Hardfork::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -251,7 +251,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = l1::SpecId::SHANGHAI;
+    config.hardfork = l1::Hardfork::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),

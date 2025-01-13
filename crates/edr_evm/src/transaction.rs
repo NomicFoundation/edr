@@ -93,7 +93,7 @@ pub enum CreationError {
 /// Validates the transaction.
 pub fn validate<TransactionT: Transaction>(
     transaction: TransactionT,
-    spec_id: l1::SpecId,
+    spec_id: l1::Hardfork,
 ) -> Result<TransactionT, CreationError> {
     if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
         return Err(CreationError::ContractMissingData);
@@ -111,7 +111,7 @@ pub fn validate<TransactionT: Transaction>(
 }
 
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl Transaction, spec_id: l1::SpecId) -> u64 {
+pub fn initial_cost(transaction: &impl Transaction, spec_id: l1::Hardfork) -> u64 {
     validate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),
@@ -145,7 +145,7 @@ mod tests {
 
         let transaction = request.fake_sign(caller);
         let transaction = transaction::Signed::from(transaction);
-        let result = validate(transaction, l1::SpecId::BERLIN);
+        let result = validate(transaction, l1::Hardfork::BERLIN);
 
         let expected_gas_cost = U256::from(21_000);
         assert!(matches!(
@@ -180,7 +180,7 @@ mod tests {
 
         let transaction = request.fake_sign(caller);
         let transaction = transaction::Signed::from(transaction);
-        let result = validate(transaction, l1::SpecId::BERLIN);
+        let result = validate(transaction, l1::Hardfork::BERLIN);
 
         assert!(matches!(result, Err(CreationError::ContractMissingData)));
 

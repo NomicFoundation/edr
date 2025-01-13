@@ -21,7 +21,7 @@ async fn issue_361() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = l1::SpecId::MUIR_GLACIER;
+    config.hardfork = l1::Hardfork::MUIR_GLACIER;
 
     let impersonated_account = Address::random();
     config.genesis_state.insert(

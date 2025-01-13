@@ -213,23 +213,23 @@ where
     /// Minimum required hardfork not met
     #[error("Feature is only available in post-{minimum:?} hardforks, the current hardfork is {actual:?}")]
     UnmetHardfork {
-        actual: l1::SpecId,
-        minimum: l1::SpecId,
+        actual: l1::Hardfork,
+        minimum: l1::Hardfork,
     },
     #[error("The transaction contains an access list parameter, but this is not supported by the current hardfork: {current_hardfork:?}")]
     UnsupportedAccessListParameter {
-        current_hardfork: l1::SpecId,
-        minimum_hardfork: l1::SpecId,
+        current_hardfork: l1::Hardfork,
+        minimum_hardfork: l1::Hardfork,
     },
     #[error("The transaction contains EIP-1559 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
     UnsupportedEIP1559Parameters {
-        current_hardfork: l1::SpecId,
-        minimum_hardfork: l1::SpecId,
+        current_hardfork: l1::Hardfork,
+        minimum_hardfork: l1::Hardfork,
     },
     #[error("The transaction contains EIP-4844 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
     UnsupportedEIP4844Parameters {
-        current_hardfork: l1::SpecId,
-        minimum_hardfork: l1::SpecId,
+        current_hardfork: l1::Hardfork,
+        minimum_hardfork: l1::Hardfork,
     },
     #[error("Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'")]
     UnsupportedTransactionTypeInDebugTrace {

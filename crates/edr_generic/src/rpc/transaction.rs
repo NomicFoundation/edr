@@ -30,7 +30,7 @@ impl From<edr_rpc_eth::TransactionWithSignature> for TransactionWithSignature {
 }
 
 impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for TransactionWithSignature {
-    type Hardfork = l1::SpecId;
+    type Hardfork = l1::Hardfork;
 
     fn rpc_type_from(
         value: &TransactionAndBlockForChainSpec<GenericChainSpec>,

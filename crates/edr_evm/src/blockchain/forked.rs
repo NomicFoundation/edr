@@ -190,7 +190,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                     hardfork_activations.hardfork_at_block(fork_block_number, fork_timestamp)
                 })
         {
-            if remote_hardfork.into() < l1::SpecId::SPURIOUS_DRAGON {
+            if remote_hardfork.into() < l1::Hardfork::SPURIOUS_DRAGON {
                 return Err(CreationError::InvalidHardfork {
                     chain_name: ChainSpecT::chain_name(remote_chain_id)
                         .map_or_else(|| "unknown".to_string(), ToString::to_string),
@@ -199,7 +199,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                 });
             }
 
-            if remote_hardfork.into() < l1::SpecId::CANCUN && hardfork.into() >= l1::SpecId::CANCUN
+            if remote_hardfork.into() < l1::Hardfork::CANCUN && hardfork.into() >= l1::Hardfork::CANCUN
             {
                 let beacon_roots_contract =
                     Bytecode::new_raw(Bytes::from_static(&BEACON_ROOTS_BYTECODE));

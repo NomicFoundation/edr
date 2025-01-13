@@ -31,7 +31,7 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
     let blockchain = ForkedBlockchain::new(
         runtime::Handle::current(),
         None,
-        l1::SpecId::LATEST,
+        l1::Hardfork::LATEST,
         Arc::new(rpc_client),
         None,
         &mut irregular_state,

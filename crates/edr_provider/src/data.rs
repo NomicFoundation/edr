@@ -796,7 +796,7 @@ where
             // Matching Hardhat behaviour by returning the last block for finalized and safe.
             // https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1395
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
-                if self.evm_spec_id() >= l1::SpecId::MERGE {
+                if self.evm_spec_id() >= l1::Hardfork::MERGE {
                     Some(self.blockchain.last_block()?)
                 } else {
                     return Err(ProviderError::InvalidBlockTag {
@@ -1017,7 +1017,7 @@ where
         &mut self,
         min_gas_price: U256,
     ) -> Result<(), ProviderError<ChainSpecT>> {
-        if self.evm_spec_id() >= l1::SpecId::LONDON {
+        if self.evm_spec_id() >= l1::Hardfork::LONDON {
             return Err(ProviderError::SetMinGasPriceUnsupported);
         }
 
@@ -1032,7 +1032,7 @@ where
         base_fee_per_gas: U256,
     ) -> Result<(), ProviderError<ChainSpecT>> {
         let hardfork = self.hardfork();
-        if hardfork.into() < l1::SpecId::LONDON {
+        if hardfork.into() < l1::Hardfork::LONDON {
             return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { hardfork });
         }
 
@@ -1072,7 +1072,7 @@ where
         prev_randao: B256,
     ) -> Result<(), ProviderError<ChainSpecT>> {
         let hardfork = self.hardfork();
-        if hardfork.into() < l1::SpecId::MERGE {
+        if hardfork.into() < l1::Hardfork::MERGE {
             return Err(ProviderError::SetNextPrevRandaoUnsupported { hardfork });
         }
 
@@ -1236,7 +1236,7 @@ where
             BlockSpec::Number(number) => Some(*number),
             BlockSpec::Tag(BlockTag::Earliest) => Some(0),
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
-                if self.evm_spec_id() >= l1::SpecId::MERGE {
+                if self.evm_spec_id() >= l1::Hardfork::MERGE {
                     Some(self.blockchain.last_block_number())
                 } else {
                     return Err(ProviderError::InvalidBlockTag {
@@ -1416,11 +1416,11 @@ where
         let hardfork = self.blockchain.hardfork();
 
         let evm_spec_id = hardfork.into();
-        if options.mix_hash.is_none() && evm_spec_id >= l1::SpecId::MERGE {
+        if options.mix_hash.is_none() && evm_spec_id >= l1::Hardfork::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
         }
 
-        if evm_spec_id >= l1::SpecId::CANCUN {
+        if evm_spec_id >= l1::Hardfork::CANCUN {
             options.parent_beacon_block_root = options
                 .parent_beacon_block_root
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
@@ -1594,8 +1594,8 @@ where
         Ok(chain_id)
     }
 
-    /// Returns the local EVM's [`l1::SpecId`].
-    pub fn evm_spec_id(&self) -> l1::SpecId {
+    /// Returns the local EVM's [`l1::Hardfork`].
+    pub fn evm_spec_id(&self) -> l1::Hardfork {
         self.hardfork().into()
     }
 
@@ -1643,7 +1643,7 @@ where
     pub fn next_block_base_fee_per_gas(
         &self,
     ) -> Result<Option<U256>, BlockchainErrorForChainSpec<ChainSpecT>> {
-        if self.evm_spec_id() < l1::SpecId::LONDON {
+        if self.evm_spec_id() < l1::Hardfork::LONDON {
             return Ok(None);
         }
 
@@ -1666,7 +1666,7 @@ where
     pub fn next_block_base_fee_per_blob_gas(
         &self,
     ) -> Result<Option<U256>, BlockchainErrorForChainSpec<ChainSpecT>> {
-        if self.evm_spec_id() < l1::SpecId::CANCUN {
+        if self.evm_spec_id() < l1::Hardfork::CANCUN {
             return Ok(None);
         }
 
@@ -1775,10 +1775,10 @@ where
         newest_block_spec: &BlockSpec,
         percentiles: Option<Vec<RewardPercentile>>,
     ) -> Result<FeeHistoryResult, ProviderError<ChainSpecT>> {
-        if self.evm_spec_id() < l1::SpecId::LONDON {
+        if self.evm_spec_id() < l1::Hardfork::LONDON {
             return Err(ProviderError::UnmetHardfork {
                 actual: self.evm_spec_id(),
-                minimum: l1::SpecId::LONDON,
+                minimum: l1::Hardfork::LONDON,
             });
         }
 
@@ -2782,7 +2782,7 @@ fn create_blockchain_and_state<
                 .expect("Elapsed time since fork block must be representable as i64")
         };
 
-        let next_block_base_fee_per_gas = if config.hardfork.into() >= l1::SpecId::LONDON {
+        let next_block_base_fee_per_gas = if config.hardfork.into() >= l1::Hardfork::LONDON {
             if let Some(base_fee) = config.initial_base_fee_per_gas {
                 Some(base_fee)
             } else {
@@ -2821,7 +2821,7 @@ fn create_blockchain_and_state<
             next_block_base_fee_per_gas,
         })
     } else {
-        let mix_hash = if config.hardfork.into() >= l1::SpecId::MERGE {
+        let mix_hash = if config.hardfork.into() >= l1::Hardfork::MERGE {
             Some(prev_randao_generator.generate_next())
         } else {
             None
@@ -3531,7 +3531,7 @@ mod tests {
     fn mine_and_commit_block_rewards_miner() -> anyhow::Result<()> {
         let default_config = create_test_config();
         let config = ProviderConfig {
-            hardfork: l1::SpecId::BERLIN,
+            hardfork: l1::Hardfork::BERLIN,
             ..default_config
         };
 
@@ -3972,7 +3972,7 @@ mod tests {
                 block_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
                 chain_id: 1,
                 coinbase: Address::ZERO,
-                hardfork: l1::SpecId::LONDON,
+                hardfork: l1::Hardfork::LONDON,
                 network_id: 1,
                 ..default_config
             };

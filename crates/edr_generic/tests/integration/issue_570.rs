@@ -30,7 +30,7 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
 
     config.chains.insert(
         CHAIN_ID,
-        hardfork::Activations::with_spec_id(l1::SpecId::CANCUN),
+        hardfork::Activations::with_spec_id(l1::Hardfork::CANCUN),
     );
 
     config.chain_id = CHAIN_ID;

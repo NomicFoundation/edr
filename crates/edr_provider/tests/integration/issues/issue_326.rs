@@ -20,7 +20,7 @@ async fn issue_326() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = l1::SpecId::CANCUN;
+    config.hardfork = l1::Hardfork::CANCUN;
     config.mining = MiningConfig {
         auto_mine: false,
         ..MiningConfig::default()

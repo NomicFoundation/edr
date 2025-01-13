@@ -197,7 +197,7 @@ pub struct PartialHeader {
 
 impl PartialHeader {
     /// Constructs a new instance based on the provided [`BlockOptions`] and
-    /// parent [`Header`] for the given [`l1::SpecId`].
+    /// parent [`Header`] for the given [`SpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
         options: BlockOptions,
@@ -227,14 +227,11 @@ impl PartialHeader {
             receipts_root: KECCAK_NULL_RLP,
             logs_bloom: Bloom::default(),
             difficulty: options.difficulty.unwrap_or_else(|| {
-                if hardfork.into() >= l1::SpecId::MERGE {
+                if Into::<l1::Hardfork>::into(hardfork) >= l1::Hardfork::Merge {
                     U256::ZERO
                 } else if let Some(parent) = parent {
                     calculate_ethash_canonical_difficulty::<ChainSpecT>(
-                        hardfork.into(),
-                        parent,
-                        number,
-                        timestamp,
+                        hardfork, parent, number, timestamp,
                     )
                 } else {
                     U256::from(1)
@@ -247,14 +244,14 @@ impl PartialHeader {
             extra_data: options.extra_data.unwrap_or_default(),
             mix_hash: options.mix_hash.unwrap_or_default(),
             nonce: options.nonce.unwrap_or_else(|| {
-                if hardfork.into() >= l1::SpecId::MERGE {
+                if Into::<l1::Hardfork>::into(hardfork) >= l1::Hardfork::Merge {
                     B64::ZERO
                 } else {
                     B64::from(66u64)
                 }
             }),
             base_fee: options.base_fee.or_else(|| {
-                if hardfork.into() >= l1::SpecId::LONDON {
+                if Into::<l1::Hardfork>::into(hardfork) >= l1::Hardfork::London {
                     Some(if let Some(parent) = &parent {
                         calculate_next_base_fee_per_gas::<ChainSpecT>(hardfork, parent)
                     } else {
@@ -265,7 +262,7 @@ impl PartialHeader {
                 }
             }),
             blob_gas: options.blob_gas.or_else(|| {
-                if hardfork.into() >= l1::SpecId::CANCUN {
+                if Into::<l1::Hardfork>::into(hardfork) >= l1::Hardfork::Cancun {
                     let excess_gas = parent.and_then(|parent| parent.blob_gas.as_ref()).map_or(
                         // For the first (post-fork) block, both parent.blob_gas_used and
                         // parent.excess_blob_gas are evaluated as 0.
@@ -287,7 +284,7 @@ impl PartialHeader {
                 }
             }),
             parent_beacon_block_root: options.parent_beacon_block_root.or_else(|| {
-                if hardfork.into() >= l1::SpecId::CANCUN {
+                if Into::<l1::Hardfork>::into(hardfork) >= l1::Hardfork::Cancun {
                     // Initial value from https://eips.ethereum.org/EIPS/eip-4788
                     Some(B256::ZERO)
                 } else {

@@ -107,6 +107,6 @@ pub(crate) fn resolve_call_request<
     let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
-    transaction::validate(transaction, l1::SpecId::LATEST)
+    transaction::validate(transaction, l1::Hardfork::LATEST)
         .map_err(ProviderError::TransactionCreationError)
 }

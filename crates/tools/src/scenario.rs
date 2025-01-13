@@ -36,7 +36,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         anyhow::bail!("This scenario expects logging, but logging is not yet implemented")
     }
 
-    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(config.provider_config);
+    let provider_config = edr_provider::ProviderConfig::<l1::Hardfork>::from(config.provider_config);
 
     let logger = Box::<DisabledLogger<GenericChainSpec>>::default();
     let subscription_callback = Box::new(|_| ());

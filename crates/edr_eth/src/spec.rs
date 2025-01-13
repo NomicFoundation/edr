@@ -1,10 +1,12 @@
 use core::fmt::Debug;
 
+pub use revm_specification::hardfork::SpecId;
 pub use revm_wiring::{evm_wiring::HardforkTrait, HaltReasonTrait};
 
 use crate::{
     block::Block,
     eips::eip1559::BaseFeeParams,
+    l1,
     transaction::{Transaction, TransactionValidation},
 };
 
@@ -17,7 +19,7 @@ pub trait ChainSpec {
     /// The chian's halt reason type.
     type HaltReason: HaltReasonTrait;
     /// The chain's hardfork type.
-    type Hardfork: HardforkTrait;
+    type Hardfork: HardforkTrait + Into<l1::Hardfork>;
     /// The chain's signed transaction type.
     type SignedTransaction: Transaction + TransactionValidation;
 }

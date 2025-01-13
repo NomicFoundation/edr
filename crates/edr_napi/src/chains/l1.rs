@@ -29,7 +29,7 @@ impl SyncProviderFactory for L1ProviderFactory {
     ) -> napi::Result<Box<dyn provider::Builder>> {
         let logger = Logger::<L1ChainSpec>::new(logger_config, Arc::clone(&contract_decoder))?;
 
-        let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(provider_config);
+        let provider_config = edr_provider::ProviderConfig::<l1::Hardfork>::from(provider_config);
 
         let subscription_callback =
             subscription::Callback::new(env, subscription_config.subscription_callback)?;
@@ -67,7 +67,7 @@ pub fn l1_genesis_state(hardfork: SpecId) -> Vec<Account> {
 /// hardfork.
 #[napi]
 pub fn l1_hardfork_from_string(hardfork: String) -> SpecId {
-    let hardfork = edr_eth::l1::SpecId::from(hardfork.as_str());
+    let hardfork = edr_eth::l1::Hardfork::from(hardfork.as_str());
     hardfork.into()
 }
 
@@ -121,57 +121,57 @@ pub enum SpecId {
     Latest = 2_147_483_647, // Maximum value of i32
 }
 
-impl From<edr_eth::l1::SpecId> for SpecId {
-    fn from(value: edr_eth::l1::SpecId) -> Self {
+impl From<edr_eth::l1::Hardfork> for SpecId {
+    fn from(value: edr_eth::l1::Hardfork) -> Self {
         match value {
-            edr_eth::l1::SpecId::FRONTIER => SpecId::Frontier,
-            edr_eth::l1::SpecId::FRONTIER_THAWING => SpecId::FrontierThawing,
-            edr_eth::l1::SpecId::HOMESTEAD => SpecId::Homestead,
-            edr_eth::l1::SpecId::DAO_FORK => SpecId::DaoFork,
-            edr_eth::l1::SpecId::TANGERINE => SpecId::Tangerine,
-            edr_eth::l1::SpecId::SPURIOUS_DRAGON => SpecId::SpuriousDragon,
-            edr_eth::l1::SpecId::BYZANTIUM => SpecId::Byzantium,
-            edr_eth::l1::SpecId::CONSTANTINOPLE => SpecId::Constantinople,
-            edr_eth::l1::SpecId::PETERSBURG => SpecId::Petersburg,
-            edr_eth::l1::SpecId::ISTANBUL => SpecId::Istanbul,
-            edr_eth::l1::SpecId::MUIR_GLACIER => SpecId::MuirGlacier,
-            edr_eth::l1::SpecId::BERLIN => SpecId::Berlin,
-            edr_eth::l1::SpecId::LONDON => SpecId::London,
-            edr_eth::l1::SpecId::ARROW_GLACIER => SpecId::ArrowGlacier,
-            edr_eth::l1::SpecId::GRAY_GLACIER => SpecId::GrayGlacier,
-            edr_eth::l1::SpecId::MERGE => SpecId::Merge,
-            edr_eth::l1::SpecId::SHANGHAI => SpecId::Shanghai,
-            edr_eth::l1::SpecId::CANCUN => SpecId::Cancun,
+            edr_eth::l1::Hardfork::FRONTIER => SpecId::Frontier,
+            edr_eth::l1::Hardfork::FRONTIER_THAWING => SpecId::FrontierThawing,
+            edr_eth::l1::Hardfork::HOMESTEAD => SpecId::Homestead,
+            edr_eth::l1::Hardfork::DAO_FORK => SpecId::DaoFork,
+            edr_eth::l1::Hardfork::TANGERINE => SpecId::Tangerine,
+            edr_eth::l1::Hardfork::SPURIOUS_DRAGON => SpecId::SpuriousDragon,
+            edr_eth::l1::Hardfork::BYZANTIUM => SpecId::Byzantium,
+            edr_eth::l1::Hardfork::CONSTANTINOPLE => SpecId::Constantinople,
+            edr_eth::l1::Hardfork::PETERSBURG => SpecId::Petersburg,
+            edr_eth::l1::Hardfork::ISTANBUL => SpecId::Istanbul,
+            edr_eth::l1::Hardfork::MUIR_GLACIER => SpecId::MuirGlacier,
+            edr_eth::l1::Hardfork::BERLIN => SpecId::Berlin,
+            edr_eth::l1::Hardfork::LONDON => SpecId::London,
+            edr_eth::l1::Hardfork::ARROW_GLACIER => SpecId::ArrowGlacier,
+            edr_eth::l1::Hardfork::GRAY_GLACIER => SpecId::GrayGlacier,
+            edr_eth::l1::Hardfork::MERGE => SpecId::Merge,
+            edr_eth::l1::Hardfork::SHANGHAI => SpecId::Shanghai,
+            edr_eth::l1::Hardfork::CANCUN => SpecId::Cancun,
             // TODO: Add Prague and Prague EOF
-            edr_eth::l1::SpecId::PRAGUE
-            | edr_eth::l1::SpecId::PRAGUE_EOF
-            | edr_eth::l1::SpecId::LATEST => SpecId::Latest,
+            edr_eth::l1::Hardfork::PRAGUE
+            | edr_eth::l1::Hardfork::PRAGUE_EOF
+            | edr_eth::l1::Hardfork::LATEST => SpecId::Latest,
         }
     }
 }
 
-impl From<SpecId> for edr_eth::l1::SpecId {
+impl From<SpecId> for edr_eth::l1::Hardfork {
     fn from(value: SpecId) -> Self {
         match value {
-            SpecId::Frontier => edr_eth::l1::SpecId::FRONTIER,
-            SpecId::FrontierThawing => edr_eth::l1::SpecId::FRONTIER_THAWING,
-            SpecId::Homestead => edr_eth::l1::SpecId::HOMESTEAD,
-            SpecId::DaoFork => edr_eth::l1::SpecId::DAO_FORK,
-            SpecId::Tangerine => edr_eth::l1::SpecId::TANGERINE,
-            SpecId::SpuriousDragon => edr_eth::l1::SpecId::SPURIOUS_DRAGON,
-            SpecId::Byzantium => edr_eth::l1::SpecId::BYZANTIUM,
-            SpecId::Constantinople => edr_eth::l1::SpecId::CONSTANTINOPLE,
-            SpecId::Petersburg => edr_eth::l1::SpecId::PETERSBURG,
-            SpecId::Istanbul => edr_eth::l1::SpecId::ISTANBUL,
-            SpecId::MuirGlacier => edr_eth::l1::SpecId::MUIR_GLACIER,
-            SpecId::Berlin => edr_eth::l1::SpecId::BERLIN,
-            SpecId::London => edr_eth::l1::SpecId::LONDON,
-            SpecId::ArrowGlacier => edr_eth::l1::SpecId::ARROW_GLACIER,
-            SpecId::GrayGlacier => edr_eth::l1::SpecId::GRAY_GLACIER,
-            SpecId::Merge => edr_eth::l1::SpecId::MERGE,
-            SpecId::Shanghai => edr_eth::l1::SpecId::SHANGHAI,
-            SpecId::Cancun => edr_eth::l1::SpecId::CANCUN,
-            SpecId::Latest => edr_eth::l1::SpecId::LATEST,
+            SpecId::Frontier => edr_eth::l1::Hardfork::FRONTIER,
+            SpecId::FrontierThawing => edr_eth::l1::Hardfork::FRONTIER_THAWING,
+            SpecId::Homestead => edr_eth::l1::Hardfork::HOMESTEAD,
+            SpecId::DaoFork => edr_eth::l1::Hardfork::DAO_FORK,
+            SpecId::Tangerine => edr_eth::l1::Hardfork::TANGERINE,
+            SpecId::SpuriousDragon => edr_eth::l1::Hardfork::SPURIOUS_DRAGON,
+            SpecId::Byzantium => edr_eth::l1::Hardfork::BYZANTIUM,
+            SpecId::Constantinople => edr_eth::l1::Hardfork::CONSTANTINOPLE,
+            SpecId::Petersburg => edr_eth::l1::Hardfork::PETERSBURG,
+            SpecId::Istanbul => edr_eth::l1::Hardfork::ISTANBUL,
+            SpecId::MuirGlacier => edr_eth::l1::Hardfork::MUIR_GLACIER,
+            SpecId::Berlin => edr_eth::l1::Hardfork::BERLIN,
+            SpecId::London => edr_eth::l1::Hardfork::LONDON,
+            SpecId::ArrowGlacier => edr_eth::l1::Hardfork::ARROW_GLACIER,
+            SpecId::GrayGlacier => edr_eth::l1::Hardfork::GRAY_GLACIER,
+            SpecId::Merge => edr_eth::l1::Hardfork::MERGE,
+            SpecId::Shanghai => edr_eth::l1::Hardfork::SHANGHAI,
+            SpecId::Cancun => edr_eth::l1::Hardfork::CANCUN,
+            SpecId::Latest => edr_eth::l1::Hardfork::LATEST,
         }
     }
 }

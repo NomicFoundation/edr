@@ -312,7 +312,7 @@ fn validate_next_block<ChainSpecT: RuntimeSpec>(
         });
     }
 
-    if spec_id.into() >= l1::SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if spec_id.into() >= l1::Hardfork::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 
