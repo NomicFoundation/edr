@@ -8,6 +8,7 @@ import {
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
+  TracingConfigWithBuffer,
 } from "@nomicfoundation/edr-helpers";
 import hre from "hardhat";
 import { TracingConfig } from "hardhat/internal/hardhat-network/provider/node-types";
@@ -21,12 +22,12 @@ export class TestContext {
   readonly invariantFailuresPersistDir: string = "./edr-cache/invariant";
   readonly artifacts: Artifact[];
   readonly testSuiteIds: ArtifactId[];
-  readonly tracingConfig: TracingConfig;
+  readonly tracingConfig: TracingConfigWithBuffer;
 
   private constructor(
     artifacts: Artifact[],
     testSuiteIds: ArtifactId[],
-    tracingConfig: TracingConfig
+    tracingConfig: TracingConfigWithBuffer
   ) {
     this.artifacts = artifacts;
     this.testSuiteIds = testSuiteIds;

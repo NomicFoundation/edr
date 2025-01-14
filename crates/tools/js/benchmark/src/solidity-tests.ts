@@ -108,7 +108,12 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
 
       const start = performance.now();
       // TODO
-      const results = await runAllSolidityTests(artifacts, ids, {}, config);
+      const results = await runAllSolidityTests(
+        artifacts,
+        ids,
+        { buildInfos: [], ignoreContracts: undefined },
+        config
+      );
       const elapsed = performance.now() - start;
 
       const expectedResults = name === TOTAL_NAME ? TOTAL_EXPECTED_RESULTS : 1;

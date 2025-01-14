@@ -19,7 +19,7 @@ import { FIRST_SOLC_VERSION_SUPPORTED } from "hardhat/internal/hardhat-network/s
 export async function runAllSolidityTests(
   artifacts: Artifact[],
   testSuites: ArtifactId[],
-  tracingConfig: TracingConfig,
+  tracingConfig: TracingConfigWithBuffer,
   configArgs: SolidityTestRunnerConfigArgs,
   testResultCallback: (
     suiteResult: SuiteResult,
@@ -33,7 +33,7 @@ export async function runAllSolidityTests(
       artifacts,
       testSuites,
       configArgs,
-      tracingConfig,
+      tracingConfig.buildInfos,
       (suiteResult: SuiteResult) => {
         for (const testResult of suiteResult.testResults) {
           testResultCallback(suiteResult, testResult);
@@ -55,7 +55,7 @@ export async function buildSolidityTestsInput(
 ): Promise<{
   artifacts: Artifact[];
   testSuiteIds: ArtifactId[];
-  tracingConfig: TracingConfig;
+  tracingConfig: TracingConfigWithBuffer;
 }> {
   const fqns = await hardhatArtifacts.getAllFullyQualifiedNames();
   const artifacts: Artifact[] = [];
@@ -95,21 +95,25 @@ export async function buildSolidityTestsInput(
 
 // TODO: This is a temporary workaround for creating the tracing config.
 // Based on https://github.com/NomicFoundation/hardhat/blob/93bc3801849d0a761b659c472ada29983ae380c5/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts
-async function makeTracingConfig(
+export async function makeTracingConfig(
   artifacts: HardhatArtifacts
-): Promise<TracingConfig> {
+): Promise<TracingConfigWithBuffer> {
   const buildInfos = [];
 
   const buildInfoFiles = await artifacts.getBuildInfoPaths();
 
   for (const buildInfoFile of buildInfoFiles) {
-    const buildInfo = await fsExtra.readJson(buildInfoFile);
-    if (semver.gte(buildInfo.solcVersion, FIRST_SOLC_VERSION_SUPPORTED)) {
-      buildInfos.push(buildInfo);
-    }
+    const buildInfo = await fsExtra.readFile(buildInfoFile);
+    buildInfos.push(buildInfo);
   }
 
   return {
     buildInfos,
+    ignoreContracts: undefined,
   };
+}
+
+export interface TracingConfigWithBuffer {
+  buildInfos: Uint8Array[];
+  ignoreContracts: boolean | undefined;
 }

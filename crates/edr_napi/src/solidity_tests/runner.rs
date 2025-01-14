@@ -1,12 +1,13 @@
 use std::collections::BTreeMap;
 
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{artifacts::BuildInfo, contract_decoder::ContractDecoder};
 use edr_solidity_tests::{
     contracts::{ArtifactId, ContractData, ContractsByArtifact},
     decode::RevertDecoder,
     multi_runner::{TestContract, TestContracts},
     MultiContractRunner, SolidityTestRunnerConfig,
 };
+use napi::bindgen_prelude::Uint8Array;
 
 use crate::solidity_tests::{
     artifact::{Artifact as JsArtifact, ArtifactId as JsArtifactId},
@@ -17,7 +18,7 @@ pub(super) async fn build_runner(
     artifacts: Vec<JsArtifact>,
     test_suites: Vec<JsArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
-    tracing_config: serde_json::Value,
+    build_infos: Vec<Uint8Array>,
 ) -> napi::Result<MultiContractRunner> {
     let known_contracts: ContractsByArtifact = artifacts
         .into_iter()
@@ -32,8 +33,16 @@ pub(super) async fn build_runner(
 
     let config: SolidityTestRunnerConfig = config_args.try_into()?;
 
-    let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
-        serde_json::from_value(tracing_config)?;
+    // TODO parallelize
+    // TODO if (semver.gte(buildInfo.solcVersion, FIRST_SOLC_VERSION_SUPPORTED)) {
+    let build_infos = build_infos
+        .into_iter()
+        .map(|build_info| serde_json::from_slice(build_info.as_ref()))
+        .collect::<Result<Vec<BuildInfo>, _>>()?;
+    let build_info_config = edr_solidity::contract_decoder::BuildInfoConfig {
+        build_infos: Some(build_infos),
+        ignore_contracts: None,
+    };
     let contract_decoder = ContractDecoder::new(&build_info_config)
         .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 

@@ -747,7 +747,7 @@ export interface BaseCounterExample {
  * know when all tests are done.
  * The error callback is called if an invalid configuration value is provided.
  */
-export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: any, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
+export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: Array<Uint8Array>, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
 export interface SubscriptionEvent {
   filterId: bigint
   result: any

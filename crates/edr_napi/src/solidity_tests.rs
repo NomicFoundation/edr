@@ -8,6 +8,7 @@ use std::{path::Path, sync::Arc};
 use artifact::Artifact;
 use edr_solidity_tests::TestFilter;
 use napi::{
+    bindgen_prelude::Uint8Array,
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
@@ -36,7 +37,7 @@ pub fn run_solidity_tests(
     artifacts: Vec<Artifact>,
     test_suites: Vec<ArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
-    tracing_config: serde_json::Value,
+    tracing_config: Vec<Uint8Array>,
     #[napi(ts_arg_type = "(result: SuiteResult) => void")] progress_callback: JsFunction,
     #[napi(ts_arg_type = "(error: Error) => void")] error_callback: JsFunction,
 ) -> napi::Result<()> {
