@@ -32,6 +32,7 @@ mod debug_trace;
 pub mod evm;
 /// Types for Ethereum hardforks
 pub mod hardfork;
+pub mod instruction;
 /// Types for managing Ethereum mem pool
 pub mod mempool;
 mod miner;

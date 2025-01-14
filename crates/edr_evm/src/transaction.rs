@@ -112,13 +112,7 @@ pub fn validate<TransactionT: ExecutableTransaction>(
 
 /// Calculates the initial cost of a transaction.
 pub fn initial_cost(transaction: &impl ExecutableTransaction, spec_id: l1::SpecId) -> u64 {
-    validate_initial_tx_gas(
-        spec_id,
-        transaction.data().as_ref(),
-        transaction.kind() == TxKind::Create,
-        transaction.access_list(),
-        0,
-    )
+    validate_initial_tx_gas(transaction, spec_id)
 }
 
 #[cfg(test)]

@@ -1,4 +1,7 @@
-use std::{cell::RefCell, fmt::Debug, marker::PhantomData, rc::Rc, sync::Arc};
+mod context;
+mod frame;
+
+use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
@@ -7,12 +10,9 @@ use edr_eth::{
     spec::HaltReasonTrait,
     Address, Bytecode, Bytes, U256,
 };
-use revm::{
-    context_interface::{Journal, JournalGetter},
-    interpreter::FrameInput,
-};
-use revm_handler_interface::{frame::FrameType, Frame, FrameOrResultGen};
+use revm::{context_interface::Journal, handler::FrameResult};
 
+pub use self::context::TraceCollectorContext;
 use crate::{
     debug::GetContextData,
     evm::{
@@ -144,97 +144,6 @@ fn instruction_handler<EvmWiringT>(
 
     // Execute instruction.
     prev(interpreter, host);
-}
-
-pub struct TraceCollectorContext<ContextT, HaltReasonT: HaltReasonTrait> {
-    collector: TraceCollector<HaltReasonT>,
-    inner: ContextT,
-}
-
-impl<ContextT, HaltReasonT: HaltReasonTrait> TraceCollectorContext<ContextT, HaltReasonT> {
-    /// Creates a new instance.
-    pub fn new(collector: TraceCollector<HaltReasonT>, inner: ContextT) -> Self {
-        Self { collector, inner }
-    }
-}
-
-pub struct TraceCollectorFrame<FrameT: Frame, HaltReasonT: HaltReasonTrait> {
-    inner: FrameT,
-    _phantom: PhantomData<HaltReasonT>,
-}
-
-impl<FrameT, HaltReasonT> Frame for TraceCollectorFrame<FrameT, HaltReasonT>
-where
-    FrameT: Frame<Context: JournalGetter, FrameInit = FrameInput>,
-    HaltReasonT: HaltReasonTrait,
-{
-    type Context = TraceCollectorContext<FrameT::Context, HaltReasonT>;
-
-    type FrameInit = FrameT::FrameInit;
-
-    type FrameResult = FrameT::FrameResult;
-
-    type Error = FrameT::Error;
-
-    fn init_first(
-        context: &mut Self::Context,
-        frame_input: Self::FrameInit,
-    ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        match &frame_input {
-            FrameInput::Call(call_inputs) => {
-                context.collector.call(context.inner.journal_ref(), inputs)
-            }
-            FrameInput::Create(create_inputs) => context
-                .collector
-                .create(context.inner.journal_ref(), inputs),
-            // TODO: https://github.com/NomicFoundation/edr/issues/427
-            FrameInput::EOFCreate(eofcreate_inputs) => unreachable!("EDR doesn't support EOF yet."),
-        }
-
-        let result = FrameT::init_first(context.inner, frame_input).map(|frame| {
-            frame.map_frame(|inner| Self {
-                inner,
-                _phantom: PhantomData,
-            })
-        });
-
-        match &result {
-            Ok(FrameOrResultGen::Result(result)) => match result {},
-            _ => (),
-        }
-
-        Ok(result)
-    }
-
-    fn final_return(
-        context: &mut Self::Context,
-        result: &mut Self::FrameResult,
-    ) -> Result<(), Self::Error> {
-        todo!()
-    }
-
-    fn init(
-        &self,
-        context: &mut Self::Context,
-        frame_input: Self::FrameInit,
-    ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        todo!()
-    }
-
-    fn run(
-        &mut self,
-        context: &mut Self::Context,
-    ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
-        todo!()
-    }
-
-    fn return_result(
-        &mut self,
-        context: &mut Self::Context,
-        result: Self::FrameResult,
-    ) -> Result<(), Self::Error> {
-        todo!()
-    }
 }
 
 /// Stack tracing message
@@ -403,9 +312,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         }
     }
 
-    fn call<EvmWiringT: EvmWiring<HaltReason = HaltReasonT, Database: Database<Error: Debug>>>(
+    pub fn call<DatabaseT: Database<Error: Debug>, FinalOutputT>(
         &mut self,
-        journal: &dyn Journal,
+        journal: &dyn Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
         inputs: &CallInputs,
     ) {
         if self.is_new_trace {
@@ -414,6 +323,8 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         }
 
         self.validate_before_message();
+
+        let database = journal.db_ref();
 
         // This needs to be split into two functions to avoid borrow checker issues
         #[allow(clippy::map_unwrap_or)]
@@ -425,30 +336,23 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 if let Some(code) = account_info.code.take() {
                     code
                 } else {
-                    journal
-                        .db_ref()
-                        .code_by_hash(account_info.code_hash)
-                        .unwrap()
+                    database.code_by_hash(account_info.code_hash).unwrap()
                 }
             })
             .unwrap_or_else(|| {
-                journal
-                    .db_ref()
-                    .basic(inputs.bytecode_address)
-                    .unwrap()
-                    .map_or(
-                        // If an invalid contract address was provided, return empty code
-                        Bytecode::new(),
-                        |account_info| {
-                            account_info.code.unwrap_or_else(|| {
-                                data.db.code_by_hash(account_info.code_hash).unwrap()
-                            })
-                        },
-                    )
+                database.basic(inputs.bytecode_address).unwrap().map_or(
+                    // If an invalid contract address was provided, return empty code
+                    Bytecode::new(),
+                    |account_info| {
+                        account_info.code.unwrap_or_else(|| {
+                            database.code_by_hash(account_info.code_hash).unwrap()
+                        })
+                    },
+                )
             });
 
         self.pending_before = Some(BeforeMessage {
-            depth: data.journaled_state.depth,
+            depth: journal.depth(),
             caller: inputs.caller,
             to: Some(inputs.target_address),
             is_static_call: inputs.is_static,
@@ -462,10 +366,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn call_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    pub fn call_end<DatabaseT: Database<Error: Debug>, FinalOutputT>(
         &mut self,
-        data: &InnerEvmContext<EvmWiringT>,
-        _inputs: &CallInputs,
+        journal: &dyn Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
         outcome: &CallOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
@@ -496,7 +399,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 reason,
                 gas_used: outcome.gas().spent(),
                 gas_refunded: outcome.gas().refunded() as u64,
-                logs: data.journaled_state.logs.clone(),
+                logs: journal.logs().to_vec(),
                 output: Output::Call(outcome.output().clone()),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
@@ -519,9 +422,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn create<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    pub fn create<DatabaseT: Database<Error: Debug>, FinalOutputT>(
         &mut self,
-        data: &InnerEvmContext<EvmWiringT>,
+        journal: &dyn Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
         inputs: &CreateInputs,
     ) {
         if self.is_new_trace {
@@ -532,7 +435,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         self.validate_before_message();
 
         self.pending_before = Some(BeforeMessage {
-            depth: data.journaled_state.depth,
+            depth: journal.depth(),
             caller: inputs.caller,
             to: None,
             gas_limit: inputs.gas_limit,
@@ -544,10 +447,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn create_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    pub fn create_end<DatabaseT: Database<Error: Debug>, FinalOutputT>(
         &mut self,
-        data: &InnerEvmContext<EvmWiringT>,
-        _inputs: &CreateInputs,
+        journal: &dyn Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
         outcome: &CreateOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
@@ -568,7 +470,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 reason,
                 gas_used: outcome.gas().spent(),
                 gas_refunded: outcome.gas().refunded() as u64,
-                logs: data.journaled_state.logs.clone(),
+                logs: journal.logs().to_vec(),
                 output: Output::Create(outcome.output().clone(), outcome.address),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
@@ -591,7 +493,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn step<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    pub fn step<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
         &mut self,
         interp: &Interpreter,
         data: &InnerEvmContext<EvmWiringT>,
