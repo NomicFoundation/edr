@@ -8,7 +8,7 @@ use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
 use edr_eth::{l1, spec::ChainSpec, U256};
-use revm::interpreter::gas::validate_initial_tx_gas;
+use revm::handler::validate_initial_tx_gas;
 
 pub use self::detailed::*;
 use crate::{

@@ -9,10 +9,9 @@ pub use crate::{
     block::*,
     debug::{DebugContext, GetContextData},
     debug_trace::{
-        debug_trace_transaction, execution_result_to_debug_result,
-        register_eip_3155_and_raw_tracers_handles, register_eip_3155_tracer_handles,
-        DebugTraceConfig, DebugTraceError, DebugTraceLogItem, DebugTraceResult,
-        DebugTraceResultWithTraces, Eip3155AndRawTracers, TracerEip3155,
+        debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
+        DebugTraceError, DebugTraceLogItem, DebugTraceResult, DebugTraceResultWithTraces,
+        Eip3155AndRawTracers, TracerEip3155,
     },
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,

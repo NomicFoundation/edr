@@ -203,7 +203,7 @@ pub trait ExecutableTransaction {
     /// Added in [EIP-2930].
     ///
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-    fn access_list(&self) -> &[eip2930::AccessListItem];
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]>;
 
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
@@ -245,7 +245,7 @@ pub trait ExecutableTransaction {
     /// Set EOA account code for one transaction
     ///
     /// [EIP-Set EOA account code for one transaction](https://eips.ethereum.org/EIPS/eip-7702)
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList>;
+    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]>;
 
     /// The enveloped (EIP-2718) RLP-encoding of the transaction.
     fn rlp_encoding(&self) -> &Bytes;
@@ -291,12 +291,6 @@ pub trait TransactionType {
 pub trait TransactionValidation {
     /// An error that occurs when validating a transaction.
     type ValidationError: Debug + std::error::Error;
-}
-
-/// Trait for determining whether a transaction has an access list.
-pub trait HasAccessList {
-    /// Whether the transaction has an access list.
-    fn has_access_list(&self) -> bool;
 }
 
 /// Trait for determining whether a transaction is an EIP-155 transaction.

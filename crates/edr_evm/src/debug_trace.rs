@@ -17,15 +17,19 @@ use crate::{
     config::CfgEnv,
     debug::GetContextData,
     evm::{
-        handler::register::EvmHandler,
         interpreter::{table::DynInstruction, Interpreter, InterpreterResult},
-        Context, EvmWiring, InnerEvmContext, JournalEntry,
+        Context, JournalEntry,
     },
     spec::RuntimeSpec,
     state::{Database, DatabaseComponents, SyncState, WrapDatabaseRef},
-    trace::{register_trace_collector_handles, Trace, TraceCollector},
+    trace::{Trace, TraceCollector},
     transaction::TransactionError,
 };
+
+pub struct TracerEip3155Context<ContextT> {
+    eip3155: TracerEip3155,
+    inner: ContextT,
+}
 
 /// EIP-3155 and raw tracers.
 pub struct Eip3155AndRawTracers<HaltReasonT: HaltReasonTrait> {
@@ -57,20 +61,6 @@ impl<HaltReasonT: HaltReasonTrait> GetContextData<TracerEip3155>
     fn get_context_data(&mut self) -> &mut TracerEip3155 {
         &mut self.eip3155
     }
-}
-
-/// Register EIP-3155 and trace collector handles.
-pub fn register_eip_3155_and_raw_tracers_handles<
-    EvmWiringT: revm::EvmWiring<
-        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>
-                             + GetContextData<TracerEip3155>,
-        Database: Database<Error: Debug>,
-    >,
->(
-    handler: &mut EvmHandler<'_, EvmWiringT>,
-) {
-    register_trace_collector_handles(handler);
-    register_eip_3155_tracer_handles(handler);
 }
 
 /// Get trace output for `debug_traceTransaction`

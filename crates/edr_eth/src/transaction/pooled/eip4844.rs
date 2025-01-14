@@ -220,7 +220,7 @@ impl ExecutableTransaction for Eip4844 {
         self.payload.chain_id()
     }
 
-    fn access_list(&self) -> &[eip2930::AccessListItem] {
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
         self.payload.access_list()
     }
 
@@ -248,7 +248,7 @@ impl ExecutableTransaction for Eip4844 {
         self.payload.total_blob_gas()
     }
 
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
+    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
         self.payload.authorization_list()
     }
 

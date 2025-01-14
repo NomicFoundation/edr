@@ -25,7 +25,7 @@ use super::{
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::{DebugContext, DebugContextForChainSpec},
+    debug::DebugContext,
     dry_run,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     run,

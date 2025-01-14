@@ -17,9 +17,9 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    ExecutableTransaction, HasAccessList, InvalidTransaction, IsEip155, IsEip4844, IsLegacy,
-    IsSupported, Signed, SignedTransaction, TransactionMut, TransactionType, TransactionValidation,
-    TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+    ExecutableTransaction, InvalidTransaction, IsEip155, IsEip4844, IsLegacy, IsSupported, Signed,
+    SignedTransaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
+    INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
     eips::{self, eip7702},
@@ -183,15 +183,6 @@ impl From<PreOrPostEip155> for Signed {
     }
 }
 
-impl HasAccessList for Signed {
-    fn has_access_list(&self) -> bool {
-        match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => false,
-            Signed::Eip2930(_) | Signed::Eip1559(_) | Signed::Eip4844(_) => true,
-        }
-    }
-}
-
 impl IsEip155 for Signed {
     fn is_eip155(&self) -> bool {
         matches!(self, Signed::PostEip155Legacy(_))
@@ -300,7 +291,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn access_list(&self) -> &[eips::eip2930::AccessListItem] {
+    fn access_list(&self) -> Option<&[eips::eip2930::AccessListItem]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.access_list(),
             Signed::PostEip155Legacy(tx) => tx.access_list(),
@@ -370,7 +361,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
+    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),

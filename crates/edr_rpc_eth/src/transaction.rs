@@ -6,9 +6,7 @@ use edr_eth::{
     block,
     eips::eip2930,
     l1, signature,
-    transaction::{
-        self, ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, TransactionType, TxKind,
-    },
+    transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
 
@@ -81,11 +79,7 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn new(
-        transaction: &(impl ExecutableTransaction
-              + TransactionType
-              + HasAccessList
-              + IsEip4844
-              + IsLegacy),
+        transaction: &(impl ExecutableTransaction + TransactionType + IsEip4844 + IsLegacy),
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
         is_pending: bool,
@@ -128,11 +122,9 @@ impl Transaction {
 
         let transaction_index = if is_pending { None } else { transaction_index };
 
-        let access_list = if transaction.has_access_list() {
-            Some(transaction.access_list().to_vec())
-        } else {
-            None
-        };
+        let access_list = transaction
+            .access_list()
+            .map(<[eip2930::AccessListItem]>::to_vec);
 
         let blob_versioned_hashes = if transaction.is_eip4844() {
             Some(transaction.blob_hashes().to_vec())

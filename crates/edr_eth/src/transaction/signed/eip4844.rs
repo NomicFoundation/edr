@@ -80,8 +80,8 @@ impl ExecutableTransaction for Eip4844 {
         Some(self.chain_id)
     }
 
-    fn access_list(&self) -> &[eip2930::AccessListItem] {
-        &self.access_list.0
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+        Some(self.access_list.0.as_slice())
     }
 
     fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
@@ -111,7 +111,7 @@ impl ExecutableTransaction for Eip4844 {
         Some(total_blob_gas(self))
     }
 
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
+    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
         None
     }
 

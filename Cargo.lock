@@ -1306,12 +1306,12 @@ dependencies = [
  "log",
  "once_cell",
  "paste",
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-bytecode 1.0.0",
  "revm-context",
  "revm-context-interface",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
+ "revm-state 1.0.0",
  "serde",
  "serde_json",
  "serial_test",
@@ -1350,7 +1350,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "paste",
- "revm 14.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm 19.2.0",
  "revm-context",
  "revm-handler-interface",
  "rpds",
@@ -1492,7 +1492,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "paste",
  "rand",
- "revm-precompile 11.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-precompile 16.0.0",
  "rpds",
  "serde",
  "serde_json",
@@ -3343,9 +3343,9 @@ dependencies = [
  "dyn-clone",
  "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
  "revm-database-interface 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-interpreter 10.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-precompile 11.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-interpreter 10.0.1",
+ "revm-precompile 11.0.1",
+ "revm-primitives 9.0.1",
  "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
  "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
  "revm-wiring",
@@ -3354,20 +3354,29 @@ dependencies = [
 
 [[package]]
 name = "revm"
-version = "14.0.1"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
+version = "19.2.0"
 dependencies = [
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-bytecode 1.0.0",
  "revm-context",
  "revm-context-interface",
- "revm-database-interface 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-database-interface 1.0.0",
  "revm-handler",
  "revm-handler-interface",
- "revm-interpreter 10.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-precompile 11.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-interpreter 15.0.0",
+ "revm-precompile 16.0.0",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
+ "revm-state 1.0.0",
+]
+
+[[package]]
+name = "revm-bytecode"
+version = "1.0.0"
+dependencies = [
+ "bitvec",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
+ "serde",
 ]
 
 [[package]]
@@ -3376,48 +3385,45 @@ version = "1.0.0"
 source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
 dependencies = [
  "bitvec",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives 9.0.1",
  "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "serde",
-]
-
-[[package]]
-name = "revm-bytecode"
-version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
-dependencies = [
- "bitvec",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
  "serde",
 ]
 
 [[package]]
 name = "revm-context"
 version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
 dependencies = [
  "cfg-if",
  "derive-where",
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-bytecode 1.0.0",
  "revm-context-interface",
- "revm-database-interface 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-interpreter 10.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-database-interface 1.0.0",
+ "revm-interpreter 15.0.0",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
+ "revm-state 1.0.0",
 ]
 
 [[package]]
 name = "revm-context-interface"
 version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
 dependencies = [
  "auto_impl",
- "revm-database-interface 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-database-interface 1.0.0",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
+ "revm-state 1.0.0",
+ "serde",
+]
+
+[[package]]
+name = "revm-database-interface"
+version = "1.0.0"
+dependencies = [
+ "auto_impl",
+ "revm-primitives 15.1.0",
+ "revm-state 1.0.0",
  "serde",
 ]
 
@@ -3427,45 +3433,31 @@ version = "1.0.0"
 source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
 dependencies = [
  "auto_impl",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives 9.0.1",
  "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "serde",
-]
-
-[[package]]
-name = "revm-database-interface"
-version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
-dependencies = [
- "auto_impl",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
  "serde",
 ]
 
 [[package]]
 name = "revm-handler"
 version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
 dependencies = [
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-bytecode 1.0.0",
  "revm-context-interface",
  "revm-handler-interface",
- "revm-interpreter 10.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-precompile 11.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-interpreter 15.0.0",
+ "revm-precompile 16.0.0",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
+ "revm-state 1.0.0",
  "serde",
 ]
 
 [[package]]
 name = "revm-handler-interface"
 version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
 dependencies = [
- "revm-interpreter 10.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-primitives 15.1.0",
 ]
 
 [[package]]
@@ -3475,7 +3467,7 @@ source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd
 dependencies = [
  "derive-where",
  "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives 9.0.1",
  "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
  "revm-wiring",
  "serde",
@@ -3483,13 +3475,13 @@ dependencies = [
 
 [[package]]
 name = "revm-interpreter"
-version = "10.0.1"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
+version = "15.0.0"
 dependencies = [
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-bytecode 1.0.0",
  "revm-context-interface",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-handler-interface",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
  "serde",
 ]
 
@@ -3499,8 +3491,8 @@ version = "1.0.0"
 source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
 dependencies = [
  "enumn",
- "revm 14.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-precompile 11.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm 14.0.1",
+ "revm-precompile 11.0.1",
  "serde",
 ]
 
@@ -3516,7 +3508,7 @@ dependencies = [
  "k256",
  "once_cell",
  "p256",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives 9.0.1",
  "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
  "revm-wiring",
  "ripemd",
@@ -3527,8 +3519,7 @@ dependencies = [
 
 [[package]]
 name = "revm-precompile"
-version = "11.0.1"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
+version = "16.0.0"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -3538,8 +3529,8 @@ dependencies = [
  "once_cell",
  "p256",
  "revm-context-interface",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
  "ripemd",
  "secp256k1",
  "sha2 0.10.8",
@@ -3559,10 +3550,18 @@ dependencies = [
 
 [[package]]
 name = "revm-primitives"
-version = "9.0.1"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
+version = "15.1.0"
 dependencies = [
  "alloy-primitives 0.8.15",
+]
+
+[[package]]
+name = "revm-specification"
+version = "1.0.0"
+dependencies = [
+ "enumn",
+ "revm-primitives 15.1.0",
+ "serde",
 ]
 
 [[package]]
@@ -3574,20 +3573,18 @@ dependencies = [
  "alloy-eip7702",
  "alloy-primitives 0.8.15",
  "enumn",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives 9.0.1",
  "serde",
 ]
 
 [[package]]
-name = "revm-specification"
+name = "revm-state"
 version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
 dependencies = [
- "alloy-eip2930",
- "alloy-eip7702",
- "alloy-primitives 0.8.15",
- "enumn",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
+ "bitflags 2.6.0",
+ "revm-bytecode 1.0.0",
+ "revm-primitives 15.1.0",
+ "revm-specification 1.0.0",
  "serde",
 ]
 
@@ -3598,20 +3595,8 @@ source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd
 dependencies = [
  "bitflags 2.6.0",
  "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives 9.0.1",
  "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "serde",
-]
-
-[[package]]
-name = "revm-state"
-version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=6f3d9f89#6f3d9f89d538896498274e1fb44ffb42f189922a"
-dependencies = [
- "bitflags 2.6.0",
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=6f3d9f89)",
  "serde",
 ]
 
@@ -3624,7 +3609,7 @@ dependencies = [
  "cfg-if",
  "dyn-clone",
  "revm-database-interface 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-primitives 9.0.1 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives 9.0.1",
  "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
  "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
  "serde",

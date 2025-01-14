@@ -274,7 +274,11 @@ impl PartialHeader {
                              gas_used,
                              excess_gas,
                          }| {
-                            eip4844::calc_excess_blob_gas(*excess_gas, *gas_used)
+                            eip4844::calc_excess_blob_gas(
+                                *excess_gas,
+                                *gas_used,
+                                eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN,
+                            )
                         },
                     );
 
@@ -375,12 +379,18 @@ pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
 
 /// Calculates the next base fee per blob gas for a post-Cancun block, given the
 /// parent's header.
-pub fn calculate_next_base_fee_per_blob_gas(parent: &Header) -> U256 {
+pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<l1::SpecId>>(
+    parent: &Header,
+    hardfork: HardforkT,
+) -> U256 {
     parent
         .blob_gas
         .as_ref()
         .map_or(U256::ZERO, |BlobGas { excess_gas, .. }| {
-            U256::from(eip4844::calc_blob_gasprice(*excess_gas))
+            U256::from(eip4844::calc_blob_gasprice(
+                *excess_gas,
+                hardfork.into() >= l1::SpecId::PRAGUE,
+            ))
         })
 }
 

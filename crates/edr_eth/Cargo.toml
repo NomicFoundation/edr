@@ -18,12 +18,18 @@ itertools = { version = "0.10.5", default-features = false, features = ["use_all
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", ] }
 log = { version = "0.4.17", default-features = false }
 once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "race", "std"] }
-revm-bytecode = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
-revm-context = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
-revm-context-interface = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
-revm-primitives = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "9.0", default-features = false, features = ["hashbrown", "rand"] }
-revm-specification = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
-revm-state = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
+# revm-bytecode = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
+# revm-context = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
+# revm-context-interface = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
+# revm-primitives = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "9.0", default-features = false, features = ["hashbrown", "rand"] }
+# revm-specification = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
+# revm-state = { git = "https://github.com/nomicfoundation/revm", rev = "6f3d9f89", version = "1.0.0", default-features = false }
+revm-bytecode = { path = "../../../revm/crates/bytecode", version = "1.0.0", default-features = false }
+revm-context = { path = "../../../revm/crates/context", version = "1.0.0", default-features = false }
+revm-context-interface = { path = "../../../revm/crates/context/interface", version = "1.0.0", default-features = false }
+revm-primitives = { path = "../../../revm/crates/primitives", version = "15.1", default-features = false, features = ["hashbrown", "rand"] }
+revm-specification = { path = "../../../revm/crates/specification", version = "1.0.0", default-features = false }
+revm-state = { path = "../../../revm/crates/state", version = "1.0.0", default-features = false }
 serde = { version = "1.0.209", default-features = false, features = ["derive"], optional = true }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
