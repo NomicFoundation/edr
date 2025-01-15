@@ -25,5 +25,11 @@ task("test").setAction(async (taskArgs, hre, runSuper) => {
 });
 
 export default {
-  solidity: { version: "0.8.24", settings: { evmVersion: "cancun" } },
+  solidity: {
+    version: "0.8.24",
+    settings: { evmVersion: "cancun" },
+  },
+  compilerOptions: {
+    paths: { "forge-std": ["node_modules/forge-std/src/"] },
+  },
 };
