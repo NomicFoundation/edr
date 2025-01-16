@@ -28,10 +28,3 @@ pub struct DebugContext<ContextT, DebugDataT, HandlerT> {
     /// The handler
     pub handler: HandlerT,
 }
-
-/// Trait for getting contextual data.
-#[auto_impl(&mut)]
-pub trait GetContextData<DataT> {
-    /// Retrieves the contextual data.
-    fn get_context_data(&mut self) -> &mut DataT;
-}

@@ -60,8 +60,6 @@ where
     BlockchainErrorT: Debug + Send,
     StateT: State<Error: Debug + Send>,
 {
-    validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(cfg.spec, &transaction)?;
-
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
     let context = {
         let context = revm::Context {
@@ -184,15 +182,4 @@ where
     state.commit(state_diff);
 
     Ok(result)
-}
-
-fn validate_configuration<ChainSpecT: RuntimeSpec, BlockchainErrorT, StateErrorT>(
-    hardfork: ChainSpecT::Hardfork,
-    transaction: &ChainSpecT::SignedTransaction,
-) -> Result<(), TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>> {
-    if transaction.max_fee_per_gas().is_some() && Into::into(hardfork) < l1::SpecId::LONDON {
-        return Err(TransactionError::Eip1559Unsupported);
-    }
-
-    Ok(())
 }

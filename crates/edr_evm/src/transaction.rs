@@ -30,9 +30,6 @@ where
     /// Custom errors
     #[error("{0}")]
     Custom(String),
-    /// EIP-1559 is not supported
-    #[error("Cannot run transaction: EIP 1559 is not activated.")]
-    Eip1559Unsupported,
     /// Invalid block header
     #[error(transparent)]
     InvalidHeader(InvalidHeader),

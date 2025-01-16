@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+mod context;
+mod frame;
+
+use std::{collections::HashMap, fmt::Debug};
 
 use edr_eth::{
     block::Block as _,
@@ -10,26 +13,34 @@ use edr_eth::{
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
-use revm::Evm;
+use revm::{handler::EthHandler, Evm, JournaledState};
+use revm_context_interface::Journal;
+use revm_interpreter::interpreter::EthInterpreter;
 
 use crate::{
-    blockchain::SyncBlockchain,
-    config::CfgEnv,
-    debug::GetContextData,
-    evm::{
-        interpreter::{table::DynInstruction, Interpreter, InterpreterResult},
-        Context, JournalEntry,
-    },
-    spec::RuntimeSpec,
-    state::{Database, DatabaseComponents, SyncState, WrapDatabaseRef},
-    trace::{Trace, TraceCollector},
-    transaction::TransactionError,
+    blockchain::SyncBlockchain, config::CfgEnv, evm::{
+        interpreter::{Interpreter, InterpreterResult},
+        JournalEntry,
+    },  spec::RuntimeSpec, state::{Database, DatabaseComponents, SyncState, WrapDatabaseRef}, trace::{Trace, TraceCollector}, transaction::TransactionError
 };
 
-pub struct TracerEip3155Context<ContextT> {
-    eip3155: TracerEip3155,
+pub struct TracerEip3155Context<'tracer, ContextT> {
+    eip3155: &'tracer mut TracerEip3155,
     inner: ContextT,
 }
+
+type TracerEip3155ContextForChainSpec<'tracer, ChainSpecT, DatabaseT> =
+    TracerEip3155Context<
+        'tracer,
+        revm::Context<
+            <ChainSpecT as ChainSpec>::BlockEnv,
+            <ChainSpecT as ChainSpec>::SignedTransaction,
+            CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
+            DatabaseT,
+            JournaledState<<ChainSpecT as ChainSpec>::Context>,
+            <ChainSpecT as ChainSpec>::Context,
+        >,
+    >;
 
 /// EIP-3155 and raw tracers.
 pub struct Eip3155AndRawTracers<HaltReasonT: HaltReasonTrait> {
@@ -44,22 +55,6 @@ impl<HaltReasonT: HaltReasonTrait> Eip3155AndRawTracers<HaltReasonT> {
             eip3155: TracerEip3155::new(config),
             raw: TraceCollector::new(verbose_tracing),
         }
-    }
-}
-
-impl<HaltReasonT: HaltReasonTrait> GetContextData<TraceCollector<HaltReasonT>>
-    for Eip3155AndRawTracers<HaltReasonT>
-{
-    fn get_context_data(&mut self) -> &mut TraceCollector<HaltReasonT> {
-        &mut self.raw
-    }
-}
-
-impl<HaltReasonT: HaltReasonTrait> GetContextData<TracerEip3155>
-    for Eip3155AndRawTracers<HaltReasonT>
-{
-    fn get_context_data(&mut self) -> &mut TracerEip3155 {
-        &mut self.eip3155
     }
 }
 
@@ -98,11 +93,34 @@ where
         });
     }
 
+    let database = WrapDatabaseRef(DatabaseComponents { blockchain, state: &state });
     for transaction in transactions {
+        let context = revm::Context {
+            block,
+            tx: transaction,
+            cfg: evm_config.clone(),
+            journaled_state: JournaledState::new(evm_config.spec.into(), database),
+            chain: ChainSpecT::Context::default(),
+            error: Ok(()),
+        };
+
         if transaction.transaction_hash() == transaction_hash {
             let mut tracer = Eip3155AndRawTracers::new(trace_config, verbose_tracing);
 
+            let context = TracerEip3155Context {
+                eip3155: &mut tracer.eip3155,
+                inner: context,
+            };
+
+            /// let handler = ChainSpecificHandlerType(Frame, InstructionProvider) -> Handler;
+            let handler = EthHandler {
+                ChainSpecT::EvmValidationHandler::<TracerEip3155Context<'_, _>>::default(),
+
+            }
+
             let ResultAndState { result, .. } = {
+                let evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
+
                 let env = Env::boxed(evm_config, block, transaction);
 
                 let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
@@ -121,6 +139,8 @@ where
 
             return Ok(execution_result_to_debug_result(result, tracer));
         } else {
+            run(blockchain, state, cfg, transaction, block, custom_precompiles, debug_context)
+
             let ResultAndState { state: changes, .. } = {
                 let env = Env::boxed(evm_config.clone(), block.clone(), transaction);
 
@@ -276,59 +296,6 @@ pub struct DebugTraceLogItem {
     pub storage: Option<HashMap<String, String>>,
 }
 
-/// Register EIP-3155 tracer handles.
-pub fn register_eip_3155_tracer_handles<
-    EvmWiringT: revm::EvmWiring<ExternalContext: GetContextData<TracerEip3155>>,
->(
-    handler: &mut EvmHandler<'_, EvmWiringT>,
-) {
-    let table = &mut handler.instruction_table;
-
-    // Update all instructions to call the instruction handler.
-    table.update_all(instruction_handler);
-
-    // call outcome
-    let prev_handle = handler.execution.insert_call_outcome.clone();
-    handler.execution.insert_call_outcome = Arc::new(move |ctx, frame, shared_memory, outcome| {
-        let tracer = ctx.external.get_context_data();
-        tracer.on_inner_frame_result(&outcome.result);
-
-        prev_handle(ctx, frame, shared_memory, outcome)
-    });
-
-    // create outcome
-    let prev_handle = handler.execution.insert_create_outcome.clone();
-    handler.execution.insert_create_outcome = Arc::new(move |ctx, frame, outcome| {
-        let tracer = ctx.external.get_context_data();
-        tracer.on_inner_frame_result(&outcome.result);
-
-        prev_handle(ctx, frame, outcome)
-    });
-}
-
-/// Outer closure that calls tracer for every instruction.
-fn instruction_handler<EvmWiringT: EvmWiring<ExternalContext: GetContextData<TracerEip3155>>>(
-    prev: &DynInstruction<'_, Context<EvmWiringT>>,
-    interpreter: &mut Interpreter,
-    host: &mut Context<EvmWiringT>,
-) {
-    // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
-    // the old Inspector behavior.
-    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
-
-    host.external.get_context_data().step(interpreter);
-
-    // Reset PC to previous value.
-    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.add(1) };
-
-    // Execute instruction.
-    prev(interpreter, host);
-
-    host.external
-        .get_context_data()
-        .step_end(interpreter, &host.evm);
-}
-
 /// An EIP-3155 compatible EVM tracer.
 #[derive(Debug)]
 pub struct TracerEip3155 {
@@ -362,31 +329,31 @@ impl TracerEip3155 {
         }
     }
 
-    fn step(&mut self, interp: &Interpreter) {
-        self.contract_address = interp.contract.target_address;
-        self.gas_remaining = interp.gas().remaining();
+    fn step(&mut self, interpreter: &Interpreter<EthInterpreter>) {
+        self.contract_address = interpreter.contract.target_address;
+        self.gas_remaining = interpreter.gas().remaining();
 
         if !self.config.disable_stack {
-            self.stack.clone_from(interp.stack.data());
+            self.stack.clone_from(interpreter.stack.data());
         }
 
         if !self.config.disable_memory {
-            self.memory = interp.shared_memory.context_memory().to_vec();
+            self.memory = interpreter.shared_memory.context_memory().to_vec();
         }
 
-        self.mem_size = interp.shared_memory.context_memory().len();
+        self.mem_size = interpreter.shared_memory.context_memory().len();
 
-        self.opcode = interp.current_opcode();
+        self.opcode = interpreter.current_opcode();
 
-        self.pc = interp.program_counter();
+        self.pc = interpreter.program_counter();
     }
 
-    fn step_end<EvmWiringT: EvmWiring>(
+    fn step_end<DatabaseT: Database<Error: Debug>, FinalOutputT>(
         &mut self,
-        interp: &Interpreter,
-        context: &InnerEvmContext<EvmWiringT>,
+        interpreter: &Interpreter<EthInterpreter>,
+        journal: &impl Journal<Database = DatabaseT, Entry = JournalEntry, FinalOutput = FinalOutputT>,
     ) {
-        let depth = context.journaled_state.depth();
+        let depth = journal.depth();
 
         let stack = if self.config.disable_stack {
             None
@@ -409,9 +376,8 @@ impl TracerEip3155 {
             None
         } else {
             if matches!(self.opcode, opcode::SLOAD | opcode::SSTORE) {
-                let last_entry = context
-                    .journaled_state
-                    .journal
+                let last_entry = journal
+                    .entries()
                     .last()
                     .and_then(|v| v.last());
 
@@ -420,7 +386,7 @@ impl TracerEip3155 {
                     | JournalEntry::StorageWarmed { address, key },
                 ) = last_entry
                 {
-                    let value = context.journaled_state.state[address].storage[key].present_value();
+                    let value = journal.state()[address].storage[key].present_value();
                     let contract_storage = self.storage.entry(self.contract_address).or_default();
                     contract_storage.insert(u256_to_padded_hex(key), u256_to_padded_hex(&value));
                 }
@@ -445,7 +411,7 @@ impl TracerEip3155 {
             |opcode| opcode.to_string(),
         );
 
-        let gas_cost = self.gas_remaining.saturating_sub(interp.gas().remaining());
+        let gas_cost = self.gas_remaining.saturating_sub(interpreter.gas().remaining());
         let log_item = DebugTraceLogItem {
             pc: self.pc as u64,
             op: self.opcode,
@@ -468,11 +434,5 @@ impl TracerEip3155 {
         } else {
             result.gas.remaining()
         };
-    }
-}
-
-impl GetContextData<TracerEip3155> for TracerEip3155 {
-    fn get_context_data(&mut self) -> &mut TracerEip3155 {
-        self
     }
 }

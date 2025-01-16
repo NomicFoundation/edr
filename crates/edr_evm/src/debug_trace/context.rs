@@ -1,27 +1,26 @@
-use edr_eth::{log::ExecutionLog, spec::HaltReasonTrait, Address, Bytes, B256, U256};
+use edr_eth::{log::ExecutionLog, Address, Bytes, B256, U256};
 use revm::context_interface::journaled_state::AccountLoad;
 use revm_context_interface::{BlockGetter, CfgGetter, Journal, JournalGetter, TransactionGetter};
 use revm_interpreter::{
     interpreter::EthInterpreter, Host, Interpreter, SStoreResult, SelfDestructResult, StateLoad,
 };
 
-use super::TraceCollector;
+use super::TracerEip3155;
 use crate::instruction::InspectsInstruction;
 
-pub struct TraceCollectorContext<ContextT, HaltReasonT: HaltReasonTrait> {
-    pub(super) collector: TraceCollector<HaltReasonT>,
+pub struct Eip3155TracerContext<ContextT> {
     pub(super) inner: ContextT,
+    pub(super) tracer: TracerEip3155,
 }
 
-impl<ContextT, HaltReasonT: HaltReasonTrait> TraceCollectorContext<ContextT, HaltReasonT> {
+impl<ContextT> Eip3155TracerContext<ContextT> {
     /// Creates a new instance.
-    pub fn new(collector: TraceCollector<HaltReasonT>, inner: ContextT) -> Self {
-        Self { collector, inner }
+    pub fn new(tracer: TracerEip3155, inner: ContextT) -> Self {
+        Self { inner, tracer }
     }
 }
 
-impl<ContextT, HaltReasonT: HaltReasonTrait> BlockGetter
-    for TraceCollectorContext<ContextT, HaltReasonT>
+impl<ContextT> BlockGetter for Eip3155TracerContext<ContextT>
 where
     ContextT: BlockGetter,
 {
@@ -32,8 +31,7 @@ where
     }
 }
 
-impl<ContextT, HaltReasonT: HaltReasonTrait> CfgGetter
-    for TraceCollectorContext<ContextT, HaltReasonT>
+impl<ContextT> CfgGetter for Eip3155TracerContext<ContextT>
 where
     ContextT: CfgGetter,
 {
@@ -44,8 +42,7 @@ where
     }
 }
 
-impl<ContextT, HaltReasonT: HaltReasonTrait> TransactionGetter
-    for TraceCollectorContext<ContextT, HaltReasonT>
+impl<ContextT> TransactionGetter for Eip3155TracerContext<ContextT>
 where
     ContextT: TransactionGetter,
 {
@@ -56,9 +53,7 @@ where
     }
 }
 
-impl<ContextT: Host, HaltReasonT: HaltReasonTrait> Host
-    for TraceCollectorContext<ContextT, HaltReasonT>
-{
+impl<ContextT: Host> Host for Eip3155TracerContext<ContextT> {
     fn load_account_delegated(&mut self, address: Address) -> Option<StateLoad<AccountLoad>> {
         self.inner.load_account_delegated(address)
     }
@@ -113,15 +108,15 @@ impl<ContextT: Host, HaltReasonT: HaltReasonTrait> Host
     }
 }
 
-impl<ContextT: JournalGetter, HaltReasonT: HaltReasonTrait> InspectsInstruction
-    for TraceCollectorContext<ContextT, HaltReasonT>
-{
+impl<ContextT: JournalGetter> InspectsInstruction for Eip3155TracerContext<ContextT> {
     // TODO: Make this chain-agnostic
     type InterpreterTypes = EthInterpreter;
 
     fn before_instruction(&self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
-        self.collector.step(interpreter, self.inner.journal_ref());
+        self.tracer.step(interpreter);
     }
 
-    fn after_instruction(&self, _interpreter: &mut Interpreter<Self::InterpreterTypes>) {}
+    fn after_instruction(&self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
+        self.tracer.step_end(interpreter, self.inner.journal_ref());
+    }
 }

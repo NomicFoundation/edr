@@ -8,7 +8,7 @@ use revm_interpreter::{
 pub use revm_interpreter::{Host, Interpreter, InterpreterTypes};
 
 /// A trait for instructions that can be inspected.
-pub trait InspectInstruction {
+pub trait InspectsInstruction {
     type InterpreterTypes: InterpreterTypes;
 
     /// Called before the instruction is executed.
@@ -26,7 +26,7 @@ pub struct InspectableInstruction<HostT, InterpreterTypesT: InterpreterTypes> {
 impl<HostT, InterpreterTypesT> CustomInstruction
     for InspectableInstruction<HostT, InterpreterTypesT>
 where
-    HostT: Host + InspectInstruction<InterpreterTypes = InterpreterTypesT>,
+    HostT: Host + InspectsInstruction<InterpreterTypes = InterpreterTypesT>,
     InterpreterTypesT: InterpreterTypes,
 {
     type Host = HostT;
@@ -59,7 +59,7 @@ where
 #[derive_where(Clone)]
 pub struct InspectableInstructionProvider<HostT, InterpreterTypesT, ProviderT>
 where
-    HostT: Host + InspectInstruction<InterpreterTypes = InterpreterTypesT>,
+    HostT: Host + InspectsInstruction<InterpreterTypes = InterpreterTypesT>,
     InterpreterTypesT: InterpreterTypes,
     ProviderT: InstructionProvider<Host = HostT, WIRE = InterpreterTypesT>,
 {
@@ -70,7 +70,7 @@ where
 impl<HostT, InterpreterTypesT, ProviderT> InstructionProvider
     for InspectableInstructionProvider<HostT, InterpreterTypesT, ProviderT>
 where
-    HostT: Host + InspectInstruction<InterpreterTypes = InterpreterTypesT>,
+    HostT: Host + InspectsInstruction<InterpreterTypes = InterpreterTypesT>,
     InterpreterTypesT: InterpreterTypes,
     ProviderT: InstructionProvider<Host = HostT, WIRE = InterpreterTypesT>,
 {

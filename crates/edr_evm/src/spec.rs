@@ -12,10 +12,11 @@ use edr_eth::{
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-use revm::handler::EthHandler;
+use revm::{handler::{EthExecution, EthFrame, EthHandler, EthPostExecution, EthPreExecution, EthPrecompileProvider, EthValidation}, Context};
 use revm_handler_interface::{
-    ExecutionHandler, Handler, PostExecutionHandler, PreExecutionHandler, ValidationHandler,
+    ExecutionHandler, Frame, Handler, PostExecutionHandler, PreExecutionHandler, PrecompileProvider, ValidationHandler
 };
+use revm_interpreter::interpreter::{EthInstructionProvider, EthInterpreter, InstructionProvider};
 
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
@@ -140,13 +141,14 @@ pub trait RuntimeSpec:
         Output = Self::BlockReceipt
     >;
 
-    /// Type representing the EVM's handler for this chain.
-    type EvmHandler<ContextT, ErrorT>: Default + Handler<
-        Validation: ValidationHandler<Context = ContextT, Error = ErrorT>,
-        PreExecution: PreExecutionHandler<Context = ContextT, Error = ErrorT>,
-        Execution: ExecutionHandler<Context = ContextT, Error = ErrorT>,
-        PostExecution: PostExecutionHandler<Context = ContextT, Error = ErrorT>,
-    >;
+    type EvmValidationHandler<ContextT, ErrorT>: Default + ValidationHandler<Context = ContextT, Error = ErrorT>;
+    type EvmPreExecutionHandler<ContextT, ErrorT>: Default + PreExecutionHandler<Context = ContextT, Error = ErrorT>;
+    type EvmExecutionHandler<ContextT, ErrorT>: Default + ExecutionHandler<Context = ContextT, Error = ErrorT>;
+    type EvmPostExecutionHandler<ContextT, ErrorT>: Default + PostExecutionHandler<Context = ContextT, Error = ErrorT>;
+    
+    type EvmFrame<ContextT, ErrorT, InstructionProviderT, PrecompileProviderT>: Frame<Context = ContextT, Error = ErrorT>;
+    type EvmInstructionProvider<ContextT>: InstructionProvider<WIRE = EthInterpreter, Host = ContextT>;
+    type EvmPrecompileProvider<ContextT, ErrorT>: PrecompileProvider<Context = ContextT, Error = ErrorT>;
 
     // /// Type representing an implementation of `EvmWiring` for this chain.
     // type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
@@ -226,10 +228,11 @@ impl BlockEnvConstructor<PartialHeader> for BlockEnv {
             } else {
                 None
             },
-            blob_excess_gas_and_price: header
-                .blob_gas
-                .as_ref()
-                .map(|BlobGas { excess_gas, .. }| eip4844::BlobExcessGasAndPrice::new(*excess_gas)),
+            blob_excess_gas_and_price: header.blob_gas.as_ref().map(
+                |BlobGas { excess_gas, .. }| {
+                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                },
+            ),
         }
     }
 }
@@ -248,10 +251,11 @@ impl BlockEnvConstructor<block::Header> for BlockEnv {
             } else {
                 None
             },
-            blob_excess_gas_and_price: header
-                .blob_gas
-                .as_ref()
-                .map(|BlobGas { excess_gas, .. }| eip4844::BlobExcessGasAndPrice::new(*excess_gas)),
+            blob_excess_gas_and_price: header.blob_gas.as_ref().map(
+                |BlobGas { excess_gas, .. }| {
+                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                },
+            ),
         }
     }
 }
@@ -306,7 +310,14 @@ impl RuntimeSpec for L1ChainSpec {
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
-    type EvmHandler<ContextT, ErrorT> = EthHandler<ContextT, ErrorT>;
+    type EvmValidationHandler<ContextT, ErrorT> = EthValidation<ContextT, ErrorT>;
+    type EvmPreExecutionHandler<ContextT, ErrorT> = EthPreExecution<ContextT, ErrorT>;
+    type EvmExecutionHandler<ContextT, ErrorT> = EthExecution<ContextT, ErrorT>;
+    type EvmPostExecutionHandler<ContextT, ErrorT> = EthPostExecution<ContextT, ErrorT, Self::HaltReason>;
+
+    type EvmFrame<ContextT, ErrorT, InstructionProviderT, PrecompileProviderT> = EthFrame<ContextT, ErrorT, EthInterpreter, PrecompileProviderT, InstructionProviderT>;
+    type EvmInstructionProvider<ContextT> = EthInstructionProvider<EthInterpreter, ContextT>;
+    type EvmPrecompileProvider<ContextT, ErrorT> = EthPrecompileProvider<ContextT, ErrorT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,

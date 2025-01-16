@@ -4,14 +4,14 @@ use edr_eth::spec::HaltReasonTrait;
 use revm::{context_interface::JournalGetter, handler::FrameResult, interpreter::FrameInput};
 use revm_handler_interface::{Frame, FrameOrResultGen};
 
-use super::TraceCollectorContext;
+use super::context::Eip3155TracerContext;
 
-pub struct TraceCollectorFrame<FrameT: Frame, HaltReasonT: HaltReasonTrait> {
+pub struct Eip3155TracerFrame<FrameT: Frame, HaltReasonT: HaltReasonTrait> {
     inner: FrameT,
     _phantom: PhantomData<HaltReasonT>,
 }
 
-impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, HaltReasonT> {
+impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> Eip3155TracerFrame<FrameT, HaltReasonT> {
     /// Creates a new instance.
     fn new(inner: FrameT) -> Self {
         Self {
@@ -20,49 +20,30 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, Ha
         }
     }
 
-    /// Notifies the collector that a frame has ended.
+    /// Notifies the tracer that a frame has ended.
     fn notify_frame_end<ContextT: JournalGetter>(
-        context: &mut TraceCollectorContext<ContextT, HaltReasonT>,
+        context: &mut Eip3155TracerContext<ContextT>,
         result: &FrameResult,
     ) {
         match result {
             FrameResult::Call(outcome) => {
-                context
-                    .collector
-                    .call_end(context.inner.journal_ref(), outcome);
+                context.tracer.on_inner_frame_result(&outcome.result);
             }
             FrameResult::Create(outcome) => {
-                context
-                    .collector
-                    .create_end(context.inner.journal_ref(), outcome);
+                context.tracer.on_inner_frame_result(&outcome.result);
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameResult::EOFCreate(outcome) => unreachable!("EDR doesn't support EOF yet."),
         }
     }
-
-    /// Notifies the collector that a frame has started.
-    fn notify_frame_start<ContextT: JournalGetter>(
-        context: &mut TraceCollectorContext<ContextT, HaltReasonT>,
-        frame_input: &FrameInput,
-    ) {
-        match frame_input {
-            FrameInput::Call(inputs) => context.collector.call(context.inner.journal_ref(), inputs),
-            FrameInput::Create(inputs) => context
-                .collector
-                .create(context.inner.journal_ref(), inputs),
-            // TODO: https://github.com/NomicFoundation/edr/issues/427
-            FrameInput::EOFCreate(_inputs) => unreachable!("EDR doesn't support EOF yet."),
-        }
-    }
 }
 
-impl<FrameT, HaltReasonT> Frame for TraceCollectorFrame<FrameT, HaltReasonT>
+impl<FrameT, HaltReasonT> Frame for Eip3155TracerFrame<FrameT, HaltReasonT>
 where
     FrameT: Frame<Context: JournalGetter, FrameInit = FrameInput>,
     HaltReasonT: HaltReasonTrait,
 {
-    type Context = TraceCollectorContext<FrameT::Context, HaltReasonT>;
+    type Context = Eip3155TracerContext<FrameT::Context>;
 
     type FrameInit = FrameT::FrameInit;
 
@@ -74,25 +55,13 @@ where
         context: &mut Self::Context,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        Self::notify_frame_start(context, &frame_input);
-
-        let result =
-            FrameT::init_first(context.inner, frame_input).map(|frame| frame.map_frame(Self::new));
-
-        match &result {
-            Ok(FrameOrResultGen::Result(result)) => Self::notify_frame_end(context, result),
-            _ => (),
-        }
-
-        Ok(result)
+        FrameT::init_first(context.inner, frame_input).map(|frame| frame.map_frame(Self::new))
     }
 
     fn final_return(
         context: &mut Self::Context,
         result: &mut Self::FrameResult,
     ) -> Result<(), Self::Error> {
-        Self::notify_frame_end(context, result);
-
         FrameT::final_return(context.inner, result)
     }
 
@@ -101,8 +70,6 @@ where
         context: &mut Self::Context,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        Self::notify_frame_start(context, &frame_input);
-
         self.inner
             .init(context.inner, frame_input)
             .map(|frame| frame.map_frame(Self::new))
@@ -121,7 +88,6 @@ where
         result: Self::FrameResult,
     ) -> Result<(), Self::Error> {
         Self::notify_frame_end(context, &result);
-        context.collector.finish_trace();
 
         self.inner.return_result(context, result)
     }
