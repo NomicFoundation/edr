@@ -1,32 +1,31 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.24;
 
-import "./test.sol";
-import "./Vm.sol";
+import {Test} from "forge-std/src/Test.sol";
 
 contract TransientStorageStore {
-  uint value;
+    uint value;
 
-  function tstore(uint key, uint val) public {
-    assembly {
-      tstore(key, val)
+    function tstore(uint key, uint val) public {
+        assembly {
+            tstore(key, val)
+        }
     }
-  }
 
-  function tload(uint key) public view returns (uint) {
-    uint val;
-    assembly {
-      val := tload(key)
+    function tload(uint key) public view returns (uint) {
+        uint val;
+        assembly {
+            val := tload(key)
+        }
+        return val;
     }
-    return val;
-  }
 }
 
-contract IsolateTest is DSTest {
+contract IsolateTest is Test {
     TransientStorageStore transientStorageStore;
 
     function setUp() public {
-      transientStorageStore = new TransientStorageStore();
+        transientStorageStore = new TransientStorageStore();
     }
 
     function testIsolateTest() public {

@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./test.sol";
-import "./Vm.sol";
+import {Test} from "forge-std/src/Test.sol";
 
 // Test that the fork cheatcode works correctly
-contract ForkCheatcodeTest is DSTest {
-    Vm constant vm = Vm(HEVM_ADDRESS);
+contract ForkCheatcodeTest is Test {
     uint256 fork;
-    
+
     function setUp() public {
         fork = vm.createSelectFork("alchemyMainnet", 20_000_000);
     }
-    
+
     function testBlockNumber() public {
         assertEq(fork, vm.activeFork());
         assertEq(block.number, 20_000_000);
