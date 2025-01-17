@@ -1,21 +1,28 @@
-use std::fmt::Debug;
-
 use edr_eth::{
     l1,
+    log::ExecutionLog,
     result::{ExecutionResult, InvalidTransaction, ResultAndState},
     spec::HaltReasonTrait,
     transaction::{ExecutableTransaction as _, TransactionValidation},
     Address, HashMap,
 };
-use revm::{precompile::PrecompileFn, Evm, JournaledState};
+use edr_rpc_eth::receipt::Block;
+use revm::{handler::EthHandler, precompile::PrecompileFn, Evm, JournaledState};
+use revm_context_interface::{
+    block::BlockSetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
+    PerformantContextAccess, TransactionGetter,
+};
+use revm_interpreter::Host;
 
 use crate::{
-    blockchain::SyncBlockchain,
+    blockchain::{BlockHash, SyncBlockchain},
     config::CfgEnv,
-    debug::DebugContext,
+    debug::EvmExtension,
     precompile::ContextWithCustomPrecompiles,
-    spec::RuntimeSpec,
-    state::{DatabaseComponents, EvmState, State, StateCommit, WrapDatabaseRef},
+    spec::{ContextForChainSpec, FrameForChainSpec, RuntimeSpec},
+    state::{
+        DatabaseComponentError, DatabaseComponents, EvmState, State, StateCommit, WrapDatabaseRef,
+    },
     transaction::TransactionError,
 };
 
@@ -40,28 +47,94 @@ pub struct ChainResult<ChainContextT, HaltReasonT: HaltReasonTrait> {
 // `DebugContext` cannot be simplified further
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, StateT>(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+pub fn dry_run<BlockchainT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
+    blockchain: BlockchainT,
     state: StateT,
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
-    debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
+    extension: Option<
+        &EvmExtension<
+            ConstructorT,
+            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+            OuterContextT,
+        >,
+    >,
 ) -> Result<
     ResultAndState<ChainSpecT::HaltReason>,
-    TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
+    TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
 >
 where
-    'blockchain: 'evm,
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateT: State<Error: Debug + Send>,
+    ConstructorT: Fn(ContextForChainSpec<BlockchainT, ChainSpecT, StateT>) -> OuterContextT,
+    OuterContextT: BlockSetter
+        + CfgGetter
+        + DatabaseGetter
+        + ErrorGetter<Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>>
+        + Host
+        + JournalGetter<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            Journal: Journal<
+                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+                FinalOutput = (EvmState, Vec<ExecutionLog>),
+            >,
+        > + PerformantContextAccess<Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>>
+        + TransactionGetter,
+    StateT: State<Error: Send + std::error::Error>,
 {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
-    let context = {
+    // let context = {
+    //     let context = revm::Context {
+    //         block,
+    //         tx: transaction,
+    //         cfg,
+    //         journaled_state: JournaledState::new(cfg.spec.into(), database),
+    //         chain: ChainSpecT::Context::default(),
+    //         error: Ok(()),
+    //     };
+
+    //     ContextWithCustomPrecompiles {
+    //         context,
+    //         custom_precompiles: custom_precompiles.clone(),
+    //     }
+    // };
+
+    let result = if let Some(extension) = extension {
+        let context = (extension.context_constructor)(revm::Context {
+            block,
+            tx: transaction,
+            cfg,
+            journaled_state: JournaledState::new(cfg.spec.into(), database),
+            chain: ChainSpecT::Context::default(),
+            error: Ok(()),
+        });
+        let handler = EthHandler::new(
+            ChainSpecT::EvmValidationHandler::<
+                OuterContextT,
+                ChainSpecT::EvmError<BlockchainT::Error, StateT::Error>,
+            >::default(),
+            ChainSpecT::EvmPreExecutionHandler::<
+                OuterContextT,
+                ChainSpecT::EvmError<BlockchainT::Error, StateT::Error>,
+            >::default(),
+            ChainSpecT::EvmExecutionHandler::<
+                OuterContextT,
+                ChainSpecT::EvmError<BlockchainT::Error, StateT::Error>,
+                FrameForChainSpec<BlockchainT::Error, ChainSpecT, OuterContextT, StateT::Error>,
+            >::default(),
+            ChainSpecT::EvmPostExecutionHandler::<
+                OuterContextT,
+                ChainSpecT::EvmError<BlockchainT::Error, StateT::Error>,
+            >::default(),
+        );
+
+        let evm = revm::Evm::new(context, handler);
+        evm.transact()
+    } else {
         let context = revm::Context {
             block,
             tx: transaction,
@@ -70,25 +143,29 @@ where
             chain: ChainSpecT::Context::default(),
             error: Ok(()),
         };
+        let handler = EthHandler::new(
+            ChainSpecT::EvmValidationHandler::<
+                _,
+                ChainSpecT::EvmError<BlockchainT::Error, StateT::Error>,
+            >::default(),
+            ChainSpecT::EvmPreExecutionHandler::<
+                _,
+                ChainSpecT::EvmError<BlockchainT::Error, StateT::Error>,
+            >::default(),
+            ChainSpecT::EvmExecutionHandler::<
+                _,
+                ChainSpecT::EvmError<BlockchainT::Error, StateT::Error>,
+                FrameForChainSpec<BlockchainT::Error, ChainSpecT, _, StateT::Error>,
+            >::default(),
+            ChainSpecT::EvmPostExecutionHandler::<
+                _,
+                ChainSpecT::EvmError<BlockchainT::Error, StateT::Error>,
+            >::default(),
+        );
 
-        ContextWithCustomPrecompiles {
-            context,
-            custom_precompiles: custom_precompiles.clone(),
-        }
-    };
+        let mut evm = revm::Evm::new(context, handler);
 
-    let result = if let Some(debug_context) = debug_context {
-        let evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
-
-        let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-            .append_handler_register(debug_context.register_handles_fn)
-            .build();
-
-        evm.exec()
-    } else {
-        let mut evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
-
-        evm.exec()
+        evm.transact()
     };
 
     result.map_err(TransactionError::from)
@@ -99,34 +176,41 @@ where
 // `DebugContext` cannot be simplified further
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn guaranteed_dry_run<
-    'blockchain,
-    'evm,
-    'state,
-    ChainSpecT,
-    DebugDataT,
-    BlockchainErrorT,
-    StateT,
->(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+pub fn guaranteed_dry_run<BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
     state: StateT,
     mut cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
-    debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
+    extension: Option<
+        &EvmExtension<
+            ConstructorT,
+            ContextForChainSpec<
+                &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+                ChainSpecT,
+                StateT,
+            >,
+            OuterContextT,
+        >,
+    >,
 ) -> Result<
     ChainResult<ChainSpecT::Context, ChainSpecT::HaltReason>,
     TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
 >
 where
-    'blockchain: 'evm,
-    'state: 'evm,
+    BlockchainErrorT: Send + std::error::Error,
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateT: State<Error: Debug + Send>,
+    ConstructorT: Fn(
+        ContextForChainSpec<
+            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+            ChainSpecT,
+            StateT,
+        >,
+    ) -> OuterContextT,
+    StateT: State<Error: Send + std::error::Error>,
 {
     cfg.disable_balance_check = true;
     cfg.disable_block_gas_limit = true;
@@ -138,33 +222,48 @@ where
         transaction,
         block,
         custom_precompiles,
-        debug_context,
+        extension,
     )
 }
 
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 #[allow(clippy::too_many_arguments)]
-pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+pub fn run<BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
     mut state: StateT,
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
-    debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
+    extension: Option<
+        &EvmExtension<
+            ConstructorT,
+            ContextForChainSpec<
+                &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+                ChainSpecT,
+                StateT,
+            >,
+            OuterContextT,
+        >,
+    >,
 ) -> Result<
     ExecutionResult<ChainSpecT::HaltReason>,
     TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
 >
 where
-    'blockchain: 'evm,
+    BlockchainErrorT: Send + std::error::Error,
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateT: State + StateCommit,
-    StateT::Error: Debug + Send,
+    ConstructorT: Fn(
+        ContextForChainSpec<
+            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+            ChainSpecT,
+            StateT,
+        >,
+    ) -> OuterContextT,
+    StateT: State<Error: Send + std::error::Error> + StateCommit,
 {
     let ResultAndState {
         result,
@@ -176,7 +275,7 @@ where
         transaction,
         block,
         custom_precompiles,
-        debug_context,
+        extension,
     )?;
 
     state.commit(state_diff);

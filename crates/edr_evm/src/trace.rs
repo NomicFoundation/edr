@@ -10,16 +10,17 @@ use edr_eth::{
     spec::HaltReasonTrait,
     Address, Bytecode, Bytes, U256,
 };
-use revm::context_interface::Journal;
-use revm_interpreter::interpreter::EthInterpreter;
+use revm::{context_interface::Journal, database_interface::WrapDatabaseRef};
+use revm_interpreter::{interpreter::EthInterpreter, interpreter_types::Jumps, MemoryGetter as _};
 
 pub use self::context::TraceCollectorContext;
 use crate::{
+    blockchain::BlockHash,
     evm::interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         Interpreter, SuccessOrHalt,
     },
-    state::Database,
+    state::{DatabaseComponents, State},
 };
 
 /// Stack tracing message
@@ -188,9 +189,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         }
     }
 
-    pub fn call<DatabaseT: Database<Error: Debug>, FinalOutputT>(
+    pub fn call<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        StateT: State<Error: std::error::Error>,
+        FinalOutputT,
+    >(
         &mut self,
-        journal: &impl Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
+        journal: &impl Journal<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            FinalOutput = FinalOutputT,
+        >,
         inputs: &CallInputs,
     ) {
         if self.is_new_trace {
@@ -200,7 +208,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
         self.validate_before_message();
 
-        let database = journal.db_ref();
+        let WrapDatabaseRef(DatabaseComponents { state, .. }) = journal.db_ref();
 
         // This needs to be split into two functions to avoid borrow checker issues
         #[allow(clippy::map_unwrap_or)]
@@ -212,17 +220,17 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 if let Some(code) = account_info.code.take() {
                     code
                 } else {
-                    database.code_by_hash(account_info.code_hash).unwrap()
+                    state.code_by_hash(account_info.code_hash).unwrap()
                 }
             })
             .unwrap_or_else(|| {
-                database.basic(inputs.bytecode_address).unwrap().map_or(
+                state.basic(inputs.bytecode_address).unwrap().map_or(
                     // If an invalid contract address was provided, return empty code
                     Bytecode::new(),
                     |account_info| {
-                        account_info.code.unwrap_or_else(|| {
-                            database.code_by_hash(account_info.code_hash).unwrap()
-                        })
+                        account_info
+                            .code
+                            .unwrap_or_else(|| state.code_by_hash(account_info.code_hash).unwrap())
                     },
                 )
             });
@@ -242,9 +250,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    pub fn call_end<DatabaseT: Database<Error: Debug>, FinalOutputT>(
+    pub fn call_end<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        StateT: State<Error: std::error::Error>,
+        FinalOutputT,
+    >(
         &mut self,
-        journal: &impl Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
+        journal: &impl Journal<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            FinalOutput = FinalOutputT,
+        >,
         outcome: &CallOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
@@ -298,9 +313,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    pub fn create<DatabaseT: Database<Error: Debug>, FinalOutputT>(
+    pub fn create<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        StateT: State<Error: std::error::Error>,
+        FinalOutputT,
+    >(
         &mut self,
-        journal: &impl Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
+        journal: &impl Journal<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            FinalOutput = FinalOutputT,
+        >,
         inputs: &CreateInputs,
     ) {
         if self.is_new_trace {
@@ -323,9 +345,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    pub fn create_end<DatabaseT: Database<Error: Debug>, FinalOutputT>(
+    pub fn create_end<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        StateT: State<Error: std::error::Error>,
+        FinalOutputT,
+    >(
         &mut self,
-        journal: &impl Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
+        journal: &impl Journal<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            FinalOutput = FinalOutputT,
+        >,
         outcome: &CreateOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
@@ -373,14 +402,21 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         self.is_new_trace = true;
     }
 
-    pub fn step<DatabaseT: Database<Error: Debug>, FinalOutputT>(
+    pub fn step<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        StateT: State<Error: std::error::Error>,
+        FinalOutputT,
+    >(
         &mut self,
         interpreter: &Interpreter<EthInterpreter>,
-        journal: &impl Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
+        journal: &impl Journal<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            FinalOutput = FinalOutputT,
+        >,
     ) {
         // Skip the step
         let skip_step = self.pending_before.as_ref().map_or(false, |message| {
-            message.code.is_some() && interpreter.current_opcode() == opcode::STOP
+            message.code.is_some() && interpreter.bytecode.opcode() == opcode::STOP
         });
 
         self.validate_before_message();
@@ -392,14 +428,21 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 Stack::Top(interpreter.stack.data().last().cloned())
             };
             let memory = if self.verbose {
-                Some(interpreter.memory.context_memory().to_vec())
+                Some(
+                    interpreter
+                        .memory
+                        .borrow()
+                        .memory()
+                        .context_memory()
+                        .to_vec(),
+                )
             } else {
                 None
             };
             self.current_trace_mut().add_step(Step {
-                pc: interpreter.program_counter() as u64,
-                depth: journal.depth(),
-                opcode: interpreter.current_opcode(),
+                pc: interpreter.bytecode.pc() as u64,
+                depth: journal.depth() as u64,
+                opcode: interpreter.bytecode.opcode(),
                 stack,
                 memory,
             });

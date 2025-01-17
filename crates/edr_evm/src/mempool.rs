@@ -124,7 +124,7 @@ pub enum MemPoolAddTransactionError<SE> {
     #[error("Replacement transaction underpriced. A gasPrice/maxFeePerGas of at least {min_new_max_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}.")]
     ReplacementMaxFeePerGasTooLow {
         /// The minimum new max fee per gas
-        min_new_max_fee_per_gas: U256,
+        min_new_max_fee_per_gas: u128,
         /// The transaction nonce
         transaction_nonce: u64,
     },
@@ -132,7 +132,7 @@ pub enum MemPoolAddTransactionError<SE> {
     #[error("Replacement transaction underpriced. A gasPrice/maxPriorityFeePerGas of at least {min_new_max_priority_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}.")]
     ReplacementMaxPriorityFeePerGasTooLow {
         /// The minimum new max priority fee per gas
-        min_new_max_priority_fee_per_gas: U256,
+        min_new_max_priority_fee_per_gas: u128,
         /// The transaction nonce
         transaction_nonce: u64,
     },
@@ -613,13 +613,13 @@ fn validate_replacement_transaction<StateError>(
     Ok(())
 }
 
-fn min_new_fee(fee: U256) -> U256 {
-    let min_new_priority_fee = fee * U256::from(110);
+fn min_new_fee(fee: u128) -> u128 {
+    let min_new_priority_fee = fee * 110u128;
 
-    let one_hundred = U256::from(100);
-    if min_new_priority_fee % one_hundred == U256::ZERO {
+    let one_hundred = 100u128;
+    if min_new_priority_fee % one_hundred == 0u128 {
         min_new_priority_fee / one_hundred
     } else {
-        min_new_priority_fee / one_hundred + U256::from(1)
+        min_new_priority_fee / one_hundred + 1u128
     }
 }

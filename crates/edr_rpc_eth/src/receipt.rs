@@ -6,7 +6,7 @@ use edr_eth::{
         self, AsExecutionReceipt as _, Execution, ExecutionReceipt as _, TransactionReceipt,
     },
     transaction::{self, TransactionType as _},
-    Address, Bloom, B256, U256,
+    Address, Bloom, B256,
 };
 use serde::{Deserialize, Serialize};
 
@@ -70,8 +70,11 @@ pub struct Block {
     /// (max fee + max priority fee), the amount that's actually paid by
     /// users can only be determined post-execution
     // #[serde(with = "alloy_serde::quantity::opt")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub effective_gas_price: Option<U256>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub effective_gas_price: Option<u128>,
     /// The authorization list is a list of tuples that store the address to
     /// code which the signer desires to execute in the context of their
     /// EOA.

@@ -15,19 +15,22 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip4844 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
+    pub max_priority_fee_per_gas: u128,
+    #[serde(with = "alloy_serde::quantity")]
+    pub max_fee_per_gas: u128,
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
     pub access_list: eip2930::AccessList,
-    pub max_fee_per_blob_gas: U256,
+    #[serde(with = "alloy_serde::quantity")]
+    pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithYParity>,
@@ -56,7 +59,7 @@ impl ExecutableTransaction for Eip4844 {
         self.gas_limit
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         &self.max_fee_per_gas
     }
 
@@ -84,18 +87,18 @@ impl ExecutableTransaction for Eip4844 {
         Some(self.access_list.0.as_slice())
     }
 
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
         Some(
             self.max_fee_per_gas
                 .min(block_base_fee + self.max_priority_fee_per_gas),
         )
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         Some(&self.max_fee_per_gas)
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         Some(&self.max_priority_fee_per_gas)
     }
 
@@ -103,7 +106,7 @@ impl ExecutableTransaction for Eip4844 {
         &self.blob_hashes
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         Some(&self.max_fee_per_blob_gas)
     }
 
@@ -150,14 +153,14 @@ struct Decodable {
     // The order of these fields determines decoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
+    pub max_priority_fee_per_gas: u128,
+    pub max_fee_per_gas: u128,
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
     pub access_list: eip2930::AccessList,
-    pub max_fee_per_blob_gas: U256,
+    pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
     pub signature: signature::SignatureWithYParity,
 }
@@ -233,14 +236,14 @@ mod tests {
         let request = transaction::request::Eip4844 {
             chain_id: 0x28757b3,
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(0x12a05f200u64),
-            max_fee_per_gas: U256::from(0x12a05f200u64),
+            max_priority_fee_per_gas: 0x12a05f200,
+            max_fee_per_gas: 0x12a05f200,
             gas_limit: 0x33450,
             to: Address::from_str("0xffb38a7a99e3e2335be83fc74b7faa19d5531243").unwrap(),
             value: U256::from(0xbc614eu64),
             input: Bytes::default(),
             access_list: Vec::new(),
-            max_fee_per_blob_gas: U256::from(0xb2d05e00u64),
+            max_fee_per_blob_gas: 0xb2d05e00,
             blob_hashes: vec![B256::from_str(
                 "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",
             )
@@ -299,14 +302,14 @@ mod tests {
         let request = transaction::request::Eip4844 {
             chain_id: 1337,
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(0x3b9aca00),
-            max_fee_per_gas: U256::from(0x3b9aca00u64),
+            max_priority_fee_per_gas: 0x3b9aca00,
+            max_fee_per_gas: 0x3b9aca00,
             gas_limit: 1000000,
             to: Address::ZERO,
             value: U256::ZERO,
             input: Bytes::from_str("0x2069b0c7")?,
             access_list: Vec::new(),
-            max_fee_per_blob_gas: U256::from(1),
+            max_fee_per_blob_gas: 1,
             blob_hashes: vec![b256!(
                 "01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e"
             )],

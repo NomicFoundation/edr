@@ -175,7 +175,7 @@ pub trait ExecutableTransaction {
     fn gas_limit(&self) -> u64;
 
     /// The gas price the sender is willing to pay.
-    fn gas_price(&self) -> &U256;
+    fn gas_price(&self) -> &u128;
 
     /// Returns what kind of transaction this is.
     fn kind(&self) -> TxKind;
@@ -207,18 +207,18 @@ pub trait ExecutableTransaction {
 
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256>;
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128>;
 
     /// The maximum fee per gas the sender is willing to pay. Only applicable
     /// for post-EIP-1559 transactions.
-    fn max_fee_per_gas(&self) -> Option<&U256>;
+    fn max_fee_per_gas(&self) -> Option<&u128>;
 
     /// The maximum priority fee per gas the sender is willing to pay.
     ///
     /// Incorporated as part of the London upgrade via [EIP-1559].
     ///
     /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    fn max_priority_fee_per_gas(&self) -> Option<&U256>;
+    fn max_priority_fee_per_gas(&self) -> Option<&u128>;
 
     /// The list of blob versioned hashes. Per EIP there should be at least
     /// one blob present if [`Transaction::max_fee_per_blob_gas`] is `Some`.
@@ -233,7 +233,7 @@ pub trait ExecutableTransaction {
     /// Incorporated as part of the Cancun upgrade via [EIP-4844].
     ///
     /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-    fn max_fee_per_blob_gas(&self) -> Option<&U256>;
+    fn max_fee_per_blob_gas(&self) -> Option<&u128>;
 
     /// The total amount of blob gas used by the transaction. Only applicable
     /// for EIP-4844 transactions.
@@ -252,6 +252,92 @@ pub trait ExecutableTransaction {
 
     /// The hash of the transaction.
     fn transaction_hash(&self) -> &B256;
+}
+
+/// Macro for implementing [`revm_context_interface::Transaction`] for a type
+/// using the existing implementations of [`ExecutableTransaction`] and
+/// [`TransactionType`].
+#[macro_export]
+macro_rules! impl_revm_transaction_trait {
+    ($ty:ty) => {
+        impl revm_context_interface::Transaction for $ty {
+            fn tx_type(&self) -> u8 {
+                $crate::transaction::TransactionType::transaction_type(self).into()
+            }
+
+            fn caller(&self) -> $crate::Address {
+                $crate::transaction::ExecutableTransaction::caller(self).clone()
+            }
+            fn gas_limit(&self) -> u64 {
+                $crate::transaction::ExecutableTransaction::gas_limit(self)
+            }
+
+            fn value(&self) -> $crate::U256 {
+                $crate::transaction::ExecutableTransaction::value(self).clone()
+            }
+
+            fn input(&self) -> &$crate::Bytes {
+                $crate::transaction::ExecutableTransaction::data(self)
+            }
+
+            fn nonce(&self) -> u64 {
+                $crate::transaction::ExecutableTransaction::nonce(self)
+            }
+
+            fn kind(&self) -> $crate::transaction::TxKind {
+                $crate::transaction::ExecutableTransaction::kind(self)
+            }
+
+            fn chain_id(&self) -> Option<u64> {
+                $crate::transaction::ExecutableTransaction::chain_id(self)
+            }
+
+            fn gas_price(&self) -> u128 {
+                $crate::transaction::ExecutableTransaction::gas_price(self).clone()
+            }
+
+            fn access_list(
+                &self,
+            ) -> Option<impl Iterator<Item = (&$crate::Address, &[$crate::B256])>> {
+                $crate::transaction::ExecutableTransaction::access_list(self).map(|list| {
+                    list.iter().map(
+                        |$crate::eips::eip2930::AccessListItem {
+                             address,
+                             storage_keys,
+                         }| (address, storage_keys.as_slice()),
+                    )
+                })
+            }
+
+            fn blob_versioned_hashes(&self) -> &[$crate::B256] {
+                $crate::transaction::ExecutableTransaction::blob_hashes(self)
+            }
+
+            fn max_fee_per_blob_gas(&self) -> u128 {
+                $crate::transaction::ExecutableTransaction::max_fee_per_blob_gas(self)
+                    .cloned()
+                    .unwrap_or(0u128)
+            }
+
+            fn authorization_list_len(&self) -> usize {
+                $crate::transaction::ExecutableTransaction::authorization_list(self)
+                    .map_or(0, |list| list.len())
+            }
+
+            fn authorization_list(
+                &self,
+            ) -> impl Iterator<Item = $crate::eips::eip7702::AuthorizationItem> {
+                $crate::transaction::ExecutableTransaction::authorization_list(self)
+                    .unwrap_or(&[])
+                    .iter()
+                    .cloned()
+            }
+
+            fn max_priority_fee_per_gas(&self) -> Option<u128> {
+                $crate::transaction::ExecutableTransaction::max_priority_fee_per_gas(self).cloned()
+            }
+        }
+    };
 }
 
 /// Trait for transactions that may be signed.
@@ -319,10 +405,10 @@ pub trait IsSupported {
     fn is_supported_transaction(&self) -> bool;
 }
 
-pub fn max_cost(transaction: &impl ExecutableTransaction) -> U256 {
-    U256::from(transaction.gas_limit()).saturating_mul(*transaction.gas_price())
+pub fn max_cost(transaction: &impl ExecutableTransaction) -> u128 {
+    u128::from(transaction.gas_limit()).saturating_mul(*transaction.gas_price())
 }
 
 pub fn upfront_cost(transaction: &impl ExecutableTransaction) -> U256 {
-    max_cost(transaction).saturating_add(*transaction.value())
+    U256::from(max_cost(transaction)).saturating_add(*transaction.value())
 }

@@ -69,12 +69,14 @@ impl<ContextT> CustomPrecompilesProvider for ContextWithCustomPrecompiles<Contex
 impl<BaseProviderT, ContextT, ErrorT> PrecompileProvider
     for OverriddenPrecompileProvider<BaseProviderT>
 where
-    BaseProviderT: PrecompileProvider<Context = ContextT, Error = ErrorT>,
+    BaseProviderT:
+        PrecompileProvider<Context = ContextT, Error = ErrorT, Output = InterpreterResult>,
     ContextT: CustomPrecompilesProvider,
+    ErrorT: From<PrecompileErrors>,
 {
     type Context = ContextT;
-
     type Error = ErrorT;
+    type Output = InterpreterResult;
 
     fn new(context: &mut Self::Context) -> Self {
         let base = BaseProviderT::new(context);
@@ -89,7 +91,7 @@ where
         address: &Address,
         bytes: &edr_eth::Bytes,
         gas_limit: u64,
-    ) -> Result<Option<revm::interpreter::InterpreterResult>, Self::Error> {
+    ) -> Result<Option<Self::Output>, Self::Error> {
         let Some(precompile) = self.custom_precompiles.get(address) else {
             return self.base.run(context, address, bytes, gas_limit);
         };

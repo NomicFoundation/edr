@@ -1,4 +1,4 @@
-use auto_impl::auto_impl;
+use std::marker::PhantomData;
 
 // /// Type for registering handles, specialised for EDR database component
 // types. pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT,
@@ -20,11 +20,26 @@ use auto_impl::auto_impl;
 
 /// Type for encapsulating contextual data and handler registration in an
 /// `EvmBuilder`.
-pub struct DebugContext<ContextT, DebugDataT, HandlerT> {
-    /// The inner context
-    pub context: ContextT,
-    /// The contextual data.
-    pub data: DebugDataT,
-    /// The handler
-    pub handler: HandlerT,
+pub struct EvmExtension<ConstructorT, InnerContextT, OuterContextT>
+where
+    ConstructorT: Fn(InnerContextT) -> OuterContextT,
+{
+    pub context_constructor: ConstructorT,
+    // /// The handler
+    // pub handler: HandlerT,
+    phantom: PhantomData<(InnerContextT, OuterContextT)>,
+}
+
+impl<ConstructorT, InnerContextT, OuterContextT>
+    EvmExtension<ConstructorT, InnerContextT, OuterContextT>
+where
+    ConstructorT: Fn(InnerContextT) -> OuterContextT,
+{
+    /// Creates a new instance.
+    pub fn new(context_constructor: ConstructorT) -> Self {
+        Self {
+            context_constructor,
+            phantom: PhantomData,
+        }
+    }
 }

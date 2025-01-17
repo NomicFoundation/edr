@@ -196,7 +196,7 @@ impl ExecutableTransaction for Eip4844 {
         self.payload.gas_limit()
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         self.payload.gas_price()
     }
 
@@ -224,15 +224,15 @@ impl ExecutableTransaction for Eip4844 {
         self.payload.access_list()
     }
 
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
         self.payload.effective_gas_price(block_base_fee)
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         self.payload.max_fee_per_gas()
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         self.payload.max_priority_fee_per_gas()
     }
 
@@ -240,7 +240,7 @@ impl ExecutableTransaction for Eip4844 {
         self.payload.blob_hashes()
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         self.payload.max_fee_per_blob_gas()
     }
 

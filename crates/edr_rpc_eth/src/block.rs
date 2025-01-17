@@ -56,8 +56,11 @@ pub struct Block<TransactionT> {
     /// hash of the generated proof-of-work. null when its pending block.
     pub nonce: Option<B64>,
     /// base fee per gas
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub base_fee_per_gas: Option<U256>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub base_fee_per_gas: Option<u128>,
     /// the address of the beneficiary to whom the mining rewards were given
     #[serde(skip_serializing_if = "Option::is_none")]
     pub miner: Option<Address>,

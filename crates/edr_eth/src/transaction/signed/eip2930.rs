@@ -15,12 +15,13 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip2930 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    pub gas_price: U256,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
+    pub gas_price: u128,
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -53,7 +54,7 @@ impl ExecutableTransaction for Eip2930 {
         self.gas_limit
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         &self.gas_price
     }
 
@@ -81,15 +82,15 @@ impl ExecutableTransaction for Eip2930 {
         Some(self.access_list.0.as_slice())
     }
 
-    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
+    fn effective_gas_price(&self, _block_base_fee: u128) -> Option<u128> {
         None
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         None
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         None
     }
 
@@ -97,7 +98,7 @@ impl ExecutableTransaction for Eip2930 {
         &[]
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         None
     }
 
@@ -141,7 +142,7 @@ struct Decodable {
     // The order of these fields determines decoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub gas_price: U256,
+    pub gas_price: u128,
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -205,7 +206,7 @@ mod tests {
         transaction::request::Eip2930 {
             chain_id: 1,
             nonce: 1,
-            gas_price: U256::from(2),
+            gas_price: 2,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),

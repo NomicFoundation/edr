@@ -134,6 +134,6 @@ where
     /// Finalizes the block, applying rewards to the state.
     fn finalize(
         self,
-        rewards: Vec<(Address, U256)>,
+        rewards: Vec<(Address, u128)>,
     ) -> Result<MineBlockResultAndStateForChainSpec<ChainSpecT, Self::StateError>, Self::StateError>;
 }

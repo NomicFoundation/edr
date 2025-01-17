@@ -1288,6 +1288,7 @@ version = "0.3.5"
 dependencies = [
  "alloy-eips",
  "alloy-rlp",
+ "alloy-serde",
  "anyhow",
  "assert-json-diff",
  "auto_impl",
@@ -1353,6 +1354,7 @@ dependencies = [
  "revm 19.2.0",
  "revm-context",
  "revm-context-interface",
+ "revm-handler",
  "revm-handler-interface",
  "revm-interpreter 15.0.0",
  "rpds",

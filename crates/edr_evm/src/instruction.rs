@@ -3,7 +3,10 @@ use std::rc::Rc;
 
 use derive_where::derive_where;
 use revm_interpreter::{
-    interpreter::InstructionProvider, table::CustomInstruction, Instruction, InstructionResult,
+    interpreter::InstructionProvider,
+    interpreter_types::{Jumps as _, LoopControl as _},
+    table::CustomInstruction,
+    Instruction, InstructionResult,
 };
 pub use revm_interpreter::{Host, Interpreter, InterpreterTypes};
 
@@ -12,10 +15,10 @@ pub trait InspectsInstruction {
     type InterpreterTypes: InterpreterTypes;
 
     /// Called before the instruction is executed.
-    fn before_instruction(&self, interpreter: &mut Interpreter<Self::InterpreterTypes>);
+    fn before_instruction(&mut self, interpreter: &mut Interpreter<Self::InterpreterTypes>);
 
     /// Called after the instruction is executed.
-    fn after_instruction(&self, interpreter: &mut Interpreter<Self::InterpreterTypes>);
+    fn after_instruction(&mut self, interpreter: &mut Interpreter<Self::InterpreterTypes>);
 }
 
 /// A wrapper around an instruction that can be inspected.
@@ -46,7 +49,7 @@ where
         interpreter.bytecode.relative_jump(1);
 
         // Execute instruction.
-        (self.instruction)(interpreter, host);
+        (self.inner)(interpreter, host);
 
         host.after_instruction(interpreter);
     }
@@ -72,26 +75,32 @@ impl<HostT, InterpreterTypesT, ProviderT> InstructionProvider
 where
     HostT: Host + InspectsInstruction<InterpreterTypes = InterpreterTypesT>,
     InterpreterTypesT: InterpreterTypes,
-    ProviderT: InstructionProvider<Host = HostT, WIRE = InterpreterTypesT>,
+    ProviderT: InstructionProvider<
+        Host = HostT,
+        Instruction: Clone + Into<InspectableInstruction<HostT, InterpreterTypesT>>,
+        WIRE = InterpreterTypesT,
+    >,
 {
     type Host = HostT;
     type WIRE = InterpreterTypesT;
+    type Instruction = InspectableInstruction<HostT, InterpreterTypesT>;
 
     fn new(context: &mut Self::Host) -> Self {
-        let provider = ProviderT::new(context);
-        let instruction_table = provider
-            .table()
-            .iter()
-            .map(|instruction| InspectableInstruction::from_base(*instruction))
-            .collect::<Rc<[_; 256]>>();
+        let mut provider = ProviderT::new(context);
+
+        let instruction_table = provider.table();
+        debug_assert_eq!(instruction_table.len(), 256);
+
+        let instruction_table =
+            std::array::from_fn(|index| instruction_table[index].clone().into());
 
         Self {
-            instruction_table,
+            instruction_table: Rc::new(instruction_table),
             phantom: PhantomData,
         }
     }
 
-    fn table(&mut self) -> &[impl CustomInstruction<Host = Self::Host, Wire = Self::WIRE>; 256] {
+    fn table(&mut self) -> &[Self::Instruction; 256] {
         self.instruction_table.as_ref()
     }
 }

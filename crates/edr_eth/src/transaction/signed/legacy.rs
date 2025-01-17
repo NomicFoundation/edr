@@ -14,10 +14,10 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Legacy {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    pub gas_price: U256,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    pub gas_price: u128,
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -48,7 +48,7 @@ impl ExecutableTransaction for Legacy {
         self.gas_limit
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         &self.gas_price
     }
 
@@ -76,15 +76,15 @@ impl ExecutableTransaction for Legacy {
         None
     }
 
-    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
+    fn effective_gas_price(&self, _block_base_fee: u128) -> Option<u128> {
         None
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         None
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         None
     }
 
@@ -92,7 +92,7 @@ impl ExecutableTransaction for Legacy {
         &[]
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         None
     }
 
@@ -140,7 +140,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
         struct Decodable {
             // The order of these fields determines decoding order.
             pub nonce: u64,
-            pub gas_price: U256,
+            pub gas_price: u128,
             pub gas_limit: u64,
             pub kind: TxKind,
             pub value: U256,
@@ -233,7 +233,7 @@ mod tests {
         let input = hex::decode("1234").unwrap();
         transaction::request::Legacy {
             nonce: 1,
-            gas_price: U256::from(2),
+            gas_price: 2,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),

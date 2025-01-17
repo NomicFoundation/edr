@@ -69,14 +69,14 @@ pub fn dummy_eip155_transaction(
     caller: Address,
     nonce: u64,
 ) -> Result<transaction::Signed, transaction::CreationError> {
-    dummy_eip155_transaction_with_price(caller, nonce, U256::ZERO)
+    dummy_eip155_transaction_with_price(caller, nonce, 0)
 }
 
 /// Creates a dummy EIP-155 transaction with the provided gas price.
 pub fn dummy_eip155_transaction_with_price(
     caller: Address,
     nonce: u64,
-    gas_price: U256,
+    gas_price: u128,
 ) -> Result<transaction::Signed, transaction::CreationError> {
     dummy_eip155_transaction_with_price_and_limit(caller, nonce, gas_price, 30_000)
 }
@@ -87,13 +87,13 @@ pub fn dummy_eip155_transaction_with_limit(
     nonce: u64,
     gas_limit: u64,
 ) -> Result<transaction::Signed, transaction::CreationError> {
-    dummy_eip155_transaction_with_price_and_limit(caller, nonce, U256::ZERO, gas_limit)
+    dummy_eip155_transaction_with_price_and_limit(caller, nonce, 0, gas_limit)
 }
 
 fn dummy_eip155_transaction_with_price_and_limit(
     caller: Address,
     nonce: u64,
-    gas_price: U256,
+    gas_price: u128,
     gas_limit: u64,
 ) -> Result<transaction::Signed, transaction::CreationError> {
     dummy_eip155_transaction_with_price_limit_and_value(
@@ -110,7 +110,7 @@ fn dummy_eip155_transaction_with_price_and_limit(
 pub fn dummy_eip155_transaction_with_price_limit_and_value(
     caller: Address,
     nonce: u64,
-    gas_price: U256,
+    gas_price: u128,
     gas_limit: u64,
     value: U256,
 ) -> Result<transaction::Signed, transaction::CreationError> {
@@ -135,8 +135,8 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
 pub fn dummy_eip1559_transaction(
     caller: Address,
     nonce: u64,
-    max_fee_per_gas: U256,
-    max_priority_fee_per_gas: U256,
+    max_fee_per_gas: u128,
+    max_priority_fee_per_gas: u128,
 ) -> Result<transaction::Signed, transaction::CreationError> {
     let from = Address::random();
     let request = transaction::request::Eip1559 {
@@ -256,7 +256,7 @@ pub async fn run_full_block<
 
     let rewards = vec![(
         replay_header.beneficiary,
-        miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
+        miner_reward(hardfork.into()).unwrap_or(0),
     )];
     let mined_block = builder.finalize(rewards)?;
 

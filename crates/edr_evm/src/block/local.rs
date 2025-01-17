@@ -68,7 +68,7 @@ pub struct EthLocalBlock<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
-        HardforkT,
+        HardforkT: Clone,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction,
@@ -127,7 +127,7 @@ impl<
             .zip(transactions.iter())
             .map(|(transaction_receipt, transaction)| {
                 Arc::new(receipt_factory.create_receipt(
-                    hardfork,
+                    hardfork.clone(),
                     transaction,
                     transaction_receipt,
                     &hash,
@@ -267,7 +267,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT,
+        HardforkT: Into<l1::SpecId>,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
     > EmptyBlock<HardforkT>

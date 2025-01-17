@@ -16,7 +16,7 @@ use edr_evm::{
     spec::SyncRuntimeSpec,
     state::{StateError, StateOverrides, SyncState},
     trace::{register_trace_collector_handles, TraceCollector},
-    Block as _, BlockReceipts, DebugContext,
+    Block as _, BlockReceipts, EvmExtension,
 };
 use itertools::Itertools;
 
@@ -77,7 +77,7 @@ where
         hardfork,
         transaction,
         precompiles,
-        debug_context: Some(DebugContext {
+        debug_context: Some(EvmExtension {
             data: trace_collector,
             register_handles_fn: register_trace_collector_handles,
         }),

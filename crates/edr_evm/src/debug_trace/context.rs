@@ -1,5 +1,5 @@
 use edr_eth::{log::ExecutionLog, Address, Bytes, B256, U256};
-use revm::context_interface::journaled_state::AccountLoad;
+use revm::{context_interface::journaled_state::AccountLoad, JournalEntry};
 use revm_context_interface::{BlockGetter, CfgGetter, Journal, JournalGetter, TransactionGetter};
 use revm_interpreter::{
     interpreter::EthInterpreter, Host, Interpreter, SStoreResult, SelfDestructResult, StateLoad,
@@ -108,15 +108,18 @@ impl<ContextT: Host> Host for Eip3155TracerContext<ContextT> {
     }
 }
 
-impl<ContextT: JournalGetter> InspectsInstruction for Eip3155TracerContext<ContextT> {
+impl<ContextT> InspectsInstruction for Eip3155TracerContext<ContextT>
+where
+    ContextT: JournalGetter<Journal: Journal<Entry = JournalEntry>>,
+{
     // TODO: Make this chain-agnostic
     type InterpreterTypes = EthInterpreter;
 
-    fn before_instruction(&self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
+    fn before_instruction(&mut self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
         self.tracer.step(interpreter);
     }
 
-    fn after_instruction(&self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
+    fn after_instruction(&mut self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
         self.tracer.step_end(interpreter, self.inner.journal_ref());
     }
 }

@@ -57,8 +57,8 @@ use edr_evm::{
         StateOverrides, SyncState,
     },
     trace::Trace,
-    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, DebugContext,
-    DebugTraceConfig, DebugTraceResultWithTraces, Eip3155AndRawTracers, MemPool,
+    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, DebugTraceConfig,
+    DebugTraceResultWithTraces, Eip3155AndRawTracers, EvmExtension, MemPool,
     MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::{
@@ -1743,7 +1743,7 @@ where
                 hardfork,
                 transaction,
                 precompiles: &precompiles,
-                debug_context: Some(DebugContext {
+                debug_context: Some(EvmExtension {
                     data: &mut tracer,
                     register_handles_fn: register_eip_3155_and_raw_tracers_handles,
                 }),
@@ -2149,7 +2149,7 @@ where
                 hardfork,
                 transaction,
                 precompiles: &precompiles,
-                debug_context: Some(DebugContext {
+                debug_context: Some(EvmExtension {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
                 }),
@@ -2231,7 +2231,7 @@ where
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
             miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
-            Some(DebugContext {
+            Some(EvmExtension {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
             }),
@@ -2262,7 +2262,7 @@ where
             options,
             self.min_gas_price,
             miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
-            Some(DebugContext {
+            Some(EvmExtension {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
             }),
@@ -2516,7 +2516,7 @@ where
                 hardfork,
                 transaction: transaction.clone(),
                 precompiles: &precompiles,
-                debug_context: Some(DebugContext {
+                debug_context: Some(EvmExtension {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
                 }),

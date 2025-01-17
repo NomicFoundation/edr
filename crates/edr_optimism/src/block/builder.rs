@@ -36,7 +36,7 @@ impl<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT: Debug + Send>
         cfg: edr_evm::config::CfgEnv,
         options: edr_eth::block::BlockOptions,
         debug_context: Option<
-            edr_evm::DebugContext<
+            edr_evm::EvmExtension<
                 'blockchain,
                 OptimismChainSpec,
                 Self::BlockchainError,

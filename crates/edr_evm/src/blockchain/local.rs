@@ -56,7 +56,7 @@ pub struct GenesisBlockOptions {
     /// The block's mix hash (or prevrandao for post-merge blockchains)
     pub mix_hash: Option<B256>,
     /// The block's base gas fee
-    pub base_fee: Option<U256>,
+    pub base_fee: Option<u128>,
     /// The block's blob gas (for post-Cancun blockchains)
     pub blob_gas: Option<BlobGas>,
 }

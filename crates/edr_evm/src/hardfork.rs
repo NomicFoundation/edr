@@ -34,7 +34,9 @@ impl<HardforkT> Activations<HardforkT> {
     pub fn is_empty(&self) -> bool {
         self.hardforks.is_empty()
     }
+}
 
+impl<HardforkT: Clone> Activations<HardforkT> {
     /// Returns the hardfork's `SpecId` corresponding to the provided block
     /// number.
     pub fn hardfork_at_block(&self, block_number: u64, timestamp: u64) -> Option<HardforkT> {
@@ -45,11 +47,11 @@ impl<HardforkT> Activations<HardforkT> {
                 ForkCondition::Block(activation) => block_number >= *activation,
                 ForkCondition::Timestamp(activation) => timestamp >= *activation,
             })
-            .map(|entry| entry.1)
+            .map(|entry| entry.1.clone())
     }
 }
 
-impl<HardforkT> From<&[(ForkCondition, HardforkT)]> for Activations<HardforkT> {
+impl<HardforkT: Clone> From<&[(ForkCondition, HardforkT)]> for Activations<HardforkT> {
     fn from(hardforks: &[(ForkCondition, HardforkT)]) -> Self {
         Self {
             hardforks: hardforks.to_vec(),

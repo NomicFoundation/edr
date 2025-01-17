@@ -119,9 +119,9 @@ impl<ContextT: JournalGetter, HaltReasonT: HaltReasonTrait> InspectsInstruction
     // TODO: Make this chain-agnostic
     type InterpreterTypes = EthInterpreter;
 
-    fn before_instruction(&self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
+    fn before_instruction(&mut self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
         self.collector.step(interpreter, self.inner.journal_ref());
     }
 
-    fn after_instruction(&self, _interpreter: &mut Interpreter<Self::InterpreterTypes>) {}
+    fn after_instruction(&mut self, _interpreter: &mut Interpreter<Self::InterpreterTypes>) {}
 }

@@ -17,12 +17,12 @@ use crate::{spec::RuntimeSpec, state::StateDiff, Block, BlockReceipts, EmptyBloc
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Reservation<HardforkT> {
     first_number: u64,
     last_number: u64,
     interval: u64,
-    previous_base_fee_per_gas: Option<U256>,
+    previous_base_fee_per_gas: Option<u128>,
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
@@ -234,7 +234,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
         &mut self,
         additional: NonZeroU64,
         interval: u64,
-        previous_base_fee: Option<U256>,
+        previous_base_fee: Option<u128>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
         hardfork: HardforkT,
@@ -264,7 +264,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
 impl<
         BlockReceiptT: Clone + ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
-        HardforkT,
+        HardforkT: Clone,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
@@ -320,14 +320,14 @@ impl<
                 if block_number != reservation.first_number {
                     reservations.push(Reservation {
                         last_number: block_number - 1,
-                        ..reservation
+                        ..reservation.clone()
                     });
                 }
 
                 if block_number != reservation.last_number {
                     reservations.push(Reservation {
                         first_number: block_number + 1,
-                        ..reservation
+                        ..reservation.clone()
                     });
                 }
 

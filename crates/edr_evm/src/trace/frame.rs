@@ -37,7 +37,7 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, Ha
                     .create_end(context.inner.journal_ref(), outcome);
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
-            FrameResult::EOFCreate(outcome) => unreachable!("EDR doesn't support EOF yet."),
+            FrameResult::EOFCreate(_outcome) => unreachable!("EDR doesn't support EOF yet."),
         }
     }
 
@@ -59,7 +59,7 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, Ha
 
 impl<FrameT, HaltReasonT> Frame for TraceCollectorFrame<FrameT, HaltReasonT>
 where
-    FrameT: Frame<Context: JournalGetter, FrameInit = FrameInput>,
+    FrameT: Frame<Context: JournalGetter, FrameInit = FrameInput, FrameResult = FrameResult>,
     HaltReasonT: HaltReasonTrait,
 {
     type Context = TraceCollectorContext<FrameT::Context, HaltReasonT>;
@@ -76,15 +76,15 @@ where
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
         Self::notify_frame_start(context, &frame_input);
 
-        let result =
-            FrameT::init_first(context.inner, frame_input).map(|frame| frame.map_frame(Self::new));
+        let result = FrameT::init_first(&mut context.inner, frame_input)
+            .map(|frame| frame.map_frame(Self::new));
 
         match &result {
             Ok(FrameOrResultGen::Result(result)) => Self::notify_frame_end(context, result),
             _ => (),
         }
 
-        Ok(result)
+        result
     }
 
     fn final_return(
@@ -93,7 +93,7 @@ where
     ) -> Result<(), Self::Error> {
         Self::notify_frame_end(context, result);
 
-        FrameT::final_return(context.inner, result)
+        FrameT::final_return(&mut context.inner, result)
     }
 
     fn init(
@@ -104,7 +104,7 @@ where
         Self::notify_frame_start(context, &frame_input);
 
         self.inner
-            .init(context.inner, frame_input)
+            .init(&mut context.inner, frame_input)
             .map(|frame| frame.map_frame(Self::new))
     }
 
@@ -112,7 +112,7 @@ where
         &mut self,
         context: &mut Self::Context,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
-        self.inner.run(context.inner)
+        self.inner.run(&mut context.inner)
     }
 
     fn return_result(
@@ -123,6 +123,6 @@ where
         Self::notify_frame_end(context, &result);
         context.collector.finish_trace();
 
-        self.inner.return_result(context, result)
+        self.inner.return_result(&mut context.inner, result)
     }
 }

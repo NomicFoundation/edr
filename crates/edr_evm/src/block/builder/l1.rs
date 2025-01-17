@@ -1,8 +1,5 @@
-use std::{
-    fmt::Debug,
-    marker::PhantomData,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use core::{fmt::Debug, marker::PhantomData};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use derive_where::derive_where;
 use edr_eth::{
@@ -25,30 +22,47 @@ use super::{
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::DebugContext,
+    debug::EvmExtension,
     dry_run,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     run,
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
+    spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
     Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
 };
 
 /// A builder for constructing Ethereum L1 blocks.
-pub struct EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
-where
+pub struct EthBlockBuilder<
+    'blockchain,
+    BlockchainErrorT,
+    ChainSpecT,
+    ConstructorT,
+    OuterContextT,
+    StateErrorT,
+> where
+    BlockchainErrorT: std::error::Error,
     ChainSpecT: RuntimeSpec,
+    ConstructorT: Fn(
+        ContextForChainSpec<
+            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+            ChainSpecT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
+    ) -> OuterContextT,
+    StateErrorT: std::error::Error,
 {
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-    cfg: CfgEnv,
-    debug_context: Option<
-        DebugContextForChainSpec<
-            'blockchain,
-            BlockchainErrorT,
-            ChainSpecT,
-            DebugDataT,
-            StateErrorT,
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
+    extension: Option<
+        EvmExtension<
+            ConstructorT,
+            ContextForChainSpec<
+                &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                ChainSpecT,
+                Box<dyn SyncState<StateErrorT>>,
+            >,
+            OuterContextT,
         >,
     >,
     hardfork: ChainSpecT::Hardfork,
@@ -62,13 +76,22 @@ where
     withdrawals: Option<Vec<Withdrawal>>,
 }
 
-impl<BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
-    EthBlockBuilder<'_, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+impl<BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
+    EthBlockBuilder<'_, BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
 where
+    BlockchainErrorT: std::error::Error,
     ChainSpecT: RuntimeSpec,
+    ConstructorT: Fn(
+        ContextForChainSpec<
+            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+            ChainSpecT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
+    ) -> OuterContextT,
+    StateErrorT: std::error::Error,
 {
     /// Retrieves the config of the block builder.
-    pub fn config(&self) -> &CfgEnv {
+    pub fn config(&self) -> &CfgEnv<ChainSpecT::Hardfork> {
         &self.cfg
     }
 
@@ -93,10 +116,26 @@ where
     }
 }
 
-impl<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
-    EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+impl<'blockchain, BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
+    EthBlockBuilder<
+        'blockchain,
+        BlockchainErrorT,
+        ChainSpecT,
+        ConstructorT,
+        OuterContextT,
+        StateErrorT,
+    >
 where
-    ChainSpecT: SyncRuntimeSpec,
+    BlockchainErrorT: Send + std::error::Error,
+    ChainSpecT: RuntimeSpec,
+    ConstructorT: Fn(
+        ContextForChainSpec<
+            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+            ChainSpecT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
+    ) -> OuterContextT,
+    StateErrorT: Send + std::error::Error,
 {
     /// Creates a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -104,15 +143,17 @@ where
         blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: Box<dyn SyncState<StateErrorT>>,
         hardfork: ChainSpecT::Hardfork,
-        cfg: CfgEnv,
+        cfg: CfgEnv<ChainSpecT::Hardfork>,
         mut options: BlockOptions,
-        debug_context: Option<
-            DebugContextForChainSpec<
-                'blockchain,
-                BlockchainErrorT,
-                ChainSpecT,
-                DebugDataT,
-                StateErrorT,
+        extension: Option<
+            EvmExtension<
+                ConstructorT,
+                ContextForChainSpec<
+                    &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    ChainSpecT,
+                    Box<dyn SyncState<StateErrorT>>,
+                >,
+                OuterContextT,
             >,
         >,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
@@ -147,7 +188,7 @@ where
         Ok(Self {
             blockchain,
             cfg,
-            debug_context,
+            extension,
             hardfork,
             header,
             parent_gas_limit,
@@ -184,7 +225,7 @@ where
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            if block_blob_gas_used + blob_gas_used > eip4844::MAX_BLOB_GAS_PER_BLOCK {
+            if block_blob_gas_used + blob_gas_used > eip4844::MAX_BLOB_GAS_PER_BLOCK_CANCUN {
                 return Err(BlockBuilderAndError {
                     block_builder: self,
                     error: BlockTransactionError::ExceedsBlockBlobGasLimit,
@@ -205,22 +246,14 @@ where
                 }
             };
 
-        let Self {
-            blockchain,
-            debug_context,
-            hardfork,
-            state,
-            ..
-        } = self;
-
         let result = dry_run(
-            blockchain,
-            state,
+            self.blockchain,
+            self.state.as_ref(),
             self.cfg.clone(),
             transaction.clone(),
             block,
             &HashMap::new(),
-            debug_context,
+            self.extension,
         );
 
         let env = Env::boxed(self.cfg.clone(), block, transaction.clone());
@@ -251,13 +284,6 @@ where
                     external,
                 } = evm.into_context();
 
-                // Reconstruct self for moved values
-                self.debug_context = Some(DebugContext {
-                    data: external,
-                    register_handles_fn: debug_context.register_handles_fn,
-                });
-                self.state = db.0.state;
-
                 match result {
                     Ok(result) => result,
                     Err(error) => {
@@ -285,10 +311,6 @@ where
                         },
                     ..
                 } = evm.into_context();
-
-                // Reconstruct self for moved values
-                self.debug_context = None;
-                self.state = db.0.state;
 
                 match result {
                     Ok(result) => result,
@@ -335,11 +357,19 @@ where
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
-    EthBlockBuilder<'_, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+impl<BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
+    EthBlockBuilder<'_, BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
 where
+    BlockchainErrorT: std::error::Error,
     ChainSpecT: SyncRuntimeSpec,
-    StateErrorT: Debug,
+    ConstructorT: Fn(
+        ContextForChainSpec<
+            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+            ChainSpecT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
+    ) -> OuterContextT,
+    StateErrorT: std::error::Error,
 {
     /// Finalizes the block, applying rewards to the state.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -423,16 +453,31 @@ where
     }
 }
 
-impl<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+impl<'blockchain, BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
     BlockBuilder<'blockchain, ChainSpecT, DebugDataT>
-    for EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, DebugDataT, StateErrorT>
+    for EthBlockBuilder<
+        'blockchain,
+        BlockchainErrorT,
+        ChainSpecT,
+        ConstructorT,
+        OuterContextT,
+        StateErrorT,
+    >
 where
+    BlockchainErrorT: std::error::Error,
     ChainSpecT: SyncRuntimeSpec<
         BlockReceiptFactory: Default,
         Hardfork: Debug,
         LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>,
     >,
-    StateErrorT: Debug + Send,
+    ConstructorT: Fn(
+        ContextForChainSpec<
+            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+            ChainSpecT,
+            Box<dyn SyncState<StateErrorT>>,
+        >,
+    ) -> OuterContextT,
+    StateErrorT: Send + std::error::Error,
 {
     type BlockchainError = BlockchainErrorT;
 
@@ -449,7 +494,7 @@ where
         cfg: CfgEnv,
         options: BlockOptions,
         debug_context: Option<
-            DebugContext<
+            EvmExtension<
                 'blockchain,
                 ChainSpecT,
                 Self::BlockchainError,
@@ -519,7 +564,7 @@ pub struct EthBlockReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = Filt
 
 impl<
         ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
-        HardforkT: HardforkTrait + Into<l1::SpecId>,
+        HardforkT: Into<l1::SpecId>,
         SignedTransactionT,
     > ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
     for EthBlockReceiptFactory<ExecutionReceiptT>

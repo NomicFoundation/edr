@@ -145,7 +145,7 @@ impl ExecutableTransaction for PooledTransaction {
         }
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.gas_price(),
             PooledTransaction::PostEip155Legacy(tx) => tx.gas_price(),
@@ -215,7 +215,7 @@ impl ExecutableTransaction for PooledTransaction {
         }
     }
 
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
             PooledTransaction::PostEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
@@ -225,7 +225,7 @@ impl ExecutableTransaction for PooledTransaction {
         }
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.max_fee_per_gas(),
             PooledTransaction::PostEip155Legacy(tx) => tx.max_fee_per_gas(),
@@ -235,7 +235,7 @@ impl ExecutableTransaction for PooledTransaction {
         }
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
             PooledTransaction::PostEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
@@ -255,7 +255,7 @@ impl ExecutableTransaction for PooledTransaction {
         }
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
             PooledTransaction::PostEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
@@ -410,7 +410,7 @@ mod tests {
     impl_test_pooled_transaction_encoding_round_trip! {
         pre_eip155 => PooledTransaction::PreEip155Legacy(Legacy {
             nonce: 0,
-            gas_price: U256::from(1),
+            gas_price: 1,
             gas_limit: 2,
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
@@ -430,7 +430,7 @@ mod tests {
         }),
         post_eip155 => PooledTransaction::PostEip155Legacy(Eip155 {
             nonce: 0,
-            gas_price: U256::from(1),
+            gas_price: 1,
             gas_limit: 2,
             kind: TxKind::Create,
             value: U256::from(3),
@@ -451,7 +451,7 @@ mod tests {
         eip2930 => PooledTransaction::Eip2930(Eip2930 {
             chain_id: 1,
             nonce: 0,
-            gas_price: U256::from(1),
+            gas_price: 1,
             gas_limit: 2,
             kind: TxKind::Call(Address::default()),
             value: U256::from(3),
@@ -473,8 +473,8 @@ mod tests {
         eip1559 => PooledTransaction::Eip1559(Eip1559 {
             chain_id: 1,
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(1),
-            max_fee_per_gas: U256::from(2),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
             gas_limit: 3,
             kind: TxKind::Create,
             value: U256::from(4),
@@ -497,9 +497,9 @@ mod tests {
             Eip4844::new(transaction::signed::Eip4844 {
                 chain_id: 1337,
                 nonce: 0,
-                max_priority_fee_per_gas: U256::from(1_000_000_000),
-                max_fee_per_gas: U256::from(1_000_000_000),
-                max_fee_per_blob_gas: U256::from(1),
+                max_priority_fee_per_gas: 1_000_000_000,
+                max_fee_per_gas: 1_000_000_000,
+                max_fee_per_blob_gas: 1,
                 gas_limit: 1_000_000,
                 to: Address::ZERO,
                 value: U256::ZERO,

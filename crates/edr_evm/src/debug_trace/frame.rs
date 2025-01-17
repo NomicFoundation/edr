@@ -1,10 +1,36 @@
 use std::marker::PhantomData;
 
-use edr_eth::spec::HaltReasonTrait;
+use edr_eth::spec::{ChainSpec, HaltReasonTrait};
 use revm::{context_interface::JournalGetter, handler::FrameResult, interpreter::FrameInput};
 use revm_handler_interface::{Frame, FrameOrResultGen};
 
 use super::context::Eip3155TracerContext;
+use crate::{
+    blockchain::BlockHash,
+    spec::{ContextForChainSpec, RuntimeSpec},
+    state::State,
+};
+
+pub type Eip3155TracerFrameForChainSpec<BlockchainT, ChainSpecT, StateT> = Eip3155TracerFrame<
+    <ChainSpecT as RuntimeSpec>::EvmFrame<
+        ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+        <ChainSpecT as RuntimeSpec>::EvmError<
+            <BlockchainT as BlockHash>::Error,
+            <StateT as State>::Error,
+        >,
+        <ChainSpecT as RuntimeSpec>::EvmInstructionProvider<
+            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+        >,
+        <ChainSpecT as RuntimeSpec>::EvmPrecompileProvider<
+            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+            <ChainSpecT as RuntimeSpec>::EvmError<
+                <BlockchainT as BlockHash>::Error,
+                <StateT as State>::Error,
+            >,
+        >,
+    >,
+    <ChainSpecT as ChainSpec>::HaltReason,
+>;
 
 pub struct Eip3155TracerFrame<FrameT: Frame, HaltReasonT: HaltReasonTrait> {
     inner: FrameT,
@@ -33,14 +59,14 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> Eip3155TracerFrame<FrameT, Hal
                 context.tracer.on_inner_frame_result(&outcome.result);
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
-            FrameResult::EOFCreate(outcome) => unreachable!("EDR doesn't support EOF yet."),
+            FrameResult::EOFCreate(_outcome) => unreachable!("EDR doesn't support EOF yet."),
         }
     }
 }
 
 impl<FrameT, HaltReasonT> Frame for Eip3155TracerFrame<FrameT, HaltReasonT>
 where
-    FrameT: Frame<Context: JournalGetter, FrameInit = FrameInput>,
+    FrameT: Frame<Context: JournalGetter, FrameInit = FrameInput, FrameResult = FrameResult>,
     HaltReasonT: HaltReasonTrait,
 {
     type Context = Eip3155TracerContext<FrameT::Context>;
@@ -55,14 +81,14 @@ where
         context: &mut Self::Context,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        FrameT::init_first(context.inner, frame_input).map(|frame| frame.map_frame(Self::new))
+        FrameT::init_first(&mut context.inner, frame_input).map(|frame| frame.map_frame(Self::new))
     }
 
     fn final_return(
         context: &mut Self::Context,
         result: &mut Self::FrameResult,
     ) -> Result<(), Self::Error> {
-        FrameT::final_return(context.inner, result)
+        FrameT::final_return(&mut context.inner, result)
     }
 
     fn init(
@@ -71,7 +97,7 @@ where
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
         self.inner
-            .init(context.inner, frame_input)
+            .init(&mut context.inner, frame_input)
             .map(|frame| frame.map_frame(Self::new))
     }
 
@@ -79,7 +105,7 @@ where
         &mut self,
         context: &mut Self::Context,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
-        self.inner.run(context.inner)
+        self.inner.run(&mut context.inner)
     }
 
     fn return_result(
@@ -89,6 +115,6 @@ where
     ) -> Result<(), Self::Error> {
         Self::notify_frame_end(context, &result);
 
-        self.inner.return_result(context, result)
+        self.inner.return_result(&mut context.inner, result)
     }
 }

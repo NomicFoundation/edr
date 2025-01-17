@@ -88,11 +88,11 @@ pub enum CreationError {
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: ExecutableTransaction>(
+pub fn validate<TransactionT: revm_context_interface::Transaction>(
     transaction: TransactionT,
     spec_id: l1::SpecId,
 ) -> Result<TransactionT, CreationError> {
-    if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
+    if transaction.kind() == TxKind::Create && transaction.input().is_empty() {
         return Err(CreationError::ContractMissingData);
     }
 
@@ -107,9 +107,23 @@ pub fn validate<TransactionT: ExecutableTransaction>(
     Ok(transaction)
 }
 
+// TODO: Avoid using revm Transaction type
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl ExecutableTransaction, spec_id: l1::SpecId) -> u64 {
-    validate_initial_tx_gas(transaction, spec_id)
+pub fn initial_cost(
+    transaction: &impl revm_context_interface::Transaction,
+    spec_id: l1::SpecId,
+) -> u64 {
+    let (accounts, storages) = transaction.access_list_nums().unwrap_or_default();
+
+    revm_interpreter::gas::calculate_initial_tx_gas(
+        spec_id,
+        transaction.input(),
+        transaction.kind().is_create(),
+        accounts as u64,
+        storages as u64,
+        transaction.authorization_list_len() as u64,
+    )
+    .initial_gas
 }
 
 #[cfg(test)]
@@ -126,7 +140,7 @@ mod tests {
 
         let request = transaction::request::Eip155 {
             nonce: 0,
-            gas_price: U256::ZERO,
+            gas_price: 0,
             gas_limit: TOO_LOW_GAS_LIMIT,
             kind: TxKind::Call(caller),
             value: U256::ZERO,
@@ -161,7 +175,7 @@ mod tests {
 
         let request = transaction::request::Eip155 {
             nonce: 0,
-            gas_price: U256::ZERO,
+            gas_price: 0,
             gas_limit: 30_000,
             kind: TxKind::Create,
             value: U256::ZERO,

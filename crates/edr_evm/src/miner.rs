@@ -6,7 +6,6 @@ use edr_eth::{
     signature::SignatureError,
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{ExecutableTransaction, TransactionValidation},
-    U256,
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +13,7 @@ use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::DebugContext,
+    debug::EvmExtension,
     mempool::OrderedTransaction,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, SyncState},
@@ -89,18 +88,10 @@ pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, S
     cfg: &CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     options: BlockOptions,
-    min_gas_price: U256,
+    min_gas_price: u128,
     mine_ordering: MineOrdering,
-    reward: U256,
-    debug_context: Option<
-        DebugContext<
-            'evm,
-            ChainSpecT,
-            BlockchainErrorT,
-            DebugDataT,
-            Box<dyn SyncState<StateErrorT>>,
-        >,
-    >,
+    reward: u128,
+    extension: Option<EvmExtension>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
@@ -199,27 +190,27 @@ where
     #[error("Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
     GasPriceTooLow {
         /// The minimum gas price.
-        expected: U256,
+        expected: u128,
         /// The actual gas price.
-        actual: U256,
+        actual: u128,
     },
     /// The transaction's max fee per gas is lower than the next block's base
     /// fee.
     #[error("Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
     MaxFeePerGasTooLow {
         /// The minimum max fee per gas.
-        expected: U256,
+        expected: u128,
         /// The actual max fee per gas.
-        actual: U256,
+        actual: u128,
     },
     /// The transaction's max fee per blob gas is lower than the next block's
     /// base fee.
     #[error("Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}")]
     MaxFeePerBlobGasTooLow {
         /// The minimum max fee per blob gas.
-        expected: U256,
+        expected: u128,
         /// The actual max fee per blob gas.
-        actual: U256,
+        actual: u128,
     },
     /// The block is expected to have a prevrandao, as the executor's config is
     /// on a post-merge hardfork.
@@ -245,9 +236,9 @@ where
     #[error("Transaction gas price is {actual}, which is below the minimum of {expected}")]
     PriorityFeeTooLow {
         /// The minimum gas price.
-        expected: U256,
+        expected: u128,
         /// The actual max priority fee per gas.
-        actual: U256,
+        actual: u128,
     },
     /// Signature error
     #[error(transparent)]
@@ -278,10 +269,10 @@ pub fn mine_block_with_single_transaction<
     cfg: &CfgEnv,
     hardfork: ChainSpecT::Hardfork,
     options: BlockOptions,
-    min_gas_price: U256,
-    reward: U256,
+    min_gas_price: u128,
+    reward: u128,
     debug_context: Option<
-        DebugContext<
+        EvmExtension<
             'evm,
             ChainSpecT,
             BlockchainErrorT,
@@ -338,7 +329,8 @@ where
         .map_err(MineTransactionError::Blockchain)?;
 
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
-        let base_fee_per_blob_gas = calculate_next_base_fee_per_blob_gas(parent_block.header());
+        let base_fee_per_blob_gas =
+            calculate_next_base_fee_per_blob_gas(parent_block.header(), hardfork);
         if *max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                 expected: base_fee_per_blob_gas,
@@ -393,7 +385,7 @@ where
         .map_err(MineTransactionError::State)
 }
 
-fn effective_miner_fee(transaction: &impl ExecutableTransaction, base_fee: Option<U256>) -> U256 {
+fn effective_miner_fee(transaction: &impl ExecutableTransaction, base_fee: Option<u128>) -> u128 {
     let max_fee_per_gas = transaction.gas_price();
     let max_priority_fee_per_gas = *transaction
         .max_priority_fee_per_gas()
@@ -414,7 +406,7 @@ fn first_in_first_out_comparator<ChainSpecT: RuntimeSpec>(
 fn priority_comparator<ChainSpecT: RuntimeSpec>(
     lhs: &OrderedTransaction<ChainSpecT>,
     rhs: &OrderedTransaction<ChainSpecT>,
-    base_fee: Option<U256>,
+    base_fee: Option<u128>,
 ) -> Ordering {
     let effective_miner_fee = move |transaction: &ChainSpecT::SignedTransaction| {
         effective_miner_fee(transaction, base_fee)
@@ -457,24 +449,18 @@ mod tests {
             (sender3, account_with_balance),
         ]);
 
-        let base_fee = Some(U256::from(15));
+        let base_fee = Some(15u128);
 
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, U256::from(111))?;
-        assert_eq!(effective_miner_fee(&transaction1, base_fee), U256::from(96));
+        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 111)?;
+        assert_eq!(effective_miner_fee(&transaction1, base_fee), 96);
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip1559_transaction(sender2, 0, U256::from(120), U256::from(100))?;
-        assert_eq!(
-            effective_miner_fee(&transaction2, base_fee),
-            U256::from(100)
-        );
+        let transaction2 = dummy_eip1559_transaction(sender2, 0, 120, 100)?;
+        assert_eq!(effective_miner_fee(&transaction2, base_fee), 100);
         fixture.add_transaction(transaction2.clone())?;
 
-        let transaction3 = dummy_eip1559_transaction(sender3, 0, U256::from(140), U256::from(110))?;
-        assert_eq!(
-            effective_miner_fee(&transaction3, base_fee),
-            U256::from(110)
-        );
+        let transaction3 = dummy_eip1559_transaction(sender3, 0, 140, 110)?;
+        assert_eq!(effective_miner_fee(&transaction3, base_fee), 110);
         fixture.add_transaction(transaction3.clone())?;
 
         let mut ordered_transactions = fixture.mem_pool.iter(first_in_first_out_comparator);
@@ -504,18 +490,18 @@ mod tests {
             (sender4, account_with_balance),
         ]);
 
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, U256::from(123))?;
+        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 123)?;
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip155_transaction_with_price(sender2, 0, U256::from(1_000))?;
+        let transaction2 = dummy_eip155_transaction_with_price(sender2, 0, 1_000)?;
         fixture.add_transaction(transaction2.clone())?;
 
         // This has the same gasPrice than tx2, but arrived later, so it's placed later
         // in the queue
-        let transaction3 = dummy_eip155_transaction_with_price(sender3, 0, U256::from(1_000))?;
+        let transaction3 = dummy_eip155_transaction_with_price(sender3, 0, 1_000)?;
         fixture.add_transaction(transaction3.clone())?;
 
-        let transaction4 = dummy_eip155_transaction_with_price(sender4, 0, U256::from(2_000))?;
+        let transaction4 = dummy_eip155_transaction_with_price(sender4, 0, 2_000)?;
         fixture.add_transaction(transaction4.clone())?;
 
         let mut ordered_transactions = fixture
@@ -535,7 +521,7 @@ mod tests {
         let sender1 = Address::random();
         let sender2 = Address::random();
         let sender3 = Address::random();
-        let sender4 = Address::random();
+        let sender4 = Address::random()
         let sender5 = Address::random();
 
         let account_with_balance = AccountInfo {
@@ -550,38 +536,26 @@ mod tests {
             (sender5, account_with_balance),
         ]);
 
-        let base_fee = Some(U256::from(15));
+        let base_fee = Some(15u128);
 
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, U256::from(111))?;
-        assert_eq!(effective_miner_fee(&transaction1, base_fee), U256::from(96));
+        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 111)?;
+        assert_eq!(effective_miner_fee(&transaction1, base_fee), 96);
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip1559_transaction(sender2, 0, U256::from(120), U256::from(100))?;
-        assert_eq!(
-            effective_miner_fee(&transaction2, base_fee),
-            U256::from(100)
-        );
+        let transaction2 = dummy_eip1559_transaction(sender2, 0, 120, 100)?;
+        assert_eq!(effective_miner_fee(&transaction2, base_fee), 100);
         fixture.add_transaction(transaction2.clone())?;
 
-        let transaction3 = dummy_eip1559_transaction(sender3, 0, U256::from(140), U256::from(110))?;
-        assert_eq!(
-            effective_miner_fee(&transaction3, base_fee),
-            U256::from(110)
-        );
+        let transaction3 = dummy_eip1559_transaction(sender3, 0, 140, 110)?;
+        assert_eq!(effective_miner_fee(&transaction3, base_fee), 110);
         fixture.add_transaction(transaction3.clone())?;
 
-        let transaction4 = dummy_eip1559_transaction(sender4, 0, U256::from(140), U256::from(130))?;
-        assert_eq!(
-            effective_miner_fee(&transaction4, base_fee),
-            U256::from(125)
-        );
+        let transaction4 = dummy_eip1559_transaction(sender4, 0, 140, 130)?;
+        assert_eq!(effective_miner_fee(&transaction4, base_fee), 125);
         fixture.add_transaction(transaction4.clone())?;
 
-        let transaction5 = dummy_eip155_transaction_with_price(sender5, 0, U256::from(170))?;
-        assert_eq!(
-            effective_miner_fee(&transaction5, base_fee),
-            U256::from(155)
-        );
+        let transaction5 = dummy_eip155_transaction_with_price(sender5, 0, 170)?;
+        assert_eq!(effective_miner_fee(&transaction5, base_fee), 155);
         fixture.add_transaction(transaction5.clone())?;
 
         let mut ordered_transactions = fixture
@@ -616,34 +590,34 @@ mod tests {
         ]);
 
         // Insert 9 transactions sequentially (no for loop)
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, U256::from(100))?;
+        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 100)?;
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip155_transaction_with_price(sender1, 1, U256::from(99))?;
+        let transaction2 = dummy_eip155_transaction_with_price(sender1, 1, 99)?;
         fixture.add_transaction(transaction2.clone())?;
 
-        let transaction3 = dummy_eip155_transaction_with_price(sender2, 0, U256::from(98))?;
+        let transaction3 = dummy_eip155_transaction_with_price(sender2, 0, 98)?;
         fixture.add_transaction(transaction3.clone())?;
 
-        let transaction4 = dummy_eip155_transaction_with_price(sender2, 1, U256::from(97))?;
+        let transaction4 = dummy_eip155_transaction_with_price(sender2, 1, 97)?;
         fixture.add_transaction(transaction4.clone())?;
 
-        let transaction5 = dummy_eip155_transaction_with_price(sender3, 0, U256::from(96))?;
+        let transaction5 = dummy_eip155_transaction_with_price(sender3, 0, 96)?;
         fixture.add_transaction(transaction5.clone())?;
 
-        let transaction6 = dummy_eip155_transaction_with_price(sender3, 1, U256::from(95))?;
+        let transaction6 = dummy_eip155_transaction_with_price(sender3, 1, 95)?;
         fixture.add_transaction(transaction6.clone())?;
 
-        let transaction7 = dummy_eip155_transaction_with_price(sender3, 2, U256::from(94))?;
+        let transaction7 = dummy_eip155_transaction_with_price(sender3, 2, 94)?;
         fixture.add_transaction(transaction7.clone())?;
 
-        let transaction8 = dummy_eip155_transaction_with_price(sender3, 3, U256::from(93))?;
+        let transaction8 = dummy_eip155_transaction_with_price(sender3, 3, 93)?;
         fixture.add_transaction(transaction8.clone())?;
 
-        let transaction9 = dummy_eip155_transaction_with_price(sender4, 0, U256::from(92))?;
+        let transaction9 = dummy_eip155_transaction_with_price(sender4, 0, 92)?;
         fixture.add_transaction(transaction9.clone())?;
 
-        let transaction10 = dummy_eip155_transaction_with_price(sender4, 1, U256::from(91))?;
+        let transaction10 = dummy_eip155_transaction_with_price(sender4, 1, 91)?;
         fixture.add_transaction(transaction10.clone())?;
 
         let mut ordered_transactions = fixture

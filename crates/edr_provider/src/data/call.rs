@@ -11,7 +11,7 @@ use edr_evm::{
     precompile::Precompile,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
-    DebugContext,
+    EvmExtension,
 };
 
 use crate::ProviderError;
@@ -38,7 +38,7 @@ pub(super) struct RunCallArgs<
     // `DebugContext` cannot be simplified further
     #[allow(clippy::type_complexity)]
     pub debug_context: Option<
-        DebugContext<
+        EvmExtension<
             'evm,
             ChainSpecT,
             BlockchainErrorForChainSpec<ChainSpecT>,

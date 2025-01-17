@@ -13,15 +13,22 @@ use edr_eth::{
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
-use revm::{handler::EthHandler, Evm, JournaledState};
+use revm::{handler::EthHandler, JournaledState};
 use revm_context_interface::Journal;
 use revm_interpreter::interpreter::EthInterpreter;
 
+use self::frame::Eip3155TracerFrameForChainSpec;
 use crate::{
-    blockchain::SyncBlockchain, config::CfgEnv, evm::{
+    blockchain::SyncBlockchain,
+    config::CfgEnv,
+    evm::{
         interpreter::{Interpreter, InterpreterResult},
         JournalEntry,
-    },  spec::RuntimeSpec, state::{Database, DatabaseComponents, SyncState, WrapDatabaseRef}, trace::{Trace, TraceCollector}, transaction::TransactionError
+    },
+    spec::{ContextForChainSpec, RuntimeSpec},
+    state::{Database, DatabaseComponents, SyncState, WrapDatabaseRef},
+    trace::{Trace, TraceCollector},
+    transaction::TransactionError,
 };
 
 pub struct TracerEip3155Context<'tracer, ContextT> {
@@ -29,18 +36,9 @@ pub struct TracerEip3155Context<'tracer, ContextT> {
     inner: ContextT,
 }
 
-type TracerEip3155ContextForChainSpec<'tracer, ChainSpecT, DatabaseT> =
-    TracerEip3155Context<
-        'tracer,
-        revm::Context<
-            <ChainSpecT as ChainSpec>::BlockEnv,
-            <ChainSpecT as ChainSpec>::SignedTransaction,
-            CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
-            DatabaseT,
-            JournaledState<<ChainSpecT as ChainSpec>::Context>,
-            <ChainSpecT as ChainSpec>::Context,
-        >,
-    >;
+/// Helper type for a chain-specific [`TracerEip3155Context`].
+pub type TracerEip3155ContextForChainSpec<'tracer, BlockchainT, ChainSpecT, StateT> =
+    TracerEip3155Context<'tracer, ContextForChainSpec<BlockchainT, ChainSpecT, StateT>>;
 
 /// EIP-3155 and raw tracers.
 pub struct Eip3155AndRawTracers<HaltReasonT: HaltReasonTrait> {
@@ -93,7 +91,10 @@ where
         });
     }
 
-    let database = WrapDatabaseRef(DatabaseComponents { blockchain, state: &state });
+    let database = WrapDatabaseRef(DatabaseComponents {
+        blockchain,
+        state: &state,
+    });
     for transaction in transactions {
         let context = revm::Context {
             block,
@@ -112,49 +113,43 @@ where
                 inner: context,
             };
 
-            /// let handler = ChainSpecificHandlerType(Frame, InstructionProvider) -> Handler;
-            let handler = EthHandler {
-                ChainSpecT::EvmValidationHandler::<TracerEip3155Context<'_, _>>::default(),
-
-            }
+            let handler = EthHandler::new(
+                ChainSpecT::EvmValidationHandler::<
+                    TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
+                    ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
+                >::default(),
+                ChainSpecT::EvmPreExecutionHandler::<
+                    TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
+                    ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
+                >::default(),
+                ChainSpecT::EvmExecutionHandler::<
+                    TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
+                    ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
+                    Eip3155TracerFrameForChainSpec<_, ChainSpecT, _>,
+                >::default(),
+                ChainSpecT::EvmPostExecutionHandler::<
+                    TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
+                    ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
+                >::default(),
+            );
 
             let ResultAndState { result, .. } = {
-                let evm = revm::Evm::new(context, ChainSpecT::EvmHandler::default());
-
-                let env = Env::boxed(evm_config, block, transaction);
-
-                let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-                    .with_db(WrapDatabaseRef(DatabaseComponents {
-                        blockchain,
-                        state: state.as_ref(),
-                    }))
-                    .with_external_context(&mut tracer)
-                    .with_env(env)
-                    .with_spec_id(hardfork)
-                    .append_handler_register(register_eip_3155_and_raw_tracers_handles)
-                    .build();
-
-                evm.transact().map_err(TransactionError::from)?
+                let evm = revm::Evm::new(context, handler);
+                evm.exec().map_err(TransactionError::from)?
             };
 
             return Ok(execution_result_to_debug_result(result, tracer));
         } else {
-            run(blockchain, state, cfg, transaction, block, custom_precompiles, debug_context)
+            let handler = EthHandler::new(
+                ChainSpecT::EvmValidationHandler::<ContextForChainSpec<_, ChainSpecT, _>>::default(),
+                ChainSpecT::EvmPreExecutionHandler::<ContextForChainSpec<_, ChainSpecT, _>>::default(),
+                ChainSpecT::EvmExecutionHandler::<ContextForChainSpec<_, ChainSpecT, _>>::default(),
+                ChainSpecT::EvmPostExecutionHandler::<ContextForChainSpec<_, ChainSpecT, _>>::default(),
+            );
 
             let ResultAndState { state: changes, .. } = {
-                let env = Env::boxed(evm_config.clone(), block.clone(), transaction);
-
-                let mut evm = Evm::<ChainSpecT::EvmWiring<_, ()>>::builder()
-                    .with_db(WrapDatabaseRef(DatabaseComponents {
-                        blockchain,
-                        state: state.as_ref(),
-                    }))
-                    .with_external_context(())
-                    .with_env(env)
-                    .with_spec_id(hardfork)
-                    .build();
-
-                evm.transact().map_err(TransactionError::from)?
+                let evm = revm::Evm::new(context, handler);
+                evm.exec().map_err(TransactionError::from)?
             };
 
             state.commit(changes);
@@ -376,10 +371,7 @@ impl TracerEip3155 {
             None
         } else {
             if matches!(self.opcode, opcode::SLOAD | opcode::SSTORE) {
-                let last_entry = journal
-                    .entries()
-                    .last()
-                    .and_then(|v| v.last());
+                let last_entry = journal.entries().last().and_then(|v| v.last());
 
                 if let Some(
                     JournalEntry::StorageChanged { address, key, .. }
@@ -411,7 +403,9 @@ impl TracerEip3155 {
             |opcode| opcode.to_string(),
         );
 
-        let gas_cost = self.gas_remaining.saturating_sub(interpreter.gas().remaining());
+        let gas_cost = self
+            .gas_remaining
+            .saturating_sub(interpreter.gas().remaining());
         let log_item = DebugTraceLogItem {
             pc: self.pc as u64,
             op: self.opcode,

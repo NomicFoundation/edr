@@ -6,7 +6,7 @@ use crate::{
     result::{ExecutionResult, Output},
     spec::HaltReasonTrait,
     transaction::{ExecutableTransaction, TransactionType},
-    Address, Bloom, B256, U256,
+    Address, Bloom, B256,
 };
 
 /// Type for a receipt that's created when processing a transaction.
@@ -31,7 +31,7 @@ pub struct TransactionReceipt<ExecutionReceiptT: ExecutionReceipt> {
     /// equal to baseFeePerGas + min(maxFeePerGas - baseFeePerGas,
     /// maxPriorityFeePerGas) after EIP-1559. Following Hardhat, only present if
     /// the hardfork is at least London.
-    pub effective_gas_price: Option<U256>,
+    pub effective_gas_price: Option<u128>,
 }
 
 impl<ExecutionReceiptT: ExecutionReceipt> AsExecutionReceipt
@@ -59,7 +59,7 @@ impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> 
         transaction: &impl ExecutableTransaction,
         result: &ExecutionResult<HaltReasonT>,
         transaction_index: u64,
-        block_base_fee: U256,
+        block_base_fee: u128,
         hardfork: HardforkT,
     ) -> Self {
         let contract_address = if let ExecutionResult::Success {

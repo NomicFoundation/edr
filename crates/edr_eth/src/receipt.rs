@@ -15,7 +15,7 @@ mod transaction;
 use auto_impl::auto_impl;
 
 pub use self::{block::BlockReceipt, factory::ReceiptFactory, transaction::TransactionReceipt};
-use crate::{Address, Bloom, B256, U256};
+use crate::{Address, Bloom, B256};
 
 /// Log generated after execution of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -76,7 +76,7 @@ pub trait ReceiptTrait {
 
     fn contract_address(&self) -> Option<&Address>;
 
-    fn effective_gas_price(&self) -> Option<&U256>;
+    fn effective_gas_price(&self) -> Option<&u128>;
 
     fn from(&self) -> &Address;
 

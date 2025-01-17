@@ -15,13 +15,15 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip1559 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[serde(with = "alloy_serde::quantity")]
+    pub max_priority_fee_per_gas: u128,
+    #[serde(with = "alloy_serde::quantity")]
+    pub max_fee_per_gas: u128,
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -54,7 +56,7 @@ impl ExecutableTransaction for Eip1559 {
         self.gas_limit
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         &self.max_fee_per_gas
     }
 
@@ -82,18 +84,18 @@ impl ExecutableTransaction for Eip1559 {
         Some(self.access_list.0.as_slice())
     }
 
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
         Some(
             self.max_fee_per_gas
                 .min(block_base_fee + self.max_priority_fee_per_gas),
         )
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         Some(&self.max_fee_per_gas)
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         Some(&self.max_priority_fee_per_gas)
     }
 
@@ -101,7 +103,7 @@ impl ExecutableTransaction for Eip1559 {
         &[]
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         None
     }
 
@@ -146,8 +148,8 @@ struct Decodable {
     // The order of these fields determines decoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
+    pub max_priority_fee_per_gas: u128,
+    pub max_fee_per_gas: u128,
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -216,8 +218,8 @@ mod tests {
         transaction::request::Eip1559 {
             chain_id: 1,
             nonce: 1,
-            max_priority_fee_per_gas: U256::from(2),
-            max_fee_per_gas: U256::from(5),
+            max_priority_fee_per_gas: 2,
+            max_fee_per_gas: 5,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),
