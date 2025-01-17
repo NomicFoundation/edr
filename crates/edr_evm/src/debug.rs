@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use crate::spec::ContextForChainSpec;
+
 // /// Type for registering handles, specialised for EDR database component
 // types. pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT,
 // DebugDataT, StateT> =     revm::handler::register::HandleRegister<
@@ -43,3 +45,8 @@ where
         }
     }
 }
+
+pub type NoopContextConstructor<BlockchainT, ChainSpecT, StateT> =
+    fn(
+        ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+    ) -> ContextForChainSpec<BlockchainT, ChainSpecT, StateT>;

@@ -17,28 +17,22 @@ use revm::{handler::EthHandler, JournaledState};
 use revm_context_interface::Journal;
 use revm_interpreter::interpreter::EthInterpreter;
 
-use self::frame::Eip3155TracerFrameForChainSpec;
+use self::{context::Eip3155TracerContext, frame::Eip3155TracerFrameForChainSpec};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
+    debug::NoopContextConstructor,
+    dry_run,
     evm::{
         interpreter::{Interpreter, InterpreterResult},
         JournalEntry,
     },
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{Database, DatabaseComponents, SyncState, WrapDatabaseRef},
+    state::{Database, SyncState},
     trace::{Trace, TraceCollector},
     transaction::TransactionError,
+    EvmExtension,
 };
-
-pub struct TracerEip3155Context<'tracer, ContextT> {
-    eip3155: &'tracer mut TracerEip3155,
-    inner: ContextT,
-}
-
-/// Helper type for a chain-specific [`TracerEip3155Context`].
-pub type TracerEip3155ContextForChainSpec<'tracer, BlockchainT, ChainSpecT, StateT> =
-    TracerEip3155Context<'tracer, ContextForChainSpec<BlockchainT, ChainSpecT, StateT>>;
 
 /// EIP-3155 and raw tracers.
 pub struct Eip3155AndRawTracers<HaltReasonT: HaltReasonTrait> {
@@ -63,7 +57,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn SyncState<StateErrorT>>,
-    evm_config: CfgEnv,
+    evm_config: CfgEnv<ChainSpecT::Hardfork>,
     hardfork: ChainSpecT::Hardfork,
     trace_config: DebugTraceConfig,
     block: ChainSpecT::BlockEnv,
@@ -80,8 +74,8 @@ where
         SignedTransaction: Default
                                + TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateErrorT: Debug + Send,
+    BlockchainErrorT: Send + std::error::Error,
+    StateErrorT: Send + std::error::Error,
 {
     let evm_spec_id = hardfork.into();
     if evm_spec_id < l1::SpecId::SPURIOUS_DRAGON {
@@ -91,66 +85,68 @@ where
         });
     }
 
-    let database = WrapDatabaseRef(DatabaseComponents {
-        blockchain,
-        state: &state,
-    });
+    let block_number = block.number();
     for transaction in transactions {
-        let context = revm::Context {
-            block,
-            tx: transaction,
-            cfg: evm_config.clone(),
-            journaled_state: JournaledState::new(evm_config.spec.into(), database),
-            chain: ChainSpecT::Context::default(),
-            error: Ok(()),
-        };
-
         if transaction.transaction_hash() == transaction_hash {
             let mut tracer = Eip3155AndRawTracers::new(trace_config, verbose_tracing);
 
-            let context = TracerEip3155Context {
-                eip3155: &mut tracer.eip3155,
-                inner: context,
-            };
+            let extension =
+                EvmExtension::new(|inner| Eip3155TracerContext::new(&mut tracer.eip3155, inner));
 
-            let handler = EthHandler::new(
-                ChainSpecT::EvmValidationHandler::<
-                    TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
-                    ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
-                >::default(),
-                ChainSpecT::EvmPreExecutionHandler::<
-                    TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
-                    ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
-                >::default(),
-                ChainSpecT::EvmExecutionHandler::<
-                    TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
-                    ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
-                    Eip3155TracerFrameForChainSpec<_, ChainSpecT, _>,
-                >::default(),
-                ChainSpecT::EvmPostExecutionHandler::<
-                    TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
-                    ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
-                >::default(),
-            );
+            // let handler = EthHandler::new(
+            //     ChainSpecT::EvmValidationHandler::<
+            //         TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
+            //         ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
+            //     >::default(),
+            //     ChainSpecT::EvmPreExecutionHandler::<
+            //         TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
+            //         ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
+            //     >::default(),
+            //     ChainSpecT::EvmExecutionHandler::<
+            //         TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
+            //         ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
+            //         Eip3155TracerFrameForChainSpec<_, ChainSpecT, _>,
+            //     >::default(),
+            //     ChainSpecT::EvmPostExecutionHandler::<
+            //         TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
+            //         ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
+            //     >::default(),
+            // );
 
-            let ResultAndState { result, .. } = {
-                let evm = revm::Evm::new(context, handler);
-                evm.exec().map_err(TransactionError::from)?
-            };
+            // let context = revm::Context {
+            //     block,
+            //     tx: transaction,
+            //     cfg: evm_config.clone(),
+            //     journaled_state: JournaledState::new(evm_config.spec.into(), database),
+            //     chain: ChainSpecT::Context::default(),
+            //     error: Ok(()),
+            // };
+
+            let ResultAndState { result, .. } = dry_run(
+                blockchain,
+                state.as_ref(),
+                evm_config,
+                transaction,
+                block,
+                Some(&extension),
+            )?;
 
             return Ok(execution_result_to_debug_result(result, tracer));
         } else {
-            let handler = EthHandler::new(
-                ChainSpecT::EvmValidationHandler::<ContextForChainSpec<_, ChainSpecT, _>>::default(),
-                ChainSpecT::EvmPreExecutionHandler::<ContextForChainSpec<_, ChainSpecT, _>>::default(),
-                ChainSpecT::EvmExecutionHandler::<ContextForChainSpec<_, ChainSpecT, _>>::default(),
-                ChainSpecT::EvmPostExecutionHandler::<ContextForChainSpec<_, ChainSpecT, _>>::default(),
-            );
-
-            let ResultAndState { state: changes, .. } = {
-                let evm = revm::Evm::new(context, handler);
-                evm.exec().map_err(TransactionError::from)?
-            };
+            let ResultAndState { state: changes, .. } = dry_run::<
+                _,
+                _,
+                NoopContextConstructor<_, ChainSpecT, _>,
+                ContextForChainSpec<_, ChainSpecT, _>,
+                _,
+            >(
+                blockchain,
+                state.as_ref(),
+                evm_config.clone(),
+                transaction,
+                block.clone(),
+                None,
+            )?;
 
             state.commit(changes);
         }
@@ -158,7 +154,7 @@ where
 
     Err(DebugTraceError::InvalidTransactionHash {
         transaction_hash: *transaction_hash,
-        block_number: *block.number(),
+        block_number,
     })
 }
 
@@ -225,7 +221,7 @@ where
         /// The transaction hash.
         transaction_hash: B256,
         /// The block number.
-        block_number: U256,
+        block_number: u64,
     },
     /// Transaction error.
     #[error(transparent)]

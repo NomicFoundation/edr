@@ -2,9 +2,8 @@ use edr_eth::{
     log::ExecutionLog,
     result::{ExecutionResult, InvalidTransaction, ResultAndState},
     transaction::TransactionValidation,
-    Address, HashMap,
 };
-use revm::{handler::EthHandler, precompile::PrecompileFn, JournaledState};
+use revm::{handler::EthHandler, JournaledState};
 use revm_context_interface::{
     block::BlockSetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
     PerformantContextAccess, TransactionGetter,
@@ -39,7 +38,6 @@ pub fn dry_run<BlockchainT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, PrecompileFn>,
     extension: Option<
         &EvmExtension<
             ConstructorT,
@@ -161,7 +159,6 @@ pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, ConstructorT, OuterContextT, 
     mut cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, PrecompileFn>,
     extension: Option<
         &EvmExtension<
             ConstructorT,
@@ -197,15 +194,7 @@ where
     cfg.disable_balance_check = true;
     cfg.disable_block_gas_limit = true;
     cfg.disable_nonce_check = true;
-    dry_run(
-        blockchain,
-        state,
-        cfg,
-        transaction,
-        block,
-        custom_precompiles,
-        extension,
-    )
+    dry_run(blockchain, state, cfg, transaction, block, extension)
 }
 
 /// Runs a transaction, committing the state in the process.
@@ -217,7 +206,8 @@ pub fn run<BlockchainT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, PrecompileFn>,
+    // TODO: REMOVE
+    // custom_precompiles: &HashMap<Address, PrecompileFn>,
     extension: Option<
         &EvmExtension<
             ConstructorT,
@@ -259,7 +249,6 @@ where
         cfg,
         transaction,
         block,
-        custom_precompiles,
         extension,
     )?;
 
