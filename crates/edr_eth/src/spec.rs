@@ -20,7 +20,9 @@ pub trait ChainSpec {
     /// The chain's hardfork type.
     type Hardfork: Copy + Into<l1::SpecId>;
     /// The chain's signed transaction type.
-    type SignedTransaction: ExecutableTransaction + TransactionValidation;
+    type SignedTransaction: ExecutableTransaction
+        + revm_context_interface::Transaction
+        + TransactionValidation;
 }
 
 /// Constants for constructing Ethereum headers.

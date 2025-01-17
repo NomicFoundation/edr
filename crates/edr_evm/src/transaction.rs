@@ -7,15 +7,11 @@ use std::fmt::Debug;
 use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{l1, spec::ChainSpec, U256};
-use revm::handler::validate_initial_tx_gas;
+use edr_eth::{l1, result::InvalidTransaction, spec::ChainSpec, U256};
+use revm::precompile::PrecompileErrors;
 
 pub use self::detailed::*;
-use crate::{
-    result::{EVMError, EVMErrorForChain, InvalidHeader},
-    spec::RuntimeSpec,
-    state::DatabaseComponentError,
-};
+use crate::{result::InvalidHeader, state::DatabaseComponentError};
 
 /// Invalid transaction error
 #[derive(thiserror::Error)]
@@ -47,27 +43,60 @@ where
     },
     /// Precompile errors
     #[error("{0}")]
-    Precompile(String),
+    Precompile(PrecompileErrors),
     /// State errors
     #[error(transparent)]
     State(StateErrorT),
 }
 
-impl<ChainSpecT, BlockchainErrorT, StateErrorT>
-    From<EVMErrorForChain<ChainSpecT, BlockchainErrorT, StateErrorT>>
+impl<BlockchainErrorT, ChainSpecT, StateErrorT>
+    From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
     for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
 where
-    ChainSpecT: RuntimeSpec,
+    ChainSpecT: ChainSpec,
 {
-    fn from(error: EVMErrorForChain<ChainSpecT, BlockchainErrorT, StateErrorT>) -> Self {
-        match error {
-            EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
-            EVMError::Header(error) => Self::InvalidHeader(error),
-            EVMError::Database(DatabaseComponentError::Blockchain(e)) => Self::Blockchain(e),
-            EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
-            EVMError::Custom(error) => Self::Custom(error),
-            EVMError::Precompile(error) => Self::Precompile(error),
+    fn from(value: DatabaseComponentError<BlockchainErrorT, StateErrorT>) -> Self {
+        match value {
+            DatabaseComponentError::Blockchain(e) => Self::Blockchain(e),
+            DatabaseComponentError::State(e) => Self::State(e),
         }
+    }
+}
+
+impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<InvalidHeader>
+    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: ChainSpec,
+{
+    fn from(value: InvalidHeader) -> Self {
+        Self::InvalidHeader(value)
+    }
+}
+
+impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<InvalidTransaction>
+    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: ChainSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+{
+    fn from(value: InvalidTransaction) -> Self {
+        match value {
+            InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+                Self::LackOfFundForMaxFee { fee, balance }
+            }
+            remainder => Self::InvalidTransaction(remainder.into()),
+        }
+    }
+}
+
+impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<PrecompileErrors>
+    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+where
+    ChainSpecT: ChainSpec,
+{
+    fn from(value: PrecompileErrors) -> Self {
+        Self::Precompile(value)
     }
 }
 
