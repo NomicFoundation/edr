@@ -1354,6 +1354,7 @@ dependencies = [
  "revm 19.2.0",
  "revm-context",
  "revm-context-interface",
+ "revm-database-interface 1.0.0",
  "revm-handler",
  "revm-handler-interface",
  "revm-interpreter 15.0.0",

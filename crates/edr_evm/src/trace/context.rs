@@ -1,127 +1,82 @@
-use edr_eth::{log::ExecutionLog, spec::HaltReasonTrait, Address, Bytes, B256, U256};
-use revm::context_interface::journaled_state::AccountLoad;
-use revm_context_interface::{BlockGetter, CfgGetter, Journal, JournalGetter, TransactionGetter};
-use revm_interpreter::{
-    interpreter::EthInterpreter, Host, Interpreter, SStoreResult, SelfDestructResult, StateLoad,
-};
+use core::marker::PhantomData;
+
+use edr_eth::spec::HaltReasonTrait;
+use revm::JournaledState;
+use revm_interpreter::{interpreter::EthInterpreter, Interpreter};
 
 use super::TraceCollector;
-use crate::instruction::InspectsInstruction;
+use crate::{
+    blockchain::BlockHash,
+    debug::ExtendedContext,
+    instruction::InspectsInstructionWithJournal,
+    state::{DatabaseComponents, State, WrapDatabaseRef},
+};
 
-pub struct TraceCollectorContext<ContextT, HaltReasonT: HaltReasonTrait> {
-    pub(super) collector: TraceCollector<HaltReasonT>,
-    pub(super) inner: ContextT,
+/// Trait for retrieving a mutable reference to a [`TraceCollector`] instance.
+pub trait TraceCollectorGetter<HaltReasonT: HaltReasonTrait> {
+    /// Retrieves a mutable reference to a [`TraceCollector`] instance.
+    fn trace_collector(&mut self) -> &mut TraceCollector<HaltReasonT>;
 }
 
-impl<ContextT, HaltReasonT: HaltReasonTrait> TraceCollectorContext<ContextT, HaltReasonT> {
+impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT> TraceCollectorGetter<HaltReasonT>
+    for TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>
+{
+    fn trace_collector(&mut self) -> &mut TraceCollector<HaltReasonT> {
+        self.collector
+    }
+}
+
+impl<'tracer, HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
+    TraceCollectorGetter<HaltReasonT> for ExtendedContext<InnerContextT, OuterContextT>
+where
+    OuterContextT: TraceCollectorGetter<HaltReasonT>,
+{
+    fn trace_collector(&mut self) -> &mut TraceCollector<HaltReasonT> {
+        self.extension.trace_collector()
+    }
+}
+
+pub struct TraceCollectorContext<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT> {
+    collector: &'tracer mut TraceCollector<HaltReasonT>,
+    phantom: PhantomData<(BlockchainT, StateT)>,
+}
+
+impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
+    TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>
+{
     /// Creates a new instance.
-    pub fn new(collector: TraceCollector<HaltReasonT>, inner: ContextT) -> Self {
-        Self { collector, inner }
+    pub fn new(collector: &'tracer mut TraceCollector<HaltReasonT>) -> Self {
+        Self {
+            collector,
+            phantom: PhantomData,
+        }
     }
 }
 
-impl<ContextT, HaltReasonT: HaltReasonTrait> BlockGetter
-    for TraceCollectorContext<ContextT, HaltReasonT>
-where
-    ContextT: BlockGetter,
-{
-    type Block = ContextT::Block;
-
-    fn block(&self) -> &Self::Block {
-        self.inner.block()
-    }
-}
-
-impl<ContextT, HaltReasonT: HaltReasonTrait> CfgGetter
-    for TraceCollectorContext<ContextT, HaltReasonT>
-where
-    ContextT: CfgGetter,
-{
-    type Cfg = ContextT::Cfg;
-
-    fn cfg(&self) -> &Self::Cfg {
-        self.inner.cfg()
-    }
-}
-
-impl<ContextT, HaltReasonT: HaltReasonTrait> TransactionGetter
-    for TraceCollectorContext<ContextT, HaltReasonT>
-where
-    ContextT: TransactionGetter,
-{
-    type Transaction = ContextT::Transaction;
-
-    fn tx(&self) -> &Self::Transaction {
-        self.inner.tx()
-    }
-}
-
-impl<ContextT: Host, HaltReasonT: HaltReasonTrait> Host
-    for TraceCollectorContext<ContextT, HaltReasonT>
-{
-    fn load_account_delegated(&mut self, address: Address) -> Option<StateLoad<AccountLoad>> {
-        self.inner.load_account_delegated(address)
-    }
-
-    fn block_hash(&mut self, number: u64) -> Option<B256> {
-        self.inner.block_hash(number)
-    }
-
-    fn balance(&mut self, address: Address) -> Option<StateLoad<U256>> {
-        self.inner.balance(address)
-    }
-
-    fn code(&mut self, address: Address) -> Option<StateLoad<Bytes>> {
-        self.inner.code(address)
-    }
-
-    fn code_hash(&mut self, address: Address) -> Option<StateLoad<B256>> {
-        self.inner.code_hash(address)
-    }
-
-    fn sload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
-        self.inner.sload(address, index)
-    }
-
-    fn sstore(
-        &mut self,
-        address: Address,
-        index: U256,
-        value: U256,
-    ) -> Option<StateLoad<SStoreResult>> {
-        self.inner.sstore(address, index, value)
-    }
-
-    fn tload(&mut self, address: Address, index: U256) -> U256 {
-        self.inner.tload(address, index)
-    }
-
-    fn tstore(&mut self, address: Address, index: U256, value: U256) {
-        self.inner.tstore(address, index, value)
-    }
-
-    fn log(&mut self, log: ExecutionLog) {
-        self.inner.log(log)
-    }
-
-    fn selfdestruct(
-        &mut self,
-        address: Address,
-        target: Address,
-    ) -> Option<StateLoad<SelfDestructResult>> {
-        self.inner.selfdestruct(address, target)
-    }
-}
-
-impl<ContextT: JournalGetter, HaltReasonT: HaltReasonTrait> InspectsInstruction
-    for TraceCollectorContext<ContextT, HaltReasonT>
+impl<
+        'tracer,
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        HaltReasonT: HaltReasonTrait,
+        StateT: State<Error: std::error::Error>,
+    > InspectsInstructionWithJournal
+    for TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>
 {
     // TODO: Make this chain-agnostic
     type InterpreterTypes = EthInterpreter;
+    type Journal = JournaledState<WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>;
 
-    fn before_instruction(&mut self, interpreter: &mut Interpreter<Self::InterpreterTypes>) {
-        self.collector.step(interpreter, self.inner.journal_ref());
+    fn before_instruction_with_journal(
+        &mut self,
+        interpreter: &Interpreter<Self::InterpreterTypes>,
+        journal: &Self::Journal,
+    ) {
+        self.collector.step(interpreter, journal);
     }
 
-    fn after_instruction(&mut self, _interpreter: &mut Interpreter<Self::InterpreterTypes>) {}
+    fn after_instruction_with_journal(
+        &mut self,
+        _interpreter: &Interpreter<Self::InterpreterTypes>,
+        _journal: &Self::Journal,
+    ) {
+    }
 }

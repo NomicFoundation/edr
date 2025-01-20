@@ -13,7 +13,7 @@ use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::EvmExtension,
+    debug::ContextExtension,
     mempool::OrderedTransaction,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, SyncState},
@@ -91,7 +91,7 @@ pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, S
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
-    extension: Option<EvmExtension>,
+    extension: Option<ContextExtension>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
@@ -272,7 +272,7 @@ pub fn mine_block_with_single_transaction<
     min_gas_price: u128,
     reward: u128,
     debug_context: Option<
-        EvmExtension<
+        ContextExtension<
             'evm,
             ChainSpecT,
             BlockchainErrorT,

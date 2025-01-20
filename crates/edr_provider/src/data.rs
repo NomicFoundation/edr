@@ -57,8 +57,8 @@ use edr_evm::{
         StateOverrides, SyncState,
     },
     trace::Trace,
-    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, DebugTraceConfig,
-    DebugTraceResultWithTraces, Eip3155AndRawTracers, EvmExtension, MemPool,
+    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, ContextExtension,
+    DebugTraceConfig, DebugTraceResultWithTraces, Eip3155AndRawTracersContext, MemPool,
     MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::{
@@ -1730,7 +1730,7 @@ where
     ) -> Result<DebugTraceResultWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
         let (cfg_env, hardfork) = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let mut tracer = Eip3155AndRawTracers::new(trace_config, self.verbose_tracing);
+        let mut tracer = Eip3155AndRawTracersContext::new(trace_config, self.verbose_tracing);
         let precompiles = self.custom_precompiles.clone();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
@@ -1743,7 +1743,7 @@ where
                 hardfork,
                 transaction,
                 precompiles: &precompiles,
-                debug_context: Some(EvmExtension {
+                debug_context: Some(ContextExtension {
                     data: &mut tracer,
                     register_handles_fn: register_eip_3155_and_raw_tracers_handles,
                 }),
@@ -2149,7 +2149,7 @@ where
                 hardfork,
                 transaction,
                 precompiles: &precompiles,
-                debug_context: Some(EvmExtension {
+                debug_context: Some(ContextExtension {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
                 }),
@@ -2231,7 +2231,7 @@ where
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
             miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
-            Some(EvmExtension {
+            Some(ContextExtension {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
             }),
@@ -2262,7 +2262,7 @@ where
             options,
             self.min_gas_price,
             miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
-            Some(EvmExtension {
+            Some(ContextExtension {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
             }),
@@ -2516,7 +2516,7 @@ where
                 hardfork,
                 transaction: transaction.clone(),
                 precompiles: &precompiles,
-                debug_context: Some(EvmExtension {
+                debug_context: Some(ContextExtension {
                     data: &mut debugger,
                     register_handles_fn: register_debugger_handles,
                 }),

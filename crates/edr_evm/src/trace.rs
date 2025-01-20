@@ -10,17 +10,17 @@ use edr_eth::{
     spec::HaltReasonTrait,
     Address, Bytecode, Bytes, U256,
 };
-use revm::{context_interface::Journal, database_interface::WrapDatabaseRef};
+use revm::context_interface::Journal;
 use revm_interpreter::{interpreter::EthInterpreter, interpreter_types::Jumps, MemoryGetter as _};
 
-pub use self::context::TraceCollectorContext;
+pub use self::{context::TraceCollectorContext, frame::TraceCollectorFrame};
 use crate::{
     blockchain::BlockHash,
     evm::interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         Interpreter, SuccessOrHalt,
     },
-    state::{DatabaseComponents, State},
+    state::{DatabaseComponents, State, WrapDatabaseRef},
 };
 
 /// Stack tracing message

@@ -13,42 +13,76 @@ use edr_eth::{
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
-use revm::{handler::EthHandler, JournaledState};
+use frame::Eip3155TracerFrame;
 use revm_context_interface::Journal;
-use revm_interpreter::interpreter::EthInterpreter;
+use revm_handler::EthPrecompileProvider;
+use revm_interpreter::{
+    interpreter::{EthInstructionProvider, EthInterpreter},
+    interpreter_types::{InputsTrait as _, Jumps, LoopControl as _},
+};
 
-use self::{context::Eip3155TracerContext, frame::Eip3155TracerFrameForChainSpec};
+use self::context::Eip3155TracerContext;
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::NoopContextConstructor,
     dry_run,
     evm::{
         interpreter::{Interpreter, InterpreterResult},
         JournalEntry,
     },
-    spec::{ContextForChainSpec, RuntimeSpec},
+    instruction::InspectableInstructionProvider,
+    runtime::dry_run_with_extension,
+    spec::RuntimeSpec,
     state::{Database, SyncState},
-    trace::{Trace, TraceCollector},
+    trace::{Trace, TraceCollector, TraceCollectorContext, TraceCollectorFrame},
     transaction::TransactionError,
-    EvmExtension,
+    ContextExtension,
 };
 
 /// EIP-3155 and raw tracers.
-pub struct Eip3155AndRawTracers<HaltReasonT: HaltReasonTrait> {
-    eip3155: TracerEip3155,
-    raw: TraceCollector<HaltReasonT>,
+pub struct Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT> {
+    eip3155: Eip3155TracerContext<'tracer, BlockchainT, StateT>,
+    raw: TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>,
 }
 
-impl<HaltReasonT: HaltReasonTrait> Eip3155AndRawTracers<HaltReasonT> {
+impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
+    Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
+{
     /// Creates a new instance.
-    pub fn new(config: DebugTraceConfig, verbose_tracing: bool) -> Self {
+    pub fn new(
+        eip3155: &'tracer mut TracerEip3155,
+        raw: &'tracer mut TraceCollector<HaltReasonT>,
+    ) -> Self {
         Self {
-            eip3155: TracerEip3155::new(config),
-            raw: TraceCollector::new(verbose_tracing),
+            eip3155: Eip3155TracerContext::new(eip3155),
+            raw: TraceCollectorContext::new(raw),
         }
     }
 }
+
+/// Helper type for a frame that combines EIP-3155 and raw tracers.
+type Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT> =
+    Eip3155TracerFrame<
+        TraceCollectorFrame<
+            <ChainSpecT as RuntimeSpec>::EvmFrame<
+                BlockchainErrorT,
+                ContextT,
+                InspectableInstructionProvider<
+                    ContextT,
+                    EthInterpreter,
+                    <ChainSpecT as RuntimeSpec>::EvmInstructionProvider<ContextT>,
+                >,
+                <ChainSpecT as RuntimeSpec>::EvmPrecompileProvider<
+                    BlockchainErrorT,
+                    ContextT,
+                    StateErrorT,
+                >,
+                StateErrorT,
+            >,
+            <ChainSpecT as ChainSpec>::HaltReason,
+        >,
+        <ChainSpecT as ChainSpec>::HaltReason,
+    >;
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -88,10 +122,34 @@ where
     let block_number = block.number();
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
-            let mut tracer = Eip3155AndRawTracers::new(trace_config, verbose_tracing);
+            // fn build_context<'tracer, HaltReasonT: HaltReasonTrait, InnerContextT>(
+            //     inner: InnerContextT,
+            //     inputs: (
+            //         &'tracer mut TracerEip3155,
+            //         &'tracer mut TraceCollector<HaltReasonT>,
+            //     ),
+            // ) -> TraceCollectorContext<
+            //     'tracer,
+            //     Eip3155TracerContext<'tracer, InnerContextT>,
+            //     HaltReasonT,
+            // > { let (eip3155_tracer, raw_tracer) = inputs;
 
-            let extension =
-                EvmExtension::new(|inner| Eip3155TracerContext::new(&mut tracer.eip3155, inner));
+            //     let context = Eip3155TracerContext::new(eip3155_tracer, inner);
+            //     TraceCollectorContext::new(raw_tracer, context)
+            // }
+
+            let mut eip3155_tracer = TracerEip3155::new(trace_config);
+            let mut raw_tracer = TraceCollector::new(verbose_tracing);
+
+            let context = Eip3155AndRawTracersContext::<
+                &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                _,
+                &dyn SyncState<StateErrorT>,
+            >::new(&mut eip3155_tracer, &mut raw_tracer);
+            let extension = ContextExtension::<
+                _,
+                Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, _, StateErrorT>,
+            >::new(context);
 
             // let handler = EthHandler::new(
             //     ChainSpecT::EvmValidationHandler::<
@@ -113,39 +171,27 @@ where
             //     >::default(),
             // );
 
-            // let context = revm::Context {
-            //     block,
-            //     tx: transaction,
-            //     cfg: evm_config.clone(),
-            //     journaled_state: JournaledState::new(evm_config.spec.into(), database),
-            //     chain: ChainSpecT::Context::default(),
-            //     error: Ok(()),
-            // };
-
-            let ResultAndState { result, .. } = dry_run(
+            let ResultAndState { result, .. } = dry_run_with_extension(
                 blockchain,
                 state.as_ref(),
                 evm_config,
                 transaction,
                 block,
-                Some(&extension),
+                extension,
             )?;
 
-            return Ok(execution_result_to_debug_result(result, tracer));
+            return Ok(execution_result_to_debug_result(
+                result,
+                raw_tracer,
+                eip3155_tracer,
+            ));
         } else {
-            let ResultAndState { state: changes, .. } = dry_run::<
-                _,
-                _,
-                NoopContextConstructor<_, ChainSpecT, _>,
-                ContextForChainSpec<_, ChainSpecT, _>,
-                _,
-            >(
+            let ResultAndState { state: changes, .. } = dry_run(
                 blockchain,
                 state.as_ref(),
                 evm_config.clone(),
                 transaction,
                 block.clone(),
-                None,
             )?;
 
             state.commit(changes);
@@ -161,10 +207,10 @@ where
 /// Convert an `ExecutionResult` to a `DebugTraceResult`.
 pub fn execution_result_to_debug_result<HaltReasonT: HaltReasonTrait>(
     execution_result: ExecutionResult<HaltReasonT>,
-    tracer: Eip3155AndRawTracers<HaltReasonT>,
+    raw_tracer: TraceCollector<HaltReasonT>,
+    eip3155_tracer: TracerEip3155,
 ) -> DebugTraceResultWithTraces<HaltReasonT> {
-    let Eip3155AndRawTracers { eip3155, raw } = tracer;
-    let traces = raw.into_traces();
+    let traces = raw_tracer.into_traces();
 
     let result = match execution_result {
         ExecutionResult::Success {
@@ -173,19 +219,19 @@ pub fn execution_result_to_debug_result<HaltReasonT: HaltReasonTrait>(
             pass: true,
             gas_used,
             output: Some(output.into_data()),
-            logs: eip3155.logs,
+            logs: eip3155_tracer.logs,
         },
         ExecutionResult::Revert { gas_used, output } => DebugTraceResult {
             pass: false,
             gas_used,
             output: Some(output),
-            logs: eip3155.logs,
+            logs: eip3155_tracer.logs,
         },
         ExecutionResult::Halt { gas_used, .. } => DebugTraceResult {
             pass: false,
             gas_used,
             output: None,
-            logs: eip3155.logs,
+            logs: eip3155_tracer.logs,
         },
     };
 
@@ -321,22 +367,22 @@ impl TracerEip3155 {
     }
 
     fn step(&mut self, interpreter: &Interpreter<EthInterpreter>) {
-        self.contract_address = interpreter.contract.target_address;
-        self.gas_remaining = interpreter.gas().remaining();
+        self.contract_address = interpreter.input.target_address();
+        self.gas_remaining = interpreter.control.gas().remaining();
 
         if !self.config.disable_stack {
             self.stack.clone_from(interpreter.stack.data());
         }
 
+        let shared_memory = interpreter.memory.borrow();
         if !self.config.disable_memory {
-            self.memory = interpreter.shared_memory.context_memory().to_vec();
+            self.memory = shared_memory.context_memory().to_vec();
         }
 
-        self.mem_size = interpreter.shared_memory.context_memory().len();
+        self.mem_size = shared_memory.context_memory().len();
 
-        self.opcode = interpreter.current_opcode();
-
-        self.pc = interpreter.program_counter();
+        self.opcode = interpreter.bytecode.opcode();
+        self.pc = interpreter.bytecode.pc();
     }
 
     fn step_end<DatabaseT: Database<Error: Debug>, FinalOutputT>(
@@ -344,7 +390,7 @@ impl TracerEip3155 {
         interpreter: &Interpreter<EthInterpreter>,
         journal: &impl Journal<Database = DatabaseT, Entry = JournalEntry, FinalOutput = FinalOutputT>,
     ) {
-        let depth = journal.depth();
+        let depth = journal.depth() as u64;
 
         let stack = if self.config.disable_stack {
             None
@@ -401,7 +447,7 @@ impl TracerEip3155 {
 
         let gas_cost = self
             .gas_remaining
-            .saturating_sub(interpreter.gas().remaining());
+            .saturating_sub(interpreter.control.gas().remaining());
         let log_item = DebugTraceLogItem {
             pc: self.pc as u64,
             op: self.opcode,

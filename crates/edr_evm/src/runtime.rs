@@ -1,23 +1,17 @@
 use edr_eth::{
-    log::ExecutionLog,
     result::{ExecutionResult, InvalidTransaction, ResultAndState},
     transaction::TransactionValidation,
 };
 use revm::{handler::EthHandler, JournaledState};
-use revm_context_interface::{
-    block::BlockSetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
-    PerformantContextAccess, TransactionGetter,
-};
-use revm_interpreter::Host;
+use revm_handler::FrameResult;
+use revm_handler_interface::Frame;
 
 use crate::{
     blockchain::{BlockHash, SyncBlockchain},
     config::CfgEnv,
-    debug::EvmExtension,
+    debug::{ContextExtension, ExtendedContext},
     spec::{ContextForChainSpec, FrameForChainSpec, RuntimeSpec},
-    state::{
-        DatabaseComponentError, DatabaseComponents, EvmState, State, StateCommit, WrapDatabaseRef,
-    },
+    state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
     transaction::TransactionError,
 };
 
@@ -30,21 +24,13 @@ pub type SyncDatabase<'blockchain, 'state, ChainSpecT, BlockchainErrorT, StateEr
 
 /// Runs a transaction without committing the state.
 // `DebugContext` cannot be simplified further
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn dry_run<BlockchainT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
+pub fn dry_run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
     state: StateT,
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    extension: Option<
-        &EvmExtension<
-            ConstructorT,
-            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
-            OuterContextT,
-        >,
-    >,
 ) -> Result<
     ResultAndState<ChainSpecT::HaltReason>,
     TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
@@ -54,20 +40,6 @@ where
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
-    ConstructorT: Fn(ContextForChainSpec<BlockchainT, ChainSpecT, StateT>) -> OuterContextT,
-    OuterContextT: BlockSetter
-        + CfgGetter
-        + DatabaseGetter
-        + ErrorGetter<Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>>
-        + Host
-        + JournalGetter<
-            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            Journal: Journal<
-                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-                FinalOutput = (EvmState, Vec<ExecutionLog>),
-            >,
-        > + PerformantContextAccess<Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>>
-        + TransactionGetter,
     StateT: State<Error: Send + std::error::Error>,
 {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
@@ -87,85 +59,38 @@ where
     //     }
     // };
 
-    if let Some(extension) = extension {
-        let context = (extension.context_constructor)(revm::Context {
-            block,
-            tx: transaction,
-            journaled_state: JournaledState::new(cfg.spec.into(), database),
-            cfg,
-            chain: ChainSpecT::Context::default(),
-            error: Ok(()),
-        });
-        let handler = EthHandler::new(
-            ChainSpecT::EvmValidationHandler::<
-                BlockchainT::Error,
-                OuterContextT,
-                StateT::Error,
-            >::default(),
-            ChainSpecT::EvmPreExecutionHandler::<
-                BlockchainT::Error,
-                OuterContextT,
-                StateT::Error,
-            >::default(),
-            ChainSpecT::EvmExecutionHandler::<
-                BlockchainT::Error,
-                OuterContextT,
-                FrameForChainSpec<BlockchainT::Error, ChainSpecT, OuterContextT, StateT::Error>,
-                StateT::Error,
-            >::default(),
-            ChainSpecT::EvmPostExecutionHandler::<
-                BlockchainT::Error,
-                OuterContextT,
-                StateT::Error,
-            >::default(),
-        );
+    let context = revm::Context {
+        block,
+        tx: transaction,
+        journaled_state: JournaledState::new(cfg.spec.into(), database),
+        cfg,
+        chain: ChainSpecT::Context::default(),
+        error: Ok(()),
+    };
+    let handler = EthHandler::new(
+        ChainSpecT::EvmValidationHandler::<BlockchainT::Error, _, StateT::Error>::default(),
+        ChainSpecT::EvmPreExecutionHandler::<BlockchainT::Error, _, StateT::Error>::default(),
+        ChainSpecT::EvmExecutionHandler::<
+            BlockchainT::Error,
+            _,
+            FrameForChainSpec<BlockchainT::Error, ChainSpecT, _, StateT::Error>,
+            StateT::Error,
+        >::default(),
+        ChainSpecT::EvmPostExecutionHandler::<BlockchainT::Error, _, StateT::Error>::default(),
+    );
 
-        let mut evm = revm::Evm::new(context, handler);
-        evm.transact()
-    } else {
-        let context = revm::Context {
-            block,
-            tx: transaction,
-            journaled_state: JournaledState::new(cfg.spec.into(), database),
-            cfg,
-            chain: ChainSpecT::Context::default(),
-            error: Ok(()),
-        };
-        let handler = EthHandler::new(
-            ChainSpecT::EvmValidationHandler::<BlockchainT::Error, _, StateT::Error>::default(),
-            ChainSpecT::EvmPreExecutionHandler::<BlockchainT::Error, _, StateT::Error>::default(),
-            ChainSpecT::EvmExecutionHandler::<
-                BlockchainT::Error,
-                _,
-                FrameForChainSpec<BlockchainT::Error, ChainSpecT, _, StateT::Error>,
-                StateT::Error,
-            >::default(),
-            ChainSpecT::EvmPostExecutionHandler::<BlockchainT::Error, _, StateT::Error>::default(),
-        );
-
-        let mut evm = revm::Evm::new(context, handler);
-        evm.transact()
-    }
+    let mut evm = revm::Evm::new(context, handler);
+    evm.transact()
 }
 
-/// Runs a transaction without committing the state, while disabling balance
-/// checks and creating accounts for new addresses.
-// `DebugContext` cannot be simplified further
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
+pub fn dry_run_with_extension<BlockchainT, ChainSpecT, ExtensionT, FrameT, StateT>(
     blockchain: BlockchainT,
     state: StateT,
-    mut cfg: CfgEnv<ChainSpecT::Hardfork>,
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    extension: Option<
-        &EvmExtension<
-            ConstructorT,
-            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
-            OuterContextT,
-        >,
-    >,
+    extension: ContextExtension<ExtensionT, FrameT>,
 ) -> Result<
     ResultAndState<ChainSpecT::HaltReason>,
     TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
@@ -175,32 +100,100 @@ where
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
-    ConstructorT: Fn(ContextForChainSpec<BlockchainT, ChainSpecT, StateT>) -> OuterContextT,
-    OuterContextT: BlockSetter
-        + CfgGetter
-        + DatabaseGetter
-        + ErrorGetter<Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>>
-        + Host
-        + JournalGetter<
-            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            Journal: Journal<
-                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-                FinalOutput = (EvmState, Vec<ExecutionLog>),
-            >,
-        > + PerformantContextAccess<Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>>
-        + TransactionGetter,
+    FrameT: for<'context> Frame<
+        Context<'context> = ExtendedContext<
+            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+            ExtensionT,
+        >,
+        Error = TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
+        FrameResult = FrameResult,
+    >,
+    StateT: State<Error: Send + std::error::Error>,
+{
+    let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
+
+    let context = extension.extend_context(revm::Context {
+        block,
+        tx: transaction,
+        journaled_state: JournaledState::new(cfg.spec.into(), database),
+        cfg,
+        chain: ChainSpecT::Context::default(),
+        error: Ok(()),
+    });
+    let handler = EthHandler::new(
+        ChainSpecT::EvmValidationHandler::<BlockchainT::Error, _, StateT::Error>::default(),
+        ChainSpecT::EvmPreExecutionHandler::<BlockchainT::Error, _, StateT::Error>::default(),
+        ChainSpecT::EvmExecutionHandler::<BlockchainT::Error, _, FrameT, StateT::Error>::default(),
+        ChainSpecT::EvmPostExecutionHandler::<BlockchainT::Error, _, StateT::Error>::default(),
+    );
+
+    let mut evm = revm::Evm::new(context, handler);
+    evm.transact()
+}
+
+/// Runs a transaction without committing the state, while disabling balance
+/// checks and creating accounts for new addresses.
+// `DebugContext` cannot be simplified further
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, StateT>(
+    blockchain: BlockchainT,
+    state: StateT,
+    mut cfg: CfgEnv<ChainSpecT::Hardfork>,
+    transaction: ChainSpecT::SignedTransaction,
+    block: ChainSpecT::BlockEnv,
+) -> Result<
+    ResultAndState<ChainSpecT::HaltReason>,
+    TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
+>
+where
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
     StateT: State<Error: Send + std::error::Error>,
 {
     cfg.disable_balance_check = true;
     cfg.disable_block_gas_limit = true;
     cfg.disable_nonce_check = true;
-    dry_run(blockchain, state, cfg, transaction, block, extension)
+    dry_run(blockchain, state, cfg, transaction, block)
+}
+
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+pub fn guaranteed_dry_run_with_extension<BlockchainT, ChainSpecT, ExtensionT, FrameT, StateT>(
+    blockchain: BlockchainT,
+    state: StateT,
+    mut cfg: CfgEnv<ChainSpecT::Hardfork>,
+    transaction: ChainSpecT::SignedTransaction,
+    block: ChainSpecT::BlockEnv,
+    extension: ContextExtension<ExtensionT, FrameT>,
+) -> Result<
+    ResultAndState<ChainSpecT::HaltReason>,
+    TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
+>
+where
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+    FrameT: for<'context> Frame<
+        Context<'context> = ExtendedContext<
+            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+            ExtensionT,
+        >,
+        Error = TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
+        FrameResult = FrameResult,
+    >,
+    StateT: State<Error: Send + std::error::Error>,
+{
+    cfg.disable_balance_check = true;
+    cfg.disable_block_gas_limit = true;
+    cfg.disable_nonce_check = true;
+    dry_run_with_extension(blockchain, state, cfg, transaction, block, extension)
 }
 
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-#[allow(clippy::too_many_arguments)]
-pub fn run<BlockchainT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
+pub fn run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
     mut state: StateT,
     cfg: CfgEnv<ChainSpecT::Hardfork>,
@@ -208,13 +201,6 @@ pub fn run<BlockchainT, ChainSpecT, ConstructorT, OuterContextT, StateT>(
     block: ChainSpecT::BlockEnv,
     // TODO: REMOVE
     // custom_precompiles: &HashMap<Address, PrecompileFn>,
-    extension: Option<
-        &EvmExtension<
-            ConstructorT,
-            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
-            OuterContextT,
-        >,
-    >,
 ) -> Result<
     ExecutionResult<ChainSpecT::HaltReason>,
     TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
@@ -224,26 +210,52 @@ where
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
     >,
-    ConstructorT: Fn(ContextForChainSpec<BlockchainT, ChainSpecT, StateT>) -> OuterContextT,
-    OuterContextT: BlockSetter
-        + CfgGetter
-        + DatabaseGetter
-        + ErrorGetter<Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>>
-        + Host
-        + JournalGetter<
-            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            Journal: Journal<
-                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-                FinalOutput = (EvmState, Vec<ExecutionLog>),
-            >,
-        > + PerformantContextAccess<Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>>
-        + TransactionGetter,
     StateT: Clone + State<Error: Send + std::error::Error> + StateCommit,
 {
     let ResultAndState {
         result,
         state: state_diff,
-    } = dry_run(
+    } = dry_run(blockchain, state.clone(), cfg, transaction, block)?;
+
+    state.commit(state_diff);
+
+    Ok(result)
+}
+
+/// Runs a transaction, committing the state in the process.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+pub fn run_with_extension<BlockchainT, ChainSpecT, ExtensionT, FrameT, StateT>(
+    blockchain: BlockchainT,
+    mut state: StateT,
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
+    transaction: ChainSpecT::SignedTransaction,
+    block: ChainSpecT::BlockEnv,
+    // TODO: REMOVE
+    // custom_precompiles: &HashMap<Address, PrecompileFn>,
+    extension: ContextExtension<ExtensionT, FrameT>,
+) -> Result<
+    ExecutionResult<ChainSpecT::HaltReason>,
+    TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
+>
+where
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+    >,
+    FrameT: for<'context> Frame<
+        Context<'context> = ExtendedContext<
+            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+            ExtensionT,
+        >,
+        Error = TransactionError<ChainSpecT, BlockchainT::Error, StateT::Error>,
+        FrameResult = FrameResult,
+    >,
+    StateT: Clone + State<Error: Send + std::error::Error> + StateCommit,
+{
+    let ResultAndState {
+        result,
+        state: state_diff,
+    } = dry_run_with_extension(
         blockchain,
         state.clone(),
         cfg,

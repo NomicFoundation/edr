@@ -7,11 +7,11 @@
 
 pub use crate::{
     block::*,
-    debug::EvmExtension,
+    debug::ContextExtension,
     debug_trace::{
         debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
         DebugTraceError, DebugTraceLogItem, DebugTraceResult, DebugTraceResultWithTraces,
-        Eip3155AndRawTracers, TracerEip3155,
+        Eip3155AndRawTracersContext, TracerEip3155,
     },
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,

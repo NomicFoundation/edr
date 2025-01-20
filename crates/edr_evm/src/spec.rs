@@ -12,7 +12,7 @@ use edr_eth::{
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-use revm::{database_interface::WrapDatabaseRef, handler::{EthExecution, EthFrame, EthPostExecution, EthPreExecution, EthPrecompileProvider, EthValidation}, JournaledState};
+use revm::{handler::{EthExecution, EthFrame, EthPostExecution, EthPreExecution, EthPrecompileProvider, EthValidation}, JournaledState};
 use revm_context::CfgEnv;
 use revm_handler_interface::{
     ExecutionHandler, Frame, PostExecutionHandler, PreExecutionHandler, PrecompileProvider, ValidationHandler
@@ -21,10 +21,11 @@ use revm_handler::FrameResult;
 use revm_interpreter::interpreter::{EthInstructionProvider, EthInterpreter, InstructionProvider};
 
 use crate::{
+    state::WrapDatabaseRef,
     block::transaction::TransactionAndBlockForChainSpec, hardfork::{self, Activations}, receipt::{self, ExecutionReceiptBuilder, ReceiptFactory}, state::DatabaseComponents, transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
         TransactionValidation,
-    }, Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock, SyncBlock
+    }, Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock
 };
 
 /// Helper type for a chain-specific [`revm::Context`].
@@ -170,7 +171,7 @@ pub trait RuntimeSpec:
     type EvmExecutionHandler<
         BlockchainErrorT, 
         ContextT,
-        FrameT: Frame<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, FrameResult = FrameResult>,
+        FrameT: for<'context> Frame<Context<'context> = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, FrameResult = FrameResult>,
         StateErrorT,
     >: Default + ExecutionHandler<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, ExecResult = FrameResult, Frame = FrameT>;
 
@@ -178,7 +179,7 @@ pub trait RuntimeSpec:
     type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PostExecutionHandler<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, ExecResult = FrameResult, Output = ResultAndState<Self::HaltReason>>;
     
     /// Type representing an EVM frame.
-    type EvmFrame<BlockchainErrorT, ContextT, InstructionProviderT, PrecompileProviderT, StateErrorT>: Frame<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, FrameResult = FrameResult>;
+    type EvmFrame<BlockchainErrorT, ContextT, InstructionProviderT, PrecompileProviderT, StateErrorT>: for<'context> Frame<Context<'context> = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, FrameResult = FrameResult>;
     
     /// Type representing an instruction provider.
     type EvmInstructionProvider<ContextT>: InstructionProvider<WIRE = EthInterpreter, Host = ContextT>;

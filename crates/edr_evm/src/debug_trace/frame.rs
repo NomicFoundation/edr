@@ -4,7 +4,7 @@ use edr_eth::spec::{ChainSpec, HaltReasonTrait};
 use revm::{context_interface::JournalGetter, handler::FrameResult, interpreter::FrameInput};
 use revm_handler_interface::{Frame, FrameOrResultGen};
 
-use super::context::Eip3155TracerContext;
+use super::context::Eip3155TracerGetter;
 use crate::{
     blockchain::BlockHash,
     spec::{ContextForChainSpec, RuntimeSpec},
@@ -13,21 +13,17 @@ use crate::{
 
 pub type Eip3155TracerFrameForChainSpec<BlockchainT, ChainSpecT, StateT> = Eip3155TracerFrame<
     <ChainSpecT as RuntimeSpec>::EvmFrame<
+        <BlockchainT as BlockHash>::Error,
         ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
-        <ChainSpecT as RuntimeSpec>::EvmError<
-            <BlockchainT as BlockHash>::Error,
-            <StateT as State>::Error,
-        >,
         <ChainSpecT as RuntimeSpec>::EvmInstructionProvider<
             ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
         >,
         <ChainSpecT as RuntimeSpec>::EvmPrecompileProvider<
+            <BlockchainT as BlockHash>::Error,
             ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
-            <ChainSpecT as RuntimeSpec>::EvmError<
-                <BlockchainT as BlockHash>::Error,
-                <StateT as State>::Error,
-            >,
+            <StateT as State>::Error,
         >,
+        <StateT as State>::Error,
     >,
     <ChainSpecT as ChainSpec>::HaltReason,
 >;
@@ -47,16 +43,17 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> Eip3155TracerFrame<FrameT, Hal
     }
 
     /// Notifies the tracer that a frame has ended.
-    fn notify_frame_end<ContextT: JournalGetter>(
-        context: &mut Eip3155TracerContext<ContextT>,
+    fn notify_frame_end<ContextT: Eip3155TracerGetter>(
+        context: &mut ContextT,
         result: &FrameResult,
     ) {
+        let eip3155_tracer = context.eip3155_tracer();
         match result {
             FrameResult::Call(outcome) => {
-                context.tracer.on_inner_frame_result(&outcome.result);
+                eip3155_tracer.on_inner_frame_result(&outcome.result);
             }
             FrameResult::Create(outcome) => {
-                context.tracer.on_inner_frame_result(&outcome.result);
+                eip3155_tracer.on_inner_frame_result(&outcome.result);
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameResult::EOFCreate(_outcome) => unreachable!("EDR doesn't support EOF yet."),
@@ -64,12 +61,17 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> Eip3155TracerFrame<FrameT, Hal
     }
 }
 
-impl<FrameT, HaltReasonT> Frame for Eip3155TracerFrame<FrameT, HaltReasonT>
+impl<ContextT, FrameT, HaltReasonT> Frame for Eip3155TracerFrame<FrameT, HaltReasonT>
 where
-    FrameT: Frame<Context: JournalGetter, FrameInit = FrameInput, FrameResult = FrameResult>,
+    ContextT: Eip3155TracerGetter + JournalGetter,
+    FrameT: for<'context> Frame<
+        Context<'context> = ContextT,
+        FrameInit = FrameInput,
+        FrameResult = FrameResult,
+    >,
     HaltReasonT: HaltReasonTrait,
 {
-    type Context = Eip3155TracerContext<FrameT::Context>;
+    type Context<'context> = ContextT;
 
     type FrameInit = FrameT::FrameInit;
 
@@ -78,43 +80,43 @@ where
     type Error = FrameT::Error;
 
     fn init_first(
-        context: &mut Self::Context,
+        context: &mut Self::Context<'_>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        FrameT::init_first(&mut context.inner, frame_input).map(|frame| frame.map_frame(Self::new))
+        FrameT::init_first(context, frame_input).map(|frame| frame.map_frame(Self::new))
     }
 
     fn final_return(
-        context: &mut Self::Context,
+        context: &mut Self::Context<'_>,
         result: &mut Self::FrameResult,
     ) -> Result<(), Self::Error> {
-        FrameT::final_return(&mut context.inner, result)
+        FrameT::final_return(context, result)
     }
 
     fn init(
         &self,
-        context: &mut Self::Context,
+        context: &mut Self::Context<'_>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
         self.inner
-            .init(&mut context.inner, frame_input)
+            .init(context, frame_input)
             .map(|frame| frame.map_frame(Self::new))
     }
 
     fn run(
         &mut self,
-        context: &mut Self::Context,
+        context: &mut Self::Context<'_>,
     ) -> Result<FrameOrResultGen<Self::FrameInit, Self::FrameResult>, Self::Error> {
-        self.inner.run(&mut context.inner)
+        self.inner.run(context)
     }
 
     fn return_result(
         &mut self,
-        context: &mut Self::Context,
+        context: &mut Self::Context<'_>,
         result: Self::FrameResult,
     ) -> Result<(), Self::Error> {
         Self::notify_frame_end(context, &result);
 
-        self.inner.return_result(&mut context.inner, result)
+        self.inner.return_result(context, result)
     }
 }

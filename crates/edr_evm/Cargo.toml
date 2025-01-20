@@ -27,6 +27,7 @@ edr_utils = { version = "0.3.5", path = "../edr_utils" }
 revm = { path = "../../../revm/crates/revm", version = "19.2", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
 revm-context = { path = "../../../revm/crates/context", version = "1.0.0", default-features = false }
 revm-context-interface = { path = "../../../revm/crates/context/interface", version = "1.0.0", default-features = false }
+revm-database-interface = { path = "../../../revm/crates/database/interface", version = "1.0.0", default-features = false }
 revm-handler = { path = "../../../revm/crates/handler", version = "1.0.0", default-features = false }
 revm-handler-interface = { path = "../../../revm/crates/handler/interface", version = "1.0.0", default-features = false }
 revm-interpreter = { path = "../../../revm/crates/interpreter", version = "15.0.0", default-features = false }

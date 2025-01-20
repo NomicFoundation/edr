@@ -15,10 +15,30 @@ pub trait InspectsInstruction {
     type InterpreterTypes: InterpreterTypes;
 
     /// Called before the instruction is executed.
-    fn before_instruction(&mut self, interpreter: &mut Interpreter<Self::InterpreterTypes>);
+    fn before_instruction(&mut self, interpreter: &Interpreter<Self::InterpreterTypes>);
 
     /// Called after the instruction is executed.
-    fn after_instruction(&mut self, interpreter: &mut Interpreter<Self::InterpreterTypes>);
+    fn after_instruction(&mut self, interpreter: &Interpreter<Self::InterpreterTypes>);
+}
+
+/// A trait for instructions that can be inspected with a provided journal.
+pub trait InspectsInstructionWithJournal {
+    type InterpreterTypes: InterpreterTypes;
+    type Journal;
+
+    /// Called before the instruction is executed.
+    fn before_instruction_with_journal(
+        &mut self,
+        interpreter: &Interpreter<Self::InterpreterTypes>,
+        journal: &Self::Journal,
+    );
+
+    /// Called after the instruction is executed.
+    fn after_instruction_with_journal(
+        &mut self,
+        interpreter: &Interpreter<Self::InterpreterTypes>,
+        journal: &Self::Journal,
+    );
 }
 
 /// A wrapper around an instruction that can be inspected.
