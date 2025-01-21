@@ -19,5 +19,12 @@ strum = { version = "0.26.0", features = ["derive"] }
 semver = "1.0.23"
 thiserror = "1.0.58"
 
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "contracts_identifier"
+harness = false
+
 [lints]
 workspace = true
