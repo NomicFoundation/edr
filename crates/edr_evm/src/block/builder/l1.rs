@@ -19,6 +19,8 @@ use revm_context_interface::{
     block::BlockSetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
     PerformantContextAccess, TransactionGetter,
 };
+use revm_handler::FrameResult;
+use revm_handler_interface::Frame;
 use revm_interpreter::Host;
 
 use super::{
@@ -27,10 +29,11 @@ use super::{
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::ContextExtension,
+    debug::{ContextExtension, ExtendedContext},
     dry_run,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     run,
+    runtime::dry_run_with_extension,
     spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, DatabaseComponentError, DatabaseComponents, StateDiff, SyncState,
@@ -150,48 +153,27 @@ where
 
     /// Tries to add a transaction to the block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction<ContextConstructorInputsT, OuterContextT>(
+    pub fn add_transaction<ExtensionT, FrameT>(
         mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: Option<
-            ContextExtension<
-                ContextConstructorInputsT,
-                ContextForChainSpec<
-                    &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                    ChainSpecT,
-                    &'state dyn SyncState<StateErrorT>,
-                >,
-                OuterContextT,
-            >,
-        >,
+        extension: Option<ContextExtension<ExtensionT, FrameT>>,
     ) -> Result<
         Self,
         BlockBuilderAndTransactionError<Self, BlockchainErrorT, ChainSpecT, StateErrorT>,
     >
     where
-        OuterContextT: BlockSetter
-            + CfgGetter
-            + DatabaseGetter
-            + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-            + Host
-            + JournalGetter<
-                Database = WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                        &'state dyn SyncState<StateErrorT>,
-                    >,
+        FrameT: for<'context> Frame<
+            Context<'context> = ExtendedContext<
+                ContextForChainSpec<
+                    &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    ChainSpecT,
+                    &'context dyn SyncState<StateErrorT>,
                 >,
-                Journal: Journal<
-                    Database = WrapDatabaseRef<
-                        DatabaseComponents<
-                            &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                            &'state dyn SyncState<StateErrorT>,
-                        >,
-                    >,
-                    FinalOutput = (EvmState, Vec<ExecutionLog>),
-                >,
-            > + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-            + TransactionGetter,
+                ExtensionT,
+            >,
+            Error = TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+            FrameResult = FrameResult,
+        >,
     {
         // The transaction's gas limit cannot be greater than the remaining gas in the
         // block
@@ -229,14 +211,24 @@ where
                 }
             };
 
-        let result = dry_run(
-            self.blockchain,
-            self.state.as_ref(),
-            self.cfg.clone(),
-            transaction.clone(),
-            block,
-            extension,
-        );
+        let result = if let Some(extension) = extension {
+            dry_run_with_extension(
+                self.blockchain,
+                self.state.as_ref(),
+                self.cfg.clone(),
+                transaction.clone(),
+                block,
+                extension,
+            )
+        } else {
+            dry_run(
+                self.blockchain,
+                self.state.as_ref(),
+                self.cfg.clone(),
+                transaction.clone(),
+                block,
+            )
+        };
 
         let ResultAndState {
             result: transaction_result,

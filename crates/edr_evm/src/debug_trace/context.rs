@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use edr_eth::spec::HaltReasonTrait;
 use revm::JournaledState;
 use revm_interpreter::{interpreter::EthInterpreter, Interpreter};
 
@@ -9,6 +10,7 @@ use crate::{
     debug::ExtendedContext,
     instruction::InspectsInstructionWithJournal,
     state::{DatabaseComponents, State, WrapDatabaseRef},
+    trace::{TraceCollector, TraceCollectorContext, TraceCollectorGetter},
 };
 
 /// Trait for retrieving a mutable reference to a [`TracerEip3155`] instance.
@@ -75,5 +77,80 @@ impl<
         journal: &Self::Journal,
     ) {
         self.tracer.step_end(interpreter, journal);
+    }
+}
+
+/// EIP-3155 and raw tracers.
+pub struct Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT> {
+    eip3155: Eip3155TracerContext<'tracer, BlockchainT, StateT>,
+    raw: TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>,
+}
+
+impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
+    Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
+{
+    /// Creates a new instance.
+    pub fn new(
+        eip3155: &'tracer mut TracerEip3155,
+        raw: &'tracer mut TraceCollector<HaltReasonT>,
+    ) -> Self {
+        Self {
+            eip3155: Eip3155TracerContext::new(eip3155),
+            raw: TraceCollectorContext::new(raw),
+        }
+    }
+}
+
+impl<'tracer, BlockchainT, HaltReasonT, StateT> Eip3155TracerGetter
+    for Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
+where
+    HaltReasonT: HaltReasonTrait,
+{
+    fn eip3155_tracer(&mut self) -> &mut TracerEip3155 {
+        self.eip3155.eip3155_tracer()
+    }
+}
+
+impl<'tracer, BlockchainT, HaltReasonT, StateT> InspectsInstructionWithJournal
+    for Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
+where
+    BlockchainT: BlockHash<Error: std::error::Error>,
+    HaltReasonT: HaltReasonTrait,
+    StateT: State<Error: std::error::Error>,
+{
+    // TODO: Make this chain-agnostic
+    type InterpreterTypes = EthInterpreter;
+    type Journal = JournaledState<WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>;
+
+    fn before_instruction_with_journal(
+        &mut self,
+        interpreter: &Interpreter<Self::InterpreterTypes>,
+        journal: &Self::Journal,
+    ) {
+        self.eip3155
+            .before_instruction_with_journal(interpreter, journal);
+        self.raw
+            .before_instruction_with_journal(interpreter, journal);
+    }
+
+    fn after_instruction_with_journal(
+        &mut self,
+        interpreter: &Interpreter<Self::InterpreterTypes>,
+        journal: &Self::Journal,
+    ) {
+        self.eip3155
+            .after_instruction_with_journal(interpreter, journal);
+        self.raw
+            .after_instruction_with_journal(interpreter, journal);
+    }
+}
+
+impl<'tracer, BlockchainT, HaltReasonT, StateT> TraceCollectorGetter<HaltReasonT>
+    for Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
+where
+    HaltReasonT: HaltReasonTrait,
+{
+    fn trace_collector(&mut self) -> &mut TraceCollector<HaltReasonT> {
+        self.raw.trace_collector()
     }
 }

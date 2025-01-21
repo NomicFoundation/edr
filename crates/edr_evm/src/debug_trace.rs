@@ -3,6 +3,7 @@ mod frame;
 
 use std::{collections::HashMap, fmt::Debug};
 
+use context::Eip3155AndRawTracersContext;
 use edr_eth::{
     block::Block as _,
     bytecode::opcode::{self, OpCode},
@@ -13,15 +14,13 @@ use edr_eth::{
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
-use frame::Eip3155TracerFrame;
+use frame::Eip3155AndRawTracersFrame;
 use revm_context_interface::Journal;
-use revm_handler::EthPrecompileProvider;
 use revm_interpreter::{
-    interpreter::{EthInstructionProvider, EthInterpreter},
+    interpreter::EthInterpreter,
     interpreter_types::{InputsTrait as _, Jumps, LoopControl as _},
 };
 
-use self::context::Eip3155TracerContext;
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -30,59 +29,13 @@ use crate::{
         interpreter::{Interpreter, InterpreterResult},
         JournalEntry,
     },
-    instruction::InspectableInstructionProvider,
     runtime::dry_run_with_extension,
     spec::RuntimeSpec,
     state::{Database, SyncState},
-    trace::{Trace, TraceCollector, TraceCollectorContext, TraceCollectorFrame},
+    trace::{Trace, TraceCollector},
     transaction::TransactionError,
     ContextExtension,
 };
-
-/// EIP-3155 and raw tracers.
-pub struct Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT> {
-    eip3155: Eip3155TracerContext<'tracer, BlockchainT, StateT>,
-    raw: TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>,
-}
-
-impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
-    Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
-{
-    /// Creates a new instance.
-    pub fn new(
-        eip3155: &'tracer mut TracerEip3155,
-        raw: &'tracer mut TraceCollector<HaltReasonT>,
-    ) -> Self {
-        Self {
-            eip3155: Eip3155TracerContext::new(eip3155),
-            raw: TraceCollectorContext::new(raw),
-        }
-    }
-}
-
-/// Helper type for a frame that combines EIP-3155 and raw tracers.
-type Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT> =
-    Eip3155TracerFrame<
-        TraceCollectorFrame<
-            <ChainSpecT as RuntimeSpec>::EvmFrame<
-                BlockchainErrorT,
-                ContextT,
-                InspectableInstructionProvider<
-                    ContextT,
-                    EthInterpreter,
-                    <ChainSpecT as RuntimeSpec>::EvmInstructionProvider<ContextT>,
-                >,
-                <ChainSpecT as RuntimeSpec>::EvmPrecompileProvider<
-                    BlockchainErrorT,
-                    ContextT,
-                    StateErrorT,
-                >,
-                StateErrorT,
-            >,
-            <ChainSpecT as ChainSpec>::HaltReason,
-        >,
-        <ChainSpecT as ChainSpec>::HaltReason,
-    >;
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -122,22 +75,6 @@ where
     let block_number = block.number();
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
-            // fn build_context<'tracer, HaltReasonT: HaltReasonTrait, InnerContextT>(
-            //     inner: InnerContextT,
-            //     inputs: (
-            //         &'tracer mut TracerEip3155,
-            //         &'tracer mut TraceCollector<HaltReasonT>,
-            //     ),
-            // ) -> TraceCollectorContext<
-            //     'tracer,
-            //     Eip3155TracerContext<'tracer, InnerContextT>,
-            //     HaltReasonT,
-            // > { let (eip3155_tracer, raw_tracer) = inputs;
-
-            //     let context = Eip3155TracerContext::new(eip3155_tracer, inner);
-            //     TraceCollectorContext::new(raw_tracer, context)
-            // }
-
             let mut eip3155_tracer = TracerEip3155::new(trace_config);
             let mut raw_tracer = TraceCollector::new(verbose_tracing);
 
@@ -150,26 +87,6 @@ where
                 _,
                 Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, _, StateErrorT>,
             >::new(context);
-
-            // let handler = EthHandler::new(
-            //     ChainSpecT::EvmValidationHandler::<
-            //         TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
-            //         ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
-            //     >::default(),
-            //     ChainSpecT::EvmPreExecutionHandler::<
-            //         TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
-            //         ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
-            //     >::default(),
-            //     ChainSpecT::EvmExecutionHandler::<
-            //         TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
-            //         ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
-            //         Eip3155TracerFrameForChainSpec<_, ChainSpecT, _>,
-            //     >::default(),
-            //     ChainSpecT::EvmPostExecutionHandler::<
-            //         TracerEip3155ContextForChainSpec<'_, _, ChainSpecT, _>,
-            //         ChainSpecT::EvmError<BlockchainErrorT, StateErrorT>,
-            //     >::default(),
-            // );
 
             let ResultAndState { result, .. } = dry_run_with_extension(
                 blockchain,

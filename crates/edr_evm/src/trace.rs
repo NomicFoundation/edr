@@ -13,7 +13,10 @@ use edr_eth::{
 use revm::context_interface::Journal;
 use revm_interpreter::{interpreter::EthInterpreter, interpreter_types::Jumps, MemoryGetter as _};
 
-pub use self::{context::TraceCollectorContext, frame::TraceCollectorFrame};
+pub use self::{
+    context::{TraceCollectorContext, TraceCollectorGetter},
+    frame::TraceCollectorFrame,
+};
 use crate::{
     blockchain::BlockHash,
     evm::interpreter::{

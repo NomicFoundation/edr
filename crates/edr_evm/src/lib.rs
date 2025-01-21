@@ -11,7 +11,7 @@ pub use crate::{
     debug_trace::{
         debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
         DebugTraceError, DebugTraceLogItem, DebugTraceResult, DebugTraceResultWithTraces,
-        Eip3155AndRawTracersContext, TracerEip3155,
+        TracerEip3155,
     },
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,

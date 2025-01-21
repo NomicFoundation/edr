@@ -16,7 +16,7 @@ pub trait ChainSpec {
     /// The chain's type for contextual information.
     type Context: Debug + Default;
     /// The chian's halt reason type.
-    type HaltReason: HaltReasonTrait;
+    type HaltReason: HaltReasonTrait + 'static;
     /// The chain's hardfork type.
     type Hardfork: Copy + Into<l1::SpecId>;
     /// The chain's signed transaction type.
