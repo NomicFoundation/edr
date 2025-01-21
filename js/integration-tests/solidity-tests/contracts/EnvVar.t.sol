@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./test.sol";
-import "./Vm.sol";
+import {Test} from "forge-std/src/Test.sol";
 
-contract EnvVarTest is DSTest {
-    Vm constant vm = Vm(HEVM_ADDRESS);
-
+contract EnvVarTest is Test {
     function testGetEnv() public {
         string memory key = "_EDR_SOLIDITY_TESTS_GET_ENV_TEST_KEY";
         string memory val = "_edrSolidityTestsGetEnvTestVal";

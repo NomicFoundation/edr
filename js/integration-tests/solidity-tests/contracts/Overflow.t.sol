@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./test.sol";
-import "./Vm.sol";
+import {Test} from "forge-std/src/Test.sol";
 
 // Contract to be tested with overflow vulnerability
 contract MyContract {
@@ -12,9 +11,7 @@ contract MyContract {
 }
 
 // Test that the fuzzing catches overflows
-contract OverflowTest is DSTest {
-    Vm constant vm = Vm(HEVM_ADDRESS);
-
+contract OverflowTest is Test {
     MyContract public myContract;
 
     function setUp() public {

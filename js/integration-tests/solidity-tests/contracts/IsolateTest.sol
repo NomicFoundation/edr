@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity ^0.8.24;
 
-import "./test.sol";
-import "./Vm.sol";
+import {Test} from "forge-std/src/Test.sol";
 
 contract TransientStorageStore {
     uint value;
@@ -22,7 +21,7 @@ contract TransientStorageStore {
     }
 }
 
-contract IsolateTest is DSTest {
+contract IsolateTest is Test {
     TransientStorageStore transientStorageStore;
 
     function setUp() public {

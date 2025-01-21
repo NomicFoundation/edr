@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./test.sol";
-import "./Vm.sol";
+import {Test} from "forge-std/src/Test.sol";
 
 contract StochasticWrongContract {
     uint256 public a;
@@ -25,7 +24,7 @@ contract StochasticWrongContract {
 }
 
 // Test that the invariant testing works correctly by catching a bug in the contract.
-contract FailingInvariantTest is DSTest {
+contract FailingInvariantTest is Test {
     StochasticWrongContract wrongContract;
 
     function setUp() external {

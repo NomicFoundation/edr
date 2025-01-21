@@ -41,7 +41,7 @@ describe("Unit tests", () => {
     );
 
     assert.equal(failedTests, 0);
-    assert.equal(totalTests, 2);
+    assert.equal(totalTests, 1);
   });
 
   describe("IsolateMode", function () {

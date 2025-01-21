@@ -1,26 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./test.sol";
-import "./Vm.sol";
+import {Test} from "forge-std/src/Test.sol";
 
 // Contract to be tested with overflow vulnerability
 contract IdentityContract {
-    function identity(uint256 amount) pure public returns(uint256) {
+    function identity(uint256 amount) pure public returns (uint256) {
         require(amount != 7191815684697958081204101901807852913954269296144377099693178655035380638910, "Got value from fixture");
         return amount;
     }
 }
 
 // Test that fuzz fixtures specified in Solidity are not supported.
-contract FuzzFixtureTest is DSTest {
-    Vm constant vm = Vm(HEVM_ADDRESS);
-    
+contract FuzzFixtureTest is Test {
     IdentityContract testDummy;
 
     uint256[] public fixtureAmount = [
-        // This is a random value
-        7191815684697958081204101901807852913954269296144377099693178655035380638910
+    // This is a random value
+    7191815684697958081204101901807852913954269296144377099693178655035380638910
     ];
 
     function setUp() public {
