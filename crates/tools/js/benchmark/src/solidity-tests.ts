@@ -19,7 +19,11 @@ import fs from "fs";
 import { execSync } from "child_process";
 import path from "path";
 import simpleGit from "simple-git";
-import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
+import { Artifacts as HardhatArtifacts } from "hardhat/internal/artifacts";
+import {
+  makeTracingConfig,
+  runAllSolidityTests,
+} from "@nomicfoundation/edr-helpers";
 import {
   SolidityTestRunnerConfigArgs,
   FsAccessPermission,
@@ -89,7 +93,7 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
     path.join(forgeStdRepoPath, "hardhat.config.js")
   );
 
-  const { artifacts, testSuiteIds } = loadArtifacts(
+  const { artifacts, testSuiteIds, tracingConfig } = await loadArtifacts(
     artifactsDir,
     hardhatConfig
   );
@@ -107,11 +111,10 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
       }
 
       const start = performance.now();
-      // TODO
       const results = await runAllSolidityTests(
         artifacts,
         ids,
-        { buildInfos: [], ignoreContracts: undefined },
+        tracingConfig,
         config
       );
       const elapsed = performance.now() - start;
@@ -243,7 +246,7 @@ function displaySec(delta: number) {
 }
 
 // Load contracts built with Hardhat
-function loadArtifacts(
+async function loadArtifacts(
   artifactsDir: string,
   hardhatConfig: { solidity: { version: string } }
 ) {
@@ -280,9 +283,14 @@ function loadArtifacts(
     artifacts.push({ id, contract });
   }
 
+  const tracingConfig = await makeTracingConfig(
+    new HardhatArtifacts(artifactsDir)
+  );
+
   return {
     artifacts,
     testSuiteIds,
+    tracingConfig,
   };
 }
 
