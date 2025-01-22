@@ -7,7 +7,6 @@ use edr_eth::{
     l1::{self, L1ChainSpec},
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
-    result::InvalidTransaction,
     transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,
     Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
@@ -166,13 +165,14 @@ pub async fn run_full_block<
                 ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
             >,
             ExecutionReceipt<FilterLog>: PartialEq,
+            Hardfork: Default,
             LocalBlock: BlockReceipts<
                 Arc<ChainSpecT::BlockReceipt>,
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
             SignedTransaction: Default
                                    + TransactionValidation<
-                ValidationError: From<InvalidTransaction> + Send + Sync,
+                ValidationError: From<l1::InvalidTransaction> + Send + Sync,
             >,
         >,
 >(
@@ -219,17 +219,16 @@ pub async fn run_full_block<
     )
     .await?;
 
-    let mut cfg = CfgEnv::default();
+    let mut cfg = CfgEnv::<ChainSpecT::Hardfork>::default();
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 
     let state =
         blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
 
-    let mut builder = ChainSpecT::BlockBuilder::<'_, _, (), _>::new_block_builder(
+    let mut builder = ChainSpecT::BlockBuilder::new_block_builder(
         &blockchain,
         state,
-        hardfork,
         cfg,
         BlockOptions {
             beneficiary: Some(replay_header.beneficiary),
@@ -243,15 +242,12 @@ pub async fn run_full_block<
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
             ..BlockOptions::default()
         },
-        None,
     )?;
 
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);
 
     for transaction in replay_block.transactions() {
-        builder = builder
-            .add_transaction(transaction.clone())
-            .map_err(|error| error.error)?;
+        builder.add_transaction(transaction.clone())?;
     }
 
     let rewards = vec![(

@@ -25,6 +25,8 @@ pub mod l1;
 pub mod log;
 /// Ethereum receipt types
 pub mod receipt;
+/// Ethereum result types
+pub mod result;
 /// Ethereum gas related types
 pub mod reward_percentile;
 /// RLP traits and functions
@@ -47,7 +49,6 @@ pub mod withdrawal;
 
 pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
 pub use revm_bytecode::{self as bytecode, Bytecode};
-pub use revm_context_interface::result;
 pub use revm_primitives::{
     address,
     alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},

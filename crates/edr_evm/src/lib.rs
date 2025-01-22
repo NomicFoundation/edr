@@ -16,7 +16,7 @@ pub use crate::{
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,
     random::RandomHashGenerator,
-    runtime::{dry_run, guaranteed_dry_run, run, SyncDatabase},
+    runtime::{dry_run, guaranteed_dry_run, run},
 };
 
 /// Types for Ethereum blocks.

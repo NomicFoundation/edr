@@ -7,11 +7,11 @@ use std::fmt::Debug;
 use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{l1, result::InvalidTransaction, spec::ChainSpec, U256};
+use edr_eth::{l1, spec::ChainSpec, U256};
 use revm::precompile::PrecompileErrors;
 
 pub use self::detailed::*;
-use crate::{result::InvalidHeader, state::DatabaseComponentError};
+use crate::state::DatabaseComponentError;
 
 /// Invalid transaction error
 #[derive(thiserror::Error)]
@@ -28,7 +28,7 @@ where
     Custom(String),
     /// Invalid block header
     #[error(transparent)]
-    InvalidHeader(InvalidHeader),
+    InvalidHeader(l1::InvalidHeader),
     /// Corrupt transaction data
     #[error(transparent)]
     InvalidTransaction(<ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError),
@@ -63,26 +63,26 @@ where
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<InvalidHeader>
+impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<l1::InvalidHeader>
     for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec,
 {
-    fn from(value: InvalidHeader) -> Self {
+    fn from(value: l1::InvalidHeader) -> Self {
         Self::InvalidHeader(value)
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<InvalidTransaction>
+impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<l1::InvalidTransaction>
     for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
 {
-    fn from(value: InvalidTransaction) -> Self {
+    fn from(value: l1::InvalidTransaction) -> Self {
         match value {
-            InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+            l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
                 Self::LackOfFundForMaxFee { fee, balance }
             }
             remainder => Self::InvalidTransaction(remainder.into()),

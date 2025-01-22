@@ -8,7 +8,7 @@ use edr_eth::{
     block::Block as _,
     bytecode::opcode::{self, OpCode},
     hex, l1,
-    result::{ExecutionResult, InvalidTransaction, ResultAndState},
+    result::{ExecutionResult, ExecutionResultAndState},
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{ExecutableTransaction as _, TransactionValidation},
     utils::u256_to_padded_hex,
@@ -24,11 +24,11 @@ use revm_interpreter::{
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    dry_run,
     evm::{
         interpreter::{Interpreter, InterpreterResult},
         JournalEntry,
     },
+    run,
     runtime::dry_run_with_extension,
     spec::RuntimeSpec,
     state::{Database, SyncState},
@@ -59,7 +59,7 @@ where
     ChainSpecT: RuntimeSpec<
         BlockEnv: Clone,
         SignedTransaction: Default
-                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
     BlockchainErrorT: Send + std::error::Error,
     StateErrorT: Send + std::error::Error,
@@ -83,18 +83,18 @@ where
                 _,
                 &dyn SyncState<StateErrorT>,
             >::new(&mut eip3155_tracer, &mut raw_tracer);
-            let extension = ContextExtension::<
+            let mut extension = ContextExtension::<
                 _,
                 Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, _, StateErrorT>,
             >::new(context);
 
-            let ResultAndState { result, .. } = dry_run_with_extension(
+            let ExecutionResultAndState { result, .. } = dry_run_with_extension(
                 blockchain,
                 state.as_ref(),
                 evm_config,
                 transaction,
                 block,
-                extension,
+                &mut extension,
             )?;
 
             return Ok(execution_result_to_debug_result(
@@ -103,15 +103,13 @@ where
                 eip3155_tracer,
             ));
         } else {
-            let ResultAndState { state: changes, .. } = dry_run(
+            run(
                 blockchain,
-                state.as_ref(),
+                state.as_mut(),
                 evm_config.clone(),
                 transaction,
                 block.clone(),
             )?;
-
-            state.commit(changes);
         }
     }
 
@@ -188,7 +186,7 @@ where
     },
     /// Transaction error.
     #[error(transparent)]
-    TransactionError(#[from] TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
+    TransactionError(#[from] TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>),
 }
 
 /// Result of a `debug_traceTransaction` call.

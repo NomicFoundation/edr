@@ -20,7 +20,6 @@ use revm_primitives::{ruint, B256};
 
 use crate::{
     eips::{eip2930, eip7702},
-    result::InvalidTransaction,
     signature::Signature,
     Address, Bytes, U256, U8,
 };

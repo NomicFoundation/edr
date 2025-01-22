@@ -16,7 +16,7 @@ use crate::{
     config::CfgEnv,
     debug::ExtendedContext,
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{Database, DatabaseComponentError, SyncState},
+    state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
     ContextExtension, MineBlockResultAndStateForChainSpec,
 };
@@ -101,23 +101,32 @@ where
     fn header(&self) -> &PartialHeader;
 
     /// Adds a transaction to the block.
-    fn add_transaction<ExtensionT, FrameT>(
+    fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: Option<ContextExtension<ExtensionT, FrameT>>,
+    ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>;
+
+    /// Adds a transaction to the block.
+    fn add_transaction_with_extension<'extension, ExtensionT, FrameT>(
+        &mut self,
+        transaction: ChainSpecT::SignedTransaction,
+        extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
         FrameT: for<'context> Frame<
             Context<'context> = ExtendedContext<
+                'context,
                 ContextForChainSpec<
                     ChainSpecT,
-                    Box<
-                        dyn Database<
-                                Error = DatabaseComponentError<
-                                    Self::BlockchainError,
-                                    Self::StateError,
-                                >,
-                            > + 'context,
+                    WrapDatabaseRef<
+                        DatabaseComponents<
+                            &'context dyn SyncBlockchain<
+                                ChainSpecT,
+                                Self::BlockchainError,
+                                Self::StateError,
+                            >,
+                            &'context dyn SyncState<Self::StateError>,
+                        >,
                     >,
                 >,
                 ExtensionT,

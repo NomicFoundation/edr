@@ -28,19 +28,22 @@ use crate::instruction::{InspectsInstruction, InspectsInstructionWithJournal};
 //         >,
 //     >;
 
-pub struct ExtendedContext<InnerContextT, OuterContextT> {
+pub struct ExtendedContext<'context, InnerContextT, OuterContextT> {
     pub inner: InnerContextT,
-    pub extension: OuterContextT,
+    pub extension: &'context mut OuterContextT,
 }
 
-impl<InnerContextT, OuterContextT> ExtendedContext<InnerContextT, OuterContextT> {
+impl<'context, InnerContextT, OuterContextT>
+    ExtendedContext<'context, InnerContextT, OuterContextT>
+{
     /// Creates a new instance.
-    pub fn new(inner: InnerContextT, extension: OuterContextT) -> Self {
+    pub fn new(inner: InnerContextT, extension: &'context mut OuterContextT) -> Self {
         Self { inner, extension }
     }
 }
 
-impl<InnerContextT, OuterContextT> BlockGetter for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> BlockGetter
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: BlockGetter,
 {
@@ -51,7 +54,8 @@ where
     }
 }
 
-impl<InnerContextT, OuterContextT> BlockSetter for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> BlockSetter
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: BlockSetter,
 {
@@ -60,7 +64,8 @@ where
     }
 }
 
-impl<InnerContextT, OuterContextT> CfgGetter for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> CfgGetter
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: CfgGetter,
 {
@@ -71,7 +76,8 @@ where
     }
 }
 
-impl<InnerContextT, OuterContextT> DatabaseGetter for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> DatabaseGetter
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: DatabaseGetter,
 {
@@ -86,7 +92,8 @@ where
     }
 }
 
-impl<InnerContextT, OuterContextT> ErrorGetter for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> ErrorGetter
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: ErrorGetter,
 {
@@ -97,8 +104,8 @@ where
     }
 }
 
-impl<'tracer, InnerContextT: Host, OuterContextT> Host
-    for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT: Host, OuterContextT> Host
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 {
     fn load_account_delegated(&mut self, address: Address) -> Option<StateLoad<AccountLoad>> {
         self.inner.load_account_delegated(address)
@@ -154,8 +161,8 @@ impl<'tracer, InnerContextT: Host, OuterContextT> Host
     }
 }
 
-impl<InnerContextT, OuterContextT> InspectsInstruction
-    for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> InspectsInstruction
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: JournalGetter<Journal: Journal<Entry = JournalEntry>>,
     OuterContextT: InspectsInstructionWithJournal<Journal = InnerContextT::Journal>,
@@ -176,7 +183,8 @@ where
     }
 }
 
-impl<InnerContextT, OuterContextT> JournalGetter for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> JournalGetter
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: JournalGetter,
 {
@@ -191,8 +199,8 @@ where
     }
 }
 
-impl<InnerContextT, OuterContextT> PerformantContextAccess
-    for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> PerformantContextAccess
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: PerformantContextAccess,
 {
@@ -203,8 +211,8 @@ where
     }
 }
 
-impl<InnerContextT, OuterContextT> TransactionGetter
-    for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> TransactionGetter
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     InnerContextT: TransactionGetter,
 {
@@ -234,13 +242,13 @@ impl<ExtensionT, FrameT> ContextExtension<ExtensionT, FrameT> {
     }
 
     /// Extends the provided context.
-    pub fn extend_context<ContextT>(
-        self,
+    pub fn extend_context<'context, ContextT>(
+        &'context mut self,
         inner: ContextT,
-    ) -> ExtendedContext<ContextT, ExtensionT> {
+    ) -> ExtendedContext<'context, ContextT, ExtensionT> {
         ExtendedContext {
             inner,
-            extension: self.extension,
+            extension: &mut self.extension,
         }
     }
 }

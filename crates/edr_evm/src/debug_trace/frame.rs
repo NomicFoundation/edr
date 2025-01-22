@@ -10,20 +10,26 @@ use crate::{
     blockchain::BlockHash,
     instruction::InspectableInstructionProvider,
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::State,
+    state::{DatabaseComponents, State, WrapDatabaseRef},
     trace::TraceCollectorFrame,
 };
 
 pub type Eip3155TracerFrameForChainSpec<BlockchainT, ChainSpecT, StateT> = Eip3155TracerFrame<
     <ChainSpecT as RuntimeSpec>::EvmFrame<
         <BlockchainT as BlockHash>::Error,
-        ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
         <ChainSpecT as RuntimeSpec>::EvmInstructionProvider<
-            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
         >,
         <ChainSpecT as RuntimeSpec>::EvmPrecompileProvider<
             <BlockchainT as BlockHash>::Error,
-            ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
             <StateT as State>::Error,
         >,
         <StateT as State>::Error,

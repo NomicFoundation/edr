@@ -8,20 +8,14 @@ use edr_eth::{
     l1,
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
-    result::{ExecutionResult, ResultAndState},
+    result::{ExecutionResult, ExecutionResultAndState},
     transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, B256, U256,
 };
-use revm::{state::EvmState, Database};
-use revm_context_interface::{
-    block::BlockSetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
-    PerformantContextAccess, TransactionGetter,
-};
 use revm_handler::FrameResult;
 use revm_handler_interface::Frame;
-use revm_interpreter::Host;
 
 use super::{BlockBuilder, BlockTransactionError};
 use crate::{
@@ -30,13 +24,9 @@ use crate::{
     debug::{ContextExtension, ExtendedContext},
     dry_run,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
-    run,
     runtime::dry_run_with_extension,
     spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::{
-        AccountModifierFn, DatabaseComponentError, DatabaseComponents, StateDiff, SyncState,
-        WrapDatabaseRef,
-    },
+    state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
     Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
 };
@@ -81,6 +71,30 @@ where
     /// Retrieves the amount of gas left in the block.
     pub fn gas_remaining(&self) -> u64 {
         self.header.gas_limit - self.gas_used()
+    }
+
+    fn validate_transaction(
+        &self,
+        transaction: &ChainSpecT::SignedTransaction,
+    ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>> {
+        // The transaction's gas limit cannot be greater than the remaining gas in the
+        // block
+        if transaction.gas_limit() > self.gas_remaining() {
+            return Err(BlockTransactionError::ExceedsBlockGasLimit);
+        }
+
+        let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
+        if let Some(BlobGas {
+            gas_used: block_blob_gas_used,
+            ..
+        }) = self.header.blob_gas.as_ref()
+        {
+            if block_blob_gas_used + blob_gas_used > eip4844::MAX_BLOB_GAS_PER_BLOCK_CANCUN {
+                return Err(BlockTransactionError::ExceedsBlockBlobGasLimit);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -143,19 +157,48 @@ where
 
     /// Tries to add a transaction to the block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction<ExtensionT, FrameT>(
+    pub fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: Option<ContextExtension<ExtensionT, FrameT>>,
+    ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>> {
+        self.validate_transaction(&transaction)?;
+
+        let block = ChainSpecT::BlockEnv::new_block_env(&self.header, self.cfg.spec.into());
+
+        let receipt_builder =
+            ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
+                .map_err(TransactionError::State)?;
+
+        let transaction_result = dry_run(
+            self.blockchain,
+            &self.state,
+            self.cfg.clone(),
+            transaction.clone(),
+            block,
+        )?;
+
+        self.add_transaction_result(receipt_builder, transaction, transaction_result);
+
+        Ok(())
+    }
+    /// Tries to add a transaction to the block.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn add_transaction_with_extension<'extension, ExtensionT, FrameT>(
+        &mut self,
+        transaction: ChainSpecT::SignedTransaction,
+        extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>>
     where
         FrameT: for<'context> Frame<
             Context<'context> = ExtendedContext<
+                'context,
                 ContextForChainSpec<
                     ChainSpecT,
-                    Box<
-                        dyn Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-                            + 'context,
+                    WrapDatabaseRef<
+                        DatabaseComponents<
+                            &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                            &'context dyn SyncState<StateErrorT>,
+                        >,
                     >,
                 >,
                 ExtensionT,
@@ -164,71 +207,48 @@ where
             FrameResult = FrameResult,
         >,
     {
-        // The transaction's gas limit cannot be greater than the remaining gas in the
-        // block
-        if transaction.gas_limit() > self.gas_remaining() {
-            return Err(BlockTransactionError::ExceedsBlockGasLimit);
-        }
-
-        let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
-        if let Some(BlobGas {
-            gas_used: block_blob_gas_used,
-            ..
-        }) = self.header.blob_gas.as_ref()
-        {
-            if block_blob_gas_used + blob_gas_used > eip4844::MAX_BLOB_GAS_PER_BLOCK_CANCUN {
-                return Err(BlockTransactionError::ExceedsBlockBlobGasLimit);
-            }
-        }
+        self.validate_transaction(&transaction)?;
 
         let block = ChainSpecT::BlockEnv::new_block_env(&self.header, self.cfg.spec.into());
 
         let receipt_builder =
-            match ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction) {
-                Ok(receipt_builder) => receipt_builder,
-                Err(error) => {
-                    return Err(TransactionError::State(error).into());
-                }
-            };
+            ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
+                .map_err(TransactionError::State)?;
 
-        let state = self.state.as_mut();
+        let transaction_result = dry_run_with_extension(
+            self.blockchain,
+            self.state.as_ref(),
+            self.cfg.clone(),
+            transaction.clone(),
+            block,
+            extension,
+        )
+        .map_err(BlockTransactionError::from)?;
 
-        let result = if let Some(extension) = extension {
-            let blockchain = self.blockchain;
-            let cfg = self.cfg.clone();
+        self.add_transaction_result(receipt_builder, transaction, transaction_result);
 
-            let database: Box<
-                dyn Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-            > = Box::new(WrapDatabaseRef(DatabaseComponents { blockchain, state }));
+        Ok(())
+    }
 
-            dry_run_with_extension(database, cfg, transaction.clone(), block, extension)
-        } else {
-            dry_run(
-                self.blockchain,
-                state,
-                self.cfg.clone(),
-                transaction.clone(),
-                block,
-            )
-        };
-
-        let ResultAndState {
+    fn add_transaction_result(
+        &mut self,
+        receipt_builder: ChainSpecT::ReceiptBuilder,
+        transaction: ChainSpecT::SignedTransaction,
+        transaction_result: ExecutionResultAndState<ChainSpecT::HaltReason>,
+    ) {
+        let ExecutionResultAndState {
             result: transaction_result,
             state: state_diff,
-        } = match result {
-            Ok(result) => result,
-            Err(error) => {
-                return Err(TransactionError::from(error).into());
-            }
-        };
+        } = transaction_result;
 
         self.state_diff.apply_diff(state_diff.clone());
 
-        state.commit(state_diff);
+        self.state.commit(state_diff);
 
         self.header.gas_used += transaction_result.gas_used();
 
         if let Some(BlobGas { gas_used, .. }) = self.header.blob_gas.as_mut() {
+            let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
             *gas_used += blob_gas_used;
         }
 
@@ -250,8 +270,6 @@ where
 
         self.transactions.push(transaction);
         self.transaction_results.push(transaction_result);
-
-        Ok(())
     }
 }
 
@@ -383,19 +401,30 @@ where
         self.header()
     }
 
-    fn add_transaction<ExtensionT, FrameT>(
+    fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: Option<ContextExtension<ExtensionT, FrameT>>,
+    ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
+    {
+        self.add_transaction(transaction)
+    }
+
+    fn add_transaction_with_extension<'extension, ExtensionT, FrameT>(
+        &mut self,
+        transaction: ChainSpecT::SignedTransaction,
+        extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
         FrameT: for<'context> Frame<
             Context<'context> = ExtendedContext<
+                'context,
                 ContextForChainSpec<
                     ChainSpecT,
-                    Box<
-                        dyn Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-                            + 'context,
+                    WrapDatabaseRef<
+                        DatabaseComponents<
+                            &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                            &'context dyn SyncState<StateErrorT>,
+                        >,
                     >,
                 >,
                 ExtensionT,
@@ -404,7 +433,7 @@ where
             FrameResult = FrameResult,
         >,
     {
-        self.add_transaction(transaction, extension)
+        self.add_transaction_with_extension(transaction, extension)
     }
 
     fn finalize(

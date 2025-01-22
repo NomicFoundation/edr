@@ -26,8 +26,8 @@ impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT> TraceCollectorG
     }
 }
 
-impl<'tracer, HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
-    TraceCollectorGetter<HaltReasonT> for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
+    TraceCollectorGetter<HaltReasonT> for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     OuterContextT: TraceCollectorGetter<HaltReasonT>,
 {

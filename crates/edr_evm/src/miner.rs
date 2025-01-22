@@ -2,23 +2,26 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
-    result::{ExecutionResult, InvalidTransaction},
+    l1,
+    result::ExecutionResult,
     signature::SignatureError,
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{ExecutableTransaction, TransactionValidation},
 };
+use revm_handler::FrameResult;
+use revm_handler_interface::Frame;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::ContextExtension,
+    debug::{ContextExtension, ExtendedContext},
     mempool::OrderedTransaction,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
-    state::{StateDiff, SyncState},
+    spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
+    state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    Block as _, BlockBuilder, BlockBuilderAndError, BlockTransactionError, MemPool,
+    Block as _, BlockBuilder, BlockTransactionError, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
@@ -63,7 +66,7 @@ where
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
-    BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
+    BlockTransaction(#[from] BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>),
     /// An error that occurred while finalizing a block.
     #[error(transparent)]
     BlockFinalize(StateErrorT),
@@ -81,39 +84,48 @@ where
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, StateErrorT>(
+pub fn mine_block<'blockchain, BlockchainErrorT, ChainSpecT, ExtensionT, FrameT, StateErrorT>(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool<ChainSpecT>,
-    cfg: &CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    cfg: &CfgEnv<ChainSpecT::Hardfork>,
     options: BlockOptions,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
-    extension: Option<ContextExtension>,
+    mut extension: Option<&mut ContextExtension<ExtensionT, FrameT>>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
-    'blockchain: 'evm,
+    BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateErrorT: Debug + Send,
+    FrameT: for<'context> Frame<
+        Context<'context> = ExtendedContext<
+            'context,
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<
+                    DatabaseComponents<
+                        &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                        &'context dyn SyncState<StateErrorT>,
+                    >,
+                >,
+            >,
+            ExtensionT,
+        >,
+        Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
+        FrameResult = FrameResult,
+    >,
+    StateErrorT: std::error::Error + Send,
 {
-    let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
-        blockchain,
-        state,
-        hardfork,
-        cfg.clone(),
-        options,
-        debug_context,
-    )?;
+    let mut block_builder =
+        ChainSpecT::BlockBuilder::new_block_builder(blockchain, state, cfg.clone(), options)?;
 
     let mut pending_transactions = {
         type MineOrderComparator<ChainSpecT> = dyn Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering
@@ -138,27 +150,25 @@ where
 
         let caller = *transaction.caller();
 
-        block_builder = block_builder.add_transaction(transaction).map_or_else(
-            |BlockBuilderAndError {
-                 block_builder,
-                 error,
-             }| match error {
+        let result = if let Some(extension) = extension.as_mut() {
+            block_builder.add_transaction_with_extension(transaction, extension)
+        } else {
+            block_builder.add_transaction(transaction)
+        };
+
+        if let Err(error) = result {
+            match error {
                 BlockTransactionError::ExceedsBlockGasLimit => {
                     pending_transactions.remove_caller(&caller);
-
-                    Ok(block_builder)
                 }
                 BlockTransactionError::Transaction(TransactionError::InvalidTransaction(error))
-                    if error == InvalidTransaction::GasPriceLessThanBasefee.into() =>
+                    if error == l1::InvalidTransaction::GasPriceLessThanBasefee.into() =>
                 {
                     pending_transactions.remove_caller(&caller);
-
-                    Ok(block_builder)
                 }
-                error => Err(MineBlockError::BlockTransaction(error)),
-            },
-            Ok,
-        )?;
+                remainder => return Err(MineBlockError::BlockTransaction(remainder)),
+            }
+        }
     }
 
     let beneficiary = block_builder.header().beneficiary;
@@ -182,7 +192,7 @@ where
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
-    BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
+    BlockTransaction(#[from] BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>),
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
@@ -257,42 +267,50 @@ where
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<
     'blockchain,
-    'evm,
-    ChainSpecT,
-    DebugDataT,
+    'extension,
     BlockchainErrorT,
+    ChainSpecT,
+    ExtensionT,
+    FrameT,
     StateErrorT,
 >(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: ChainSpecT::SignedTransaction,
-    cfg: &CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    cfg: &CfgEnv<ChainSpecT::Hardfork>,
     options: BlockOptions,
     min_gas_price: u128,
     reward: u128,
-    debug_context: Option<
-        ContextExtension<
-            'evm,
-            ChainSpecT,
-            BlockchainErrorT,
-            DebugDataT,
-            Box<dyn SyncState<StateErrorT>>,
-        >,
-    >,
+    extension: Option<&'extension mut ContextExtension<ExtensionT, FrameT>>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
-    'blockchain: 'evm,
+    BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateErrorT: Debug + Send,
+    FrameT: for<'context> Frame<
+        Context<'context> = ExtendedContext<
+            'context,
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<
+                    DatabaseComponents<
+                        &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                        &'context dyn SyncState<StateErrorT>,
+                    >,
+                >,
+            >,
+            ExtensionT,
+        >,
+        Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
+        FrameResult = FrameResult,
+    >,
+    StateErrorT: std::error::Error + Send,
 {
     let max_priority_fee_per_gas = transaction
         .max_priority_fee_per_gas()
@@ -330,7 +348,7 @@ where
 
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
         let base_fee_per_blob_gas =
-            calculate_next_base_fee_per_blob_gas(parent_block.header(), hardfork);
+            calculate_next_base_fee_per_blob_gas(parent_block.header(), cfg.spec);
         if *max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                 expected: base_fee_per_blob_gas,
@@ -361,26 +379,19 @@ where
         }
     }
 
-    let mut block_builder = ChainSpecT::BlockBuilder::<
-        '_,
-        BlockchainErrorT,
-        DebugDataT,
-        StateErrorT,
-    >::new_block_builder(
-        blockchain,
-        state,
-        hardfork,
-        cfg.clone(),
-        options,
-        debug_context,
-    )?;
+    let mut block_builder =
+        ChainSpecT::BlockBuilder::new_block_builder(blockchain, state, cfg.clone(), options)?;
 
     let beneficiary = block_builder.header().beneficiary;
     let rewards = vec![(beneficiary, reward)];
 
+    if let Some(extension) = extension {
+        block_builder.add_transaction_with_extension(transaction, extension)?;
+    } else {
+        block_builder.add_transaction(transaction)?;
+    }
+
     block_builder
-        .add_transaction(transaction)
-        .map_err(|BlockBuilderAndError { error, .. }| error)?
         .finalize(rewards)
         .map_err(MineTransactionError::State)
 }
@@ -426,7 +437,7 @@ fn priority_comparator<ChainSpecT: RuntimeSpec>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{account::AccountInfo, Address};
+    use edr_eth::{account::AccountInfo, Address, U256};
 
     use super::*;
     use crate::test_utils::{
@@ -521,7 +532,7 @@ mod tests {
         let sender1 = Address::random();
         let sender2 = Address::random();
         let sender3 = Address::random();
-        let sender4 = Address::random()
+        let sender4 = Address::random();
         let sender5 = Address::random();
 
         let account_with_balance = AccountInfo {

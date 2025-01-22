@@ -1,6 +1,6 @@
 use alloy_rlp::RlpEncodable;
 pub use revm_context::BlockEnv;
-pub use revm_context_interface::result::HaltReason;
+pub use revm_context_interface::result::{HaltReason, InvalidHeader, InvalidTransaction};
 pub use revm_specification::hardfork::{self, SpecId};
 
 use crate::{

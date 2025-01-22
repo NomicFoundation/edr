@@ -27,8 +27,8 @@ impl<'tracer, BlockchainT, StateT> Eip3155TracerGetter
     }
 }
 
-impl<'tracer, InnerContextT, OuterContextT> Eip3155TracerGetter
-    for ExtendedContext<InnerContextT, OuterContextT>
+impl<'context, InnerContextT, OuterContextT> Eip3155TracerGetter
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
     OuterContextT: Eip3155TracerGetter,
 {

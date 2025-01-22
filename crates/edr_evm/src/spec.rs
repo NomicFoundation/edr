@@ -6,7 +6,7 @@ use edr_eth::{
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
-    result::{ InvalidTransaction, ResultAndState},
+    result::ExecutionResultAndState,
     spec::{ChainSpec, EthHeaderConstants},
     B256, 
 };
@@ -111,7 +111,7 @@ pub trait RuntimeSpec:
           + Eq
           + ExecutableTransaction
           + TransactionType
-          + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+          + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >
     // Defines an RPC spec and conversion between RPC <-> EVM types
     + RpcSpec<
@@ -139,13 +139,11 @@ pub trait RuntimeSpec:
     /// Type representing a block builder.
     type BlockBuilder<
         'blockchain,
-        BlockchainErrorT: 'blockchain,
-        DebugDataT,
-        StateErrorT: 'blockchain + Debug + Send
+        BlockchainErrorT: 'blockchain + std::error::Error + Send,
+        StateErrorT: 'blockchain + std::error::Error + Send
     >: BlockBuilder<
         'blockchain,
         Self,
-        DebugDataT,
         BlockchainError = BlockchainErrorT,
         StateError = StateErrorT>;
 
@@ -168,14 +166,15 @@ pub trait RuntimeSpec:
 
     /// Type representing an execution handler.
     type EvmExecutionHandler<
+        'context,
         BlockchainErrorT, 
         ContextT,
-        FrameT: for<'context> Frame<Context<'context> = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, FrameResult = FrameResult>,
+        FrameT: Frame<Context<'context> = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, FrameResult = FrameResult>,
         StateErrorT,
     >: Default + ExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, ExecResult = FrameResult, Frame = FrameT>;
 
     /// Type representing a post-execution handler.
-    type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PostExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, ExecResult = FrameResult, Output = ResultAndState<Self::HaltReason>>;
+    type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PostExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, ExecResult = FrameResult, Output = ExecutionResultAndState<Self::HaltReason>>;
     
     /// Type representing an EVM frame.
     type EvmFrame<BlockchainErrorT, ContextT, InstructionProviderT, PrecompileProviderT, StateErrorT>: for<'context> Frame<
@@ -343,10 +342,9 @@ impl RuntimeSpec for L1ChainSpec {
 
     type BlockBuilder<
         'blockchain,
-        BlockchainErrorT: 'blockchain,
-        DebugDataT,
-        StateErrorT: 'blockchain + Debug + Send,
-    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
+        BlockchainErrorT: 'blockchain + std::error::Error + Send,
+        StateErrorT: 'blockchain + std::error::Error + Send,
+    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, StateErrorT>;
 
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
@@ -385,7 +383,7 @@ impl RuntimeSpec for L1ChainSpec {
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
     ) -> TransactionError<BlockchainErrorT, Self, StateErrorT> {
         match error {
-            InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+            l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
                 TransactionError::LackOfFundForMaxFee { fee, balance }
             }
             remainder => TransactionError::InvalidTransaction(remainder),

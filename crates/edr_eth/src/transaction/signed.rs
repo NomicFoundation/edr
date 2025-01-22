@@ -17,13 +17,12 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    ExecutableTransaction, InvalidTransaction, IsEip155, IsEip4844, IsLegacy, IsSupported, Signed,
-    SignedTransaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
-    INVALID_TX_TYPE_ERROR_MESSAGE,
+    ExecutableTransaction, IsEip155, IsEip4844, IsLegacy, IsSupported, Signed, SignedTransaction,
+    TransactionMut, TransactionType, TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
     eips::{self, eip7702},
-    impl_revm_transaction_trait,
+    impl_revm_transaction_trait, l1,
     signature::{Fakeable, Signature, SignatureError},
     Address, Bytes, B256, U256,
 };
@@ -431,7 +430,7 @@ impl TransactionType for Signed {
 }
 
 impl TransactionValidation for Signed {
-    type ValidationError = InvalidTransaction;
+    type ValidationError = l1::InvalidTransaction;
 }
 
 impl_revm_transaction_trait!(Signed);
