@@ -14,7 +14,7 @@ use edr_eth::{
     withdrawal::Withdrawal,
     Address, Bloom, B256, U256,
 };
-use revm::state::EvmState;
+use revm::{state::EvmState, Database};
 use revm_context_interface::{
     block::BlockSetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
     PerformantContextAccess, TransactionGetter,
@@ -23,9 +23,7 @@ use revm_handler::FrameResult;
 use revm_handler_interface::Frame;
 use revm_interpreter::Host;
 
-use super::{
-    BlockBuilder, BlockBuilderAndError, BlockBuilderAndTransactionError, BlockTransactionError,
-};
+use super::{BlockBuilder, BlockTransactionError};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -50,7 +48,6 @@ where
 {
     blockchain: &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     cfg: CfgEnv<ChainSpecT::Hardfork>,
-    hardfork: ChainSpecT::Hardfork,
     header: PartialHeader,
     parent_gas_limit: Option<u64>,
     receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>>>,
@@ -69,11 +66,6 @@ where
     /// Retrieves the config of the block builder.
     pub fn config(&self) -> &CfgEnv<ChainSpecT::Hardfork> {
         &self.cfg
-    }
-
-    /// Retrieves the hardfork of the block builder.
-    pub fn hardfork(&self) -> ChainSpecT::Hardfork {
-        self.hardfork
     }
 
     /// Retrieves the header of the block builder.
@@ -104,7 +96,6 @@ where
     pub fn new(
         blockchain: &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: Box<dyn SyncState<StateErrorT>>,
-        hardfork: ChainSpecT::Hardfork,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         mut options: BlockOptions,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
@@ -113,9 +104,9 @@ where
             .last_block()
             .map_err(BlockBuilderCreationError::Blockchain)?;
 
-        let eth_hardfork = hardfork.into();
+        let eth_hardfork = cfg.spec.into();
         if eth_hardfork < l1::SpecId::BYZANTIUM {
-            return Err(BlockBuilderCreationError::UnsupportedHardfork(hardfork));
+            return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec));
         }
 
         let parent_header = parent_block.header();
@@ -134,12 +125,11 @@ where
         });
 
         options.parent_hash = Some(*parent_block.block_hash());
-        let header = PartialHeader::new::<ChainSpecT>(hardfork, options, Some(parent_header));
+        let header = PartialHeader::new::<ChainSpecT>(cfg.spec, options, Some(parent_header));
 
         Ok(Self {
             blockchain,
             cfg,
-            hardfork,
             header,
             parent_gas_limit,
             receipts: Vec::new(),
@@ -154,34 +144,30 @@ where
     /// Tries to add a transaction to the block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn add_transaction<ExtensionT, FrameT>(
-        mut self,
+        &mut self,
         transaction: ChainSpecT::SignedTransaction,
         extension: Option<ContextExtension<ExtensionT, FrameT>>,
-    ) -> Result<
-        Self,
-        BlockBuilderAndTransactionError<Self, BlockchainErrorT, ChainSpecT, StateErrorT>,
-    >
+    ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>>
     where
         FrameT: for<'context> Frame<
             Context<'context> = ExtendedContext<
                 ContextForChainSpec<
-                    &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
                     ChainSpecT,
-                    &'context dyn SyncState<StateErrorT>,
+                    Box<
+                        dyn Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+                            + 'context,
+                    >,
                 >,
                 ExtensionT,
             >,
-            Error = TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+            Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
             FrameResult = FrameResult,
         >,
     {
         // The transaction's gas limit cannot be greater than the remaining gas in the
         // block
         if transaction.gas_limit() > self.gas_remaining() {
-            return Err(BlockBuilderAndError {
-                block_builder: self,
-                error: BlockTransactionError::ExceedsBlockGasLimit,
-            });
+            return Err(BlockTransactionError::ExceedsBlockGasLimit);
         }
 
         let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
@@ -191,39 +177,35 @@ where
         }) = self.header.blob_gas.as_ref()
         {
             if block_blob_gas_used + blob_gas_used > eip4844::MAX_BLOB_GAS_PER_BLOCK_CANCUN {
-                return Err(BlockBuilderAndError {
-                    block_builder: self,
-                    error: BlockTransactionError::ExceedsBlockBlobGasLimit,
-                });
+                return Err(BlockTransactionError::ExceedsBlockBlobGasLimit);
             }
         }
 
-        let block = ChainSpecT::BlockEnv::new_block_env(&self.header, self.hardfork.into());
+        let block = ChainSpecT::BlockEnv::new_block_env(&self.header, self.cfg.spec.into());
 
         let receipt_builder =
             match ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction) {
                 Ok(receipt_builder) => receipt_builder,
                 Err(error) => {
-                    return Err(BlockBuilderAndError {
-                        block_builder: self,
-                        error: TransactionError::State(error).into(),
-                    });
+                    return Err(TransactionError::State(error).into());
                 }
             };
 
+        let state = self.state.as_mut();
+
         let result = if let Some(extension) = extension {
-            dry_run_with_extension(
-                self.blockchain,
-                self.state.as_ref(),
-                self.cfg.clone(),
-                transaction.clone(),
-                block,
-                extension,
-            )
+            let blockchain = self.blockchain;
+            let cfg = self.cfg.clone();
+
+            let database: Box<
+                dyn Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+            > = Box::new(WrapDatabaseRef(DatabaseComponents { blockchain, state }));
+
+            dry_run_with_extension(database, cfg, transaction.clone(), block, extension)
         } else {
             dry_run(
                 self.blockchain,
-                self.state.as_ref(),
+                state,
                 self.cfg.clone(),
                 transaction.clone(),
                 block,
@@ -236,16 +218,13 @@ where
         } = match result {
             Ok(result) => result,
             Err(error) => {
-                return Err(BlockBuilderAndError {
-                    block_builder: self,
-                    error: TransactionError::from(error).into(),
-                });
+                return Err(TransactionError::from(error).into());
             }
         };
 
         self.state_diff.apply_diff(state_diff.clone());
 
-        self.state.commit(state_diff);
+        state.commit(state_diff);
 
         self.header.gas_used += transaction_result.gas_used();
 
@@ -257,7 +236,7 @@ where
             &self.header,
             &transaction,
             &transaction_result,
-            self.hardfork,
+            self.cfg.spec,
         );
         let receipt = TransactionReceipt::new(
             receipt,
@@ -265,29 +244,22 @@ where
             &transaction_result,
             self.transactions.len() as u64,
             self.header.base_fee.unwrap_or(0),
-            self.hardfork,
+            self.cfg.spec,
         );
         self.receipts.push(receipt);
 
         self.transactions.push(transaction);
         self.transaction_results.push(transaction_result);
 
-        Ok(self)
+        Ok(())
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
-    EthBlockBuilder<'_, BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
+impl<BlockchainErrorT, ChainSpecT, StateErrorT>
+    EthBlockBuilder<'_, BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     BlockchainErrorT: std::error::Error,
     ChainSpecT: SyncRuntimeSpec,
-    ConstructorT: Fn(
-        ContextForChainSpec<
-            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-            ChainSpecT,
-            Box<dyn SyncState<StateErrorT>>,
-        >,
-    ) -> OuterContextT,
     StateErrorT: std::error::Error,
 {
     /// Finalizes the block, applying rewards to the state.
@@ -300,7 +272,7 @@ where
             ChainSpecT::SignedTransaction,
             Output = ChainSpecT::BlockReceipt,
         >,
-        rewards: Vec<(Address, U256)>,
+        rewards: Vec<(Address, u128)>,
     ) -> Result<
         MineBlockResultAndState<
             ChainSpecT::HaltReason,
@@ -310,11 +282,11 @@ where
         StateErrorT,
     > {
         for (address, reward) in rewards {
-            if reward > U256::ZERO {
+            if reward > 0 {
                 let account_info = self.state.modify_account(
                     address,
                     AccountModifierFn::new(Box::new(move |balance, _nonce, _code| {
-                        *balance += reward;
+                        *balance += U256::from(reward);
                     })),
                 )?;
 
@@ -355,7 +327,7 @@ where
         // TODO: handle ommers
         let block = EthLocalBlockForChainSpec::<ChainSpecT>::new(
             receipt_factory,
-            self.hardfork,
+            self.cfg.spec,
             self.header,
             self.transactions,
             self.receipts,
@@ -372,30 +344,15 @@ where
     }
 }
 
-impl<'blockchain, BlockchainErrorT, ChainSpecT, ConstructorT, OuterContextT, StateErrorT>
-    BlockBuilder<'blockchain, ChainSpecT, DebugDataT>
-    for EthBlockBuilder<
-        'blockchain,
-        BlockchainErrorT,
-        ChainSpecT,
-        ConstructorT,
-        OuterContextT,
-        StateErrorT,
-    >
+impl<'blockchain, BlockchainErrorT, ChainSpecT, StateErrorT> BlockBuilder<'blockchain, ChainSpecT>
+    for EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, StateErrorT>
 where
-    BlockchainErrorT: std::error::Error,
+    BlockchainErrorT: Send + std::error::Error,
     ChainSpecT: SyncRuntimeSpec<
         BlockReceiptFactory: Default,
         Hardfork: Debug,
         LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>,
     >,
-    ConstructorT: Fn(
-        ContextForChainSpec<
-            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-            ChainSpecT,
-            Box<dyn SyncState<StateErrorT>>,
-        >,
-    ) -> OuterContextT,
     StateErrorT: Send + std::error::Error,
 {
     type BlockchainError = BlockchainErrorT;
@@ -409,23 +366,13 @@ where
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
-        hardfork: <ChainSpecT>::Hardfork,
-        cfg: CfgEnv,
+        cfg: CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
-        debug_context: Option<
-            ContextExtension<
-                'blockchain,
-                ChainSpecT,
-                Self::BlockchainError,
-                DebugDataT,
-                Box<dyn SyncState<Self::StateError>>,
-            >,
-        >,
     ) -> Result<
         Self,
-        BlockBuilderCreationError<Self::BlockchainError, <ChainSpecT>::Hardfork, Self::StateError>,
+        BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,
     > {
-        Self::new(blockchain, state, hardfork, cfg, options, debug_context)
+        Self::new(blockchain, state, cfg, options)
     }
 
     fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory {
@@ -436,22 +383,33 @@ where
         self.header()
     }
 
-    fn add_transaction(
-        self,
-        transaction: <ChainSpecT>::SignedTransaction,
-    ) -> Result<
-        Self,
-        BlockBuilderAndError<
-            Self,
-            BlockTransactionError<ChainSpecT, Self::BlockchainError, Self::StateError>,
+    fn add_transaction<ExtensionT, FrameT>(
+        &mut self,
+        transaction: ChainSpecT::SignedTransaction,
+        extension: Option<ContextExtension<ExtensionT, FrameT>>,
+    ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
+    where
+        FrameT: for<'context> Frame<
+            Context<'context> = ExtendedContext<
+                ContextForChainSpec<
+                    ChainSpecT,
+                    Box<
+                        dyn Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+                            + 'context,
+                    >,
+                >,
+                ExtensionT,
+            >,
+            Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
+            FrameResult = FrameResult,
         >,
-    > {
-        self.add_transaction(transaction)
+    {
+        self.add_transaction(transaction, extension)
     }
 
     fn finalize(
         self,
-        rewards: Vec<(Address, U256)>,
+        rewards: Vec<(Address, u128)>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, Self::StateError>,
         Self::StateError,

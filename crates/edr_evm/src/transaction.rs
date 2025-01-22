@@ -16,7 +16,7 @@ use crate::{result::InvalidHeader, state::DatabaseComponentError};
 /// Invalid transaction error
 #[derive(thiserror::Error)]
 #[derive_where(Debug; <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError, BlockchainErrorT, StateErrorT)]
-pub enum TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+pub enum TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec,
 {
@@ -51,7 +51,7 @@ where
 
 impl<BlockchainErrorT, ChainSpecT, StateErrorT>
     From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+    for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec,
 {
@@ -64,7 +64,7 @@ where
 }
 
 impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<InvalidHeader>
-    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+    for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec,
 {
@@ -74,7 +74,7 @@ where
 }
 
 impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<InvalidTransaction>
-    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+    for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
@@ -91,7 +91,7 @@ where
 }
 
 impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<PrecompileErrors>
-    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+    for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec,
 {

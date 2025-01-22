@@ -361,7 +361,7 @@ where
         }
     }
 
-    let block_builder = ChainSpecT::BlockBuilder::<
+    let mut block_builder = ChainSpecT::BlockBuilder::<
         '_,
         BlockchainErrorT,
         DebugDataT,

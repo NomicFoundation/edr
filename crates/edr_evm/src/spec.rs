@@ -17,24 +17,23 @@ use revm_context::CfgEnv;
 use revm_handler_interface::{
     ExecutionHandler, Frame, PostExecutionHandler, PreExecutionHandler, PrecompileProvider, ValidationHandler
 };
-use revm_handler::{FrameResult};
+use revm_handler::FrameResult;
 use revm_interpreter::{interpreter::{EthInstructionProvider, EthInterpreter, InstructionProvider}, FrameInput};
 
 use crate::{
-    state::WrapDatabaseRef,
-    block::transaction::TransactionAndBlockForChainSpec, hardfork::{self, Activations}, receipt::{self, ExecutionReceiptBuilder, ReceiptFactory}, state::DatabaseComponents, transaction::{
+    block::transaction::TransactionAndBlockForChainSpec, hardfork::{self, Activations}, receipt::{self, ExecutionReceiptBuilder, ReceiptFactory}, transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
         TransactionValidation,
     }, Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock
 };
 
 /// Helper type for a chain-specific [`revm::Context`].
-pub type ContextForChainSpec<BlockchainT, ChainSpecT, StateT> = revm::Context<
+pub type ContextForChainSpec<ChainSpecT, DatabaseT> = revm::Context<
     <ChainSpecT as ChainSpec>::BlockEnv,
     <ChainSpecT as ChainSpec>::SignedTransaction,
     CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
-    WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-    JournaledState<WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+    DatabaseT,
+    JournaledState<DatabaseT>,
     <ChainSpecT as ChainSpec>::Context,
 >;
 
@@ -162,26 +161,26 @@ pub trait RuntimeSpec:
     >;
 
     /// Type representing a validation handler.
-    type EvmValidationHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + ValidationHandler<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>>;
+    type EvmValidationHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + ValidationHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>>;
 
     /// Type representing a pre-execution handler.
-    type EvmPreExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PreExecutionHandler<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>>;
+    type EvmPreExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PreExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>>;
 
     /// Type representing an execution handler.
     type EvmExecutionHandler<
         BlockchainErrorT, 
         ContextT,
-        FrameT: for<'context> Frame<Context<'context> = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, FrameResult = FrameResult>,
+        FrameT: for<'context> Frame<Context<'context> = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, FrameResult = FrameResult>,
         StateErrorT,
-    >: Default + ExecutionHandler<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, ExecResult = FrameResult, Frame = FrameT>;
+    >: Default + ExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, ExecResult = FrameResult, Frame = FrameT>;
 
     /// Type representing a post-execution handler.
-    type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PostExecutionHandler<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>, ExecResult = FrameResult, Output = ResultAndState<Self::HaltReason>>;
+    type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PostExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, ExecResult = FrameResult, Output = ResultAndState<Self::HaltReason>>;
     
     /// Type representing an EVM frame.
     type EvmFrame<BlockchainErrorT, ContextT, InstructionProviderT, PrecompileProviderT, StateErrorT>: for<'context> Frame<
         Context<'context> = ContextT,
-        Error = TransactionError<Self, BlockchainErrorT, StateErrorT>,
+        Error = TransactionError<BlockchainErrorT, Self, StateErrorT>,
         FrameInit = FrameInput,
         FrameResult = FrameResult,
     >;
@@ -190,7 +189,7 @@ pub trait RuntimeSpec:
     type EvmInstructionProvider<ContextT>: InstructionProvider<WIRE = EthInterpreter, Host = ContextT>;
 
     /// Type representing a precompile provider.
-    type EvmPrecompileProvider<BlockchainErrorT, ContextT, StateErrorT>: PrecompileProvider<Context = ContextT, Error = TransactionError<Self, BlockchainErrorT, StateErrorT>>;
+    type EvmPrecompileProvider<BlockchainErrorT, ContextT, StateErrorT>: PrecompileProvider<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>>;
 
     // /// Type representing an implementation of `EvmWiring` for this chain.
     // type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
@@ -239,7 +238,7 @@ pub trait RuntimeSpec:
     /// implementing type conversions for third-party types.
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT>;
+    ) -> TransactionError<BlockchainErrorT, Self, StateErrorT>;
 
     /// Returns the hardfork activations corresponding to the provided chain ID,
     /// if it is associated with this chain specification.
@@ -352,14 +351,14 @@ impl RuntimeSpec for L1ChainSpec {
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
-    type EvmValidationHandler<BlockchainErrorT, ContextT, StateErrorT> = EthValidation<ContextT, TransactionError<Self, BlockchainErrorT, StateErrorT>>;
-    type EvmPreExecutionHandler<BlockchainErrorT, ContextT, StateErrorT> = EthPreExecution<ContextT, TransactionError<Self, BlockchainErrorT, StateErrorT>>;
-    type EvmExecutionHandler<BlockchainErrorT, ContextT, FrameT, StateErrorT> = EthExecution<ContextT, TransactionError<Self, BlockchainErrorT, StateErrorT>, FrameT>;
-    type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT> = EthPostExecution<ContextT, TransactionError<Self, BlockchainErrorT, StateErrorT>, Self::HaltReason>;
+    type EvmValidationHandler<BlockchainErrorT, ContextT, StateErrorT> = EthValidation<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>>;
+    type EvmPreExecutionHandler<BlockchainErrorT, ContextT, StateErrorT> = EthPreExecution<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>>;
+    type EvmExecutionHandler<BlockchainErrorT, ContextT, FrameT, StateErrorT> = EthExecution<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>, FrameT>;
+    type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT> = EthPostExecution<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>, Self::HaltReason>;
 
-    type EvmFrame<BlockchainErrorT, ContextT, InstructionProviderT, PrecompileProviderT, StateErrorT> = EthFrame<ContextT, TransactionError<Self, BlockchainErrorT, StateErrorT>, EthInterpreter, PrecompileProviderT, InstructionProviderT>;
+    type EvmFrame<BlockchainErrorT, ContextT, InstructionProviderT, PrecompileProviderT, StateErrorT> = EthFrame<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>, EthInterpreter, PrecompileProviderT, InstructionProviderT>;
     type EvmInstructionProvider<ContextT> = EthInstructionProvider<EthInterpreter, ContextT>;
-    type EvmPrecompileProvider<BlockchainErrorT, ContextT, StateErrorT> = EthPrecompileProvider<ContextT, TransactionError<Self, BlockchainErrorT, StateErrorT>>;
+    type EvmPrecompileProvider<BlockchainErrorT, ContextT, StateErrorT> = EthPrecompileProvider<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
@@ -384,7 +383,7 @@ impl RuntimeSpec for L1ChainSpec {
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
+    ) -> TransactionError<BlockchainErrorT, Self, StateErrorT> {
         match error {
             InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
                 TransactionError::LackOfFundForMaxFee { fee, balance }

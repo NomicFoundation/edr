@@ -5,17 +5,20 @@ use std::fmt::Debug;
 use edr_eth::{
     block::{BlockOptions, PartialHeader},
     spec::ChainSpec,
-    Address, U256,
+    Address,
 };
+use revm_handler::FrameResult;
+use revm_handler_interface::Frame;
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    spec::RuntimeSpec,
-    state::{DatabaseComponentError, SyncState},
+    debug::ExtendedContext,
+    spec::{ContextForChainSpec, RuntimeSpec},
+    state::{Database, DatabaseComponentError, SyncState},
     transaction::TransactionError,
-    MineBlockResultAndStateForChainSpec,
+    ContextExtension, MineBlockResultAndStateForChainSpec,
 };
 
 /// An error caused during construction of a block builder.
@@ -50,7 +53,7 @@ impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
 
 /// An error caused during execution of a transaction while building a block.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
+pub enum BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec,
 {
@@ -62,26 +65,11 @@ where
     ExceedsBlockBlobGasLimit,
     /// Transaction error
     #[error(transparent)]
-    Transaction(#[from] TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
-}
-
-/// Helper type for a [`BlockBuilderAndError`] with a [`BlockTransactionError`].
-pub type BlockBuilderAndTransactionError<BlockBuilderT, BlockchainErrorT, ChainSpecT, StateErrorT> =
-    BlockBuilderAndError<
-        BlockBuilderT,
-        BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
-    >;
-
-/// A wrapper around a block builder and an error.
-pub struct BlockBuilderAndError<BlockBuilderT, ErrorT> {
-    /// The block builder.
-    pub block_builder: BlockBuilderT,
-    /// The error.
-    pub error: ErrorT,
+    Transaction(#[from] TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>),
 }
 
 /// A trait for building blocks.
-pub trait BlockBuilder<'blockchain, ChainSpecT, DebugDataT>: Sized
+pub trait BlockBuilder<'blockchain, ChainSpecT>: Sized
 where
     ChainSpecT: RuntimeSpec,
 {
@@ -99,18 +87,8 @@ where
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
-        hardfork: ChainSpecT::Hardfork,
-        cfg: CfgEnv,
+        cfg: CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
-        debug_context: Option<
-            DebugContextForChainSpec<
-                'blockchain,
-                Self::BlockchainError,
-                ChainSpecT,
-                DebugDataT,
-                Self::StateError,
-            >,
-        >,
     ) -> Result<
         Self,
         BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
@@ -123,13 +101,30 @@ where
     fn header(&self) -> &PartialHeader;
 
     /// Adds a transaction to the block.
-    fn add_transaction(
-        self,
+    fn add_transaction<ExtensionT, FrameT>(
+        &mut self,
         transaction: ChainSpecT::SignedTransaction,
-    ) -> Result<
-        Self,
-        BlockBuilderAndTransactionError<Self, Self::BlockchainError, ChainSpecT, Self::StateError>,
-    >;
+        extension: Option<ContextExtension<ExtensionT, FrameT>>,
+    ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
+    where
+        FrameT: for<'context> Frame<
+            Context<'context> = ExtendedContext<
+                ContextForChainSpec<
+                    ChainSpecT,
+                    Box<
+                        dyn Database<
+                                Error = DatabaseComponentError<
+                                    Self::BlockchainError,
+                                    Self::StateError,
+                                >,
+                            > + 'context,
+                    >,
+                >,
+                ExtensionT,
+            >,
+            Error = TransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>,
+            FrameResult = FrameResult,
+        >;
 
     /// Finalizes the block, applying rewards to the state.
     fn finalize(

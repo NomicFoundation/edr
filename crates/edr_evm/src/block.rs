@@ -18,8 +18,8 @@ use edr_eth::{
 
 pub use self::{
     builder::{
-        BlockBuilder, BlockBuilderAndError, BlockBuilderCreationError, BlockTransactionError,
-        EthBlockBuilder, EthBlockReceiptFactory,
+        BlockBuilder, BlockBuilderCreationError, BlockTransactionError, EthBlockBuilder,
+        EthBlockReceiptFactory,
     },
     local::{EthLocalBlock, EthLocalBlockForChainSpec},
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
