@@ -3447,6 +3447,7 @@ dependencies = [
 name = "revm-handler"
 version = "1.0.0"
 dependencies = [
+ "derive-where",
  "revm-bytecode 1.0.0",
  "revm-context-interface",
  "revm-handler-interface",

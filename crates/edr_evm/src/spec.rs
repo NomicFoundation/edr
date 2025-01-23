@@ -6,22 +6,18 @@ use edr_eth::{
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
-    result::ExecutionResultAndState,
     spec::{ChainSpec, EthHeaderConstants},
-    B256, 
+    B256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-use revm::{handler::{EthExecution, EthFrame, EthPostExecution, EthPreExecution, EthPrecompileProvider, EthValidation}, JournaledState};
+use revm::{state::EvmState, JournaledState};
 use revm_context::CfgEnv;
-use revm_handler_interface::{
-    ExecutionHandler, Frame, PostExecutionHandler, PreExecutionHandler, PrecompileProvider, ValidationHandler
-};
-use revm_handler::FrameResult;
-use revm_interpreter::{interpreter::{EthInstructionProvider, EthInterpreter, InstructionProvider}, FrameInput};
+use revm_context_interface::{BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter, PerformantContextAccess, TransactionGetter};
+use revm_interpreter::Host;
 
 use crate::{
-    block::transaction::TransactionAndBlockForChainSpec, hardfork::{self, Activations}, receipt::{self, ExecutionReceiptBuilder, ReceiptFactory}, transaction::{
+    block::transaction::TransactionAndBlockForChainSpec, evm::{l1::L1EvmSpec, EvmSpec}, hardfork::{self, Activations}, receipt::{self, ExecutionReceiptBuilder, ReceiptFactory}, state::{Database, DatabaseComponentError}, transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
         TransactionValidation,
     }, Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock
@@ -35,19 +31,6 @@ pub type ContextForChainSpec<ChainSpecT, DatabaseT> = revm::Context<
     DatabaseT,
     JournaledState<DatabaseT>,
     <ChainSpecT as ChainSpec>::Context,
->;
-
-/// Helper type for a chain-specific [`Frame`].
-pub type FrameForChainSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT> = <ChainSpecT as RuntimeSpec>::EvmFrame<
-    BlockchainErrorT,
-    ContextT,
-    <ChainSpecT as RuntimeSpec>::EvmInstructionProvider<ContextT>,
-    <ChainSpecT as RuntimeSpec>::EvmPrecompileProvider<
-        BlockchainErrorT,
-        ContextT,
-        StateErrorT,
-    >,
-    StateErrorT,
 >;
 
 /// Helper type to construct execution receipt types for a chain spec.
@@ -158,37 +141,21 @@ pub trait RuntimeSpec:
         Output = Self::BlockReceipt
     >;
 
-    /// Type representing a validation handler.
-    type EvmValidationHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + ValidationHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>>;
-
-    /// Type representing a pre-execution handler.
-    type EvmPreExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PreExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>>;
-
-    /// Type representing an execution handler.
-    type EvmExecutionHandler<
-        'context,
-        BlockchainErrorT, 
-        ContextT,
-        FrameT: Frame<Context<'context> = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, FrameResult = FrameResult>,
-        StateErrorT,
-    >: Default + ExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, ExecResult = FrameResult, Frame = FrameT>;
-
-    /// Type representing a post-execution handler.
-    type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT>: Default + PostExecutionHandler<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>, ExecResult = FrameResult, Output = ExecutionResultAndState<Self::HaltReason>>;
-    
-    /// Type representing an EVM frame.
-    type EvmFrame<BlockchainErrorT, ContextT, InstructionProviderT, PrecompileProviderT, StateErrorT>: for<'context> Frame<
-        Context<'context> = ContextT,
-        Error = TransactionError<BlockchainErrorT, Self, StateErrorT>,
-        FrameInit = FrameInput,
-        FrameResult = FrameResult,
-    >;
-    
-    /// Type representing an instruction provider.
-    type EvmInstructionProvider<ContextT>: InstructionProvider<WIRE = EthInterpreter, Host = ContextT>;
-
-    /// Type representing a precompile provider.
-    type EvmPrecompileProvider<BlockchainErrorT, ContextT, StateErrorT>: PrecompileProvider<Context = ContextT, Error = TransactionError<BlockchainErrorT, Self, StateErrorT>>;
+    type Evm<BlockchainErrorT, ContextT, StateErrorT>: EvmSpec<BlockchainErrorT, Self, ContextT, StateErrorT> where 
+    ContextT: TransactionGetter
+        + BlockGetter
+        + JournalGetter
+        + CfgGetter
+        + DatabaseGetter<
+            Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+        + JournalGetter<
+            Journal: Journal<
+                FinalOutput = (EvmState, Vec<ExecutionLog>),
+                Database = <ContextT as DatabaseGetter>::Database,
+            >,
+        > + Host
+        + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>;
 
     // /// Type representing an implementation of `EvmWiring` for this chain.
     // type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
@@ -261,7 +228,9 @@ impl BlockEnvConstructor<PartialHeader> for BlockEnv {
             beneficiary: header.beneficiary,
             timestamp: header.timestamp,
             difficulty: header.difficulty,
-            basefee: header.base_fee.map_or(0u64, |base_fee| base_fee.try_into().expect("base fee is too large")),
+            basefee: header.base_fee.map_or(0u64, |base_fee| {
+                base_fee.try_into().expect("base fee is too large")
+            }),
             gas_limit: header.gas_limit,
             prevrandao: if hardfork >= l1::SpecId::MERGE {
                 Some(header.mix_hash)
@@ -284,7 +253,9 @@ impl BlockEnvConstructor<block::Header> for BlockEnv {
             beneficiary: header.beneficiary,
             timestamp: header.timestamp,
             difficulty: header.difficulty,
-            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| base_fee.try_into().expect("base fee is too large")),
+            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
+                base_fee.try_into().expect("base fee is too large")
+            }),
             gas_limit: header.gas_limit,
             prevrandao: if hardfork >= l1::SpecId::MERGE {
                 Some(header.mix_hash)
@@ -349,14 +320,21 @@ impl RuntimeSpec for L1ChainSpec {
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
-    type EvmValidationHandler<BlockchainErrorT, ContextT, StateErrorT> = EthValidation<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>>;
-    type EvmPreExecutionHandler<BlockchainErrorT, ContextT, StateErrorT> = EthPreExecution<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>>;
-    type EvmExecutionHandler<BlockchainErrorT, ContextT, FrameT, StateErrorT> = EthExecution<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>, FrameT>;
-    type EvmPostExecutionHandler<BlockchainErrorT, ContextT, StateErrorT> = EthPostExecution<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>, Self::HaltReason>;
-
-    type EvmFrame<BlockchainErrorT, ContextT, InstructionProviderT, PrecompileProviderT, StateErrorT> = EthFrame<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>, EthInterpreter, PrecompileProviderT, InstructionProviderT>;
-    type EvmInstructionProvider<ContextT> = EthInstructionProvider<EthInterpreter, ContextT>;
-    type EvmPrecompileProvider<BlockchainErrorT, ContextT, StateErrorT> = EthPrecompileProvider<ContextT, TransactionError<BlockchainErrorT, Self, StateErrorT>>;
+    type Evm<BlockchainErrorT, ContextT, StateErrorT> = L1EvmSpec<ContextT> where 
+    ContextT: TransactionGetter
+        + BlockGetter<Block = Self::BlockEnv>
+        + JournalGetter<
+        + CfgGetter
+        + DatabaseGetter<
+            Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+        + JournalGetter<
+            Journal: Journal<
+                FinalOutput = (EvmState, Vec<ExecutionLog>),
+                Database = <ContextT as DatabaseGetter>::Database,
+            >,
+        > + Host
+        + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
