@@ -47,18 +47,25 @@ where
         EthPreExecution<ContextT, TransactionError<BlockchainErrorT, L1ChainSpec, StateErrorT>>;
 
     type ExecutionHandler<
-        'context2,
-        FrameT: Frame<
-            Context<'context2> = ContextT,
-            Error = TransactionError<BlockchainErrorT, L1ChainSpec, StateErrorT>,
-            FrameInit = FrameInput,
-            FrameResult = FrameResult,
-        >,
-    > = EthExecution<
+        'context,
+        FrameT: 'context
+            + Frame<
+                Context<'context> = ContextT,
+                Error = TransactionError<BlockchainErrorT, L1ChainSpec, StateErrorT>,
+                FrameInit = FrameInput,
+                FrameResult = FrameResult,
+            >,
+    >
+        = EthExecution<
+        'context,
         ContextT,
         TransactionError<BlockchainErrorT, L1ChainSpec, StateErrorT>,
         FrameT,
-    >;
+    >
+    where
+        BlockchainErrorT: 'context,
+        ContextT: 'context,
+        StateErrorT: 'context;
 
     type PostExecutionHandler = EthPostExecution<
         ContextT,

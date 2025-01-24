@@ -122,9 +122,10 @@ where
     'components: 'context,
     'extension: 'context,
     BlockchainT: BlockHash<Error: Send + std::error::Error> + 'components,
-    ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
-    >,
+    ChainSpecT: 'context
+        + RuntimeSpec<
+            SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+        >,
     FrameT: Frame<
         Context<'context> = ExtendedContext<
             'context,
@@ -152,25 +153,25 @@ where
     });
 
     let handler = EthHandler::new(
-        <EvmSpecForExtendedContext<'_, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
+        <EvmSpecForExtendedContext<'context, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
             _,
             _,
             _,
             _,
         >>::ValidationHandler::default(),
-        <EvmSpecForExtendedContext<'_, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
+        <EvmSpecForExtendedContext<'context, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
             _,
             _,
             _,
             _,
         >>::PreExecutionHandler::default(),
-        <EvmSpecForExtendedContext<'_, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
+        <EvmSpecForExtendedContext<'context, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
             _,
             _,
             _,
             _,
         >>::ExecutionHandler::<'context, FrameT>::default(),
-        <EvmSpecForExtendedContext<'_, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
+        <EvmSpecForExtendedContext<'context, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
             _,
             _,
             _,

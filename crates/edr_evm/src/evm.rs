@@ -36,7 +36,8 @@ use crate::{
     transaction::TransactionError,
 };
 
-pub type EvmForChainSpec<BlockchainT, ChainSpecT, StateT> = revm::Evm<
+pub type EvmForChainSpec<'context, BlockchainT, ChainSpecT, StateT> = revm::Evm<
+    'context,
     EVMErrorForChain<ChainSpecT, <BlockchainT as BlockHash>::Error, <StateT as State>::Error>,
     EvmContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
     // TODO: Custom handler
@@ -110,18 +111,23 @@ where
     /// Type representing an EVM execution handler.
     type ExecutionHandler<
         'context,
-        FrameT: Frame<
+        FrameT: 'context + Frame<
             Context<'context> = ContextT,
             Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
             FrameInit = FrameInput,
             FrameResult = FrameResult
         >,
     >: Default + ExecutionHandler<
+        'context,
         Context = ContextT,
         Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
         ExecResult = FrameResult,
         Frame = FrameT
-    >;
+    >
+    where
+        BlockchainErrorT: 'context,
+        ContextT: 'context,
+        StateErrorT: 'context;
 
     /// Type representing an EVM post-execution handler.
     type PostExecutionHandler: Default
@@ -136,8 +142,8 @@ where
     type Frame<
         InstructionProviderT: InstructionProvider<Host = ContextT, WIRE = EthInterpreter>,
         PrecompileProviderT: PrecompileProvider<Context = ContextT, Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>, Output = InterpreterResult>
-    >: for<'context> Frame<
-        Context<'context> = ContextT,
+    >: for<'context99> Frame<
+        Context<'context99> = ContextT,
         Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
         FrameInit = FrameInput,
         FrameResult = FrameResult,
