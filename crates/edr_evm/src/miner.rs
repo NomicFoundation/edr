@@ -10,6 +10,7 @@ use edr_eth::{
 };
 use revm_handler::FrameResult;
 use revm_handler_interface::Frame;
+use revm_interpreter::FrameInput;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -120,6 +121,7 @@ where
             ExtensionT,
         >,
         Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
+        FrameInit = FrameInput,
         FrameResult = FrameResult,
     >,
     StateErrorT: std::error::Error + Send,
@@ -308,6 +310,7 @@ where
             ExtensionT,
         >,
         Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
+        FrameInit = FrameInput,
         FrameResult = FrameResult,
     >,
     StateErrorT: std::error::Error + Send,

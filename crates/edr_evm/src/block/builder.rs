@@ -9,6 +9,7 @@ use edr_eth::{
 };
 use revm_handler::FrameResult;
 use revm_handler_interface::Frame;
+use revm_interpreter::FrameInput;
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
@@ -132,6 +133,7 @@ where
                 ExtensionT,
             >,
             Error = TransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>,
+            FrameInit = FrameInput,
             FrameResult = FrameResult,
         >;
 

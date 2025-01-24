@@ -16,6 +16,7 @@ use edr_eth::{
 };
 use revm_handler::FrameResult;
 use revm_handler_interface::Frame;
+use revm_interpreter::FrameInput;
 
 use super::{BlockBuilder, BlockTransactionError};
 use crate::{
@@ -204,6 +205,7 @@ where
                 ExtensionT,
             >,
             Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
+            FrameInit = FrameInput,
             FrameResult = FrameResult,
         >,
     {
@@ -430,6 +432,7 @@ where
                 ExtensionT,
             >,
             Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
+            FrameInit = FrameInput,
             FrameResult = FrameResult,
         >,
     {

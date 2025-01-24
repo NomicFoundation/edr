@@ -12,7 +12,7 @@ use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
     debug::{ContextExtension, ExtendedContext},
-    evm::EvmSpec,
+    evm::{EvmSpec, EvmSpecForDefaultContext, EvmSpecForExtendedContext},
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
     transaction::TransactionError,
@@ -43,12 +43,6 @@ where
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
-    EvmSpecT: EvmSpec<
-        BlockchainT::Error,
-        ChainSpecT,
-        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
-        StateT::Error,
-    >,
     StateT: State<Error: Send + std::error::Error>,
 {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
@@ -78,16 +72,23 @@ where
     };
 
     let handler = EthHandler::new(
-        EvmSpecT::ValidationHandler::default(),
-        EvmSpecT::PreExecutionHandler::default(),
-        EvmSpecT::ExecutionHandler::<
-            '_,
-            EvmSpecT::Frame<EvmSpecT::InstructionProvider, EvmSpecT::PrecompileProvider>,
+        <EvmSpecForDefaultContext::<BlockchainT, ChainSpecT, StateT> as EvmSpec<_, _, _, _>>::ValidationHandler::default(),
+        <EvmSpecForDefaultContext::<BlockchainT, ChainSpecT, StateT> as EvmSpec<_, _, _, _>>::PreExecutionHandler::default(),
+        <EvmSpecForDefaultContext::<BlockchainT, ChainSpecT, StateT> as EvmSpec<_, _, _, _>>::ExecutionHandler::<'_,
+            <ChainSpecT::Evm<
+                BlockchainT::Error,
+                ContextForChainSpec<
+                    ChainSpecT,
+                    WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+                >,
+                StateT::Error,
+            > as EvmSpec<_, _, _, _>>::Frame<
+                <EvmSpecForDefaultContext::<BlockchainT, ChainSpecT, StateT> as EvmSpec<_, _, _, _>>::InstructionProvider,
+                <EvmSpecForDefaultContext::<BlockchainT, ChainSpecT, StateT> as EvmSpec<_, _, _, _>>::PrecompileProvider,
+            >,
         >::default(),
-        EvmSpecT::PostExecutionHandler::default(),
+        <EvmSpecForDefaultContext::<BlockchainT, ChainSpecT, StateT> as EvmSpec<_, _, _, _>>::PostExecutionHandler::default(),
     );
-
-    // let handler = EvmSpecT::Handler::default();
 
     let mut evm =
         revm::Evm::<TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>, _, _>::new(
@@ -103,7 +104,6 @@ pub fn dry_run_with_extension<
     'extension,
     BlockchainT,
     ChainSpecT,
-    EvmSpecT,
     ExtensionT,
     FrameT,
     StateT,
@@ -124,19 +124,6 @@ where
     BlockchainT: BlockHash<Error: Send + std::error::Error> + 'components,
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
-    >,
-    EvmSpecT: EvmSpec<
-        BlockchainT::Error,
-        ChainSpecT,
-        ExtendedContext<
-            'context,
-            ContextForChainSpec<
-                ChainSpecT,
-                WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            >,
-            ExtensionT,
-        >,
-        StateT::Error,
     >,
     FrameT: Frame<
         Context<'context> = ExtendedContext<
@@ -163,11 +150,32 @@ where
         chain: ChainSpecT::Context::default(),
         error: Ok(()),
     });
+
     let handler = EthHandler::new(
-        EvmSpecT::ValidationHandler::default(),
-        EvmSpecT::PreExecutionHandler::default(),
-        EvmSpecT::ExecutionHandler::<'context, FrameT>::default(),
-        EvmSpecT::PostExecutionHandler::default(),
+        <EvmSpecForExtendedContext<'_, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
+            _,
+            _,
+            _,
+            _,
+        >>::ValidationHandler::default(),
+        <EvmSpecForExtendedContext<'_, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
+            _,
+            _,
+            _,
+            _,
+        >>::PreExecutionHandler::default(),
+        <EvmSpecForExtendedContext<'_, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
+            _,
+            _,
+            _,
+            _,
+        >>::ExecutionHandler::<'context, FrameT>::default(),
+        <EvmSpecForExtendedContext<'_, BlockchainT, ChainSpecT, ExtensionT, StateT> as EvmSpec<
+            _,
+            _,
+            _,
+            _,
+        >>::PostExecutionHandler::default(),
     );
 
     let mut evm = revm::Evm::new(context, handler);
@@ -178,7 +186,7 @@ where
 /// checks and creating accounts for new addresses.
 // `DebugContext` cannot be simplified further
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, EvmSpecT, StateT>(
+pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
     state: StateT,
     mut cfg: CfgEnv<ChainSpecT::Hardfork>,
@@ -192,12 +200,6 @@ where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
-    >,
-    EvmSpecT: EvmSpec<
-        BlockchainT::Error,
-        ChainSpecT,
-        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
-        StateT::Error,
     >,
     StateT: State<Error: Send + std::error::Error>,
 {
@@ -256,7 +258,7 @@ where
 
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn run<BlockchainT, ChainSpecT, EvmSpecT, StateT>(
+pub fn run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
     mut state: StateT,
     cfg: CfgEnv<ChainSpecT::Hardfork>,

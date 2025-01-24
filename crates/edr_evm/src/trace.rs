@@ -14,7 +14,7 @@ use revm::context_interface::Journal;
 use revm_interpreter::{interpreter::EthInterpreter, interpreter_types::Jumps, MemoryGetter as _};
 
 pub use self::{
-    context::{TraceCollectorContext, TraceCollectorGetter},
+    context::{TraceCollectorContext, TraceCollectorMutGetter},
     frame::TraceCollectorFrame,
 };
 use crate::{

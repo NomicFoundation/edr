@@ -1,14 +1,50 @@
 use std::marker::PhantomData;
 
 use edr_eth::spec::HaltReasonTrait;
-use revm::{context_interface::JournalGetter, handler::FrameResult, interpreter::FrameInput};
+use revm::{handler::FrameResult, interpreter::FrameInput};
+use revm_context_interface::{Journal, JournalGetter};
 use revm_handler_interface::{Frame, FrameOrResultGen};
 
-use super::context::TraceCollectorGetter;
+use super::{context::TraceCollectorMutGetter, TraceCollector};
 use crate::{
     blockchain::BlockHash,
+    debug::ExtendedContext,
     state::{DatabaseComponents, State, WrapDatabaseRef},
 };
+
+/// Mutable references to the journal and trace collector.
+pub struct JournalAndTraceCollector<'getter, JournalT, HaltReasonT: HaltReasonTrait> {
+    pub journal: &'getter mut JournalT,
+    pub trace_collector: &'getter mut TraceCollector<HaltReasonT>,
+}
+
+pub trait JournalAndTraceCollectorGetter<HaltReasonT: HaltReasonTrait> {
+    type Journal: Journal;
+
+    /// Retrieves mutable references to the journal and trace collector.
+    fn journal_and_trace_collector_mut(
+        &mut self,
+    ) -> JournalAndTraceCollector<'_, Self::Journal, HaltReasonT>;
+}
+
+impl<'context, HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
+    JournalAndTraceCollectorGetter<HaltReasonT>
+    for ExtendedContext<'context, InnerContextT, OuterContextT>
+where
+    InnerContextT: JournalGetter,
+    OuterContextT: TraceCollectorMutGetter<HaltReasonT>,
+{
+    type Journal = InnerContextT::Journal;
+
+    fn journal_and_trace_collector_mut(
+        &mut self,
+    ) -> JournalAndTraceCollector<'_, Self::Journal, HaltReasonT> {
+        JournalAndTraceCollector {
+            journal: self.inner.journal(),
+            trace_collector: self.extension.trace_collector_mut(),
+        }
+    }
+}
 
 pub struct TraceCollectorFrame<FrameT: Frame, HaltReasonT: HaltReasonTrait> {
     inner: FrameT,
@@ -28,17 +64,23 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, Ha
     fn notify_frame_end<BlockchainT, ContextT, StateT>(context: &mut ContextT, result: &FrameResult)
     where
         BlockchainT: BlockHash<Error: std::error::Error>,
-        ContextT: JournalGetter<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>
-            + TraceCollectorGetter<HaltReasonT>,
+        ContextT: JournalAndTraceCollectorGetter<
+            HaltReasonT,
+            Journal: Journal<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        >,
         StateT: State<Error: std::error::Error>,
     {
-        let trace_collector = context.trace_collector();
+        let JournalAndTraceCollector {
+            journal,
+            trace_collector,
+        } = context.journal_and_trace_collector_mut();
+
         match result {
             FrameResult::Call(outcome) => {
-                trace_collector.call_end(context.journal_ref(), outcome);
+                trace_collector.call_end(journal, outcome);
             }
             FrameResult::Create(outcome) => {
-                trace_collector.create_end(context.journal_ref(), outcome);
+                trace_collector.create_end(journal, outcome);
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameResult::EOFCreate(_outcome) => unreachable!("EDR doesn't support EOF yet."),
@@ -48,17 +90,23 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, Ha
     /// Notifies the collector that a frame has started.
     fn notify_frame_start<
         BlockchainT: BlockHash<Error: std::error::Error>,
-        ContextT: JournalGetter<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>
-            + TraceCollectorGetter<HaltReasonT>,
+        ContextT: JournalAndTraceCollectorGetter<
+            HaltReasonT,
+            Journal: Journal<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        >,
         StateT: State<Error: std::error::Error>,
     >(
         context: &mut ContextT,
         frame_input: &FrameInput,
     ) {
-        let trace_collector = context.trace_collector();
+        let JournalAndTraceCollector {
+            journal,
+            trace_collector,
+        } = context.journal_and_trace_collector_mut();
+
         match frame_input {
-            FrameInput::Call(inputs) => trace_collector.call(context.journal_ref(), inputs),
-            FrameInput::Create(inputs) => trace_collector.create(context.journal_ref(), inputs),
+            FrameInput::Call(inputs) => trace_collector.call(journal, inputs),
+            FrameInput::Create(inputs) => trace_collector.create(journal, inputs),
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameInput::EOFCreate(_inputs) => unreachable!("EDR doesn't support EOF yet."),
         }
@@ -69,8 +117,10 @@ impl<BlockchainT, ContextT, FrameT, HaltReasonT, StateT> Frame
     for TraceCollectorFrame<FrameT, HaltReasonT>
 where
     BlockchainT: BlockHash<Error: std::error::Error>,
-    ContextT: JournalGetter<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>
-        + TraceCollectorGetter<HaltReasonT>,
+    ContextT: JournalAndTraceCollectorGetter<
+            HaltReasonT,
+            Journal: Journal<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        > + TraceCollectorMutGetter<HaltReasonT>,
     FrameT: for<'context> Frame<
         Context<'context> = ContextT,
         FrameInit = FrameInput,
@@ -138,7 +188,7 @@ where
         result: Self::FrameResult,
     ) -> Result<(), Self::Error> {
         Self::notify_frame_end(context, &result);
-        context.trace_collector().finish_trace();
+        context.trace_collector_mut().finish_trace();
 
         self.inner.return_result(context, result)
     }

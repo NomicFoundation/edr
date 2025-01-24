@@ -11,16 +11,27 @@ use edr_eth::{
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-use revm::{state::EvmState, JournaledState};
+use revm::{state::EvmState, JournalEntry, JournaledState};
 use revm_context::CfgEnv;
-use revm_context_interface::{BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter, PerformantContextAccess, TransactionGetter};
+use revm_context_interface::{
+    BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
+    PerformantContextAccess, TransactionGetter,
+};
 use revm_interpreter::Host;
 
 use crate::{
-    block::transaction::TransactionAndBlockForChainSpec, evm::{l1::L1EvmSpec, EvmSpec}, hardfork::{self, Activations}, receipt::{self, ExecutionReceiptBuilder, ReceiptFactory}, state::{Database, DatabaseComponentError}, transaction::{
+    block::transaction::TransactionAndBlockForChainSpec,
+    evm::{l1::L1EvmSpec, EvmSpec},
+    hardfork::{self, Activations},
+    receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
+    state::{Database, DatabaseComponentError},
+    transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
         TransactionValidation,
-    }, Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock
+    },
+    Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
+    EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock,
+    RemoteBlockConversionError, SyncBlock,
 };
 
 /// Helper type for a chain-specific [`revm::Context`].
@@ -141,21 +152,24 @@ pub trait RuntimeSpec:
         Output = Self::BlockReceipt
     >;
 
-    type Evm<BlockchainErrorT, ContextT, StateErrorT>: EvmSpec<BlockchainErrorT, Self, ContextT, StateErrorT> where 
-    ContextT: TransactionGetter
-        + BlockGetter
-        + JournalGetter
-        + CfgGetter
-        + DatabaseGetter<
-            Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-        + JournalGetter<
-            Journal: Journal<
-                FinalOutput = (EvmState, Vec<ExecutionLog>),
-                Database = <ContextT as DatabaseGetter>::Database,
-            >,
-        > + Host
-        + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>;
+    type Evm<
+        BlockchainErrorT,
+        ContextT: BlockGetter<Block = Self::BlockEnv>
+            + CfgGetter<Cfg = CfgEnv<Self::Hardfork>>
+            + DatabaseGetter<
+                Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+            > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+            + JournalGetter<
+                Journal: Journal<
+                    Entry = JournalEntry,
+                    FinalOutput = (EvmState, Vec<ExecutionLog>),
+                    Database = <ContextT as DatabaseGetter>::Database,
+                >,
+            > + Host
+            + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+            + TransactionGetter<Transaction = Self::SignedTransaction>,
+        StateErrorT
+    >: EvmSpec<BlockchainErrorT, Self, ContextT, StateErrorT>;
 
     // /// Type representing an implementation of `EvmWiring` for this chain.
     // type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
@@ -320,21 +334,24 @@ impl RuntimeSpec for L1ChainSpec {
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
-    type Evm<BlockchainErrorT, ContextT, StateErrorT> = L1EvmSpec<ContextT> where 
-    ContextT: TransactionGetter
-        + BlockGetter<Block = Self::BlockEnv>
-        + JournalGetter<
-        + CfgGetter
-        + DatabaseGetter<
-            Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-        + JournalGetter<
-            Journal: Journal<
-                FinalOutput = (EvmState, Vec<ExecutionLog>),
-                Database = <ContextT as DatabaseGetter>::Database,
-            >,
-        > + Host
-        + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>;
+    type Evm<
+        BlockchainErrorT,
+        ContextT: BlockGetter<Block = Self::BlockEnv>
+            + CfgGetter<Cfg = CfgEnv<Self::Hardfork>>
+            + DatabaseGetter<
+                Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+            > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+            + JournalGetter<
+                Journal: Journal<
+                    Entry = JournalEntry,
+                    FinalOutput = (EvmState, Vec<ExecutionLog>),
+                    Database = <ContextT as DatabaseGetter>::Database,
+                >,
+            > + Host
+            + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+            + TransactionGetter<Transaction = Self::SignedTransaction>,
+        StateErrorT,
+    > = L1EvmSpec<ContextT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,

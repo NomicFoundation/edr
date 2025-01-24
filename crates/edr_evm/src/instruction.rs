@@ -79,6 +79,16 @@ where
     }
 }
 
+impl<HostT, InterpreterT> From<Instruction<InterpreterT, HostT>>
+    for InspectableInstruction<HostT, InterpreterT>
+where
+    InterpreterT: InterpreterTypes,
+{
+    fn from(inner: Instruction<InterpreterT, HostT>) -> Self {
+        Self { inner }
+    }
+}
+
 #[derive_where(Clone)]
 pub struct InspectableInstructionProvider<HostT, InterpreterTypesT, ProviderT>
 where

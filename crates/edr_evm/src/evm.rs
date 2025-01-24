@@ -14,6 +14,7 @@ use revm_context_interface::{
     BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
     PerformantContextAccess, TransactionGetter,
 };
+use revm_database_interface::WrapDatabaseRef;
 use revm_handler::FrameResult;
 use revm_handler_interface::{
     ExecutionHandler, Frame, PostExecutionHandler, PreExecutionHandler, PrecompileProvider,
@@ -27,7 +28,10 @@ use revm_interpreter::{
 use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
+    debug::ExtendedContext,
+    instruction::InspectableInstruction,
     result::EVMErrorForChain,
+    spec::{ContextForChainSpec, RuntimeSpec},
     state::{Database, DatabaseComponentError, DatabaseComponents, State},
     transaction::TransactionError,
 };
@@ -37,6 +41,30 @@ pub type EvmForChainSpec<BlockchainT, ChainSpecT, StateT> = revm::Evm<
     EvmContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
     // TODO: Custom handler
 >;
+
+/// Helper type for a chain-specific [`EvmSpec`] with a default
+/// [`revm::Context`].
+pub type EvmSpecForDefaultContext<BlockchainT, ChainSpecT, StateT> =
+    <ChainSpecT as RuntimeSpec>::Evm<
+        <BlockchainT as BlockHash>::Error,
+        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        <StateT as State>::Error,
+    >;
+
+/// Helper type for a chain-specific [`EvmSpec`] with an [`ExtendedContext`].
+pub type EvmSpecForExtendedContext<'context, BlockchainT, ChainSpecT, ExtensionT, StateT> =
+    <ChainSpecT as RuntimeSpec>::Evm<
+        <BlockchainT as BlockHash>::Error,
+        ExtendedContext<
+            'context,
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
+            ExtensionT,
+        >,
+        <StateT as State>::Error,
+    >;
 
 pub type EvmContextForChainSpec<BlockchainT, ChainSpecT, StateT> = revm::Context<
     <ChainSpecT as ChainSpec>::BlockEnv,
@@ -116,7 +144,11 @@ where
     >;
 
     /// Type representing an EVM instruction provider.
-    type InstructionProvider: InstructionProvider<Host = ContextT, WIRE = EthInterpreter>;
+    type InstructionProvider: InstructionProvider<
+        Host = ContextT,
+        Instruction: Clone + Into<InspectableInstruction<ContextT, EthInterpreter>>,
+        WIRE = EthInterpreter,
+    >;
 
     /// Type representing an EVM precompile provider.
     type PrecompileProvider: PrecompileProvider<

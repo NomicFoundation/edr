@@ -8,7 +8,7 @@ use revm_context_interface::{
     TransactionGetter,
 };
 use revm_handler::{
-    EthExecution, EthFrame, EthHandler, EthPostExecution, EthPreExecution, EthPrecompileProvider,
+    EthExecution, EthFrame, EthPostExecution, EthPreExecution, EthPrecompileProvider,
     EthValidation, FrameResult,
 };
 use revm_handler_interface::{Frame, PrecompileProvider};
@@ -47,9 +47,9 @@ where
         EthPreExecution<ContextT, TransactionError<BlockchainErrorT, L1ChainSpec, StateErrorT>>;
 
     type ExecutionHandler<
-        'context,
+        'context2,
         FrameT: Frame<
-            Context<'context> = ContextT,
+            Context<'context2> = ContextT,
             Error = TransactionError<BlockchainErrorT, L1ChainSpec, StateErrorT>,
             FrameInit = FrameInput,
             FrameResult = FrameResult,

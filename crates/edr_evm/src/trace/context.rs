@@ -13,26 +13,27 @@ use crate::{
 };
 
 /// Trait for retrieving a mutable reference to a [`TraceCollector`] instance.
-pub trait TraceCollectorGetter<HaltReasonT: HaltReasonTrait> {
+pub trait TraceCollectorMutGetter<HaltReasonT: HaltReasonTrait> {
     /// Retrieves a mutable reference to a [`TraceCollector`] instance.
-    fn trace_collector(&mut self) -> &mut TraceCollector<HaltReasonT>;
+    fn trace_collector_mut(&mut self) -> &mut TraceCollector<HaltReasonT>;
 }
 
-impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT> TraceCollectorGetter<HaltReasonT>
+impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
+    TraceCollectorMutGetter<HaltReasonT>
     for TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>
 {
-    fn trace_collector(&mut self) -> &mut TraceCollector<HaltReasonT> {
+    fn trace_collector_mut(&mut self) -> &mut TraceCollector<HaltReasonT> {
         self.collector
     }
 }
 
 impl<'context, HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
-    TraceCollectorGetter<HaltReasonT> for ExtendedContext<'context, InnerContextT, OuterContextT>
+    TraceCollectorMutGetter<HaltReasonT> for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
-    OuterContextT: TraceCollectorGetter<HaltReasonT>,
+    OuterContextT: TraceCollectorMutGetter<HaltReasonT>,
 {
-    fn trace_collector(&mut self) -> &mut TraceCollector<HaltReasonT> {
-        self.extension.trace_collector()
+    fn trace_collector_mut(&mut self) -> &mut TraceCollector<HaltReasonT> {
+        self.extension.trace_collector_mut()
     }
 }
 

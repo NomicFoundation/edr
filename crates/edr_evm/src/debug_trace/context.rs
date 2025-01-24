@@ -10,30 +10,30 @@ use crate::{
     debug::ExtendedContext,
     instruction::InspectsInstructionWithJournal,
     state::{DatabaseComponents, State, WrapDatabaseRef},
-    trace::{TraceCollector, TraceCollectorContext, TraceCollectorGetter},
+    trace::{TraceCollector, TraceCollectorContext, TraceCollectorMutGetter},
 };
 
 /// Trait for retrieving a mutable reference to a [`TracerEip3155`] instance.
-pub trait Eip3155TracerGetter {
+pub trait Eip3155TracerMutGetter {
     /// Retrieves a mutable reference to a [`TracerEip3155`] instance.
-    fn eip3155_tracer(&mut self) -> &mut TracerEip3155;
+    fn eip3155_tracer_mut(&mut self) -> &mut TracerEip3155;
 }
 
-impl<'tracer, BlockchainT, StateT> Eip3155TracerGetter
+impl<'tracer, BlockchainT, StateT> Eip3155TracerMutGetter
     for Eip3155TracerContext<'tracer, BlockchainT, StateT>
 {
-    fn eip3155_tracer(&mut self) -> &mut TracerEip3155 {
+    fn eip3155_tracer_mut(&mut self) -> &mut TracerEip3155 {
         self.tracer
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> Eip3155TracerGetter
+impl<'context, InnerContextT, OuterContextT> Eip3155TracerMutGetter
     for ExtendedContext<'context, InnerContextT, OuterContextT>
 where
-    OuterContextT: Eip3155TracerGetter,
+    OuterContextT: Eip3155TracerMutGetter,
 {
-    fn eip3155_tracer(&mut self) -> &mut TracerEip3155 {
-        self.extension.eip3155_tracer()
+    fn eip3155_tracer_mut(&mut self) -> &mut TracerEip3155 {
+        self.extension.eip3155_tracer_mut()
     }
 }
 
@@ -101,13 +101,13 @@ impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
     }
 }
 
-impl<'tracer, BlockchainT, HaltReasonT, StateT> Eip3155TracerGetter
+impl<'tracer, BlockchainT, HaltReasonT, StateT> Eip3155TracerMutGetter
     for Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
 where
     HaltReasonT: HaltReasonTrait,
 {
-    fn eip3155_tracer(&mut self) -> &mut TracerEip3155 {
-        self.eip3155.eip3155_tracer()
+    fn eip3155_tracer_mut(&mut self) -> &mut TracerEip3155 {
+        self.eip3155.eip3155_tracer_mut()
     }
 }
 
@@ -145,12 +145,12 @@ where
     }
 }
 
-impl<'tracer, BlockchainT, HaltReasonT, StateT> TraceCollectorGetter<HaltReasonT>
+impl<'tracer, BlockchainT, HaltReasonT, StateT> TraceCollectorMutGetter<HaltReasonT>
     for Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
 where
     HaltReasonT: HaltReasonTrait,
 {
-    fn trace_collector(&mut self) -> &mut TraceCollector<HaltReasonT> {
-        self.raw.trace_collector()
+    fn trace_collector_mut(&mut self) -> &mut TraceCollector<HaltReasonT> {
+        self.raw.trace_collector_mut()
     }
 }
