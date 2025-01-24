@@ -24,10 +24,8 @@ use revm_interpreter::{
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    evm::{
-        interpreter::{Interpreter, InterpreterResult},
-        JournalEntry,
-    },
+    evm::JournalEntry,
+    interpreter::{Interpreter, InterpreterResult},
     run,
     runtime::dry_run_with_extension,
     spec::RuntimeSpec,

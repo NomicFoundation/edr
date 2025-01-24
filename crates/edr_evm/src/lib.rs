@@ -29,11 +29,14 @@ pub mod config;
 mod debug_trace;
 /// Types for interfacing with the evm.
 pub mod evm;
-mod extension;
+/// Types for extending the EVM.
+pub mod extension;
 /// Types for Ethereum hardforks
 pub mod hardfork;
 /// Types for EVM instructions
 pub mod instruction;
+/// Types for the EVM interpreter.
+pub mod interpreter;
 /// Types for managing Ethereum mem pool
 pub mod mempool;
 mod miner;

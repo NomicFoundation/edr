@@ -10,8 +10,12 @@ use revm_interpreter::{Host, Interpreter, SStoreResult, SelfDestructResult, Stat
 
 use crate::instruction::{InspectsInstruction, InspectsInstructionWithJournal};
 
+/// An extended context consisting of an inner context for execution and an
+/// extension for runtime observability.
 pub struct ExtendedContext<'context, InnerContextT, OuterContextT> {
+    /// The inner context for execution.
     pub inner: InnerContextT,
+    /// The extension for runtime observability.
     pub extension: &'context mut OuterContextT,
 }
 
@@ -206,8 +210,6 @@ where
 pub struct ContextExtension<ExtensionT, FrameT> {
     extension: ExtensionT,
     phantom: PhantomData<FrameT>,
-    // /// The handler
-    // pub handler: HandlerT,
 }
 
 impl<ExtensionT, FrameT> ContextExtension<ExtensionT, FrameT> {

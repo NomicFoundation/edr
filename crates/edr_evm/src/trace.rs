@@ -11,7 +11,6 @@ use edr_eth::{
     Address, Bytecode, Bytes, U256,
 };
 use revm::context_interface::Journal;
-use revm_interpreter::{interpreter::EthInterpreter, interpreter_types::Jumps, MemoryGetter as _};
 
 pub use self::{
     context::{TraceCollectorContext, TraceCollectorMutGetter},
@@ -19,9 +18,9 @@ pub use self::{
 };
 use crate::{
     blockchain::BlockHash,
-    evm::interpreter::{
+    interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-        Interpreter, SuccessOrHalt,
+        EthInterpreter, Interpreter, Jumps as _, MemoryGetter as _, SuccessOrHalt,
     },
     state::{DatabaseComponents, State, WrapDatabaseRef},
 };
@@ -268,7 +267,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         outcome: &CallOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
-        use crate::evm::interpreter::InstructionResult;
+        use crate::interpreter::InstructionResult;
 
         match outcome.instruction_result() {
             return_revert!() if self.pending_before.is_some() => {
@@ -365,7 +364,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         outcome: &CreateOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
-        use crate::evm::interpreter::InstructionResult;
+        use crate::interpreter::InstructionResult;
 
         self.validate_before_message();
 

@@ -2,24 +2,17 @@
 pub mod l1;
 
 use edr_eth::{log::ExecutionLog, result::ExecutionResultAndState, spec::ChainSpec};
-pub use revm::{
-    handler,
-    interpreter,
-    // wiring::{evm_wiring::EvmWiring as PrimitiveEvmWiring, result},
-    Context,
-    // ContextPrecompile, EvmContext, EvmWiring, FrameOrResult, FrameResult, InnerEvmContext,
-    JournalEntry,
-};
 use revm::{state::EvmState, JournaledState};
+pub use revm::{Context, JournalEntry};
 use revm_context_interface::{
     BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
     PerformantContextAccess, TransactionGetter,
 };
 use revm_database_interface::WrapDatabaseRef;
 use revm_handler::FrameResult;
-use revm_handler_interface::{
-    ExecutionHandler, Frame, PostExecutionHandler, PreExecutionHandler, PrecompileProvider,
-    ValidationHandler,
+pub use revm_handler_interface::{
+    ExecutionHandler, Frame, FrameOrResultGen, PostExecutionHandler, PreExecutionHandler,
+    PrecompileProvider, ValidationHandler,
 };
 use revm_interpreter::{
     interpreter::{EthInterpreter, InstructionProvider},
