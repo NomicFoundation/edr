@@ -9,6 +9,7 @@ mod filter;
 mod interval;
 mod logger;
 mod mock;
+mod observability;
 mod pending;
 mod provider;
 /// Type for RPC requests.

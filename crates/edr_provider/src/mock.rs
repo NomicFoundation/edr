@@ -6,12 +6,11 @@ use std::sync::Arc;
 
 use dyn_clone::DynClone;
 use edr_eth::{Address, Bytes};
-use edr_evm::{
-    interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
-    state::Database,
-};
 
-pub use self::{context::MockingContext, frame::MockingFrame};
+pub use self::{
+    context::{MockerMutGetter, MockingContext},
+    frame::MockingFrame,
+};
 
 /// The result of executing a call override.
 #[derive(Debug)]

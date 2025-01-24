@@ -32,19 +32,19 @@ where
     /// The transaction's gas price is lower than the next block's base fee,
     /// while automatically mining.
     #[error("Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
-    AutoMineGasPriceTooLow { expected: U256, actual: U256 },
+    AutoMineGasPriceTooLow { expected: u128, actual: u128 },
     /// The transaction's max fee per gas is lower than the next block's base
     /// fee, while automatically mining.
     #[error("Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
-    AutoMineMaxFeePerGasTooLow { expected: U256, actual: U256 },
+    AutoMineMaxFeePerGasTooLow { expected: u128, actual: u128 },
     /// The transaction's max fee per blob gas is lower than the next block's
     /// base fee, while automatically mining.
     #[error("Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}")]
-    AutoMineMaxFeePerBlobGasTooLow { expected: U256, actual: U256 },
+    AutoMineMaxFeePerBlobGasTooLow { expected: u128, actual: u128 },
     /// The transaction's priority fee is lower than the minimum gas price,
     /// while automatically mining.
     #[error("Transaction gas price is {actual}, which is below the minimum of {expected}")]
-    AutoMinePriorityFeeTooLow { expected: U256, actual: U256 },
+    AutoMinePriorityFeeTooLow { expected: u128, actual: u128 },
     /// The transaction nonce is too high, while automatically mining.
     #[error("Nonce too high. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
     AutoMineNonceTooHigh { expected: u64, actual: u64 },

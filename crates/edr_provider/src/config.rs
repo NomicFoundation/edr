@@ -111,7 +111,7 @@ pub struct Provider<HardforkT> {
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
-    pub min_gas_price: U256,
+    pub min_gas_price: u128,
     pub mining: Mining,
     pub network_id: u64,
 }

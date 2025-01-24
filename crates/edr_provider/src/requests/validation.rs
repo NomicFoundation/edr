@@ -2,7 +2,7 @@ use edr_eth::{
     eips::eip2930,
     l1,
     transaction::{pooled::PooledTransaction, ExecutableTransaction},
-    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE, U256,
+    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
 };
 use edr_evm::{spec::RuntimeSpec, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
@@ -17,15 +17,15 @@ impl HardforkValidationData for TransactionRequest {
         self.to.as_ref()
     }
 
-    fn gas_price(&self) -> Option<&U256> {
+    fn gas_price(&self) -> Option<&u128> {
         self.gas_price.as_ref()
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         self.max_fee_per_gas.as_ref()
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         self.max_priority_fee_per_gas.as_ref()
     }
 
@@ -47,15 +47,15 @@ impl HardforkValidationData for CallRequest {
         self.to.as_ref()
     }
 
-    fn gas_price(&self) -> Option<&U256> {
+    fn gas_price(&self) -> Option<&u128> {
         self.gas_price.as_ref()
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         self.max_fee_per_gas.as_ref()
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         self.max_priority_fee_per_gas.as_ref()
     }
 
@@ -77,7 +77,7 @@ impl HardforkValidationData for PooledTransaction {
         Some(self.caller())
     }
 
-    fn gas_price(&self) -> Option<&U256> {
+    fn gas_price(&self) -> Option<&u128> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => Some(&tx.gas_price),
             PooledTransaction::PostEip155Legacy(tx) => Some(&tx.gas_price),
@@ -86,11 +86,11 @@ impl HardforkValidationData for PooledTransaction {
         }
     }
 
-    fn max_fee_per_gas(&self) -> Option<&U256> {
+    fn max_fee_per_gas(&self) -> Option<&u128> {
         ExecutableTransaction::max_fee_per_gas(self)
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         ExecutableTransaction::max_priority_fee_per_gas(self)
     }
 
@@ -367,8 +367,8 @@ mod tests {
     fn assert_mixed_eip_1559_parameters(spec: l1::SpecId) {
         let mixed_request = TransactionRequest {
             from: Address::ZERO,
-            gas_price: Some(U256::ZERO),
-            max_fee_per_gas: Some(U256::ZERO),
+            gas_price: Some(0),
+            max_fee_per_gas: Some(0),
             ..TransactionRequest::default()
         };
 
@@ -379,8 +379,8 @@ mod tests {
 
         let mixed_request = TransactionRequest {
             from: Address::ZERO,
-            gas_price: Some(U256::ZERO),
-            max_priority_fee_per_gas: Some(U256::ZERO),
+            gas_price: Some(0),
+            max_priority_fee_per_gas: Some(0),
             ..TransactionRequest::default()
         };
 
@@ -391,8 +391,8 @@ mod tests {
 
         let request_with_too_low_max_fee = TransactionRequest {
             from: Address::ZERO,
-            max_fee_per_gas: Some(U256::ZERO),
-            max_priority_fee_per_gas: Some(U256::from(1u64)),
+            max_fee_per_gas: Some(0),
+            max_priority_fee_per_gas: Some(1),
             ..TransactionRequest::default()
         };
 
@@ -405,7 +405,7 @@ mod tests {
     fn assert_unsupported_eip_1559_parameters(spec: l1::SpecId) {
         let eip_1559_request = TransactionRequest {
             from: Address::ZERO,
-            max_fee_per_gas: Some(U256::ZERO),
+            max_fee_per_gas: Some(0),
             ..TransactionRequest::default()
         };
 
@@ -416,7 +416,7 @@ mod tests {
 
         let eip_1559_request = TransactionRequest {
             from: Address::ZERO,
-            max_priority_fee_per_gas: Some(U256::ZERO),
+            max_priority_fee_per_gas: Some(0),
             ..TransactionRequest::default()
         };
 
@@ -455,7 +455,7 @@ mod tests {
         let eip155_spec = l1::SpecId::MUIR_GLACIER;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
-            gas_price: Some(U256::ZERO),
+            gas_price: Some(0),
             ..TransactionRequest::default()
         };
 
@@ -481,7 +481,7 @@ mod tests {
         let eip2930_spec = l1::SpecId::BERLIN;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
-            gas_price: Some(U256::ZERO),
+            gas_price: Some(0),
             access_list: Some(Vec::new()),
             ..TransactionRequest::default()
         };
@@ -497,8 +497,8 @@ mod tests {
         let eip1559_spec = l1::SpecId::LONDON;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
-            max_fee_per_gas: Some(U256::ZERO),
-            max_priority_fee_per_gas: Some(U256::ZERO),
+            max_fee_per_gas: Some(0),
+            max_priority_fee_per_gas: Some(0),
             access_list: Some(Vec::new()),
             ..TransactionRequest::default()
         };
@@ -515,8 +515,8 @@ mod tests {
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),
-            max_fee_per_gas: Some(U256::ZERO),
-            max_priority_fee_per_gas: Some(U256::ZERO),
+            max_fee_per_gas: Some(0),
+            max_priority_fee_per_gas: Some(0),
             access_list: Some(Vec::new()),
             blobs: Some(Vec::new()),
             blob_hashes: Some(Vec::new()),
@@ -528,7 +528,7 @@ mod tests {
 
         let mixed_request = TransactionRequest {
             from: Address::ZERO,
-            gas_price: Some(U256::ZERO),
+            gas_price: Some(0),
             blobs: Some(Vec::new()),
             ..TransactionRequest::default()
         };
@@ -540,7 +540,7 @@ mod tests {
 
         let mixed_request = TransactionRequest {
             from: Address::ZERO,
-            gas_price: Some(U256::ZERO),
+            gas_price: Some(0),
             blob_hashes: Some(Vec::new()),
             ..TransactionRequest::default()
         };

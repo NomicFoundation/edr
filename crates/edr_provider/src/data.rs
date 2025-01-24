@@ -80,7 +80,7 @@ use crate::{
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
     },
-    debugger::{register_debugger_handles, Debugger},
+    debugger::Debugger,
     error::{EstimateGasFailure, TransactionFailure, TransactionFailureWithTraces},
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
@@ -215,7 +215,7 @@ pub struct ProviderData<
     mem_pool: MemPool<ChainSpecT>,
     beneficiary: Address,
     custom_precompiles: HashMap<Address, PrecompileFn>,
-    min_gas_price: U256,
+    min_gas_price: u128,
     parent_beacon_block_root_generator: RandomHashGenerator,
     prev_randao_generator: RandomHashGenerator,
     block_time_offset_seconds: i64,
@@ -225,7 +225,7 @@ pub struct ProviderData<
     rpc_client: Option<Arc<EthRpcClient<ChainSpecT>>>,
     instance_id: B256,
     is_auto_mining: bool,
-    next_block_base_fee_per_gas: Option<U256>,
+    next_block_base_fee_per_gas: Option<u128>,
     next_block_timestamp: Option<u64>,
     next_snapshot_id: u64,
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT>>,
@@ -837,15 +837,15 @@ where
             .map_err(ProviderError::Blockchain)
     }
 
-    pub fn gas_price(&self) -> Result<U256, ProviderError<ChainSpecT>> {
-        const PRE_EIP_1559_GAS_PRICE: u64 = 8_000_000_000;
-        const SUGGESTED_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
+    pub fn gas_price(&self) -> Result<u128, ProviderError<ChainSpecT>> {
+        const PRE_EIP_1559_GAS_PRICE: u128 = 8_000_000_000;
+        const SUGGESTED_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
 
         if let Some(next_block_gas_fee_per_gas) = self.next_block_base_fee_per_gas()? {
-            Ok(next_block_gas_fee_per_gas + U256::from(SUGGESTED_PRIORITY_FEE_PER_GAS))
+            Ok(next_block_gas_fee_per_gas + SUGGESTED_PRIORITY_FEE_PER_GAS)
         } else {
             // We return a hardcoded value for networks without EIP-1559
-            Ok(U256::from(PRE_EIP_1559_GAS_PRICE))
+            Ok(PRE_EIP_1559_GAS_PRICE)
         }
     }
 
@@ -998,7 +998,7 @@ where
 
     pub fn set_min_gas_price(
         &mut self,
-        min_gas_price: U256,
+        min_gas_price: u128,
     ) -> Result<(), ProviderError<ChainSpecT>> {
         if self.evm_spec_id() >= l1::SpecId::LONDON {
             return Err(ProviderError::SetMinGasPriceUnsupported);
@@ -1012,7 +1012,7 @@ where
     /// Sets the next block's base fee per gas.
     pub fn set_next_block_base_fee_per_gas(
         &mut self,
-        base_fee_per_gas: U256,
+        base_fee_per_gas: u128,
     ) -> Result<(), ProviderError<ChainSpecT>> {
         let hardfork = self.hardfork();
         if hardfork.into() < l1::SpecId::LONDON {
@@ -1248,8 +1248,8 @@ where
     }
 
     /// Creates an EVM configuration with the provided hardfork and chain id
-    fn create_evm_config(&self, chain_id: u64) -> CfgEnv {
-        let mut cfg_env = CfgEnv::default();
+    fn create_evm_config(&self, chain_id: u64) -> CfgEnv<ChainSpecT::Hardfork> {
+        let mut cfg_env = CfgEnv::<ChainSpecT::Hardfork>::default();
         cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
             Some(usize::MAX)
@@ -1266,10 +1266,10 @@ where
     pub fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<(CfgEnv, ChainSpecT::Hardfork), ProviderError<ChainSpecT>> {
+    ) -> Result<CfgEnv<ChainSpecT::Hardfork>, ProviderError<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
-        let spec_id = if let Some(block_number) = block_number {
+        let hardfork = if let Some(block_number) = block_number {
             self.spec_at_block_number(block_number, block_spec)?
         } else {
             self.blockchain.hardfork()
@@ -1281,8 +1281,10 @@ where
             self.blockchain.chain_id()
         };
 
-        let cfg = self.create_evm_config(chain_id);
-        Ok((cfg, spec_id))
+        let mut cfg = self.create_evm_config(chain_id);
+        cfg.spec = hardfork;
+
+        Ok(cfg)
     }
 
     fn current_state(
@@ -1625,7 +1627,7 @@ where
     /// Calculates the next block's base fee per gas.
     pub fn next_block_base_fee_per_gas(
         &self,
-    ) -> Result<Option<U256>, BlockchainErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<Option<u128>, BlockchainErrorForChainSpec<ChainSpecT>> {
         if self.evm_spec_id() < l1::SpecId::LONDON {
             return Ok(None);
         }
@@ -1648,25 +1650,26 @@ where
     /// Calculates the next block's base fee per blob gas.
     pub fn next_block_base_fee_per_blob_gas(
         &self,
-    ) -> Result<Option<U256>, BlockchainErrorForChainSpec<ChainSpecT>> {
+        hardfork: ChainSpecT::Hardfork,
+    ) -> Result<Option<u128>, BlockchainErrorForChainSpec<ChainSpecT>> {
         if self.evm_spec_id() < l1::SpecId::CANCUN {
             return Ok(None);
         }
 
         let last_block = self.last_block()?;
-        let base_fee = calculate_next_base_fee_per_blob_gas(last_block.header());
+        let base_fee = calculate_next_base_fee_per_blob_gas(last_block.header(), hardfork);
 
-        Ok(Some(U256::from(base_fee)))
+        Ok(Some(base_fee))
     }
 
     /// Calculates the gas price for the next block.
-    pub fn next_gas_price(&self) -> Result<U256, BlockchainErrorForChainSpec<ChainSpecT>> {
+    pub fn next_gas_price(&self) -> Result<u128, BlockchainErrorForChainSpec<ChainSpecT>> {
         if let Some(next_block_base_fee_per_gas) = self.next_block_base_fee_per_gas()? {
-            let suggested_priority_fee_per_gas = U256::from(1_000_000_000u64);
+            let suggested_priority_fee_per_gas = 1_000_000_000u128;
             Ok(next_block_base_fee_per_gas + suggested_priority_fee_per_gas)
         } else {
             // We return a hardcoded value for networks without EIP-1559
-            Ok(U256::from(8_000_000_000u64))
+            Ok(8_000_000_000)
         }
     }
 
@@ -1861,7 +1864,7 @@ where
                 let header = block.header();
                 result
                     .base_fee_per_gas
-                    .push(header.base_fee_per_gas.unwrap_or(U256::ZERO));
+                    .push(header.base_fee_per_gas.unwrap_or(0));
 
                 if block_number < last_block_number {
                     result
@@ -2420,7 +2423,6 @@ where
                     blockchain,
                     state.clone(),
                     cfg_env,
-                    hardfork,
                     trace_config,
                     block_env,
                     transactions,
@@ -2646,7 +2648,7 @@ struct BlockchainAndState<ChainSpecT: SyncRuntimeSpec> {
     irregular_state: IrregularState,
     prev_randao_generator: RandomHashGenerator,
     block_time_offset_seconds: i64,
-    next_block_base_fee_per_gas: Option<U256>,
+    next_block_base_fee_per_gas: Option<u128>,
 }
 
 fn create_blockchain_and_state<

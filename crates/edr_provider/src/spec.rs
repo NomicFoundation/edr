@@ -83,13 +83,13 @@ pub trait HardforkValidationData {
     fn to(&self) -> Option<&Address>;
 
     /// Returns the gas price of the transaction.
-    fn gas_price(&self) -> Option<&U256>;
+    fn gas_price(&self) -> Option<&u128>;
 
     /// Returns the max fee per gas of the transaction.
-    fn max_fee_per_gas(&self) -> Option<&U256>;
+    fn max_fee_per_gas(&self) -> Option<&u128>;
 
     /// Returns the max priority fee per gas of the transaction.
-    fn max_priority_fee_per_gas(&self) -> Option<&U256>;
+    fn max_priority_fee_per_gas(&self) -> Option<&u128>;
 
     /// Returns the access list of the transaction.
     fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>>;

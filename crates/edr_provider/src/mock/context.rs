@@ -28,3 +28,10 @@ where
 pub struct MockingContext<'context> {
     context: &'context mut Mocker,
 }
+
+impl<'context> MockingContext<'context> {
+    /// Creates a new instance.
+    pub fn new(context: &'context mut Mocker) -> Self {
+        Self { context }
+    }
+}

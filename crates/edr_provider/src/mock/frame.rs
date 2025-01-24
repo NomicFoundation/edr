@@ -35,15 +35,13 @@ impl<FrameT: Frame> MockingFrame<FrameT> {
                         InstructionResult::Return
                     };
 
-                    Some(FrameOrResultGen::Result(FrameResult::Call(
-                        CallOutcome::new(
-                            InterpreterResult {
-                                result,
-                                output,
-                                gas: Gas::new(inputs.gas_limit),
-                            },
-                            inputs.return_memory_offset,
-                        ),
+                    FrameOrResultGen::Result(FrameResult::Call(CallOutcome::new(
+                        InterpreterResult {
+                            result,
+                            output,
+                            gas: Gas::new(inputs.gas_limit),
+                        },
+                        inputs.return_memory_offset.clone(),
                     )))
                 },
             )
@@ -68,6 +66,13 @@ where
         context: &mut Self::Context<'_>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
+        if let FrameInput::Call(inputs) = &frame_input {
+            if let Some(result) = Self::try_mocking_call(context, inputs) {
+                return Ok(result);
+            }
+        }
+
+        FrameT::init_first(context, frame_input).map(|frame| frame.map_frame(Self::new))
     }
 
     fn final_return(
@@ -82,7 +87,15 @@ where
         context: &mut Self::Context<'_>,
         frame_input: Self::FrameInit,
     ) -> Result<FrameOrResultGen<Self, Self::FrameResult>, Self::Error> {
-        todo!()
+        if let FrameInput::Call(inputs) = &frame_input {
+            if let Some(result) = Self::try_mocking_call(context, inputs) {
+                return Ok(result);
+            }
+        }
+
+        self.inner
+            .init(context, frame_input)
+            .map(|frame| frame.map_frame(Self::new))
     }
 
     fn run(
@@ -99,40 +112,4 @@ where
     ) -> Result<(), Self::Error> {
         self.inner.return_result(context, result)
     }
-}
-
-/// Registers the `Mocker`'s handles.
-pub fn register_mocking_handles<EvmWiringT>(handler: &mut EvmHandler<'_, EvmWiringT>)
-where
-    EvmWiringT:
-        EvmWiring<ExternalContext: GetContextData<Mocker>, Database: Database<Error: Debug>>,
-{
-    let old_handle = handler.execution.call.clone();
-    handler.execution.call = Arc::new(
-        move |ctx, inputs| -> Result<FrameOrResult, EVMErrorWiring<EvmWiringT>> {
-            let mocker = ctx.external.get_context_data();
-            if let Some(CallOverrideResult {
-                output,
-                should_revert,
-            }) = mocker.override_call(inputs.bytecode_address, inputs.input.clone())
-            {
-                let result = if should_revert {
-                    InstructionResult::Revert
-                } else {
-                    InstructionResult::Return
-                };
-
-                Ok(FrameOrResult::Result(FrameResult::Call(CallOutcome::new(
-                    InterpreterResult {
-                        result,
-                        output,
-                        gas: Gas::new(inputs.gas_limit),
-                    },
-                    inputs.return_memory_offset,
-                ))))
-            } else {
-                old_handle(ctx, inputs)
-            }
-        },
-    );
 }

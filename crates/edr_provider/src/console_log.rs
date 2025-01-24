@@ -1,11 +1,12 @@
 mod context;
 mod frame;
 
-use std::sync::Arc;
-
 use edr_eth::{address, Address, Bytes};
 
-pub use self::{context::ConsoleLogCollectorMutGetter, frame::ConsoleLogCollectorFrame};
+pub use self::{
+    context::{ConsoleLogCollectorMutGetter, ConsoleLogContext},
+    frame::ConsoleLogCollectorFrame,
+};
 
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
 
@@ -66,9 +67,9 @@ pub(crate) mod tests {
             value: U256::ZERO,
             input: byte_code.into(),
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(42_000_000_000_u64),
+            max_priority_fee_per_gas: 42_000_000_000_u128,
             chain_id: provider_data.chain_id(),
-            max_fee_per_gas: U256::from(42_000_000_000_u64),
+            max_fee_per_gas: 42_000_000_000_u128,
             access_list: vec![],
         });
 
@@ -106,9 +107,9 @@ pub(crate) mod tests {
             value: U256::ZERO,
             input: call_data.into(),
             nonce: 1,
-            max_priority_fee_per_gas: U256::from(42_000_000_000_u64),
+            max_priority_fee_per_gas: 42_000_000_000_u128,
             chain_id: provider_data.chain_id(),
-            max_fee_per_gas: U256::from(42_000_000_000_u64),
+            max_fee_per_gas: 42_000_000_000_u128,
             access_list: vec![],
         });
 

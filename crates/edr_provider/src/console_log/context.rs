@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use edr_evm::extension::ExtendedContext;
 
 use super::ConsoleLogCollector;
@@ -28,7 +26,13 @@ where
 }
 
 /// An EVM context that can be used to collect console logs.
-pub struct ConsoleLogContext<'tracer> {
-    phantom: PhantomData<&'tracer mut ConsoleLogCollector>,
-    collector: &'tracer mut ConsoleLogCollector,
+pub struct ConsoleLogContext<'context> {
+    collector: &'context mut ConsoleLogCollector,
+}
+
+impl<'context> ConsoleLogContext<'context> {
+    /// Creates a new instance.
+    pub fn new(collector: &'context mut ConsoleLogCollector) -> Self {
+        Self { collector }
+    }
 }

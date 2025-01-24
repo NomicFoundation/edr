@@ -7,42 +7,9 @@ use revm_interpreter::interpreter::EthInterpreter;
 
 use super::context::Eip3155TracerMutGetter;
 use crate::{
-    blockchain::BlockHash,
-    evm::{EvmSpec, EvmSpecForDefaultContext},
-    instruction::InspectableInstructionProvider,
-    spec::{ContextForChainSpec, RuntimeSpec},
-    state::{DatabaseComponents, State, WrapDatabaseRef},
+    evm::EvmSpec, instruction::InspectableInstructionProvider, spec::RuntimeSpec,
     trace::TraceCollectorFrame,
 };
-
-pub type Eip3155TracerFrameForChainSpec<BlockchainT, ChainSpecT, StateT> = Eip3155TracerFrame<
-    <EvmSpecForDefaultContext<BlockchainT, ChainSpecT, StateT> as EvmSpec<
-        <BlockchainT as BlockHash>::Error,
-        ChainSpecT,
-        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
-        <StateT as State>::Error,
-    >>::Frame<
-        <EvmSpecForDefaultContext<BlockchainT, ChainSpecT, StateT> as EvmSpec<
-            <BlockchainT as BlockHash>::Error,
-            ChainSpecT,
-            ContextForChainSpec<
-                ChainSpecT,
-                WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            >,
-            <StateT as State>::Error,
-        >>::InstructionProvider,
-        <EvmSpecForDefaultContext<BlockchainT, ChainSpecT, StateT> as EvmSpec<
-            <BlockchainT as BlockHash>::Error,
-            ChainSpecT,
-            ContextForChainSpec<
-                ChainSpecT,
-                WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            >,
-            <StateT as State>::Error,
-        >>::PrecompileProvider,
-    >,
-    <ChainSpecT as ChainSpec>::HaltReason,
->;
 
 pub struct Eip3155TracerFrame<
     FrameT: Frame<FrameInit = FrameInput, FrameResult = FrameResult>,
