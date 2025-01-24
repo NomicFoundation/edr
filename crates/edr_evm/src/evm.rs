@@ -9,7 +9,7 @@ use revm_context_interface::{
     PerformantContextAccess, TransactionGetter,
 };
 use revm_database_interface::WrapDatabaseRef;
-use revm_handler::FrameResult;
+pub use revm_handler::FrameResult;
 pub use revm_handler_interface::{
     ExecutionHandler, Frame, FrameOrResultGen, PostExecutionHandler, PreExecutionHandler,
     PrecompileProvider, ValidationHandler,

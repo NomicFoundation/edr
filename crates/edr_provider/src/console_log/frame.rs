@@ -1,6 +1,6 @@
-use edr_evm::evm::{
+use edr_evm::{
+    evm::{Frame, FrameOrResultGen},
     interpreter::{CallInputs, FrameInput},
-    Frame,
 };
 
 use super::{ConsoleLogCollectorMutGetter, CONSOLE_ADDRESS};
@@ -34,11 +34,8 @@ where
     FrameT: for<'context> Frame<Context<'context> = ContextT, FrameInit = FrameInput>,
 {
     type Context<'context> = ContextT;
-
     type FrameInit = FrameT::FrameInit;
-
     type FrameResult = FrameT::FrameResult;
-
     type Error = FrameT::Error;
 
     fn init_first(

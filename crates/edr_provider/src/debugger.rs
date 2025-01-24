@@ -4,7 +4,7 @@ use edr_eth::spec::HaltReasonTrait;
 use edr_evm::{state::Database, trace::TraceCollector};
 
 use crate::{
-    console_log::{register_console_log_handles, ConsoleLogCollector},
+    console_log::ConsoleLogCollector,
     mock::{register_mocking_handles, Mocker},
 };
 
