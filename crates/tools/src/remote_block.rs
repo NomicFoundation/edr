@@ -56,7 +56,7 @@ where
             >,
             SignedTransaction: Default
                                    + TransactionValidation<
-                ValidationError: From<InvalidTransaction> + Send + Sync,
+                ValidationError: From<l1::InvalidTransaction> + Send + Sync,
             >,
         >,
 {

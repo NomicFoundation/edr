@@ -23,6 +23,7 @@ use crate::{
     transaction::TransactionError,
 };
 
+/// An EVM specification for L1 chains, given the provided context.
 pub struct L1EvmSpec<ContextT> {
     phantom: PhantomData<ContextT>,
 }

@@ -7,12 +7,12 @@
 
 pub use crate::{
     block::*,
-    debug::ContextExtension,
     debug_trace::{
         debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
         DebugTraceError, DebugTraceLogItem, DebugTraceResult, DebugTraceResultWithTraces,
         TracerEip3155,
     },
+    extension::ContextExtension,
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,
     random::RandomHashGenerator,
@@ -26,12 +26,13 @@ pub mod blockchain;
 pub(crate) mod collections;
 /// Types for configuring the runtime.
 pub mod config;
-mod debug;
 mod debug_trace;
 /// Types for interfacing with the evm.
 pub mod evm;
+mod extension;
 /// Types for Ethereum hardforks
 pub mod hardfork;
+/// Types for EVM instructions
 pub mod instruction;
 /// Types for managing Ethereum mem pool
 pub mod mempool;

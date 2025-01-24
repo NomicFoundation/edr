@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    result::InvalidTransaction,
+    l1,
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
@@ -88,7 +88,7 @@ impl<
             BlockEnv: Default,
             SignedTransaction: Default
                                    + TransactionValidation<
-                ValidationError: From<InvalidTransaction> + PartialEq,
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,
@@ -156,7 +156,7 @@ impl<
                                    + TransactionMut
                                    + TransactionType<Type: IsEip4844>
                                    + TransactionValidation<
-                ValidationError: From<InvalidTransaction> + PartialEq,
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,

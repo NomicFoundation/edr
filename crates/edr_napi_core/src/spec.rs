@@ -50,7 +50,7 @@ pub trait SyncNapiSpec:
                            + TransactionMut
                            + TransactionType<Type: IsEip4844>
                            + TransactionValidation<
-        ValidationError: From<InvalidTransaction> + PartialEq,
+        ValidationError: From<l1::InvalidTransaction> + PartialEq,
     >,
 >
 {

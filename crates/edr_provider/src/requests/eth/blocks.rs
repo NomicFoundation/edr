@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
-    result::InvalidTransaction,
+    l1,
     transaction::{ExecutableTransaction as _, TransactionValidation},
     BlockSpec, PreEip1898BlockSpec, B256, U256, U64,
 };
@@ -54,7 +54,7 @@ pub fn handle_get_block_by_number_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -100,7 +100,7 @@ pub fn handle_get_block_transaction_count_by_block_number<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -133,7 +133,7 @@ fn block_by_number<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

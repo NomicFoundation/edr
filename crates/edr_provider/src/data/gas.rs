@@ -3,19 +3,19 @@ use std::sync::Arc;
 
 use edr_eth::{
     block::Header,
+    l1,
     receipt::ReceiptTrait as _,
-    result::{ExecutionResult, InvalidTransaction},
+    result::ExecutionResult,
     reward_percentile::RewardPercentile,
-    transaction::{Transaction as _, TransactionMut, TransactionValidation},
+    transaction::{ExecutableTransaction as _, TransactionMut, TransactionValidation},
     Address, HashMap, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
-    precompile::Precompile,
     spec::SyncRuntimeSpec,
     state::{StateError, StateOverrides, SyncState},
-    trace::{register_trace_collector_handles, TraceCollector},
+    trace::TraceCollector,
     Block as _, BlockReceipts, ContextExtension,
 };
 use itertools::Itertools;
@@ -50,7 +50,7 @@ where
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
-                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
 {
     let CheckGasLimitArgs {
@@ -112,7 +112,7 @@ where
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
-                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
 {
     const MAX_ITERATIONS: usize = 20;

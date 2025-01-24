@@ -7,7 +7,7 @@ use revm_interpreter::{interpreter::EthInterpreter, Interpreter};
 use super::TracerEip3155;
 use crate::{
     blockchain::BlockHash,
-    debug::ExtendedContext,
+    extension::ExtendedContext,
     instruction::InspectsInstructionWithJournal,
     state::{DatabaseComponents, State, WrapDatabaseRef},
     trace::{TraceCollector, TraceCollectorContext, TraceCollectorMutGetter},
@@ -19,16 +19,14 @@ pub trait Eip3155TracerMutGetter {
     fn eip3155_tracer_mut(&mut self) -> &mut TracerEip3155;
 }
 
-impl<'tracer, BlockchainT, StateT> Eip3155TracerMutGetter
-    for Eip3155TracerContext<'tracer, BlockchainT, StateT>
-{
+impl<BlockchainT, StateT> Eip3155TracerMutGetter for Eip3155TracerContext<'_, BlockchainT, StateT> {
     fn eip3155_tracer_mut(&mut self) -> &mut TracerEip3155 {
         self.tracer
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> Eip3155TracerMutGetter
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> Eip3155TracerMutGetter
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     OuterContextT: Eip3155TracerMutGetter,
 {
@@ -53,11 +51,8 @@ impl<'tracer, BlockchainT, StateT> Eip3155TracerContext<'tracer, BlockchainT, St
     }
 }
 
-impl<
-        'tracer,
-        BlockchainT: BlockHash<Error: std::error::Error>,
-        StateT: State<Error: std::error::Error>,
-    > InspectsInstructionWithJournal for Eip3155TracerContext<'tracer, BlockchainT, StateT>
+impl<BlockchainT: BlockHash<Error: std::error::Error>, StateT: State<Error: std::error::Error>>
+    InspectsInstructionWithJournal for Eip3155TracerContext<'_, BlockchainT, StateT>
 {
     // TODO: Make this chain-agnostic
     type InterpreterTypes = EthInterpreter;
@@ -101,8 +96,8 @@ impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
     }
 }
 
-impl<'tracer, BlockchainT, HaltReasonT, StateT> Eip3155TracerMutGetter
-    for Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
+impl<BlockchainT, HaltReasonT, StateT> Eip3155TracerMutGetter
+    for Eip3155AndRawTracersContext<'_, BlockchainT, HaltReasonT, StateT>
 where
     HaltReasonT: HaltReasonTrait,
 {
@@ -111,8 +106,8 @@ where
     }
 }
 
-impl<'tracer, BlockchainT, HaltReasonT, StateT> InspectsInstructionWithJournal
-    for Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
+impl<BlockchainT, HaltReasonT, StateT> InspectsInstructionWithJournal
+    for Eip3155AndRawTracersContext<'_, BlockchainT, HaltReasonT, StateT>
 where
     BlockchainT: BlockHash<Error: std::error::Error>,
     HaltReasonT: HaltReasonTrait,
@@ -145,8 +140,8 @@ where
     }
 }
 
-impl<'tracer, BlockchainT, HaltReasonT, StateT> TraceCollectorMutGetter<HaltReasonT>
-    for Eip3155AndRawTracersContext<'tracer, BlockchainT, HaltReasonT, StateT>
+impl<BlockchainT, HaltReasonT, StateT> TraceCollectorMutGetter<HaltReasonT>
+    for Eip3155AndRawTracersContext<'_, BlockchainT, HaltReasonT, StateT>
 where
     HaltReasonT: HaltReasonTrait,
 {

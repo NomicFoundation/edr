@@ -22,8 +22,8 @@ use super::{BlockBuilder, BlockTransactionError};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::{ContextExtension, ExtendedContext},
     dry_run,
+    extension::{ContextExtension, ExtendedContext},
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     runtime::dry_run_with_extension,
     spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},

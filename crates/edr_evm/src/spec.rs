@@ -152,6 +152,7 @@ pub trait RuntimeSpec:
         Output = Self::BlockReceipt
     >;
 
+    /// Type representing an EVM specification for the provided context and error types.
     type Evm<
         BlockchainErrorT,
         ContextT: BlockGetter<Block = Self::BlockEnv>

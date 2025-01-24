@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
+use edr_eth::{l1, transaction::TransactionValidation};
 use tokio::{runtime, sync::Mutex};
 
 use crate::{
@@ -14,7 +14,7 @@ pub fn handle_set_interval_mining<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

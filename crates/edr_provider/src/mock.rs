@@ -2,16 +2,10 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
-use edr_eth::{result::EVMErrorWiring, Address, Bytes};
+use edr_eth::{Address, Bytes};
 use edr_evm::{
-    evm::{
-        handler::register::EvmHandler,
-        interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
-        FrameOrResult, FrameResult,
-    },
-    spec::EvmWiring,
+    evm::interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
     state::Database,
-    GetContextData,
 };
 
 /// The result of executing a call override.

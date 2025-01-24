@@ -8,7 +8,7 @@ use edr_eth::{
     l1::{self, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt as _, TransactionReceipt},
-    result::{ExecutionResult, Output},
+    result::{ExecutionResult, Output, SuccessReason},
     transaction::ExecutableTransaction as _,
     Address, Bytes, HashSet, B256, U256,
 };
@@ -211,7 +211,7 @@ fn insert_dummy_block_with_transaction(
     let receipt_builder = receipt::Builder::new_receipt_builder(state, &transaction)?;
 
     let execution_result = ExecutionResult::Success {
-        reason: l1::SuccessReason::Stop,
+        reason: SuccessReason::Stop,
         gas_used: GAS_USED,
         gas_refunded: 0,
         logs: vec![

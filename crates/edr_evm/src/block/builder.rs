@@ -15,7 +15,7 @@ pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::ExtendedContext,
+    extension::ExtendedContext,
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
     transaction::TransactionError,

@@ -5,11 +5,10 @@ pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
     eips::eip2930,
     l1::L1ChainSpec,
-    result::HaltReason,
     rlp,
     transaction::{
         signed::{FakeSign, Sign},
-        IsSupported, Transaction,
+        ExecutableTransaction, IsSupported,
     },
     Address, Blob, BlockSpec, B256, U256,
 };
@@ -35,7 +34,7 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     type PooledTransaction: HardforkValidationData
         + Into<Self::SignedTransaction>
         + rlp::Decodable
-        + Transaction;
+        + ExecutableTransaction;
 
     /// Type representing a transaction request.
     type TransactionRequest: FakeSign<Signed = Self::SignedTransaction>
@@ -65,13 +64,13 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
         match reason {
-            HaltReason::CreateContractSizeLimit => {
+            Self::HaltReason::CreateContractSizeLimit => {
                 TransactionFailureReason::CreateContractSizeLimit
             }
-            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+            Self::HaltReason::OpcodeNotFound | Self::HaltReason::InvalidFEOpcode => {
                 TransactionFailureReason::OpcodeNotFound
             }
-            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+            Self::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
             remainder => TransactionFailureReason::Inner(remainder),
         }
     }

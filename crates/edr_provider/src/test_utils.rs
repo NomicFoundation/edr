@@ -5,10 +5,8 @@ use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
     block::BlobGas,
-    l1::L1ChainSpec,
-    result::InvalidTransaction,
+    l1::{self, L1ChainSpec},
     signature::secret_key_from_str,
-    spec::HardforkTrait,
     transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, KECCAK_EMPTY, U160, U256,
@@ -35,7 +33,7 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
-pub fn create_test_config<HardforkT: HardforkTrait>() -> ProviderConfig<HardforkT> {
+pub fn create_test_config<HardforkT>() -> ProviderConfig<HardforkT> {
     create_test_config_with_fork(None)
 }
 
@@ -43,7 +41,7 @@ pub fn one_ether() -> U256 {
     U256::from(10).pow(U256::from(18))
 }
 
-pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
+pub fn create_test_config_with_fork<HardforkT>(
     fork: Option<ForkConfig>,
 ) -> ProviderConfig<HardforkT> {
     ProviderConfig {
@@ -93,7 +91,7 @@ pub fn pending_base_fee<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

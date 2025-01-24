@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::{address, result::EVMErrorWiring, Address, Bytes};
-use edr_evm::{
-    evm::{handler::register::EvmHandler, FrameOrResult},
-    GetContextData,
-};
+use edr_eth::{address, Address, Bytes};
 
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
 

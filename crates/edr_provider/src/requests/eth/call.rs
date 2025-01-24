@@ -1,6 +1,5 @@
 use edr_eth::{
     l1,
-    result::InvalidTransaction,
     transaction::{signed::FakeSign as _, TransactionValidation},
     BlockSpec, Bytes, U256,
 };
@@ -21,7 +20,7 @@ pub fn handle_call_request<
         SignedTransaction: Clone
                                + Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -73,7 +72,7 @@ pub(crate) fn resolve_call_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

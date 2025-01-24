@@ -1,7 +1,6 @@
 use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
     signature::public_key_to_address,
-    spec::HardforkTrait,
     Address, HashMap, KECCAK_EMPTY,
 };
 use indexmap::IndexMap;
@@ -13,9 +12,7 @@ pub(super) struct InitialAccounts {
     pub genesis_state: HashMap<Address, Account>,
 }
 
-pub(super) fn create_accounts<HardforkT: HardforkTrait>(
-    config: &Provider<HardforkT>,
-) -> InitialAccounts {
+pub(super) fn create_accounts<HardforkT>(config: &Provider<HardforkT>) -> InitialAccounts {
     let mut local_accounts = IndexMap::default();
 
     let genesis_state = config

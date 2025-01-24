@@ -56,7 +56,9 @@ pub trait CustomPrecompilesProvider {
 
 /// A context that contains custom precompiles.
 pub struct ContextWithCustomPrecompiles<ContextT> {
+    /// The type of the context.
     pub context: ContextT,
+    /// The custom precompiles.
     pub custom_precompiles: HashMap<Address, PrecompileFn>,
 }
 

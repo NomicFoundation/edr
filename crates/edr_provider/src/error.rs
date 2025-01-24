@@ -3,11 +3,8 @@ use std::num::TryFromIntError;
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
-    filter::SubscriptionType,
-    hex, l1,
-    result::{ExecutionResult, HaltReason, OutOfGasError},
-    spec::HaltReasonTrait,
-    Address, BlockSpec, BlockTag, Bytes, B256, U256,
+    filter::SubscriptionType, hex, l1, result::ExecutionResult, spec::HaltReasonTrait, Address,
+    BlockSpec, BlockTag, Bytes, B256, U256,
 };
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
@@ -151,7 +148,7 @@ where
     /// Error while running a transaction
     #[error(transparent)]
     RunTransaction(
-        #[from] TransactionError<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+        #[from] TransactionError<BlockchainErrorForChainSpec<ChainSpecT>, ChainSpecT, StateError>,
     ),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
@@ -454,20 +451,20 @@ pub enum TransactionFailureReason<HaltReasonT: HaltReasonTrait> {
     CreateContractSizeLimit,
     Inner(HaltReasonT),
     OpcodeNotFound,
-    OutOfGas(OutOfGasError),
+    OutOfGas(l1::OutOfGasError),
     Revert(Bytes),
 }
 
-impl From<HaltReason> for TransactionFailureReason<HaltReason> {
-    fn from(value: HaltReason) -> Self {
+impl From<l1::HaltReason> for TransactionFailureReason<l1::HaltReason> {
+    fn from(value: l1::HaltReason) -> Self {
         match value {
-            HaltReason::CreateContractSizeLimit => {
+            l1::HaltReason::CreateContractSizeLimit => {
                 TransactionFailureReason::CreateContractSizeLimit
             }
-            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+            l1::HaltReason::OpcodeNotFound | l1::HaltReason::InvalidFEOpcode => {
                 TransactionFailureReason::OpcodeNotFound
             }
-            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+            l1::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
             halt => TransactionFailureReason::Inner(halt),
         }
     }

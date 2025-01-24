@@ -1,6 +1,6 @@
 use edr_eth::{
-    result::InvalidTransaction, transaction::TransactionValidation, utils::u256_to_padded_hex,
-    Address, BlockSpec, Bytes, U256,
+    l1, transaction::TransactionValidation, utils::u256_to_padded_hex, Address, BlockSpec, Bytes,
+    U256,
 };
 
 use crate::{
@@ -14,7 +14,7 @@ pub fn handle_get_balance_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -36,7 +36,7 @@ pub fn handle_get_code_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -58,7 +58,7 @@ pub fn handle_get_storage_at_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

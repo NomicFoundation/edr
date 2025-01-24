@@ -12,6 +12,7 @@ pub use revm_interpreter::{Host, Interpreter, InterpreterTypes};
 
 /// A trait for instructions that can be inspected.
 pub trait InspectsInstruction {
+    /// The type of interpreter-specific types.
     type InterpreterTypes: InterpreterTypes;
 
     /// Called before the instruction is executed.
@@ -23,7 +24,10 @@ pub trait InspectsInstruction {
 
 /// A trait for instructions that can be inspected with a provided journal.
 pub trait InspectsInstructionWithJournal {
+    /// The type of interpreter-specific types.
     type InterpreterTypes: InterpreterTypes;
+
+    /// The type of journal.
     type Journal;
 
     /// Called before the instruction is executed.
@@ -89,6 +93,7 @@ where
     }
 }
 
+/// A provider for [`InspectableInstruction`]s.
 #[derive_where(Clone)]
 pub struct InspectableInstructionProvider<HostT, InterpreterTypesT, ProviderT>
 where

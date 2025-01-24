@@ -4,10 +4,7 @@ use edr_eth::{
     transaction::{pooled::PooledTransaction, ExecutableTransaction},
     Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE, U256,
 };
-use edr_evm::{
-    spec::RuntimeSpec,
-    transaction::{self, Transaction},
-};
+use edr_evm::{spec::RuntimeSpec, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
@@ -94,7 +91,7 @@ impl HardforkValidationData for PooledTransaction {
     }
 
     fn max_priority_fee_per_gas(&self) -> Option<&U256> {
-        Transaction::max_priority_fee_per_gas(self)
+        ExecutableTransaction::max_priority_fee_per_gas(self)
     }
 
     fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {

@@ -1,7 +1,6 @@
 use edr_eth::{
     fee_history::FeeHistoryResult,
     l1,
-    result::InvalidTransaction,
     reward_percentile::RewardPercentile,
     transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
     BlockSpec, U256, U64,
@@ -23,7 +22,7 @@ pub fn handle_estimate_gas<
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -62,7 +61,7 @@ pub fn handle_fee_history<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -125,7 +124,7 @@ fn resolve_estimate_gas_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -189,7 +188,7 @@ fn resolve_estimate_gas_request<
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction::Transaction as _, BlockTag};
+    use edr_eth::{transaction::ExecutableTransaction as _, BlockTag};
     use edr_rpc_eth::CallRequest;
     use l1::L1ChainSpec;
 

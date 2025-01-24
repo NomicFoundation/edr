@@ -1,18 +1,16 @@
 use edr_eth::{
-    block::Header,
-    result::{ExecutionResult, InvalidTransaction},
-    transaction::TransactionValidation,
-    Address, HashMap, U256,
+    block::Header, l1, result::ExecutionResult, transaction::TransactionValidation, Address,
+    HashMap, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     guaranteed_dry_run,
-    precompile::Precompile,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{StateError, StateOverrides, StateRefOverrider, SyncState},
     ContextExtension,
 };
+use revm_precompile::PrecompileFn;
 
 use crate::ProviderError;
 
@@ -20,7 +18,7 @@ pub(super) struct RunCallArgs<
     'a,
     'evm,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
     DebugDataT,
 > where
@@ -34,7 +32,7 @@ pub(super) struct RunCallArgs<
     pub cfg_env: CfgEnv,
     pub hardfork: ChainSpecT::Hardfork,
     pub transaction: ChainSpecT::SignedTransaction,
-    pub precompiles: &'a HashMap<Address, Precompile>,
+    pub precompiles: &'a HashMap<Address, PrecompileFn>,
     // `DebugContext` cannot be simplified further
     #[allow(clippy::type_complexity)]
     pub debug_context: Option<
@@ -57,7 +55,7 @@ where
     ChainSpecT: SyncRuntimeSpec<
         BlockEnv: Default,
         SignedTransaction: Default
-                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
 {
     let RunCallArgs {
@@ -74,7 +72,7 @@ where
 
     // `eth_call` uses a base fee of zero to mimick geth's behavior
     let mut header = header.clone();
-    header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
+    header.base_fee_per_gas = header.base_fee_per_gas.map(|_| 0);
 
     let block = ChainSpecT::BlockEnv::new_block_env(&header, hardfork.into());
 

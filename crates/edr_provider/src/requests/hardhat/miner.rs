@@ -1,4 +1,4 @@
-use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
+use edr_eth::{l1, transaction::TransactionValidation};
 
 use crate::{
     data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
@@ -11,7 +11,7 @@ pub fn handle_interval_mine_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -27,7 +27,7 @@ pub fn handle_mine<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

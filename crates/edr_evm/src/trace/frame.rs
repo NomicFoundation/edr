@@ -8,7 +8,7 @@ use revm_handler_interface::{Frame, FrameOrResultGen};
 use super::{context::TraceCollectorMutGetter, TraceCollector};
 use crate::{
     blockchain::BlockHash,
-    debug::ExtendedContext,
+    extension::ExtendedContext,
     state::{DatabaseComponents, State, WrapDatabaseRef},
 };
 
@@ -27,9 +27,9 @@ pub trait JournalAndTraceCollectorGetter<HaltReasonT: HaltReasonTrait> {
     ) -> JournalAndTraceCollector<'_, Self::Journal, HaltReasonT>;
 }
 
-impl<'context, HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
+impl<HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
     JournalAndTraceCollectorGetter<HaltReasonT>
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: JournalGetter,
     OuterContextT: TraceCollectorMutGetter<HaltReasonT>,
@@ -46,6 +46,7 @@ where
     }
 }
 
+/// An EVM frame used to collect raw traces.
 pub struct TraceCollectorFrame<FrameT: Frame, HaltReasonT: HaltReasonTrait> {
     inner: FrameT,
     _phantom: PhantomData<HaltReasonT>,
@@ -77,10 +78,10 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, Ha
 
         match result {
             FrameResult::Call(outcome) => {
-                trace_collector.call_end(journal, outcome);
+                trace_collector.notify_call_end(journal, outcome);
             }
             FrameResult::Create(outcome) => {
-                trace_collector.create_end(journal, outcome);
+                trace_collector.notify_create_end(journal, outcome);
             }
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameResult::EOFCreate(_outcome) => unreachable!("EDR doesn't support EOF yet."),
@@ -105,8 +106,8 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, Ha
         } = context.journal_and_trace_collector_mut();
 
         match frame_input {
-            FrameInput::Call(inputs) => trace_collector.call(journal, inputs),
-            FrameInput::Create(inputs) => trace_collector.create(journal, inputs),
+            FrameInput::Call(inputs) => trace_collector.notify_call_start(journal, inputs),
+            FrameInput::Create(inputs) => trace_collector.notify_create_start(journal, inputs),
             // TODO: https://github.com/NomicFoundation/edr/issues/427
             FrameInput::EOFCreate(_inputs) => unreachable!("EDR doesn't support EOF yet."),
         }
@@ -146,9 +147,8 @@ where
         let result =
             FrameT::init_first(context, frame_input).map(|frame| frame.map_frame(Self::new));
 
-        match &result {
-            Ok(FrameOrResultGen::Result(result)) => Self::notify_frame_end(context, result),
-            _ => (),
+        if let Ok(FrameOrResultGen::Result(result)) = &result {
+            Self::notify_frame_end(context, result);
         }
 
         result

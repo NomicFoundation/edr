@@ -7,7 +7,7 @@ use revm_interpreter::{interpreter::EthInterpreter, Interpreter};
 use super::TraceCollector;
 use crate::{
     blockchain::BlockHash,
-    debug::ExtendedContext,
+    extension::ExtendedContext,
     instruction::InspectsInstructionWithJournal,
     state::{DatabaseComponents, State, WrapDatabaseRef},
 };
@@ -18,17 +18,16 @@ pub trait TraceCollectorMutGetter<HaltReasonT: HaltReasonTrait> {
     fn trace_collector_mut(&mut self) -> &mut TraceCollector<HaltReasonT>;
 }
 
-impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
-    TraceCollectorMutGetter<HaltReasonT>
-    for TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>
+impl<BlockchainT, HaltReasonT: HaltReasonTrait, StateT> TraceCollectorMutGetter<HaltReasonT>
+    for TraceCollectorContext<'_, BlockchainT, HaltReasonT, StateT>
 {
     fn trace_collector_mut(&mut self) -> &mut TraceCollector<HaltReasonT> {
         self.collector
     }
 }
 
-impl<'context, HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
-    TraceCollectorMutGetter<HaltReasonT> for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<HaltReasonT: HaltReasonTrait, InnerContextT, OuterContextT>
+    TraceCollectorMutGetter<HaltReasonT> for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     OuterContextT: TraceCollectorMutGetter<HaltReasonT>,
 {
@@ -37,6 +36,7 @@ where
     }
 }
 
+/// An EVM context that can be used to collect raw traces.
 pub struct TraceCollectorContext<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT> {
     collector: &'tracer mut TraceCollector<HaltReasonT>,
     phantom: PhantomData<(BlockchainT, StateT)>,
@@ -55,12 +55,11 @@ impl<'tracer, BlockchainT, HaltReasonT: HaltReasonTrait, StateT>
 }
 
 impl<
-        'tracer,
         BlockchainT: BlockHash<Error: std::error::Error>,
         HaltReasonT: HaltReasonTrait,
         StateT: State<Error: std::error::Error>,
     > InspectsInstructionWithJournal
-    for TraceCollectorContext<'tracer, BlockchainT, HaltReasonT, StateT>
+    for TraceCollectorContext<'_, BlockchainT, HaltReasonT, StateT>
 {
     // TODO: Make this chain-agnostic
     type InterpreterTypes = EthInterpreter;
@@ -71,7 +70,7 @@ impl<
         interpreter: &Interpreter<Self::InterpreterTypes>,
         journal: &Self::Journal,
     ) {
-        self.collector.step(interpreter, journal);
+        self.collector.notify_step_start(interpreter, journal);
     }
 
     fn after_instruction_with_journal(

@@ -1,8 +1,6 @@
 use std::num::NonZeroU64;
 
-use edr_eth::{
-    block::BlockOptions, result::InvalidTransaction, transaction::TransactionValidation, U64,
-};
+use edr_eth::{block::BlockOptions, l1, transaction::TransactionValidation, U64};
 
 use crate::{
     data::ProviderData,
@@ -30,7 +28,7 @@ pub fn handle_mine_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

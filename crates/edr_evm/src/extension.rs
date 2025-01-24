@@ -10,24 +10,6 @@ use revm_interpreter::{Host, Interpreter, SStoreResult, SelfDestructResult, Stat
 
 use crate::instruction::{InspectsInstruction, InspectsInstructionWithJournal};
 
-// /// Type for registering handles, specialised for EDR database component
-// types. pub type HandleRegister<'evm, ChainSpecT, BlockchainErrorT,
-// DebugDataT, StateT> =     revm::handler::register::HandleRegister<
-//         <ChainSpecT as RuntimeSpec>::EvmWiring<
-//             WrapDatabaseRef<
-//                 DatabaseComponents<
-//                     &'evm dyn SyncBlockchain<
-//                         ChainSpecT,
-//                         BlockchainErrorT,
-//                         <StateT as State>::Error,
-//                     >,
-//                     StateT,
-//                 >,
-//             >,
-//             DebugDataT,
-//         >,
-//     >;
-
 pub struct ExtendedContext<'context, InnerContextT, OuterContextT> {
     pub inner: InnerContextT,
     pub extension: &'context mut OuterContextT,
@@ -42,8 +24,7 @@ impl<'context, InnerContextT, OuterContextT>
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> BlockGetter
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> BlockGetter for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: BlockGetter,
 {
@@ -54,18 +35,16 @@ where
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> BlockSetter
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> BlockSetter for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: BlockSetter,
 {
     fn set_block(&mut self, block: <Self as BlockGetter>::Block) {
-        self.inner.set_block(block)
+        self.inner.set_block(block);
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> CfgGetter
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> CfgGetter for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: CfgGetter,
 {
@@ -76,8 +55,8 @@ where
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> DatabaseGetter
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> DatabaseGetter
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: DatabaseGetter,
 {
@@ -92,8 +71,7 @@ where
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> ErrorGetter
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> ErrorGetter for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: ErrorGetter,
 {
@@ -104,8 +82,8 @@ where
     }
 }
 
-impl<'context, InnerContextT: Host, OuterContextT> Host
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT: Host, OuterContextT> Host
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
 {
     fn load_account_delegated(&mut self, address: Address) -> Option<StateLoad<AccountLoad>> {
         self.inner.load_account_delegated(address)
@@ -145,11 +123,11 @@ impl<'context, InnerContextT: Host, OuterContextT> Host
     }
 
     fn tstore(&mut self, address: Address, index: U256, value: U256) {
-        self.inner.tstore(address, index, value)
+        self.inner.tstore(address, index, value);
     }
 
     fn log(&mut self, log: ExecutionLog) {
-        self.inner.log(log)
+        self.inner.log(log);
     }
 
     fn selfdestruct(
@@ -161,8 +139,8 @@ impl<'context, InnerContextT: Host, OuterContextT> Host
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> InspectsInstruction
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> InspectsInstruction
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: JournalGetter<Journal: Journal<Entry = JournalEntry>>,
     OuterContextT: InspectsInstructionWithJournal<Journal = InnerContextT::Journal>,
@@ -183,8 +161,8 @@ where
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> JournalGetter
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> JournalGetter
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: JournalGetter,
 {
@@ -199,8 +177,8 @@ where
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> PerformantContextAccess
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> PerformantContextAccess
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: PerformantContextAccess,
 {
@@ -211,8 +189,8 @@ where
     }
 }
 
-impl<'context, InnerContextT, OuterContextT> TransactionGetter
-    for ExtendedContext<'context, InnerContextT, OuterContextT>
+impl<InnerContextT, OuterContextT> TransactionGetter
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
     InnerContextT: TransactionGetter,
 {
@@ -242,18 +220,13 @@ impl<ExtensionT, FrameT> ContextExtension<ExtensionT, FrameT> {
     }
 
     /// Extends the provided context.
-    pub fn extend_context<'context, ContextT>(
-        &'context mut self,
+    pub fn extend_context<ContextT>(
+        &mut self,
         inner: ContextT,
-    ) -> ExtendedContext<'context, ContextT, ExtensionT> {
+    ) -> ExtendedContext<'_, ContextT, ExtensionT> {
         ExtendedContext {
             inner,
             extension: &mut self.extension,
         }
     }
 }
-
-// pub type NoopContextConstructor<BlockchainT, ChainSpecT, StateT> =
-//     fn(
-//         ContextForChainSpec<BlockchainT, ChainSpecT, StateT>,
-//     ) -> ContextForChainSpec<BlockchainT, ChainSpecT, StateT>;

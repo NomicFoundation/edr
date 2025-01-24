@@ -24,15 +24,15 @@ use edr_eth::{
     l1,
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait as _},
-    result::{ExecutionResult, InvalidTransaction},
+    result::ExecutionResult,
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
-        ExecutableTransaction, IsEip4844, IsSupported as _, Transaction as _, TransactionMut,
-        TransactionType, TransactionValidation,
+        ExecutableTransaction, ExecutableTransaction as _, IsEip4844, IsSupported as _,
+        TransactionMut, TransactionType, TransactionValidation,
     },
     Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet, B256,
     KECCAK_EMPTY, U256,
@@ -49,8 +49,6 @@ use edr_evm::{
     config::CfgEnv,
     debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction,
-    precompile::Precompile,
-    register_eip_3155_and_raw_tracers_handles,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
@@ -58,8 +56,8 @@ use edr_evm::{
     },
     trace::Trace,
     transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, ContextExtension,
-    DebugTraceConfig, DebugTraceResultWithTraces, Eip3155AndRawTracersContext, MemPool,
-    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
+    DebugTraceConfig, DebugTraceResultWithTraces, MemPool, MineBlockResultAndState,
+    OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -69,7 +67,7 @@ use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
-use revm_precompile::secp256r1;
+use revm_precompile::{secp256r1, PrecompileFn};
 use rpds::HashTrieMapSync;
 use tokio::runtime;
 
@@ -216,7 +214,7 @@ pub struct ProviderData<
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT>,
     beneficiary: Address,
-    custom_precompiles: HashMap<Address, Precompile>,
+    custom_precompiles: HashMap<Address, PrecompileFn>,
     min_gas_price: U256,
     parent_beacon_block_root_generator: RandomHashGenerator,
     prev_randao_generator: RandomHashGenerator,
@@ -1698,7 +1696,7 @@ where
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
 
@@ -2280,7 +2278,7 @@ where
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -2384,7 +2382,7 @@ where
         BlockEnv: Clone + Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
 
@@ -2476,7 +2474,7 @@ where
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
 

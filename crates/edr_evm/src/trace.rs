@@ -192,7 +192,8 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         }
     }
 
-    pub fn call<
+    /// Notifies the trace collector that a call is starting.
+    pub fn notify_call_start<
         BlockchainT: BlockHash<Error: std::error::Error>,
         StateT: State<Error: std::error::Error>,
         FinalOutputT,
@@ -253,7 +254,8 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    pub fn call_end<
+    /// Notifies the trace collector that a call has ended.
+    pub fn notify_call_end<
         BlockchainT: BlockHash<Error: std::error::Error>,
         StateT: State<Error: std::error::Error>,
         FinalOutputT,
@@ -316,7 +318,8 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    pub fn create<
+    /// Notifies the trace collector that a create is starting.
+    pub fn notify_create_start<
         BlockchainT: BlockHash<Error: std::error::Error>,
         StateT: State<Error: std::error::Error>,
         FinalOutputT,
@@ -348,7 +351,8 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    pub fn create_end<
+    /// Notifies the trace collector that a create has ended.
+    pub fn notify_create_end<
         BlockchainT: BlockHash<Error: std::error::Error>,
         StateT: State<Error: std::error::Error>,
         FinalOutputT,
@@ -401,11 +405,13 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
+    /// Finishes the current trace.
     pub fn finish_trace(&mut self) {
         self.is_new_trace = true;
     }
 
-    pub fn step<
+    /// Notifies the trace collector that a step has started.
+    pub fn notify_step_start<
         BlockchainT: BlockHash<Error: std::error::Error>,
         StateT: State<Error: std::error::Error>,
         FinalOutputT,

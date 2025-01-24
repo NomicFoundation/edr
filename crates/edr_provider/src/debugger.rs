@@ -1,13 +1,7 @@
 use core::fmt::Debug;
 
 use edr_eth::spec::HaltReasonTrait;
-use edr_evm::{
-    evm::handler::register::EvmHandler,
-    spec::EvmWiring,
-    state::Database,
-    trace::{register_trace_collector_handles, TraceCollector},
-    GetContextData,
-};
+use edr_evm::{state::Database, trace::TraceCollector};
 
 use crate::{
     console_log::{register_console_log_handles, ConsoleLogCollector},

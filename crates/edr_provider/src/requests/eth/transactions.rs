@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    result::InvalidTransaction,
+    l1,
     rlp::Decodable,
     transaction::{
-        request::TransactionRequestAndSender, IsEip155, IsEip4844, Transaction as _,
+        request::TransactionRequestAndSender, ExecutableTransaction as _, IsEip155, IsEip4844,
         TransactionType, TransactionValidation, INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Bytes, PreEip1898BlockSpec, B256, U256,
@@ -54,7 +54,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -172,7 +172,7 @@ pub fn handle_send_transaction_request<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -198,7 +198,7 @@ pub fn handle_send_raw_transaction_request<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
         PooledTransaction: IsEip155,
     >,
@@ -233,7 +233,7 @@ fn send_raw_transaction_and_log<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

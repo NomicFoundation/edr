@@ -11,8 +11,8 @@ use revm_interpreter::FrameInput;
 use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
-    debug::{ContextExtension, ExtendedContext},
     evm::{EvmSpec, EvmSpecForDefaultContext, EvmSpecForExtendedContext},
+    extension::{ContextExtension, ExtendedContext},
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
     transaction::TransactionError,
@@ -233,7 +233,7 @@ where
 //     BlockchainT: BlockHash<Error: Send + std::error::Error> + 'database,
 //     ChainSpecT: RuntimeSpec<
 //         SignedTransaction: TransactionValidation<ValidationError:
-// From<InvalidTransaction>>,     >,
+// From<l1::InvalidTransaction>>,     >,
 //     FrameT: for<'context> Frame<
 //         Context<'context> = ExtendedContext<
 //             ContextForChainSpec<

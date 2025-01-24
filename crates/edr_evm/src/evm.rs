@@ -1,3 +1,4 @@
+/// EVM specification for L1 chains.
 pub mod l1;
 
 use edr_eth::{log::ExecutionLog, result::ExecutionResultAndState, spec::ChainSpec};
@@ -28,7 +29,7 @@ use revm_interpreter::{
 use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
-    debug::ExtendedContext,
+    extension::ExtendedContext,
     instruction::InspectableInstruction,
     result::EVMErrorForChain,
     spec::{ContextForChainSpec, RuntimeSpec},
@@ -36,6 +37,7 @@ use crate::{
     transaction::TransactionError,
 };
 
+/// Helper type for a chain-specific [`Evm`] with a default [`revm::Context`].
 pub type EvmForChainSpec<'context, BlockchainT, ChainSpecT, StateT> = revm::Evm<
     'context,
     EVMErrorForChain<ChainSpecT, <BlockchainT as BlockHash>::Error, <StateT as State>::Error>,
@@ -67,6 +69,7 @@ pub type EvmSpecForExtendedContext<'context, BlockchainT, ChainSpecT, ExtensionT
         <StateT as State>::Error,
     >;
 
+/// Helper type for a chain-specific [`revm::Context`].
 pub type EvmContextForChainSpec<BlockchainT, ChainSpecT, StateT> = revm::Context<
     <ChainSpecT as ChainSpec>::BlockEnv,
     <ChainSpecT as ChainSpec>::SignedTransaction,
@@ -76,23 +79,23 @@ pub type EvmContextForChainSpec<BlockchainT, ChainSpecT, StateT> = revm::Context
     <ChainSpecT as ChainSpec>::Context,
 >;
 
+/// Trait for a chain-specific EVM specification with the provided context.
 pub trait EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>
 where
     ChainSpecT: ChainSpec,
-    ContextT: TransactionGetter
-        + BlockGetter
-        + JournalGetter
+    ContextT: BlockGetter
         + CfgGetter
         + DatabaseGetter<
             Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
         > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+        + Host
         + JournalGetter<
             Journal: Journal<
                 FinalOutput = (EvmState, Vec<ExecutionLog>),
                 Database = <ContextT as DatabaseGetter>::Database,
             >,
-        > + Host
-        + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        > + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+        + TransactionGetter,
 {
     /// Type representing an EVM validation handler.
     type ValidationHandler: Default

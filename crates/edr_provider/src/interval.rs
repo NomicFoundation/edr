@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
+use edr_eth::{l1, transaction::TransactionValidation};
 use edr_evm::spec::RuntimeSpec;
 use tokio::{
     runtime,
@@ -33,7 +33,7 @@ impl<
             BlockEnv: Default,
             SignedTransaction: Default
                                    + TransactionValidation<
-                ValidationError: From<InvalidTransaction> + PartialEq,
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,
@@ -66,7 +66,7 @@ async fn interval_mining_loop<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

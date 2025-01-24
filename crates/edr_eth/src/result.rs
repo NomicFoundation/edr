@@ -1,3 +1,3 @@
 pub use revm_context_interface::result::{
-    ExecutionResult, Output, ResultAndState as ExecutionResultAndState,
+    ExecutionResult, Output, ResultAndState as ExecutionResultAndState, SuccessReason,
 };

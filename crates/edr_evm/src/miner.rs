@@ -17,7 +17,7 @@ use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::{ContextExtension, ExtendedContext},
+    extension::{ContextExtension, ExtendedContext},
     mempool::OrderedTransaction,
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},

@@ -1,7 +1,7 @@
 use alloy_rlp::RlpEncodable;
 pub use revm_context::BlockEnv;
 pub use revm_context_interface::result::{
-    HaltReason, InvalidHeader, InvalidTransaction, SuccessReason,
+    HaltReason, InvalidHeader, InvalidTransaction, OutOfGasError,
 };
 pub use revm_specification::hardfork::{self, SpecId};
 
