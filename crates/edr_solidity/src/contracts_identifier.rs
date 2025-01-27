@@ -17,22 +17,22 @@ use crate::{
 
 /// Returns true if the `last_byte` is placed right when the metadata starts or
 /// after it.
-fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
+fn is_matching_metadata(code: &[u8], last_byte: usize) -> bool {
     let mut byte = 0;
     while byte < last_byte {
         // It's possible we don't recognize the opcode if it's from an unknown chain, so
         // just return false in that case.
-        let Some(opcode) = OpCode::new(code[byte as usize]) else {
+        let Some(opcode) = OpCode::new(code[byte]) else {
             return false;
         };
 
-        let next = code.get(byte as usize + 1).copied().and_then(OpCode::new);
+        let next = code.get(byte + 1).copied().and_then(OpCode::new);
 
         if opcode == OpCode::REVERT && next == Some(OpCode::INVALID) {
             return true;
         }
 
-        byte += 1 + u32::from(opcode.info().immediate_size());
+        byte += 1 + usize::from(opcode.info().immediate_size());
     }
 
     false
@@ -41,7 +41,7 @@ fn is_matching_metadata(code: &[u8], last_byte: u32) -> bool {
 /// A data structure that allows searching for well-known bytecodes.
 #[derive(Debug)]
 pub struct ContractsIdentifier {
-    trie: BytecodeTrie,
+    trie: BytecodeTrie<Arc<ContractMetadata>>,
     cache: HashMap<Vec<u8>, Arc<ContractMetadata>>,
     enable_cache: bool,
 }
@@ -58,7 +58,7 @@ impl ContractsIdentifier {
         let enable_cache = enable_cache.unwrap_or(true);
 
         ContractsIdentifier {
-            trie: BytecodeTrie::new(None),
+            trie: BytecodeTrie::new_root(),
             cache: HashMap::new(),
             enable_cache,
         }
@@ -91,13 +91,17 @@ impl ContractsIdentifier {
         is_create: bool,
         code: &[u8],
         normalize_libraries: bool,
-        trie: &BytecodeTrie,
-        first_byte_to_search: u32,
+        trie: &BytecodeTrie<Arc<ContractMetadata>>,
+        first_byte_to_search: usize,
     ) -> Option<Arc<ContractMetadata>> {
-        let search_result = match trie.search(code, first_byte_to_search) {
+        let (search_result, diff_index, match_) = match trie.search(code, first_byte_to_search) {
             None => return None,
             Some(TrieSearch::ExactHit(bytecode)) => return Some(bytecode.clone()),
-            Some(TrieSearch::LongestPrefixNode(trie)) => trie,
+            Some(TrieSearch::LongestPrefixNode {
+                node,
+                diff_index,
+                match_,
+            }) => (node, diff_index, match_),
         };
 
         // Deployment messages have their abi-encoded arguments at the end of the
@@ -116,9 +120,9 @@ impl ContractsIdentifier {
         //
         // We take advantage of this last observation, and just return the bytecode that
         // exactly matched the search_result (sub)trie that we got.
-        match &search_result.match_ {
+        match match_ {
             Some(bytecode) if is_create && bytecode.is_deployment => {
-                return Some(bytecode.clone());
+                return Some(bytecode);
             }
             _ => {}
         };
@@ -154,7 +158,7 @@ impl ContractsIdentifier {
                     &normalized_code,
                     false,
                     search_result,
-                    search_result.depth.map_or(0, |depth| depth + 1),
+                    diff_index,
                 );
 
                 if normalized_result.is_some() {
@@ -173,12 +177,11 @@ impl ContractsIdentifier {
         //
         // The reason this works is because there's no chance that Solidity includes an
         // entire bytecode (i.e. with metadata), as a prefix of another one.
-        if let Some(search_depth) = search_result.depth {
-            if is_matching_metadata(code, search_depth) && !search_result.descendants.is_empty() {
-                return Some(
-                    search_result.descendants[search_result.descendants.len() - 1].clone(),
-                );
-            }
+        if !search_result.is_root()
+            && is_matching_metadata(code, diff_index)
+            && !search_result.descendants.is_empty()
+        {
+            return Some(search_result.descendants[search_result.descendants.len() - 1].clone());
         }
 
         None
