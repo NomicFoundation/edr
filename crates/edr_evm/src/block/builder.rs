@@ -177,9 +177,10 @@ impl BlockBuilder {
         if let Some(dao_hardfork_activation_block) = dao_hardfork_activation_block {
             const DAO_FORCE_EXTRA_DATA_RANGE: u64 = 9;
 
-            let drift = header.number - dao_hardfork_activation_block;
             if cfg.handler_cfg.spec_id >= SpecId::DAO_FORK
-                && drift <= DAO_FORCE_EXTRA_DATA_RANGE
+                // Prevent overflow by checking that activation block is smaller
+                && dao_hardfork_activation_block <= header.number
+                && header.number - dao_hardfork_activation_block <= DAO_FORCE_EXTRA_DATA_RANGE
                 && *header.extra_data != DAO_EXTRA_DATA
             {
                 return Err(BlockBuilderCreationError::DaoHardforkInvalidData);
@@ -522,6 +523,8 @@ mod tests {
     use edr_eth::Bytes;
     use revm::primitives::CfgEnv;
 
+    use crate::Block;
+
     #[test]
     fn dao_hardfork_has_extra_data() {
         use edr_eth::block::BlockOptions;
@@ -589,5 +592,34 @@ mod tests {
             block_builder,
             Err(BlockBuilderCreationError::DaoHardforkInvalidData)
         ));
+    }
+
+    #[test]
+    fn dao_hardfork_activation_overflow() {
+        use edr_eth::block::BlockOptions;
+
+        use super::*;
+
+        const DAO_HARDFORK_BLOCK_NUMBER: u64 = 1_920_000;
+
+        // Create a random block header
+        let partial_header = PartialHeader {
+            number: 1,
+            ..PartialHeader::default()
+        };
+
+        let spec_id = SpecId::BYZANTIUM;
+        let parent = LocalBlock::empty(spec_id, partial_header);
+
+        let cfg = CfgEnvWithHandlerCfg::new_with_spec_id(CfgEnv::default(), spec_id);
+        let block_options = BlockOptions {
+            number: Some(parent.header().number + 1),
+            extra_data: Some(Bytes::from(DAO_EXTRA_DATA)),
+            ..BlockOptions::default()
+        };
+
+        let block_builder =
+            BlockBuilder::new(cfg, &parent, block_options, Some(DAO_HARDFORK_BLOCK_NUMBER));
+        assert!(block_builder.is_ok());
     }
 }
