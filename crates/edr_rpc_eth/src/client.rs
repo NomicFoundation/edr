@@ -719,10 +719,7 @@ mod tests {
                 tx.gas,
                 U256::from_str_radix("30d40", 16).expect("couldn't parse data")
             );
-            assert_eq!(
-                tx.gas_price,
-                U256::from_str_radix("1e449a99b8", 16).expect("couldn't parse data")
-            );
+            assert_eq!(tx.gas_price, 0x1e449a99b8);
             assert_eq!(
             tx.input,
             Bytes::from(hex::decode("a9059cbb000000000000000000000000e2c1e729e05f34c07d80083982ccd9154045dcc600000000000000000000000000000000000000000000000000000004a817c800").unwrap())
