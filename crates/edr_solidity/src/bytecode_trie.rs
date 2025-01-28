@@ -60,7 +60,8 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
                 // If there is a mismatch with the prefix of the cursor, we have to add a split
                 // node
                 if new_key_byte != cursor.prefix.key.key()[index] {
-                    let split_node = Self::new_split_node(index, new_item.clone());
+                    let split_node =
+                        Self::new_split_node(index, new_item.clone(), cursor.descendants.len());
                     let node_to_split = std::mem::replace(cursor, split_node);
                     cursor.fill_split_node(node_to_split, new_item.clone());
 
@@ -161,7 +162,11 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
     /// Create a new split node with the split prefix.
     /// Fill it by calling `Self::fill_split_node` on it after swapping it with
     /// the node to split.
-    fn new_split_node(split_index: usize, new_item: T) -> Self {
+    fn new_split_node(
+        split_index: usize,
+        new_item: T,
+        node_to_split_descendant_length: usize,
+    ) -> Self {
         BytecodeTrie {
             prefix: TriePrefix {
                 range_end: split_index,
@@ -170,7 +175,8 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
 
             // These be filled in by calling `Self::fill_split_node`
             child_nodes: HashMap::default(),
-            descendants: Vec::default(),
+            // +1 for the new leaf node
+            descendants: Vec::with_capacity(node_to_split_descendant_length + 1),
             match_: None,
         }
     }
@@ -182,9 +188,9 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
     fn fill_split_node(&mut self, node_to_split: BytecodeTrie<T>, new_item: T) {
         // We use the descendants to keep track of insertion order, so it's
         // important to preserve that order here
-        let mut descendants = Vec::with_capacity(node_to_split.descendants.len() + 1);
-        descendants.extend(node_to_split.descendants.iter().cloned());
-        descendants.push(new_item.clone());
+        self.descendants
+            .extend(node_to_split.descendants.iter().cloned());
+        self.descendants.push(new_item.clone());
 
         let split_index = self.prefix.range_end;
 
@@ -278,6 +284,7 @@ mod tests {
         result: Option<TrieSearch<'_, &'static str>>,
         expected_prefix: &str,
         should_match: bool,
+        descendants_length: usize,
     ) {
         let Some(TrieSearch::LongestPrefixNode {
             node,
@@ -293,6 +300,7 @@ mod tests {
             &node.prefix.key.key()[..node.prefix.range_end],
             expected_prefix.as_bytes()
         );
+        assert_eq!(node.descendants.len(), descendants_length);
     }
 
     #[test]
@@ -330,7 +338,7 @@ mod tests {
     fn test_one_key_prefix() {
         let mut trie = BytecodeTrie::<&'static str>::new_root();
         trie.add("hello");
-        assert_prefix_node(trie.search(b"hellos", 0), "hello", true);
+        assert_prefix_node(trie.search(b"hellos", 0), "hello", true, 1);
         assert_eq!(trie.search(b"hel", 0), None);
         assert_eq!(trie.node_count(), 2);
     }
@@ -400,12 +408,15 @@ mod tests {
             );
         }
 
-        // Expected prefix is leaf
-        assert_prefix_node(trie.search(b"sheepherder", 0), "sheep", true);
+        // Expected prefix is leaf.
+        // Descendants: "sheep"
+        assert_prefix_node(trie.search(b"sheepherder", 0), "sheep", true, 1);
         // Expected prefix is split node with match
-        assert_prefix_node(trie.search(b"shelly", 0), "shell", true);
+        // Descendants: "shell", "shells", "shellfish"
+        assert_prefix_node(trie.search(b"shelly", 0), "shell", true, 3);
         // Expected prefix is split node without match
-        assert_prefix_node(trie.search(b"sharp", 0), "sh", false);
+        // Descendants: "sheep", "shell", "shells", "shellfish", "ship"
+        assert_prefix_node(trie.search(b"sharp", 0), "sh", false, 5);
 
         // Split nodes without match shouldn't match
         assert_eq!(trie.search(b"sh", 0), None);
