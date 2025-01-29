@@ -16,7 +16,7 @@
       "hardhat>@nomicfoundation/edr": "workspace:*"
     },
     "patchedDependencies": {
-      "hardhat@2.22.17": "patches/hardhat@2.22.17.patch"
+      "hardhat@2.22.18": "patches/hardhat@2.22.18.patch"
     }
   },
   "private": true,
