@@ -1,5 +1,13 @@
 # @nomicfoundation/edr
 
+## 0.7.1
+
+### Patch Changes
+
+- 4ffb4f6: fix: ignore unknown opcodes in source maps
+- 5c8c3dd: Fixed crash when loading EDR on Windows without a C Runtime library installed
+- 2b9b805: Improved stack trace generation performance by eliminating one-way branching in the bytecode trie
+
 ## 0.7.0
 
 ### Minor Changes
