@@ -121,14 +121,14 @@ index a92ee83941ff419de44719fe8cf426d3b4d677cf..eddde07c6cd10549e286a0497b2dd286
  function isRunningWithTypescript(config) {
      return isNonEsmTypescriptFile(config.paths.configFile);
 diff --git a/internal/hardhat-network/provider/provider.d.ts b/internal/hardhat-network/provider/provider.d.ts
-index 970671b4888c4739ce919cfb48c724b0c503b49f..d84a89d9fdafc6aed559a8c862eb207fcb25e267 100644
+index 970671b4888c4739ce919cfb48c724b0c503b49f..21f9adc83018dfbc1bb84c8ad66af343d68c3f57 100644
 --- a/internal/hardhat-network/provider/provider.d.ts
 +++ b/internal/hardhat-network/provider/provider.d.ts
 @@ -1,11 +1,11 @@
  /// <reference types="node" />
  import type { Artifacts, EIP1193Provider, HardhatNetworkChainsConfig, RequestArguments } from "../../../types";
 -import type { EdrContext, VMTracer as VMTracerT } from "@nomicfoundation/edr";
-+import type { EdrContext } from "@nomicfoundation/edr";
++import type { EdrContext } from "@ignored/edr-optimism";
  import { EventEmitter } from "events";
  import { ForkConfig, GenesisAccount, IntervalMiningConfig, MempoolOrder, NodeConfig, TracingConfig } from "./node-types";
  import { LoggerConfig } from "./modules/logger";
@@ -180,7 +180,7 @@ index 9df47bce20ca6de26d13a2616bfce48eea655c67..9fc9c7e5dbc89fe10a2bf31d12a5a36e
 +{"version":3,"file":"provider.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":";AAAA,OAAO,KAAK,EACV,SAAS,EACT,eAAe,EAEf,0BAA0B,EAC1B,gBAAgB,EACjB,MAAM,gBAAgB,CAAC;AAExB,OAAO,KAAK,EACV,UAAU,EAKX,MAAM,sBAAsB,CAAC;AAK9B,OAAO,EAAE,YAAY,EAAE,MAAM,QAAQ,CAAC;AAsBtC,OAAO,EACL,UAAU,EACV,cAAc,EACd,oBAAoB,EACpB,YAAY,EACZ,UAAU,EACV,aAAa,EACd,MAAM,cAAc,CAAC;AAWtB,OAAO,EAAE,YAAY,EAA8B,MAAM,kBAAkB,CAAC;AAO5E,eAAO,MAAM,gBAAgB,+CAA+C,CAAC;AAI7E,wBAAsB,mBAAmB,IAAI,OAAO,CAAC,UAAU,CAAC,CAgB/D;AAED,UAAU,4BAA4B;IACpC,QAAQ,EAAE,MAAM,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,CAAC;IAClB,aAAa,EAAE,MAAM,CAAC;IACtB,WAAW,EAAE,MAAM,CAAC;IACpB,QAAQ,EAAE,OAAO,CAAC;IAClB,cAAc,EAAE,oBAAoB,CAAC;IACrC,YAAY,EAAE,YAAY,CAAC;IAC3B,MAAM,EAAE,0BAA0B,CAAC;IACnC,eAAe,EAAE,cAAc,EAAE,CAAC;IAClC,0BAA0B,EAAE,OAAO,CAAC;IACpC,0BAA0B,EAAE,OAAO,CAAC;IACpC,mBAAmB,EAAE,OAAO,CAAC;IAC7B,4BAA4B,EAAE,OAAO,CAAC;IAEtC,oBAAoB,CAAC,EAAE,MAAM,CAAC;IAC9B,WAAW,CAAC,EAAE,IAAI,CAAC;IACnB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,UAAU,CAAC,EAAE,UAAU,CAAC;IACxB,aAAa,CAAC,EAAE,MAAM,CAAC;IACvB,sBAAsB,EAAE,OAAO,CAAC;IAChC,aAAa,EAAE,OAAO,CAAC;CACxB;AAED,wBAAgB,aAAa,CAC3B,MAAM,EAAE,4BAA4B,EACpC,aAAa,CAAC,EAAE,aAAa,GAC5B,UAAU,CAsBZ;AAWD,qBAAa,kBACX,SAAQ,YACR,YAAW,eAAe;IAQxB,OAAO,CAAC,QAAQ,CAAC,SAAS;IAE1B,OAAO,CAAC,QAAQ,CAAC,KAAK;IAItB,OAAO,CAAC,QAAQ,CAAC,OAAO;IAZ1B,OAAO,CAAC,kBAAkB,CAAK;IAG/B,OAAO,CAAC,qBAAqB,CAAC,CAAuB;IAErD,OAAO;WAYa,MAAM,CACxB,MAAM,EAAE,4BAA4B,EACpC,YAAY,EAAE,YAAY,EAC1B,aAAa,CAAC,EAAE,aAAa,GAC5B,OAAO,CAAC,kBAAkB,CAAC;IAmJjB,OAAO,CAAC,IAAI,EAAE,gBAAgB,GAAG,OAAO,CAAC,OAAO,CAAC;YAuIhD,wBAAwB;YAYxB,kBAAkB;IAIhC,OAAO,CAAC,iBAAiB;IASzB,OAAO,CAAC,4BAA4B;IAOpC,OAAO,CAAC,6BAA6B;CAWtC;AAQD,wBAAsB,4BAA4B,CAChD,4BAA4B,EAAE,4BAA4B,EAC1D,YAAY,EAAE,YAAY,EAC1B,SAAS,CAAC,EAAE,SAAS,GACpB,OAAO,CAAC,eAAe,CAAC,CAY1B"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
-index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..379d7b452ef2a49528fee8024928e93ad3fef82d 100644
+index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..56280b34a5e7bc280f35c9e55559b44fb662f0c8 100644
 --- a/internal/hardhat-network/provider/provider.js
 +++ b/internal/hardhat-network/provider/provider.js
 @@ -1,52 +1,23 @@
@@ -213,7 +213,7 @@ index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..379d7b452ef2a49528fee8024928e93a
  };
  Object.defineProperty(exports, "__esModule", { value: true });
  exports.createHardhatNetworkProvider = exports.EdrProviderWrapper = exports.getNodeConfig = exports.getGlobalEdrContext = exports.DEFAULT_COINBASE = void 0;
-+const edr_1 = require("@nomicfoundation/edr");
++const edr_1 = require("@ignored/edr-optimism");
  const picocolors_1 = __importDefault(require("picocolors"));
  const debug_1 = __importDefault(require("debug"));
  const events_1 = require("events");
@@ -244,7 +244,7 @@ index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..379d7b452ef2a49528fee8024928e93a
 -function getGlobalEdrContext() {
 -    const { EdrContext } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
 +async function getGlobalEdrContext() {
-+    const { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++    const { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
      if (_globalEdrContext === undefined) {
          // Only one is allowed to exist
          _globalEdrContext = new EdrContext();
@@ -273,7 +273,7 @@ index b981b1efa0095eb1b02c4846d83a2fe1c003b7fa..379d7b452ef2a49528fee8024928e93a
      }
      static async create(config, loggerConfig, tracingConfig) {
 -        const { Provider } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
-+        const { GENERIC_CHAIN_TYPE } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++        const { GENERIC_CHAIN_TYPE } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
          const coinbase = config.coinbase ?? exports.DEFAULT_COINBASE;
          let fork;
          if (config.forkConfig !== undefined) {
@@ -484,13 +484,34 @@ index a3f76bed476f594bb8cce9f42cfae119222b9651..8fb33c04261890604e7e45c5a084d4eb
 \ No newline at end of file
 +{"version":3,"file":"provider.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":"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"}
 \ No newline at end of file
+diff --git a/internal/hardhat-network/provider/return-data.d.ts b/internal/hardhat-network/provider/return-data.d.ts
+index c5ef34caa2d60c2207a52fd80b0d9deb6a84fbe6..67a9e3042bf5b3d383a1ffa3abe894386b9817ff 100644
+--- a/internal/hardhat-network/provider/return-data.d.ts
++++ b/internal/hardhat-network/provider/return-data.d.ts
+@@ -1,3 +1,3 @@
+-declare const ReturnData: typeof import("@nomicfoundation/edr").ReturnData;
++declare const ReturnData: typeof import("@ignored/edr-optimism").ReturnData;
+ export { ReturnData };
+ //# sourceMappingURL=return-data.d.ts.map
+diff --git a/internal/hardhat-network/provider/return-data.js b/internal/hardhat-network/provider/return-data.js
+index e77f1b35ec62399d921aa2e3470326471c7c162b..e1b336aa1f2f49858b6a282e3be69a4d88a9cbd9 100644
+--- a/internal/hardhat-network/provider/return-data.js
++++ b/internal/hardhat-network/provider/return-data.js
+@@ -2,6 +2,6 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.ReturnData = void 0;
+ const napi_rs_1 = require("../../../common/napi-rs");
+-const { ReturnData } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { ReturnData } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.ReturnData = ReturnData;
+ //# sourceMappingURL=return-data.js.map
 diff --git a/internal/hardhat-network/provider/utils/convertToEdr.d.ts b/internal/hardhat-network/provider/utils/convertToEdr.d.ts
-index 3f88a622b92abfd911f4b79f5160758ee81a0f2a..be4753717245f5701b29f34b8b461a4b7f012a90 100644
+index 3f88a622b92abfd911f4b79f5160758ee81a0f2a..9a35548ac52c67e49f48d3de64133fb225853b6c 100644
 --- a/internal/hardhat-network/provider/utils/convertToEdr.d.ts
 +++ b/internal/hardhat-network/provider/utils/convertToEdr.d.ts
 @@ -1,9 +1,9 @@
 -import type { SpecId, MineOrdering, IntervalRange, DebugTraceResult, TracingMessage, TracingMessageResult, TracingStep } from "@nomicfoundation/edr";
-+import { type SpecId, type MineOrdering, type IntervalRange, type DebugTraceResult, type TracingMessage, type TracingMessageResult, type TracingStep } from "@nomicfoundation/edr";
++import { type SpecId, type MineOrdering, type IntervalRange, type DebugTraceResult, type TracingMessage, type TracingMessageResult, type TracingStep } from "@ignored/edr-optimism";
  import { HardforkName } from "../../../util/hardforks";
  import { IntervalMiningConfig, MempoolOrder } from "../node-types";
  import { RpcDebugTraceOutput } from "../output";
@@ -510,14 +531,14 @@ index 3b30251baafa6277333cac31a3676ec96d54f910..997f36b4140c5dde2d23c83523e32fb4
 +{"version":3,"file":"convertToEdr.d.ts","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"AAAA,OAAO,EACL,KAAK,MAAM,EACX,KAAK,YAAY,EACjB,KAAK,aAAa,EAClB,KAAK,gBAAgB,EACrB,KAAK,cAAc,EACnB,KAAK,oBAAoB,EACzB,KAAK,WAAW,EAkBjB,MAAM,sBAAsB,CAAC;AAI9B,OAAO,EAAE,YAAY,EAAE,MAAM,yBAAyB,CAAC;AACvD,OAAO,EAAE,oBAAoB,EAAE,YAAY,EAAE,MAAM,eAAe,CAAC;AACnE,OAAO,EAAE,mBAAmB,EAAgB,MAAM,WAAW,CAAC;AAC9D,OAAO,EACL,gBAAgB,EAChB,sBAAsB,EACtB,cAAc,EACf,MAAM,aAAa,CAAC;AAIrB,wBAAgB,8BAA8B,CAAC,QAAQ,EAAE,YAAY,GAAG,MAAM,CA0C7E;AAED,wBAAgB,2BAA2B,CAAC,MAAM,EAAE,MAAM,GAAG,YAAY,CA6CxE;AAED,wBAAgB,mCAAmC,CACjD,MAAM,EAAE,oBAAoB,GAC3B,MAAM,GAAG,aAAa,GAAG,SAAS,CAcpC;AAED,wBAAgB,uCAAuC,CACrD,YAAY,EAAE,YAAY,GACzB,YAAY,CAWd;AAED,wBAAgB,yBAAyB,CACvC,aAAa,EAAE,gBAAgB,GAC9B,mBAAmB,CAoDrB;AAED,wBAAgB,sCAAsC,CACpD,IAAI,EAAE,WAAW,GAChB,sBAAsB,CAexB;AAED,wBAAgB,yCAAyC,CACvD,oBAAoB,EAAE,oBAAoB,GACzC,gBAAgB,CA+BlB;AAED,wBAAgB,iCAAiC,CAC/C,OAAO,EAAE,cAAc,GACtB,cAAc,CAahB"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/utils/convertToEdr.js b/internal/hardhat-network/provider/utils/convertToEdr.js
-index f1532cd82ff40a92721e6b0c0437fdb7c4f1323c..c9e33b134dac76758acec60b04c6ff37dbea81f3 100644
+index f1532cd82ff40a92721e6b0c0437fdb7c4f1323c..123e684b75a0a5d51238085881b8db9e44f4a45b 100644
 --- a/internal/hardhat-network/provider/utils/convertToEdr.js
 +++ b/internal/hardhat-network/provider/utils/convertToEdr.js
 @@ -1,47 +1,47 @@
  "use strict";
  Object.defineProperty(exports, "__esModule", { value: true });
  exports.edrTracingMessageToMinimalMessage = exports.edrTracingMessageResultToMinimalEVMResult = exports.edrTracingStepToMinimalInterpreterStep = exports.edrRpcDebugTraceToHardhat = exports.ethereumjsMempoolOrderToEdrMineOrdering = exports.ethereumjsIntervalMiningConfigToEdr = exports.edrSpecIdToEthereumHardfork = exports.ethereumsjsHardforkToEdrSpecId = void 0;
-+const edr_1 = require("@nomicfoundation/edr");
++const edr_1 = require("@ignored/edr-optimism");
  const ethereumjs_util_1 = require("@nomicfoundation/ethereumjs-util");
  const napi_rs_1 = require("../../../../common/napi-rs");
  const hardforks_1 = require("../../../util/hardforks");
@@ -579,9 +600,12 @@ index f1532cd82ff40a92721e6b0c0437fdb7c4f1323c..c9e33b134dac76758acec60b04c6ff37
          default:
              const _exhaustiveCheck = hardfork;
              throw new Error(`Unknown hardfork name '${hardfork}', this shouldn't happen`);
-@@ -51,40 +51,40 @@ exports.ethereumsjsHardforkToEdrSpecId = ethereumsjsHardforkToEdrSpecId;
+@@ -49,42 +49,42 @@ function ethereumsjsHardforkToEdrSpecId(hardfork) {
+ }
+ exports.ethereumsjsHardforkToEdrSpecId = ethereumsjsHardforkToEdrSpecId;
  function edrSpecIdToEthereumHardfork(specId) {
-     const { SpecId } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
+-    const { SpecId } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++    const { SpecId } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
      switch (specId) {
 -        case 0 /* SpecId.Frontier */:
 +        case SpecId.Frontier:
@@ -637,8 +661,12 @@ index f1532cd82ff40a92721e6b0c0437fdb7c4f1323c..c9e33b134dac76758acec60b04c6ff37
              return hardforks_1.HardforkName.SHANGHAI;
          default:
              throw new Error(`Unknown spec id '${specId}', this shouldn't happen`);
-@@ -113,9 +113,9 @@ function ethereumjsMempoolOrderToEdrMineOrdering(mempoolOrder) {
-     const { MineOrdering } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
+@@ -110,12 +110,12 @@ function ethereumjsIntervalMiningConfigToEdr(config) {
+ }
+ exports.ethereumjsIntervalMiningConfigToEdr = ethereumjsIntervalMiningConfigToEdr;
+ function ethereumjsMempoolOrderToEdrMineOrdering(mempoolOrder) {
+-    const { MineOrdering } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++    const { MineOrdering } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
      switch (mempoolOrder) {
          case "fifo":
 -            return "Fifo" /* MineOrdering.Fifo */;
@@ -658,6 +686,125 @@ index 8afd28f3b90c3bbfa7f053d380f4877291a87750..a5c829372ce9e7beb808379f471c28a4
 \ No newline at end of file
 +{"version":3,"file":"convertToEdr.js","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":";;;AAAA,8CAyB8B;AAC9B,sEAA2D;AAE3D,wDAAiE;AACjE,uDAAuD;AASvD,+EAA+E;AAE/E,SAAgB,8BAA8B,CAAC,QAAsB;IACnE,QAAQ,QAAQ,EAAE;QAChB,KAAK,wBAAY,CAAC,QAAQ;YACxB,OAAO,cAAQ,CAAC;QAClB,KAAK,wBAAY,CAAC,SAAS;YACzB,OAAO,eAAS,CAAC;QACnB,KAAK,wBAAY,CAAC,GAAG;YACnB,OAAO,cAAQ,CAAC;QAClB,KAAK,wBAAY,CAAC,iBAAiB;YACjC,OAAO,eAAS,CAAC;QACnB,KAAK,wBAAY,CAAC,eAAe;YAC/B,OAAO,qBAAe,CAAC;QACzB,KAAK,wBAAY,CAAC,SAAS;YACzB,OAAO,eAAS,CAAC;QACnB,KAAK,wBAAY,CAAC,cAAc;YAC9B,OAAO,oBAAc,CAAC;QACxB,KAAK,wBAAY,CAAC,UAAU;YAC1B,OAAO,gBAAU,CAAC;QACpB,KAAK,wBAAY,CAAC,QAAQ;YACxB,OAAO,cAAQ,CAAC;QAClB,KAAK,wBAAY,CAAC,YAAY;YAC5B,OAAO,kBAAY,CAAC;QACtB,KAAK,wBAAY,CAAC,MAAM;YACtB,OAAO,YAAM,CAAC;QAChB,KAAK,wBAAY,CAAC,MAAM;YACtB,OAAO,YAAM,CAAC;QAChB,KAAK,wBAAY,CAAC,aAAa;YAC7B,OAAO,mBAAa,CAAC;QACvB,KAAK,wBAAY,CAAC,YAAY;YAC5B,OAAO,kBAAY,CAAC;QACtB,KAAK,wBAAY,CAAC,KAAK;YACrB,OAAO,WAAK,CAAC;QACf,KAAK,wBAAY,CAAC,QAAQ;YACxB,OAAO,cAAQ,CAAC;QAClB,KAAK,wBAAY,CAAC,MAAM;YACtB,OAAO,YAAM,CAAC;QAChB;YACE,MAAM,gBAAgB,GAAU,QAAQ,CAAC;YACzC,MAAM,IAAI,KAAK,CACb,0BAA0B,QAAkB,0BAA0B,CACvE,CAAC;KACL;AACH,CAAC;AA1CD,wEA0CC;AAED,SAAgB,2BAA2B,CAAC,MAAc;IACxD,MAAM,EAAE,MAAM,EAAE,GAAG,IAAA,6BAAmB,EACpC,sBAAsB,CACkB,CAAC;IAE3C,QAAQ,MAAM,EAAE;QACd,KAAK,MAAM,CAAC,QAAQ;YAClB,OAAO,wBAAY,CAAC,QAAQ,CAAC;QAC/B,KAAK,MAAM,CAAC,SAAS;YACnB,OAAO,wBAAY,CAAC,SAAS,CAAC;QAChC,KAAK,MAAM,CAAC,OAAO;YACjB,OAAO,wBAAY,CAAC,GAAG,CAAC;QAC1B,KAAK,MAAM,CAAC,SAAS;YACnB,OAAO,wBAAY,CAAC,iBAAiB,CAAC;QACxC,KAAK,MAAM,CAAC,cAAc;YACxB,OAAO,wBAAY,CAAC,eAAe,CAAC;QACtC,KAAK,MAAM,CAAC,SAAS;YACnB,OAAO,wBAAY,CAAC,SAAS,CAAC;QAChC,KAAK,MAAM,CAAC,cAAc;YACxB,OAAO,wBAAY,CAAC,cAAc,CAAC;QACrC,KAAK,MAAM,CAAC,UAAU;YACpB,OAAO,wBAAY,CAAC,UAAU,CAAC;QACjC,KAAK,MAAM,CAAC,QAAQ;YAClB,OAAO,wBAAY,CAAC,QAAQ,CAAC;QAC/B,KAAK,MAAM,CAAC,WAAW;YACrB,OAAO,wBAAY,CAAC,YAAY,CAAC;QACnC,KAAK,MAAM,CAAC,MAAM;YAChB,OAAO,wBAAY,CAAC,MAAM,CAAC;QAC7B,KAAK,MAAM,CAAC,MAAM;YAChB,OAAO,wBAAY,CAAC,MAAM,CAAC;QAC7B,KAAK,MAAM,CAAC,YAAY;YACtB,OAAO,wBAAY,CAAC,aAAa,CAAC;QACpC,KAAK,MAAM,CAAC,WAAW;YACrB,OAAO,wBAAY,CAAC,YAAY,CAAC;QACnC,KAAK,MAAM,CAAC,KAAK;YACf,OAAO,wBAAY,CAAC,KAAK,CAAC;QAC5B,KAAK,MAAM,CAAC,QAAQ;YAClB,OAAO,wBAAY,CAAC,QAAQ,CAAC;QAC/B,8DAA8D;QAC9D,KAAK,MAAM,CAAC,MAAM;YAChB,OAAO,wBAAY,CAAC,QAAQ,CAAC;QAE/B;YACE,MAAM,IAAI,KAAK,CAAC,oBAAoB,MAAM,0BAA0B,CAAC,CAAC;KACzE;AACH,CAAC;AA7CD,kEA6CC;AAED,SAAgB,mCAAmC,CACjD,MAA4B;IAE5B,IAAI,OAAO,MAAM,KAAK,QAAQ,EAAE;QAC9B,+BAA+B;QAC/B,IAAI,MAAM,KAAK,CAAC,EAAE;YAChB,OAAO,SAAS,CAAC;SAClB;aAAM;YACL,OAAO,MAAM,CAAC,MAAM,CAAC,CAAC;SACvB;KACF;SAAM;QACL,OAAO;YACL,GAAG,EAAE,MAAM,CAAC,MAAM,CAAC,CAAC,CAAC,CAAC;YACtB,GAAG,EAAE,MAAM,CAAC,MAAM,CAAC,CAAC,CAAC,CAAC;SACvB,CAAC;KACH;AACH,CAAC;AAhBD,kFAgBC;AAED,SAAgB,uCAAuC,CACrD,YAA0B;IAE1B,MAAM,EAAE,YAAY,EAAE,GAAG,IAAA,6BAAmB,EAC1C,sBAAsB,CACkB,CAAC;IAE3C,QAAQ,YAAY,EAAE;QACpB,KAAK,MAAM;YACT,OAAO,YAAY,CAAC,IAAI,CAAC;QAC3B,KAAK,UAAU;YACb,OAAO,YAAY,CAAC,QAAQ,CAAC;KAChC;AACH,CAAC;AAbD,0FAaC;AAED,SAAgB,yBAAyB,CACvC,aAA+B;IAE/B,MAAM,UAAU,GAAG,aAAa,CAAC,UAAU,CAAC,GAAG,CAAC,CAAC,GAAG,EAAE,EAAE;QACtD,MAAM,MAAM,GAAiB;YAC3B,KAAK,EAAE,MAAM,CAAC,GAAG,CAAC,KAAK,CAAC;YACxB,GAAG,EAAE,MAAM,CAAC,GAAG,CAAC,GAAG,CAAC;YACpB,OAAO,EAAE,MAAM,CAAC,GAAG,CAAC,OAAO,CAAC;YAC5B,EAAE,EAAE,GAAG,CAAC,MAAM;YACd,EAAE,EAAE,MAAM,CAAC,GAAG,CAAC,EAAE,CAAC;SACnB,CAAC;QAEF,IAAI,GAAG,CAAC,MAAM,KAAK,SAAS,EAAE;YAC5B,MAAM,CAAC,MAAM,GAAG,GAAG,CAAC,MAAM,CAAC;SAC5B;QAED,IAAI,GAAG,CAAC,KAAK,KAAK,SAAS,EAAE;YAC3B,+EAA+E;YAC/E,MAAM,CAAC,KAAK,GAAG,GAAG,CAAC,KAAK,EAAE,GAAG,CAAC,CAAC,IAAI,EAAE,EAAE,CAAC,IAAI,CAAC,KAAK,CAAC,CAAC,CAAC,CAAC,CAAC;SACxD;QAED,IAAI,GAAG,CAAC,OAAO,KAAK,SAAS,EAAE;YAC7B,MAAM,CAAC,OAAO,GAAG,MAAM,CAAC,WAAW,CACjC,MAAM,CAAC,OAAO,CAAC,GAAG,CAAC,OAAO,CAAC,CAAC,GAAG,CAAC,CAAC,CAAC,GAAG,EAAE,KAAK,CAAC,EAAE,EAAE;gBAC/C,OAAO,CAAC,GAAG,CAAC,KAAK,CAAC,CAAC,CAAC,EAAE,KAAK,CAAC,KAAK,CAAC,CAAC,CAAC,CAAC,CAAC;YACxC,CAAC,CAAC,CACH,CAAC;SACH;QAED,IAAI,GAAG,CAAC,KAAK,KAAK,SAAS,EAAE;YAC3B,MAAM,CAAC,KAAK,GAAG;gBACb,OAAO,EAAE,GAAG,CAAC,KAAK;aACnB,CAAC;SACH;QAED,OAAO,MAAM,CAAC;IAChB,CAAC,CAAC,CAAC;IAEH,2DAA2D;IAC3D,IAAI,UAAU,CAAC,MAAM,GAAG,CAAC,IAAI,UAAU,CAAC,CAAC,CAAC,CAAC,EAAE,KAAK,MAAM,EAAE;QACxD,UAAU,CAAC,KAAK,EAAE,CAAC;KACpB;IAED,IAAI,WAAW,GAAG,aAAa,CAAC,MAAM,EAAE,QAAQ,CAAC,KAAK,CAAC,IAAI,EAAE,CAAC;IAC9D,IAAI,WAAW,KAAK,IAAI,EAAE;QACxB,WAAW,GAAG,EAAE,CAAC;KAClB;IAED,OAAO;QACL,MAAM,EAAE,CAAC,aAAa,CAAC,IAAI;QAC3B,GAAG,EAAE,MAAM,CAAC,aAAa,CAAC,OAAO,CAAC;QAClC,WAAW;QACX,UAAU;KACX,CAAC;AACJ,CAAC;AAtDD,8DAsDC;AAED,SAAgB,sCAAsC,CACpD,IAAiB;IAEjB,MAAM,sBAAsB,GAA2B;QACrD,EAAE,EAAE,MAAM,CAAC,IAAI,CAAC,EAAE,CAAC;QACnB,KAAK,EAAE,IAAI,CAAC,KAAK;QACjB,MAAM,EAAE;YACN,IAAI,EAAE,IAAI,CAAC,MAAM;SAClB;QACD,KAAK,EAAE,IAAI,CAAC,KAAK;KAClB,CAAC;IAEF,IAAI,IAAI,CAAC,MAAM,KAAK,SAAS,EAAE;QAC7B,sBAAsB,CAAC,MAAM,GAAG,IAAI,CAAC,MAAM,CAAC;KAC7C;IAED,OAAO,sBAAsB,CAAC;AAChC,CAAC;AAjBD,wFAiBC;AAED,SAAgB,yCAAyC,CACvD,oBAA0C;IAE1C,MAAM,EAAE,MAAM,EAAE,eAAe,EAAE,GAAG,oBAAoB,CAAC,eAAe,CAAC;IAEzE,8BAA8B;IAC9B,MAAM,OAAO,GAAG,MAAM,IAAI,MAAM,CAAC;IAEjC,MAAM,gBAAgB,GAAqB;QACzC,UAAU,EAAE;YACV,gBAAgB,EAAE,MAAM,CAAC,OAAO;YAChC,OAAO;SACR;KACF,CAAC;IAEF,gDAAgD;IAChD,IAAI,QAAQ,IAAI,MAAM,EAAE;QACtB,gBAAgB,CAAC,UAAU,CAAC,MAAM,GAAG,MAAM,CAAC,MAAM,CAAC;KACpD;IACD,IAAI,QAAQ,IAAI,MAAM,EAAE;QACtB,MAAM,EAAE,MAAM,EAAE,GAAG,MAAM,CAAC;QAC1B,IAAI,MAAM,CAAC,QAAQ,CAAC,MAAM,CAAC,EAAE;YAC3B,gBAAgB,CAAC,UAAU,CAAC,MAAM,GAAG,MAAM,CAAC;SAC7C;aAAM;YACL,gBAAgB,CAAC,UAAU,CAAC,MAAM,GAAG,MAAM,CAAC,WAAW,CAAC;SACzD;KACF;IAED,IAAI,eAAe,KAAK,SAAS,EAAE;QACjC,gBAAgB,CAAC,UAAU,CAAC,eAAe,GAAG,IAAI,yBAAO,CAAC,eAAe,CAAC,CAAC;KAC5E;IAED,OAAO,gBAAgB,CAAC;AAC1B,CAAC;AAjCD,8FAiCC;AAED,SAAgB,iCAAiC,CAC/C,OAAuB;IAEvB,OAAO;QACL,EAAE,EAAE,OAAO,CAAC,EAAE,KAAK,SAAS,CAAC,CAAC,CAAC,IAAI,yBAAO,CAAC,OAAO,CAAC,EAAE,CAAC,CAAC,CAAC,CAAC,SAAS;QAClE,WAAW,EACT,OAAO,CAAC,WAAW,KAAK,SAAS;YAC/B,CAAC,CAAC,IAAI,yBAAO,CAAC,OAAO,CAAC,WAAW,CAAC;YAClC,CAAC,CAAC,SAAS;QACf,IAAI,EAAE,OAAO,CAAC,IAAI;QAClB,KAAK,EAAE,OAAO,CAAC,KAAK;QACpB,MAAM,EAAE,IAAI,yBAAO,CAAC,OAAO,CAAC,MAAM,CAAC;QACnC,QAAQ,EAAE,OAAO,CAAC,QAAQ;QAC1B,YAAY,EAAE,OAAO,CAAC,YAAY;KACnC,CAAC;AACJ,CAAC;AAfD,8EAeC"}
 \ No newline at end of file
+diff --git a/internal/hardhat-network/provider/vm/exit.d.ts b/internal/hardhat-network/provider/vm/exit.d.ts
+index 736cf00d40e1a118cddd83638fe6c2adb6e33c84..ff28f315003066de61462d101aa37431152df5ba 100644
+--- a/internal/hardhat-network/provider/vm/exit.d.ts
++++ b/internal/hardhat-network/provider/vm/exit.d.ts
+@@ -1,3 +1,3 @@
+-declare const ExitCode: typeof import("@nomicfoundation/edr").ExitCode;
++declare const ExitCode: typeof import("@ignored/edr-optimism").ExitCode;
+ export { ExitCode };
+ //# sourceMappingURL=exit.d.ts.map
+diff --git a/internal/hardhat-network/provider/vm/exit.js b/internal/hardhat-network/provider/vm/exit.js
+index 8d8f63bd90f4ab40727da6199386642929fbab01..7d86337342dabb1e580ddd14e6517114f063e935 100644
+--- a/internal/hardhat-network/provider/vm/exit.js
++++ b/internal/hardhat-network/provider/vm/exit.js
+@@ -2,6 +2,6 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.ExitCode = void 0;
+ const napi_rs_1 = require("../../../../common/napi-rs");
+-const { ExitCode } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { ExitCode } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.ExitCode = ExitCode;
+ //# sourceMappingURL=exit.js.map
+diff --git a/internal/hardhat-network/provider/vm/minimal-vm.d.ts b/internal/hardhat-network/provider/vm/minimal-vm.d.ts
+index 846bda65b794d2eeec018bb1f8ce7aa786266378..027707527f60cd42dab542aa280265171312a503 100644
+--- a/internal/hardhat-network/provider/vm/minimal-vm.d.ts
++++ b/internal/hardhat-network/provider/vm/minimal-vm.d.ts
+@@ -1,6 +1,6 @@
+ /// <reference types="node" />
+ /// <reference types="node" />
+-import type { Provider as EdrProviderT } from "@nomicfoundation/edr";
++import type { Provider as EdrProviderT } from "@ignored/edr-optimism";
+ import type { Address } from "@nomicfoundation/ethereumjs-util";
+ import type { MinimalEVMResult, MinimalInterpreterStep, MinimalMessage } from "./types";
+ import { AsyncEventEmitter } from "@nomicfoundation/ethereumjs-util";
+diff --git a/internal/hardhat-network/provider/vm/types.d.ts b/internal/hardhat-network/provider/vm/types.d.ts
+index ee7e34fe61503044181fe714c3d333b2585f2c58..c91ab065d6c51fd790117edd296d6a76d27e8d6a 100644
+--- a/internal/hardhat-network/provider/vm/types.d.ts
++++ b/internal/hardhat-network/provider/vm/types.d.ts
+@@ -1,6 +1,6 @@
+ /// <reference types="node" />
+ /// <reference types="node" />
+-import type { ExceptionalHalt, SuccessReason } from "@nomicfoundation/edr";
++import type { ExceptionalHalt, SuccessReason } from "@ignored/edr-optimism";
+ import type { Address } from "@nomicfoundation/ethereumjs-util";
+ /**
+  * These types are minimal versions of the values returned by ethereumjs
+diff --git a/internal/hardhat-network/stack-traces/compiler-to-model.d.ts b/internal/hardhat-network/stack-traces/compiler-to-model.d.ts
+index e709f3feba9f3af3ce665f2ef24df35697a6c67d..94031cf3c65f7be3f82fdfdeb2704b8f9cde9874 100644
+--- a/internal/hardhat-network/stack-traces/compiler-to-model.d.ts
++++ b/internal/hardhat-network/stack-traces/compiler-to-model.d.ts
+@@ -1,3 +1,3 @@
+-declare const createModelsAndDecodeBytecodes: typeof import("@nomicfoundation/edr").createModelsAndDecodeBytecodes;
++declare const createModelsAndDecodeBytecodes: typeof import("@ignored/edr-optimism").createModelsAndDecodeBytecodes;
+ export { createModelsAndDecodeBytecodes };
+ //# sourceMappingURL=compiler-to-model.d.ts.map
+diff --git a/internal/hardhat-network/stack-traces/compiler-to-model.js b/internal/hardhat-network/stack-traces/compiler-to-model.js
+index 505a6aed9615ff94f3e31bebdb29a8f1c1a7f0f6..444449c7ae79295f04784aaad3ecbc3f38de116c 100644
+--- a/internal/hardhat-network/stack-traces/compiler-to-model.js
++++ b/internal/hardhat-network/stack-traces/compiler-to-model.js
+@@ -2,6 +2,6 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.createModelsAndDecodeBytecodes = void 0;
+ const napi_rs_1 = require("../../../common/napi-rs");
+-const { createModelsAndDecodeBytecodes } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { createModelsAndDecodeBytecodes } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.createModelsAndDecodeBytecodes = createModelsAndDecodeBytecodes;
+ //# sourceMappingURL=compiler-to-model.js.map
+diff --git a/internal/hardhat-network/stack-traces/debug.d.ts b/internal/hardhat-network/stack-traces/debug.d.ts
+index 250c7240aa6846a3423ca4e4a036ac9b5fed9606..aa4e3d44483118ec35e594b00fdf749c8b606c14 100644
+--- a/internal/hardhat-network/stack-traces/debug.d.ts
++++ b/internal/hardhat-network/stack-traces/debug.d.ts
+@@ -1,3 +1,3 @@
+-declare const printMessageTrace: typeof import("@nomicfoundation/edr").printMessageTrace, printStackTrace: typeof import("@nomicfoundation/edr").printStackTrace;
++declare const printMessageTrace: typeof import("@ignored/edr-optimism").printMessageTrace, printStackTrace: typeof import("@ignored/edr-optimism").printStackTrace;
+ export { printMessageTrace, printStackTrace };
+ //# sourceMappingURL=debug.d.ts.map
+diff --git a/internal/hardhat-network/stack-traces/debug.js b/internal/hardhat-network/stack-traces/debug.js
+index 174709d5296f4e26e80517eb05c241479f3a3e96..b5527cf9e16aa2c40a1340a28dd3580bb73b3ba2 100644
+--- a/internal/hardhat-network/stack-traces/debug.js
++++ b/internal/hardhat-network/stack-traces/debug.js
+@@ -2,7 +2,7 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.printStackTrace = exports.printMessageTrace = void 0;
+ const napi_rs_1 = require("../../../common/napi-rs");
+-const { printMessageTrace, printStackTrace } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { printMessageTrace, printStackTrace } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.printMessageTrace = printMessageTrace;
+ exports.printStackTrace = printStackTrace;
+ //# sourceMappingURL=debug.js.map
+diff --git a/internal/hardhat-network/stack-traces/library-utils.d.ts b/internal/hardhat-network/stack-traces/library-utils.d.ts
+index 4d39bbdfa5b419267dd45842683bab71864348c7..1bf32444403362b9db392b467e06cf341138183e 100644
+--- a/internal/hardhat-network/stack-traces/library-utils.d.ts
++++ b/internal/hardhat-network/stack-traces/library-utils.d.ts
+@@ -1,3 +1,3 @@
+-declare const linkHexStringBytecode: typeof import("@nomicfoundation/edr").linkHexStringBytecode;
++declare const linkHexStringBytecode: typeof import("@ignored/edr-optimism").linkHexStringBytecode;
+ export { linkHexStringBytecode };
+ //# sourceMappingURL=library-utils.d.ts.map
+diff --git a/internal/hardhat-network/stack-traces/library-utils.js b/internal/hardhat-network/stack-traces/library-utils.js
+index 33595a11196f8372f4429252716a150993112ea5..39db36d92b17d5316b2fbe5d0f329e44463104fd 100644
+--- a/internal/hardhat-network/stack-traces/library-utils.js
++++ b/internal/hardhat-network/stack-traces/library-utils.js
+@@ -2,6 +2,6 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.linkHexStringBytecode = void 0;
+ const napi_rs_1 = require("../../../common/napi-rs");
+-const { linkHexStringBytecode } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { linkHexStringBytecode } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.linkHexStringBytecode = linkHexStringBytecode;
+ //# sourceMappingURL=library-utils.js.map
+diff --git a/internal/hardhat-network/stack-traces/message-trace.d.ts b/internal/hardhat-network/stack-traces/message-trace.d.ts
+index eeaca6aba704d629b74cf4038c0c465ef3238273..c40a5712a74c147ae5391de3cac5f4c43564ab49 100644
+--- a/internal/hardhat-network/stack-traces/message-trace.d.ts
++++ b/internal/hardhat-network/stack-traces/message-trace.d.ts
+@@ -1,4 +1,4 @@
+-import type { PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace } from "@nomicfoundation/edr";
++import type { PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace } from "@ignored/edr-optimism";
+ export type { PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace };
+ export type MessageTrace = CreateMessageTrace | CallMessageTrace | PrecompileMessageTrace;
+ //# sourceMappingURL=message-trace.d.ts.map
 diff --git a/internal/hardhat-network/stack-traces/solidity-errors.js b/internal/hardhat-network/stack-traces/solidity-errors.js
 index bfb2860de84741c49d777823e000bfdec3c24185..18042da757683b9067a015314cb9d373451c3d8f 100644
 --- a/internal/hardhat-network/stack-traces/solidity-errors.js
@@ -820,6 +967,96 @@ index caff4346a72040655d5183fa08bde2727e5e2738..656eccbc4afd66cedbcb90f5b5fabd78
 \ No newline at end of file
 +{"version":3,"file":"solidity-errors.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/stack-traces/solidity-errors.ts"],"names":[],"mappings":";;;AAAA,sEAA6E;AAE7E,yDAAqD;AACrD,iDAAyD;AACzD,iEAUgC;AAEhC,MAAM,OAAO,GAAG,MAAM,CAAC,GAAG,CAAC,4BAA4B,CAAC,CAAC;AAEzD,SAAgB,eAAe;IAC7B,MAAM,yBAAyB,GAAG,KAAK,CAAC,iBAAiB,CAAC;IAE1D,KAAK,CAAC,iBAAiB,GAAG,CAAC,CAAC,EAAE,CAAC,EAAE,EAAE,CAAC,CAAC,CAAC;IAEtC,MAAM,KAAK,GAAG,IAAI,KAAK,EAAE,CAAC;IAC1B,MAAM,KAAK,GAAsB,KAAK,CAAC,KAAY,CAAC;IAEpD,KAAK,CAAC,iBAAiB,GAAG,yBAAyB,CAAC;IAEpD,OAAO,KAAK,CAAC;AACf,CAAC;AAXD,0CAWC;AAEM,KAAK,UAAU,gCAAgC,CACpD,CAAqB,EACrB,mBAA2B;IAE3B,MAAM,gBAAgB,GAAG,eAAe,EAAE,CAAC,KAAK,CAAC,mBAAmB,CAAC,CAAC;IAEtE,IAAI;QACF,OAAO,MAAM,CAAC,EAAE,CAAC;KAClB;IAAC,OAAO,KAAU,EAAE;QACnB,IAAI,KAAK,CAAC,UAAU,KAAK,SAAS,EAAE;YAClC,sFAAsF;YACtF,MAAM,KAAK,CAAC;SACb;QAED,sFAAsF;QACtF,MAAM,wBAAwB,CAC5B,KAAK,CAAC,OAAO,EACb,KAAK,CAAC,UAAU,EAChB,gBAAgB,CACjB,CAAC;KACH;AACH,CAAC;AArBD,4EAqBC;AAED,SAAgB,wBAAwB,CACtC,eAAuB,EACvB,UAA8B,EAC9B,aAAiC;IAEjC,IAAI,KAAK,CAAC,iBAAiB,KAAK,SAAS,EAAE;QACzC,yDAAyD;QACzD,OAAO,CAAC,6BAA6B,CAAC,CAAC;KACxC;IAED,MAAM,yBAAyB,GAAG,KAAK,CAAC,iBAAiB,CAAC;IAC1D,KAAK,CAAC,iBAAiB,GAAG,CAAC,KAAK,EAAE,KAAK,EAAE,EAAE;QACzC,IAAI,aAAa,KAAK,SAAS,EAAE;YAC/B,KAAK,GAAG,aAAa,CAAC;SACvB;aAAM;YACL,kDAAkD;YAClD,KAAK,CAAC,MAAM,CAAC,CAAC,EAAE,CAAC,CAAC,CAAC;SACpB;QAED,KAAK,MAAM,KAAK,IAAI,UAAU,EAAE;YAC9B,MAAM,QAAQ,GAAG,qBAAqB,CAAC,KAAK,CAAC,CAAC;YAC9C,IAAI,QAAQ,KAAK,SAAS,EAAE;gBAC1B,SAAS;aACV;YAED,KAAK,CAAC,OAAO,CAAC,QAAQ,CAAC,CAAC;SACzB;QAED,OAAO,yBAA0B,CAAC,KAAK,EAAE,KAAK,CAAC,CAAC;IAClD,CAAC,CAAC;IAEF,MAAM,GAAG,GAAG,iCAAiC,CAC3C,UAAU,CAAC,UAAU,CAAC,MAAM,GAAG,CAAC,CAAC,CAClC,CAAC;IAEF,MAAM,aAAa,GAAG,IAAI,aAAa,CACrC,GAAG,KAAK,SAAS,CAAC,CAAC,CAAC,GAAG,CAAC,CAAC,CAAC,eAAe,EACzC,UAAU,CACX,CAAC;IAEF,kDAAkD;IAClD,aAAa,CAAC,KAAK,GAAG,aAAa,CAAC,KAAK,CAAC;IAE1C,KAAK,CAAC,iBAAiB,GAAG,yBAAyB,CAAC;IAEpD,OAAO,aAAa,CAAC;AACvB,CAAC;AA9CD,4DA8CC;AAED,SAAS,qBAAqB,CAC5B,eAAwC;IAExC,QAAQ,eAAe,CAAC,IAAI,EAAE;QAC5B,KAAK,0CAAmB,CAAC,4CAA4C,CAAC;QACtE,KAAK,0CAAmB,CAAC,iCAAiC;YACxD,OAAO,iCAAiC,CAAC;gBACvC,GAAG,eAAe,CAAC,eAAe;gBAClC,QAAQ,EAAE,iDAA0B;aACrC,CAAC,CAAC;QAEL,KAAK,0CAAmB,CAAC,eAAe,CAAC;QACzC,KAAK,0CAAmB,CAAC,YAAY,CAAC;QACtC,KAAK,0CAAmB,CAAC,YAAY,CAAC;QACtC,KAAK,0CAAmB,CAAC,0BAA0B,CAAC;QACpD,KAAK,0CAAmB,CAAC,oBAAoB,CAAC;QAC9C,KAAK,0CAAmB,CAAC,0BAA0B,CAAC;QACpD,KAAK,0CAAmB,CAAC,yCAAyC,CAAC;QACnE,KAAK,0CAAmB,CAAC,qBAAqB,CAAC;QAC/C,KAAK,0CAAmB,CAAC,gCAAgC,CAAC;QAC1D,KAAK,0CAAmB,CAAC,iBAAiB,CAAC;QAC3C,KAAK,0CAAmB,CAAC,yBAAyB;YAChD,OAAO,iCAAiC,CAAC,eAAe,CAAC,eAAe,CAAC,CAAC;QAE5E,KAAK,0CAAmB,CAAC,mCAAmC;YAC1D,OAAO,IAAI,gBAAgB,CACzB,SAAS,EACT,iDAA0B,EAC1B,gDAAyB,EACzB,SAAS,CACV,CAAC;QAEJ,KAAK,0CAAmB,CAAC,qCAAqC;YAC5D,OAAO,IAAI,gBAAgB,CACzB,IAAA,4BAAW,EAAC,eAAe,CAAC,OAAO,CAAC,EACpC,iDAA0B,EAC1B,4CAAqB,EACrB,SAAS,CACV,CAAC;QAEJ,KAAK,0CAAmB,CAAC,gBAAgB;YACvC,OAAO,IAAI,gBAAgB,CACzB,SAAS,EACT,uBAAuB,eAAe,CAAC,UAAU,GAAG,EACpD,+CAAwB,EACxB,SAAS,CACV,CAAC;QAEJ,KAAK,0CAAmB,CAAC,yBAAyB;YAChD,OAAO,IAAI,gBAAgB,CACzB,SAAS,EACT,iDAA0B,EAC1B,gDAAyB,EACzB,SAAS,CACV,CAAC;QAEJ,KAAK,0CAAmB,CAAC,2BAA2B;YAClD,OAAO,IAAI,gBAAgB,CACzB,IAAA,4BAAW,EAAC,eAAe,CAAC,OAAO,CAAC,EACpC,iDAA0B,EAC1B,4CAAqB,EACrB,SAAS,CACV,CAAC;QAEJ,KAAK,0CAAmB,CAAC,iCAAiC;YACxD,OAAO,IAAI,gBAAgB,CACzB,eAAe,CAAC,eAAe,CAAC,UAAU,EAC1C,eAAe,CAAC,eAAe,CAAC,QAAQ,EACxC,YAAY,eAAe,CAAC,EAAE,EAAE,EAChC,SAAS,CACV,CAAC;QACJ,KAAK,0CAAmB,CAAC,kCAAkC;YACzD,IAAI,eAAe,CAAC,eAAe,KAAK,SAAS,EAAE;gBACjD,OAAO,iCAAiC,CACtC,eAAe,CAAC,eAAe,CAChC,CAAC;aACH;YAED,OAAO,IAAI,gBAAgB,CACzB,SAAS,EACT,iDAA0B,EAC1B,4CAAqB,EACrB,SAAS,CACV,CAAC;QAEJ,KAAK,0CAAmB,CAAC,qBAAqB,CAAC;QAC/C,KAAK,0CAAmB,CAAC,wBAAwB,CAAC;QAClD,KAAK,0CAAmB,CAAC,WAAW,CAAC;QACrC,KAAK,0CAAmB,CAAC,gCAAgC;YACvD,IAAI,eAAe,CAAC,eAAe,KAAK,SAAS,EAAE;gBACjD,OAAO,IAAI,gBAAgB,CACzB,SAAS,EACT,iDAA0B,EAC1B,4CAAqB,EACrB,SAAS,CACV,CAAC;aACH;YAED,OAAO,iCAAiC,CAAC,eAAe,CAAC,eAAe,CAAC,CAAC;KAC7E;AACH,CAAC;AAED,SAAS,iCAAiC,CACxC,eAAgC;IAEhC,OAAO,IAAI,gBAAgB,CACzB,eAAe,CAAC,UAAU,EAC1B,eAAe,CAAC,QAAQ,EACxB,eAAe,CAAC,QAAQ,KAAK,SAAS;QACpC,CAAC,CAAC,eAAe,CAAC,QAAQ;QAC1B,CAAC,CAAC,4CAAqB,EACzB,eAAe,CAAC,IAAI,CACrB,CAAC;AACJ,CAAC;AAED,SAAS,iCAAiC,CACxC,eAAwC;IAExC,QAAQ,eAAe,CAAC,IAAI,EAAE;QAC5B,KAAK,0CAAmB,CAAC,gBAAgB;YACvC,OAAO,4CAA4C,eAAe,CAAC,UAAU,SAAS,CAAC;QAEzF,KAAK,0CAAmB,CAAC,0BAA0B;YACjD,OAAO,oEAAoE,eAAe,CAAC,KAAK,CAAC,QAAQ,CACvG,EAAE,CACH,EAAE,CAAC;QAEN,KAAK,0CAAmB,CAAC,oBAAoB;YAC3C,OAAO,qEAAqE,CAAC;QAE/E,KAAK,0CAAmB,CAAC,0BAA0B;YACjD,OAAO,oFAAoF,eAAe,CAAC,KAAK,CAAC,QAAQ,CACvH,EAAE,CACH,EAAE,CAAC;QAEN,KAAK,0CAAmB,CAAC,yCAAyC;YAChE,OAAO,iHAAiH,eAAe,CAAC,KAAK,CAAC,QAAQ,CACpJ,EAAE,CACH,EAAE,CAAC;QAEN,KAAK,0CAAmB,CAAC,4CAA4C;YACnE,OAAO,6FAA6F,CAAC;QAEvG,KAAK,0CAAmB,CAAC,iCAAiC;YACxD,OAAO,yGAAyG,CAAC;QAEnH,KAAK,0CAAmB,CAAC,qBAAqB;YAC5C,OAAO,sEAAsE,CAAC;QAEhF,KAAK,0CAAmB,CAAC,gCAAgC;YACvD,OAAO,+DAA+D,CAAC;QAEzE,KAAK,0CAAmB,CAAC,iBAAiB;YACxC,OAAO,uDAAuD,CAAC;QAEjE,KAAK,0CAAmB,CAAC,yBAAyB;YAChD,OAAO,mDAAmD,CAAC;QAE7D,KAAK,0CAAmB,CAAC,yBAAyB,CAAC;QACnD,KAAK,0CAAmB,CAAC,2BAA2B,CAAC,CAAC;YACpD,MAAM,UAAU,GAAG,IAAI,wBAAU,CAAC,eAAe,CAAC,UAAU,CAAC,CAAC;YAC9D,IAAI,UAAU,CAAC,iBAAiB,EAAE,EAAE;gBAClC,OAAO,2EAA2E,UAAU,CAAC,WAAW,EAAE,GAAG,CAAC;aAC/G;YAED,IAAI,UAAU,CAAC,iBAAiB,EAAE,EAAE;gBAClC,MAAM,OAAO,GAAG,IAAA,sCAAuB,EAAC,UAAU,CAAC,WAAW,EAAE,CAAC,CAAC;gBAClE,OAAO,8CAA8C,OAAO,EAAE,CAAC;aAChE;YAED,IAAI,CAAC,UAAU,CAAC,OAAO,EAAE,EAAE;gBACzB,MAAM,MAAM,GAAG,MAAM,CAAC,IAAI,CAAC,UAAU,CAAC,KAAK,CAAC,CAAC,QAAQ,CAAC,KAAK,CAAC,CAAC;gBAE7D,OAAO,yGAAyG,MAAM,GAAG,CAAC;aAC3H;YAED,IAAI,eAAe,CAAC,oBAAoB,EAAE;gBACxC,OAAO,2DAA2D,CAAC;aACpE;YAED,OAAO,8CAA8C,CAAC;SACvD;QAED,KAAK,0CAAmB,CAAC,YAAY,CAAC,CAAC;YACrC,MAAM,UAAU,GAAG,IAAI,wBAAU,CAAC,eAAe,CAAC,UAAU,CAAC,CAAC;YAC9D,IAAI,UAAU,CAAC,iBAAiB,EAAE,EAAE;gBAClC,OAAO,2EAA2E,UAAU,CAAC,WAAW,EAAE,GAAG,CAAC;aAC/G;YAED,IAAI,eAAe,CAAC,oBAAoB,EAAE;gBACxC,OAAO,2DAA2D,CAAC;aACpE;YAED,OAAO,8CAA8C,CAAC;SACvD;QAED,KAAK,0CAAmB,CAAC,WAAW;YAClC,MAAM,YAAY,GAAG,IAAA,sCAAuB,EAAC,eAAe,CAAC,SAAS,CAAC,CAAC;YACxE,OAAO,8CAA8C,YAAY,EAAE,CAAC;QAEtE,KAAK,0CAAmB,CAAC,YAAY;YACnC,OAAO,8CAA8C,eAAe,CAAC,OAAO,EAAE,CAAC;QAEjF,KAAK,0CAAmB,CAAC,qBAAqB;YAC5C,sCAAsC;YACtC,OAAO,6DAA6D,CAAC;QAEvE,KAAK,0CAAmB,CAAC,gCAAgC;YACvD,OAAO,0MAA0M,CAAC;QAEpN,KAAK,0CAAmB,CAAC,wBAAwB;YAC/C,OAAO,2EAA2E,CAAC;QAErF,KAAK,0CAAmB,CAAC,kCAAkC;YACzD,OAAO,oFAAoF,CAAC;KAC/F;AACH,CAAC;AAED,qEAAqE;AACrE,+EAA+E;AAC/E,gCAAgC;AAChC,MAAa,aAAc,SAAQ,KAAK;IAGtC,YAAY,OAAe,EAAE,UAA8B;QACzD,KAAK,CAAC,OAAO,CAAC,CAAC;QACf,IAAI,CAAC,UAAU,GAAG,UAAU,CAAC;IAC/B,CAAC;IAEM,CAAC,OAAO,CAAC;QACd,OAAO,IAAI,CAAC,OAAO,EAAE,CAAC;IACxB,CAAC;IAEM,OAAO;QACZ,OAAO,IAAI,CAAC,KAAK,KAAK,SAAS;YAC7B,CAAC,CAAC,IAAI,CAAC,KAAK;YACZ,CAAC,CAAC,4CAA4C,CAAC;IACnD,CAAC;CACF;AAjBD,sCAiBC;AAED,MAAM,gBAAgB;IACpB,YACU,WAA+B,EAC/B,SAA6B,EAC7B,aAAiC,EACjC,KAAyB;QAHzB,gBAAW,GAAX,WAAW,CAAoB;QAC/B,cAAS,GAAT,SAAS,CAAoB;QAC7B,kBAAa,GAAb,aAAa,CAAoB;QACjC,UAAK,GAAL,KAAK,CAAoB;IAChC,CAAC;IAEG,eAAe;QACpB,OAAO,IAAI,CAAC;IACd,CAAC;IAEM,aAAa;QAClB,OAAO,SAAS,CAAC;IACnB,CAAC;IAEM,WAAW;QAChB,OAAO,IAAI,CAAC,WAAW,IAAI,SAAS,CAAC;IACvC,CAAC;IAEM,WAAW;QAChB,OAAO,SAAS,CAAC;IACnB,CAAC;IAEM,eAAe;QACpB,kDAAkD;QAClD,IAAI,IAAI,CAAC,SAAS,KAAK,SAAS,EAAE;YAChC,OAAO,IAAI,CAAC,aAAa,IAAI,IAAI,CAAC;SACnC;QAED,OAAO,IAAI,CAAC;IACd,CAAC;IAEM,aAAa;QAClB,OAAO,IAAI,CAAC,KAAK,KAAK,SAAS,CAAC,CAAC,CAAC,IAAI,CAAC,KAAK,CAAC,CAAC,CAAC,IAAI,CAAC;IACtD,CAAC;IAEM,aAAa;QAClB,IAAI,IAAI,CAAC,SAAS,KAAK,SAAS,EAAE;YAChC,OAAO,IAAI,CAAC,aAAa,IAAI,IAAI,CAAC;SACnC;QAED,OAAO,IAAI,CAAC;IACd,CAAC;IAEM,WAAW;QAChB,OAAO,CAAC,CAAC;IACX,CAAC;IAEM,eAAe;QACpB,OAAO,CAAC,CAAC;IACX,CAAC;IAEM,wBAAwB;QAC7B,OAAO,EAAE,CAAC;IACZ,CAAC;IAEM,OAAO;QACZ,OAAO,SAAS,CAAC;IACnB,CAAC;IAEM,WAAW;QAChB,OAAO,IAAI,CAAC,SAAS,IAAI,IAAI,CAAC;IAChC,CAAC;IAEM,OAAO;QACZ,OAAO,KAAK,CAAC;IACf,CAAC;IAEM,aAAa;QAClB,OAAO,KAAK,CAAC;IACf,CAAC;IAEM,MAAM;QACX,OAAO,KAAK,CAAC;IACf,CAAC;IAEM,QAAQ;QACb,OAAO,KAAK,CAAC;IACf,CAAC;IAEM,YAAY;QACjB,OAAO,KAAK,CAAC;IACf,CAAC;IAEM,UAAU;QACf,OAAO,KAAK,CAAC;IACf,CAAC;IAEM,aAAa;QAClB,OAAO,EAAE,CAAC;IACZ,CAAC;IAEM,wBAAwB;QAC7B,OAAO,CAAC,CAAC;IACX,CAAC;IAEM,sBAAsB;QAC3B,OAAO,CAAC,CAAC;IACX,CAAC;IAEM,QAAQ;QACb,OAAO,oBAAoB,CAAC;IAC9B,CAAC;CACF"}
 \ No newline at end of file
+diff --git a/internal/hardhat-network/stack-traces/solidity-stack-trace.d.ts b/internal/hardhat-network/stack-traces/solidity-stack-trace.d.ts
+index 968fbaef15ca19a6b45ba0cbeb37fb583493d3e5..070fcc0b91bf362ca8a04cc4ac24dc0f5340ac1c 100644
+--- a/internal/hardhat-network/stack-traces/solidity-stack-trace.d.ts
++++ b/internal/hardhat-network/stack-traces/solidity-stack-trace.d.ts
+@@ -1,5 +1,5 @@
+-import type { SourceReference, CallstackEntryStackTraceEntry, UnrecognizedCreateCallstackEntryStackTraceEntry, UnrecognizedContractCallstackEntryStackTraceEntry, PrecompileErrorStackTraceEntry, RevertErrorStackTraceEntry, PanicErrorStackTraceEntry, CustomErrorStackTraceEntry, FunctionNotPayableErrorStackTraceEntry, InvalidParamsErrorStackTraceEntry, FallbackNotPayableErrorStackTraceEntry, FallbackNotPayableAndNoReceiveErrorStackTraceEntry, UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry, MissingFallbackOrReceiveErrorStackTraceEntry, ReturndataSizeErrorStackTraceEntry, NonContractAccountCalledErrorStackTraceEntry, CallFailedErrorStackTraceEntry, DirectLibraryCallErrorStackTraceEntry, UnrecognizedCreateErrorStackTraceEntry, UnrecognizedContractErrorStackTraceEntry, OtherExecutionErrorStackTraceEntry, UnmappedSolc063RevertErrorStackTraceEntry, ContractTooLargeErrorStackTraceEntry, InternalFunctionCallStackEntry, ContractCallRunOutOfGasError } from "@nomicfoundation/edr";
+-declare const StackTraceEntryType: typeof import("@nomicfoundation/edr").StackTraceEntryType, stackTraceEntryTypeToString: typeof import("@nomicfoundation/edr").stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME: string, RECEIVE_FUNCTION_NAME: string, CONSTRUCTOR_FUNCTION_NAME: string, UNRECOGNIZED_FUNCTION_NAME: string, UNKNOWN_FUNCTION_NAME: string, PRECOMPILE_FUNCTION_NAME: string, UNRECOGNIZED_CONTRACT_NAME: string;
++import type { SourceReference, CallstackEntryStackTraceEntry, UnrecognizedCreateCallstackEntryStackTraceEntry, UnrecognizedContractCallstackEntryStackTraceEntry, PrecompileErrorStackTraceEntry, RevertErrorStackTraceEntry, PanicErrorStackTraceEntry, CustomErrorStackTraceEntry, FunctionNotPayableErrorStackTraceEntry, InvalidParamsErrorStackTraceEntry, FallbackNotPayableErrorStackTraceEntry, FallbackNotPayableAndNoReceiveErrorStackTraceEntry, UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry, MissingFallbackOrReceiveErrorStackTraceEntry, ReturndataSizeErrorStackTraceEntry, NonContractAccountCalledErrorStackTraceEntry, CallFailedErrorStackTraceEntry, DirectLibraryCallErrorStackTraceEntry, UnrecognizedCreateErrorStackTraceEntry, UnrecognizedContractErrorStackTraceEntry, OtherExecutionErrorStackTraceEntry, UnmappedSolc063RevertErrorStackTraceEntry, ContractTooLargeErrorStackTraceEntry, InternalFunctionCallStackEntry, ContractCallRunOutOfGasError } from "@ignored/edr-optimism";
++declare const StackTraceEntryType: typeof import("@ignored/edr-optimism").StackTraceEntryType, stackTraceEntryTypeToString: typeof import("@ignored/edr-optimism").stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME: string, RECEIVE_FUNCTION_NAME: string, CONSTRUCTOR_FUNCTION_NAME: string, UNRECOGNIZED_FUNCTION_NAME: string, UNKNOWN_FUNCTION_NAME: string, PRECOMPILE_FUNCTION_NAME: string, UNRECOGNIZED_CONTRACT_NAME: string;
+ export { SourceReference, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, };
+ export type { CallstackEntryStackTraceEntry, UnrecognizedCreateCallstackEntryStackTraceEntry, UnrecognizedContractCallstackEntryStackTraceEntry, PrecompileErrorStackTraceEntry, RevertErrorStackTraceEntry, PanicErrorStackTraceEntry, CustomErrorStackTraceEntry, FunctionNotPayableErrorStackTraceEntry, InvalidParamsErrorStackTraceEntry, FallbackNotPayableErrorStackTraceEntry, FallbackNotPayableAndNoReceiveErrorStackTraceEntry, UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry, MissingFallbackOrReceiveErrorStackTraceEntry, ReturndataSizeErrorStackTraceEntry, NonContractAccountCalledErrorStackTraceEntry, CallFailedErrorStackTraceEntry, DirectLibraryCallErrorStackTraceEntry, UnrecognizedCreateErrorStackTraceEntry, UnrecognizedContractErrorStackTraceEntry, OtherExecutionErrorStackTraceEntry, UnmappedSolc063RevertErrorStackTraceEntry, ContractTooLargeErrorStackTraceEntry, InternalFunctionCallStackEntry, ContractCallRunOutOfGasError, };
+ export type SolidityStackTraceEntry = CallstackEntryStackTraceEntry | UnrecognizedCreateCallstackEntryStackTraceEntry | UnrecognizedContractCallstackEntryStackTraceEntry | PrecompileErrorStackTraceEntry | RevertErrorStackTraceEntry | PanicErrorStackTraceEntry | CustomErrorStackTraceEntry | FunctionNotPayableErrorStackTraceEntry | InvalidParamsErrorStackTraceEntry | FallbackNotPayableErrorStackTraceEntry | FallbackNotPayableAndNoReceiveErrorStackTraceEntry | UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry | MissingFallbackOrReceiveErrorStackTraceEntry | ReturndataSizeErrorStackTraceEntry | NonContractAccountCalledErrorStackTraceEntry | CallFailedErrorStackTraceEntry | DirectLibraryCallErrorStackTraceEntry | UnrecognizedCreateErrorStackTraceEntry | UnrecognizedContractErrorStackTraceEntry | OtherExecutionErrorStackTraceEntry | UnmappedSolc063RevertErrorStackTraceEntry | ContractTooLargeErrorStackTraceEntry | InternalFunctionCallStackEntry | ContractCallRunOutOfGasError;
+diff --git a/internal/hardhat-network/stack-traces/solidity-stack-trace.js b/internal/hardhat-network/stack-traces/solidity-stack-trace.js
+index e5d88bf76b28d881026036dde974cd8a619b6ad0..a6b18b692993af97c6a6ee1f294bd9ebf64d65b9 100644
+--- a/internal/hardhat-network/stack-traces/solidity-stack-trace.js
++++ b/internal/hardhat-network/stack-traces/solidity-stack-trace.js
+@@ -2,7 +2,7 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.UNRECOGNIZED_CONTRACT_NAME = exports.PRECOMPILE_FUNCTION_NAME = exports.UNKNOWN_FUNCTION_NAME = exports.UNRECOGNIZED_FUNCTION_NAME = exports.CONSTRUCTOR_FUNCTION_NAME = exports.RECEIVE_FUNCTION_NAME = exports.FALLBACK_FUNCTION_NAME = exports.stackTraceEntryTypeToString = exports.StackTraceEntryType = void 0;
+ const napi_rs_1 = require("../../../common/napi-rs");
+-const { StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.StackTraceEntryType = StackTraceEntryType;
+ exports.stackTraceEntryTypeToString = stackTraceEntryTypeToString;
+ exports.FALLBACK_FUNCTION_NAME = FALLBACK_FUNCTION_NAME;
+diff --git a/internal/hardhat-network/stack-traces/solidityTracer.d.ts b/internal/hardhat-network/stack-traces/solidityTracer.d.ts
+index b09e6e34c21b0213323149dc7476234406377cb7..5d31efa4c0dd58c13b6c8fa22bd059ff43cc8a76 100644
+--- a/internal/hardhat-network/stack-traces/solidityTracer.d.ts
++++ b/internal/hardhat-network/stack-traces/solidityTracer.d.ts
+@@ -1,3 +1,3 @@
+-declare const SolidityTracer: typeof import("@nomicfoundation/edr").SolidityTracer;
++declare const SolidityTracer: typeof import("@ignored/edr-optimism").SolidityTracer;
+ export { SolidityTracer };
+ //# sourceMappingURL=solidityTracer.d.ts.map
+diff --git a/internal/hardhat-network/stack-traces/solidityTracer.js b/internal/hardhat-network/stack-traces/solidityTracer.js
+index 4540fea8431eb15155db13adb568053db39f2eab..6122b60d392e6fd10fd040f627674810ecbf2abd 100644
+--- a/internal/hardhat-network/stack-traces/solidityTracer.js
++++ b/internal/hardhat-network/stack-traces/solidityTracer.js
+@@ -2,6 +2,6 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.SolidityTracer = void 0;
+ const napi_rs_1 = require("../../../common/napi-rs");
+-const { SolidityTracer } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { SolidityTracer } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.SolidityTracer = SolidityTracer;
+ //# sourceMappingURL=solidityTracer.js.map
+diff --git a/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts b/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts
+index 4c31c3673060282fca8e4ac2fe0b8342e99390a9..c5b1562b1b04e6120e1ffe4569eb1d0f01a18736 100644
+--- a/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts
++++ b/internal/hardhat-network/stack-traces/vm-trace-decoder.d.ts
+@@ -1,4 +1,4 @@
+-import type { VmTraceDecoder as VmTraceDecoderT } from "@nomicfoundation/edr";
++import type { VmTraceDecoder as VmTraceDecoderT } from "@ignored/edr-optimism";
+ import { TracingConfig } from "../provider/node-types";
+ declare const VmTraceDecoder: typeof VmTraceDecoderT;
+ declare function initializeVmTraceDecoderWrapper(vmTraceDecoder: VmTraceDecoderT, tracingConfig: TracingConfig): void;
+diff --git a/internal/hardhat-network/stack-traces/vm-trace-decoder.js b/internal/hardhat-network/stack-traces/vm-trace-decoder.js
+index 64145a5e2924271c32a1c1b128ab861f284cfde7..328623037562bf3175e3d18677a80ca4fea59b31 100644
+--- a/internal/hardhat-network/stack-traces/vm-trace-decoder.js
++++ b/internal/hardhat-network/stack-traces/vm-trace-decoder.js
+@@ -9,7 +9,7 @@ const debug_1 = __importDefault(require("debug"));
+ const reporter_1 = require("../../sentry/reporter");
+ const napi_rs_1 = require("../../../common/napi-rs");
+ const log = (0, debug_1.default)("hardhat:core:hardhat-network:node");
+-const { VmTraceDecoder, initializeVmTraceDecoder } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { VmTraceDecoder, initializeVmTraceDecoder } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.VmTraceDecoder = VmTraceDecoder;
+ function initializeVmTraceDecoderWrapper(vmTraceDecoder, tracingConfig) {
+     try {
+diff --git a/internal/hardhat-network/stack-traces/vm-tracer.d.ts b/internal/hardhat-network/stack-traces/vm-tracer.d.ts
+index 272e3688b9917a813a2f341caf44c406f18474a7..ef533f846ab09ed546ca7dd54b40abe9f22bca1d 100644
+--- a/internal/hardhat-network/stack-traces/vm-tracer.d.ts
++++ b/internal/hardhat-network/stack-traces/vm-tracer.d.ts
+@@ -1,3 +1,3 @@
+-declare const VmTracer: typeof import("@nomicfoundation/edr").VmTracer;
++declare const VmTracer: typeof import("@ignored/edr-optimism").VmTracer;
+ export { VmTracer as VMTracer };
+ //# sourceMappingURL=vm-tracer.d.ts.map
+diff --git a/internal/hardhat-network/stack-traces/vm-tracer.js b/internal/hardhat-network/stack-traces/vm-tracer.js
+index 9d7f33c621e426bdb5d3c71d2ac1cc3122924688..28372e11c71b771282ddb24bb134195e549faeb7 100644
+--- a/internal/hardhat-network/stack-traces/vm-tracer.js
++++ b/internal/hardhat-network/stack-traces/vm-tracer.js
+@@ -2,6 +2,6 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.VMTracer = void 0;
+ const napi_rs_1 = require("../../../common/napi-rs");
+-const { VmTracer } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++const { VmTracer } = (0, napi_rs_1.requireNapiRsModule)("@ignored/edr-optimism");
+ exports.VMTracer = VmTracer;
+ //# sourceMappingURL=vm-tracer.js.map
 diff --git a/src/internal/cli/cli.ts b/src/internal/cli/cli.ts
 index c00c3a01379703f1807c18db195c7ae8f0c47692..48ed4cdf75f9ce7bd06f8e25361c86b8bd506982 100644
 --- a/src/internal/cli/cli.ts
@@ -886,7 +1123,7 @@ index cfcd86eadd70f44b7818a703a8aa67f93318cd71..a10993d4ae02b2c8acc18e3b25b7bec4
  export function isRunningWithTypescript(config: HardhatConfig): boolean {
    return isNonEsmTypescriptFile(config.paths.configFile);
 diff --git a/src/internal/hardhat-network/provider/provider.ts b/src/internal/hardhat-network/provider/provider.ts
-index b43e2565d8982f58806e0b4f182de0c8d0d4028d..270c4521d33872a879dd33a40e7850bf115716c2 100644
+index b43e2565d8982f58806e0b4f182de0c8d0d4028d..95f2245ad1c5959e93a81f9c9af34bd7e37b270f 100644
 --- a/src/internal/hardhat-network/provider/provider.ts
 +++ b/src/internal/hardhat-network/provider/provider.ts
 @@ -1,7 +1,5 @@
@@ -907,8 +1144,9 @@ index b43e2565d8982f58806e0b4f182de0c8d0d4028d..270c4521d33872a879dd33a40e7850bf
    Response,
    SubscriptionEvent,
    HttpHeader,
- } from "@nomicfoundation/edr";
-+import { l1GenesisState, l1HardforkFromString } from "@nomicfoundation/edr";
+-} from "@nomicfoundation/edr";
++} from "@ignored/edr-optimism";
++import { l1GenesisState, l1HardforkFromString } from "@ignored/edr-optimism";
  import { Common } from "@nomicfoundation/ethereumjs-common";
  import picocolors from "picocolors";
  import debug from "debug";
@@ -959,8 +1197,8 @@ index b43e2565d8982f58806e0b4f182de0c8d0d4028d..270c4521d33872a879dd33a40e7850bf
 +export async function getGlobalEdrContext(): Promise<EdrContext> {
 +  const { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory } =
 +    requireNapiRsModule(
-+      "@nomicfoundation/edr"
-+    ) as typeof import("@nomicfoundation/edr");
++      "@ignored/edr-optimism"
++    ) as typeof import("@ignored/edr-optimism");
  
    if (_globalEdrContext === undefined) {
      // Only one is allowed to exist
@@ -999,14 +1237,18 @@ index b43e2565d8982f58806e0b4f182de0c8d0d4028d..270c4521d33872a879dd33a40e7850bf
    }
  
    public static async create(
-@@ -194,7 +173,7 @@ export class EdrProviderWrapper
+@@ -194,9 +173,9 @@ export class EdrProviderWrapper
      loggerConfig: LoggerConfig,
      tracingConfig?: TracingConfig
    ): Promise<EdrProviderWrapper> {
 -    const { Provider } = requireNapiRsModule(
+-      "@nomicfoundation/edr"
+-    ) as typeof import("@nomicfoundation/edr");
 +    const { GENERIC_CHAIN_TYPE } = requireNapiRsModule(
-       "@nomicfoundation/edr"
-     ) as typeof import("@nomicfoundation/edr");
++      "@ignored/edr-optimism"
++    ) as typeof import("@ignored/edr-optimism");
+ 
+     const coinbase = config.coinbase ?? DEFAULT_COINBASE;
  
 @@ -238,12 +217,18 @@ export class EdrProviderWrapper
      const printLineFn = loggerConfig.printLineFn ?? printLine;
@@ -1277,11 +1519,25 @@ index b43e2565d8982f58806e0b4f182de0c8d0d4028d..270c4521d33872a879dd33a40e7850bf
  }
  
  async function clientVersion(edrClientVersion: string): Promise<string> {
+diff --git a/src/internal/hardhat-network/provider/return-data.ts b/src/internal/hardhat-network/provider/return-data.ts
+index 26579010852a935996d31b9540de97bf781038b7..ef9b39413027f35f239992cb05f89f9a43396570 100644
+--- a/src/internal/hardhat-network/provider/return-data.ts
++++ b/src/internal/hardhat-network/provider/return-data.ts
+@@ -1,7 +1,7 @@
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ 
+ const { ReturnData } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ export { ReturnData };
 diff --git a/src/internal/hardhat-network/provider/utils/convertToEdr.ts b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
-index a955ef12258fdd26580509feac5a22df03aae979..702b9e9ca9eba72dbc941eb8a4f6aeaa29b142ad 100644
+index a955ef12258fdd26580509feac5a22df03aae979..aeb9fed27c07fba40997a1f502631e54dfcbc080 100644
 --- a/src/internal/hardhat-network/provider/utils/convertToEdr.ts
 +++ b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
-@@ -1,11 +1,28 @@
+@@ -1,12 +1,29 @@
 -import type {
 -  SpecId,
 -  MineOrdering,
@@ -1290,6 +1546,7 @@ index a955ef12258fdd26580509feac5a22df03aae979..702b9e9ca9eba72dbc941eb8a4f6aeaa
 -  TracingMessage,
 -  TracingMessageResult,
 -  TracingStep,
+-} from "@nomicfoundation/edr";
 +import {
 +  type SpecId,
 +  type MineOrdering,
@@ -1315,9 +1572,10 @@ index a955ef12258fdd26580509feac5a22df03aae979..702b9e9ca9eba72dbc941eb8a4f6aeaa
 +  MERGE,
 +  SHANGHAI,
 +  CANCUN,
- } from "@nomicfoundation/edr";
++} from "@ignored/edr-optimism";
  import { Address } from "@nomicfoundation/ethereumjs-util";
  
+ import { requireNapiRsModule } from "../../../../common/napi-rs";
 @@ -21,46 +38,42 @@ import {
  
  /* eslint-disable @nomicfoundation/hardhat-internal-rules/only-hardhat-error */
@@ -1383,3 +1641,187 @@ index a955ef12258fdd26580509feac5a22df03aae979..702b9e9ca9eba72dbc941eb8a4f6aeaa
      default:
        const _exhaustiveCheck: never = hardfork;
        throw new Error(
+@@ -71,8 +84,8 @@ export function ethereumsjsHardforkToEdrSpecId(hardfork: HardforkName): SpecId {
+ 
+ export function edrSpecIdToEthereumHardfork(specId: SpecId): HardforkName {
+   const { SpecId } = requireNapiRsModule(
+-    "@nomicfoundation/edr"
+-  ) as typeof import("@nomicfoundation/edr");
++    "@ignored/edr-optimism"
++  ) as typeof import("@ignored/edr-optimism");
+ 
+   switch (specId) {
+     case SpecId.Frontier:
+@@ -138,8 +151,8 @@ export function ethereumjsMempoolOrderToEdrMineOrdering(
+   mempoolOrder: MempoolOrder
+ ): MineOrdering {
+   const { MineOrdering } = requireNapiRsModule(
+-    "@nomicfoundation/edr"
+-  ) as typeof import("@nomicfoundation/edr");
++    "@ignored/edr-optimism"
++  ) as typeof import("@ignored/edr-optimism");
+ 
+   switch (mempoolOrder) {
+     case "fifo":
+diff --git a/src/internal/hardhat-network/provider/vm/exit.ts b/src/internal/hardhat-network/provider/vm/exit.ts
+index 480728bae018e014c89bf65ab5707ebe253f4f98..c81d91d1706b153f9e7b91ca363f9ff9293fa2c3 100644
+--- a/src/internal/hardhat-network/provider/vm/exit.ts
++++ b/src/internal/hardhat-network/provider/vm/exit.ts
+@@ -1,7 +1,7 @@
+ import { requireNapiRsModule } from "../../../../common/napi-rs";
+ 
+ const { ExitCode } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ export { ExitCode };
+diff --git a/src/internal/hardhat-network/provider/vm/minimal-vm.ts b/src/internal/hardhat-network/provider/vm/minimal-vm.ts
+index f80fa55d614caeab050fc93768dbb608fa532fd8..66d0d23338e85efeaecefab4d735efb8e75a6613 100644
+--- a/src/internal/hardhat-network/provider/vm/minimal-vm.ts
++++ b/src/internal/hardhat-network/provider/vm/minimal-vm.ts
+@@ -1,4 +1,4 @@
+-import type { Provider as EdrProviderT } from "@nomicfoundation/edr";
++import type { Provider as EdrProviderT } from "@ignored/edr-optimism";
+ import type { Address } from "@nomicfoundation/ethereumjs-util";
+ import type {
+   MinimalEVMResult,
+diff --git a/src/internal/hardhat-network/provider/vm/types.ts b/src/internal/hardhat-network/provider/vm/types.ts
+index ba4332ec5defe2890aeb21cf2f17ee2ddc011d24..230b353433785f8f0a2f36d668ec90f8acace53c 100644
+--- a/src/internal/hardhat-network/provider/vm/types.ts
++++ b/src/internal/hardhat-network/provider/vm/types.ts
+@@ -1,4 +1,4 @@
+-import type { ExceptionalHalt, SuccessReason } from "@nomicfoundation/edr";
++import type { ExceptionalHalt, SuccessReason } from "@ignored/edr-optimism";
+ import type { Address } from "@nomicfoundation/ethereumjs-util";
+ 
+ /**
+diff --git a/src/internal/hardhat-network/stack-traces/compiler-to-model.ts b/src/internal/hardhat-network/stack-traces/compiler-to-model.ts
+index 024c1f650e7fb444c2c30932ae8f4e736c1d4646..9c0977e1e53b9aa09b8f447ff2e679396239747a 100644
+--- a/src/internal/hardhat-network/stack-traces/compiler-to-model.ts
++++ b/src/internal/hardhat-network/stack-traces/compiler-to-model.ts
+@@ -1,7 +1,7 @@
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ 
+ const { createModelsAndDecodeBytecodes } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ export { createModelsAndDecodeBytecodes };
+diff --git a/src/internal/hardhat-network/stack-traces/debug.ts b/src/internal/hardhat-network/stack-traces/debug.ts
+index 19bedc7654f2de97929cee63adcf877b19167f61..8f162ae0b9811dc4766f04e83d4ad19ab3bf9357 100644
+--- a/src/internal/hardhat-network/stack-traces/debug.ts
++++ b/src/internal/hardhat-network/stack-traces/debug.ts
+@@ -1,7 +1,7 @@
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ 
+ const { printMessageTrace, printStackTrace } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ export { printMessageTrace, printStackTrace };
+diff --git a/src/internal/hardhat-network/stack-traces/library-utils.ts b/src/internal/hardhat-network/stack-traces/library-utils.ts
+index e960e7ccf3bc2d3b660afbf8d04813d86301560a..18186199c6930662d79bdd86c5fb2ef7cbd910e3 100644
+--- a/src/internal/hardhat-network/stack-traces/library-utils.ts
++++ b/src/internal/hardhat-network/stack-traces/library-utils.ts
+@@ -1,7 +1,7 @@
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ 
+ const { linkHexStringBytecode } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ export { linkHexStringBytecode };
+diff --git a/src/internal/hardhat-network/stack-traces/message-trace.ts b/src/internal/hardhat-network/stack-traces/message-trace.ts
+index 61bddec7120482ee7b30a9eb93a5b453e1e967b3..3ff400a192d555cb575f7ec8613aebc2feb13e50 100644
+--- a/src/internal/hardhat-network/stack-traces/message-trace.ts
++++ b/src/internal/hardhat-network/stack-traces/message-trace.ts
+@@ -2,7 +2,7 @@ import type {
+   PrecompileMessageTrace,
+   CreateMessageTrace,
+   CallMessageTrace,
+-} from "@nomicfoundation/edr";
++} from "@ignored/edr-optimism";
+ 
+ export type { PrecompileMessageTrace, CreateMessageTrace, CallMessageTrace };
+ 
+diff --git a/src/internal/hardhat-network/stack-traces/solidity-stack-trace.ts b/src/internal/hardhat-network/stack-traces/solidity-stack-trace.ts
+index b07e2c5ecd277a5a3425abca7fbaaf7b4268af45..5303923777073a72d46189131f21861282ac80c4 100644
+--- a/src/internal/hardhat-network/stack-traces/solidity-stack-trace.ts
++++ b/src/internal/hardhat-network/stack-traces/solidity-stack-trace.ts
+@@ -24,7 +24,7 @@ import type {
+   ContractTooLargeErrorStackTraceEntry,
+   InternalFunctionCallStackEntry,
+   ContractCallRunOutOfGasError,
+-} from "@nomicfoundation/edr";
++} from "@ignored/edr-optimism";
+ 
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ 
+@@ -39,8 +39,8 @@ const {
+   PRECOMPILE_FUNCTION_NAME,
+   UNRECOGNIZED_CONTRACT_NAME,
+ } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ export {
+   SourceReference,
+diff --git a/src/internal/hardhat-network/stack-traces/solidityTracer.ts b/src/internal/hardhat-network/stack-traces/solidityTracer.ts
+index c8154a413c7e9d93cd0da4a7ea506ae4a9dae062..fa6854f5373e58858768b58603e1326a4f276ff0 100644
+--- a/src/internal/hardhat-network/stack-traces/solidityTracer.ts
++++ b/src/internal/hardhat-network/stack-traces/solidityTracer.ts
+@@ -1,7 +1,7 @@
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ 
+ const { SolidityTracer } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ export { SolidityTracer };
+diff --git a/src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts b/src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts
+index b3b190df3a7f017fce3415b364c8bc4581a78760..9c751e801977a270ed3647c25ce2b421d24c047d 100644
+--- a/src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts
++++ b/src/internal/hardhat-network/stack-traces/vm-trace-decoder.ts
+@@ -1,4 +1,4 @@
+-import type { VmTraceDecoder as VmTraceDecoderT } from "@nomicfoundation/edr";
++import type { VmTraceDecoder as VmTraceDecoderT } from "@ignored/edr-optimism";
+ import picocolors from "picocolors";
+ import debug from "debug";
+ import { Reporter } from "../../sentry/reporter";
+@@ -8,8 +8,8 @@ import { requireNapiRsModule } from "../../../common/napi-rs";
+ const log = debug("hardhat:core:hardhat-network:node");
+ 
+ const { VmTraceDecoder, initializeVmTraceDecoder } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ function initializeVmTraceDecoderWrapper(
+   vmTraceDecoder: VmTraceDecoderT,
+diff --git a/src/internal/hardhat-network/stack-traces/vm-tracer.ts b/src/internal/hardhat-network/stack-traces/vm-tracer.ts
+index 97d8bf6a55e659872d24a5b16c1ad7caccc5a3f6..0efb653da0ea20ff754ce23047dc27a7cb4b6d38 100644
+--- a/src/internal/hardhat-network/stack-traces/vm-tracer.ts
++++ b/src/internal/hardhat-network/stack-traces/vm-tracer.ts
+@@ -1,7 +1,7 @@
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ 
+ const { VmTracer } = requireNapiRsModule(
+-  "@nomicfoundation/edr"
+-) as typeof import("@nomicfoundation/edr");
++  "@ignored/edr-optimism"
++) as typeof import("@ignored/edr-optimism");
+ 
+ export { VmTracer as VMTracer };
