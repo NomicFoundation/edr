@@ -263,11 +263,16 @@ impl<'a> From<&'a TracingConfigWithBuffers>
         let build_infos = value
             .build_infos
             .as_ref()
-            .map(|infos| infos.iter().map(|array| array.as_ref()).collect::<Vec<_>>())
+            .map(|infos| {
+                infos
+                    .iter()
+                    .map(std::convert::AsRef::as_ref)
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
         Self {
             build_infos,
-            ignore_contracts: value.ignore_contracts.clone(),
+            ignore_contracts: value.ignore_contracts,
         }
     }
 }

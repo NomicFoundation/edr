@@ -20,7 +20,7 @@ pub enum BuildInfoConfigError {
     Semver(#[from] semver::Error),
 }
 
-/// Configuration for the [`ContractDecoder`].
+/// Configuration for the [`crate::contract_decoder::ContractDecoder`].
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildInfoConfig {
@@ -43,7 +43,7 @@ impl BuildInfoConfig {
 
         let build_infos = build_infos
             .into_iter()
-            .filter_map(|array| parse_build_info(&array).transpose())
+            .filter_map(|array| parse_build_info(array).transpose())
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self {
@@ -54,7 +54,7 @@ impl BuildInfoConfig {
 }
 
 fn parse_build_info(array: &[u8]) -> Result<Option<BuildInfo>, BuildInfoConfigError> {
-    let build_info = serde_json::from_slice::<BuildInfo>(array.as_ref())?;
+    let build_info = serde_json::from_slice::<BuildInfo>(array)?;
     let solc_version = build_info.solc_version.parse::<semver::Version>()?;
 
     if crate::compiler::FIRST_SOLC_VERSION_SUPPORTED <= solc_version {
@@ -64,7 +64,8 @@ fn parse_build_info(array: &[u8]) -> Result<Option<BuildInfo>, BuildInfoConfigEr
     }
 }
 
-/// Configuration for the [`ContractDecoder`] with unparsed build infos.
+/// Configuration for the [`crate::contract_decoder::ContractDecoder`] unparsed
+/// build infos.
 #[derive(Clone, Debug)]
 pub struct BuildInfoConfigWithBuffers<'a> {
     /// Build information to use for decoding contracts.
