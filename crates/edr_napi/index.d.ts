@@ -254,6 +254,13 @@ export interface ProviderConfig {
   /** The network ID of the blockchain */
   networkId: bigint
 }
+/** Tracing config for Solidity stack trace generation. */
+export interface TracingConfigWithBuffers {
+  /** Build information to use for decoding contracts. */
+  buildInfos?: Array<Uint8Array>
+  /** Whether to ignore contracts whose name starts with "Ignored". */
+  ignoreContracts?: boolean
+}
 /** The possible reasons for successful termination of the EVM. */
 export const enum SuccessReason {
   /** The opcode `STOP` was called */
@@ -595,7 +602,7 @@ export declare class EdrContext {
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {
   /**Constructs a new provider with the provided configuration. */
-  static withConfig(context: EdrContext, config: ProviderConfig, loggerConfig: LoggerConfig, tracingConfig: any, subscriberCallback: (event: SubscriptionEvent) => void): Promise<Provider>
+  static withConfig(context: EdrContext, config: ProviderConfig, loggerConfig: LoggerConfig, tracingConfig: TracingConfigWithBuffers, subscriberCallback: (event: SubscriptionEvent) => void): Promise<Provider>
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(jsonRequest: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): void

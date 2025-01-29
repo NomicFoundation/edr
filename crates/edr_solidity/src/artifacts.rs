@@ -9,6 +9,70 @@ use std::collections::HashMap;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+/// Error in the build info config
+#[derive(Debug, thiserror::Error)]
+pub enum BuildInfoConfigError {
+    /// JSON deserialization error
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    /// Invalid semver in the build info
+    #[error(transparent)]
+    Semver(#[from] semver::Error),
+}
+
+/// Configuration for the [`ContractDecoder`].
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildInfoConfig {
+    /// Build information to use for decoding contracts.
+    pub build_infos: Vec<BuildInfo>,
+    /// Whether to ignore contracts whose name starts with "Ignored".
+    pub ignore_contracts: Option<bool>,
+}
+
+impl BuildInfoConfig {
+    /// Parse the config from bytes. This is a performance intensive operation
+    /// which is why it's not a `TryFrom` implementation.
+    pub fn parse_from_buffers(
+        config: BuildInfoConfigWithBuffers<'_>,
+    ) -> Result<Self, BuildInfoConfigError> {
+        let BuildInfoConfigWithBuffers {
+            build_infos,
+            ignore_contracts,
+        } = config;
+
+        let build_infos = build_infos
+            .into_iter()
+            .filter_map(|array| parse_build_info(&array).transpose())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Self {
+            build_infos,
+            ignore_contracts,
+        })
+    }
+}
+
+fn parse_build_info(array: &[u8]) -> Result<Option<BuildInfo>, BuildInfoConfigError> {
+    let build_info = serde_json::from_slice::<BuildInfo>(array.as_ref())?;
+    let solc_version = build_info.solc_version.parse::<semver::Version>()?;
+
+    if crate::compiler::FIRST_SOLC_VERSION_SUPPORTED <= solc_version {
+        Ok(Some(build_info))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Configuration for the [`ContractDecoder`] with unparsed build infos.
+#[derive(Clone, Debug)]
+pub struct BuildInfoConfigWithBuffers<'a> {
+    /// Build information to use for decoding contracts.
+    pub build_infos: Vec<&'a [u8]>,
+    /// Whether to ignore contracts whose name starts with "Ignored".
+    pub ignore_contracts: Option<bool>,
+}
+
 /// A `BuildInfo` is a file that contains all the information of a solc run. It
 /// includes all the necessary information to recreate that exact same run, and
 /// all of its output.

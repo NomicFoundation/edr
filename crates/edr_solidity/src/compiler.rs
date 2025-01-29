@@ -19,6 +19,9 @@ use crate::{
     source_map::decode_instructions,
 };
 
+/// First Solc version supported for stack trace generation
+pub const FIRST_SOLC_VERSION_SUPPORTED: semver::Version = semver::Version::new(0, 5, 1);
+
 /// For the Solidity compiler version and its standard JSON input and
 /// output[^1], creates the source model, decodes the bytecode with source
 /// mapping and links them to the source files.
