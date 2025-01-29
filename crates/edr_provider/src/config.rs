@@ -107,7 +107,7 @@ pub struct Provider<HardforkT> {
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, Account>,
     pub hardfork: HardforkT,
-    pub initial_base_fee_per_gas: Option<U256>,
+    pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,

@@ -19,6 +19,7 @@ use edr_evm::{
     Block as _, BlockReceipts, ContextExtension,
 };
 use itertools::Itertools;
+use revm_precompile::PrecompileFn;
 
 use crate::{
     data::call::{self, RunCallArgs},
@@ -31,11 +32,10 @@ pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnv,
-    pub hardfork: ChainSpecT::Hardfork,
+    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
     pub gas_limit: u64,
-    pub precompiles: &'a HashMap<Address, Precompile>,
+    pub precompiles: &'a HashMap<Address, PrecompileFn>,
     pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
 }
 
@@ -92,12 +92,11 @@ pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnv,
-    pub hardfork: ChainSpecT::Hardfork,
+    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
     pub lower_bound: u64,
     pub upper_bound: u64,
-    pub precompiles: &'a HashMap<Address, Precompile>,
+    pub precompiles: &'a HashMap<Address, PrecompileFn>,
     pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
 }
 

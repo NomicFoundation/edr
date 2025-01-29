@@ -54,10 +54,10 @@ use edr_evm::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
         StateOverrides, SyncState,
     },
-    trace::Trace,
+    trace::{Trace, TraceCollector},
     transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, ContextExtension,
     DebugTraceConfig, DebugTraceResultWithTraces, MemPool, MineBlockResultAndState,
-    OrderedTransaction, RandomHashGenerator,
+    OrderedTransaction, RandomHashGenerator, TracerEip3155,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, HeaderMap, RpcClientError},
@@ -94,7 +94,7 @@ use crate::{
     SyncSubscriberCallback,
 };
 
-const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u64 = 1_000_000_000;
+const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u128 = 1_000_000_000;
 const EDR_MAX_CACHED_STATES_ENV_VAR: &str = "__EDR_MAX_CACHED_STATES";
 const DEFAULT_MAX_CACHED_STATES: usize = 100_000;
 const EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES: &str =
@@ -1248,8 +1248,12 @@ where
     }
 
     /// Creates an EVM configuration with the provided hardfork and chain id
-    fn create_evm_config(&self, chain_id: u64) -> CfgEnv<ChainSpecT::Hardfork> {
-        let mut cfg_env = CfgEnv::<ChainSpecT::Hardfork>::default();
+    fn create_evm_config(
+        &self,
+        chain_id: u64,
+        hardfork: ChainSpecT::Hardfork,
+    ) -> CfgEnv<ChainSpecT::Hardfork> {
+        let mut cfg_env = CfgEnv::with_spec(hardfork);
         cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
             Some(usize::MAX)
@@ -1281,9 +1285,7 @@ where
             self.blockchain.chain_id()
         };
 
-        let mut cfg = self.create_evm_config(chain_id);
-        cfg.spec = hardfork;
-
+        let cfg = self.create_evm_config(chain_id, hardfork);
         Ok(cfg)
     }
 
@@ -1322,8 +1324,7 @@ where
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
-            &CfgEnv,
-            ChainSpecT::Hardfork,
+            &CfgEnv<ChainSpecT::Hardfork>,
             BlockOptions,
             &mut Debugger<ChainSpecT::HaltReason>,
         ) -> Result<
@@ -1380,8 +1381,7 @@ where
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
-            &CfgEnv,
-            ChainSpecT::Hardfork,
+            &CfgEnv<ChainSpecT::Hardfork>,
             BlockOptions,
             &mut Debugger<ChainSpecT::HaltReason>,
         ) -> Result<
@@ -1397,8 +1397,8 @@ where
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
-        let evm_config = self.create_evm_config(self.blockchain.chain_id());
         let hardfork = self.blockchain.hardfork();
+        let evm_config = self.create_evm_config(self.blockchain.chain_id(), hardfork);
 
         let evm_spec_id = hardfork.into();
         if options.mix_hash.is_none() && evm_spec_id >= l1::SpecId::MERGE {
@@ -1416,7 +1416,7 @@ where
             self.verbose_tracing,
         );
 
-        let result = mine_fn(self, &evm_config, hardfork, options, &mut debugger)?;
+        let result = mine_fn(self, &evm_config, options, &mut debugger)?;
 
         let Debugger {
             console_logger,
@@ -1729,9 +1729,11 @@ where
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
     ) -> Result<DebugTraceResultWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
-        let (cfg_env, hardfork) = self.create_evm_config_at_block_spec(block_spec)?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let mut tracer = Eip3155AndRawTracersContext::new(trace_config, self.verbose_tracing);
+        let mut eip3155_tracer = TracerEip3155::new(trace_config);
+        let mut raw_tracer = TraceCollector::new(self.verbose_tracing);
+
         let precompiles = self.custom_precompiles.clone();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
@@ -1741,7 +1743,6 @@ where
                 state,
                 state_overrides: &StateOverrides::default(),
                 cfg_env,
-                hardfork,
                 transaction,
                 precompiles: &precompiles,
                 debug_context: Some(ContextExtension {
@@ -1750,7 +1751,11 @@ where
                 }),
             })?;
 
-            Ok(execution_result_to_debug_result(result, tracer))
+            Ok(execution_result_to_debug_result(
+                result,
+                raw_tracer,
+                eip3155_tracer,
+            ))
         })?
     }
 
@@ -2132,7 +2137,7 @@ where
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
-        let (cfg_env, hardfork) = self.create_evm_config_at_block_spec(block_spec)?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let mut debugger = Debugger::with_mocker(
             Mocker::new(self.call_override.clone()),
@@ -2147,7 +2152,6 @@ where
                 state,
                 state_overrides,
                 cfg_env,
-                hardfork,
                 transaction,
                 precompiles: &precompiles,
                 debug_context: Some(ContextExtension {
@@ -2213,25 +2217,24 @@ where
 
     fn mine_block_with_mem_pool(
         &mut self,
-        config: &CfgEnv,
-        hardfork: ChainSpecT::Hardfork,
+        config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
         debugger: &mut Debugger<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderError<ChainSpecT>,
     > {
+        let reward = miner_reward(config.spec.into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block(
             self.blockchain.as_ref(),
             state_to_be_modified,
             &self.mem_pool,
             config,
-            hardfork,
             options,
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
-            miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
+            reward,
             Some(ContextExtension {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
@@ -2244,8 +2247,7 @@ where
     /// Mines a block with the provided transaction.
     fn mine_block_with_single_transaction(
         &mut self,
-        config: &CfgEnv,
-        hardfork: ChainSpecT::Hardfork,
+        config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
         transaction: ChainSpecT::SignedTransaction,
         debugger: &mut Debugger<ChainSpecT::HaltReason>,
@@ -2253,16 +2255,17 @@ where
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderError<ChainSpecT>,
     > {
+        let reward = miner_reward(config.spec.into()).unwrap_or(0);
+
         let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
             state_to_be_modified,
             transaction,
             config,
-            hardfork,
             options,
             self.min_gas_price,
-            miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
+            reward,
             Some(ContextExtension {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
@@ -2404,8 +2407,7 @@ where
 
         let header = block.header();
 
-        let (cfg_env, hardfork) =
-            self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
+        let cfg_env = self.create_evm_config_at_block_spec(&BlockSpec::Number(header.number))?;
 
         let transactions =
             self.filter_unsupported_transaction_types(block.transactions(), transaction_hash)?;
@@ -2417,7 +2419,7 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::BlockEnv::new_block_env(header, hardfork.into());
+                let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec.into());
 
                 debug_trace_transaction(
                     blockchain,
@@ -2488,7 +2490,7 @@ where
         transaction: ChainSpecT::SignedTransaction,
         block_spec: &BlockSpec,
     ) -> Result<EstimateGasResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
-        let (cfg_env, hardfork) = self.create_evm_config_at_block_spec(block_spec)?;
+        let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
         let minimum_cost = transaction::initial_cost(&transaction, self.evm_spec_id());
@@ -2513,7 +2515,6 @@ where
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                hardfork,
                 transaction: transaction.clone(),
                 precompiles: &precompiles,
                 debug_context: Some(ContextExtension {
@@ -2569,7 +2570,6 @@ where
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                hardfork,
                 transaction: transaction.clone(),
                 gas_limit: initial_estimation,
                 precompiles: &precompiles,
@@ -2593,7 +2593,6 @@ where
                 state,
                 state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
-                hardfork,
                 transaction,
                 lower_bound: initial_estimation,
                 upper_bound: header.gas_limit,
@@ -2778,7 +2777,7 @@ fn create_blockchain_and_state<
                     .base_fee_per_gas;
 
                 if previous_base_fee.is_none() {
-                    Some(U256::from(DEFAULT_INITIAL_BASE_FEE_PER_GAS))
+                    Some(DEFAULT_INITIAL_BASE_FEE_PER_GAS)
                 } else {
                     None
                 }
@@ -3842,7 +3841,7 @@ mod tests {
 
     #[cfg(feature = "test-remote")]
     mod alchemy {
-        use edr_eth::result::HaltReason;
+        use edr_eth::l1;
         use edr_evm::impl_full_block_tests;
         use edr_test_utils::env::get_alchemy_url;
 
@@ -3908,7 +3907,9 @@ mod tests {
 
             sol! { function Hello() public pure returns (string); }
 
-            fn assert_decoded_output(result: ExecutionResult<HaltReason>) -> anyhow::Result<()> {
+            fn assert_decoded_output(
+                result: ExecutionResult<l1::HaltReason>,
+            ) -> anyhow::Result<()> {
                 let output = result.into_output().expect("Call must have output");
                 let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
 
@@ -3924,7 +3925,7 @@ mod tests {
                 data: &mut ProviderData<L1ChainSpec>,
                 block_spec: BlockSpec,
                 request: CallRequest,
-            ) -> Result<CallResult<HaltReason>, ProviderError<L1ChainSpec>> {
+            ) -> Result<CallResult<l1::HaltReason>, ProviderError<L1ChainSpec>> {
                 let state_overrides = StateOverrides::default();
 
                 let transaction =
@@ -3978,7 +3979,7 @@ mod tests {
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
                 CallRequest {
-                    max_fee_per_gas: Some(U256::ZERO),
+                    max_fee_per_gas: Some(0),
                     ..default_call.clone()
                 },
             )?;
@@ -3991,7 +3992,7 @@ mod tests {
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
                 CallRequest {
-                    gas_price: Some(U256::ZERO),
+                    gas_price: Some(0),
                     ..default_call.clone()
                 },
             )?;
@@ -4004,7 +4005,7 @@ mod tests {
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
                 CallRequest {
-                    max_fee_per_gas: Some(U256::ZERO),
+                    max_fee_per_gas: Some(0),
                     ..default_call.clone()
                 },
             );
@@ -4022,7 +4023,7 @@ mod tests {
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
                 CallRequest {
-                    gas_price: Some(U256::ZERO),
+                    gas_price: Some(0),
                     ..default_call.clone()
                 },
             )?;
@@ -4039,7 +4040,7 @@ mod tests {
                 &mut fixture.provider_data,
                 BlockSpec::Number(previous_block_number + 50),
                 CallRequest {
-                    max_fee_per_gas: Some(U256::ZERO),
+                    max_fee_per_gas: Some(0),
                     ..default_call
                 },
             )?;

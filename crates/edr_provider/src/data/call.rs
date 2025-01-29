@@ -29,8 +29,7 @@ pub(super) struct RunCallArgs<
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnv,
-    pub hardfork: ChainSpecT::Hardfork,
+    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
     pub precompiles: &'a HashMap<Address, PrecompileFn>,
     // `DebugContext` cannot be simplified further
