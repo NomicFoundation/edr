@@ -15,42 +15,35 @@ use revm_precompile::PrecompileFn;
 use crate::ProviderError;
 
 pub(super) struct RunCallArgs<
-    'a,
-    'evm,
+    'args,
+    'extension,
     ChainSpecT: RuntimeSpec<
         SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
-    DebugDataT,
+    ExtensionT,
+    FrameT,
 > where
-    'a: 'evm,
+    'args: 'extension,
 {
     pub blockchain:
-        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
-    pub header: &'a Header,
-    pub state: &'a dyn SyncState<StateError>,
-    pub state_overrides: &'a StateOverrides,
+        &'args dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+    pub header: &'args Header,
+    pub state: &'args dyn SyncState<StateError>,
+    pub state_overrides: &'args StateOverrides,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
-    pub precompiles: &'a HashMap<Address, PrecompileFn>,
+    pub precompiles: &'args HashMap<Address, PrecompileFn>,
     // `DebugContext` cannot be simplified further
     #[allow(clippy::type_complexity)]
-    pub debug_context: Option<
-        ContextExtension<
-            'evm,
-            ChainSpecT,
-            BlockchainErrorForChainSpec<ChainSpecT>,
-            DebugDataT,
-            StateRefOverrider<'a, &'evm dyn SyncState<StateError>>,
-        >,
-    >,
+    pub debug_context: Option<&'extension mut ContextExtension<ExtensionT, FrameT>>,
 }
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<'a, 'evm, ChainSpecT, DebugDataT>(
-    args: RunCallArgs<'a, 'evm, ChainSpecT, DebugDataT>,
+pub(super) fn run_call<'args, 'extension, ChainSpecT, ExtensionT, FrameT>(
+    args: RunCallArgs<'args, 'extension, ChainSpecT, ExtensionT, FrameT>,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>>
 where
-    'a: 'evm,
+    'args: 'extension,
     ChainSpecT: SyncRuntimeSpec<
         BlockEnv: Default,
         SignedTransaction: Default
@@ -63,7 +56,6 @@ where
         state,
         state_overrides,
         cfg_env,
-        hardfork,
         transaction,
         precompiles,
         debug_context,
@@ -77,11 +69,10 @@ where
 
     let state_overrider = StateRefOverrider::new(state_overrides, state);
 
-    guaranteed_dry_run(
+    guaranteed_dry_run_with(
         blockchain,
         state_overrider,
         cfg_env,
-        hardfork,
         transaction,
         block,
         precompiles,
