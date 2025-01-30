@@ -13,7 +13,7 @@ use std::{fs, path::PathBuf, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use edr_solidity::{
-    artifacts::{BuildInfo, BuildInfoConfig},
+    artifacts::{BuildInfoConfig, BuildInfoWithOutput},
     contract_decoder::ContractDecoder,
 };
 
@@ -33,7 +33,7 @@ fn load_build_info_config() -> anyhow::Result<Option<BuildInfoConfig>> {
 
         if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
             let contents = fs::read(&path)?;
-            let build_info = serde_json::from_slice::<BuildInfo>(&contents)?;
+            let build_info = serde_json::from_slice::<BuildInfoWithOutput>(&contents)?;
             build_infos.push(build_info);
         }
     }

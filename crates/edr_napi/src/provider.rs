@@ -250,26 +250,51 @@ impl Provider {
 /// Tracing config for Solidity stack trace generation.
 #[napi(object)]
 pub struct TracingConfigWithBuffers {
-    /// Build information to use for decoding contracts.
-    pub build_infos: Option<Vec<Uint8Array>>,
+    /// Build information to use for decoding contracts. Either a Hardhat v2
+    /// build info file that contains both input and output or a Hardhat v3
+    /// build info file that doesn't contain output and a separate output file.
+    pub build_infos: Option<Vec<Either<Uint8Array, BuildInfoAndOutput>>>,
     /// Whether to ignore contracts whose name starts with "Ignored".
     pub ignore_contracts: Option<bool>,
+}
+
+/// Hardhat V3 build info where the compiler output is not part of the build
+/// info file.
+#[napi(object)]
+pub struct BuildInfoAndOutput {
+    /// The build info input file
+    pub build_info: Uint8Array,
+    /// The build info output file
+    pub output: Uint8Array,
 }
 
 impl<'a> From<&'a TracingConfigWithBuffers>
     for edr_solidity::artifacts::BuildInfoConfigWithBuffers<'a>
 {
     fn from(value: &'a TracingConfigWithBuffers) -> Self {
+        use edr_solidity::artifacts::BuildInfoBuffer;
+
         let build_infos = value
             .build_infos
             .as_ref()
             .map(|infos| {
                 infos
                     .iter()
-                    .map(std::convert::AsRef::as_ref)
+                    .map(|item| match item {
+                        Either::A(build_info_with_output) => {
+                            BuildInfoBuffer::WithOutput(build_info_with_output.as_ref())
+                        }
+                        Either::B(BuildInfoAndOutput { build_info, output }) => {
+                            BuildInfoBuffer::SeparateInputOutput {
+                                build_info: build_info.as_ref(),
+                                output: output.as_ref(),
+                            }
+                        }
+                    })
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+
         Self {
             build_infos,
             ignore_contracts: value.ignore_contracts,

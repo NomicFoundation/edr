@@ -18,6 +18,14 @@ pub enum BuildInfoConfigError {
     /// Invalid semver in the build info
     #[error(transparent)]
     Semver(#[from] semver::Error),
+    /// Input output file mismatch
+    #[error("Input output mismatch. Input format '{input_format}', input id '{input_id}', output format '{output_format}', output id '{output_id}'")]
+    InputOutputMismatch {
+        input_format: String,
+        input_id: String,
+        output_format: String,
+        output_id: String,
+    },
 }
 
 /// Configuration for the [`crate::contract_decoder::ContractDecoder`].
@@ -25,7 +33,7 @@ pub enum BuildInfoConfigError {
 #[serde(rename_all = "camelCase")]
 pub struct BuildInfoConfig {
     /// Build information to use for decoding contracts.
-    pub build_infos: Vec<BuildInfo>,
+    pub build_infos: Vec<BuildInfoWithOutput>,
     /// Whether to ignore contracts whose name starts with "Ignored".
     pub ignore_contracts: Option<bool>,
 }
@@ -53,8 +61,37 @@ impl BuildInfoConfig {
     }
 }
 
-fn parse_build_info(array: &[u8]) -> Result<Option<BuildInfo>, BuildInfoConfigError> {
-    let build_info = serde_json::from_slice::<BuildInfo>(array)?;
+fn parse_build_info(
+    build_info_buffer: BuildInfoBuffer<'_>,
+) -> Result<Option<BuildInfoWithOutput>, BuildInfoConfigError> {
+    let build_info = match build_info_buffer {
+        BuildInfoBuffer::WithOutput(buffer) => {
+            serde_json::from_slice::<BuildInfoWithOutput>(buffer)?
+        }
+        BuildInfoBuffer::SeparateInputOutput {
+            build_info: input,
+            output,
+        } => {
+            let input: BuildInfo = serde_json::from_slice(input)?;
+            let output: BuildInfoOutput = serde_json::from_slice(output)?;
+            if input._format != output._format || input.id != output.id {
+                return Err(BuildInfoConfigError::InputOutputMismatch {
+                    input_format: input._format,
+                    input_id: input.id,
+                    output_format: output._format,
+                    output_id: output.id,
+                });
+            }
+            BuildInfoWithOutput {
+                _format: input._format,
+                id: input.id,
+                solc_version: input.solc_version,
+                solc_long_version: input.solc_long_version,
+                input: input.input,
+                output: output.output,
+            }
+        }
+    };
     let solc_version = build_info.solc_version.parse::<semver::Version>()?;
 
     if crate::compiler::FIRST_SOLC_VERSION_SUPPORTED <= solc_version {
@@ -69,14 +106,42 @@ fn parse_build_info(array: &[u8]) -> Result<Option<BuildInfo>, BuildInfoConfigEr
 #[derive(Clone, Debug)]
 pub struct BuildInfoConfigWithBuffers<'a> {
     /// Build information to use for decoding contracts.
-    pub build_infos: Vec<&'a [u8]>,
+    pub build_infos: Vec<BuildInfoBuffer<'a>>,
     /// Whether to ignore contracts whose name starts with "Ignored".
     pub ignore_contracts: Option<bool>,
 }
 
-/// A `BuildInfo` is a file that contains all the information of a solc run. It
+/// Unparsed build infos.
+#[derive(Clone, Debug)]
+pub enum BuildInfoBuffer<'a> {
+    /// Deserializes to `BuildInfoWithOutput`.
+    WithOutput(&'a [u8]),
+    /// Separate build info input and output files.
+    SeparateInputOutput {
+        /// Deserializes to `BuildInfo`
+        build_info: &'a [u8],
+        /// Deserializes to `BuildInfoOutput`
+        output: &'a [u8],
+    },
+}
+
+/// A `BuildInfoWithOutput` contains all the information of a solc run. It
 /// includes all the necessary information to recreate that exact same run, and
-/// all of its output.
+/// the output of the run.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildInfoWithOutput {
+    #[serde(rename = "_format")]
+    pub _format: String,
+    pub id: String,
+    pub solc_version: String,
+    pub solc_long_version: String,
+    pub input: CompilerInput,
+    pub output: CompilerOutput,
+}
+
+/// A `BuildInfo` contains all the input information of a solc run. It
+/// includes all the necessary information to recreate that exact same run.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildInfo {
@@ -86,6 +151,15 @@ pub struct BuildInfo {
     pub solc_version: String,
     pub solc_long_version: String,
     pub input: CompilerInput,
+}
+
+/// A `BuildInfoOutput` contains all the output of a solc run.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildInfoOutput {
+    #[serde(rename = "_format")]
+    pub _format: String,
+    pub id: String,
     pub output: CompilerOutput,
 }
 

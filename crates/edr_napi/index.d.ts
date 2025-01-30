@@ -256,10 +256,24 @@ export interface ProviderConfig {
 }
 /** Tracing config for Solidity stack trace generation. */
 export interface TracingConfigWithBuffers {
-  /** Build information to use for decoding contracts. */
-  buildInfos?: Array<Uint8Array>
+  /**
+   * Build information to use for decoding contracts. Either a Hardhat v2
+   * build info file that contains both input and output or a Hardhat v3
+   * build info file that doesn't contain output and a separate output file.
+   */
+  buildInfos?: Array<Uint8Array | BuildInfoAndOutput>
   /** Whether to ignore contracts whose name starts with "Ignored". */
   ignoreContracts?: boolean
+}
+/**
+ * Hardhat V3 build info where the compiler output is not part of the build
+ * info file.
+ */
+export interface BuildInfoAndOutput {
+  /** The build info input file */
+  buildInfo: Uint8Array
+  /** The build info output file */
+  output: Uint8Array
 }
 /** The possible reasons for successful termination of the EVM. */
 export const enum SuccessReason {
