@@ -26,7 +26,6 @@ use crate::{
 //     >;
 
 /// Runs a transaction without committing the state.
-// `DebugContext` cannot be simplified further
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn dry_run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
@@ -46,19 +45,20 @@ where
     StateT: State<Error: Send + std::error::Error>,
 {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
+
     // let context = {
     //     let context = revm::Context {
     //         block,
     //         tx: transaction,
-    //         cfg,
     //         journaled_state: JournaledState::new(cfg.spec.into(), database),
+    //         cfg,
     //         chain: ChainSpecT::Context::default(),
     //         error: Ok(()),
     //     };
 
     //     ContextWithCustomPrecompiles {
     //         context,
-    //         custom_precompiles: custom_precompiles.clone(),
+    //         custom_precompiles,
     //     }
     // };
 
@@ -97,6 +97,7 @@ where
     evm.transact()
 }
 
+/// Runs a transaction using an extension without committing the state.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn dry_run_with_extension<
     'components,
@@ -185,7 +186,6 @@ where
 
 /// Runs a transaction without committing the state, while disabling balance
 /// checks and creating accounts for new addresses.
-// `DebugContext` cannot be simplified further
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
@@ -204,58 +204,61 @@ where
     >,
     StateT: State<Error: Send + std::error::Error>,
 {
-    cfg.disable_balance_check = true;
-    cfg.disable_block_gas_limit = true;
-    cfg.disable_nonce_check = true;
+    set_guarantees(&mut cfg);
+
     dry_run(blockchain, state, cfg, transaction, block)
 }
 
-// #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-// pub fn guaranteed_dry_run_with_extension<
-//     'database,
-//     BlockchainT,
-//     ChainSpecT,
-//     ExtensionT,
-//     FrameT,
-//     StateT,
-// >(
-//     blockchain: BlockchainT,
-//     state: StateT,
-//     mut cfg: CfgEnv<ChainSpecT::Hardfork>,
-//     transaction: ChainSpecT::SignedTransaction,
-//     block: ChainSpecT::BlockEnv,
-//     extension: ContextExtension<ExtensionT, FrameT>,
-// ) -> Result<
-//     ResultAndState<ChainSpecT::HaltReason>,
-//     TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
-// >
-// where
-//     BlockchainT: BlockHash<Error: Send + std::error::Error> + 'database,
-//     ChainSpecT: RuntimeSpec<
-//         SignedTransaction: TransactionValidation<ValidationError:
-// From<l1::InvalidTransaction>>,     >,
-//     FrameT: for<'context> Frame<
-//         Context<'context> = ExtendedContext<
-//             ContextForChainSpec<
-//                 ChainSpecT,
-//                 Box<
-//                     dyn Database<Error =
-// DatabaseComponentError<BlockchainT::Error, StateT::Error>>
-//                         + 'database,
-//                 >,
-//             >,
-//             ExtensionT,
-//         >,
-//         Error = TransactionError<ChainSpecT, BlockchainT::Error,
-// StateT::Error>,         FrameResult = FrameResult,
-//     >,
-//     StateT: State<Error: Send + std::error::Error> + 'database,
-// {
-//     cfg.disable_balance_check = true;
-//     cfg.disable_block_gas_limit = true;
-//     cfg.disable_nonce_check = true;
-//     dry_run_with_extension(blockchain, state, cfg, transaction, block,
-// extension) }
+/// Runs a transaction using an extension without committing the state, while
+/// disabling balance checks and creating accounts for new addresses.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+pub fn guaranteed_dry_run_with_extension<
+    'components,
+    'context,
+    'extension,
+    BlockchainT,
+    ChainSpecT,
+    ExtensionT,
+    FrameT,
+    StateT,
+>(
+    blockchain: BlockchainT,
+    state: StateT,
+    mut cfg: CfgEnv<ChainSpecT::Hardfork>,
+    transaction: ChainSpecT::SignedTransaction,
+    block: ChainSpecT::BlockEnv,
+    extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
+) -> Result<
+    ExecutionResultAndState<ChainSpecT::HaltReason>,
+    TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
+>
+where
+    'components: 'context,
+    'extension: 'context,
+    BlockchainT: BlockHash<Error: Send + std::error::Error> + 'components,
+    ChainSpecT: 'context
+        + RuntimeSpec<
+            SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+        >,
+    FrameT: Frame<
+        Context<'context> = ExtendedContext<
+            'context,
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
+            ExtensionT,
+        >,
+        Error = TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
+        FrameInit = FrameInput,
+        FrameResult = FrameResult,
+    >,
+    StateT: State<Error: Send + std::error::Error> + 'components,
+{
+    set_guarantees(&mut cfg);
+
+    dry_run_with_extension(blockchain, state, cfg, transaction, block, extension)
+}
 
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -341,3 +344,9 @@ where
 
 //     ResultAndState { result, state }
 // }
+
+fn set_guarantees<HardforkT: Into<l1::SpecId>>(config: &mut CfgEnv<HardforkT>) {
+    config.disable_balance_check = true;
+    config.disable_block_gas_limit = true;
+    config.disable_nonce_check = true;
+}

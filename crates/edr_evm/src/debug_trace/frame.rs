@@ -11,6 +11,8 @@ use crate::{
     trace::TraceCollectorFrame,
 };
 
+/// A frame that wraps the inner frame and notifies the tracer every time a
+/// frame ends.
 pub struct Eip3155TracerFrame<
     FrameT: Frame<FrameInit = FrameInput, FrameResult = FrameResult>,
     HaltReasonT: HaltReasonTrait,
@@ -111,8 +113,9 @@ where
     }
 }
 
-/// Helper type for a frame that combines EIP-3155 and raw tracers.
-pub type Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT> =
+/// Helper type for a frame that combines EIP-3155 and raw tracers for the
+/// provided precompile provider type.
+pub type Eip3155AndRawTracersFrameWithPrecompileProvider<BlockchainErrorT, ChainSpecT, ContextT, PrecompileProviderT, StateErrorT> =
     Eip3155TracerFrame<
         TraceCollectorFrame<
             <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::Frame<
@@ -121,9 +124,24 @@ pub type Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, ContextT, State
                     EthInterpreter,
                     <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::InstructionProvider,
                 >,
-                <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::PrecompileProvider,
+                PrecompileProviderT,
             >,
             <ChainSpecT as ChainSpec>::HaltReason,
         >,
         <ChainSpecT as ChainSpec>::HaltReason,
+    >;
+
+/// Helper type for a frame that combines EIP-3155 and raw tracers.
+pub type Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT> =
+    Eip3155AndRawTracersFrameWithPrecompileProvider<
+        BlockchainErrorT,
+        ChainSpecT,
+        ContextT,
+        <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<
+            BlockchainErrorT,
+            ChainSpecT,
+            ContextT,
+            StateErrorT,
+        >>::PrecompileProvider,
+        StateErrorT,
     >;

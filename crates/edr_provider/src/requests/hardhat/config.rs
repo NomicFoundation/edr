@@ -1,4 +1,4 @@
-use edr_eth::{Address, B256, U256};
+use edr_eth::{Address, B256};
 use edr_evm::Block as _;
 
 use crate::{
@@ -51,7 +51,7 @@ pub fn handle_set_min_gas_price<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-    min_gas_price: U256,
+    min_gas_price: u128,
 ) -> Result<bool, ProviderError<ChainSpecT>> {
     data.set_min_gas_price(min_gas_price)?;
 
@@ -63,7 +63,7 @@ pub fn handle_set_next_block_base_fee_per_gas_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-    base_fee_per_gas: U256,
+    base_fee_per_gas: u128,
 ) -> Result<bool, ProviderError<ChainSpecT>> {
     data.set_next_block_base_fee_per_gas(base_fee_per_gas)?;
 

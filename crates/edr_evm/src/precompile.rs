@@ -1,13 +1,35 @@
 use edr_eth::{Address, Bytes, HashMap, HashSet};
-pub use revm::precompile::{u64_to_address, PrecompileSpecId, Precompiles};
+pub use revm::precompile::{u64_to_address, PrecompileFn, PrecompileSpecId, Precompiles};
 use revm::{
     handler_interface::PrecompileProvider,
     interpreter::{Gas, InstructionResult, InterpreterResult},
-    precompile::{PrecompileErrors, PrecompileFn},
+    precompile::PrecompileErrors,
 };
+
+use crate::{evm::EvmSpec, spec::RuntimeSpec};
+
+/// Helper type for a chain-specific overridden precompile provider.
+pub type OverriddenPrecompileProviderForChainSpec<
+    BlockchainErrorT,
+    ChainSpecT,
+    ContextT,
+    StateErrorT,
+> = OverriddenPrecompileProvider<
+    <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<
+        BlockchainErrorT,
+        ChainSpecT,
+        ContextT,
+        StateErrorT,
+    >>::PrecompileProvider,
+>;
 
 /// A precompile provider that allows adding custom or overwriting existing
 /// precompiles.
+///
+/// # Safety
+///
+/// This assumes that the base precompile provider does not change its
+/// precompiles after construction.
 #[derive(Clone)]
 pub struct OverriddenPrecompileProvider<BaseProviderT: PrecompileProvider> {
     base: BaseProviderT,
@@ -49,7 +71,7 @@ impl<BaseProviderT: PrecompileProvider> OverriddenPrecompileProvider<BaseProvide
 }
 
 /// Trait for providing custom precompiles.
-pub trait CustomPrecompilesProvider {
+pub trait CustomPrecompilesGetter {
     /// Returns a map of custom precompiles.
     fn custom_precompiles(&self) -> HashMap<Address, PrecompileFn>;
 }
@@ -62,7 +84,7 @@ pub struct ContextWithCustomPrecompiles<ContextT> {
     pub custom_precompiles: HashMap<Address, PrecompileFn>,
 }
 
-impl<ContextT> CustomPrecompilesProvider for ContextWithCustomPrecompiles<ContextT> {
+impl<ContextT> CustomPrecompilesGetter for ContextWithCustomPrecompiles<ContextT> {
     fn custom_precompiles(&self) -> HashMap<Address, PrecompileFn> {
         self.custom_precompiles.clone()
     }
@@ -73,7 +95,7 @@ impl<BaseProviderT, ContextT, ErrorT> PrecompileProvider
 where
     BaseProviderT:
         PrecompileProvider<Context = ContextT, Error = ErrorT, Output = InterpreterResult>,
-    ContextT: CustomPrecompilesProvider,
+    ContextT: CustomPrecompilesGetter,
     ErrorT: From<PrecompileErrors>,
 {
     type Context = ContextT;

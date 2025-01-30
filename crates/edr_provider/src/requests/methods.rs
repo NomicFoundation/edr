@@ -3,7 +3,7 @@ use derive_where::derive_where;
 use edr_eth::{
     filter::{LogFilterOptions, SubscriptionType},
     serde::{optional_single_to_sequence, sequence_to_optional_single},
-    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256, U64,
+    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
 };
 use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
 use serde::{Deserialize, Serialize};
@@ -375,13 +375,13 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     SetLoggingEnabled(bool),
     /// `hardhat_setMinGasPrice`
     #[serde(rename = "hardhat_setMinGasPrice", with = "edr_eth::serde::sequence")]
-    SetMinGasPrice(U256),
+    SetMinGasPrice(U128),
     /// `hardhat_setNextBlockBaseFeePerGas`
     #[serde(
         rename = "hardhat_setNextBlockBaseFeePerGas",
         with = "edr_eth::serde::sequence"
     )]
-    SetNextBlockBaseFeePerGas(U256),
+    SetNextBlockBaseFeePerGas(U128),
     /// `hardhat_setNonce`
     #[serde(rename = "hardhat_setNonce")]
     SetNonce(

@@ -337,7 +337,7 @@ mod tests {
         let transaction = transaction::Request::Eip155(transaction::request::Eip155 {
             kind: TxKind::Call(Address::ZERO),
             gas_limit: 30_000,
-            gas_price: U256::from(42_000_000_000_u64),
+            gas_price: 42_000_000_000,
             value: U256::from(1),
             input: Bytes::default(),
             nonce: 0,

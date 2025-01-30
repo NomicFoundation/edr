@@ -3,7 +3,6 @@ mod frame;
 
 use std::{collections::HashMap, fmt::Debug};
 
-use context::Eip3155AndRawTracersContext;
 use edr_eth::{
     block::Block as _,
     bytecode::opcode::{self, OpCode},
@@ -14,20 +13,25 @@ use edr_eth::{
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
-use frame::Eip3155AndRawTracersFrame;
 use revm_context_interface::Journal;
 use revm_interpreter::{
     interpreter::EthInterpreter,
     interpreter_types::{InputsTrait as _, Jumps, LoopControl as _},
 };
 
+pub use self::{
+    context::{Eip3155AndRawTracersContext, Eip3155TracerContext, Eip3155TracerMutGetter},
+    frame::{
+        Eip3155AndRawTracersFrame, Eip3155AndRawTracersFrameWithPrecompileProvider,
+        Eip3155TracerFrame,
+    },
+};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     evm::JournalEntry,
     interpreter::{Interpreter, InterpreterResult},
-    run,
-    runtime::dry_run_with_extension,
+    runtime::{dry_run_with_extension, run},
     spec::RuntimeSpec,
     state::{Database, SyncState},
     trace::{Trace, TraceCollector},
@@ -43,7 +47,6 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn SyncState<StateErrorT>>,
     evm_config: CfgEnv<ChainSpecT::Hardfork>,
-    hardfork: ChainSpecT::Hardfork,
     trace_config: DebugTraceConfig,
     block: ChainSpecT::BlockEnv,
     transactions: Vec<ChainSpecT::SignedTransaction>,
@@ -62,7 +65,7 @@ where
     BlockchainErrorT: Send + std::error::Error,
     StateErrorT: Send + std::error::Error,
 {
-    let evm_spec_id = hardfork.into();
+    let evm_spec_id = evm_config.spec.into();
     if evm_spec_id < l1::SpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
         return Err(DebugTraceError::InvalidSpecId {

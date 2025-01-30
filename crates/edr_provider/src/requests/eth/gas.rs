@@ -146,28 +146,26 @@ fn resolve_estimate_gas_request<
         default_gas_price_fn: ProviderData::gas_price,
         max_fees_fn: |data, block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
             let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or_else(|| {
-                const DEFAULT: u64 = 1_000_000_000;
-                let default = U256::from(DEFAULT);
+                const DEFAULT: u128 = 1_000_000_000;
 
                 if let Some(max_fee_per_gas) = max_fee_per_gas {
-                    default.min(max_fee_per_gas)
+                    DEFAULT.min(max_fee_per_gas)
                 } else {
-                    default
+                    DEFAULT
                 }
             });
 
             let max_fee_per_gas = max_fee_per_gas.map_or_else(
-                || -> Result<U256, ProviderError<ChainSpecT>> {
+                || -> Result<u128, ProviderError<ChainSpecT>> {
                     let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
-                        max_priority_fee_per_gas
-                            + block.header().base_fee_per_gas.unwrap_or(U256::ZERO)
+                        max_priority_fee_per_gas + block.header().base_fee_per_gas.unwrap_or(0)
                     } else {
                         // Pending block
                         let base_fee = data
                             .next_block_base_fee_per_gas()?
                             .expect("This function can only be called for post-EIP-1559 blocks");
 
-                        U256::from(2) * base_fee + max_priority_fee_per_gas
+                        2 * base_fee + max_priority_fee_per_gas
                     };
 
                     Ok(base_fee)
@@ -199,8 +197,7 @@ mod tests {
     fn resolve_estimate_gas_request_with_default_max_priority_fee() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
-        let max_fee_per_gas =
-            pending_base_fee(&mut fixture.provider_data)?.max(U256::from(10_000_000_000u64));
+        let max_fee_per_gas = pending_base_fee(&mut fixture.provider_data)?.max(10_000_000_000);
 
         let request = CallRequest {
             from: Some(fixture.nth_local_account(0)?),
@@ -219,7 +216,7 @@ mod tests {
         assert_eq!(*resolved.gas_price(), max_fee_per_gas);
         assert_eq!(
             resolved.max_priority_fee_per_gas().cloned(),
-            Some(U256::from(1_000_000_000u64))
+            Some(1_000_000_000)
         );
 
         Ok(())
@@ -228,8 +225,8 @@ mod tests {
     #[test]
     fn resolve_estimate_gas_request_with_default_max_fee_when_pending_block() -> anyhow::Result<()>
     {
-        let base_fee = U256::from(10);
-        let max_priority_fee_per_gas = U256::from(1);
+        let base_fee = 10u128;
+        let max_priority_fee_per_gas = 1u128;
 
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
         fixture
@@ -252,7 +249,7 @@ mod tests {
 
         assert_eq!(
             *resolved.gas_price(),
-            U256::from(2) * base_fee + max_priority_fee_per_gas
+            2 * base_fee + max_priority_fee_per_gas
         );
         assert_eq!(
             resolved.max_priority_fee_per_gas().cloned(),
@@ -266,9 +263,7 @@ mod tests {
     fn resolve_estimate_gas_request_with_default_max_fee_when_historic_block() -> anyhow::Result<()>
     {
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
-        fixture
-            .provider_data
-            .set_next_block_base_fee_per_gas(U256::from(10))?;
+        fixture.provider_data.set_next_block_base_fee_per_gas(10)?;
 
         let transaction = fixture.signed_dummy_transaction(0, None)?;
         fixture.provider_data.send_transaction(transaction)?;
@@ -276,7 +271,7 @@ mod tests {
         let last_block = fixture.provider_data.last_block()?;
         assert_eq!(last_block.header().number, 1);
 
-        let max_priority_fee_per_gas = U256::from(1);
+        let max_priority_fee_per_gas = 1u128;
         let request = CallRequest {
             from: Some(fixture.nth_local_account(0)?),
             to: Some(fixture.nth_local_account(1)?),
@@ -309,11 +304,9 @@ mod tests {
     #[test]
     fn resolve_estimate_gas_request_with_capped_max_priority_fee() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
-        fixture
-            .provider_data
-            .set_next_block_base_fee_per_gas(U256::ZERO)?;
+        fixture.provider_data.set_next_block_base_fee_per_gas(0)?;
 
-        let max_fee_per_gas = U256::from(123);
+        let max_fee_per_gas = 123u128;
 
         let request = CallRequest {
             from: Some(fixture.nth_local_account(0)?),

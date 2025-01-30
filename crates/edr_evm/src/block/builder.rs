@@ -75,10 +75,10 @@ where
     ChainSpecT: RuntimeSpec,
 {
     /// The blockchain's error type.
-    type BlockchainError;
+    type BlockchainError: std::error::Error;
 
     /// The state's error type.
-    type StateError: Debug + Send;
+    type StateError: Send + std::error::Error;
 
     /// Creates a new block builder.
     fn new_block_builder(
@@ -108,13 +108,15 @@ where
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>;
 
     /// Adds a transaction to the block.
-    fn add_transaction_with_extension<'extension, ExtensionT, FrameT>(
+    fn add_transaction_with_extension<'context, 'extension, ExtensionT, FrameT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
-        FrameT: for<'context> Frame<
+        'extension: 'context,
+        ChainSpecT: 'context,
+        FrameT: Frame<
             Context<'context> = ExtendedContext<
                 'context,
                 ContextForChainSpec<
@@ -135,7 +137,9 @@ where
             Error = TransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>,
             FrameInit = FrameInput,
             FrameResult = FrameResult,
-        >;
+        >,
+        Self::BlockchainError: 'context,
+        Self::StateError: 'context;
 
     /// Finalizes the block, applying rewards to the state.
     fn finalize(

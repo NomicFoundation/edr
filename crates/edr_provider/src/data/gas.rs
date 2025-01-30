@@ -21,10 +21,7 @@ use edr_evm::{
 use itertools::Itertools;
 use revm_precompile::PrecompileFn;
 
-use crate::{
-    data::call::{self, RunCallArgs},
-    ProviderError,
-};
+use crate::{data::call, ProviderError};
 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain:
@@ -59,7 +56,6 @@ where
         state,
         state_overrides,
         cfg_env,
-        hardfork,
         mut transaction,
         gas_limit,
         precompiles,
@@ -74,10 +70,9 @@ where
         state,
         state_overrides,
         cfg_env,
-        hardfork,
         transaction,
         precompiles,
-        debug_context: Some(ContextExtension {
+        extension: Some(ContextExtension {
             data: trace_collector,
             register_handles_fn: register_trace_collector_handles,
         }),
@@ -122,7 +117,6 @@ where
         state,
         state_overrides,
         cfg_env,
-        hardfork,
         transaction,
         mut lower_bound,
         mut upper_bound,
@@ -147,7 +141,6 @@ where
             state,
             state_overrides,
             cfg_env: cfg_env.clone(),
-            hardfork,
             transaction: transaction.clone(),
             gas_limit: mid,
             precompiles,
@@ -238,13 +231,13 @@ where
             for (gas_used_by_tx, effective_reward) in &gas_used_and_effective_reward {
                 gas_used += gas_used_by_tx;
                 if target_gas <= gas_used {
-                    return *effective_reward;
+                    return U256::from(*effective_reward);
                 }
             }
 
             gas_used_and_effective_reward
                 .last()
-                .map_or(U256::ZERO, |(_, reward)| *reward)
+                .map_or(U256::ZERO, |(_, reward)| U256::from(*reward))
         })
         .collect())
 }

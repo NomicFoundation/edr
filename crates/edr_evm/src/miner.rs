@@ -85,7 +85,16 @@ where
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block<'blockchain, BlockchainErrorT, ChainSpecT, ExtensionT, FrameT, StateErrorT>(
+pub fn mine_block<
+    'blockchain,
+    'context,
+    'extension,
+    BlockchainErrorT,
+    ChainSpecT,
+    ExtensionT,
+    FrameT,
+    StateErrorT,
+>(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool<ChainSpecT>,
@@ -94,19 +103,21 @@ pub fn mine_block<'blockchain, BlockchainErrorT, ChainSpecT, ExtensionT, FrameT,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
-    mut extension: Option<&mut ContextExtension<ExtensionT, FrameT>>,
+    extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
+    'blockchain: 'context,
+    'extension: 'context,
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
             ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    FrameT: for<'context> Frame<
+    FrameT: Frame<
         Context<'context> = ExtendedContext<
             'context,
             ContextForChainSpec<
@@ -152,11 +163,7 @@ where
 
         let caller = *transaction.caller();
 
-        let result = if let Some(extension) = extension.as_mut() {
-            block_builder.add_transaction_with_extension(transaction, extension)
-        } else {
-            block_builder.add_transaction(transaction)
-        };
+        let result = block_builder.add_transaction_with_extension(transaction, extension);
 
         if let Err(error) = result {
             match error {

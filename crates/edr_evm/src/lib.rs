@@ -7,16 +7,10 @@
 
 pub use crate::{
     block::*,
-    debug_trace::{
-        debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
-        DebugTraceError, DebugTraceLogItem, DebugTraceResult, DebugTraceResultWithTraces,
-        TracerEip3155,
-    },
     extension::ContextExtension,
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,
     random::RandomHashGenerator,
-    runtime::{dry_run, guaranteed_dry_run, run},
 };
 
 /// Types for Ethereum blocks.
@@ -26,7 +20,8 @@ pub mod blockchain;
 pub(crate) mod collections;
 /// Types for configuring the runtime.
 pub mod config;
-mod debug_trace;
+/// Types for generating a EIP-3155 trace.
+pub mod debug_trace;
 /// Types for interfacing with the evm.
 pub mod evm;
 /// Types for extending the EVM.
@@ -47,7 +42,8 @@ pub(crate) mod random;
 pub mod receipt;
 /// Result types for EVM execution.
 pub mod result;
-mod runtime;
+/// Types and function for running the EVM.
+pub mod runtime;
 /// Types for chain specification.
 pub mod spec;
 /// Database types for managing Ethereum state

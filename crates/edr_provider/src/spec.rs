@@ -149,17 +149,17 @@ impl<ProviderSpecT: ProviderSpec<TimerT> + SyncRuntimeSpec, TimerT: Clone + Time
 }
 
 pub type DefaultGasPriceFn<ChainSpecT, TimerT> =
-    fn(&ProviderData<ChainSpecT, TimerT>) -> Result<U256, ProviderError<ChainSpecT>>;
+    fn(&ProviderData<ChainSpecT, TimerT>) -> Result<u128, ProviderError<ChainSpecT>>;
 
 pub type MaxFeesFn<ChainSpecT, TimerT> = fn(
     &ProviderData<ChainSpecT, TimerT>,
     // block_spec
     &BlockSpec,
     // max_fee_per_gas
-    Option<U256>,
+    Option<u128>,
     // max_priority_fee_per_gas
-    Option<U256>,
-) -> Result<(U256, U256), ProviderError<ChainSpecT>>;
+    Option<u128>,
+) -> Result<(u128, u128), ProviderError<ChainSpecT>>;
 
 pub struct CallContext<
     'context,

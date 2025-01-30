@@ -1,85 +1,73 @@
-use edr_eth::{
-    block::Header, l1, result::ExecutionResult, transaction::TransactionValidation, Address,
-    HashMap, U256,
-};
+use edr_eth::{block::Header, l1, result::ExecutionResult, transaction::TransactionValidation};
 use edr_evm::{
-    blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
+    blockchain::{BlockHash, BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
-    guaranteed_dry_run,
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
-    state::{StateError, StateOverrides, StateRefOverrider, SyncState},
+    evm::{Frame, FrameResult},
+    extension::ExtendedContext,
+    interpreter::FrameInput,
+    runtime::guaranteed_dry_run_with_extension,
+    spec::{BlockEnvConstructor as _, ContextForChainSpec, SyncRuntimeSpec},
+    state::{
+        DatabaseComponents, State, StateError, StateOverrides, StateRefOverrider, SyncState,
+        WrapDatabaseRef,
+    },
+    transaction::TransactionError,
     ContextExtension,
 };
-use revm_precompile::PrecompileFn;
 
 use crate::ProviderError;
 
-pub(super) struct RunCallArgs<
-    'args,
+/// Execute a transaction as a call. Returns the gas used and the output.
+pub(super) fn run_call<
+    'components,
+    'context,
     'extension,
-    ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
-    >,
+    BlockchainT,
+    ChainSpecT,
     ExtensionT,
     FrameT,
-> where
-    'args: 'extension,
-{
-    pub blockchain:
-        &'args dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
-    pub header: &'args Header,
-    pub state: &'args dyn SyncState<StateError>,
-    pub state_overrides: &'args StateOverrides,
-    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
-    pub transaction: ChainSpecT::SignedTransaction,
-    pub precompiles: &'args HashMap<Address, PrecompileFn>,
-    // `DebugContext` cannot be simplified further
-    #[allow(clippy::type_complexity)]
-    pub debug_context: Option<&'extension mut ContextExtension<ExtensionT, FrameT>>,
-}
-
-/// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<'args, 'extension, ChainSpecT, ExtensionT, FrameT>(
-    args: RunCallArgs<'args, 'extension, ChainSpecT, ExtensionT, FrameT>,
+    StateT,
+>(
+    blockchain: BlockchainT,
+    header: &Header,
+    state: StateT,
+    cfg_env: CfgEnv<ChainSpecT::Hardfork>,
+    transaction: ChainSpecT::SignedTransaction,
+    extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>>
 where
-    'args: 'extension,
+    'components: 'context,
+    'extension: 'context,
+    BlockchainT: BlockHash<Error = BlockchainErrorForChainSpec<ChainSpecT>> + 'components,
     ChainSpecT: SyncRuntimeSpec<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
+    FrameT: Frame<
+        Context<'context> = ExtendedContext<
+            'context,
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
+            ExtensionT,
+        >,
+        Error = TransactionError<BlockchainErrorForChainSpec<ChainSpecT>, ChainSpecT, StateError>,
+        FrameInit = FrameInput,
+        FrameResult = FrameResult,
+    >,
+    StateT: State<Error = StateError> + 'components,
 {
-    let RunCallArgs {
-        blockchain,
-        header,
-        state,
-        state_overrides,
-        cfg_env,
-        transaction,
-        precompiles,
-        debug_context,
-    } = args;
-
     // `eth_call` uses a base fee of zero to mimick geth's behavior
     let mut header = header.clone();
     header.base_fee_per_gas = header.base_fee_per_gas.map(|_| 0);
 
-    let block = ChainSpecT::BlockEnv::new_block_env(&header, hardfork.into());
+    let block = ChainSpecT::BlockEnv::new_block_env(&header, cfg_env.spec.into());
 
-    let state_overrider = StateRefOverrider::new(state_overrides, state);
-
-    guaranteed_dry_run_with(
-        blockchain,
-        state_overrider,
-        cfg_env,
-        transaction,
-        block,
-        precompiles,
-        debug_context,
-    )
-    .map_or_else(
-        |error| Err(ProviderError::RunTransaction(error)),
-        |result| Ok(result.result),
-    )
+    guaranteed_dry_run_with_extension(blockchain, state, cfg_env, transaction, block, extension)
+        .map_or_else(
+            |error| Err(ProviderError::RunTransaction(error)),
+            |result| Ok(result.result),
+        )
 }

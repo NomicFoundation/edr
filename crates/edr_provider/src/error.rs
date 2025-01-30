@@ -8,11 +8,12 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
+    debug_trace::DebugTraceError,
     spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
-    DebugTraceError, MemPoolAddTransactionError, MineBlockError, MineTransactionError,
+    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 use serde::Serialize;

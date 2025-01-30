@@ -22,10 +22,9 @@ use super::{BlockBuilder, BlockTransactionError};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    dry_run,
     extension::{ContextExtension, ExtendedContext},
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
-    runtime::dry_run_with_extension,
+    runtime::{dry_run, dry_run_with_extension},
     spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
@@ -184,13 +183,18 @@ where
     }
     /// Tries to add a transaction to the block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction_with_extension<'extension, ExtensionT, FrameT>(
-        &mut self,
+    pub fn add_transaction_with_extension<'context, 'extension, 's, ExtensionT, FrameT>(
+        &'s mut self,
         transaction: ChainSpecT::SignedTransaction,
         extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>>
     where
-        FrameT: for<'context> Frame<
+        'builder: 'context,
+        'extension: 'context,
+        's: 'context,
+        BlockchainErrorT: 'context,
+        ChainSpecT: 'context,
+        FrameT: Frame<
             Context<'context> = ExtendedContext<
                 'context,
                 ContextForChainSpec<
@@ -208,6 +212,7 @@ where
             FrameInit = FrameInput,
             FrameResult = FrameResult,
         >,
+        StateErrorT: 'context,
     {
         self.validate_transaction(&transaction)?;
 
@@ -411,13 +416,15 @@ where
         self.add_transaction(transaction)
     }
 
-    fn add_transaction_with_extension<'extension, ExtensionT, FrameT>(
+    fn add_transaction_with_extension<'context, 'extension, ExtensionT, FrameT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
-        FrameT: for<'context> Frame<
+        'extension: 'context,
+        ChainSpecT: 'context,
+        FrameT: Frame<
             Context<'context> = ExtendedContext<
                 'context,
                 ContextForChainSpec<
@@ -435,6 +442,8 @@ where
             FrameInit = FrameInput,
             FrameResult = FrameResult,
         >,
+        Self::BlockchainError: 'context,
+        Self::StateError: 'context,
     {
         self.add_transaction_with_extension(transaction, extension)
     }

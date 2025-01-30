@@ -1,6 +1,7 @@
 /// Types for configuring the provider.
 pub mod config;
 mod console_log;
+mod context;
 mod data;
 mod debug_mine;
 mod debugger;

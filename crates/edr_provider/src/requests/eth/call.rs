@@ -91,13 +91,11 @@ pub(crate) fn resolve_call_request<
         data,
         block_spec,
         state_overrides,
-        default_gas_price_fn: |_data| Ok(U256::ZERO),
+        default_gas_price_fn: |_data| Ok(0),
         max_fees_fn: |_data, _block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
-            let max_fee_per_gas = max_fee_per_gas
-                .or(max_priority_fee_per_gas)
-                .unwrap_or(U256::ZERO);
+            let max_fee_per_gas = max_fee_per_gas.or(max_priority_fee_per_gas).unwrap_or(0);
 
-            let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or(U256::ZERO);
+            let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or(0);
 
             Ok((max_fee_per_gas, max_priority_fee_per_gas))
         },

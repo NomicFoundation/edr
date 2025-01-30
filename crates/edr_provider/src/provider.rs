@@ -427,10 +427,10 @@ impl<
                 hardhat::handle_set_logging_enabled_request(data, is_enabled).and_then(to_json)
             }
             MethodInvocation::SetMinGasPrice(min_gas_price) => {
-                hardhat::handle_set_min_gas_price(data, min_gas_price).and_then(to_json)
+                hardhat::handle_set_min_gas_price(data, min_gas_price.to()).and_then(to_json)
             }
             MethodInvocation::SetNextBlockBaseFeePerGas(base_fee_per_gas) => {
-                hardhat::handle_set_next_block_base_fee_per_gas_request(data, base_fee_per_gas)
+                hardhat::handle_set_next_block_base_fee_per_gas_request(data, base_fee_per_gas.to())
                     .and_then(to_json)
             }
             MethodInvocation::SetNonce(address, nonce) => {

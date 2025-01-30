@@ -138,8 +138,8 @@ where
     type Frame<
         InstructionProviderT: InstructionProvider<Host = ContextT, WIRE = EthInterpreter>,
         PrecompileProviderT: PrecompileProvider<Context = ContextT, Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>, Output = InterpreterResult>
-    >: for<'context99> Frame<
-        Context<'context99> = ContextT,
+    >: for<'context> Frame<
+        Context<'context> = ContextT,
         Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
         FrameInit = FrameInput,
         FrameResult = FrameResult,

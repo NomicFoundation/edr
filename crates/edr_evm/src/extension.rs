@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use edr_eth::{log::ExecutionLog, Address, Bytes, B256, U256};
+use edr_eth::{log::ExecutionLog, Address, Bytes, HashMap, B256, U256};
 use revm::JournalEntry;
 use revm_context_interface::{
     block::BlockSetter, journaled_state::AccountLoad, BlockGetter, CfgGetter, DatabaseGetter,
@@ -8,7 +8,10 @@ use revm_context_interface::{
 };
 use revm_interpreter::{Host, Interpreter, SStoreResult, SelfDestructResult, StateLoad};
 
-use crate::instruction::{InspectsInstruction, InspectsInstructionWithJournal};
+use crate::{
+    instruction::{InspectsInstruction, InspectsInstructionWithJournal},
+    precompile::{CustomPrecompilesGetter, PrecompileFn},
+};
 
 /// An extended context consisting of an inner context for execution and an
 /// extension for runtime observability.
@@ -56,6 +59,16 @@ where
 
     fn cfg(&self) -> &Self::Cfg {
         self.inner.cfg()
+    }
+}
+
+impl<InnerContextT, OuterContextT> CustomPrecompilesGetter
+    for ExtendedContext<'_, InnerContextT, OuterContextT>
+where
+    OuterContextT: CustomPrecompilesGetter,
+{
+    fn custom_precompiles(&self) -> HashMap<Address, PrecompileFn> {
+        self.extension.custom_precompiles()
     }
 }
 
@@ -207,6 +220,11 @@ where
 
 /// Type for encapsulating contextual data and handler registration in an
 /// `EvmBuilder`.
+///
+/// # Usage
+///
+/// It only seems possible to use `ExtensionT` types that exclusively contain
+/// (mutable) references to data. Tested in Rust v1.83.
 pub struct ContextExtension<ExtensionT, FrameT> {
     extension: ExtensionT,
     phantom: PhantomData<FrameT>,
