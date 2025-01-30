@@ -20,13 +20,8 @@ pub enum BuildInfoConfigError {
     #[error(transparent)]
     Semver(#[from] semver::Error),
     /// Input output file mismatch
-    #[error("Input output mismatch. Input format '{input_format}', input id '{input_id}', output format '{output_format}', output id '{output_id}'")]
-    InputOutputMismatch {
-        input_format: String,
-        input_id: String,
-        output_format: String,
-        output_id: String,
-    },
+    #[error("Input output mismatch. Input id: '{input_id}'. Output id: '{output_id}'")]
+    InputOutputMismatch { input_id: String, output_id: String },
 }
 
 /// Configuration for the [`crate::contract_decoder::ContractDecoder`].
@@ -106,11 +101,10 @@ impl BuildInfoBuffers<'_> {
                 .map(|item| {
                     let input: BuildInfo = serde_json::from_slice(item.build_info)?;
                     let output: BuildInfoOutput = serde_json::from_slice(item.output)?;
-                    if input._format != output._format || input.id != output.id {
+                    // Make sure we get the output matching the input.
+                    if input.id != output.id {
                         return Err(BuildInfoConfigError::InputOutputMismatch {
-                            input_format: input._format,
                             input_id: input.id,
-                            output_format: output._format,
                             output_id: output.id,
                         });
                     }
