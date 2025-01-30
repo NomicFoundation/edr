@@ -150,7 +150,6 @@ jobs:
           # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
           # https://github.com/actions/upload-artifact/issues/294
           path: ./crates/edr_napi/${{ env.APP_NAME }}.*.node
-          overwrite: true
           if-no-files-found: error
   test-macOS-windows-binding:
     name: Test bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
