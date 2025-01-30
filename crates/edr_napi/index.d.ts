@@ -261,7 +261,7 @@ export interface TracingConfigWithBuffers {
    * build info file that contains both input and output or a Hardhat v3
    * build info file that doesn't contain output and a separate output file.
    */
-  buildInfos?: Array<Uint8Array | BuildInfoAndOutput>
+  buildInfos?: Array<Uint8Array> | Array<BuildInfoAndOutput>
   /** Whether to ignore contracts whose name starts with "Ignored". */
   ignoreContracts?: boolean
 }

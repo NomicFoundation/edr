@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 
 use indexmap::IndexMap;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 /// Error in the build info config
@@ -49,10 +50,7 @@ impl BuildInfoConfig {
             ignore_contracts,
         } = config;
 
-        let build_infos = build_infos
-            .into_iter()
-            .filter_map(|array| parse_build_info(array).transpose())
-            .collect::<Result<Vec<_>, _>>()?;
+        let build_infos = build_infos.map_or_else(|| Ok(Vec::default()), |bi| bi.parse())?;
 
         Ok(Self {
             build_infos,
@@ -61,68 +59,83 @@ impl BuildInfoConfig {
     }
 }
 
-fn parse_build_info(
-    build_info_buffer: BuildInfoBuffer<'_>,
-) -> Result<Option<BuildInfoWithOutput>, BuildInfoConfigError> {
-    let build_info = match build_info_buffer {
-        BuildInfoBuffer::WithOutput(buffer) => {
-            serde_json::from_slice::<BuildInfoWithOutput>(buffer)?
-        }
-        BuildInfoBuffer::SeparateInputOutput {
-            build_info: input,
-            output,
-        } => {
-            let input: BuildInfo = serde_json::from_slice(input)?;
-            let output: BuildInfoOutput = serde_json::from_slice(output)?;
-            if input._format != output._format || input.id != output.id {
-                return Err(BuildInfoConfigError::InputOutputMismatch {
-                    input_format: input._format,
-                    input_id: input.id,
-                    output_format: output._format,
-                    output_id: output.id,
-                });
-            }
-            BuildInfoWithOutput {
-                _format: input._format,
-                id: input.id,
-                solc_version: input.solc_version,
-                solc_long_version: input.solc_long_version,
-                input: input.input,
-                output: output.output,
-            }
-        }
-    };
-    let solc_version = build_info.solc_version.parse::<semver::Version>()?;
-
-    if crate::compiler::FIRST_SOLC_VERSION_SUPPORTED <= solc_version {
-        Ok(Some(build_info))
-    } else {
-        Ok(None)
-    }
-}
-
 /// Configuration for the [`crate::contract_decoder::ContractDecoder`] unparsed
 /// build infos.
 #[derive(Clone, Debug)]
 pub struct BuildInfoConfigWithBuffers<'a> {
     /// Build information to use for decoding contracts.
-    pub build_infos: Vec<BuildInfoBuffer<'a>>,
+    pub build_infos: Option<BuildInfoBuffers<'a>>,
     /// Whether to ignore contracts whose name starts with "Ignored".
     pub ignore_contracts: Option<bool>,
 }
 
 /// Unparsed build infos.
 #[derive(Clone, Debug)]
-pub enum BuildInfoBuffer<'a> {
+pub enum BuildInfoBuffers<'a> {
     /// Deserializes to `BuildInfoWithOutput`.
-    WithOutput(&'a [u8]),
+    WithOutput(Vec<&'a [u8]>),
     /// Separate build info input and output files.
-    SeparateInputOutput {
-        /// Deserializes to `BuildInfo`
-        build_info: &'a [u8],
-        /// Deserializes to `BuildInfoOutput`
-        output: &'a [u8],
-    },
+    SeparateInputOutput(Vec<BuildInfoBufferSeparateOutput<'a>>),
+}
+
+impl BuildInfoBuffers<'_> {
+    fn parse(&self) -> Result<Vec<BuildInfoWithOutput>, BuildInfoConfigError> {
+        fn filter_on_solc_version(
+            build_info: BuildInfoWithOutput,
+        ) -> Result<Option<BuildInfoWithOutput>, BuildInfoConfigError> {
+            let solc_version = build_info.solc_version.parse::<semver::Version>()?;
+
+            if crate::compiler::FIRST_SOLC_VERSION_SUPPORTED <= solc_version {
+                Ok(Some(build_info))
+            } else {
+                Ok(None)
+            }
+        }
+
+        match self {
+            BuildInfoBuffers::WithOutput(build_infos_with_output) => build_infos_with_output
+                .iter()
+                .map(|item| {
+                    let build_info: BuildInfoWithOutput = serde_json::from_slice(item)?;
+                    filter_on_solc_version(build_info)
+                })
+                .flatten_ok()
+                .collect::<Result<Vec<BuildInfoWithOutput>, _>>(),
+            BuildInfoBuffers::SeparateInputOutput(separate_output) => separate_output
+                .iter()
+                .map(|item| {
+                    let input: BuildInfo = serde_json::from_slice(item.build_info)?;
+                    let output: BuildInfoOutput = serde_json::from_slice(item.output)?;
+                    if input._format != output._format || input.id != output.id {
+                        return Err(BuildInfoConfigError::InputOutputMismatch {
+                            input_format: input._format,
+                            input_id: input.id,
+                            output_format: output._format,
+                            output_id: output.id,
+                        });
+                    }
+                    filter_on_solc_version(BuildInfoWithOutput {
+                        _format: input._format,
+                        id: input.id,
+                        solc_version: input.solc_version,
+                        solc_long_version: input.solc_long_version,
+                        input: input.input,
+                        output: output.output,
+                    })
+                })
+                .flatten_ok()
+                .collect::<Result<Vec<BuildInfoWithOutput>, _>>(),
+        }
+    }
+}
+
+/// Separate build info input and output files.
+#[derive(Clone, Debug)]
+pub struct BuildInfoBufferSeparateOutput<'a> {
+    /// Deserializes to `BuildInfo`
+    pub build_info: &'a [u8],
+    /// Deserializes to `BuildInfoOutput`
+    pub output: &'a [u8],
 }
 
 /// A `BuildInfoWithOutput` contains all the information of a solc run. It

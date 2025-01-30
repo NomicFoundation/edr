@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use edr_provider::{time::CurrentTime, InvalidRequestReason};
 use edr_rpc_eth::jsonrpc;
-use edr_solidity::{artifacts::BuildInfoConfig, contract_decoder::ContractDecoder};
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
     bindgen_prelude::Uint8Array, tokio::runtime, Either, Env, JsFunction, JsObject, Status,
 };
@@ -47,8 +47,9 @@ impl Provider {
         let config = edr_provider::ProviderConfig::try_from(config)?;
 
         // TODO https://github.com/NomicFoundation/edr/issues/760
-        let build_info_config = BuildInfoConfig::parse_from_buffers((&tracing_config).into())
-            .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+        let build_info_config =
+            edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers((&tracing_config).into())
+                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
         let contract_decoder = ContractDecoder::new(&build_info_config)
             .map_err(|error| napi::Error::from_reason(error.to_string()))?;
         let contract_decoder = Arc::new(contract_decoder);
@@ -253,7 +254,7 @@ pub struct TracingConfigWithBuffers {
     /// Build information to use for decoding contracts. Either a Hardhat v2
     /// build info file that contains both input and output or a Hardhat v3
     /// build info file that doesn't contain output and a separate output file.
-    pub build_infos: Option<Vec<Either<Uint8Array, BuildInfoAndOutput>>>,
+    pub build_infos: Option<Either<Vec<Uint8Array>, Vec<BuildInfoAndOutput>>>,
     /// Whether to ignore contracts whose name starts with "Ignored".
     pub ignore_contracts: Option<bool>,
 }
@@ -268,32 +269,37 @@ pub struct BuildInfoAndOutput {
     pub output: Uint8Array,
 }
 
+impl<'a> From<&'a BuildInfoAndOutput>
+    for edr_solidity::artifacts::BuildInfoBufferSeparateOutput<'a>
+{
+    fn from(value: &'a BuildInfoAndOutput) -> Self {
+        Self {
+            build_info: value.build_info.as_ref(),
+            output: value.output.as_ref(),
+        }
+    }
+}
+
 impl<'a> From<&'a TracingConfigWithBuffers>
     for edr_solidity::artifacts::BuildInfoConfigWithBuffers<'a>
 {
     fn from(value: &'a TracingConfigWithBuffers) -> Self {
-        use edr_solidity::artifacts::BuildInfoBuffer;
+        use edr_solidity::artifacts::{BuildInfoBufferSeparateOutput, BuildInfoBuffers};
 
-        let build_infos = value
-            .build_infos
-            .as_ref()
-            .map(|infos| {
-                infos
+        let build_infos = value.build_infos.as_ref().map(|infos| match infos {
+            Either::A(with_output) => BuildInfoBuffers::WithOutput(
+                with_output
                     .iter()
-                    .map(|item| match item {
-                        Either::A(build_info_with_output) => {
-                            BuildInfoBuffer::WithOutput(build_info_with_output.as_ref())
-                        }
-                        Either::B(BuildInfoAndOutput { build_info, output }) => {
-                            BuildInfoBuffer::SeparateInputOutput {
-                                build_info: build_info.as_ref(),
-                                output: output.as_ref(),
-                            }
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+                    .map(std::convert::AsRef::as_ref)
+                    .collect(),
+            ),
+            Either::B(separate_output) => BuildInfoBuffers::SeparateInputOutput(
+                separate_output
+                    .iter()
+                    .map(BuildInfoBufferSeparateOutput::from)
+                    .collect(),
+            ),
+        });
 
         Self {
             build_infos,
