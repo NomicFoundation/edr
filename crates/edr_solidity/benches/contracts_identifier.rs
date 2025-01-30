@@ -13,8 +13,8 @@ use std::{fs, path::PathBuf, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use edr_solidity::{
-    artifacts::BuildInfo,
-    contract_decoder::{BuildInfoConfig, ContractDecoder},
+    artifacts::{BuildInfoConfig, BuildInfoWithOutput},
+    contract_decoder::ContractDecoder,
 };
 
 const FORGE_STD_ARTIFACTS_DIR: &str = "EDR_FORGE_STD_ARTIFACTS_DIR";
@@ -33,13 +33,13 @@ fn load_build_info_config() -> anyhow::Result<Option<BuildInfoConfig>> {
 
         if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
             let contents = fs::read(&path)?;
-            let build_info = serde_json::from_slice::<BuildInfo>(&contents)?;
+            let build_info = serde_json::from_slice::<BuildInfoWithOutput>(&contents)?;
             build_infos.push(build_info);
         }
     }
 
     Ok(Some(BuildInfoConfig {
-        build_infos: Some(build_infos),
+        build_infos,
         ignore_contracts: None,
     }))
 }
@@ -51,8 +51,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let contracts = &build_info_config
         .build_infos
-        .as_ref()
-        .expect("loaded build info")
         .first()
         .expect("there is at least one build info")
         .output

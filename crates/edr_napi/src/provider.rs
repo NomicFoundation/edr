@@ -5,7 +5,9 @@ use std::sync::Arc;
 use edr_provider::{time::CurrentTime, InvalidRequestReason};
 use edr_rpc_eth::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
-use napi::{tokio::runtime, Either, Env, JsFunction, JsObject, Status};
+use napi::{
+    bindgen_prelude::Uint8Array, tokio::runtime, Either, Env, JsFunction, JsObject, Status,
+};
 use napi_derive::napi;
 
 use self::config::ProviderConfig;
@@ -37,7 +39,7 @@ impl Provider {
         _context: &EdrContext,
         config: ProviderConfig,
         logger_config: LoggerConfig,
-        tracing_config: serde_json::Value,
+        tracing_config: TracingConfigWithBuffers,
         #[napi(ts_arg_type = "(event: SubscriptionEvent) => void")] subscriber_callback: JsFunction,
     ) -> napi::Result<JsObject> {
         let runtime = runtime::Handle::current();
@@ -45,8 +47,9 @@ impl Provider {
         let config = edr_provider::ProviderConfig::try_from(config)?;
 
         // TODO https://github.com/NomicFoundation/edr/issues/760
-        let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
-            serde_json::from_value(tracing_config)?;
+        let build_info_config =
+            edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers((&tracing_config).into())
+                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
         let contract_decoder = ContractDecoder::new(&build_info_config)
             .map_err(|error| napi::Error::from_reason(error.to_string()))?;
         let contract_decoder = Arc::new(contract_decoder);
@@ -242,6 +245,66 @@ impl Provider {
     #[napi(ts_return_type = "void")]
     pub fn set_verbose_tracing(&self, verbose_tracing: bool) {
         self.provider.set_verbose_tracing(verbose_tracing);
+    }
+}
+
+/// Tracing config for Solidity stack trace generation.
+#[napi(object)]
+pub struct TracingConfigWithBuffers {
+    /// Build information to use for decoding contracts. Either a Hardhat v2
+    /// build info file that contains both input and output or a Hardhat v3
+    /// build info file that doesn't contain output and a separate output file.
+    pub build_infos: Option<Either<Vec<Uint8Array>, Vec<BuildInfoAndOutput>>>,
+    /// Whether to ignore contracts whose name starts with "Ignored".
+    pub ignore_contracts: Option<bool>,
+}
+
+/// Hardhat V3 build info where the compiler output is not part of the build
+/// info file.
+#[napi(object)]
+pub struct BuildInfoAndOutput {
+    /// The build info input file
+    pub build_info: Uint8Array,
+    /// The build info output file
+    pub output: Uint8Array,
+}
+
+impl<'a> From<&'a BuildInfoAndOutput>
+    for edr_solidity::artifacts::BuildInfoBufferSeparateOutput<'a>
+{
+    fn from(value: &'a BuildInfoAndOutput) -> Self {
+        Self {
+            build_info: value.build_info.as_ref(),
+            output: value.output.as_ref(),
+        }
+    }
+}
+
+impl<'a> From<&'a TracingConfigWithBuffers>
+    for edr_solidity::artifacts::BuildInfoConfigWithBuffers<'a>
+{
+    fn from(value: &'a TracingConfigWithBuffers) -> Self {
+        use edr_solidity::artifacts::{BuildInfoBufferSeparateOutput, BuildInfoBuffers};
+
+        let build_infos = value.build_infos.as_ref().map(|infos| match infos {
+            Either::A(with_output) => BuildInfoBuffers::WithOutput(
+                with_output
+                    .iter()
+                    .map(std::convert::AsRef::as_ref)
+                    .collect(),
+            ),
+            Either::B(separate_output) => BuildInfoBuffers::SeparateInputOutput(
+                separate_output
+                    .iter()
+                    .map(BuildInfoBufferSeparateOutput::from)
+                    .collect(),
+            ),
+        });
+
+        Self {
+            build_infos,
+            ignore_contracts: value.ignore_contracts,
+        }
     }
 }
 
