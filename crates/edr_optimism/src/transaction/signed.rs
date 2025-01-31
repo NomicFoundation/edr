@@ -10,9 +10,9 @@ use edr_eth::{
     eips::{eip2930, eip7702},
     signature::{Fakeable, Signature},
     transaction::{
-        ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, IsSupported,
-        MaybeSignedTransaction, Transaction, TransactionMut, TransactionType,
-        TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+        ExecutableTransaction, IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction,
+        Transaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
+        INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Address, Bytes, B256, U256,
 };
@@ -217,15 +217,6 @@ impl From<Eip4844> for Signed {
 impl From<Legacy> for Signed {
     fn from(transaction: Legacy) -> Self {
         Self::PreEip155Legacy(transaction)
-    }
-}
-
-impl HasAccessList for Signed {
-    fn has_access_list(&self) -> bool {
-        match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Deposit(_) => false,
-            Signed::Eip2930(_) | Signed::Eip1559(_) | Signed::Eip4844(_) => true,
-        }
     }
 }
 

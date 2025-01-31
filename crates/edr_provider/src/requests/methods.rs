@@ -335,13 +335,13 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     #[serde(rename = "hardhat_mine")]
     Mine(
         /// block count:
-        #[serde(default, with = "edr_eth::serde::optional_u64")]
+        #[serde(default, with = "alloy_serde::quantity::opt")]
         Option<u64>,
         /// interval:
         #[serde(
             default,
             skip_serializing_if = "Option::is_none",
-            with = "edr_eth::serde::optional_u64"
+            with = "alloy_serde::quantity::opt"
         )]
         Option<u64>,
     ),

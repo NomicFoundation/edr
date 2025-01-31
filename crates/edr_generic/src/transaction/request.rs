@@ -150,19 +150,19 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
         value: TransactionRequest,
         context: Self::Context<'_>,
     ) -> Result<crate::transaction::Request, ProviderError<GenericChainSpec>> {
-        const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
+        const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
 
         /// # Panics
         ///
         /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
         fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
             data: &ProviderData<GenericChainSpec, TimerT>,
-            max_priority_fee_per_gas: U256,
-        ) -> Result<U256, BlockchainErrorForChainSpec<GenericChainSpec>> {
+            max_priority_fee_per_gas: u128,
+        ) -> Result<u128, BlockchainErrorForChainSpec<GenericChainSpec>> {
             let base_fee_per_gas = data
                 .next_block_base_fee_per_gas()?
                 .expect("We already validated that the block is post-London.");
-            Ok(U256::from(2) * base_fee_per_gas + max_priority_fee_per_gas)
+            Ok(2 * base_fee_per_gas + max_priority_fee_per_gas)
         }
 
         let TransactionContext { data } = context;
@@ -212,7 +212,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
                         }
                         (Some(max_fee_per_gas), None) => (
                             max_fee_per_gas,
-                            max_fee_per_gas.min(U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS)),
+                            max_fee_per_gas.min(DEFAULT_MAX_PRIORITY_FEE_PER_GAS),
                         ),
                         (None, Some(max_priority_fee_per_gas)) => {
                             let max_fee_per_gas =
@@ -220,11 +220,9 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
                             (max_fee_per_gas, max_priority_fee_per_gas)
                         }
                         (None, None) => {
-                            let max_priority_fee_per_gas =
-                                U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS);
                             let max_fee_per_gas =
-                                calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
-                            (max_fee_per_gas, max_priority_fee_per_gas)
+                                calculate_max_fee_per_gas(data, DEFAULT_MAX_PRIORITY_FEE_PER_GAS)?;
+                            (max_fee_per_gas, DEFAULT_MAX_PRIORITY_FEE_PER_GAS)
                         }
                     };
 
