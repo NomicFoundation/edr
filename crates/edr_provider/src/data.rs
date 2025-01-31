@@ -31,8 +31,8 @@ use edr_eth::{
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
-        ExecutableTransaction, ExecutableTransaction as _, IsEip4844, IsSupported as _,
-        TransactionMut, TransactionType, TransactionValidation,
+        ExecutableTransaction, IsEip4844, IsSupported as _, TransactionMut, TransactionType,
+        TransactionValidation,
     },
     Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet, B256,
     KECCAK_EMPTY, U256,
@@ -81,10 +81,7 @@ use tokio::runtime;
 use self::account::{create_accounts, InitialAccounts};
 use crate::{
     context::Eip3155AndRawTracersContextWithPrecompiles,
-    data::{
-        call::run_call,
-        gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
-    },
+    data::gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
     },
@@ -1768,7 +1765,7 @@ where
                 >,
             >::new(context);
 
-            let result = run_call(
+            let result = call::run_call(
                 blockchain,
                 block.header(),
                 state.as_ref(),
@@ -2262,14 +2259,15 @@ where
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderError<ChainSpecT>,
     > {
+        let reward = miner_reward(config.spec.into()).unwrap_or(0);
+        let state_to_be_modified = (*self.current_state()?).clone();
+
         let context = DebuggerContext::new(debugger);
-        let mut extension = ContextExtension::<
+        let extension = ContextExtension::<
             _,
             DebuggerFrame<BlockchainErrorForChainSpec<ChainSpecT>, ChainSpecT, _, StateError>,
         >::new(context);
 
-        let reward = miner_reward(config.spec.into()).unwrap_or(0);
-        let state_to_be_modified = (*self.current_state()?).clone();
         let result = mine_block(
             self.blockchain.as_ref(),
             state_to_be_modified,
@@ -2279,7 +2277,7 @@ where
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
             reward,
-            Some(&mut extension),
+            extension,
         )?;
 
         Ok(result)
@@ -2297,8 +2295,14 @@ where
         ProviderError<ChainSpecT>,
     > {
         let reward = miner_reward(config.spec.into()).unwrap_or(0);
-
         let state_to_be_modified = (*self.current_state()?).clone();
+
+        let context = DebuggerContext::new(debugger);
+        let mut extension = ContextExtension::<
+            _,
+            DebuggerFrame<BlockchainErrorForChainSpec<ChainSpecT>, ChainSpecT, _, StateError>,
+        >::new(context);
+
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
             state_to_be_modified,
@@ -2307,10 +2311,7 @@ where
             options,
             self.min_gas_price,
             reward,
-            Some(ContextExtension {
-                data: debugger,
-                register_handles_fn: register_debugger_handles,
-            }),
+            Some(&mut extension),
         )?;
 
         Ok(result)
@@ -2346,10 +2347,9 @@ where
             self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
             let result = self.mine_and_commit_block_impl(
-                move |provider, config, hardfork, options, debugger| {
+                move |provider, config, options, debugger| {
                     provider.mine_block_with_single_transaction(
                         config,
-                        hardfork,
                         options,
                         transaction,
                         debugger,
@@ -2536,16 +2536,31 @@ where
         // a block
         let minimum_cost = transaction::initial_cost(&transaction, self.evm_spec_id());
 
-        let state_overrides = StateOverrides::default();
-
+        let custom_precompiles = self.custom_precompiles.clone();
         let mut debugger = Debugger::with_mocker(
             Mocker::new(self.call_override.clone()),
             self.verbose_tracing,
         );
 
-        let precompiles = self.custom_precompiles.clone();
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
+
+            let context = DebuggerContextWithPrecompiles::new(&mut debugger, &custom_precompiles);
+            let mut extension = ContextExtension::<
+                _,
+                DebuggerFrameWithPrecompileProvider<
+                    BlockchainErrorForChainSpec<ChainSpecT>,
+                    ChainSpecT,
+                    _,
+                    OverriddenPrecompileProviderForChainSpec<
+                        BlockchainErrorForChainSpec<ChainSpecT>,
+                        ChainSpecT,
+                        _,
+                        StateError,
+                    >,
+                    StateError,
+                >,
+            >::new(context);
 
             // Measure the gas used by the transaction with optional limit from call request
             // defaulting to block limit. Report errors from initial call as if from
@@ -2554,14 +2569,9 @@ where
                 blockchain,
                 header,
                 state,
-                &state_overrides,
                 cfg_env.clone(),
                 transaction.clone(),
-                &precompiles,
-                Some(ContextExtension {
-                    data: &mut debugger,
-                    register_handles_fn: register_debugger_handles,
-                }),
+                &mut extension,
             )?;
 
             let Debugger {
@@ -2609,11 +2619,10 @@ where
                 blockchain,
                 header,
                 state,
-                state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
                 transaction: transaction.clone(),
                 gas_limit: initial_estimation,
-                precompiles: &precompiles,
+                precompiles: &custom_precompiles,
                 trace_collector: &mut trace_collector,
             })?;
 
@@ -2632,12 +2641,11 @@ where
                 blockchain,
                 header,
                 state,
-                state_overrides: &state_overrides,
                 cfg_env: cfg_env.clone(),
                 transaction,
                 lower_bound: initial_estimation,
                 upper_bound: header.gas_limit,
-                precompiles: &precompiles,
+                precompiles: &custom_precompiles,
                 trace_collector: &mut trace_collector,
             })?;
 

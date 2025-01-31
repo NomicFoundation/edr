@@ -52,7 +52,7 @@ macro_rules! impl_execution_receipt_tests {
                         to: Some(Address::random()),
                         contract_address: Some(Address::random()),
                         gas_used: 100,
-                        effective_gas_price: Some(U256::from(100u64)),
+                        effective_gas_price: Some(100),
                     };
 
                     // ASSUMPTION: The transaction data doesn't matter for this test, so we can use a default transaction.

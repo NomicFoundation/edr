@@ -13,8 +13,10 @@ use edr_eth::{
 use revm::context_interface::Journal;
 
 pub use self::{
-    context::{TraceCollectorContext, TraceCollectorMutGetter},
-    frame::TraceCollectorFrame,
+    context::{
+        TraceCollectorContext, TraceCollectorContextWithPrecompiles, TraceCollectorMutGetter,
+    },
+    frame::{RawTracerFrame, RawTracerFrameWithPrecompileProvider},
 };
 use crate::{
     blockchain::BlockHash,

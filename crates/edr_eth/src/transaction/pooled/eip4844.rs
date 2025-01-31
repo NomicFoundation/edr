@@ -4,7 +4,11 @@ use alloy_rlp::Encodable as _;
 use sha2::Digest;
 
 use crate::{
-    eips::{eip2930, eip4844::VERSIONED_HASH_VERSION_KZG, eip7702},
+    eips::{
+        eip2930,
+        eip4844::{KzgSettings, VERSIONED_HASH_VERSION_KZG},
+        eip7702,
+    },
     transaction::{self, ExecutableTransaction, TxKind},
     utils::enveloped,
     Address, Blob, Bytes, Bytes48, B256, U256,
@@ -51,7 +55,7 @@ impl Eip4844 {
         blobs: Vec<Blob>,
         commitments: Vec<Bytes48>,
         proofs: Vec<Bytes48>,
-        settings: &c_kzg::KzgSettings,
+        settings: &KzgSettings,
     ) -> Result<Self, CreationError> {
         if payload.blob_hashes.len() != blobs.len() {
             return Err(CreationError::BlobCount {

@@ -1,4 +1,4 @@
-use edr_eth::{l1::L1ChainSpec, Address, Bytes, B256, U160, U256};
+use edr_eth::{l1::L1ChainSpec, Address, Bytes, B256, U128, U160, U256};
 use edr_provider::{
     hardhat_rpc_types::{CompilerInput, CompilerOutput, ForkConfig, ResetProviderConfig},
     MethodInvocation,
@@ -133,7 +133,7 @@ fn serde_hardhat_set_logging_enabled() {
 
 #[test]
 fn serde_hardhat_set_min_gas_price() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::SetMinGasPrice(U256::from(
+    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::SetMinGasPrice(U128::from(
         1,
     )));
 }
@@ -141,7 +141,7 @@ fn serde_hardhat_set_min_gas_price() {
 #[test]
 fn serde_hardhat_set_next_block_base_fee_per_gas() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::SetNextBlockBaseFeePerGas(
-        U256::from(1),
+        U128::from(1),
     ));
 }
 

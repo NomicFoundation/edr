@@ -183,15 +183,14 @@ where
     }
     /// Tries to add a transaction to the block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction_with_extension<'context, 'extension, 's, ExtensionT, FrameT>(
-        &'s mut self,
+    pub fn add_transaction_with_extension<'context, 'extension, ExtensionT, FrameT>(
+        &mut self,
         transaction: ChainSpecT::SignedTransaction,
         extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>>
     where
         'builder: 'context,
         'extension: 'context,
-        's: 'context,
         BlockchainErrorT: 'context,
         ChainSpecT: 'context,
         FrameT: Frame<
@@ -222,15 +221,27 @@ where
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
                 .map_err(TransactionError::State)?;
 
-        let transaction_result = dry_run_with_extension(
-            self.blockchain,
-            self.state.as_ref(),
-            self.cfg.clone(),
-            transaction.clone(),
-            block,
-            extension,
-        )
-        .map_err(BlockTransactionError::from)?;
+        // SAFETY: Due to current limitations in the borrow checker, `for<'context>` of
+        // `Frame` implies the 'static lifetime, preventing us from using it. Instead we
+        // pass in a function-scope 'context. This lifetime is still too long, as it's
+        // guaranteed that the context constructed inside `dry_run_with_extension` does
+        // not outlive the function call. Thus it's safe to ignore the borrow checker to
+        // avoid the error about `self.state` not being borrowed long enough OR it being
+        // mutably borrowable as the immutable borrow is for the full function scope
+        // when assign a 'state lifetime to `&mut self`.
+        let transaction_result = unsafe {
+            let state = &*(self.state.as_ref() as *const _);
+
+            dry_run_with_extension(
+                self.blockchain,
+                state,
+                self.cfg.clone(),
+                transaction.clone(),
+                block,
+                extension,
+            )
+            .map_err(BlockTransactionError::from)?
+        };
 
         self.add_transaction_result(receipt_builder, transaction, transaction_result);
 
@@ -422,8 +433,9 @@ where
         extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
+        'blockchain: 'context,
         'extension: 'context,
-        ChainSpecT: 'context,
+        ChainSpecT: 'static,
         FrameT: Frame<
             Context<'context> = ExtendedContext<
                 'context,

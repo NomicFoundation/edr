@@ -100,7 +100,6 @@ where
 /// Runs a transaction using an extension without committing the state.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn dry_run_with_extension<
-    'components,
     'context,
     'extension,
     BlockchainT,
@@ -120,9 +119,8 @@ pub fn dry_run_with_extension<
     TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
-    'components: 'context,
     'extension: 'context,
-    BlockchainT: BlockHash<Error: Send + std::error::Error> + 'components,
+    BlockchainT: BlockHash<Error: Send + std::error::Error> + 'context,
     ChainSpecT: 'context
         + RuntimeSpec<
             SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
@@ -140,7 +138,7 @@ where
         FrameInit = FrameInput,
         FrameResult = FrameResult,
     >,
-    StateT: State<Error: Send + std::error::Error> + 'components,
+    StateT: State<Error: Send + std::error::Error> + 'context,
 {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 

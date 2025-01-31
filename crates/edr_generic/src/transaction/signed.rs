@@ -2,7 +2,7 @@ use edr_eth::{
     eips::{eip2930, eip7702},
     signature::Signature,
     transaction::{
-        self, ExecutableTransaction, IsSupported, SignedTransaction, Transaction, TransactionMut,
+        self, ExecutableTransaction, IsSupported, SignedTransaction, TransactionMut,
         TransactionType, TransactionValidation, TxKind,
     },
     Address, Bytes, B256, U256,

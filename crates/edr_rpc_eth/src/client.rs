@@ -828,10 +828,7 @@ mod tests {
             assert_eq!(receipt.block_number, 0xa74fde);
             assert_eq!(receipt.contract_address, None);
             assert_eq!(receipt.cumulative_gas_used, 0x56c81b);
-            assert_eq!(
-                receipt.effective_gas_price,
-                Some(U256::from_str_radix("1e449a99b8", 16).expect("couldn't parse data"))
-            );
+            assert_eq!(receipt.effective_gas_price, Some(0x1e449a99b8));
             assert_eq!(
                 receipt.from,
                 Address::from_str("0x7d97fcdb98632a91be79d3122b4eb99c0c4223ee")

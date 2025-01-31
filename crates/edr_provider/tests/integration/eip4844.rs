@@ -5,13 +5,12 @@ use std::str::FromStr;
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     account::AccountInfo,
-    eips::eip4844::EnvKzgSettings,
+    eips::eip4844::ethereum_kzg_settings,
     l1::{self, L1ChainSpec},
     rlp::{self, Decodable},
     signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
-        self, pooled::PooledTransaction, ExecutableTransaction as _, Transaction as _,
-        TransactionType as _,
+        self, pooled::PooledTransaction, ExecutableTransaction as _, TransactionType as _,
     },
     Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, B256, BYTES_PER_BLOB, KECCAK_EMPTY, U256,
 };
@@ -44,13 +43,12 @@ impl BlobTransactionBuilder {
             .sign(&secret_key)
             .expect("Failed to sign transaction");
 
-        let settings = EnvKzgSettings::Default;
         let pooled_transaction = transaction::pooled::Eip4844::new(
             signed_transaction,
             self.blobs,
             self.commitments,
             self.proofs,
-            settings.get(),
+            ethereum_kzg_settings(),
         )
         .expect("Invalid blob transaction");
 
@@ -147,12 +145,6 @@ fn fake_call_request() -> CallRequest {
     let transaction = transaction.into_payload();
     let from = transaction.caller();
 
-    let access_list = if transaction.transaction_type() >= transaction::Type::Eip2930 {
-        Some(transaction.access_list().to_vec())
-    } else {
-        None
-    };
-
     let blob_hashes = if transaction.transaction_type() == transaction::Type::Eip4844 {
         Some(transaction.blob_hashes().to_vec())
     } else {
@@ -167,7 +159,9 @@ fn fake_call_request() -> CallRequest {
         gas: Some(transaction.gas_limit()),
         value: Some(*transaction.value()),
         data: Some(transaction.data().clone()),
-        access_list,
+        access_list: transaction
+            .access_list()
+            .map(|access_list| access_list.to_vec()),
         blobs,
         blob_hashes,
         ..CallRequest::default()
@@ -180,12 +174,6 @@ fn fake_transaction_request() -> TransactionRequest {
 
     let transaction = transaction.into_payload();
     let from = *transaction.caller();
-
-    let access_list = if transaction.transaction_type() >= transaction::Type::Eip2930 {
-        Some(transaction.access_list().to_vec())
-    } else {
-        None
-    };
 
     let blob_hashes = if transaction.transaction_type() == transaction::Type::Eip4844 {
         Some(transaction.blob_hashes().to_vec())
@@ -203,7 +191,9 @@ fn fake_transaction_request() -> TransactionRequest {
         data: Some(transaction.data().clone()),
         nonce: Some(transaction.nonce()),
         chain_id: transaction.chain_id(),
-        access_list,
+        access_list: transaction
+            .access_list()
+            .map(|access_list| access_list.to_vec()),
         transaction_type: Some(transaction.transaction_type().into()),
         blobs,
         blob_hashes,

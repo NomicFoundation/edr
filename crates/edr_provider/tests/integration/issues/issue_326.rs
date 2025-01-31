@@ -24,7 +24,7 @@ async fn issue_326() -> anyhow::Result<()> {
         auto_mine: false,
         ..MiningConfig::default()
     };
-    config.initial_base_fee_per_gas = Some(U256::from_str("0x100").unwrap());
+    config.initial_base_fee_per_gas = Some(0x100);
 
     let impersonated_account = Address::random();
     config.genesis_state.insert(
@@ -57,7 +57,7 @@ async fn issue_326() -> anyhow::Result<()> {
             from: impersonated_account,
             to: Some(impersonated_account),
             nonce: Some(0),
-            max_fee_per_gas: Some(U256::from_str("0xA").unwrap()),
+            max_fee_per_gas: Some(0xA),
             ..TransactionRequest::default()
         },
     )))?;
@@ -66,7 +66,7 @@ async fn issue_326() -> anyhow::Result<()> {
         CallRequest {
             from: Some(impersonated_account),
             to: Some(impersonated_account),
-            max_fee_per_gas: Some(U256::from_str("0x200").unwrap()),
+            max_fee_per_gas: Some(0x200),
             ..CallRequest::default()
         },
         None,

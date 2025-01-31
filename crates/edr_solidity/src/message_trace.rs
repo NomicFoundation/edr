@@ -2,7 +2,7 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use edr_eth::{result::HaltReason, Address, Bytes, U256};
+use edr_eth::{l1, Address, Bytes, U256};
 
 use crate::build_model::Bytecode;
 
@@ -14,7 +14,7 @@ pub enum ExitCode {
     /// Execution was reverted.
     Revert,
     /// Indicates that the EVM has experienced an exceptional halt.
-    Halt(HaltReason),
+    Halt(l1::HaltReason),
 }
 
 /// Represents a message trace. Naive Rust port of the `MessageTrace` from

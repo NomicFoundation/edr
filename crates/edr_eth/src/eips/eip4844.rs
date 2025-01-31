@@ -1,3 +1,4 @@
+pub use c_kzg::{ethereum_kzg_settings, KzgSettings};
 pub use revm_context_interface::block::{
     calc_blob_gasprice, calc_excess_blob_gas, BlobExcessGasAndPrice,
 };

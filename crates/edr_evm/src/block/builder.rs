@@ -114,6 +114,7 @@ where
         extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
+        'blockchain: 'context,
         'extension: 'context,
         ChainSpecT: 'context,
         FrameT: Frame<

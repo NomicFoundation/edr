@@ -6,7 +6,7 @@ use edr_evm::{
     instruction::InspectableInstructionProvider,
     interpreter::EthInterpreter,
     spec::RuntimeSpec,
-    trace::{TraceCollector, TraceCollectorFrame},
+    trace::{RawTracerFrame, TraceCollector},
 };
 
 pub use self::context::{DebuggerContext, DebuggerContextWithPrecompiles};
@@ -39,7 +39,7 @@ impl<HaltReasonT: HaltReasonTrait> Debugger<HaltReasonT> {
 pub type DebuggerFrameWithPrecompileProvider<BlockchainErrorT, ChainSpecT, ContextT, PrecompileProviderT, StateErrorT> =
     ConsoleLogCollectorFrame<
         MockingFrame<
-            TraceCollectorFrame<
+            RawTracerFrame<
                 <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::Frame<
                     InspectableInstructionProvider<
                         ContextT,

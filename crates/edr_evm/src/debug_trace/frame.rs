@@ -8,7 +8,7 @@ use revm_interpreter::interpreter::EthInterpreter;
 use super::context::Eip3155TracerMutGetter;
 use crate::{
     evm::EvmSpec, instruction::InspectableInstructionProvider, spec::RuntimeSpec,
-    trace::TraceCollectorFrame,
+    trace::RawTracerFrame,
 };
 
 /// A frame that wraps the inner frame and notifies the tracer every time a
@@ -117,7 +117,7 @@ where
 /// provided precompile provider type.
 pub type Eip3155AndRawTracersFrameWithPrecompileProvider<BlockchainErrorT, ChainSpecT, ContextT, PrecompileProviderT, StateErrorT> =
     Eip3155TracerFrame<
-        TraceCollectorFrame<
+        RawTracerFrame<
             <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::Frame<
                 InspectableInstructionProvider<
                     ContextT,

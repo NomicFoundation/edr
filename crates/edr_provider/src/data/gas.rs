@@ -13,9 +13,12 @@ use edr_eth::{
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
+    precompile::OverriddenPrecompileProviderForChainSpec,
     spec::SyncRuntimeSpec,
-    state::{StateError, StateOverrides, SyncState},
-    trace::TraceCollector,
+    state::{StateError, SyncState},
+    trace::{
+        RawTracerFrameWithPrecompileProvider, TraceCollector, TraceCollectorContextWithPrecompiles,
+    },
     Block as _, BlockReceipts, ContextExtension,
 };
 use itertools::Itertools;
@@ -28,7 +31,6 @@ pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
         &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
-    pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
     pub gas_limit: u64,
@@ -54,7 +56,6 @@ where
         blockchain,
         header,
         state,
-        state_overrides,
         cfg_env,
         mut transaction,
         gas_limit,
@@ -64,19 +65,31 @@ where
 
     transaction.set_gas_limit(gas_limit);
 
-    let result = call::run_call(RunCallArgs {
+    let context = TraceCollectorContextWithPrecompiles::new(trace_collector, precompiles);
+    let mut extension = ContextExtension::<
+        _,
+        RawTracerFrameWithPrecompileProvider<
+            BlockchainErrorForChainSpec<ChainSpecT>,
+            ChainSpecT,
+            _,
+            OverriddenPrecompileProviderForChainSpec<
+                BlockchainErrorForChainSpec<ChainSpecT>,
+                ChainSpecT,
+                _,
+                StateError,
+            >,
+            StateError,
+        >,
+    >::new(context);
+
+    let result = call::run_call(
         blockchain,
         header,
         state,
-        state_overrides,
         cfg_env,
         transaction,
-        precompiles,
-        extension: Some(ContextExtension {
-            data: trace_collector,
-            register_handles_fn: register_trace_collector_handles,
-        }),
-    })?;
+        &mut extension,
+    )?;
 
     Ok(matches!(result, ExecutionResult::Success { .. }))
 }
@@ -86,7 +99,6 @@ pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
         &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
-    pub state_overrides: &'a StateOverrides,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
     pub lower_bound: u64,
@@ -115,7 +127,6 @@ where
         blockchain,
         header,
         state,
-        state_overrides,
         cfg_env,
         transaction,
         mut lower_bound,
@@ -139,7 +150,6 @@ where
             blockchain,
             header,
             state,
-            state_overrides,
             cfg_env: cfg_env.clone(),
             transaction: transaction.clone(),
             gas_limit: mid,

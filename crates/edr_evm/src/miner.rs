@@ -103,7 +103,7 @@ pub fn mine_block<
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
-    extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
+    mut extension: ContextExtension<ExtensionT, FrameT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
@@ -117,24 +117,26 @@ where
             ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    FrameT: Frame<
-        Context<'context> = ExtendedContext<
-            'context,
-            ContextForChainSpec<
-                ChainSpecT,
-                WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                        &'context dyn SyncState<StateErrorT>,
+    ExtensionT: 'extension,
+    FrameT: 'context
+        + Frame<
+            Context<'context> = ExtendedContext<
+                'context,
+                ContextForChainSpec<
+                    ChainSpecT,
+                    WrapDatabaseRef<
+                        DatabaseComponents<
+                            &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                            &'context dyn SyncState<StateErrorT>,
+                        >,
                     >,
                 >,
+                ExtensionT,
             >,
-            ExtensionT,
+            Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
+            FrameInit = FrameInput,
+            FrameResult = FrameResult,
         >,
-        Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
-        FrameInit = FrameInput,
-        FrameResult = FrameResult,
-    >,
     StateErrorT: std::error::Error + Send,
 {
     let mut block_builder =
@@ -163,7 +165,17 @@ where
 
         let caller = *transaction.caller();
 
-        let result = block_builder.add_transaction_with_extension(transaction, extension);
+        // SAFETY: Due to current limitations in the borrow checker, `for<'context>` of
+        // `Frame` implies the 'static lifetime, preventing us from using it. Instead we
+        // pass in a function-scope 'context. This lifetime is still too long, as it's
+        // guaranteed that the context constructed inside
+        // `BlockBuilder::add_transaction_with_extension` does not outlive the
+        // function call. Thus it's safe to ignore the borrow checker to avoid the error
+        // about mutably borrowing the extension multiple times (in the loop).
+        let result = unsafe {
+            let extension = &mut *(&mut extension as *mut _);
+            block_builder.add_transaction_with_extension(transaction, extension)
+        };
 
         if let Err(error) = result {
             match error {
@@ -276,6 +288,7 @@ where
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<
     'blockchain,
+    'context,
     'extension,
     BlockchainErrorT,
     ChainSpecT,
@@ -296,13 +309,15 @@ pub fn mine_block_with_single_transaction<
     MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
+    'blockchain: 'context,
+    'extension: 'context,
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
             ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    FrameT: for<'context> Frame<
+    FrameT: Frame<
         Context<'context> = ExtendedContext<
             'context,
             ContextForChainSpec<

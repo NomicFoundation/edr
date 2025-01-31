@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use edr_eth::spec::HaltReasonTrait;
+use edr_eth::spec::{ChainSpec, HaltReasonTrait};
 use revm::{handler::FrameResult, interpreter::FrameInput};
 use revm_context_interface::{Journal, JournalGetter};
 use revm_handler_interface::{Frame, FrameOrResultGen};
@@ -8,7 +8,11 @@ use revm_handler_interface::{Frame, FrameOrResultGen};
 use super::{context::TraceCollectorMutGetter, TraceCollector};
 use crate::{
     blockchain::BlockHash,
+    evm::EvmSpec,
     extension::ExtendedContext,
+    instruction::InspectableInstructionProvider,
+    interpreter::EthInterpreter,
+    spec::RuntimeSpec,
     state::{DatabaseComponents, State, WrapDatabaseRef},
 };
 
@@ -47,12 +51,12 @@ where
 }
 
 /// An EVM frame used to collect raw traces.
-pub struct TraceCollectorFrame<FrameT: Frame, HaltReasonT: HaltReasonTrait> {
+pub struct RawTracerFrame<FrameT: Frame, HaltReasonT: HaltReasonTrait> {
     inner: FrameT,
     _phantom: PhantomData<HaltReasonT>,
 }
 
-impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, HaltReasonT> {
+impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> RawTracerFrame<FrameT, HaltReasonT> {
     /// Creates a new instance.
     fn new(inner: FrameT) -> Self {
         Self {
@@ -115,7 +119,7 @@ impl<FrameT: Frame, HaltReasonT: HaltReasonTrait> TraceCollectorFrame<FrameT, Ha
 }
 
 impl<BlockchainT, ContextT, FrameT, HaltReasonT, StateT> Frame
-    for TraceCollectorFrame<FrameT, HaltReasonT>
+    for RawTracerFrame<FrameT, HaltReasonT>
 where
     BlockchainT: BlockHash<Error: std::error::Error>,
     ContextT: JournalAndTraceCollectorGetter<
@@ -193,3 +197,18 @@ where
         self.inner.return_result(context, result)
     }
 }
+
+/// Helper type for a frame that collects raw traces for the provided precompile
+/// provider type.
+pub type RawTracerFrameWithPrecompileProvider<BlockchainErrorT, ChainSpecT, ContextT, PrecompileProviderT, StateErrorT> =
+    RawTracerFrame<
+        <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::Frame<
+            InspectableInstructionProvider<
+                ContextT,
+                EthInterpreter,
+                <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::InstructionProvider,
+            >,
+            PrecompileProviderT,
+        >,
+        <ChainSpecT as ChainSpec>::HaltReason
+    >;

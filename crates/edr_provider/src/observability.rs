@@ -6,7 +6,7 @@ use edr_evm::{
     interpreter::{EthInterpreter, Interpreter},
     spec::RuntimeSpec,
     state::{DatabaseComponents, JournaledState, State, WrapDatabaseRef},
-    trace::{TraceCollector, TraceCollectorContext, TraceCollectorFrame, TraceCollectorMutGetter},
+    trace::{TraceCollector, TraceCollectorContext, RawTracerFrame, TraceCollectorMutGetter},
 };
 
 use crate::{
@@ -95,7 +95,7 @@ where
 pub type RuntimeObservabilityFrame<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT> =
     MockingFrame<
         ConsoleLogCollectorFrame<
-            TraceCollectorFrame<
+            RawTracerFrame<
                 <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::Frame<
                     InspectableInstructionProvider<
                         ContextT,
