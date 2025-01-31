@@ -22,7 +22,7 @@ jobs:
     name: Check EDR
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
@@ -39,11 +39,11 @@ jobs:
       matrix:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
 
       - name: Cache EDR RPC cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             **/edr-cache
@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: check-edr
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
         with:
           components: clippy
@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: check-edr
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
 
       - name: Cargo doc
@@ -113,7 +113,7 @@ jobs:
     name: Run Prettier
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node
 
       - name: Install package
@@ -125,7 +125,7 @@ jobs:
     name: Check that edr_napi typings file is up to date
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node
 
       - name: Install package
