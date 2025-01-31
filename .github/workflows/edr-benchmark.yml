@@ -26,7 +26,7 @@ jobs:
     # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
     if: github.ref == 'refs/heads/main' || github.repository == github.event.pull_request.head.repo.full_name
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-rust
 
