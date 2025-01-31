@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use edr_eth::Bytes;
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 
 use super::{
     nested_trace::CreateMessage,
@@ -13,22 +12,12 @@ use super::{
     },
 };
 use crate::{
-    artifacts::BuildInfo,
+    artifacts::BuildInfoConfig,
     build_model::{ContractFunctionType, ContractMetadata},
     compiler::create_models_and_decode_bytecodes,
     contracts_identifier::ContractsIdentifier,
     nested_trace::{NestedTrace, NestedTraceStep},
 };
-
-/// Configuration for the [`ContractDecoder`].
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BuildInfoConfig {
-    /// Build information to use for decoding contracts.
-    pub build_infos: Option<Vec<BuildInfo>>,
-    /// Whether to ignore contracts.
-    pub ignore_contracts: Option<bool>,
-}
 
 /// Errors that can occur during the decoding of the nested trace.
 #[derive(Debug, thiserror::Error)]
@@ -219,11 +208,7 @@ fn initialize_contracts_identifier(
 ) -> anyhow::Result<ContractsIdentifier> {
     let mut contracts_identifier = ContractsIdentifier::default();
 
-    let Some(build_infos) = &config.build_infos else {
-        return Ok(contracts_identifier);
-    };
-
-    for build_info in build_infos {
+    for build_info in &config.build_infos {
         let bytecodes = create_models_and_decode_bytecodes(
             build_info.solc_version.clone(),
             &build_info.input,

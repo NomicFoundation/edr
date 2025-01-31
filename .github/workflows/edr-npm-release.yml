@@ -147,7 +147,7 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         shell: bash
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
           # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
@@ -181,7 +181,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
           path: ./crates/edr_napi/
@@ -207,7 +207,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bindings-x86_64-unknown-linux-gnu
           path: ./crates/edr_napi/
@@ -239,7 +239,7 @@ jobs:
           pnpm config set supportedArchitectures.libc "musl"
           pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bindings-x86_64-unknown-linux-musl
           path: ./crates/edr_napi/
@@ -265,7 +265,7 @@ jobs:
         with:
           version: 9
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bindings-aarch64-unknown-linux-gnu
           path: ./crates/edr_napi/
@@ -309,7 +309,7 @@ jobs:
         with:
           version: 9
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bindings-aarch64-unknown-linux-musl
           path: ./crates/edr_napi/
@@ -380,7 +380,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: ./crates/edr_napi/artifacts
       - name: Check number of artifacts
