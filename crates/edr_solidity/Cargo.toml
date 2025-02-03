@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = { version = "1.0.75", default-features = false }
 alloy-dyn-abi = { version = "0.8.15", default-features = false }
-alloy-json-abi = { version = "0.7.4", default-features = false }
+alloy-json-abi = { version = "0.8.20", default-features = false }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm" }
 indexmap = { version = "2", features = ["serde"] }
