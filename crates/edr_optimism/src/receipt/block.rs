@@ -69,7 +69,7 @@ impl ReceiptTrait for Block {
         self.eth.contract_address()
     }
 
-    fn effective_gas_price(&self) -> Option<&U256> {
+    fn effective_gas_price(&self) -> Option<&u128> {
         self.eth.effective_gas_price()
     }
 

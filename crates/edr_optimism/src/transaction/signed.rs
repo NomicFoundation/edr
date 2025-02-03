@@ -20,7 +20,7 @@ use edr_eth::{
 use revm_optimism::transaction::{deposit::DepositTransaction, OpTxTrait};
 
 use super::Signed;
-use crate::OptimismInvalidTransaction;
+use crate::transaction::OpTransactionError;
 
 /// Deposit transaction.
 ///
@@ -457,7 +457,7 @@ impl TransactionType for Signed {
 }
 
 impl TransactionValidation for Signed {
-    type ValidationError = OptimismInvalidTransaction;
+    type ValidationError = OpTransactionError;
 }
 
 impl_revm_transaction_trait!(Signed);

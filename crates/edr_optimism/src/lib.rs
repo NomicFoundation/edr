@@ -17,13 +17,13 @@ pub mod hardfork;
 /// Types for Optimism receipts.
 pub mod receipt;
 mod spec;
-pub use self::spec::OptimismChainSpec;
+pub use self::spec::OpChainSpec;
 
 /// Optimism transaction types
 pub mod transaction;
 
 use edr_eth::U256;
-pub use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId};
+pub use revm_optimism::{OpSpec, OpSpecId, OptimismHaltReason as OpHaltReason};
 
 /// Helper type for constructing an [`revm_optimism::L1BlockInfo`].
 ///

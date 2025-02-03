@@ -6,7 +6,7 @@ use edr_napi_core::{
     spec::SyncNapiSpec as _,
     subscription,
 };
-use edr_optimism::{OptimismChainSpec, OptimismSpecId};
+use edr_optimism::{OpChainSpec, OptimismSpecId};
 use napi_derive::napi;
 
 use crate::provider::ProviderFactory;
@@ -21,7 +21,7 @@ impl SyncProviderFactory for OptimismProviderFactory {
         logger_config: logger::Config,
         subscription_config: subscription::Config,
     ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<OptimismChainSpec>::new(logger_config)?;
+        let logger = Logger::<OpChainSpec>::new(logger_config)?;
 
         let provider_config = edr_provider::ProviderConfig::<OptimismSpecId>::from(provider_config);
 
@@ -37,7 +37,7 @@ impl SyncProviderFactory for OptimismProviderFactory {
 }
 
 #[napi]
-pub const OPTIMISM_CHAIN_TYPE: &str = OptimismChainSpec::CHAIN_TYPE;
+pub const OPTIMISM_CHAIN_TYPE: &str = OpChainSpec::CHAIN_TYPE;
 
 #[napi]
 pub fn optimism_provider_factory() -> ProviderFactory {

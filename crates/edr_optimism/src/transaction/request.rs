@@ -15,7 +15,7 @@ use edr_provider::{
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use super::{Request, Signed};
-use crate::OptimismChainSpec;
+use crate::OpChainSpec;
 
 impl FakeSign for Request {
     type Signed = Signed;
@@ -60,9 +60,9 @@ impl Sign for Request {
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Request {
-    type Context<'context> = CallContext<'context, OptimismChainSpec, TimerT>;
+    type Context<'context> = CallContext<'context, OpChainSpec, TimerT>;
 
-    type Error = ProviderError<OptimismChainSpec>;
+    type Error = ProviderError<OpChainSpec>;
 
     fn from_rpc_type(value: CallRequest, context: Self::Context<'_>) -> Result<Self, Self::Error> {
         let CallContext {
@@ -143,23 +143,23 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for Request {
-    type Context<'context> = TransactionContext<'context, OptimismChainSpec, TimerT>;
+    type Context<'context> = TransactionContext<'context, OpChainSpec, TimerT>;
 
-    type Error = ProviderError<OptimismChainSpec>;
+    type Error = ProviderError<OpChainSpec>;
 
     fn from_rpc_type(
         value: TransactionRequest,
         context: Self::Context<'_>,
-    ) -> Result<Request, ProviderError<OptimismChainSpec>> {
+    ) -> Result<Request, ProviderError<OpChainSpec>> {
         const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
 
         /// # Panics
         ///
         /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
         fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
-            data: &ProviderData<OptimismChainSpec, TimerT>,
+            data: &ProviderData<OpChainSpec, TimerT>,
             max_priority_fee_per_gas: U256,
-        ) -> Result<U256, BlockchainErrorForChainSpec<OptimismChainSpec>> {
+        ) -> Result<U256, BlockchainErrorForChainSpec<OpChainSpec>> {
             let base_fee_per_gas = data
                 .next_block_base_fee_per_gas()?
                 .expect("We already validated that the block is post-London.");

@@ -8,10 +8,9 @@ use edr_evm::{
 use edr_rpc_eth::{
     RpcTypeFrom, TransactionConversionError as L1ConversionError, TransactionWithSignature,
 };
-use revm_optimism::{OptimismSpecId, OptimismTransaction};
 
 use super::Transaction;
-use crate::{transaction, OptimismChainSpec};
+use crate::{transaction, OpSpec, OpChainSpec};
 
 impl EthRpcTransaction for Transaction {
     fn block_hash(&self) -> Option<&B256> {
@@ -122,11 +121,11 @@ impl TryFrom<Transaction> for transaction::Signed {
     }
 }
 
-impl RpcTypeFrom<TransactionAndBlockForChainSpec<OptimismChainSpec>> for Transaction {
-    type Hardfork = OptimismSpecId;
+impl RpcTypeFrom<TransactionAndBlockForChainSpec<OpChainSpec>> for Transaction {
+    type Hardfork = OpSpec;
 
     fn rpc_type_from(
-        value: &TransactionAndBlockForChainSpec<OptimismChainSpec>,
+        value: &TransactionAndBlockForChainSpec<OpChainSpec>,
         hardfork: Self::Hardfork,
     ) -> Self {
         let (header, transaction_index) = value

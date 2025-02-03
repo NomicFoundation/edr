@@ -26,14 +26,16 @@ use crate::{
     eip2718::TypedEnvelope,
     hardfork,
     receipt::{self, BlockReceiptFactory},
-    rpc, transaction, OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId,
+    rpc, transaction,
+    transaction::OpTransactionError,
+    OpHaltReason, OpSpec,
 };
 
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
-pub struct OptimismChainSpec;
+pub struct OpChainSpec;
 
-impl RpcSpec for OptimismChainSpec {
+impl RpcSpec for OpChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<receipt::Execution<Log>>;
     type RpcBlock<Data>
         = edr_rpc_eth::Block<Data>
@@ -45,11 +47,11 @@ impl RpcSpec for OptimismChainSpec {
     type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
 }
 
-impl ChainSpec for OptimismChainSpec {
+impl ChainSpec for OpChainSpec {
     type BlockEnv = l1::BlockEnv;
     type Context = revm_optimism::Context;
-    type HaltReason = OptimismHaltReason;
-    type Hardfork = OptimismSpecId;
+    type HaltReason = OpHaltReason;
+    type Hardfork = OpSpec;
     type SignedTransaction = transaction::Signed;
 }
 
@@ -63,12 +65,12 @@ where
     DatabaseT: Database,
 {
     type ExternalContext = ExternalContextT;
-    type ChainContext = <OptimismChainSpec as ChainSpec>::Context;
+    type ChainContext = <OpChainSpec as ChainSpec>::Context;
     type Database = DatabaseT;
-    type Block = <OptimismChainSpec as ChainSpec>::BlockEnv;
-    type Transaction = <OptimismChainSpec as ChainSpec>::SignedTransaction;
-    type Hardfork = <OptimismChainSpec as ChainSpec>::Hardfork;
-    type HaltReason = <OptimismChainSpec as ChainSpec>::HaltReason;
+    type Block = <OpChainSpec as ChainSpec>::BlockEnv;
+    type Transaction = <OpChainSpec as ChainSpec>::SignedTransaction;
+    type Hardfork = <OpChainSpec as ChainSpec>::Hardfork;
+    type HaltReason = <OpChainSpec as ChainSpec>::HaltReason;
 }
 
 impl<DatabaseT, ExternalContextT> EvmWiring for Wiring<DatabaseT, ExternalContextT>
@@ -86,7 +88,7 @@ where
     }
 }
 
-impl RuntimeSpec for OptimismChainSpec {
+impl RuntimeSpec for OpChainSpec {
     type Block = dyn SyncBlock<
         Arc<Self::BlockReceipt>,
         Self::SignedTransaction,
@@ -141,22 +143,22 @@ impl RuntimeSpec for OptimismChainSpec {
     }
 }
 
-impl EthHeaderConstants for OptimismChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<OptimismSpecId> =
+impl EthHeaderConstants for OpChainSpec {
+    const BASE_FEE_PARAMS: BaseFeeParams<OpSpec> =
         BaseFeeParams::Variable(ForkBaseFeeParams::new(&[
-            (OptimismSpecId::LONDON, ConstantBaseFeeParams::new(50, 6)),
-            (OptimismSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
+            (OpSpec::LONDON, ConstantBaseFeeParams::new(50, 6)),
+            (OpSpec::CANYON, ConstantBaseFeeParams::new(250, 6)),
         ]));
 
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 }
 
-impl SyncNapiSpec for OptimismChainSpec {
+impl SyncNapiSpec for OpChainSpec {
     const CHAIN_TYPE: &'static str = "Optimism";
 
     fn cast_response(
         response: Result<
-            edr_provider::ResponseWithTraces<OptimismHaltReason>,
+            edr_provider::ResponseWithTraces<OpHaltReason>,
             edr_provider::ProviderError<Self>,
         >,
     ) -> napi::Result<edr_napi_core::spec::Response<HaltReason>> {
@@ -170,15 +172,13 @@ impl SyncNapiSpec for OptimismChainSpec {
     }
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OptimismChainSpec {
+impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OpChainSpec {
     type PooledTransaction = transaction::Pooled;
     type TransactionRequest = transaction::Request;
 
-    fn cast_halt_reason(
-        reason: OptimismHaltReason,
-    ) -> TransactionFailureReason<OptimismHaltReason> {
+    fn cast_halt_reason(reason: OpHaltReason) -> TransactionFailureReason<OpHaltReason> {
         match reason {
-            OptimismHaltReason::Base(reason) => match reason {
+            OpHaltReason::Base(reason) => match reason {
                 HaltReason::CreateContractSizeLimit => {
                     TransactionFailureReason::CreateContractSizeLimit
                 }
@@ -186,7 +186,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OptimismChainSpec 
                     TransactionFailureReason::OpcodeNotFound
                 }
                 HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
-                remainder => TransactionFailureReason::Inner(OptimismHaltReason::Base(remainder)),
+                remainder => TransactionFailureReason::Inner(OpHaltReason::Base(remainder)),
             },
             remainder => TransactionFailureReason::Inner(remainder),
         }

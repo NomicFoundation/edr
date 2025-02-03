@@ -7,7 +7,7 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};
-use edr_optimism::OptimismChainSpec;
+use edr_optimism::OpChainSpec;
 use edr_provider::spec::SyncRuntimeSpec;
 use edr_rpc_eth::client::EthRpcClient;
 
@@ -27,7 +27,7 @@ pub async fn replay(
             replay_chain_specific_block::<L1ChainSpec>("L1", url, block_number).await
         }
         SupportedChainTypes::Optimism => {
-            replay_chain_specific_block::<OptimismChainSpec>(
+            replay_chain_specific_block::<OpChainSpec>(
                 "optimism",
                 url.replace("eth-", "opt-"),
                 block_number,

@@ -7,6 +7,8 @@ pub mod request;
 /// Types for signed transactions.
 pub mod signed;
 
+pub use revm_optimism::{transaction::OpTxTrait, OpTransactionError};
+
 /// An Optimism pooled transaction, used to communicate between node pools.
 pub enum Pooled {
     /// Legacy transaction before EIP-155

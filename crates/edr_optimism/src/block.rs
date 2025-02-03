@@ -3,7 +3,7 @@ mod builder;
 use edr_evm::EthLocalBlockForChainSpec;
 
 pub use self::builder::Builder;
-use crate::OptimismChainSpec;
+use crate::OpChainSpec;
 
 /// Local block type for Optimism.
-pub type LocalBlock = EthLocalBlockForChainSpec<OptimismChainSpec>;
+pub type LocalBlock = EthLocalBlockForChainSpec<OpChainSpec>;
