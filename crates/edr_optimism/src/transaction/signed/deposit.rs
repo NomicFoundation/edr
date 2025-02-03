@@ -1,6 +1,6 @@
 use alloy_rlp::Encodable;
 use edr_eth::{
-    eips::{eip2930, eip7702::AuthorizationList},
+    eips::{eip2930, eip7702},
     keccak256,
     transaction::{ExecutableTransaction, Transaction, TxKind},
     utils::enveloped,
@@ -12,32 +12,6 @@ use super::Deposit;
 impl Deposit {
     /// The type identifier for a deposit transaction.
     pub const TYPE: u8 = 0x7E;
-}
-
-impl ExecutableTransaction for Deposit {
-    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
-        None
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        Some(self.gas_price())
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        self.rlp_encoding.get_or_init(|| {
-            let mut encoded = Vec::with_capacity(1 + self.length());
-            enveloped(Self::TYPE, self, &mut encoded);
-            encoded.into()
-        })
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        None
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
-    }
 }
 
 impl PartialEq for Deposit {
@@ -54,7 +28,7 @@ impl PartialEq for Deposit {
     }
 }
 
-impl Transaction for Deposit {
+impl ExecutableTransaction for Deposit {
     fn caller(&self) -> &Address {
         &self.from
     }
@@ -63,7 +37,7 @@ impl Transaction for Deposit {
         self.gas_limit
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         // No gas is refunded as ETH. (either by not refunding or utilizing the fact the
         // gas-price of the deposit is 0)
         &U256::ZERO
@@ -92,11 +66,19 @@ impl Transaction for Deposit {
         None
     }
 
-    fn access_list(&self) -> &[eip2930::AccessListItem] {
-        &[]
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+        Some(&[])
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn effective_gas_price(&self, _block_base_fee: u128) -> Option<u128> {
+        None
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        Some(self.gas_price())
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         // No transaction priority fee is charged. No payment is made to the block
         // fee-recipient.
         Some(&U256::ZERO)
@@ -106,12 +88,28 @@ impl Transaction for Deposit {
         &[]
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         None
     }
 
-    fn authorization_list(&self) -> Option<&AuthorizationList> {
+    fn total_blob_gas(&self) -> Option<u64> {
         None
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
+        None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
+        })
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
     }
 }
 

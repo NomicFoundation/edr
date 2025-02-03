@@ -2,17 +2,23 @@ use std::sync::Arc;
 
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
-    l1::{self, L1ChainSpec},
-    log::FilterLog,
+    l1::{self, InvalidTransaction, L1ChainSpec},
+    log::{ExecutionLog, FilterLog},
     receipt::BlockReceipt,
     spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
 };
 use edr_evm::{
-    evm::l1::L1EvmSpec,
+    config::CfgEnv,
+    evm::{l1::L1EvmSpec, JournalEntry},
     hardfork::Activations,
-    spec::{ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
-    state::Database,
+    interpreter::Host,
+    spec::{
+        BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter,
+        ExecutionReceiptTypeConstructorForChainSpec, Journal, JournalGetter,
+        PerformantContextAccess, RuntimeSpec, TransactionGetter,
+    },
+    state::{Database, DatabaseComponentError, EvmState},
     transaction::TransactionError,
     BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
 };
@@ -68,7 +74,7 @@ impl RuntimeSpec for GenericChainSpec {
             + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
             + TransactionGetter<Transaction = Self::SignedTransaction>,
         StateErrorT,
-    > = L1EvmSpec<ContextT>;
+    > = L1EvmSpec<Self, ContextT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
@@ -94,7 +100,7 @@ impl RuntimeSpec for GenericChainSpec {
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
+    ) -> TransactionError<BlockchainErrorT, Self, StateErrorT> {
         // Can't use L1ChainSpec impl here as the TransactionError is generic
         // over the specific chain spec rather than just the validation error.
         // Instead, we copy the impl here.

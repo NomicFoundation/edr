@@ -8,17 +8,19 @@ use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
 pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Legacy};
 use edr_eth::{
     eips::{eip2930, eip7702},
+    impl_revm_transaction_trait,
     signature::{Fakeable, Signature},
     transaction::{
         ExecutableTransaction, IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction,
-        Transaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
+        TransactionMut, TransactionType, TransactionValidation, TxKind,
         INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Address, Bytes, B256, U256,
 };
-use revm_optimism::{OptimismInvalidTransaction, OptimismTransaction};
+use revm_optimism::transaction::{deposit::DepositTransaction, OpTxTrait};
 
 use super::Signed;
+use crate::OptimismInvalidTransaction;
 
 /// Deposit transaction.
 ///
@@ -115,63 +117,6 @@ impl Default for Signed {
     }
 }
 
-impl ExecutableTransaction for Signed {
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::PostEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::Deposit(tx) => tx.effective_gas_price(block_base_fee),
-        }
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.max_fee_per_gas(),
-            Signed::PostEip155Legacy(tx) => tx.max_fee_per_gas(),
-            Signed::Eip2930(tx) => tx.max_fee_per_gas(),
-            Signed::Eip1559(tx) => tx.max_fee_per_gas(),
-            Signed::Eip4844(tx) => tx.max_fee_per_gas(),
-            Signed::Deposit(tx) => tx.max_fee_per_gas(),
-        }
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.rlp_encoding(),
-            Signed::PostEip155Legacy(tx) => tx.rlp_encoding(),
-            Signed::Eip2930(tx) => tx.rlp_encoding(),
-            Signed::Eip1559(tx) => tx.rlp_encoding(),
-            Signed::Eip4844(tx) => tx.rlp_encoding(),
-            Signed::Deposit(tx) => tx.rlp_encoding(),
-        }
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.total_blob_gas(),
-            Signed::PostEip155Legacy(tx) => tx.total_blob_gas(),
-            Signed::Eip2930(tx) => tx.total_blob_gas(),
-            Signed::Eip1559(tx) => tx.total_blob_gas(),
-            Signed::Eip4844(tx) => tx.total_blob_gas(),
-            Signed::Deposit(tx) => tx.total_blob_gas(),
-        }
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.transaction_hash(),
-            Signed::PostEip155Legacy(tx) => tx.transaction_hash(),
-            Signed::Eip2930(tx) => tx.transaction_hash(),
-            Signed::Eip1559(tx) => tx.transaction_hash(),
-            Signed::Eip4844(tx) => tx.transaction_hash(),
-            Signed::Deposit(tx) => tx.transaction_hash(),
-        }
-    }
-}
-
 impl From<edr_eth::transaction::Signed> for Signed {
     fn from(value: edr_eth::transaction::Signed) -> Self {
         match value {
@@ -254,7 +199,7 @@ impl MaybeSignedTransaction for Signed {
     }
 }
 
-impl OptimismTransaction for Signed {
+impl DepositTransaction for Signed {
     fn source_hash(&self) -> Option<&B256> {
         match self {
             Signed::Deposit(tx) => Some(&tx.source_hash),
@@ -275,14 +220,16 @@ impl OptimismTransaction for Signed {
             _ => None,
         }
     }
+}
 
-    fn enveloped_tx(&self) -> Option<Bytes> {
+impl OpTxTrait for Signed {
+    fn enveloped_tx(&self) -> Option<&Bytes> {
         let enveloped = alloy_rlp::encode(self);
         Some(enveloped.into())
     }
 }
 
-impl Transaction for Signed {
+impl ExecutableTransaction for Signed {
     fn caller(&self) -> &Address {
         match self {
             Signed::PreEip155Legacy(tx) => tx.caller(),
@@ -305,7 +252,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         match self {
             Signed::PreEip155Legacy(tx) => tx.gas_price(),
             Signed::PostEip155Legacy(tx) => tx.gas_price(),
@@ -371,7 +318,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn access_list(&self) -> &[eip2930::AccessListItem] {
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.access_list(),
             Signed::PostEip155Legacy(tx) => tx.access_list(),
@@ -382,7 +329,29 @@ impl Transaction for Signed {
         }
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::PostEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Deposit(tx) => tx.effective_gas_price(block_base_fee),
+        }
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.max_fee_per_gas(),
+            Signed::PostEip155Legacy(tx) => tx.max_fee_per_gas(),
+            Signed::Eip2930(tx) => tx.max_fee_per_gas(),
+            Signed::Eip1559(tx) => tx.max_fee_per_gas(),
+            Signed::Eip4844(tx) => tx.max_fee_per_gas(),
+            Signed::Deposit(tx) => tx.max_fee_per_gas(),
+        }
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
             Signed::PostEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
@@ -404,7 +373,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
             Signed::PostEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
@@ -415,7 +384,18 @@ impl Transaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
+    fn total_blob_gas(&self) -> Option<u64> {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.total_blob_gas(),
+            Signed::PostEip155Legacy(tx) => tx.total_blob_gas(),
+            Signed::Eip2930(tx) => tx.total_blob_gas(),
+            Signed::Eip1559(tx) => tx.total_blob_gas(),
+            Signed::Eip4844(tx) => tx.total_blob_gas(),
+            Signed::Deposit(tx) => tx.total_blob_gas(),
+        }
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),
@@ -423,6 +403,28 @@ impl Transaction for Signed {
             Signed::Eip1559(tx) => tx.authorization_list(),
             Signed::Eip4844(tx) => tx.authorization_list(),
             Signed::Deposit(tx) => tx.authorization_list(),
+        }
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.rlp_encoding(),
+            Signed::PostEip155Legacy(tx) => tx.rlp_encoding(),
+            Signed::Eip2930(tx) => tx.rlp_encoding(),
+            Signed::Eip1559(tx) => tx.rlp_encoding(),
+            Signed::Eip4844(tx) => tx.rlp_encoding(),
+            Signed::Deposit(tx) => tx.rlp_encoding(),
+        }
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.transaction_hash(),
+            Signed::PostEip155Legacy(tx) => tx.transaction_hash(),
+            Signed::Eip2930(tx) => tx.transaction_hash(),
+            Signed::Eip1559(tx) => tx.transaction_hash(),
+            Signed::Eip4844(tx) => tx.transaction_hash(),
+            Signed::Deposit(tx) => tx.transaction_hash(),
         }
     }
 }
@@ -457,6 +459,8 @@ impl TransactionType for Signed {
 impl TransactionValidation for Signed {
     type ValidationError = OptimismInvalidTransaction;
 }
+
+impl_revm_transaction_trait!(Signed);
 
 #[cfg(test)]
 mod tests {

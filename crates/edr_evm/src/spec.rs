@@ -11,20 +11,20 @@ use edr_eth::{
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-use revm::{state::EvmState, JournalEntry, JournaledState};
-use revm_context::CfgEnv;
-use revm_context_interface::{
+use revm::{JournalEntry, JournaledState};
+pub use revm_context_interface::{
     BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
     PerformantContextAccess, TransactionGetter,
 };
-use revm_interpreter::Host;
 
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
+    config::CfgEnv,
     evm::{l1::L1EvmSpec, EvmSpec},
     hardfork::{self, Activations},
+    interpreter::Host,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
-    state::{Database, DatabaseComponentError},
+    state::{Database, DatabaseComponentError, EvmState},
     transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
         TransactionValidation,
@@ -328,8 +328,8 @@ impl RuntimeSpec for L1ChainSpec {
 
     type BlockBuilder<
         'blockchain,
-        BlockchainErrorT: 'blockchain + std::error::Error + Send,
-        StateErrorT: 'blockchain + std::error::Error + Send,
+        BlockchainErrorT: 'blockchain + Send + std::error::Error,
+        StateErrorT: 'blockchain + Send + std::error::Error,
     > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, StateErrorT>;
 
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
@@ -352,7 +352,7 @@ impl RuntimeSpec for L1ChainSpec {
             + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
             + TransactionGetter<Transaction = Self::SignedTransaction>,
         StateErrorT,
-    > = L1EvmSpec<ContextT>;
+    > = L1EvmSpec<Self, ContextT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,

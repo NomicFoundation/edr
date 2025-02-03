@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    l1::L1ChainSpec,
-    result::{HaltReason, InvalidTransaction},
+    l1::{self, L1ChainSpec},
     spec::HaltReasonTrait,
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
@@ -63,7 +62,7 @@ pub trait SyncNapiSpec:
     /// implementing type conversions for third-party types.
     fn cast_response(
         response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
-    ) -> napi::Result<Response<HaltReason>>;
+    ) -> napi::Result<Response<l1::HaltReason>>;
 }
 
 impl SyncNapiSpec for L1ChainSpec {
@@ -71,9 +70,9 @@ impl SyncNapiSpec for L1ChainSpec {
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
-    ) -> napi::Result<Response<HaltReason>> {
+    ) -> napi::Result<Response<l1::HaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
-        let solidity_trace: Option<Arc<Trace<HaltReason>>> =
+        let solidity_trace: Option<Arc<Trace<l1::HaltReason>>> =
             response.as_mut().err().and_then(|error| {
                 if let edr_provider::ProviderError::TransactionFailed(failure) = error {
                     if matches!(
@@ -115,7 +114,7 @@ impl SyncNapiSpec for GenericChainSpec {
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
-    ) -> napi::Result<Response<HaltReason>> {
+    ) -> napi::Result<Response<l1::HaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
         let solidity_trace = response.as_mut().err().and_then(|error| {
             if let edr_provider::ProviderError::TransactionFailed(failure) = error {

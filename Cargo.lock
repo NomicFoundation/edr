@@ -95,7 +95,6 @@ checksum = "37d319bb544ca6caeab58c39cea8921c55d924d4f68f2c60f24f914673f9a74a"
 dependencies = [
  "alloy-primitives 0.8.15",
  "alloy-rlp",
- "k256",
  "serde",
 ]
 
@@ -1307,12 +1306,12 @@ dependencies = [
  "log",
  "once_cell",
  "paste",
- "revm-bytecode 1.0.0",
+ "revm-bytecode",
  "revm-context",
  "revm-context-interface",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
- "revm-state 1.0.0",
+ "revm-primitives",
+ "revm-specification",
+ "revm-state",
  "serde",
  "serde_json",
  "serial_test",
@@ -1351,13 +1350,13 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "paste",
- "revm 19.2.0",
+ "revm",
  "revm-context",
  "revm-context-interface",
- "revm-database-interface 1.0.0",
+ "revm-database-interface",
  "revm-handler",
  "revm-handler-interface",
- "revm-interpreter 15.0.0",
+ "revm-interpreter",
  "rpds",
  "serde",
  "serde_json",
@@ -1430,6 +1429,7 @@ dependencies = [
 name = "edr_napi_core"
 version = "0.3.5"
 dependencies = [
+ "alloy-serde",
  "ansi_term",
  "derive-where",
  "edr_defaults",
@@ -1499,7 +1499,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "paste",
  "rand",
- "revm-precompile 16.0.0",
+ "revm-precompile",
  "rpds",
  "serde",
  "serde_json",
@@ -3343,37 +3343,19 @@ dependencies = [
 
 [[package]]
 name = "revm"
-version = "14.0.1"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
-dependencies = [
- "derive-where",
- "dyn-clone",
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-database-interface 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-interpreter 10.0.1",
- "revm-precompile 11.0.1",
- "revm-primitives 9.0.1",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-wiring",
- "serde",
-]
-
-[[package]]
-name = "revm"
 version = "19.2.0"
 dependencies = [
- "revm-bytecode 1.0.0",
+ "revm-bytecode",
  "revm-context",
  "revm-context-interface",
- "revm-database-interface 1.0.0",
+ "revm-database-interface",
  "revm-handler",
  "revm-handler-interface",
- "revm-interpreter 15.0.0",
- "revm-precompile 16.0.0",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
- "revm-state 1.0.0",
+ "revm-interpreter",
+ "revm-precompile",
+ "revm-primitives",
+ "revm-specification",
+ "revm-state",
 ]
 
 [[package]]
@@ -3381,19 +3363,8 @@ name = "revm-bytecode"
 version = "1.0.0"
 dependencies = [
  "bitvec",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
- "serde",
-]
-
-[[package]]
-name = "revm-bytecode"
-version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
-dependencies = [
- "bitvec",
- "revm-primitives 9.0.1",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives",
+ "revm-specification",
  "serde",
 ]
 
@@ -3403,13 +3374,13 @@ version = "1.0.0"
 dependencies = [
  "cfg-if",
  "derive-where",
- "revm-bytecode 1.0.0",
+ "revm-bytecode",
  "revm-context-interface",
- "revm-database-interface 1.0.0",
- "revm-interpreter 15.0.0",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
- "revm-state 1.0.0",
+ "revm-database-interface",
+ "revm-interpreter",
+ "revm-primitives",
+ "revm-specification",
+ "revm-state",
 ]
 
 [[package]]
@@ -3417,10 +3388,10 @@ name = "revm-context-interface"
 version = "1.0.0"
 dependencies = [
  "auto_impl",
- "revm-database-interface 1.0.0",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
- "revm-state 1.0.0",
+ "revm-database-interface",
+ "revm-primitives",
+ "revm-specification",
+ "revm-state",
  "serde",
 ]
 
@@ -3429,19 +3400,8 @@ name = "revm-database-interface"
 version = "1.0.0"
 dependencies = [
  "auto_impl",
- "revm-primitives 15.1.0",
- "revm-state 1.0.0",
- "serde",
-]
-
-[[package]]
-name = "revm-database-interface"
-version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
-dependencies = [
- "auto_impl",
- "revm-primitives 9.0.1",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-primitives",
+ "revm-state",
  "serde",
 ]
 
@@ -3450,14 +3410,14 @@ name = "revm-handler"
 version = "1.0.0"
 dependencies = [
  "derive-where",
- "revm-bytecode 1.0.0",
+ "revm-bytecode",
  "revm-context-interface",
  "revm-handler-interface",
- "revm-interpreter 15.0.0",
- "revm-precompile 16.0.0",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
- "revm-state 1.0.0",
+ "revm-interpreter",
+ "revm-precompile",
+ "revm-primitives",
+ "revm-specification",
+ "revm-state",
  "serde",
 ]
 
@@ -3465,64 +3425,38 @@ dependencies = [
 name = "revm-handler-interface"
 version = "1.0.0"
 dependencies = [
- "revm-primitives 15.1.0",
+ "revm-primitives",
 ]
 
 [[package]]
-name = "revm-interpreter"
-version = "10.0.1"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
+name = "revm-inspector"
+version = "1.0.0"
 dependencies = [
- "derive-where",
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-primitives 9.0.1",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-wiring",
- "serde",
+ "auto_impl",
+ "revm",
 ]
 
 [[package]]
 name = "revm-interpreter"
 version = "15.0.0"
 dependencies = [
- "revm-bytecode 1.0.0",
+ "revm-bytecode",
  "revm-context-interface",
  "revm-handler-interface",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
+ "revm-primitives",
+ "revm-specification",
  "serde",
 ]
 
 [[package]]
 name = "revm-optimism"
 version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
 dependencies = [
- "enumn",
- "revm 14.0.1",
- "revm-precompile 11.0.1",
- "serde",
-]
-
-[[package]]
-name = "revm-precompile"
-version = "11.0.1"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
-dependencies = [
- "aurora-engine-modexp",
- "c-kzg",
- "cfg-if",
- "dyn-clone",
- "k256",
  "once_cell",
- "p256",
- "revm-primitives 9.0.1",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-wiring",
- "ripemd",
- "secp256k1",
- "sha2 0.10.8",
- "substrate-bn",
+ "revm",
+ "revm-inspector",
+ "revm-precompile",
+ "serde",
 ]
 
 [[package]]
@@ -3537,23 +3471,12 @@ dependencies = [
  "once_cell",
  "p256",
  "revm-context-interface",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
+ "revm-primitives",
+ "revm-specification",
  "ripemd",
  "secp256k1",
  "sha2 0.10.8",
  "substrate-bn",
-]
-
-[[package]]
-name = "revm-primitives"
-version = "9.0.1"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
-dependencies = [
- "alloy-primitives 0.8.15",
- "cfg-if",
- "hashbrown 0.14.5",
- "hex",
 ]
 
 [[package]]
@@ -3568,20 +3491,7 @@ name = "revm-specification"
 version = "1.0.0"
 dependencies = [
  "enumn",
- "revm-primitives 15.1.0",
- "serde",
-]
-
-[[package]]
-name = "revm-specification"
-version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
-dependencies = [
- "alloy-eip2930",
- "alloy-eip7702",
- "alloy-primitives 0.8.15",
- "enumn",
- "revm-primitives 9.0.1",
+ "revm-primitives",
  "serde",
 ]
 
@@ -3590,36 +3500,9 @@ name = "revm-state"
 version = "1.0.0"
 dependencies = [
  "bitflags 2.6.0",
- "revm-bytecode 1.0.0",
- "revm-primitives 15.1.0",
- "revm-specification 1.0.0",
- "serde",
-]
-
-[[package]]
-name = "revm-state"
-version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
-dependencies = [
- "bitflags 2.6.0",
- "revm-bytecode 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-primitives 9.0.1",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "serde",
-]
-
-[[package]]
-name = "revm-wiring"
-version = "1.0.0"
-source = "git+https://github.com/nomicfoundation/revm?rev=4722477#4722477e4843bd10edf1f35c79716ca831971090"
-dependencies = [
- "c-kzg",
- "cfg-if",
- "dyn-clone",
- "revm-database-interface 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-primitives 9.0.1",
- "revm-specification 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
- "revm-state 1.0.0 (git+https://github.com/nomicfoundation/revm?rev=4722477)",
+ "revm-bytecode",
+ "revm-primitives",
+ "revm-specification",
  "serde",
 ]
 

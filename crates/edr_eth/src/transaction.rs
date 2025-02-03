@@ -15,6 +15,7 @@ pub mod signed;
 use core::fmt::Debug;
 use std::str::FromStr;
 
+pub use revm_context_interface::Transaction;
 pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::{ruint, B256};
 
@@ -259,7 +260,7 @@ pub trait ExecutableTransaction {
 #[macro_export]
 macro_rules! impl_revm_transaction_trait {
     ($ty:ty) => {
-        impl revm_context_interface::Transaction for $ty {
+        impl $crate::transaction::Transaction for $ty {
             fn tx_type(&self) -> u8 {
                 $crate::transaction::TransactionType::transaction_type(self).into()
             }

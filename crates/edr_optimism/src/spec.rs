@@ -5,14 +5,9 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     l1,
-    result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
 };
 use edr_evm::{
-    evm::{
-        handler::register::{EvmHandler, HandleRegisters},
-        EvmWiring, PrimitiveEvmWiring,
-    },
     spec::RuntimeSpec,
     state::Database,
     transaction::{TransactionError, TransactionValidation},
@@ -24,7 +19,6 @@ use edr_napi_core::{
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
-use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -32,7 +26,7 @@ use crate::{
     eip2718::TypedEnvelope,
     hardfork,
     receipt::{self, BlockReceiptFactory},
-    rpc, transaction,
+    rpc, transaction, OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId,
 };
 
 /// Chain specification for the Ethereum JSON-RPC API.
@@ -101,10 +95,9 @@ impl RuntimeSpec for OptimismChainSpec {
 
     type BlockBuilder<
         'blockchain,
-        BlockchainErrorT: 'blockchain,
-        DebugDataT,
-        StateErrorT: 'blockchain + Debug + Send,
-    > = block::Builder<'blockchain, BlockchainErrorT, DebugDataT, StateErrorT>;
+        BlockchainErrorT: 'blockchain + Send + std::error::Error,
+        StateErrorT: 'blockchain + Send + std::error::Error,
+    > = block::Builder<'blockchain, BlockchainErrorT, StateErrorT>;
 
     type BlockReceipt = receipt::Block;
     type BlockReceiptFactory = BlockReceiptFactory;

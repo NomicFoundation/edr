@@ -1,5 +1,6 @@
 use edr_eth::{
     eips::{eip2930, eip7702},
+    impl_revm_transaction_trait,
     signature::Signature,
     transaction::{
         self, ExecutableTransaction, IsSupported, SignedTransaction, TransactionMut,
@@ -237,3 +238,5 @@ impl transaction::IsLegacy for SignedWithFallbackToPostEip155 {
         self.inner.is_legacy()
     }
 }
+
+impl_revm_transaction_trait!(SignedWithFallbackToPostEip155);

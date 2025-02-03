@@ -8,7 +8,6 @@ use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     precompile::{self, Precompiles},
     trace::{AfterMessage, Trace, TraceMessage},
-    transaction::Transaction as _,
     Block as _,
 };
 use edr_provider::{
@@ -544,7 +543,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         Ok(())
     }
 
-    fn log_base_fee(&mut self, base_fee: Option<&U256>) {
+    fn log_base_fee(&mut self, base_fee: Option<&u128>) {
         if let Some(base_fee) = base_fee {
             self.log(format!("Base fee: {base_fee}"));
         }

@@ -1,7 +1,7 @@
 use core::num::NonZeroU64;
 use std::{path::PathBuf, time::SystemTime};
 
-use edr_eth::{block::BlobGas, spec::HardforkTrait, Address, ChainId, HashMap, B256, U256};
+use edr_eth::{block::BlobGas, l1, Address, ChainId, HashMap, B256};
 use edr_provider::{
     config,
     hardfork::{Activations, ForkCondition},
@@ -36,18 +36,20 @@ pub struct Config {
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, config::Account>,
     pub hardfork: String,
-    pub initial_base_fee_per_gas: Option<U256>,
+    #[serde(with = "alloy_serde::quantity::opt")]
+    pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
-    pub min_gas_price: U256,
+    #[serde(with = "alloy_serde::quantity")]
+    pub min_gas_price: u128,
     pub mining: config::Mining,
     pub network_id: u64,
 }
 
 impl<HardforkT> From<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: for<'s> From<&'s str> + HardforkTrait,
+    HardforkT: for<'s> From<&'s str> + Into<l1::SpecId>,
 {
     fn from(value: Config) -> Self {
         let cache_dir = PathBuf::from(

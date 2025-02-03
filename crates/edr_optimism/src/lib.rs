@@ -23,7 +23,7 @@ pub use self::spec::OptimismChainSpec;
 pub mod transaction;
 
 use edr_eth::U256;
-pub use revm_optimism::OptimismSpecId;
+pub use revm_optimism::{OptimismHaltReason, OptimismInvalidTransaction, OptimismSpecId};
 
 /// Helper type for constructing an [`revm_optimism::L1BlockInfo`].
 ///
