@@ -272,9 +272,12 @@ function numIterations(scenarioName: string): number {
     return 15;
   } else if (
     scenarioName.includes("seaport") ||
-    scenarioName.includes("openzeppelin") ||
-    scenarioName.includes("rocketpool") ||
     scenarioName.includes("uniswap")
+  ) {
+    return 11;
+  } else if (
+    scenarioName.includes("openzeppelin") ||
+    scenarioName.includes("rocketpool")
   ) {
     return 7;
   } else if (scenarioName.includes("neptune-mutual")) {

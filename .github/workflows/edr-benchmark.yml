@@ -93,7 +93,7 @@ jobs:
           fail-on-alert: ${{ github.event_name == 'pull_request' }}
           # Enable Job Summary for PRs
           summary-always: true
-          max-items-in-chart: 1000
+          max-items-in-chart: 50
 
   js-soltests-benchmark:
     name: Run JS Solidity test runner benchmark

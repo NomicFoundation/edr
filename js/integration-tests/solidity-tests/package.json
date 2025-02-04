@@ -12,7 +12,7 @@
     "@types/node": "^20.0.0",
     "chai": "^4.3.6",
     "forge-std": "github:foundry-rs/forge-std#v1.9.5",
-    "hardhat": "2.22.17",
+    "hardhat": "2.22.18",
     "prettier": "^3.2.5",
     "ts-node": "^10.8.0",
     "typescript": "~5.5.3"
