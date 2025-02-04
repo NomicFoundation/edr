@@ -2,31 +2,25 @@
 pub mod l1;
 
 use edr_eth::{log::ExecutionLog, result::ExecutionResultAndState, spec::ChainSpec};
-use revm::{state::EvmState, JournaledState};
-pub use revm::{Context, JournalEntry};
+pub use revm::Context;
 use revm_context_interface::{
     BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
     PerformantContextAccess, TransactionGetter,
 };
 use revm_database_interface::WrapDatabaseRef;
 pub use revm_handler::FrameResult;
-pub use revm_handler_interface::{
-    ExecutionHandler, Frame, FrameOrResultGen, PostExecutionHandler, PreExecutionHandler,
-    PrecompileProvider, ValidationHandler,
-};
-use revm_interpreter::{
-    interpreter::{EthInterpreter, InstructionProvider},
-    FrameInput, Host, InterpreterResult,
-};
+pub use revm_handler_interface::{Frame, PrecompileProvider};
+use revm_interpreter::{interpreter::EthInterpreter, FrameInput, Host, InterpreterResult};
 
 use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
     extension::ExtendedContext,
     instruction::InspectableInstruction,
+    journal::JournaledState,
     result::EVMErrorForChain,
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{Database, DatabaseComponentError, DatabaseComponents, State},
+    state::{Database, DatabaseComponentError, DatabaseComponents, EvmState, State},
     transaction::TransactionError,
 };
 

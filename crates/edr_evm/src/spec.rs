@@ -11,7 +11,6 @@ use edr_eth::{
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-use revm::{JournalEntry, JournaledState};
 pub use revm_context_interface::{
     BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
     PerformantContextAccess, TransactionGetter,
@@ -23,6 +22,7 @@ use crate::{
     evm::{l1::L1EvmSpec, EvmSpec},
     hardfork::{self, Activations},
     interpreter::Host,
+    journal::JournaledState,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
     state::{Database, DatabaseComponentError, EvmState},
     transaction::{
@@ -162,7 +162,6 @@ pub trait RuntimeSpec:
             > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
             + JournalGetter<
                 Journal: Journal<
-                    Entry = JournalEntry,
                     FinalOutput = (EvmState, Vec<ExecutionLog>),
                     Database = <ContextT as DatabaseGetter>::Database,
                 >,
@@ -344,7 +343,6 @@ impl RuntimeSpec for L1ChainSpec {
             > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
             + JournalGetter<
                 Journal: Journal<
-                    Entry = JournalEntry,
                     FinalOutput = (EvmState, Vec<ExecutionLog>),
                     Database = <ContextT as DatabaseGetter>::Database,
                 >,

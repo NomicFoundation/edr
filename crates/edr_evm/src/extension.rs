@@ -10,6 +10,7 @@ use revm_interpreter::{Host, Interpreter, SStoreResult, SelfDestructResult, Stat
 
 use crate::{
     instruction::{InspectsInstruction, InspectsInstructionWithJournal},
+    journal::JournalExt,
     precompile::{CustomPrecompilesGetter, PrecompileFn},
 };
 
@@ -102,6 +103,13 @@ where
 impl<InnerContextT: Host, OuterContextT> Host
     for ExtendedContext<'_, InnerContextT, OuterContextT>
 {
+    fn set_error(
+        &mut self,
+        error: <<<Self as JournalGetter>::Journal as Journal>::Database as revm::Database>::Error,
+    ) {
+        self.inner.set_error(error);
+    }
+
     fn load_account_delegated(&mut self, address: Address) -> Option<StateLoad<AccountLoad>> {
         self.inner.load_account_delegated(address)
     }
@@ -159,7 +167,7 @@ impl<InnerContextT: Host, OuterContextT> Host
 impl<InnerContextT, OuterContextT> InspectsInstruction
     for ExtendedContext<'_, InnerContextT, OuterContextT>
 where
-    InnerContextT: JournalGetter<Journal: Journal<Entry = JournalEntry>>,
+    InnerContextT: JournalGetter<Journal: JournalExt<Entry = JournalEntry>>,
     OuterContextT: InspectsInstructionWithJournal<Journal = InnerContextT::Journal>,
 {
     // TODO: Make this chain-agnostic

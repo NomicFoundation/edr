@@ -29,8 +29,8 @@ pub use self::{
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    evm::JournalEntry,
     interpreter::{Interpreter, InterpreterResult},
+    journal::{JournalEntry, JournalExt},
     runtime::{dry_run_with_extension, run},
     spec::RuntimeSpec,
     state::{Database, SyncState},
@@ -301,11 +301,14 @@ impl TracerEip3155 {
         self.pc = interpreter.bytecode.pc();
     }
 
-    fn step_end<DatabaseT: Database<Error: Debug>, FinalOutputT>(
+    fn step_end<DatabaseT, FinalOutputT, JournalT>(
         &mut self,
         interpreter: &Interpreter<EthInterpreter>,
-        journal: &impl Journal<Database = DatabaseT, Entry = JournalEntry, FinalOutput = FinalOutputT>,
-    ) {
+        journal: &impl Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
+    ) where
+        DatabaseT: Database<Error: Debug>,
+        JournalT: Journal<Database = DatabaseT, FinalOutput = FinalOutputT> + JournalExt,
+    {
         let depth = journal.depth() as u64;
 
         let stack = if self.config.disable_stack {

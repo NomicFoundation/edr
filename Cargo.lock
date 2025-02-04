@@ -3370,8 +3370,8 @@ dependencies = [
 name = "revm-handler"
 version = "1.0.0"
 dependencies = [
- "derive-where",
  "revm-bytecode",
+ "revm-context",
  "revm-context-interface",
  "revm-handler-interface",
  "revm-interpreter",
@@ -3386,7 +3386,9 @@ dependencies = [
 name = "revm-handler-interface"
 version = "1.0.0"
 dependencies = [
+ "auto_impl",
  "revm-primitives",
+ "revm-specification",
 ]
 
 [[package]]
@@ -3403,7 +3405,6 @@ version = "15.0.0"
 dependencies = [
  "revm-bytecode",
  "revm-context-interface",
- "revm-handler-interface",
  "revm-primitives",
  "revm-specification",
  "serde",
@@ -3413,6 +3414,8 @@ dependencies = [
 name = "revm-optimism"
 version = "1.0.0"
 dependencies = [
+ "auto_impl",
+ "derive_more 1.0.0",
  "once_cell",
  "revm",
  "revm-inspector",

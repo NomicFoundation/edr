@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use derive_where::derive_where;
 use revm_interpreter::{
-    interpreter::InstructionProvider,
     interpreter_types::{Jumps as _, LoopControl as _},
     table::CustomInstruction,
     Instruction, InstructionResult,
