@@ -15,11 +15,15 @@ import {
   OPTIMISM_CHAIN_TYPE,
   // @ts-ignore
   optimismProviderFactory,
+  // @ts-ignore
   optimismGenesisState,
+  // @ts-ignore
   optimismHardforkFromString,
   l1HardforkToString,
   l1HardforkLatest,
+  // @ts-ignore
   optimismHardforkToString,
+  // @ts-ignore
   optimismLatestHardfork,
 } from "..";
 import { ALCHEMY_URL, toBuffer } from "./helpers";
