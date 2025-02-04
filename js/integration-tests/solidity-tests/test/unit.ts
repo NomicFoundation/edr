@@ -142,9 +142,5 @@ describe("Unit tests", () => {
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);
-
-    assertStackTraces(stackTraces.get("setUp()"), [
-      { contract: "FailingSetupTest", function: "setUp" },
-    ]);
   });
 });

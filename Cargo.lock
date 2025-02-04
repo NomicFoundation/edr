@@ -2513,6 +2513,7 @@ dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-sol-types 0.7.7",
  "const-hex",
+ "edr_solidity",
  "eyre",
  "foundry-cheatcodes",
  "foundry-evm-core",
@@ -2521,8 +2522,10 @@ dependencies = [
  "foundry-evm-traces",
  "parking_lot 0.12.3",
  "proptest",
+ "revm 12.1.0",
  "revm 13.0.0",
  "revm-inspectors",
+ "revm-primitives 7.1.0",
  "thiserror",
  "tracing",
 ]

@@ -7,7 +7,7 @@
 // respective crates, and the `Executor` struct should be accessed using a trait
 // defined in `foundry-evm-core` instead of the concrete `Executor` type.
 
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
@@ -22,7 +22,7 @@ use foundry_evm_core::{
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
-use foundry_evm_traces::CallTraceArena;
+use foundry_evm_traces::{CallTraceArena, TraceKind};
 use revm::{
     db::{DatabaseCommit, DatabaseRef},
     interpreter::{return_ok, InstructionResult},
@@ -36,12 +36,16 @@ use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
 
 mod builder;
 pub use builder::ExecutorBuilder;
+use edr_solidity::{contract_decoder::ContractDecoder, solidity_stack_trace::StackTraceEntry};
 
 pub mod fuzz;
 pub use fuzz::FuzzedExecutor;
 
 pub mod invariant;
+mod stack_trace;
 pub use invariant::InvariantExecutor;
+use stack_trace::get_stack_trace;
+pub use stack_trace::EvmStackTraceError;
 
 sol! {
     interface ITest {
@@ -73,6 +77,8 @@ pub struct Executor {
     pub env: EnvWithHandlerCfg,
     /// The Revm inspector stack.
     pub inspector: InspectorStack,
+    /// Contract decoder for stack traces.
+    pub contract_decoder: Arc<ContractDecoder>,
     /// The gas limit for calls and deployments. This is different from the gas
     /// limit imposed by the passed in environment, as those limits are used
     /// by the EVM for certain opcodes like `gaslimit`.
@@ -85,6 +91,7 @@ impl Executor {
         mut backend: Backend,
         env: EnvWithHandlerCfg,
         inspector: InspectorStack,
+        contract_decoder: Arc<ContractDecoder>,
         gas_limit: U256,
     ) -> Self {
         // Need to create a non-empty contract on the cheatcodes address so
@@ -101,6 +108,7 @@ impl Executor {
             backend,
             env,
             inspector,
+            contract_decoder,
             gas_limit,
         }
     }
@@ -297,6 +305,39 @@ impl Executor {
         let env = self.build_test_env(from, TxKind::Call(test_contract), calldata, value);
         let result = self.call_raw_with_env(env)?;
         result.into_decoded_result(func, rd)
+    }
+
+    /// Re-executes the failed test to generate stack traces.
+    /// The `prev_traces` should contain the traces up to, but excluding the
+    /// failed test execution.
+    pub fn re_execute_test_for_stack_traces(
+        &mut self,
+        prev_traces: &[(TraceKind, CallTraceArena)],
+        from: Address,
+        test_contract: Address,
+        func: &Function,
+        args: &[DynSolValue],
+        value: U256,
+        rd: Option<&RevertDecoder>,
+    ) -> Result<Vec<StackTraceEntry>, EvmStackTraceError> {
+        let prev_tracer = self.inspector.enable_for_stack_traces();
+        let result = self.execute_test(from, test_contract, func, args, value, rd);
+        self.inspector.set_tracer(prev_tracer);
+
+        let raw_call_result = match result {
+            Ok(result) => result.raw,
+            Err(EvmError::Execution(execution_error)) => execution_error.raw,
+            Err(err) => return Err(err.into()),
+        };
+
+        let new_traces = [(
+            TraceKind::Execution,
+            raw_call_result.traces.expect("enabled tracing"),
+        )];
+        let traces = prev_traces.into_iter().chain(&new_traces);
+        get_stack_trace(&self.contract_decoder, traces)
+            .transpose()
+            .expect("there is an error trace")
     }
 
     /// Performs a call to an account on the current state of the VM.
@@ -540,6 +581,7 @@ impl Executor {
                 backend,
                 self.env.clone(),
                 self.inspector.clone(),
+                Arc::clone(&self.contract_decoder),
                 self.gas_limit,
             );
             let call = executor.call_sol(CALLER, address, &ITest::failedCall {}, U256::ZERO, None);

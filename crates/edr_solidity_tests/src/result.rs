@@ -8,12 +8,12 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{contract_decoder::ContractDecoder, solidity_stack_trace::StackTraceEntry};
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
     contracts::{get_contract_name, get_file_name},
     coverage::HitMaps,
-    executors::EvmError,
+    executors::{EvmError, EvmStackTraceError},
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
 };
@@ -371,9 +371,6 @@ pub struct TestResult {
     #[serde(skip)]
     pub traces: Traces,
 
-    #[serde(skip)]
-    pub contract_decoder: Arc<ContractDecoder>,
-
     /// Additional traces to use for gas report.
     #[serde(skip)]
     pub gas_report_traces: Vec<Vec<CallTraceArena>>,
@@ -385,7 +382,15 @@ pub struct TestResult {
     /// Labeled addresses
     pub labeled_addresses: HashMap<Address, String>,
 
+    /// Wall clock execution time.
     pub duration: Duration,
+
+    /// The outcome of the stack trace error computation.
+    /// None if the test status is succeeded or skipped.
+    /// If the heuristic failed the vec is set but emtpy.
+    /// Error if there was an error computing the stack trace.
+    #[serde(skip)]
+    pub stack_trace_result: Option<Result<Vec<StackTraceEntry>, EvmStackTraceError>>,
 }
 
 impl fmt::Display for TestResult {
@@ -572,7 +577,6 @@ pub struct TestSetup {
 impl TestSetup {
     pub fn from_evm_error_with(
         error: EvmError,
-        error_trace_kind: TraceKind,
         mut logs: Vec<Log>,
         mut traces: Traces,
         mut labeled_addresses: HashMap<Address, String>,
@@ -580,7 +584,7 @@ impl TestSetup {
         match error {
             EvmError::Execution(err) => {
                 // force the tracekind to be setup so a trace is shown.
-                traces.extend(err.raw.traces.map(|traces| (error_trace_kind, traces)));
+                traces.extend(err.raw.traces.map(|traces| (TraceKind::Setup, traces)));
                 logs.extend(err.raw.logs);
                 labeled_addresses.extend(err.raw.labels);
                 Self::failed_with(logs, traces, labeled_addresses, err.reason)

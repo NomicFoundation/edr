@@ -33,7 +33,7 @@ export async function runAllSolidityTests(
       artifacts,
       testSuites,
       configArgs,
-      tracingConfig.buildInfos,
+      tracingConfig,
       (suiteResult: SuiteResult) => {
         for (const testResult of suiteResult.testResults) {
           testResultCallback(suiteResult, testResult);

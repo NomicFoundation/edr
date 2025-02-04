@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// Errors that can occur during the generation of the stack trace.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum SolidityTracerError {
     /// Errors that can occur when decoding the contract metadata.
     #[error(transparent)]

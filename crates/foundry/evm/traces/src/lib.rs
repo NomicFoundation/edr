@@ -57,11 +57,8 @@ pub fn render_trace_arena(arena: &CallTraceArena) -> String {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TraceKind {
     Deployment,
-    DeploymentError,
     Setup,
-    SetupError,
     Execution,
-    ExecutionError,
 }
 
 impl TraceKind {
@@ -70,7 +67,7 @@ impl TraceKind {
     /// [`Deployment`]: TraceKind::Deployment
     #[must_use]
     pub fn is_deployment(self) -> bool {
-        matches!(self, Self::Deployment | Self::DeploymentError)
+        matches!(self, Self::Deployment)
     }
 
     /// Returns `true` if the trace kind is [`Setup`].
@@ -78,7 +75,7 @@ impl TraceKind {
     /// [`Setup`]: TraceKind::Setup
     #[must_use]
     pub fn is_setup(self) -> bool {
-        matches!(self, Self::Setup | Self::SetupError)
+        matches!(self, Self::Setup)
     }
 
     /// Returns `true` if the trace kind is [`Execution`].
@@ -86,15 +83,7 @@ impl TraceKind {
     /// [`Execution`]: TraceKind::Execution
     #[must_use]
     pub fn is_execution(self) -> bool {
-        matches!(self, Self::Execution | Self::ExecutionError)
-    }
-
-    /// Returns `true` if the trace contains an error.
-    pub fn is_error(self) -> bool {
-        matches!(
-            self,
-            Self::DeploymentError | Self::ExecutionError | Self::SetupError
-        )
+        matches!(self, Self::Execution)
     }
 }
 

@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use alloy_primitives::U256;
+use edr_solidity::contract_decoder::ContractDecoder;
 use foundry_evm_core::backend::Backend;
 use revm::primitives::{Env, EnvWithHandlerCfg, SpecId};
 
@@ -70,7 +73,7 @@ impl ExecutorBuilder {
 
     /// Builds the executor as configured.
     #[inline]
-    pub fn build(self, env: Env, db: Backend) -> Executor {
+    pub fn build(self, env: Env, db: Backend, contract_decoder: Arc<ContractDecoder>) -> Executor {
         let Self {
             mut stack,
             gas_limit,
@@ -83,6 +86,7 @@ impl ExecutorBuilder {
             db,
             EnvWithHandlerCfg::new_with_spec_id(Box::new(env), spec_id),
             stack.build(),
+            contract_decoder,
             gas_limit,
         )
     }

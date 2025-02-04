@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use alloy_primitives::{Address, Bytes};
+use alloy_primitives::{Address, Bytes, U160};
 use edr_solidity::{
     contract_decoder::ContractDecoder,
     exit_code::ExitCode,
@@ -10,61 +10,85 @@ use edr_solidity::{
     solidity_stack_trace::StackTraceEntry,
     solidity_tracer::{self, SolidityTracerError},
 };
-use foundry_evm::traces::{CallTraceArena, CallTraceStep, TraceKind};
+use foundry_evm_core::constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS};
+use foundry_evm_traces::TraceKind;
+use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
-use crate::{
-    constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
-    revm::primitives::ruint::aliases::U160,
-};
+use crate::executors::EvmError;
 
-#[derive(Debug, thiserror::Error)]
-pub enum StackTraceError {
+/// Stack trace generation error during re-execution.
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum EvmStackTraceError {
+    #[error("Unexpected EVM execution error: {0}")]
+    Evm(String),
     #[error("Invalid root node in call trace arena")]
     InvalidRootNode,
     #[error(transparent)]
     Tracer(#[from] SolidityTracerError),
 }
 
-pub fn get_stack_trace(
+// `EvmError` is not `Clone`
+impl From<EvmError> for EvmStackTraceError {
+    fn from(value: EvmError) -> Self {
+        Self::Evm(value.to_string())
+    }
+}
+
+/// Compute stack trace based on execution traces.
+/// Returns `None` if `traces` is empty.
+pub(crate) fn get_stack_trace<'a>(
     contract_decoder: &ContractDecoder,
-    traces: &[(TraceKind, CallTraceArena)],
-) -> Result<Option<Vec<StackTraceEntry>>, StackTraceError> {
+    traces: impl IntoIterator<Item = &'a (TraceKind, CallTraceArena)>,
+) -> Result<Option<Vec<StackTraceEntry>>, EvmStackTraceError> {
     let mut address_to_creation_code = HashMap::new();
     let mut address_to_runtime_code = HashMap::new();
 
-    for arena in traces.into_iter().map(|(_, trace)| trace) {
-        for node in arena.nodes() {
+    let mut last_trace = None;
+    for (_, trace) in traces {
+        for node in trace.nodes() {
             let address = node.trace.address;
             if node.trace.kind.is_any_create() {
                 address_to_creation_code.insert(address, &node.trace.data);
                 address_to_runtime_code.insert(address, &node.trace.output);
             }
         }
+        last_trace = Some(trace);
     }
 
-    for (kind, trace) in traces {
-        if kind.is_error() {
-            let trace = convert_call_trace_arena_to_nested_trace(
-                &address_to_creation_code,
-                &address_to_runtime_code,
-                trace,
-            )?;
-            let trace = contract_decoder.try_to_decode_message_trace(trace);
-            let stack_trace = solidity_tracer::get_stack_trace(trace)?;
-            return Ok(Some(stack_trace));
-        }
+    if let Some(last_trace) = last_trace {
+        let trace = convert_call_trace_arena_to_nested_trace(
+            &address_to_creation_code,
+            &address_to_runtime_code,
+            last_trace,
+        )?;
+        let trace = contract_decoder.try_to_decode_message_trace(trace);
+        let stack_trace = solidity_tracer::get_stack_trace(trace)?;
+        let stack_trace = stack_trace
+            .into_iter()
+            .filter(|stack_trace| {
+                if let StackTraceEntry::UnrecognizedContractCallstackEntry { address, .. } =
+                    stack_trace
+                {
+                    *address != CHEATCODE_ADDRESS
+                } else {
+                    true
+                }
+            })
+            .collect();
+        Ok(Some(stack_trace))
+    } else {
+        Ok(None)
     }
-    Ok(None)
 }
 
 fn convert_call_trace_arena_to_nested_trace(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
-) -> Result<NestedTrace, StackTraceError> {
+) -> Result<NestedTrace, EvmStackTraceError> {
     // Start conversion from the root node (index 0)
     if arena.nodes().is_empty() {
-        return Err(StackTraceError::InvalidRootNode);
+        return Err(EvmStackTraceError::InvalidRootNode);
     }
 
     convert_node_to_nested_trace(address_to_creation_code, address_to_runtime_code, &arena, 0)
@@ -75,7 +99,7 @@ fn convert_node_to_nested_trace(
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
     node_idx: usize,
-) -> Result<NestedTrace, StackTraceError> {
+) -> Result<NestedTrace, EvmStackTraceError> {
     let node = &arena.nodes()[node_idx];
     let trace = &node.trace;
 
@@ -171,10 +195,8 @@ fn convert_node_to_nested_trace(
 // We can't bump EDR to REVM 13, because it needs the `hashbrown` feature of
 // `revm-primitives`, but enabling that feature is incompatible with
 // `foundry-fork-db`.
-fn convert_halt_reason(
-    halt: revm_foundry::primitives::HaltReason,
-) -> revm_edr::primitives::HaltReason {
-    use revm_foundry::primitives::HaltReason;
+fn convert_halt_reason(halt: revm::primitives::HaltReason) -> revm_edr::primitives::HaltReason {
+    use revm::primitives::HaltReason;
     match halt {
         HaltReason::OutOfGas(err) => {
             revm_edr::primitives::HaltReason::OutOfGas(convert_out_of_gas_error(err))
@@ -212,19 +234,19 @@ fn convert_halt_reason(
         HaltReason::EOFFunctionStackOverflow => {
             revm_edr::primitives::HaltReason::EOFFunctionStackOverflow
         }
-        // TODO discuss: this was added in REVM 13: https://github.com/bluealloy/revm/pull/1570
+        // HACK: this was added in REVM 13: https://github.com/bluealloy/revm/pull/1570
         // This seems to be the closest error:
         HaltReason::InvalidEXTCALLTarget => revm_edr::primitives::HaltReason::EofAuxDataTooSmall,
-        // TODO discuss: this is optimism only,but enabled the `optimism` feature for EDR REVM
+        // HACK: this is optimism only, but enabled the `optimism` feature for EDR REVM
         // causes compilation errors
         HaltReason::FailedDeposit => revm_edr::primitives::HaltReason::NotActivated,
     }
 }
 
 fn convert_out_of_gas_error(
-    err: revm_foundry::primitives::OutOfGasError,
+    err: revm::primitives::OutOfGasError,
 ) -> revm_edr::primitives::OutOfGasError {
-    use revm_foundry::primitives::OutOfGasError;
+    use revm::primitives::OutOfGasError;
     match err {
         OutOfGasError::Basic => revm_edr::primitives::OutOfGasError::Basic,
         OutOfGasError::Memory => revm_edr::primitives::OutOfGasError::Memory,
@@ -235,9 +257,9 @@ fn convert_out_of_gas_error(
 }
 
 fn convert_instruction_result_to_exit_code(
-    result: revm_foundry::interpreter::InstructionResult,
+    result: revm::interpreter::InstructionResult,
 ) -> ExitCode {
-    let success_or_halt: revm_foundry::interpreter::SuccessOrHalt = result.into();
+    let success_or_halt: revm::interpreter::SuccessOrHalt = result.into();
     if success_or_halt.is_success() {
         ExitCode::Success
     } else if success_or_halt.is_revert() {
@@ -249,7 +271,7 @@ fn convert_instruction_result_to_exit_code(
 }
 
 fn is_calllike_op(step: &CallTraceStep) -> bool {
-    use revm_foundry::interpreter::opcode;
+    use revm::interpreter::opcode;
 
     matches!(
         step.op.get(),

@@ -270,7 +270,7 @@ impl MultiContractRunner {
             })
             .spec(self.evm_opts.spec)
             .gas_limit(self.evm_opts.gas_limit())
-            .build(self.env.clone(), db);
+            .build(self.env.clone(), db, Arc::clone(&self.contract_decoder));
 
         if !enabled!(tracing::Level::TRACE) {
             span_name = get_contract_name(&identifier);

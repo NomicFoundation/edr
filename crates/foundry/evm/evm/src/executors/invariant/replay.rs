@@ -48,12 +48,7 @@ pub fn replay_run(
             U256::ZERO,
         )?;
         logs.extend(call_result.logs);
-        let trace_kind = if call_result.reverted {
-            TraceKind::ExecutionError
-        } else {
-            TraceKind::Execution
-        };
-        traces.push((trace_kind, call_result.traces.clone().unwrap()));
+        traces.push((TraceKind::Execution, call_result.traces.clone().unwrap()));
 
         if let Some(new_coverage) = call_result.coverage {
             if let Some(old_coverage) = coverage {
@@ -94,12 +89,10 @@ pub fn replay_run(
             .into(),
         U256::ZERO,
     )?;
-    let trace_kind = if invariant_result.reverted {
-        TraceKind::ExecutionError
-    } else {
-        TraceKind::Execution
-    };
-    traces.push((trace_kind, invariant_result.traces.clone().unwrap()));
+    traces.push((
+        TraceKind::Execution,
+        invariant_result.traces.clone().unwrap(),
+    ));
     logs.extend(invariant_result.logs);
 
     Ok(counterexample_sequence)

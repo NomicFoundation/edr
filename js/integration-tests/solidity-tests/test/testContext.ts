@@ -1,8 +1,6 @@
 import {
   Artifact,
   ArtifactId,
-  FuzzConfigArgs,
-  InvariantConfigArgs,
   type SolidityTestRunnerConfigArgs,
 } from "@ignored/edr";
 import {
@@ -11,7 +9,6 @@ import {
   TracingConfigWithBuffer,
 } from "@nomicfoundation/edr-helpers";
 import hre from "hardhat";
-import { TracingConfig } from "hardhat/internal/hardhat-network/provider/node-types";
 import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
 import { assert } from "chai";
 
@@ -80,8 +77,9 @@ export class TestContext {
         totalTests++;
         if (failed) {
           failedTests++;
-          if (testResult.stackTrace !== undefined) {
-            stackTraces.set(testResult.name, testResult.stackTrace);
+          const stackTrace = testResult.stackTrace();
+          if (stackTrace !== null) {
+            stackTraces.set(testResult.name, stackTrace);
           }
         }
       }

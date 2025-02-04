@@ -325,6 +325,9 @@ importers:
       '@ignored/edr':
         specifier: workspace:*
         version: link:../../crates/edr_napi
+      fs-extra:
+        specifier: ^7.0.1
+        version: 7.0.1
       hardhat:
         specifier: 2.22.17
         version: 2.22.17(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.5.4))(typescript@5.5.4)
@@ -365,9 +368,6 @@ importers:
       eslint-plugin-prettier:
         specifier: 5.2.1
         version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
-      fs-extra:
-        specifier: ^7.0.1
-        version: 7.0.1
       prettier:
         specifier: ^3.2.5
         version: 3.2.5

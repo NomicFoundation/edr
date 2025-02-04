@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./test.sol";
-import "./Vm.sol";
+import {Test} from "forge-std/src/Test.sol";
 
-contract FailingSetupTest is DSTest {
-    Vm constant vm = Vm(HEVM_ADDRESS);
-
+contract FailingSetupTest is Test {
     function setUp() public {
         vm.createSelectFork("nonExistentForkAlias", 20_000_000);
     }
