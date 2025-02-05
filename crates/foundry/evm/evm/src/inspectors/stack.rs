@@ -384,8 +384,7 @@ impl InspectorStack {
     }
 
     /// Enable tracer for stack traces.
-    /// This enables a tracing inspector with expensive `record_steps` and
-    /// returns the previous inspector if any.
+    /// This enables a tracing inspector with expensive `record_steps`.
     #[inline]
     pub fn enable_for_stack_traces(&mut self) {
         self.tracer = Some(TracingInspector::new(TracingInspectorConfig {
@@ -399,11 +398,6 @@ impl InspectorStack {
             record_logs: true,
             record_immediate_bytes: false,
         }));
-    }
-
-    /// Set an option tracing inspector.
-    pub fn set_tracer(&mut self, tracer: Option<TracingInspector>) {
-        self.tracer = tracer;
     }
 
     /// Collects all the data gathered during inspection into a single struct.

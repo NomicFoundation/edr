@@ -299,39 +299,6 @@ impl Executor {
         result.into_decoded_result(func, rd)
     }
 
-    /// Re-executes the failed test to generate stack traces.
-    /// The `prev_traces` should contain the traces up to, but excluding the
-    /// failed test execution.
-    // pub fn re_execute_test_for_stack_traces(
-    //     &mut self,
-    //     prev_traces: &[(TraceKind, CallTraceArena)],
-    //     from: Address,
-    //     test_contract: Address,
-    //     func: &Function,
-    //     args: &[DynSolValue],
-    //     value: U256,
-    //     rd: Option<&RevertDecoder>,
-    // ) -> Result<Vec<StackTraceEntry>, EvmStackTraceError> {
-    //     let prev_tracer = self.inspector.enable_for_stack_traces();
-    //     let result = self.execute_test(from, test_contract, func, args, value, rd);
-    //     self.inspector.set_tracer(prev_tracer);
-    //
-    //     let raw_call_result = match result {
-    //         Ok(result) => result.raw,
-    //         Err(EvmError::Execution(execution_error)) => execution_error.raw,
-    //         Err(err) => return Err(err.into()),
-    //     };
-    //
-    //     let new_traces = [(
-    //         TraceKind::Execution,
-    //         raw_call_result.traces.expect("enabled tracing"),
-    //     )];
-    //     let traces = prev_traces.into_iter().chain(&new_traces);
-    //     get_stack_trace(&self.contract_decoder, traces)
-    //         .transpose()
-    //         .expect("there is an error trace")
-    // }
-
     /// Performs a call to an account on the current state of the VM.
     ///
     /// The state after the call is not persisted.

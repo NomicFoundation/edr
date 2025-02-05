@@ -264,8 +264,8 @@ impl std::fmt::Debug for TracingConfigWithBuffers {
         let build_infos = self.build_infos.as_ref().map_or_else(
             || "None".to_string(),
             |bi| match bi {
-                Either::A(arrays) => format!("Uint8Array({})", arrays.len()),
-                Either::B(build_infos) => format!("Uint8Array({})", build_infos.len()),
+                Either::A(arrays) => format!("Uint8Array[{}]", arrays.len()),
+                Either::B(build_infos) => format!("BuildInfoAndOutput[{}]", build_infos.len()),
             },
         );
         f.debug_struct("TracingConfigWithBuffers")
