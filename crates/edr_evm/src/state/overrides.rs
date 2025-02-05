@@ -261,7 +261,7 @@ impl<'overrides, StateT> StateRefOverrider<'overrides, StateT> {
     }
 }
 
-impl<'state, StateT: StateRef> StateRef for StateRefOverrider<'state, StateT> {
+impl<StateT: StateRef> StateRef for StateRefOverrider<'_, StateT> {
     type Error = StateT::Error;
 
     fn basic(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {

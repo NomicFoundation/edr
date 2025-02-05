@@ -173,7 +173,7 @@ impl Eip4844 {
 #[repr(transparent)]
 struct RlpBlob<'blob>(&'blob Blob);
 
-impl<'blob> alloy_rlp::Encodable for RlpBlob<'blob> {
+impl alloy_rlp::Encodable for RlpBlob<'_> {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         self.0.as_ref().encode(out);
     }
@@ -192,7 +192,7 @@ impl<'blob> From<&'blob Blob> for RlpBlob<'blob> {
 #[repr(transparent)]
 struct RlpBytes48<'bytes>(&'bytes Bytes48);
 
-impl<'bytes> alloy_rlp::Encodable for RlpBytes48<'bytes> {
+impl alloy_rlp::Encodable for RlpBytes48<'_> {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         self.0.as_ref().encode(out);
     }
