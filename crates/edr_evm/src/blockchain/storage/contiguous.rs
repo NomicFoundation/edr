@@ -18,7 +18,7 @@ use crate::{chain_spec::ChainSpec, Block, LocalBlock};
 #[derive(Clone, Default, Debug)]
 pub struct ContiguousBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    BlockT: Block<ChainSpecT> + Clone,
     ChainSpecT: ChainSpec,
 {
     blocks: Vec<BlockT>,

@@ -21,7 +21,10 @@ use edr_evm::{
 };
 use edr_rpc_eth::client::EthRpcClient;
 
-use super::*;
+use super::{
+    AccountConfig, Arc, Debug, MethodInvocation, Provider, ProviderConfig, ProviderData,
+    ProviderError, ProviderRequest, TimeSinceEpoch,
+};
 use crate::{config::MiningConfig, requests::hardhat::rpc_types::ForkConfig};
 
 pub const TEST_SECRET_KEY: &str =
