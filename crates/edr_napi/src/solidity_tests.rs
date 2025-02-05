@@ -8,7 +8,6 @@ use std::{path::Path, sync::Arc};
 use artifact::Artifact;
 use edr_solidity_tests::TestFilter;
 use napi::{
-    bindgen_prelude::Uint8Array,
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
@@ -18,9 +17,12 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::solidity_tests::{
-    artifact::ArtifactId, config::SolidityTestRunnerConfigArgs, runner::build_runner,
-    test_results::SuiteResult,
+use crate::{
+    provider::TracingConfigWithBuffers,
+    solidity_tests::{
+        artifact::ArtifactId, config::SolidityTestRunnerConfigArgs, runner::build_runner,
+        test_results::SuiteResult,
+    },
 };
 
 /// Executes Solidity tests.
@@ -37,7 +39,7 @@ pub fn run_solidity_tests(
     artifacts: Vec<Artifact>,
     test_suites: Vec<ArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
-    tracing_config: Vec<Uint8Array>,
+    tracing_config: TracingConfigWithBuffers,
     #[napi(ts_arg_type = "(result: SuiteResult) => void")] progress_callback: JsFunction,
     #[napi(ts_arg_type = "(error: Error) => void")] error_callback: JsFunction,
 ) -> napi::Result<()> {

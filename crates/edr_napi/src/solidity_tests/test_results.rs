@@ -7,14 +7,12 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-    solidity_tests::artifact::ArtifactId,
-    trace::solidity_stack_trace::{SolidityStackTrace, SolidityStackTraceEntry},
+    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry,
 };
 
-// TODO add back debug
 /// See [edr_solidity_tests::result::SuiteResult]
-#[napi(object)]
-#[derive(Clone)]
+#[napi]
+#[derive(Clone, Debug)]
 pub struct SuiteResult {
     /// The artifact id can be used to match input to result in the progress
     /// callback
@@ -56,10 +54,9 @@ impl
     }
 }
 
-// TODO add back debu
 /// See [edr_solidity_tests::result::TestResult]
-#[napi(object)]
-#[derive(Clone)]
+#[napi]
+#[derive(Clone, Debug)]
 pub struct TestResult {
     /// The name of the test.
     #[napi(readonly)]
@@ -83,30 +80,38 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    #[napi(readonly)]
-    pub stack_trace: Option<SolidityStackTrace>,
+    stack_trace_result: Option<
+        Result<
+            Vec<edr_solidity::solidity_stack_trace::StackTraceEntry>,
+            edr_solidity_tests::StackTraceError,
+        >,
+    >,
+}
+
+#[napi]
+impl TestResult {
+    /// Compute the error stack trace.
+    /// If the heuristic failed, returns an empty array.
+    /// Returns null if the test status is succeeded or skipped.
+    /// Throws if there was an error computing the stack trace.
+    #[napi]
+    pub fn stack_trace(&self) -> napi::Result<Option<Vec<SolidityStackTraceEntry>>> {
+        self.stack_trace_result
+            .as_ref()
+            .map(|stack_trace_result| match stack_trace_result {
+                Ok(stack_trace) => stack_trace
+                    .iter()
+                    .cloned()
+                    .map(crate::cast::TryCast::try_cast)
+                    .collect::<napi::Result<Vec<SolidityStackTraceEntry>>>(),
+                Err(err) => Err(napi::Error::from_reason(err.to_string())),
+            })
+            .transpose()
+    }
 }
 
 impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
     fn from((name, test_result): (String, edr_solidity_tests::result::TestResult)) -> Self {
-        let stack_trace = if test_result.status.is_failure() {
-            // TODO handle errors
-            let stack_trace = edr_solidity_tests::get_stack_trace(
-                &test_result.contract_decoder,
-                &test_result.traces,
-            )
-            .unwrap();
-            stack_trace.map(|stack_trace| {
-                stack_trace
-                    .into_iter()
-                    .map(crate::cast::TryCast::try_cast)
-                    .collect::<Result<Vec<SolidityStackTraceEntry>, _>>()
-                    .unwrap()
-            })
-        } else {
-            None
-        };
-
         Self {
             name,
             status: test_result.status.into(),
@@ -155,7 +160,7 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
-            stack_trace,
+            stack_trace_result: test_result.stack_trace_result,
         }
     }
 }

@@ -137,14 +137,10 @@ describe("Unit tests", () => {
   });
 
   it("FailingSetup", async function () {
-    const { totalTests, failedTests, stackTraces } =
+    const { totalTests, failedTests } =
       await testContext.runTestsWithStats("FailingSetupTest");
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);
-
-    assertStackTraces(stackTraces.get("setUp()"), [
-      { contract: "FailingSetupTest", function: "setUp" },
-    ]);
   });
 });

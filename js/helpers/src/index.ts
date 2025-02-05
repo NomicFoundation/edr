@@ -1,6 +1,5 @@
 import type { Artifacts as HardhatArtifacts } from "hardhat/types";
 import fsExtra from "fs-extra";
-import semver from "semver";
 
 import {
   ArtifactId,
@@ -10,8 +9,6 @@ import {
   SolidityTestRunnerConfigArgs,
   TestResult,
 } from "@ignored/edr";
-import { TracingConfig } from "hardhat/internal/hardhat-network/provider/node-types";
-import { FIRST_SOLC_VERSION_SUPPORTED } from "hardhat/internal/hardhat-network/stack-traces/constants";
 
 /**
  * Run all the given solidity tests and returns the whole results after finishing.
@@ -33,7 +30,7 @@ export async function runAllSolidityTests(
       artifacts,
       testSuites,
       configArgs,
-      tracingConfig.buildInfos,
+      tracingConfig,
       (suiteResult: SuiteResult) => {
         for (const testResult of suiteResult.testResults) {
           testResultCallback(suiteResult, testResult);
@@ -93,8 +90,8 @@ export async function buildSolidityTestsInput(
   return { artifacts, testSuiteIds, tracingConfig };
 }
 
-// TODO: This is a temporary workaround for creating the tracing config.
-// Based on https://github.com/NomicFoundation/hardhat/blob/93bc3801849d0a761b659c472ada29983ae380c5/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts
+// This is a copy of an internal Hardhat function that loads artifacts
+// https://github.com/NomicFoundation/hardhat/blob/dd19b668e3a68085eea87f96dc05e65ae52f0ce3/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L506
 export async function makeTracingConfig(
   artifacts: HardhatArtifacts
 ): Promise<TracingConfigWithBuffer> {

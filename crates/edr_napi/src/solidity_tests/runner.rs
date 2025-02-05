@@ -1,25 +1,34 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::{Mutex, OnceLock},
+};
 
-use edr_solidity::{artifacts::BuildInfo, contract_decoder::ContractDecoder};
+use edr_solidity::{
+    artifacts::BuildInfoConfigWithBuffers,
+    contract_decoder::{ContractDecoder, ContractDecoderError, NestedTraceDecoder},
+    nested_trace::NestedTrace,
+};
 use edr_solidity_tests::{
     contracts::{ArtifactId, ContractData, ContractsByArtifact},
     decode::RevertDecoder,
     multi_runner::{TestContract, TestContracts},
     MultiContractRunner, SolidityTestRunnerConfig,
 };
-use napi::bindgen_prelude::Uint8Array;
 
-use crate::solidity_tests::{
-    artifact::{Artifact as JsArtifact, ArtifactId as JsArtifactId},
-    config::SolidityTestRunnerConfigArgs,
+use crate::{
+    provider::TracingConfigWithBuffers,
+    solidity_tests::{
+        artifact::{Artifact as JsArtifact, ArtifactId as JsArtifactId},
+        config::SolidityTestRunnerConfigArgs,
+    },
 };
 
 pub(super) async fn build_runner(
     artifacts: Vec<JsArtifact>,
     test_suites: Vec<JsArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
-    build_infos: Vec<Uint8Array>,
-) -> napi::Result<MultiContractRunner> {
+    tracing_config: TracingConfigWithBuffers,
+) -> napi::Result<MultiContractRunner<LazyContractDecoder>> {
     let known_contracts: ContractsByArtifact = artifacts
         .into_iter()
         .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
@@ -33,18 +42,7 @@ pub(super) async fn build_runner(
 
     let config: SolidityTestRunnerConfig = config_args.try_into()?;
 
-    // TODO parallelize
-    // TODO if (semver.gte(buildInfo.solcVersion, FIRST_SOLC_VERSION_SUPPORTED)) {
-    let build_infos = build_infos
-        .into_iter()
-        .map(|build_info| serde_json::from_slice(build_info.as_ref()))
-        .collect::<Result<Vec<BuildInfo>, _>>()?;
-    let build_info_config = edr_solidity::contract_decoder::BuildInfoConfig {
-        build_infos: Some(build_infos),
-        ignore_contracts: None,
-    };
-    let contract_decoder = ContractDecoder::new(&build_info_config)
-        .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    let contract_decoder = LazyContractDecoder::new(tracing_config);
 
     // Build revert decoder from ABIs of all artifacts.
     let abis = known_contracts.iter().map(|(_, contract)| &contract.abi);
@@ -90,4 +88,46 @@ pub(super) async fn build_runner(
             format!("Failed to create multi contract runner: {err}"),
         )
     })
+}
+
+/// Only parses the tracing config which is very expensive if the contract
+/// decoder is used.
+#[derive(Debug)]
+pub struct LazyContractDecoder {
+    // We need the `Mutex`, because `Uint8Array` is not `Sync`
+    tracing_config: Mutex<TracingConfigWithBuffers>,
+    // Storing the result so that we can propagate the error
+    contract_decoder: OnceLock<Result<ContractDecoder, ContractDecoderError>>,
+}
+
+impl LazyContractDecoder {
+    fn new(tracing_config: TracingConfigWithBuffers) -> Self {
+        Self {
+            tracing_config: Mutex::new(tracing_config),
+            contract_decoder: OnceLock::new(),
+        }
+    }
+}
+
+impl NestedTraceDecoder for LazyContractDecoder {
+    fn try_to_decode_nested_trace(
+        &self,
+        nested_trace: NestedTrace,
+    ) -> Result<NestedTrace, ContractDecoderError> {
+        self.contract_decoder
+            .get_or_init(|| {
+                let tracing_config = self
+                    .tracing_config
+                    .lock()
+                    .expect("Can't get poisoned, because only called once");
+                edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers(
+                    BuildInfoConfigWithBuffers::from(&*tracing_config),
+                )
+                .map_err(|err| ContractDecoderError::Initialization(err.to_string()))
+                .and_then(|config| ContractDecoder::new(&config))
+            })
+            .as_ref()
+            .map_err(Clone::clone)
+            .and_then(|decoder| decoder.try_to_decode_nested_trace(nested_trace))
+    }
 }

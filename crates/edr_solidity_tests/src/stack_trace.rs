@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use alloy_primitives::{Address, Bytes};
 use edr_solidity::{
-    contract_decoder::ContractDecoder,
+    contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     exit_code::ExitCode,
     nested_trace::{
         CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage,
@@ -10,51 +10,82 @@ use edr_solidity::{
     solidity_stack_trace::StackTraceEntry,
     solidity_tracer::{self, SolidityTracerError},
 };
-use foundry_evm::traces::{CallTraceArena, CallTraceStep, TraceKind};
+use foundry_evm::{
+    executors::EvmError,
+    traces::{CallTraceArena, CallTraceStep, TraceKind},
+};
 
 use crate::{
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
     revm::primitives::ruint::aliases::U160,
 };
 
-#[derive(Debug, thiserror::Error)]
+/// Stack trace generation error during re-execution.
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum StackTraceError {
+    #[error(transparent)]
+    ContractDecoder(#[from] ContractDecoderError),
+    #[error("Unexpected EVM execution error: {0}")]
+    Evm(String),
     #[error("Invalid root node in call trace arena")]
     InvalidRootNode,
     #[error(transparent)]
     Tracer(#[from] SolidityTracerError),
 }
 
-pub fn get_stack_trace(
-    contract_decoder: &ContractDecoder,
+// `EvmError` is not `Clone`
+impl From<EvmError> for StackTraceError {
+    fn from(value: EvmError) -> Self {
+        Self::Evm(value.to_string())
+    }
+}
+
+/// Compute stack trace based on execution traces.
+/// Assumes last trace is the error one.
+/// Returns `None` if `traces` is empty.
+pub(crate) fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
+    contract_decoder: &Arc<NestedTraceDecoderT>,
     traces: &[(TraceKind, CallTraceArena)],
 ) -> Result<Option<Vec<StackTraceEntry>>, StackTraceError> {
     let mut address_to_creation_code = HashMap::new();
     let mut address_to_runtime_code = HashMap::new();
 
-    for arena in traces.into_iter().map(|(_, trace)| trace) {
-        for node in arena.nodes() {
+    let mut last_trace = None;
+    for (_, trace) in traces {
+        for node in trace.nodes() {
             let address = node.trace.address;
             if node.trace.kind.is_any_create() {
                 address_to_creation_code.insert(address, &node.trace.data);
                 address_to_runtime_code.insert(address, &node.trace.output);
             }
         }
+        last_trace = Some(trace);
     }
 
-    for (kind, trace) in traces {
-        if kind.is_error() {
-            let trace = convert_call_trace_arena_to_nested_trace(
-                &address_to_creation_code,
-                &address_to_runtime_code,
-                trace,
-            )?;
-            let trace = contract_decoder.try_to_decode_message_trace(trace);
-            let stack_trace = solidity_tracer::get_stack_trace(trace)?;
-            return Ok(Some(stack_trace));
-        }
+    if let Some(last_trace) = last_trace {
+        let trace = convert_call_trace_arena_to_nested_trace(
+            &address_to_creation_code,
+            &address_to_runtime_code,
+            last_trace,
+        )?;
+        let trace = contract_decoder.try_to_decode_nested_trace(trace)?;
+        let stack_trace = solidity_tracer::get_stack_trace(trace)?;
+        let stack_trace = stack_trace
+            .into_iter()
+            .filter(|stack_trace| {
+                if let StackTraceEntry::UnrecognizedContractCallstackEntry { address, .. } =
+                    stack_trace
+                {
+                    *address != CHEATCODE_ADDRESS
+                } else {
+                    true
+                }
+            })
+            .collect();
+        Ok(Some(stack_trace))
+    } else {
+        Ok(None)
     }
-    Ok(None)
 }
 
 fn convert_call_trace_arena_to_nested_trace(
@@ -67,7 +98,7 @@ fn convert_call_trace_arena_to_nested_trace(
         return Err(StackTraceError::InvalidRootNode);
     }
 
-    convert_node_to_nested_trace(address_to_creation_code, address_to_runtime_code, &arena, 0)
+    convert_node_to_nested_trace(address_to_creation_code, address_to_runtime_code, arena, 0)
 }
 
 fn convert_node_to_nested_trace(
@@ -140,15 +171,13 @@ fn convert_node_to_nested_trace(
         let code = if trace.address == HARDHAT_CONSOLE_ADDRESS || trace.address == CHEATCODE_ADDRESS
         {
             // HACK: use address as code if the library is implemented in Rust
-            // TODO: how should we handle contract metadata?
             Bytes::from(trace.address.to_vec())
         } else {
             address_to_runtime_code
                 .get(&trace.address)
-                .map(|c| (*c).clone())
                 // Code might not exist if it's a mocked contract
                 // Mimicking behavior here: https://github.com/NomicFoundation/edr/blob/4e7491d8631da27b4bd1ba2bde4914bb704e2c52/crates/foundry/cheatcodes/src/evm/mock.rs#L75
-                .unwrap_or_else(|| Bytes::from_static(&[0u8]))
+                .map_or_else(|| Bytes::from_static(&[0u8]), |c| (*c).clone())
         };
         Ok(NestedTrace::Call(CallMessage {
             number_of_subtraces: node.children.len() as u32,
@@ -175,6 +204,8 @@ fn convert_halt_reason(
     halt: revm_foundry::primitives::HaltReason,
 ) -> revm_edr::primitives::HaltReason {
     use revm_foundry::primitives::HaltReason;
+    // Easier overview if arms aren't matched.
+    #[allow(clippy::match_same_arms)]
     match halt {
         HaltReason::OutOfGas(err) => {
             revm_edr::primitives::HaltReason::OutOfGas(convert_out_of_gas_error(err))

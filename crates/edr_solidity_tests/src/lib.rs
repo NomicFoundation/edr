@@ -27,7 +27,7 @@ pub use config::{SolidityTestRunnerConfig, SolidityTestRunnerConfigError};
 pub mod result;
 
 mod stack_trace;
-pub use stack_trace::get_stack_trace;
+pub use stack_trace::StackTraceError;
 
 mod test_filter;
 

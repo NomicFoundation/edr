@@ -2,6 +2,10 @@
 
 use std::collections::BTreeMap;
 
+use edr_solidity::{
+    contract_decoder::{ContractDecoderError, NestedTraceDecoder},
+    nested_trace::NestedTrace,
+};
 use edr_solidity_tests::{
     result::{SuiteResult, TestStatus},
     MultiContractRunner,
@@ -17,17 +21,20 @@ use crate::helpers::{tracing::init_tracing_for_solidity_tests, SolidityTestFilte
 
 /// How to execute a test run.
 pub struct TestConfig {
-    pub runner: MultiContractRunner,
+    pub runner: MultiContractRunner<NoOpContractDecoder>,
     pub should_fail: bool,
     pub filter: SolidityTestFilter,
 }
 
 impl TestConfig {
-    pub fn new(runner: MultiContractRunner) -> Self {
+    pub fn new(runner: MultiContractRunner<NoOpContractDecoder>) -> Self {
         Self::with_filter(runner, SolidityTestFilter::matches_all())
     }
 
-    pub fn with_filter(runner: MultiContractRunner, filter: SolidityTestFilter) -> Self {
+    pub fn with_filter(
+        runner: MultiContractRunner<NoOpContractDecoder>,
+        filter: SolidityTestFilter,
+    ) -> Self {
         init_tracing_for_solidity_tests();
         Self {
             runner,
@@ -101,6 +108,18 @@ impl TestConfig {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct NoOpContractDecoder {}
+
+impl NestedTraceDecoder for NoOpContractDecoder {
+    fn try_to_decode_nested_trace(
+        &self,
+        nested_trace: NestedTrace,
+    ) -> Result<NestedTrace, ContractDecoderError> {
+        Ok(nested_trace)
     }
 }
 

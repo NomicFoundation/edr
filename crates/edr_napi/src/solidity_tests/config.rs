@@ -26,8 +26,6 @@ pub struct SolidityTestRunnerConfigArgs {
     pub project_root: String,
     /// Configures the permissions of cheat codes that access the file system.
     pub fs_permissions: Option<Vec<PathPermission>>,
-    /// Whether to collect traces. Defaults to false.
-    pub trace: Option<bool>,
     /// Whether to support the `testFail` prefix. Defaults to false.
     pub test_fail: Option<bool>,
     /// Address labels for traces. Defaults to none.
@@ -116,7 +114,6 @@ impl Debug for SolidityTestRunnerConfigArgs {
         f.debug_struct("SolidityTestRunnerConfigArgs")
             .field("project_root", &self.project_root)
             .field("fs_permissions", &self.fs_permissions)
-            .field("trace", &self.trace)
             .field("ffi", &self.ffi)
             .field("sender", &self.sender.as_ref().map(hex::encode))
             .field("tx_origin", &self.tx_origin.as_ref().map(hex::encode))
@@ -152,7 +149,6 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
         let SolidityTestRunnerConfigArgs {
             project_root,
             fs_permissions,
-            trace,
             test_fail,
             labels,
             isolate,
@@ -289,7 +285,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
 
         Ok(SolidityTestRunnerConfig {
             project_root: project_root.into(),
-            trace: trace.unwrap_or_default(),
+            trace: false,
             // TODO
             coverage: false,
             test_fail: test_fail.unwrap_or_default(),

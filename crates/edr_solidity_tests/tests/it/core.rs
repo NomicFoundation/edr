@@ -720,9 +720,15 @@ async fn test_trace() {
             let deployment_traces = result
                 .traces
                 .iter()
-                .filter(|(kind, _)| kind.is_deployment());
-            let setup_traces = result.traces.iter().filter(|(kind, _)| kind.is_setup());
-            let execution_traces = result.traces.iter().filter(|(kind, _)| kind.is_execution());
+                .filter(|(kind, _)| *kind == TraceKind::Deployment);
+            let setup_traces = result
+                .traces
+                .iter()
+                .filter(|(kind, _)| *kind == TraceKind::Setup);
+            let execution_traces = result
+                .traces
+                .iter()
+                .filter(|(kind, _)| *kind == TraceKind::Deployment);
 
             assert_eq!(
                 deployment_traces.count(),

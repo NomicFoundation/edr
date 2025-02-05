@@ -1,5 +1,5 @@
 use alloy_primitives::U256;
-use foundry_evm_core::backend::Backend;
+use foundry_evm_core::{backend::Backend, fork::CreateFork};
 use revm::primitives::{Env, EnvWithHandlerCfg, SpecId};
 
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
@@ -21,6 +21,10 @@ pub struct ExecutorBuilder {
     gas_limit: Option<U256>,
     /// The spec ID.
     spec_id: SpecId,
+    /// The fork to use at launch
+    fork: Option<CreateFork>,
+    /// The configured evm
+    env: Env,
 }
 
 impl Default for ExecutorBuilder {
@@ -30,6 +34,8 @@ impl Default for ExecutorBuilder {
             stack: InspectorStackBuilder::new(),
             gas_limit: None,
             spec_id: SpecId::LATEST,
+            fork: None,
+            env: Env::default(),
         }
     }
 }
@@ -51,10 +57,17 @@ impl ExecutorBuilder {
         self
     }
 
-    /// Sets the EVM spec to use
+    /// Set the env
     #[inline]
-    pub fn spec(mut self, spec: SpecId) -> Self {
-        self.spec_id = spec;
+    pub fn env(mut self, env: Env) -> Self {
+        self.env = env;
+        self
+    }
+
+    /// Set the fork
+    #[inline]
+    pub fn fork(mut self, fork: Option<CreateFork>) -> Self {
+        self.fork = fork;
         self
     }
 
@@ -68,19 +81,27 @@ impl ExecutorBuilder {
         self
     }
 
-    /// Builds the executor as configured.
+    /// Sets the EVM spec to use
     #[inline]
-    pub fn build(self, env: Env, db: Backend) -> Executor {
+    pub fn spec(mut self, spec: SpecId) -> Self {
+        self.spec_id = spec;
+        self
+    }
+
+    /// Builds the executor as configured.
+    pub fn build(self) -> Executor {
         let Self {
             mut stack,
             gas_limit,
             spec_id,
+            fork,
+            env,
         } = self;
         stack.block = Some(env.block.clone());
         stack.gas_price = Some(env.tx.gas_price);
         let gas_limit = gas_limit.unwrap_or(env.block.gas_limit);
         Executor::new(
-            db,
+            Backend::spawn(fork),
             EnvWithHandlerCfg::new_with_spec_id(Box::new(env), spec_id),
             stack.build(),
             gas_limit,
