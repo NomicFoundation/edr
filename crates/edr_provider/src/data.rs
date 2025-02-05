@@ -652,10 +652,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                     } else {
                         None
                     },
-                    blob_excess_gas_and_price: header
-                        .blob_gas
-                        .as_ref()
-                        .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
+                    blob_excess_gas_and_price: header.blob_gas.as_ref().map(
+                        |BlobGas { excess_gas, .. }| {
+                            BlobExcessGasAndPrice::new(
+                                *excess_gas,
+                                cfg_env.handler_cfg.spec_id >= SpecId::PRAGUE,
+                            )
+                        },
+                    ),
                 };
 
                 debug_trace_transaction(
@@ -1324,7 +1328,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         }
 
         let last_block = self.last_block()?;
-        let base_fee = calculate_next_base_fee_per_blob_gas(last_block.header());
+        let base_fee = calculate_next_base_fee_per_blob_gas(last_block.header(), self.spec_id());
 
         Ok(Some(U256::from(base_fee)))
     }

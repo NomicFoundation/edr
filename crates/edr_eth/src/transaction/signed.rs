@@ -5,7 +5,7 @@ mod eip4844;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut};
-use revm_primitives::{AccessListItem, TransactTo, TxEnv};
+use revm_primitives::{AccessListItem, AuthorizationList, TransactTo, TxEnv};
 
 pub use self::{
     eip155::Eip155,
@@ -51,6 +51,13 @@ impl Signed {
     /// Whether this is an EIP-4844 transaction.
     pub fn is_eip4844(&self) -> bool {
         matches!(self, Signed::Eip4844(_))
+    }
+
+    /// Retrieves the authorization list of the transaction for post-EIP-7702
+    /// transactions.
+    pub fn authorization_list(&self) -> Option<&AuthorizationList> {
+        // TODO: EIP-7702
+        None
     }
 
     /// Retrieves the blob hashes of the transaction, if any.

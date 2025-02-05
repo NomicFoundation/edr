@@ -162,18 +162,21 @@ where
                 .map(|transaction| (*transaction.transaction_hash(), block.clone())),
         );
 
-        // We have checked that the block hash and number are not in the maps, so it's
-        // ok to use unchecked.
-        self.hash_to_block
-            .insert_unique_unchecked(*block_hash, block.clone());
+        // SAFETY: We have checked that the block hash and number are not in the maps,
+        // so it's ok to use unchecked.
+        let block = unsafe {
+            self.hash_to_block
+                .insert_unique_unchecked(*block_hash, block.clone());
 
-        self.hash_to_total_difficulty
-            .insert_unique_unchecked(*block_hash, total_difficulty);
+            self.hash_to_total_difficulty
+                .insert_unique_unchecked(*block_hash, total_difficulty);
 
-        Ok(self
-            .number_to_block
-            .insert_unique_unchecked(block.header().number, block)
-            .1)
+            self.number_to_block
+                .insert_unique_unchecked(block.header().number, block)
+                .1
+        };
+
+        Ok(block)
     }
 
     /// Inserts a receipt. Errors if it already exists.

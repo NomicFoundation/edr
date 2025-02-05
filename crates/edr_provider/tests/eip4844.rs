@@ -402,6 +402,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
+    config.hardfork = SpecId::CANCUN;
 
     config.genesis_accounts.insert(
         secret_key_to_address(SECRET_KEYS[0])?,
