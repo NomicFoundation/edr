@@ -431,6 +431,7 @@ impl BlockBuilder {
                     TransactionType::Eip2930 => TypedReceiptData::Eip2930 { status },
                     TransactionType::Eip1559 => TypedReceiptData::Eip1559 { status },
                     TransactionType::Eip4844 => TypedReceiptData::Eip4844 { status },
+                    TransactionType::Eip7702 => TypedReceiptData::Eip7702 { status },
                 },
                 spec_id,
             },

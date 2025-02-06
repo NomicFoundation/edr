@@ -17,9 +17,15 @@ pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
 pub use self::r#type::TransactionType;
-use crate::{AccessListItem, Address, Bytes, U256};
+use crate::{eips::eip7702, AccessListItem, Address, Bytes, U256};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
+
+/// Trait for computing the hash of a transaction.
+pub trait ComputeTransactionHash {
+    /// Computes the hash of the transaction.
+    fn compute_transaction_hash(&self) -> B256;
+}
 
 /// Container type for various Ethereum transaction requests
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -34,6 +40,8 @@ pub enum Request {
     Eip1559(request::Eip1559),
     /// An EIP-4844 transaction request
     Eip4844(request::Eip4844),
+    /// An EIP-7702 transaction request
+    Eip7702(request::Eip7702),
 }
 
 /// Container type for various signed Ethereum transactions.
@@ -50,6 +58,8 @@ pub enum Signed {
     Eip1559(signed::Eip1559),
     /// EIP-4844 transaction
     Eip4844(signed::Eip4844),
+    /// EIP-7702 transaction
+    Eip7702(signed::Eip7702),
 }
 
 /// Trait for signed transactions.
@@ -161,4 +171,6 @@ pub struct EthTransactionRequest {
     pub blobs: Option<Vec<Bytes>>,
     /// Blob versioned hashes (EIP-4844)
     pub blob_hashes: Option<Vec<B256>>,
+    /// Authorization list (EIP-7702)
+    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }

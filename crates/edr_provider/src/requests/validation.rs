@@ -1,6 +1,7 @@
 use core::fmt::Debug;
 
 use edr_eth::{
+    eips::eip7702,
     transaction::{self, EthTransactionRequest},
     AccessListItem, Address, BlockSpec, BlockTag, PreEip1898BlockSpec, SpecId, B256, U256,
 };
@@ -18,6 +19,7 @@ pub struct SpecValidationData<'data> {
     pub access_list: Option<&'data Vec<AccessListItem>>,
     pub blobs: Option<&'data Vec<Bytes>>,
     pub blob_hashes: Option<&'data Vec<B256>>,
+    pub authorization_list: Option<&'data Vec<eip7702::SignedAuthorization>>,
 }
 
 impl<'data> From<&'data EthTransactionRequest> for SpecValidationData<'data> {
@@ -30,6 +32,7 @@ impl<'data> From<&'data EthTransactionRequest> for SpecValidationData<'data> {
             access_list: value.access_list.as_ref(),
             blobs: value.blobs.as_ref(),
             blob_hashes: value.blob_hashes.as_ref(),
+            authorization_list: value.authorization_list.as_ref(),
         }
     }
 }
@@ -44,6 +47,7 @@ impl<'data> From<&'data CallRequest> for SpecValidationData<'data> {
             access_list: value.access_list.as_ref(),
             blobs: value.blobs.as_ref(),
             blob_hashes: value.blob_hashes.as_ref(),
+            authorization_list: value.authorization_list.as_ref(),
         }
     }
 }
@@ -59,6 +63,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: None,
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: None,
             },
             transaction::Signed::PostEip155Legacy(tx) => Self {
                 to: tx.kind.to(),
@@ -68,6 +73,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: None,
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: None,
             },
             transaction::Signed::Eip2930(tx) => Self {
                 to: tx.kind.to(),
@@ -77,6 +83,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: Some(tx.access_list.0.as_ref()),
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: None,
             },
             transaction::Signed::Eip1559(tx) => Self {
                 to: tx.kind.to(),
@@ -86,6 +93,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: Some(tx.access_list.0.as_ref()),
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: None,
             },
             transaction::Signed::Eip4844(tx) => Self {
                 to: Some(&tx.to),
@@ -95,6 +103,17 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: Some(tx.access_list.0.as_ref()),
                 blobs: None,
                 blob_hashes: Some(tx.blob_hashes.as_ref()),
+                authorization_list: None,
+            },
+            transaction::Signed::Eip7702(tx) => Self {
+                to: Some(&tx.to),
+                gas_price: None,
+                max_fee_per_gas: Some(&tx.max_fee_per_gas),
+                max_priority_fee_per_gas: Some(&tx.max_priority_fee_per_gas),
+                access_list: Some(tx.access_list.0.as_ref()),
+                blobs: None,
+                blob_hashes: None,
+                authorization_list: Some(tx.authorization_list.as_ref()),
             },
         }
     }
@@ -112,6 +131,7 @@ fn validate_transaction_spec<LoggerErrorT: Debug>(
         access_list,
         blobs,
         blob_hashes,
+        authorization_list,
     } = data;
 
     if spec_id < SpecId::BERLIN && access_list.is_some() {
@@ -133,6 +153,12 @@ fn validate_transaction_spec<LoggerErrorT: Debug>(
         return Err(ProviderError::UnsupportedEIP4844Parameters {
             current_hardfork: spec_id,
             minimum_hardfork: SpecId::CANCUN,
+        });
+    }
+
+    if spec_id < SpecId::PRAGUE && authorization_list.is_some() {
+        return Err(ProviderError::UnsupportedEip7702Parameters {
+            current_hardfork: spec_id,
         });
     }
 
@@ -160,6 +186,12 @@ fn validate_transaction_spec<LoggerErrorT: Debug>(
                 "Cannot send both gasPrice and blobHashes".to_string(),
             ));
         }
+
+        if authorization_list.is_some() {
+            return Err(ProviderError::InvalidTransactionInput(
+                "Cannot send both gasPrice and authorizationList".to_string(),
+            ));
+        }
     }
 
     if let Some(max_fee_per_gas) = max_fee_per_gas {
@@ -174,6 +206,16 @@ fn validate_transaction_spec<LoggerErrorT: Debug>(
 
     if (blobs.is_some() || blob_hashes.is_some()) && to.is_none() {
         return Err(ProviderError::Eip4844TransactionMissingReceiver);
+    }
+
+    if let Some(authorization_list) = authorization_list {
+        if to.is_none() {
+            return Err(ProviderError::Eip7702TransactionMissingReceiver);
+        }
+
+        if authorization_list.is_empty() {
+            return Err(ProviderError::Eip7702TransactionWithoutAuthorizations);
+        }
     }
 
     Ok(())
@@ -389,6 +431,19 @@ mod tests {
         ));
     }
 
+    fn assert_unsuporrted_eip_7702_parameters(spec: SpecId) {
+        let eip_7702_request = EthTransactionRequest {
+            from: Address::ZERO,
+            authorization_list: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(spec, (&eip_7702_request).into()),
+            Err(ProviderError::UnsupportedEip7702Parameters { .. })
+        ));
+    }
+
     #[test]
     fn validate_transaction_spec_eip_155_invalid_inputs() {
         let eip155_spec = SpecId::MUIR_GLACIER;
@@ -413,6 +468,7 @@ mod tests {
 
         assert_unsupported_eip_1559_parameters(eip155_spec);
         assert_unsupported_eip_4844_parameters(eip155_spec);
+        assert_unsuporrted_eip_7702_parameters(eip155_spec);
     }
 
     #[test]
@@ -429,6 +485,7 @@ mod tests {
 
         assert_unsupported_eip_1559_parameters(eip2930_spec);
         assert_unsupported_eip_4844_parameters(eip2930_spec);
+        assert_unsuporrted_eip_7702_parameters(eip2930_spec);
     }
 
     #[test]
@@ -445,6 +502,7 @@ mod tests {
         assert!(validate_transaction_spec::<()>(eip1559_spec, (&valid_request).into()).is_ok());
 
         assert_unsupported_eip_4844_parameters(eip1559_spec);
+        assert_unsuporrted_eip_7702_parameters(eip1559_spec);
         assert_mixed_eip_1559_parameters(eip1559_spec);
     }
 
@@ -509,6 +567,72 @@ mod tests {
         assert!(matches!(
             validate_transaction_spec::<()>(eip4844_spec, (&missing_receiver_request).into()),
             Err(ProviderError::Eip4844TransactionMissingReceiver)
+        ));
+
+        assert_unsuporrted_eip_7702_parameters(eip4844_spec);
+    }
+
+    #[test]
+    fn validate_transaction_spec_eip_7702_invalid_inputs() {
+        let eip7702_spec = SpecId::PRAGUE;
+        let valid_request = EthTransactionRequest {
+            from: Address::ZERO,
+            to: Some(Address::ZERO),
+            max_fee_per_gas: Some(U256::ZERO),
+            max_priority_fee_per_gas: Some(U256::ZERO),
+            access_list: Some(Vec::new()),
+            authorization_list: Some(vec![eip7702::SignedAuthorization::new_unchecked(
+                eip7702::Authorization {
+                    chain_id: U256::ZERO,
+                    address: Address::ZERO,
+                    nonce: 1,
+                },
+                0,
+                U256::ZERO,
+                U256::ZERO,
+            )]),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(validate_transaction_spec::<()>(eip7702_spec, (&valid_request).into()).is_ok());
+        assert_mixed_eip_1559_parameters(eip7702_spec);
+
+        let mixed_request = EthTransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(U256::ZERO),
+            authorization_list: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip7702_spec, (&mixed_request).into()),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let missing_receiver_request = EthTransactionRequest {
+            from: Address::ZERO,
+            authorization_list: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(eip7702_spec, (&missing_receiver_request).into()),
+            Err(ProviderError::Eip7702TransactionMissingReceiver)
+        ));
+
+        let empty_authorization_list_request = EthTransactionRequest {
+            from: Address::ZERO,
+            to: Some(Address::ZERO),
+            authorization_list: Some(Vec::new()),
+            ..EthTransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<()>(
+                eip7702_spec,
+                (&empty_authorization_list_request).into()
+            ),
+            Err(ProviderError::Eip7702TransactionWithoutAuthorizations)
         ));
     }
 }
