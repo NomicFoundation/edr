@@ -36,14 +36,6 @@ import TOML from "smol-toml";
 // This is automatically cached in CI
 const RPC_CACHE_PATH = "./edr-cache";
 
-// Hack: since EDR currently doesn't support filtering certain tests in test suites, we run them, but ignore their failures.
-const EXCLUDED_TESTS = new Set([
-  // This relies on environment variable interpolation in the `rpcEndpoints` config which is not supported by EDR.
-  "test_ChainBubbleUp()",
-  // This relies on the `deriveKey` and `rememberKey` cheatcodes which are not supported by EDR.
-  "test_DeriveRememberKey()",
-]);
-
 // Total run for all test suites in the  `forge-std` repo
 const TOTAL_NAME = "Total";
 const TOTAL_EXPECTED_RESULTS = 15;
@@ -129,7 +121,7 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
       const failed = new Set();
       for (const res of results) {
         for (const r of res.testResults) {
-          if (r.status !== "Success" && !EXCLUDED_TESTS.has(r.name)) {
+          if (r.status !== "Success") {
             failed.add(
               `${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`
             );
