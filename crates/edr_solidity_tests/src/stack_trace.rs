@@ -27,6 +27,8 @@ pub enum StackTraceError {
     ContractDecoder(#[from] ContractDecoderError),
     #[error("Unexpected EVM execution error: {0}")]
     Evm(String),
+    #[error("Test setup unexpectedly failed during execution with revert reason: {0}")]
+    FailingSetup(String),
     #[error("Invalid root node in call trace arena")]
     InvalidRootNode,
     #[error(transparent)]

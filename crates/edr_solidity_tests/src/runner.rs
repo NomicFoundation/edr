@@ -646,15 +646,19 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         needs_setup: bool,
     ) -> Result<Vec<StackTraceEntry>, StackTraceError> {
         let mut executor = self.executor_builder.clone().build();
-        executor.inspector.enable_for_stack_traces();
 
+        // We only need light-weight tracing for setup to be able to match contract
+        // codes to contact addresses.
+        executor.inspector.tracing(true);
         let setup = self.setup(&mut executor, needs_setup);
-
-        if setup.reason.is_some() {
-            return get_stack_trace(&self.contract_decoder, &setup.traces)
-                .transpose()
-                .expect("there is an error trace");
+        if let Some(reason) = setup.reason {
+            // If this function was called, the setup succeeded during test execution, so
+            // this is an unexpected failure.
+            return Err(StackTraceError::FailingSetup(reason));
         }
+
+        // Collect EVM step traces that are needed for stack trace generation.
+        executor.inspector.enable_for_stack_traces();
 
         // Run unit test
         let new_traces = match executor.execute_test(
