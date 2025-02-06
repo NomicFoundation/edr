@@ -175,7 +175,6 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
 
         // Invariant testing requires tracing to figure out what contracts were created.
         let tmp_tracing = executor.inspector.tracer.is_none() && has_invariants && needs_setup;
-        // let tmp_tracing = true;
         if tmp_tracing {
             executor.set_tracing(true);
         }

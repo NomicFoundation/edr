@@ -50,7 +50,6 @@ pub(crate) fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
     let mut address_to_creation_code = HashMap::new();
     let mut address_to_runtime_code = HashMap::new();
 
-    let mut last_trace = None;
     for (_, trace) in traces {
         for node in trace.nodes() {
             let address = node.trace.address;
@@ -59,10 +58,9 @@ pub(crate) fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
                 address_to_runtime_code.insert(address, &node.trace.output);
             }
         }
-        last_trace = Some(trace);
     }
 
-    if let Some(last_trace) = last_trace {
+    if let Some((_, last_trace)) = traces.last() {
         let trace = convert_call_trace_arena_to_nested_trace(
             &address_to_creation_code,
             &address_to_runtime_code,
