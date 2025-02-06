@@ -1,0 +1,1106 @@
+//! The Forge test runner.
+use std::{
+    borrow::Cow,
+    cmp::min,
+    collections::{BTreeMap, HashMap},
+    path::Path,
+    sync::Arc,
+    time::Instant,
+};
+
+use alloy_dyn_abi::DynSolValue;
+use alloy_json_abi::Function;
+use alloy_primitives::{Address, Log, U256};
+use edr_solidity::{
+    contract_decoder::SyncNestedTraceDecoder, solidity_stack_trace::StackTraceEntry,
+};
+use eyre::Result;
+use foundry_evm::{
+    abi::TestFunctionExt,
+    constants::CALLER,
+    contracts::{ContractsByAddress, ContractsByArtifact},
+    coverage::HitMaps,
+    decode::{decode_console_logs, RevertDecoder},
+    executors::{
+        fuzz::FuzzedExecutor,
+        invariant::{
+            check_sequence, replay_error, replay_run, InvariantConfig, InvariantExecutor,
+            InvariantFuzzError, InvariantFuzzTestResult,
+        },
+        CallResult, EvmError, ExecutionErr, Executor, ExecutorBuilder, RawCallResult,
+    },
+    fuzz::{
+        fixture_name,
+        invariant::{CallDetails, InvariantContract},
+        CounterExample, FuzzFixtures,
+    },
+    traces::{load_contracts, TraceKind},
+};
+use proptest::test_runner::TestRunner;
+use rayon::prelude::*;
+
+use crate::{
+    fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
+    multi_runner::TestContract,
+    result::{SuiteResult, TestKind, TestResult, TestSetup, TestStatus},
+    stack_trace::{get_stack_trace, StackTraceError},
+    traces::Traces,
+    TestFilter, TestOptions,
+};
+
+/// A type that executes all tests of a contract
+#[derive(Clone, Debug)]
+pub struct ContractRunner<'a, NestedTraceDecoderT> {
+    pub name: &'a str,
+    /// The data of the contract being ran.
+    pub contract: &'a TestContract,
+    /// Revert decoder. Contains all known errors.
+    pub revert_decoder: &'a RevertDecoder,
+    /// Known contracts by artifact id
+    pub known_contracts: &'a ContractsByArtifact,
+    /// Provides contract metadata from calldata and traces.
+    pub contract_decoder: Arc<NestedTraceDecoderT>,
+    /// The initial balance of the test contract
+    pub initial_balance: U256,
+    /// The address which will be used as the `from` field in all EVM calls
+    pub sender: Address,
+    /// Whether to support the `testFail` prefix
+    pub test_fail: bool,
+    /// Whether to enable solidity fuzz fixtures support
+    pub solidity_fuzz_fixtures: bool,
+
+    /// The config values required to build the executor.
+    executor_builder: ExecutorBuilder,
+}
+
+/// Options for [`ContractRunner`].
+#[derive(Clone, Debug)]
+pub struct ContractRunnerOptions {
+    /// The initial balance of the test contract
+    pub initial_balance: U256,
+    /// The address which will be used as the `from` field in all EVM calls
+    pub sender: Address,
+    /// Whether to support the `testFail` prefix
+    pub test_fail: bool,
+    /// whether to enable solidity fuzz fixtures support
+    pub solidity_fuzz_fixtures: bool,
+}
+
+impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedTracerDecoderT> {
+    pub fn new(
+        name: &'a str,
+        executor_builder: ExecutorBuilder,
+        contract: &'a TestContract,
+        revert_decoder: &'a RevertDecoder,
+        known_contracts: &'a ContractsByArtifact,
+        contract_decoder: Arc<NestedTracerDecoderT>,
+        options: ContractRunnerOptions,
+    ) -> Self {
+        let ContractRunnerOptions {
+            initial_balance,
+            sender,
+            test_fail,
+            solidity_fuzz_fixtures,
+        } = options;
+
+        Self {
+            name,
+            contract,
+            revert_decoder,
+            known_contracts,
+            contract_decoder,
+            initial_balance,
+            sender,
+            test_fail,
+            solidity_fuzz_fixtures,
+            executor_builder,
+        }
+    }
+}
+
+impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedTraceDecoderT> {
+    /// Runs all tests for a contract whose names match the provided regular
+    /// expression
+    pub fn run_tests(
+        self,
+        filter: &dyn TestFilter,
+        test_options: &TestOptions,
+        handle: &tokio::runtime::Handle,
+    ) -> SuiteResult {
+        info!("starting tests");
+        let start = Instant::now();
+        let mut warnings = Vec::new();
+
+        let mut executor = self.executor_builder.clone().build();
+
+        let setup_fns: Vec<_> = self
+            .contract
+            .abi
+            .functions()
+            .filter(|func| func.name.is_setup())
+            .collect();
+
+        let needs_setup = setup_fns.len() == 1 && setup_fns[0].name == "setUp";
+
+        // There is a single miss-cased `setUp` function, so we add a warning
+        for &setup_fn in setup_fns.iter() {
+            if setup_fn.name != "setUp" {
+                warnings.push(format!(
+                    "Found invalid setup function \"{}\" did you mean \"setUp()\"?",
+                    setup_fn.signature()
+                ));
+            }
+        }
+
+        // There are multiple setUp function, so we return a single test result for
+        // `setUp`
+        if setup_fns.len() > 1 {
+            return SuiteResult::new(
+                start.elapsed(),
+                [(
+                    "setUp()".to_string(),
+                    TestResult::fail("multiple setUp functions".to_string()),
+                )]
+                .into(),
+                warnings,
+                self.contract.libraries.clone(),
+            );
+        }
+
+        let has_invariants = self
+            .contract
+            .abi
+            .functions()
+            .any(foundry_evm::abi::TestFunctionExt::is_invariant_test);
+
+        // Invariant testing requires tracing to figure out what contracts were created.
+        let tmp_tracing = executor.inspector.tracer.is_none() && has_invariants && needs_setup;
+        if tmp_tracing {
+            executor.set_tracing(true);
+        }
+        let setup = self.setup(&mut executor, needs_setup);
+        if tmp_tracing {
+            executor.set_tracing(false);
+        }
+
+        if setup.reason.is_some() {
+            // The setup failed, so we return a single test result for `setUp`
+            return SuiteResult::new(
+                start.elapsed(),
+                [(
+                    "setUp()".to_string(),
+                    TestResult {
+                        status: TestStatus::Failure,
+                        reason: setup.reason,
+                        counterexample: None,
+                        decoded_logs: decode_console_logs(&setup.logs),
+                        logs: setup.logs,
+                        kind: TestKind::Standard(0),
+                        traces: setup.traces,
+                        coverage: setup.coverage,
+                        labeled_addresses: setup.labeled_addresses,
+                        ..Default::default()
+                    },
+                )]
+                .into(),
+                warnings,
+                self.contract.libraries.clone(),
+            );
+        }
+
+        // Filter out functions sequentially since it's very fast and there is no need
+        // to do it in parallel.
+        let find_timer = Instant::now();
+        let functions = self
+            .contract
+            .abi
+            .functions()
+            .filter(|func| is_matching_test(func, filter))
+            .collect::<Vec<_>>();
+        let find_time = find_timer.elapsed();
+        debug!(
+            "Found {} test functions out of {} in {:?}",
+            functions.len(),
+            self.contract.abi.functions().count(),
+            find_time,
+        );
+
+        let identified_contracts = has_invariants
+            .then(|| load_contracts(setup.traces.iter().map(|(_, t)| t), self.known_contracts));
+        let test_results = functions
+            .par_iter()
+            .map(|&func| {
+                let _guard = handle.enter();
+
+                let sig = func.signature();
+
+                let setup = setup.clone();
+                let should_fail = self.test_fail && func.is_test_fail();
+                let res = if func.is_invariant_test() {
+                    let runner = test_options.invariant_runner();
+                    let invariant_config = test_options.invariant_config();
+                    self.run_invariant_test(
+                        executor.clone(),
+                        runner,
+                        setup,
+                        invariant_config.clone(),
+                        func,
+                        self.known_contracts,
+                        identified_contracts.as_ref().unwrap(),
+                    )
+                } else if func.is_fuzz_test() {
+                    debug_assert!(func.is_test());
+                    let runner = test_options.fuzz_runner();
+                    let fuzz_config = test_options.fuzz_config();
+                    self.run_fuzz_test(
+                        executor.clone(),
+                        func,
+                        should_fail,
+                        runner,
+                        setup,
+                        fuzz_config.clone(),
+                    )
+                } else {
+                    debug_assert!(func.is_test());
+                    self.run_test(executor.clone(), func, should_fail, setup)
+                };
+
+                (sig, res)
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        let duration = start.elapsed();
+        let suite_result = SuiteResult::new(
+            duration,
+            test_results,
+            warnings,
+            self.contract.libraries.clone(),
+        );
+        info!(
+            duration=?suite_result.duration,
+            "done. {}/{} successful",
+            suite_result.passed(),
+            suite_result.test_results.len()
+        );
+        suite_result
+    }
+
+    /// Deploys the test contract inside the runner from the sending account,
+    /// and optionally runs the `setUp` function on the test contract.
+    fn setup(&self, executor: &mut Executor, needs_setup: bool) -> TestSetup {
+        self._setup(executor, needs_setup)
+            .unwrap_or_else(|err| TestSetup::failed(err.to_string()))
+    }
+
+    fn _setup(&self, executor: &mut Executor, needs_setup: bool) -> Result<TestSetup> {
+        trace!(?needs_setup, "Setting test contract");
+
+        // We max out their balance so that they can deploy and make calls.
+        executor.set_balance(self.sender, U256::MAX)?;
+        executor.set_balance(CALLER, U256::MAX)?;
+
+        // We set the nonce of the deployer accounts to 1 to get the same addresses as
+        // DappTools
+        executor.set_nonce(self.sender, 1)?;
+
+        // Deploy libraries
+        let mut logs = Vec::new();
+        // +1 for actual deployment
+        let mut traces =
+            Vec::with_capacity(self.contract.libs_to_deploy.len() + 1 + usize::from(needs_setup));
+        for code in self.contract.libs_to_deploy.iter() {
+            match executor.deploy(
+                self.sender,
+                code.clone(),
+                U256::ZERO,
+                Some(self.revert_decoder),
+            ) {
+                Ok(d) => {
+                    logs.extend(d.raw.logs);
+                    traces.extend(d.raw.traces.map(|traces| (TraceKind::Deployment, traces)));
+                }
+                Err(e) => {
+                    return Ok(TestSetup::from_evm_error_with(
+                        e,
+                        logs,
+                        traces,
+                        HashMap::default(),
+                        needs_setup,
+                    ))
+                }
+            }
+        }
+
+        let address = self.sender.create(executor.get_nonce(self.sender)?);
+
+        // Set the contracts initial balance before deployment, so it is available
+        // during construction
+        executor.set_balance(address, self.initial_balance)?;
+
+        // Deploy the test contract
+        match executor.deploy(
+            self.sender,
+            self.contract.bytecode.clone(),
+            U256::ZERO,
+            Some(self.revert_decoder),
+        ) {
+            Ok(d) => {
+                logs.extend(d.raw.logs);
+                traces.extend(d.raw.traces.map(|traces| (TraceKind::Deployment, traces)));
+                d.address
+            }
+            Err(e) => {
+                return Ok(TestSetup::from_evm_error_with(
+                    e,
+                    logs,
+                    traces,
+                    HashMap::default(),
+                    needs_setup,
+                ))
+            }
+        };
+
+        // Reset `self.sender`s and `CALLER`s balance to the initial balance we want
+        executor.set_balance(self.sender, self.initial_balance)?;
+        executor.set_balance(CALLER, self.initial_balance)?;
+
+        executor.deploy_create2_deployer()?;
+
+        // Optionally call the `setUp` function
+        let setup = if needs_setup {
+            trace!("setting up");
+            let res = executor.setup(None, address, Some(self.revert_decoder));
+            let (setup_logs, setup_traces, labeled_addresses, reason, coverage) = match res {
+                Ok(RawCallResult {
+                    traces,
+                    labels,
+                    logs,
+                    coverage,
+                    ..
+                }) => {
+                    trace!(contract=%address, "successfully setUp test");
+                    (logs, traces, labels, None, coverage)
+                }
+                Err(EvmError::Execution(err)) => {
+                    let ExecutionErr {
+                        raw:
+                            RawCallResult {
+                                traces,
+                                labels,
+                                logs,
+                                coverage,
+                                ..
+                            },
+                        reason,
+                    } = *err;
+                    (
+                        logs,
+                        traces,
+                        labels,
+                        Some(format!("setup failed: {reason}")),
+                        coverage,
+                    )
+                }
+                Err(err) => (
+                    Vec::new(),
+                    None,
+                    HashMap::new(),
+                    Some(format!("setup failed: {err}")),
+                    None,
+                ),
+            };
+            traces.extend(setup_traces.map(|traces| (TraceKind::Setup, traces)));
+            logs.extend(setup_logs);
+
+            TestSetup {
+                address,
+                logs,
+                traces,
+                labeled_addresses,
+                reason,
+                coverage,
+                fuzz_fixtures: self.fuzz_fixtures(executor, address),
+                has_setup_method: needs_setup,
+            }
+        } else {
+            TestSetup::success(
+                address,
+                logs,
+                traces,
+                HashMap::default(),
+                None,
+                self.fuzz_fixtures(executor, address),
+                needs_setup,
+            )
+        };
+
+        Ok(setup)
+    }
+
+    /// Collect fixtures from test contract.
+    ///
+    /// Fixtures can be defined:
+    /// - as storage arrays in test contract, prefixed with `fixture`
+    /// - as functions prefixed with `fixture` and followed by parameter name to
+    ///   be
+    /// fuzzed
+    ///
+    /// Storage array fixtures:
+    /// `uint256[] public fixture_amount = [1, 2, 3];`
+    /// define an array of uint256 values to be used for fuzzing `amount` named
+    /// parameter in scope of the current test.
+    ///
+    /// Function fixtures:
+    /// `function fixture_owner() public returns (address[] memory){}`
+    /// returns an array of addresses to be used for fuzzing `owner` named
+    /// parameter in scope of the current test.
+    fn fuzz_fixtures(&self, executor: &mut Executor, address: Address) -> FuzzFixtures {
+        let fixture_funcs = self
+            .contract
+            .abi
+            .functions()
+            .filter(|func| func.is_fixture());
+
+        // No-op if the feature is disabled
+        if !self.solidity_fuzz_fixtures {
+            fixture_funcs.for_each(|func| {
+                log::warn!("Possible fuzz fixture usage detected: '{}', but solidity fuzz fixtures are disabled.", &func.name);
+            });
+
+            return FuzzFixtures::default();
+        };
+
+        let mut fixtures = HashMap::new();
+        fixture_funcs.for_each(|func| {
+            if func.inputs.is_empty() {
+                // Read fixtures declared as functions.
+                if let Ok(CallResult {
+                    raw: _,
+                    decoded_result,
+                }) = executor.call(CALLER, address, func, &[], U256::ZERO, None)
+                {
+                    fixtures.insert(fixture_name(func.name.clone()), decoded_result);
+                }
+            } else {
+                // For reading fixtures from storage arrays we collect values by calling the
+                // function with incremented indexes until there's an error.
+                let mut vals = Vec::new();
+                let mut index = 0;
+                loop {
+                    if let Ok(CallResult {
+                        raw: _,
+                        decoded_result,
+                    }) = executor.call(
+                        CALLER,
+                        address,
+                        func,
+                        &[DynSolValue::Uint(U256::from(index), 256)],
+                        U256::ZERO,
+                        None,
+                    ) {
+                        vals.push(decoded_result);
+                    } else {
+                        // No result returned for this index, we reached the end of storage
+                        // array or the function is not a valid fixture.
+                        break;
+                    }
+                    index += 1;
+                }
+                fixtures.insert(fixture_name(func.name.clone()), DynSolValue::Array(vals));
+            };
+        });
+
+        FuzzFixtures::new(fixtures)
+    }
+
+    /// Runs a single test
+    ///
+    /// Calls the given functions and returns the `TestResult`.
+    ///
+    /// State modifications are not committed to the evm database but discarded
+    /// after the call, similar to `eth_call`.
+    fn run_test(
+        &self,
+        mut executor: Executor,
+        func: &Function,
+        should_fail: bool,
+        setup: TestSetup,
+    ) -> TestResult {
+        let span = info_span!("test", %should_fail);
+        if !span.is_disabled() {
+            let sig = &func.signature()[..];
+            if enabled!(tracing::Level::TRACE) {
+                span.record("sig", sig);
+            } else {
+                span.record("sig", sig.split('(').next().unwrap());
+            }
+        }
+        let _guard = span.enter();
+
+        let TestSetup {
+            address,
+            mut logs,
+            mut traces,
+            mut labeled_addresses,
+            mut coverage,
+            ..
+        } = setup;
+
+        // Run unit test
+        let start: Instant = Instant::now();
+        let (raw_call_result, reason) = match executor.execute_test(
+            self.sender,
+            address,
+            func,
+            &[],
+            U256::ZERO,
+            Some(self.revert_decoder),
+        ) {
+            Ok(res) => (res.raw, None),
+            Err(EvmError::Execution(err)) => (err.raw, Some(err.reason)),
+            Err(EvmError::SkipError) => {
+                return TestResult {
+                    status: TestStatus::Skipped,
+                    reason: None,
+                    decoded_logs: decode_console_logs(&logs),
+                    traces,
+                    labeled_addresses,
+                    kind: TestKind::Standard(0),
+                    duration: start.elapsed(),
+                    ..Default::default()
+                };
+            }
+            Err(err) => {
+                return TestResult {
+                    status: TestStatus::Failure,
+                    reason: Some(err.to_string()),
+                    decoded_logs: decode_console_logs(&logs),
+                    traces,
+                    labeled_addresses,
+                    kind: TestKind::Standard(0),
+                    duration: start.elapsed(),
+                    ..Default::default()
+                };
+            }
+        };
+
+        let RawCallResult {
+            reverted,
+            gas_used: gas,
+            stipend,
+            logs: execution_logs,
+            traces: execution_trace,
+            coverage: execution_coverage,
+            labels: new_labels,
+            state_changeset,
+            ..
+        } = raw_call_result;
+
+        let success = executor.is_success(
+            setup.address,
+            reverted,
+            Cow::Owned(state_changeset.unwrap()),
+            should_fail,
+        );
+
+        labeled_addresses.extend(new_labels);
+        logs.extend(execution_logs);
+        coverage = merge_coverages(coverage, execution_coverage);
+        traces.extend(execution_trace.map(|traces| (TraceKind::Execution, traces)));
+
+        // Record test execution time
+        let duration = start.elapsed();
+        trace!(?duration, gas, reverted, should_fail, success);
+
+        // Exclude stack trace generation from test execution time for accurate
+        // reporting
+        let stack_trace_result = if !success {
+            Some(self.re_run_test_for_stack_traces(func, setup.has_setup_method))
+        } else {
+            None
+        };
+
+        TestResult {
+            status: match success {
+                true => TestStatus::Success,
+                false => TestStatus::Failure,
+            },
+            reason,
+            counterexample: None,
+            decoded_logs: decode_console_logs(&logs),
+            logs,
+            kind: TestKind::Standard(gas.overflowing_sub(stipend).0),
+            traces,
+            coverage,
+            labeled_addresses,
+            duration,
+            gas_report_traces: Vec::new(),
+            stack_trace_result,
+        }
+    }
+    /// Re-run the deployment, setup and test execution with expensive EVM step
+    /// tracing to generate a stack trace for a failed test.
+    fn re_run_test_for_stack_traces(
+        &self,
+        func: &Function,
+        needs_setup: bool,
+    ) -> Result<Vec<StackTraceEntry>, StackTraceError> {
+        let mut executor = self.executor_builder.clone().build();
+
+        // We only need light-weight tracing for setup to be able to match contract
+        // codes to contact addresses.
+        executor.inspector.tracing(true);
+        let setup = self.setup(&mut executor, needs_setup);
+        if let Some(reason) = setup.reason {
+            // If this function was called, the setup succeeded during test execution, so
+            // this is an unexpected failure.
+            return Err(StackTraceError::FailingSetup(reason));
+        }
+
+        // Collect EVM step traces that are needed for stack trace generation.
+        executor.inspector.enable_for_stack_traces();
+
+        // Run unit test
+        let new_traces = match executor.execute_test(
+            self.sender,
+            setup.address,
+            func,
+            &[],
+            U256::ZERO,
+            Some(self.revert_decoder),
+        ) {
+            Ok(res) => res.raw.traces,
+            Err(EvmError::Execution(err)) => err.raw.traces,
+            Err(err) => return Err(err.into()),
+        }
+        .expect("enabled tracing");
+
+        let mut traces = setup.traces;
+        traces.push((TraceKind::Execution, new_traces));
+
+        get_stack_trace(&self.contract_decoder, &traces)
+            .transpose()
+            .expect("there is an error trace")
+    }
+
+    // It's one argument over, but follows the pattern in the file.
+    #[allow(clippy::too_many_arguments)]
+    #[instrument(name = "invariant_test", skip_all)]
+    fn run_invariant_test(
+        &self,
+        executor: Executor,
+        runner: TestRunner,
+        setup: TestSetup,
+        invariant_config: InvariantConfig,
+        func: &Function,
+        known_contracts: &ContractsByArtifact,
+        identified_contracts: &ContractsByAddress,
+    ) -> TestResult {
+        trace!(target: "edr_solidity_tests::test::fuzz", "executing invariant test for {:?}", func.name);
+        let TestSetup {
+            address,
+            logs,
+            traces,
+            labeled_addresses,
+            coverage,
+            fuzz_fixtures,
+            ..
+        } = setup;
+
+        // First, run the test normally to see if it needs to be skipped.
+        let start = Instant::now();
+        if let Err(EvmError::SkipError) = executor.clone().execute_test(
+            self.sender,
+            address,
+            func,
+            &[],
+            U256::ZERO,
+            Some(self.revert_decoder),
+        ) {
+            return TestResult {
+                status: TestStatus::Skipped,
+                reason: None,
+                decoded_logs: decode_console_logs(&logs),
+                labeled_addresses,
+                kind: TestKind::Invariant {
+                    runs: 1,
+                    calls: 1,
+                    reverts: 1,
+                },
+                coverage,
+                duration: start.elapsed(),
+                ..Default::default()
+            };
+        };
+
+        let mut evm = InvariantExecutor::new(
+            executor.clone(),
+            runner,
+            invariant_config.clone(),
+            identified_contracts,
+            known_contracts,
+        );
+        let invariant_contract = InvariantContract {
+            address,
+            invariant_function: func,
+            abi: &self.contract.abi,
+        };
+
+        let mut logs = logs.clone();
+        let mut traces = traces.clone();
+        let mut coverage = coverage.clone();
+
+        let failure_dir = invariant_config.clone().failure_dir(self.name);
+        let failure_file = failure_dir
+            .as_ref()
+            .map(|failure_dir| failure_dir.join(&invariant_contract.invariant_function.name));
+
+        if let Some(failure_file) = failure_file.as_ref() {
+            if let Some(result) = try_to_replay_recorded_failures(
+                executor.clone(),
+                ReplayArgs {
+                    failure_file,
+                    invariant_config: &invariant_config,
+                    known_contracts,
+                    identified_contracts,
+                    invariant_contract: &invariant_contract,
+                    logs: &mut logs,
+                    traces: &mut traces,
+                    coverage: &mut coverage,
+                    start: &start,
+                },
+            ) {
+                return result;
+            }
+        }
+
+        let InvariantFuzzTestResult {
+            error,
+            cases,
+            reverts,
+            last_run_inputs,
+            gas_report_traces,
+        } = match evm.invariant_fuzz(invariant_contract.clone(), &fuzz_fixtures) {
+            Ok(x) => x,
+            Err(e) => {
+                return TestResult {
+                    status: TestStatus::Failure,
+                    reason: Some(format!(
+                        "failed to set up invariant testing environment: {e}"
+                    )),
+                    decoded_logs: decode_console_logs(&logs),
+                    traces,
+                    labeled_addresses,
+                    kind: TestKind::Invariant {
+                        runs: 0,
+                        calls: 0,
+                        reverts: 0,
+                    },
+                    duration: start.elapsed(),
+                    ..Default::default()
+                }
+            }
+        };
+
+        let mut counterexample = None;
+        let success = error.is_none();
+        let reason = error
+            .as_ref()
+            .and_then(foundry_evm::executors::invariant::InvariantFuzzError::revert_reason);
+
+        match error {
+            // If invariants were broken, replay the error to collect logs and traces
+            Some(error) => match error {
+                InvariantFuzzError::BrokenInvariant(case_data)
+                | InvariantFuzzError::Revert(case_data) => {
+                    // Replay error to create counterexample and to collect logs, traces and
+                    // coverage.
+                    match replay_error(
+                        &case_data,
+                        &invariant_contract,
+                        executor.clone(),
+                        known_contracts,
+                        identified_contracts.clone(),
+                        &mut logs,
+                        &mut traces,
+                        &mut coverage,
+                    ) {
+                        Ok(call_sequence) => {
+                            if !call_sequence.is_empty() {
+                                // Persist error in invariant failure dir.
+                                if let Some(failure_dir) = failure_dir {
+                                    let failure_file = failure_file
+                                        .expect("failure file must be some if failure_dir is some");
+                                    if let Err(err) = edr_common::fs::create_dir_all(failure_dir) {
+                                        error!(%err, "Failed to create invariant failure dir");
+                                    } else if let Err(err) = edr_common::fs::write_json_file(
+                                        failure_file.as_path(),
+                                        &call_sequence,
+                                    ) {
+                                        error!(%err, "Failed to record call sequence");
+                                    }
+                                }
+                                counterexample = Some(CounterExample::Sequence(call_sequence));
+                            }
+                        }
+                        Err(err) => {
+                            error!(%err, "Failed to replay invariant error");
+                        }
+                    };
+                }
+                InvariantFuzzError::MaxAssumeRejects(_) => {}
+            },
+
+            // If invariants ran successfully, replay the last run to collect logs and
+            // traces.
+            _ => {
+                if let Err(err) = replay_run(
+                    &invariant_contract,
+                    executor,
+                    known_contracts,
+                    identified_contracts.clone(),
+                    &mut logs,
+                    &mut traces,
+                    &mut coverage,
+                    last_run_inputs.clone(),
+                ) {
+                    error!(%err, "Failed to replay last invariant run");
+                }
+            }
+        }
+
+        TestResult {
+            status: match success {
+                true => TestStatus::Success,
+                false => TestStatus::Failure,
+            },
+            reason,
+            counterexample,
+            decoded_logs: decode_console_logs(&logs),
+            logs,
+            kind: TestKind::Invariant {
+                runs: cases.len(),
+                calls: cases.iter().map(|sequence| sequence.cases().len()).sum(),
+                reverts,
+            },
+            coverage,
+            traces,
+            labeled_addresses: labeled_addresses.clone(),
+            duration: start.elapsed(),
+            gas_report_traces,
+            // TODO
+            stack_trace_result: None,
+        }
+    }
+
+    #[instrument(name = "fuzz_test", skip_all, fields(name = %func.signature(), %should_fail))]
+    fn run_fuzz_test(
+        &self,
+        executor: Executor,
+        func: &Function,
+        should_fail: bool,
+        runner: TestRunner,
+        setup: TestSetup,
+        fuzz_config: FuzzConfig,
+    ) -> TestResult {
+        let span = info_span!("fuzz_test", %should_fail);
+        if !span.is_disabled() {
+            let sig = &func.signature()[..];
+            if enabled!(tracing::Level::TRACE) {
+                span.record("test", sig);
+            } else {
+                span.record("test", sig.split('(').next().unwrap());
+            }
+        }
+        let _guard = span.enter();
+
+        let TestSetup {
+            address,
+            mut logs,
+            mut traces,
+            mut labeled_addresses,
+            mut coverage,
+            fuzz_fixtures,
+            ..
+        } = setup;
+
+        // Run fuzz test
+        let start = Instant::now();
+        let fuzzed_executor =
+            FuzzedExecutor::new(executor, runner.clone(), self.sender, fuzz_config.clone());
+        let result = fuzzed_executor.fuzz(
+            func,
+            &fuzz_fixtures,
+            address,
+            should_fail,
+            self.revert_decoder,
+        );
+
+        // Check the last test result and skip the test
+        // if it's marked as so.
+        if let Some("SKIPPED") = result.reason.as_deref() {
+            return TestResult {
+                status: TestStatus::Skipped,
+                reason: None,
+                decoded_logs: decode_console_logs(&logs),
+                traces,
+                labeled_addresses,
+                kind: TestKind::Standard(0),
+                coverage,
+                duration: start.elapsed(),
+                ..Default::default()
+            };
+        }
+
+        let kind = TestKind::Fuzz {
+            median_gas: result.median_gas(false),
+            mean_gas: result.mean_gas(false),
+            runs: result.gas_by_case.len(),
+        };
+
+        // Record logs, labels and traces
+        logs.extend(result.logs);
+        labeled_addresses.extend(result.labeled_addresses);
+        traces.extend(result.traces.map(|traces| (TraceKind::Execution, traces)));
+        coverage = merge_coverages(coverage, result.coverage);
+
+        // Record test execution time
+        let duration = start.elapsed();
+        trace!(?duration, success = %result.success);
+
+        TestResult {
+            status: match result.success {
+                true => TestStatus::Success,
+                false => TestStatus::Failure,
+            },
+            reason: result.reason,
+            counterexample: result.counterexample,
+            decoded_logs: decode_console_logs(&logs),
+            logs,
+            kind,
+            traces,
+            coverage,
+            labeled_addresses,
+            duration,
+            gas_report_traces: result
+                .gas_report_traces
+                .into_iter()
+                .map(|t| vec![t])
+                .collect(),
+            stack_trace_result: None,
+        }
+    }
+}
+
+struct ReplayArgs<'a> {
+    failure_file: &'a Path,
+    invariant_config: &'a InvariantConfig,
+    known_contracts: &'a ContractsByArtifact,
+    identified_contracts: &'a ContractsByAddress,
+    invariant_contract: &'a InvariantContract<'a>,
+    logs: &'a mut Vec<Log>,
+    traces: &'a mut Traces,
+    coverage: &'a mut Option<HitMaps>,
+    start: &'a Instant,
+}
+
+fn try_to_replay_recorded_failures(executor: Executor, args: ReplayArgs<'_>) -> Option<TestResult> {
+    let ReplayArgs {
+        failure_file,
+        invariant_config,
+        known_contracts,
+        identified_contracts,
+        invariant_contract,
+        logs,
+        traces,
+        coverage,
+        start,
+    } = args;
+
+    if let Ok(call_sequence) =
+        edr_common::fs::read_json_file::<Vec<BaseCounterExample>>(failure_file)
+    {
+        // Create calls from failed sequence and check if invariant still broken.
+        let txes = call_sequence
+            .clone()
+            .into_iter()
+            .map(|seq| BasicTxDetails {
+                sender: seq.sender.unwrap_or_default(),
+                call_details: CallDetails {
+                    target: seq.addr.unwrap_or_default(),
+                    calldata: seq.calldata,
+                },
+            })
+            .collect::<Vec<BasicTxDetails>>();
+        if let Ok((success, replayed_entirely)) = check_sequence(
+            executor.clone(),
+            &txes,
+            (0..min(txes.len(), invariant_config.depth as usize)).collect(),
+            invariant_contract.address,
+            invariant_contract
+                .invariant_function
+                .selector()
+                .to_vec()
+                .into(),
+            invariant_config.fail_on_revert,
+        ) {
+            if !success {
+                // If sequence still fails then replay error to collect traces and
+                // exit without executing new runs.
+                let _ = replay_run(
+                    invariant_contract,
+                    executor,
+                    known_contracts,
+                    identified_contracts.clone(),
+                    logs,
+                    traces,
+                    coverage,
+                    txes,
+                );
+                return Some(TestResult {
+                    status: TestStatus::Failure,
+                    reason: if replayed_entirely {
+                        Some(format!(
+                            "{} replay failure",
+                            invariant_contract.invariant_function.name
+                        ))
+                    } else {
+                        Some(format!(
+                            "{} persisted failure revert",
+                            invariant_contract.invariant_function.name
+                        ))
+                    },
+                    decoded_logs: decode_console_logs(logs),
+                    traces: traces.clone(),
+                    coverage: coverage.clone(),
+                    counterexample: Some(CounterExample::Sequence(call_sequence)),
+                    kind: TestKind::Invariant {
+                        runs: 1,
+                        calls: 1,
+                        reverts: 1,
+                    },
+                    duration: start.elapsed(),
+                    ..Default::default()
+                });
+            }
+        }
+    }
+    None
+}
+
+/// Utility function to merge coverage options
+fn merge_coverages(mut coverage: Option<HitMaps>, other: Option<HitMaps>) -> Option<HitMaps> {
+    let old_coverage = std::mem::take(&mut coverage);
+    match (old_coverage, other) {
+        (Some(old_coverage), Some(other)) => Some(old_coverage.merge(other)),
+        (None, Some(other)) => Some(other),
+        (Some(old_coverage), None) => Some(old_coverage),
+        (None, None) => None,
+    }
+}
+
+/// Returns `true` if the function is a test function that matches the given
+/// filter.
+fn is_matching_test(func: &Function, filter: &dyn TestFilter) -> bool {
+    (func.is_test() || func.is_invariant_test()) && filter.matches_test(&func.signature())
+}

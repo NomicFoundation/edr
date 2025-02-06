@@ -1,5 +1,6 @@
 //! Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
-use std::sync::Arc;
+
+use std::{fmt::Debug, sync::Arc};
 
 use edr_eth::Bytes;
 use parking_lot::RwLock;
@@ -20,12 +21,26 @@ use crate::{
 };
 
 /// Errors that can occur during the decoding of the nested trace.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum ContractDecoderError {
     /// Errors that can occur when initializing the decoder.
     #[error("{0}")]
     Initialization(String),
 }
+
+/// Provides trace decoding
+pub trait NestedTraceDecoder {
+    /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
+    fn try_to_decode_nested_trace(
+        &self,
+        nested_trace: NestedTrace,
+    ) -> Result<NestedTrace, ContractDecoderError>;
+}
+
+/// `NestedTraceDecoder` with additional `Debug + Send + Sync` bounds.
+pub trait SyncNestedTraceDecoder: 'static + NestedTraceDecoder + Debug + Send + Sync {}
+
+impl<T> SyncNestedTraceDecoder for T where T: 'static + NestedTraceDecoder + Debug + Send + Sync {}
 
 /// Get contract metadata from calldata and traces.
 #[derive(Debug, Default)]
@@ -48,88 +63,6 @@ impl ContractDecoder {
         self.contracts_identifier
             .write()
             .add_bytecode(Arc::new(bytecode));
-    }
-
-    /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
-    pub fn try_to_decode_message_trace(&self, message_trace: NestedTrace) -> NestedTrace {
-        match message_trace {
-            precompile @ NestedTrace::Precompile(..) => precompile,
-            // NOTE: The branches below are the same with the difference of `is_create`
-            NestedTrace::Call(mut call) => {
-                let is_create = false;
-
-                let contract_meta = {
-                    self.contracts_identifier
-                        .write()
-                        .get_bytecode_for_call(call.code.as_ref(), is_create)
-                };
-
-                let steps = call
-                    .steps
-                    .into_iter()
-                    .map(|step| {
-                        let trace = match step {
-                            NestedTraceStep::Evm(step) => return NestedTraceStep::Evm(step),
-                            NestedTraceStep::Precompile(precompile) => {
-                                NestedTrace::Precompile(precompile)
-                            }
-                            NestedTraceStep::Create(create) => NestedTrace::Create(create),
-                            NestedTraceStep::Call(call) => NestedTrace::Call(call),
-                        };
-
-                        match self.try_to_decode_message_trace(trace) {
-                            NestedTrace::Precompile(precompile) => {
-                                NestedTraceStep::Precompile(precompile)
-                            }
-                            NestedTrace::Create(create) => NestedTraceStep::Create(create),
-                            NestedTrace::Call(call) => NestedTraceStep::Call(call),
-                        }
-                    })
-                    .collect::<Vec<_>>();
-
-                call.contract_meta = contract_meta;
-                call.steps = steps;
-
-                NestedTrace::Call(call)
-            }
-            NestedTrace::Create(mut create @ CreateMessage { .. }) => {
-                let is_create = true;
-
-                let contract_meta = {
-                    self.contracts_identifier
-                        .write()
-                        .get_bytecode_for_call(create.code.as_ref(), is_create)
-                };
-
-                let steps = create
-                    .steps
-                    .into_iter()
-                    .map(|step| {
-                        let trace = match step {
-                            NestedTraceStep::Evm(step) => return NestedTraceStep::Evm(step),
-                            NestedTraceStep::Precompile(precompile) => {
-                                NestedTrace::Precompile(precompile)
-                            }
-                            NestedTraceStep::Create(create) => NestedTrace::Create(create),
-                            NestedTraceStep::Call(call) => NestedTrace::Call(call),
-                        };
-
-                        match self.try_to_decode_message_trace(trace) {
-                            NestedTrace::Precompile(precompile) => {
-                                NestedTraceStep::Precompile(precompile)
-                            }
-                            NestedTrace::Create(create) => NestedTraceStep::Create(create),
-                            NestedTrace::Call(call) => NestedTraceStep::Call(call),
-                        }
-                    })
-                    .collect::<Vec<_>>();
-
-                create.contract_meta = contract_meta;
-                create.steps = steps;
-
-                NestedTrace::Create(create)
-            }
-        }
     }
 
     /// Returns the contract and function names for the provided calldata.
@@ -190,6 +123,96 @@ impl ContractDecoder {
                         function_name: Some(function_name),
                     }
                 }
+            }
+        }
+    }
+}
+
+impl NestedTraceDecoder for ContractDecoder {
+    fn try_to_decode_nested_trace(
+        &self,
+        nested_trace: NestedTrace,
+    ) -> Result<NestedTrace, ContractDecoderError> {
+        match nested_trace {
+            precompile @ NestedTrace::Precompile(..) => Ok(precompile),
+            // NOTE: The branches below are the same with the difference of `is_create`
+            NestedTrace::Call(mut call) => {
+                let is_create = false;
+
+                let contract_meta = {
+                    self.contracts_identifier
+                        .write()
+                        .get_bytecode_for_call(call.code.as_ref(), is_create)
+                };
+
+                let steps = call
+                    .steps
+                    .into_iter()
+                    .map(|step| {
+                        let trace = match step {
+                            NestedTraceStep::Evm(step) => return Ok(NestedTraceStep::Evm(step)),
+                            NestedTraceStep::Precompile(precompile) => {
+                                NestedTrace::Precompile(precompile)
+                            }
+                            NestedTraceStep::Create(create) => NestedTrace::Create(create),
+                            NestedTraceStep::Call(call) => NestedTrace::Call(call),
+                        };
+
+                        let result = match self.try_to_decode_nested_trace(trace)? {
+                            NestedTrace::Precompile(precompile) => {
+                                NestedTraceStep::Precompile(precompile)
+                            }
+                            NestedTrace::Create(create) => NestedTraceStep::Create(create),
+                            NestedTrace::Call(call) => NestedTraceStep::Call(call),
+                        };
+
+                        Ok(result)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                call.contract_meta = contract_meta;
+                call.steps = steps;
+
+                Ok(NestedTrace::Call(call))
+            }
+            NestedTrace::Create(mut create @ CreateMessage { .. }) => {
+                let is_create = true;
+
+                let contract_meta = {
+                    self.contracts_identifier
+                        .write()
+                        .get_bytecode_for_call(create.code.as_ref(), is_create)
+                };
+
+                let steps = create
+                    .steps
+                    .into_iter()
+                    .map(|step| {
+                        let trace = match step {
+                            NestedTraceStep::Evm(step) => return Ok(NestedTraceStep::Evm(step)),
+                            NestedTraceStep::Precompile(precompile) => {
+                                NestedTrace::Precompile(precompile)
+                            }
+                            NestedTraceStep::Create(create) => NestedTrace::Create(create),
+                            NestedTraceStep::Call(call) => NestedTrace::Call(call),
+                        };
+
+                        let result = match self.try_to_decode_nested_trace(trace)? {
+                            NestedTrace::Precompile(precompile) => {
+                                NestedTraceStep::Precompile(precompile)
+                            }
+                            NestedTrace::Create(create) => NestedTraceStep::Create(create),
+                            NestedTrace::Call(call) => NestedTraceStep::Call(call),
+                        };
+
+                        Ok(result)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                create.contract_meta = contract_meta;
+                create.steps = steps;
+
+                Ok(NestedTrace::Create(create))
             }
         }
     }
