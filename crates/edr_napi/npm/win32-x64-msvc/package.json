@@ -4,7 +4,7 @@
     "url": "https://github.com/NomicFoundation/edr.git",
     "type": "git"
   },
-  "version": "0.2.0-alpha.1",
+  "version": "0.8.0-alpha.1",
   "main": "edr.win32-x64-msvc.node",
   "files": [
     "edr.win32-x64-msvc.node"
