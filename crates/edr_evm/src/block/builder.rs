@@ -258,6 +258,7 @@ impl BlockBuilder {
             let max_blobs_per_block = if spec_id >= SpecId::PRAGUE {
                 eip7691::MAX_BLOBS_PER_BLOCK_ELECTRA
             } else {
+                // usize is guaranteed to fit into u64
                 eip4844::MAX_BLOBS_PER_BLOCK as u64
             };
 

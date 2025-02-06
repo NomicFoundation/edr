@@ -102,6 +102,7 @@ pub fn initial_cost(transaction: &transaction::Signed, spec_id: SpecId) -> u64 {
     let authorization_list_num = transaction
         .authorization_list()
         .map(AuthorizationList::len)
+        // usize is guaranteed to fit into u64
         .unwrap_or_default() as u64;
 
     calculate_initial_tx_gas(
