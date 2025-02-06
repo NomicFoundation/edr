@@ -111,6 +111,7 @@ async function runAllSolidityTests(
       artifacts,
       testSuites,
       configArgs,
+      {}, // Empty tracing config
       (suiteResult: SuiteResult) => {
         resultsFromCallback.push(suiteResult);
         if (resultsFromCallback.length === artifacts.length) {
