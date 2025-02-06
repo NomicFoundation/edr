@@ -9,12 +9,16 @@ mod fake_signature;
 pub mod pooled;
 /// Types for transaction requests.
 pub mod request;
+mod sealed;
 /// Types for signed transactions.
 pub mod signed;
 mod r#type;
 
+use std::sync::OnceLock;
+
 pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
+use sealed::Sealed;
 
 pub use self::r#type::TransactionType;
 use crate::{AccessListItem, Address, Bytes, U256};
@@ -50,6 +54,8 @@ pub enum Signed {
     Eip1559(signed::Eip1559),
     /// EIP-4844 transaction
     Eip4844(signed::Eip4844),
+    /// EIP-7702 transaction
+    Eip7702(Sealed<signed::Eip7702>),
 }
 
 /// Trait for signed transactions.

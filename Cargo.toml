@@ -19,6 +19,11 @@ rpath = true
 [profile.release]
 rpath = true
 
+[workspace.dependencies]
+alloy-consensus = { version = "0.11.0", default-features = false }
+alloy-eips = { version = "0.11.0", default-features = false }
+
+
 [workspace.lints.rust]
 future_incompatible = "warn"
 nonstandard_style = "warn"

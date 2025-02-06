@@ -45,6 +45,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 
 [[package]]
+name = "alloy-consensus"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce20c85f6b24a5da40b2350a748e348417f0465dedbb523a4d149143bc4a41ce"
+dependencies = [
+ "alloy-eips",
+ "alloy-primitives 0.8.20",
+ "alloy-rlp",
+ "alloy-serde",
+ "alloy-trie",
+ "auto_impl",
+ "c-kzg",
+ "derive_more 1.0.0",
+ "serde",
+]
+
+[[package]]
 name = "alloy-dyn-abi"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -133,6 +150,7 @@ dependencies = [
  "derive_more 1.0.0",
  "once_cell",
  "serde",
+ "sha2",
 ]
 
 [[package]]
@@ -432,6 +450,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-trie"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6917c79e837aa7b77b7a6dae9f89cbe15313ac161c4d3cfaf8909ef21f3d22d8"
+dependencies = [
+ "alloy-primitives 0.8.20",
+ "alloy-rlp",
+ "arrayvec",
+ "derive_more 1.0.0",
+ "nybbles",
+ "serde",
+ "smallvec",
+ "tracing",
+]
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -612,6 +646,9 @@ name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "assert-json-diff"
@@ -1334,6 +1371,7 @@ dependencies = [
 name = "edr_eth"
 version = "0.3.5"
 dependencies = [
+ "alloy-consensus",
  "alloy-eips",
  "alloy-rlp",
  "anyhow",
@@ -2593,6 +2631,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
+name = "nybbles"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8983bb634df7248924ee0c4c3a749609b5abcb082c28fffe3254b3eb3602b307"
+dependencies = [
+ "const-hex",
+ "serde",
+ "smallvec",
+]
+
+[[package]]
 name = "object"
 version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3687,6 +3736,9 @@ name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "socket2"

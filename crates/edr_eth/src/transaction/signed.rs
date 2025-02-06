@@ -2,6 +2,7 @@ mod eip155;
 mod eip1559;
 mod eip2930;
 mod eip4844;
+mod eip7702;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut};
@@ -12,6 +13,7 @@ pub use self::{
     eip1559::Eip1559,
     eip2930::Eip2930,
     eip4844::Eip4844,
+    eip7702::Eip7702,
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
@@ -53,6 +55,11 @@ impl Signed {
         matches!(self, Signed::Eip4844(_))
     }
 
+    /// Whether this is an EIP-7702 transaction.
+    pub fn is_eip7702(&self) -> bool {
+        matches!(self, Signed::Eip7702(_))
+    }
+
     /// Retrieves the authorization list of the transaction for post-EIP-7702
     /// transactions.
     pub fn authorization_list(&self) -> Option<&AuthorizationList> {
@@ -66,7 +73,8 @@ impl Signed {
             Signed::PreEip155Legacy(_)
             | Signed::PostEip155Legacy(_)
             | Signed::Eip2930(_)
-            | Signed::Eip1559(_) => None,
+            | Signed::Eip1559(_)
+            | Signed::Eip7702(_) => None,
             Signed::Eip4844(tx) => Some(tx.blob_hashes.clone()),
         }
     }
@@ -79,6 +87,7 @@ impl Signed {
             Signed::Eip2930(t) => Some(t.chain_id),
             Signed::Eip1559(t) => Some(t.chain_id),
             Signed::Eip4844(t) => Some(t.chain_id),
+            Signed::Eip7702(t) => Some(t.transaction().chain_id),
         }
     }
 
@@ -97,6 +106,7 @@ impl Signed {
             Signed::Eip2930(tx) => &tx.signature,
             Signed::Eip1559(tx) => &tx.signature,
             Signed::Eip4844(tx) => &tx.signature,
+            Signed::Eip7702(tx) => tx.signature(),
         }
     }
 
@@ -146,6 +156,7 @@ impl alloy_rlp::Encodable for Signed {
             Signed::Eip2930(tx) => enveloped(1, tx, out),
             Signed::Eip1559(tx) => enveloped(2, tx, out),
             Signed::Eip4844(tx) => enveloped(3, tx, out),
+            Signed::Eip7702(tx) => enveloped(4, tx.transaction(), out),
         }
     }
 
