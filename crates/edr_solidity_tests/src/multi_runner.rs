@@ -279,7 +279,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             contract,
             &self.revert_decoder,
             &self.known_contracts,
-            self.contract_decoder.clone(),
+            Arc::clone(&self.contract_decoder),
             ContractRunnerOptions {
                 initial_balance: self.evm_opts.initial_balance,
                 sender: self.evm_opts.sender,
