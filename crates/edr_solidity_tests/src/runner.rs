@@ -608,15 +608,17 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         coverage = merge_coverages(coverage, execution_coverage);
         traces.extend(execution_trace.map(|traces| (TraceKind::Execution, traces)));
 
+        // Record test execution time
+        let duration = start.elapsed();
+        trace!(?duration, gas, reverted, should_fail, success);
+
+        // Exclude stack trace generation from test execution time for accurate
+        // reporting
         let stack_trace_result = if !success {
             Some(self.re_run_test_for_stack_traces(func, setup.has_setup_method))
         } else {
             None
         };
-
-        // Record test execution time
-        let duration = start.elapsed();
-        trace!(?duration, gas, reverted, should_fail, success);
 
         TestResult {
             status: match success {
