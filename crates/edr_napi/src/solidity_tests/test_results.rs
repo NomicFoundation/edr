@@ -6,11 +6,13 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::solidity_tests::artifact::ArtifactId;
+use crate::{
+    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry,
+};
 
 /// See [edr_solidity_tests::result::SuiteResult]
-#[napi(object)]
-#[derive(Debug, Clone)]
+#[napi]
+#[derive(Clone, Debug)]
 pub struct SuiteResult {
     /// The artifact id can be used to match input to result in the progress
     /// callback
@@ -53,8 +55,8 @@ impl
 }
 
 /// See [edr_solidity_tests::result::TestResult]
-#[napi(object)]
-#[derive(Debug, Clone)]
+#[napi]
+#[derive(Clone, Debug)]
 pub struct TestResult {
     /// The name of the test.
     #[napi(readonly)]
@@ -77,6 +79,35 @@ pub struct TestResult {
     /// See [edr_solidity_tests::result::TestResult::duration]
     #[napi(readonly)]
     pub duration_ms: BigInt,
+
+    stack_trace_result: Option<
+        Result<
+            Vec<edr_solidity::solidity_stack_trace::StackTraceEntry>,
+            edr_solidity_tests::StackTraceError,
+        >,
+    >,
+}
+
+#[napi]
+impl TestResult {
+    /// Compute the error stack trace.
+    /// If the heuristic failed, returns an empty array.
+    /// Returns null if the test status is succeeded or skipped.
+    /// Throws if there was an error computing the stack trace.
+    #[napi]
+    pub fn stack_trace(&self) -> napi::Result<Option<Vec<SolidityStackTraceEntry>>> {
+        self.stack_trace_result
+            .as_ref()
+            .map(|stack_trace_result| match stack_trace_result {
+                Ok(stack_trace) => stack_trace
+                    .iter()
+                    .cloned()
+                    .map(crate::cast::TryCast::try_cast)
+                    .collect::<napi::Result<Vec<SolidityStackTraceEntry>>>(),
+                Err(err) => Err(napi::Error::from_reason(err.to_string())),
+            })
+            .transpose()
+    }
 }
 
 impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
@@ -129,6 +160,7 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
+            stack_trace_result: test_result.stack_trace_result,
         }
     }
 }

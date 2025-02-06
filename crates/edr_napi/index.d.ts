@@ -404,8 +404,6 @@ export interface SolidityTestRunnerConfigArgs {
   projectRoot: string
   /** Configures the permissions of cheat codes that access the file system. */
   fsPermissions?: Array<PathPermission>
-  /** Whether to collect traces. Defaults to false. */
-  trace?: boolean
   /** Whether to support the `testFail` prefix. Defaults to false. */
   testFail?: boolean
   /** Address labels for traces. Defaults to none. */
@@ -671,37 +669,6 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
-/** See [edr_solidity_tests::result::SuiteResult] */
-export interface SuiteResult {
-  /**
-   * The artifact id can be used to match input to result in the progress
-   * callback
-   */
-  readonly id: ArtifactId
-  /** See [edr_solidity_tests::result::SuiteResult::duration] */
-  readonly durationMs: bigint
-  /** See [edr_solidity_tests::result::SuiteResult::test_results] */
-  readonly testResults: Array<TestResult>
-  /** See [edr_solidity_tests::result::SuiteResult::warnings] */
-  readonly warnings: Array<string>
-}
-/** See [edr_solidity_tests::result::TestResult] */
-export interface TestResult {
-  /** The name of the test. */
-  readonly name: string
-  /** See [edr_solidity_tests::result::TestResult::status] */
-  readonly status: TestStatus
-  /** See [edr_solidity_tests::result::TestResult::reason] */
-  readonly reason?: string
-  /** See [edr_solidity_tests::result::TestResult::counterexample] */
-  readonly counterexample?: BaseCounterExample | Array<BaseCounterExample>
-  /** See [edr_solidity_tests::result::TestResult::decoded_logs] */
-  readonly decodedLogs: Array<string>
-  /** See [edr_solidity_tests::result::TestResult::kind] */
-  readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
-  /** See [edr_solidity_tests::result::TestResult::duration] */
-  readonly durationMs: bigint
-}
 /**The result of a test execution. */
 export const enum TestStatus {
   /**Test success */
@@ -767,7 +734,7 @@ export interface BaseCounterExample {
  * know when all tests are done.
  * The error callback is called if an invalid configuration value is provided.
  */
-export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
+export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
 export interface SubscriptionEvent {
   filterId: bigint
   result: any
@@ -1041,6 +1008,44 @@ export declare class Response {
   get traces(): Array<RawTrace>
   /**Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace. */
   stackTrace(): SolidityStackTrace | null
+}
+/** See [edr_solidity_tests::result::SuiteResult] */
+export declare class SuiteResult {
+  /**
+   * The artifact id can be used to match input to result in the progress
+   * callback
+   */
+  readonly id: ArtifactId
+  /** See [edr_solidity_tests::result::SuiteResult::duration] */
+  readonly durationMs: bigint
+  /** See [edr_solidity_tests::result::SuiteResult::test_results] */
+  readonly testResults: Array<TestResult>
+  /** See [edr_solidity_tests::result::SuiteResult::warnings] */
+  readonly warnings: Array<string>
+}
+/** See [edr_solidity_tests::result::TestResult] */
+export declare class TestResult {
+  /** The name of the test. */
+  readonly name: string
+  /** See [edr_solidity_tests::result::TestResult::status] */
+  readonly status: TestStatus
+  /** See [edr_solidity_tests::result::TestResult::reason] */
+  readonly reason?: string
+  /** See [edr_solidity_tests::result::TestResult::counterexample] */
+  readonly counterexample?: BaseCounterExample | Array<BaseCounterExample>
+  /** See [edr_solidity_tests::result::TestResult::decoded_logs] */
+  readonly decodedLogs: Array<string>
+  /** See [edr_solidity_tests::result::TestResult::kind] */
+  readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
+  /** See [edr_solidity_tests::result::TestResult::duration] */
+  readonly durationMs: bigint
+  /**
+   * Compute the error stack trace.
+   * If the heuristic failed, returns an empty array.
+   * Returns null if the test status is succeeded or skipped.
+   * Throws if there was an error computing the stack trace.
+   */
+  stackTrace(): Array<SolidityStackTraceEntry> | null
 }
 export declare class Exit {
   get kind(): ExitCode

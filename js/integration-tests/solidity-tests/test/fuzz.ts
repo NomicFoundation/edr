@@ -2,7 +2,7 @@ import chai, { assert, expect } from "chai";
 import { TestContext } from "./testContext";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { FuzzTestKind } from "@ignored/edr";
+import { FuzzTestKind, InvariantTestKind } from "@ignored/edr";
 import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 describe("Fuzz and invariant testing", function () {
@@ -85,6 +85,7 @@ describe("Fuzz and invariant testing", function () {
     const results2 = await runAllSolidityTests(
       testContext.artifacts,
       testContext.matchingTest("FailingInvariantTest"),
+      testContext.tracingConfig,
       {
         ...testContext.defaultConfig(),
         invariant: {
@@ -106,6 +107,7 @@ describe("Fuzz and invariant testing", function () {
     const results3 = await runAllSolidityTests(
       testContext.artifacts,
       testContext.matchingTest("FailingInvariantTest"),
+      testContext.tracingConfig,
       {
         ...testContext.defaultConfig(),
         invariant: {

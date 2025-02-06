@@ -383,6 +383,23 @@ impl InspectorStack {
         });
     }
 
+    /// Enable tracer for stack traces.
+    /// This enables a tracing inspector with expensive `record_steps`.
+    #[inline]
+    pub fn enable_for_stack_traces(&mut self) {
+        self.tracer = Some(TracingInspector::new(TracingInspectorConfig {
+            record_steps: true,
+            record_memory_snapshots: false,
+            record_stack_snapshots: StackSnapshotType::None,
+            record_state_diff: false,
+            record_returndata_snapshots: false,
+            record_opcodes_filter: None,
+            exclude_precompile_calls: false,
+            record_logs: true,
+            record_immediate_bytes: false,
+        }));
+    }
+
     /// Collects all the data gathered during inspection into a single struct.
     #[inline]
     pub fn collect(self) -> InspectorData {

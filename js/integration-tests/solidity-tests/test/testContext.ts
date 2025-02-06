@@ -1,15 +1,16 @@
 import {
   Artifact,
   ArtifactId,
-  FuzzConfigArgs,
-  InvariantConfigArgs,
   type SolidityTestRunnerConfigArgs,
 } from "@ignored/edr";
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
+  TracingConfigWithBuffer,
 } from "@nomicfoundation/edr-helpers";
 import hre from "hardhat";
+import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
+import { assert } from "chai";
 
 export class TestContext {
   readonly rpcUrl = process.env.ALCHEMY_URL;
@@ -18,15 +19,25 @@ export class TestContext {
   readonly invariantFailuresPersistDir: string = "./edr-cache/invariant";
   readonly artifacts: Artifact[];
   readonly testSuiteIds: ArtifactId[];
+  readonly tracingConfig: TracingConfigWithBuffer;
 
-  private constructor(artifacts: Artifact[], testSuiteIds: ArtifactId[]) {
+  private constructor(
+    artifacts: Artifact[],
+    testSuiteIds: ArtifactId[],
+    tracingConfig: TracingConfigWithBuffer
+  ) {
     this.artifacts = artifacts;
     this.testSuiteIds = testSuiteIds;
+    this.tracingConfig = tracingConfig;
   }
 
   static async setup(): Promise<TestContext> {
     const results = await buildSolidityTestsInput(hre.artifacts);
-    return new TestContext(results.artifacts, results.testSuiteIds);
+    return new TestContext(
+      results.artifacts,
+      results.testSuiteIds,
+      results.tracingConfig
+    );
   }
 
   defaultConfig(): SolidityTestRunnerConfigArgs {
@@ -51,27 +62,34 @@ export class TestContext {
     const suiteResults = await runAllSolidityTests(
       this.artifacts,
       testContracts,
+      this.tracingConfig,
       {
         ...this.defaultConfig(),
         ...config,
       }
     );
 
+    const stackTraces = new Map<string, SolidityStackTrace>();
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
         let failed = testResult.status === "Failure";
         totalTests++;
         if (failed) {
           failedTests++;
+          const stackTrace = testResult.stackTrace();
+          if (stackTrace !== null) {
+            stackTraces.set(testResult.name, stackTrace);
+          }
         }
       }
     }
-    return { totalTests, failedTests };
+    return { totalTests, failedTests, stackTraces };
   }
 
   matchingTest(contractName: string): ArtifactId[] {
     return this.matchingTests(new Set([contractName]));
   }
+
   matchingTests(testContractNames: Set<string>): ArtifactId[] {
     return this.testSuiteIds.filter((testSuiteId) => {
       return testContractNames.has(testSuiteId.name);
@@ -82,4 +100,30 @@ export class TestContext {
 interface SolidityTestsRunResult {
   totalTests: number;
   failedTests: number;
+  stackTraces: Map<string, SolidityStackTrace>;
+}
+
+export function assertStackTraces(
+  stackTrace: SolidityStackTrace | undefined,
+  expectedEntries: {
+    function: string;
+    contract: string;
+  }[]
+) {
+  if (stackTrace === undefined) {
+    throw new Error("stack trace is undefined");
+  }
+  assert.equal(stackTrace.length, expectedEntries.length);
+  for (let i = 0; i < stackTrace.length; i += 1) {
+    const expected = expectedEntries[i];
+    const sourceReference = stackTrace[i].sourceReference;
+    if (sourceReference === undefined) {
+      throw new Error(
+        `source reference is undefined for contract '${expected.contract}' function '${expected.function}'`
+      );
+    }
+    assert.equal(sourceReference.contract, expected.contract);
+    assert.equal(sourceReference.function, expected.function);
+    assert(sourceReference.sourceContent.includes(expected.function));
+  }
 }

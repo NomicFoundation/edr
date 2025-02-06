@@ -25,7 +25,12 @@ mod config;
 pub use config::{SolidityTestRunnerConfig, SolidityTestRunnerConfigError};
 
 pub mod result;
+
+mod stack_trace;
+pub use stack_trace::StackTraceError;
+
 mod test_filter;
+
 pub use foundry_evm::*;
 use foundry_evm::{executors::fuzz::FuzzConfig, fuzz::invariant::InvariantConfig};
 pub use test_filter::TestFilter;

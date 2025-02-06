@@ -1,10 +1,10 @@
 mod config;
 
-use std::sync::Arc;
+use std::{fmt::Formatter, sync::Arc};
 
 use edr_provider::{time::CurrentTime, InvalidRequestReason};
 use edr_rpc_eth::jsonrpc;
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::contract_decoder::{ContractDecoder, NestedTraceDecoder};
 use napi::{
     bindgen_prelude::Uint8Array, tokio::runtime, Either, Env, JsFunction, JsObject, Status,
 };
@@ -259,6 +259,22 @@ pub struct TracingConfigWithBuffers {
     pub ignore_contracts: Option<bool>,
 }
 
+impl std::fmt::Debug for TracingConfigWithBuffers {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let build_infos = self.build_infos.as_ref().map_or_else(
+            || "None".to_string(),
+            |bi| match bi {
+                Either::A(arrays) => format!("Uint8Array[{}]", arrays.len()),
+                Either::B(build_infos) => format!("BuildInfoAndOutput[{}]", build_infos.len()),
+            },
+        );
+        f.debug_struct("TracingConfigWithBuffers")
+            .field("build_infos", &build_infos)
+            .field("ignore_contracts", &self.ignore_contracts)
+            .finish()
+    }
+}
+
 /// Hardhat V3 build info where the compiler output is not part of the build
 /// info file.
 #[napi(object)]
@@ -359,8 +375,10 @@ impl Response {
         )
         .map_err(|err| napi::Error::from_reason(err.to_string()))?;
 
-        if let Some(vm_trace) = nested_trace {
-            let decoded_trace = contract_decoder.try_to_decode_message_trace(vm_trace);
+        if let Some(nested_trace) = nested_trace {
+            let decoded_trace = contract_decoder
+                .try_to_decode_nested_trace(nested_trace)
+                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
             let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
                 .map_err(|err| napi::Error::from_reason(err.to_string()))?;
             let stack_trace = stack_trace

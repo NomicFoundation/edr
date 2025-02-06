@@ -19,7 +19,11 @@ import fs from "fs";
 import { execSync } from "child_process";
 import path from "path";
 import simpleGit from "simple-git";
-import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
+import { Artifacts as HardhatArtifacts } from "hardhat/internal/artifacts";
+import {
+  makeTracingConfig,
+  runAllSolidityTests,
+} from "@nomicfoundation/edr-helpers";
 import {
   SolidityTestRunnerConfigArgs,
   FsAccessPermission,
@@ -31,14 +35,6 @@ import TOML from "smol-toml";
 
 // This is automatically cached in CI
 const RPC_CACHE_PATH = "./edr-cache";
-
-// Hack: since EDR currently doesn't support filtering certain tests in test suites, we run them, but ignore their failures.
-const EXCLUDED_TESTS = new Set([
-  // This relies on environment variable interpolation in the `rpcEndpoints` config which is not supported by EDR.
-  "test_ChainBubbleUp()",
-  // This relies on the `deriveKey` and `rememberKey` cheatcodes which are not supported by EDR.
-  "test_DeriveRememberKey()",
-]);
 
 // Total run for all test suites in the  `forge-std` repo
 const TOTAL_NAME = "Total";
@@ -89,7 +85,7 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
     path.join(forgeStdRepoPath, "hardhat.config.js")
   );
 
-  const { artifacts, testSuiteIds } = loadArtifacts(
+  const { artifacts, testSuiteIds, tracingConfig } = await loadArtifacts(
     artifactsDir,
     hardhatConfig
   );
@@ -107,7 +103,12 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
       }
 
       const start = performance.now();
-      const results = await runAllSolidityTests(artifacts, ids, config);
+      const results = await runAllSolidityTests(
+        artifacts,
+        ids,
+        tracingConfig,
+        config
+      );
       const elapsed = performance.now() - start;
 
       const expectedResults = name === TOTAL_NAME ? TOTAL_EXPECTED_RESULTS : 1;
@@ -120,7 +121,7 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
       const failed = new Set();
       for (const res of results) {
         for (const r of res.testResults) {
-          if (r.status !== "Success" && !EXCLUDED_TESTS.has(r.name)) {
+          if (r.status !== "Success") {
             failed.add(
               `${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`
             );
@@ -237,7 +238,7 @@ function displaySec(delta: number) {
 }
 
 // Load contracts built with Hardhat
-function loadArtifacts(
+async function loadArtifacts(
   artifactsDir: string,
   hardhatConfig: { solidity: { version: string } }
 ) {
@@ -274,9 +275,14 @@ function loadArtifacts(
     artifacts.push({ id, contract });
   }
 
+  const tracingConfig = await makeTracingConfig(
+    new HardhatArtifacts(artifactsDir)
+  );
+
   return {
     artifacts,
     testSuiteIds,
+    tracingConfig,
   };
 }
 

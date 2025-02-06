@@ -1,4 +1,5 @@
 import type { Artifacts as HardhatArtifacts } from "hardhat/types";
+import fsExtra from "fs-extra";
 
 import {
   ArtifactId,
@@ -15,6 +16,7 @@ import {
 export async function runAllSolidityTests(
   artifacts: Artifact[],
   testSuites: ArtifactId[],
+  tracingConfig: TracingConfigWithBuffer,
   configArgs: SolidityTestRunnerConfigArgs,
   testResultCallback: (
     suiteResult: SuiteResult,
@@ -28,6 +30,7 @@ export async function runAllSolidityTests(
       artifacts,
       testSuites,
       configArgs,
+      tracingConfig,
       (suiteResult: SuiteResult) => {
         for (const testResult of suiteResult.testResults) {
           testResultCallback(suiteResult, testResult);
@@ -46,7 +49,11 @@ export async function runAllSolidityTests(
 export async function buildSolidityTestsInput(
   hardhatArtifacts: HardhatArtifacts,
   isTestArtifact: (artifact: Artifact) => boolean = () => true
-): Promise<{ artifacts: Artifact[]; testSuiteIds: ArtifactId[] }> {
+): Promise<{
+  artifacts: Artifact[];
+  testSuiteIds: ArtifactId[];
+  tracingConfig: TracingConfigWithBuffer;
+}> {
   const fqns = await hardhatArtifacts.getAllFullyQualifiedNames();
   const artifacts: Artifact[] = [];
   const testSuiteIds: ArtifactId[] = [];
@@ -78,5 +85,32 @@ export async function buildSolidityTestsInput(
     }
   }
 
-  return { artifacts, testSuiteIds };
+  const tracingConfig = await makeTracingConfig(hardhatArtifacts);
+
+  return { artifacts, testSuiteIds, tracingConfig };
+}
+
+// This is a copy of an internal Hardhat function that loads artifacts
+// https://github.com/NomicFoundation/hardhat/blob/dd19b668e3a68085eea87f96dc05e65ae52f0ce3/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L506
+export async function makeTracingConfig(
+  artifacts: HardhatArtifacts
+): Promise<TracingConfigWithBuffer> {
+  const buildInfos = [];
+
+  const buildInfoFiles = await artifacts.getBuildInfoPaths();
+
+  for (const buildInfoFile of buildInfoFiles) {
+    const buildInfo = await fsExtra.readFile(buildInfoFile);
+    buildInfos.push(buildInfo);
+  }
+
+  return {
+    buildInfos,
+    ignoreContracts: undefined,
+  };
+}
+
+export interface TracingConfigWithBuffer {
+  buildInfos: Uint8Array[];
+  ignoreContracts: boolean | undefined;
 }

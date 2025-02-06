@@ -10,8 +10,8 @@ extern crate tracing;
 
 pub use revm_inspectors::tracing::{
     types::{
-        CallKind, CallLog, CallTrace, CallTraceNode, DecodedCallData, DecodedCallLog,
-        DecodedCallTrace,
+        CallKind, CallLog, CallTrace, CallTraceNode, CallTraceStep, DecodedCallData,
+        DecodedCallLog, DecodedCallTrace,
     },
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
     TraceWriter, TracingInspector, TracingInspectorConfig,

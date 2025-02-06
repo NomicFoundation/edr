@@ -4,10 +4,10 @@ use std::{collections::BTreeMap, fmt::Debug, path::PathBuf, sync::Arc, time::Ins
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
+use edr_solidity::contract_decoder::SyncNestedTraceDecoder;
 use eyre::Result;
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
-    backend::Backend,
     contracts::{get_contract_name, ArtifactId, ContractsByArtifact},
     decode::RevertDecoder,
     executors::ExecutorBuilder,
@@ -49,13 +49,15 @@ pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
 #[derive(Clone, Debug)]
-pub struct MultiContractRunner {
+pub struct MultiContractRunner<NestedTraceDecoderT> {
     /// The project root directory.
     project_root: PathBuf,
     /// Test contracts to deploy
     test_contracts: TestContracts,
     /// Known contracts by artifact id
     known_contracts: Arc<ContractsByArtifact>,
+    /// Provides contract metadata from calldata and traces.
+    contract_decoder: Arc<NestedTraceDecoderT>,
     /// Cheats config.
     cheats_config_options: Arc<CheatsConfigOptions>,
     /// The EVM instance used in the test runner
@@ -78,14 +80,15 @@ pub struct MultiContractRunner {
     test_options: TestOptions,
 }
 
-impl MultiContractRunner {
+impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTraceDecoderT> {
     /// Creates a new multi contract runner.
     pub async fn new(
         config: SolidityTestRunnerConfig,
         test_contracts: TestContracts,
         known_contracts: ContractsByArtifact,
+        contract_decoder: NestedTraceDecoderT,
         revert_decoder: RevertDecoder,
-    ) -> Result<MultiContractRunner, SolidityTestRunnerConfigError> {
+    ) -> Result<MultiContractRunner<NestedTraceDecoderT>, SolidityTestRunnerConfigError> {
         let env = config
             .evm_opts
             .evm_env()
@@ -121,6 +124,7 @@ impl MultiContractRunner {
             project_root,
             test_contracts,
             known_contracts: Arc::new(known_contracts),
+            contract_decoder: Arc::new(contract_decoder),
             cheats_config_options: Arc::new(cheats_config_options),
             evm_opts,
             env,
@@ -180,8 +184,7 @@ impl MultiContractRunner {
     ) {
         trace!("running all tests");
 
-        // The DB backend that serves all the data.
-        let db = Backend::spawn(self.fork.take());
+        let fork = self.fork.take();
 
         let find_timer = Instant::now();
         let contracts = self
@@ -199,23 +202,18 @@ impl MultiContractRunner {
         let this = Arc::new(self);
         let args = contracts
             .into_iter()
-            .zip(std::iter::repeat((this, db, filter, tx)));
+            .zip(std::iter::repeat((this, fork, filter, tx)));
 
         let handle = tokio::runtime::Handle::current();
         handle.spawn(async {
             futures::stream::iter(args)
                 .for_each_concurrent(
                     Some(num_cpus::get()),
-                    |((id, contract), (this, db, filter, tx))| async move {
+                    |((id, contract), (this, fork, filter, tx))| async move {
                         tokio::task::spawn_blocking(move || {
                             let handle = tokio::runtime::Handle::current();
-                            let result = this.run_tests(
-                                &id,
-                                &contract,
-                                db.clone(),
-                                filter.as_ref(),
-                                &handle,
-                            );
+                            let result =
+                                this.run_tests(&id, &contract, fork, filter.as_ref(), &handle);
                             let _ = tx.send((id, result));
                         })
                         .await
@@ -240,7 +238,7 @@ impl MultiContractRunner {
         &self,
         artifact_id: &ArtifactId,
         contract: &TestContract,
-        db: Backend,
+        fork: Option<CreateFork>,
         filter: &dyn TestFilter,
         handle: &tokio::runtime::Handle,
     ) -> SuiteResult {
@@ -255,7 +253,10 @@ impl MultiContractRunner {
             Some(artifact_id.version.clone()),
         );
 
-        let executor = ExecutorBuilder::new()
+        let executor_builder = ExecutorBuilder::new()
+            .env(self.env.clone())
+            .fork(fork)
+            .gas_limit(self.evm_opts.gas_limit())
             .inspectors(|stack| {
                 stack
                     .cheatcodes(Arc::new(cheats_config))
@@ -263,9 +264,7 @@ impl MultiContractRunner {
                     .coverage(self.coverage)
                     .enable_isolation(self.evm_opts.isolate)
             })
-            .spec(self.evm_opts.spec)
-            .gas_limit(self.evm_opts.gas_limit())
-            .build(self.env.clone(), db);
+            .spec(self.evm_opts.spec);
 
         if !enabled!(tracing::Level::TRACE) {
             span_name = get_contract_name(&identifier);
@@ -276,9 +275,11 @@ impl MultiContractRunner {
 
         let runner = ContractRunner::new(
             &identifier,
-            executor,
+            executor_builder,
             contract,
             &self.revert_decoder,
+            &self.known_contracts,
+            Arc::clone(&self.contract_decoder),
             ContractRunnerOptions {
                 initial_balance: self.evm_opts.initial_balance,
                 sender: self.evm_opts.sender,
@@ -286,12 +287,7 @@ impl MultiContractRunner {
                 solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
             },
         );
-        let r = runner.run_tests(
-            filter,
-            &self.test_options,
-            self.known_contracts.clone(),
-            handle,
-        );
+        let r = runner.run_tests(filter, &self.test_options, handle);
 
         debug!(duration=?r.duration, "executed all tests in contract");
 

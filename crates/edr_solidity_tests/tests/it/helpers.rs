@@ -42,7 +42,8 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::{
-    integration_test_config::IntegrationTestConfig, tracing::init_tracing_for_solidity_tests,
+    config::NoOpContractDecoder, integration_test_config::IntegrationTestConfig,
+    tracing::init_tracing_for_solidity_tests,
 };
 
 pub const RE_PATH_SEPARATOR: &str = "/";
@@ -385,7 +386,7 @@ impl ForgeTestData {
     }
 
     /// Builds a non-tracing runner
-    pub async fn runner(&self) -> MultiContractRunner {
+    pub async fn runner(&self) -> MultiContractRunner<NoOpContractDecoder> {
         let config = self.base_runner_config();
         self.runner_with_config(config).await
     }
@@ -394,7 +395,7 @@ impl ForgeTestData {
     pub async fn runner_with_config(
         &self,
         mut config: SolidityTestRunnerConfig,
-    ) -> MultiContractRunner {
+    ) -> MultiContractRunner<NoOpContractDecoder> {
         config.cheats_config_options.rpc_endpoints = rpc_endpoints();
         // `**/edr-cache` is cached in CI
         config.cheats_config_options.rpc_cache_path =
@@ -410,7 +411,7 @@ impl ForgeTestData {
     pub async fn runner_with_fs_permissions(
         &self,
         fs_permissions: FsPermissions,
-    ) -> MultiContractRunner {
+    ) -> MultiContractRunner<NoOpContractDecoder> {
         let mut config = self.base_runner_config();
         config.cheats_config_options.fs_permissions = fs_permissions;
         self.runner_with_config(config).await
@@ -420,7 +421,7 @@ impl ForgeTestData {
     pub async fn runner_with_fuzz_config(
         &self,
         fuzz_config: TestFuzzConfig,
-    ) -> MultiContractRunner {
+    ) -> MultiContractRunner<NoOpContractDecoder> {
         let mut config = self.base_runner_config();
         config.fuzz = fuzz_config.into();
         self.runner_with_config(config).await
@@ -430,7 +431,7 @@ impl ForgeTestData {
     pub async fn runner_with_invariant_config(
         &self,
         invariant_config: TestInvariantConfig,
-    ) -> MultiContractRunner {
+    ) -> MultiContractRunner<NoOpContractDecoder> {
         let mut config = self.base_runner_config();
         config.invariant = invariant_config.into();
         self.runner_with_config(config).await
@@ -442,7 +443,7 @@ impl ForgeTestData {
         &self,
         seed: U256,
         invariant_config: TestInvariantConfig,
-    ) -> MultiContractRunner {
+    ) -> MultiContractRunner<NoOpContractDecoder> {
         let mut config = self.base_runner_config();
         config.fuzz.seed = Some(seed);
         config.invariant = invariant_config.into();
@@ -450,14 +451,14 @@ impl ForgeTestData {
     }
 
     /// Builds a tracing runner
-    pub async fn tracing_runner(&self) -> MultiContractRunner {
+    pub async fn tracing_runner(&self) -> MultiContractRunner<NoOpContractDecoder> {
         let mut config = self.base_runner_config();
         config.trace = true;
         self.build_runner(config).await
     }
 
     /// Builds a runner that runs against forked state
-    pub async fn forked_runner(&self, rpc: &str) -> MultiContractRunner {
+    pub async fn forked_runner(&self, rpc: &str) -> MultiContractRunner<NoOpContractDecoder> {
         let mut config = self.base_runner_config();
 
         config.evm_opts.fork_url = Some(rpc.to_string());
@@ -465,11 +466,15 @@ impl ForgeTestData {
         self.build_runner(config).await
     }
 
-    async fn build_runner(&self, config: SolidityTestRunnerConfig) -> MultiContractRunner {
-        MultiContractRunner::new(
+    async fn build_runner(
+        &self,
+        config: SolidityTestRunnerConfig,
+    ) -> MultiContractRunner<NoOpContractDecoder> {
+        MultiContractRunner::<NoOpContractDecoder>::new(
             config,
             self.test_contracts.clone(),
             self.known_contracts.clone(),
+            NoOpContractDecoder::default(),
             self.revert_decoder.clone(),
         )
         .await

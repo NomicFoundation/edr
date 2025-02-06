@@ -1,5 +1,5 @@
 import { assert } from "chai";
-import { TestContext } from "./testContext";
+import { assertStackTraces, TestContext } from "./testContext";
 
 describe("Unit tests", () => {
   let testContext: TestContext;
@@ -18,9 +18,12 @@ describe("Unit tests", () => {
   });
 
   it("SuccessAndFailure", async function () {
-    const { totalTests, failedTests } = await testContext.runTestsWithStats(
-      "SuccessAndFailureTest"
-    );
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("SuccessAndFailureTest");
+
+    assertStackTraces(stackTraces.get("testThatFails()"), [
+      { contract: "SuccessAndFailureTest", function: "testThatFails" },
+    ]);
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);
@@ -130,6 +133,14 @@ describe("Unit tests", () => {
     );
 
     assert.equal(failedTests, 0);
+    assert.equal(totalTests, 1);
+  });
+
+  it("FailingSetup", async function () {
+    const { totalTests, failedTests } =
+      await testContext.runTestsWithStats("FailingSetupTest");
+
+    assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);
   });
 });

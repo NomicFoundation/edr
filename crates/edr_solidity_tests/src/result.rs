@@ -3,14 +3,14 @@
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::{self, Write},
-    sync::Arc,
     time::Duration,
 };
 
 use alloy_primitives::{Address, Log};
+use edr_solidity::solidity_stack_trace::StackTraceEntry;
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
-    contracts::{get_contract_name, get_file_name, ContractsByArtifact},
+    contracts::{get_contract_name, get_file_name},
     coverage::HitMaps,
     executors::EvmError,
     fuzz::{CounterExample, FuzzFixtures},
@@ -19,7 +19,7 @@ use foundry_evm::{
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
 
-use crate::gas_report::GasReport;
+use crate::{gas_report::GasReport, StackTraceError};
 
 /// The aggregated result of a test run.
 #[derive(Clone, Debug)]
@@ -180,9 +180,6 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
     /// Libraries used to link test contract.
     pub libraries: Libraries,
-    /// Contracts linked with correct libraries.
-    #[serde(skip)]
-    pub known_contracts: Arc<ContractsByArtifact>,
 }
 
 impl SuiteResult {
@@ -191,14 +188,12 @@ impl SuiteResult {
         test_results: BTreeMap<String, TestResult>,
         warnings: Vec<String>,
         libraries: Libraries,
-        known_contracts: Arc<ContractsByArtifact>,
     ) -> Self {
         Self {
             duration,
             test_results,
             warnings,
             libraries,
-            known_contracts,
         }
     }
 
@@ -386,7 +381,15 @@ pub struct TestResult {
     /// Labeled addresses
     pub labeled_addresses: HashMap<Address, String>,
 
+    /// Wall clock execution time.
     pub duration: Duration,
+
+    /// The outcome of the stack trace error computation.
+    /// None if the test status is succeeded or skipped.
+    /// If the heuristic failed the vec is set but emtpy.
+    /// Error if there was an error computing the stack trace.
+    #[serde(skip)]
+    pub stack_trace_result: Option<Result<Vec<StackTraceEntry>, StackTraceError>>,
 }
 
 impl fmt::Display for TestResult {
@@ -568,6 +571,8 @@ pub struct TestSetup {
     pub coverage: Option<HitMaps>,
     /// Defined fuzz test fixtures
     pub fuzz_fixtures: FuzzFixtures,
+    /// Whether the test had a setup method.
+    pub has_setup_method: bool,
 }
 
 impl TestSetup {
@@ -576,6 +581,7 @@ impl TestSetup {
         mut logs: Vec<Log>,
         mut traces: Traces,
         mut labeled_addresses: HashMap<Address, String>,
+        has_setup_method: bool,
     ) -> Self {
         match error {
             EvmError::Execution(err) => {
@@ -583,13 +589,20 @@ impl TestSetup {
                 traces.extend(err.raw.traces.map(|traces| (TraceKind::Setup, traces)));
                 logs.extend(err.raw.logs);
                 labeled_addresses.extend(err.raw.labels);
-                Self::failed_with(logs, traces, labeled_addresses, err.reason)
+                Self::failed_with(
+                    logs,
+                    traces,
+                    labeled_addresses,
+                    err.reason,
+                    has_setup_method,
+                )
             }
             e => Self::failed_with(
                 logs,
                 traces,
                 labeled_addresses,
                 format!("failed to deploy contract: {e}"),
+                has_setup_method,
             ),
         }
     }
@@ -601,6 +614,7 @@ impl TestSetup {
         labeled_addresses: HashMap<Address, String>,
         coverage: Option<HitMaps>,
         fuzz_fixtures: FuzzFixtures,
+        has_setup_method: bool,
     ) -> Self {
         Self {
             address,
@@ -610,6 +624,7 @@ impl TestSetup {
             reason: None,
             coverage,
             fuzz_fixtures,
+            has_setup_method,
         }
     }
 
@@ -618,6 +633,7 @@ impl TestSetup {
         traces: Traces,
         labeled_addresses: HashMap<Address, String>,
         reason: String,
+        has_setup_method: bool,
     ) -> Self {
         Self {
             address: Address::ZERO,
@@ -627,6 +643,7 @@ impl TestSetup {
             reason: Some(reason),
             coverage: None,
             fuzz_fixtures: FuzzFixtures::default(),
+            has_setup_method,
         }
     }
 

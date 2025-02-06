@@ -162,7 +162,9 @@ zero_sized_map_values = "warn"
 [workspace.dependencies]
 edr_common = { path = "crates/edr_common" }
 edr_defaults = { path = "crates/edr_defaults" }
+edr_evm = { path = "crates/edr_evm" }
 edr_macros = { path = "crates/edr_macros" }
+edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 
