@@ -6,11 +6,11 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{SpecId, U256};
+use edr_eth::{transaction, SpecId, U256};
 use revm::{
     db::DatabaseComponentError,
-    interpreter::gas::validate_initial_tx_gas,
-    primitives::{EVMError, InvalidHeader, InvalidTransaction},
+    interpreter::gas::calculate_initial_tx_gas,
+    primitives::{AuthorizationList, EVMError, InvalidHeader, InvalidTransaction},
 };
 
 pub use self::detailed::*;
@@ -78,10 +78,10 @@ pub enum CreationError {
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: Transaction>(
-    transaction: TransactionT,
+pub fn validate(
+    transaction: transaction::Signed,
     spec_id: SpecId,
-) -> Result<TransactionT, CreationError> {
+) -> Result<transaction::Signed, CreationError> {
     if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
         return Err(CreationError::ContractMissingData);
     }
@@ -98,14 +98,21 @@ pub fn validate<TransactionT: Transaction>(
 }
 
 /// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl Transaction, spec_id: SpecId) -> u64 {
-    validate_initial_tx_gas(
+pub fn initial_cost(transaction: &transaction::Signed, spec_id: SpecId) -> u64 {
+    let authorization_list_num = transaction
+        .authorization_list()
+        .map(AuthorizationList::len)
+        // usize is guaranteed to fit into u64
+        .unwrap_or_default() as u64;
+
+    calculate_initial_tx_gas(
         spec_id,
         transaction.data().as_ref(),
         transaction.kind() == TxKind::Create,
         transaction.access_list(),
-        0,
+        authorization_list_num,
     )
+    .initial_gas
 }
 
 #[cfg(test)]

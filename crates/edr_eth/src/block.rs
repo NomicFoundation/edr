@@ -9,8 +9,9 @@ mod options;
 mod reorg;
 mod reward;
 
+use alloy_eips::{eip4844, eip7691};
 use alloy_rlp::{BufMut, Decodable, RlpDecodable, RlpEncodable};
-use revm_primitives::{calc_blob_gasprice, calc_excess_blob_gas, keccak256};
+use revm_primitives::{calc_blob_gasprice, calc_excess_blob_gas, keccak256, GAS_PER_BLOB};
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
@@ -261,7 +262,18 @@ impl PartialHeader {
                         |BlobGas {
                              gas_used,
                              excess_gas,
-                         }| calc_excess_blob_gas(*excess_gas, *gas_used),
+                         }| {
+                            let target_blob_number_per_blob = if spec_id >= SpecId::PRAGUE {
+                                eip7691::TARGET_BLOBS_PER_BLOCK_ELECTRA
+                            } else {
+                                eip4844::TARGET_BLOBS_PER_BLOCK
+                            };
+
+                            let target_blob_gas_per_block =
+                                GAS_PER_BLOB * target_blob_number_per_blob;
+
+                            calc_excess_blob_gas(*excess_gas, *gas_used, target_blob_gas_per_block)
+                        },
                     );
 
                     Some(BlobGas {
@@ -372,12 +384,12 @@ pub fn calculate_next_base_fee_per_gas(parent: &Header) -> U256 {
 
 /// Calculates the next base fee per blob gas for a post-Cancun block, given the
 /// parent's header.
-pub fn calculate_next_base_fee_per_blob_gas(parent: &Header) -> U256 {
+pub fn calculate_next_base_fee_per_blob_gas(parent: &Header, spec_id: SpecId) -> U256 {
     parent
         .blob_gas
         .as_ref()
         .map_or(U256::ZERO, |BlobGas { excess_gas, .. }| {
-            U256::from(calc_blob_gasprice(*excess_gas))
+            U256::from(calc_blob_gasprice(*excess_gas, spec_id >= SpecId::PRAGUE))
         })
 }
 

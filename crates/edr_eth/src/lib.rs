@@ -13,6 +13,8 @@ pub mod beacon;
 pub mod block;
 /// Ethereum block spec
 mod block_spec;
+/// Types and constants for Ethereum improvements proposals (EIPs)
+pub mod eips;
 /// Ethereum fee history types
 pub mod fee_history;
 /// Ethereum types for filter-based RPC methods
