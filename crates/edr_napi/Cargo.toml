@@ -12,8 +12,8 @@ ansi_term = { version = "0.12.1", default-features = false }
 itertools = { version = "0.12.0", default-features = false }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", "precomputed-tables", "std"] }
 # The `async` feature ensures that a tokio runtime is available
-napi = { version = "2.16.11", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
-napi-derive = "2.16.11"
+napi = { version = "2.16.15", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
+napi-derive = "2.16.13"
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
