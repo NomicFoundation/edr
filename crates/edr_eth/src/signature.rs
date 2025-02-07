@@ -27,6 +27,9 @@ pub enum SignatureError {
     /// Invalid secret key.
     #[cfg_attr(feature = "std", error("Expected 32 byte secret key"))]
     InvalidSecretKeyLength,
+    /// When parsing a secret key from string to hex
+    #[cfg_attr(feature = "std", error("Invalid hex"))]
+    InvalidSecretKeyHex,
     /// When parsing a signature from string to hex
     #[cfg_attr(feature = "std", error(transparent))]
     DecodingError(#[cfg_attr(feature = "std", from)] hex::FromHexError),
@@ -145,7 +148,8 @@ pub fn secret_key_from_str(
     } else {
         hex::decode(str_key)
     }
-    .map_err(SignatureError::DecodingError)?;
+    // Hex error can leak character, so use opaque one.
+    .map_err(|_err| SignatureError::InvalidSecretKeyHex)?;
     let secret_key = FieldBytes::from_exact_iter(secret_key.into_iter())
         .ok_or_else(|| SignatureError::InvalidSecretKeyLength)?;
     SecretKey::from_bytes(&secret_key).map_err(SignatureError::EllipticCurveError)
