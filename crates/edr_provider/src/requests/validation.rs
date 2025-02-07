@@ -96,6 +96,15 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 blobs: None,
                 blob_hashes: Some(tx.blob_hashes.as_ref()),
             },
+            transaction::Signed::Eip7702(tx) => Self {
+                to: Some(&tx.to),
+                gas_price: None,
+                max_fee_per_gas: Some(&tx.max_fee_per_gas),
+                max_priority_fee_per_gas: Some(&tx.max_priority_fee_per_gas),
+                access_list: Some(tx.access_list.0.as_ref()),
+                blobs: None,
+                blob_hashes: None,
+            },
         }
     }
 }

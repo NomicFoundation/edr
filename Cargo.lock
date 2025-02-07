@@ -1374,6 +1374,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-rlp",
+ "alloy-serde",
  "anyhow",
  "assert-json-diff",
  "c-kzg",

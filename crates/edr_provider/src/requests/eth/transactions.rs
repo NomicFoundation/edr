@@ -189,9 +189,9 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         transaction::Signed::PreEip155Legacy(tx) => tx.gas_price,
         transaction::Signed::PostEip155Legacy(tx) => tx.gas_price,
         transaction::Signed::Eip2930(tx) => tx.gas_price,
-        transaction::Signed::Eip1559(_) | transaction::Signed::Eip4844(_) => {
-            gas_price_for_post_eip1559(&transaction, block)
-        }
+        transaction::Signed::Eip1559(_)
+        | transaction::Signed::Eip4844(_)
+        | transaction::Signed::Eip7702(_) => gas_price_for_post_eip1559(&transaction, block),
     };
 
     let chain_id = match &transaction {
@@ -201,6 +201,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         transaction::Signed::Eip2930(tx) => Some(tx.chain_id),
         transaction::Signed::Eip1559(tx) => Some(tx.chain_id),
         transaction::Signed::Eip4844(tx) => Some(tx.chain_id),
+        transaction::Signed::Eip7702(tx) => Some(tx.chain_id),
     };
 
     let show_transaction_type = spec_id >= FIRST_HARDFORK_WITH_TRANSACTION_TYPE;

@@ -7,6 +7,7 @@ edition = "2021"
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true}
 alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
+alloy-serde = { workspace = true }
 anyhow = "1.0.75"
 c-kzg = { version = "1.0.2", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
@@ -42,7 +43,7 @@ tokio = { version = "1.23.0", features = ["macros"] }
 default = ["std"]
 rand = ["revm-primitives/rand"]
 serde = ["dep:serde", "alloy-consensus/serde", "c-kzg/serde", "revm-primitives/serde"]
-std = ["alloy-consensus/std", "alloy-eips/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
+std = ["alloy-consensus/std", "alloy-eips/std", "alloy-serde/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
 test-remote = []
 tracing = ["dep:tracing"]
 
