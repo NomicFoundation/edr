@@ -469,9 +469,9 @@ checksum = "55cc3b69f167a1ef2e161439aa98aed94e6028e5f9a59be9a6ffb47aef1651f9"
 
 [[package]]
 name = "anyhow"
-version = "1.0.81"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0952808a6c2afd1aa8947271f3a60f1a6763c7b912d210184c5149b5cf147247"
+checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
 
 [[package]]
 name = "archery"
@@ -1130,15 +1130,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-channel"
-version = "0.5.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab3db02a9c5b5121e1e42fbdb1aeb65f5e02624cc58c43f2884c6ccac0b82f95"
-dependencies = [
- "crossbeam-utils",
-]
-
-[[package]]
 name = "crossbeam-deque"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1404,32 +1395,26 @@ dependencies = [
 name = "edr_napi"
 version = "0.3.5"
 dependencies = [
- "alloy-dyn-abi 0.7.7",
- "alloy-json-abi 0.7.7",
  "alloy-sol-types 0.5.4",
  "ansi_term",
- "crossbeam-channel",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_provider",
  "edr_rpc_eth",
+ "edr_scenarios",
  "edr_solidity",
- "indexmap 2.7.1",
  "itertools 0.12.1",
  "k256",
- "lazy_static",
- "log",
  "mimalloc",
  "napi",
  "napi-build",
  "napi-derive",
  "openssl-sys",
- "parking_lot 0.12.3",
  "rand",
- "semver 1.0.23",
  "serde",
  "serde_json",
+ "static_assertions",
  "strum",
  "thiserror 1.0.58",
  "tracing",
@@ -1527,6 +1512,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_scenarios"
+version = "0.3.5"
+dependencies = [
+ "edr_eth",
+ "edr_evm",
+ "edr_provider",
+ "edr_test_utils",
+ "k256",
+ "serde",
+]
+
+[[package]]
 name = "edr_solidity"
 version = "0.3.5"
 dependencies = [
@@ -1552,6 +1549,9 @@ dependencies = [
 name = "edr_test_utils"
 version = "0.3.5"
 dependencies = [
+ "edr_eth",
+ "hex",
+ "k256",
  "serde",
  "serde_json",
 ]
@@ -4107,6 +4107,7 @@ dependencies = [
  "edr_evm",
  "edr_provider",
  "edr_rpc_eth",
+ "edr_scenarios",
  "edr_solidity",
  "flate2",
  "indicatif",

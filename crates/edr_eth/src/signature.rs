@@ -124,37 +124,30 @@ pub fn public_key_to_address(public_key: PublicKey) -> Address {
     Address::from_slice(&hash[12..])
 }
 
-/// Converts a secret key in a hex string format to an address.
-///
-/// # Examples
-///
-/// ```
-/// use edr_eth::signature::secret_key_to_address;
-///
-/// let secret_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-///
-/// let address = secret_key_to_address(secret_key).unwrap();
-/// ```
-pub fn secret_key_to_address(secret_key: &str) -> Result<Address, SignatureError> {
-    let secret_key = secret_key_from_str(secret_key)?;
-    Ok(public_key_to_address(secret_key.public_key()))
-}
+/// It's dangerous to represent secret keys as native string types, because the
+/// native string types have debug, display and serialization implementations
+/// that can result in the secrets accidentally leaking to logs. It's marked as
+/// deprecated, because it should be only created in exactly one place in the
+/// production code.
+#[deprecated]
+pub struct DangerousSecretKeyStr<'a>(pub &'a str);
 
+// It's marked as deprecated to be thoughtful abouts its usage.
+#[allow(deprecated)]
 /// Converts a hex string to a secret key.
-pub fn secret_key_from_str(secret_key: &str) -> Result<SecretKey, SignatureError> {
-    let secret_key = if let Some(stripped) = secret_key.strip_prefix("0x") {
+pub fn secret_key_from_str(
+    secret_key: DangerousSecretKeyStr<'_>,
+) -> Result<SecretKey, SignatureError> {
+    #[allow(deprecated)]
+    let str_key = secret_key.0;
+    let secret_key = if let Some(stripped) = str_key.strip_prefix("0x") {
         hex::decode(stripped)
     } else {
-        hex::decode(secret_key)
+        hex::decode(str_key)
     }
     .map_err(SignatureError::DecodingError)?;
     let secret_key = FieldBytes::from_exact_iter(secret_key.into_iter()).ok_or_else(|| {
         SignatureError::InvalidSecretKey("expected 32 byte secret key".to_string())
     })?;
     SecretKey::from_bytes(&secret_key).map_err(SignatureError::EllipticCurveError)
-}
-
-/// Converts a secret key to a 0x-prefixed hex string.
-pub fn secret_key_to_str(secret_key: &SecretKey) -> String {
-    format!("0x{}", hex::encode(secret_key.to_bytes().as_slice()))
 }

@@ -7,6 +7,7 @@ members = [
     "crates/edr_provider",
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",
+    "crates/edr_scenarios",
     "crates/edr_solidity",
     "crates/edr_test_utils",
     "crates/tools",
