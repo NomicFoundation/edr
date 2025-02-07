@@ -17,7 +17,7 @@ pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::B256;
 
 pub use self::r#type::TransactionType;
-use crate::{AccessListItem, Address, Bytes, U256};
+use crate::{AccessListItem, Address, Bytes, SignedAuthorization, U256};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -171,4 +171,6 @@ pub struct EthTransactionRequest {
     pub blobs: Option<Vec<Bytes>>,
     /// Blob versioned hashes (EIP-4844)
     pub blob_hashes: Option<Vec<B256>>,
+    /// Authorization list (EIP-7702)
+    pub authorization_list: Option<Vec<SignedAuthorization>>,
 }

@@ -3,7 +3,8 @@ mod common;
 use edr_eth::{
     filter::{LogFilterOptions, LogOutput, OneOrMore},
     transaction::EthTransactionRequest,
-    Address, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U256,
+    Address, Authorization, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, SignedAuthorization,
+    B256, U256,
 };
 use edr_evm::alloy_primitives::U160;
 use edr_provider::{IntervalConfigRequest, MethodInvocation, Timestamp};
@@ -38,6 +39,16 @@ fn test_serde_eth_call() {
         transaction_type: None,
         blobs: Some(vec![Bytes::from("0x1234")]),
         blob_hashes: Some(vec![B256::from(U256::from(1))]),
+        authorization_list: Some(vec![SignedAuthorization::new_unchecked(
+            Authorization {
+                chain_id: U256::from(1),
+                address: Address::random(),
+                nonce: 0,
+            },
+            1,
+            U256::from(0x1234),
+            U256::from(0x5678),
+        )]),
     };
     help_test_method_invocation_serde(MethodInvocation::Call(
         tx.clone(),
@@ -75,6 +86,16 @@ fn test_serde_eth_estimate_gas() {
         transaction_type: None,
         blobs: None,
         blob_hashes: None,
+        authorization_list: Some(vec![SignedAuthorization::new_unchecked(
+            Authorization {
+                chain_id: U256::from(1),
+                address: Address::random(),
+                nonce: 0,
+            },
+            1,
+            U256::from(0x1234),
+            U256::from(0x5678),
+        )]),
     };
     help_test_method_invocation_serde(MethodInvocation::EstimateGas(
         tx.clone(),
@@ -338,6 +359,16 @@ fn test_serde_eth_send_transaction() {
         transaction_type: None,
         blobs: Some(vec![Bytes::from("0x1234")]),
         blob_hashes: Some(vec![B256::from(U256::from(1))]),
+        authorization_list: Some(vec![SignedAuthorization::new_unchecked(
+            Authorization {
+                chain_id: U256::from(1),
+                address: Address::random(),
+                nonce: 0,
+            },
+            1,
+            U256::from(0x1234),
+            U256::from(0x5678),
+        )]),
     }));
 }
 

@@ -2,7 +2,8 @@ use core::fmt::Debug;
 
 use edr_eth::{
     transaction::{self, EthTransactionRequest},
-    AccessListItem, Address, BlockSpec, BlockTag, PreEip1898BlockSpec, SpecId, B256, U256,
+    AccessListItem, Address, BlockSpec, BlockTag, PreEip1898BlockSpec, SignedAuthorization, SpecId,
+    B256, U256,
 };
 use edr_evm::Bytes;
 use edr_rpc_eth::CallRequest;
@@ -18,6 +19,7 @@ pub struct SpecValidationData<'data> {
     pub access_list: Option<&'data Vec<AccessListItem>>,
     pub blobs: Option<&'data Vec<Bytes>>,
     pub blob_hashes: Option<&'data Vec<B256>>,
+    pub authorization_list: Option<&'data Vec<SignedAuthorization>>,
 }
 
 impl<'data> From<&'data EthTransactionRequest> for SpecValidationData<'data> {
@@ -30,6 +32,7 @@ impl<'data> From<&'data EthTransactionRequest> for SpecValidationData<'data> {
             access_list: value.access_list.as_ref(),
             blobs: value.blobs.as_ref(),
             blob_hashes: value.blob_hashes.as_ref(),
+            authorization_list: value.authorization_list.as_ref(),
         }
     }
 }
@@ -44,6 +47,7 @@ impl<'data> From<&'data CallRequest> for SpecValidationData<'data> {
             access_list: value.access_list.as_ref(),
             blobs: value.blobs.as_ref(),
             blob_hashes: value.blob_hashes.as_ref(),
+            authorization_list: value.authorization_list.as_ref(),
         }
     }
 }
@@ -59,6 +63,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: None,
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: None,
             },
             transaction::Signed::PostEip155Legacy(tx) => Self {
                 to: tx.kind.to(),
@@ -68,6 +73,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: None,
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: None,
             },
             transaction::Signed::Eip2930(tx) => Self {
                 to: tx.kind.to(),
@@ -77,6 +83,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: Some(tx.access_list.0.as_ref()),
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: None,
             },
             transaction::Signed::Eip1559(tx) => Self {
                 to: tx.kind.to(),
@@ -86,6 +93,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: Some(tx.access_list.0.as_ref()),
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: None,
             },
             transaction::Signed::Eip4844(tx) => Self {
                 to: Some(&tx.to),
@@ -95,6 +103,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: Some(tx.access_list.0.as_ref()),
                 blobs: None,
                 blob_hashes: Some(tx.blob_hashes.as_ref()),
+                authorization_list: None,
             },
             transaction::Signed::Eip7702(tx) => Self {
                 to: Some(&tx.to),
@@ -104,6 +113,7 @@ impl<'data> From<&'data transaction::Signed> for SpecValidationData<'data> {
                 access_list: Some(tx.access_list.0.as_ref()),
                 blobs: None,
                 blob_hashes: None,
+                authorization_list: Some(tx.authorization_list.as_ref()),
             },
         }
     }
@@ -121,6 +131,7 @@ fn validate_transaction_spec<LoggerErrorT: Debug>(
         access_list,
         blobs,
         blob_hashes,
+        authorization_list,
     } = data;
 
     if spec_id < SpecId::BERLIN && access_list.is_some() {
@@ -142,6 +153,12 @@ fn validate_transaction_spec<LoggerErrorT: Debug>(
         return Err(ProviderError::UnsupportedEIP4844Parameters {
             current_hardfork: spec_id,
             minimum_hardfork: SpecId::CANCUN,
+        });
+    }
+
+    if spec_id < SpecId::PRAGUE && authorization_list.is_some() {
+        return Err(ProviderError::UnsupportedEip7702Parameters {
+            current_hardfork: spec_id,
         });
     }
 
