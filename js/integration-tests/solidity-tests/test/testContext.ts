@@ -59,14 +59,15 @@ export class TestContext {
       throw new Error(`No matching test contract found for ${contractName}`);
     }
 
+    const testConfig = {
+      ...this.defaultConfig(),
+      ...config,
+    };
     const suiteResults = await runAllSolidityTests(
       this.artifacts,
       testContracts,
       this.tracingConfig,
-      {
-        ...this.defaultConfig(),
-        ...config,
-      }
+      testConfig
     );
 
     const stackTraces = new Map<string, SolidityStackTrace>();
@@ -80,6 +81,10 @@ export class TestContext {
           if (stackTrace !== null) {
             stackTraces.set(testResult.name, stackTrace);
           }
+        } else if (!testConfig.testFail && testResult.reason !== undefined) {
+          throw new Error(
+            `Expected reason to be undefined for test that didn't fail, instead it is: '${testResult.reason}'`
+          );
         }
       }
     }
