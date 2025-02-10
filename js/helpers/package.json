@@ -31,7 +31,7 @@
   "private": true,
   "scripts": {
     "build": "pnpm run build:dev",
-    "build:dev": "tsc --build --incremental .",
+    "build:dev": "tsc --build .",
     "eslint": "eslint 'src/**/*.ts'",
     "lint": "pnpm prettier && pnpm eslint",
     "prettier": "prettier --check \"**/*.{js,ts,md,json}\""

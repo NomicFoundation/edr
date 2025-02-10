@@ -184,9 +184,22 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         }
 
         if setup.reason.is_some() {
+            // We want to report execution time without stack trace generation as people use
+            // these numbers to reason about the performance of their code.
+            let elapsed = start.elapsed();
+
+            // Re-execute for stack traces
+            let mut executor = self.executor_builder.clone().build();
+            executor.inspector.enable_for_stack_traces();
+            let setup_for_stack_traces = self.setup(&mut executor, needs_setup);
+            let stack_trace_result =
+                get_stack_trace(&self.contract_decoder, &setup_for_stack_traces.traces)
+                    .transpose()
+                    .expect("traces are not empty");
+
             // The setup failed, so we return a single test result for `setUp`
             return SuiteResult::new(
-                start.elapsed(),
+                elapsed,
                 [(
                     "setUp()".to_string(),
                     TestResult {
@@ -197,9 +210,11 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                         logs: setup.logs,
                         kind: TestKind::Standard(0),
                         traces: setup.traces,
+                        gas_report_traces: vec![],
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
-                        ..Default::default()
+                        duration: elapsed,
+                        stack_trace_result: Some(stack_trace_result),
                     },
                 )]
                 .into(),
@@ -393,19 +408,13 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                             },
                         reason,
                     } = *err;
-                    (
-                        logs,
-                        traces,
-                        labels,
-                        Some(format!("setup failed: {reason}")),
-                        coverage,
-                    )
+                    (logs, traces, labels, Some(reason), coverage)
                 }
                 Err(err) => (
                     Vec::new(),
                     None,
                     HashMap::new(),
-                    Some(format!("setup failed: {err}")),
+                    Some(err.to_string()),
                     None,
                 ),
             };
@@ -680,7 +689,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
 
         get_stack_trace(&self.contract_decoder, &traces)
             .transpose()
-            .expect("there is an error trace")
+            .expect("traces are not empty")
     }
 
     // It's one argument over, but follows the pattern in the file.

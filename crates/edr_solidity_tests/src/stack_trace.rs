@@ -73,13 +73,7 @@ pub(crate) fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
         let stack_trace = stack_trace
             .into_iter()
             .filter(|stack_trace| {
-                if let StackTraceEntry::UnrecognizedContractCallstackEntry { address, .. } =
-                    stack_trace
-                {
-                    *address != CHEATCODE_ADDRESS
-                } else {
-                    true
-                }
+                !stack_trace.is_unrecognized_contract_call_error(&CHEATCODE_ADDRESS)
             })
             .collect();
         Ok(Some(stack_trace))
