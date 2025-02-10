@@ -125,7 +125,7 @@ export function assertStackTraces(
   if (actual === undefined) {
     throw new Error("stack trace is undefined");
   }
-  assert.equal(actual.reason, expectedReason);
+  assert.include(actual.reason, expectedReason);
   const stackTrace = actual.stackTrace;
   assert.equal(stackTrace.length, expectedEntries.length);
   for (let i = 0; i < stackTrace.length; i += 1) {

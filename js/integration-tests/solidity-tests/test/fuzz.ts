@@ -1,5 +1,5 @@
 import chai, { assert, expect } from "chai";
-import { TestContext } from "./testContext";
+import { assertStackTraces, TestContext } from "./testContext";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { FuzzTestKind, InvariantTestKind } from "@ignored/edr";
@@ -56,6 +56,14 @@ describe("Fuzz and invariant testing", function () {
 
   // One test as steps should be sequential
   it("FailingInvariant", async function () {
+    const expectedReason = "assertion failed";
+    const expectedStackTraces = [
+      { contract: "FailingInvariantTest", function: "invariant" },
+      {
+        contract: "FailingInvariantTest",
+        function: "assertEq",
+      },
+    ];
     const failureDir = testContext.invariantFailuresPersistDir;
     const invariantConfig = {
       runs: 256,
@@ -78,6 +86,11 @@ describe("Fuzz and invariant testing", function () {
     );
     assert.equal(result1.failedTests, 1);
     assert.equal(result1.totalTests, 1);
+    assertStackTraces(
+      result1.stackTraces.get("invariant()"),
+      expectedReason,
+      expectedStackTraces
+    );
 
     // The invariant failure directory should not be created if we don't set the directory
     assert.isFalse(existsSync(failureDir));
@@ -100,6 +113,14 @@ describe("Fuzz and invariant testing", function () {
     const fuzzTestResult2 = results2[0].testResults[0].kind as FuzzTestKind;
     // More than one run should be needed on a fresh invariant test.
     assert.isTrue(fuzzTestResult2.runs > 1n);
+    assertStackTraces(
+      {
+        stackTrace: results2[0].testResults[0].stackTrace()!,
+        reason: results2[0].testResults[0].reason,
+      },
+      expectedReason,
+      expectedStackTraces
+    );
 
     // The invariant failure directory should now be created
     assert.isTrue(existsSync(failureDir));
@@ -125,5 +146,13 @@ describe("Fuzz and invariant testing", function () {
     const fuzzTestResult3 = results3[0].testResults[0].kind as FuzzTestKind;
     // The second time only one run should be needed, because the persisted failure is used.
     assert.equal(fuzzTestResult3.runs, 1n);
+    assertStackTraces(
+      {
+        stackTrace: results3[0].testResults[0].stackTrace()!,
+        reason: results3[0].testResults[0].reason,
+      },
+      expectedReason,
+      expectedStackTraces
+    );
   });
 });

@@ -1,6 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
-use alloy_primitives::{Address, Bytes};
+use alloy_primitives::{Address, Bytes, U160};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     exit_code::ExitCode,
@@ -10,15 +10,11 @@ use edr_solidity::{
     solidity_stack_trace::StackTraceEntry,
     solidity_tracer::{self, SolidityTracerError},
 };
-use foundry_evm::{
-    executors::EvmError,
-    traces::{CallTraceArena, CallTraceStep, TraceKind},
-};
+use foundry_evm_core::constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS};
+use foundry_evm_traces::TraceKind;
+use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
-use crate::{
-    constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
-    revm::primitives::ruint::aliases::U160,
-};
+use crate::executors::EvmError;
 
 /// Stack trace generation error during re-execution.
 #[derive(Clone, Debug, thiserror::Error)]
@@ -45,8 +41,8 @@ impl From<EvmError> for StackTraceError {
 /// Compute stack trace based on execution traces.
 /// Assumes last trace is the error one.
 /// Returns `None` if `traces` is empty.
-pub(crate) fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
-    contract_decoder: &Arc<NestedTraceDecoderT>,
+pub fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
+    contract_decoder: &NestedTraceDecoderT,
     traces: &[(TraceKind, CallTraceArena)],
 ) -> Result<Option<Vec<StackTraceEntry>>, StackTraceError> {
     let mut address_to_creation_code = HashMap::new();
@@ -194,10 +190,8 @@ fn convert_node_to_nested_trace(
 // We can't bump EDR to REVM 13, because it needs the `hashbrown` feature of
 // `revm-primitives`, but enabling that feature is incompatible with
 // `foundry-fork-db`.
-fn convert_halt_reason(
-    halt: revm_foundry::primitives::HaltReason,
-) -> revm_edr::primitives::HaltReason {
-    use revm_foundry::primitives::HaltReason;
+fn convert_halt_reason(halt: revm::primitives::HaltReason) -> revm_edr::primitives::HaltReason {
+    use revm::primitives::HaltReason;
     // Easier overview if arms aren't matched.
     #[allow(clippy::match_same_arms)]
     match halt {
@@ -247,9 +241,9 @@ fn convert_halt_reason(
 }
 
 fn convert_out_of_gas_error(
-    err: revm_foundry::primitives::OutOfGasError,
+    err: revm::primitives::OutOfGasError,
 ) -> revm_edr::primitives::OutOfGasError {
-    use revm_foundry::primitives::OutOfGasError;
+    use revm::primitives::OutOfGasError;
     match err {
         OutOfGasError::Basic => revm_edr::primitives::OutOfGasError::Basic,
         OutOfGasError::Memory => revm_edr::primitives::OutOfGasError::Memory,
@@ -260,9 +254,9 @@ fn convert_out_of_gas_error(
 }
 
 fn convert_instruction_result_to_exit_code(
-    result: revm_foundry::interpreter::InstructionResult,
+    result: revm::interpreter::InstructionResult,
 ) -> ExitCode {
-    let success_or_halt: revm_foundry::interpreter::SuccessOrHalt = result.into();
+    let success_or_halt: revm::interpreter::SuccessOrHalt = result.into();
     if success_or_halt.is_success() {
         ExitCode::Success
     } else if success_or_halt.is_revert() {
@@ -274,7 +268,7 @@ fn convert_instruction_result_to_exit_code(
 }
 
 fn is_calllike_op(step: &CallTraceStep) -> bool {
-    use revm_foundry::interpreter::opcode;
+    use revm::interpreter::opcode;
 
     matches!(
         step.op.get(),

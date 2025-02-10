@@ -2,10 +2,12 @@ use std::sync::Arc;
 
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
+use edr_solidity::{contract_decoder::NestedTraceDecoder, solidity_stack_trace::StackTraceEntry};
 use eyre::Result;
 use foundry_evm_core::{
     constants::CALLER,
     contracts::{ContractsByAddress, ContractsByArtifact},
+    decode::RevertDecoder,
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
@@ -18,22 +20,56 @@ use proptest::test_runner::TestError;
 use revm::primitives::U256;
 
 use super::{error::FailedInvariantCaseData, shrink_sequence};
-use crate::executors::Executor;
+use crate::executors::{
+    stack_trace::{get_stack_trace, StackTraceError},
+    EvmError, Executor,
+};
+
+/// Arguments to `replay_run`.
+pub struct ReplayRunArgs<'a, NestedTraceDecoderT> {
+    pub executor: Executor,
+    pub invariant_contract: &'a InvariantContract<'a>,
+    pub known_contracts: &'a ContractsByArtifact,
+    pub ided_contracts: ContractsByAddress,
+    pub logs: &'a mut Vec<Log>,
+    pub traces: &'a mut Traces,
+    pub coverage: &'a mut Option<HitMaps>,
+    pub inputs: Vec<BasicTxDetails>,
+    pub generate_stack_trace: bool,
+    /// Must be provided if `generate_stack_trace` is true
+    pub contract_decoder: Option<&'a NestedTraceDecoderT>,
+    pub revert_decoder: &'a RevertDecoder,
+}
+
+/// Results of a replay
+#[derive(Debug, Default)]
+pub struct ReplayResult {
+    pub counterexample_sequence: Vec<BaseCounterExample>,
+    pub stack_trace_result: Option<Result<Vec<StackTraceEntry>, StackTraceError>>,
+    /// Revert reason
+    pub revert_reason: Option<String>,
+}
 
 /// Replays a call sequence for collecting logs and traces.
 /// Returns counterexample to be used when the call sequence is a failed
 /// scenario.
-#[allow(clippy::too_many_arguments)]
-pub fn replay_run(
-    invariant_contract: &InvariantContract<'_>,
-    mut executor: Executor,
-    known_contracts: &ContractsByArtifact,
-    mut ided_contracts: ContractsByAddress,
-    logs: &mut Vec<Log>,
-    traces: &mut Traces,
-    coverage: &mut Option<HitMaps>,
-    inputs: Vec<BasicTxDetails>,
-) -> Result<Vec<BaseCounterExample>> {
+pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
+    args: ReplayRunArgs<'_, NestedTraceDecoderT>,
+) -> Result<ReplayResult> {
+    let ReplayRunArgs {
+        mut executor,
+        invariant_contract,
+        known_contracts,
+        mut ided_contracts,
+        logs,
+        traces,
+        coverage,
+        inputs,
+        generate_stack_trace,
+        contract_decoder,
+        revert_decoder,
+    } = args;
+
     // We want traces for a failed case.
     executor.set_tracing(true);
 
@@ -79,6 +115,9 @@ pub fn replay_run(
     // Checking after each call doesn't add valuable info for passing scenario
     // (invariant call result is always success) nor for failed scenarios
     // (invariant call result is always success until the last call that breaks it).
+    if generate_stack_trace {
+        executor.inspector.enable_for_stack_traces();
+    }
     let invariant_result = executor.call_raw(
         CALLER,
         invariant_contract.address,
@@ -93,27 +132,63 @@ pub fn replay_run(
         TraceKind::Execution,
         invariant_result.traces.clone().unwrap(),
     ));
-    logs.extend(invariant_result.logs);
+    logs.extend(invariant_result.logs.clone());
 
-    Ok(counterexample_sequence)
+    let stack_trace_result =
+        contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose());
+    let reason = invariant_result
+        .into_decoded_result(invariant_contract.invariant_function, Some(revert_decoder))
+        .err()
+        .and_then(|err| match err {
+            EvmError::Execution(err) => Some(err.reason),
+            _ => None,
+        });
+
+    Ok(ReplayResult {
+        counterexample_sequence,
+        stack_trace_result,
+        revert_reason: reason,
+    })
+}
+
+/// Arguments to `replay_run`.
+pub struct ReplayErrorArgs<'a, NestedTraceDecoderT> {
+    pub executor: Executor,
+    pub failed_case: &'a FailedInvariantCaseData,
+    pub invariant_contract: &'a InvariantContract<'a>,
+    pub known_contracts: &'a ContractsByArtifact,
+    pub ided_contracts: ContractsByAddress,
+    pub logs: &'a mut Vec<Log>,
+    pub traces: &'a mut Traces,
+    pub coverage: &'a mut Option<HitMaps>,
+    pub generate_stack_trace: bool,
+    /// Must be provided if `generate_stack_trace` is true
+    pub contract_decoder: Option<&'a NestedTraceDecoderT>,
+    pub revert_decoder: &'a RevertDecoder,
 }
 
 /// Replays the error case, shrinks the failing sequence and collects all
 /// necessary traces.
-#[allow(clippy::too_many_arguments)]
-pub fn replay_error(
-    failed_case: &FailedInvariantCaseData,
-    invariant_contract: &InvariantContract<'_>,
-    mut executor: Executor,
-    known_contracts: &ContractsByArtifact,
-    ided_contracts: ContractsByAddress,
-    logs: &mut Vec<Log>,
-    traces: &mut Traces,
-    coverage: &mut Option<HitMaps>,
-) -> Result<Vec<BaseCounterExample>> {
+pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
+    args: ReplayErrorArgs<'_, NestedTraceDecoderT>,
+) -> Result<ReplayResult> {
+    let ReplayErrorArgs {
+        mut executor,
+        failed_case,
+        invariant_contract,
+        known_contracts,
+        ided_contracts,
+        logs,
+        traces,
+        coverage,
+        generate_stack_trace,
+        contract_decoder,
+        revert_decoder,
+    } = args;
+
     match failed_case.test_error {
         // Don't use at the moment.
-        TestError::Abort(_) => Ok(vec![]),
+        TestError::Abort(_) => Ok(ReplayResult::default()),
         TestError::Fail(_, ref calls) => {
             // Shrink sequence of failed calls.
             let calls = shrink_sequence(failed_case, calls, &executor)?;
@@ -122,7 +197,7 @@ pub fn replay_error(
 
             // Replay calls to get the counterexample and to collect logs, traces and
             // coverage.
-            replay_run(
+            replay_run::<NestedTraceDecoderT>(ReplayRunArgs {
                 invariant_contract,
                 executor,
                 known_contracts,
@@ -130,8 +205,11 @@ pub fn replay_error(
                 logs,
                 traces,
                 coverage,
-                calls,
-            )
+                inputs: calls,
+                generate_stack_trace,
+                contract_decoder,
+                revert_decoder,
+            })
         }
     }
 }
