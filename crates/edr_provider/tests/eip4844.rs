@@ -5,7 +5,6 @@ use std::{convert::Infallible, str::FromStr, sync::Arc};
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     rlp::{self, Decodable},
-    signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
         self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction, Transaction,
         TransactionType,
@@ -21,6 +20,7 @@ use edr_provider::{
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_address};
 use tokio::runtime;
 
 /// Helper struct to modify the pooled transaction from the value in

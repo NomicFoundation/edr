@@ -1,10 +1,12 @@
 use std::{convert::Infallible, num::NonZeroU64, time::SystemTime};
 
 use anyhow::anyhow;
+#[allow(deprecated)]
+// This is test code, it's ok to use `DangerousSecretKeyStr`
 use edr_eth::{
     block::{miner_reward, BlobGas, BlockOptions},
     receipt::BlockReceipt,
-    signature::secret_key_from_str,
+    signature::{secret_key_from_str, DangerousSecretKeyStr},
     spec::chain_hardfork_activations,
     transaction::EthTransactionRequest,
     trie::KECCAK_NULL_RLP,
@@ -49,13 +51,21 @@ pub fn create_test_config_with_fork(fork: Option<ForkConfig>) -> ProviderConfig 
     ProviderConfig {
         accounts: vec![
             AccountConfig {
-                secret_key: secret_key_from_str(TEST_SECRET_KEY)
+                // This is test code, it's ok to use `DangerousSecretKeyStr`
+                // Can't use `edr_test_utils` as a dependency here.
+                #[allow(deprecated)]
+                secret_key: secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY))
                     .expect("should construct secret key from string"),
                 balance: one_ether(),
             },
             AccountConfig {
-                secret_key: secret_key_from_str(TEST_SECRET_KEY_SIGN_TYPED_DATA_V4)
-                    .expect("should construct secret key from string"),
+                // This is test code, it's ok to use `DangerousSecretKeyStr`
+                // Can't use `edr_test_utils` as a dependency here.
+                #[allow(deprecated)]
+                secret_key: secret_key_from_str(DangerousSecretKeyStr(
+                    TEST_SECRET_KEY_SIGN_TYPED_DATA_V4,
+                ))
+                .expect("should construct secret key from string"),
                 balance: one_ether(),
             },
         ],
