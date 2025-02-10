@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.8.1
+
+### Patch Changes
+
+- 90e3b15: Added the InvalidEXTCALLTarget variant to the ExceptionalHalt enum
+
 ## 0.8.0
 
 ### Minor Changes
