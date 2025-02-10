@@ -190,7 +190,7 @@ pub fn optimism_genesis_state(_hardfork: OptimismHardfork) -> Vec<Account> {
     };
 
     /* The rest of the predeploys use a stubbed bytecode that reverts with a
-               message indicating that the predeploy it's not supported. For each of
+               message indicating that the predeploy is not supported. For each of
                them, the Solidity code that generates the bytecode is:
 
     // SPDX-License-Identifier: Unlicense
