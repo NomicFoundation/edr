@@ -105,7 +105,7 @@ pub fn optimism_genesis_state(_hardfork: OptimismHardfork) -> Vec<Account> {
     let gas_price_oracle_code = hex::decode(include_str!(
         "../../data/optimism/predeploys/gas_price_oracle.txt"
     ))
-    .expect("The bytecode for the GasPriceOracle predeploy should exist at this location");
+    .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
     let gas_price_oracle = Account {
         address: hex!("420000000000000000000000000000000000000F").into(),
         balance: BigInt::from(0u64),
@@ -122,7 +122,7 @@ pub fn optimism_genesis_state(_hardfork: OptimismHardfork) -> Vec<Account> {
     };
 
     let l1_block_code = hex::decode(include_str!("../../data/optimism/predeploys/l1_block.txt"))
-        .expect("The bytecode for the L1Block predeploy should exist at this location");
+        .expect("The bytecode for the L1Block predeploy should be a valid hex string");
     let l1_block = Account {
         address: hex!("4200000000000000000000000000000000000015").into(),
         balance: BigInt::from(0u64),
