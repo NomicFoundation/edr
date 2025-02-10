@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
@@ -14,20 +13,13 @@ use edr_generic::GenericChainSpec;
 use edr_napi_core::spec::SyncNapiSpec;
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
+use edr_scenarios::ScenarioConfig;
 use edr_solidity::contract_decoder::ContractDecoder;
 use flate2::bufread::GzDecoder;
 use indicatif::ProgressBar;
-use serde::Deserialize;
 use tokio::{runtime, task};
 #[cfg(feature = "tracing")]
 use tracing_subscriber::{prelude::*, Registry};
-
-#[derive(Clone, Debug, Deserialize)]
-struct ScenarioConfig {
-    chain_type: Option<String>,
-    provider_config: edr_napi_core::provider::Config,
-    logger_enabled: bool,
-}
 
 pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::Result<()> {
     let (config, requests) = load_requests(scenario_path).await?;
@@ -36,7 +28,15 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         anyhow::bail!("This scenario expects logging, but logging is not yet implemented")
     }
 
-    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(config.provider_config);
+    if let Some(chain_type) = config.chain_type {
+        if chain_type != GenericChainSpec::CHAIN_TYPE {
+            anyhow::bail!("Unsupported chain type: {chain_type}")
+        }
+    }
+
+    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(
+        edr_napi_core::provider::Config::from(config.provider_config),
+    );
 
     let logger = Box::<DisabledLogger<GenericChainSpec>>::default();
     let subscription_callback = Box::new(|_| ());

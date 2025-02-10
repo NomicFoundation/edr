@@ -47,16 +47,28 @@ pub fn one_ether() -> U256 {
 pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
     fork: Option<ForkConfig>,
 ) -> ProviderConfig<HardforkT> {
+    // This is test code, it's ok to use `DangerousSecretKeyStr`
+    #[allow(deprecated)]
+    use edr_eth::signature::DangerousSecretKeyStr;
+
     ProviderConfig {
         accounts: vec![
             config::OwnedAccount {
-                secret_key: secret_key_from_str(TEST_SECRET_KEY)
+                // This is test code, it's ok to use `DangerousSecretKeyStr`
+                // Can't use `edr_test_utils` as a dependency here.
+                #[allow(deprecated)]
+                secret_key: secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY))
                     .expect("should construct secret key from string"),
                 balance: one_ether(),
             },
             config::OwnedAccount {
-                secret_key: secret_key_from_str(TEST_SECRET_KEY_SIGN_TYPED_DATA_V4)
-                    .expect("should construct secret key from string"),
+                // This is test code, it's ok to use `DangerousSecretKeyStr`
+                // Can't use `edr_test_utils` as a dependency here.
+                #[allow(deprecated)]
+                secret_key: secret_key_from_str(DangerousSecretKeyStr(
+                    TEST_SECRET_KEY_SIGN_TYPED_DATA_V4,
+                ))
+                .expect("should construct secret key from string"),
                 balance: one_ether(),
             },
         ],

@@ -5,7 +5,7 @@ use std::{
 
 use edr_eth::KECCAK_EMPTY;
 use napi::{
-    bindgen_prelude::{BigInt, Buffer},
+    bindgen_prelude::{BigInt, Buffer, Uint8Array},
     Either,
 };
 use napi_derive::napi;
@@ -335,5 +335,65 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
             min_gas_price: value.min_gas_price.try_cast()?,
             network_id: value.network_id.try_cast()?,
         })
+    }
+}
+
+/// Tracing config for Solidity stack trace generation.
+#[napi(object)]
+pub struct TracingConfigWithBuffers {
+    /// Build information to use for decoding contracts. Either a Hardhat v2
+    /// build info file that contains both input and output or a Hardhat v3
+    /// build info file that doesn't contain output and a separate output file.
+    pub build_infos: Option<Either<Vec<Uint8Array>, Vec<BuildInfoAndOutput>>>,
+    /// Whether to ignore contracts whose name starts with "Ignored".
+    pub ignore_contracts: Option<bool>,
+}
+
+/// Hardhat V3 build info where the compiler output is not part of the build
+/// info file.
+#[napi(object)]
+pub struct BuildInfoAndOutput {
+    /// The build info input file
+    pub build_info: Uint8Array,
+    /// The build info output file
+    pub output: Uint8Array,
+}
+
+impl<'a> From<&'a BuildInfoAndOutput>
+    for edr_solidity::artifacts::BuildInfoBufferSeparateOutput<'a>
+{
+    fn from(value: &'a BuildInfoAndOutput) -> Self {
+        Self {
+            build_info: value.build_info.as_ref(),
+            output: value.output.as_ref(),
+        }
+    }
+}
+
+impl<'a> From<&'a TracingConfigWithBuffers>
+    for edr_solidity::artifacts::BuildInfoConfigWithBuffers<'a>
+{
+    fn from(value: &'a TracingConfigWithBuffers) -> Self {
+        use edr_solidity::artifacts::{BuildInfoBufferSeparateOutput, BuildInfoBuffers};
+
+        let build_infos = value.build_infos.as_ref().map(|infos| match infos {
+            Either::A(with_output) => BuildInfoBuffers::WithOutput(
+                with_output
+                    .iter()
+                    .map(std::convert::AsRef::as_ref)
+                    .collect(),
+            ),
+            Either::B(separate_output) => BuildInfoBuffers::SeparateInputOutput(
+                separate_output
+                    .iter()
+                    .map(BuildInfoBufferSeparateOutput::from)
+                    .collect(),
+            ),
+        });
+
+        Self {
+            build_infos,
+            ignore_contracts: value.ignore_contracts,
+        }
     }
 }

@@ -18,6 +18,7 @@ pub mod nested_tracer;
 pub mod solidity_stack_trace;
 pub mod solidity_tracer;
 
+mod bytecode_trie;
 mod error_inferrer;
 mod mapped_inline_internal_functions_heuristics;
 mod return_data;

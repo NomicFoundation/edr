@@ -8,7 +8,6 @@ use edr_eth::{
     eips::eip4844::EnvKzgSettings,
     l1::{self, L1ChainSpec},
     rlp::{self, Decodable},
-    signature::{secret_key_from_str, secret_key_to_address},
     transaction::{
         self, pooled::PooledTransaction, ExecutableTransaction as _, Transaction as _,
         TransactionType as _,
@@ -22,6 +21,7 @@ use edr_provider::{
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_address};
 use tokio::runtime;
 
 /// Helper struct to modify the pooled transaction from the value in
@@ -408,6 +408,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
+    config.hardfork = l1::SpecId::CANCUN;
 
     config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,

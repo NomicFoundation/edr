@@ -11,7 +11,7 @@ use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
-    config::ProviderConfig,
+    config::{ProviderConfig, TracingConfigWithBuffers},
     logger::LoggerConfig,
     provider::{Provider, ProviderFactory},
     subscription::SubscriptionConfig,
@@ -43,14 +43,15 @@ impl EdrContext {
         provider_config: ProviderConfig,
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
-        tracing_config: serde_json::Value,
+        tracing_config: TracingConfigWithBuffers,
     ) -> napi::Result<JsObject> {
         let provider_config = edr_napi_core::provider::Config::try_from(provider_config)?;
         let logger_config = logger_config.resolve(&env)?;
 
         // TODO: https://github.com/NomicFoundation/edr/issues/760
-        let build_info_config: edr_solidity::contract_decoder::BuildInfoConfig =
-            serde_json::from_value(tracing_config)?;
+        let build_info_config =
+            edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers((&tracing_config).into())
+                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
 
         let contract_decoder = ContractDecoder::new(&build_info_config).map_or_else(
             |error| Err(napi::Error::from_reason(error.to_string())),

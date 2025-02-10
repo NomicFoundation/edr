@@ -2,11 +2,11 @@ import {
   getLatestSupportedSolcVersion,
   linkHexStringBytecode,
   stackTraceEntryTypeToString,
+  TracingConfigWithBuffers,
 } from "@nomicfoundation/edr";
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { BUILD_INFO_FORMAT_VERSION } from "hardhat/internal/constants";
-import { TracingConfig } from "hardhat/internal/hardhat-network/provider/node-types";
 import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/provider";
 import { ReturnData } from "hardhat/internal/hardhat-network/provider/return-data";
 import {
@@ -466,8 +466,8 @@ async function runTest(
     output: compilerOutput,
   };
 
-  const tracingConfig: TracingConfig = {
-    buildInfos: [buildInfo],
+  const tracingConfig: TracingConfigWithBuffers = {
+    buildInfos: [Buffer.from(JSON.stringify(buildInfo))],
     ignoreContracts: true,
   };
 

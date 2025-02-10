@@ -7,8 +7,6 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-alloy-dyn-abi = { version = "0.7.6", default-features = false, features = ["eip712", "std"] }
-alloy-json-abi = { version = "0.7.4", default-features = false }
 alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
 derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { path = "../edr_eth" }
@@ -18,21 +16,21 @@ edr_napi_core = { path = "../edr_napi_core" }
 edr_optimism = { path = "../edr_optimism", optional = true }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_client = { path = "../edr_rpc_client" }
+edr_scenarios = { version = "0.3.5", path = "../edr_scenarios", optional = true }
 edr_solidity ={ version = "0.3.5", path = "../edr_solidity" }
+k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8" ] }
 mimalloc = { version = "0.1.39", default-features = false, features = ["local_dynamic_tls"] }
 # The `async` feature ensures that a tokio runtime is available
 napi = { version = "2.16.10", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
 napi-derive = "2.16.12"
 rand = { version = "0.8.4", optional = true }
-semver = "1.0.22"
 serde = { version = "1.0.209", features = ["derive"] }
 serde_json = { version = "1.0.127" }
+static_assertions = "1.1.0"
 strum = { version = "0.26.0", features = ["derive"] }
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
 tracing-flame = { version = "0.2.0", default-features = false, features = ["smallvec"] }
 tracing-subscriber = { version = "0.3.18", default-features = false, features = ["ansi", "env-filter", "fmt", "parking_lot", "smallvec", "std"] }
-parking_lot = { version = "0.12.1", default-features = false }
-lazy_static = { version = "1.4.0", features = [] }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }
@@ -51,8 +49,11 @@ napi-build = "2.0.1"
 
 [features]
 optimism = ["dep:edr_optimism"]
-scenarios = ["rand"]
+scenarios = ["dep:edr_scenarios", "dep:rand"]
 tracing = ["edr_evm/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
+
+[profile.release]
+lto = true
 
 [lints]
 workspace = true

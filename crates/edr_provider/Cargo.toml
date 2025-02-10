@@ -49,7 +49,7 @@ toml = { version = "0.5.9", default-features = false }
 [features]
 test-utils = ["dep:anyhow", "dep:edr_test_utils"]
 tracing = ["dep:tracing", "edr_eth/tracing", "edr_evm/tracing"]
-test-remote = []
+test-remote = ["dep:edr_test_utils"]
 
 [lints]
 workspace = true

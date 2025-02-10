@@ -1,17 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use edr_scenarios::ScenarioConfig;
 use napi::tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
 use rand::{distributions::Alphanumeric, Rng};
-use serde::{Deserialize, Serialize};
 
 const SCENARIO_FILE_PREFIX: &str = "EDR_SCENARIO_PREFIX";
-
-#[derive(Deserialize, Serialize)]
-struct ScenarioConfig {
-    chain_type: String,
-    provider_config: edr_napi_core::provider::Config,
-    logger_enabled: bool,
-}
 
 /// Creates a scenario file with the provided configuration.
 pub async fn scenario_file(
@@ -34,9 +27,9 @@ pub async fn scenario_file(
             File::create(format!("{scenario_prefix}_{timestamp}_{suffix}.json")).await?;
 
         let config = ScenarioConfig {
-            chain_type,
-            provider_config,
+            chain_type: Some(chain_type),
             logger_enabled,
+            provider_config: provider_config.into(),
         };
         let mut line = serde_json::to_string(&config)?;
         line.push('\n');

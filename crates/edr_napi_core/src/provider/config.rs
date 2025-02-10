@@ -17,7 +17,7 @@ pub struct HardforkActivation {
 }
 
 /// Chain-agnostic configuration for a provider.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
 pub struct Config {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
@@ -31,7 +31,6 @@ pub struct Config {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
     pub coinbase: Address,
-    #[serde(default)]
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, config::Account>,

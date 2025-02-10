@@ -6,14 +6,11 @@ import {
 } from "@nomicfoundation/ethereumjs-util";
 
 import { defaultHardhatNetworkParams } from "hardhat/internal/core/config/default-config";
-import {
-  MempoolOrder,
-  TracingConfig,
-} from "hardhat/internal/hardhat-network/provider/node-types";
+import { MempoolOrder } from "hardhat/internal/hardhat-network/provider/node-types";
 import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/provider";
 import { LoggerConfig } from "hardhat/internal/hardhat-network/provider/modules/logger";
 import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
-import { Response } from "@nomicfoundation/edr";
+import { Response, TracingConfigWithBuffers } from "@nomicfoundation/edr";
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));
@@ -28,7 +25,7 @@ const senderAddress = bytesToHex(privateToAddress(toBuffer(senderPrivateKey)));
 
 export async function instantiateProvider(
   loggerConfig: LoggerConfig,
-  tracingConfig: TracingConfig
+  tracingConfig: TracingConfigWithBuffers
 ): Promise<EdrProviderWrapper> {
   const config = {
     hardfork: "cancun",

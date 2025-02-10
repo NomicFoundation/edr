@@ -265,6 +265,27 @@ export interface ProviderConfig {
   /** Owned accounts, for which the secret key is known */
   ownedAccounts: Array<OwnedAccount>
 }
+/** Tracing config for Solidity stack trace generation. */
+export interface TracingConfigWithBuffers {
+  /**
+   * Build information to use for decoding contracts. Either a Hardhat v2
+   * build info file that contains both input and output or a Hardhat v3
+   * build info file that doesn't contain output and a separate output file.
+   */
+  buildInfos?: Array<Uint8Array> | Array<BuildInfoAndOutput>
+  /** Whether to ignore contracts whose name starts with "Ignored". */
+  ignoreContracts?: boolean
+}
+/**
+ * Hardhat V3 build info where the compiler output is not part of the build
+ * info file.
+ */
+export interface BuildInfoAndOutput {
+  /** The build info input file */
+  buildInfo: Uint8Array
+  /** The build info output file */
+  output: Uint8Array
+}
 export interface DebugTraceResult {
   pass: boolean
   gasUsed: bigint
@@ -657,7 +678,7 @@ export declare class EdrContext {
   /**Creates a new [`EdrContext`] instance. Should only be called once! */
   constructor()
   /**Constructs a new provider with the provided configuration. */
-  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: any): Promise<Provider>
+  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
 }
