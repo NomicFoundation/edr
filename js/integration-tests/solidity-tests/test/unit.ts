@@ -151,4 +151,16 @@ describe("Unit tests", () => {
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);
   });
+
+  it("FailingDeploy", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("FailingDeployTest");
+
+    assertStackTraces(stackTraces.get("setUp()"), "revert: Deployment failed", [
+      { contract: "FailingDeployTest", function: "constructor" },
+    ]);
+
+    assert.equal(failedTests, 1);
+    assert.equal(totalTests, 1);
+  });
 });
