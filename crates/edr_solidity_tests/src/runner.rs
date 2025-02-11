@@ -866,16 +866,16 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                                 }
                                 counterexample =
                                     Some(CounterExample::Sequence(counterexample_sequence));
+                            }
 
-                                // If we can't get a revert reason for the second time, we couldn't
-                                // replay the failure, so keep the original revert reason
-                                // and discard the stack trace as it may be misleading.
-                                if reason.is_some() && revert_reason.is_none() {
-                                    tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
-                                } else {
-                                    stack_trace = stack_trace_result;
-                                    reason = revert_reason;
-                                }
+                            // If we can't get a revert reason for the second time, we couldn't
+                            // replay the failure, so keep the original revert reason
+                            // and discard the stack trace as it may be misleading.
+                            if reason.is_some() && revert_reason.is_none() {
+                                tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
+                            } else {
+                                stack_trace = stack_trace_result;
+                                reason = revert_reason;
                             }
                         }
                         Err(err) => {

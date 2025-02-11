@@ -36,3 +36,16 @@ contract FailingInvariantTest is Test {
     }
 }
 
+// Test where the invariant condition reverts on an empty sequence.
+contract BuggyInvariantTest is Test {
+    StochasticWrongContract wrongContract;
+
+    function setUp() external {
+        wrongContract = new StochasticWrongContract();
+    }
+
+    function invariant() external {
+        require(1 == 2, "one is not two");
+    }
+}
+

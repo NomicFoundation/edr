@@ -155,4 +155,36 @@ describe("Fuzz and invariant testing", function () {
       expectedStackTraces
     );
   });
+
+  it("BuggyInvariant", async function () {
+    const expectedReason = "revert: one is not two";
+    const expectedStackTraces = [
+      { contract: "BuggyInvariantTest", function: "invariant" },
+    ];
+
+    const failureDir = testContext.invariantFailuresPersistDir;
+    const invariantConfig = {
+      runs: 256,
+      depth: 15,
+      // This is false by default, we just specify it here to make it obvious to the reader.
+      failOnRevert: false,
+    };
+
+    // Remove invariant config failure directory to make sure it's created fresh.
+    await fs.rm(failureDir, {
+      recursive: true,
+      force: true,
+    });
+
+    const result = await testContext.runTestsWithStats("BuggyInvariantTest", {
+      invariant: invariantConfig,
+    });
+    assert.equal(result.failedTests, 1);
+    assert.equal(result.totalTests, 1);
+    assertStackTraces(
+      result.stackTraces.get("invariant()"),
+      expectedReason,
+      expectedStackTraces
+    );
+  });
 });
