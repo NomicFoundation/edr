@@ -32,7 +32,7 @@ jobs:
     # https://github.com/NomicFoundation/edr/issues/685
     if: github.ref == 'refs/heads/feat/solidity-tests' || github.repository == github.event.pull_request.head.repo.full_name
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-rust
 
