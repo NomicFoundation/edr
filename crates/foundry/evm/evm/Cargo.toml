@@ -6,6 +6,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+edr_solidity.workspace = true
 foundry-cheatcodes.workspace = true
 foundry-evm-core.workspace = true
 foundry-evm-coverage.workspace = true
@@ -27,6 +28,8 @@ revm = { workspace = true, default-features = false, features = [
     "c-kzg",
 ] }
 revm-inspectors.workspace = true
+
+revm_edr = { version = "=12.1.0", package = "revm" }
 
 eyre = "0.6"
 hex.workspace = true

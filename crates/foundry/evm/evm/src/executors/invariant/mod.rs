@@ -36,7 +36,7 @@ pub use error::{InvariantFailures, InvariantFuzzError};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
 mod replay;
-pub use replay::{replay_error, replay_run};
+pub use replay::{replay_error, replay_run, ReplayErrorArgs, ReplayResult, ReplayRunArgs};
 
 mod result;
 pub use result::InvariantFuzzTestResult;

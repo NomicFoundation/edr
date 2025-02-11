@@ -12,7 +12,8 @@ use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Log, U256};
 use edr_solidity::{
-    contract_decoder::SyncNestedTraceDecoder, solidity_stack_trace::StackTraceEntry,
+    contract_decoder::{NestedTraceDecoder, SyncNestedTraceDecoder},
+    solidity_stack_trace::StackTraceEntry,
 };
 use eyre::Result;
 use foundry_evm::{
@@ -25,8 +26,10 @@ use foundry_evm::{
         fuzz::FuzzedExecutor,
         invariant::{
             check_sequence, replay_error, replay_run, InvariantConfig, InvariantExecutor,
-            InvariantFuzzError, InvariantFuzzTestResult,
+            InvariantFuzzError, InvariantFuzzTestResult, ReplayErrorArgs, ReplayResult,
+            ReplayRunArgs,
         },
+        stack_trace::{get_stack_trace, StackTraceError},
         CallResult, EvmError, ExecutionErr, Executor, ExecutorBuilder, RawCallResult,
     },
     fuzz::{
@@ -43,7 +46,6 @@ use crate::{
     fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
     multi_runner::TestContract,
     result::{SuiteResult, TestKind, TestResult, TestSetup, TestStatus},
-    stack_trace::{get_stack_trace, StackTraceError},
     traces::Traces,
     TestFilter, TestOptions,
 };
@@ -174,19 +176,37 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
             .any(foundry_evm::abi::TestFunctionExt::is_invariant_test);
 
         // Invariant testing requires tracing to figure out what contracts were created.
-        let tmp_tracing = executor.inspector.tracer.is_none() && has_invariants && needs_setup;
-        if tmp_tracing {
+        // This would be only strictly needed for invariant tests if there are contracts
+        // created in the `setUp()` method. We do it even if there is no `setUp` method,
+        // because stack trace generation needs setup traces as well to match addresses
+        // to contract code, and it simplifies re-execution for invariant tests
+        // if we don't need to redo the setup.
+        let setup_tracing = executor.inspector.tracer.is_none() && has_invariants;
+        if setup_tracing {
             executor.set_tracing(true);
         }
         let setup = self.setup(&mut executor, needs_setup);
-        if tmp_tracing {
+        if setup_tracing {
             executor.set_tracing(false);
         }
 
         if setup.reason.is_some() {
+            // We want to report execution time without stack trace generation as people use
+            // these numbers to reason about the performance of their code.
+            let elapsed = start.elapsed();
+
+            // Re-execute for stack traces
+            let mut executor = self.executor_builder.clone().build();
+            executor.inspector.enable_for_stack_traces();
+            let setup_for_stack_traces = self.setup(&mut executor, needs_setup);
+            let stack_trace_result =
+                get_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
+                    .transpose()
+                    .expect("traces are not empty");
+
             // The setup failed, so we return a single test result for `setUp`
             return SuiteResult::new(
-                start.elapsed(),
+                elapsed,
                 [(
                     "setUp()".to_string(),
                     TestResult {
@@ -197,9 +217,11 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                         logs: setup.logs,
                         kind: TestKind::Standard(0),
                         traces: setup.traces,
+                        gas_report_traces: vec![],
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
-                        ..Default::default()
+                        duration: elapsed,
+                        stack_trace_result: Some(stack_trace_result),
                     },
                 )]
                 .into(),
@@ -393,19 +415,13 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                             },
                         reason,
                     } = *err;
-                    (
-                        logs,
-                        traces,
-                        labels,
-                        Some(format!("setup failed: {reason}")),
-                        coverage,
-                    )
+                    (logs, traces, labels, Some(reason), coverage)
                 }
                 Err(err) => (
                     Vec::new(),
                     None,
                     HashMap::new(),
-                    Some(format!("setup failed: {err}")),
+                    Some(err.to_string()),
                     None,
                 ),
             };
@@ -678,9 +694,9 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         let mut traces = setup.traces;
         traces.push((TraceKind::Execution, new_traces));
 
-        get_stack_trace(&self.contract_decoder, &traces)
+        get_stack_trace(&*self.contract_decoder, &traces)
             .transpose()
-            .expect("there is an error trace")
+            .expect("traces are not empty")
     }
 
     // It's one argument over, but follows the pattern in the file.
@@ -756,20 +772,20 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
             .map(|failure_dir| failure_dir.join(&invariant_contract.invariant_function.name));
 
         if let Some(failure_file) = failure_file.as_ref() {
-            if let Some(result) = try_to_replay_recorded_failures(
-                executor.clone(),
-                ReplayArgs {
-                    failure_file,
-                    invariant_config: &invariant_config,
-                    known_contracts,
-                    identified_contracts,
-                    invariant_contract: &invariant_contract,
-                    logs: &mut logs,
-                    traces: &mut traces,
-                    coverage: &mut coverage,
-                    start: &start,
-                },
-            ) {
+            if let Some(result) = try_to_replay_recorded_failures(ReplayRecordedFailureArgs {
+                executor: executor.clone(),
+                contract_decoder: &*self.contract_decoder,
+                revert_decoder: self.revert_decoder,
+                failure_file,
+                invariant_config: &invariant_config,
+                known_contracts,
+                identified_contracts,
+                invariant_contract: &invariant_contract,
+                logs: &mut logs,
+                traces: &mut traces,
+                coverage: &mut coverage,
+                start: &start,
+            }) {
                 return result;
             }
         }
@@ -798,13 +814,14 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                     },
                     duration: start.elapsed(),
                     ..Default::default()
-                }
+                };
             }
         };
 
         let mut counterexample = None;
+        let mut stack_trace = None;
         let success = error.is_none();
-        let reason = error
+        let mut reason = error
             .as_ref()
             .and_then(foundry_evm::executors::invariant::InvariantFuzzError::revert_reason);
 
@@ -815,18 +832,25 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                 | InvariantFuzzError::Revert(case_data) => {
                     // Replay error to create counterexample and to collect logs, traces and
                     // coverage.
-                    match replay_error(
-                        &case_data,
-                        &invariant_contract,
-                        executor.clone(),
+                    match replay_error::<NestedTraceDecoderT>(ReplayErrorArgs {
+                        executor: executor.clone(),
+                        failed_case: &case_data,
+                        invariant_contract: &invariant_contract,
                         known_contracts,
-                        identified_contracts.clone(),
-                        &mut logs,
-                        &mut traces,
-                        &mut coverage,
-                    ) {
-                        Ok(call_sequence) => {
-                            if !call_sequence.is_empty() {
+                        ided_contracts: identified_contracts.clone(),
+                        logs: &mut logs,
+                        traces: &mut traces,
+                        coverage: &mut coverage,
+                        generate_stack_trace: true,
+                        contract_decoder: Some(&*self.contract_decoder),
+                        revert_decoder: self.revert_decoder,
+                    }) {
+                        Ok(ReplayResult {
+                            counterexample_sequence,
+                            stack_trace_result,
+                            revert_reason,
+                        }) => {
+                            if !counterexample_sequence.is_empty() {
                                 // Persist error in invariant failure dir.
                                 if let Some(failure_dir) = failure_dir {
                                     let failure_file = failure_file
@@ -835,12 +859,23 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                                         error!(%err, "Failed to create invariant failure dir");
                                     } else if let Err(err) = edr_common::fs::write_json_file(
                                         failure_file.as_path(),
-                                        &call_sequence,
+                                        &counterexample_sequence,
                                     ) {
                                         error!(%err, "Failed to record call sequence");
                                     }
                                 }
-                                counterexample = Some(CounterExample::Sequence(call_sequence));
+                                counterexample =
+                                    Some(CounterExample::Sequence(counterexample_sequence));
+                            }
+
+                            // If we can't get a revert reason for the second time, we couldn't
+                            // replay the failure, so keep the original revert reason
+                            // and discard the stack trace as it may be misleading.
+                            if reason.is_some() && revert_reason.is_none() {
+                                tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
+                            } else {
+                                stack_trace = stack_trace_result;
+                                reason = revert_reason;
                             }
                         }
                         Err(err) => {
@@ -854,16 +889,20 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
             // If invariants ran successfully, replay the last run to collect logs and
             // traces.
             _ => {
-                if let Err(err) = replay_run(
-                    &invariant_contract,
+                if let Err(err) = replay_run::<NestedTraceDecoderT>(ReplayRunArgs {
+                    invariant_contract: &invariant_contract,
                     executor,
                     known_contracts,
-                    identified_contracts.clone(),
-                    &mut logs,
-                    &mut traces,
-                    &mut coverage,
-                    last_run_inputs.clone(),
-                ) {
+                    ided_contracts: identified_contracts.clone(),
+                    logs: &mut logs,
+                    traces: &mut traces,
+                    coverage: &mut coverage,
+                    inputs: last_run_inputs.clone(),
+                    generate_stack_trace: false,
+                    contract_decoder: None,
+                    revert_decoder: self.revert_decoder,
+                    fail_on_revert: invariant_config.fail_on_revert,
+                }) {
                     error!(%err, "Failed to replay last invariant run");
                 }
             }
@@ -888,8 +927,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
             labeled_addresses: labeled_addresses.clone(),
             duration: start.elapsed(),
             gas_report_traces,
-            // TODO
-            stack_trace_result: None,
+            stack_trace_result: stack_trace,
         }
     }
 
@@ -921,6 +959,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
             mut labeled_addresses,
             mut coverage,
             fuzz_fixtures,
+            has_setup_method,
             ..
         } = setup;
 
@@ -968,6 +1007,17 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         let duration = start.elapsed();
         trace!(?duration, success = %result.success);
 
+        let stack_trace_result =
+            if let Some(CounterExample::Single(counter_example)) = result.counterexample.as_ref() {
+                Some(self.re_run_fuzz_counterexample_for_stack_traces(
+                    address,
+                    counter_example,
+                    has_setup_method,
+                ))
+            } else {
+                None
+            };
+
         TestResult {
             status: match result.success {
                 true => TestStatus::Success,
@@ -987,12 +1037,56 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                 .into_iter()
                 .map(|t| vec![t])
                 .collect(),
-            stack_trace_result: None,
+            stack_trace_result,
         }
+    }
+
+    /// Re-run the deployment, setup and test execution with expensive EVM step
+    /// tracing to generate a stack trace for a fuzz counterexample.
+    fn re_run_fuzz_counterexample_for_stack_traces(
+        &self,
+        address: Address,
+        counter_example: &BaseCounterExample,
+        needs_setup: bool,
+    ) -> Result<Vec<StackTraceEntry>, StackTraceError> {
+        let mut executor = self.executor_builder.clone().build();
+
+        // We only need light-weight tracing for setup to be able to match contract
+        // codes to contact addresses.
+        executor.inspector.tracing(true);
+        let setup = self.setup(&mut executor, needs_setup);
+        if let Some(reason) = setup.reason {
+            // If this function was called, the setup succeeded during test execution, so
+            // this is an unexpected failure.
+            return Err(StackTraceError::FailingSetup(reason));
+        }
+
+        // Collect EVM step traces that are needed for stack trace generation.
+        executor.inspector.enable_for_stack_traces();
+
+        // Run counterexample test
+        let call = executor
+            .call_raw(
+                self.sender,
+                address,
+                counter_example.calldata.clone(),
+                U256::ZERO,
+            )
+            .map_err(|err| StackTraceError::Evm(err.to_string()))?;
+
+        let mut traces = setup.traces;
+        traces.push((TraceKind::Execution, call.traces.expect("tracing is on")));
+
+        get_stack_trace(&*self.contract_decoder, &traces)
+            .transpose()
+            .expect("traces are not empty")
     }
 }
 
-struct ReplayArgs<'a> {
+struct ReplayRecordedFailureArgs<'a, NestedTraceDecoderT: NestedTraceDecoder> {
+    executor: Executor,
+    contract_decoder: &'a NestedTraceDecoderT,
+    revert_decoder: &'a RevertDecoder,
     failure_file: &'a Path,
     invariant_config: &'a InvariantConfig,
     known_contracts: &'a ContractsByArtifact,
@@ -1004,8 +1098,13 @@ struct ReplayArgs<'a> {
     start: &'a Instant,
 }
 
-fn try_to_replay_recorded_failures(executor: Executor, args: ReplayArgs<'_>) -> Option<TestResult> {
-    let ReplayArgs {
+fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
+    args: ReplayRecordedFailureArgs<'_, NestedTraceDecoderT>,
+) -> Option<TestResult> {
+    let ReplayRecordedFailureArgs {
+        executor,
+        contract_decoder,
+        revert_decoder,
         failure_file,
         invariant_config,
         known_contracts,
@@ -1047,19 +1146,26 @@ fn try_to_replay_recorded_failures(executor: Executor, args: ReplayArgs<'_>) -> 
             if !success {
                 // If sequence still fails then replay error to collect traces and
                 // exit without executing new runs.
-                let _ = replay_run(
+                let (reason, stack_trace_result) = replay_run(ReplayRunArgs {
                     invariant_contract,
                     executor,
                     known_contracts,
-                    identified_contracts.clone(),
+                    ided_contracts: identified_contracts.clone(),
                     logs,
                     traces,
                     coverage,
-                    txes,
+                    inputs: txes,
+                    generate_stack_trace: true,
+                    contract_decoder: Some(contract_decoder),
+                    revert_decoder,
+                    fail_on_revert: invariant_config.fail_on_revert,
+                })
+                .map_or_else(
+                    |_err| (None, None),
+                    |result| (result.revert_reason, result.stack_trace_result),
                 );
-                return Some(TestResult {
-                    status: TestStatus::Failure,
-                    reason: if replayed_entirely {
+                let reason = reason.or_else(|| {
+                    if replayed_entirely {
                         Some(format!(
                             "{} replay failure",
                             invariant_contract.invariant_function.name
@@ -1069,9 +1175,15 @@ fn try_to_replay_recorded_failures(executor: Executor, args: ReplayArgs<'_>) -> 
                             "{} persisted failure revert",
                             invariant_contract.invariant_function.name
                         ))
-                    },
+                    }
+                });
+
+                return Some(TestResult {
+                    status: TestStatus::Failure,
+                    reason,
                     decoded_logs: decode_console_logs(logs),
                     traces: traces.clone(),
+                    gas_report_traces: vec![],
                     coverage: coverage.clone(),
                     counterexample: Some(CounterExample::Sequence(call_sequence)),
                     kind: TestKind::Invariant {
@@ -1080,7 +1192,9 @@ fn try_to_replay_recorded_failures(executor: Executor, args: ReplayArgs<'_>) -> 
                         reverts: 1,
                     },
                     duration: start.elapsed(),
-                    ..Default::default()
+                    logs: vec![],
+                    labeled_addresses: HashMap::default(),
+                    stack_trace_result,
                 });
             }
         }

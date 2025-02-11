@@ -1,5 +1,5 @@
 import chai, { assert, expect } from "chai";
-import { TestContext } from "./testContext";
+import { assertStackTraces, TestContext } from "./testContext";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { FuzzTestKind, InvariantTestKind } from "@ignored/edr";
@@ -24,6 +24,15 @@ describe("Fuzz and invariant testing", function () {
     const result1 = await testContext.runTestsWithStats("OverflowTest");
     assert.equal(result1.failedTests, 1);
     assert.equal(result1.totalTests, 1);
+
+    assertStackTraces(
+      result1.stackTraces.get("testFuzzAddWithOverflow(uint256,uint256)"),
+      "arithmetic underflow or overflow",
+      [
+        { contract: "OverflowTest", function: "testFuzzAddWithOverflow" },
+        { contract: "MyContract", function: "addWithOverflow" },
+      ]
+    );
 
     // The fuzz failure directory should not be created if we don't set the directory
     assert.isFalse(existsSync(failureDir));
@@ -56,6 +65,14 @@ describe("Fuzz and invariant testing", function () {
 
   // One test as steps should be sequential
   it("FailingInvariant", async function () {
+    const expectedReason = "assertion failed";
+    const expectedStackTraces = [
+      { contract: "FailingInvariantTest", function: "invariant" },
+      {
+        contract: "FailingInvariantTest",
+        function: "assertEq",
+      },
+    ];
     const failureDir = testContext.invariantFailuresPersistDir;
     const invariantConfig = {
       runs: 256,
@@ -78,6 +95,11 @@ describe("Fuzz and invariant testing", function () {
     );
     assert.equal(result1.failedTests, 1);
     assert.equal(result1.totalTests, 1);
+    assertStackTraces(
+      result1.stackTraces.get("invariant()"),
+      expectedReason,
+      expectedStackTraces
+    );
 
     // The invariant failure directory should not be created if we don't set the directory
     assert.isFalse(existsSync(failureDir));
@@ -100,6 +122,14 @@ describe("Fuzz and invariant testing", function () {
     const fuzzTestResult2 = results2[0].testResults[0].kind as FuzzTestKind;
     // More than one run should be needed on a fresh invariant test.
     assert.isTrue(fuzzTestResult2.runs > 1n);
+    assertStackTraces(
+      {
+        stackTrace: results2[0].testResults[0].stackTrace()!,
+        reason: results2[0].testResults[0].reason,
+      },
+      expectedReason,
+      expectedStackTraces
+    );
 
     // The invariant failure directory should now be created
     assert.isTrue(existsSync(failureDir));
@@ -125,5 +155,45 @@ describe("Fuzz and invariant testing", function () {
     const fuzzTestResult3 = results3[0].testResults[0].kind as FuzzTestKind;
     // The second time only one run should be needed, because the persisted failure is used.
     assert.equal(fuzzTestResult3.runs, 1n);
+    assertStackTraces(
+      {
+        stackTrace: results3[0].testResults[0].stackTrace()!,
+        reason: results3[0].testResults[0].reason,
+      },
+      expectedReason,
+      expectedStackTraces
+    );
+  });
+
+  it("BuggyInvariant", async function () {
+    const expectedReason = "revert: one is not two";
+    const expectedStackTraces = [
+      { contract: "BuggyInvariantTest", function: "invariant" },
+    ];
+
+    const failureDir = testContext.invariantFailuresPersistDir;
+    const invariantConfig = {
+      runs: 256,
+      depth: 15,
+      // This is false by default, we just specify it here to make it obvious to the reader.
+      failOnRevert: false,
+    };
+
+    // Remove invariant config failure directory to make sure it's created fresh.
+    await fs.rm(failureDir, {
+      recursive: true,
+      force: true,
+    });
+
+    const result = await testContext.runTestsWithStats("BuggyInvariantTest", {
+      invariant: invariantConfig,
+    });
+    assert.equal(result.failedTests, 1);
+    assert.equal(result.totalTests, 1);
+    assertStackTraces(
+      result.stackTraces.get("invariant()"),
+      expectedReason,
+      expectedStackTraces
+    );
   });
 });

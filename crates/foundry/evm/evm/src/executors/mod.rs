@@ -41,6 +41,8 @@ pub mod fuzz;
 pub use fuzz::FuzzedExecutor;
 
 pub mod invariant;
+pub mod stack_trace;
+
 pub use invariant::InvariantExecutor;
 
 sol! {

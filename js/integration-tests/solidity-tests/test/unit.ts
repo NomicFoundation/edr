@@ -21,9 +21,11 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("SuccessAndFailureTest");
 
-    assertStackTraces(stackTraces.get("testThatFails()"), [
-      { contract: "SuccessAndFailureTest", function: "testThatFails" },
-    ]);
+    assertStackTraces(
+      stackTraces.get("testThatFails()"),
+      "revert: 1 is not equal to 2",
+      [{ contract: "SuccessAndFailureTest", function: "testThatFails" }]
+    );
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);
@@ -137,8 +139,26 @@ describe("Unit tests", () => {
   });
 
   it("FailingSetup", async function () {
-    const { totalTests, failedTests } =
+    const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("FailingSetupTest");
+
+    assertStackTraces(
+      stackTraces.get("setUp()"),
+      "invalid rpc url: nonExistentForkAlias",
+      [{ contract: "FailingSetupTest", function: "setUp" }]
+    );
+
+    assert.equal(failedTests, 1);
+    assert.equal(totalTests, 1);
+  });
+
+  it("FailingDeploy", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("FailingDeployTest");
+
+    assertStackTraces(stackTraces.get("setUp()"), "revert: Deployment failed", [
+      { contract: "FailingDeployTest", function: "constructor" },
+    ]);
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);

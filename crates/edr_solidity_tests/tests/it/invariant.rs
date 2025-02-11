@@ -475,7 +475,7 @@ async fn test_shrink_big_sequence() {
             vec![(
                 "invariant_shrink_big_sequence()",
                 false,
-                Some("invariant_shrink_big_sequence replay failure".into()),
+                Some("revert: condition met".into()),
                 None,
                 None,
             )],

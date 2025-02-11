@@ -26,8 +26,7 @@ pub use config::{SolidityTestRunnerConfig, SolidityTestRunnerConfigError};
 
 pub mod result;
 
-mod stack_trace;
-pub use stack_trace::StackTraceError;
+pub use foundry_evm::executors::stack_trace::StackTraceError;
 
 mod test_filter;
 

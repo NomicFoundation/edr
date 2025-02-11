@@ -69,7 +69,10 @@ export class TestContext {
       }
     );
 
-    const stackTraces = new Map<string, SolidityStackTrace>();
+    const stackTraces = new Map<
+      string,
+      { stackTrace: SolidityStackTrace; reason: string | undefined }
+    >();
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
         let failed = testResult.status === "Failure";
@@ -78,7 +81,10 @@ export class TestContext {
           failedTests++;
           const stackTrace = testResult.stackTrace();
           if (stackTrace !== null) {
-            stackTraces.set(testResult.name, stackTrace);
+            stackTraces.set(testResult.name, {
+              stackTrace: stackTrace,
+              reason: testResult.reason,
+            });
           }
         }
       }
@@ -100,19 +106,27 @@ export class TestContext {
 interface SolidityTestsRunResult {
   totalTests: number;
   failedTests: number;
-  stackTraces: Map<string, SolidityStackTrace>;
+  stackTraces: Map<
+    string,
+    { stackTrace: SolidityStackTrace; reason: string | undefined }
+  >;
 }
 
 export function assertStackTraces(
-  stackTrace: SolidityStackTrace | undefined,
+  actual:
+    | { stackTrace: SolidityStackTrace; reason: string | undefined }
+    | undefined,
+  expectedReason: string,
   expectedEntries: {
     function: string;
     contract: string;
   }[]
 ) {
-  if (stackTrace === undefined) {
+  if (actual === undefined) {
     throw new Error("stack trace is undefined");
   }
+  assert.include(actual.reason, expectedReason);
+  const stackTrace = actual.stackTrace;
   assert.equal(stackTrace.length, expectedEntries.length);
   for (let i = 0; i < stackTrace.length; i += 1) {
     const expected = expectedEntries[i];
