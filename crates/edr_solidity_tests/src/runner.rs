@@ -1107,21 +1107,23 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                     revert_decoder,
                     fail_on_revert: invariant_config.fail_on_revert,
                 })
-                .ok()
                 .map_or_else(
-                    || (None, None),
-                    |result| {
-                        let reason = result.revert_reason.unwrap_or_else(|| {
-                            if replayed_entirely {
-                                "replay failure"
-                            } else {
-                                "persisted failure revert"
-                            }
-                            .to_string()
-                        });
-                        (Some(reason), result.stack_trace_result)
-                    },
+                    |_err| (None, None),
+                    |result| (result.revert_reason, result.stack_trace_result),
                 );
+                let reason = reason.or_else(|| {
+                    if replayed_entirely {
+                        Some(format!(
+                            "{} replay failure",
+                            invariant_contract.invariant_function.name
+                        ))
+                    } else {
+                        Some(format!(
+                            "{} persisted failure revert",
+                            invariant_contract.invariant_function.name
+                        ))
+                    }
+                });
 
                 return Some(TestResult {
                     status: TestStatus::Failure,
