@@ -13,7 +13,7 @@
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
   "pnpm": {
     "overrides": {
-      "hardhat>@nomicfoundation/edr": "workspace:*"
+      "hardhat>@ignored/edr-optimism": "workspace:*"
     },
     "patchedDependencies": {
       "@defi-wonderland/smock@2.4.0": "patches/@defi-wonderland__smock@2.4.0.patch",

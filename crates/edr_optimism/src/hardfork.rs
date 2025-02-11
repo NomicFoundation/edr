@@ -2,6 +2,7 @@ use std::sync::OnceLock;
 
 use edr_eth::HashMap;
 use edr_evm::hardfork::{Activations, ChainConfig, ForkCondition};
+pub use revm_optimism::id;
 
 use crate::OptimismSpecId;
 

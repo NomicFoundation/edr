@@ -111,6 +111,7 @@ describe("Provider", () => {
         fork: {
           jsonRpcUrl: ALCHEMY_URL,
         },
+        // TODO: Add support for overriding remote fork state when the local fork is different
         genesisState: [],
         ...providerConfig,
       },

@@ -16,6 +16,8 @@ import {
   // @ts-ignore
   optimismProviderFactory,
   l1HardforkFromString,
+  optimismGenesisState,
+  optimismHardforkFromString,
 } from "..";
 import { ALCHEMY_URL, toBuffer } from "./helpers";
 
@@ -107,8 +109,9 @@ describe("Multi-chain", () => {
     const provider = context.createProvider(
       OPTIMISM_CHAIN_TYPE,
       {
-        // TODO: Add genesis state for Optimism
-        genesisState: [],
+        genesisState: optimismGenesisState(
+          optimismHardforkFromString(providerConfig.hardfork)
+        ),
         ...providerConfig,
       },
       loggerConfig,
@@ -132,6 +135,7 @@ describe("Multi-chain", () => {
         fork: {
           jsonRpcUrl: ALCHEMY_URL.replace("eth-", "opt-"),
         },
+        // TODO: Add support for overriding remote fork state when the local fork is different
         genesisState: [],
         ...providerConfig,
       },
@@ -153,7 +157,9 @@ describe("Multi-chain", () => {
       const provider = await context.createProvider(
         OPTIMISM_CHAIN_TYPE,
         {
-          genesisState: [],
+          genesisState: optimismGenesisState(
+            optimismHardforkFromString(providerConfig.hardfork)
+          ),
           ...providerConfig,
         },
         loggerConfig,
@@ -173,6 +179,120 @@ describe("Multi-chain", () => {
       );
 
       await assert.isFulfilled(block);
+    });
+
+    describe("Predeploys", () => {
+      it("should have the GasPriceOracle predeploy", async function () {
+        const provider = await context.createProvider(
+          OPTIMISM_CHAIN_TYPE,
+          {
+            genesisState: optimismGenesisState(
+              optimismHardforkFromString(providerConfig.hardfork)
+            ),
+            ...providerConfig,
+          },
+          loggerConfig,
+          {
+            subscriptionCallback: (_event: SubscriptionEvent) => {},
+          },
+          {}
+        );
+
+        const response = await provider.handleRequest(
+          JSON.stringify({
+            id: 1,
+            jsonrpc: "2.0",
+            method: "eth_call",
+            params: [
+              {
+                to: "0x420000000000000000000000000000000000000F",
+                data: "0x960e3a23", // isFjord()
+              },
+            ],
+          })
+        );
+        const responseData = JSON.parse(response.data);
+
+        assert.equal(
+          responseData.result,
+          "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+      });
+
+      it("should have the L1Block predeploy", async function () {
+        const provider = await context.createProvider(
+          OPTIMISM_CHAIN_TYPE,
+          {
+            genesisState: optimismGenesisState(
+              optimismHardforkFromString(providerConfig.hardfork)
+            ),
+            ...providerConfig,
+          },
+          loggerConfig,
+          {
+            subscriptionCallback: (_event: SubscriptionEvent) => {},
+          },
+          {}
+        );
+
+        const response = await provider.handleRequest(
+          JSON.stringify({
+            id: 1,
+            jsonrpc: "2.0",
+            method: "eth_call",
+            params: [
+              {
+                to: "0x4200000000000000000000000000000000000015",
+                data: "0x5cf24969", // basefee()
+              },
+            ],
+          })
+        );
+        const responseData = JSON.parse(response.data);
+
+        assert.equal(
+          responseData.result,
+          "0x00000000000000000000000000000000000000000000000000000002540be400"
+        ); // 10 gwei
+      });
+
+      it("should stub unimplemented predeploys", async function () {
+        const provider = await context.createProvider(
+          OPTIMISM_CHAIN_TYPE,
+          {
+            genesisState: optimismGenesisState(
+              optimismHardforkFromString(providerConfig.hardfork)
+            ),
+            ...providerConfig,
+          },
+          loggerConfig,
+          {
+            subscriptionCallback: (_event: SubscriptionEvent) => {},
+          },
+          {}
+        );
+
+        const response = await provider.handleRequest(
+          JSON.stringify({
+            id: 1,
+            jsonrpc: "2.0",
+            method: "eth_call",
+            params: [
+              {
+                to: "0x4200000000000000000000000000000000000016", // L2ToL1MessagePasser
+                data: "0x3f827a5a", // MESSAGE_VERSION()
+              },
+            ],
+          })
+        );
+        const responseData = JSON.parse(response.data);
+
+        assert.equal(
+          responseData.result,
+          // Error("Predeploy L2ToL1MessagePasser is not supported.")
+          "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002f5072656465706c6f79204c32546f4c314d657373616765506173736572206973206e6f7420737570706f727465642e0000000000000000000000000000000000"
+        );
+      });
     });
   });
 });
