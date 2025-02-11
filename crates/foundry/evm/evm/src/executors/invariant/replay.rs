@@ -22,7 +22,7 @@ use revm::primitives::U256;
 use super::{error::FailedInvariantCaseData, shrink_sequence};
 use crate::executors::{
     stack_trace::{get_stack_trace, StackTraceError},
-    EvmError, Executor,
+    Executor,
 };
 
 /// Arguments to `replay_run`.
@@ -39,6 +39,7 @@ pub struct ReplayRunArgs<'a, NestedTraceDecoderT> {
     /// Must be provided if `generate_stack_trace` is true
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
+    pub fail_on_revert: bool,
 }
 
 /// Results of a replay
@@ -46,7 +47,6 @@ pub struct ReplayRunArgs<'a, NestedTraceDecoderT> {
 pub struct ReplayResult {
     pub counterexample_sequence: Vec<BaseCounterExample>,
     pub stack_trace_result: Option<Result<Vec<StackTraceEntry>, StackTraceError>>,
-    /// Revert reason
     pub revert_reason: Option<String>,
 }
 
@@ -68,10 +68,15 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
         generate_stack_trace,
         contract_decoder,
         revert_decoder,
+        fail_on_revert,
     } = args;
 
     // We want traces for a failed case.
-    executor.set_tracing(true);
+    if generate_stack_trace {
+        executor.inspector.enable_for_stack_traces();
+    } else {
+        executor.set_tracing(true);
+    }
 
     let mut counterexample_sequence = vec![];
 
@@ -84,7 +89,10 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
             U256::ZERO,
         )?;
         logs.extend(call_result.logs);
-        traces.push((TraceKind::Execution, call_result.traces.clone().unwrap()));
+        traces.push((
+            TraceKind::Execution,
+            call_result.traces.clone().expect("enabled tracing"),
+        ));
 
         if let Some(new_coverage) = call_result.coverage {
             if let Some(old_coverage) = coverage {
@@ -108,6 +116,20 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
             &ided_contracts,
             call_result.traces,
         ));
+
+        // If this call failed, but didn't revert, this is terminal for sure.
+        // If this call reverted, only exit if `fail_on_revert` is true.
+        if !call_result.exit_reason.is_ok() && (fail_on_revert || !call_result.reverted) {
+            let stack_trace_result =
+                contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose());
+            let revert_reason = revert_decoder
+                .maybe_decode(call_result.result.as_ref(), Some(call_result.exit_reason));
+            return Ok(ReplayResult {
+                counterexample_sequence,
+                stack_trace_result,
+                revert_reason,
+            });
+        }
     }
 
     // Replay invariant to collect logs and traces.
@@ -115,9 +137,6 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     // Checking after each call doesn't add valuable info for passing scenario
     // (invariant call result is always success) nor for failed scenarios
     // (invariant call result is always success until the last call that breaks it).
-    if generate_stack_trace {
-        executor.inspector.enable_for_stack_traces();
-    }
     let invariant_result = executor.call_raw(
         CALLER,
         invariant_contract.address,
@@ -130,24 +149,21 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     )?;
     traces.push((
         TraceKind::Execution,
-        invariant_result.traces.clone().unwrap(),
+        invariant_result.traces.expect("tracing is on"),
     ));
-    logs.extend(invariant_result.logs.clone());
+    logs.extend(invariant_result.logs);
 
     let stack_trace_result =
         contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose());
-    let reason = invariant_result
-        .into_decoded_result(invariant_contract.invariant_function, Some(revert_decoder))
-        .err()
-        .and_then(|err| match err {
-            EvmError::Execution(err) => Some(err.reason),
-            _ => None,
-        });
+    let revert_reason = revert_decoder.maybe_decode(
+        invariant_result.result.as_ref(),
+        Some(invariant_result.exit_reason),
+    );
 
     Ok(ReplayResult {
         counterexample_sequence,
         stack_trace_result,
-        revert_reason: reason,
+        revert_reason,
     })
 }
 
@@ -209,6 +225,7 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
                 generate_stack_trace,
                 contract_decoder,
                 revert_decoder,
+                fail_on_revert: failed_case.fail_on_revert,
             })
         }
     }

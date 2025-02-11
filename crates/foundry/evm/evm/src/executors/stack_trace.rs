@@ -39,8 +39,9 @@ impl From<EvmError> for StackTraceError {
 }
 
 /// Compute stack trace based on execution traces.
-/// Assumes last trace is the error one.
-/// Returns `None` if `traces` is empty.
+/// Assumes last trace is the error one. This is important for invariant tests
+/// where there might be multiple errors traces. Returns `None` if `traces` is
+/// empty.
 pub fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
     contract_decoder: &NestedTraceDecoderT,
     traces: &[(TraceKind, CallTraceArena)],

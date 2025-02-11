@@ -814,7 +814,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                     },
                     duration: start.elapsed(),
                     ..Default::default()
-                }
+                };
             }
         };
 
@@ -866,8 +866,16 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                                 }
                                 counterexample =
                                     Some(CounterExample::Sequence(counterexample_sequence));
-                                stack_trace = stack_trace_result;
-                                reason = revert_reason;
+
+                                // If we can't get a revert reason for the second time, we couldn't
+                                // replay the failure, so keep the original revert reason
+                                // and discard the stack trace as it may be misleading.
+                                if reason.is_some() && revert_reason.is_none() {
+                                    tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
+                                } else {
+                                    stack_trace = stack_trace_result;
+                                    reason = revert_reason;
+                                }
                             }
                         }
                         Err(err) => {
@@ -893,6 +901,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                     generate_stack_trace: false,
                     contract_decoder: None,
                     revert_decoder: self.revert_decoder,
+                    fail_on_revert: invariant_config.fail_on_revert,
                 }) {
                     error!(%err, "Failed to replay last invariant run");
                 }
@@ -1096,6 +1105,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                     generate_stack_trace: true,
                     contract_decoder: Some(contract_decoder),
                     revert_decoder,
+                    fail_on_revert: invariant_config.fail_on_revert,
                 })
                 .ok()
                 .map_or_else(
