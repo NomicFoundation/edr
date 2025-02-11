@@ -959,6 +959,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
             mut labeled_addresses,
             mut coverage,
             fuzz_fixtures,
+            has_setup_method,
             ..
         } = setup;
 
@@ -1006,6 +1007,17 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         let duration = start.elapsed();
         trace!(?duration, success = %result.success);
 
+        let stack_trace_result =
+            if let Some(CounterExample::Single(counter_example)) = result.counterexample.as_ref() {
+                Some(self.re_run_fuzz_counterexample_for_stack_traces(
+                    address,
+                    counter_example,
+                    has_setup_method,
+                ))
+            } else {
+                None
+            };
+
         TestResult {
             status: match result.success {
                 true => TestStatus::Success,
@@ -1025,8 +1037,49 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                 .into_iter()
                 .map(|t| vec![t])
                 .collect(),
-            stack_trace_result: None,
+            stack_trace_result,
         }
+    }
+
+    /// Re-run the deployment, setup and test execution with expensive EVM step
+    /// tracing to generate a stack trace for a fuzz counterexample.
+    fn re_run_fuzz_counterexample_for_stack_traces(
+        &self,
+        address: Address,
+        counter_example: &BaseCounterExample,
+        needs_setup: bool,
+    ) -> Result<Vec<StackTraceEntry>, StackTraceError> {
+        let mut executor = self.executor_builder.clone().build();
+
+        // We only need light-weight tracing for setup to be able to match contract
+        // codes to contact addresses.
+        executor.inspector.tracing(true);
+        let setup = self.setup(&mut executor, needs_setup);
+        if let Some(reason) = setup.reason {
+            // If this function was called, the setup succeeded during test execution, so
+            // this is an unexpected failure.
+            return Err(StackTraceError::FailingSetup(reason));
+        }
+
+        // Collect EVM step traces that are needed for stack trace generation.
+        executor.inspector.enable_for_stack_traces();
+
+        // Run counterexample test
+        let call = executor
+            .call_raw(
+                self.sender,
+                address,
+                counter_example.calldata.clone(),
+                U256::ZERO,
+            )
+            .map_err(|err| StackTraceError::Evm(err.to_string()))?;
+
+        let mut traces = setup.traces;
+        traces.push((TraceKind::Execution, call.traces.expect("tracing is on")));
+
+        get_stack_trace(&*self.contract_decoder, &traces)
+            .transpose()
+            .expect("traces are not empty")
     }
 }
 

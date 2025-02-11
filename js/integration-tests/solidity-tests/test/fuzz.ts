@@ -25,6 +25,15 @@ describe("Fuzz and invariant testing", function () {
     assert.equal(result1.failedTests, 1);
     assert.equal(result1.totalTests, 1);
 
+    assertStackTraces(
+      result1.stackTraces.get("testFuzzAddWithOverflow(uint256,uint256)"),
+      "arithmetic underflow or overflow",
+      [
+        { contract: "OverflowTest", function: "testFuzzAddWithOverflow" },
+        { contract: "MyContract", function: "addWithOverflow" },
+      ]
+    );
+
     // The fuzz failure directory should not be created if we don't set the directory
     assert.isFalse(existsSync(failureDir));
 
