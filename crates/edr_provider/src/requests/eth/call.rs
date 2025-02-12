@@ -50,7 +50,7 @@ pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>)
     block_spec.unwrap_or_else(BlockSpec::latest)
 }
 
-pub(crate) fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
+pub fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     request: CallRequest,
     block_spec: &BlockSpec,

@@ -482,6 +482,15 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
     }
 }
 
+#[cfg(feature = "test-utils")]
+impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch>
+    Provider<LoggerErrorT, TimerT>
+{
+    pub fn data_mut(&self) -> tokio::sync::MutexGuard<'_, ProviderData<LoggerErrorT, TimerT>> {
+        task::block_in_place(|| self.runtime.block_on(self.data.lock()))
+    }
+}
+
 fn to_json<T: serde::Serialize, LoggerErrorT: Debug>(
     value: T,
 ) -> Result<ResponseWithTraces, ProviderError<LoggerErrorT>> {

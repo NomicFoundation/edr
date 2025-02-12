@@ -295,7 +295,7 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
     send_raw_transaction_and_log(data, signed_transaction)
 }
 
-fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
+pub fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     transaction_request: EthTransactionRequest,
 ) -> Result<TransactionRequestAndSender, ProviderError<LoggerErrorT>> {

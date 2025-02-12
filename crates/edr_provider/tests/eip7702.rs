@@ -4,16 +4,12 @@ use std::{convert::Infallible, str::FromStr, sync::Arc};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    rlp::{self, Decodable},
-    signature::{secret_key_from_str, secret_key_to_address},
-    transaction::{
-        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction, Transaction,
-        TransactionType,
-    },
-    AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
-    U256,
+    signature::{public_key_to_address, secret_key_from_str, secret_key_to_address},
+    transaction::{self, EthTransactionRequest},
+    AccountInfo, Address, Authorization, Bytes, PreEip1898BlockSpec, SignedAuthorization, SpecId,
+    B256, BYTES_PER_BLOB, U256,
 };
-use edr_evm::{EnvKzgSettings, KECCAK_EMPTY};
+use edr_evm::{address, KECCAK_EMPTY};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
@@ -23,97 +19,17 @@ use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
-fn fake_raw_transaction() -> Bytes {
-    Bytes::from_str(include_str!("fixtures/eip4844.txt")).expect("failed to parse raw transaction")
-}
-
-fn fake_pooled_transaction() -> PooledTransaction {
-    let raw_transaction = fake_raw_transaction();
-
-    PooledTransaction::decode(&mut raw_transaction.as_ref())
-        .expect("failed to decode raw transaction")
-}
-
-fn fake_transaction() -> transaction::Signed {
-    fake_pooled_transaction().into_payload()
-}
-
-fn fake_call_request() -> anyhow::Result<CallRequest> {
-    let transaction = fake_pooled_transaction();
-    let blobs = transaction.blobs().map(|blobs| {
-        blobs
-            .iter()
-            .map(|blob| Bytes::copy_from_slice(blob.as_ref()))
-            .collect()
-    });
-    let transaction = transaction.into_payload();
-    let from = transaction.caller();
-
-    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
-        Some(transaction.access_list().to_vec())
-    } else {
-        None
-    };
-
-    Ok(CallRequest {
-        from: Some(*from),
-        to: transaction.kind().to().copied(),
-        max_fee_per_gas: transaction.max_fee_per_gas(),
-        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
-        gas: Some(transaction.gas_limit()),
-        value: Some(transaction.value()),
-        data: Some(transaction.data().clone()),
-        access_list,
-        blobs,
-        blob_hashes: transaction.blob_hashes(),
-        ..CallRequest::default()
-    })
-}
-
-fn fake_transaction_request() -> EthTransactionRequest {
-    let transaction = fake_pooled_transaction();
-    let blobs = transaction.blobs().map(|blobs| {
-        blobs
-            .iter()
-            .map(|blob| Bytes::copy_from_slice(blob.as_ref()))
-            .collect()
-    });
-
-    let transaction = transaction.into_payload();
-    let from = *transaction.caller();
-
-    let access_list = if transaction.transaction_type() >= TransactionType::Eip2930 {
-        Some(transaction.access_list().to_vec())
-    } else {
-        None
-    };
-
-    EthTransactionRequest {
-        from,
-        to: transaction.kind().to().copied(),
-        max_fee_per_gas: transaction.max_fee_per_gas(),
-        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
-        gas: Some(transaction.gas_limit()),
-        value: Some(transaction.value()),
-        data: Some(transaction.data().clone()),
-        nonce: Some(transaction.nonce()),
-        chain_id: transaction.chain_id(),
-        access_list,
-        transaction_type: Some(transaction.transaction_type().into()),
-        blobs,
-        blob_hashes: transaction.blob_hashes(),
-        ..EthTransactionRequest::default()
-    }
-}
-
 #[tokio::test(flavor = "multi_thread")]
-async fn call_unsupported() -> anyhow::Result<()> {
-    let request = fake_call_request()?;
+async fn same_sender_and_signer() -> anyhow::Result<()> {
+    let secret_key = secret_key_from_str(SECRET_KEYS[0])?;
+    let address = public_key_to_address(secret_key.public_key());
+
+    let authorization_address = address!("0x1234567890123456789012345678901234567890");
 
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = SpecId::SHANGHAI;
+    config.hardfork = SpecId::PRAGUE;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -124,8 +40,29 @@ async fn call_unsupported() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
+    let request = EthTransactionRequest {
+        from: address,
+        to: Some(address),
+        authorization_list: Some(vec![SignedAuthorization::new_unchecked(
+            Authorization {
+                chain_id: U256::from(0x7a69),
+                address: authorization_address,
+                nonce: 0x1,
+            },
+            y_parity: todo!(),
+            r: todo!(),
+            s: todo!(),
+        )]),
+        ..EthTransactionRequest::default()
+    };
+
+    let resolved = {}
+        let provider_data = provider.data_mut();
+        
+    };
+
     let error = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::Call(
+        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
             request, None, None,
         )))
         .expect_err("Must return an error");
