@@ -27,6 +27,7 @@ async fn same_sender_and_signer() -> anyhow::Result<()> {
 
     let secret_key = secret_key_from_str(SECRET_KEYS[0])?;
     let address = public_key_to_address(secret_key.public_key());
+    println!("recovered address: {address}");
 
     let authorized_address = address!("0x1234567890123456789012345678901234567890");
     let authorization = eip7702::Authorization {
@@ -48,13 +49,6 @@ async fn same_sender_and_signer() -> anyhow::Result<()> {
         secret_key,
         balance: one_ether(),
     }];
-    // config.genesis_accounts.insert(
-    //     address!("3d986a360ec7f4B6f81270aE1C24782f4F03D0C6"),
-    //     AccountInfo {
-    //         balance: one_ether(),
-    //         ..AccountInfo::default()
-    //     },
-    // );
     config.chain_id = CHAIN_ID;
     config.hardfork = SpecId::PRAGUE;
 
@@ -67,11 +61,11 @@ async fn same_sender_and_signer() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    // let _response = provider
-    //     .handle_request(ProviderRequest::Single(
-    //         MethodInvocation::SendRawTransaction(RAW_TRANSACTION.clone()),
-    //     ))
-    //     .expect("eth_sendRawTransaction should succeed");
+    let _response = provider
+        .handle_request(ProviderRequest::Single(
+            MethodInvocation::SendRawTransaction(RAW_TRANSACTION.clone()),
+        ))
+        .expect("eth_sendRawTransaction should succeed");
 
     let transaction_request = EthTransactionRequest {
         from: address,
@@ -91,8 +85,7 @@ async fn same_sender_and_signer() -> anyhow::Result<()> {
     let code: Bytes = {
         let response = provider
             .handle_request(ProviderRequest::Single(MethodInvocation::GetCode(
-                authorized_address,
-                None,
+                address, None,
             )))
             .expect("eth_getCode should succeed");
 

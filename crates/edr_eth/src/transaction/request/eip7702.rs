@@ -17,14 +17,14 @@ pub struct Eip7702 {
     // The order of these fields determines encoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub gas_limit: u64,
-    pub max_fee_per_gas: U256,
     pub max_priority_fee_per_gas: U256,
+    pub max_fee_per_gas: U256,
+    pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
+    pub input: Bytes,
     pub access_list: Vec<AccessListItem>,
     pub authorization_list: Vec<eip7702::SignedAuthorization>,
-    pub input: Bytes,
 }
 
 impl Eip7702 {

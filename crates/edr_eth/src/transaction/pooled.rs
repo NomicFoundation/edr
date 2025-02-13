@@ -368,8 +368,7 @@ mod tests {
                     U256::from(0x5678),
                 )
             ],
-            // SAFETY: Signature and caller address have been precomputed based on
-            // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
+            // SAFETY: Signature and caller address have been precomputed
             signature: unsafe { signature::Fakeable::with_address_unchecked(
                 signature::SignatureWithYParity::new(
                     U256::from_str("0x263b71578125bf86e9e842a920af2d941cd023893c4a452d158c87eabdf06bb9")?,

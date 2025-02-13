@@ -267,6 +267,7 @@ pub fn handle_send_transaction_request<LoggerErrorT: Debug, TimerT: Clone + Time
     validate_send_transaction_request(data, &transaction_request)?;
 
     let transaction_request = resolve_transaction_request(data, transaction_request)?;
+    println!("tx: {transaction_request:?}");
     let signed_transaction = data.sign_transaction_request(transaction_request)?;
 
     send_raw_transaction_and_log(data, signed_transaction)
@@ -287,6 +288,7 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
         })?;
 
     let signed_transaction = pooled_transaction.into_payload();
+    println!("signed: {signed_transaction:?}");
     validate_send_raw_transaction_request(data, &signed_transaction)?;
 
     let signed_transaction = transaction::validate(signed_transaction, data.spec_id())
