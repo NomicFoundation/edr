@@ -1,6 +1,5 @@
 use std::sync::OnceLock;
 
-use alloy_consensus::{Signed, TxEip7702};
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 use revm_primitives::{keccak256, AccessListItem, AuthorizationList, TransactTo, TxEnv};
 
@@ -32,7 +31,6 @@ pub struct Eip7702 {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithYParity>,
     /// Cached transaction hash
-    #[rlp(default)]
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
@@ -112,10 +110,6 @@ struct Decodable {
 
 impl alloy_rlp::Decodable for Eip7702 {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        // let buf2 = &mut *buf;
-        // let tx = Signed::<TxEip7702>::rlp_decode(buf2)?;
-        // println!("tx: {tx:?}");
-
         let transaction = Decodable::decode(buf)?;
         let request = transaction::request::Eip7702::from(&transaction);
 
@@ -229,6 +223,7 @@ mod tests {
         }
     }
 
+    use alloy_consensus::{Signed, TxEip7702, TxEnvelope};
     use alloy_rlp::Decodable as _;
     use revm_primitives::{address, b256};
 
@@ -238,6 +233,9 @@ mod tests {
     #[test]
     fn decoding() -> anyhow::Result<()> {
         let raw_transaction = expectation::raw()?;
+
+        let test = TxEnvelope::decode(&mut raw_transaction.as_slice())?;
+        println!("test: {test:?}");
 
         let decoded = transaction::Signed::decode(&mut raw_transaction.as_slice())?;
         let expected = expectation::signed()?;

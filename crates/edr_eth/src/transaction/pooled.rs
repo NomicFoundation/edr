@@ -190,6 +190,7 @@ mod tests {
 
     use super::*;
     use crate::{
+        address,
         eips::eip7702,
         signature,
         transaction::{self, TxKind},
@@ -347,32 +348,39 @@ mod tests {
             ).expect("Invalid proof")], EnvKzgSettings::Default.get())?
         ),
         eip7702 => PooledTransaction::Eip7702(Eip7702 {
-            chain_id: 1,
+            chain_id: 31337,
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(1),
-            max_fee_per_gas: U256::from(2),
-            gas_limit: 3,
-            to: Address::random(),
-            value: U256::from(4),
-            input: Bytes::from(vec![1, 2]),
-            access_list: vec![].into(),
+            max_priority_fee_per_gas: U256::from(1_000_000_000u64),
+            max_fee_per_gas: U256::from(2_200_000_000u64),
+            gas_limit: 63_000,
+            to: address!("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
+            value: U256::ZERO,
+            input: Bytes::new(),
+            access_list: Vec::new().into(),
             authorization_list: vec![
                 eip7702::SignedAuthorization::new_unchecked(
                     eip7702::Authorization {
-                        chain_id: U256::from(1),
-                        address: Address::random(),
+                        chain_id: U256::from(31337),
+                        address: address!("0x1234567890123456789012345678901234567890"),
                         nonce: 0,
                     },
-                    1,
-                    U256::from(0x1234),
-                    U256::from(0x5678),
+                    0,
+                    U256::from_str(
+                        "0xb776080626e62615e2a51a6bde9b4b4612af2627e386734f9af466ecfce19b8d",
+                    )
+                    .expect("R value is valid"),
+                    U256::from_str(
+                        "0x0d5c886f5874383826ac237ea99bfbbf601fad0fd344458296677930d51ff444",
+                    )
+                    .expect("S value is valid"),
                 )
             ],
-            // SAFETY: Signature and caller address have been precomputed
+            // SAFETY: Signature and caller address have been precomputed from the test data in
+            // `src/transaction/signed/eip7702.rs`.
             signature: unsafe { signature::Fakeable::with_address_unchecked(
                 signature::SignatureWithYParity::new(
-                    U256::from_str("0x263b71578125bf86e9e842a920af2d941cd023893c4a452d158c87eabdf06bb9")?,
-                    U256::from_str("0x097ff1980e38856c8e0310823e6cfc83032314f50ddd38568d3c9cf93e47d517")?,
+                    U256::from_str("0xc6b497dd8d2b10eae25059ebc11b6228d15892c998856b04a1645cc932aad4c1")?,
+                    U256::from_str("0x7dc710bb53d4783dbbe2ae959e4954cf8d3c9612b6ddcfd5a528a2c2250114a6")?,
                     true,
                 ),
                 Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
