@@ -4,10 +4,11 @@ use alloy_rlp::{RlpDecodable, RlpEncodable};
 use revm_primitives::{keccak256, AuthorizationList, TransactTo, TxEnv};
 
 use crate::{
+    eips::eip7702,
     signature,
     transaction::{self, request, ComputeTransactionHash as _},
     utils::envelop_bytes,
-    AccessList, Address, Bytes, SignedAuthorization, B256, U256,
+    AccessList, Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -26,7 +27,7 @@ pub struct Eip7702 {
     pub value: U256,
     pub input: Bytes,
     pub access_list: AccessList,
-    pub authorization_list: Vec<SignedAuthorization>,
+    pub authorization_list: Vec<eip7702::SignedAuthorization>,
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithYParity>,
     /// Cached transaction hash
@@ -104,7 +105,7 @@ struct Decodable {
     pub value: U256,
     pub input: Bytes,
     pub access_list: AccessList,
-    pub authorization_list: Vec<SignedAuthorization>,
+    pub authorization_list: Vec<eip7702::SignedAuthorization>,
     pub signature: signature::SignatureWithYParity,
 }
 

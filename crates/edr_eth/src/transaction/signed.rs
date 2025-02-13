@@ -407,7 +407,7 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{signature, transaction, AccessList, Authorization, Bytes, SignedAuthorization};
+    use crate::{eips::eip7702, signature, transaction, AccessList, Bytes};
 
     #[test]
     fn can_recover_sender() {
@@ -540,8 +540,8 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![],
                 authorization_list: vec![
-                    SignedAuthorization::new_unchecked(
-                        Authorization {
+                    eip7702::SignedAuthorization::new_unchecked(
+                        eip7702::Authorization {
                             chain_id: U256::from(1),
                             address: Address::random(),
                             nonce: 0,
@@ -676,17 +676,17 @@ mod tests {
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
                 signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithYParity {
-                        r: U256::from_str(
+                    signature::SignatureWithYParity::new(
+                        U256::from_str(
                             "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
                         )
                         .unwrap(),
-                        s: U256::from_str(
+                        U256::from_str(
                             "0x016b83f4f980694ed2eee4d10667242b1f40dc406901b34125b008d334d47469",
                         )
                         .unwrap(),
-                        y_parity: true,
-                    },
+                        true,
+                    ),
                     Address::from_str("0x9421de2177f0e810ca1d69a040a2169f8c7c8e4b")?,
                 )
             },

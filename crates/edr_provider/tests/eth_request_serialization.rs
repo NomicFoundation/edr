@@ -1,10 +1,10 @@
 mod common;
 
 use edr_eth::{
+    eips::eip7702,
     filter::{LogFilterOptions, LogOutput, OneOrMore},
     transaction::EthTransactionRequest,
-    Address, Authorization, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, SignedAuthorization,
-    B256, U256,
+    Address, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U256,
 };
 use edr_evm::alloy_primitives::U160;
 use edr_provider::{IntervalConfigRequest, MethodInvocation, Timestamp};
@@ -39,8 +39,8 @@ fn test_serde_eth_call() {
         transaction_type: None,
         blobs: Some(vec![Bytes::from("0x1234")]),
         blob_hashes: Some(vec![B256::from(U256::from(1))]),
-        authorization_list: Some(vec![SignedAuthorization::new_unchecked(
-            Authorization {
+        authorization_list: Some(vec![eip7702::SignedAuthorization::new_unchecked(
+            eip7702::Authorization {
                 chain_id: U256::from(1),
                 address: Address::random(),
                 nonce: 0,
@@ -86,8 +86,8 @@ fn test_serde_eth_estimate_gas() {
         transaction_type: None,
         blobs: None,
         blob_hashes: None,
-        authorization_list: Some(vec![SignedAuthorization::new_unchecked(
-            Authorization {
+        authorization_list: Some(vec![eip7702::SignedAuthorization::new_unchecked(
+            eip7702::Authorization {
                 chain_id: U256::from(1),
                 address: Address::random(),
                 nonce: 0,
@@ -359,8 +359,8 @@ fn test_serde_eth_send_transaction() {
         transaction_type: None,
         blobs: Some(vec![Bytes::from("0x1234")]),
         blob_hashes: Some(vec![B256::from(U256::from(1))]),
-        authorization_list: Some(vec![SignedAuthorization::new_unchecked(
-            Authorization {
+        authorization_list: Some(vec![eip7702::SignedAuthorization::new_unchecked(
+            eip7702::Authorization {
                 chain_id: U256::from(1),
                 address: Address::random(),
                 nonce: 0,

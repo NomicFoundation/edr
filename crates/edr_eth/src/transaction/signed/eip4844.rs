@@ -170,13 +170,13 @@ mod tests {
 
     // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
     fn dummy_transaction() -> Eip4844 {
-        let signature = signature::SignatureWithYParity {
-            r: U256::from_str("0x8a83833ec07806485a4ded33f24f5cea4b8d4d24dc8f357e6d446bcdae5e58a7")
+        let signature = signature::SignatureWithYParity::new(
+            U256::from_str("0x8a83833ec07806485a4ded33f24f5cea4b8d4d24dc8f357e6d446bcdae5e58a7")
                 .unwrap(),
-            s: U256::from_str("0x68a2ba422a50cf84c0b5fcbda32ee142196910c97198ffd99035d920c2b557f8")
+            U256::from_str("0x68a2ba422a50cf84c0b5fcbda32ee142196910c97198ffd99035d920c2b557f8")
                 .unwrap(),
-            y_parity: false,
-        };
+            false,
+        );
 
         let request = transaction::request::Eip4844 {
             chain_id: 0x28757b3,
@@ -260,15 +260,15 @@ mod tests {
         };
 
         let signature = Fakeable::recover(
-            signature::SignatureWithYParity {
-                r: U256::from_str(
+            signature::SignatureWithYParity::new(
+                U256::from_str(
                     "0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082",
                 )?,
-                s: U256::from_str(
+                U256::from_str(
                     "0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b",
                 )?,
-                y_parity: true,
-            },
+                true,
+            ),
             request.hash().into(),
         )
         .expect("Failed to recover caller");

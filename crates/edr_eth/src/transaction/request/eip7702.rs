@@ -1,14 +1,14 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use k256::SecretKey;
 use revm_primitives::keccak256;
 
 use crate::{
-    signature::{self, public_key_to_address, SignatureError, SignatureWithYParity},
+    eips::eip7702,
+    signature::{self, public_key_to_address, SecretKey, SignatureError, SignatureWithYParity},
     transaction::{self, ComputeTransactionHash},
     utils::envelop_bytes,
-    AccessListItem, Address, Bytes, SignedAuthorization, B256, U256,
+    AccessListItem, Address, Bytes, B256, U256,
 };
 
 /// An [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) transaction.
@@ -23,7 +23,7 @@ pub struct Eip7702 {
     pub to: Address,
     pub value: U256,
     pub access_list: Vec<AccessListItem>,
-    pub authorization_list: Vec<SignedAuthorization>,
+    pub authorization_list: Vec<eip7702::SignedAuthorization>,
     pub input: Bytes,
 }
 
@@ -53,7 +53,7 @@ impl Eip7702 {
         caller: Address,
     ) -> Result<transaction::signed::Eip7702, SignatureError> {
         let hash = self.compute_transaction_hash();
-        let signature = SignatureWithYParity::new(hash, secret_key)?;
+        let signature = SignatureWithYParity::with_message(hash, secret_key)?;
 
         Ok(transaction::signed::Eip7702 {
             chain_id: self.chain_id,

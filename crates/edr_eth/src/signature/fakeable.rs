@@ -78,12 +78,7 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
         match &self.data {
             FakeableData::Fake { recovery_id } => {
                 if let Some(y_parity) = self.y_parity() {
-                    SignatureWithYParity {
-                        r: self.r(),
-                        s: self.s(),
-                        y_parity,
-                    }
-                    .encode(out);
+                    SignatureWithYParity::new(self.r(), self.s(), y_parity).encode(out);
                 } else {
                     let ecdsa = SignatureWithRecoveryId {
                         r: self.r(),
@@ -102,12 +97,7 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
         match &self.data {
             FakeableData::Fake { recovery_id } => {
                 if let Some(y_parity) = self.y_parity() {
-                    SignatureWithYParity {
-                        r: self.r(),
-                        s: self.s(),
-                        y_parity,
-                    }
-                    .length()
+                    SignatureWithYParity::new(self.r(), self.s(), y_parity).length()
                 } else {
                     SignatureWithRecoveryId {
                         r: self.r(),

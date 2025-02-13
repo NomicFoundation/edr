@@ -187,11 +187,11 @@ impl TryFrom<Transaction> for transaction::Signed {
                     // transaction.
                     signature: unsafe {
                         signature::Fakeable::with_address_unchecked(
-                            signature::SignatureWithYParity {
-                                y_parity: value.odd_y_parity(),
-                                r: value.r,
-                                s: value.s,
-                            },
+                            signature::SignatureWithYParity::new(
+                                value.r,
+                                value.s,
+                                value.odd_y_parity(),
+                            ),
                             value.from,
                         )
                     },
@@ -212,11 +212,11 @@ impl TryFrom<Transaction> for transaction::Signed {
                     // transaction.
                     signature: unsafe {
                         signature::Fakeable::with_address_unchecked(
-                            signature::SignatureWithYParity {
-                                y_parity: value.odd_y_parity(),
-                                r: value.r,
-                                s: value.s,
-                            },
+                            signature::SignatureWithYParity::new(
+                                value.r,
+                                value.s,
+                                value.odd_y_parity(),
+                            ),
                             value.from,
                         )
                     },
@@ -240,11 +240,11 @@ impl TryFrom<Transaction> for transaction::Signed {
                     // transaction.
                     signature: unsafe {
                         signature::Fakeable::with_address_unchecked(
-                            signature::SignatureWithYParity {
-                                r: value.r,
-                                s: value.s,
-                                y_parity: value.odd_y_parity(),
-                            },
+                            signature::SignatureWithYParity::new(
+                                value.r,
+                                value.s,
+                                value.odd_y_parity(),
+                            ),
                             value.from,
                         )
                     },
