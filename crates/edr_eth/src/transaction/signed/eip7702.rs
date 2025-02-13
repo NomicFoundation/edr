@@ -166,9 +166,10 @@ mod tests {
 
         const CHAIN_ID: u64 = 0x7a69;
 
+        // TODO: Figure out the correct transaction hash
         pub const TRANSACTION_HASH: B256 =
             b256!("b484d448147b9a6cafc732e01b89ee4e7d8bb783a03f5cbdd967d7bdaa945a99");
-        // 0x063342b95531860d7257a1fb09a090d4858f1ab61843978fc29fb4154db9f392
+        // ?? 0x063342b95531860d7257a1fb09a090d4858f1ab61843978fc29fb4154db9f392
 
         pub fn signed_authorization() -> eip7702::SignedAuthorization {
             eip7702::SignedAuthorization::new_unchecked(
@@ -215,7 +216,6 @@ mod tests {
 
             let secret_key = expectation::secret_key()?;
             let signed = request.sign(&secret_key)?;
-            println!("signed: {signed:?}");
 
             Ok(signed.into())
         }
