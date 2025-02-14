@@ -107,14 +107,11 @@ mod tests {
 
         use super::*;
 
-        // TODO: Figure out correct request hash
         pub const REQUEST_HASH: B256 =
-            b256!("b484d448147b9a6cafc732e01b89ee4e7d8bb783a03f5cbdd967d7bdaa945a99");
+            b256!("056880940567cb424c9959fc670bca016107f9b305158837ef1b0c721e1cbb65");
 
-        // TODO: Figure out correct RLP encoding of request
         pub fn raw() -> Result<Vec<u8>, FromHexError> {
-            todo!()
-            // hex::decode("04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678908080a0b776080626e62615e2a51a6bde9b4b4612af2627e386734f9af466ecfce19b8da00d5c886f5874383826ac237ea99bfbbf601fad0fd344458296677930d51ff44480a0a5f83207382081e8de07113af9ba61e4b41c9ae306edc55a2787996611d1ade9a0082f979b985ea64b4755344b57bcd66ade2b840e8be2036101d9cf23a8548412")
+            hex::decode("f889827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c")
         }
 
         // Test vector generated using secret key in `dummy_secret_key`.
@@ -135,7 +132,7 @@ mod tests {
                     eip7702::Authorization {
                         chain_id: U256::from(CHAIN_ID),
                         address: address!("0x1234567890123456789012345678901234567890"),
-                        nonce: 0,
+                        nonce: 1,
                     },
                     1,
                     U256::from_str(
