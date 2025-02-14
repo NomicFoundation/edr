@@ -2,8 +2,14 @@
 
 #[path = "eip7702/different_sender_and_authorizer.rs"]
 mod different_sender_and_authorizer;
+#[path = "eip7702/multiple_authorizers.rs"]
+mod multiple_authorizers;
+#[path = "eip7702/reset.rs"]
+mod reset;
 #[path = "eip7702/same_sender_and_authorizer.rs"]
 mod same_sender_and_authorizer;
+#[path = "eip7702/zeroed_chain_id.rs"]
+mod zeroed_chain_id;
 
 use std::{convert::Infallible, sync::Arc};
 

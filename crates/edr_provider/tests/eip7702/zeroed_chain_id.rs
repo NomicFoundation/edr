@@ -32,7 +32,7 @@ fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<Infalli
 fn signed_authorization(secret_key: &SecretKey) -> anyhow::Result<eip7702::SignedAuthorization> {
     sign_authorization(
         eip7702::Authorization {
-            chain_id: U256::from(CHAIN_ID),
+            chain_id: U256::ZERO,
             address: address!("0x1234567890123456789012345678901234567890"),
             nonce: 0x1,
         },
@@ -67,7 +67,7 @@ async fn call() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_raw_transaction() -> anyhow::Result<()> {
-    static RAW_TRANSACTION: Bytes = bytes!("0x04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8");
+    static RAW_TRANSACTION: Bytes = bytes!("0x04f8ca827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85cf85a809412345678901234567890123456789012345678900101a02f97df52318e2bf310d3f9b823b0ca3b2e55b3bae9d82f025e68f04687810cb6a02d1a680365ebc7252024c7c5b43c2057e32bbef670398bb135f86e0dce225d6f01a066e35eed72225cd5d274b4a6ae5072bc245bd1c9664005e33a85ba217e6715dda014b070f113e9f887246981784ffd79865edcb30856551e5f385a39c7ea3170e3");
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let authorized_address = public_key_to_address(secret_key.public_key());

@@ -17,21 +17,12 @@ use crate::{assert_code_at, sign_authorization, CHAIN_ID};
 
 static EXPECTED_CODE: Bytes = bytes!("ef01001234567890123456789012345678901234567890");
 
-fn new_provider(
-    secret_key1: SecretKey,
-    secret_key2: SecretKey,
-) -> anyhow::Result<Provider<Infallible>> {
+fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<Infallible>> {
     let mut config = create_test_config();
-    config.accounts = vec![
-        AccountConfig {
-            secret_key: secret_key1,
-            balance: one_ether(),
-        },
-        AccountConfig {
-            secret_key: secret_key2,
-            balance: one_ether(),
-        },
-    ];
+    config.accounts = vec![AccountConfig {
+        secret_key: sender_secret_key,
+        balance: one_ether(),
+    }];
     config.chain_id = CHAIN_ID;
     config.hardfork = SpecId::PRAGUE;
 
@@ -57,16 +48,13 @@ async fn call() -> anyhow::Result<()> {
     let sender = public_key_to_address(secret_key2.public_key());
 
     let call_request = CallRequest {
-        max_priority_fee_per_gas: Some(U256::from(1_000_000_000u64)),
-        max_fee_per_gas: Some(U256::from(2_200_000_000u64)),
-        gas: Some(63_000),
         from: Some(sender),
         to: Some(sender),
         authorization_list: Some(vec![signed_authorization(&secret_key1)?]),
         ..CallRequest::default()
     };
 
-    let provider = new_provider(secret_key1, secret_key2)?;
+    let provider = new_provider(secret_key2)?;
 
     let _response = provider
         .handle_request(ProviderRequest::Single(MethodInvocation::Call(
@@ -87,7 +75,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
     let authorized_address = public_key_to_address(secret_key1.public_key());
 
     let secret_key2 = secret_key_from_str(edr_defaults::SECRET_KEYS[1])?;
-    let provider = new_provider(secret_key1, secret_key2)?;
+    let provider = new_provider(secret_key2)?;
 
     let _response = provider
         .handle_request(ProviderRequest::Single(
@@ -111,16 +99,13 @@ async fn send_transaction() -> anyhow::Result<()> {
     let transaction_request = EthTransactionRequest {
         chain_id: Some(CHAIN_ID),
         nonce: Some(0),
-        max_priority_fee_per_gas: Some(U256::from(1_000_000_000u64)),
-        max_fee_per_gas: Some(U256::from(2_200_000_000u64)),
-        gas: Some(63_000),
         from: sender,
         to: Some(sender),
         authorization_list: Some(vec![signed_authorization(&secret_key1)?]),
         ..EthTransactionRequest::default()
     };
 
-    let provider = new_provider(secret_key1, secret_key2)?;
+    let provider = new_provider(secret_key2)?;
 
     let _response = provider
         .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(

@@ -287,7 +287,6 @@ pub fn handle_send_raw_transaction_request<LoggerErrorT: Debug, TimerT: Clone + 
         })?;
 
     let signed_transaction = pooled_transaction.into_payload();
-    println!("signed: {signed_transaction:?}");
     validate_send_raw_transaction_request(data, &signed_transaction)?;
 
     let signed_transaction = transaction::validate(signed_transaction, data.spec_id())
