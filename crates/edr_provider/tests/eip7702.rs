@@ -1,56 +1,42 @@
 #![cfg(feature = "test-utils")]
 
-use std::{str::FromStr as _, sync::Arc};
+#[path = "eip7702/different_sender_and_authorizer.rs"]
+mod different_sender_and_authorizer;
+#[path = "eip7702/same_sender_and_authorizer.rs"]
+mod same_sender_and_authorizer;
 
-use edr_defaults::SECRET_KEYS;
+use std::{convert::Infallible, sync::Arc};
+
 use edr_eth::{
     eips::eip7702,
-    signature::{public_key_to_address, secret_key_from_str, SignatureWithYParity},
-    transaction::EthTransactionRequest,
-    Bytecode, Bytes, SpecId, U256,
+    signature::{SecretKey, SignatureWithYParity},
+    Address, Bytes,
 };
-use edr_evm::{address, bytes};
 use edr_provider::{
-    test_utils::{create_test_config, deploy_contract, one_ether},
-    time::CurrentTime,
-    AccountConfig, MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    time::CurrentTime, MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
 const CHAIN_ID: u64 = 0x7a69;
 
-#[tokio::test(flavor = "multi_thread")]
-async fn same_sender_and_signer() -> anyhow::Result<()> {
-    static RAW_TRANSACTION: Bytes = bytes!("0x04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8");
+fn assert_code_at(provider: &Provider<Infallible>, address: Address, expected: &Bytes) {
+    let code: Bytes = {
+        let response = provider
+            .handle_request(ProviderRequest::Single(MethodInvocation::GetCode(
+                address, None,
+            )))
+            .expect("eth_getCode should succeed");
 
-    let secret_key = secret_key_from_str(SECRET_KEYS[0])?;
-    let address = public_key_to_address(secret_key.public_key());
-    println!("recovered address: {address}");
-
-    let authorized_address = address!("0x1234567890123456789012345678901234567890");
-    let authorization = eip7702::Authorization {
-        chain_id: U256::from(CHAIN_ID),
-        address: authorized_address,
-        nonce: 0x1,
+        serde_json::from_value(response.result).expect("response should be Bytes")
     };
 
-    let signed_authorization = {
-        let signature =
-            SignatureWithYParity::with_message(authorization.signature_hash(), &secret_key)?;
-        authorization.into_signed(signature.into_inner())
-    };
+    assert_eq!(code, *expected);
+}
 
+fn new_provider(config: ProviderConfig) -> anyhow::Result<Provider<Infallible>> {
     let logger = Box::new(NoopLogger);
     let subscriber = Box::new(|_event| {});
-    let mut config = create_test_config();
-    config.accounts = vec![AccountConfig {
-        secret_key,
-        balance: one_ether(),
-    }];
-    config.chain_id = CHAIN_ID;
-    config.hardfork = SpecId::PRAGUE;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -61,99 +47,17 @@ async fn same_sender_and_signer() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let _response = provider
-        .handle_request(ProviderRequest::Single(
-            MethodInvocation::SendRawTransaction(RAW_TRANSACTION.clone()),
-        ))
-        .expect("eth_sendRawTransaction should succeed");
-
-    let transaction_request = EthTransactionRequest {
-        from: address,
-        to: Some(address),
-        authorization_list: Some(vec![signed_authorization.clone()]),
-        ..EthTransactionRequest::default()
-    };
-
-    let _response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            transaction_request,
-        )))
-        .expect("eth_sendTransaction should succeed");
-
-    println!("{_response:?}");
-
-    let code: Bytes = {
-        let response = provider
-            .handle_request(ProviderRequest::Single(MethodInvocation::GetCode(
-                address, None,
-            )))
-            .expect("eth_getCode should succeed");
-
-        serde_json::from_value(response.result)?
-    };
-
-    let expected = Bytes::from_str("0xef01001234567890123456789012345678901234567890")
-        .expect("Valid bytecode");
-
-    assert_eq!(code, expected);
-
-    // let call_request = CallRequest {
-    //     from: Some(address),
-    //     to: Some(address),
-    //     authorization_list: Some(vec![signed_authorization]),
-    //     ..CallRequest::default()
-    // };
-
-    // let _response =
-    // provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
-    //     call_request,
-    //     None,
-    //     None,
-    // )))?;
-
-    Ok(())
+    Ok(provider)
 }
 
-// #[tokio::test(flavor = "multi_thread")]
-// async fn send_raw_transaction() -> anyhow::Result<()> {
-//     let raw_eip4844_transaction = fake_raw_transaction();
+fn sign_authorization(
+    authorization: eip7702::Authorization,
+    secret_key: &SecretKey,
+) -> anyhow::Result<eip7702::SignedAuthorization> {
+    let signature = SignatureWithYParity::with_message(authorization.signature_hash(), secret_key)?;
 
-//     let expected = fake_transaction();
-
-//     let logger = Box::new(NoopLogger);
-//     let subscriber = Box::new(|_event| {});
-//     let mut config = create_test_config();
-//     config.chain_id = expected.chain_id().expect("Blob transaction has chain
-// ID");
-
-//     config.genesis_accounts.insert(
-//         secret_key_to_address(SECRET_KEYS[0])?,
-//         AccountInfo {
-//             balance: one_ether(),
-//             nonce: 0,
-//             code: None,
-//             code_hash: KECCAK_EMPTY,
-//         },
-//     );
-
-//     let provider = Provider::new(
-//         runtime::Handle::current(),
-//         logger,
-//         subscriber,
-//         config,
-//         Arc::<ContractDecoder>::default(),
-//         CurrentTime,
-//     )?;
-
-//     let result = provider.handle_request(ProviderRequest::Single(
-//         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
-//     ))?;
-
-//     let transaction_hash: B256 = serde_json::from_value(result.result)?;
-//     assert_eq!(transaction_hash, *expected.transaction_hash());
-
-//     Ok(())
-// }
+    Ok(authorization.into_signed(signature.into_inner()))
+}
 
 // #[tokio::test(flavor = "multi_thread")]
 // async fn get_transaction() -> anyhow::Result<()> {
