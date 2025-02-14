@@ -391,20 +391,25 @@ impl Future for MultiForkHandler {
         for n in (0..pin.pending_tasks.len()).rev() {
             let task = pin.pending_tasks.swap_remove(n);
             match task {
-                ForkTask::Create(mut fut, id, sender, additional_senders) => {
+                ForkTask::Create(mut fut, requested_fork_id, sender, additional_senders) => {
                     if let Poll::Ready(resp) = fut.poll_unpin(cx) {
                         match resp {
-                            Ok((fork_id, fork, handler)) => {
-                                if let Some(fork) = pin.forks.get(&fork_id).cloned() {
+                            Ok((created_fork_id, fork, handler)) => {
+                                if let Some(fork) = pin.forks.get(&requested_fork_id).cloned() {
                                     pin.insert_new_fork(
-                                        fork.inc_senders(fork_id),
+                                        fork.inc_senders(created_fork_id),
                                         fork,
                                         sender,
                                         additional_senders,
                                     );
                                 } else {
-                                    pin.handlers.push((fork_id.clone(), handler));
-                                    pin.insert_new_fork(fork_id, fork, sender, additional_senders);
+                                    pin.handlers.push((created_fork_id.clone(), handler));
+                                    pin.insert_new_fork(
+                                        requested_fork_id,
+                                        fork,
+                                        sender,
+                                        additional_senders,
+                                    );
                                 }
                             }
                             Err(err) => {
@@ -417,7 +422,7 @@ impl Future for MultiForkHandler {
                     } else {
                         pin.pending_tasks.push(ForkTask::Create(
                             fut,
-                            id,
+                            requested_fork_id,
                             sender,
                             additional_senders,
                         ));

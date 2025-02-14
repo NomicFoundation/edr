@@ -1,5 +1,8 @@
 use alloy_primitives::U256;
-use foundry_evm_core::{backend::Backend, fork::CreateFork};
+use foundry_evm_core::{
+    backend::Backend,
+    fork::{CreateFork, MultiFork},
+};
 use revm::primitives::{Env, EnvWithHandlerCfg, SpecId};
 
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
@@ -25,6 +28,8 @@ pub struct ExecutorBuilder {
     fork: Option<CreateFork>,
     /// The configured evm
     env: Env,
+    /// The forks to use in the backend.
+    multi_fork: Option<MultiFork>,
 }
 
 impl Default for ExecutorBuilder {
@@ -36,6 +41,7 @@ impl Default for ExecutorBuilder {
             spec_id: SpecId::LATEST,
             fork: None,
             env: Env::default(),
+            multi_fork: None,
         }
     }
 }
@@ -81,6 +87,13 @@ impl ExecutorBuilder {
         self
     }
 
+    /// Sets the multi fork to use from a previous execution
+    #[inline]
+    pub fn multi_fork(mut self, multi_fork: MultiFork) -> Self {
+        self.multi_fork = Some(multi_fork);
+        self
+    }
+
     /// Sets the EVM spec to use
     #[inline]
     pub fn spec(mut self, spec: SpecId) -> Self {
@@ -96,12 +109,19 @@ impl ExecutorBuilder {
             spec_id,
             fork,
             env,
+            multi_fork,
         } = self;
         stack.block = Some(env.block.clone());
         stack.gas_price = Some(env.tx.gas_price);
         let gas_limit = gas_limit.unwrap_or(env.block.gas_limit);
+
+        let backend = if let Some(multi_fork) = multi_fork {
+            Backend::new(multi_fork, fork)
+        } else {
+            Backend::spawn(fork)
+        };
         Executor::new(
-            Backend::spawn(fork),
+            backend,
             EnvWithHandlerCfg::new_with_spec_id(Box::new(env), spec_id),
             stack.build(),
             gas_limit,

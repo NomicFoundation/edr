@@ -498,6 +498,12 @@ impl Backend {
         backend
     }
 
+    /// Take the created forks. Useful for executing transactions in the same
+    /// fork context.
+    pub fn take_forks(self) -> MultiFork {
+        self.forks
+    }
+
     /// Creates a new instance of `Backend` with fork added to the fork database
     /// and sets the fork as active
     pub(crate) fn new_with_fork(id: &ForkId, fork: Fork, journaled_state: JournaledState) -> Self {

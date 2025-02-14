@@ -1,6 +1,7 @@
 import {
   Artifact,
   ArtifactId,
+  EdrContext,
   type SolidityTestRunnerConfigArgs,
 } from "@ignored/edr";
 import {
@@ -12,6 +13,15 @@ import hre from "hardhat";
 import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
 import { assert } from "chai";
 
+let context: EdrContext | undefined;
+
+export function getContext(): EdrContext {
+  if (context === undefined) {
+    context = new EdrContext();
+  }
+  return context;
+}
+
 export class TestContext {
   readonly rpcUrl = process.env.ALCHEMY_URL;
   readonly rpcCachePath: string = "./edr-cache";
@@ -20,6 +30,7 @@ export class TestContext {
   readonly artifacts: Artifact[];
   readonly testSuiteIds: ArtifactId[];
   readonly tracingConfig: TracingConfigWithBuffer;
+  readonly edrContext: EdrContext;
 
   private constructor(
     artifacts: Artifact[],
@@ -29,6 +40,7 @@ export class TestContext {
     this.artifacts = artifacts;
     this.testSuiteIds = testSuiteIds;
     this.tracingConfig = tracingConfig;
+    this.edrContext = getContext();
   }
 
   static async setup(): Promise<TestContext> {

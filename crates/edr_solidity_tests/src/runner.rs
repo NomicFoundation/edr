@@ -43,6 +43,7 @@ use proptest::test_runner::TestRunner;
 use rayon::prelude::*;
 
 use crate::{
+    fork::MultiFork,
     fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
     multi_runner::TestContract,
     result::{SuiteResult, TestKind, TestResult, TestSetup, TestStatus},
@@ -631,7 +632,11 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         // Exclude stack trace generation from test execution time for accurate
         // reporting
         let stack_trace_result = if !success {
-            Some(self.re_run_test_for_stack_traces(func, setup.has_setup_method))
+            Some(self.re_run_test_for_stack_traces(
+                func,
+                executor.backend.take_forks(),
+                setup.has_setup_method,
+            ))
         } else {
             None
         };
@@ -659,9 +664,10 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
     fn re_run_test_for_stack_traces(
         &self,
         func: &Function,
+        forks: MultiFork,
         needs_setup: bool,
     ) -> Result<Vec<StackTraceEntry>, StackTraceError> {
-        let mut executor = self.executor_builder.clone().build();
+        let mut executor = self.executor_builder.clone().multi_fork(forks).build();
 
         // We only need light-weight tracing for setup to be able to match contract
         // codes to contact addresses.

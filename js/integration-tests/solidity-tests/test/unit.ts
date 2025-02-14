@@ -1,5 +1,8 @@
 import { assert } from "chai";
 import { assertStackTraces, TestContext } from "./testContext";
+import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
+import { EdrContext, ReturnData, StackTraceEntryType } from "@ignored/edr";
+import { getContext } from "@ignored/edr/build-test/test/helpers";
 
 describe("Unit tests", () => {
   let testContext: TestContext;
@@ -137,6 +140,58 @@ describe("Unit tests", () => {
     assert.equal(failedTests, 0);
     assert.equal(totalTests, 1);
   });
+
+  it("ForkCheatcodeStacktraceTest", async function () {
+    if (testContext.rpcUrl === undefined) {
+      this.skip();
+    }
+
+    const testName = "ForkCheatcodeStacktraceTest";
+    const config = {
+      rpcEndpoints: {
+        alchemyMainnet: testContext.rpcUrl,
+      },
+    };
+
+    let testContracts = testContext.matchingTest(testName);
+
+    const suiteResults = await runAllSolidityTests(
+      testContext.artifacts,
+      testContracts,
+      testContext.tracingConfig,
+      {
+        ...testContext.defaultConfig(),
+        ...config,
+      }
+    );
+
+    const blockNumberDuringExecution =
+      suiteResults[0].testResults[0].decodedLogs[0];
+    // Sanity check
+    assert(
+      Number(blockNumberDuringExecution) > 2000000,
+      `Invalid block number during execution: ${blockNumberDuringExecution}`
+    );
+
+    const stackTraces = suiteResults[0].testResults[0].stackTrace();
+    if (stackTraces == null || stackTraces.length == 0) {
+      throw new Error("No stack traces");
+    }
+
+    const stackTraceEntry = stackTraces[0];
+
+    switch (stackTraceEntry.type) {
+      case StackTraceEntryType.REVERT_ERROR: {
+        const returnData = new ReturnData(stackTraceEntry.returnData);
+        // The revert message has the block number during re-execution
+        assert.equal(blockNumberDuringExecution, returnData.decodeError());
+        break;
+      }
+      default: {
+        throw new Error(`Unexpected stack trace entry: ${stackTraceEntry}`);
+      }
+    }
+  }).timeout(120000);
 
   it("FailingSetup", async function () {
     const { totalTests, failedTests, stackTraces } =
