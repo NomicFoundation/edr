@@ -95,6 +95,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             .await
             .map_err(SolidityTestRunnerConfigError::EvmEnv)?;
 
+        // TODO duplicate call with line 94
         let fork = config.get_fork().await?;
 
         let SolidityTestRunnerConfig {
