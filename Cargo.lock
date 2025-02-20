@@ -1327,6 +1327,7 @@ version = "0.3.5"
 dependencies = [
  "alloy-eips",
  "alloy-rlp",
+ "alloy-serde",
  "anyhow",
  "assert-json-diff",
  "c-kzg",
@@ -1551,7 +1552,6 @@ version = "0.3.5"
 dependencies = [
  "edr_eth",
  "hex",
- "k256",
  "serde",
  "serde_json",
 ]

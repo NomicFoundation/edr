@@ -2,6 +2,7 @@ mod eip155;
 mod eip1559;
 mod eip2930;
 mod eip4844;
+mod eip7702;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut};
@@ -12,6 +13,7 @@ pub use self::{
     eip1559::Eip1559,
     eip2930::Eip2930,
     eip4844::Eip4844,
+    eip7702::Eip7702,
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
@@ -53,6 +55,11 @@ impl Signed {
         matches!(self, Signed::Eip4844(_))
     }
 
+    /// Whether this is an EIP-7702 transaction.
+    pub fn is_eip7702(&self) -> bool {
+        matches!(self, Signed::Eip7702(_))
+    }
+
     /// Retrieves the authorization list of the transaction for post-EIP-7702
     /// transactions.
     pub fn authorization_list(&self) -> Option<&AuthorizationList> {
@@ -66,7 +73,8 @@ impl Signed {
             Signed::PreEip155Legacy(_)
             | Signed::PostEip155Legacy(_)
             | Signed::Eip2930(_)
-            | Signed::Eip1559(_) => None,
+            | Signed::Eip1559(_)
+            | Signed::Eip7702(_) => None,
             Signed::Eip4844(tx) => Some(tx.blob_hashes.clone()),
         }
     }
@@ -79,6 +87,7 @@ impl Signed {
             Signed::Eip2930(t) => Some(t.chain_id),
             Signed::Eip1559(t) => Some(t.chain_id),
             Signed::Eip4844(t) => Some(t.chain_id),
+            Signed::Eip7702(t) => Some(t.chain_id),
         }
     }
 
@@ -97,6 +106,7 @@ impl Signed {
             Signed::Eip2930(tx) => &tx.signature,
             Signed::Eip1559(tx) => &tx.signature,
             Signed::Eip4844(tx) => &tx.signature,
+            Signed::Eip7702(tx) => &tx.signature,
         }
     }
 
@@ -129,6 +139,11 @@ impl alloy_rlp::Decodable for Signed {
 
                 Ok(Signed::Eip4844(self::eip4844::Eip4844::decode(buf)?))
             }
+            Eip7702::TYPE => {
+                buf.advance(1);
+
+                Ok(Signed::Eip7702(self::eip7702::Eip7702::decode(buf)?))
+            }
             byte if is_list(byte) => {
                 let transaction = PreOrPostEip155::decode(buf)?;
                 Ok(transaction.into())
@@ -146,6 +161,7 @@ impl alloy_rlp::Encodable for Signed {
             Signed::Eip2930(tx) => enveloped(1, tx, out),
             Signed::Eip1559(tx) => enveloped(2, tx, out),
             Signed::Eip4844(tx) => enveloped(3, tx, out),
+            Signed::Eip7702(tx) => enveloped(Eip7702::TYPE, tx, out),
         }
     }
 
@@ -156,6 +172,7 @@ impl alloy_rlp::Encodable for Signed {
             Signed::Eip2930(tx) => tx.length() + 1,
             Signed::Eip1559(tx) => tx.length() + 1,
             Signed::Eip4844(tx) => tx.length() + 1,
+            Signed::Eip7702(tx) => tx.length() + 1,
         }
     }
 }
@@ -190,6 +207,12 @@ impl From<self::eip4844::Eip4844> for Signed {
     }
 }
 
+impl From<self::eip7702::Eip7702> for Signed {
+    fn from(transaction: self::eip7702::Eip7702) -> Self {
+        Self::Eip7702(transaction)
+    }
+}
+
 impl From<PreOrPostEip155> for Signed {
     fn from(value: PreOrPostEip155) -> Self {
         match value {
@@ -207,6 +230,7 @@ impl From<Signed> for TxEnv {
             Signed::Eip2930(tx) => tx.into(),
             Signed::Eip1559(tx) => tx.into(),
             Signed::Eip4844(tx) => tx.into(),
+            Signed::Eip7702(tx) => tx.into(),
         }
     }
 }
@@ -219,6 +243,7 @@ impl SignedTransaction for Signed {
             Signed::Eip2930(tx) => tx.caller(),
             Signed::Eip1559(tx) => tx.caller(),
             Signed::Eip4844(tx) => tx.caller(),
+            Signed::Eip7702(tx) => tx.caller(),
         }
     }
 }
@@ -230,6 +255,7 @@ impl Transaction for Signed {
             Signed::Eip2930(tx) => &tx.access_list,
             Signed::Eip1559(tx) => &tx.access_list,
             Signed::Eip4844(tx) => &tx.access_list,
+            Signed::Eip7702(tx) => &tx.access_list,
         }
     }
 
@@ -240,6 +266,7 @@ impl Transaction for Signed {
             Signed::Eip2930(tx) => &tx.input,
             Signed::Eip1559(tx) => &tx.input,
             Signed::Eip4844(tx) => &tx.input,
+            Signed::Eip7702(tx) => &tx.input,
         }
     }
 
@@ -254,6 +281,9 @@ impl Transaction for Signed {
             Signed::Eip4844(tx) => tx
                 .max_fee_per_gas
                 .min(block_base_fee + tx.max_priority_fee_per_gas),
+            Signed::Eip7702(tx) => tx
+                .max_fee_per_gas
+                .min(block_base_fee + tx.max_priority_fee_per_gas),
         }
     }
 
@@ -264,6 +294,7 @@ impl Transaction for Signed {
             Signed::Eip2930(tx) => tx.gas_limit,
             Signed::Eip1559(tx) => tx.gas_limit,
             Signed::Eip4844(tx) => tx.gas_limit,
+            Signed::Eip7702(tx) => tx.gas_limit,
         }
     }
 
@@ -274,6 +305,7 @@ impl Transaction for Signed {
             Signed::Eip2930(tx) => tx.gas_price,
             Signed::Eip1559(tx) => tx.max_fee_per_gas,
             Signed::Eip4844(tx) => tx.max_fee_per_gas,
+            Signed::Eip7702(tx) => tx.max_fee_per_gas,
         }
     }
 
@@ -284,6 +316,7 @@ impl Transaction for Signed {
             Signed::Eip2930(tx) => tx.kind,
             Signed::Eip1559(tx) => tx.kind,
             Signed::Eip4844(tx) => TxKind::Call(tx.to),
+            Signed::Eip7702(tx) => TxKind::Call(tx.to),
         }
     }
 
@@ -292,6 +325,7 @@ impl Transaction for Signed {
             Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
             Signed::Eip1559(tx) => Some(tx.max_fee_per_gas),
             Signed::Eip4844(tx) => Some(tx.max_fee_per_gas),
+            Signed::Eip7702(tx) => Some(tx.max_fee_per_gas),
         }
     }
 
@@ -300,7 +334,8 @@ impl Transaction for Signed {
             Signed::PreEip155Legacy(_)
             | Signed::PostEip155Legacy(_)
             | Signed::Eip2930(_)
-            | Signed::Eip1559(_) => None,
+            | Signed::Eip1559(_)
+            | Signed::Eip7702(_) => None,
             Signed::Eip4844(tx) => Some(tx.max_fee_per_blob_gas),
         }
     }
@@ -310,6 +345,7 @@ impl Transaction for Signed {
             Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) | Signed::Eip2930(_) => None,
             Signed::Eip1559(tx) => Some(tx.max_priority_fee_per_gas),
             Signed::Eip4844(tx) => Some(tx.max_priority_fee_per_gas),
+            Signed::Eip7702(tx) => Some(tx.max_priority_fee_per_gas),
         }
     }
 
@@ -320,6 +356,7 @@ impl Transaction for Signed {
             Signed::Eip2930(t) => t.nonce,
             Signed::Eip1559(t) => t.nonce,
             Signed::Eip4844(t) => t.nonce,
+            Signed::Eip7702(t) => t.nonce,
         }
     }
 
@@ -337,6 +374,7 @@ impl Transaction for Signed {
             Signed::Eip2930(t) => t.hash(),
             Signed::Eip1559(t) => t.hash(),
             Signed::Eip4844(t) => t.hash(),
+            Signed::Eip7702(t) => t.transaction_hash(),
         }
     }
 
@@ -346,6 +384,7 @@ impl Transaction for Signed {
             Signed::Eip2930(_) => TransactionType::Eip2930,
             Signed::Eip1559(_) => TransactionType::Eip1559,
             Signed::Eip4844(_) => TransactionType::Eip4844,
+            Signed::Eip7702(_) => TransactionType::Eip7702,
         }
     }
 
@@ -356,6 +395,7 @@ impl Transaction for Signed {
             Signed::Eip2930(tx) => tx.value,
             Signed::Eip1559(tx) => tx.value,
             Signed::Eip4844(tx) => tx.value,
+            Signed::Eip7702(tx) => tx.value,
         }
     }
 }
@@ -367,7 +407,11 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{signature, transaction, AccessList, Bytes};
+    use crate::{
+        eips::eip7702,
+        signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
+        transaction, AccessList, Bytes,
+    };
 
     #[test]
     fn can_recover_sender() {
@@ -488,6 +532,29 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![],
                 blob_hashes: vec![B256::random(), B256::random()],
+            },
+            eip7702 => transaction::request::Eip7702 {
+                chain_id: 1,
+                nonce: 0,
+                max_priority_fee_per_gas: U256::from(1),
+                max_fee_per_gas: U256::from(2),
+                gas_limit: 3,
+                to: Address::random(),
+                value: U256::from(4),
+                input: Bytes::from(vec![1, 2]),
+                access_list: vec![],
+                authorization_list: vec![
+                    eip7702::SignedAuthorization::new_unchecked(
+                        eip7702::Authorization {
+                            chain_id: U256::from(1),
+                            address: Address::random(),
+                            nonce: 0,
+                        },
+                        1,
+                        U256::from(0x1234),
+                        U256::from(0x5678),
+                    )
+                ]
             },
     }
 
@@ -613,7 +680,7 @@ mod tests {
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
                 signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithYParity {
+                    SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: U256::from_str(
                             "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
                         )
@@ -623,7 +690,7 @@ mod tests {
                         )
                         .unwrap(),
                         y_parity: true,
-                    },
+                    }),
                     Address::from_str("0x9421de2177f0e810ca1d69a040a2169f8c7c8e4b")?,
                 )
             },
@@ -692,6 +759,7 @@ mod tests {
                 Signed::Eip2930(transaction) => transaction.into(),
                 Signed::Eip1559(transaction) => transaction.into(),
                 Signed::Eip4844(transaction) => transaction.into(),
+                Signed::Eip7702(transaction) => transaction.into(),
             }
         }
     }

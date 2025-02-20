@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use edr_eth::{
-    signature,
+    signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
     transaction::{self, TxKind},
     AccessListItem, Address, Bytes, B256, U256,
 };
@@ -187,11 +187,11 @@ impl TryFrom<Transaction> for transaction::Signed {
                     // transaction.
                     signature: unsafe {
                         signature::Fakeable::with_address_unchecked(
-                            signature::SignatureWithYParity {
-                                y_parity: value.odd_y_parity(),
+                            SignatureWithYParity::new(SignatureWithYParityArgs {
                                 r: value.r,
                                 s: value.s,
-                            },
+                                y_parity: value.odd_y_parity(),
+                            }),
                             value.from,
                         )
                     },
@@ -212,11 +212,11 @@ impl TryFrom<Transaction> for transaction::Signed {
                     // transaction.
                     signature: unsafe {
                         signature::Fakeable::with_address_unchecked(
-                            signature::SignatureWithYParity {
-                                y_parity: value.odd_y_parity(),
+                            SignatureWithYParity::new(SignatureWithYParityArgs {
                                 r: value.r,
                                 s: value.s,
-                            },
+                                y_parity: value.odd_y_parity(),
+                            }),
                             value.from,
                         )
                     },
@@ -240,11 +240,11 @@ impl TryFrom<Transaction> for transaction::Signed {
                     // transaction.
                     signature: unsafe {
                         signature::Fakeable::with_address_unchecked(
-                            signature::SignatureWithYParity {
+                            SignatureWithYParity::new(SignatureWithYParityArgs {
                                 r: value.r,
                                 s: value.s,
                                 y_parity: value.odd_y_parity(),
-                            },
+                            }),
                             value.from,
                         )
                     },
