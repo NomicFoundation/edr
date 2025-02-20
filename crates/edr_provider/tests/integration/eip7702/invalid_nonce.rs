@@ -10,7 +10,7 @@ use edr_provider::{
 };
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
-use crate::{assert_code_at, sign_authorization, CHAIN_ID};
+use super::{assert_code_at, sign_authorization, CHAIN_ID};
 
 fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<Infallible>> {
     let mut config = create_test_config();
@@ -21,7 +21,7 @@ fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<Infalli
     config.chain_id = CHAIN_ID;
     config.hardfork = SpecId::PRAGUE;
 
-    crate::new_provider(config)
+    super::new_provider(config)
 }
 
 fn signed_authorization(secret_key: &SecretKey) -> anyhow::Result<eip7702::SignedAuthorization> {

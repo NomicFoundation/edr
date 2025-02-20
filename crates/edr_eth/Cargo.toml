@@ -8,7 +8,7 @@ alloy-eips = { workspace = true}
 alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
 alloy-serde = { workspace = true }
 anyhow = "1.0.75"
-c-kzg = { version = "1.0.2", default-features = false }
+c-kzg = { version = "1.0.3", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = { version = "0.14.3", default-features = false, features = ["ahash", "allocator-api2", "inline-more"] }
