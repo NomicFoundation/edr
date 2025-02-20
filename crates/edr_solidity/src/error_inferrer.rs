@@ -2042,7 +2042,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
     if let Some(prev_inst) = prev_inst {
         // We may as well just be in a function or modifier and just happen
         // to be at the last instruction of the runtime bytecode.
-        // In this case we just return whatever the last mapped intruction
+        // In this case we just return whatever the last mapped instruction
         // points to.
         let source_reference =
             instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_reference(

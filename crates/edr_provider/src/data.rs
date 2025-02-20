@@ -165,7 +165,7 @@ pub enum CreationError {
     /// An error that occurred while constructing a local blockchain.
     #[error(transparent)]
     LocalBlockchainCreation(#[from] LocalCreationError),
-    /// An error that occured while querying the remote state.
+    /// An error that occurred while querying the remote state.
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
 }
