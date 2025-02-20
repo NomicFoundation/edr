@@ -2,20 +2,18 @@ use std::{
     collections::BTreeMap,
     fmt::Debug,
     num::NonZeroU64,
-    str::FromStr,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use edr_eth::{
-    beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
     block::{BlobGas, BlockOptions, PartialHeader},
     log::FilterLog,
-    AccountInfo, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 use revm::{
     db::BlockHashRef,
-    primitives::{Bytecode, HashSet, SpecId},
+    primitives::{HashSet, SpecId},
     DatabaseCommit,
 };
 
@@ -25,6 +23,10 @@ use super::{
 };
 use crate::{
     chain_spec::SyncChainSpec,
+    eips::{
+        eip2935::add_history_storage_contract_to_state_diff,
+        eip4788::add_beacon_roots_contract_to_state_diff,
+    },
     state::{StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block, BlockAndTotalDifficulty, LocalBlock, SyncBlock,
 };
@@ -105,20 +107,11 @@ where
         const EXTRA_DATA: &[u8] = b"\x12\x34";
 
         if spec_id >= SpecId::CANCUN {
-            let beacon_roots_address =
-                Address::from_str(BEACON_ROOTS_ADDRESS).expect("Is valid address");
-            let beacon_roots_contract = Bytecode::new_raw(
-                Bytes::from_str(BEACON_ROOTS_BYTECODE).expect("Is valid bytecode"),
-            );
+            add_beacon_roots_contract_to_state_diff(&mut genesis_diff);
+        }
 
-            genesis_diff.apply_account_change(
-                beacon_roots_address,
-                AccountInfo {
-                    code_hash: beacon_roots_contract.hash_slow(),
-                    code: Some(beacon_roots_contract),
-                    ..AccountInfo::default()
-                },
-            );
+        if spec_id >= SpecId::PRAGUE {
+            add_history_storage_contract_to_state_diff(&mut genesis_diff);
         }
 
         let mut genesis_state = TrieState::default();
