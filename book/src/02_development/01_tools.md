@@ -31,7 +31,7 @@ Generate a comparison report that will list slower tests in the candidate branch
 
 ```bash
 # From the repo root
-cargo run --bin tools compare-test-runs base-test-provider-logs.json candidate-test-provider-logs.json > comparisions.txt
+cargo run --bin tools compare-test-runs base-test-provider-logs.json candidate-test-provider-logs.json > comparisons.txt
 ```
 
 ## Scenarios
