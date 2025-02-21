@@ -11,7 +11,7 @@ mod reward;
 
 use alloy_eips::{eip4844, eip7691};
 use alloy_rlp::{BufMut, Decodable, RlpDecodable, RlpEncodable};
-use revm_primitives::{calc_blob_gasprice, calc_excess_blob_gas, keccak256, GAS_PER_BLOB};
+use revm_primitives::{b256, calc_blob_gasprice, calc_excess_blob_gas, keccak256, GAS_PER_BLOB};
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
@@ -72,6 +72,10 @@ pub struct Header {
     /// The hash tree root of the parent beacon block for the given execution
     /// block (EIP-4788).
     pub parent_beacon_block_root: Option<B256>,
+    /// The commitment hash calculated for a list of [EIP-7685] data requests.
+    ///
+    /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
+    pub requests_hash: Option<B256>,
 }
 
 /// Information about the blob gas used in a block.
@@ -144,6 +148,7 @@ impl Header {
             withdrawals_root,
             blob_gas: partial_header.blob_gas,
             parent_beacon_block_root: partial_header.parent_beacon_block_root,
+            requests_hash: partial_header.requests_hash,
         }
     }
 
@@ -190,6 +195,10 @@ pub struct PartialHeader {
     /// The hash tree root of the parent beacon block for the given execution
     /// block (EIP-4788).
     pub parent_beacon_block_root: Option<B256>,
+    /// The commitment hash calculated for a list of [EIP-7685] data requests.
+    ///
+    /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
+    pub requests_hash: Option<B256>,
 }
 
 impl PartialHeader {
@@ -292,6 +301,16 @@ impl PartialHeader {
                     None
                 }
             }),
+            requests_hash: options.requests_hash.or_else(|| {
+                if spec_id >= SpecId::PRAGUE {
+                    // sha("") for an empty list of requests
+                    Some(b256!(
+                        "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    ))
+                } else {
+                    None
+                }
+            }),
         }
     }
 }
@@ -317,6 +336,7 @@ impl Default for PartialHeader {
             base_fee: None,
             blob_gas: None,
             parent_beacon_block_root: None,
+            requests_hash: None,
         }
     }
 }
@@ -340,6 +360,7 @@ impl From<Header> for PartialHeader {
             base_fee: header.base_fee_per_gas,
             blob_gas: header.blob_gas,
             parent_beacon_block_root: header.parent_beacon_block_root,
+            requests_hash: header.requests_hash,
         }
     }
 }
@@ -460,6 +481,7 @@ mod tests {
             withdrawals_root: None,
             blob_gas: None,
             parent_beacon_block_root: None,
+            requests_hash: Some(B256::random()),
         };
 
         let encoded = alloy_rlp::encode(&header);
@@ -498,6 +520,7 @@ mod tests {
             withdrawals_root: None,
             blob_gas: None,
             parent_beacon_block_root: None,
+            requests_hash: None,
         };
         let encoded = alloy_rlp::encode(&header);
         assert_eq!(encoded, expected);
@@ -544,6 +567,7 @@ mod tests {
             withdrawals_root: None,
             blob_gas: None,
             parent_beacon_block_root: None,
+            requests_hash: None,
         };
         assert_eq!(header.hash(), expected_hash);
     }
@@ -573,6 +597,7 @@ mod tests {
             withdrawals_root: None,
             blob_gas: None,
             parent_beacon_block_root: None,
+            requests_hash: None,
         };
         let decoded = Header::decode(&mut data.as_slice()).unwrap();
         assert_eq!(decoded, expected);
@@ -621,6 +646,7 @@ mod tests {
             .unwrap(),
             ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
             withdrawals_root: Some(KECCAK_NULL_RLP),
+            requests_hash: None,
         };
 
         let encoded = alloy_rlp::encode(&header);
