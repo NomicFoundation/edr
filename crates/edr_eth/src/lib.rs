@@ -7,8 +7,6 @@
 
 /// Ethereum account types
 pub mod account;
-/// Parent beacon types and constants
-pub mod beacon;
 /// Ethereum block types
 pub mod block;
 /// Ethereum block spec
