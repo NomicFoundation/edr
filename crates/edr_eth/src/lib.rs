@@ -41,7 +41,7 @@ pub mod trie;
 pub mod utils;
 pub mod withdrawal;
 
-pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
+pub use c_kzg::{Blob, Bytes48};
 pub use revm_primitives::{
     address,
     alloy_primitives::{Bloom, BloomInput, B512, B64, U64},
