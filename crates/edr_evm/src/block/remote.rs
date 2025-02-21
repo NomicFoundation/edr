@@ -193,6 +193,7 @@ impl IntoRemoteBlock<L1ChainSpec> for edr_rpc_eth::Block<edr_rpc_eth::Transactio
                 })
             }),
             parent_beacon_block_root: self.parent_beacon_block_root,
+            requests_hash: self.requests_hash,
         };
 
         let transactions = self
