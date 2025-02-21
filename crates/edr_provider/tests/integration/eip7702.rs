@@ -148,7 +148,7 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     let response = provider
         .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            transaction_request,
+            transaction_request.clone(),
         )))
         .expect("eth_sendTransaction should succeed");
 
@@ -159,7 +159,21 @@ async fn get_transaction() -> anyhow::Result<()> {
     ))?;
 
     let transaction: edr_rpc_eth::Transaction = serde_json::from_value(response.result)?;
-    let _transaction = transaction::Signed::try_from(transaction)?;
+    let transaction = transaction::Signed::try_from(transaction)?;
+
+    if let transaction::Signed::Eip7702(transaction) = transaction {
+        assert_eq!(Some(transaction.chain_id), transaction_request.chain_id);
+        assert_eq!(Some(transaction.nonce), transaction_request.nonce);
+        assert_eq!(*transaction.caller(), transaction_request.from);
+        assert_eq!(Some(transaction.to), transaction_request.to);
+        assert!(transaction.access_list.is_empty());
+        assert_eq!(
+            Some(transaction.authorization_list),
+            transaction_request.authorization_list
+        );
+    } else {
+        panic!("expected Eip7702 transaction. Found: {transaction:?}");
+    }
 
     Ok(())
 }

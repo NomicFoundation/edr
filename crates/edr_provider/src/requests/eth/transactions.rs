@@ -2,6 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
+    eips::eip7702,
     receipt::{BlockReceipt, TransactionReceipt},
     rlp::Decodable,
     transaction::{
@@ -257,6 +258,9 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
         max_fee_per_blob_gas: transaction.max_fee_per_blob_gas(),
         blob_versioned_hashes: transaction.blob_hashes(),
+        authorization_list: transaction
+            .authorization_list()
+            .map(<[eip7702::SignedAuthorization]>::to_vec),
     })
 }
 

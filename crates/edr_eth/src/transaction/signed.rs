@@ -6,7 +6,7 @@ mod eip7702;
 mod legacy;
 
 use alloy_rlp::{Buf, BufMut};
-use revm_primitives::{AccessListItem, AuthorizationList, TransactTo, TxEnv};
+use revm_primitives::{AccessListItem, TransactTo, TxEnv};
 
 pub use self::{
     eip155::Eip155,
@@ -19,7 +19,10 @@ pub use self::{
 use super::{
     Signed, SignedTransaction, Transaction, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
-use crate::{signature::Signature, utils::enveloped, Address, Bytes, B256, U256};
+use crate::{
+    eips::eip7702::SignedAuthorization, signature::Signature, utils::enveloped, Address, Bytes,
+    B256, U256,
+};
 
 /// Converts a `TxKind` to a `TransactTo`.
 fn kind_to_transact_to(kind: TxKind) -> TransactTo {
@@ -60,11 +63,14 @@ impl Signed {
         matches!(self, Signed::Eip7702(_))
     }
 
-    /// Retrieves the authorization list of the transaction for post-EIP-7702
-    /// transactions.
-    pub fn authorization_list(&self) -> Option<&AuthorizationList> {
-        // TODO: EIP-7702
-        None
+    /// Retrieves the list of signed authorizations of the transaction for
+    /// post-EIP-7702 transactions.
+    pub fn authorization_list(&self) -> Option<&[SignedAuthorization]> {
+        if let Signed::Eip7702(tx) = self {
+            Some(tx.authorization_list.as_slice())
+        } else {
+            None
+        }
     }
 
     /// Retrieves the blob hashes of the transaction, if any.
