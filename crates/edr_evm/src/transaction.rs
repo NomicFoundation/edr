@@ -6,11 +6,11 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{transaction, SpecId, U256};
+use edr_eth::{eips::eip7702, transaction, SpecId, U256};
 use revm::{
     db::DatabaseComponentError,
     interpreter::gas::calculate_initial_tx_gas,
-    primitives::{AuthorizationList, EVMError, InvalidHeader, InvalidTransaction},
+    primitives::{EVMError, InvalidHeader, InvalidTransaction},
 };
 
 pub use self::detailed::*;
@@ -101,7 +101,7 @@ pub fn validate(
 pub fn initial_cost(transaction: &transaction::Signed, spec_id: SpecId) -> u64 {
     let authorization_list_num = transaction
         .authorization_list()
-        .map(AuthorizationList::len)
+        .map(<[eip7702::SignedAuthorization]>::len)
         // usize is guaranteed to fit into u64
         .unwrap_or_default() as u64;
 
