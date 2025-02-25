@@ -201,5 +201,6 @@ fn block_to_rpc_output<LoggerErrorT: Debug>(
         blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
         excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
         parent_beacon_block_root: header.parent_beacon_block_root,
+        requests_hash: header.requests_hash,
     })
 }

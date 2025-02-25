@@ -35,6 +35,10 @@ pub struct BlockOptions {
     /// The hash tree root of the parent beacon block for the given execution
     /// block (EIP-4788).
     pub parent_beacon_block_root: Option<Buffer>,
+    /// The commitment hash calculated for a list of [EIP-7685] data requests.
+    ///
+    /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
+    pub requests_hash: Option<Buffer>,
 }
 
 impl TryFrom<BlockOptions> for edr_eth::block::BlockOptions {
@@ -90,6 +94,10 @@ impl TryFrom<BlockOptions> for edr_eth::block::BlockOptions {
                 .transpose()?,
             parent_beacon_block_root: value
                 .parent_beacon_block_root
+                .map(TryCast::<B256>::try_cast)
+                .transpose()?,
+            requests_hash: value
+                .requests_hash
                 .map(TryCast::<B256>::try_cast)
                 .transpose()?,
         })
