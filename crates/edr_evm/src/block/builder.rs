@@ -143,7 +143,7 @@ pub struct BlockBuilder {
 }
 
 impl BlockBuilder {
-    /// Creates an intance of [`BlockBuilder`].
+    /// Creates an instance of [`BlockBuilder`].
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new<BlockchainErrorT>(
         cfg: CfgEnvWithHandlerCfg,
