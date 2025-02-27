@@ -4,7 +4,7 @@ use alloy_primitives::{Address, Bytes, U256};
 use revm::{interpreter::InstructionResult, primitives::Bytecode};
 
 use crate::{
-    Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Result,
+    impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Result,
     Vm::{
         clearMockedCallsCall, mockCallRevert_0Call, mockCallRevert_1Call, mockCall_0Call,
         mockCall_1Call,
@@ -49,6 +49,7 @@ impl Ord for MockCallDataContext {
     }
 }
 
+impl_is_pure_true!(clearMockedCallsCall);
 impl Cheatcode for clearMockedCallsCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -57,6 +58,7 @@ impl Cheatcode for clearMockedCallsCall {
     }
 }
 
+impl_is_pure_true!(mockCall_0Call);
 impl Cheatcode for mockCall_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -90,6 +92,7 @@ impl Cheatcode for mockCall_0Call {
     }
 }
 
+impl_is_pure_true!(mockCall_1Call);
 impl Cheatcode for mockCall_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -111,6 +114,7 @@ impl Cheatcode for mockCall_1Call {
     }
 }
 
+impl_is_pure_true!(mockCallRevert_0Call);
 impl Cheatcode for mockCallRevert_0Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -130,6 +134,7 @@ impl Cheatcode for mockCallRevert_0Call {
     }
 }
 
+impl_is_pure_true!(mockCallRevert_1Call);
 impl Cheatcode for mockCallRevert_1Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {

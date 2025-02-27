@@ -356,6 +356,10 @@ pub trait DatabaseExt: Database<Error = DatabaseError> {
         }
         Ok(())
     }
+
+    // Can't take generic cheatcode as argument as this trait needs to be
+    // object-safe.
+    fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool);
 }
 
 struct _ObjectSafe(dyn DatabaseExt);
@@ -479,7 +483,7 @@ impl Backend {
         };
 
         if let Some(fork) = fork {
-            let (fork_id, fork, _) = backend
+            let (fork_id, fork, _, fork_block_number) = backend
                 .forks
                 .create_fork(fork)
                 .expect("Unable to create fork");
@@ -488,8 +492,14 @@ impl Backend {
                 fork_id.clone(),
                 fork_db,
                 backend.inner.new_journaled_state(),
+                fork_block_number,
             );
-            backend.inner.launched_with_fork = Some((fork_id, fork_ids.0, fork_ids.1));
+            backend.inner.launched_with_fork = Some(LaunchedWithFork {
+                fork_id,
+                local_fork_id: fork_ids.0,
+                fork_look_up_index: fork_ids.1,
+                fork_block_number,
+            });
             backend.active_fork_ids = Some(fork_ids);
         }
 
@@ -502,10 +512,17 @@ impl Backend {
     /// and sets the fork as active
     pub(crate) fn new_with_fork(id: &ForkId, fork: Fork, journaled_state: JournaledState) -> Self {
         let mut backend = Self::spawn(None);
-        let fork_ids = backend
-            .inner
-            .insert_new_fork(id.clone(), fork.db, journaled_state);
-        backend.inner.launched_with_fork = Some((id.clone(), fork_ids.0, fork_ids.1));
+        let fork_block_number = fork.fork_block_number;
+        let fork_ids =
+            backend
+                .inner
+                .insert_new_fork(id.clone(), fork.db, journaled_state, fork_block_number);
+        backend.inner.launched_with_fork = Some(LaunchedWithFork {
+            fork_id: id.clone(),
+            local_fork_id: fork_ids.0,
+            fork_look_up_index: fork_ids.1,
+            fork_block_number,
+        });
         backend.active_fork_ids = Some(fork_ids);
         backend
     }
@@ -694,6 +711,24 @@ impl Backend {
         }
 
         false
+    }
+
+    /// Whether the backend instance only executed pure cheatcodes.
+    /// Returns true if no cheatcodes were executed.
+    pub fn are_executed_cheatcodes_pure(&self) -> bool {
+        self.inner.impure_cheatcodes.is_empty()
+    }
+
+    /// Whether when re-executing the calls the same results are guaranteed.
+    pub fn safe_to_re_execute(&self) -> bool {
+        // Check that the global fork this backend was launched at isn't using the
+        // "latest" block tag.
+        let not_latest_block = self
+            .inner
+            .launched_with_fork
+            .as_ref()
+            .map_or(true, |lf| lf.fork_block_number.is_some());
+        not_latest_block && self.are_executed_cheatcodes_pure()
     }
 
     /// When creating or switching forks, we update the `AccountInfo` of the
@@ -1076,12 +1111,15 @@ impl DatabaseExt for Backend {
 
     fn create_fork(&mut self, create_fork: CreateFork) -> eyre::Result<LocalForkId> {
         trace!("create fork");
-        let (fork_id, fork, _) = self.forks.create_fork(create_fork)?;
+        let (fork_id, fork, _, fork_block_number) = self.forks.create_fork(create_fork)?;
 
         let fork_db = ForkDB::new(fork);
-        let (id, _) =
-            self.inner
-                .insert_new_fork(fork_id, fork_db, self.fork_init_journaled_state.clone());
+        let (id, _) = self.inner.insert_new_fork(
+            fork_id,
+            fork_db,
+            self.fork_init_journaled_state.clone(),
+            fork_block_number,
+        );
         Ok(id)
     }
 
@@ -1481,6 +1519,13 @@ impl DatabaseExt for Backend {
     fn has_cheatcode_access(&self, account: &Address) -> bool {
         self.inner.cheatcode_access_accounts.contains(account)
     }
+
+    #[inline(always)]
+    fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool) {
+        if !is_pure {
+            self.inner.impure_cheatcodes.insert(cheatcode_name);
+        }
+    }
 }
 
 impl DatabaseRef for Backend {
@@ -1578,6 +1623,7 @@ pub enum BackendDatabaseSnapshot {
 pub struct Fork {
     db: ForkDB,
     journaled_state: JournaledState,
+    fork_block_number: Option<u64>,
 }
 
 // === impl Fork ===
@@ -1603,7 +1649,7 @@ pub struct BackendInner {
     /// In other words if [`Backend::spawn()`] was called with a `CreateFork`
     /// command, to launch directly in fork mode, this holds the
     /// corresponding fork identifier of this fork.
-    pub launched_with_fork: Option<(ForkId, LocalForkId, ForkLookupIndex)>,
+    pub launched_with_fork: Option<LaunchedWithFork>,
     /// This tracks numeric fork ids and the `ForkId` used by the handler.
     ///
     /// This is necessary, because there can be multiple `Backends` associated
@@ -1657,6 +1703,9 @@ pub struct BackendInner {
     pub spec_id: SpecId,
     /// All accounts that are allowed to execute cheatcodes
     pub cheatcode_access_accounts: HashSet<Address>,
+    /// The set of executed cheatcodes that are impure. The values are the
+    /// Solidity method declarations of the cheatcodes.
+    pub impure_cheatcodes: HashSet<&'static str>,
 }
 
 // === impl BackendInner ===
@@ -1742,27 +1791,6 @@ impl BackendInner {
         self.set_fork(idx, fork);
     }
 
-    /// Updates the fork and the local mapping and returns the new index for the
-    /// `fork_db`
-    pub fn update_fork_mapping(
-        &mut self,
-        id: LocalForkId,
-        fork_id: ForkId,
-        db: ForkDB,
-        journaled_state: JournaledState,
-    ) -> ForkLookupIndex {
-        let idx = self.forks.len();
-        self.issued_local_fork_ids.insert(id, fork_id.clone());
-        self.created_forks.insert(fork_id, idx);
-
-        let fork = Fork {
-            db,
-            journaled_state,
-        };
-        self.forks.push(Some(fork));
-        idx
-    }
-
     pub fn roll_fork(
         &mut self,
         id: LocalForkId,
@@ -1794,6 +1822,7 @@ impl BackendInner {
         fork_id: ForkId,
         db: ForkDB,
         journaled_state: JournaledState,
+        fork_block_number: Option<u64>,
     ) -> (LocalForkId, ForkLookupIndex) {
         let idx = self.forks.len();
         self.created_forks.insert(fork_id.clone(), idx);
@@ -1802,6 +1831,7 @@ impl BackendInner {
         let fork = Fork {
             db,
             journaled_state,
+            fork_block_number,
         };
         self.forks.push(Some(fork));
         (id, idx)
@@ -1857,8 +1887,22 @@ impl Default for BackendInner {
                 TEST_CONTRACT_ADDRESS,
                 CALLER,
             ]),
+            impure_cheatcodes: HashSet::default(),
         }
     }
+}
+
+/// Holds the initial (global) fork info
+#[derive(Clone, Debug)]
+pub struct LaunchedWithFork {
+    /// The fork id
+    pub fork_id: ForkId,
+    /// The local fork id
+    pub local_fork_id: LocalForkId,
+    /// The fork lookup index
+    pub fork_look_up_index: ForkLookupIndex,
+    /// The fork block number. If `None` that means implicitly "latest".
+    pub fork_block_number: Option<u64>,
 }
 
 /// This updates the currently used env with the fork's environment

@@ -265,6 +265,23 @@ impl<'a> DatabaseExt for CowBackend<'a> {
     fn has_cheatcode_access(&self, account: &Address) -> bool {
         self.backend.has_cheatcode_access(account)
     }
+
+    fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool) {
+        // Only convert to mutable if we need to update.
+        if !is_pure
+            && !self
+                .backend
+                .inner
+                .impure_cheatcodes
+                .contains(cheatcode_name)
+        {
+            self.backend
+                .to_mut()
+                .inner
+                .impure_cheatcodes
+                .insert(cheatcode_name);
+        }
+    }
 }
 
 impl<'a> DatabaseRef for CowBackend<'a> {

@@ -122,11 +122,15 @@ impl MultiFork {
     /// Returns a fork backend
     ///
     /// If no matching fork backend exists it will be created
-    pub fn create_fork(&self, fork: CreateFork) -> eyre::Result<(ForkId, SharedBackend, Env)> {
+    pub fn create_fork(
+        &self,
+        fork: CreateFork,
+    ) -> eyre::Result<(ForkId, SharedBackend, Env, Option<u64>)> {
+        let fork_block_number = fork.evm_opts.fork_block_number;
         trace!(
             "Creating new fork, url={}, block={:?}",
             fork.url,
-            fork.evm_opts.fork_block_number
+            fork_block_number
         );
         let (sender, rx) = oneshot_channel();
         let req = Request::CreateFork(Box::new(fork), sender);
@@ -134,7 +138,8 @@ impl MultiFork {
             .clone()
             .try_send(req)
             .map_err(|e| eyre::eyre!("{:?}", e))?;
-        rx.recv()?
+        let (fork_id, shared_backend, env) = rx.recv()??;
+        Ok((fork_id, shared_backend, env, fork_block_number))
     }
 
     /// Rolls the block of the fork

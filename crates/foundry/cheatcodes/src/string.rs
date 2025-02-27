@@ -5,7 +5,7 @@ use alloy_primitives::U256;
 use alloy_sol_types::SolValue;
 
 use crate::{
-    Cheatcode, Cheatcodes, Result,
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{
         indexOfCall, parseAddressCall, parseBoolCall, parseBytes32Call, parseBytesCall,
         parseIntCall, parseUintCall, replaceCall, splitCall, toLowercaseCall, toString_0Call,
@@ -13,8 +13,8 @@ use crate::{
         toUppercaseCall, trimCall,
     },
 };
-
 // address
+impl_is_pure_true!(toString_0Call);
 impl Cheatcode for toString_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { value } = self;
@@ -23,6 +23,7 @@ impl Cheatcode for toString_0Call {
 }
 
 // bytes
+impl_is_pure_true!(toString_1Call);
 impl Cheatcode for toString_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { value } = self;
@@ -31,6 +32,7 @@ impl Cheatcode for toString_1Call {
 }
 
 // bytes32
+impl_is_pure_true!(toString_2Call);
 impl Cheatcode for toString_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { value } = self;
@@ -39,6 +41,7 @@ impl Cheatcode for toString_2Call {
 }
 
 // bool
+impl_is_pure_true!(toString_3Call);
 impl Cheatcode for toString_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { value } = self;
@@ -47,6 +50,7 @@ impl Cheatcode for toString_3Call {
 }
 
 // uint256
+impl_is_pure_true!(toString_4Call);
 impl Cheatcode for toString_4Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { value } = self;
@@ -55,6 +59,7 @@ impl Cheatcode for toString_4Call {
 }
 
 // int256
+impl_is_pure_true!(toString_5Call);
 impl Cheatcode for toString_5Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { value } = self;
@@ -62,6 +67,7 @@ impl Cheatcode for toString_5Call {
     }
 }
 
+impl_is_pure_true!(parseBytesCall);
 impl Cheatcode for parseBytesCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { stringifiedValue } = self;
@@ -69,6 +75,7 @@ impl Cheatcode for parseBytesCall {
     }
 }
 
+impl_is_pure_true!(parseAddressCall);
 impl Cheatcode for parseAddressCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { stringifiedValue } = self;
@@ -76,6 +83,7 @@ impl Cheatcode for parseAddressCall {
     }
 }
 
+impl_is_pure_true!(parseUintCall);
 impl Cheatcode for parseUintCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { stringifiedValue } = self;
@@ -83,6 +91,7 @@ impl Cheatcode for parseUintCall {
     }
 }
 
+impl_is_pure_true!(parseIntCall);
 impl Cheatcode for parseIntCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { stringifiedValue } = self;
@@ -90,6 +99,7 @@ impl Cheatcode for parseIntCall {
     }
 }
 
+impl_is_pure_true!(parseBytes32Call);
 impl Cheatcode for parseBytes32Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { stringifiedValue } = self;
@@ -97,6 +107,7 @@ impl Cheatcode for parseBytes32Call {
     }
 }
 
+impl_is_pure_true!(parseBoolCall);
 impl Cheatcode for parseBoolCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { stringifiedValue } = self;
@@ -105,6 +116,7 @@ impl Cheatcode for parseBoolCall {
 }
 
 // toLowercase
+impl_is_pure_true!(toLowercaseCall);
 impl Cheatcode for toLowercaseCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { input } = self;
@@ -113,6 +125,7 @@ impl Cheatcode for toLowercaseCall {
 }
 
 // toUppercase
+impl_is_pure_true!(toUppercaseCall);
 impl Cheatcode for toUppercaseCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { input } = self;
@@ -121,6 +134,7 @@ impl Cheatcode for toUppercaseCall {
 }
 
 // trim
+impl_is_pure_true!(trimCall);
 impl Cheatcode for trimCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { input } = self;
@@ -129,6 +143,7 @@ impl Cheatcode for trimCall {
 }
 
 // Replace
+impl_is_pure_true!(replaceCall);
 impl Cheatcode for replaceCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { input, from, to } = self;
@@ -137,6 +152,7 @@ impl Cheatcode for replaceCall {
 }
 
 // Split
+impl_is_pure_true!(splitCall);
 impl Cheatcode for splitCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { input, delimiter } = self;
@@ -146,6 +162,7 @@ impl Cheatcode for splitCall {
 }
 
 // indexOf
+impl_is_pure_true!(indexOfCall);
 impl Cheatcode for indexOfCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { input, key } = self;

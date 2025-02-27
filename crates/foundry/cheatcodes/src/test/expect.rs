@@ -6,7 +6,7 @@ use revm::interpreter::{return_ok, InstructionResult};
 use spec::Vm;
 
 use crate::{
-    Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Result,
+    impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Result,
     Vm::{
         _expectCheatcodeRevert_0Call, _expectCheatcodeRevert_1Call, _expectCheatcodeRevert_2Call,
         expectCallMinGas_0Call, expectCallMinGas_1Call, expectCall_0Call, expectCall_1Call,
@@ -111,6 +111,7 @@ pub struct ExpectedEmit {
     pub found: bool,
 }
 
+impl_is_pure_true!(expectCall_0Call);
 impl Cheatcode for expectCall_0Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { callee, data } = self;
@@ -127,6 +128,7 @@ impl Cheatcode for expectCall_0Call {
     }
 }
 
+impl_is_pure_true!(expectCall_1Call);
 impl Cheatcode for expectCall_1Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -147,6 +149,7 @@ impl Cheatcode for expectCall_1Call {
     }
 }
 
+impl_is_pure_true!(expectCall_2Call);
 impl Cheatcode for expectCall_2Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -167,6 +170,7 @@ impl Cheatcode for expectCall_2Call {
     }
 }
 
+impl_is_pure_true!(expectCall_3Call);
 impl Cheatcode for expectCall_3Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -188,6 +192,7 @@ impl Cheatcode for expectCall_3Call {
     }
 }
 
+impl_is_pure_true!(expectCall_4Call);
 impl Cheatcode for expectCall_4Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -209,6 +214,7 @@ impl Cheatcode for expectCall_4Call {
     }
 }
 
+impl_is_pure_true!(expectCall_5Call);
 impl Cheatcode for expectCall_5Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -231,6 +237,7 @@ impl Cheatcode for expectCall_5Call {
     }
 }
 
+impl_is_pure_true!(expectCallMinGas_0Call);
 impl Cheatcode for expectCallMinGas_0Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -252,6 +259,7 @@ impl Cheatcode for expectCallMinGas_0Call {
     }
 }
 
+impl_is_pure_true!(expectCallMinGas_1Call);
 impl Cheatcode for expectCallMinGas_1Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -274,6 +282,7 @@ impl Cheatcode for expectCallMinGas_1Call {
     }
 }
 
+impl_is_pure_true!(expectEmit_0Call);
 impl Cheatcode for expectEmit_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -291,6 +300,7 @@ impl Cheatcode for expectEmit_0Call {
     }
 }
 
+impl_is_pure_true!(expectEmit_1Call);
 impl Cheatcode for expectEmit_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -309,6 +319,7 @@ impl Cheatcode for expectEmit_1Call {
     }
 }
 
+impl_is_pure_true!(expectEmit_2Call);
 impl Cheatcode for expectEmit_2Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -316,6 +327,7 @@ impl Cheatcode for expectEmit_2Call {
     }
 }
 
+impl_is_pure_true!(expectEmit_3Call);
 impl Cheatcode for expectEmit_3Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { emitter } = *self;
@@ -328,6 +340,7 @@ impl Cheatcode for expectEmit_3Call {
     }
 }
 
+impl_is_pure_true!(expectRevert_0Call);
 impl Cheatcode for expectRevert_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -335,6 +348,7 @@ impl Cheatcode for expectRevert_0Call {
     }
 }
 
+impl_is_pure_true!(expectRevert_1Call);
 impl Cheatcode for expectRevert_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { revertData } = self;
@@ -347,6 +361,7 @@ impl Cheatcode for expectRevert_1Call {
     }
 }
 
+impl_is_pure_true!(expectRevert_2Call);
 impl Cheatcode for expectRevert_2Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { revertData } = self;
@@ -359,12 +374,14 @@ impl Cheatcode for expectRevert_2Call {
     }
 }
 
+impl_is_pure_true!(_expectCheatcodeRevert_0Call);
 impl Cheatcode for _expectCheatcodeRevert_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         expect_revert(ccx.state, None, ccx.ecx.journaled_state.depth(), true)
     }
 }
 
+impl_is_pure_true!(_expectCheatcodeRevert_1Call);
 impl Cheatcode for _expectCheatcodeRevert_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { revertData } = self;
@@ -377,6 +394,7 @@ impl Cheatcode for _expectCheatcodeRevert_1Call {
     }
 }
 
+impl_is_pure_true!(_expectCheatcodeRevert_2Call);
 impl Cheatcode for _expectCheatcodeRevert_2Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { revertData } = self;
@@ -389,6 +407,7 @@ impl Cheatcode for _expectCheatcodeRevert_2Call {
     }
 }
 
+impl_is_pure_true!(expectSafeMemoryCall);
 impl Cheatcode for expectSafeMemoryCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { min, max } = *self;
@@ -396,6 +415,7 @@ impl Cheatcode for expectSafeMemoryCall {
     }
 }
 
+impl_is_pure_true!(stopExpectSafeMemoryCall);
 impl Cheatcode for stopExpectSafeMemoryCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -406,6 +426,7 @@ impl Cheatcode for stopExpectSafeMemoryCall {
     }
 }
 
+impl_is_pure_true!(expectSafeMemoryCallCall);
 impl Cheatcode for expectSafeMemoryCallCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { min, max } = *self;

@@ -630,7 +630,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
 
         // Exclude stack trace generation from test execution time for accurate
         // reporting
-        let stack_trace_result = if !success {
+        let stack_trace_result = if !success && executor.safe_to_re_execute() {
             Some(self.re_run_test_for_stack_traces(func, setup.has_setup_method))
         } else {
             None
@@ -1009,11 +1009,15 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
 
         let stack_trace_result =
             if let Some(CounterExample::Single(counter_example)) = result.counterexample.as_ref() {
-                Some(self.re_run_fuzz_counterexample_for_stack_traces(
-                    address,
-                    counter_example,
-                    has_setup_method,
-                ))
+                if counter_example.safe_to_re_execute {
+                    Some(self.re_run_fuzz_counterexample_for_stack_traces(
+                        address,
+                        counter_example,
+                        has_setup_method,
+                    ))
+                } else {
+                    None
+                }
             } else {
                 None
             };

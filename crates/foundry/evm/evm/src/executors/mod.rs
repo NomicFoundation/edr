@@ -597,6 +597,11 @@ impl Executor {
 
         EnvWithHandlerCfg::new_with_spec_id(Box::new(env), self.env.handler_cfg.spec_id)
     }
+
+    /// Whether when re-executing the calls the same results are guaranteed.
+    pub fn safe_to_re_execute(&self) -> bool {
+        self.backend.safe_to_re_execute()
+    }
 }
 
 /// Represents the context after an execution error occurred.

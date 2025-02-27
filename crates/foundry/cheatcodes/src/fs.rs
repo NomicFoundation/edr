@@ -20,7 +20,7 @@ use walkdir::WalkDir;
 
 use super::string::parse;
 use crate::{
-    Cheatcode, Cheatcodes, FsAccessKind, Result,
+    impl_is_pure_false, Cheatcode, Cheatcodes, FsAccessKind, Result,
     Vm::{
         closeFileCall, copyFileCall, createDirCall, existsCall, ffiCall, fsMetadataCall,
         getCodeCall, getDeployedCodeCall, isDirCall, isFileCall, projectRootCall,
@@ -31,6 +31,7 @@ use crate::{
     },
 };
 
+impl_is_pure_false!(existsCall);
 impl Cheatcode for existsCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -39,6 +40,7 @@ impl Cheatcode for existsCall {
     }
 }
 
+impl_is_pure_false!(fsMetadataCall);
 impl Cheatcode for fsMetadataCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -68,6 +70,7 @@ impl Cheatcode for fsMetadataCall {
     }
 }
 
+impl_is_pure_false!(isDirCall);
 impl Cheatcode for isDirCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -76,6 +79,7 @@ impl Cheatcode for isDirCall {
     }
 }
 
+impl_is_pure_false!(isFileCall);
 impl Cheatcode for isFileCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -84,6 +88,7 @@ impl Cheatcode for isFileCall {
     }
 }
 
+impl_is_pure_false!(projectRootCall);
 impl Cheatcode for projectRootCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -91,6 +96,7 @@ impl Cheatcode for projectRootCall {
     }
 }
 
+impl_is_pure_false!(unixTimeCall);
 impl Cheatcode for unixTimeCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -101,6 +107,7 @@ impl Cheatcode for unixTimeCall {
     }
 }
 
+impl_is_pure_false!(closeFileCall);
 impl Cheatcode for closeFileCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -112,6 +119,7 @@ impl Cheatcode for closeFileCall {
     }
 }
 
+impl_is_pure_false!(copyFileCall);
 impl Cheatcode for copyFileCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { from, to } = self;
@@ -124,6 +132,7 @@ impl Cheatcode for copyFileCall {
     }
 }
 
+impl_is_pure_false!(createDirCall);
 impl Cheatcode for createDirCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path, recursive } = self;
@@ -139,6 +148,7 @@ impl Cheatcode for createDirCall {
     }
 }
 
+impl_is_pure_false!(readDir_0Call);
 impl Cheatcode for readDir_0Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -146,6 +156,7 @@ impl Cheatcode for readDir_0Call {
     }
 }
 
+impl_is_pure_false!(readDir_1Call);
 impl Cheatcode for readDir_1Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path, maxDepth } = self;
@@ -153,6 +164,7 @@ impl Cheatcode for readDir_1Call {
     }
 }
 
+impl_is_pure_false!(readDir_2Call);
 impl Cheatcode for readDir_2Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -164,6 +176,7 @@ impl Cheatcode for readDir_2Call {
     }
 }
 
+impl_is_pure_false!(readFileCall);
 impl Cheatcode for readFileCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -172,6 +185,7 @@ impl Cheatcode for readFileCall {
     }
 }
 
+impl_is_pure_false!(readFileBinaryCall);
 impl Cheatcode for readFileBinaryCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -180,6 +194,7 @@ impl Cheatcode for readFileBinaryCall {
     }
 }
 
+impl_is_pure_false!(readLineCall);
 impl Cheatcode for readLineCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -208,6 +223,7 @@ impl Cheatcode for readLineCall {
     }
 }
 
+impl_is_pure_false!(readLinkCall);
 impl Cheatcode for readLinkCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { linkPath: path } = self;
@@ -217,6 +233,7 @@ impl Cheatcode for readLinkCall {
     }
 }
 
+impl_is_pure_false!(removeDirCall);
 impl Cheatcode for removeDirCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path, recursive } = self;
@@ -232,6 +249,7 @@ impl Cheatcode for removeDirCall {
     }
 }
 
+impl_is_pure_false!(removeFileCall);
 impl Cheatcode for removeFileCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path } = self;
@@ -251,6 +269,7 @@ impl Cheatcode for removeFileCall {
     }
 }
 
+impl_is_pure_false!(writeFileCall);
 impl Cheatcode for writeFileCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path, data } = self;
@@ -258,6 +277,7 @@ impl Cheatcode for writeFileCall {
     }
 }
 
+impl_is_pure_false!(writeFileBinaryCall);
 impl Cheatcode for writeFileBinaryCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path, data } = self;
@@ -265,6 +285,7 @@ impl Cheatcode for writeFileBinaryCall {
     }
 }
 
+impl_is_pure_false!(writeLineCall);
 impl Cheatcode for writeLineCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { path, data: line } = self;
@@ -286,6 +307,7 @@ impl Cheatcode for writeLineCall {
     }
 }
 
+impl_is_pure_false!(getCodeCall);
 impl Cheatcode for getCodeCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { artifactPath: path } = self;
@@ -293,6 +315,7 @@ impl Cheatcode for getCodeCall {
     }
 }
 
+impl_is_pure_false!(getDeployedCodeCall);
 impl Cheatcode for getDeployedCodeCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { artifactPath: path } = self;
@@ -401,6 +424,7 @@ fn get_artifact_code(state: &Cheatcodes, path: &str, deployed: bool) -> Result<B
     maybe_bytecode.ok_or_else(|| fmt_err!("No bytecode for contract. Is it abstract or unlinked?"))
 }
 
+impl_is_pure_false!(ffiCall);
 impl Cheatcode for ffiCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -418,6 +442,7 @@ impl Cheatcode for ffiCall {
     }
 }
 
+impl_is_pure_false!(tryFfiCall);
 impl Cheatcode for tryFfiCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -427,6 +452,7 @@ impl Cheatcode for tryFfiCall {
     }
 }
 
+impl_is_pure_false!(promptCall);
 impl Cheatcode for promptCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { promptText: text } = self;
@@ -434,6 +460,7 @@ impl Cheatcode for promptCall {
     }
 }
 
+impl_is_pure_false!(promptSecretCall);
 impl Cheatcode for promptSecretCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { promptText: text } = self;
@@ -441,6 +468,7 @@ impl Cheatcode for promptSecretCall {
     }
 }
 
+impl_is_pure_false!(promptAddressCall);
 impl Cheatcode for promptAddressCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { promptText: text } = self;
@@ -448,6 +476,7 @@ impl Cheatcode for promptAddressCall {
     }
 }
 
+impl_is_pure_false!(promptUintCall);
 impl Cheatcode for promptUintCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { promptText: text } = self;
