@@ -48,7 +48,7 @@ pub use test::expect::ExpectedCallTracker;
 pub use Vm::ExecutionContext;
 
 /// Cheatcode implementation.
-pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode {
+pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     /// Applies this cheatcode to the given state.
     ///
     /// Implement this function if you don't need access to the EVM data.
@@ -97,6 +97,8 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode {
         }
 
         let _span = trace_span_and_call(self);
+        ccx.db
+            .record_cheatcode_purity(Self::CHEATCODE.func.declaration, self.is_pure());
         let result = self.apply_full(ccx);
         trace_return(&result);
         result
@@ -116,6 +118,39 @@ impl<T: Cheatcode> DynCheatcode for T {
     fn as_debug(&self) -> &dyn std::fmt::Debug {
         self
     }
+}
+
+pub(crate) trait IsPure {
+    /// Whether the cheatcode is a pure function if its inputs.
+    /// If it's not, that means it's not safe to re-execute a call that invokes
+    /// it and expect the same results.
+    fn is_pure(&self) -> bool;
+}
+
+/// Implement `IsPure::is_pure` to return `true`.
+#[macro_export]
+macro_rules! impl_is_pure_true {
+    ($type:ty) => {
+        impl $crate::IsPure for $type {
+            #[inline(always)]
+            fn is_pure(&self) -> bool {
+                true
+            }
+        }
+    };
+}
+
+/// Implement `IsPure::is_pure` to return `false`.
+#[macro_export]
+macro_rules! impl_is_pure_false {
+    ($type:ty) => {
+        impl $crate::IsPure for $type {
+            #[inline(always)]
+            fn is_pure(&self) -> bool {
+                false
+            }
+        }
+    };
 }
 
 /// The cheatcode context, used in [`Cheatcode`].

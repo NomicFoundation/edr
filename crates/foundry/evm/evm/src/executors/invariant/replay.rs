@@ -72,7 +72,7 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     } = args;
 
     // We want traces for a failed case.
-    if generate_stack_trace {
+    if generate_stack_trace && executor.safe_to_re_execute() {
         executor.inspector.enable_for_stack_traces();
     } else {
         executor.set_tracing(true);
@@ -115,13 +115,17 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
             &tx.call_details.calldata,
             &ided_contracts,
             call_result.traces,
+            executor.safe_to_re_execute(),
         ));
 
         // If this call failed, but didn't revert, this is terminal for sure.
         // If this call reverted, only exit if `fail_on_revert` is true.
         if !call_result.exit_reason.is_ok() && (fail_on_revert || !call_result.reverted) {
-            let stack_trace_result =
-                contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose());
+            let stack_trace_result = if executor.safe_to_re_execute() {
+                contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose())
+            } else {
+                None
+            };
             let revert_reason = revert_decoder
                 .maybe_decode(call_result.result.as_ref(), Some(call_result.exit_reason));
             return Ok(ReplayResult {
@@ -153,8 +157,12 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     ));
     logs.extend(invariant_result.logs);
 
-    let stack_trace_result =
-        contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose());
+    let stack_trace_result = if executor.safe_to_re_execute() {
+        contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose())
+    } else {
+        None
+    };
+
     let revert_reason = revert_decoder.maybe_decode(
         invariant_result.result.as_ref(),
         Some(invariant_result.exit_reason),

@@ -134,7 +134,8 @@ impl MultiFork {
             .clone()
             .try_send(req)
             .map_err(|e| eyre::eyre!("{:?}", e))?;
-        rx.recv()?
+        let (fork_id, shared_backend, env) = rx.recv()??;
+        Ok((fork_id, shared_backend, env))
     }
 
     /// Rolls the block of the fork

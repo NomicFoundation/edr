@@ -5,7 +5,7 @@ use foundry_evm_core::abi::{format_units_int, format_units_uint};
 use itertools::Itertools;
 
 use crate::{
-    Cheatcode, Cheatcodes, Result,
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{
         assertApproxEqAbsDecimal_0Call, assertApproxEqAbsDecimal_1Call,
         assertApproxEqAbsDecimal_2Call, assertApproxEqAbsDecimal_3Call, assertApproxEqAbs_0Call,
@@ -204,30 +204,35 @@ impl EqRelAssertionError<I256> {
 
 type ComparisonResult<'a, T> = Result<Vec<u8>, ComparisonAssertionError<'a, T>>;
 
+impl_is_pure_true!(assertTrue_0Call);
 impl Cheatcode for assertTrue_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_true(self.condition).map_err(|e| e.to_string())?)
     }
 }
 
+impl_is_pure_true!(assertTrue_1Call);
 impl Cheatcode for assertTrue_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_true(self.condition).map_err(|_err| self.error.clone())?)
     }
 }
 
+impl_is_pure_true!(assertFalse_0Call);
 impl Cheatcode for assertFalse_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_false(self.condition).map_err(|e| e.to_string())?)
     }
 }
 
+impl_is_pure_true!(assertFalse_1Call);
 impl Cheatcode for assertFalse_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_false(self.condition).map_err(|_err| self.error.clone())?)
     }
 }
 
+impl_is_pure_true!(assertEq_0Call);
 impl Cheatcode for assertEq_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -236,6 +241,7 @@ impl Cheatcode for assertEq_0Call {
     }
 }
 
+impl_is_pure_true!(assertEq_1Call);
 impl Cheatcode for assertEq_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -243,6 +249,7 @@ impl Cheatcode for assertEq_1Call {
     }
 }
 
+impl_is_pure_true!(assertEq_2Call);
 impl Cheatcode for assertEq_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -251,6 +258,7 @@ impl Cheatcode for assertEq_2Call {
     }
 }
 
+impl_is_pure_true!(assertEq_3Call);
 impl Cheatcode for assertEq_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -258,6 +266,7 @@ impl Cheatcode for assertEq_3Call {
     }
 }
 
+impl_is_pure_true!(assertEq_4Call);
 impl Cheatcode for assertEq_4Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -266,6 +275,7 @@ impl Cheatcode for assertEq_4Call {
     }
 }
 
+impl_is_pure_true!(assertEq_5Call);
 impl Cheatcode for assertEq_5Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -273,6 +283,7 @@ impl Cheatcode for assertEq_5Call {
     }
 }
 
+impl_is_pure_true!(assertEq_6Call);
 impl Cheatcode for assertEq_6Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -281,6 +292,7 @@ impl Cheatcode for assertEq_6Call {
     }
 }
 
+impl_is_pure_true!(assertEq_7Call);
 impl Cheatcode for assertEq_7Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -288,6 +300,7 @@ impl Cheatcode for assertEq_7Call {
     }
 }
 
+impl_is_pure_true!(assertEq_8Call);
 impl Cheatcode for assertEq_8Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -296,6 +309,7 @@ impl Cheatcode for assertEq_8Call {
     }
 }
 
+impl_is_pure_true!(assertEq_9Call);
 impl Cheatcode for assertEq_9Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -303,6 +317,7 @@ impl Cheatcode for assertEq_9Call {
     }
 }
 
+impl_is_pure_true!(assertEq_10Call);
 impl Cheatcode for assertEq_10Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -311,6 +326,7 @@ impl Cheatcode for assertEq_10Call {
     }
 }
 
+impl_is_pure_true!(assertEq_11Call);
 impl Cheatcode for assertEq_11Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -318,6 +334,7 @@ impl Cheatcode for assertEq_11Call {
     }
 }
 
+impl_is_pure_true!(assertEq_12Call);
 impl Cheatcode for assertEq_12Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -328,6 +345,7 @@ impl Cheatcode for assertEq_12Call {
     }
 }
 
+impl_is_pure_true!(assertEq_13Call);
 impl Cheatcode for assertEq_13Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -338,6 +356,7 @@ impl Cheatcode for assertEq_13Call {
     }
 }
 
+impl_is_pure_true!(assertEq_14Call);
 impl Cheatcode for assertEq_14Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -346,6 +365,7 @@ impl Cheatcode for assertEq_14Call {
     }
 }
 
+impl_is_pure_true!(assertEq_15Call);
 impl Cheatcode for assertEq_15Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -353,6 +373,7 @@ impl Cheatcode for assertEq_15Call {
     }
 }
 
+impl_is_pure_true!(assertEq_16Call);
 impl Cheatcode for assertEq_16Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -361,6 +382,7 @@ impl Cheatcode for assertEq_16Call {
     }
 }
 
+impl_is_pure_true!(assertEq_17Call);
 impl Cheatcode for assertEq_17Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -368,6 +390,7 @@ impl Cheatcode for assertEq_17Call {
     }
 }
 
+impl_is_pure_true!(assertEq_18Call);
 impl Cheatcode for assertEq_18Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -376,6 +399,7 @@ impl Cheatcode for assertEq_18Call {
     }
 }
 
+impl_is_pure_true!(assertEq_19Call);
 impl Cheatcode for assertEq_19Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -383,6 +407,7 @@ impl Cheatcode for assertEq_19Call {
     }
 }
 
+impl_is_pure_true!(assertEq_20Call);
 impl Cheatcode for assertEq_20Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -391,6 +416,7 @@ impl Cheatcode for assertEq_20Call {
     }
 }
 
+impl_is_pure_true!(assertEq_21Call);
 impl Cheatcode for assertEq_21Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -398,6 +424,7 @@ impl Cheatcode for assertEq_21Call {
     }
 }
 
+impl_is_pure_true!(assertEq_22Call);
 impl Cheatcode for assertEq_22Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -406,6 +433,7 @@ impl Cheatcode for assertEq_22Call {
     }
 }
 
+impl_is_pure_true!(assertEq_23Call);
 impl Cheatcode for assertEq_23Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -413,6 +441,7 @@ impl Cheatcode for assertEq_23Call {
     }
 }
 
+impl_is_pure_true!(assertEq_24Call);
 impl Cheatcode for assertEq_24Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -421,6 +450,7 @@ impl Cheatcode for assertEq_24Call {
     }
 }
 
+impl_is_pure_true!(assertEq_25Call);
 impl Cheatcode for assertEq_25Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -428,6 +458,7 @@ impl Cheatcode for assertEq_25Call {
     }
 }
 
+impl_is_pure_true!(assertEq_26Call);
 impl Cheatcode for assertEq_26Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -438,6 +469,7 @@ impl Cheatcode for assertEq_26Call {
     }
 }
 
+impl_is_pure_true!(assertEq_27Call);
 impl Cheatcode for assertEq_27Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -450,6 +482,7 @@ impl Cheatcode for assertEq_27Call {
     }
 }
 
+impl_is_pure_true!(assertEqDecimal_0Call);
 impl Cheatcode for assertEqDecimal_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_eq(&self.left, &self.right).map_err(|e| {
@@ -461,6 +494,7 @@ impl Cheatcode for assertEqDecimal_0Call {
     }
 }
 
+impl_is_pure_true!(assertEqDecimal_1Call);
 impl Cheatcode for assertEqDecimal_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_eq(&self.left, &self.right)
@@ -468,6 +502,7 @@ impl Cheatcode for assertEqDecimal_1Call {
     }
 }
 
+impl_is_pure_true!(assertEqDecimal_2Call);
 impl Cheatcode for assertEqDecimal_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_eq(&self.left, &self.right).map_err(|e| {
@@ -479,6 +514,7 @@ impl Cheatcode for assertEqDecimal_2Call {
     }
 }
 
+impl_is_pure_true!(assertEqDecimal_3Call);
 impl Cheatcode for assertEqDecimal_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_eq(&self.left, &self.right)
@@ -486,6 +522,7 @@ impl Cheatcode for assertEqDecimal_3Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_0Call);
 impl Cheatcode for assertNotEq_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -494,6 +531,7 @@ impl Cheatcode for assertNotEq_0Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_1Call);
 impl Cheatcode for assertNotEq_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -502,6 +540,7 @@ impl Cheatcode for assertNotEq_1Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_2Call);
 impl Cheatcode for assertNotEq_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -510,6 +549,7 @@ impl Cheatcode for assertNotEq_2Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_3Call);
 impl Cheatcode for assertNotEq_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -518,6 +558,7 @@ impl Cheatcode for assertNotEq_3Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_4Call);
 impl Cheatcode for assertNotEq_4Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -526,6 +567,7 @@ impl Cheatcode for assertNotEq_4Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_5Call);
 impl Cheatcode for assertNotEq_5Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -534,6 +576,7 @@ impl Cheatcode for assertNotEq_5Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_6Call);
 impl Cheatcode for assertNotEq_6Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -542,6 +585,7 @@ impl Cheatcode for assertNotEq_6Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_7Call);
 impl Cheatcode for assertNotEq_7Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -550,6 +594,7 @@ impl Cheatcode for assertNotEq_7Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_8Call);
 impl Cheatcode for assertNotEq_8Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -558,6 +603,7 @@ impl Cheatcode for assertNotEq_8Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_9Call);
 impl Cheatcode for assertNotEq_9Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -566,6 +612,7 @@ impl Cheatcode for assertNotEq_9Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_10Call);
 impl Cheatcode for assertNotEq_10Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -574,6 +621,7 @@ impl Cheatcode for assertNotEq_10Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_11Call);
 impl Cheatcode for assertNotEq_11Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -582,6 +630,7 @@ impl Cheatcode for assertNotEq_11Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_12Call);
 impl Cheatcode for assertNotEq_12Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -592,6 +641,7 @@ impl Cheatcode for assertNotEq_12Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_13Call);
 impl Cheatcode for assertNotEq_13Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -602,6 +652,7 @@ impl Cheatcode for assertNotEq_13Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_14Call);
 impl Cheatcode for assertNotEq_14Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -610,6 +661,7 @@ impl Cheatcode for assertNotEq_14Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_15Call);
 impl Cheatcode for assertNotEq_15Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -618,6 +670,7 @@ impl Cheatcode for assertNotEq_15Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_16Call);
 impl Cheatcode for assertNotEq_16Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -626,6 +679,7 @@ impl Cheatcode for assertNotEq_16Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_17Call);
 impl Cheatcode for assertNotEq_17Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -634,6 +688,7 @@ impl Cheatcode for assertNotEq_17Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_18Call);
 impl Cheatcode for assertNotEq_18Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -642,6 +697,7 @@ impl Cheatcode for assertNotEq_18Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_19Call);
 impl Cheatcode for assertNotEq_19Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -650,6 +706,7 @@ impl Cheatcode for assertNotEq_19Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_20Call);
 impl Cheatcode for assertNotEq_20Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -658,6 +715,7 @@ impl Cheatcode for assertNotEq_20Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_21Call);
 impl Cheatcode for assertNotEq_21Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -666,6 +724,7 @@ impl Cheatcode for assertNotEq_21Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_22Call);
 impl Cheatcode for assertNotEq_22Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -674,6 +733,7 @@ impl Cheatcode for assertNotEq_22Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_23Call);
 impl Cheatcode for assertNotEq_23Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -682,6 +742,7 @@ impl Cheatcode for assertNotEq_23Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_24Call);
 impl Cheatcode for assertNotEq_24Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -690,6 +751,7 @@ impl Cheatcode for assertNotEq_24Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_25Call);
 impl Cheatcode for assertNotEq_25Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -698,6 +760,7 @@ impl Cheatcode for assertNotEq_25Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_26Call);
 impl Cheatcode for assertNotEq_26Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -708,6 +771,7 @@ impl Cheatcode for assertNotEq_26Call {
     }
 }
 
+impl_is_pure_true!(assertNotEq_27Call);
 impl Cheatcode for assertNotEq_27Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -718,6 +782,7 @@ impl Cheatcode for assertNotEq_27Call {
     }
 }
 
+impl_is_pure_true!(assertNotEqDecimal_0Call);
 impl Cheatcode for assertNotEqDecimal_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_not_eq(&self.left, &self.right).map_err(|e| {
@@ -729,6 +794,7 @@ impl Cheatcode for assertNotEqDecimal_0Call {
     }
 }
 
+impl_is_pure_true!(assertNotEqDecimal_1Call);
 impl Cheatcode for assertNotEqDecimal_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_not_eq(&self.left, &self.right)
@@ -736,6 +802,7 @@ impl Cheatcode for assertNotEqDecimal_1Call {
     }
 }
 
+impl_is_pure_true!(assertNotEqDecimal_2Call);
 impl Cheatcode for assertNotEqDecimal_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_not_eq(&self.left, &self.right).map_err(|e| {
@@ -747,6 +814,7 @@ impl Cheatcode for assertNotEqDecimal_2Call {
     }
 }
 
+impl_is_pure_true!(assertNotEqDecimal_3Call);
 impl Cheatcode for assertNotEqDecimal_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_not_eq(&self.left, &self.right)
@@ -754,6 +822,7 @@ impl Cheatcode for assertNotEqDecimal_3Call {
     }
 }
 
+impl_is_pure_true!(assertGt_0Call);
 impl Cheatcode for assertGt_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -762,6 +831,7 @@ impl Cheatcode for assertGt_0Call {
     }
 }
 
+impl_is_pure_true!(assertGt_1Call);
 impl Cheatcode for assertGt_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -769,6 +839,7 @@ impl Cheatcode for assertGt_1Call {
     }
 }
 
+impl_is_pure_true!(assertGt_2Call);
 impl Cheatcode for assertGt_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -777,6 +848,7 @@ impl Cheatcode for assertGt_2Call {
     }
 }
 
+impl_is_pure_true!(assertGt_3Call);
 impl Cheatcode for assertGt_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -784,6 +856,7 @@ impl Cheatcode for assertGt_3Call {
     }
 }
 
+impl_is_pure_true!(assertGtDecimal_0Call);
 impl Cheatcode for assertGtDecimal_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_gt(&self.left, &self.right).map_err(|e| {
@@ -795,6 +868,7 @@ impl Cheatcode for assertGtDecimal_0Call {
     }
 }
 
+impl_is_pure_true!(assertGtDecimal_1Call);
 impl Cheatcode for assertGtDecimal_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_gt(&self.left, &self.right)
@@ -802,6 +876,7 @@ impl Cheatcode for assertGtDecimal_1Call {
     }
 }
 
+impl_is_pure_true!(assertGtDecimal_2Call);
 impl Cheatcode for assertGtDecimal_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_gt(&self.left, &self.right).map_err(|e| {
@@ -813,6 +888,7 @@ impl Cheatcode for assertGtDecimal_2Call {
     }
 }
 
+impl_is_pure_true!(assertGtDecimal_3Call);
 impl Cheatcode for assertGtDecimal_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_gt(&self.left, &self.right)
@@ -820,6 +896,7 @@ impl Cheatcode for assertGtDecimal_3Call {
     }
 }
 
+impl_is_pure_true!(assertGe_0Call);
 impl Cheatcode for assertGe_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -828,6 +905,7 @@ impl Cheatcode for assertGe_0Call {
     }
 }
 
+impl_is_pure_true!(assertGe_1Call);
 impl Cheatcode for assertGe_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -835,6 +913,7 @@ impl Cheatcode for assertGe_1Call {
     }
 }
 
+impl_is_pure_true!(assertGe_2Call);
 impl Cheatcode for assertGe_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -843,6 +922,7 @@ impl Cheatcode for assertGe_2Call {
     }
 }
 
+impl_is_pure_true!(assertGe_3Call);
 impl Cheatcode for assertGe_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -850,6 +930,7 @@ impl Cheatcode for assertGe_3Call {
     }
 }
 
+impl_is_pure_true!(assertGeDecimal_0Call);
 impl Cheatcode for assertGeDecimal_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_ge(&self.left, &self.right).map_err(|e| {
@@ -861,6 +942,7 @@ impl Cheatcode for assertGeDecimal_0Call {
     }
 }
 
+impl_is_pure_true!(assertGeDecimal_1Call);
 impl Cheatcode for assertGeDecimal_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_ge(&self.left, &self.right)
@@ -868,6 +950,7 @@ impl Cheatcode for assertGeDecimal_1Call {
     }
 }
 
+impl_is_pure_true!(assertGeDecimal_2Call);
 impl Cheatcode for assertGeDecimal_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_ge(&self.left, &self.right).map_err(|e| {
@@ -879,6 +962,7 @@ impl Cheatcode for assertGeDecimal_2Call {
     }
 }
 
+impl_is_pure_true!(assertGeDecimal_3Call);
 impl Cheatcode for assertGeDecimal_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_ge(&self.left, &self.right)
@@ -886,6 +970,7 @@ impl Cheatcode for assertGeDecimal_3Call {
     }
 }
 
+impl_is_pure_true!(assertLt_0Call);
 impl Cheatcode for assertLt_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -894,6 +979,7 @@ impl Cheatcode for assertLt_0Call {
     }
 }
 
+impl_is_pure_true!(assertLt_1Call);
 impl Cheatcode for assertLt_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -901,6 +987,7 @@ impl Cheatcode for assertLt_1Call {
     }
 }
 
+impl_is_pure_true!(assertLt_2Call);
 impl Cheatcode for assertLt_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -909,6 +996,7 @@ impl Cheatcode for assertLt_2Call {
     }
 }
 
+impl_is_pure_true!(assertLt_3Call);
 impl Cheatcode for assertLt_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -916,6 +1004,7 @@ impl Cheatcode for assertLt_3Call {
     }
 }
 
+impl_is_pure_true!(assertLtDecimal_0Call);
 impl Cheatcode for assertLtDecimal_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_lt(&self.left, &self.right).map_err(|e| {
@@ -927,6 +1016,7 @@ impl Cheatcode for assertLtDecimal_0Call {
     }
 }
 
+impl_is_pure_true!(assertLtDecimal_1Call);
 impl Cheatcode for assertLtDecimal_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_lt(&self.left, &self.right)
@@ -934,6 +1024,7 @@ impl Cheatcode for assertLtDecimal_1Call {
     }
 }
 
+impl_is_pure_true!(assertLtDecimal_2Call);
 impl Cheatcode for assertLtDecimal_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_lt(&self.left, &self.right).map_err(|e| {
@@ -945,6 +1036,7 @@ impl Cheatcode for assertLtDecimal_2Call {
     }
 }
 
+impl_is_pure_true!(assertLtDecimal_3Call);
 impl Cheatcode for assertLtDecimal_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_lt(&self.left, &self.right)
@@ -952,6 +1044,7 @@ impl Cheatcode for assertLtDecimal_3Call {
     }
 }
 
+impl_is_pure_true!(assertLe_0Call);
 impl Cheatcode for assertLe_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -960,6 +1053,7 @@ impl Cheatcode for assertLe_0Call {
     }
 }
 
+impl_is_pure_true!(assertLe_1Call);
 impl Cheatcode for assertLe_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -967,6 +1061,7 @@ impl Cheatcode for assertLe_1Call {
     }
 }
 
+impl_is_pure_true!(assertLe_2Call);
 impl Cheatcode for assertLe_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right } = self;
@@ -975,6 +1070,7 @@ impl Cheatcode for assertLe_2Call {
     }
 }
 
+impl_is_pure_true!(assertLe_3Call);
 impl Cheatcode for assertLe_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { left, right, error } = self;
@@ -982,6 +1078,7 @@ impl Cheatcode for assertLe_3Call {
     }
 }
 
+impl_is_pure_true!(assertLeDecimal_0Call);
 impl Cheatcode for assertLeDecimal_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_le(&self.left, &self.right).map_err(|e| {
@@ -993,6 +1090,7 @@ impl Cheatcode for assertLeDecimal_0Call {
     }
 }
 
+impl_is_pure_true!(assertLeDecimal_1Call);
 impl Cheatcode for assertLeDecimal_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_le(&self.left, &self.right)
@@ -1000,6 +1098,7 @@ impl Cheatcode for assertLeDecimal_1Call {
     }
 }
 
+impl_is_pure_true!(assertLeDecimal_2Call);
 impl Cheatcode for assertLeDecimal_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_le(&self.left, &self.right).map_err(|e| {
@@ -1011,6 +1110,7 @@ impl Cheatcode for assertLeDecimal_2Call {
     }
 }
 
+impl_is_pure_true!(assertLeDecimal_3Call);
 impl Cheatcode for assertLeDecimal_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(assert_le(&self.left, &self.right)
@@ -1018,6 +1118,7 @@ impl Cheatcode for assertLeDecimal_3Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqAbs_0Call);
 impl Cheatcode for assertApproxEqAbs_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1027,6 +1128,7 @@ impl Cheatcode for assertApproxEqAbs_0Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqAbs_1Call);
 impl Cheatcode for assertApproxEqAbs_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1036,6 +1138,7 @@ impl Cheatcode for assertApproxEqAbs_1Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqAbs_2Call);
 impl Cheatcode for assertApproxEqAbs_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1045,6 +1148,7 @@ impl Cheatcode for assertApproxEqAbs_2Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqAbs_3Call);
 impl Cheatcode for assertApproxEqAbs_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1054,6 +1158,7 @@ impl Cheatcode for assertApproxEqAbs_3Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqAbsDecimal_0Call);
 impl Cheatcode for assertApproxEqAbsDecimal_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1067,6 +1172,7 @@ impl Cheatcode for assertApproxEqAbsDecimal_0Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqAbsDecimal_1Call);
 impl Cheatcode for assertApproxEqAbsDecimal_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1077,6 +1183,7 @@ impl Cheatcode for assertApproxEqAbsDecimal_1Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqAbsDecimal_2Call);
 impl Cheatcode for assertApproxEqAbsDecimal_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1090,6 +1197,7 @@ impl Cheatcode for assertApproxEqAbsDecimal_2Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqAbsDecimal_3Call);
 impl Cheatcode for assertApproxEqAbsDecimal_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1100,6 +1208,7 @@ impl Cheatcode for assertApproxEqAbsDecimal_3Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqRel_0Call);
 impl Cheatcode for assertApproxEqRel_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1109,6 +1218,7 @@ impl Cheatcode for assertApproxEqRel_0Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqRel_1Call);
 impl Cheatcode for assertApproxEqRel_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1118,6 +1228,7 @@ impl Cheatcode for assertApproxEqRel_1Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqRel_2Call);
 impl Cheatcode for assertApproxEqRel_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1127,6 +1238,7 @@ impl Cheatcode for assertApproxEqRel_2Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqRel_3Call);
 impl Cheatcode for assertApproxEqRel_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1136,6 +1248,7 @@ impl Cheatcode for assertApproxEqRel_3Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqRelDecimal_0Call);
 impl Cheatcode for assertApproxEqRelDecimal_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1151,6 +1264,7 @@ impl Cheatcode for assertApproxEqRelDecimal_0Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqRelDecimal_1Call);
 impl Cheatcode for assertApproxEqRelDecimal_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1161,6 +1275,7 @@ impl Cheatcode for assertApproxEqRelDecimal_1Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqRelDecimal_2Call);
 impl Cheatcode for assertApproxEqRelDecimal_2Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(
@@ -1174,6 +1289,7 @@ impl Cheatcode for assertApproxEqRelDecimal_2Call {
     }
 }
 
+impl_is_pure_true!(assertApproxEqRelDecimal_3Call);
 impl Cheatcode for assertApproxEqRelDecimal_3Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         Ok(

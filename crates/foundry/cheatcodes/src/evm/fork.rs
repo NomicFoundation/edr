@@ -5,7 +5,7 @@ use alloy_sol_types::SolValue;
 use foundry_evm_core::fork::{provider::ProviderBuilder, CreateFork};
 
 use crate::{
-    Cheatcode, CheatsCtxt, DatabaseExt, Result,
+    impl_is_pure_false, impl_is_pure_true, Cheatcode, CheatsCtxt, DatabaseExt, Result,
     Vm::{
         activeForkCall, allowCheatcodesCall, createFork_0Call, createFork_1Call, createFork_2Call,
         createSelectFork_0Call, createSelectFork_1Call, createSelectFork_2Call, eth_getLogsCall,
@@ -16,6 +16,7 @@ use crate::{
     },
 };
 
+impl_is_pure_true!(activeForkCall);
 impl Cheatcode for activeForkCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -27,6 +28,7 @@ impl Cheatcode for activeForkCall {
     }
 }
 
+impl_is_pure_false!(createFork_0Call);
 impl Cheatcode for createFork_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { urlOrAlias } = self;
@@ -34,6 +36,7 @@ impl Cheatcode for createFork_0Call {
     }
 }
 
+impl_is_pure_true!(createFork_1Call);
 impl Cheatcode for createFork_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -44,6 +47,7 @@ impl Cheatcode for createFork_1Call {
     }
 }
 
+impl_is_pure_true!(createFork_2Call);
 impl Cheatcode for createFork_2Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { urlOrAlias, txHash } = self;
@@ -51,6 +55,7 @@ impl Cheatcode for createFork_2Call {
     }
 }
 
+impl_is_pure_false!(createSelectFork_0Call);
 impl Cheatcode for createSelectFork_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { urlOrAlias } = self;
@@ -58,6 +63,7 @@ impl Cheatcode for createSelectFork_0Call {
     }
 }
 
+impl_is_pure_true!(createSelectFork_1Call);
 impl Cheatcode for createSelectFork_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -68,6 +74,7 @@ impl Cheatcode for createSelectFork_1Call {
     }
 }
 
+impl_is_pure_true!(createSelectFork_2Call);
 impl Cheatcode for createSelectFork_2Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { urlOrAlias, txHash } = self;
@@ -75,6 +82,7 @@ impl Cheatcode for createSelectFork_2Call {
     }
 }
 
+impl_is_pure_true!(rollFork_0Call);
 impl Cheatcode for rollFork_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { blockNumber } = self;
@@ -88,6 +96,7 @@ impl Cheatcode for rollFork_0Call {
     }
 }
 
+impl_is_pure_true!(rollFork_1Call);
 impl Cheatcode for rollFork_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { txHash } = self;
@@ -101,6 +110,7 @@ impl Cheatcode for rollFork_1Call {
     }
 }
 
+impl_is_pure_true!(rollFork_2Call);
 impl Cheatcode for rollFork_2Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -117,6 +127,7 @@ impl Cheatcode for rollFork_2Call {
     }
 }
 
+impl_is_pure_true!(rollFork_3Call);
 impl Cheatcode for rollFork_3Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { forkId, txHash } = self;
@@ -130,6 +141,7 @@ impl Cheatcode for rollFork_3Call {
     }
 }
 
+impl_is_pure_true!(selectForkCall);
 impl Cheatcode for selectForkCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { forkId } = self;
@@ -141,6 +153,7 @@ impl Cheatcode for selectForkCall {
     }
 }
 
+impl_is_pure_true!(transact_0Call);
 impl Cheatcode for transact_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { txHash } = *self;
@@ -155,6 +168,7 @@ impl Cheatcode for transact_0Call {
     }
 }
 
+impl_is_pure_true!(transact_1Call);
 impl Cheatcode for transact_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { forkId, txHash } = *self;
@@ -169,6 +183,7 @@ impl Cheatcode for transact_1Call {
     }
 }
 
+impl_is_pure_true!(allowCheatcodesCall);
 impl Cheatcode for allowCheatcodesCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account } = self;
@@ -177,6 +192,7 @@ impl Cheatcode for allowCheatcodesCall {
     }
 }
 
+impl_is_pure_true!(makePersistent_0Call);
 impl Cheatcode for makePersistent_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account } = self;
@@ -185,6 +201,7 @@ impl Cheatcode for makePersistent_0Call {
     }
 }
 
+impl_is_pure_true!(makePersistent_1Call);
 impl Cheatcode for makePersistent_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account0, account1 } = self;
@@ -194,6 +211,7 @@ impl Cheatcode for makePersistent_1Call {
     }
 }
 
+impl_is_pure_true!(makePersistent_2Call);
 impl Cheatcode for makePersistent_2Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -208,6 +226,7 @@ impl Cheatcode for makePersistent_2Call {
     }
 }
 
+impl_is_pure_true!(makePersistent_3Call);
 impl Cheatcode for makePersistent_3Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { accounts } = self;
@@ -218,6 +237,7 @@ impl Cheatcode for makePersistent_3Call {
     }
 }
 
+impl_is_pure_true!(revokePersistent_0Call);
 impl Cheatcode for revokePersistent_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account } = self;
@@ -226,6 +246,7 @@ impl Cheatcode for revokePersistent_0Call {
     }
 }
 
+impl_is_pure_true!(revokePersistent_1Call);
 impl Cheatcode for revokePersistent_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { accounts } = self;
@@ -236,6 +257,7 @@ impl Cheatcode for revokePersistent_1Call {
     }
 }
 
+impl_is_pure_true!(isPersistentCall);
 impl Cheatcode for isPersistentCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account } = self;
@@ -243,6 +265,8 @@ impl Cheatcode for isPersistentCall {
     }
 }
 
+// Calls like `eth_getBlockByNumber` are impure
+impl_is_pure_false!(rpcCall);
 impl Cheatcode for rpcCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { method, params } = self;
@@ -263,6 +287,7 @@ impl Cheatcode for rpcCall {
     }
 }
 
+impl_is_pure_true!(eth_getLogsCall);
 impl Cheatcode for eth_getLogsCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {

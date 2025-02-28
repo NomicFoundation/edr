@@ -10,13 +10,13 @@ use p256::ecdsa::{signature::hazmat::PrehashSigner, Signature, SigningKey as P25
 
 use crate::{
     ens::namehash,
-    Cheatcode, Cheatcodes, Result,
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{
         computeCreate2Address_0Call, computeCreate2Address_1Call, computeCreateAddressCall,
         ensNamehashCall, getLabelCall, labelCall,
     },
 };
-
+impl_is_pure_true!(labelCall);
 impl Cheatcode for labelCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { account, newLabel } = self;
@@ -25,6 +25,7 @@ impl Cheatcode for labelCall {
     }
 }
 
+impl_is_pure_true!(getLabelCall);
 impl Cheatcode for getLabelCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { account } = self;
@@ -35,6 +36,7 @@ impl Cheatcode for getLabelCall {
     }
 }
 
+impl_is_pure_true!(computeCreateAddressCall);
 impl Cheatcode for computeCreateAddressCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { nonce, deployer } = self;
@@ -46,6 +48,7 @@ impl Cheatcode for computeCreateAddressCall {
     }
 }
 
+impl_is_pure_true!(computeCreate2Address_0Call);
 impl Cheatcode for computeCreate2Address_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self {
@@ -57,6 +60,7 @@ impl Cheatcode for computeCreate2Address_0Call {
     }
 }
 
+impl_is_pure_true!(computeCreate2Address_1Call);
 impl Cheatcode for computeCreate2Address_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { salt, initCodeHash } = self;
@@ -66,6 +70,7 @@ impl Cheatcode for computeCreate2Address_1Call {
     }
 }
 
+impl_is_pure_true!(ensNamehashCall);
 impl Cheatcode for ensNamehashCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { name } = self;

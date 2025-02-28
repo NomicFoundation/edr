@@ -1,7 +1,7 @@
 use alloy_primitives::Address;
 
 use crate::{
-    Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Result,
+    impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Result,
     Vm::{prank_0Call, prank_1Call, startPrank_0Call, startPrank_1Call, stopPrankCall},
 };
 
@@ -59,6 +59,7 @@ impl Prank {
     }
 }
 
+impl_is_pure_true!(prank_0Call);
 impl Cheatcode for prank_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { msgSender } = self;
@@ -66,6 +67,7 @@ impl Cheatcode for prank_0Call {
     }
 }
 
+impl_is_pure_true!(startPrank_0Call);
 impl Cheatcode for startPrank_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { msgSender } = self;
@@ -73,6 +75,7 @@ impl Cheatcode for startPrank_0Call {
     }
 }
 
+impl_is_pure_true!(prank_1Call);
 impl Cheatcode for prank_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -83,6 +86,7 @@ impl Cheatcode for prank_1Call {
     }
 }
 
+impl_is_pure_true!(startPrank_1Call);
 impl Cheatcode for startPrank_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -93,6 +97,7 @@ impl Cheatcode for startPrank_1Call {
     }
 }
 
+impl_is_pure_true!(stopPrankCall);
 impl Cheatcode for stopPrankCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;

@@ -21,9 +21,19 @@ pub struct CaseOutcome {
 #[derive(Debug)]
 pub struct CounterExampleOutcome {
     /// Minimal reproduction test case for failing test
-    pub counterexample: (Bytes, RawCallResult),
+    pub counterexample: CounterExampleData,
     /// The status of the call
     pub exit_reason: InstructionResult,
+}
+
+#[derive(Debug)]
+pub struct CounterExampleData {
+    /// The calldata of the call
+    pub calldata: Bytes,
+    /// The call result
+    pub call: RawCallResult,
+    /// Whether when re-executing the calls the same results are guaranteed.
+    pub safe_to_re_execute: bool,
 }
 
 /// Outcome of a single fuzz

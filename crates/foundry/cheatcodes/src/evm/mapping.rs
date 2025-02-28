@@ -5,7 +5,7 @@ use alloy_sol_types::SolValue;
 use revm::interpreter::{opcode, Interpreter};
 
 use crate::{
-    Cheatcode, Cheatcodes, Result,
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{
         getMappingKeyAndParentOfCall, getMappingLengthCall, getMappingSlotAtCall,
         startMappingRecordingCall, stopMappingRecordingCall,
@@ -51,6 +51,7 @@ impl MappingSlots {
     }
 }
 
+impl_is_pure_true!(startMappingRecordingCall);
 impl Cheatcode for startMappingRecordingCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -61,6 +62,7 @@ impl Cheatcode for startMappingRecordingCall {
     }
 }
 
+impl_is_pure_true!(stopMappingRecordingCall);
 impl Cheatcode for stopMappingRecordingCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -69,6 +71,7 @@ impl Cheatcode for stopMappingRecordingCall {
     }
 }
 
+impl_is_pure_true!(getMappingLengthCall);
 impl Cheatcode for getMappingLengthCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -80,6 +83,7 @@ impl Cheatcode for getMappingLengthCall {
     }
 }
 
+impl_is_pure_true!(getMappingSlotAtCall);
 impl Cheatcode for getMappingSlotAtCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
@@ -95,6 +99,7 @@ impl Cheatcode for getMappingSlotAtCall {
     }
 }
 
+impl_is_pure_true!(getMappingKeyAndParentOfCall);
 impl Cheatcode for getMappingKeyAndParentOfCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {

@@ -53,6 +53,9 @@ pub struct BaseCounterExample {
     pub signature: Option<String>,
     /// Args used to call the function
     pub args: Option<String>,
+    /// Whether re-executing the counter example is guaranteed to yield the same
+    /// results.
+    pub safe_to_re_execute: bool,
     /// Traces
     #[serde(skip)]
     pub traces: Option<CallTraceArena>,
@@ -67,6 +70,7 @@ impl BaseCounterExample {
         bytes: &Bytes,
         contracts: &ContractsByAddress,
         traces: Option<CallTraceArena>,
+        safe_to_re_execute: bool,
     ) -> Self {
         if let Some((name, abi)) = &contracts.get(&addr) {
             if let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4]) {
@@ -84,6 +88,7 @@ impl BaseCounterExample {
                                 .to_string(),
                         ),
                         traces,
+                        safe_to_re_execute,
                     };
                 }
             }
@@ -97,6 +102,7 @@ impl BaseCounterExample {
             signature: None,
             args: None,
             traces,
+            safe_to_re_execute,
         }
     }
 
@@ -105,6 +111,7 @@ impl BaseCounterExample {
         bytes: Bytes,
         args: Vec<DynSolValue>,
         traces: Option<CallTraceArena>,
+        safe_to_re_execute: bool,
     ) -> Self {
         BaseCounterExample {
             sender: None,
@@ -118,6 +125,7 @@ impl BaseCounterExample {
                     .to_string(),
             ),
             traces,
+            safe_to_re_execute,
         }
     }
 }

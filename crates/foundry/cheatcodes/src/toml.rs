@@ -6,6 +6,7 @@ use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
 
 use crate::{
+    impl_is_pure_false, impl_is_pure_true,
     json::{
         canonicalize_json_path, check_json_key_exists, parse_json, parse_json_coerce,
         parse_json_keys,
@@ -20,6 +21,7 @@ use crate::{
     },
 };
 
+impl_is_pure_true!(keyExistsTomlCall);
 impl Cheatcode for keyExistsTomlCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -27,6 +29,7 @@ impl Cheatcode for keyExistsTomlCall {
     }
 }
 
+impl_is_pure_true!(parseToml_0Call);
 impl Cheatcode for parseToml_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml } = self;
@@ -34,6 +37,7 @@ impl Cheatcode for parseToml_0Call {
     }
 }
 
+impl_is_pure_true!(parseToml_1Call);
 impl Cheatcode for parseToml_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -41,6 +45,7 @@ impl Cheatcode for parseToml_1Call {
     }
 }
 
+impl_is_pure_true!(parseTomlUintCall);
 impl Cheatcode for parseTomlUintCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -48,6 +53,7 @@ impl Cheatcode for parseTomlUintCall {
     }
 }
 
+impl_is_pure_true!(parseTomlUintArrayCall);
 impl Cheatcode for parseTomlUintArrayCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -55,6 +61,7 @@ impl Cheatcode for parseTomlUintArrayCall {
     }
 }
 
+impl_is_pure_true!(parseTomlIntCall);
 impl Cheatcode for parseTomlIntCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -62,6 +69,7 @@ impl Cheatcode for parseTomlIntCall {
     }
 }
 
+impl_is_pure_true!(parseTomlIntArrayCall);
 impl Cheatcode for parseTomlIntArrayCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -69,6 +77,7 @@ impl Cheatcode for parseTomlIntArrayCall {
     }
 }
 
+impl_is_pure_true!(parseTomlBoolCall);
 impl Cheatcode for parseTomlBoolCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -76,6 +85,7 @@ impl Cheatcode for parseTomlBoolCall {
     }
 }
 
+impl_is_pure_true!(parseTomlBoolArrayCall);
 impl Cheatcode for parseTomlBoolArrayCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -83,6 +93,7 @@ impl Cheatcode for parseTomlBoolArrayCall {
     }
 }
 
+impl_is_pure_true!(parseTomlAddressCall);
 impl Cheatcode for parseTomlAddressCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -90,6 +101,7 @@ impl Cheatcode for parseTomlAddressCall {
     }
 }
 
+impl_is_pure_true!(parseTomlAddressArrayCall);
 impl Cheatcode for parseTomlAddressArrayCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -97,6 +109,7 @@ impl Cheatcode for parseTomlAddressArrayCall {
     }
 }
 
+impl_is_pure_true!(parseTomlStringCall);
 impl Cheatcode for parseTomlStringCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -104,6 +117,7 @@ impl Cheatcode for parseTomlStringCall {
     }
 }
 
+impl_is_pure_true!(parseTomlStringArrayCall);
 impl Cheatcode for parseTomlStringArrayCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -111,6 +125,7 @@ impl Cheatcode for parseTomlStringArrayCall {
     }
 }
 
+impl_is_pure_true!(parseTomlBytesCall);
 impl Cheatcode for parseTomlBytesCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -118,6 +133,7 @@ impl Cheatcode for parseTomlBytesCall {
     }
 }
 
+impl_is_pure_true!(parseTomlBytesArrayCall);
 impl Cheatcode for parseTomlBytesArrayCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -125,6 +141,7 @@ impl Cheatcode for parseTomlBytesArrayCall {
     }
 }
 
+impl_is_pure_true!(parseTomlBytes32Call);
 impl Cheatcode for parseTomlBytes32Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -132,6 +149,7 @@ impl Cheatcode for parseTomlBytes32Call {
     }
 }
 
+impl_is_pure_true!(parseTomlBytes32ArrayCall);
 impl Cheatcode for parseTomlBytes32ArrayCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -139,6 +157,7 @@ impl Cheatcode for parseTomlBytes32ArrayCall {
     }
 }
 
+impl_is_pure_true!(parseTomlKeysCall);
 impl Cheatcode for parseTomlKeysCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { toml, key } = self;
@@ -146,6 +165,7 @@ impl Cheatcode for parseTomlKeysCall {
     }
 }
 
+impl_is_pure_false!(writeToml_0Call);
 impl Cheatcode for writeToml_0Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { json, path } = self;
@@ -157,6 +177,7 @@ impl Cheatcode for writeToml_0Call {
     }
 }
 
+impl_is_pure_false!(writeToml_1Call);
 impl Cheatcode for writeToml_1Call {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {
