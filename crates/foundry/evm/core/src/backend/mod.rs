@@ -483,7 +483,8 @@ impl Backend {
         };
 
         if let Some(fork) = fork {
-            let (fork_id, fork, _, fork_block_number) = backend
+            let fork_block_number = fork.evm_opts.fork_block_number;
+            let (fork_id, fork, _) = backend
                 .forks
                 .create_fork(fork)
                 .expect("Unable to create fork");
@@ -1111,7 +1112,8 @@ impl DatabaseExt for Backend {
 
     fn create_fork(&mut self, create_fork: CreateFork) -> eyre::Result<LocalForkId> {
         trace!("create fork");
-        let (fork_id, fork, _, fork_block_number) = self.forks.create_fork(create_fork)?;
+        let fork_block_number = create_fork.evm_opts.fork_block_number;
+        let (fork_id, fork, _) = self.forks.create_fork(create_fork)?;
 
         let fork_db = ForkDB::new(fork);
         let (id, _) = self.inner.insert_new_fork(
