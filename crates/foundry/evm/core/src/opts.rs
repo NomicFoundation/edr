@@ -5,6 +5,7 @@ use alloy_rpc_types::Block;
 use eyre::WrapErr;
 use revm::primitives::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
+use url::Url;
 
 use super::fork::{environment, provider::ProviderBuilder};
 
@@ -97,7 +98,17 @@ impl EvmOpts {
         )
         .await
         .wrap_err_with(|| {
-            format!("Could not instantiate forked environment with fork url: {fork_url}")
+            if let Some(host) = fork_url
+                .parse::<Url>()
+                .ok()
+                .and_then(|url| url.host().map(|host| host.to_string()))
+            {
+                // Avoid logging the url as it can have secret api keys.
+                format!("Could not instantiate forked environment. Fork host: '{host}'")
+            } else {
+                // If the url is invalid, because it's malformed, it might still have secrets.
+                "Could not instantiate forked environment. Received invalid url.".to_string()
+            }
         })
     }
 
