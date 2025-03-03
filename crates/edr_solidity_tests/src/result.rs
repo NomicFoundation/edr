@@ -7,19 +7,18 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
-use edr_solidity::solidity_stack_trace::StackTraceEntry;
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
     contracts::{get_contract_name, get_file_name},
     coverage::HitMaps,
-    executors::EvmError,
+    executors::{stack_trace::StackTraceResult, EvmError},
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
 };
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
 
-use crate::{gas_report::GasReport, StackTraceError};
+use crate::gas_report::GasReport;
 
 /// The aggregated result of a test run.
 #[derive(Clone, Debug)]
@@ -389,7 +388,7 @@ pub struct TestResult {
     /// If the heuristic failed the vec is set but emtpy.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
-    pub stack_trace_result: Option<Result<Vec<StackTraceEntry>, StackTraceError>>,
+    pub stack_trace_result: Option<StackTraceResult>,
 }
 
 impl fmt::Display for TestResult {

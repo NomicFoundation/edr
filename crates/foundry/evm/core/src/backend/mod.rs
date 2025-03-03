@@ -1,6 +1,7 @@
 //! Foundry's main executor backend abstraction and implementation.
 
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashMap, HashSet},
     time::Instant,
 };
@@ -21,6 +22,7 @@ use revm::{
     },
     Database, DatabaseCommit, JournaledState,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, TEST_CONTRACT_ADDRESS},
@@ -720,16 +722,42 @@ impl Backend {
         self.inner.impure_cheatcodes.is_empty()
     }
 
-    /// Whether when re-executing the calls the same results are guaranteed.
-    pub fn safe_to_re_execute(&self) -> bool {
-        // Check that the global fork this backend was launched at isn't using the
-        // "latest" block tag.
-        let not_latest_block = self
-            .inner
+    /// The impure cheatcode signatures that were executed.
+    pub fn impure_cheatcodes(&self) -> Vec<Cow<'static, str>> {
+        self.inner
+            .impure_cheatcodes
+            .iter()
+            .copied()
+            .map(Cow::Borrowed)
+            .collect()
+    }
+
+    /// Check that the global fork this backend was launched is using the
+    /// "latest" block tag.
+    pub fn is_global_fork_latest(&self) -> bool {
+        self.inner
             .launched_with_fork
             .as_ref()
-            .map_or(true, |lf| lf.fork_block_number.is_some());
-        not_latest_block && self.are_executed_cheatcodes_pure()
+            .map_or(false, |lf| lf.fork_block_number.is_none())
+    }
+
+    /// Whether when re-executing the calls the same results are guaranteed.
+    pub fn safe_to_re_execute(&self) -> bool {
+        !self.is_global_fork_latest() && self.are_executed_cheatcodes_pure()
+    }
+
+    /// If re-executing the counter example is not guaranteed to yield the same
+    /// results, the `Some` result contains the reason why.
+    pub fn indeterminism_reasons(&self) -> Option<IndeterminismReasons> {
+        let global_fork_latest = self.is_global_fork_latest();
+        if global_fork_latest || !self.are_executed_cheatcodes_pure() {
+            Some(IndeterminismReasons {
+                global_fork_latest,
+                impure_cheatcodes: self.impure_cheatcodes(),
+            })
+        } else {
+            None
+        }
     }
 
     /// When creating or switching forks, we update the `AccountInfo` of the
@@ -1618,6 +1646,25 @@ pub enum BackendDatabaseSnapshot {
     InMemory(FoundryEvmInMemoryDB),
     /// Contains the entire forking mode database
     Forked(LocalForkId, ForkId, ForkLookupIndex, Box<Fork>),
+}
+
+/// If re-executing the counter example is not guaranteed to yield the same
+/// results, this struct contains the reason why.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IndeterminismReasons {
+    /// Indeterminism due to specifying a fork url without a fork block number
+    /// in the test runner config.
+    pub global_fork_latest: bool,
+    /// The list of executed impure cheatcode signatures. We collect function
+    /// signatures instead of function names as whether a cheatcode is impure
+    /// can depend on the arguments it takes (e.g. `createFork` without a second
+    /// argument means implicitly fork from “latest”). Example signature:
+    /// `function createSelectFork(string calldata urlOrAlias) external returns
+    /// (uint256 forkId);`.
+    ///
+    /// The cheatcode signatures are `'static` when created from Rust, but we
+    /// need owned  deserializaton, so we wrap it in a `Cow`.
+    pub impure_cheatcodes: Vec<Cow<'static, str>>,
 }
 
 /// Represents a fork

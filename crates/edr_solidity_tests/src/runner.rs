@@ -29,7 +29,7 @@ use foundry_evm::{
             InvariantFuzzError, InvariantFuzzTestResult, ReplayErrorArgs, ReplayResult,
             ReplayRunArgs,
         },
-        stack_trace::{get_stack_trace, StackTraceError},
+        stack_trace::{get_stack_trace, StackTraceError, StackTraceResult},
         CallResult, EvmError, ExecutionErr, Executor, ExecutorBuilder, RawCallResult,
     },
     fuzz::{
@@ -196,13 +196,19 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
             let elapsed = start.elapsed();
 
             // Re-execute for stack traces
-            let mut executor = self.executor_builder.clone().build();
-            executor.inspector.enable_for_stack_traces();
-            let setup_for_stack_traces = self.setup(&mut executor, needs_setup);
-            let stack_trace_result =
-                get_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
-                    .transpose()
-                    .expect("traces are not empty");
+            let stack_trace_result: StackTraceResult =
+                if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                    indeterminism_reasons.into()
+                } else {
+                    let mut executor = self.executor_builder.clone().build();
+                    executor.inspector.enable_for_stack_traces();
+                    let setup_for_stack_traces = self.setup(&mut executor, needs_setup);
+
+                    get_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
+                        .transpose()
+                        .expect("traces are not empty")
+                        .into()
+                };
 
             // The setup failed, so we return a single test result for `setUp`
             return SuiteResult::new(
@@ -630,8 +636,15 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
 
         // Exclude stack trace generation from test execution time for accurate
         // reporting
-        let stack_trace_result = if !success && executor.safe_to_re_execute() {
-            Some(self.re_run_test_for_stack_traces(func, setup.has_setup_method))
+        let stack_trace_result = if !success {
+            let stack_trace_result: StackTraceResult =
+                if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                    indeterminism_reasons.into()
+                } else {
+                    self.re_run_test_for_stack_traces(func, setup.has_setup_method)
+                        .into()
+                };
+            Some(stack_trace_result)
         } else {
             None
         };
@@ -874,7 +887,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
                             if reason.is_some() && revert_reason.is_none() {
                                 tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
                             } else {
-                                stack_trace = stack_trace_result;
+                                stack_trace = stack_trace_result.map(StackTraceResult::from);
                                 reason = revert_reason;
                             }
                         }
@@ -1009,15 +1022,19 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
 
         let stack_trace_result =
             if let Some(CounterExample::Single(counter_example)) = result.counterexample.as_ref() {
-                if counter_example.safe_to_re_execute {
-                    Some(self.re_run_fuzz_counterexample_for_stack_traces(
+                let stack_trace_result: StackTraceResult = if let Some(indeterminism_reasons) =
+                    counter_example.indeterminism_reasons.clone()
+                {
+                    indeterminism_reasons.into()
+                } else {
+                    self.re_run_fuzz_counterexample_for_stack_traces(
                         address,
                         counter_example,
                         has_setup_method,
-                    ))
-                } else {
-                    None
-                }
+                    )
+                    .into()
+                };
+                Some(stack_trace_result)
             } else {
                 None
             };
@@ -1069,7 +1086,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         executor.inspector.enable_for_stack_traces();
 
         // Run counterexample test
-        let call = executor
+        let (call, _indeterminism_reasons) = executor
             .call_raw(
                 self.sender,
                 address,
@@ -1166,7 +1183,12 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                 })
                 .map_or_else(
                     |_err| (None, None),
-                    |result| (result.revert_reason, result.stack_trace_result),
+                    |result| {
+                        (
+                            result.revert_reason,
+                            result.stack_trace_result.map(StackTraceResult::from),
+                        )
+                    },
                 );
                 let reason = reason.or_else(|| {
                     if replayed_entirely {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
-use edr_solidity::{contract_decoder::NestedTraceDecoder, solidity_stack_trace::StackTraceEntry};
+use edr_solidity::contract_decoder::NestedTraceDecoder;
 use eyre::Result;
 use foundry_evm_core::{
     constants::CALLER,
@@ -21,7 +21,7 @@ use revm::primitives::U256;
 
 use super::{error::FailedInvariantCaseData, shrink_sequence};
 use crate::executors::{
-    stack_trace::{get_stack_trace, StackTraceError},
+    stack_trace::{get_stack_trace, StackTraceResult},
     Executor,
 };
 
@@ -46,7 +46,7 @@ pub struct ReplayRunArgs<'a, NestedTraceDecoderT> {
 #[derive(Debug, Default)]
 pub struct ReplayResult {
     pub counterexample_sequence: Vec<BaseCounterExample>,
-    pub stack_trace_result: Option<Result<Vec<StackTraceEntry>, StackTraceError>>,
+    pub stack_trace_result: Option<StackTraceResult>,
     pub revert_reason: Option<String>,
 }
 
@@ -115,17 +115,20 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
             &tx.call_details.calldata,
             &ided_contracts,
             call_result.traces,
-            executor.safe_to_re_execute(),
+            /* indeterminism_reason */ None,
         ));
 
         // If this call failed, but didn't revert, this is terminal for sure.
         // If this call reverted, only exit if `fail_on_revert` is true.
         if !call_result.exit_reason.is_ok() && (fail_on_revert || !call_result.reverted) {
-            let stack_trace_result = if executor.safe_to_re_execute() {
-                contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose())
-            } else {
-                None
-            };
+            let stack_trace_result =
+                if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                    Some(indeterminism_reasons.into())
+                } else {
+                    contract_decoder
+                        .and_then(|decoder| get_stack_trace(decoder, traces).transpose())
+                        .map(StackTraceResult::from)
+                };
             let revert_reason = revert_decoder
                 .maybe_decode(call_result.result.as_ref(), Some(call_result.exit_reason));
             return Ok(ReplayResult {
@@ -141,7 +144,7 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     // Checking after each call doesn't add valuable info for passing scenario
     // (invariant call result is always success) nor for failed scenarios
     // (invariant call result is always success until the last call that breaks it).
-    let invariant_result = executor.call_raw(
+    let (invariant_result, indeterminism_reasons) = executor.call_raw(
         CALLER,
         invariant_contract.address,
         invariant_contract
@@ -157,11 +160,14 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     ));
     logs.extend(invariant_result.logs);
 
-    let stack_trace_result = if executor.safe_to_re_execute() {
-        contract_decoder.and_then(|decoder| get_stack_trace(decoder, traces).transpose())
-    } else {
-        None
-    };
+    let stack_trace_result: Option<StackTraceResult> =
+        if let Some(indeterminism_reasons) = indeterminism_reasons {
+            Some(indeterminism_reasons.into())
+        } else {
+            contract_decoder
+                .and_then(|decoder| get_stack_trace(decoder, traces).transpose())
+                .map(StackTraceResult::from)
+        };
 
     let revert_reason = revert_decoder.maybe_decode(
         invariant_result.result.as_ref(),

@@ -81,7 +81,7 @@ impl FuzzedExecutor {
         let counterexample: RefCell<CounterExampleData> = RefCell::new(CounterExampleData {
             calldata: Bytes::default(),
             call: RawCallResult::default(),
-            safe_to_re_execute: true,
+            indeterminism_reasons: None,
         });
 
         // We want to collect at least one trace which will be displayed to user.
@@ -154,7 +154,7 @@ impl FuzzedExecutor {
         let CounterExampleData {
             calldata,
             call,
-            safe_to_re_execute,
+            indeterminism_reasons,
         } = counterexample.into_inner();
 
         let mut traces = traces.into_inner();
@@ -209,7 +209,7 @@ impl FuzzedExecutor {
                         calldata,
                         args,
                         call.traces,
-                        safe_to_re_execute,
+                        indeterminism_reasons,
                     )));
             }
             _ => {}
@@ -226,7 +226,7 @@ impl FuzzedExecutor {
         should_fail: bool,
         calldata: alloy_primitives::Bytes,
     ) -> Result<FuzzOutcome, TestCaseError> {
-        let mut call = self
+        let (mut call, indeterminism_reasons) = self
             .executor
             .call_raw(self.sender, address, calldata.clone(), U256::ZERO)
             .map_err(|_err| TestCaseError::fail(FuzzError::FailedContractCall))?;
@@ -260,7 +260,7 @@ impl FuzzedExecutor {
                 counterexample: CounterExampleData {
                     calldata,
                     call,
-                    safe_to_re_execute: self.executor.safe_to_re_execute(),
+                    indeterminism_reasons,
                 },
             }))
         }

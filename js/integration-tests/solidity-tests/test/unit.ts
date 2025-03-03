@@ -44,7 +44,7 @@ describe("Unit tests", () => {
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);
     // When using forking from latest block, no stack trace should be generated as re-execution is unsafe.
-    assert.equal(stackTraces.get("testThatFails()"), undefined);
+    assert.equal(stackTraces.get("testThatFails()")?.globalForkLatest, true);
   });
 
   it("ContractEnvironment", async function () {
@@ -170,7 +170,14 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
 
     // When using forking from latest block, no stack trace should be generated as re-execution is unsafe.
-    assert.equal(stackTraces.get("testThatFails()"), undefined);
+    const impureCheatcodes =
+      stackTraces.get("testThatFails()")?.impureCheatcodes ?? [];
+    assert.equal(
+      impureCheatcodes.filter((cheatcode) =>
+        cheatcode.includes("createSelectFork")
+      ).length,
+      1
+    );
   });
 
   it("FailingSetup", async function () {

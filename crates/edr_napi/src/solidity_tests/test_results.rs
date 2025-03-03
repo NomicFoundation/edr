@@ -1,7 +1,12 @@
-use std::fmt::{Debug, Formatter};
+use std::{
+    borrow::Cow,
+    convert::Infallible,
+    fmt::{Debug, Formatter},
+};
 
+use edr_solidity_tests::executors::stack_trace::StackTraceResult;
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3},
+    bindgen_prelude::{BigInt, Buffer, Either3, Either4},
     Either,
 };
 use napi_derive::napi;
@@ -80,33 +85,104 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<
-        Result<
-            Vec<edr_solidity::solidity_stack_trace::StackTraceEntry>,
-            edr_solidity_tests::StackTraceError,
-        >,
-    >,
+    stack_trace_result: Option<StackTraceResult>,
+}
+
+/// The stack trace result
+#[napi(object)]
+pub struct StackTrace {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"StackTrace\"")]
+    pub kind: &'static str,
+    /// The stack trace entries
+    pub entries: Vec<SolidityStackTraceEntry>,
+}
+
+/// We couldn't generate stack traces, because an unexpected error occurred.
+#[napi(object)]
+pub struct UnexpectedError {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"UnexpectedError\"")]
+    pub kind: &'static str,
+    /// The error message from the unexpected error.
+    pub error_message: String,
+}
+
+/// We couldn't generate stack traces, because the stack trace generation
+/// heuristics failed due to an unknown reason.
+#[napi(object)]
+pub struct HeuristicFailed {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"HeuristicFailed\"")]
+    pub kind: &'static str,
+}
+
+/// We couldn't generate stack traces, because the test execution is unsafe to
+/// replay due to indeterminism. This can be caused by either specifying a fork
+/// url without a fork block number in the test runner config or using impure
+/// cheatcodes.
+#[napi(object)]
+pub struct UnsafeToReplay {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"UnsafeToReplay\"")]
+    pub kind: &'static str,
+    /// Indeterminism due to specifying a fork url without a fork block number
+    /// in the test runner config.
+    pub global_fork_latest: bool,
+    /// The list of executed impure cheatcode signatures. We collect function
+    /// signatures instead of function names as whether a cheatcode is impure
+    /// can depend on the arguments it takes (e.g. `createFork` without a second
+    /// argument means implicitly fork from “latest”). Example signature:
+    /// `function createSelectFork(string calldata urlOrAlias) external returns
+    /// (uint256 forkId);`.
+    pub impure_cheatcodes: Vec<String>,
 }
 
 #[napi]
 impl TestResult {
     /// Compute the error stack trace.
-    /// If the heuristic failed, returns an empty array.
+    /// The result is either the stack trace or the reason why we couldn't
+    /// generate the stack trace.
     /// Returns null if the test status is succeeded or skipped.
-    /// Throws if there was an error computing the stack trace.
+    /// Cannot throw.
     #[napi]
-    pub fn stack_trace(&self) -> napi::Result<Option<Vec<SolidityStackTraceEntry>>> {
+    pub fn stack_trace(
+        &self,
+    ) -> Option<Either4<StackTrace, UnexpectedError, HeuristicFailed, UnsafeToReplay>> {
         self.stack_trace_result
             .as_ref()
             .map(|stack_trace_result| match stack_trace_result {
-                Ok(stack_trace) => stack_trace
-                    .iter()
-                    .cloned()
-                    .map(crate::cast::TryCast::try_cast)
-                    .collect::<napi::Result<Vec<SolidityStackTraceEntry>>>(),
-                Err(err) => Err(napi::Error::from_reason(err.to_string())),
+                StackTraceResult::Success(stack_trace) => Either4::A(StackTrace {
+                    kind: "StackTrace",
+                    entries: stack_trace
+                        .iter()
+                        .cloned()
+                        .map(crate::cast::TryCast::try_cast)
+                        .collect::<Result<Vec<_>, Infallible>>()
+                        .expect("infallible"),
+                }),
+                StackTraceResult::Error(error) => Either4::B(UnexpectedError {
+                    kind: "UnexpectedError",
+                    error_message: error.to_string(),
+                }),
+                StackTraceResult::HeuristicFailed => Either4::C(HeuristicFailed {
+                    kind: "HeuristicFailed",
+                }),
+                StackTraceResult::UnsafeToReplay {
+                    global_fork_latest,
+                    impure_cheatcodes,
+                } => Either4::D(UnsafeToReplay {
+                    kind: "UnsafeToReplay",
+                    global_fork_latest: *global_fork_latest,
+                    // napi-rs would clone `&'static str` under the hood anyway, so no performance
+                    // hit from `Cow::into_owned`.
+                    impure_cheatcodes: impure_cheatcodes
+                        .iter()
+                        .cloned()
+                        .map(Cow::into_owned)
+                        .collect(),
+                }),
             })
-            .transpose()
     }
 }
 

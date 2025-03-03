@@ -1,4 +1,5 @@
 use alloy_primitives::Bytes;
+use foundry_evm_core::backend::IndeterminismReasons;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::FuzzCase;
 use foundry_evm_traces::CallTraceArena;
@@ -32,8 +33,9 @@ pub struct CounterExampleData {
     pub calldata: Bytes,
     /// The call result
     pub call: RawCallResult,
-    /// Whether when re-executing the calls the same results are guaranteed.
-    pub safe_to_re_execute: bool,
+    /// If re-executing the counter example is not guaranteed to yield the same
+    /// results, this field contains the reason why.
+    pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 /// Outcome of a single fuzz

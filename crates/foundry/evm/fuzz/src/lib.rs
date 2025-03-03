@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 mod error;
 pub use error::FuzzError;
-use foundry_evm_core::contracts::ContractsByAddress;
+use foundry_evm_core::{backend::IndeterminismReasons, contracts::ContractsByAddress};
 
 pub mod invariant;
 pub mod strategies;
@@ -36,6 +36,7 @@ pub enum CounterExample {
     /// Call used as a counter example for fuzz tests.
     Single(BaseCounterExample),
     /// Sequence of calls used as a counter example for invariant tests.
+    /// Indeterminism reason (if any) is only set for the last one.
     Sequence(Vec<BaseCounterExample>),
 }
 
@@ -53,9 +54,9 @@ pub struct BaseCounterExample {
     pub signature: Option<String>,
     /// Args used to call the function
     pub args: Option<String>,
-    /// Whether re-executing the counter example is guaranteed to yield the same
-    /// results.
-    pub safe_to_re_execute: bool,
+    /// If re-executing the counter example is not guaranteed to yield the same
+    /// results, this field contains the reason why.
+    pub indeterminism_reasons: Option<IndeterminismReasons>,
     /// Traces
     #[serde(skip)]
     pub traces: Option<CallTraceArena>,
@@ -70,7 +71,7 @@ impl BaseCounterExample {
         bytes: &Bytes,
         contracts: &ContractsByAddress,
         traces: Option<CallTraceArena>,
-        safe_to_re_execute: bool,
+        indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         if let Some((name, abi)) = &contracts.get(&addr) {
             if let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4]) {
@@ -88,7 +89,7 @@ impl BaseCounterExample {
                                 .to_string(),
                         ),
                         traces,
-                        safe_to_re_execute,
+                        indeterminism_reasons,
                     };
                 }
             }
@@ -102,7 +103,7 @@ impl BaseCounterExample {
             signature: None,
             args: None,
             traces,
-            safe_to_re_execute,
+            indeterminism_reasons,
         }
     }
 
@@ -111,7 +112,7 @@ impl BaseCounterExample {
         bytes: Bytes,
         args: Vec<DynSolValue>,
         traces: Option<CallTraceArena>,
-        safe_to_re_execute: bool,
+        indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         BaseCounterExample {
             sender: None,
@@ -125,7 +126,7 @@ impl BaseCounterExample {
                     .to_string(),
             ),
             traces,
-            safe_to_re_execute,
+            indeterminism_reasons,
         }
     }
 }

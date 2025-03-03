@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use alloy_primitives::{Address, Bytes, U160};
 use edr_solidity::{
@@ -10,7 +10,10 @@ use edr_solidity::{
     solidity_stack_trace::StackTraceEntry,
     solidity_tracer::{self, SolidityTracerError},
 };
-use foundry_evm_core::constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS};
+use foundry_evm_core::{
+    backend::IndeterminismReasons,
+    constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
+};
 use foundry_evm_traces::TraceKind;
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
@@ -280,4 +283,54 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
             | opcode::CALLCODE
             | opcode::CREATE2
     )
+}
+
+/// The possible outcomes from computing stack traces.
+#[derive(Clone, Debug)]
+pub enum StackTraceResult {
+    /// The stack trace result
+    Success(Vec<StackTraceEntry>),
+    /// We couldn't generate stack traces, because an unexpected error occurred.
+    Error(StackTraceError),
+    HeuristicFailed,
+    /// We couldn't generate stack traces, because the test execution is unsafe
+    /// to replay due to indeterminism. This can be caused by either
+    /// specifying a fork url without a fork block number in the test runner
+    /// config or using impure cheatcodes.
+    UnsafeToReplay {
+        /// Indeterminism due to specifying a fork url without a fork block
+        /// number in the test runner config
+        global_fork_latest: bool,
+        /// The list of executed impure cheatcode signatures. We collect
+        /// function signatures instead of function names as whether a cheatcode
+        /// is impure can depend on the arguments it takes (e.g. `createFork`
+        /// without a second argument means implicitly fork from “latest”).
+        /// Example signature: `function createSelectFork(string calldata
+        /// urlOrAlias) external returns (uint256 forkId);`.
+        impure_cheatcodes: Vec<Cow<'static, str>>,
+    },
+}
+
+impl From<Result<Vec<StackTraceEntry>, StackTraceError>> for StackTraceResult {
+    fn from(value: Result<Vec<StackTraceEntry>, StackTraceError>) -> Self {
+        match value {
+            Ok(stack_trace) => {
+                if stack_trace.is_empty() {
+                    Self::HeuristicFailed
+                } else {
+                    Self::Success(stack_trace)
+                }
+            }
+            Err(error) => Self::Error(error),
+        }
+    }
+}
+
+impl From<IndeterminismReasons> for StackTraceResult {
+    fn from(value: IndeterminismReasons) -> Self {
+        Self::UnsafeToReplay {
+            global_fork_latest: value.global_fork_latest,
+            impure_cheatcodes: value.impure_cheatcodes,
+        }
+    }
 }
