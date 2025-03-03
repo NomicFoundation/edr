@@ -702,7 +702,7 @@ export interface UnsafeToReplay {
   kind: "UnsafeToReplay"
   /**
    * Indeterminism due to specifying a fork url without a fork block number
-   * in the test runner config
+   * in the test runner config.
    */
   globalForkLatest: boolean
   /**
