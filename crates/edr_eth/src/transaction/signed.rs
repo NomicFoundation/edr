@@ -291,7 +291,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn access_list(&self) -> Option<&[eips::eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&eips::eip2930::AccessList> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.access_list(),
             Signed::PostEip155Legacy(tx) => tx.access_list(),
@@ -361,7 +361,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),

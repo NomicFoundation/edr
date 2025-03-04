@@ -101,7 +101,7 @@ impl Transaction {
         let base_fee = header.and_then(|header| header.base_fee_per_gas);
         let gas_price = if let Some(base_fee) = base_fee {
             transaction
-                .effective_gas_price(base_fee)
+                .effective_gas_price(base_fee.into())
                 .unwrap_or_else(|| *transaction.gas_price())
         } else {
             // We are following Hardhat's behavior of returning the max fee per gas for
@@ -137,7 +137,7 @@ impl Transaction {
 
         let access_list = transaction
             .access_list()
-            .map(<[eip2930::AccessListItem]>::to_vec);
+            .map(|access_list| access_list.0.clone());
 
         let blob_versioned_hashes = if transaction.is_eip4844() {
             Some(transaction.blob_hashes().to_vec())

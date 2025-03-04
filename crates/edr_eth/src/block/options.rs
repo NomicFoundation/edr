@@ -25,7 +25,7 @@ pub struct BlockOptions {
     /// The block's nonce
     pub nonce: Option<B64>,
     /// The block's base gas fee
-    pub base_fee: Option<u128>,
+    pub base_fee: Option<u64>,
     /// The block's withdrawals
     pub withdrawals: Option<Vec<Withdrawal>>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.

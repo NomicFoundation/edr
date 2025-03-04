@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-pub use revm_context_interface::result::HaltReasonTrait;
+pub use revm_context_interface::result::HaltReasonTr as HaltReasonTrait;
 
 use crate::{
     block::Block,

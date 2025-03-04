@@ -1,1 +1,1 @@
-pub use alloy_eips::eip2930::{AccessList, AccessListItem};
+pub use revm_context_interface::transaction::{AccessList, AccessListItem};

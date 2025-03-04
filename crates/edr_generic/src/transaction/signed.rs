@@ -188,7 +188,7 @@ impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
         self.inner.total_blob_gas()
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         self.inner.authorization_list()
     }
 

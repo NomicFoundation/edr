@@ -96,7 +96,7 @@ impl ExecutableTransaction for Deposit {
         None
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         None
     }
 

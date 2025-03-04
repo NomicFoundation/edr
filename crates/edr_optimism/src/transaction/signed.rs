@@ -395,7 +395,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),

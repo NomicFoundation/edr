@@ -203,7 +203,7 @@ pub trait ExecutableTransaction {
     /// Added in [EIP-2930].
     ///
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]>;
+    fn access_list(&self) -> Option<&eip2930::AccessList>;
 
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
@@ -245,7 +245,7 @@ pub trait ExecutableTransaction {
     /// Set EOA account code for one transaction
     ///
     /// [EIP-Set EOA account code for one transaction](https://eips.ethereum.org/EIPS/eip-7702)
-    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]>;
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]>;
 
     /// The enveloped (EIP-2718) RLP-encoding of the transaction.
     fn rlp_encoding(&self) -> &Bytes;
@@ -261,6 +261,9 @@ pub trait ExecutableTransaction {
 macro_rules! impl_revm_transaction_trait {
     ($ty:ty) => {
         impl $crate::transaction::Transaction for $ty {
+            type AccessList = $crate::eips::eip2930::AccessList;
+            type Authorization = $crate::eips::eip7702::SignedAuthorization;
+
             fn tx_type(&self) -> u8 {
                 $crate::transaction::TransactionType::transaction_type(self).into()
             }
@@ -296,17 +299,8 @@ macro_rules! impl_revm_transaction_trait {
                 $crate::transaction::ExecutableTransaction::gas_price(self).clone()
             }
 
-            fn access_list(
-                &self,
-            ) -> Option<impl Iterator<Item = (&$crate::Address, &[$crate::B256])>> {
-                $crate::transaction::ExecutableTransaction::access_list(self).map(|list| {
-                    list.iter().map(
-                        |$crate::eips::eip2930::AccessListItem {
-                             address,
-                             storage_keys,
-                         }| (address, storage_keys.as_slice()),
-                    )
-                })
+            fn access_list(&self) -> Option<&Self::AccessList> {
+                $crate::transaction::ExecutableTransaction::access_list(self)
             }
 
             fn blob_versioned_hashes(&self) -> &[$crate::B256] {
@@ -324,13 +318,10 @@ macro_rules! impl_revm_transaction_trait {
                     .map_or(0, |list| list.len())
             }
 
-            fn authorization_list(
-                &self,
-            ) -> impl Iterator<Item = $crate::eips::eip7702::AuthorizationItem> {
+            fn authorization_list(&self) -> impl Iterator<Item = &Self::Authorization> {
                 $crate::transaction::ExecutableTransaction::authorization_list(self)
                     .unwrap_or(&[])
                     .iter()
-                    .cloned()
             }
 
             fn max_priority_fee_per_gas(&self) -> Option<u128> {

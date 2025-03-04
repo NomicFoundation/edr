@@ -72,7 +72,7 @@ impl ExecutableTransaction for Legacy {
         None
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&eip2930::AccessList> {
         None
     }
 
@@ -100,7 +100,7 @@ impl ExecutableTransaction for Legacy {
         None
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         None
     }
 

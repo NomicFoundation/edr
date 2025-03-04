@@ -74,7 +74,7 @@ impl ExecutableTransaction for Eip155 {
         Some(v_to_chain_id(self.signature.v()))
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&eip2930::AccessList> {
         None
     }
 
@@ -102,7 +102,7 @@ impl ExecutableTransaction for Eip155 {
         None
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         None
     }
 

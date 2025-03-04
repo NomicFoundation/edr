@@ -326,7 +326,7 @@ impl ExecutableTransaction for Pooled {
         }
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::AuthorizationItem]> {
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         match self {
             Pooled::PreEip155Legacy(tx) => tx.authorization_list(),
             Pooled::PostEip155Legacy(tx) => tx.authorization_list(),
