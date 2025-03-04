@@ -14,17 +14,14 @@ use edr_eth::{
     withdrawal::Withdrawal,
     Address, Bloom, B256, U256,
 };
-use revm_handler::FrameResult;
-use revm_handler_interface::Frame;
-use revm_interpreter::FrameInput;
+use revm::Inspector;
 
 use super::{BlockBuilder, BlockTransactionError};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    extension::{ContextExtension, ExtendedContext},
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
-    runtime::{dry_run, dry_run_with_extension},
+    runtime::{dry_run, dry_run_with_inspector},
     spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
@@ -183,35 +180,27 @@ where
     }
     /// Tries to add a transaction to the block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction_with_extension<'context, 'extension, ExtensionT, FrameT>(
+    pub fn add_transaction_with_inspector<'inspector, InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
+        extension: &'inspector mut InspectorT,
     ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>>
     where
-        'builder: 'context,
-        'extension: 'context,
-        BlockchainErrorT: 'context,
-        ChainSpecT: 'context,
-        FrameT: Frame<
-            Context<'context> = ExtendedContext<
-                'context,
-                ContextForChainSpec<
-                    ChainSpecT,
-                    WrapDatabaseRef<
-                        DatabaseComponents<
-                            &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                            &'context dyn SyncState<StateErrorT>,
-                        >,
+        'builder: 'inspector,
+        BlockchainErrorT: 'inspector,
+        ChainSpecT: 'inspector,
+        InspectorT: Inspector<
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<
+                    DatabaseComponents<
+                        &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                        &'inspector dyn SyncState<StateErrorT>,
                     >,
                 >,
-                ExtensionT,
             >,
-            Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
-            FrameInit = FrameInput,
-            FrameResult = FrameResult,
         >,
-        StateErrorT: 'context,
+        StateErrorT: 'inspector,
     {
         self.validate_transaction(&transaction)?;
 
@@ -232,7 +221,7 @@ where
         let transaction_result = unsafe {
             let state = &*(self.state.as_ref() as *const _);
 
-            dry_run_with_extension(
+            dry_run_with_inspector(
                 self.blockchain,
                 state,
                 self.cfg.clone(),
@@ -380,8 +369,8 @@ where
     }
 }
 
-impl<'blockchain, BlockchainErrorT, ChainSpecT, StateErrorT> BlockBuilder<'blockchain, ChainSpecT>
-    for EthBlockBuilder<'blockchain, BlockchainErrorT, ChainSpecT, StateErrorT>
+impl<'builder, BlockchainErrorT, ChainSpecT, StateErrorT> BlockBuilder<'builder, ChainSpecT>
+    for EthBlockBuilder<'builder, BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     BlockchainErrorT: Send + std::error::Error,
     ChainSpecT: SyncRuntimeSpec<
@@ -396,7 +385,7 @@ where
     type StateError = StateErrorT;
 
     fn new_block_builder(
-        blockchain: &'blockchain dyn SyncBlockchain<
+        blockchain: &'builder dyn SyncBlockchain<
             ChainSpecT,
             Self::BlockchainError,
             Self::StateError,
@@ -427,37 +416,33 @@ where
         self.add_transaction(transaction)
     }
 
-    fn add_transaction_with_extension<'context, 'extension, ExtensionT, FrameT>(
+    fn add_transaction_with_inspector<'inspector, InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
+        inspector: &'inspector mut InspectorT,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
-        'blockchain: 'context,
-        'extension: 'context,
-        ChainSpecT: 'static,
-        FrameT: Frame<
-            Context<'context> = ExtendedContext<
-                'context,
-                ContextForChainSpec<
-                    ChainSpecT,
-                    WrapDatabaseRef<
-                        DatabaseComponents<
-                            &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                            &'context dyn SyncState<StateErrorT>,
+        'builder: 'inspector,
+        ChainSpecT: 'inspector,
+        InspectorT: Inspector<
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<
+                    DatabaseComponents<
+                        &'inspector dyn SyncBlockchain<
+                            ChainSpecT,
+                            Self::BlockchainError,
+                            Self::StateError,
                         >,
+                        &'inspector dyn SyncState<Self::StateError>,
                     >,
                 >,
-                ExtensionT,
             >,
-            Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
-            FrameInit = FrameInput,
-            FrameResult = FrameResult,
         >,
-        Self::BlockchainError: 'context,
-        Self::StateError: 'context,
+        Self::BlockchainError: 'inspector,
+        Self::StateError: 'inspector,
     {
-        self.add_transaction_with_extension(transaction, extension)
+        self.add_transaction_with_inspector(transaction, inspector)
     }
 
     fn finalize(

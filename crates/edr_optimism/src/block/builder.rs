@@ -63,7 +63,7 @@ where
         self.eth.add_transaction(transaction)
     }
 
-    fn add_transaction_with_extension<'context, 'extension, ExtensionT, FrameT>(
+    fn add_transaction_with_inspector<'context, 'extension, ExtensionT, FrameT>(
         &mut self,
         transaction: transaction::Signed,
         extension: &'extension mut edr_evm::ContextExtension<ExtensionT, FrameT>,
@@ -102,7 +102,7 @@ where
         Self::StateError: 'context,
     {
         self.eth
-            .add_transaction_with_extension(transaction, extension)
+            .add_transaction_with_inspector(transaction, extension)
     }
 
     fn finalize(

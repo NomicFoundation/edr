@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use edr_eth::spec::{ChainSpec, HaltReasonTrait};
 use revm::{handler::FrameResult, interpreter::FrameInput};
-use revm_context_interface::{Journal, JournalGetter};
+use revm_context_interface::Journal;
 use revm_handler_interface::{Frame, FrameOrResultGen};
 
 use super::{context::TraceCollectorMutGetter, TraceCollector};

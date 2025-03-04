@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use edr_eth::spec::{ChainSpec, HaltReasonTrait};
-use revm::{context_interface::JournalGetter, handler::FrameResult, interpreter::FrameInput};
-use revm_handler_interface::{Frame, FrameOrResultGen};
+use revm::{handler::FrameResult, interpreter::FrameInput};
+use revm_handler::{Frame, FrameOrResult};
 use revm_interpreter::interpreter::EthInterpreter;
 
 use super::context::Eip3155TracerMutGetter;

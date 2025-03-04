@@ -8,7 +8,7 @@ use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
 use edr_eth::{l1, spec::ChainSpec, U256};
-use revm::precompile::PrecompileErrors;
+use revm::precompile::PrecompileError;
 
 pub use self::detailed::*;
 use crate::state::DatabaseComponentError;
@@ -43,7 +43,7 @@ where
     },
     /// Precompile errors
     #[error("{0}")]
-    Precompile(PrecompileErrors),
+    Precompile(PrecompileError),
     /// State errors
     #[error(transparent)]
     State(StateErrorT),
@@ -90,12 +90,12 @@ where
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<PrecompileErrors>
+impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<PrecompileError>
     for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: ChainSpec,
 {
-    fn from(value: PrecompileErrors) -> Self {
+    fn from(value: PrecompileError) -> Self {
         Self::Precompile(value)
     }
 }

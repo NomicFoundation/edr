@@ -7,19 +7,16 @@ use edr_eth::{
     spec::ChainSpec,
     Address,
 };
-use revm_handler::FrameResult;
-use revm_handler_interface::Frame;
-use revm_interpreter::FrameInput;
+use revm::Inspector;
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    extension::ExtendedContext,
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    ContextExtension, MineBlockResultAndStateForChainSpec,
+    MineBlockResultAndStateForChainSpec,
 };
 
 /// An error caused during construction of a block builder.
@@ -70,7 +67,7 @@ where
 }
 
 /// A trait for building blocks.
-pub trait BlockBuilder<'blockchain, ChainSpecT>: Sized
+pub trait BlockBuilder<'builder, ChainSpecT>: Sized
 where
     ChainSpecT: RuntimeSpec,
 {
@@ -82,7 +79,7 @@ where
 
     /// Creates a new block builder.
     fn new_block_builder(
-        blockchain: &'blockchain dyn SyncBlockchain<
+        blockchain: &'builder dyn SyncBlockchain<
             ChainSpecT,
             Self::BlockchainError,
             Self::StateError,
@@ -108,39 +105,31 @@ where
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>;
 
     /// Adds a transaction to the block.
-    fn add_transaction_with_extension<'context, 'extension, ExtensionT, FrameT>(
+    fn add_transaction_with_inspector<'inspector, InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
+        extension: &'inspector mut InspectorT,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
-        'blockchain: 'context,
-        'extension: 'context,
-        ChainSpecT: 'context,
-        FrameT: Frame<
-            Context<'context> = ExtendedContext<
-                'context,
-                ContextForChainSpec<
-                    ChainSpecT,
-                    WrapDatabaseRef<
-                        DatabaseComponents<
-                            &'context dyn SyncBlockchain<
-                                ChainSpecT,
-                                Self::BlockchainError,
-                                Self::StateError,
-                            >,
-                            &'context dyn SyncState<Self::StateError>,
+        'builder: 'inspector,
+        ChainSpecT: 'inspector,
+        InspectorT: Inspector<
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<
+                    DatabaseComponents<
+                        &'inspector dyn SyncBlockchain<
+                            ChainSpecT,
+                            Self::BlockchainError,
+                            Self::StateError,
                         >,
+                        &'inspector dyn SyncState<Self::StateError>,
                     >,
                 >,
-                ExtensionT,
             >,
-            Error = TransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>,
-            FrameInit = FrameInput,
-            FrameResult = FrameResult,
         >,
-        Self::BlockchainError: 'context,
-        Self::StateError: 'context;
+        Self::BlockchainError: 'inspector,
+        Self::StateError: 'inspector;
 
     /// Finalizes the block, applying rewards to the state.
     fn finalize(

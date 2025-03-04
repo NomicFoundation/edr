@@ -8,16 +8,13 @@ use edr_eth::{
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{ExecutableTransaction, TransactionValidation},
 };
-use revm_handler::FrameResult;
-use revm_handler_interface::Frame;
-use revm_interpreter::FrameInput;
+use revm::Inspector;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    extension::{ContextExtension, ExtendedContext},
     mempool::OrderedTransaction,
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
@@ -87,11 +84,10 @@ where
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block<
     'blockchain,
-    'context,
-    'extension,
+    'inspector,
     BlockchainErrorT,
     ChainSpecT,
-    ExtensionT,
+    InspectorT,
     FrameT,
     StateErrorT,
 >(
@@ -103,40 +99,30 @@ pub fn mine_block<
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
-    mut extension: ContextExtension<ExtensionT, FrameT>,
+    inspector: Option<&'inspector mut InspectorT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
-    'blockchain: 'context,
-    'extension: 'context,
+    'blockchain: 'inspector,
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
             ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    ExtensionT: 'extension,
-    FrameT: 'context
-        + Frame<
-            Context<'context> = ExtendedContext<
-                'context,
-                ContextForChainSpec<
-                    ChainSpecT,
-                    WrapDatabaseRef<
-                        DatabaseComponents<
-                            &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                            &'context dyn SyncState<StateErrorT>,
-                        >,
-                    >,
+    InspectorT: Inspector<
+        ContextForChainSpec<
+            ChainSpecT,
+            WrapDatabaseRef<
+                DatabaseComponents<
+                    &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    &'inspector dyn SyncState<StateErrorT>,
                 >,
-                ExtensionT,
             >,
-            Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
-            FrameInit = FrameInput,
-            FrameResult = FrameResult,
         >,
+    >,
     StateErrorT: std::error::Error + Send,
 {
     let mut block_builder =
@@ -165,6 +151,7 @@ where
 
         let caller = *transaction.caller();
 
+        // TODO: Do we still need this?
         // SAFETY: Due to current limitations in the borrow checker, `for<'context>` of
         // `Frame` implies the 'static lifetime, preventing us from using it. Instead we
         // pass in a function-scope 'context. This lifetime is still too long, as it's
@@ -172,9 +159,10 @@ where
         // `BlockBuilder::add_transaction_with_extension` does not outlive the
         // function call. Thus it's safe to ignore the borrow checker to avoid the error
         // about mutably borrowing the extension multiple times (in the loop).
-        let result = unsafe {
-            let extension = &mut *(&mut extension as *mut _);
-            block_builder.add_transaction_with_extension(transaction, extension)
+        let result = if let Some(inspector) = inspector.as_mut() {
+            block_builder.add_transaction_with_inspector(transaction, inspector);
+        } else {
+            block_builder.add_transaction(transaction)
         };
 
         if let Err(error) = result {
@@ -288,12 +276,10 @@ where
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<
     'blockchain,
-    'context,
-    'extension,
+    'inspector,
     BlockchainErrorT,
     ChainSpecT,
-    ExtensionT,
-    FrameT,
+    InspectorT,
     StateErrorT,
 >(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
@@ -303,37 +289,29 @@ pub fn mine_block_with_single_transaction<
     options: BlockOptions,
     min_gas_price: u128,
     reward: u128,
-    extension: Option<&'extension mut ContextExtension<ExtensionT, FrameT>>,
+    inspector: Option<&'inspector mut InspectorT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
-    'blockchain: 'context,
-    'extension: 'context,
+    'blockchain: 'inspector,
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
             ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    FrameT: Frame<
-        Context<'context> = ExtendedContext<
-            'context,
-            ContextForChainSpec<
-                ChainSpecT,
-                WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'context dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                        &'context dyn SyncState<StateErrorT>,
-                    >,
+    InspectorT: Inspector<
+        ContextForChainSpec<
+            ChainSpecT,
+            WrapDatabaseRef<
+                DatabaseComponents<
+                    &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    &'inspector dyn SyncState<StateErrorT>,
                 >,
             >,
-            ExtensionT,
         >,
-        Error = TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>,
-        FrameInit = FrameInput,
-        FrameResult = FrameResult,
     >,
     StateErrorT: std::error::Error + Send,
 {
@@ -410,8 +388,8 @@ where
     let beneficiary = block_builder.header().beneficiary;
     let rewards = vec![(beneficiary, reward)];
 
-    if let Some(extension) = extension {
-        block_builder.add_transaction_with_extension(transaction, extension)?;
+    if let Some(inspector) = inspector {
+        block_builder.add_transaction_with_extension(transaction, inspector)?;
     } else {
         block_builder.add_transaction(transaction)?;
     }

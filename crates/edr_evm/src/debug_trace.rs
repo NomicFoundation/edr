@@ -16,7 +16,7 @@ use edr_eth::{
 use revm_context_interface::Journal;
 use revm_interpreter::{
     interpreter::EthInterpreter,
-    interpreter_types::{InputsTrait as _, Jumps, LoopControl as _},
+    interpreter_types::{InputsTr as _, Jumps, LoopControl as _},
 };
 
 pub use self::{
@@ -31,7 +31,7 @@ use crate::{
     config::CfgEnv,
     interpreter::{Interpreter, InterpreterResult},
     journal::{JournalEntry, JournalExt},
-    runtime::{dry_run_with_extension, run},
+    runtime::{dry_run_with_inspector, run},
     spec::RuntimeSpec,
     state::{Database, SyncState},
     trace::{Trace, TraceCollector},
@@ -89,7 +89,7 @@ where
                 Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, _, StateErrorT>,
             >::new(context);
 
-            let ExecutionResultAndState { result, .. } = dry_run_with_extension(
+            let ExecutionResultAndState { result, .. } = dry_run_with_inspector(
                 blockchain,
                 state.as_ref(),
                 evm_config,

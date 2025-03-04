@@ -11,20 +11,17 @@ use edr_eth::{
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-pub use revm_context_interface::{
-    BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter, Journal, JournalGetter,
-    PerformantContextAccess, TransactionGetter,
-};
+use revm::{Inspector, MainBuilder, MainnetEvm};
+pub use revm_context_interface::{ContextTr as ContextTrait, Journal};
 
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
     config::CfgEnv,
-    evm::{l1::L1EvmSpec, EvmSpec},
+    evm::EvmTrait,
     hardfork::{self, Activations},
-    interpreter::Host,
     journal::JournaledState,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
-    state::{Database, DatabaseComponentError, EvmState},
+    state::{Database, DatabaseComponentError},
     transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
         TransactionValidation,
@@ -155,21 +152,10 @@ pub trait RuntimeSpec:
     /// Type representing an EVM specification for the provided context and error types.
     type Evm<
         BlockchainErrorT,
-        ContextT: BlockGetter<Block = Self::BlockEnv>
-            + CfgGetter<Cfg = CfgEnv<Self::Hardfork>>
-            + DatabaseGetter<
-                Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-            > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-            + JournalGetter<
-                Journal: Journal<
-                    FinalOutput = (EvmState, Vec<ExecutionLog>),
-                    Database = <ContextT as DatabaseGetter>::Database,
-                >,
-            > + Host
-            + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-            + TransactionGetter<Transaction = Self::SignedTransaction>,
-        StateErrorT
-    >: EvmSpec<BlockchainErrorT, Self, ContextT, StateErrorT>;
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT,
+        StateErrorT,
+    >: EvmTrait<Context = ContextForChainSpec<Self, DatabaseT>>;
 
     // /// Type representing an implementation of `EvmWiring` for this chain.
     // type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
@@ -227,6 +213,29 @@ pub trait RuntimeSpec:
     /// Returns the name corresponding to the provided chain ID, if it is
     /// associated with this chain specification.
     fn chain_name(chain_id: u64) -> Option<&'static str>;
+
+    fn evm<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    >(context: ContextForChainSpec<Self, DatabaseT>) -> Self::Evm<
+        BlockchainErrorT,
+        DatabaseT,
+        (),
+        StateErrorT,
+    >;
+
+    fn evm_with_inspector<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        StateErrorT,
+    >(context: ContextForChainSpec<Self, DatabaseT>, inspector: InspectorT) -> Self::Evm<
+        BlockchainErrorT,
+        DatabaseT,
+        InspectorT,
+        StateErrorT,
+    >;
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.
@@ -336,21 +345,10 @@ impl RuntimeSpec for L1ChainSpec {
 
     type Evm<
         BlockchainErrorT,
-        ContextT: BlockGetter<Block = Self::BlockEnv>
-            + CfgGetter<Cfg = CfgEnv<Self::Hardfork>>
-            + DatabaseGetter<
-                Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-            > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-            + JournalGetter<
-                Journal: Journal<
-                    FinalOutput = (EvmState, Vec<ExecutionLog>),
-                    Database = <ContextT as DatabaseGetter>::Database,
-                >,
-            > + Host
-            + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-            + TransactionGetter<Transaction = Self::SignedTransaction>,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT,
         StateErrorT,
-    > = L1EvmSpec<Self, ContextT>;
+    > = MainnetEvm<ContextForChainSpec<Self, DatabaseT>, InspectorT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
@@ -390,5 +388,27 @@ impl RuntimeSpec for L1ChainSpec {
 
     fn chain_name(chain_id: u64) -> Option<&'static str> {
         hardfork::l1::chain_name(chain_id)
+    }
+
+    fn evm<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    >(
+        context: ContextForChainSpec<Self, DatabaseT>,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, (), StateErrorT> {
+        context.build_mainnet()
+    }
+
+    fn evm_with_inspector<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        StateErrorT,
+    >(
+        context: ContextForChainSpec<Self, DatabaseT>,
+        inspector: InspectorT,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, StateErrorT> {
+        context.build_mainnet_with_inspector(inspector)
     }
 }

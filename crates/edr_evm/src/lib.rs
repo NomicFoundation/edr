@@ -7,7 +7,6 @@
 
 pub use crate::{
     block::*,
-    extension::ContextExtension,
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,
     random::RandomHashGenerator,
@@ -24,8 +23,6 @@ pub mod config;
 pub mod debug_trace;
 /// Types for interfacing with the evm.
 pub mod evm;
-/// Types for extending the EVM.
-pub mod extension;
 /// Types for Ethereum hardforks
 pub mod hardfork;
 /// Types for EVM instructions
