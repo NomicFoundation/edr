@@ -1,6 +1,9 @@
 //! A wrapper around `Backend` that is clone-on-write used for fuzzing.
 
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashSet},
+};
 
 use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, B256, U256};
@@ -15,7 +18,7 @@ use revm::{
     Database, DatabaseCommit, JournaledState,
 };
 
-use super::BackendError;
+use super::{BackendError, IndeterminismReasons};
 use crate::{
     backend::{
         diagnostic::RevertDiagnostic, Backend, DatabaseExt, LocalForkId, RevertSnapshotAction,
@@ -48,11 +51,14 @@ pub struct CowBackend<'a> {
     ///
     /// No calls on the `CowBackend` will ever persistently modify the
     /// `backend`'s state.
-    pub backend: Cow<'a, Backend>,
+    backend: Cow<'a, Backend>,
     /// Keeps track of whether the backed is already initialized
     is_initialized: bool,
     /// The [`SpecId`] of the current backend.
     spec_id: SpecId,
+    /// The set of executed cheatcodes that are impure. The values are the
+    /// Solidity method declarations of the cheatcodes.
+    impure_cheatcodes: HashSet<&'static str>,
 }
 
 impl<'a> CowBackend<'a> {
@@ -62,6 +68,7 @@ impl<'a> CowBackend<'a> {
             backend: Cow::Borrowed(backend),
             is_initialized: false,
             spec_id: SpecId::LATEST,
+            impure_cheatcodes: HashSet::new(),
         }
     }
 
@@ -96,6 +103,30 @@ impl<'a> CowBackend<'a> {
     /// revert occurs.
     pub fn has_snapshot_failure(&self) -> bool {
         self.backend.has_snapshot_failure()
+    }
+
+    /// If re-executing the counter example is not guaranteed to yield the same
+    /// results, the `Some` result contains the reason why.
+    pub fn indeterminism_reasons(&self) -> Option<IndeterminismReasons> {
+        let global_fork_latest = self.backend.is_global_fork_latest();
+        if global_fork_latest
+            || !self.backend.are_executed_cheatcodes_pure()
+            || !self.impure_cheatcodes.is_empty()
+        {
+            let impure_cheatcodes = self
+                .impure_cheatcodes
+                .union(&self.backend.inner.impure_cheatcodes);
+            Some(IndeterminismReasons {
+                global_fork_latest,
+                impure_cheatcodes: impure_cheatcodes
+                    .into_iter()
+                    .copied()
+                    .map(Cow::Borrowed)
+                    .collect(),
+            })
+        } else {
+            None
+        }
     }
 
     /// Returns a mutable instance of the Backend.
@@ -266,20 +297,12 @@ impl<'a> DatabaseExt for CowBackend<'a> {
         self.backend.has_cheatcode_access(account)
     }
 
+    #[inline(always)]
     fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool) {
-        // Only convert to mutable if we need to update.
-        if !is_pure
-            && !self
-                .backend
-                .inner
-                .impure_cheatcodes
-                .contains(cheatcode_name)
-        {
-            self.backend
-                .to_mut()
-                .inner
-                .impure_cheatcodes
-                .insert(cheatcode_name);
+        // Don't reuse the inner backend's impure cheatcode set to avoid upgrades to
+        // owned.
+        if !is_pure {
+            self.impure_cheatcodes.insert(cheatcode_name);
         }
     }
 }

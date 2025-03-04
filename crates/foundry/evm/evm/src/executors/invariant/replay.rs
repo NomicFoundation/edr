@@ -161,7 +161,7 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     logs.extend(invariant_result.logs);
 
     let stack_trace_result: Option<StackTraceResult> =
-        if let Some(indeterminism_reasons) = cow_backend.backend.indeterminism_reasons() {
+        if let Some(indeterminism_reasons) = cow_backend.indeterminism_reasons() {
             Some(indeterminism_reasons.into())
         } else {
             contract_decoder
