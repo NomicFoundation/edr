@@ -144,7 +144,7 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     // Checking after each call doesn't add valuable info for passing scenario
     // (invariant call result is always success) nor for failed scenarios
     // (invariant call result is always success until the last call that breaks it).
-    let (invariant_result, indeterminism_reasons) = executor.call_raw(
+    let (invariant_result, cow_backend) = executor.call_raw(
         CALLER,
         invariant_contract.address,
         invariant_contract
@@ -161,7 +161,7 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     logs.extend(invariant_result.logs);
 
     let stack_trace_result: Option<StackTraceResult> =
-        if let Some(indeterminism_reasons) = indeterminism_reasons {
+        if let Some(indeterminism_reasons) = cow_backend.backend.indeterminism_reasons() {
             Some(indeterminism_reasons.into())
         } else {
             contract_decoder

@@ -66,7 +66,7 @@ pub(crate) fn assert_invariants(
     }
 
     let func = invariant_contract.invariant_function;
-    let (mut call_result, _indeterminism_reasons) = executor.call_raw(
+    let (mut call_result, _cow_backend) = executor.call_raw(
         CALLER,
         invariant_contract.address,
         func.abi_encode_input(&[])

@@ -1086,7 +1086,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
         executor.inspector.enable_for_stack_traces();
 
         // Run counterexample test
-        let (call, _indeterminism_reasons) = executor
+        let (call, _cow_backend) = executor
             .call_raw(
                 self.sender,
                 address,

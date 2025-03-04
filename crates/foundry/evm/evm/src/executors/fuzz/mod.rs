@@ -226,7 +226,7 @@ impl FuzzedExecutor {
         should_fail: bool,
         calldata: alloy_primitives::Bytes,
     ) -> Result<FuzzOutcome, TestCaseError> {
-        let (mut call, indeterminism_reasons) = self
+        let (mut call, cow_backend) = self
             .executor
             .call_raw(self.sender, address, calldata.clone(), U256::ZERO)
             .map_err(|_err| TestCaseError::fail(FuzzError::FailedContractCall))?;
@@ -260,7 +260,7 @@ impl FuzzedExecutor {
                 counterexample: CounterExampleData {
                     calldata,
                     call,
-                    indeterminism_reasons,
+                    indeterminism_reasons: cow_backend.backend.indeterminism_reasons(),
                 },
             }))
         }

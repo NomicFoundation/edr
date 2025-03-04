@@ -315,7 +315,7 @@ impl Executor {
         rd: Option<&RevertDecoder>,
     ) -> Result<CallResult, EvmError> {
         let calldata = Bytes::from(func.abi_encode_input(args)?);
-        let (result, _indeterminism_reasons) = self.call_raw(from, to, calldata, value)?;
+        let (result, _cow_backend) = self.call_raw(from, to, calldata, value)?;
         result.into_decoded_result(func, rd)
     }
 
@@ -331,7 +331,7 @@ impl Executor {
         rd: Option<&RevertDecoder>,
     ) -> Result<CallResult<C::Return>, EvmError> {
         let calldata = Bytes::from(args.abi_encode());
-        let (mut raw, _indeterminism_reasons) = self.call_raw(from, to, calldata, value)?;
+        let (mut raw, _cow_backend) = self.call_raw(from, to, calldata, value)?;
         raw = raw.into_result(rd)?;
         Ok(CallResult {
             decoded_result: C::abi_decode_returns(&raw.result, false)?,
@@ -345,18 +345,16 @@ impl Executor {
     ///
     /// This intended for fuzz calls, which try to minimize [Backend] clones by
     /// using a Cow of the underlying [Backend] so it only gets cloned when
-    /// cheatcodes that require mutable access are used.
-    ///
-    /// This call returns the indeterminism reason in addition to the call
-    /// result, as the indeterminism reasons are not persisted on the executor's
-    /// backend.
+    /// cheatcodes that require mutable access are used. The method returns the
+    /// `CowBackend`, as changes to `CowBackend` are not persisted in the
+    /// executor's backend.
     pub fn call_raw(
         &self,
         from: Address,
         to: Address,
         calldata: Bytes,
         value: U256,
-    ) -> eyre::Result<(RawCallResult, Option<IndeterminismReasons>)> {
+    ) -> eyre::Result<(RawCallResult, CowBackend<'_>)> {
         let mut inspector = self.inspector.clone();
         // Build VM
         let mut env = self.build_test_env(from, TxKind::Call(to), calldata, value);
@@ -367,7 +365,7 @@ impl Executor {
         let has_snapshot_failure = db.has_snapshot_failure();
         Ok((
             convert_executed_result(env, inspector, result, has_snapshot_failure)?,
-            db.backend.indeterminism_reasons(),
+            db,
         ))
     }
 
