@@ -94,7 +94,7 @@ pub(crate) fn shrink_sequence(
 
     // Special case test: the invariant is *unsatisfiable* - it took 0 calls to
     // break the invariant -- consider emitting a warning.
-    let error_call_result = executor.call_raw(
+    let (error_call_result, _cow_backend) = executor.call_raw(
         CALLER,
         failed_case.addr,
         failed_case.func.clone(),
@@ -156,7 +156,8 @@ pub fn check_sequence(
     }
 
     // Check the invariant for call sequence.
-    let mut call_result = executor.call_raw(CALLER, test_address, test_function, U256::ZERO)?;
+    let (mut call_result, _cow_backend) =
+        executor.call_raw(CALLER, test_address, test_function, U256::ZERO)?;
     Ok((
         executor.is_raw_call_success(
             test_address,

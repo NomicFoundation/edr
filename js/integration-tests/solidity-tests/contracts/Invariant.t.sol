@@ -49,3 +49,16 @@ contract BuggyInvariantTest is Test {
     }
 }
 
+// Test where the invariant test is failing, but uses an impure cheatcode so we can't generate stack traces.
+contract ImpureInvariantTest is Test {
+    StochasticWrongContract wrongContract;
+
+    function setUp() external {
+        wrongContract = new StochasticWrongContract();
+    }
+
+    function invariant() external {
+        assertEq(wrongContract.a() + wrongContract.b(), wrongContract.both());
+        assertEq(vm.unixTime(), 43);
+    }
+}

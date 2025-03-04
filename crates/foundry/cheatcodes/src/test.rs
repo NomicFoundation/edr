@@ -11,6 +11,9 @@ use crate::{
 pub(crate) mod assert;
 pub(crate) mod expect;
 
+use crate::impl_is_pure_true;
+
+impl_is_pure_true!(assumeCall);
 impl Cheatcode for assumeCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { condition } = self;
@@ -22,6 +25,7 @@ impl Cheatcode for assumeCall {
     }
 }
 
+impl_is_pure_true!(rpcUrlCall);
 impl Cheatcode for rpcUrlCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { rpcAlias } = self;
@@ -29,6 +33,7 @@ impl Cheatcode for rpcUrlCall {
     }
 }
 
+impl_is_pure_true!(rpcUrlsCall);
 impl Cheatcode for rpcUrlsCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -36,6 +41,7 @@ impl Cheatcode for rpcUrlsCall {
     }
 }
 
+impl_is_pure_true!(rpcUrlStructsCall);
 impl Cheatcode for rpcUrlStructsCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -43,6 +49,7 @@ impl Cheatcode for rpcUrlStructsCall {
     }
 }
 
+impl_is_pure_true!(sleepCall);
 impl Cheatcode for sleepCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { duration } = self;
@@ -52,6 +59,7 @@ impl Cheatcode for sleepCall {
     }
 }
 
+impl_is_pure_true!(skipCall);
 impl Cheatcode for skipCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { skipTest } = *self;

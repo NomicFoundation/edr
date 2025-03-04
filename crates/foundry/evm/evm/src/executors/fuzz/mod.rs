@@ -22,6 +22,8 @@ use crate::executors::{Executor, RawCallResult};
 mod types;
 pub use types::{CaseOutcome, CounterExampleOutcome, FuzzOutcome};
 
+use crate::executors::fuzz::types::CounterExampleData;
+
 /// Wrapper around an [`Executor`] which provides fuzzing support using
 /// [`proptest`].
 ///
@@ -76,7 +78,11 @@ impl FuzzedExecutor {
         let gas_by_case: RefCell<Vec<(u64, u64)>> = RefCell::default();
 
         // Stores the result and calldata of the last failed call, if any.
-        let counterexample: RefCell<(Bytes, RawCallResult)> = RefCell::default();
+        let counterexample: RefCell<CounterExampleData> = RefCell::new(CounterExampleData {
+            calldata: Bytes::default(),
+            call: RawCallResult::default(),
+            indeterminism_reasons: None,
+        });
 
         // We want to collect at least one trace which will be displayed to user.
         let max_traces_to_collect = std::cmp::max(1, self.config.gas_report_samples) as usize;
@@ -136,7 +142,7 @@ impl FuzzedExecutor {
                     // our failure - when a fuzz case fails, proptest will try
                     // to run at least one more case to find a minimal failure
                     // case.
-                    let call_res = _counterexample.1.result.clone();
+                    let call_res = _counterexample.call.result.clone();
                     *counterexample.borrow_mut() = _counterexample;
                     // HACK: we have to use an empty string here to denote `None`
                     let reason = rd.maybe_decode(&call_res, Some(status));
@@ -145,7 +151,11 @@ impl FuzzedExecutor {
             }
         });
 
-        let (calldata, call) = counterexample.into_inner();
+        let CounterExampleData {
+            calldata,
+            call,
+            indeterminism_reasons,
+        } = counterexample.into_inner();
 
         let mut traces = traces.into_inner();
         let last_run_traces = if run_result.is_ok() {
@@ -194,9 +204,13 @@ impl FuzzedExecutor {
                     vec![]
                 };
 
-                result.counterexample = Some(CounterExample::Single(
-                    BaseCounterExample::from_fuzz_call(calldata, args, call.traces),
-                ));
+                result.counterexample =
+                    Some(CounterExample::Single(BaseCounterExample::from_fuzz_call(
+                        calldata,
+                        args,
+                        call.traces,
+                        indeterminism_reasons,
+                    )));
             }
             _ => {}
         }
@@ -212,7 +226,7 @@ impl FuzzedExecutor {
         should_fail: bool,
         calldata: alloy_primitives::Bytes,
     ) -> Result<FuzzOutcome, TestCaseError> {
-        let mut call = self
+        let (mut call, cow_backend) = self
             .executor
             .call_raw(self.sender, address, calldata.clone(), U256::ZERO)
             .map_err(|_err| TestCaseError::fail(FuzzError::FailedContractCall))?;
@@ -243,7 +257,11 @@ impl FuzzedExecutor {
         } else {
             Ok(FuzzOutcome::CounterExample(CounterExampleOutcome {
                 exit_reason: call.exit_reason,
-                counterexample: (calldata, call),
+                counterexample: CounterExampleData {
+                    calldata,
+                    call,
+                    indeterminism_reasons: cow_backend.backend.indeterminism_reasons(),
+                },
             }))
         }
     }

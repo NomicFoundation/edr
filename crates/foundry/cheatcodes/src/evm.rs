@@ -20,7 +20,7 @@ use revm::{
 use spec::Vm::signCall;
 
 use crate::{
-    Cheatcode, Cheatcodes, CheatsCtxt, Result,
+    impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result,
     Vm::{
         accessesCall, addrCall, blobBaseFeeCall, blobhashesCall, chainIdCall, coinbaseCall,
         coolCall, dealCall, deleteSnapshotCall, deleteSnapshotsCall, difficultyCall, dumpStateCall,
@@ -59,6 +59,7 @@ pub struct DealRecord {
     pub new_balance: U256,
 }
 
+impl_is_pure_true!(addrCall);
 impl Cheatcode for addrCall {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { privateKey } = self;
@@ -67,6 +68,7 @@ impl Cheatcode for addrCall {
     }
 }
 
+impl_is_pure_true!(getNonceCall);
 impl Cheatcode for getNonceCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account } = self;
@@ -74,6 +76,7 @@ impl Cheatcode for getNonceCall {
     }
 }
 
+impl_is_pure_true!(loadCall);
 impl Cheatcode for loadCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { target, slot } = *self;
@@ -84,6 +87,7 @@ impl Cheatcode for loadCall {
     }
 }
 
+impl_is_pure_false!(loadAllocsCall);
 impl Cheatcode for loadAllocsCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { pathToAllocsJson } = self;
@@ -113,6 +117,7 @@ impl Cheatcode for loadAllocsCall {
     }
 }
 
+impl_is_pure_false!(dumpStateCall);
 impl Cheatcode for dumpStateCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { pathToStateJson } = self;
@@ -159,6 +164,7 @@ impl Cheatcode for dumpStateCall {
     }
 }
 
+impl_is_pure_true!(signCall);
 impl Cheatcode for signCall {
     fn apply_full<DB: DatabaseExt>(&self, _: &mut CheatsCtxt<DB>) -> Result {
         let Self { privateKey, digest } = self;
@@ -166,6 +172,7 @@ impl Cheatcode for signCall {
     }
 }
 
+impl_is_pure_true!(signP256Call);
 impl Cheatcode for signP256Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { privateKey, digest } = self;
@@ -173,6 +180,7 @@ impl Cheatcode for signP256Call {
     }
 }
 
+impl_is_pure_true!(recordCall);
 impl Cheatcode for recordCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -181,6 +189,7 @@ impl Cheatcode for recordCall {
     }
 }
 
+impl_is_pure_true!(accessesCall);
 impl Cheatcode for accessesCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self { target } = *self;
@@ -198,6 +207,7 @@ impl Cheatcode for accessesCall {
     }
 }
 
+impl_is_pure_true!(recordLogsCall);
 impl Cheatcode for recordLogsCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -206,6 +216,7 @@ impl Cheatcode for recordLogsCall {
     }
 }
 
+impl_is_pure_true!(getRecordedLogsCall);
 impl Cheatcode for getRecordedLogsCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -217,6 +228,7 @@ impl Cheatcode for getRecordedLogsCall {
     }
 }
 
+impl_is_pure_true!(pauseGasMeteringCall);
 impl Cheatcode for pauseGasMeteringCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -227,6 +239,7 @@ impl Cheatcode for pauseGasMeteringCall {
     }
 }
 
+impl_is_pure_true!(resumeGasMeteringCall);
 impl Cheatcode for resumeGasMeteringCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -235,6 +248,7 @@ impl Cheatcode for resumeGasMeteringCall {
     }
 }
 
+impl_is_pure_true!(lastCallGasCall);
 impl Cheatcode for lastCallGasCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -251,6 +265,7 @@ impl Cheatcode for lastCallGasCall {
     }
 }
 
+impl_is_pure_true!(chainIdCall);
 impl Cheatcode for chainIdCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newChainId } = self;
@@ -263,6 +278,7 @@ impl Cheatcode for chainIdCall {
     }
 }
 
+impl_is_pure_true!(coinbaseCall);
 impl Cheatcode for coinbaseCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newCoinbase } = self;
@@ -271,6 +287,7 @@ impl Cheatcode for coinbaseCall {
     }
 }
 
+impl_is_pure_true!(difficultyCall);
 impl Cheatcode for difficultyCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newDifficulty } = self;
@@ -284,6 +301,7 @@ impl Cheatcode for difficultyCall {
     }
 }
 
+impl_is_pure_true!(feeCall);
 impl Cheatcode for feeCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newBasefee } = self;
@@ -292,6 +310,7 @@ impl Cheatcode for feeCall {
     }
 }
 
+impl_is_pure_true!(prevrandao_0Call);
 impl Cheatcode for prevrandao_0Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newPrevrandao } = self;
@@ -305,6 +324,7 @@ impl Cheatcode for prevrandao_0Call {
     }
 }
 
+impl_is_pure_true!(prevrandao_1Call);
 impl Cheatcode for prevrandao_1Call {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newPrevrandao } = self;
@@ -318,6 +338,7 @@ impl Cheatcode for prevrandao_1Call {
     }
 }
 
+impl_is_pure_true!(blobhashesCall);
 impl Cheatcode for blobhashesCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { hashes } = self;
@@ -331,6 +352,7 @@ impl Cheatcode for blobhashesCall {
     }
 }
 
+impl_is_pure_true!(getBlobhashesCall);
 impl Cheatcode for getBlobhashesCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -343,6 +365,7 @@ impl Cheatcode for getBlobhashesCall {
     }
 }
 
+impl_is_pure_true!(rollCall);
 impl Cheatcode for rollCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newHeight } = self;
@@ -351,6 +374,7 @@ impl Cheatcode for rollCall {
     }
 }
 
+impl_is_pure_true!(getBlockNumberCall);
 impl Cheatcode for getBlockNumberCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -358,6 +382,7 @@ impl Cheatcode for getBlockNumberCall {
     }
 }
 
+impl_is_pure_true!(txGasPriceCall);
 impl Cheatcode for txGasPriceCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newGasPrice } = self;
@@ -366,6 +391,7 @@ impl Cheatcode for txGasPriceCall {
     }
 }
 
+impl_is_pure_true!(warpCall);
 impl Cheatcode for warpCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newTimestamp } = self;
@@ -374,6 +400,7 @@ impl Cheatcode for warpCall {
     }
 }
 
+impl_is_pure_true!(getBlockTimestampCall);
 impl Cheatcode for getBlockTimestampCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -381,6 +408,7 @@ impl Cheatcode for getBlockTimestampCall {
     }
 }
 
+impl_is_pure_true!(blobBaseFeeCall);
 impl Cheatcode for blobBaseFeeCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { newBlobBaseFee } = self;
@@ -397,6 +425,7 @@ impl Cheatcode for blobBaseFeeCall {
     }
 }
 
+impl_is_pure_true!(getBlobBaseFeeCall);
 impl Cheatcode for getBlobBaseFeeCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -410,6 +439,7 @@ impl Cheatcode for getBlobBaseFeeCall {
     }
 }
 
+impl_is_pure_true!(dealCall);
 impl Cheatcode for dealCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -428,6 +458,7 @@ impl Cheatcode for dealCall {
     }
 }
 
+impl_is_pure_true!(etchCall);
 impl Cheatcode for etchCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -442,6 +473,7 @@ impl Cheatcode for etchCall {
     }
 }
 
+impl_is_pure_true!(resetNonceCall);
 impl Cheatcode for resetNonceCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account } = self;
@@ -457,6 +489,7 @@ impl Cheatcode for resetNonceCall {
     }
 }
 
+impl_is_pure_true!(setNonceCall);
 impl Cheatcode for setNonceCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account, newNonce } = *self;
@@ -473,6 +506,7 @@ impl Cheatcode for setNonceCall {
     }
 }
 
+impl_is_pure_true!(setNonceUnsafeCall);
 impl Cheatcode for setNonceUnsafeCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { account, newNonce } = *self;
@@ -482,6 +516,7 @@ impl Cheatcode for setNonceUnsafeCall {
     }
 }
 
+impl_is_pure_true!(storeCall);
 impl Cheatcode for storeCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
@@ -497,6 +532,7 @@ impl Cheatcode for storeCall {
     }
 }
 
+impl_is_pure_true!(coolCall);
 impl Cheatcode for coolCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { target } = self;
@@ -508,6 +544,7 @@ impl Cheatcode for coolCall {
     }
 }
 
+impl_is_pure_true!(readCallersCall);
 impl Cheatcode for readCallersCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -515,6 +552,7 @@ impl Cheatcode for readCallersCall {
     }
 }
 
+impl_is_pure_true!(snapshotCall);
 impl Cheatcode for snapshotCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -526,6 +564,7 @@ impl Cheatcode for snapshotCall {
     }
 }
 
+impl_is_pure_true!(revertToCall);
 impl Cheatcode for revertToCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { snapshotId } = self;
@@ -546,6 +585,7 @@ impl Cheatcode for revertToCall {
     }
 }
 
+impl_is_pure_true!(revertToAndDeleteCall);
 impl Cheatcode for revertToAndDeleteCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { snapshotId } = self;
@@ -566,6 +606,7 @@ impl Cheatcode for revertToAndDeleteCall {
     }
 }
 
+impl_is_pure_true!(deleteSnapshotCall);
 impl Cheatcode for deleteSnapshotCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { snapshotId } = self;
@@ -573,6 +614,8 @@ impl Cheatcode for deleteSnapshotCall {
         Ok(result.abi_encode())
     }
 }
+
+impl_is_pure_true!(deleteSnapshotsCall);
 impl Cheatcode for deleteSnapshotsCall {
     fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {} = self;
@@ -581,6 +624,7 @@ impl Cheatcode for deleteSnapshotsCall {
     }
 }
 
+impl_is_pure_true!(startStateDiffRecordingCall);
 impl Cheatcode for startStateDiffRecordingCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;
@@ -589,6 +633,7 @@ impl Cheatcode for startStateDiffRecordingCall {
     }
 }
 
+impl_is_pure_true!(stopAndReturnStateDiffCall);
 impl Cheatcode for stopAndReturnStateDiffCall {
     fn apply(&self, state: &mut Cheatcodes) -> Result {
         let Self {} = self;

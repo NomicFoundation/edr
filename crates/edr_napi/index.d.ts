@@ -669,6 +669,52 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
+/** The stack trace result */
+export interface StackTrace {
+  /** Enum tag for JS. */
+  kind: "StackTrace"
+  /** The stack trace entries */
+  entries: Array<SolidityStackTraceEntry>
+}
+/** We couldn't generate stack traces, because an unexpected error occurred. */
+export interface UnexpectedError {
+  /** Enum tag for JS. */
+  kind: "UnexpectedError"
+  /** The error message from the unexpected error. */
+  errorMessage: string
+}
+/**
+ * We couldn't generate stack traces, because the stack trace generation
+ * heuristics failed due to an unknown reason.
+ */
+export interface HeuristicFailed {
+  /** Enum tag for JS. */
+  kind: "HeuristicFailed"
+}
+/**
+ * We couldn't generate stack traces, because the test execution is unsafe to
+ * replay due to indeterminism. This can be caused by either specifying a fork
+ * url without a fork block number in the test runner config or using impure
+ * cheatcodes.
+ */
+export interface UnsafeToReplay {
+  /** Enum tag for JS. */
+  kind: "UnsafeToReplay"
+  /**
+   * Indeterminism due to specifying a fork url without a fork block number
+   * in the test runner config.
+   */
+  globalForkLatest: boolean
+  /**
+   * The list of executed impure cheatcode signatures. We collect function
+   * signatures instead of function names as whether a cheatcode is impure
+   * can depend on the arguments it takes (e.g. `createFork` without a second
+   * argument means implicitly fork from “latest”). Example signature:
+   * `function createSelectFork(string calldata urlOrAlias) external returns
+   * (uint256 forkId);`.
+   */
+  impureCheatcodes: Array<string>
+}
 /**The result of a test execution. */
 export const enum TestStatus {
   /**Test success */
@@ -1041,11 +1087,12 @@ export declare class TestResult {
   readonly durationMs: bigint
   /**
    * Compute the error stack trace.
-   * If the heuristic failed, returns an empty array.
+   * The result is either the stack trace or the reason why we couldn't
+   * generate the stack trace.
    * Returns null if the test status is succeeded or skipped.
-   * Throws if there was an error computing the stack trace.
+   * Cannot throw.
    */
-  stackTrace(): Array<SolidityStackTraceEntry> | null
+  stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
 }
 export declare class Exit {
   get kind(): ExitCode

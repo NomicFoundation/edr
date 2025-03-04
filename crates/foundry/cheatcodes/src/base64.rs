@@ -2,10 +2,11 @@ use alloy_sol_types::SolValue;
 use base64::prelude::*;
 
 use crate::{
-    Cheatcode, Cheatcodes, Result,
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{toBase64URL_0Call, toBase64URL_1Call, toBase64_0Call, toBase64_1Call},
 };
 
+impl_is_pure_true!(toBase64_0Call);
 impl Cheatcode for toBase64_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { data } = self;
@@ -13,6 +14,7 @@ impl Cheatcode for toBase64_0Call {
     }
 }
 
+impl_is_pure_true!(toBase64_1Call);
 impl Cheatcode for toBase64_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { data } = self;
@@ -20,6 +22,7 @@ impl Cheatcode for toBase64_1Call {
     }
 }
 
+impl_is_pure_true!(toBase64URL_0Call);
 impl Cheatcode for toBase64URL_0Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { data } = self;
@@ -27,6 +30,7 @@ impl Cheatcode for toBase64URL_0Call {
     }
 }
 
+impl_is_pure_true!(toBase64URL_1Call);
 impl Cheatcode for toBase64URL_1Call {
     fn apply(&self, _state: &mut Cheatcodes) -> Result {
         let Self { data } = self;

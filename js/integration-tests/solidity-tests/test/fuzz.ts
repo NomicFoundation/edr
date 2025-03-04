@@ -49,6 +49,36 @@ describe("Fuzz and invariant testing", function () {
     assert.isTrue(existsSync(failureDir));
   });
 
+  it("ImpureFuzzSetup", async function () {
+    const result1 = await testContext.runTestsWithStats("ImpureFuzzSetup");
+    assert.equal(result1.failedTests, 1);
+    assert.equal(result1.totalTests, 1);
+
+    const stackTraces = result1.stackTraces.get("setUp()");
+    const impureCheatcodes = stackTraces?.impureCheatcodes ?? [];
+    assert.equal(
+      impureCheatcodes.filter((cheatcode) => cheatcode.includes("readFile"))
+        .length,
+      1
+    );
+  });
+
+  it("ImpureFuzzTest", async function () {
+    const result1 = await testContext.runTestsWithStats("ImpureFuzzTest");
+    assert.equal(result1.failedTests, 1);
+    assert.equal(result1.totalTests, 1);
+
+    const stackTraces = result1.stackTraces.get(
+      "testFuzzAddWithOverflow(uint256,uint256)"
+    );
+    const impureCheatcodes = stackTraces?.impureCheatcodes ?? [];
+    assert.equal(
+      impureCheatcodes.filter((cheatcode) => cheatcode.includes("unixTime"))
+        .length,
+      1
+    );
+  });
+
   it("FuzzFixture is not supported", async function () {
     const result = await testContext.runTestsWithStats("FuzzFixtureTest", {
       fuzz: {
@@ -122,9 +152,13 @@ describe("Fuzz and invariant testing", function () {
     const fuzzTestResult2 = results2[0].testResults[0].kind as FuzzTestKind;
     // More than one run should be needed on a fresh invariant test.
     assert.isTrue(fuzzTestResult2.runs > 1n);
+    const stackTrace2 = results2[0].testResults[0].stackTrace();
+    if (stackTrace2?.kind !== "StackTrace") {
+      throw new Error("Expected stack trace");
+    }
     assertStackTraces(
       {
-        stackTrace: results2[0].testResults[0].stackTrace()!,
+        stackTrace: stackTrace2.entries,
         reason: results2[0].testResults[0].reason,
       },
       expectedReason,
@@ -155,9 +189,13 @@ describe("Fuzz and invariant testing", function () {
     const fuzzTestResult3 = results3[0].testResults[0].kind as FuzzTestKind;
     // The second time only one run should be needed, because the persisted failure is used.
     assert.equal(fuzzTestResult3.runs, 1n);
+    const stackTrace3 = results3[0].testResults[0].stackTrace();
+    if (stackTrace3?.kind !== "StackTrace") {
+      throw new Error("Expected stack trace");
+    }
     assertStackTraces(
       {
-        stackTrace: results3[0].testResults[0].stackTrace()!,
+        stackTrace: stackTrace3.entries,
         reason: results3[0].testResults[0].reason,
       },
       expectedReason,
@@ -194,6 +232,29 @@ describe("Fuzz and invariant testing", function () {
       result.stackTraces.get("invariant()"),
       expectedReason,
       expectedStackTraces
+    );
+  });
+
+  it("ImpureInvariantTest", async function () {
+    const invariantConfig = {
+      runs: 256,
+      depth: 15,
+      // This is false by default, we just specify it here to make it obvious to the reader.
+      failOnRevert: false,
+    };
+
+    const result = await testContext.runTestsWithStats("ImpureInvariantTest", {
+      invariant: invariantConfig,
+    });
+    assert.equal(result.failedTests, 1);
+    assert.equal(result.totalTests, 1);
+
+    const stackTraces = result.stackTraces.get("invariant()");
+    const impureCheatcodes = stackTraces?.impureCheatcodes ?? [];
+    assert.equal(
+      impureCheatcodes.filter((cheatcode) => cheatcode.includes("unixTime"))
+        .length,
+      1
     );
   });
 });

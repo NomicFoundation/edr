@@ -1,4 +1,5 @@
 use alloy_primitives::Bytes;
+use foundry_evm_core::backend::IndeterminismReasons;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::FuzzCase;
 use foundry_evm_traces::CallTraceArena;
@@ -21,9 +22,20 @@ pub struct CaseOutcome {
 #[derive(Debug)]
 pub struct CounterExampleOutcome {
     /// Minimal reproduction test case for failing test
-    pub counterexample: (Bytes, RawCallResult),
+    pub counterexample: CounterExampleData,
     /// The status of the call
     pub exit_reason: InstructionResult,
+}
+
+#[derive(Debug)]
+pub struct CounterExampleData {
+    /// The calldata of the call
+    pub calldata: Bytes,
+    /// The call result
+    pub call: RawCallResult,
+    /// If re-executing the counter example is not guaranteed to yield the same
+    /// results, this field contains the reason why.
+    pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 /// Outcome of a single fuzz

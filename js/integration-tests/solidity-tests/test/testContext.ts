@@ -69,10 +69,7 @@ export class TestContext {
       }
     );
 
-    const stackTraces = new Map<
-      string,
-      { stackTrace: SolidityStackTrace; reason: string | undefined }
-    >();
+    const stackTraces = new Map();
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
         let failed = testResult.status === "Failure";
@@ -80,10 +77,20 @@ export class TestContext {
         if (failed) {
           failedTests++;
           const stackTrace = testResult.stackTrace();
-          if (stackTrace !== null) {
+          if (stackTrace?.kind === "UnexpectedError") {
+            throw new Error(stackTrace.errorMessage);
+          } else if (stackTrace?.kind === "HeuristicFailed") {
+            throw new Error("Stack trace heuristic failed");
+          } else if (stackTrace?.kind === "StackTrace") {
             stackTraces.set(testResult.name, {
-              stackTrace: stackTrace,
+              stackTrace: stackTrace.entries,
               reason: testResult.reason,
+            });
+          } else if (stackTrace?.kind === "UnsafeToReplay") {
+            stackTraces.set(testResult.name, {
+              reason: testResult.reason,
+              globalForkLatest: stackTrace.globalForkLatest,
+              impureCheatcodes: stackTrace.impureCheatcodes,
             });
           }
         }
@@ -108,13 +115,18 @@ interface SolidityTestsRunResult {
   failedTests: number;
   stackTraces: Map<
     string,
-    { stackTrace: SolidityStackTrace; reason: string | undefined }
+    {
+      stackTrace: SolidityStackTrace | undefined;
+      reason: string | undefined;
+      globalForkLatest: boolean | undefined;
+      impureCheatcodes: string[] | undefined;
+    }
   >;
 }
 
 export function assertStackTraces(
   actual:
-    | { stackTrace: SolidityStackTrace; reason: string | undefined }
+    | { stackTrace: SolidityStackTrace | undefined; reason: string | undefined }
     | undefined,
   expectedReason: string,
   expectedEntries: {
@@ -127,6 +139,9 @@ export function assertStackTraces(
   }
   assert.include(actual.reason, expectedReason);
   const stackTrace = actual.stackTrace;
+  if (stackTrace === undefined) {
+    throw new Error("Stack trace is missing");
+  }
   assert.equal(stackTrace.length, expectedEntries.length);
   for (let i = 0; i < stackTrace.length; i += 1) {
     const expected = expectedEntries[i];
