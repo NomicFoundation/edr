@@ -205,6 +205,7 @@ impl RuntimeTransport {
         let ws = WsConnect {
             url: self.url.to_string(),
             auth,
+            config: None,
         }
         .into_service()
         .await
@@ -248,19 +249,10 @@ impl RuntimeTransport {
             }
 
             // SAFETY: We just checked that the inner transport exists.
-            match inner.as_ref().expect("must've been initialized") {
-                InnerTransport::Http(http) => {
-                    let mut http = http;
-                    http.call(req)
-                }
-                InnerTransport::Ws(ws) => {
-                    let mut ws = ws;
-                    ws.call(req)
-                }
-                InnerTransport::Ipc(ipc) => {
-                    let mut ipc = ipc;
-                    ipc.call(req)
-                }
+            match inner.clone().expect("must've been initialized") {
+                InnerTransport::Http(mut http) => http.call(req),
+                InnerTransport::Ws(mut ws) => ws.call(req),
+                InnerTransport::Ipc(mut ipc) => ipc.call(req),
             }
             .await
         })

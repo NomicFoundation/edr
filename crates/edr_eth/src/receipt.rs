@@ -70,7 +70,8 @@ impl<LogT: serde::Serialize> Serialize for TypedReceipt<LogT> {
             TypedReceiptData::PostEip658Legacy { status }
             | TypedReceiptData::Eip2930 { status }
             | TypedReceiptData::Eip1559 { status }
-            | TypedReceiptData::Eip4844 { status } => {
+            | TypedReceiptData::Eip4844 { status }
+            | TypedReceiptData::Eip7702 { status } => {
                 state.serialize_field("status", &format!("0x{status}"))?;
             }
         }
@@ -92,6 +93,7 @@ pub enum TypedReceiptData {
     Eip2930 { status: u8 },
     Eip1559 { status: u8 },
     Eip4844 { status: u8 },
+    Eip7702 { status: u8 },
 }
 
 impl<LogT> TypedReceipt<LogT> {
@@ -102,7 +104,8 @@ impl<LogT> TypedReceipt<LogT> {
             TypedReceiptData::PostEip658Legacy { status }
             | TypedReceiptData::Eip2930 { status }
             | TypedReceiptData::Eip1559 { status }
-            | TypedReceiptData::Eip4844 { status } => Some(*status),
+            | TypedReceiptData::Eip4844 { status }
+            | TypedReceiptData::Eip7702 { status } => Some(*status),
         }
     }
 
@@ -122,6 +125,7 @@ impl<LogT> TypedReceipt<LogT> {
             TypedReceiptData::Eip2930 { .. } => 1u64,
             TypedReceiptData::Eip1559 { .. } => 2u64,
             TypedReceiptData::Eip4844 { .. } => 3u64,
+            TypedReceiptData::Eip7702 { .. } => 4u64,
         }
     }
 }
@@ -136,7 +140,8 @@ where
             TypedReceiptData::PostEip658Legacy { .. }
             | TypedReceiptData::Eip2930 { .. }
             | TypedReceiptData::Eip1559 { .. }
-            | TypedReceiptData::Eip4844 { .. } => 1,
+            | TypedReceiptData::Eip4844 { .. }
+            | TypedReceiptData::Eip7702 { .. } => 1,
         };
 
         data_length
@@ -406,6 +411,7 @@ where
             TypedReceiptData::Eip2930 { .. } => Some(1u8),
             TypedReceiptData::Eip1559 { .. } => Some(2u8),
             TypedReceiptData::Eip4844 { .. } => Some(3u8),
+            TypedReceiptData::Eip7702 { .. } => Some(4u8),
         };
 
         if let Some(id) = id {
@@ -425,7 +431,8 @@ where
             TypedReceiptData::PostEip658Legacy { status }
             | TypedReceiptData::Eip2930 { status }
             | TypedReceiptData::Eip1559 { status }
-            | TypedReceiptData::Eip4844 { status } => {
+            | TypedReceiptData::Eip4844 { status }
+            | TypedReceiptData::Eip7702 { status } => {
                 if *status == 0 {
                     out.put_u8(alloy_rlp::EMPTY_STRING_CODE);
                 } else {
@@ -446,7 +453,8 @@ where
             | TypedReceiptData::PostEip658Legacy { .. } => 0,
             TypedReceiptData::Eip2930 { .. }
             | TypedReceiptData::Eip1559 { .. }
-            | TypedReceiptData::Eip4844 { .. } => 1,
+            | TypedReceiptData::Eip4844 { .. }
+            | TypedReceiptData::Eip7702 { .. } => 1,
         };
 
         let payload_length = self.rlp_payload_length();

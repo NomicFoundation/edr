@@ -1,0 +1,15 @@
+[package]
+name = "edr_scenarios"
+version = "0.3.5"
+edition = "2021"
+
+[dependencies]
+edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
+edr_eth = { version = "0.3.5", path = "../edr_eth" }
+edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
+edr_provider = { version = "0.3.5", path = "../edr_provider", features = ["test-utils"] }
+k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
+serde = { version = "1.0.197", features = ["derive"] }
+
+[lints]
+workspace = true

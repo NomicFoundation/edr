@@ -42,6 +42,12 @@ export interface BlockOptions {
    * block (EIP-4788).
    */
   parentBeaconBlockRoot?: Buffer
+  /**
+   * The commitment hash calculated for a list of [EIP-7685] data requests.
+   *
+   * [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
+   */
+  requestsHash?: Buffer
 }
 /** Information about the blob gas used in a block. */
 export interface BlobGas {
@@ -342,7 +348,9 @@ export const enum ExceptionalHalt {
   /** Aud data is smaller then already present data size. */
   EofAuxDataTooSmall = 15,
   /** EOF Subroutine stack overflow */
-  EOFFunctionStackOverflow = 16
+  EOFFunctionStackOverflow = 16,
+  /** Check for target address validity is only done inside subcall. */
+  InvalidEXTCALLTarget = 17
 }
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {

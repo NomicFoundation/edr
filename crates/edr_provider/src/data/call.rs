@@ -69,10 +69,14 @@ where
         } else {
             None
         },
-        blob_excess_gas_and_price: header
-            .blob_gas
-            .as_ref()
-            .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
+        blob_excess_gas_and_price: header.blob_gas.as_ref().map(
+            |BlobGas { excess_gas, .. }| {
+                BlobExcessGasAndPrice::new(
+                    *excess_gas,
+                    cfg_env.handler_cfg.spec_id >= SpecId::PRAGUE,
+                )
+            },
+        ),
     };
 
     guaranteed_dry_run(

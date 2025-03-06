@@ -1,3 +1,7 @@
+/// Test utilities for blob transactions.
+#[allow(dead_code)]
+pub mod blob;
+
 pub fn help_test_method_invocation_serde<MethodInvocation>(call: MethodInvocation)
 where
     MethodInvocation:

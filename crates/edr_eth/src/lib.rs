@@ -7,12 +7,12 @@
 
 /// Ethereum account types
 pub mod account;
-/// Parent beacon types and constants
-pub mod beacon;
 /// Ethereum block types
 pub mod block;
 /// Ethereum block spec
 mod block_spec;
+/// Types and constants for Ethereum improvements proposals (EIPs)
+pub mod eips;
 /// Ethereum fee history types
 pub mod fee_history;
 /// Ethereum types for filter-based RPC methods
@@ -41,11 +41,12 @@ pub mod trie;
 pub mod utils;
 pub mod withdrawal;
 
-pub use c_kzg::{Blob, Bytes48, BYTES_PER_BLOB, BYTES_PER_COMMITMENT, BYTES_PER_PROOF};
+pub use c_kzg::{Blob, Bytes48};
 pub use revm_primitives::{
+    address,
     alloy_primitives::{Bloom, BloomInput, B512, B64, U64},
-    hex_literal, AccessList, AccessListItem, AccountInfo, Address, Bytecode, Bytes, HashMap,
-    HashSet, SpecId, B256, U256,
+    b256, bytes, hex_literal, AccessList, AccessListItem, AccountInfo, Address, Bytecode, Bytes,
+    HashMap, HashSet, SpecId, B256, U256,
 };
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};

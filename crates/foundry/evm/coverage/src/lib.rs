@@ -17,11 +17,8 @@ use std::{
 
 use alloy_primitives::{Bytes, B256};
 use eyre::{Context, Result};
-use foundry_compilers::sourcemap::SourceMap;
+use foundry_compilers::artifacts::sourcemap::SourceMap;
 use semver::Version;
-
-pub mod analysis;
-pub mod anchors;
 
 mod inspector;
 pub use inspector::CoverageCollector;

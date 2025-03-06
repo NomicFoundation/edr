@@ -82,7 +82,7 @@ impl Cheatcode for loadCall {
         let Self { target, slot } = *self;
         ensure_not_precompile!(&target, ccx);
         ccx.ecx.load_account(target)?;
-        let (val, _) = ccx.ecx.sload(target, slot.into())?;
+        let val = ccx.ecx.sload(target, slot.into())?;
         Ok(val.abi_encode())
     }
 }
@@ -417,10 +417,10 @@ impl Cheatcode for blobBaseFeeCall {
             "`blobBaseFee` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        ccx.ecx
-            .env
-            .block
-            .set_blob_excess_gas_and_price((*newBlobBaseFee).to());
+        ccx.ecx.env.block.set_blob_excess_gas_and_price(
+            (*newBlobBaseFee).to(),
+            ccx.ecx.spec_id() >= SpecId::PRAGUE,
+        );
         Ok(Vec::default())
     }
 }
@@ -642,7 +642,7 @@ impl Cheatcode for stopAndReturnStateDiffCall {
 }
 
 pub(super) fn get_nonce<DB: DatabaseExt>(ccx: &mut CheatsCtxt<DB>, address: &Address) -> Result {
-    let (account, _) = ccx
+    let account = ccx
         .ecx
         .journaled_state
         .load_account(*address, &mut ccx.ecx.db)?;

@@ -9,19 +9,13 @@ use anyhow::Context;
 use edr_evm::blockchain::BlockchainError;
 use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
+use edr_scenarios::ScenarioConfig;
 use edr_solidity::contract_decoder::ContractDecoder;
 use flate2::bufread::GzDecoder;
 use indicatif::ProgressBar;
-use serde::Deserialize;
 use tokio::{runtime, task};
 #[cfg(feature = "tracing")]
 use tracing_subscriber::{prelude::*, Registry};
-
-#[derive(Clone, Debug, Deserialize)]
-struct ScenarioConfig {
-    provider_config: edr_provider::ProviderConfig,
-    logger_enabled: bool,
-}
 
 pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::Result<()> {
     let (config, requests) = load_requests(scenario_path).await?;
@@ -55,7 +49,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
             runtime::Handle::current(),
             logger,
             subscription_callback,
-            config.provider_config,
+            config.provider_config.into(),
             Arc::new(ContractDecoder::default()),
             CurrentTime,
         )
