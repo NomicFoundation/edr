@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.10.0
+
+### Minor Changes
+
+- 1d377bb: Add Prague hardfork to the list of supported `SpecId`s
+
 ## 0.9.0
 
 ### Minor Changes
