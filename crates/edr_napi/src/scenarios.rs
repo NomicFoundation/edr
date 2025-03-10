@@ -8,8 +8,8 @@ use serde::Serialize;
 const SCENARIO_FILE_PREFIX: &str = "EDR_SCENARIO_PREFIX";
 
 #[derive(Clone, Debug, Serialize)]
-struct ScenarioConfig<'a> {
-    provider_config: &'a edr_provider::ProviderConfig,
+struct ScenarioConfig {
+    provider_config: edr_scenarios::ScenarioProviderConfig,
     logger_enabled: bool,
 }
 
@@ -32,7 +32,7 @@ pub(crate) async fn scenario_file(
             File::create(format!("{scenario_prefix}_{timestamp}_{suffix}.json")).await?;
 
         let config = ScenarioConfig {
-            provider_config,
+            provider_config: provider_config.clone().into(),
             logger_enabled,
         };
         let mut line = serde_json::to_string(&config)?;

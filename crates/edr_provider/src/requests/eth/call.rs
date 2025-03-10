@@ -50,7 +50,7 @@ pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>)
     block_spec.unwrap_or_else(BlockSpec::latest)
 }
 
-pub(crate) fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
+pub fn resolve_call_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<LoggerErrorT, TimerT>,
     request: CallRequest,
     block_spec: &BlockSpec,
@@ -100,7 +100,11 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         value,
         data: input,
         access_list,
-        ..
+        // We ignore the transaction type
+        transaction_type: _transaction_type,
+        blobs: _blobs,
+        blob_hashes: _blob_hashes,
+        authorization_list,
     } = request;
 
     let chain_id = data.chain_id_at_block_spec(block_spec)?;
@@ -139,17 +143,32 @@ pub(crate) fn resolve_call_request_inner<LoggerErrorT: Debug, TimerT: Clone + Ti
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             max_fees_fn(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-        transaction::Request::Eip1559(transaction::request::Eip1559 {
-            chain_id,
-            nonce,
-            max_fee_per_gas,
-            max_priority_fee_per_gas,
-            gas_limit,
-            kind: to.into(),
-            value,
-            input,
-            access_list: access_list.unwrap_or_default(),
-        })
+        if let Some(authorization_list) = authorization_list {
+            transaction::Request::Eip7702(transaction::request::Eip7702 {
+                chain_id,
+                nonce,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+                gas_limit,
+                to: to.ok_or(ProviderError::Eip7702TransactionMissingReceiver)?,
+                value,
+                input,
+                access_list: access_list.unwrap_or_default(),
+                authorization_list,
+            })
+        } else {
+            transaction::Request::Eip1559(transaction::request::Eip1559 {
+                chain_id,
+                nonce,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+                gas_limit,
+                kind: to.into(),
+                value,
+                input,
+                access_list: access_list.unwrap_or_default(),
+            })
+        }
     };
 
     let transaction = transaction.fake_sign(from);

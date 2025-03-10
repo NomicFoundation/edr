@@ -235,7 +235,7 @@ impl CoverageReporter for BytecodeReporter {
                     .hits
                     .get(&(code.offset as usize))
                     .map_or("     ".to_owned(), |h| format!("[{h:03}]"));
-                let source_id = source_element.index;
+                let source_id = source_element.index();
                 let source_path = source_id.and_then(|i| {
                     report
                         .source_paths
@@ -243,8 +243,9 @@ impl CoverageReporter for BytecodeReporter {
                 });
 
                 let code = format!("{code:?}");
-                let start = source_element.offset;
-                let end = source_element.offset + source_element.length;
+                // u32 always fits into usize
+                let start = source_element.offset() as usize;
+                let end = (source_element.offset() + source_element.length()) as usize;
 
                 if let Some(source_path) = source_path {
                     let (sline, spos) = line_number_cache.get_position(source_path, start)?;

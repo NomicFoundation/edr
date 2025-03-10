@@ -169,10 +169,10 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_rlp::Decodable as _;
+    use edr_test_utils::secret_key::secret_key_from_str;
     use k256::SecretKey;
 
     use super::*;
-    use crate::signature::secret_key_from_str;
 
     fn dummy_request() -> transaction::request::Legacy {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();

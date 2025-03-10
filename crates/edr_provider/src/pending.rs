@@ -42,7 +42,7 @@ impl<'blockchain> BlockchainWithPending<'blockchain> {
     }
 }
 
-impl<'blockchain> Blockchain<L1ChainSpec> for BlockchainWithPending<'blockchain> {
+impl Blockchain<L1ChainSpec> for BlockchainWithPending<'_> {
     type BlockchainError = BlockchainError;
 
     type StateError = StateError;
@@ -194,7 +194,7 @@ impl<'blockchain> Blockchain<L1ChainSpec> for BlockchainWithPending<'blockchain>
     }
 }
 
-impl<'blockchain> BlockchainMut<L1ChainSpec> for BlockchainWithPending<'blockchain> {
+impl BlockchainMut<L1ChainSpec> for BlockchainWithPending<'_> {
     type Error = BlockchainError;
 
     fn insert_block(
@@ -214,7 +214,7 @@ impl<'blockchain> BlockchainMut<L1ChainSpec> for BlockchainWithPending<'blockcha
     }
 }
 
-impl<'blockchain> BlockHashRef for BlockchainWithPending<'blockchain> {
+impl BlockHashRef for BlockchainWithPending<'_> {
     type Error = BlockchainError;
 
     fn block_hash(&self, number: u64) -> Result<B256, Self::Error> {

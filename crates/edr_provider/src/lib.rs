@@ -395,8 +395,8 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             ) => hardhat::handle_add_compilation_result(
                 data,
                 solc_version,
-                compiler_input,
-                compiler_output,
+                *compiler_input,
+                *compiler_output,
             )
             .and_then(to_json),
             MethodInvocation::DropTransaction(transaction_hash) => {

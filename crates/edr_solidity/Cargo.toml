@@ -5,9 +5,9 @@ edition.workspace = true
 
 [dependencies]
 anyhow = { version = "1.0.75", default-features = false }
-alloy-dyn-abi = { version = "0.7.6", default-features = false, features = ["eip712"] }
-alloy-json-abi = { version = "0.7.4", default-features = false }
-alloy-sol-types = { version = "0.7.4", default-features = false, features = ["std"] }
+alloy-dyn-abi.workspace = true
+alloy-json-abi.workspace = true
+alloy-sol-types.workspace = true
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm" }
 indexmap = { version = "2", features = ["serde"] }

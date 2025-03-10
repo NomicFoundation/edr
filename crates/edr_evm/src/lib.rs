@@ -37,6 +37,8 @@ pub mod chain_spec;
 pub(crate) mod collections;
 mod debug;
 mod debug_trace;
+/// Types and constants for Ethereum improvements proposals (EIPs)
+pub mod eips;
 /// Types for managing Ethereum mem pool
 pub mod mempool;
 mod miner;

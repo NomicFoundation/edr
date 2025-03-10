@@ -4,8 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-dyn-abi = { version = "0.7.6", features = ["eip712"] }
-alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
+alloy-dyn-abi.workspace = true
+alloy-sol-types.workspace = true
 anyhow = { version = "1.0.75", optional = true }
 auto_impl = { version = "1.2", default-features = false }
 dyn-clone = { version = "1.0.13", default-features = false }
@@ -14,6 +14,7 @@ edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["rand"] }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
+edr_test_utils = { version = "0.3.5", path = "../edr_test_utils", optional = true }
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
 itertools = { version = "0.12.0", default-features = false, features = ["use_alloc"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
@@ -21,7 +22,7 @@ lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.20", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
 rand = { version = "0.8.5", default-features = false }
-revm-precompile = { version = "9.1", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
+revm-precompile = { version = "16.0", default-features = false, features = ["blst", "c-kzg", "secp256r1", "std"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -45,7 +46,7 @@ toml = { version = "0.5.9", default-features = false }
 [features]
 test-utils = ["anyhow"]
 tracing = ["dep:tracing", "edr_eth/tracing", "edr_evm/tracing"]
-test-remote = []
+test-remote = ["dep:edr_test_utils"]
 
 [lints]
 workspace = true
