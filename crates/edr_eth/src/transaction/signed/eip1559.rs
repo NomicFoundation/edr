@@ -147,13 +147,11 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_rlp::Decodable;
+    use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_address};
     use k256::SecretKey;
 
     use super::*;
-    use crate::{
-        signature::{secret_key_from_str, secret_key_to_address},
-        AccessListItem,
-    };
+    use crate::AccessListItem;
 
     const DUMMY_SECRET_KEY: &str =
         "e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109";

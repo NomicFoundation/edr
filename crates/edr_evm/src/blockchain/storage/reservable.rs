@@ -26,7 +26,7 @@ struct Reservation {
 #[derive(Debug)]
 pub struct ReservableSparseBlockchainStorage<BlockT, ChainSpecT>
 where
-    BlockT: Block<ChainSpecT> + Clone + ?Sized,
+    BlockT: Block<ChainSpecT> + Clone,
     ChainSpecT: ChainSpec,
 {
     reservations: RwLock<Vec<Reservation>>,

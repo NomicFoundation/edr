@@ -300,8 +300,8 @@ pub enum MethodInvocation {
     AddCompilationResult(
         /// solc version:
         String,
-        CompilerInput,
-        CompilerOutput,
+        Box<CompilerInput>,
+        Box<CompilerOutput>,
     ),
     /// `hardhat_dropTransaction`
     #[serde(rename = "hardhat_dropTransaction", with = "edr_eth::serde::sequence")]

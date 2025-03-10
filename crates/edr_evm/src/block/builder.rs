@@ -5,6 +5,7 @@ use std::{
 
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
+    eips::{eip4844, eip7691},
     log::{add_log_to_bloom, Log},
     receipt::{TransactionReceipt, TypedReceipt, TypedReceiptData},
     transaction::{self, SignedTransaction as _, Transaction as _, TransactionType},
@@ -17,7 +18,7 @@ use revm::{
     primitives::{
         BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg,
         ExecutionResult, InvalidHeader, InvalidTransaction, Output, ResultAndState, SpecId,
-        MAX_BLOB_GAS_PER_BLOCK,
+        GAS_PER_BLOB,
     },
     Context, DatabaseCommit, Evm, InnerEvmContext,
 };
@@ -247,13 +248,22 @@ impl BlockBuilder {
             };
         }
 
+        let spec_id = self.cfg.handler_cfg.spec_id;
         let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
         if let Some(BlobGas {
             gas_used: block_blob_gas_used,
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            if block_blob_gas_used + blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
+            let max_blobs_per_block = if spec_id >= SpecId::PRAGUE {
+                eip7691::MAX_BLOBS_PER_BLOCK_ELECTRA
+            } else {
+                // usize is guaranteed to fit into u64
+                eip4844::MAX_BLOBS_PER_BLOCK as u64
+            };
+
+            let max_blob_gas_per_block = GAS_PER_BLOB * max_blobs_per_block;
+            if block_blob_gas_used + blob_gas_used > max_blob_gas_per_block {
                 return ExecutionResultWithContext {
                     result: Err(BlockTransactionError::ExceedsBlockBlobGasLimit),
                     evm_context: EvmContext {
@@ -263,8 +273,6 @@ impl BlockBuilder {
                 };
             }
         }
-
-        let spec_id = self.cfg.handler_cfg.spec_id;
 
         let block = BlockEnv {
             number: U256::from(self.header.number),
@@ -278,11 +286,11 @@ impl BlockBuilder {
             } else {
                 None
             },
-            blob_excess_gas_and_price: self
-                .header
-                .blob_gas
-                .as_ref()
-                .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
+            blob_excess_gas_and_price: self.header.blob_gas.as_ref().map(
+                |BlobGas { excess_gas, .. }| {
+                    BlobExcessGasAndPrice::new(*excess_gas, spec_id >= SpecId::PRAGUE)
+                },
+            ),
         };
 
         let env = EnvWithHandlerCfg::new_with_cfg_env(
@@ -423,6 +431,7 @@ impl BlockBuilder {
                     TransactionType::Eip2930 => TypedReceiptData::Eip2930 { status },
                     TransactionType::Eip1559 => TypedReceiptData::Eip1559 { status },
                     TransactionType::Eip4844 => TypedReceiptData::Eip4844 { status },
+                    TransactionType::Eip7702 => TypedReceiptData::Eip7702 { status },
                 },
                 spec_id,
             },

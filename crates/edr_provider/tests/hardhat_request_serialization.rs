@@ -18,8 +18,8 @@ fn serde_hardhat_compiler() {
 
     let call = MethodInvocation::AddCompilationResult(
         String::from("0.8.0"),
-        serde_json::from_str::<CompilerInput>(compiler_input_json).unwrap(),
-        serde_json::from_str::<CompilerOutput>(compiler_output_json).unwrap(),
+        serde_json::from_str::<Box<CompilerInput>>(compiler_input_json).unwrap(),
+        serde_json::from_str::<Box<CompilerOutput>>(compiler_output_json).unwrap(),
     );
 
     help_test_method_invocation_serde(call.clone());
@@ -29,14 +29,14 @@ fn serde_hardhat_compiler() {
             assert_eq!(
                 serde_json::to_value(input).unwrap(),
                 serde_json::to_value(
-                    serde_json::from_str::<CompilerInput>(compiler_input_json).unwrap()
+                    serde_json::from_str::<Box<CompilerInput>>(compiler_input_json).unwrap()
                 )
                 .unwrap(),
             );
             assert_eq!(
                 serde_json::to_value(output).unwrap(),
                 serde_json::to_value(
-                    serde_json::from_str::<CompilerOutput>(compiler_output_json).unwrap()
+                    serde_json::from_str::<Box<CompilerOutput>>(compiler_output_json).unwrap()
                 )
                 .unwrap(),
             );

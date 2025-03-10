@@ -347,7 +347,8 @@ where
         .map_err(MineTransactionError::Blockchain)?;
 
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
-        let base_fee_per_blob_gas = calculate_next_base_fee_per_blob_gas(parent_block.header());
+        let base_fee_per_blob_gas =
+            calculate_next_base_fee_per_blob_gas(parent_block.header(), cfg.handler_cfg.spec_id);
         if max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                 expected: base_fee_per_blob_gas,

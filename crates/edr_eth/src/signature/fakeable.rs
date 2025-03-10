@@ -2,7 +2,7 @@ use alloy_rlp::BufMut;
 
 use super::{
     Fakeable, FakeableData, Recoverable, RecoveryMessage, Signature, SignatureError,
-    SignatureWithRecoveryId, SignatureWithYParity,
+    SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
 };
 use crate::{Address, U256};
 
@@ -78,11 +78,11 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
         match &self.data {
             FakeableData::Fake { recovery_id } => {
                 if let Some(y_parity) = self.y_parity() {
-                    SignatureWithYParity {
+                    SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: self.r(),
                         s: self.s(),
                         y_parity,
-                    }
+                    })
                     .encode(out);
                 } else {
                     let ecdsa = SignatureWithRecoveryId {
@@ -102,11 +102,11 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
         match &self.data {
             FakeableData::Fake { recovery_id } => {
                 if let Some(y_parity) = self.y_parity() {
-                    SignatureWithYParity {
+                    SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: self.r(),
                         s: self.s(),
                         y_parity,
-                    }
+                    })
                     .length()
                 } else {
                     SignatureWithRecoveryId {

@@ -67,7 +67,7 @@ impl Cheatcode for mockCall_0Call {
             returnData,
         } = self;
         // TODO: use ecx.load_account
-        let (acc, _) = ccx
+        let acc = ccx
             .ecx
             .journaled_state
             .load_account(*callee, &mut ccx.ecx.db)?;

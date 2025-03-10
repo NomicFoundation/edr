@@ -28,7 +28,7 @@ impl ArtifactFilters {
         if let Some(selectors) = self.targeted.get(&artifact.identifier()) {
             let functions = selectors
                 .iter()
-                .map(|selector| get_function(&artifact.name, selector, abi))
+                .map(|selector| get_function(&artifact.name, *selector, abi).cloned())
                 .collect::<eyre::Result<Vec<_>>>()?;
             // targetArtifactSelectors > excludeArtifacts > targetArtifacts
             if functions.is_empty() && self.excluded.contains(&artifact.identifier()) {

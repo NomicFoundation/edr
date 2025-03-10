@@ -2,6 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
+    eips::eip7702,
     receipt::{BlockReceipt, TransactionReceipt},
     rlp::Decodable,
     transaction::{
@@ -189,9 +190,9 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         transaction::Signed::PreEip155Legacy(tx) => tx.gas_price,
         transaction::Signed::PostEip155Legacy(tx) => tx.gas_price,
         transaction::Signed::Eip2930(tx) => tx.gas_price,
-        transaction::Signed::Eip1559(_) | transaction::Signed::Eip4844(_) => {
-            gas_price_for_post_eip1559(&transaction, block)
-        }
+        transaction::Signed::Eip1559(_)
+        | transaction::Signed::Eip4844(_)
+        | transaction::Signed::Eip7702(_) => gas_price_for_post_eip1559(&transaction, block),
     };
 
     let chain_id = match &transaction {
@@ -201,6 +202,7 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         transaction::Signed::Eip2930(tx) => Some(tx.chain_id),
         transaction::Signed::Eip1559(tx) => Some(tx.chain_id),
         transaction::Signed::Eip4844(tx) => Some(tx.chain_id),
+        transaction::Signed::Eip7702(tx) => Some(tx.chain_id),
     };
 
     let show_transaction_type = spec_id >= FIRST_HARDFORK_WITH_TRANSACTION_TYPE;
@@ -256,6 +258,9 @@ pub fn transaction_to_rpc_result<LoggerErrorT: Debug>(
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas(),
         max_fee_per_blob_gas: transaction.max_fee_per_blob_gas(),
         blob_versioned_hashes: transaction.blob_hashes(),
+        authorization_list: transaction
+            .authorization_list()
+            .map(<[eip7702::SignedAuthorization]>::to_vec),
     })
 }
 
@@ -300,6 +305,33 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
 ) -> Result<TransactionRequestAndSender, ProviderError<LoggerErrorT>> {
     const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
 
+    fn calculate_eip1559_fee_parameters<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch>(
+        data: &ProviderData<LoggerErrorT, TimerT>,
+        max_fee_per_gas: Option<U256>,
+        max_priority_fee_per_gas: Option<U256>,
+    ) -> Result<(U256, U256), BlockchainError> {
+        let parameters = match (max_fee_per_gas, max_priority_fee_per_gas) {
+            (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) => {
+                (max_fee_per_gas, max_priority_fee_per_gas)
+            }
+            (Some(max_fee_per_gas), None) => (
+                max_fee_per_gas,
+                max_fee_per_gas.min(U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS)),
+            ),
+            (None, Some(max_priority_fee_per_gas)) => {
+                let max_fee_per_gas = calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
+                (max_fee_per_gas, max_priority_fee_per_gas)
+            }
+            (None, None) => {
+                let max_priority_fee_per_gas = U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS);
+                let max_fee_per_gas = calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
+                (max_fee_per_gas, max_priority_fee_per_gas)
+            }
+        };
+
+        Ok(parameters)
+    }
+
     /// # Panics
     ///
     /// Panics if `data.spec_id()` is less than `SpecId::LONDON`.
@@ -329,6 +361,7 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
         transaction_type: _transaction_type,
         blobs: _blobs,
         blob_hashes: _blob_hashes,
+        authorization_list,
     } = transaction_request;
 
     let chain_id = chain_id.unwrap_or_else(|| data.chain_id());
@@ -337,71 +370,45 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
     let nonce = nonce.map_or_else(|| data.account_next_nonce(&from), Ok)?;
     let value = value.unwrap_or(U256::ZERO);
 
-    let request = match (
-        gas_price,
-        max_fee_per_gas,
-        max_priority_fee_per_gas,
-        access_list,
-    ) {
-        (gas_price, max_fee_per_gas, max_priority_fee_per_gas, access_list)
-            if data.spec_id() >= SpecId::LONDON
-                && (gas_price.is_none()
-                    || max_fee_per_gas.is_some()
-                    || max_priority_fee_per_gas.is_some()) =>
-        {
-            let (max_fee_per_gas, max_priority_fee_per_gas) =
-                match (max_fee_per_gas, max_priority_fee_per_gas) {
-                    (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) => {
-                        (max_fee_per_gas, max_priority_fee_per_gas)
-                    }
-                    (Some(max_fee_per_gas), None) => (
-                        max_fee_per_gas,
-                        max_fee_per_gas.min(U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS)),
-                    ),
-                    (None, Some(max_priority_fee_per_gas)) => {
-                        let max_fee_per_gas =
-                            calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
-                        (max_fee_per_gas, max_priority_fee_per_gas)
-                    }
-                    (None, None) => {
-                        let max_priority_fee_per_gas = U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS);
-                        let max_fee_per_gas =
-                            calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
-                        (max_fee_per_gas, max_priority_fee_per_gas)
-                    }
-                };
+    let current_hardfork = data.spec_id();
+    let request = if let Some(authorization_list) = authorization_list {
+        let (max_fee_per_gas, max_priority_fee_per_gas) =
+            calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            transaction::Request::Eip1559(transaction::request::Eip1559 {
-                nonce,
-                max_priority_fee_per_gas,
-                max_fee_per_gas,
-                gas_limit,
-                value,
-                input,
-                kind: match to {
-                    Some(to) => TxKind::Call(to),
-                    None => TxKind::Create,
-                },
-                chain_id,
-                access_list: access_list.unwrap_or_default(),
-            })
-        }
-        (gas_price, _, _, Some(access_list)) => {
-            transaction::Request::Eip2930(transaction::request::Eip2930 {
-                nonce,
-                gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
-                gas_limit,
-                value,
-                input,
-                kind: match to {
-                    Some(to) => TxKind::Call(to),
-                    None => TxKind::Create,
-                },
-                chain_id,
-                access_list,
-            })
-        }
-        (gas_price, _, _, _) => transaction::Request::Eip155(transaction::request::Eip155 {
+        transaction::Request::Eip7702(transaction::request::Eip7702 {
+            nonce,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
+            gas_limit,
+            value,
+            input,
+            to: to.ok_or(ProviderError::Eip7702TransactionMissingReceiver)?,
+            chain_id,
+            access_list: access_list.unwrap_or_default(),
+            authorization_list,
+        })
+    } else if current_hardfork >= SpecId::LONDON
+        && (gas_price.is_none() || max_fee_per_gas.is_some() || max_priority_fee_per_gas.is_some())
+    {
+        let (max_fee_per_gas, max_priority_fee_per_gas) =
+            calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
+
+        transaction::Request::Eip1559(transaction::request::Eip1559 {
+            nonce,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
+            gas_limit,
+            value,
+            input,
+            kind: match to {
+                Some(to) => TxKind::Call(to),
+                None => TxKind::Create,
+            },
+            chain_id,
+            access_list: access_list.unwrap_or_default(),
+        })
+    } else if let Some(access_list) = access_list {
+        transaction::Request::Eip2930(transaction::request::Eip2930 {
             nonce,
             gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
             gas_limit,
@@ -412,7 +419,21 @@ fn resolve_transaction_request<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpo
                 None => TxKind::Create,
             },
             chain_id,
-        }),
+            access_list,
+        })
+    } else {
+        transaction::Request::Eip155(transaction::request::Eip155 {
+            nonce,
+            gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
+            gas_limit,
+            value,
+            input,
+            kind: match to {
+                Some(to) => TxKind::Call(to),
+                None => TxKind::Create,
+            },
+            chain_id,
+        })
     };
 
     Ok(TransactionRequestAndSender {

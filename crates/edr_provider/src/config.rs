@@ -71,7 +71,7 @@ pub struct MiningConfig {
 }
 
 /// Configuration for the provider
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct ProviderConfig {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
@@ -100,36 +100,12 @@ pub struct ProviderConfig {
 }
 
 /// Configuration input for a single account
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct AccountConfig {
     /// the secret key of the account
-    #[serde(with = "secret_key_serde")]
     pub secret_key: k256::SecretKey,
     /// the balance of the account
     pub balance: U256,
-}
-
-mod secret_key_serde {
-    use edr_eth::signature::{secret_key_from_str, secret_key_to_str};
-    use serde::Deserialize;
-
-    pub(super) fn serialize<S>(
-        secret_key: &k256::SecretKey,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&secret_key_to_str(secret_key))
-    }
-
-    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<k256::SecretKey, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = <&str as Deserialize>::deserialize(deserializer)?;
-        secret_key_from_str(s).map_err(serde::de::Error::custom)
-    }
 }
 
 impl Default for MemPoolConfig {

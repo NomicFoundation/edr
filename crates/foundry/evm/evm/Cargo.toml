@@ -29,8 +29,6 @@ revm = { workspace = true, default-features = false, features = [
 ] }
 revm-inspectors.workspace = true
 
-revm_edr = { version = "=12.1.0", package = "revm" }
-
 eyre = "0.6"
 hex.workspace = true
 parking_lot = "0.12"

@@ -24,8 +24,8 @@ use edr_test_utils::{
 };
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpoint, RpcEndpoints};
 use foundry_compilers::{
-    artifacts::{CompactContractBytecode, Libraries},
-    Artifact, EvmVersion, Project, ProjectCompileOutput,
+    artifacts::{CompactContractBytecode, EvmVersion, Libraries},
+    Artifact, Project, ProjectCompileOutput,
 };
 use foundry_evm::{
     abi::TestFunctionExt,
