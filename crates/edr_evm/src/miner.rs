@@ -51,20 +51,26 @@ pub enum MineOrdering {
     Priority,
 }
 
+pub type MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = MineBlockError<
+    BlockchainErrorT,
+    <ChainSpecT as ChainSpec>::Hardfork,
+    StateErrorT,
+    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+>;
+
 /// An error that occurred while mining a block.
 #[derive(Debug, thiserror::Error)]
-pub enum MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT: RuntimeSpec,
-{
+pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionValidationErrorT> {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(
-        #[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>,
+        #[from] BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT>,
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
-    BlockTransaction(#[from] BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>),
+    BlockTransaction(
+        #[from] BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+    ),
     /// An error that occurred while finalizing a block.
     #[error(transparent)]
     BlockFinalize(StateErrorT),
@@ -93,16 +99,16 @@ pub fn mine_block<
 >(
     blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
-    mem_pool: &MemPool<ChainSpecT>,
+    mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
     cfg: &CfgEnv<ChainSpecT::Hardfork>,
     options: BlockOptions,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
-    inspector: Option<&'inspector mut InspectorT>,
+    mut inspector: Option<&'inspector mut InspectorT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
-    MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
 >
 where
     'blockchain: 'inspector,
@@ -133,12 +139,13 @@ where
             + Send;
 
         let base_fee = block_builder.header().base_fee;
-        let comparator: Box<MineOrderComparator<ChainSpecT>> = match mine_ordering {
-            MineOrdering::Fifo => Box::new(first_in_first_out_comparator),
-            MineOrdering::Priority => {
-                Box::new(move |lhs, rhs| priority_comparator(lhs, rhs, base_fee))
-            }
-        };
+        let comparator: Box<MineOrderComparator<ChainSpecT::SignedTransaction>> =
+            match mine_ordering {
+                MineOrdering::Fifo => Box::new(first_in_first_out_comparator),
+                MineOrdering::Priority => {
+                    Box::new(move |lhs, rhs| priority_comparator(lhs, rhs, base_fee))
+                }
+            };
 
         mem_pool.iter(comparator)
     };
@@ -159,23 +166,25 @@ where
         // `BlockBuilder::add_transaction_with_extension` does not outlive the
         // function call. Thus it's safe to ignore the borrow checker to avoid the error
         // about mutably borrowing the extension multiple times (in the loop).
-        let result = if let Some(inspector) = inspector.as_mut() {
-            block_builder.add_transaction_with_inspector(transaction, inspector);
-        } else {
-            block_builder.add_transaction(transaction)
-        };
+        {
+            let result = if let Some(inspector) = inspector.as_mut() {
+                block_builder.add_transaction_with_inspector(transaction, inspector)
+            } else {
+                block_builder.add_transaction(transaction)
+            };
 
-        if let Err(error) = result {
-            match error {
-                BlockTransactionError::ExceedsBlockGasLimit => {
-                    pending_transactions.remove_caller(&caller);
+            if let Err(error) = result {
+                match error {
+                    BlockTransactionError::ExceedsBlockGasLimit => {
+                        pending_transactions.remove_caller(&caller);
+                    }
+                    BlockTransactionError::Transaction(TransactionError::InvalidTransaction(
+                        error,
+                    )) if error == l1::InvalidTransaction::GasPriceLessThanBasefee.into() => {
+                        pending_transactions.remove_caller(&caller);
+                    }
+                    remainder => return Err(MineBlockError::BlockTransaction(remainder)),
                 }
-                BlockTransactionError::Transaction(TransactionError::InvalidTransaction(error))
-                    if error == l1::InvalidTransaction::GasPriceLessThanBasefee.into() =>
-                {
-                    pending_transactions.remove_caller(&caller);
-                }
-                remainder => return Err(MineBlockError::BlockTransaction(remainder)),
             }
         }
     }
@@ -188,20 +197,29 @@ where
         .map_err(MineBlockError::BlockFinalize)
 }
 
+/// Helper type for a chain-specific [`MineTransactionError`].
+pub type MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
+    MineTransactionError<
+        BlockchainErrorT,
+        <ChainSpecT as ChainSpec>::Hardfork,
+        StateErrorT,
+        <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+    >;
+
 /// An error that occurred while mining a block with a single transaction.
 #[derive(Debug, thiserror::Error)]
-pub enum MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT: RuntimeSpec,
+pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, TransactionValidationErrorT>
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(
-        #[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>,
+        #[from] BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT>,
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
-    BlockTransaction(#[from] BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>),
+    BlockTransaction(
+        #[from] BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+    ),
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
@@ -292,7 +310,7 @@ pub fn mine_block_with_single_transaction<
     inspector: Option<&'inspector mut InspectorT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
-    MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
 >
 where
     'blockchain: 'inspector,
@@ -389,7 +407,7 @@ where
     let rewards = vec![(beneficiary, reward)];
 
     if let Some(inspector) = inspector {
-        block_builder.add_transaction_with_extension(transaction, inspector)?;
+        block_builder.add_transaction_with_inspector(transaction, inspector)?;
     } else {
         block_builder.add_transaction(transaction)?;
     }
@@ -410,21 +428,20 @@ fn effective_miner_fee(transaction: &impl ExecutableTransaction, base_fee: Optio
     })
 }
 
-fn first_in_first_out_comparator<ChainSpecT: RuntimeSpec>(
-    lhs: &OrderedTransaction<ChainSpecT>,
-    rhs: &OrderedTransaction<ChainSpecT>,
+fn first_in_first_out_comparator<SignedTransactionT: ExecutableTransaction>(
+    lhs: &OrderedTransaction<SignedTransactionT>,
+    rhs: &OrderedTransaction<SignedTransactionT>,
 ) -> Ordering {
     lhs.order_id().cmp(&rhs.order_id())
 }
 
-fn priority_comparator<ChainSpecT: RuntimeSpec>(
-    lhs: &OrderedTransaction<ChainSpecT>,
-    rhs: &OrderedTransaction<ChainSpecT>,
+fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
+    lhs: &OrderedTransaction<SignedTransactionT>,
+    rhs: &OrderedTransaction<SignedTransactionT>,
     base_fee: Option<u128>,
 ) -> Ordering {
-    let effective_miner_fee = move |transaction: &ChainSpecT::SignedTransaction| {
-        effective_miner_fee(transaction, base_fee)
-    };
+    let effective_miner_fee =
+        move |transaction: &SignedTransactionT| effective_miner_fee(transaction, base_fee);
 
     // Invert lhs and rhs to get decreasing order by effective miner fee
     let ordering = effective_miner_fee(rhs.pending()).cmp(&effective_miner_fee(lhs.pending()));

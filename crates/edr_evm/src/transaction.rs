@@ -4,22 +4,23 @@ pub mod remote;
 
 use std::fmt::Debug;
 
-use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
 use edr_eth::{l1, spec::ChainSpec, U256};
-use revm::precompile::PrecompileError;
+use revm_context::transaction::AccessListTr as AccessListTrait;
 
 pub use self::detailed::*;
-use crate::state::DatabaseComponentError;
+use crate::{precompile::PrecompileError, state::DatabaseComponentError};
+
+pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<
+    BlockchainErrorT,
+    StateErrorT,
+    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+>;
 
 /// Invalid transaction error
-#[derive(thiserror::Error)]
-#[derive_where(Debug; <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError, BlockchainErrorT, StateErrorT)]
-pub enum TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
-where
-    ChainSpecT: ChainSpec,
-{
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> {
     /// Blockchain errors
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
@@ -31,7 +32,7 @@ where
     InvalidHeader(l1::InvalidHeader),
     /// Corrupt transaction data
     #[error(transparent)]
-    InvalidTransaction(<ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError),
+    InvalidTransaction(TransactionValidationErrorT),
     /// Transaction account does not have enough amount of ether to cover
     /// transferred value and gas_limit*gas_price.
     #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}.")]
@@ -49,11 +50,9 @@ where
     State(StateErrorT),
 }
 
-impl<BlockchainErrorT, ChainSpecT, StateErrorT>
+impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
     From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-    for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
-where
-    ChainSpecT: ChainSpec,
+    for TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
 {
     fn from(value: DatabaseComponentError<BlockchainErrorT, StateErrorT>) -> Self {
         match value {
@@ -63,22 +62,16 @@ where
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<l1::InvalidHeader>
-    for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
-where
-    ChainSpecT: ChainSpec,
+impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> From<l1::InvalidHeader>
+    for TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
 {
     fn from(value: l1::InvalidHeader) -> Self {
         Self::InvalidHeader(value)
     }
 }
 
-impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<l1::InvalidTransaction>
-    for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
-where
-    ChainSpecT: ChainSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
-    >,
+impl<BlockchainErrorT, StateErrorT> From<l1::InvalidTransaction>
+    for TransactionError<BlockchainErrorT, StateErrorT, l1::InvalidTransaction>
 {
     fn from(value: l1::InvalidTransaction) -> Self {
         match value {
@@ -87,16 +80,6 @@ where
             }
             remainder => Self::InvalidTransaction(remainder.into()),
         }
-    }
-}
-
-impl<BlockchainErrorT, ChainSpecT, StateErrorT> From<PrecompileError>
-    for TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
-where
-    ChainSpecT: ChainSpec,
-{
-    fn from(value: PrecompileError) -> Self {
-        Self::Precompile(value)
     }
 }
 
@@ -142,7 +125,9 @@ pub fn initial_cost(
     transaction: &impl revm_context_interface::Transaction,
     spec_id: l1::SpecId,
 ) -> u64 {
-    let (accounts, storages) = transaction.access_list_nums().unwrap_or_default();
+    let (accounts, storages) = transaction
+        .access_list()
+        .map_or((0, 0), AccessListTrait::access_list_nums);
 
     revm_interpreter::gas::calculate_initial_tx_gas(
         spec_id,

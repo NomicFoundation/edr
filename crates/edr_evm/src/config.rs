@@ -1,1 +1,1 @@
-pub use revm_context::CfgEnv;
+pub use revm_context::{Cfg, CfgEnv};

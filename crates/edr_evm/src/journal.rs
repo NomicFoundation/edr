@@ -1,6 +1,7 @@
 use edr_eth::log::ExecutionLog;
 pub use revm::JournalEntry;
-pub use revm_context::JournaledState;
+pub use revm_context::Journal;
+pub use revm_context_interface::JournalTr as JournalTrait;
 
 use crate::state::{Database, EvmState};
 
@@ -17,7 +18,7 @@ pub trait JournalExt {
     fn state(&self) -> &EvmState;
 }
 
-impl<DatabaseT: Database> JournalExt for JournaledState<DatabaseT> {
+impl<DatabaseT: Database> JournalExt for Journal<DatabaseT> {
     type Entry = JournalEntry;
 
     fn entries(&self) -> &[Vec<Self::Entry>] {

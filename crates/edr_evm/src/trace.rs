@@ -1,6 +1,3 @@
-mod context;
-mod frame;
-
 use std::fmt::Debug;
 
 use derive_where::derive_where;
@@ -10,20 +7,14 @@ use edr_eth::{
     spec::HaltReasonTrait,
     Address, Bytecode, Bytes, U256,
 };
-use revm::context_interface::Journal;
 
-pub use self::{
-    context::{
-        TraceCollectorContext, TraceCollectorContextWithPrecompiles, TraceCollectorMutGetter,
-    },
-    frame::{RawTracerFrame, RawTracerFrameWithPrecompileProvider},
-};
 use crate::{
     blockchain::BlockHash,
     interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         EthInterpreter, Interpreter, Jumps as _, MemoryGetter as _, SuccessOrHalt,
     },
+    journal::{JournalExt, JournalTrait},
     state::{DatabaseComponents, State, WrapDatabaseRef},
 };
 
@@ -196,14 +187,12 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     /// Notifies the trace collector that a call is starting.
     pub fn notify_call_start<
         BlockchainT: BlockHash<Error: std::error::Error>,
+        JournalT: JournalExt
+            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
         StateT: State<Error: std::error::Error>,
-        FinalOutputT,
     >(
         &mut self,
-        journal: &impl Journal<
-            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            FinalOutput = FinalOutputT,
-        >,
+        journal: &JournalT,
         inputs: &CallInputs,
     ) {
         if self.is_new_trace {
@@ -258,14 +247,12 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     /// Notifies the trace collector that a call has ended.
     pub fn notify_call_end<
         BlockchainT: BlockHash<Error: std::error::Error>,
+        JournalT: JournalExt
+            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
         StateT: State<Error: std::error::Error>,
-        FinalOutputT,
     >(
         &mut self,
-        journal: &impl Journal<
-            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            FinalOutput = FinalOutputT,
-        >,
+        journal: &JournalT,
         outcome: &CallOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
@@ -326,7 +313,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         FinalOutputT,
     >(
         &mut self,
-        journal: &impl Journal<
+        journal: &impl JournalTrait<
             Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
             FinalOutput = FinalOutputT,
         >,
@@ -355,14 +342,12 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     /// Notifies the trace collector that a create has ended.
     pub fn notify_create_end<
         BlockchainT: BlockHash<Error: std::error::Error>,
+        JournalT: JournalExt
+            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
         StateT: State<Error: std::error::Error>,
-        FinalOutputT,
     >(
         &mut self,
-        journal: &impl Journal<
-            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            FinalOutput = FinalOutputT,
-        >,
+        journal: &JournalT,
         outcome: &CreateOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
@@ -419,7 +404,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     >(
         &mut self,
         interpreter: &Interpreter<EthInterpreter>,
-        journal: &impl Journal<
+        journal: &impl JournalTrait<
             Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
             FinalOutput = FinalOutputT,
         >,

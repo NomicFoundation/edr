@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
     block::{miner_reward, BlockOptions},
-    l1::{self, L1ChainSpec},
+    l1,
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
     transaction::{TransactionValidation, TxKind},
@@ -25,7 +25,7 @@ use crate::{
 /// A test fixture for `MemPool`.
 pub struct MemPoolTestFixture {
     /// The mem pool.
-    pub mem_pool: MemPool<L1ChainSpec>,
+    pub mem_pool: MemPool<transaction::Signed>,
     /// The state.
     pub state: TrieState,
 }

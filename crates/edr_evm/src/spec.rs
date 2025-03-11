@@ -6,25 +6,26 @@ use edr_eth::{
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
+    result::ResultAndState,
     spec::{ChainSpec, EthHeaderConstants},
     B256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-use revm::{Inspector, MainBuilder, MainnetEvm};
-pub use revm_context_interface::{ContextTr as ContextTrait, Journal};
+use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector, MainBuilder, MainnetEvm};
+pub use revm_context_interface::ContextTr as ContextTrait;
 
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
     config::CfgEnv,
-    evm::EvmTrait,
     hardfork::{self, Activations},
-    journal::JournaledState,
+    journal::Journal,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
+    result::EVMErrorForChain,
     state::{Database, DatabaseComponentError},
     transaction::{
-        remote::EthRpcTransaction, ExecutableTransaction, TransactionError, TransactionType,
-        TransactionValidation,
+        remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
+        TransactionErrorForChainSpec, TransactionType, TransactionValidation,
     },
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
     EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock,
@@ -37,7 +38,7 @@ pub type ContextForChainSpec<ChainSpecT, DatabaseT> = revm::Context<
     <ChainSpecT as ChainSpec>::SignedTransaction,
     CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
     DatabaseT,
-    JournaledState<DatabaseT>,
+    Journal<DatabaseT>,
     <ChainSpecT as ChainSpec>::Context,
 >;
 
@@ -153,9 +154,15 @@ pub trait RuntimeSpec:
     type Evm<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
         StateErrorT,
-    >: EvmTrait<Context = ContextForChainSpec<Self, DatabaseT>>;
+    >:  ExecuteEvm<Output = Result<
+            ResultAndState<Self::HaltReason>,
+            EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
+    >> + InspectEvm<Inspector = InspectorT, Output = Result<
+        ResultAndState<Self::HaltReason>,
+        EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
+    >>;
 
     // /// Type representing an implementation of `EvmWiring` for this chain.
     // type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
@@ -204,7 +211,7 @@ pub trait RuntimeSpec:
     /// implementing type conversions for third-party types.
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionError<BlockchainErrorT, Self, StateErrorT>;
+    ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT>;
 
     /// Returns the hardfork activations corresponding to the provided chain ID,
     /// if it is associated with this chain specification.
@@ -221,7 +228,7 @@ pub trait RuntimeSpec:
     >(context: ContextForChainSpec<Self, DatabaseT>) -> Self::Evm<
         BlockchainErrorT,
         DatabaseT,
-        (),
+        NoOpInspector,
         StateErrorT,
     >;
 
@@ -346,7 +353,7 @@ impl RuntimeSpec for L1ChainSpec {
     type Evm<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
         StateErrorT,
     > = MainnetEvm<ContextForChainSpec<Self, DatabaseT>, InspectorT>;
 
@@ -373,7 +380,7 @@ impl RuntimeSpec for L1ChainSpec {
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionError<BlockchainErrorT, Self, StateErrorT> {
+    ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT> {
         match error {
             l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
                 TransactionError::LackOfFundForMaxFee { fee, balance }
@@ -396,8 +403,8 @@ impl RuntimeSpec for L1ChainSpec {
         StateErrorT,
     >(
         context: ContextForChainSpec<Self, DatabaseT>,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, (), StateErrorT> {
-        context.build_mainnet()
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, NoOpInspector, StateErrorT> {
+        context.build_mainnet_with_inspector(NoOpInspector)
     }
 
     fn evm_with_inspector<

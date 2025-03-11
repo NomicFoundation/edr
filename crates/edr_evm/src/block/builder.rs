@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use edr_eth::{
     block::{BlockOptions, PartialHeader},
     spec::ChainSpec,
+    transaction::TransactionValidation,
     Address,
 };
 use revm::Inspector;
@@ -49,12 +50,17 @@ impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
     }
 }
 
+/// Helper type for a chain-specific [`BlockTransactionError`].
+pub type BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
+    BlockTransactionError<
+        BlockchainErrorT,
+        StateErrorT,
+        <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+    >;
+
 /// An error caused during execution of a transaction while building a block.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>
-where
-    ChainSpecT: ChainSpec,
-{
+pub enum BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> {
     /// Transaction has higher gas limit than is remaining in block
     #[error("Transaction has a higher gas limit than the remaining gas in the block")]
     ExceedsBlockGasLimit,
@@ -63,7 +69,9 @@ where
     ExceedsBlockBlobGasLimit,
     /// Transaction error
     #[error(transparent)]
-    Transaction(#[from] TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>),
+    Transaction(
+        #[from] TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+    ),
 }
 
 /// A trait for building blocks.
@@ -102,14 +110,20 @@ where
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-    ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>;
+    ) -> Result<
+        (),
+        BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
+    >;
 
     /// Adds a transaction to the block.
     fn add_transaction_with_inspector<'inspector, InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         inspector: &'inspector mut InspectorT,
-    ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
+    ) -> Result<
+        (),
+        BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
+    >
     where
         'builder: 'inspector,
         ChainSpecT: 'inspector,

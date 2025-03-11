@@ -1,6 +1,5 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
-use derive_where::derive_where;
 use edr_eth::{
     account::AccountInfo,
     transaction::{upfront_cost, ExecutableTransaction},
@@ -8,36 +7,45 @@ use edr_eth::{
 };
 use indexmap::{map::Entry, IndexMap};
 
-use crate::{spec::RuntimeSpec, state::State};
+use crate::state::State;
 
 /// An iterator over pending transactions.
-pub struct PendingTransactions<ChainSpecT: RuntimeSpec, ComparatorT>
+pub struct PendingTransactions<SignedTransactionT: ExecutableTransaction, ComparatorT>
 where
-    ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
+    ComparatorT: Fn(
+        &OrderedTransaction<SignedTransactionT>,
+        &OrderedTransaction<SignedTransactionT>,
+    ) -> Ordering,
 {
-    transactions: IndexMap<Address, Vec<OrderedTransaction<ChainSpecT>>>,
+    transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     comparator: ComparatorT,
 }
 
-impl<ChainSpecT, ComparatorT> PendingTransactions<ChainSpecT, ComparatorT>
+impl<SignedTransactionT, ComparatorT> PendingTransactions<SignedTransactionT, ComparatorT>
 where
-    ChainSpecT: RuntimeSpec,
-    ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
+    SignedTransactionT: ExecutableTransaction,
+    ComparatorT: Fn(
+        &OrderedTransaction<SignedTransactionT>,
+        &OrderedTransaction<SignedTransactionT>,
+    ) -> Ordering,
 {
     /// Removes all pending transactions of the account corresponding to the
     /// provided address.
     pub fn remove_caller(
         &mut self,
         caller: &Address,
-    ) -> Option<Vec<OrderedTransaction<ChainSpecT>>> {
+    ) -> Option<Vec<OrderedTransaction<SignedTransactionT>>> {
         self.transactions.shift_remove(caller)
     }
 }
 
-impl<ChainSpecT, ComparatorT> Debug for PendingTransactions<ChainSpecT, ComparatorT>
+impl<SignedTransactionT, ComparatorT> Debug for PendingTransactions<SignedTransactionT, ComparatorT>
 where
-    ChainSpecT: RuntimeSpec<SignedTransaction: Debug>,
-    ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
+    SignedTransactionT: Debug + ExecutableTransaction,
+    ComparatorT: Fn(
+        &OrderedTransaction<SignedTransactionT>,
+        &OrderedTransaction<SignedTransactionT>,
+    ) -> Ordering,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PendingTransactions")
@@ -46,15 +54,19 @@ where
     }
 }
 
-impl<ChainSpecT, ComparatorT> Iterator for PendingTransactions<ChainSpecT, ComparatorT>
+impl<SignedTransactionT, ComparatorT> Iterator
+    for PendingTransactions<SignedTransactionT, ComparatorT>
 where
-    ChainSpecT: RuntimeSpec<SignedTransaction: Debug>,
-    ComparatorT: Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
+    SignedTransactionT: Debug + ExecutableTransaction,
+    ComparatorT: Fn(
+        &OrderedTransaction<SignedTransactionT>,
+        &OrderedTransaction<SignedTransactionT>,
+    ) -> Ordering,
 {
-    type Item = ChainSpecT::SignedTransaction;
+    type Item = SignedTransactionT;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn next(&mut self) -> Option<ChainSpecT::SignedTransaction> {
+    fn next(&mut self) -> Option<Self::Item> {
         let (to_be_removed, next) = self
             .transactions
             .iter_mut()
@@ -139,20 +151,20 @@ pub enum MemPoolAddTransactionError<SE> {
 }
 
 /// A pending transaction with an order ID.
-#[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
-pub struct OrderedTransaction<ChainSpecT: RuntimeSpec> {
+#[derive(Clone, Debug)]
+pub struct OrderedTransaction<SignedTransactionT: ExecutableTransaction> {
     order_id: usize,
-    transaction: ChainSpecT::SignedTransaction,
+    transaction: SignedTransactionT,
 }
 
-impl<ChainSpecT: RuntimeSpec> OrderedTransaction<ChainSpecT> {
+impl<SignedTransactionT: ExecutableTransaction> OrderedTransaction<SignedTransactionT> {
     /// Retrieves the order ID of the pending transaction.
     pub fn order_id(&self) -> usize {
         self.order_id
     }
 
     /// Retrieves the pending transaction.
-    pub fn pending(&self) -> &ChainSpecT::SignedTransaction {
+    pub fn pending(&self) -> &SignedTransactionT {
         &self.transaction
     }
 
@@ -170,21 +182,21 @@ impl<ChainSpecT: RuntimeSpec> OrderedTransaction<ChainSpecT> {
 }
 
 /// The mempool contains transactions pending inclusion in the blockchain.
-#[derive_where(Clone, Debug; ChainSpecT::SignedTransaction)]
-pub struct MemPool<ChainSpecT: RuntimeSpec> {
+#[derive(Clone, Debug)]
+pub struct MemPool<SignedTransactionT: ExecutableTransaction> {
     /// The block's gas limit
     block_gas_limit: NonZeroU64,
     /// Transactions that can be executed now
-    pending_transactions: IndexMap<Address, Vec<OrderedTransaction<ChainSpecT>>>,
+    pending_transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     /// Mapping of transaction hashes to transaction
-    hash_to_transaction: HashMap<B256, OrderedTransaction<ChainSpecT>>,
+    hash_to_transaction: HashMap<B256, OrderedTransaction<SignedTransactionT>>,
     /// Transactions that can be executed in the future, once the nonce is high
     /// enough
-    future_transactions: IndexMap<Address, Vec<OrderedTransaction<ChainSpecT>>>,
+    future_transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     next_order_id: usize,
 }
 
-impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
+impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
     /// Constructs a new [`MemPool`] with the specified block gas limit.
     pub fn new(block_gas_limit: NonZeroU64) -> Self {
         Self {
@@ -212,22 +224,6 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
         self.update(state)
     }
 
-    /// Creates an iterator for all pending transactions; i.e. for which the
-    /// nonces are guaranteed to be high enough.
-    pub fn iter<ComparatorT>(
-        &self,
-        comparator: ComparatorT,
-    ) -> PendingTransactions<ChainSpecT, ComparatorT>
-    where
-        ComparatorT:
-            Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering,
-    {
-        PendingTransactions {
-            transactions: self.pending_transactions.clone(),
-            comparator,
-        }
-    }
-
     /// Retrieves the nonce of the last pending transaction of the account
     /// corresponding to the specified address, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -241,19 +237,23 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
     }
 
     /// Retrieves an iterator for all future transactions.
-    pub fn future_transactions(&self) -> impl Iterator<Item = &OrderedTransaction<ChainSpecT>> {
+    pub fn future_transactions(
+        &self,
+    ) -> impl Iterator<Item = &OrderedTransaction<SignedTransactionT>> {
         self.future_transactions.values().flatten()
     }
 
     /// Retrieves an iterator for all pending transactions.
-    pub fn pending_transactions(&self) -> impl Iterator<Item = &OrderedTransaction<ChainSpecT>> {
+    pub fn pending_transactions(
+        &self,
+    ) -> impl Iterator<Item = &OrderedTransaction<SignedTransactionT>> {
         self.pending_transactions.values().flatten()
     }
 
     /// Retrieves an iterator for all transactions in the instance. Pending
     /// transactions are followed by future transactions, grouped by sender
     /// in order of insertion.
-    pub fn transactions(&self) -> impl Iterator<Item = &ChainSpecT::SignedTransaction> {
+    pub fn transactions(&self) -> impl Iterator<Item = &SignedTransactionT> {
         self.pending_transactions
             .values()
             .chain(self.future_transactions.values())
@@ -273,71 +273,13 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
         !self.pending_transactions.is_empty()
     }
 
-    /// Tries to add the provided transaction to the [`MemPool`].
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction<S: State + ?Sized>(
-        &mut self,
-        state: &S,
-        transaction: ChainSpecT::SignedTransaction,
-    ) -> Result<(), MemPoolAddTransactionError<S::Error>> {
-        let transaction_gas_limit = transaction.gas_limit();
-        if transaction_gas_limit > self.block_gas_limit.get() {
-            return Err(MemPoolAddTransactionError::ExceedsBlockGasLimit {
-                block_gas_limit: self.block_gas_limit,
-                transaction_gas_limit,
-            });
-        }
-
-        if self
-            .hash_to_transaction
-            .contains_key(transaction.transaction_hash())
-        {
-            return Err(MemPoolAddTransactionError::TransactionAlreadyExists {
-                transaction_hash: *transaction.transaction_hash(),
-            });
-        }
-
-        let sender = state.basic(*transaction.caller())?.unwrap_or_default();
-        if transaction.nonce() < sender.nonce {
-            return Err(MemPoolAddTransactionError::NonceTooLow {
-                transaction_nonce: transaction.nonce(),
-                sender_nonce: sender.nonce,
-            });
-        }
-
-        // We need to validate funds at this stage to avoid DOS
-        let max_upfront_cost = upfront_cost(&transaction);
-        if max_upfront_cost > sender.balance {
-            return Err(MemPoolAddTransactionError::InsufficientFunds {
-                max_upfront_cost,
-                sender_balance: sender.balance,
-            });
-        }
-
-        let next_nonce = account_next_nonce(self, state, transaction.caller())?;
-        let transaction = OrderedTransaction {
-            order_id: self.next_order_id,
-            transaction,
-        };
-
-        if transaction.nonce() > next_nonce {
-            self.insert_future_transaction(transaction.clone())?;
-        } else {
-            self.insert_pending_transaction(transaction.clone())?;
-        }
-
-        self.next_order_id += 1;
-
-        self.hash_to_transaction
-            .insert(*transaction.hash(), transaction);
-
-        Ok(())
-    }
-
     /// Removes the transaction corresponding to the provided transaction hash,
     /// if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn remove_transaction(&mut self, hash: &B256) -> Option<OrderedTransaction<ChainSpecT>> {
+    pub fn remove_transaction(
+        &mut self,
+        hash: &B256,
+    ) -> Option<OrderedTransaction<SignedTransactionT>> {
         if let Some(old_transaction) = self.hash_to_transaction.remove(hash) {
             let caller = old_transaction.caller();
             if let Some(pending_transactions) = self.pending_transactions.get_mut(caller) {
@@ -466,14 +408,80 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
     /// Returns the transaction corresponding to the provided hash, if it
     /// exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn transaction_by_hash(&self, hash: &B256) -> Option<&OrderedTransaction<ChainSpecT>> {
+    pub fn transaction_by_hash(
+        &self,
+        hash: &B256,
+    ) -> Option<&OrderedTransaction<SignedTransactionT>> {
         self.hash_to_transaction.get(hash)
+    }
+}
+
+impl<SignedTransactionT: Clone + ExecutableTransaction> MemPool<SignedTransactionT> {
+    /// Tries to add the provided transaction to the [`MemPool`].
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn add_transaction<S: State + ?Sized>(
+        &mut self,
+        state: &S,
+        transaction: SignedTransactionT,
+    ) -> Result<(), MemPoolAddTransactionError<S::Error>> {
+        let transaction_gas_limit = transaction.gas_limit();
+        if transaction_gas_limit > self.block_gas_limit.get() {
+            return Err(MemPoolAddTransactionError::ExceedsBlockGasLimit {
+                block_gas_limit: self.block_gas_limit,
+                transaction_gas_limit,
+            });
+        }
+
+        if self
+            .hash_to_transaction
+            .contains_key(transaction.transaction_hash())
+        {
+            return Err(MemPoolAddTransactionError::TransactionAlreadyExists {
+                transaction_hash: *transaction.transaction_hash(),
+            });
+        }
+
+        let sender = state.basic(*transaction.caller())?.unwrap_or_default();
+        if transaction.nonce() < sender.nonce {
+            return Err(MemPoolAddTransactionError::NonceTooLow {
+                transaction_nonce: transaction.nonce(),
+                sender_nonce: sender.nonce,
+            });
+        }
+
+        // We need to validate funds at this stage to avoid DOS
+        let max_upfront_cost = upfront_cost(&transaction);
+        if max_upfront_cost > sender.balance {
+            return Err(MemPoolAddTransactionError::InsufficientFunds {
+                max_upfront_cost,
+                sender_balance: sender.balance,
+            });
+        }
+
+        let next_nonce = account_next_nonce(self, state, transaction.caller())?;
+        let transaction = OrderedTransaction {
+            order_id: self.next_order_id,
+            transaction,
+        };
+
+        if transaction.nonce() > next_nonce {
+            self.insert_future_transaction(transaction.clone())?;
+        } else {
+            self.insert_pending_transaction(transaction.clone())?;
+        }
+
+        self.next_order_id += 1;
+
+        self.hash_to_transaction
+            .insert(*transaction.hash(), transaction);
+
+        Ok(())
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_pending_transaction<StateError>(
         &mut self,
-        transaction: OrderedTransaction<ChainSpecT>,
+        transaction: OrderedTransaction<SignedTransactionT>,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
         let mut pending_transactions = self.pending_transactions.entry(*transaction.caller());
 
@@ -527,7 +535,7 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_future_transaction<StateError>(
         &mut self,
-        transaction: OrderedTransaction<ChainSpecT>,
+        transaction: OrderedTransaction<SignedTransactionT>,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
         let mut future_transactions = self.future_transactions.entry(*transaction.caller());
 
@@ -555,12 +563,29 @@ impl<ChainSpecT: RuntimeSpec> MemPool<ChainSpecT> {
         future_transactions.or_default().push(transaction);
         Ok(())
     }
-}
 
+    /// Creates an iterator for all pending transactions; i.e. for which the
+    /// nonces are guaranteed to be high enough.
+    pub fn iter<ComparatorT>(
+        &self,
+        comparator: ComparatorT,
+    ) -> PendingTransactions<SignedTransactionT, ComparatorT>
+    where
+        ComparatorT: Fn(
+            &OrderedTransaction<SignedTransactionT>,
+            &OrderedTransaction<SignedTransactionT>,
+        ) -> Ordering,
+    {
+        PendingTransactions {
+            transactions: self.pending_transactions.clone(),
+            comparator,
+        }
+    }
+}
 /// Calculates the next nonce of the account corresponding to the provided
 /// address.
-pub fn account_next_nonce<ChainSpecT: RuntimeSpec, StateT: State + ?Sized>(
-    mem_pool: &MemPool<ChainSpecT>,
+pub fn account_next_nonce<SignedTransactionT: ExecutableTransaction, StateT: State + ?Sized>(
+    mem_pool: &MemPool<SignedTransactionT>,
     state: &StateT,
     address: &Address,
 ) -> Result<u64, StateT::Error> {
@@ -575,7 +600,9 @@ pub fn account_next_nonce<ChainSpecT: RuntimeSpec, StateT: State + ?Sized>(
 }
 
 /// Whether the mempool has any transactions.
-pub fn has_transactions<ChainSpecT: RuntimeSpec>(mem_pool: &MemPool<ChainSpecT>) -> bool {
+pub fn has_transactions<SignedTransactionT: ExecutableTransaction>(
+    mem_pool: &MemPool<SignedTransactionT>,
+) -> bool {
     mem_pool.has_future_transactions() || mem_pool.has_pending_transactions()
 }
 

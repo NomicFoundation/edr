@@ -4,7 +4,7 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
-alloy-serde = { version = "0.3.5", default-features = false, features = ["std"] }
+alloy-serde = { version = "0.12.4", default-features = false, features = ["std"] }
 ansi_term = { version = "0.12.1", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
 edr_defaults = { path = "../edr_defaults" }

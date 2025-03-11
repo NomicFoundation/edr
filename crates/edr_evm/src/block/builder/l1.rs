@@ -16,7 +16,7 @@ use edr_eth::{
 };
 use revm::Inspector;
 
-use super::{BlockBuilder, BlockTransactionError};
+use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -73,7 +73,8 @@ where
     fn validate_transaction(
         &self,
         transaction: &ChainSpecT::SignedTransaction,
-    ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>> {
+    ) -> Result<(), BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>>
+    {
         // The transaction's gas limit cannot be greater than the remaining gas in the
         // block
         if transaction.gas_limit() > self.gas_remaining() {
@@ -157,7 +158,8 @@ where
     pub fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-    ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>> {
+    ) -> Result<(), BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>>
+    {
         self.validate_transaction(&transaction)?;
 
         let block = ChainSpecT::BlockEnv::new_block_env(&self.header, self.cfg.spec.into());
@@ -166,7 +168,7 @@ where
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
                 .map_err(TransactionError::State)?;
 
-        let transaction_result = dry_run(
+        let transaction_result = dry_run::<_, ChainSpecT, _>(
             self.blockchain,
             &self.state,
             self.cfg.clone(),
@@ -184,7 +186,7 @@ where
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         extension: &'inspector mut InspectorT,
-    ) -> Result<(), BlockTransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>>
+    ) -> Result<(), BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>>
     where
         'builder: 'inspector,
         BlockchainErrorT: 'inspector,
@@ -221,7 +223,7 @@ where
         let transaction_result = unsafe {
             let state = &*(self.state.as_ref() as *const _);
 
-            dry_run_with_inspector(
+            dry_run_with_inspector::<_, ChainSpecT, _, _>(
                 self.blockchain,
                 state,
                 self.cfg.clone(),
@@ -411,8 +413,10 @@ where
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-    ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
-    {
+    ) -> Result<
+        (),
+        BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
+    > {
         self.add_transaction(transaction)
     }
 
@@ -420,7 +424,10 @@ where
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         inspector: &'inspector mut InspectorT,
-    ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
+    ) -> Result<
+        (),
+        BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
+    >
     where
         'builder: 'inspector,
         ChainSpecT: 'inspector,

@@ -3,7 +3,7 @@ pub use revm_context::BlockEnv;
 pub use revm_context_interface::result::{
     HaltReason, InvalidHeader, InvalidTransaction, OutOfGasError,
 };
-pub use revm_specification::hardfork::{self, SpecId};
+pub use revm_primitives::hardfork::{self, SpecId};
 
 use crate::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},

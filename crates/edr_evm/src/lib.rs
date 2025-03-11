@@ -25,8 +25,6 @@ pub mod config;
 pub mod evm;
 /// Types for Ethereum hardforks
 pub mod hardfork;
-/// Types for EVM instructions
-pub mod instruction;
 /// Types for the EVM interpreter.
 pub mod interpreter;
 /// Types for the EVM journal.

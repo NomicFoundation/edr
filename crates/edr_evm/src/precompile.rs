@@ -1,27 +1,14 @@
+use std::marker::PhantomData;
+
 use edr_eth::{Address, Bytes, HashMap, HashSet};
-pub use revm::precompile::{u64_to_address, PrecompileFn, PrecompileSpecId, Precompiles};
-use revm::{
-    handler_interface::PrecompileProvider,
-    interpreter::{Gas, InstructionResult, InterpreterResult},
-    precompile::PrecompileErrors,
+use revm::interpreter::{Gas, InstructionResult, InterpreterResult};
+pub use revm::precompile::{
+    u64_to_address, PrecompileError, PrecompileFn, PrecompileSpecId, Precompiles,
 };
+use revm_context_interface::ContextTr as ContextTrait;
+use revm_handler::PrecompileProvider;
 
-use crate::{evm::EvmSpec, spec::RuntimeSpec};
-
-/// Helper type for a chain-specific overridden precompile provider.
-pub type OverriddenPrecompileProviderForChainSpec<
-    BlockchainErrorT,
-    ChainSpecT,
-    ContextT,
-    StateErrorT,
-> = OverriddenPrecompileProvider<
-    <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<
-        BlockchainErrorT,
-        ChainSpecT,
-        ContextT,
-        StateErrorT,
-    >>::PrecompileProvider,
->;
+use crate::config::Cfg;
 
 /// A precompile provider that allows adding custom or overwriting existing
 /// precompiles.
@@ -31,15 +18,23 @@ pub type OverriddenPrecompileProviderForChainSpec<
 /// This assumes that the base precompile provider does not change its
 /// precompiles after construction.
 #[derive(Clone)]
-pub struct OverriddenPrecompileProvider<BaseProviderT: PrecompileProvider> {
+pub struct OverriddenPrecompileProvider<
+    BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
+    ContextT: ContextTrait,
+> {
     base: BaseProviderT,
     custom_precompiles: HashMap<Address, PrecompileFn>,
     // Cache of unique addresses to avoid reporting duplicates between `base` and
     // `custom_precompiles`. This speeds up the `warm_addresses` method.
     unique_addresses: HashSet<Address>,
+    phantom: PhantomData<ContextT>,
 }
 
-impl<BaseProviderT: PrecompileProvider> OverriddenPrecompileProvider<BaseProviderT> {
+impl<
+        BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
+        ContextT: ContextTrait,
+    > OverriddenPrecompileProvider<BaseProviderT, ContextT>
+{
     /// Creates a new custom precompile provider.
     pub fn new(base: BaseProviderT) -> Self {
         Self::with_precompiles(base, HashMap::new())
@@ -60,6 +55,7 @@ impl<BaseProviderT: PrecompileProvider> OverriddenPrecompileProvider<BaseProvide
             base,
             custom_precompiles,
             unique_addresses,
+            phantom: PhantomData,
         }
     }
 
@@ -90,32 +86,24 @@ impl<ContextT> CustomPrecompilesGetter for ContextWithCustomPrecompiles<ContextT
     }
 }
 
-impl<BaseProviderT, ContextT, ErrorT> PrecompileProvider
-    for OverriddenPrecompileProvider<BaseProviderT>
-where
-    BaseProviderT:
-        PrecompileProvider<Context = ContextT, Error = ErrorT, Output = InterpreterResult>,
-    ContextT: CustomPrecompilesGetter,
-    ErrorT: From<PrecompileErrors>,
+impl<
+        BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
+        ContextT: ContextTrait,
+    > PrecompileProvider<ContextT> for OverriddenPrecompileProvider<BaseProviderT, ContextT>
 {
-    type Context = ContextT;
-    type Error = ErrorT;
     type Output = InterpreterResult;
 
-    fn new(context: &mut Self::Context) -> Self {
-        let base = BaseProviderT::new(context);
-        let custom_precompiles = context.custom_precompiles();
-
-        Self::with_precompiles(base, custom_precompiles)
+    fn set_spec(&mut self, spec: <ContextT::Cfg as Cfg>::Spec) {
+        self.base.set_spec(spec);
     }
 
     fn run(
         &mut self,
-        context: &mut Self::Context,
+        context: &mut ContextT,
         address: &Address,
         bytes: &edr_eth::Bytes,
         gas_limit: u64,
-    ) -> Result<Option<Self::Output>, Self::Error> {
+    ) -> Result<Option<Self::Output>, PrecompileError> {
         let Some(precompile) = self.custom_precompiles.get(address) else {
             return self.base.run(context, address, bytes, gas_limit);
         };
@@ -133,20 +121,22 @@ where
                 result.result = InstructionResult::Return;
                 result.output = output.bytes;
             }
-            Err(PrecompileErrors::Error(e)) => {
+            Err(e) => {
+                if let PrecompileError::Fatal(_) = e {
+                    return Err(e);
+                }
                 result.result = if e.is_oog() {
                     InstructionResult::PrecompileOOG
                 } else {
                     InstructionResult::PrecompileError
                 };
             }
-            Err(err @ PrecompileErrors::Fatal { .. }) => return Err(err.into()),
         }
         Ok(Some(result))
     }
 
-    fn warm_addresses(&self) -> impl Iterator<Item = Address> {
-        self.unique_addresses.iter().cloned()
+    fn warm_addresses(&self) -> Box<impl Iterator<Item = Address>> {
+        Box::new(self.unique_addresses.iter().cloned())
     }
 
     fn contains(&self, address: &Address) -> bool {

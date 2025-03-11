@@ -60,7 +60,7 @@ pub struct Block<TransactionT> {
         skip_serializing_if = "Option::is_none",
         with = "alloy_serde::quantity::opt"
     )]
-    pub base_fee_per_gas: Option<u64>,
+    pub base_fee_per_gas: Option<u128>,
     /// the address of the beneficiary to whom the mining rewards were given
     #[serde(skip_serializing_if = "Option::is_none")]
     pub miner: Option<Address>,

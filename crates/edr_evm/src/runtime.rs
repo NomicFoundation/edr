@@ -3,14 +3,15 @@ use edr_eth::{
     result::{ExecutionResult, ExecutionResultAndState},
     transaction::TransactionValidation,
 };
-use revm::{Inspector, JournaledState};
+use revm::{ExecuteEvm, InspectEvm, Inspector, Journal};
 
 use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
+    result::EVMError,
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
-    transaction::TransactionError,
+    transaction::{TransactionError, TransactionErrorForChainSpec},
 };
 
 /// Runs a transaction without committing the state.
@@ -23,7 +24,7 @@ pub fn dry_run<BlockchainT, ChainSpecT, StateT>(
     block: ChainSpecT::BlockEnv,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
-    TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
@@ -37,14 +38,20 @@ where
     let context = revm::Context {
         block,
         tx: transaction,
-        journaled_state: JournaledState::new(cfg.spec.into(), database),
+        journaled_state: Journal::new(cfg.spec.into(), database),
         cfg,
         chain: ChainSpecT::Context::default(),
         error: Ok(()),
     };
 
     let mut evm = ChainSpecT::evm(context);
-    evm.transact_previous()
+    evm.replay().map_err(|error| match error {
+        EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
+        EVMError::Header(error) => TransactionError::InvalidHeader(error),
+        EVMError::Database(error) => error.into(),
+        EVMError::Custom(error) => TransactionError::Custom(error),
+        EVMError::Precompile(error) => TransactionError::Precompile(error),
+    })
 }
 
 /// Runs a transaction while observing with an inspector, without committing the
@@ -59,7 +66,7 @@ pub fn dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, StateT>(
     inspector: &mut InspectorT,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
-    TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
@@ -76,14 +83,20 @@ where
     let context = revm::Context {
         block,
         tx: transaction,
-        journaled_state: JournaledState::new(cfg.spec.into(), database),
+        journaled_state: Journal::new(cfg.spec.into(), database),
         cfg,
         chain: ChainSpecT::Context::default(),
         error: Ok(()),
     };
 
     let mut evm = ChainSpecT::evm_with_inspector(context, inspector);
-    evm.inspect_previous()
+    evm.inspect_replay().map_err(|error| match error {
+        EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
+        EVMError::Header(error) => TransactionError::InvalidHeader(error),
+        EVMError::Database(error) => error.into(),
+        EVMError::Custom(error) => TransactionError::Custom(error),
+        EVMError::Precompile(error) => TransactionError::Precompile(error),
+    })
 }
 
 /// Runs a transaction without committing the state, while disabling balance
@@ -97,7 +110,7 @@ pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, StateT>(
     block: ChainSpecT::BlockEnv,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
-    TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
@@ -108,7 +121,7 @@ where
 {
     set_guarantees(&mut cfg);
 
-    dry_run(blockchain, state, cfg, transaction, block)
+    dry_run::<_, ChainSpecT, _>(blockchain, state, cfg, transaction, block)
 }
 
 /// Runs a transaction while observing with an inspector, without committing the
@@ -124,7 +137,7 @@ pub fn guaranteed_dry_run_with_extension<BlockchainT, ChainSpecT, InspectorT, St
     extension: &mut InspectorT,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
-    TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
@@ -138,7 +151,14 @@ where
 {
     set_guarantees(&mut cfg);
 
-    dry_run_with_inspector(blockchain, state, cfg, transaction, block, extension)
+    dry_run_with_inspector::<_, ChainSpecT, _, _>(
+        blockchain,
+        state,
+        cfg,
+        transaction,
+        block,
+        extension,
+    )
 }
 
 /// Runs a transaction, committing the state in the process.
@@ -153,7 +173,7 @@ pub fn run<BlockchainT, ChainSpecT, StateT>(
     // custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     ExecutionResult<ChainSpecT::HaltReason>,
-    TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
@@ -165,7 +185,7 @@ where
     let ExecutionResultAndState {
         result,
         state: state_diff,
-    } = dry_run(blockchain, &state, cfg, transaction, block)?;
+    } = dry_run::<_, ChainSpecT, _>(blockchain, &state, cfg, transaction, block)?;
 
     state.commit(state_diff);
 
