@@ -108,7 +108,7 @@ where
     fn add_transaction_with_inspector<'inspector, InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        extension: &'inspector mut InspectorT,
+        inspector: &'inspector mut InspectorT,
     ) -> Result<(), BlockTransactionError<Self::BlockchainError, ChainSpecT, Self::StateError>>
     where
         'builder: 'inspector,

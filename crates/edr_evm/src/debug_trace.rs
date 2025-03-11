@@ -36,7 +36,6 @@ use crate::{
     state::{Database, SyncState},
     trace::{Trace, TraceCollector},
     transaction::TransactionError,
-    ContextExtension,
 };
 
 /// Get trace output for `debug_traceTransaction`

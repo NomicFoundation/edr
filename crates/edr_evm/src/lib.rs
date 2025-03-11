@@ -20,7 +20,7 @@ pub(crate) mod collections;
 /// Types for configuring the runtime.
 pub mod config;
 /// Types for generating a EIP-3155 trace.
-pub mod debug_trace;
+// pub mod debug_trace;
 /// Types for interfacing with the evm.
 pub mod evm;
 /// Types for Ethereum hardforks
