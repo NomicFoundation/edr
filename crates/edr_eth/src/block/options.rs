@@ -33,4 +33,8 @@ pub struct BlockOptions {
     /// The hash tree root of the parent beacon block for the given execution
     /// block (EIP-4788).
     pub parent_beacon_block_root: Option<B256>,
+    /// The commitment hash calculated for a list of [EIP-7685] data requests.
+    ///
+    /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
+    pub requests_hash: Option<B256>,
 }

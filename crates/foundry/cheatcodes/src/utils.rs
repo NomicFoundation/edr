@@ -78,13 +78,12 @@ impl Cheatcode for ensNamehashCall {
     }
 }
 
-fn encode_vrs(sig: alloy_primitives::Signature) -> Vec<u8> {
-    let v = sig
-        .v()
-        .y_parity_byte_non_eip155()
-        .unwrap_or(sig.v().y_parity_byte());
-
-    (U256::from(v), B256::from(sig.r()), B256::from(sig.s())).abi_encode()
+fn encode_vrs(sig: alloy_primitives::PrimitiveSignature) -> Vec<u8> {
+    // Retrieve v, r and s from signature.
+    let v = U256::from(u64::from(sig.v()) + 27);
+    let r = B256::from(sig.r());
+    let s = B256::from(sig.s());
+    (v, r, s).abi_encode()
 }
 
 pub(super) fn sign(private_key: &U256, digest: &B256) -> Result {

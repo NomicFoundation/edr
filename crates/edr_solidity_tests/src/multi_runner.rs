@@ -228,7 +228,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
     fn matching_contracts<'a>(
         &'a self,
         filter: &'a dyn TestFilter,
-    ) -> impl Iterator<Item = (&ArtifactId, &TestContract)> {
+    ) -> impl Iterator<Item = (&'a ArtifactId, &'a TestContract)> {
         self.test_contracts
             .iter()
             .filter(|&(id, _)| matches_contract(id, filter))

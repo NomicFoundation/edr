@@ -1,19 +1,19 @@
 #![cfg(feature = "test-utils")]
 
+pub mod common;
+
 use std::{convert::Infallible, str::FromStr, sync::Arc};
 
+use common::blob::{
+    fake_pooled_transaction, fake_raw_transaction, fake_transaction, BlobTransactionBuilder,
+};
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    rlp::{self, Decodable},
-    signature::{secret_key_from_str, secret_key_to_address},
-    transaction::{
-        self, pooled::PooledTransaction, EthTransactionRequest, SignedTransaction, Transaction,
-        TransactionType,
-    },
-    AccountInfo, Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, SpecId, B256, BYTES_PER_BLOB,
-    U256,
+    eips::eip4844::BYTES_PER_BLOB,
+    transaction::{self, EthTransactionRequest, SignedTransaction, Transaction, TransactionType},
+    AccountInfo, Address, Bytes, PreEip1898BlockSpec, SpecId, B256, U256,
 };
-use edr_evm::{EnvKzgSettings, KECCAK_EMPTY};
+use edr_evm::KECCAK_EMPTY;
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
@@ -21,124 +21,8 @@ use edr_provider::{
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_test_utils::secret_key::secret_key_to_address;
 use tokio::runtime;
-
-/// Helper struct to modify the pooled transaction from the value in
-/// `fixtures/eip4844.txt`. It reuses the secret key from `SECRET_KEYS[0]`.
-struct BlobTransactionBuilder {
-    request: transaction::request::Eip4844,
-    blobs: Vec<Blob>,
-    commitments: Vec<Bytes48>,
-    proofs: Vec<Bytes48>,
-}
-
-impl BlobTransactionBuilder {
-    pub fn blob_hashes(&self) -> Vec<B256> {
-        self.request.blob_hashes.clone()
-    }
-
-    pub fn build(self) -> PooledTransaction {
-        let secret_key = secret_key_from_str(SECRET_KEYS[0]).expect("Invalid secret key");
-        let signed_transaction = self
-            .request
-            .sign(&secret_key)
-            .expect("Failed to sign transaction");
-
-        let settings = EnvKzgSettings::Default;
-        let pooled_transaction = transaction::pooled::Eip4844::new(
-            signed_transaction,
-            self.blobs,
-            self.commitments,
-            self.proofs,
-            settings.get(),
-        )
-        .expect("Invalid blob transaction");
-
-        PooledTransaction::Eip4844(pooled_transaction)
-    }
-
-    pub fn build_raw(self) -> Bytes {
-        rlp::encode(self.build()).into()
-    }
-
-    /// Duplicates the blobs, commitments, and proofs such that they exist
-    /// `count` times.
-    pub fn duplicate_blobs(mut self, count: usize) -> Self {
-        self.request.blob_hashes = self
-            .request
-            .blob_hashes
-            .into_iter()
-            .cycle()
-            .take(count)
-            .collect();
-
-        self.blobs = self.blobs.into_iter().cycle().take(count).collect();
-        self.commitments = self.commitments.into_iter().cycle().take(count).collect();
-        self.proofs = self.proofs.into_iter().cycle().take(count).collect();
-
-        self
-    }
-
-    pub fn input(mut self, input: Bytes) -> Self {
-        self.request.input = input;
-        self
-    }
-
-    pub fn nonce(mut self, nonce: u64) -> Self {
-        self.request.nonce = nonce;
-        self
-    }
-
-    pub fn to(mut self, to: Address) -> Self {
-        self.request.to = to;
-        self
-    }
-}
-
-impl Default for BlobTransactionBuilder {
-    fn default() -> Self {
-        let PooledTransaction::Eip4844(pooled_transaction) = fake_pooled_transaction() else {
-            unreachable!("Must be an EIP-4844 transaction")
-        };
-
-        let (transaction, blobs, commitments, proofs) = pooled_transaction.into_inner();
-        let request = transaction::request::Eip4844 {
-            chain_id: transaction.chain_id,
-            nonce: transaction.nonce,
-            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
-            max_fee_per_gas: transaction.max_fee_per_gas,
-            gas_limit: transaction.gas_limit,
-            to: transaction.to,
-            value: transaction.value,
-            input: transaction.input,
-            access_list: transaction.access_list.into(),
-            max_fee_per_blob_gas: transaction.max_fee_per_blob_gas,
-            blob_hashes: transaction.blob_hashes,
-        };
-
-        Self {
-            request,
-            blobs,
-            commitments,
-            proofs,
-        }
-    }
-}
-
-fn fake_raw_transaction() -> Bytes {
-    Bytes::from_str(include_str!("fixtures/eip4844.txt")).expect("failed to parse raw transaction")
-}
-
-fn fake_pooled_transaction() -> PooledTransaction {
-    let raw_transaction = fake_raw_transaction();
-
-    PooledTransaction::decode(&mut raw_transaction.as_ref())
-        .expect("failed to decode raw transaction")
-}
-
-fn fake_transaction() -> transaction::Signed {
-    fake_pooled_transaction().into_payload()
-}
 
 fn fake_call_request() -> anyhow::Result<CallRequest> {
     let transaction = fake_pooled_transaction();
@@ -402,16 +286,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
-
-    config.genesis_accounts.insert(
-        secret_key_to_address(SECRET_KEYS[0])?,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        },
-    );
+    config.hardfork = SpecId::CANCUN;
 
     let provider = Provider::new(
         runtime::Handle::current(),

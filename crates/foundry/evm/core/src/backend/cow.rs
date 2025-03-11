@@ -122,7 +122,7 @@ impl<'a> CowBackend<'a> {
     }
 }
 
-impl<'a> DatabaseExt for CowBackend<'a> {
+impl DatabaseExt for CowBackend<'_> {
     fn snapshot(&mut self, journaled_state: &JournaledState, env: &Env) -> U256 {
         self.backend_mut(env).snapshot(journaled_state, env)
     }
@@ -284,7 +284,7 @@ impl<'a> DatabaseExt for CowBackend<'a> {
     }
 }
 
-impl<'a> DatabaseRef for CowBackend<'a> {
+impl DatabaseRef for CowBackend<'_> {
     type Error = DatabaseError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -304,7 +304,7 @@ impl<'a> DatabaseRef for CowBackend<'a> {
     }
 }
 
-impl<'a> Database for CowBackend<'a> {
+impl Database for CowBackend<'_> {
     type Error = DatabaseError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -324,7 +324,7 @@ impl<'a> Database for CowBackend<'a> {
     }
 }
 
-impl<'a> DatabaseCommit for CowBackend<'a> {
+impl DatabaseCommit for CowBackend<'_> {
     fn commit(&mut self, changes: Map<Address, Account>) {
         self.backend.to_mut().commit(changes);
     }

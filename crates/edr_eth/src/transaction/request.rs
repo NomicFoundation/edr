@@ -2,12 +2,14 @@ mod eip155;
 mod eip1559;
 mod eip2930;
 mod eip4844;
+mod eip7702;
 mod legacy;
 
 use k256::SecretKey;
 
 pub use self::{
-    eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, legacy::Legacy,
+    eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, eip7702::Eip7702,
+    legacy::Legacy,
 };
 use super::{Request, Signed};
 use crate::{signature::SignatureError, Address, U256};
@@ -21,6 +23,7 @@ impl Request {
             Request::Eip2930(transaction) => Some(transaction.chain_id),
             Request::Eip1559(transaction) => Some(transaction.chain_id),
             Request::Eip4844(transaction) => Some(transaction.chain_id),
+            Request::Eip7702(transaction) => Some(transaction.chain_id),
         }
     }
 
@@ -32,6 +35,7 @@ impl Request {
             Request::Eip2930(transaction) => &transaction.gas_price,
             Request::Eip1559(transaction) => &transaction.max_fee_per_gas,
             Request::Eip4844(transaction) => &transaction.max_fee_per_gas,
+            Request::Eip7702(transaction) => &transaction.max_fee_per_gas,
         }
     }
 
@@ -41,6 +45,7 @@ impl Request {
             Request::Legacy(_) | Request::Eip155(_) | Request::Eip2930(_) => None,
             Request::Eip1559(transaction) => Some(&transaction.max_fee_per_gas),
             Request::Eip4844(transaction) => Some(&transaction.max_fee_per_gas),
+            Request::Eip7702(transaction) => Some(&transaction.max_fee_per_gas),
         }
     }
 
@@ -50,6 +55,7 @@ impl Request {
             Request::Legacy(_) | Request::Eip155(_) | Request::Eip2930(_) => None,
             Request::Eip1559(transaction) => Some(&transaction.max_priority_fee_per_gas),
             Request::Eip4844(transaction) => Some(&transaction.max_priority_fee_per_gas),
+            Request::Eip7702(transaction) => Some(&transaction.max_priority_fee_per_gas),
         }
     }
 
@@ -61,6 +67,7 @@ impl Request {
             Request::Eip2930(transaction) => transaction.nonce,
             Request::Eip1559(transaction) => transaction.nonce,
             Request::Eip4844(transaction) => transaction.nonce,
+            Request::Eip7702(transaction) => transaction.nonce,
         }
     }
 
@@ -71,6 +78,7 @@ impl Request {
             Request::Eip2930(transaction) => transaction.sign(secret_key)?.into(),
             Request::Eip1559(transaction) => transaction.sign(secret_key)?.into(),
             Request::Eip4844(transaction) => transaction.sign(secret_key)?.into(),
+            Request::Eip7702(transaction) => transaction.sign(secret_key)?.into(),
         })
     }
 
@@ -101,6 +109,9 @@ impl Request {
             Request::Eip4844(transaction) => transaction
                 .sign_for_sender_unchecked(secret_key, caller)?
                 .into(),
+            Request::Eip7702(transaction) => transaction
+                .sign_for_sender_unchecked(secret_key, caller)?
+                .into(),
         })
     }
 
@@ -111,6 +122,7 @@ impl Request {
             Request::Eip2930(transaction) => transaction.fake_sign(sender).into(),
             Request::Eip1559(transaction) => transaction.fake_sign(sender).into(),
             Request::Eip4844(transaction) => transaction.fake_sign(sender).into(),
+            Request::Eip7702(transaction) => transaction.fake_sign(sender).into(),
         }
     }
 }

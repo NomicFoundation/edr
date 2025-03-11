@@ -427,18 +427,17 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                 // load balance of this account
                 let value = ecx
                     .balance(interpreter.contract().target_address)
-                    .map(|(b, _)| b)
+                    .map(|b| b.data)
                     .unwrap_or(U256::ZERO);
                 let account = Address::from_word(B256::from(target));
                 // get previous balance and initialized status of the target account
                 // TODO: use load_account_exists
-                let (initialized, old_balance) = if let Ok((account, _)) =
-                    ecx.journaled_state.load_account(account, &mut ecx.db)
-                {
-                    (account.info.exists(), account.info.balance)
-                } else {
-                    (false, U256::ZERO)
-                };
+                let (initialized, old_balance) =
+                    if let Ok(account) = ecx.journaled_state.load_account(account, &mut ecx.db) {
+                        (account.info.exists(), account.info.balance)
+                    } else {
+                        (false, U256::ZERO)
+                    };
                 // register access for the target account
                 let access = crate::Vm::AccountAccess {
                     chainInfo: crate::Vm::ChainInfo {
@@ -478,8 +477,8 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                     let mut present_value = U256::ZERO;
                     // Try to load the account and the slot's present value
                     if ecx.load_account(address).is_ok() {
-                        if let Ok((previous, _)) = ecx.sload(address, key) {
-                            present_value = previous;
+                        if let Ok(previous) = ecx.sload(address, key) {
+                            present_value = previous.data;
                         }
                     }
                     let access = crate::Vm::StorageAccess {
@@ -504,8 +503,8 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                     // not set (zero value)
                     let mut previous_value = U256::ZERO;
                     if ecx.load_account(address).is_ok() {
-                        if let Ok((previous, _)) = ecx.sload(address, key) {
-                            previous_value = previous;
+                        if let Ok(previous) = ecx.sload(address, key) {
+                            previous_value = previous.data;
                         }
                     }
 
@@ -540,8 +539,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                         .peek(0))));
                     let balance;
                     let initialized;
-                    // TODO: use ecx.load_account
-                    if let Ok((acc, _)) = ecx.journaled_state.load_account(address, &mut ecx.db) {
+                    if let Ok(acc) = ecx.journaled_state.load_account(address, &mut ecx.db) {
                         initialized = acc.info.exists();
                         balance = acc.info.balance;
                     } else {
@@ -914,8 +912,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
             // code
             let initialized;
             let old_balance;
-            // TODO: use ecx.load_account
-            if let Ok((acc, _)) = ecx
+            if let Ok(acc) = ecx
                 .journaled_state
                 .load_account(call.target_address, &mut ecx.db)
             {
@@ -1082,8 +1079,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                 // there may not be any pending calls to update if execution has
                 // percolated up to a higher depth.
                 if call_access.depth == ecx.journaled_state.depth() {
-                    // TODO: use ecx.load_account
-                    if let Ok((acc, _)) = ecx
+                    if let Ok(acc) = ecx
                         .journaled_state
                         .load_account(call.target_address, &mut ecx.db)
                     {
@@ -1382,7 +1378,7 @@ impl<DB: DatabaseExt> Inspector<DB> for Cheatcodes {
                         crate::Vm::AccountAccessKind::Create as u8
                     );
                     if let Some(address) = outcome.address {
-                        if let Ok((created_acc, _)) =
+                        if let Ok(created_acc) =
                             ecx.journaled_state.load_account(address, &mut ecx.db)
                         {
                             create_access.newBalance = created_acc.info.balance;

@@ -1,7 +1,7 @@
 use alloy_chains::Chain;
+use alloy_network::AnyRpcBlock;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
-use alloy_rpc_types::Block;
 use eyre::WrapErr;
 use revm::primitives::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -82,7 +82,7 @@ impl EvmOpts {
     pub async fn fork_evm_env(
         &self,
         fork_url: impl AsRef<str>,
-    ) -> eyre::Result<(revm::primitives::Env, Block)> {
+    ) -> eyre::Result<(revm::primitives::Env, AnyRpcBlock)> {
         let fork_url = fork_url.as_ref();
         let provider = ProviderBuilder::new(fork_url)
             .compute_units_per_second(self.get_compute_units_per_second())

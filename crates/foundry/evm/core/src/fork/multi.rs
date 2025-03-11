@@ -15,6 +15,8 @@ use std::{
     time::Duration,
 };
 
+use alloy_consensus::BlockHeader;
+use alloy_network::BlockResponse;
 use foundry_fork_db::{cache::BlockchainDbMeta, BackendHandler, BlockchainDb, SharedBackend};
 use futures::{
     channel::mpsc::{channel, Receiver, Sender},
@@ -25,9 +27,7 @@ use futures::{
 use revm::primitives::Env;
 
 use super::CreateFork;
-use crate::fork::provider::{
-    runtime_transport::RuntimeTransport, tower::RetryBackoffService, ProviderBuilder, RetryProvider,
-};
+use crate::fork::provider::{ProviderBuilder, RetryProvider};
 
 /// The _unique_ identifier for a specific fork, this could be the name of the
 /// network a custom descriptive name.
@@ -197,7 +197,7 @@ impl MultiFork {
     }
 }
 
-type Handler = BackendHandler<RetryBackoffService<RuntimeTransport>, Arc<RetryProvider>>;
+type Handler = BackendHandler<Arc<RetryProvider>>;
 
 type CreateFuture =
     Pin<Box<dyn Future<Output = eyre::Result<(ForkId, CreatedFork, Handler)>> + Send>>;
@@ -554,7 +554,7 @@ async fn create_fork(mut fork: CreateFork) -> eyre::Result<(ForkId, CreatedFork,
 
     // we need to use the block number from the block because the env's number can
     // be different on some L2s (e.g. Arbitrum).
-    let number = block.header.number.unwrap_or(meta.block_env.number.to());
+    let number = block.header().number();
 
     let cache_path = fork.block_cache_dir(meta.cfg_env.chain_id, number);
 

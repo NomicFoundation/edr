@@ -106,6 +106,8 @@ pub enum ExceptionalHalt {
     EofAuxDataTooSmall,
     /// EOF Subroutine stack overflow
     EOFFunctionStackOverflow,
+    /// Check for target address validity is only done inside subcall.
+    InvalidEXTCALLTarget,
 }
 
 impl From<edr_evm::HaltReason> for ExceptionalHalt {
@@ -136,6 +138,7 @@ impl From<edr_evm::HaltReason> for ExceptionalHalt {
             edr_evm::HaltReason::EOFFunctionStackOverflow => {
                 ExceptionalHalt::EOFFunctionStackOverflow
             }
+            edr_evm::HaltReason::InvalidEXTCALLTarget => ExceptionalHalt::InvalidEXTCALLTarget,
             edr_evm::HaltReason::OverflowPayment
             | edr_evm::HaltReason::StateChangeDuringStaticCall
             | edr_evm::HaltReason::CallNotAllowedInsideStatic
@@ -167,6 +170,7 @@ impl From<ExceptionalHalt> for edr_evm::HaltReason {
             ExceptionalHalt::EofAuxDataOverflow => Self::EofAuxDataOverflow,
             ExceptionalHalt::EofAuxDataTooSmall => Self::EofAuxDataTooSmall,
             ExceptionalHalt::EOFFunctionStackOverflow => Self::EOFFunctionStackOverflow,
+            ExceptionalHalt::InvalidEXTCALLTarget => Self::InvalidEXTCALLTarget,
         }
     }
 }

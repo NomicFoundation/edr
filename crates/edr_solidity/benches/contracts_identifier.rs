@@ -3,12 +3,16 @@
 //! Steps to run:
 //! 1. Check out <https://github.com/NomicFoundation/forge-std/tree/js-benchmark-config>
 //!    locally (note the branch).
+//!
 //! 2. In the `forge-std` repo root:
-//! 2.1. `npm i`
-//! 2.2. `npx hardhat compile`
+//!
+//!    2.1. `npm i`
+//!    2.2. `npx hardhat compile`
+//!
 //! 3. In the `crates/edr_solidity` directory:
-//! 3.1. `export EDR_FORGE_STD_ARTIFACTS_DIR=/path/to/forge-std/artifacts`
-//! 3.2. `cargo bench contracts_identifier`
+//!
+//!    3.1. `export EDR_FORGE_STD_ARTIFACTS_DIR=/path/to/forge-std/artifacts`
+//!    3.2. `cargo bench contracts_identifier`
 use std::{fs, path::PathBuf, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};

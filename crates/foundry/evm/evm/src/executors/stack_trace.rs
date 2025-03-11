@@ -190,73 +190,6 @@ fn convert_node_to_nested_trace(
     }
 }
 
-// EDR uses REVM 12 in this branch, but Foundry is on REVM 13.
-// We can't bump EDR to REVM 13, because it needs the `hashbrown` feature of
-// `revm-primitives`, but enabling that feature is incompatible with
-// `foundry-fork-db`.
-fn convert_halt_reason(halt: revm::primitives::HaltReason) -> revm_edr::primitives::HaltReason {
-    use revm::primitives::HaltReason;
-    // Easier overview if arms aren't matched.
-    #[allow(clippy::match_same_arms)]
-    match halt {
-        HaltReason::OutOfGas(err) => {
-            revm_edr::primitives::HaltReason::OutOfGas(convert_out_of_gas_error(err))
-        }
-        HaltReason::OpcodeNotFound => revm_edr::primitives::HaltReason::OpcodeNotFound,
-        HaltReason::InvalidFEOpcode => revm_edr::primitives::HaltReason::InvalidFEOpcode,
-        HaltReason::InvalidJump => revm_edr::primitives::HaltReason::InvalidJump,
-        HaltReason::NotActivated => revm_edr::primitives::HaltReason::NotActivated,
-        HaltReason::StackOverflow => revm_edr::primitives::HaltReason::StackOverflow,
-        HaltReason::StackUnderflow => revm_edr::primitives::HaltReason::StackUnderflow,
-        HaltReason::OutOfOffset => revm_edr::primitives::HaltReason::OutOfOffset,
-        HaltReason::CreateCollision => revm_edr::primitives::HaltReason::CreateCollision,
-        HaltReason::PrecompileError => revm_edr::primitives::HaltReason::PrecompileError,
-        HaltReason::NonceOverflow => revm_edr::primitives::HaltReason::NonceOverflow,
-        HaltReason::CreateContractSizeLimit => {
-            revm_edr::primitives::HaltReason::CreateContractSizeLimit
-        }
-        HaltReason::CreateContractStartingWithEF => {
-            revm_edr::primitives::HaltReason::CreateContractStartingWithEF
-        }
-        HaltReason::CreateInitCodeSizeLimit => {
-            revm_edr::primitives::HaltReason::CreateInitCodeSizeLimit
-        }
-        HaltReason::OverflowPayment => revm_edr::primitives::HaltReason::OverflowPayment,
-        HaltReason::StateChangeDuringStaticCall => {
-            revm_edr::primitives::HaltReason::StateChangeDuringStaticCall
-        }
-        HaltReason::CallNotAllowedInsideStatic => {
-            revm_edr::primitives::HaltReason::CallNotAllowedInsideStatic
-        }
-        HaltReason::OutOfFunds => revm_edr::primitives::HaltReason::OutOfFunds,
-        HaltReason::CallTooDeep => revm_edr::primitives::HaltReason::CallTooDeep,
-        HaltReason::EofAuxDataOverflow => revm_edr::primitives::HaltReason::EofAuxDataOverflow,
-        HaltReason::EofAuxDataTooSmall => revm_edr::primitives::HaltReason::EofAuxDataTooSmall,
-        HaltReason::EOFFunctionStackOverflow => {
-            revm_edr::primitives::HaltReason::EOFFunctionStackOverflow
-        }
-        // TODO discuss: this was added in REVM 13: https://github.com/bluealloy/revm/pull/1570
-        // This seems to be the closest error:
-        HaltReason::InvalidEXTCALLTarget => revm_edr::primitives::HaltReason::EofAuxDataTooSmall,
-        // TODO discuss: this is optimism only,but enabled the `optimism` feature for EDR REVM
-        // causes compilation errors
-        HaltReason::FailedDeposit => revm_edr::primitives::HaltReason::NotActivated,
-    }
-}
-
-fn convert_out_of_gas_error(
-    err: revm::primitives::OutOfGasError,
-) -> revm_edr::primitives::OutOfGasError {
-    use revm::primitives::OutOfGasError;
-    match err {
-        OutOfGasError::Basic => revm_edr::primitives::OutOfGasError::Basic,
-        OutOfGasError::Memory => revm_edr::primitives::OutOfGasError::Memory,
-        OutOfGasError::MemoryLimit => revm_edr::primitives::OutOfGasError::MemoryLimit,
-        OutOfGasError::Precompile => revm_edr::primitives::OutOfGasError::Precompile,
-        OutOfGasError::InvalidOperand => revm_edr::primitives::OutOfGasError::InvalidOperand,
-    }
-}
-
 fn convert_instruction_result_to_exit_code(
     result: revm::interpreter::InstructionResult,
 ) -> ExitCode {
@@ -267,7 +200,7 @@ fn convert_instruction_result_to_exit_code(
         ExitCode::Revert
     } else {
         let halt = success_or_halt.to_halt().expect("must be a halt");
-        ExitCode::Halt(convert_halt_reason(halt))
+        ExitCode::Halt(halt)
     }
 }
 

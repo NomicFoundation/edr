@@ -1,10 +1,11 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use alloy_chains::NamedChain;
+use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_json_abi::{Function, JsonAbi};
-use alloy_primitives::{Address, FixedBytes, U256};
-use alloy_rpc_types::{Block, Transaction};
-use eyre::ContextCompat;
+use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
+use alloy_primitives::{Address, PrimitiveSignature, Selector, B256, U256};
+use alloy_rpc_types::{Transaction, TransactionRequest};
 pub use revm::primitives::EvmState as StateChangeset;
 use revm::{
     db::WrapDatabaseRef,
@@ -20,16 +21,23 @@ use revm::{
 pub use crate::ic::*;
 use crate::{constants::DEFAULT_CREATE2_DEPLOYER, InspectorExt};
 
+/// Transaction identifier of System transaction types
+pub const SYSTEM_TRANSACTION_TYPE: u8 = 126;
+
 /// Depending on the configured chain id and block number this should apply any
 /// specific changes
 ///
 /// - checks for prevrandao mixhash after merge
 /// - applies chain specifics: on Arbitrum `block.number` is the L1 block
+///
 /// Should be called with proper chain id (retrieved from provider if not
 /// provided).
-pub fn apply_chain_and_block_specific_env_changes(env: &mut revm::primitives::Env, block: &Block) {
+pub fn apply_chain_and_block_specific_env_changes<N: Network>(
+    env: &mut revm::primitives::Env,
+    block: &N::BlockResponse,
+) {
     if let Ok(chain) = NamedChain::try_from(env.cfg.chain_id) {
-        let block_number = block.header.number.unwrap_or_default();
+        let block_number = block.header().number();
 
         match chain {
             NamedChain::Mainnet => {
@@ -40,16 +48,36 @@ pub fn apply_chain_and_block_specific_env_changes(env: &mut revm::primitives::En
 
                 return;
             }
-            NamedChain::Arbitrum
-            | NamedChain::ArbitrumGoerli
-            | NamedChain::ArbitrumNova
-            | NamedChain::ArbitrumTestnet => {
+            NamedChain::BinanceSmartChain | NamedChain::BinanceSmartChainTestnet => {
+                // https://github.com/foundry-rs/foundry/issues/9942
+                // As far as observed from the source code of bnb-chain/bsc, the `difficulty`
+                // field is still in use and returned by the corresponding
+                // opcode but `prevrandao` (`mixHash`) is always zero, even
+                // though bsc adopts the newer EVM specification. This will
+                // confuse revm and causes emulation failure.
+                env.block.prevrandao = Some(env.block.difficulty.into());
+                return;
+            }
+            NamedChain::Moonbeam
+            | NamedChain::Moonbase
+            | NamedChain::Moonriver
+            | NamedChain::MoonbeamDev => {
+                if env.block.prevrandao.is_none() {
+                    // <https://github.com/foundry-rs/foundry/issues/4232>
+                    env.block.prevrandao = Some(B256::random());
+                }
+            }
+            c if c.is_arbitrum() => {
                 // on arbitrum `block.number` is the L1 block which is included in the
                 // `l1BlockNumber` field
-                if let Some(l1_block_number) = block.other.get("l1BlockNumber").cloned() {
-                    if let Ok(l1_block_number) = serde_json::from_value::<U256>(l1_block_number) {
-                        env.block.number = l1_block_number;
-                    }
+                if let Some(l1_block_number) = block
+                    .other_fields()
+                    .and_then(|other| other.get("l1BlockNumber").cloned())
+                    .and_then(|l1_block_number| {
+                        serde_json::from_value::<U256>(l1_block_number).ok()
+                    })
+                {
+                    env.block.number = l1_block_number;
                 }
             }
             _ => {}
@@ -57,42 +85,105 @@ pub fn apply_chain_and_block_specific_env_changes(env: &mut revm::primitives::En
     }
 
     // if difficulty is `0` we assume it's past merge
-    if block.header.difficulty.is_zero() {
+    if block.header().difficulty().is_zero() {
         env.block.difficulty = env.block.prevrandao.unwrap_or_default().into();
     }
 }
 
 /// Given an ABI and selector, it tries to find the respective function.
-pub fn get_function(
+pub fn get_function<'a>(
     contract_name: &str,
-    selector: &FixedBytes<4>,
-    abi: &JsonAbi,
-) -> eyre::Result<Function> {
+    selector: Selector,
+    abi: &'a JsonAbi,
+) -> eyre::Result<&'a Function> {
     abi.functions()
-        .find(|func| func.selector().as_slice() == selector.as_slice())
-        .cloned()
-        .wrap_err(format!(
-            "{contract_name} does not have the selector {selector:?}"
-        ))
+        .find(|func| func.selector() == selector)
+        .ok_or_else(|| eyre::eyre!("{contract_name} does not have the selector {selector}"))
 }
 
-/// Configures the env for the transaction
-pub fn configure_tx_env(env: &mut revm::primitives::Env, tx: &Transaction) {
-    env.tx.caller = tx.from;
-    env.tx.gas_limit = tx.gas as u64;
-    env.tx.gas_price = U256::from(tx.gas_price.unwrap_or_default());
-    env.tx.gas_priority_fee = tx.max_priority_fee_per_gas.map(U256::from);
-    env.tx.nonce = Some(tx.nonce);
-    env.tx.access_list = tx
-        .access_list
+pub fn is_impersonated_tx(tx: &AnyTxEnvelope) -> bool {
+    if let AnyTxEnvelope::Ethereum(tx) = tx {
+        return is_impersonated_sig(tx.signature(), tx.ty());
+    }
+    false
+}
+
+pub fn is_impersonated_sig(sig: &PrimitiveSignature, ty: u8) -> bool {
+    let impersonated_sig = PrimitiveSignature::from_scalars_and_parity(
+        B256::with_last_byte(1),
+        B256::with_last_byte(1),
+        false,
+    );
+    if ty != SYSTEM_TRANSACTION_TYPE && sig == &impersonated_sig {
+        return true;
+    }
+    false
+}
+
+/// Configures the env for the given RPC transaction.
+pub fn configure_tx_env(env: &mut revm::primitives::Env, tx: &Transaction<AnyTxEnvelope>) {
+    if let AnyTxEnvelope::Ethereum(tx) = &tx.inner {
+        configure_tx_req_env(env, &tx.clone().into()).expect("cannot fail");
+    }
+}
+
+/// Configures the env for the given RPC transaction request.
+pub fn configure_tx_req_env(
+    env: &mut revm::primitives::Env,
+    tx: &TransactionRequest,
+) -> eyre::Result<()> {
+    let TransactionRequest {
+        nonce,
+        from,
+        to,
+        value,
+        gas_price,
+        gas,
+        max_fee_per_gas,
+        max_priority_fee_per_gas,
+        max_fee_per_blob_gas,
+        ref input,
+        chain_id,
+        ref blob_versioned_hashes,
+        ref access_list,
+        transaction_type: _,
+        ref authorization_list,
+        sidecar: _,
+    } = *tx;
+
+    // If no `to` field then set create kind: https://eips.ethereum.org/EIPS/eip-2470#deployment-transaction
+    env.tx.transact_to = to.unwrap_or(TxKind::Create);
+    env.tx.caller = from.ok_or_else(|| eyre::eyre!("missing `from` field"))?;
+    env.tx.gas_limit = gas.ok_or_else(|| eyre::eyre!("missing `gas` field"))?;
+    env.tx.nonce = nonce;
+    env.tx.value = value.unwrap_or_default();
+    env.tx.data = input.input().cloned().unwrap_or_default();
+    env.tx.chain_id = chain_id;
+
+    // Type 1, EIP-2930
+    env.tx.access_list = access_list
         .clone()
         .unwrap_or_default()
         .0
         .into_iter()
         .collect();
-    env.tx.value = tx.value.to();
-    env.tx.data = alloy_primitives::Bytes(tx.input.0.clone());
-    env.tx.transact_to = tx.to.map_or(TxKind::Create, TxKind::Call);
+
+    // Type 2, EIP-1559
+    env.tx.gas_price = U256::from(gas_price.or(max_fee_per_gas).unwrap_or_default());
+    env.tx.gas_priority_fee = max_priority_fee_per_gas.map(U256::from);
+
+    // Type 3, EIP-4844
+    env.tx.blob_hashes = blob_versioned_hashes.clone().unwrap_or_default();
+    env.tx.max_fee_per_blob_gas = max_fee_per_blob_gas.map(U256::from);
+
+    // Type 4, EIP-7702
+    if let Some(authorization_list) = authorization_list {
+        env.tx.authorization_list = Some(revm::primitives::AuthorizationList::Signed(
+            authorization_list.clone(),
+        ));
+    }
+
+    Ok(())
 }
 
 /// Get the gas used, accounting for refunds
@@ -172,7 +263,6 @@ pub fn create2_handler_register<DB: revm::Database, I: InspectorExt<DB>>(
             let code_hash = ctx
                 .evm
                 .load_account(DEFAULT_CREATE2_DEPLOYER)?
-                .0
                 .info
                 .code_hash;
             if code_hash == KECCAK_EMPTY {
@@ -197,18 +287,15 @@ pub fn create2_handler_register<DB: revm::Database, I: InspectorExt<DB>>(
         },
     );
 
-    let create2_overrides_inner = create2_overrides.clone();
+    let create2_overrides_inner = create2_overrides;
     let old_handle = handler.execution.insert_call_outcome.clone();
-
     handler.execution.insert_call_outcome =
         Arc::new(move |ctx, frame, shared_memory, mut outcome| {
             // If we are on the depth of the latest override, handle the outcome.
             if create2_overrides_inner
                 .borrow()
                 .last()
-                .map_or(false, |(depth, _)| {
-                    *depth == ctx.evm.journaled_state.depth()
-                })
+                .is_some_and(|(depth, _)| *depth == ctx.evm.journaled_state.depth())
             {
                 let (_, call_inputs) = create2_overrides_inner.borrow_mut().pop().unwrap();
                 outcome = ctx.external.call_end(&mut ctx.evm, &call_inputs, outcome);

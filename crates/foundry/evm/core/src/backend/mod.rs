@@ -7,9 +7,9 @@ use std::{
 };
 
 use alloy_genesis::GenesisAccount;
+use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
 use alloy_primitives::{address, b256, keccak256, Address, B256, U256};
-use alloy_rpc_types::{Block, BlockNumberOrTag, BlockTransactions, Transaction};
-use alloy_serde::WithOtherFields;
+use alloy_rpc_types::{BlockNumberOrTag, Transaction};
 use eyre::Context;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
@@ -17,8 +17,8 @@ use revm::{
     inspectors::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{
-        Account, AccountInfo, Bytecode, Env, EnvWithHandlerCfg, EvmState, EvmStorageSlot,
-        HashMap as Map, Log, ResultAndState, SpecId, TxKind, KECCAK_EMPTY,
+        Account, AccountInfo, BlobExcessGasAndPrice, Bytecode, Env, EnvWithHandlerCfg, EvmState,
+        EvmStorageSlot, HashMap as Map, Log, ResultAndState, SpecId, TxKind, KECCAK_EMPTY,
     },
     Database, DatabaseCommit, JournaledState,
 };
@@ -438,8 +438,7 @@ pub struct Backend {
     /// In a way the `JournaledState` is something like a cache that
     /// 1. check if account is already loaded (hot)
     /// 2. if not load from the `Database` (this will then retrieve the account
-    ///    via RPC in forking
-    /// mode)
+    ///    via RPC in forking mode)
     ///
     /// To properly initialize we store the `JournaledState` before the first
     /// fork is selected ([`DatabaseExt::select_fork`]).
@@ -977,7 +976,7 @@ impl Backend {
         &self,
         id: LocalForkId,
         transaction: B256,
-    ) -> eyre::Result<(u64, Block)> {
+    ) -> eyre::Result<(u64, AnyRpcBlock)> {
         let fork = self.inner.get_fork_by_id(id)?;
         let tx = fork.db.db.get_transaction(transaction)?;
 
@@ -992,10 +991,7 @@ impl Backend {
         } else {
             let block = fork.db.db.get_full_block(BlockNumberOrTag::Latest)?;
 
-            let number = block
-                .header
-                .number
-                .ok_or_else(|| BackendError::msg("missing block number"))?;
+            let number = block.header.number;
 
             Ok((number, block))
         }
@@ -1012,7 +1008,7 @@ impl Backend {
         env: Env,
         tx_hash: B256,
         journaled_state: &mut JournaledState,
-    ) -> eyre::Result<Option<Transaction>> {
+    ) -> eyre::Result<Option<Transaction<AnyTxEnvelope>>> {
         trace!(?id, ?tx_hash, "replay until transaction");
 
         let fork_id = self.ensure_fork_id(id)?.clone();
@@ -1021,32 +1017,30 @@ impl Backend {
         let fork = self.inner.get_fork_by_id_mut(id)?;
         let full_block = fork.db.db.get_full_block(env.block.number.to::<u64>())?;
 
-        if let BlockTransactions::Full(txs) = full_block.transactions {
-            for tx in txs {
-                // System transactions such as on L2s don't contain any pricing info so we skip
-                // them otherwise this would cause reverts
-                if is_known_system_sender(tx.from)
-                    || tx.transaction_type == Some(SYSTEM_TRANSACTION_TYPE)
-                {
-                    trace!(tx=?tx.hash, "skipping system transaction");
-                    continue;
-                }
-
-                if tx.hash == tx_hash {
-                    // found the target transaction
-                    return Ok(Some(tx));
-                }
-                trace!(tx=?tx.hash, "committing transaction");
-
-                commit_transaction(
-                    WithOtherFields::new(tx),
-                    env.clone(),
-                    journaled_state,
-                    fork,
-                    &fork_id,
-                    &mut NoOpInspector,
-                )?;
+        for tx in full_block.inner.transactions.into_transactions() {
+            // System transactions such as on L2s don't contain any pricing info so we skip
+            // them otherwise this would cause reverts
+            if is_known_system_sender(tx.from)
+                || tx.transaction_type() == Some(SYSTEM_TRANSACTION_TYPE)
+            {
+                trace!(tx=?tx.tx_hash(), "skipping system transaction");
+                continue;
             }
+
+            if tx.tx_hash() == tx_hash {
+                // found the target transaction
+                return Ok(Some(tx.inner));
+            }
+            trace!(tx=?tx.tx_hash(), "committing transaction");
+
+            commit_transaction(
+                &tx.inner,
+                env.clone(),
+                journaled_state,
+                fork,
+                &fork_id,
+                &mut NoOpInspector,
+            )?;
         }
 
         Ok(None)
@@ -1353,7 +1347,7 @@ impl DatabaseExt for Backend {
         // roll the fork to the transaction's block or latest if it's pending
         self.roll_fork(Some(id), fork_block, env, journaled_state)?;
 
-        update_env_block(env, fork_block, &block);
+        update_env_block(env, &block);
 
         // replay all transactions that came before
         let env = env.clone();
@@ -1382,14 +1376,14 @@ impl DatabaseExt for Backend {
 
         // This is a bit ambiguous because the user wants to transact an arbitrary transaction in the current context, but we're assuming the user wants to transact the transaction as it was mined. Usually this is used in a combination of a fork at the transaction's parent transaction in the block and then the transaction is transacted: <https://github.com/foundry-rs/foundry/issues/6538>
         // So we modify the env to match the transaction's block
-        let (fork_block, block) =
+        let (_fork_block, block) =
             self.get_block_number_and_block_for_transaction(id, transaction)?;
         let mut env = env.clone();
-        update_env_block(&mut env, fork_block, &block);
+        update_env_block(&mut env, &block);
 
         let env = self.env_with_handler_cfg(env);
         let fork = self.inner.get_fork_by_id_mut(id)?;
-        commit_transaction(tx, env, journaled_state, fork, &fork_id, inspector)
+        commit_transaction(&tx, env, journaled_state, fork, &fork_id, inspector)
     }
 
     fn active_fork_id(&self) -> Option<LocalForkId> {
@@ -1481,7 +1475,7 @@ impl DatabaseExt for Backend {
         for (addr, acc) in allocs.iter() {
             // Fetch the account from the journaled state. Will create a new account if it
             // does not already exist.
-            let (state_acc, _) = journaled_state.load_account(*addr, self)?;
+            let mut state_acc = journaled_state.load_account(*addr, self)?;
 
             // Set the account's bytecode and code hash, if the `bytecode` field is present.
             if let Some(bytecode) = acc.code.as_ref() {
@@ -2052,27 +2046,31 @@ fn is_contract_in_state(journaled_state: &JournaledState, acc: Address) -> bool 
 }
 
 /// Updates the env's block with the block's data
-fn update_env_block(env: &mut Env, fork_block: u64, block: &Block) {
+fn update_env_block(env: &mut Env, block: &AnyRpcBlock) {
     env.block.timestamp = U256::from(block.header.timestamp);
-    env.block.coinbase = block.header.miner;
+    env.block.coinbase = block.header.beneficiary;
     env.block.difficulty = block.header.difficulty;
     env.block.prevrandao = Some(block.header.mix_hash.unwrap_or_default());
     env.block.basefee = U256::from(block.header.base_fee_per_gas.unwrap_or_default());
     env.block.gas_limit = U256::from(block.header.gas_limit);
-    env.block.number = U256::from(block.header.number.unwrap_or(fork_block));
+    env.block.number = U256::from(block.header.number);
+    if let Some(excess_blob_gas) = block.header.excess_blob_gas {
+        env.block.blob_excess_gas_and_price =
+            Some(BlobExcessGasAndPrice::new(excess_blob_gas, false));
+    }
 }
 
 /// Executes the given transaction and commits state changes to the database
 /// _and_ the journaled state, with an optional inspector
 fn commit_transaction<I: InspectorExt<Backend>>(
-    tx: WithOtherFields<Transaction>,
+    tx: &Transaction<AnyTxEnvelope>,
     mut env: EnvWithHandlerCfg,
     journaled_state: &mut JournaledState,
     fork: &mut Fork,
     fork_id: &ForkId,
     inspector: I,
 ) -> eyre::Result<()> {
-    configure_tx_env(&mut env.env, &tx);
+    configure_tx_env(&mut env.env, tx);
 
     let now = Instant::now();
     let res = {

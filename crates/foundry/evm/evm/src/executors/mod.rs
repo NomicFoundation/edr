@@ -864,7 +864,7 @@ fn convert_executed_result(
         ExecutionResult::Halt { reason, gas_used } => (reason.into(), 0_u64, gas_used, None),
     };
 
-    let stipend = revm::interpreter::gas::validate_initial_tx_gas(
+    let gas = revm::interpreter::gas::calculate_initial_tx_gas(
         env.spec_id(),
         &env.tx.data,
         env.tx.transact_to.is_create(),
@@ -893,7 +893,7 @@ fn convert_executed_result(
         result,
         gas_used,
         gas_refunded,
-        stipend,
+        stipend: gas.initial_gas,
         logs,
         labels,
         traces,

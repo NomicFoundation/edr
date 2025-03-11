@@ -66,7 +66,7 @@ pub(super) struct StateTrieMutation<'a> {
     trie_query: TrieQuery,
 }
 
-impl<'a> StateTrieMutation<'a> {
+impl StateTrieMutation<'_> {
     pub fn account(&self, address: &Address) -> Option<BasicAccount> {
         self.state_trie.account(address)
     }
@@ -90,7 +90,7 @@ impl<'a> StateTrieMutation<'a> {
     }
 }
 
-impl<'a> Drop for StateTrieMutation<'a> {
+impl Drop for StateTrieMutation<'_> {
     fn drop(&mut self) {
         self.state_trie.root = self.trie_query.root();
     }

@@ -1,17 +1,17 @@
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::{path::PathBuf, str::FromStr};
 
 use foundry_compilers::{
     artifacts::{
         output_selection::{ContractOutputSelection, OutputSelection},
-        BytecodeHash, DebuggingSettings, Libraries, ModelCheckerSettings, ModelCheckerTarget,
-        Optimizer, OptimizerDetails, RevertStrings, Settings, SettingsMetadata, Severity,
+        BytecodeHash, DebuggingSettings, EvmVersion, Libraries, ModelCheckerSettings,
+        ModelCheckerTarget, Optimizer, OptimizerDetails, RelativeRemapping, Remapping,
+        RevertStrings, Settings, SettingsMetadata, Severity,
     },
     cache::SOLIDITY_FILES_CACHE_FILENAME,
-    compilers::{solc::SolcVersionManager, CompilerVersionManager},
     error::SolcError,
-    remappings::{RelativeRemapping, Remapping},
-    CompilerConfig, ConfigurableArtifacts, EvmVersion, Project, ProjectPathsConfig, Solc,
-    SolcConfig,
+    multi::{MultiCompiler, MultiCompilerSettings},
+    solc::{CliSettings, Solc, SolcCompiler, SolcSettings},
+    ConfigurableArtifacts, Project, ProjectPathsConfig, VyperSettings,
 };
 use semver::Version;
 
@@ -169,15 +169,11 @@ impl IntegrationTestConfig {
 
     /// Creates a [Project] with the given `cached` and `no_artifacts` flags
     fn create_project(&self, cached: bool, no_artifacts: bool) -> Result<Project, SolcError> {
+        let settings = self.compiler_settings()?;
         let project = Project::builder()
             .artifacts(self.configured_artifacts_handler())
             .paths(self.project_paths())
-            .settings(
-                SolcConfig::builder()
-                    .settings(self.solc_settings()?)
-                    .build()
-                    .settings,
-            )
+            .settings(settings)
             .ignore_error_codes(self.ignored_error_codes.iter().copied().map(Into::into))
             .ignore_paths(self.ignored_file_paths.clone())
             .set_compiler_severity_filter(if self.deny_warnings {
@@ -189,7 +185,7 @@ impl IntegrationTestConfig {
             .set_cached(cached && !self.build_info)
             .set_build_info(!no_artifacts && self.build_info)
             .set_no_artifacts(no_artifacts)
-            .build(self.compiler_config()?)?;
+            .build(self.compiler()?)?;
 
         if self.force {
             project.cleanup()?;
@@ -207,11 +203,10 @@ impl IntegrationTestConfig {
     /// If `solc` is [`SolcReq::Local`] then this will ensure that the path
     /// exists.
     fn ensure_solc(&self) -> Result<Option<Solc>, SolcError> {
-        if let Some(ref solc) = self.solc {
-            let version_manager = SolcVersionManager::default();
+        if let Some(solc) = &self.solc {
             let solc = match solc {
                 SolcReq::Version(version) => {
-                    if let Ok(solc) = version_manager.get_installed(version) {
+                    if let Some(solc) = Solc::find_svm_installed_version(version)? {
                         solc
                     } else {
                         if self.offline {
@@ -219,7 +214,7 @@ impl IntegrationTestConfig {
                                 "can't install missing solc {version} in offline mode"
                             )));
                         }
-                        version_manager.install(version)?
+                        Solc::blocking_install(version)?
                     }
                 }
                 SolcReq::Local(solc) => {
@@ -259,15 +254,28 @@ impl IntegrationTestConfig {
         builder.build_with_root(&self.project_root)
     }
 
-    /// Returns configuration for a compiler to use when setting up a [Project].
-    fn compiler_config(&self) -> Result<CompilerConfig<Solc>, SolcError> {
+    fn solc_compiler(&self) -> Result<SolcCompiler, SolcError> {
         if let Some(solc) = self.ensure_solc()? {
-            Ok(CompilerConfig::Specific(solc))
+            Ok(SolcCompiler::Specific(solc))
         } else {
-            Ok(CompilerConfig::AutoDetect(Arc::new(
-                SolcVersionManager::default(),
-            )))
+            Ok(SolcCompiler::AutoDetect)
         }
+    }
+
+    /// Returns configuration for a compiler to use when setting up a [Project].
+    fn compiler(&self) -> Result<MultiCompiler, SolcError> {
+        Ok(MultiCompiler {
+            solc: Some(self.solc_compiler()?),
+            vyper: None,
+        })
+    }
+
+    /// Returns configured [`MultiCompilerSettings`].
+    fn compiler_settings(&self) -> Result<MultiCompilerSettings, SolcError> {
+        Ok(MultiCompilerSettings {
+            solc: self.solc_settings()?,
+            vyper: VyperSettings::default(),
+        })
     }
 
     /// Returns all configured [`Remappings`]
@@ -333,16 +341,17 @@ impl IntegrationTestConfig {
     /// Returns all libraries with applied remappings. Same as
     /// `self.solc_settings()?.libraries`.
     fn libraries_with_remappings(&self) -> Result<Libraries, SolcError> {
+        let paths: ProjectPathsConfig = self.project_paths();
         Ok(self
             .parsed_libraries()?
-            .with_applied_remappings(&self.project_paths()))
+            .apply(|libs| paths.apply_lib_remappings(libs)))
     }
 
     /// Returns the configured `solc` `Settings` that includes:
     /// - all libraries
     /// - the optimizer (including details, if configured)
     /// - evm version
-    fn solc_settings(&self) -> Result<Settings, SolcError> {
+    fn solc_settings(&self) -> Result<SolcSettings, SolcError> {
         // By default if no targets are specifically selected the model checker uses all
         // targets. This might be too much here, so only enable assertion
         // checks. If users wish to enable all options they need to do so
@@ -376,6 +385,7 @@ impl IntegrationTestConfig {
             remappings: Vec::new(),
             // Set with `with_extra_output` below.
             output_selection: OutputSelection::default(),
+            eof_version: None,
         }
         .with_extra_output(self.configured_artifacts_handler().output_selection());
 
@@ -384,7 +394,12 @@ impl IntegrationTestConfig {
             settings = settings.with_ast();
         }
 
-        Ok(settings)
+        let cli_settings = CliSettings::default();
+
+        Ok(SolcSettings {
+            settings,
+            cli_settings,
+        })
     }
 
     /// Creates a new Config that adds additional context extracted from the

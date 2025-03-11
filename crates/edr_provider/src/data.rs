@@ -652,10 +652,14 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                     } else {
                         None
                     },
-                    blob_excess_gas_and_price: header
-                        .blob_gas
-                        .as_ref()
-                        .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas)),
+                    blob_excess_gas_and_price: header.blob_gas.as_ref().map(
+                        |BlobGas { excess_gas, .. }| {
+                            BlobExcessGasAndPrice::new(
+                                *excess_gas,
+                                cfg_env.handler_cfg.spec_id >= SpecId::PRAGUE,
+                            )
+                        },
+                    ),
                 };
 
                 debug_trace_transaction(
@@ -1324,7 +1328,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         }
 
         let last_block = self.last_block()?;
-        let base_fee = calculate_next_base_fee_per_blob_gas(last_block.header());
+        let base_fee = calculate_next_base_fee_per_blob_gas(last_block.header(), self.spec_id());
 
         Ok(Some(U256::from(base_fee)))
     }
@@ -1551,13 +1555,13 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             None
         };
 
-        let transaction_hash = self.add_pending_transaction(transaction).map_err(|error| {
-            if let Some(snapshot_id) = snapshot_id {
-                self.revert_to_snapshot(snapshot_id);
-            }
-
-            error
-        })?;
+        let transaction_hash = self
+            .add_pending_transaction(transaction)
+            .inspect_err(|_error| {
+                if let Some(snapshot_id) = snapshot_id {
+                    self.revert_to_snapshot(snapshot_id);
+                }
+            })?;
 
         let mut mining_results = Vec::new();
         snapshot_id
@@ -1565,10 +1569,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 loop {
                     let result = self
                         .mine_and_commit_block(BlockOptions::default())
-                        .map_err(|error| {
+                        .inspect_err(|_error| {
                             self.revert_to_snapshot(snapshot_id);
-
-                            error
                         })?;
 
                     let mined_transaction = result.has_transaction(&transaction_hash);
@@ -1583,10 +1585,8 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
                 while self.mem_pool.has_pending_transactions() {
                     let result = self
                         .mine_and_commit_block(BlockOptions::default())
-                        .map_err(|error| {
+                        .inspect_err(|_error| {
                             self.revert_to_snapshot(snapshot_id);
-
-                            error
                         })?;
 
                     mining_results.push(result);

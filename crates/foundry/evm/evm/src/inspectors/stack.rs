@@ -472,7 +472,6 @@ impl InspectorStack {
             .journaled_state
             .load_account(caller, &mut ecx.db)
             .expect("failed to load caller")
-            .0
             .info
             .nonce;
 

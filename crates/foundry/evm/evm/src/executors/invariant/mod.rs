@@ -657,7 +657,7 @@ impl<'a> InvariantExecutor<'a> {
             // we're only looking at specific functions coming from
             // `bytes4_array`.
             for selector in bytes4_array {
-                address_selectors.push(get_function(name, &selector, abi)?);
+                address_selectors.push(get_function(name, selector, abi)?.clone());
             }
         } else {
             let (name, abi) = self.setup_contracts.get(&address).ok_or_else(|| {
@@ -668,7 +668,7 @@ impl<'a> InvariantExecutor<'a> {
 
             let functions = bytes4_array
                 .into_iter()
-                .map(|selector| get_function(name, &selector, abi))
+                .map(|selector| get_function(name, selector, abi).map(ToOwned::to_owned))
                 .collect::<Result<Vec<_>, _>>()?;
 
             targeted_contracts.insert(address, (name.to_string(), abi.clone(), functions));

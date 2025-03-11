@@ -165,7 +165,7 @@ pub(crate) struct CheatsCtxt<'cheats, 'evm, DB: DatabaseExt> {
     pub(crate) caller: Address,
 }
 
-impl<'cheats, 'evm, DB: DatabaseExt> std::ops::Deref for CheatsCtxt<'cheats, 'evm, DB> {
+impl<DB: DatabaseExt> std::ops::Deref for CheatsCtxt<'_, '_, DB> {
     type Target = InnerEvmContext<DB>;
 
     #[inline(always)]
@@ -174,14 +174,14 @@ impl<'cheats, 'evm, DB: DatabaseExt> std::ops::Deref for CheatsCtxt<'cheats, 'ev
     }
 }
 
-impl<'cheats, 'evm, DB: DatabaseExt> std::ops::DerefMut for CheatsCtxt<'cheats, 'evm, DB> {
+impl<DB: DatabaseExt> std::ops::DerefMut for CheatsCtxt<'_, '_, DB> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.ecx
     }
 }
 
-impl<'cheats, 'evm, DB: DatabaseExt> CheatsCtxt<'cheats, 'evm, DB> {
+impl<DB: DatabaseExt> CheatsCtxt<'_, '_, DB> {
     #[inline]
     pub(crate) fn is_precompile(&self, address: &Address) -> bool {
         self.precompiles.contains(address)

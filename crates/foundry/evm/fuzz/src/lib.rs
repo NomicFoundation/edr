@@ -377,5 +377,5 @@ pub fn fixture_name(function_name: String) -> String {
 
 /// Normalize fixture parameter name, for example `_Owner` to `owner`.
 fn normalize_fixture(param_name: &str) -> String {
-    param_name.trim_matches(&['_']).to_ascii_lowercase()
+    param_name.trim_matches(['_']).to_ascii_lowercase()
 }

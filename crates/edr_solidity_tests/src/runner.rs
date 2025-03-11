@@ -120,7 +120,7 @@ impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, Nested
     }
 }
 
-impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedTraceDecoderT> {
+impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTraceDecoderT> {
     /// Runs all tests for a contract whose names match the provided regular
     /// expression
     pub fn run_tests(
@@ -464,8 +464,7 @@ impl<'a, NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedT
     /// Fixtures can be defined:
     /// - as storage arrays in test contract, prefixed with `fixture`
     /// - as functions prefixed with `fixture` and followed by parameter name to
-    ///   be
-    /// fuzzed
+    ///   be fuzzed
     ///
     /// Storage array fixtures:
     /// `uint256[] public fixture_amount = [1, 2, 3];`
