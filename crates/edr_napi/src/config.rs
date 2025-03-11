@@ -39,8 +39,10 @@ pub enum SpecId {
     Shanghai = 16,
     /// Cancun
     Cancun = 17,
+    /// Prague
+    Prague = 18,
     /// Latest
-    Latest = 18,
+    Latest = 19,
 }
 
 impl From<SpecId> for edr_evm::SpecId {
@@ -64,6 +66,7 @@ impl From<SpecId> for edr_evm::SpecId {
             SpecId::Merge => edr_evm::SpecId::MERGE,
             SpecId::Shanghai => edr_evm::SpecId::SHANGHAI,
             SpecId::Cancun => edr_evm::SpecId::CANCUN,
+            SpecId::Prague => edr_evm::SpecId::PRAGUE,
             SpecId::Latest => edr_evm::SpecId::LATEST,
         }
     }

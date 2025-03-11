@@ -107,8 +107,10 @@ export const enum SpecId {
   Shanghai = 16,
   /** Cancun */
   Cancun = 17,
+  /** Prague */
+  Prague = 18,
   /** Latest */
-  Latest = 18
+  Latest = 19
 }
 export interface DebugTraceResult {
   pass: boolean
