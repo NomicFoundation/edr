@@ -376,16 +376,6 @@ export interface SubscriptionEvent {
   result: any
 }
 export declare function linkHexStringBytecode(code: string, address: string, position: number): string
-export enum ContractFunctionType {
-  CONSTRUCTOR = 0,
-  FUNCTION = 1,
-  FALLBACK = 2,
-  RECEIVE = 3,
-  GETTER = 4,
-  MODIFIER = 5,
-  FREE_FUNCTION = 6
-}
-export declare function printMessageTrace(trace: PrecompileMessageTrace | CallMessageTrace | CreateMessageTrace, depth?: number | undefined | null): void
 export declare function printStackTrace(trace: SolidityStackTrace): void
 /** Represents the exit code of the EVM. */
 export enum ExitCode {
@@ -408,7 +398,7 @@ export enum ExitCode {
   /** Unknown halt reason. */
   UNKNOWN_HALT_REASON = 8
 }
-export const enum ContractFunctionType {
+export enum ContractFunctionType {
   CONSTRUCTOR = 0,
   FUNCTION = 1,
   FALLBACK = 2,
