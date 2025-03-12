@@ -1,6 +1,8 @@
 //! Naive rewrite of `hardhat-network/stack-traces/solidity-stack-traces.ts`
 //! from Hardhat.
 
+use std::convert::Infallible;
+
 use edr_eth::U256;
 use edr_evm::hex;
 use napi::bindgen_prelude::{BigInt, Either24, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
@@ -605,7 +607,7 @@ pub type SolidityStackTraceEntry = Either24<
 >;
 
 impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::StackTraceEntry {
-    type Error = napi::Error;
+    type Error = Infallible;
 
     fn try_cast(self) -> Result<SolidityStackTraceEntry, Self::Error> {
         use edr_solidity::solidity_stack_trace::StackTraceEntry;

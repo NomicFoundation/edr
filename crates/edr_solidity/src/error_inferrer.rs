@@ -46,7 +46,7 @@ pub(crate) struct SubmessageData {
 }
 
 /// Errors that can occur during the inference of the stack trace.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum InferrerError {
     /// Errors that can occur when decoding the ABI.
     #[error("{0}")]
@@ -68,8 +68,8 @@ pub enum InferrerError {
     #[error("Missing source reference")]
     MissingSourceReference,
     /// Serde JSON error.
-    #[error(transparent)]
-    SerdeJson(#[from] serde_json::Error),
+    #[error("Serde JSON error: {0}")]
+    SerdeJson(String),
     /// Solidity types error.
     #[error(transparent)]
     SolidityTypes(#[from] alloy_sol_types::Error),
@@ -80,6 +80,12 @@ pub enum InferrerError {
 impl From<alloy_dyn_abi::Error> for InferrerError {
     fn from(err: alloy_dyn_abi::Error) -> Self {
         Self::Abi(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for InferrerError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::SerdeJson(value.to_string())
     }
 }
 

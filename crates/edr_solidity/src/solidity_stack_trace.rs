@@ -190,4 +190,16 @@ impl StackTraceEntry {
             | StackTraceEntry::UnrecognizedContractError { .. } => None,
         }
     }
+
+    /// Whether the stack trace entry is an unrecognized contract call to the
+    /// specified address.
+    pub fn is_unrecognized_contract_call_error(&self, contract_address: &Address) -> bool {
+        match self {
+            StackTraceEntry::UnrecognizedContractCallstackEntry { address }
+            | StackTraceEntry::UnrecognizedContractError { address, .. } => {
+                address == contract_address
+            }
+            _ => false,
+        }
+    }
 }

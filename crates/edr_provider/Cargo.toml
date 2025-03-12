@@ -1,11 +1,11 @@
 [package]
 name = "edr_provider"
-version = "0.3.5"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
-alloy-dyn-abi = { version = "0.8.18", features = ["eip712"] }
-alloy-sol-types = { version = "0.8.18", default-features = false, features = ["std"] }
+alloy-dyn-abi.workspace = true
+alloy-sol-types.workspace = true
 anyhow = { version = "1.0.75", optional = true }
 auto_impl = { version = "1.2", default-features = false }
 dyn-clone = { version = "1.0.13", default-features = false }
@@ -24,8 +24,8 @@ parking_lot = { version = "0.12.1", default-features = false }
 rand = { version = "0.8.5", default-features = false }
 revm-precompile = { version = "16.0", default-features = false, features = ["blst", "c-kzg", "secp256r1", "std"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
-serde = { version = "1.0.147", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.89" }
+serde.workspace = true
+serde_json.workspace = true
 sha3 = { version = "0.10.6", default-features = false }
 thiserror = { version = "1.0.37", default-features = false }
 tokio = { version = "1.21.2", default-features = false, features = ["macros"] }
