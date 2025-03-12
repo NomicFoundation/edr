@@ -260,7 +260,7 @@ impl FuzzedExecutor {
                 counterexample: CounterExampleData {
                     calldata,
                     call,
-                    indeterminism_reasons: cow_backend.backend.indeterminism_reasons(),
+                    indeterminism_reasons: cow_backend.indeterminism_reasons(),
                 },
             }))
         }
