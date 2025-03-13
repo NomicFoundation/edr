@@ -404,7 +404,7 @@ impl RuntimeSpec for L1ChainSpec {
     >(
         context: ContextForChainSpec<Self, DatabaseT>,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, NoOpInspector, StateErrorT> {
-        context.build_mainnet_with_inspector(NoOpInspector)
+        context.build_mainnet_with_inspector(NoOpInspector {})
     }
 
     fn evm_with_inspector<

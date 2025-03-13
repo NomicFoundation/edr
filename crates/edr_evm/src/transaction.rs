@@ -10,7 +10,7 @@ use edr_eth::{l1, spec::ChainSpec, U256};
 use revm_context::transaction::AccessListTr as AccessListTrait;
 
 pub use self::detailed::*;
-use crate::{precompile::PrecompileError, state::DatabaseComponentError};
+use crate::state::DatabaseComponentError;
 
 pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<
     BlockchainErrorT,
@@ -44,7 +44,7 @@ pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationEr
     },
     /// Precompile errors
     #[error("{0}")]
-    Precompile(PrecompileError),
+    Precompile(String),
     /// State errors
     #[error(transparent)]
     State(StateErrorT),
