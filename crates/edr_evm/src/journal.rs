@@ -5,6 +5,7 @@ pub use revm_context_interface::JournalTr as JournalTrait;
 
 use crate::state::{Database, EvmState};
 
+/// Extension trait for `Journal` to provide additional functionality.
 pub trait JournalExt {
     type Entry;
 

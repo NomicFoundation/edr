@@ -1,12 +1,10 @@
 use edr_eth::spec::{ChainSpec, HaltReasonTrait};
 use edr_evm::{
     blockchain::BlockHash,
-    evm::EvmSpec,
-    instruction::{InspectableInstructionProvider, InspectsInstructionWithJournal},
     interpreter::{EthInterpreter, Interpreter},
     spec::RuntimeSpec,
     state::{DatabaseComponents, JournaledState, State, WrapDatabaseRef},
-    trace::{TraceCollector, TraceCollectorContext, RawTracerFrame, TraceCollectorMutGetter},
+    trace::{RawTracerFrame, TraceCollector, TraceCollectorContext, TraceCollectorMutGetter},
 };
 
 use crate::{

@@ -420,18 +420,16 @@ where
         self.add_transaction(transaction)
     }
 
-    fn add_transaction_with_inspector<'inspector, InspectorT>(
+    fn add_transaction_with_inspector<InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        inspector: &'inspector mut InspectorT,
+        inspector: &mut InspectorT,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
     >
     where
-        'builder: 'inspector,
-        ChainSpecT: 'inspector,
-        InspectorT: Inspector<
+        InspectorT: for<'inspector> Inspector<
             ContextForChainSpec<
                 ChainSpecT,
                 WrapDatabaseRef<
@@ -446,8 +444,6 @@ where
                 >,
             >,
         >,
-        Self::BlockchainError: 'inspector,
-        Self::StateError: 'inspector,
     {
         self.add_transaction_with_inspector(transaction, inspector)
     }

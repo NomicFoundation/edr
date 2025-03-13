@@ -13,7 +13,7 @@ use edr_eth::{
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector, MainBuilder, MainnetEvm};
-pub use revm_context_interface::ContextTr as ContextTrait;
+pub use revm_context_interface::ContextTrait;
 
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,

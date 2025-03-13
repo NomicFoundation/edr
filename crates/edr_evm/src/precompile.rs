@@ -5,7 +5,7 @@ use revm::interpreter::{Gas, InstructionResult, InterpreterResult};
 pub use revm::precompile::{
     u64_to_address, PrecompileError, PrecompileFn, PrecompileSpecId, Precompiles,
 };
-use revm_context_interface::ContextTr as ContextTrait;
+use revm_context_interface::ContextTrait;
 use revm_handler::PrecompileProvider;
 
 use crate::config::Cfg;

@@ -1,6 +1,3 @@
-mod context;
-mod frame;
-
 use std::{collections::HashMap, fmt::Debug};
 
 use edr_eth::{
@@ -13,27 +10,24 @@ use edr_eth::{
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
-use revm_context_interface::Journal;
+use revm::Inspector;
+use revm_context::ContextTrait;
+use revm_context_interface::JournalTr as JournalTrait;
 use revm_interpreter::{
     interpreter::EthInterpreter,
     interpreter_types::{InputsTr as _, Jumps, LoopControl as _},
+    CallInputs, CallOutcome, CreateInputs, CreateOutcome,
 };
 
-pub use self::{
-    context::{Eip3155AndRawTracersContext, Eip3155TracerContext, Eip3155TracerMutGetter},
-    frame::{
-        Eip3155AndRawTracersFrame, Eip3155AndRawTracersFrameWithPrecompileProvider,
-        Eip3155TracerFrame,
-    },
-};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
+    inspector::DualInspector,
     interpreter::{Interpreter, InterpreterResult},
     journal::{JournalEntry, JournalExt},
     runtime::{dry_run_with_inspector, run},
     spec::RuntimeSpec,
-    state::{Database, SyncState},
+    state::SyncState,
     trace::{Trace, TraceCollector},
     transaction::TransactionError,
 };
@@ -53,7 +47,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     verbose_tracing: bool,
 ) -> Result<
     DebugTraceResultWithTraces<ChainSpecT::HaltReason>,
-    DebugTraceError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    DebugTraceErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
 >
 where
     ChainSpecT: RuntimeSpec<
@@ -78,24 +72,15 @@ where
             let mut eip3155_tracer = TracerEip3155::new(trace_config);
             let mut raw_tracer = TraceCollector::new(verbose_tracing);
 
-            let context = Eip3155AndRawTracersContext::<
-                &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                _,
-                &dyn SyncState<StateErrorT>,
-            >::new(&mut eip3155_tracer, &mut raw_tracer);
-            let mut extension = ContextExtension::<
-                _,
-                Eip3155AndRawTracersFrame<BlockchainErrorT, ChainSpecT, _, StateErrorT>,
-            >::new(context);
-
-            let ExecutionResultAndState { result, .. } = dry_run_with_inspector(
-                blockchain,
-                state.as_ref(),
-                evm_config,
-                transaction,
-                block,
-                &mut extension,
-            )?;
+            let ExecutionResultAndState { result, .. } =
+                dry_run_with_inspector::<_, ChainSpecT, _, _>(
+                    blockchain,
+                    state.as_ref(),
+                    evm_config,
+                    transaction,
+                    block,
+                    &mut DualInspector::new(&mut eip3155_tracer, &mut raw_tracer),
+                )?;
 
             return Ok(execution_result_to_debug_result(
                 result,
@@ -103,7 +88,7 @@ where
                 eip3155_tracer,
             ));
         } else {
-            run(
+            run::<_, ChainSpecT, _>(
                 blockchain,
                 state.as_mut(),
                 evm_config.clone(),
@@ -164,12 +149,16 @@ pub struct DebugTraceConfig {
     pub disable_stack: bool,
 }
 
+/// Helper type for a chain-specific [`DebugTraceError`].
+pub type DebugTraceErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = DebugTraceError<
+    BlockchainErrorT,
+    StateErrorT,
+    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+>;
+
 /// Debug trace error.
 #[derive(Debug, thiserror::Error)]
-pub enum DebugTraceError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT: ChainSpec,
-{
+pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> {
     /// Invalid hardfork spec argument.
     #[error("Invalid spec id: {spec_id:?}. `debug_traceTransaction` is not supported prior to Spurious Dragon")]
     InvalidSpecId {
@@ -186,7 +175,9 @@ where
     },
     /// Transaction error.
     #[error(transparent)]
-    TransactionError(#[from] TransactionError<BlockchainErrorT, ChainSpecT, StateErrorT>),
+    TransactionError(
+        #[from] TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+    ),
 }
 
 /// Result of a `debug_traceTransaction` call.
@@ -281,7 +272,46 @@ impl TracerEip3155 {
         }
     }
 
-    fn step(&mut self, interpreter: &Interpreter<EthInterpreter>) {
+    fn on_inner_frame_result(&mut self, result: &InterpreterResult) {
+        self.gas_remaining = if result.result.is_error() {
+            0
+        } else {
+            result.gas.remaining()
+        };
+    }
+}
+
+impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspector<ContextT>
+    for TracerEip3155
+{
+    fn call_end(
+        &mut self,
+        _context: &mut ContextT,
+        _inputs: &CallInputs,
+        outcome: &mut CallOutcome,
+    ) {
+        self.on_inner_frame_result(&outcome.result);
+    }
+
+    fn create_end(
+        &mut self,
+        _context: &mut ContextT,
+        _inputs: &CreateInputs,
+        outcome: &mut CreateOutcome,
+    ) {
+        self.on_inner_frame_result(&outcome.result);
+    }
+
+    fn eofcreate_end(
+        &mut self,
+        _context: &mut ContextT,
+        _inputs: &revm_interpreter::EOFCreateInputs,
+        outcome: &mut CreateOutcome,
+    ) {
+        self.on_inner_frame_result(&outcome.result);
+    }
+
+    fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, _context: &mut ContextT) {
         self.contract_address = interpreter.input.target_address();
         self.gas_remaining = interpreter.control.gas().remaining();
 
@@ -300,14 +330,8 @@ impl TracerEip3155 {
         self.pc = interpreter.bytecode.pc();
     }
 
-    fn step_end<DatabaseT, FinalOutputT, JournalT>(
-        &mut self,
-        interpreter: &Interpreter<EthInterpreter>,
-        journal: &impl Journal<Database = DatabaseT, FinalOutput = FinalOutputT>,
-    ) where
-        DatabaseT: Database<Error: Debug>,
-        JournalT: Journal<Database = DatabaseT, FinalOutput = FinalOutputT> + JournalExt,
-    {
+    fn step_end(&mut self, interpreter: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
+        let journal = context.journal();
         let depth = journal.depth() as u64;
 
         let stack = if self.config.disable_stack {
@@ -380,13 +404,5 @@ impl TracerEip3155 {
             storage,
         };
         self.logs.push(log_item);
-    }
-
-    fn on_inner_frame_result(&mut self, result: &InterpreterResult) {
-        self.gas_remaining = if result.result.is_error() {
-            0
-        } else {
-            result.gas.remaining()
-        };
     }
 }

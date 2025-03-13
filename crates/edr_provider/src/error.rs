@@ -13,7 +13,8 @@ use edr_evm::{
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
-    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
+    MemPoolAddTransactionError, MineBlockError, MineBlockErrorForChainSpec, MineTransactionError,
+    MineTransactionErrorForChainSpec,
 };
 use edr_rpc_eth::{client::RpcClientError, jsonrpc};
 use serde::Serialize;
@@ -132,13 +133,22 @@ where
     /// An error occurred while mining a block.
     #[error(transparent)]
     MineBlock(
-        #[from] MineBlockError<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+        #[from]
+        MineBlockErrorForChainSpec<
+            BlockchainErrorForChainSpec<ChainSpecT>,
+            ChainSpecT,
+            StateError,
+        >,
     ),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
     MineTransaction(
         #[from]
-        MineTransactionError<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+        MineTransactionErrorForChainSpec<
+            BlockchainErrorForChainSpec<ChainSpecT>,
+            ChainSpecT,
+            StateError,
+        >,
     ),
     /// Rpc client error
     #[error(transparent)]

@@ -51,6 +51,7 @@ pub enum MineOrdering {
     Priority,
 }
 
+/// Helper type for a chain-specific [`MineBlockError`].
 pub type MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = MineBlockError<
     BlockchainErrorT,
     <ChainSpecT as ChainSpec>::Hardfork,
@@ -88,16 +89,8 @@ pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionVal
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block<
-    'blockchain,
-    'inspector,
-    BlockchainErrorT,
-    ChainSpecT,
-    InspectorT,
-    FrameT,
-    StateErrorT,
->(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+pub fn mine_block<BlockchainErrorT, ChainSpecT, InspectorT, FrameT, StateErrorT>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
     cfg: &CfgEnv<ChainSpecT::Hardfork>,
@@ -105,20 +98,19 @@ pub fn mine_block<
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
-    mut inspector: Option<&'inspector mut InspectorT>,
+    mut inspector: Option<&mut InspectorT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
 >
 where
-    'blockchain: 'inspector,
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
             ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    InspectorT: Inspector<
+    InspectorT: for<'inspector> Inspector<
         ContextForChainSpec<
             ChainSpecT,
             WrapDatabaseRef<
@@ -292,35 +284,27 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block_with_single_transaction<
-    'blockchain,
-    'inspector,
-    BlockchainErrorT,
-    ChainSpecT,
-    InspectorT,
-    StateErrorT,
->(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+pub fn mine_block_with_single_transaction<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: ChainSpecT::SignedTransaction,
     cfg: &CfgEnv<ChainSpecT::Hardfork>,
     options: BlockOptions,
     min_gas_price: u128,
     reward: u128,
-    inspector: Option<&'inspector mut InspectorT>,
+    inspector: Option<&mut InspectorT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
 >
 where
-    'blockchain: 'inspector,
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
             ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    InspectorT: Inspector<
+    InspectorT: for<'inspector> Inspector<
         ContextForChainSpec<
             ChainSpecT,
             WrapDatabaseRef<

@@ -3,7 +3,6 @@ use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     evm::{Frame, FrameResult},
-    extension::ExtendedContext,
     interpreter::FrameInput,
     runtime::guaranteed_dry_run_with_extension,
     spec::{BlockEnvConstructor as _, ContextForChainSpec, SyncRuntimeSpec},
@@ -12,7 +11,6 @@ use edr_evm::{
         WrapDatabaseRef,
     },
     transaction::TransactionError,
-    ContextExtension,
 };
 
 use crate::ProviderError;

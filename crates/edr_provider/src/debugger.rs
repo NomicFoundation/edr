@@ -1,19 +1,10 @@
 mod context;
 
-use edr_eth::spec::{ChainSpec, HaltReasonTrait};
-use edr_evm::{
-    evm::EvmSpec,
-    instruction::InspectableInstructionProvider,
-    interpreter::EthInterpreter,
-    spec::RuntimeSpec,
-    trace::{RawTracerFrame, TraceCollector},
-};
+use edr_eth::spec::HaltReasonTrait;
+use edr_evm::trace::TraceCollector;
 
 pub use self::context::{DebuggerContext, DebuggerContextWithPrecompiles};
-use crate::{
-    console_log::{ConsoleLogCollector, ConsoleLogCollectorFrame},
-    mock::{Mocker, MockingFrame},
-};
+use crate::{console_log::ConsoleLogCollector, mock::Mocker};
 
 pub struct Debugger<HaltReasonT: HaltReasonTrait> {
     pub console_logger: ConsoleLogCollector,
@@ -33,38 +24,3 @@ impl<HaltReasonT: HaltReasonTrait> Debugger<HaltReasonT> {
         }
     }
 }
-
-/// Helper type for a frame that combines all features of the
-/// [`DebuggerContext`] for the provided precompile provider type.
-pub type DebuggerFrameWithPrecompileProvider<BlockchainErrorT, ChainSpecT, ContextT, PrecompileProviderT, StateErrorT> =
-    ConsoleLogCollectorFrame<
-        MockingFrame<
-            RawTracerFrame<
-                <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::Frame<
-                    InspectableInstructionProvider<
-                        ContextT,
-                        EthInterpreter,
-                        <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT>>::InstructionProvider,
-                    >,
-                    PrecompileProviderT,
-                >,
-                <ChainSpecT as ChainSpec>::HaltReason,
-            >
-        >
-    >;
-
-/// Helper type for a frame that combines all features of the
-/// [`DebuggerContext`].
-pub type DebuggerFrame<BlockchainErrorT, ChainSpecT, ContextT, StateErrorT> =
-    DebuggerFrameWithPrecompileProvider<
-        BlockchainErrorT,
-        ChainSpecT,
-        ContextT,
-        <<ChainSpecT as RuntimeSpec>::Evm<BlockchainErrorT, ContextT, StateErrorT> as EvmSpec<
-            BlockchainErrorT,
-            ChainSpecT,
-            ContextT,
-            StateErrorT,
-        >>::PrecompileProvider,
-        StateErrorT,
-    >;

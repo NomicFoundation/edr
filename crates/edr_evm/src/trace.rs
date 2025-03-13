@@ -7,6 +7,8 @@ use edr_eth::{
     spec::HaltReasonTrait,
     Address, Bytecode, Bytes, U256,
 };
+use revm::Inspector;
+use revm_context::ContextTrait;
 
 use crate::{
     blockchain::BlockHash,
@@ -442,5 +444,54 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 memory,
             });
         }
+    }
+}
+
+impl<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        ContextT: ContextTrait<
+            Journal: JournalExt
+                         + JournalTrait<
+                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
+        >,
+        HaltReasonT: HaltReasonTrait,
+        StateT: State<Error: std::error::Error>,
+    > Inspector<ContextT, EthInterpreter> for TraceCollector<HaltReasonT>
+{
+    fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
+        self.notify_call_start(context.journal(), inputs);
+        None
+    }
+
+    fn call_end(
+        &mut self,
+        context: &mut ContextT,
+        _inputs: &CallInputs,
+        outcome: &mut CallOutcome,
+    ) {
+        self.notify_call_end(context.journal(), outcome);
+    }
+
+    fn create(
+        &mut self,
+        context: &mut ContextT,
+        inputs: &mut CreateInputs,
+    ) -> Option<CreateOutcome> {
+        self.notify_create_start(context.journal(), inputs);
+        None
+    }
+
+    fn create_end(
+        &mut self,
+        context: &mut ContextT,
+        _inputs: &CreateInputs,
+        outcome: &mut CreateOutcome,
+    ) {
+        self.notify_create_end(context.journal(), outcome);
+    }
+
+    fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
+        self.notify_step_start(interpreter, context.journal());
     }
 }

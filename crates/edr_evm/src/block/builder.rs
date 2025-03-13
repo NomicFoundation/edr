@@ -116,18 +116,16 @@ where
     >;
 
     /// Adds a transaction to the block.
-    fn add_transaction_with_inspector<'inspector, InspectorT>(
+    fn add_transaction_with_inspector<InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        inspector: &'inspector mut InspectorT,
+        inspector: &mut InspectorT,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
     >
     where
-        'builder: 'inspector,
-        ChainSpecT: 'inspector,
-        InspectorT: Inspector<
+        InspectorT: for<'inspector> Inspector<
             ContextForChainSpec<
                 ChainSpecT,
                 WrapDatabaseRef<
@@ -141,9 +139,7 @@ where
                     >,
                 >,
             >,
-        >,
-        Self::BlockchainError: 'inspector,
-        Self::StateError: 'inspector;
+        >;
 
     /// Finalizes the block, applying rewards to the state.
     fn finalize(
