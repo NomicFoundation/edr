@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.11.0
+
+### Minor Changes
+
+- 66c7052: Replace const enums with non-const enums in \*.d.ts files
+
 ## 0.10.0
 
 ### Minor Changes
