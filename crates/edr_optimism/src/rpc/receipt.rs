@@ -5,24 +5,20 @@ use edr_eth::{
 };
 use edr_rpc_eth::RpcTypeFrom;
 
-use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, OpSpec};
+use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, OpSpecId};
 
 impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
-    type Hardfork = OpSpec;
+    type Hardfork = OpSpecId;
 
     fn rpc_type_from(value: &receipt::Block, hardfork: Self::Hardfork) -> Self {
-        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
-            Some(u8::from(value.eth.inner.transaction_type()))
-        } else {
-            None
-        };
+        let transaction_type = u8::from(value.eth.inner.transaction_type());
 
         Self {
             block_hash: value.eth.block_hash,
             block_number: value.eth.block_number,
             transaction_hash: value.eth.inner.transaction_hash,
             transaction_index: value.eth.inner.transaction_index,
-            transaction_type,
+            transaction_type: Some(transaction_type),
             from: value.eth.inner.from,
             to: value.eth.inner.to,
             cumulative_gas_used: value.eth.inner.cumulative_gas_used(),
@@ -162,7 +158,7 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{log::ExecutionLog, Bloom, Bytes};
+    use edr_eth::{log::ExecutionLog, Bloom, Bytes, U256};
     use edr_rpc_eth::impl_execution_receipt_tests;
     use receipt::BlockReceiptFactory;
 
@@ -179,7 +175,7 @@ mod tests {
                 l1_blob_base_fee_scalar: None,
             }.into(),
         } => {
-            legacy, OpSpec::Op(OpSpecId::LATEST) => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
+            legacy, OpSpecId::FJORD => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -188,7 +184,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930, OpSpec::Op(OpSpecId::LATEST) => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip2930, OpSpecId::FJORD => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -197,7 +193,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559, OpSpec::Op(OpSpecId::LATEST) => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip1559, OpSpecId::FJORD => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -206,7 +202,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844, OpSpec::Op(OpSpecId::LATEST) => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip4844, OpSpecId::FJORD => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -215,7 +211,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            deposit, OpSpec::Op(OpSpecId::LATEST) => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
+            deposit, OpSpecId::FJORD => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),

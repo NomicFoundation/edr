@@ -137,7 +137,7 @@ impl Transaction {
 
         let access_list = transaction
             .access_list()
-            .map(|access_list| access_list.0.clone());
+            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec);
 
         let blob_versioned_hashes = if transaction.is_eip4844() {
             Some(transaction.blob_hashes().to_vec())

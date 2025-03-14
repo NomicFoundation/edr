@@ -72,7 +72,7 @@ impl ExecutableTransaction for Legacy {
         None
     }
 
-    fn access_list(&self) -> Option<&eip2930::AccessList> {
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
         None
     }
 

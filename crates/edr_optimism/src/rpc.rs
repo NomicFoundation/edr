@@ -65,8 +65,11 @@ pub struct BlockReceipt {
     /// (max fee + max priority fee), the amount that's actually paid by
     /// users can only be determined post-execution
     // #[serde(with = "alloy_serde::quantity::opt")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub effective_gas_price: Option<U256>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub effective_gas_price: Option<u128>,
     /// Deposit nonce for Optimism deposit transactions.
     #[serde(
         default,

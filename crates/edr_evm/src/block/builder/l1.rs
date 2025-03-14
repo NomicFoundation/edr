@@ -50,6 +50,10 @@ impl<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: RuntimeSpec,
 {
+    pub fn blockchain(&self) -> &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT> {
+        self.blockchain
+    }
+
     /// Retrieves the config of the block builder.
     pub fn config(&self) -> &CfgEnv<ChainSpecT::Hardfork> {
         &self.cfg
@@ -68,6 +72,10 @@ where
     /// Retrieves the amount of gas left in the block.
     pub fn gas_remaining(&self) -> u64 {
         self.header.gas_limit - self.gas_used()
+    }
+
+    pub fn state(&self) -> &dyn SyncState<StateErrorT> {
+        self.state.as_ref()
     }
 
     fn validate_transaction(

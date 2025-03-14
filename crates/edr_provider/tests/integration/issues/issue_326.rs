@@ -1,9 +1,7 @@
-use std::str::FromStr;
-
 use edr_eth::{
     account::AccountInfo,
     l1::{self, L1ChainSpec},
-    Address, KECCAK_EMPTY, U256,
+    Address, KECCAK_EMPTY,
 };
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},

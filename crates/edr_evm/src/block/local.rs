@@ -238,7 +238,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait + Debug + alloy_rlp::Encodable,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT,
+        HardforkT: Debug,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
     > BlockReceipts<Arc<BlockReceiptT>>

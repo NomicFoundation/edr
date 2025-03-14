@@ -205,7 +205,7 @@ impl ExecutableTransaction for PooledTransaction {
         }
     }
 
-    fn access_list(&self) -> Option<&eip2930::AccessList> {
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.access_list(),
             PooledTransaction::PostEip155Legacy(tx) => tx.access_list(),

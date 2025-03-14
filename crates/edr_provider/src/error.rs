@@ -32,7 +32,7 @@ pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
 >;
 
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError<BlockConversionError, HardforkT, ReceiptConversionError> {
+pub enum CreationError<BlockConversionError, HardforkT: Debug, ReceiptConversionError> {
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainError<BlockConversionError, HardforkT, ReceiptConversionError>),

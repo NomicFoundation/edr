@@ -203,7 +203,7 @@ pub trait ExecutableTransaction {
     /// Added in [EIP-2930].
     ///
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-    fn access_list(&self) -> Option<&eip2930::AccessList>;
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]>;
 
     /// The effective gas price of the transaction, calculated using the
     /// provided block base fee. Only applicable for post-EIP-1559 transactions.
@@ -261,7 +261,7 @@ pub trait ExecutableTransaction {
 macro_rules! impl_revm_transaction_trait {
     ($ty:ty) => {
         impl $crate::transaction::Transaction for $ty {
-            type AccessList = $crate::eips::eip2930::AccessList;
+            type AccessListItem = $crate::eips::eip2930::AccessListItem;
             type Authorization = $crate::eips::eip7702::SignedAuthorization;
 
             fn tx_type(&self) -> u8 {
@@ -299,8 +299,9 @@ macro_rules! impl_revm_transaction_trait {
                 $crate::transaction::ExecutableTransaction::gas_price(self).clone()
             }
 
-            fn access_list(&self) -> Option<&Self::AccessList> {
+            fn access_list(&self) -> Option<impl Iterator<Item = &Self::AccessListItem>> {
                 $crate::transaction::ExecutableTransaction::access_list(self)
+                    .map(|list| list.iter())
             }
 
             fn blob_versioned_hashes(&self) -> &[$crate::B256] {

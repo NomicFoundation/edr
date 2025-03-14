@@ -115,7 +115,7 @@ impl ExecutionReceiptBuilder<OpHaltReason, OpSpecId, transaction::Signed> for Bu
         transaction: &transaction::Signed,
     ) -> Result<Self, StateT::Error> {
         let deposit_nonce = pre_execution_state
-            .basic(*transaction.caller())?
+            .basic(transaction.caller())?
             .map_or(0, |account| account.nonce);
 
         Ok(Self { deposit_nonce })
@@ -144,16 +144,9 @@ impl ExecutionReceiptBuilder<OpHaltReason, OpSpecId, transaction::Signed> for Bu
                     None
                 },
             })
-        } else if hardfork >= OpSpecId::BYZANTIUM {
+        } else {
             Execution::Eip658(Eip658 {
                 status: result.is_success(),
-                cumulative_gas_used: header.gas_used,
-                logs_bloom,
-                logs,
-            })
-        } else {
-            Execution::Legacy(Legacy {
-                root: header.state_root,
                 cumulative_gas_used: header.gas_used,
                 logs_bloom,
                 logs,

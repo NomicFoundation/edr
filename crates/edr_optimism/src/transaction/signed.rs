@@ -17,10 +17,10 @@ use edr_eth::{
     },
     Address, Bytes, B256, U256,
 };
-use revm_optimism::transaction::{deposit::DepositTransaction, OpTxTrait};
+use op_revm::transaction::deposit::DepositTransaction;
 
 use super::Signed;
-use crate::transaction::OpTransactionError;
+use crate::transaction::{InvalidTransaction, OpTxTrait};
 
 /// Deposit transaction.
 ///
@@ -105,7 +105,7 @@ impl Default for Signed {
         // This implementation is necessary to be able to use `revm`'s builder pattern.
         Self::PreEip155Legacy(Legacy {
             nonce: 0,
-            gas_price: U256::ZERO,
+            gas_price: 0,
             gas_limit: u64::MAX,
             kind: TxKind::Call(Address::ZERO), // will do nothing
             value: U256::ZERO,
@@ -200,32 +200,31 @@ impl MaybeSignedTransaction for Signed {
 }
 
 impl DepositTransaction for Signed {
-    fn source_hash(&self) -> Option<&B256> {
+    fn source_hash(&self) -> B256 {
         match self {
-            Signed::Deposit(tx) => Some(&tx.source_hash),
+            Signed::Deposit(tx) => tx.source_hash,
+            _ => B256::ZERO,
+        }
+    }
+
+    fn mint(&self) -> Option<u128> {
+        match self {
+            Signed::Deposit(tx) => Some(tx.mint),
             _ => None,
         }
     }
 
-    fn mint(&self) -> Option<&u128> {
+    fn is_system_transaction(&self) -> bool {
         match self {
-            Signed::Deposit(tx) => Some(&tx.mint),
-            _ => None,
-        }
-    }
-
-    fn is_system_transaction(&self) -> Option<bool> {
-        match self {
-            Signed::Deposit(tx) => Some(tx.is_system_tx),
-            _ => None,
+            Signed::Deposit(tx) => tx.is_system_tx,
+            _ => false,
         }
     }
 }
 
 impl OpTxTrait for Signed {
     fn enveloped_tx(&self) -> Option<&Bytes> {
-        let enveloped = alloy_rlp::encode(self);
-        Some(enveloped.into())
+        Some(self.rlp_encoding())
     }
 }
 
@@ -457,7 +456,7 @@ impl TransactionType for Signed {
 }
 
 impl TransactionValidation for Signed {
-    type ValidationError = OpTransactionError;
+    type ValidationError = InvalidTransaction;
 }
 
 impl_revm_transaction_trait!(Signed);

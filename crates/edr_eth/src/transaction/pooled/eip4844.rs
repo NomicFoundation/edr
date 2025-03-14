@@ -224,7 +224,7 @@ impl ExecutableTransaction for Eip4844 {
         self.payload.chain_id()
     }
 
-    fn access_list(&self) -> Option<&eip2930::AccessList> {
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
         self.payload.access_list()
     }
 

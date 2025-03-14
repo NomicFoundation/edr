@@ -83,7 +83,7 @@ impl ExecutableTransaction for Eip4844 {
         Some(self.chain_id)
     }
 
-    fn access_list(&self) -> Option<&eip2930::AccessList> {
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
         Some(&self.access_list)
     }
 

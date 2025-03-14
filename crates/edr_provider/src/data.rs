@@ -2478,7 +2478,9 @@ where
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
-        let minimum_cost = transaction::initial_cost(&transaction, self.evm_spec_id());
+        let minimum_cost =
+            transaction::calculate_initial_tx_gas_for_tx(&transaction, self.evm_spec_id())
+                .initial_gas;
 
         let custom_precompiles = self.custom_precompiles.clone();
         let mut observer = RuntimeObserver::with_mocker(

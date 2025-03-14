@@ -8,7 +8,6 @@ use edr_eth::{
     Address, Bytecode, Bytes, U256,
 };
 use revm::Inspector;
-use revm_context::ContextTrait;
 
 use crate::{
     blockchain::BlockHash,
@@ -17,6 +16,7 @@ use crate::{
         EthInterpreter, Interpreter, Jumps as _, MemoryGetter as _, SuccessOrHalt,
     },
     journal::{JournalExt, JournalTrait},
+    spec::ContextTrait,
     state::{DatabaseComponents, State, WrapDatabaseRef},
 };
 

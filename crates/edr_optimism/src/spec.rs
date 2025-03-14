@@ -8,9 +8,10 @@ use edr_eth::{
     spec::{ChainSpec, EthHeaderConstants},
 };
 use edr_evm::{
-    spec::RuntimeSpec,
+    inspector::NoOpInspector,
+    spec::{ContextForChainSpec, RuntimeSpec},
     state::Database,
-    transaction::{TransactionError, TransactionValidation},
+    transaction::{TransactionError, TransactionErrorForChainSpec, TransactionValidation},
     BlockReceipts, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 use edr_napi_core::{
@@ -19,6 +20,7 @@ use edr_napi_core::{
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
+use op_revm::{L1BlockInfo, OpBuilder as _, OpEvm};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -27,8 +29,8 @@ use crate::{
     hardfork,
     receipt::{self, BlockReceiptFactory},
     rpc, transaction,
-    transaction::OpTransactionError,
-    OpHaltReason, OpSpec,
+    transaction::InvalidTransaction,
+    OpHaltReason, OpSpecId,
 };
 
 /// Chain specification for the Ethereum JSON-RPC API.
@@ -49,43 +51,15 @@ impl RpcSpec for OpChainSpec {
 
 impl ChainSpec for OpChainSpec {
     type BlockEnv = l1::BlockEnv;
-    type Context = revm_optimism::Context;
+    type Context = L1BlockInfo;
     type HaltReason = OpHaltReason;
-    type Hardfork = OpSpec;
+    type Hardfork = OpSpecId;
     type SignedTransaction = transaction::Signed;
 }
 
 /// EVM wiring for Optimism chains.
 pub struct Wiring<DatabaseT: Database, ExternalContextT> {
     _phantom: PhantomData<(DatabaseT, ExternalContextT)>,
-}
-
-impl<DatabaseT, ExternalContextT> PrimitiveEvmWiring for Wiring<DatabaseT, ExternalContextT>
-where
-    DatabaseT: Database,
-{
-    type ExternalContext = ExternalContextT;
-    type ChainContext = <OpChainSpec as ChainSpec>::Context;
-    type Database = DatabaseT;
-    type Block = <OpChainSpec as ChainSpec>::BlockEnv;
-    type Transaction = <OpChainSpec as ChainSpec>::SignedTransaction;
-    type Hardfork = <OpChainSpec as ChainSpec>::Hardfork;
-    type HaltReason = <OpChainSpec as ChainSpec>::HaltReason;
-}
-
-impl<DatabaseT, ExternalContextT> EvmWiring for Wiring<DatabaseT, ExternalContextT>
-where
-    DatabaseT: Database,
-{
-    fn handler<'evm>(hardfork: Self::Hardfork) -> EvmHandler<'evm, Self> {
-        let mut handler = EvmHandler::mainnet_with_spec(hardfork);
-
-        handler.append_handler_register(HandleRegisters::Plain(
-            revm_optimism::optimism_handle_register::<Wiring<DatabaseT, ExternalContextT>>,
-        ));
-
-        handler
-    }
 }
 
 impl RuntimeSpec for OpChainSpec {
@@ -104,7 +78,13 @@ impl RuntimeSpec for OpChainSpec {
     type BlockReceipt = receipt::Block;
     type BlockReceiptFactory = BlockReceiptFactory;
 
-    type EvmWiring<DatabaseT: Database, ExternalContexT> = Wiring<DatabaseT, ExternalContexT>;
+    type Evm<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: edr_evm::inspector::Inspector<edr_evm::spec::ContextForChainSpec<Self, DatabaseT>>,
+        StateErrorT,
+    > = OpEvm<ContextForChainSpec<Self, DatabaseT>, InspectorT>;
+
     type LocalBlock = LocalBlock;
 
     type ReceiptBuilder = receipt::execution::Builder;
@@ -122,9 +102,9 @@ impl RuntimeSpec for OpChainSpec {
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
+    ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT> {
         match error {
-            OptimismInvalidTransaction::Base(InvalidTransaction::LackOfFundForMaxFee {
+            InvalidTransaction::Base(l1::InvalidTransaction::LackOfFundForMaxFee {
                 fee,
                 balance,
             }) => TransactionError::LackOfFundForMaxFee { fee, balance },
@@ -141,13 +121,36 @@ impl RuntimeSpec for OpChainSpec {
     fn chain_name(chain_id: u64) -> Option<&'static str> {
         hardfork::chain_name(chain_id)
     }
+
+    fn evm<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    >(
+        context: ContextForChainSpec<Self, DatabaseT>,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, edr_evm::inspector::NoOpInspector, StateErrorT>
+    {
+        context.build_op_with_inspector(NoOpInspector {})
+    }
+
+    fn evm_with_inspector<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: edr_evm::inspector::Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        StateErrorT,
+    >(
+        context: ContextForChainSpec<Self, DatabaseT>,
+        inspector: InspectorT,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, StateErrorT> {
+        context.build_op_with_inspector(inspector)
+    }
 }
 
 impl EthHeaderConstants for OpChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<OpSpec> =
+    const BASE_FEE_PARAMS: BaseFeeParams<OpSpecId> =
         BaseFeeParams::Variable(ForkBaseFeeParams::new(&[
-            (OpSpec::LONDON, ConstantBaseFeeParams::new(50, 6)),
-            (OpSpec::CANYON, ConstantBaseFeeParams::new(250, 6)),
+            (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
+            (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
         ]));
 
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
@@ -159,9 +162,9 @@ impl SyncNapiSpec for OpChainSpec {
     fn cast_response(
         response: Result<
             edr_provider::ResponseWithTraces<OpHaltReason>,
-            edr_provider::ProviderError<Self>,
+            edr_provider::ProviderErrorForChainSpec<Self>,
         >,
-    ) -> napi::Result<edr_napi_core::spec::Response<HaltReason>> {
+    ) -> napi::Result<edr_napi_core::spec::Response<l1::HaltReason>> {
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
         marshal_response_data(response).map(|data| Response {
@@ -179,13 +182,13 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OpChainSpec {
     fn cast_halt_reason(reason: OpHaltReason) -> TransactionFailureReason<OpHaltReason> {
         match reason {
             OpHaltReason::Base(reason) => match reason {
-                HaltReason::CreateContractSizeLimit => {
+                l1::HaltReason::CreateContractSizeLimit => {
                     TransactionFailureReason::CreateContractSizeLimit
                 }
-                HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+                l1::HaltReason::OpcodeNotFound | l1::HaltReason::InvalidFEOpcode => {
                     TransactionFailureReason::OpcodeNotFound
                 }
-                HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+                l1::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
                 remainder => TransactionFailureReason::Inner(OpHaltReason::Base(remainder)),
             },
             remainder => TransactionFailureReason::Inner(remainder),

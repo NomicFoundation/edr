@@ -7,7 +7,8 @@ use std::fmt::Debug;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
 use edr_eth::{l1, spec::ChainSpec, U256};
-use revm_context::transaction::AccessListTr as AccessListTrait;
+use revm_handler::validation::validate_initial_tx_gas;
+pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
 pub use self::detailed::*;
 use crate::state::DatabaseComponentError;
@@ -90,11 +91,19 @@ pub enum CreationError {
     /// Creating contract without any data.
     #[error("Contract creation without any data provided")]
     ContractMissingData,
+    /// Transaction gas limit is insufficient for gas floor.
+    #[error("Transaction requires gas floor of {gas_floor} but got limit of {gas_limit}")]
+    GasFloorTooHigh {
+        /// The gas floor of the transaction
+        gas_floor: u64,
+        /// The gas limit of the transaction
+        gas_limit: u64,
+    },
     /// Transaction gas limit is insufficient to afford initial gas cost.
     #[error("Transaction requires at least {initial_gas_cost} gas but got {gas_limit}")]
     InsufficientGas {
         /// The initial gas cost of a transaction
-        initial_gas_cost: U256,
+        initial_gas_cost: u64,
         /// The gas limit of the transaction
         gas_limit: u64,
     },
@@ -109,36 +118,24 @@ pub fn validate<TransactionT: revm_context_interface::Transaction>(
         return Err(CreationError::ContractMissingData);
     }
 
-    let initial_cost = initial_cost(&transaction, spec_id);
-    if transaction.gas_limit() < initial_cost {
-        return Err(CreationError::InsufficientGas {
-            initial_gas_cost: U256::from(initial_cost),
-            gas_limit: transaction.gas_limit(),
-        });
+    match validate_initial_tx_gas(&transaction, spec_id) {
+        Ok(_) => Ok(transaction),
+        Err(l1::InvalidTransaction::CallGasCostMoreThanGasLimit {
+            initial_gas,
+            gas_limit,
+        }) => Err(CreationError::InsufficientGas {
+            initial_gas_cost: initial_gas,
+            gas_limit,
+        }),
+        Err(l1::InvalidTransaction::GasFloorMoreThanGasLimit {
+            gas_floor,
+            gas_limit,
+        }) => Err(CreationError::GasFloorTooHigh {
+            gas_floor,
+            gas_limit,
+        }),
+        Err(e) => unreachable!("Unexpected error: {e}"),
     }
-
-    Ok(transaction)
-}
-
-// TODO: Avoid using revm Transaction type
-/// Calculates the initial cost of a transaction.
-pub fn initial_cost(
-    transaction: &impl revm_context_interface::Transaction,
-    spec_id: l1::SpecId,
-) -> u64 {
-    let (accounts, storages) = transaction
-        .access_list()
-        .map_or((0, 0), AccessListTrait::access_list_nums);
-
-    revm_interpreter::gas::calculate_initial_tx_gas(
-        spec_id,
-        transaction.input(),
-        transaction.kind().is_create(),
-        accounts as u64,
-        storages as u64,
-        transaction.authorization_list_len() as u64,
-    )
-    .initial_gas
 }
 
 #[cfg(test)]
@@ -167,7 +164,7 @@ mod tests {
         let transaction = transaction::Signed::from(transaction);
         let result = validate(transaction, l1::SpecId::BERLIN);
 
-        let expected_gas_cost = U256::from(21_000);
+        let expected_gas_cost = 21_000;
         assert!(matches!(
             result,
             Err(CreationError::InsufficientGas {

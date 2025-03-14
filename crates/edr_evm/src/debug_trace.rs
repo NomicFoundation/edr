@@ -11,7 +11,6 @@ use edr_eth::{
     Address, Bytes, B256, U256,
 };
 use revm::Inspector;
-use revm_context::ContextTrait;
 use revm_context_interface::JournalTr as JournalTrait;
 use revm_interpreter::{
     interpreter::EthInterpreter,
@@ -26,7 +25,7 @@ use crate::{
     interpreter::{Interpreter, InterpreterResult},
     journal::{JournalEntry, JournalExt},
     runtime::{dry_run_with_inspector, run},
-    spec::RuntimeSpec,
+    spec::{ContextTrait, RuntimeSpec},
     state::SyncState,
     trace::{Trace, TraceCollector},
     transaction::TransactionError,

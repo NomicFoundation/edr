@@ -4,7 +4,7 @@ use edr_eth::{
     B256,
 };
 use edr_evm::EthBlockReceiptFactory;
-use revm_optimism::L1BlockInfo;
+use op_revm::L1BlockInfo;
 
 use crate::{eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _, OpSpecId};
 

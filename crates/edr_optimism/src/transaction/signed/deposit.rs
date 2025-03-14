@@ -2,7 +2,7 @@ use alloy_rlp::Encodable;
 use edr_eth::{
     eips::{eip2930, eip7702},
     keccak256,
-    transaction::{ExecutableTransaction, Transaction, TxKind},
+    transaction::{ExecutableTransaction, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
@@ -40,7 +40,7 @@ impl ExecutableTransaction for Deposit {
     fn gas_price(&self) -> &u128 {
         // No gas is refunded as ETH. (either by not refunding or utilizing the fact the
         // gas-price of the deposit is 0)
-        &U256::ZERO
+        &0
     }
 
     fn kind(&self) -> TxKind {
@@ -81,7 +81,7 @@ impl ExecutableTransaction for Deposit {
     fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         // No transaction priority fee is charged. No payment is made to the block
         // fee-recipient.
-        Some(&U256::ZERO)
+        Some(&0)
     }
 
     fn blob_hashes(&self) -> &[B256] {
