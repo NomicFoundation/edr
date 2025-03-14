@@ -1,9 +1,6 @@
-mod context;
-
 use edr_eth::spec::HaltReasonTrait;
 use edr_evm::trace::TraceCollector;
 
-pub use self::context::{DebuggerContext, DebuggerContextWithPrecompiles};
 use crate::{console_log::ConsoleLogCollector, mock::Mocker};
 
 pub struct Debugger<HaltReasonT: HaltReasonTrait> {

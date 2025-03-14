@@ -101,7 +101,7 @@ impl Transaction {
         let base_fee = header.and_then(|header| header.base_fee_per_gas);
         let gas_price = if let Some(base_fee) = base_fee {
             transaction
-                .effective_gas_price(base_fee.into())
+                .effective_gas_price(base_fee)
                 .unwrap_or_else(|| *transaction.gas_price())
         } else {
             // We are following Hardhat's behavior of returning the max fee per gas for

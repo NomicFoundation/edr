@@ -13,7 +13,7 @@ macro_rules! impl_execution_receipt_tests {
                         log::{FilterLog, FullBlockLog, ReceiptLog},
                         receipt::{MapReceiptLogs as _, ReceiptFactory as _, TransactionReceipt},
                         spec::ChainSpec,
-                        Address, B256, U256,
+                        Address, B256,
                     };
 
                     use $crate::{RpcTypeFrom as _, spec::RpcSpec};

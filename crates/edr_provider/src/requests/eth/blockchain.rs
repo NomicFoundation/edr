@@ -39,7 +39,7 @@ pub fn handle_get_transaction_count_request<
     block_spec: Option<BlockSpec>,
 ) -> Result<U256, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
-        validate_post_merge_block_tags(data.hardfork(), block_spec)?;
+        validate_post_merge_block_tags::<ChainSpecT>(data.hardfork(), block_spec)?;
     }
 
     data.get_transaction_count(address, block_spec.as_ref())

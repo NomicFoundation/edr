@@ -12,6 +12,7 @@ use revm_context::transaction::AccessListTr as AccessListTrait;
 pub use self::detailed::*;
 use crate::state::DatabaseComponentError;
 
+/// Helper type for a chain-specific [`TransactionError`].
 pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<
     BlockchainErrorT,
     StateErrorT,
@@ -34,7 +35,7 @@ pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationEr
     #[error(transparent)]
     InvalidTransaction(TransactionValidationErrorT),
     /// Transaction account does not have enough amount of ether to cover
-    /// transferred value and gas_limit*gas_price.
+    /// transferred value and `gas_limit * gas_price`.
     #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}.")]
     LackOfFundForMaxFee {
         /// The max upfront cost of the transaction
@@ -78,7 +79,7 @@ impl<BlockchainErrorT, StateErrorT> From<l1::InvalidTransaction>
             l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
                 Self::LackOfFundForMaxFee { fee, balance }
             }
-            remainder => Self::InvalidTransaction(remainder.into()),
+            remainder => Self::InvalidTransaction(remainder),
         }
     }
 }

@@ -1,10 +1,8 @@
 /// Types for configuring the provider.
 pub mod config;
 mod console_log;
-mod context;
 mod data;
 mod debug_mine;
-mod debugger;
 mod error;
 mod filter;
 mod interval;
@@ -34,7 +32,6 @@ use edr_eth::{
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
 use edr_evm::{spec::RuntimeSpec, trace::Trace};
-use error::ProviderErrorForChainSpec;
 use lazy_static::lazy_static;
 
 pub use self::{
@@ -44,7 +41,10 @@ pub use self::{
     },
     data::{CallResult, ProviderData},
     debug_mine::{DebugMineBlockResult, DebugMineBlockResultForChainSpec},
-    error::{EstimateGasFailure, ProviderError, TransactionFailure, TransactionFailureReason},
+    error::{
+        EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, TransactionFailure,
+        TransactionFailureReason,
+    },
     logger::{Logger, NoopLogger, SyncLogger},
     mock::{CallOverrideResult, SyncCallOverride},
     provider::Provider,

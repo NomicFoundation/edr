@@ -164,17 +164,6 @@ pub trait RuntimeSpec:
         EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
     >>;
 
-    // /// Type representing an implementation of `EvmWiring` for this chain.
-    // type EvmWiring<DatabaseT: Database, ExternalContexT>: EvmWiring<
-    //     ExternalContext = ExternalContexT,
-    //     ChainContext = <Self as ChainSpec>::Context,
-    //     Database = DatabaseT,
-    //     Block = <Self as ChainSpec>::BlockEnv,
-    //     Transaction = <Self as ChainSpec>::SignedTransaction,
-    //     Hardfork = <Self as ChainSpec>::Hardfork,
-    //     HaltReason = <Self as ChainSpec>::HaltReason
-    // >;
-
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction> +
         BlockReceipts<Arc<Self::BlockReceipt>> +

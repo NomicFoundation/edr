@@ -3,23 +3,18 @@ use std::sync::Arc;
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
     l1::{self, InvalidTransaction, L1ChainSpec},
-    log::{ExecutionLog, FilterLog},
+    log::FilterLog,
     receipt::BlockReceipt,
     spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
 };
 use edr_evm::{
-    config::CfgEnv,
-    evm::{l1::L1EvmSpec, JournalEntry},
+    evm::{MainBuilder as _, MainnetEvm},
     hardfork::Activations,
-    interpreter::Host,
-    spec::{
-        BlockGetter, CfgGetter, DatabaseGetter, ErrorGetter,
-        ExecutionReceiptTypeConstructorForChainSpec, Journal, JournalGetter,
-        PerformantContextAccess, RuntimeSpec, TransactionGetter,
-    },
-    state::{Database, DatabaseComponentError, EvmState},
-    transaction::TransactionError,
+    inspector::{Inspector, NoOpInspector},
+    spec::{ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
+    state::{Database, DatabaseComponentError},
+    transaction::{TransactionError, TransactionErrorForChainSpec},
     BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
@@ -59,22 +54,10 @@ impl RuntimeSpec for GenericChainSpec {
 
     type Evm<
         BlockchainErrorT,
-        ContextT: BlockGetter<Block = Self::BlockEnv>
-            + CfgGetter<Cfg = CfgEnv<Self::Hardfork>>
-            + DatabaseGetter<
-                Database: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-            > + ErrorGetter<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-            + JournalGetter<
-                Journal: Journal<
-                    Entry = JournalEntry,
-                    FinalOutput = (EvmState, Vec<ExecutionLog>),
-                    Database = <ContextT as DatabaseGetter>::Database,
-                >,
-            > + Host
-            + PerformantContextAccess<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-            + TransactionGetter<Transaction = Self::SignedTransaction>,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
         StateErrorT,
-    > = L1EvmSpec<Self, ContextT>;
+    > = MainnetEvm<ContextForChainSpec<Self, DatabaseT>, InspectorT>;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
@@ -100,7 +83,7 @@ impl RuntimeSpec for GenericChainSpec {
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionError<BlockchainErrorT, Self, StateErrorT> {
+    ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT> {
         // Can't use L1ChainSpec impl here as the TransactionError is generic
         // over the specific chain spec rather than just the validation error.
         // Instead, we copy the impl here.
@@ -118,6 +101,28 @@ impl RuntimeSpec for GenericChainSpec {
 
     fn chain_name(chain_id: u64) -> Option<&'static str> {
         L1ChainSpec::chain_name(chain_id)
+    }
+
+    fn evm<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    >(
+        context: ContextForChainSpec<Self, DatabaseT>,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, NoOpInspector, StateErrorT> {
+        context.build_mainnet_with_inspector(NoOpInspector {})
+    }
+
+    fn evm_with_inspector<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        StateErrorT,
+    >(
+        context: ContextForChainSpec<Self, DatabaseT>,
+        inspector: InspectorT,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, StateErrorT> {
+        context.build_mainnet_with_inspector(inspector)
     }
 }
 

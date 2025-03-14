@@ -67,7 +67,7 @@ pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
 pub enum ProviderError<
     BlockConversionErrorT,
     HaltReasonT: HaltReasonTrait,
-    HardforkT,
+    HardforkT: Debug,
     ReceiptConversionErrorT,
     TransactionValidationErrorT,
 > {
@@ -307,11 +307,11 @@ pub enum ProviderError<
 }
 
 impl<
-        BlockConversionErrorT,
-        HaltReasonT: HaltReasonTrait,
-        HardforkT,
-        ReceiptConversionErrorT,
-        TransactionValidationErrorT,
+        BlockConversionErrorT: std::error::Error,
+        HaltReasonT: HaltReasonTrait + Serialize,
+        HardforkT: Debug,
+        ReceiptConversionErrorT: std::error::Error,
+        TransactionValidationErrorT: std::error::Error,
     >
     From<
         ProviderError<

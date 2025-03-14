@@ -5,11 +5,10 @@ mod gas;
 use std::{
     cmp::{self, Ordering},
     collections::BTreeMap,
-    ffi::OsString,
     fmt::Debug,
     num::{NonZeroU64, NonZeroUsize},
     sync::Arc,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, UNIX_EPOCH},
 };
 
 use alloy_dyn_abi::eip712::TypedData;
@@ -50,6 +49,7 @@ use edr_evm::{
         debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
         DebugTraceResultWithTraces, TracerEip3155,
     },
+    inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{
@@ -71,12 +71,10 @@ use tokio::runtime;
 
 use self::account::{create_accounts, InitialAccounts};
 use crate::{
-    context::Eip3155AndRawTracersContextWithPrecompiles,
     data::gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
     },
-    debugger::{Debugger, DebuggerContext, DebuggerContextWithPrecompiles},
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
         TransactionFailure, TransactionFailureWithTraces,
@@ -84,6 +82,7 @@ use crate::{
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
     mock::{Mocker, SyncCallOverride},
+    observability::RuntimeObserver,
     pending::BlockchainWithPending,
     requests::hardhat::rpc_types::{ForkConfig, ForkMetadata},
     snapshot::Snapshot,
@@ -599,7 +598,7 @@ where
             next_block_base_fee_per_gas,
         } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer, genesis_state)?;
 
-        let max_cached_states = get_max_cached_states_from_env()?;
+        let max_cached_states = get_max_cached_states_from_env::<ChainSpecT>()?;
         let mut block_state_cache = LruCache::new(max_cached_states);
         let mut block_number_to_state_id = HashTrieMapSync::default();
 
@@ -1304,7 +1303,7 @@ where
             &mut ProviderData<ChainSpecT, TimerT>,
             &CfgEnv<ChainSpecT::Hardfork>,
             BlockOptions,
-            &mut Debugger<ChainSpecT::HaltReason>,
+            &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
             ProviderErrorForChainSpec<ChainSpecT>,
@@ -1362,7 +1361,7 @@ where
             &mut ProviderData<ChainSpecT, TimerT>,
             &CfgEnv<ChainSpecT::Hardfork>,
             BlockOptions,
-            &mut Debugger<ChainSpecT::HaltReason>,
+            &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
             ProviderErrorForChainSpec<ChainSpecT>,
@@ -1390,14 +1389,14 @@ where
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut debugger = Debugger::with_mocker(
+        let mut debugger = RuntimeObserver::with_mocker(
             Mocker::new(self.call_override.clone()),
             self.verbose_tracing,
         );
 
         let result = mine_fn(self, &evm_config, options, &mut debugger)?;
 
-        let Debugger {
+        let RuntimeObserver {
             console_logger,
             trace_collector,
             ..
@@ -1717,35 +1716,22 @@ where
         let custom_precompiles = self.custom_precompiles.clone();
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
-            let context = Eip3155AndRawTracersContextWithPrecompiles::new(
-                &mut eip3155_tracer,
-                &mut raw_tracer,
-                &custom_precompiles,
-            );
+            let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut raw_tracer);
+            // let context = Eip3155AndRawTracersContextWithPrecompiles::new(
+            //     &mut eip3155_tracer,
+            //     &mut raw_tracer,
+            //     &custom_precompiles,
+            // );
 
-            let mut extension = ContextExtension::<
-                _,
-                Eip3155AndRawTracersFrameWithPrecompileProvider<
-                    BlockchainErrorForChainSpec<ChainSpecT>,
-                    ChainSpecT,
-                    _,
-                    OverriddenPrecompileProviderForChainSpec<
-                        BlockchainErrorForChainSpec<ChainSpecT>,
-                        ChainSpecT,
-                        _,
-                        StateError,
-                    >,
-                    StateError,
-                >,
-            >::new(context);
+            // TODO: Custom precompile
 
-            let result = call::run_call(
+            let result = call::run_call::<_, ChainSpecT, _, _>(
                 blockchain,
                 block.header(),
                 state.as_ref(),
                 cfg_env,
                 transaction,
-                &mut extension,
+                &mut inspector,
             )?;
 
             let debug_result = execution_result_to_debug_result(result, raw_tracer, eip3155_tracer);
@@ -1872,7 +1858,7 @@ where
                         .push(gas_used_ratio(header.gas_used, header.gas_limit));
 
                     if let Some((ref mut reward, percentiles)) = reward_and_percentile.as_mut() {
-                        reward.push(compute_rewards(block.as_ref(), percentiles)?);
+                        reward.push(compute_rewards::<ChainSpecT>(block.as_ref(), percentiles)?);
                     }
                 }
             } else if block_number == pending_block_number {
@@ -2139,7 +2125,7 @@ where
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let custom_precompiles = self.custom_precompiles.clone();
-        let mut debugger = Debugger::with_mocker(
+        let mut observer = RuntimeObserver::with_mocker(
             Mocker::new(self.call_override.clone()),
             self.verbose_tracing,
         );
@@ -2147,37 +2133,22 @@ where
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
 
-            let context = DebuggerContextWithPrecompiles::new(&mut debugger, &custom_precompiles);
-            let mut extension = ContextExtension::<
-                _,
-                DebuggerFrameWithPrecompileProvider<
-                    BlockchainErrorForChainSpec<ChainSpecT>,
-                    ChainSpecT,
-                    _,
-                    OverriddenPrecompileProviderForChainSpec<
-                        BlockchainErrorForChainSpec<ChainSpecT>,
-                        ChainSpecT,
-                        _,
-                        StateError,
-                    >,
-                    StateError,
-                >,
-            >::new(context);
+            // TODO: Precompiles
 
-            let execution_result = call::run_call(
+            let execution_result = call::run_call::<_, ChainSpecT, _, _>(
                 blockchain,
                 block.header(),
                 state_overrider,
                 cfg_env,
                 transaction,
-                &mut extension,
+                &mut observer,
             )?;
 
-            let Debugger {
+            let RuntimeObserver {
                 console_logger,
                 trace_collector,
                 ..
-            } = debugger;
+            } = observer;
 
             let mut traces = trace_collector.into_traces();
             // Should only have a single raw trace
@@ -2232,19 +2203,13 @@ where
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
-        debugger: &mut Debugger<ChainSpecT::HaltReason>,
+        observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         let reward = miner_reward(config.spec.into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
-
-        let context = DebuggerContext::new(debugger);
-        let extension = ContextExtension::<
-            _,
-            DebuggerFrame<BlockchainErrorForChainSpec<ChainSpecT>, ChainSpecT, _, StateError>,
-        >::new(context);
 
         let result = mine_block(
             self.blockchain.as_ref(),
@@ -2255,7 +2220,7 @@ where
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
             reward,
-            extension,
+            Some(observer),
         )?;
 
         Ok(result)
@@ -2267,19 +2232,13 @@ where
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
         transaction: ChainSpecT::SignedTransaction,
-        debugger: &mut Debugger<ChainSpecT::HaltReason>,
+        observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         let reward = miner_reward(config.spec.into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
-
-        let context = DebuggerContext::new(debugger);
-        let mut extension = ContextExtension::<
-            _,
-            DebuggerFrame<BlockchainErrorForChainSpec<ChainSpecT>, ChainSpecT, _, StateError>,
-        >::new(context);
 
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
@@ -2289,7 +2248,7 @@ where
             options,
             self.min_gas_price,
             reward,
-            Some(&mut extension),
+            Some(observer),
         )?;
 
         Ok(result)
@@ -2522,7 +2481,7 @@ where
         let minimum_cost = transaction::initial_cost(&transaction, self.evm_spec_id());
 
         let custom_precompiles = self.custom_precompiles.clone();
-        let mut debugger = Debugger::with_mocker(
+        let mut observer = RuntimeObserver::with_mocker(
             Mocker::new(self.call_override.clone()),
             self.verbose_tracing,
         );
@@ -2530,40 +2489,25 @@ where
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
 
-            let context = DebuggerContextWithPrecompiles::new(&mut debugger, &custom_precompiles);
-            let mut extension = ContextExtension::<
-                _,
-                DebuggerFrameWithPrecompileProvider<
-                    BlockchainErrorForChainSpec<ChainSpecT>,
-                    ChainSpecT,
-                    _,
-                    OverriddenPrecompileProviderForChainSpec<
-                        BlockchainErrorForChainSpec<ChainSpecT>,
-                        ChainSpecT,
-                        _,
-                        StateError,
-                    >,
-                    StateError,
-                >,
-            >::new(context);
+            // TODO: Precompiles
 
             // Measure the gas used by the transaction with optional limit from call request
             // defaulting to block limit. Report errors from initial call as if from
             // `eth_call`.
-            let result = call::run_call(
+            let result = call::run_call::<_, ChainSpecT, _, _>(
                 blockchain,
                 header,
                 state,
                 cfg_env.clone(),
                 transaction.clone(),
-                &mut extension,
+                &mut observer,
             )?;
 
-            let Debugger {
+            let RuntimeObserver {
                 console_logger,
                 mut trace_collector,
                 ..
-            } = debugger;
+            } = observer;
 
             let mut initial_estimation = match result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
@@ -2867,7 +2811,7 @@ fn create_blockchain_and_state<
             .state_at_block_number(0, irregular_state.state_overrides())
             .expect("Genesis state must exist");
 
-        let block_time_offset_seconds = block_time_offset_seconds(config, timer)?;
+        let block_time_offset_seconds = block_time_offset_seconds::<ChainSpecT>(config, timer)?;
 
         Ok(BlockchainAndState {
             fork_metadata: None,
@@ -3105,7 +3049,7 @@ mod tests {
                 .provider_data
                 .execute_in_block_context(block_spec.as_ref(), |_, _, _| {
                     value += 1;
-                    Ok::<(), ProviderError<L1ChainSpec>>(())
+                    Ok::<(), ProviderErrorForChainSpec<L1ChainSpec>>(())
                 })?;
 
         assert_eq!(value, 1);

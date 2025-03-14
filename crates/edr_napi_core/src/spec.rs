@@ -7,7 +7,10 @@ use edr_eth::{
 };
 use edr_evm::trace::Trace;
 use edr_generic::GenericChainSpec;
-use edr_provider::{time::CurrentTime, ProviderError, ResponseWithTraces, SyncProviderSpec};
+use edr_provider::{
+    time::CurrentTime, ProviderError, ProviderErrorForChainSpec, ResponseWithTraces,
+    SyncProviderSpec,
+};
 use edr_rpc_client::jsonrpc;
 use napi::{Either, Status};
 
@@ -61,7 +64,7 @@ pub trait SyncNapiSpec:
     /// This is implemented as an associated function to avoid problems when
     /// implementing type conversions for third-party types.
     fn cast_response(
-        response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
+        response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
     ) -> napi::Result<Response<l1::HaltReason>>;
 }
 
@@ -69,7 +72,7 @@ impl SyncNapiSpec for L1ChainSpec {
     const CHAIN_TYPE: &'static str = "L1";
 
     fn cast_response(
-        mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
+        mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
     ) -> napi::Result<Response<l1::HaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
         let solidity_trace: Option<Arc<Trace<l1::HaltReason>>> =
@@ -113,7 +116,7 @@ impl SyncNapiSpec for GenericChainSpec {
     const CHAIN_TYPE: &'static str = "generic";
 
     fn cast_response(
-        mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderError<Self>>,
+        mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
     ) -> napi::Result<Response<l1::HaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
         let solidity_trace = response.as_mut().err().and_then(|error| {

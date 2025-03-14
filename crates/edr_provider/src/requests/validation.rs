@@ -137,7 +137,7 @@ pub fn validate_send_transaction_request<
     }
 
     if let Some(request_data) = &request.data {
-        validate_eip3860_max_initcode_size(
+        validate_eip3860_max_initcode_size::<ChainSpecT>(
             data.evm_spec_id(),
             data.allow_unlimited_initcode_size(),
             request.to.as_ref(),
@@ -155,7 +155,7 @@ pub fn validate_send_transaction_request<
         }
     }
 
-    validate_transaction_and_call_request(data.hardfork(), request).map_err(|err| match err {
+    validate_transaction_and_call_request::<ChainSpecT>(data.hardfork(), request).map_err(|err| match err {
         ProviderError::UnsupportedEIP1559Parameters {
             minimum_hardfork, ..
         } => ProviderError::InvalidArgument(format!("\
@@ -243,13 +243,13 @@ pub fn validate_call_request<ChainSpecT: RuntimeSpec>(
     call_request: &CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_post_merge_block_tags(hardfork, block_spec)?;
+    validate_post_merge_block_tags::<ChainSpecT>(hardfork, block_spec)?;
 
     if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
         return Err(ProviderError::Eip4844CallRequestUnsupported);
     }
 
-    validate_transaction_and_call_request(
+    validate_transaction_and_call_request::<ChainSpecT>(
         hardfork,
         call_request
     ).map_err(|err| match err {
@@ -268,17 +268,19 @@ pub(crate) fn validate_transaction_and_call_request<ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
     validation_data: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_transaction_spec(hardfork.into(), validation_data).map_err(|err| match err {
-        ProviderError::UnsupportedAccessListParameter {
-            minimum_hardfork, ..
-        } => ProviderError::InvalidArgument(format!(
-            "\
+    validate_transaction_spec::<ChainSpecT>(hardfork.into(), validation_data).map_err(|err| {
+        match err {
+            ProviderError::UnsupportedAccessListParameter {
+                minimum_hardfork, ..
+            } => ProviderError::InvalidArgument(format!(
+                "\
 Access list received but is not supported by the current hardfork. 
 
 You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later.
         "
-        )),
-        err => err,
+            )),
+            err => err,
+        }
     })
 }
 

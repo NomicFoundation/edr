@@ -9,7 +9,7 @@ use edr_provider::{
     requests::validation::{validate_call_request, validate_send_transaction_request},
     spec::{CallContext, FromRpcType, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderData, ProviderError,
+    ProviderData, ProviderErrorForChainSpec,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
@@ -55,12 +55,12 @@ impl Sign for Request {
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Request {
     type Context<'context> = CallContext<'context, GenericChainSpec, TimerT>;
 
-    type Error = ProviderError<GenericChainSpec>;
+    type Error = ProviderErrorForChainSpec<GenericChainSpec>;
 
     fn from_rpc_type(
         value: CallRequest,
         context: Self::Context<'_>,
-    ) -> Result<crate::transaction::Request, ProviderError<GenericChainSpec>> {
+    ) -> Result<crate::transaction::Request, ProviderErrorForChainSpec<GenericChainSpec>> {
         let CallContext {
             data,
             block_spec,
@@ -69,7 +69,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
             max_fees_fn,
         } = context;
 
-        validate_call_request(data.hardfork(), &value, block_spec)?;
+        validate_call_request::<GenericChainSpec>(data.hardfork(), &value, block_spec)?;
 
         let CallRequest {
             from,
@@ -144,12 +144,12 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for Request {
     type Context<'context> = TransactionContext<'context, GenericChainSpec, TimerT>;
 
-    type Error = ProviderError<GenericChainSpec>;
+    type Error = ProviderErrorForChainSpec<GenericChainSpec>;
 
     fn from_rpc_type(
         value: TransactionRequest,
         context: Self::Context<'_>,
-    ) -> Result<crate::transaction::Request, ProviderError<GenericChainSpec>> {
+    ) -> Result<crate::transaction::Request, ProviderErrorForChainSpec<GenericChainSpec>> {
         const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
 
         /// # Panics

@@ -160,7 +160,7 @@ impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
         self.inner.chain_id()
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&eip2930::AccessList> {
         self.inner.access_list()
     }
 

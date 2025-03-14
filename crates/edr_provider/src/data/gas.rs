@@ -13,18 +13,15 @@ use edr_eth::{
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
-    precompile::OverriddenPrecompileProviderForChainSpec,
     spec::SyncRuntimeSpec,
     state::{StateError, SyncState},
-    trace::{
-        RawTracerFrameWithPrecompileProvider, TraceCollector, TraceCollectorContextWithPrecompiles,
-    },
-    Block as _, BlockReceipts, ContextExtension,
+    trace::TraceCollector,
+    Block as _, BlockReceipts,
 };
 use itertools::Itertools;
 use revm_precompile::PrecompileFn;
 
-use crate::{data::call, ProviderError};
+use crate::{data::call, error::ProviderErrorForChainSpec};
 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain:
@@ -65,30 +62,15 @@ where
 
     transaction.set_gas_limit(gas_limit);
 
-    let context = TraceCollectorContextWithPrecompiles::new(trace_collector, precompiles);
-    let mut extension = ContextExtension::<
-        _,
-        RawTracerFrameWithPrecompileProvider<
-            BlockchainErrorForChainSpec<ChainSpecT>,
-            ChainSpecT,
-            _,
-            OverriddenPrecompileProviderForChainSpec<
-                BlockchainErrorForChainSpec<ChainSpecT>,
-                ChainSpecT,
-                _,
-                StateError,
-            >,
-            StateError,
-        >,
-    >::new(context);
+    // TODO: Precompiles
 
-    let result = call::run_call(
+    let result = call::run_call::<_, ChainSpecT, _, _>(
         blockchain,
         header,
         state,
         cfg_env,
         transaction,
-        &mut extension,
+        trace_collector,
     )?;
 
     Ok(matches!(result, ExecutionResult::Success { .. }))

@@ -7,6 +7,7 @@ use crate::state::{Database, EvmState};
 
 /// Extension trait for `Journal` to provide additional functionality.
 pub trait JournalExt {
+    /// The type of journal entry.
     type Entry;
 
     /// Retrieves the journal entries of state changes, one for each frame.

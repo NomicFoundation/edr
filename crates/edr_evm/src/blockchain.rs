@@ -32,7 +32,7 @@ pub type BlockchainErrorForChainSpec<ChainSpecT> = BlockchainError<
 
 /// Combinatorial error for the blockchain API.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT> {
+pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConversionErrorT> {
     /// Forked blockchain error
     #[error(transparent)]
     Forked(#[from] ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT>),

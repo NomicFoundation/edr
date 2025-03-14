@@ -151,7 +151,7 @@ fn block_by_number<
     Option<BlockByNumberResultForChainSpec<ChainSpecT>>,
     ProviderErrorForChainSpec<ChainSpecT>,
 > {
-    validate_post_merge_block_tags(data.hardfork(), block_spec)?;
+    validate_post_merge_block_tags::<ChainSpecT>(data.hardfork(), block_spec)?;
 
     match data.block_by_block_spec(block_spec) {
         Ok(Some(block)) => {

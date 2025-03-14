@@ -93,7 +93,7 @@ pub fn handle_fee_history<
         ));
     }
 
-    validate_post_merge_block_tags(data.hardfork(), &newest_block)?;
+    validate_post_merge_block_tags::<ChainSpecT>(data.hardfork(), &newest_block)?;
 
     let reward_percentiles = reward_percentiles.map(|percentiles| {
         let mut validated_percentiles = Vec::with_capacity(percentiles.len());

@@ -1,15 +1,13 @@
-mod context;
-mod frame;
-
 use core::fmt::Debug;
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
 use edr_eth::{Address, Bytes};
-
-pub use self::{
-    context::{MockerMutGetter, MockingContext},
-    frame::MockingFrame,
+use edr_evm::{
+    inspector::Inspector,
+    interpreter::{
+        CallInputs, CallOutcome, EthInterpreter, Gas, InstructionResult, InterpreterResult,
+    },
 };
 
 /// The result of executing a call override.
@@ -43,5 +41,36 @@ impl Mocker {
 
     fn override_call(&self, contract: Address, input: Bytes) -> Option<CallOverrideResult> {
         self.call_override.as_ref().and_then(|f| f(contract, input))
+    }
+
+    fn try_mocking_call(&mut self, inputs: &CallInputs) -> Option<CallOutcome> {
+        self.override_call(inputs.bytecode_address, inputs.input.clone())
+            .map(
+                |CallOverrideResult {
+                     output,
+                     should_revert,
+                 }| {
+                    let result = if should_revert {
+                        InstructionResult::Revert
+                    } else {
+                        InstructionResult::Return
+                    };
+
+                    CallOutcome::new(
+                        InterpreterResult {
+                            result,
+                            output,
+                            gas: Gas::new(inputs.gas_limit),
+                        },
+                        inputs.return_memory_offset.clone(),
+                    )
+                },
+            )
+    }
+}
+
+impl<ContextT> Inspector<ContextT, EthInterpreter> for Mocker {
+    fn call(&mut self, _context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
+        self.try_mocking_call(inputs)
     }
 }

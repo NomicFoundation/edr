@@ -48,7 +48,7 @@ impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpec
 
                 // HACK: We need to log failed deserialization attempts when they concern input
                 // validation.
-                if let Some((method_name, provider_error)) = reason.provider_error() {
+                if let Some((method_name, provider_error)) = reason.provider_error::<ChainSpecT>() {
                     // Ignore potential failure of logging, as returning the original error is more
                     // important
                     let _result = self.log_failed_deserialization(method_name, &provider_error);

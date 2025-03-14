@@ -128,13 +128,13 @@ where
 /// state, while disabling balance checks and creating accounts for new
 /// addresses.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn guaranteed_dry_run_with_extension<BlockchainT, ChainSpecT, InspectorT, StateT>(
+pub fn guaranteed_dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, StateT>(
     blockchain: BlockchainT,
     state: StateT,
     mut cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    extension: &mut InspectorT,
+    inspector: &mut InspectorT,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
     TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
@@ -157,7 +157,7 @@ where
         cfg,
         transaction,
         block,
-        extension,
+        inspector,
     )
 }
 

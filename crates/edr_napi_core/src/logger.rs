@@ -12,7 +12,7 @@ use edr_evm::{
 };
 use edr_provider::{
     time::CurrentTime, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
-    EstimateGasFailure, ProviderError, ProviderSpec, TransactionFailure,
+    EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
 use itertools::izip;
 
