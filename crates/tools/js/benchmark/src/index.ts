@@ -9,7 +9,7 @@ import _ from "lodash";
 import path from "path";
 import readline from "readline";
 import zlib from "zlib";
-import { runForgeStdTests, setupForgeStdRepo } from "./solidity-tests";
+import { runForgeStdTests, runSolidityTests, setupForgeStdRepo } from "./solidity-tests";
 
 const SCENARIOS_DIR = "../../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
@@ -18,6 +18,7 @@ const ANVIL_HOST = "http://127.0.0.1:8545";
 
 interface ParsedArguments {
   command: "benchmark" | "verify" | "report" | "solidity-tests";
+  repo?: string;
   grep?: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   benchmark_output: string;
@@ -58,9 +59,13 @@ async function main() {
     choices: ["benchmark", "verify", "report", "solidity-tests"],
     help: "Whether to run a benchmark, verify that there are no regressions or create a report for `github-action-benchmark`",
   });
+  parser.add_argument("-r", "--repo", {
+    type: "str",
+    help: "Path to a repo to execute for Solidity tests",
+  });
   parser.add_argument("-g", "--grep", {
     type: "str",
-    help: "Only execute the scenarios that contain the given string",
+    help: "Only execute the scenarios or Solidity test suites that contain the given string",
   });
   parser.add_argument("-o", "--benchmark-output", {
     type: "str",
@@ -101,8 +106,12 @@ async function main() {
     await report(benchmarkOutputPath);
     await flushStdout();
   } else if (args.command === "solidity-tests") {
-    const repoPath = await setupForgeStdRepo();
-    await runForgeStdTests(repoPath);
+    if (args.repo !== undefined) {
+      await runSolidityTests(args.repo, args.grep);
+    } else {
+      const repoPath = await setupForgeStdRepo();
+      await runForgeStdTests(repoPath);
+    }
   } else {
     const _exhaustiveCheck: never = args.command;
   }
