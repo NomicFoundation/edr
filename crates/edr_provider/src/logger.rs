@@ -6,7 +6,7 @@ use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
 
 use crate::{
     data::CallResult, debug_mine::DebugMineBlockResultForChainSpec, error::EstimateGasFailure,
-    ProviderError,
+    ProviderErrorForChainSpec,
 };
 
 pub trait Logger<ChainSpecT: RuntimeSpec> {
@@ -86,7 +86,7 @@ pub trait Logger<ChainSpecT: RuntimeSpec> {
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderError<ChainSpecT>>,
+        error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
@@ -125,7 +125,7 @@ impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderError<ChainSpecT>>,
+        _error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }

@@ -185,7 +185,7 @@ where
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderError<ChainSpecT>>,
+        error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(error) = error {
             self.collector.state = LoggingState::Empty;

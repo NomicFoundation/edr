@@ -1,33 +1,76 @@
 use core::fmt::Debug;
-use std::num::TryFromIntError;
+use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
-    filter::SubscriptionType, hex, l1, result::ExecutionResult, spec::HaltReasonTrait, Address,
-    BlockSpec, BlockTag, Bytes, B256, U256,
+    filter::SubscriptionType,
+    hex, l1,
+    result::ExecutionResult,
+    spec::{ChainSpec, HaltReasonTrait},
+    transaction::TransactionValidation,
+    Address, BlockSpec, BlockTag, Bytes, B256, U256,
 };
 use edr_evm::{
-    blockchain::BlockchainErrorForChainSpec,
+    blockchain::{BlockchainError, ForkedCreationError, LocalCreationError},
     debug_trace::DebugTraceError,
     spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
-    MemPoolAddTransactionError, MineBlockError, MineBlockErrorForChainSpec, MineTransactionError,
-    MineTransactionErrorForChainSpec,
+    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
-use edr_rpc_eth::{client::RpcClientError, jsonrpc};
+use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use serde::Serialize;
 
-use crate::{
-    config::IntervalConfigConversionError, data::CreationError, time::TimeSinceEpoch, ProviderSpec,
-};
+use crate::{config::IntervalConfigConversionError, time::TimeSinceEpoch, ProviderSpec};
+
+/// Helper type for a chain-specific [`CreationError`].
+pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
+    <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
+    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
+>;
 
 #[derive(Debug, thiserror::Error)]
-pub enum ProviderError<ChainSpecT>
-where
-    ChainSpecT: RuntimeSpec,
-{
+pub enum CreationError<BlockConversionError, HardforkT, ReceiptConversionError> {
+    /// A blockchain error
+    #[error(transparent)]
+    Blockchain(BlockchainError<BlockConversionError, HardforkT, ReceiptConversionError>),
+    /// An error that occurred while constructing a forked blockchain.
+    #[error(transparent)]
+    ForkedBlockchainCreation(#[from] ForkedCreationError<HardforkT>),
+    #[error("Invalid HTTP header name: {0}")]
+    InvalidHttpHeaders(HttpError),
+    /// Invalid initial date
+    #[error("The initial date configuration value {0:?} is before the UNIX epoch")]
+    InvalidInitialDate(SystemTime),
+    #[error("Invalid max cached states environment variable value: '{0:?}'. Please provide a non-zero integer!")]
+    InvalidMaxCachedStates(OsString),
+    /// An error that occurred while constructing a local blockchain.
+    #[error(transparent)]
+    LocalBlockchainCreation(#[from] LocalCreationError),
+    /// An error that occured while querying the remote state.
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
+}
+
+/// Helper type for a chain-specific [`ProviderError`].
+pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
+    <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
+    <ChainSpecT as ChainSpec>::HaltReason,
+    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
+    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum ProviderError<
+    BlockConversionErrorT,
+    HaltReasonT: HaltReasonTrait,
+    HardforkT,
+    ReceiptConversionErrorT,
+    TransactionValidationErrorT,
+> {
     /// Account override conversion error.
     #[error(transparent)]
     AccountOverrideConversionError(#[from] AccountOverrideConversionError),
@@ -57,12 +100,17 @@ where
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(#[from] BlockchainErrorForChainSpec<ChainSpecT>),
+    Blockchain(#[from] BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>),
     #[error(transparent)]
-    Creation(#[from] CreationError<ChainSpecT>),
+    Creation(#[from] CreationError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>),
     #[error(transparent)]
     DebugTrace(
-        #[from] DebugTraceError<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+        #[from]
+        DebugTraceError<
+            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+            StateError,
+            TransactionValidationErrorT,
+        >,
     ),
     #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
     Eip4844CallRequestUnsupported,
@@ -74,7 +122,7 @@ where
     Eip712Error(#[from] alloy_dyn_abi::Error),
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
-    EstimateGasTransactionFailure(#[from] EstimateGasFailure<ChainSpecT::HaltReason>),
+    EstimateGasTransactionFailure(#[from] EstimateGasFailure<HaltReasonT>),
     #[error("{0}")]
     InvalidArgument(String),
     /// Block number or hash doesn't exist in blockchain
@@ -90,7 +138,7 @@ where
     #[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{hardfork:?}' hardfork.")]
     InvalidBlockTag {
         block_tag: BlockTag,
-        hardfork: ChainSpecT::Hardfork,
+        hardfork: HardforkT,
     },
     /// Invalid chain ID
     #[error("Invalid chainId {actual} provided, expected {expected} instead.")]
@@ -134,20 +182,22 @@ where
     #[error(transparent)]
     MineBlock(
         #[from]
-        MineBlockErrorForChainSpec<
-            BlockchainErrorForChainSpec<ChainSpecT>,
-            ChainSpecT,
+        MineBlockError<
+            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+            HardforkT,
             StateError,
+            TransactionValidationErrorT,
         >,
     ),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
     MineTransaction(
         #[from]
-        MineTransactionErrorForChainSpec<
-            BlockchainErrorForChainSpec<ChainSpecT>,
-            ChainSpecT,
+        MineTransactionError<
+            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+            HardforkT,
             StateError,
+            TransactionValidationErrorT,
         >,
     ),
     /// Rpc client error
@@ -159,7 +209,12 @@ where
     /// Error while running a transaction
     #[error(transparent)]
     RunTransaction(
-        #[from] TransactionError<BlockchainErrorForChainSpec<ChainSpecT>, ChainSpecT, StateError>,
+        #[from]
+        TransactionError<
+            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+            StateError,
+            TransactionValidationErrorT,
+        >,
     ),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
@@ -182,11 +237,11 @@ where
     /// The `hardhat_setNextBlockBaseFeePerGas` method is not supported due to
     /// an older hardfork.
     #[error("hardhat_setNextBlockBaseFeePerGas is disabled because EIP-1559 is not active")]
-    SetNextBlockBaseFeePerGasUnsupported { hardfork: ChainSpecT::Hardfork },
+    SetNextBlockBaseFeePerGasUnsupported { hardfork: HardforkT },
     /// The `hardhat_setPrevRandao` method is not supported due to an older
     /// hardfork.
     #[error("hardhat_setPrevRandao is only available in post-merge hardforks, the current hardfork is {hardfork:?}")]
-    SetNextPrevRandaoUnsupported { hardfork: ChainSpecT::Hardfork },
+    SetNextPrevRandaoUnsupported { hardfork: HardforkT },
     /// An error occurred while recovering a signature.
     #[error(transparent)]
     Signature(#[from] edr_eth::signature::SignatureError),
@@ -205,7 +260,7 @@ where
     /// `eth_sendTransaction` failed and
     /// [`crate::config::Provider::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(#[from] TransactionFailureWithTraces<ChainSpecT::HaltReason>),
+    TransactionFailed(#[from] TransactionFailureWithTraces<HaltReasonT>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -251,11 +306,32 @@ where
     UnsupportedMethod { method_name: String },
 }
 
-impl<ChainSpecT> From<ProviderError<ChainSpecT>> for jsonrpc::Error
-where
-    ChainSpecT: RuntimeSpec<HaltReason: Serialize, Hardfork: Debug>,
+impl<
+        BlockConversionErrorT,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT,
+        ReceiptConversionErrorT,
+        TransactionValidationErrorT,
+    >
+    From<
+        ProviderError<
+            BlockConversionErrorT,
+            HaltReasonT,
+            HardforkT,
+            ReceiptConversionErrorT,
+            TransactionValidationErrorT,
+        >,
+    > for jsonrpc::Error
 {
-    fn from(value: ProviderError<ChainSpecT>) -> Self {
+    fn from(
+        value: ProviderError<
+            BlockConversionErrorT,
+            HaltReasonT,
+            HardforkT,
+            ReceiptConversionErrorT,
+            TransactionValidationErrorT,
+        >,
+    ) -> Self {
         const INVALID_INPUT: i16 = -32000;
         const INTERNAL_ERROR: i16 = -32603;
         const INVALID_PARAMS: i16 = -32602;

@@ -9,6 +9,7 @@ use edr_evm::{state::StateOverrides, transaction, Block as _};
 
 use crate::{
     data::ProviderData,
+    error::ProviderErrorForChainSpec,
     requests::validation::validate_post_merge_block_tags,
     spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
@@ -70,7 +71,7 @@ pub fn handle_fee_history<
     block_count: U256,
     newest_block: BlockSpec,
     reward_percentiles: Option<Vec<f64>>,
-) -> Result<FeeHistoryResult, ProviderError<ChainSpecT>> {
+) -> Result<FeeHistoryResult, ProviderErrorForChainSpec<ChainSpecT>> {
     if data.evm_spec_id() < l1::SpecId::LONDON {
         return Err(ProviderError::InvalidInput(
             "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
@@ -133,7 +134,7 @@ fn resolve_estimate_gas_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ChainSpecT::SignedTransaction, ProviderError<ChainSpecT>> {
+) -> Result<ChainSpecT::SignedTransaction, ProviderErrorForChainSpec<ChainSpecT>> {
     let sender = request
         .maybe_sender()
         .copied()
@@ -156,7 +157,7 @@ fn resolve_estimate_gas_request<
             });
 
             let max_fee_per_gas = max_fee_per_gas.map_or_else(
-                || -> Result<u128, ProviderError<ChainSpecT>> {
+                || -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
                     let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
                         max_priority_fee_per_gas + block.header().base_fee_per_gas.unwrap_or(0)
                     } else {

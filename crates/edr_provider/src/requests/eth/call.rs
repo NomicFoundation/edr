@@ -1,13 +1,14 @@
 use edr_eth::{
     l1,
     transaction::{signed::FakeSign as _, TransactionValidation},
-    BlockSpec, Bytes, U256,
+    BlockSpec, Bytes,
 };
 use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::StateOverrideOptions;
 
 use crate::{
     data::ProviderData,
+    error::ProviderErrorForChainSpec,
     spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure,
@@ -29,7 +30,7 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace<ChainSpecT::HaltReason>), ProviderError<ChainSpecT>> {
+) -> Result<(Bytes, Trace<ChainSpecT::HaltReason>), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =
@@ -81,7 +82,7 @@ pub(crate) fn resolve_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ChainSpecT::SignedTransaction, ProviderError<ChainSpecT>> {
+) -> Result<ChainSpecT::SignedTransaction, ProviderErrorForChainSpec<ChainSpecT>> {
     let sender = request
         .maybe_sender()
         .copied()

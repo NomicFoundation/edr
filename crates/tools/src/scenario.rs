@@ -206,7 +206,7 @@ impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> 
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderError<ChainSpecT>>,
+        _error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }

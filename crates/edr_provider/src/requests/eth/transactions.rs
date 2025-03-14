@@ -18,7 +18,7 @@ use edr_rpc_eth::RpcTypeFrom as _;
 
 use crate::{
     data::ProviderData,
-    error::TransactionFailureWithTraces,
+    error::{ProviderErrorForChainSpec, TransactionFailureWithTraces},
     requests::validation::{
         validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
         validate_transaction_and_call_request,
@@ -35,7 +35,7 @@ pub fn handle_get_transaction_by_block_hash_and_index<
     data: &ProviderData<ChainSpecT, TimerT>,
     block_hash: B256,
     index: U256,
-) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderError<ChainSpecT>> {
+) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderErrorForChainSpec<ChainSpecT>> {
     let index = rpc_index_to_usize(&index)?;
 
     let transaction = data
@@ -62,7 +62,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: PreEip1898BlockSpec,
     index: U256,
-) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderError<ChainSpecT>> {
+) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderErrorForChainSpec<ChainSpecT>> {
     validate_post_merge_block_tags(data.hardfork(), &block_spec)?;
 
     let index = rpc_index_to_usize(&index)?;
@@ -92,7 +92,7 @@ pub fn handle_pending_transactions<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
-) -> Result<Vec<ChainSpecT::RpcTransaction>, ProviderError<ChainSpecT>> {
+) -> Result<Vec<ChainSpecT::RpcTransaction>, ProviderErrorForChainSpec<ChainSpecT>> {
     let transactions = data
         .pending_transactions()
         .map(|pending_transaction| {
@@ -110,7 +110,7 @@ pub fn handle_pending_transactions<
 
 fn rpc_index_to_usize<ChainSpecT: RuntimeSpec>(
     index: &U256,
-) -> Result<usize, ProviderError<ChainSpecT>> {
+) -> Result<usize, ProviderErrorForChainSpec<ChainSpecT>> {
     index
         .try_into()
         .map_err(|_err| ProviderError::InvalidTransactionIndex(*index))
@@ -122,7 +122,7 @@ pub fn handle_get_transaction_by_hash<
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
     transaction_hash: B256,
-) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderError<ChainSpecT>> {
+) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderErrorForChainSpec<ChainSpecT>> {
     let transaction = data
         .transaction_by_hash(&transaction_hash)?
         .map(|transaction_and_block| {
@@ -138,7 +138,7 @@ pub fn handle_get_transaction_receipt<
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
     transaction_hash: B256,
-) -> Result<Option<ChainSpecT::RpcReceipt>, ProviderError<ChainSpecT>> {
+) -> Result<Option<ChainSpecT::RpcReceipt>, ProviderErrorForChainSpec<ChainSpecT>> {
     let receipt = data.transaction_receipt(&transaction_hash)?;
 
     let rpc_receipt =
@@ -277,7 +277,7 @@ fn validate_send_raw_transaction_request<
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
     transaction: &ChainSpecT::PooledTransaction,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(tx_chain_id) = transaction.chain_id() {
         let expected = data.chain_id();
         if tx_chain_id != expected {

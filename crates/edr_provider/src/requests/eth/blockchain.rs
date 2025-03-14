@@ -2,7 +2,7 @@ use edr_eth::{l1, transaction::TransactionValidation, Address, BlockSpec, U256, 
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags,
-    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
+    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,
 };
 
 pub fn handle_block_number_request<
@@ -10,7 +10,7 @@ pub fn handle_block_number_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
-) -> Result<U64, ProviderError<ChainSpecT>> {
+) -> Result<U64, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(U64::from(data.last_block_number()))
 }
 
@@ -19,7 +19,7 @@ pub fn handle_chain_id_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
-) -> Result<U64, ProviderError<ChainSpecT>> {
+) -> Result<U64, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(U64::from(data.chain_id()))
 }
 
@@ -37,7 +37,7 @@ pub fn handle_get_transaction_count_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     address: Address,
     block_spec: Option<BlockSpec>,
-) -> Result<U256, ProviderError<ChainSpecT>> {
+) -> Result<U256, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
         validate_post_merge_block_tags(data.hardfork(), block_spec)?;
     }

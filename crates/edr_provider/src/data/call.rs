@@ -32,7 +32,7 @@ pub(super) fn run_call<
     cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     extension: &'extension mut ContextExtension<ExtensionT, FrameT>,
-) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>>
+) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
     'components: 'context,
     'extension: 'context,

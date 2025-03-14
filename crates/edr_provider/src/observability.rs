@@ -3,7 +3,7 @@ use edr_evm::{
     blockchain::BlockHash,
     interpreter::{EthInterpreter, Interpreter},
     spec::RuntimeSpec,
-    state::{DatabaseComponents, JournaledState, State, WrapDatabaseRef},
+    state::{DatabaseComponents, Journal, State, WrapDatabaseRef},
     trace::{RawTracerFrame, TraceCollector, TraceCollectorContext, TraceCollectorMutGetter},
 };
 

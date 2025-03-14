@@ -34,6 +34,7 @@ use edr_eth::{
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
 use edr_evm::{spec::RuntimeSpec, trace::Trace};
+use error::ProviderErrorForChainSpec;
 use lazy_static::lazy_static;
 
 pub use self::{
@@ -66,8 +67,10 @@ lazy_static! {
     };
 }
 
-pub type ProviderResultWithTraces<T, ChainSpecT> =
-    Result<(T, Vec<Trace<<ChainSpecT as ChainSpec>::HaltReason>>), ProviderError<ChainSpecT>>;
+pub type ProviderResultWithTraces<T, ChainSpecT> = Result<
+    (T, Vec<Trace<<ChainSpecT as ChainSpec>::HaltReason>>),
+    ProviderErrorForChainSpec<ChainSpecT>,
+>;
 
 #[derive(Clone, Debug)]
 pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {
@@ -77,7 +80,7 @@ pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {
 
 fn to_json<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
     value: T,
-) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
@@ -88,7 +91,7 @@ fn to_json<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
 
 fn to_json_with_trace<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
     value: (T, Trace<ChainSpecT::HaltReason>),
-) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
@@ -99,7 +102,7 @@ fn to_json_with_trace<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
 
 fn to_json_with_traces<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
     value: (T, Vec<Trace<ChainSpecT::HaltReason>>),
-) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {

@@ -9,8 +9,8 @@ use parking_lot::Mutex;
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 use crate::{
-    data::{CreationError, ProviderData},
-    error::ProviderError,
+    data::ProviderData,
+    error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
     interval::IntervalMiner,
     logger::SyncLogger,
     mock::SyncCallOverride,
@@ -43,7 +43,7 @@ use crate::{
 ///
 /// fn to_response(
 ///     id: jsonrpc::Id,
-///     result: Result<serde_json::Value, ProviderError<ChainSpecT>,
+///     result: Result<serde_json::Value, ProviderErrorForChainSpec<ChainSpecT>,
 /// ) -> jsonrpc::Response<serde_json::Value> { let data = match result {
 ///   Ok(result) => jsonrpc::ResponseData::Success { result }, Err(error) =>
 ///   jsonrpc::ResponseData::Error { error: jsonrpc::Error { code: -32000,
@@ -73,8 +73,8 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     pub fn log_failed_deserialization(
         &self,
         method_name: &str,
-        error: &ProviderError<ChainSpecT>,
-    ) -> Result<(), ProviderError<ChainSpecT>> {
+        error: &ProviderErrorForChainSpec<ChainSpecT>,
+    ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
         data.logger_mut()
             .print_method_logs(method_name, Some(error))
@@ -103,7 +103,7 @@ impl<
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
         config: ProviderConfig<ChainSpecT::Hardfork>,
         timer: TimerT,
-    ) -> Result<Self, CreationError<ChainSpecT>> {
+    ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
         let data = ProviderData::new(
             runtime.clone(),
             logger,
@@ -166,7 +166,8 @@ impl<
     pub fn handle_request(
         &self,
         request: ProviderRequest<ChainSpecT>,
-    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
+    {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
 
         let response = match request {
@@ -182,7 +183,8 @@ impl<
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         request: Vec<MethodInvocation<ChainSpecT>>,
-    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
+    {
         let mut results = Vec::new();
         let mut traces = Vec::new();
 
@@ -200,7 +202,8 @@ impl<
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         request: MethodInvocation<ChainSpecT>,
-    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>> {
+    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
+    {
         let method_name = if data.logger_mut().is_enabled() {
             let method_name = request.method_name();
             if PRIVATE_RPC_METHODS.contains(method_name) {
@@ -463,7 +466,7 @@ impl<
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         config: Option<ResetProviderConfig>,
-    ) -> Result<bool, ProviderError<ChainSpecT>> {
+    ) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
         let mut interval_miner = self.interval_miner.lock();
         interval_miner.take();
 

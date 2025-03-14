@@ -43,7 +43,7 @@ pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
 /// or funds or reverts. Returns an error for any other halt reason.
 pub(super) fn check_gas_limit<ChainSpecT>(
     args: CheckGasLimitArgs<'_, ChainSpecT>,
-) -> Result<bool, ProviderError<ChainSpecT>>
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
         BlockEnv: Default,
@@ -112,7 +112,7 @@ pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
 /// recursive.
 pub(super) fn binary_search_estimation<ChainSpecT>(
     args: BinarySearchEstimationArgs<'_, ChainSpecT>,
-) -> Result<u64, ProviderError<ChainSpecT>>
+) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
         BlockEnv: Default,
@@ -191,7 +191,7 @@ fn min_difference(lower_bound: u64) -> u64 {
 pub(super) fn compute_rewards<ChainSpecT>(
     block: &ChainSpecT::Block,
     reward_percentiles: &[RewardPercentile],
-) -> Result<Vec<U256>, ProviderError<ChainSpecT>>
+) -> Result<Vec<U256>, ProviderErrorForChainSpec<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
         Block: BlockReceipts<

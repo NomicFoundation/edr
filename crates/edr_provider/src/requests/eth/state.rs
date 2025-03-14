@@ -5,7 +5,7 @@ use edr_eth::{
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags,
-    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
+    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,
 };
 
 pub fn handle_get_balance_request<
@@ -22,7 +22,7 @@ pub fn handle_get_balance_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     address: Address,
     block_spec: Option<BlockSpec>,
-) -> Result<U256, ProviderError<ChainSpecT>> {
+) -> Result<U256, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
         validate_post_merge_block_tags(data.hardfork(), block_spec)?;
     }
@@ -44,7 +44,7 @@ pub fn handle_get_code_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     address: Address,
     block_spec: Option<BlockSpec>,
-) -> Result<Bytes, ProviderError<ChainSpecT>> {
+) -> Result<Bytes, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
         validate_post_merge_block_tags(data.hardfork(), block_spec)?;
     }
@@ -67,7 +67,7 @@ pub fn handle_get_storage_at_request<
     address: Address,
     index: U256,
     block_spec: Option<BlockSpec>,
-) -> Result<String, ProviderError<ChainSpecT>> {
+) -> Result<String, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
         validate_post_merge_block_tags(data.hardfork(), block_spec)?;
     }

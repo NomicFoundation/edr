@@ -8,8 +8,8 @@ use edr_evm::{spec::RuntimeSpec, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
-    data::ProviderData, spec::HardforkValidationData, time::TimeSinceEpoch, ProviderError,
-    SyncProviderSpec,
+    data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
+    time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
 };
 
 impl HardforkValidationData for TransactionRequest {
@@ -125,7 +125,7 @@ pub fn validate_send_transaction_request<
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
     request: &TransactionRequest,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(chain_id) = request.chain_id {
         let expected = data.chain_id();
         if chain_id != expected {
@@ -170,7 +170,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
     spec_id: l1::SpecId,
     value: &impl HardforkValidationData,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     if spec_id < l1::SpecId::BERLIN && value.access_list().is_some() {
         return Err(ProviderError::UnsupportedAccessListParameter {
             current_hardfork: spec_id,
@@ -242,7 +242,7 @@ pub fn validate_call_request<ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
     call_request: &CallRequest,
     block_spec: &BlockSpec,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     validate_post_merge_block_tags(hardfork, block_spec)?;
 
     if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
@@ -267,7 +267,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 pub(crate) fn validate_transaction_and_call_request<ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
     validation_data: &impl HardforkValidationData,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     validate_transaction_spec(hardfork.into(), validation_data).map_err(|err| match err {
         ProviderError::UnsupportedAccessListParameter {
             minimum_hardfork, ..
@@ -287,7 +287,7 @@ pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: RuntimeSpec>(
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
     data: &Bytes,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     if spec_id < l1::SpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
         return Ok(());
     }
@@ -336,7 +336,7 @@ impl<'a> From<ValidationBlockSpec<'a>> for BlockSpec {
 pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec>(
     hardfork: ChainSpecT::Hardfork,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();
 
     if hardfork.into() < l1::SpecId::MERGE {

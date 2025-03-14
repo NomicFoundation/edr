@@ -8,21 +8,21 @@ use edr_rpc_eth::{CallRequest, TransactionRequest};
 use super::validation::validate_call_request;
 use crate::{
     data::ProviderData,
+    error::ProviderErrorForChainSpec,
     requests::validation::validate_send_transaction_request,
     spec::{CallContext, FromRpcType, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError,
 };
 
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transaction::Request {
     type Context<'context> = CallContext<'context, L1ChainSpec, TimerT>;
 
-    type Error = ProviderError<L1ChainSpec>;
+    type Error = ProviderErrorForChainSpec<L1ChainSpec>;
 
     fn from_rpc_type(
         value: CallRequest,
         context: Self::Context<'_>,
-    ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
+    ) -> Result<transaction::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
         let CallContext {
             data,
             block_spec,
@@ -105,12 +105,12 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
 {
     type Context<'context> = TransactionContext<'context, L1ChainSpec, TimerT>;
 
-    type Error = ProviderError<L1ChainSpec>;
+    type Error = ProviderErrorForChainSpec<L1ChainSpec>;
 
     fn from_rpc_type(
         value: TransactionRequest,
         context: Self::Context<'_>,
-    ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
+    ) -> Result<transaction::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
         const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
 
         /// # Panics

@@ -6,7 +6,7 @@ use crate::{
     requests::{eth::client_version, hardhat::rpc_types::Metadata},
     spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError,
+    ProviderErrorForChainSpec,
 };
 
 pub fn handle_get_automine_request<
@@ -14,7 +14,7 @@ pub fn handle_get_automine_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(data.is_auto_mining())
 }
 
@@ -23,7 +23,7 @@ pub fn handle_metadata_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
-) -> Result<Metadata, ProviderError<ChainSpecT>> {
+) -> Result<Metadata, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(Metadata {
         client_version: client_version(),
         chain_id: data.chain_id(),
@@ -40,7 +40,7 @@ pub fn handle_set_coinbase_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     coinbase: Address,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     data.set_coinbase(coinbase);
 
     Ok(true)
@@ -52,7 +52,7 @@ pub fn handle_set_min_gas_price<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     min_gas_price: u128,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     data.set_min_gas_price(min_gas_price)?;
 
     Ok(true)
@@ -64,7 +64,7 @@ pub fn handle_set_next_block_base_fee_per_gas_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     base_fee_per_gas: u128,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     data.set_next_block_base_fee_per_gas(base_fee_per_gas)?;
 
     Ok(true)
@@ -76,7 +76,7 @@ pub fn handle_set_prev_randao_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     prev_randao: B256,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     data.set_next_prev_randao(prev_randao)?;
 
     Ok(true)

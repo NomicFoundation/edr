@@ -14,8 +14,9 @@ use edr_evm::{
 use edr_rpc_eth::RpcTypeFrom as _;
 
 use crate::{
-    data::ProviderData, requests::validation::validate_post_merge_block_tags,
-    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
+    data::ProviderData, error::ProviderErrorForChainSpec,
+    requests::validation::validate_post_merge_block_tags, spec::SyncProviderSpec,
+    time::TimeSinceEpoch, ProviderError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -32,7 +33,10 @@ pub fn handle_get_block_by_hash_request<
     data: &ProviderData<ChainSpecT, TimerT>,
     block_hash: B256,
     transaction_detail_flag: bool,
-) -> Result<Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>, ProviderError<ChainSpecT>> {
+) -> Result<
+    Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+> {
     data.block_by_hash(&block_hash)?
         .map(|block| {
             let total_difficulty = data.total_difficulty_by_hash(block.block_hash())?;
@@ -62,7 +66,10 @@ pub fn handle_get_block_by_number_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: PreEip1898BlockSpec,
     transaction_detail_flag: bool,
-) -> Result<Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>, ProviderError<ChainSpecT>> {
+) -> Result<
+    Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+> {
     block_by_number(data, &block_spec.into())?
         .map(
             |BlockByNumberResult {
@@ -88,7 +95,7 @@ pub fn handle_get_block_transaction_count_by_hash_request<
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
     block_hash: B256,
-) -> Result<Option<U64>, ProviderError<ChainSpecT>> {
+) -> Result<Option<U64>, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(data
         .block_by_hash(&block_hash)?
         .map(|block| U64::from(block.transactions().len())))
@@ -107,7 +114,7 @@ pub fn handle_get_block_transaction_count_by_block_number<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: PreEip1898BlockSpec,
-) -> Result<Option<U64>, ProviderError<ChainSpecT>> {
+) -> Result<Option<U64>, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(block_by_number(data, &block_spec.into())?
         .map(|BlockByNumberResult { block, .. }| U64::from(block.transactions().len())))
 }
@@ -140,7 +147,10 @@ fn block_by_number<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: &BlockSpec,
-) -> Result<Option<BlockByNumberResultForChainSpec<ChainSpecT>>, ProviderError<ChainSpecT>> {
+) -> Result<
+    Option<BlockByNumberResultForChainSpec<ChainSpecT>>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+> {
     validate_post_merge_block_tags(data.hardfork(), block_spec)?;
 
     match data.block_by_block_spec(block_spec) {
@@ -180,7 +190,8 @@ fn block_to_rpc_output<ChainSpecT: RuntimeSpec>(
     is_pending: bool,
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,
-) -> Result<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>, ProviderError<ChainSpecT>> {
+) -> Result<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>, ProviderErrorForChainSpec<ChainSpecT>>
+{
     let header = block.header();
 
     let transactions: Vec<HashOrTransaction<ChainSpecT>> = if transaction_detail_flag {

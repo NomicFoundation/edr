@@ -17,10 +17,11 @@ use tokio::runtime;
 
 use crate::{
     config,
+    error::ProviderErrorForChainSpec,
     requests::hardhat::rpc_types::ForkConfig,
     time::{CurrentTime, TimeSinceEpoch},
-    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderError,
-    ProviderRequest, ProviderSpec, SyncProviderSpec,
+    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderRequest,
+    ProviderSpec, SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =
@@ -97,7 +98,7 @@ pub fn pending_base_fee<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-) -> Result<u128, ProviderError<ChainSpecT>> {
+) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
     let block = data.mine_pending_block()?.block;
 
     let base_fee = block.header().base_fee_per_gas.unwrap_or_else(|| 1);

@@ -10,7 +10,8 @@ use tokio::{
 };
 
 use crate::{
-    data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, IntervalConfig, ProviderError,
+    data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
+    time::TimeSinceEpoch, IntervalConfig,
 };
 
 /// Type for interval mining on a separate thread.
@@ -24,7 +25,7 @@ pub struct IntervalMiner<ChainSpecT: RuntimeSpec, TimerT> {
 /// implementation of `Drop`.
 struct Inner<ChainSpecT: RuntimeSpec> {
     cancellation_sender: oneshot::Sender<()>,
-    background_task: JoinHandle<Result<(), ProviderError<ChainSpecT>>>,
+    background_task: JoinHandle<Result<(), ProviderErrorForChainSpec<ChainSpecT>>>,
 }
 
 impl<
@@ -74,7 +75,7 @@ async fn interval_mining_loop<
     config: IntervalConfig,
     data: Arc<Mutex<ProviderData<ChainSpecT, TimerT>>>,
     mut cancellation_receiver: oneshot::Receiver<()>,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let mut now = Instant::now();
     loop {
         let delay = config.generate_interval();
@@ -94,7 +95,7 @@ async fn interval_mining_loop<
                             return Err(error);
                         }
 
-                        Result::<(), ProviderError<ChainSpecT>>::Ok(())
+                        Result::<(), ProviderErrorForChainSpec<ChainSpecT>>::Ok(())
                     }
                 }
             },
