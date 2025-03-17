@@ -64,7 +64,7 @@ pub struct Header {
     // #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
     pub nonce: B64,
     /// `BaseFee` was added by EIP-1559 and is ignored in legacy headers.
-    #[serde(with = "alloy_serde::quantity::opt")]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity::opt"))]
     pub base_fee_per_gas: Option<u128>,
     /// `WithdrawalsHash` was added by EIP-4895 and is ignored in legacy
     /// headers.
