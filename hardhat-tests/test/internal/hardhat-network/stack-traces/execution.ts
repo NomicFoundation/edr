@@ -5,15 +5,12 @@ import {
   toBytes,
 } from "@nomicfoundation/ethereumjs-util";
 
-import { MessageTrace } from "hardhat/internal/hardhat-network/stack-traces/message-trace";
 import { defaultHardhatNetworkParams } from "hardhat/internal/core/config/default-config";
-import {
-  MempoolOrder,
-  TracingConfig,
-} from "hardhat/internal/hardhat-network/provider/node-types";
+import { MempoolOrder } from "hardhat/internal/hardhat-network/provider/node-types";
 import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/provider";
-import { VMTracer } from "hardhat/internal/hardhat-network/stack-traces/vm-tracer";
 import { LoggerConfig } from "hardhat/internal/hardhat-network/provider/modules/logger";
+import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
+import { Response, TracingConfigWithBuffers } from "@nomicfoundation/edr";
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));
@@ -28,7 +25,7 @@ const senderAddress = bytesToHex(privateToAddress(toBuffer(senderPrivateKey)));
 
 export async function instantiateProvider(
   loggerConfig: LoggerConfig,
-  tracingConfig: TracingConfig
+  tracingConfig: TracingConfigWithBuffers
 ): Promise<EdrProviderWrapper> {
   const config = {
     hardfork: "cancun",
@@ -47,7 +44,7 @@ export async function instantiateProvider(
       },
     ],
     allowUnlimitedContractSize: false,
-    throwOnTransactionFailures: false,
+    throwOnTransactionFailures: true,
     throwOnCallFailures: false,
     allowBlocksWithSameTimestamp: false,
     coinbase: "0x0000000000000000000000000000000000000000",
@@ -102,36 +99,53 @@ interface TxData {
   gas?: bigint;
 }
 
+/**
+ * Returns a SolidityStackTrace object if the transaction failed, the contract address if
+ * the transaction successfully deployed a contract, or undefined if the transaction
+ * succeeded and didn't deploy a contract.
+ */
 export async function traceTransaction(
   provider: EdrProviderWrapper,
   txData: TxData
-): Promise<MessageTrace> {
-  const vmTracer = new VMTracer();
-  provider.setVmTracer(vmTracer);
+): Promise<SolidityStackTrace | string | undefined> {
+  const stringifiedArgs = JSON.stringify({
+    method: "eth_sendTransaction",
+    params: [
+      {
+        from: senderAddress,
+        data: bytesToHex(txData.data),
+        to: txData.to !== undefined ? bytesToHex(txData.to) : undefined,
+        value: bigIntToHex(txData.value ?? 0n),
+        // If the test didn't define a gasLimit, we assume 4M is enough
+        gas: bigIntToHex(txData.gas ?? 4000000n),
+        gasPrice: bigIntToHex(10n),
+      },
+    ],
+  });
 
-  try {
-    await provider.request({
-      method: "eth_sendTransaction",
-      params: [
-        {
-          from: senderAddress,
-          data: bytesToHex(txData.data),
-          to: txData.to !== undefined ? bytesToHex(txData.to) : undefined,
-          value: bigIntToHex(txData.value ?? 0n),
-          // If the test didn't define a gasLimit, we assume 4M is enough
-          gas: bigIntToHex(txData.gas ?? 4000000n),
-          gasPrice: bigIntToHex(10n),
-        },
-      ],
-    });
+  const responseObject: Response =
+    // eslint-disable-next-line @typescript-eslint/dot-notation
+    await provider["_provider"].handleRequest(stringifiedArgs);
 
-    const trace = vmTracer.getLastTopLevelMessageTrace();
-    if (trace === undefined) {
-      const error = vmTracer.getLastError();
-      throw error ?? new Error("Cannot get last top level message trace");
-    }
-    return trace;
-  } finally {
-    provider.setVmTracer(undefined);
+  let response;
+  if (typeof responseObject.data === "string") {
+    response = JSON.parse(responseObject.data);
+  } else {
+    response = responseObject.data;
   }
+
+  const receipt: any = await provider.request({
+    method: "eth_getTransactionReceipt",
+    params: [response.result ?? response.error.data.transactionHash],
+  });
+
+  const stackTrace: SolidityStackTrace | null = responseObject.stackTrace();
+
+  const contractAddress = receipt.contractAddress?.slice(2);
+
+  if (stackTrace === null) {
+    return contractAddress;
+  }
+
+  return stackTrace;
 }

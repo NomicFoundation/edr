@@ -80,7 +80,7 @@ pub struct Trace<HaltReasonT: HaltReasonTrait> {
 #[derive(Clone, Debug)]
 pub struct Step {
     /// The program counter
-    pub pc: u64,
+    pub pc: u32,
     /// The call depth
     pub depth: u64,
     /// The executed op code
@@ -436,8 +436,15 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             } else {
                 None
             };
+
+            let pc = interpreter
+                .bytecode
+                .pc()
+                .try_into()
+                .expect("Program Counter should fit inside u32");
+
             self.current_trace_mut().add_step(Step {
-                pc: interpreter.bytecode.pc() as u64,
+                pc,
                 depth: journal.depth() as u64,
                 opcode: interpreter.bytecode.opcode(),
                 stack,

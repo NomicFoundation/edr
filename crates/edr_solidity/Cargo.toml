@@ -7,12 +7,26 @@ edition = "2021"
 anyhow = { version = "1.0.75", default-features = false }
 alloy-dyn-abi = { version = "0.8.22", default-features = false }
 alloy-json-abi = { version = "0.8.22", default-features = false }
+alloy-sol-types = { version = "0.7.4", default-features = false, features = ["std"] }
+derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm" }
 indexmap = { version = "2", features = ["serde"] }
+log = { version = "0.4.17", default-features = false }
+parking_lot = { version = "0.12.1", default-features = false }
 serde = { version = "1.0.158", default-features = false, features = ["std"] }
 serde_json = { version = "1.0.89", features = ["preserve_order"] }
 strum = { version = "0.26.0", features = ["derive"] }
+semver = "1.0.23"
+thiserror = "1.0.58"
+itertools = "0.10.5"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "contracts_identifier"
+harness = false
 
 [lints]
 workspace = true

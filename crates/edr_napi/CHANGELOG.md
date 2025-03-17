@@ -1,5 +1,23 @@
 # @nomicfoundation/edr
 
+## 0.8.0
+
+### Minor Changes
+
+- af26624: Improved provider initialization performance by passing build info as buffer which avoids FFI copy overhead
+
+### Patch Changes
+
+- 4ffb4f6: fix: ignore unknown opcodes in source maps
+- 5c8c3dd: Fixed crash when loading EDR on Windows without a C Runtime library installed
+- 2b9b805: Improved stack trace generation performance by eliminating one-way branching in the bytecode trie
+
+## 0.7.0
+
+### Minor Changes
+
+- d419f36: Add a `stackTrace` getter to the provider's response and remove the old, lower-level `solidityTrace` getter.
+
 ## 0.6.5
 
 ### Patch Changes

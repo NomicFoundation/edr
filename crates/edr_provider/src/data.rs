@@ -61,6 +61,7 @@ use edr_evm::{
     MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
+use edr_solidity::contract_decoder::ContractDecoder;
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
@@ -221,6 +222,7 @@ pub struct ProviderData<
     block_state_cache: LruCache<StateId, Arc<Box<dyn SyncState<StateError>>>>,
     current_state_id: StateId,
     block_number_to_state_id: HashTrieMapSync<u64, StateId>,
+    contract_decoder: Arc<ContractDecoder>,
 }
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
@@ -263,6 +265,11 @@ where
 
     pub fn coinbase(&self) -> Address {
         self.beneficiary
+    }
+
+    /// Get the locked contract decoder.
+    pub fn contract_decoder(&self) -> &ContractDecoder {
+        &self.contract_decoder
     }
 
     /// Returns the default caller.
@@ -580,6 +587,7 @@ where
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
         call_override: Option<Arc<dyn SyncCallOverride>>,
         config: ProviderConfig<ChainSpecT::Hardfork>,
+        contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
         let InitialAccounts {
@@ -670,6 +678,7 @@ where
             block_state_cache,
             current_state_id,
             block_number_to_state_id,
+            contract_decoder,
         })
     }
 
@@ -852,6 +861,9 @@ where
             self.subscriber_callback.clone(),
             self.call_override.clone(),
             config,
+            // `hardhat_reset` doesn't discard contract metadata added with
+            // `hardhat_addCompilationResult`
+            Arc::clone(&self.contract_decoder),
             self.timer.clone(),
         )?;
 

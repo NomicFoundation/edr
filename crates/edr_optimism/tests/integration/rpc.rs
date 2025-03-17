@@ -94,12 +94,15 @@ async fn transaction_and_receipt_pre_bedrock() -> anyhow::Result<()> {
         .await?
         .expect("Transaction must exist");
 
-    let transaction = transaction::Signed::try_from(transaction)?;
+    let transaction =
+        transaction::Signed::try_from(transaction).expect("Failed to deserialize transaction");
+
     assert_eq!(transaction.transaction_type(), transaction::Type::Legacy);
 
     let receipt = rpc_client
         .get_transaction_receipt(TRANSACTION_HASH)
-        .await?
+        .await
+        .expect("Failed to retrieve receipt")
         .expect("Receipt must exist");
 
     assert_eq!(receipt.transaction_type, None);

@@ -9,9 +9,17 @@ pub mod contracts_identifier;
 pub mod utils;
 
 pub mod artifacts;
-pub mod library_utils;
-pub mod message_trace;
-pub mod vm_tracer;
-
 pub mod compiler;
-pub mod source_map;
+pub mod contract_decoder;
+pub mod exit_code;
+pub mod library_utils;
+pub mod nested_trace;
+pub mod nested_tracer;
+pub mod solidity_stack_trace;
+pub mod solidity_tracer;
+
+mod bytecode_trie;
+mod error_inferrer;
+mod mapped_inline_internal_functions_heuristics;
+mod return_data;
+mod source_map;

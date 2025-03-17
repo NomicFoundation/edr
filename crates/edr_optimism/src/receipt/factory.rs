@@ -64,9 +64,8 @@ fn to_rpc_l1_block_info(
             .enveloped_tx()
             .expect("Non-deposit transactions must return an enveloped transaction");
 
-        let l1_fee = l1_block_info
-            .tx_l1_cost
-            .expect("L1 transaction cost should have been cached");
+        let mut l1_block_info = l1_block_info.clone();
+        let l1_fee = l1_block_info.calculate_tx_l1_cost(enveloped_tx, hardfork);
 
         let (l1_fee_scalar, l1_base_fee_scalar) = if hardfork < OpSpecId::ECOTONE {
             let l1_fee_scalar: f64 = l1_block_info.l1_base_fee_scalar.into();

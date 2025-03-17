@@ -14,23 +14,13 @@ use edr_provider::{
     time::CurrentTime, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
     EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
+use edr_solidity::contract_decoder::{ContractAndFunctionName, ContractDecoder};
 use itertools::izip;
 
 /// Trait for a function that decodes console log inputs.
 pub trait DecodeConsoleLogInputsFn: Fn(Vec<Bytes>) -> Vec<String> + Send + Sync {}
 
 impl<FnT> DecodeConsoleLogInputsFn for FnT where FnT: Fn(Vec<Bytes>) -> Vec<String> + Send + Sync {}
-
-/// Trait for a function that retrieves the contract and function name.
-pub trait GetContractAndFunctionNameFn:
-    Fn(Bytes, Option<Bytes>) -> (String, Option<String>) + Send + Sync
-{
-}
-
-impl<FnT> GetContractAndFunctionNameFn for FnT where
-    FnT: Fn(Bytes, Option<Bytes>) -> (String, Option<String>) + Send + Sync
-{
-}
 
 /// Trait for a function that prints a line or replaces the last printed line.
 pub trait PrintLineFn: Fn(String, bool) -> Result<(), LoggerError> + Send + Sync {}
@@ -42,7 +32,6 @@ pub struct Config {
     /// Whether to enable the logger.
     pub enable: bool,
     pub decode_console_log_inputs_fn: Arc<dyn DecodeConsoleLogInputsFn>,
-    pub get_contract_and_function_name_fn: Arc<dyn GetContractAndFunctionNameFn>,
     pub print_line_fn: Arc<dyn PrintLineFn>,
 }
 
@@ -104,9 +93,9 @@ pub struct Logger<ChainSpecT: ProviderSpec<CurrentTime>> {
 }
 
 impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT> {
-    pub fn new(config: Config) -> napi::Result<Self> {
+    pub fn new(config: Config, contract_decoder: Arc<ContractDecoder>) -> napi::Result<Self> {
         Ok(Self {
-            collector: LogCollector::new(config)?,
+            collector: LogCollector::new(config, contract_decoder)?,
         })
     }
 }
@@ -182,6 +171,18 @@ where
         Ok(())
     }
 
+    fn print_contract_decoding_error(
+        &mut self,
+        error: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.collector.log(
+            "Contract decoder failed to be updated. Please report this to help us improve Hardhat.",
+        );
+        self.collector.print_empty_line()?;
+        self.collector.log(error);
+        Ok(())
+    }
+
     fn print_method_logs(
         &mut self,
         method: &str,
@@ -237,6 +238,7 @@ pub struct CollapsedMethod {
 #[derive_where(Clone)]
 struct LogCollector<ChainSpecT: ProviderSpec<CurrentTime>> {
     config: Config,
+    contract_decoder: Arc<ContractDecoder>,
     indentation: usize,
     logs: Vec<LogLine>,
     state: LoggingState,
@@ -245,9 +247,10 @@ struct LogCollector<ChainSpecT: ProviderSpec<CurrentTime>> {
 }
 
 impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
-    pub fn new(config: Config) -> napi::Result<Self> {
+    pub fn new(config: Config, contract_decoder: Arc<ContractDecoder>) -> napi::Result<Self> {
         Ok(Self {
             config,
+            contract_decoder,
             indentation: 0,
             logs: Vec::new(),
             state: LoggingState::default(),
@@ -744,14 +747,20 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
                             self.log("WARNING: Calling an account which is not a contract");
                         }
                     } else {
-                        let (contract_name, function_name) =
-                            (self.config.get_contract_and_function_name_fn)(
-                                before_message
-                                    .code
-                                    .as_ref()
-                                    .map(edr_eth::Bytecode::original_bytes)
-                                    .expect("Call must be defined"),
-                                Some(before_message.data.clone()),
+                        let code = before_message
+                            .code
+                            .as_ref()
+                            .map(edr_eth::Bytecode::original_bytes)
+                            .expect("Call must be defined");
+
+                        let ContractAndFunctionName {
+                            contract_name,
+                            function_name,
+                        } = self
+                            .contract_decoder
+                            .get_contract_and_function_names_for_call(
+                                &code,
+                                Some(&before_message.data),
                             );
 
                         let function_name = function_name.expect("Function name must be defined");
@@ -777,10 +786,9 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
                 };
 
                 // Create
-                let (contract_name, _) = (self.config.get_contract_and_function_name_fn)(
-                    before_message.data.clone(),
-                    None,
-                );
+                let ContractAndFunctionName { contract_name, .. } = self
+                    .contract_decoder
+                    .get_contract_and_function_names_for_call(&before_message.data, None);
 
                 self.log_with_title("Contract deployment", contract_name);
 

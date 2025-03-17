@@ -6,13 +6,11 @@ use edr_eth::{
     Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
 };
 use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
+use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
 use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};
-use crate::requests::{
-    debug::DebugTraceConfig,
-    hardhat::rpc_types::{CompilerInput, CompilerOutput, ResetProviderConfig},
-};
+use crate::requests::{debug::DebugTraceConfig, hardhat::rpc_types::ResetProviderConfig};
 
 mod optional_block_spec {
     use super::BlockSpec;
@@ -304,7 +302,7 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     AddCompilationResult(
         /// solc version:
         String,
-        CompilerInput,
+        Box<CompilerInput>,
         CompilerOutput,
     ),
     /// `hardhat_dropTransaction`
@@ -313,12 +311,6 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     /// `hardhat_getAutomine`
     #[serde(rename = "hardhat_getAutomine", with = "edr_eth::serde::empty_params")]
     GetAutomine(()),
-    /// `hardhat_getStackTraceFailuresCount`
-    #[serde(
-        rename = "hardhat_getStackTraceFailuresCount",
-        with = "edr_eth::serde::empty_params"
-    )]
-    GetStackTraceFailuresCount(()),
     /// `hardhat_impersonateAccount`
     #[serde(
         rename = "hardhat_impersonateAccount",
@@ -479,7 +471,6 @@ impl<ChainSpecT: RpcSpec> MethodInvocation<ChainSpecT> {
             MethodInvocation::AddCompilationResult(_, _, _) => "hardhat_addCompilationResult",
             MethodInvocation::DropTransaction(_) => "hardhat_dropTransaction",
             MethodInvocation::GetAutomine(_) => "hardhat_getAutomine",
-            MethodInvocation::GetStackTraceFailuresCount(_) => "hardhat_getStackTraceFailuresCount",
             MethodInvocation::ImpersonateAccount(_) => "hardhat_impersonateAccount",
             MethodInvocation::IntervalMine(_) => "hardhat_intervalMine",
             MethodInvocation::Metadata(_) => "hardhat_metadata",

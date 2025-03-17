@@ -92,7 +92,8 @@ describe("Provider", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      }
+      },
+      {}
     );
 
     const debugTraceTransaction = `{

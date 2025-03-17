@@ -20,6 +20,7 @@ use edr_evm::{
     MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
+use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
 use crate::{config::IntervalConfigConversionError, time::TimeSinceEpoch, ProviderSpec};
@@ -36,6 +37,9 @@ pub enum CreationError<BlockConversionError, HardforkT: Debug, ReceiptConversion
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainError<BlockConversionError, HardforkT, ReceiptConversionError>),
+    /// A contract decoder error
+    #[error(transparent)]
+    ContractDecoder(#[from] ContractDecoderError),
     /// An error that occurred while constructing a forked blockchain.
     #[error(transparent)]
     ForkedBlockchainCreation(#[from] ForkedCreationError<HardforkT>),
@@ -245,6 +249,9 @@ pub enum ProviderError<
     /// An error occurred while recovering a signature.
     #[error(transparent)]
     Signature(#[from] edr_eth::signature::SignatureError),
+    /// An error occurred while decoding the contract metadata.
+    #[error("Error decoding contract metadata: {0}")]
+    SolcDecoding(String),
     /// State error
     #[error(transparent)]
     State(#[from] StateError),
@@ -383,6 +390,7 @@ impl<
             ProviderError::SetNextBlockBaseFeePerGasUnsupported { .. } => INVALID_INPUT,
             ProviderError::SetNextPrevRandaoUnsupported { .. } => INVALID_INPUT,
             ProviderError::Signature(_) => INVALID_PARAMS,
+            ProviderError::SolcDecoding(_) => INVALID_INPUT,
             ProviderError::State(_) => INVALID_INPUT,
             ProviderError::TimestampLowerThanPrevious { .. } => INVALID_INPUT,
             ProviderError::TimestampEqualsPrevious { .. } => INVALID_INPUT,

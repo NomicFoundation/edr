@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use edr_eth::{address, bytes, Address, BlockSpec, U64};
 use edr_optimism::{OpChainSpec, OpSpecId};
 use edr_provider::{
@@ -7,6 +9,7 @@ use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
 use tokio::runtime;
 
@@ -60,6 +63,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1GenesisState, l1HardforkFromString, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, MineOrdering, EdrContext, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, createModelsAndDecodeBytecodes, linkHexStringBytecode, BytecodeWrapper, ContractFunctionType, printMessageTrace, printStackTrace, Exit, ExitCode, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, SolidityTracer, VmTraceDecoder, initializeVmTraceDecoder, VmTracer, RawTrace } = nativeBinding
+const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1GenesisState, l1HardforkFromString, l1ProviderFactory, SpecId, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, PRAGUE_EOF, LATEST, MineOrdering, EdrContext, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, linkHexStringBytecode, printStackTrace, Exit, ExitCode, BytecodeWrapper, ContractFunctionType, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, RawTrace, getLatestSupportedSolcVersion } = nativeBinding
 
 module.exports.GENERIC_CHAIN_TYPE = GENERIC_CHAIN_TYPE
 module.exports.genericChainProviderFactory = genericChainProviderFactory
@@ -347,14 +347,12 @@ module.exports.Response = Response
 module.exports.Provider = Provider
 module.exports.SuccessReason = SuccessReason
 module.exports.ExceptionalHalt = ExceptionalHalt
-module.exports.createModelsAndDecodeBytecodes = createModelsAndDecodeBytecodes
 module.exports.linkHexStringBytecode = linkHexStringBytecode
-module.exports.BytecodeWrapper = BytecodeWrapper
-module.exports.ContractFunctionType = ContractFunctionType
-module.exports.printMessageTrace = printMessageTrace
 module.exports.printStackTrace = printStackTrace
 module.exports.Exit = Exit
 module.exports.ExitCode = ExitCode
+module.exports.BytecodeWrapper = BytecodeWrapper
+module.exports.ContractFunctionType = ContractFunctionType
 module.exports.ReturnData = ReturnData
 module.exports.StackTraceEntryType = StackTraceEntryType
 module.exports.stackTraceEntryTypeToString = stackTraceEntryTypeToString
@@ -365,8 +363,5 @@ module.exports.UNRECOGNIZED_FUNCTION_NAME = UNRECOGNIZED_FUNCTION_NAME
 module.exports.UNKNOWN_FUNCTION_NAME = UNKNOWN_FUNCTION_NAME
 module.exports.PRECOMPILE_FUNCTION_NAME = PRECOMPILE_FUNCTION_NAME
 module.exports.UNRECOGNIZED_CONTRACT_NAME = UNRECOGNIZED_CONTRACT_NAME
-module.exports.SolidityTracer = SolidityTracer
-module.exports.VmTraceDecoder = VmTraceDecoder
-module.exports.initializeVmTraceDecoder = initializeVmTraceDecoder
-module.exports.VmTracer = VmTracer
 module.exports.RawTrace = RawTrace
+module.exports.getLatestSupportedSolcVersion = getLatestSupportedSolcVersion

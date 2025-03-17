@@ -1,5 +1,5 @@
 //! Utility functions for decoding the Solidity compiler source maps.
-use std::rc::Rc;
+use std::sync::Arc;
 
 use edr_eth::bytecode::opcode::OpCode;
 
@@ -146,7 +146,7 @@ fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8
 pub fn decode_instructions(
     bytecode: &[u8],
     compressed_sourcemaps: &str,
-    build_model: &Rc<BuildModel>,
+    build_model: &Arc<BuildModel>,
     is_deployment: bool,
 ) -> Vec<Instruction> {
     let source_maps = uncompress_sourcemaps(compressed_sourcemaps);
@@ -159,7 +159,16 @@ pub fn decode_instructions(
         let source_map = &source_maps[instructions.len()];
 
         let pc = bytes_index;
-        let opcode = OpCode::new(bytecode[pc]).expect("Invalid opcode");
+        let opcode = if let Some(opcode) = OpCode::new(bytecode[pc]) {
+            opcode
+        } else {
+            log::debug!("Invalid opcode {} at pc: {}", bytecode[pc], pc);
+
+            // We assume this happens because the source maps point to the metadata region
+            // of the bytecode. That means that the actual instructions have
+            // already been decoded and we can stop here.
+            return instructions;
+        };
 
         let push_data = if opcode.is_push() {
             let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
@@ -181,7 +190,7 @@ pub fn decode_instructions(
                 .file_id_to_source_file
                 .get(&(source_map.location.file as u32))
                 .map(|_| {
-                    Rc::new(SourceLocation::new(
+                    Arc::new(SourceLocation::new(
                         build_model.file_id_to_source_file.clone(),
                         source_map.location.file as u32,
                         source_map.location.offset as u32,

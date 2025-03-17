@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_provider::{time::CurrentTime, SyncLogger};
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::tokio::runtime;
 
 use crate::{provider::SyncProvider, spec::SyncNapiSpec, subscription};
@@ -13,6 +14,7 @@ pub trait Builder: Send {
 }
 
 pub struct ProviderBuilder<ChainSpecT: SyncNapiSpec> {
+    contract_decoder: Arc<ContractDecoder>,
     logger:
         Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>>,
     provider_config: edr_provider::ProviderConfig<ChainSpecT::Hardfork>,
@@ -22,6 +24,7 @@ pub struct ProviderBuilder<ChainSpecT: SyncNapiSpec> {
 impl<ChainSpecT: SyncNapiSpec> ProviderBuilder<ChainSpecT> {
     /// Constructs a new instance.
     pub fn new(
+        contract_decoder: Arc<ContractDecoder>,
         logger: Box<
             dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
         >,
@@ -29,6 +32,7 @@ impl<ChainSpecT: SyncNapiSpec> ProviderBuilder<ChainSpecT> {
         subscription_callback: subscription::Callback<ChainSpecT>,
     ) -> Self {
         Self {
+            contract_decoder,
             logger,
             provider_config,
             subscription_callback,
@@ -45,6 +49,7 @@ impl<ChainSpecT: SyncNapiSpec> Builder for ProviderBuilder<ChainSpecT> {
             builder.logger,
             Box::new(move |event| builder.subscription_callback.call(event)),
             builder.provider_config,
+            builder.contract_decoder,
             CurrentTime,
         )
         .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))?;

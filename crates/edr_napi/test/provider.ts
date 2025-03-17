@@ -93,7 +93,8 @@ describe("Provider", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      }
+      },
+      {}
     );
 
     await assert.isFulfilled(provider);
@@ -116,7 +117,8 @@ describe("Provider", () => {
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
-      }
+      },
+      {}
     );
 
     await assert.isFulfilled(provider);
@@ -133,10 +135,10 @@ describe("Provider", () => {
           ...providerConfig,
         },
         loggerConfig,
-
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        }
+        },
+        {}
       );
 
       const responseObject = await provider.handleRequest(
@@ -183,7 +185,8 @@ describe("Provider", () => {
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        }
+        },
+        {}
       );
 
       await provider.setVerboseTracing(true);
@@ -235,7 +238,8 @@ describe("Provider", () => {
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        }
+        },
+        {}
       );
 
       const responseObject = await provider.handleRequest(
@@ -281,7 +285,8 @@ describe("Provider", () => {
         loggerConfig,
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        }
+        },
+        {}
       );
 
       await provider.setVerboseTracing(true);
@@ -332,10 +337,10 @@ describe("Provider", () => {
           ...providerConfig,
         },
         loggerConfig,
-
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        }
+        },
+        {}
       );
 
       const responseObject = await provider.handleRequest(
@@ -379,10 +384,10 @@ describe("Provider", () => {
           ...providerConfig,
         },
         loggerConfig,
-
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        }
+        },
+        {}
       );
 
       const sendTxResponse = await provider.handleRequest(
@@ -439,10 +444,10 @@ describe("Provider", () => {
           ...providerConfig,
         },
         loggerConfig,
-
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
-        }
+        },
+        {}
       );
 
       const traceCallResponse = await provider.handleRequest(

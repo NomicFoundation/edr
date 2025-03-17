@@ -7,14 +7,137 @@
 use std::collections::HashMap;
 
 use indexmap::IndexMap;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-/// A `BuildInfo` is a file that contains all the information of a solc run. It
-/// includes all the necessary information to recreate that exact same run, and
-/// all of its output.
-#[derive(Debug, Deserialize, Serialize)]
+/// Error in the build info config
+#[derive(Debug, thiserror::Error)]
+pub enum BuildInfoConfigError {
+    /// JSON deserialization error
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    /// Invalid semver in the build info
+    #[error(transparent)]
+    Semver(#[from] semver::Error),
+    /// Input output file mismatch
+    #[error("Input output mismatch. Input id: '{input_id}'. Output id: '{output_id}'")]
+    InputOutputMismatch { input_id: String, output_id: String },
+}
+
+/// Configuration for the [`crate::contract_decoder::ContractDecoder`].
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BuildInfo {
+pub struct BuildInfoConfig {
+    /// Build information to use for decoding contracts.
+    pub build_infos: Vec<BuildInfoWithOutput>,
+    /// Whether to ignore contracts whose name starts with "Ignored".
+    pub ignore_contracts: Option<bool>,
+}
+
+impl BuildInfoConfig {
+    /// Parse the config from bytes. This is a performance intensive operation
+    /// which is why it's not a `TryFrom` implementation.
+    pub fn parse_from_buffers(
+        config: BuildInfoConfigWithBuffers<'_>,
+    ) -> Result<Self, BuildInfoConfigError> {
+        let BuildInfoConfigWithBuffers {
+            build_infos,
+            ignore_contracts,
+        } = config;
+
+        let build_infos = build_infos.map_or_else(|| Ok(Vec::default()), |bi| bi.parse())?;
+
+        Ok(Self {
+            build_infos,
+            ignore_contracts,
+        })
+    }
+}
+
+/// Configuration for the [`crate::contract_decoder::ContractDecoder`] unparsed
+/// build infos.
+#[derive(Clone, Debug)]
+pub struct BuildInfoConfigWithBuffers<'a> {
+    /// Build information to use for decoding contracts.
+    pub build_infos: Option<BuildInfoBuffers<'a>>,
+    /// Whether to ignore contracts whose name starts with "Ignored".
+    pub ignore_contracts: Option<bool>,
+}
+
+/// Unparsed build infos.
+#[derive(Clone, Debug)]
+pub enum BuildInfoBuffers<'a> {
+    /// Deserializes to `BuildInfoWithOutput`.
+    WithOutput(Vec<&'a [u8]>),
+    /// Separate build info input and output files.
+    SeparateInputOutput(Vec<BuildInfoBufferSeparateOutput<'a>>),
+}
+
+impl BuildInfoBuffers<'_> {
+    fn parse(&self) -> Result<Vec<BuildInfoWithOutput>, BuildInfoConfigError> {
+        fn filter_on_solc_version(
+            build_info: BuildInfoWithOutput,
+        ) -> Result<Option<BuildInfoWithOutput>, BuildInfoConfigError> {
+            let solc_version = build_info.solc_version.parse::<semver::Version>()?;
+
+            if crate::compiler::FIRST_SOLC_VERSION_SUPPORTED <= solc_version {
+                Ok(Some(build_info))
+            } else {
+                Ok(None)
+            }
+        }
+
+        match self {
+            BuildInfoBuffers::WithOutput(build_infos_with_output) => build_infos_with_output
+                .iter()
+                .map(|item| {
+                    let build_info: BuildInfoWithOutput = serde_json::from_slice(item)?;
+                    filter_on_solc_version(build_info)
+                })
+                .flatten_ok()
+                .collect::<Result<Vec<BuildInfoWithOutput>, _>>(),
+            BuildInfoBuffers::SeparateInputOutput(separate_output) => separate_output
+                .iter()
+                .map(|item| {
+                    let input: BuildInfo = serde_json::from_slice(item.build_info)?;
+                    let output: BuildInfoOutput = serde_json::from_slice(item.output)?;
+                    // Make sure we get the output matching the input.
+                    if input.id != output.id {
+                        return Err(BuildInfoConfigError::InputOutputMismatch {
+                            input_id: input.id,
+                            output_id: output.id,
+                        });
+                    }
+                    filter_on_solc_version(BuildInfoWithOutput {
+                        _format: input._format,
+                        id: input.id,
+                        solc_version: input.solc_version,
+                        solc_long_version: input.solc_long_version,
+                        input: input.input,
+                        output: output.output,
+                    })
+                })
+                .flatten_ok()
+                .collect::<Result<Vec<BuildInfoWithOutput>, _>>(),
+        }
+    }
+}
+
+/// Separate build info input and output files.
+#[derive(Clone, Debug)]
+pub struct BuildInfoBufferSeparateOutput<'a> {
+    /// Deserializes to `BuildInfo`
+    pub build_info: &'a [u8],
+    /// Deserializes to `BuildInfoOutput`
+    pub output: &'a [u8],
+}
+
+/// A `BuildInfoWithOutput` contains all the information of a solc run. It
+/// includes all the necessary information to recreate that exact same run, and
+/// the output of the run.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildInfoWithOutput {
     #[serde(rename = "_format")]
     pub _format: String,
     pub id: String,
@@ -24,18 +147,41 @@ pub struct BuildInfo {
     pub output: CompilerOutput,
 }
 
+/// A `BuildInfo` contains all the input information of a solc run. It
+/// includes all the necessary information to recreate that exact same run.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildInfo {
+    #[serde(rename = "_format")]
+    pub _format: String,
+    pub id: String,
+    pub solc_version: String,
+    pub solc_long_version: String,
+    pub input: CompilerInput,
+}
+
+/// A `BuildInfoOutput` contains all the output of a solc run.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildInfoOutput {
+    #[serde(rename = "_format")]
+    pub _format: String,
+    pub id: String,
+    pub output: CompilerOutput,
+}
+
 /// References: of source name -> library name -> link references.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct LinkReferences(HashMap<String, HashMap<String, Vec<LinkReference>>>);
 
 /// The source code of a contract.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Source {
     pub content: String,
 }
 
 /// The main input to the Solidity compiler.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct CompilerInput {
     pub language: String,
     pub sources: HashMap<String, Source>,
@@ -43,7 +189,7 @@ pub struct CompilerInput {
 }
 
 /// Additional settings like the optimizer, metadata, etc.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilerSettings {
     #[serde(rename = "viaIR")]
@@ -57,7 +203,7 @@ pub struct CompilerSettings {
 }
 
 /// Specifies the optimizer settings.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct OptimizerSettings {
     runs: Option<u32>,
     enabled: Option<bool>,
@@ -65,28 +211,28 @@ pub struct OptimizerSettings {
 }
 
 /// Specifies the optimizer details.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OptimizerDetails {
     yul_details: Option<YulDetails>,
 }
 
 /// Yul-specific optimizer details.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct YulDetails {
     optimizer_steps: Option<String>,
 }
 
 /// Specifies the metadata settings.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataSettings {
     use_literal_content: Option<bool>,
 }
 
 /// The main output of the Solidity compiler.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct CompilerOutput {
     // Retain the order of the sources as emitted by the compiler.
     // Our post processing relies on this order to build the codebase model.
@@ -95,13 +241,13 @@ pub struct CompilerOutput {
 }
 
 /// The output of a contract compilation.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct CompilerOutputContract {
     pub abi: Vec<ContractAbiEntry>,
     pub evm: CompilerOutputEvm,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ContractAbiEntry {
     pub name: Option<String>,
     pub r#type: Option<String>,
@@ -109,7 +255,7 @@ pub struct ContractAbiEntry {
 }
 
 /// The EVM-specific output of a contract compilation.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilerOutputEvm {
     pub bytecode: CompilerOutputBytecode,
@@ -118,14 +264,14 @@ pub struct CompilerOutputEvm {
 }
 
 /// The ID and the AST of the compiled sources.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct CompilerOutputSource {
     pub id: u32,
     pub ast: serde_json::Value,
 }
 
 /// The bytecode output for a given compiled contract.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilerOutputBytecode {
     pub object: String,
@@ -136,14 +282,14 @@ pub struct CompilerOutputBytecode {
 }
 
 /// A reference to a library.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct LinkReference {
     pub start: u32,
     pub length: u32,
 }
 
 /// A reference to an immutable value.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ImmutableReference {
     pub start: u32,
     pub length: u32,

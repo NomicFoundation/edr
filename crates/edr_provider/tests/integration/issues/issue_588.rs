@@ -9,6 +9,7 @@ use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::MockTime,
     NoopLogger, Provider,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
 use tokio::runtime;
 
@@ -30,6 +31,7 @@ async fn issue_588() -> anyhow::Result<()> {
         logger,
         subscriber,
         early_mainnet_fork,
+        Arc::<ContractDecoder>::default(),
         current_time_is_1970,
     )?;
 

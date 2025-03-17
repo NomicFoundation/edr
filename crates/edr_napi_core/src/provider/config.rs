@@ -17,7 +17,7 @@ pub struct HardforkActivation {
 }
 
 /// Chain-agnostic configuration for a provider.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
 pub struct Config {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
@@ -31,17 +31,14 @@ pub struct Config {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
     pub coinbase: Address,
-    #[serde(default)]
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, config::Account>,
     pub hardfork: String,
-    #[serde(with = "alloy_serde::quantity::opt")]
     pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
-    #[serde(with = "alloy_serde::quantity")]
     pub min_gas_price: u128,
     pub mining: config::Mining,
     pub network_id: u64,

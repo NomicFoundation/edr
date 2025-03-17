@@ -312,8 +312,11 @@ impl From<B256> for RecoveryMessage {
 mod tests {
     use std::str::FromStr;
 
+    use edr_test_utils::secret_key::{
+        secret_key_from_str, secret_key_to_address, secret_key_to_str,
+    };
+
     use super::*;
-    use crate::signature::{secret_key_from_str, secret_key_to_address, secret_key_to_str};
 
     #[test]
     fn recover_web3_signature() {

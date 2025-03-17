@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use edr_eth::l1::L1ChainSpec;
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_infura_url;
 use tokio::runtime;
 
@@ -24,6 +27,7 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
+        Arc::<ContractDecoder>::default(),
         CurrentTime,
     )?;
 

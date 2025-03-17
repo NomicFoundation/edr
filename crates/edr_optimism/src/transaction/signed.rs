@@ -37,12 +37,12 @@ pub struct Deposit {
     /// if the deposit transaction is a contract creation.
     pub to: TxKind,
     /// The ETH value to mint on L2.
-    // #[serde(with = "edr_eth::serde::optional_u128")]
+    #[serde(with = "alloy_serde::quantity")]
     pub mint: u128,
     ///  The ETH value to send to the recipient account.
     pub value: U256,
     /// The gas limit for the L2 transaction.
-    #[serde(rename = "gas")]
+    #[serde(rename = "gas", with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     /// Field indicating if this transaction is exempt from the L2 gas limit.
     pub is_system_tx: bool,

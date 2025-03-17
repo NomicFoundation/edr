@@ -12,6 +12,7 @@ edr_generic = { path = "../edr_generic" }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
+edr_solidity = { path = "../edr_solidity" }
 log = { version = "0.4.17", default-features = false }
 op-alloy-rpc-types = { version = "0.2.11", default-features = false }
 op-revm = { git = "https://github.com/nomicfoundation/revm", rev = "75fd1d7", version = "1.0.0-alpha.1", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
