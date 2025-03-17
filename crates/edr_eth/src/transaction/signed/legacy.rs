@@ -16,6 +16,7 @@ pub struct Legacy {
     // The order of these fields determines encoding order.
     #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_price: u128,
     #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,

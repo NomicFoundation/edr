@@ -9,7 +9,7 @@ alloy-eips = { version = "0.12.4", default-features = false }
 alloy-rlp = { version = "0.3.11", default-features = false, features = ["derive"] }
 alloy-serde = { version = "0.12.4", default-features = false, features = ["std"] }
 auto_impl = { version = "1.2", default-features = false }
-c-kzg = { version = "1.0.3", default-features = false }
+c-kzg = { version = "1.0.3", default-features = false, features = ["ethereum_kzg_settings"] }
 derive-where = { version = "1.2.7", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }

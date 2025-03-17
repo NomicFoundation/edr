@@ -57,6 +57,7 @@ pub struct Block<TransactionT> {
     pub nonce: Option<B64>,
     /// base fee per gas
     #[serde(
+        default,
         skip_serializing_if = "Option::is_none",
         with = "alloy_serde::quantity::opt"
     )]
