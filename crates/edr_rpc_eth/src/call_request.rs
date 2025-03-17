@@ -13,13 +13,13 @@ pub struct CallRequest {
     #[serde(default, with = "alloy_serde::quantity::opt")]
     pub gas: Option<u64>,
     /// gas price
-    #[serde(with = "alloy_serde::quantity::opt")]
+    #[serde(default, with = "alloy_serde::quantity::opt")]
     pub gas_price: Option<u128>,
     /// max base fee per gas sender is willing to pay
-    #[serde(with = "alloy_serde::quantity::opt")]
+    #[serde(default, with = "alloy_serde::quantity::opt")]
     pub max_fee_per_gas: Option<u128>,
     /// miner tip
-    #[serde(with = "alloy_serde::quantity::opt")]
+    #[serde(default, with = "alloy_serde::quantity::opt")]
     pub max_priority_fee_per_gas: Option<u128>,
     /// transaction value
     pub value: Option<U256>,
