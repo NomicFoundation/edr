@@ -18,6 +18,8 @@ use crate::{
 
 /// Runs a transaction without committing the state.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
 pub fn dry_run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
     state: StateT,
@@ -59,6 +61,8 @@ where
 /// Runs a transaction while observing with an inspector, without committing the
 /// state.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
 pub fn dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, StateT>(
     blockchain: BlockchainT,
     state: StateT,
@@ -110,6 +114,8 @@ where
 /// Runs a transaction without committing the state, while disabling balance
 /// checks and creating accounts for new addresses.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
 pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
     state: StateT,
@@ -136,6 +142,8 @@ where
 /// state, while disabling balance checks and creating accounts for new
 /// addresses.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
 pub fn guaranteed_dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, StateT>(
     blockchain: BlockchainT,
     state: StateT,
@@ -173,6 +181,8 @@ where
 
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
 pub fn run<BlockchainT, ChainSpecT, StateT>(
     blockchain: BlockchainT,
     mut state: StateT,

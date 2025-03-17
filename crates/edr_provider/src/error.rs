@@ -1,3 +1,7 @@
+// TODO: Remove this once we no longer need `HardforkT: Debug` to implement
+// `thiserror::Error` for `ProviderError`.
+#![allow(clippy::trait_duplication_in_bounds)]
+
 use core::fmt::Debug;
 use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 

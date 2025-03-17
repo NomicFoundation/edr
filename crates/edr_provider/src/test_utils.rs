@@ -114,7 +114,7 @@ pub fn pending_base_fee<
 ) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
     let block = data.mine_pending_block()?.block;
 
-    let base_fee = block.header().base_fee_per_gas.unwrap_or_else(|| 1);
+    let base_fee = block.header().base_fee_per_gas.unwrap_or(1);
 
     Ok(base_fee)
 }
