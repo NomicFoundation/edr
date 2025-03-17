@@ -1,5 +1,4 @@
 use edr_eth::{
-    l1,
     receipt::{AsExecutionReceipt as _, ExecutionReceipt as _, TransactionReceipt},
     transaction::TransactionType as _,
 };
@@ -10,7 +9,7 @@ use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, OpSpecId};
 impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
     type Hardfork = OpSpecId;
 
-    fn rpc_type_from(value: &receipt::Block, hardfork: Self::Hardfork) -> Self {
+    fn rpc_type_from(value: &receipt::Block, _hardfork: Self::Hardfork) -> Self {
         let transaction_type = u8::from(value.eth.inner.transaction_type());
 
         Self {

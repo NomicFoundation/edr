@@ -1731,6 +1731,7 @@ where
                 state.as_ref(),
                 cfg_env,
                 transaction,
+                &custom_precompiles,
                 &mut inspector,
             )?;
 
@@ -2141,6 +2142,7 @@ where
                 state_overrider,
                 cfg_env,
                 transaction,
+                &custom_precompiles,
                 &mut observer,
             )?;
 
@@ -2491,8 +2493,6 @@ where
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
 
-            // TODO: Precompiles
-
             // Measure the gas used by the transaction with optional limit from call request
             // defaulting to block limit. Report errors from initial call as if from
             // `eth_call`.
@@ -2502,6 +2502,7 @@ where
                 state,
                 cfg_env.clone(),
                 transaction.clone(),
+                &custom_precompiles,
                 &mut observer,
             )?;
 
@@ -2553,7 +2554,7 @@ where
                 cfg_env: cfg_env.clone(),
                 transaction: transaction.clone(),
                 gas_limit: initial_estimation,
-                precompiles: &custom_precompiles,
+                custom_precompiles: &custom_precompiles,
                 trace_collector: &mut trace_collector,
             })?;
 
@@ -2576,7 +2577,7 @@ where
                 transaction,
                 lower_bound: initial_estimation,
                 upper_bound: header.gas_limit,
-                precompiles: &custom_precompiles,
+                custom_precompiles: &custom_precompiles,
                 trace_collector: &mut trace_collector,
             })?;
 

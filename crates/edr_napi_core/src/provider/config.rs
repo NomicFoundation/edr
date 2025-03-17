@@ -47,11 +47,13 @@ pub struct Config {
     pub network_id: u64,
 }
 
-impl<HardforkT> From<Config> for edr_provider::ProviderConfig<HardforkT>
+impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: for<'s> From<&'s str> + Into<l1::SpecId>,
+    HardforkT: for<'s> TryFrom<&'s str, Error = ()> + Into<l1::SpecId>,
 {
-    fn from(value: Config) -> Self {
+    type Error = napi::Error;
+
+    fn try_from(value: Config) -> Result<Self, Self::Error> {
         let cache_dir = PathBuf::from(
             value
                 .cache_dir
@@ -70,20 +72,30 @@ where
                              hardfork,
                          }| {
                             let condition = ForkCondition::Block(block_number);
-                            let hardfork = HardforkT::from(&hardfork);
+                            let hardfork = HardforkT::try_from(&hardfork).map_err(|()| {
+                                napi::Error::new(
+                                    napi::Status::InvalidArg,
+                                    format!("Unknown hardfork: {hardfork}"),
+                                )
+                            })?;
 
-                            (condition, hardfork)
+                            Ok((condition, hardfork))
                         },
                     )
-                    .collect();
+                    .collect::<napi::Result<_>>()?;
 
-                (chain_id, Activations::new(activations))
+                Ok((chain_id, Activations::new(activations)))
             })
-            .collect();
+            .collect::<napi::Result<_>>()?;
 
-        let hardfork = HardforkT::from(&value.hardfork);
+        let hardfork = HardforkT::try_from(&value.hardfork).map_err(|()| {
+            napi::Error::new(
+                napi::Status::InvalidArg,
+                format!("Unknown hardfork: {}", value.hardfork),
+            )
+        })?;
 
-        Self {
+        Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             accounts: value.accounts,
@@ -105,6 +117,6 @@ where
             min_gas_price: value.min_gas_price,
             mining: value.mining,
             network_id: value.network_id,
-        }
+        })
     }
 }

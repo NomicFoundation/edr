@@ -109,6 +109,30 @@ impl TryCast<u64> for BigInt {
     }
 }
 
+impl TryCast<u128> for BigInt {
+    type Error = napi::Error;
+
+    fn try_cast(self) -> std::result::Result<u128, Self::Error> {
+        let (signed, value, lossless) = self.get_u128();
+
+        if signed {
+            return Err(napi::Error::new(
+                Status::InvalidArg,
+                "BigInt was expected to be unsigned.".to_string(),
+            ));
+        }
+
+        if !lossless {
+            return Err(napi::Error::new(
+                Status::InvalidArg,
+                "BigInt was expected to fit within 128 bits.".to_string(),
+            ));
+        }
+
+        Ok(value)
+    }
+}
+
 impl TryCast<usize> for BigInt {
     type Error = napi::Error;
 

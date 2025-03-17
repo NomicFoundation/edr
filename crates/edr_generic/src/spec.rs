@@ -9,9 +9,11 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use edr_evm::{
-    evm::{MainBuilder as _, MainnetEvm},
+    evm::{Evm, EvmData},
     hardfork::Activations,
     inspector::{Inspector, NoOpInspector},
+    interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
+    precompile::{EthPrecompiles, PrecompileProvider},
     spec::{ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
     state::{Database, DatabaseComponentError},
     transaction::{TransactionError, TransactionErrorForChainSpec},
@@ -56,8 +58,14 @@ impl RuntimeSpec for GenericChainSpec {
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
         InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
-    > = MainnetEvm<ContextForChainSpec<Self, DatabaseT>, InspectorT>;
+    > = Evm<
+        ContextForChainSpec<Self, DatabaseT>,
+        InspectorT,
+        EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT,
+    >;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
@@ -67,6 +75,12 @@ impl RuntimeSpec for GenericChainSpec {
         Self::RpcReceiptConversionError,
         Self::SignedTransaction,
     >;
+
+    type PrecompileProvider<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    > = EthPrecompiles;
 
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
@@ -109,20 +123,39 @@ impl RuntimeSpec for GenericChainSpec {
         StateErrorT,
     >(
         context: ContextForChainSpec<Self, DatabaseT>,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, NoOpInspector, StateErrorT> {
-        context.build_mainnet_with_inspector(NoOpInspector {})
+    ) -> Self::Evm<
+        BlockchainErrorT,
+        DatabaseT,
+        NoOpInspector,
+        Self::PrecompileProvider<BlockchainErrorT, DatabaseT, StateErrorT>,
+        StateErrorT,
+    > {
+        Self::evm_with_inspector(
+            context,
+            NoOpInspector {},
+            Self::PrecompileProvider::<BlockchainErrorT, DatabaseT, StateErrorT>::default(),
+        )
     }
 
     fn evm_with_inspector<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
         InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
     >(
         context: ContextForChainSpec<Self, DatabaseT>,
         inspector: InspectorT,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, StateErrorT> {
-        context.build_mainnet_with_inspector(inspector)
+        precompile_provider: PrecompileProviderT,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
+        Evm {
+            data: EvmData {
+                ctx: context,
+                inspector,
+            },
+            instruction: EthInstructions::default(),
+            precompiles: precompile_provider,
+        }
     }
 }
 

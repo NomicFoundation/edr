@@ -31,7 +31,7 @@ pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
     pub gas_limit: u64,
-    pub precompiles: &'a HashMap<Address, PrecompileFn>,
+    pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
     pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
 }
 
@@ -56,13 +56,11 @@ where
         cfg_env,
         mut transaction,
         gas_limit,
-        precompiles,
+        custom_precompiles,
         trace_collector,
     } = args;
 
     transaction.set_gas_limit(gas_limit);
-
-    // TODO: Precompiles
 
     let result = call::run_call::<_, ChainSpecT, _, _>(
         blockchain,
@@ -70,6 +68,7 @@ where
         state,
         cfg_env,
         transaction,
+        custom_precompiles,
         trace_collector,
     )?;
 
@@ -85,7 +84,7 @@ pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub transaction: ChainSpecT::SignedTransaction,
     pub lower_bound: u64,
     pub upper_bound: u64,
-    pub precompiles: &'a HashMap<Address, PrecompileFn>,
+    pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
     pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
 }
 
@@ -113,7 +112,7 @@ where
         transaction,
         mut lower_bound,
         mut upper_bound,
-        precompiles,
+        custom_precompiles,
         trace_collector,
     } = args;
 
@@ -135,7 +134,7 @@ where
             cfg_env: cfg_env.clone(),
             transaction: transaction.clone(),
             gas_limit: mid,
-            precompiles,
+            custom_precompiles,
             trace_collector,
         })?;
 

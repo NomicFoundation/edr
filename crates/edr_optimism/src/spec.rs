@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use std::{marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
@@ -8,7 +8,9 @@ use edr_eth::{
     spec::{ChainSpec, EthHeaderConstants},
 };
 use edr_evm::{
-    inspector::NoOpInspector,
+    evm::{Evm, EvmData},
+    interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
+    precompile::PrecompileProvider,
     spec::{ContextForChainSpec, RuntimeSpec},
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec, TransactionValidation},
@@ -20,7 +22,7 @@ use edr_napi_core::{
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
-use op_revm::{L1BlockInfo, OpBuilder as _, OpEvm};
+use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -57,11 +59,6 @@ impl ChainSpec for OpChainSpec {
     type SignedTransaction = transaction::Signed;
 }
 
-/// EVM wiring for Optimism chains.
-pub struct Wiring<DatabaseT: Database, ExternalContextT> {
-    _phantom: PhantomData<(DatabaseT, ExternalContextT)>,
-}
-
 impl RuntimeSpec for OpChainSpec {
     type Block = dyn SyncBlock<
         Arc<Self::BlockReceipt>,
@@ -82,10 +79,22 @@ impl RuntimeSpec for OpChainSpec {
         BlockchainErrorT,
         DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
         InspectorT: edr_evm::inspector::Inspector<edr_evm::spec::ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
-    > = OpEvm<ContextForChainSpec<Self, DatabaseT>, InspectorT>;
+    > = OpEvm<
+        ContextForChainSpec<Self, DatabaseT>,
+        InspectorT,
+        EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT,
+    >;
 
     type LocalBlock = LocalBlock;
+
+    type PrecompileProvider<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    > = OpPrecompiles;
 
     type ReceiptBuilder = receipt::execution::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
@@ -122,27 +131,25 @@ impl RuntimeSpec for OpChainSpec {
         hardfork::chain_name(chain_id)
     }
 
-    fn evm<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        StateErrorT,
-    >(
-        context: ContextForChainSpec<Self, DatabaseT>,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, edr_evm::inspector::NoOpInspector, StateErrorT>
-    {
-        context.build_op_with_inspector(NoOpInspector {})
-    }
-
     fn evm_with_inspector<
         BlockchainErrorT,
         DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
         InspectorT: edr_evm::inspector::Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
     >(
         context: ContextForChainSpec<Self, DatabaseT>,
         inspector: InspectorT,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, StateErrorT> {
-        context.build_op_with_inspector(inspector)
+        precompile_provider: PrecompileProviderT,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
+        OpEvm(Evm {
+            data: EvmData {
+                ctx: context,
+                inspector,
+            },
+            instruction: EthInstructions::new_mainnet(),
+            precompiles: precompile_provider,
+        })
     }
 }
 

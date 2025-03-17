@@ -1,5 +1,5 @@
 use edr_eth::{address, bytes, Address, BlockSpec, U64};
-use edr_optimism::{OpChainSpec, OptimismSpecId};
+use edr_optimism::{OpChainSpec, OpSpecId};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig,
     test_utils::{create_test_config_with_fork, ProviderTestFixture},
@@ -26,11 +26,11 @@ fn sepolia_hardfork_activations() -> anyhow::Result<()> {
     let fixture = ProviderTestFixture::<OpChainSpec>::new_forked(Some(url))?;
 
     let block_spec = BlockSpec::Number(CANYON_BLOCK_NUMBER);
-    let (_, hardfork) = fixture
+    let config = fixture
         .provider_data
         .create_evm_config_at_block_spec(&block_spec)?;
 
-    assert_eq!(hardfork, OptimismSpecId::CANYON);
+    assert_eq!(config.spec, OpSpecId::CANYON);
 
     let chain_id = fixture.provider_data.chain_id_at_block_spec(&block_spec)?;
     assert_eq!(chain_id, SEPOLIA_CHAIN_ID);

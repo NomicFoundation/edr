@@ -161,7 +161,7 @@ fn fake_call_request() -> CallRequest {
         data: Some(transaction.data().clone()),
         access_list: transaction
             .access_list()
-            .map(|access_list| access_list.to_vec()),
+            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec),
         blobs,
         blob_hashes,
         ..CallRequest::default()
@@ -193,7 +193,7 @@ fn fake_transaction_request() -> TransactionRequest {
         chain_id: transaction.chain_id(),
         access_list: transaction
             .access_list()
-            .map(|access_list| access_list.to_vec()),
+            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec),
         transaction_type: Some(transaction.transaction_type().into()),
         blobs,
         blob_hashes,

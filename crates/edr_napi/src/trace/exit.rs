@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use edr_eth::result::HaltReason;
+use edr_eth::l1::HaltReason;
 use napi_derive::napi;
 
 #[napi]

@@ -8,8 +8,7 @@ use edr_eth::{
 use edr_evm::trace::Trace;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    time::CurrentTime, ProviderError, ProviderErrorForChainSpec, ResponseWithTraces,
-    SyncProviderSpec,
+    time::CurrentTime, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
 use napi::{Either, Status};

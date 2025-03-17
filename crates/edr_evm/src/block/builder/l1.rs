@@ -12,7 +12,7 @@ use edr_eth::{
     transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
-    Address, Bloom, B256, U256,
+    Address, Bloom, HashMap, B256, U256,
 };
 use revm::Inspector;
 
@@ -50,6 +50,7 @@ impl<BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: RuntimeSpec,
 {
+    /// Retrieves the blockchain of the block builder.
     pub fn blockchain(&self) -> &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT> {
         self.blockchain
     }
@@ -74,6 +75,7 @@ where
         self.header.gas_limit - self.gas_used()
     }
 
+    /// Retrieves the state of the block builder.
     pub fn state(&self) -> &dyn SyncState<StateErrorT> {
         self.state.as_ref()
     }
@@ -237,6 +239,7 @@ where
                 self.cfg.clone(),
                 transaction.clone(),
                 block,
+                &HashMap::new(),
                 extension,
             )
             .map_err(BlockTransactionError::from)?

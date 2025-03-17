@@ -78,6 +78,7 @@ where
                     evm_config,
                     transaction,
                     block,
+                    &edr_eth::HashMap::new(),
                     &mut DualInspector::new(&mut eip3155_tracer, &mut raw_tracer),
                 )?;
 

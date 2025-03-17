@@ -5,17 +5,12 @@ use revm::interpreter::{Gas, InstructionResult, InterpreterResult};
 pub use revm::precompile::{
     u64_to_address, PrecompileError, PrecompileFn, PrecompileSpecId, Precompiles,
 };
-use revm_handler::PrecompileProvider;
+pub use revm_handler::{EthPrecompiles, PrecompileProvider};
 
 use crate::{config::Cfg, spec::ContextTrait};
 
 /// A precompile provider that allows adding custom or overwriting existing
 /// precompiles.
-///
-/// # Safety
-///
-/// This assumes that the base precompile provider does not change its
-/// precompiles after construction.
 #[derive(Clone)]
 pub struct OverriddenPrecompileProvider<
     BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
@@ -94,6 +89,14 @@ impl<
 
     fn set_spec(&mut self, spec: <ContextT::Cfg as Cfg>::Spec) {
         self.base.set_spec(spec);
+
+        // Update unique addresses
+        self.unique_addresses = self
+            .custom_precompiles
+            .keys()
+            .cloned()
+            .chain(self.base.warm_addresses())
+            .collect();
     }
 
     fn run(

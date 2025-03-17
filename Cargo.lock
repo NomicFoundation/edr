@@ -2737,7 +2737,7 @@ dependencies = [
 
 [[package]]
 name = "op-revm"
-version = "1.0.0-alpha.4"
+version = "1.0.0-alpha.5"
 dependencies = [
  "auto_impl",
  "once_cell",
@@ -3401,7 +3401,7 @@ dependencies = [
 
 [[package]]
 name = "revm"
-version = "20.0.0-alpha.5"
+version = "20.0.0-alpha.6"
 dependencies = [
  "revm-bytecode",
  "revm-context",
@@ -3418,7 +3418,7 @@ dependencies = [
 
 [[package]]
 name = "revm-bytecode"
-version = "1.0.0-alpha.3"
+version = "1.0.0-alpha.4"
 dependencies = [
  "bitvec",
  "phf",
@@ -3428,7 +3428,7 @@ dependencies = [
 
 [[package]]
 name = "revm-context"
-version = "1.0.0-alpha.4"
+version = "1.0.0-alpha.5"
 dependencies = [
  "cfg-if",
  "derive-where",
@@ -3442,7 +3442,7 @@ dependencies = [
 
 [[package]]
 name = "revm-context-interface"
-version = "1.0.0-alpha.4"
+version = "1.0.0-alpha.5"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702 0.5.1",
@@ -3455,7 +3455,7 @@ dependencies = [
 
 [[package]]
 name = "revm-database"
-version = "1.0.0-alpha.3"
+version = "1.0.0-alpha.4"
 dependencies = [
  "alloy-eips 0.12.4",
  "auto_impl",
@@ -3468,7 +3468,7 @@ dependencies = [
 
 [[package]]
 name = "revm-database-interface"
-version = "1.0.0-alpha.3"
+version = "1.0.0-alpha.4"
 dependencies = [
  "auto_impl",
  "revm-primitives",
@@ -3478,7 +3478,7 @@ dependencies = [
 
 [[package]]
 name = "revm-handler"
-version = "1.0.0-alpha.5"
+version = "1.0.0-alpha.6"
 dependencies = [
  "auto_impl",
  "revm-bytecode",
@@ -3494,7 +3494,7 @@ dependencies = [
 
 [[package]]
 name = "revm-inspector"
-version = "1.0.0-alpha.5"
+version = "1.0.0-alpha.6"
 dependencies = [
  "auto_impl",
  "revm-context",
@@ -3510,7 +3510,7 @@ dependencies = [
 
 [[package]]
 name = "revm-interpreter"
-version = "16.0.0-alpha.5"
+version = "16.0.0-alpha.6"
 dependencies = [
  "revm-bytecode",
  "revm-context-interface",
@@ -3520,7 +3520,7 @@ dependencies = [
 
 [[package]]
 name = "revm-precompile"
-version = "17.0.0-alpha.5"
+version = "17.0.0-alpha.6"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -3539,7 +3539,7 @@ dependencies = [
 
 [[package]]
 name = "revm-primitives"
-version = "16.0.0-alpha.3"
+version = "16.0.0-alpha.4"
 dependencies = [
  "alloy-primitives",
  "enumn",
@@ -3548,7 +3548,7 @@ dependencies = [
 
 [[package]]
 name = "revm-state"
-version = "1.0.0-alpha.3"
+version = "1.0.0-alpha.4"
 dependencies = [
  "bitflags 2.6.0",
  "revm-bytecode",

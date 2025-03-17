@@ -160,18 +160,15 @@ pub fn dummy_eip1559_transaction(
 pub async fn run_full_block<
     ChainSpecT: Debug
         + SyncRuntimeSpec<
-            BlockEnv: Default,
             BlockReceipt: AsExecutionReceipt<
                 ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
             >,
             ExecutionReceipt<FilterLog>: PartialEq,
-            Hardfork: Default,
             LocalBlock: BlockReceipts<
                 Arc<ChainSpecT::BlockReceipt>,
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
-            SignedTransaction: Default
-                                   + TransactionValidation<
+            SignedTransaction: TransactionValidation<
                 ValidationError: From<l1::InvalidTransaction> + Send + Sync,
             >,
         >,
@@ -219,7 +216,7 @@ pub async fn run_full_block<
     )
     .await?;
 
-    let mut cfg = CfgEnv::<ChainSpecT::Hardfork>::default();
+    let mut cfg = CfgEnv::<ChainSpecT::Hardfork>::new_with_spec(hardfork);
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 

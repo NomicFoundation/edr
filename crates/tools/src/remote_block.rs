@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use clap::ValueEnum;
 use edr_eth::{
-    l1::L1ChainSpec, log::FilterLog, receipt::AsExecutionReceipt, result::InvalidTransaction,
+    l1::{self, L1ChainSpec},
+    log::FilterLog,
+    receipt::AsExecutionReceipt,
     transaction::TransactionValidation,
 };
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};

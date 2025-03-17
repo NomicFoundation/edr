@@ -2,12 +2,14 @@ use edr_eth::{
     l1,
     result::{ExecutionResult, ExecutionResultAndState},
     transaction::TransactionValidation,
+    Address, HashMap,
 };
-use revm::{ExecuteEvm, InspectEvm, Inspector, Journal};
+use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
 
 use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
+    precompile::OverriddenPrecompileProvider,
     result::EVMError,
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
@@ -63,6 +65,7 @@ pub fn dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, StateT>(
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
@@ -89,7 +92,12 @@ where
         error: Ok(()),
     };
 
-    let mut evm = ChainSpecT::evm_with_inspector(context, inspector);
+    let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
+        ChainSpecT::PrecompileProvider::default(),
+        custom_precompiles.clone(),
+    );
+
+    let mut evm = ChainSpecT::evm_with_inspector(context, inspector, precompile_provider);
     evm.inspect_replay().map_err(|error| match error {
         EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
         EVMError::Header(error) => TransactionError::InvalidHeader(error),
@@ -134,6 +142,7 @@ pub fn guaranteed_dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, St
     mut cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
@@ -157,6 +166,7 @@ where
         cfg,
         transaction,
         block,
+        custom_precompiles,
         inspector,
     )
 }
@@ -169,8 +179,6 @@ pub fn run<BlockchainT, ChainSpecT, StateT>(
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    // TODO: REMOVE
-    // custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     ExecutionResult<ChainSpecT::HaltReason>,
     TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
@@ -191,60 +199,6 @@ where
 
     Ok(result)
 }
-
-// /// Runs a transaction, committing the state in the process.
-// #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-// pub fn run_with_extension<BlockchainT, ChainSpecT, ExtensionT, FrameT,
-// StateT>(     blockchain: BlockchainT,
-//     state: StateT,
-//     cfg: CfgEnv<ChainSpecT::Hardfork>,
-//     transaction: ChainSpecT::SignedTransaction,
-//     block: ChainSpecT::BlockEnv,
-//     // TODO: REMOVE
-//     // custom_precompiles: &HashMap<Address, PrecompileFn>,
-//     extension: ContextExtension<ExtensionT, FrameT>,
-// ) -> ResultAndState<
-//     Result<
-//         ExecutionResult<ChainSpecT::HaltReason>,
-//         TransactionError<BlockchainT::Error, ChainSpecT, StateT::Error>,
-//     >,
-//     StateT,
-// >
-// where
-//     BlockchainT: BlockHash<Error: Send + std::error::Error>,
-//     ChainSpecT: RuntimeSpec<
-//         SignedTransaction: TransactionValidation<ValidationError:
-// From<l1::InvalidTransaction>>,     >,
-//     FrameT: for<'context> Frame<
-//         Context<'context> = ExtendedContext<
-//             ContextForChainSpec<
-//                 ChainSpecT,
-//                 WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-//             >,
-//             ExtensionT,
-//         >,
-//         Error = TransactionError<BlockchainT::Error, ChainSpecT,
-// StateT::Error>,         FrameResult = FrameResult,
-//     >,
-//     StateT: State<Error: Send + std::error::Error> + StateCommit,
-// {
-//     let ResultAndState { result, mut state } =
-//         dry_run_with_extension(blockchain, state, cfg, transaction, block,
-// extension);
-
-//     let result = result.map(
-//         |ExecutionResultAndState {
-//              result,
-//              state: changes,
-//          }| {
-//             state.commit(changes);
-
-//             result
-//         },
-//     );
-
-//     ResultAndState { result, state }
-// }
 
 fn set_guarantees<HardforkT: Into<l1::SpecId>>(config: &mut CfgEnv<HardforkT>) {
     config.disable_balance_check = true;

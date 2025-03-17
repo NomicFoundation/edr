@@ -1,4 +1,7 @@
-use edr_eth::{block::Header, l1, result::ExecutionResult, transaction::TransactionValidation};
+use edr_eth::{
+    block::Header, l1, result::ExecutionResult, transaction::TransactionValidation, Address,
+    HashMap,
+};
 use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec},
     config::CfgEnv,
@@ -7,30 +10,22 @@ use edr_evm::{
     spec::{BlockEnvConstructor as _, ContextForChainSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
+use revm_precompile::PrecompileFn;
 
 use crate::{error::ProviderErrorForChainSpec, ProviderError};
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<
-    'components,
-    'context,
-    'inspector,
-    BlockchainT,
-    ChainSpecT,
-    InspectorT,
-    StateT,
->(
+pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT>(
     blockchain: BlockchainT,
     header: &Header,
     state: StateT,
     cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    'components: 'context,
-    'inspector: 'context,
-    BlockchainT: BlockHash<Error = BlockchainErrorForChainSpec<ChainSpecT>> + 'components,
+    BlockchainT: BlockHash<Error = BlockchainErrorForChainSpec<ChainSpecT>>,
     ChainSpecT: SyncRuntimeSpec<
         BlockEnv: Default,
         SignedTransaction: Default
@@ -39,7 +34,7 @@ where
     InspectorT: Inspector<
         ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
     >,
-    StateT: State<Error = StateError> + 'components,
+    StateT: State<Error = StateError>,
 {
     // `eth_call` uses a base fee of zero to mimick geth's behavior
     let mut header = header.clone();
@@ -53,6 +48,7 @@ where
         cfg_env,
         transaction,
         block,
+        custom_precompiles,
         inspector,
     )
     .map_or_else(

@@ -64,7 +64,9 @@ fn to_rpc_l1_block_info(
             .enveloped_tx()
             .expect("Non-deposit transactions must return an enveloped transaction");
 
-        let l1_fee = l1_block_info.calculate_tx_l1_cost(&enveloped_tx, hardfork);
+        let l1_fee = l1_block_info
+            .tx_l1_cost
+            .expect("L1 transaction cost should have been cached");
 
         let (l1_fee_scalar, l1_base_fee_scalar) = if hardfork < OpSpecId::ECOTONE {
             let l1_fee_scalar: f64 = l1_block_info.l1_base_fee_scalar.into();
@@ -80,7 +82,7 @@ fn to_rpc_l1_block_info(
         };
 
         let l1_gas_used = l1_block_info
-            .data_gas(&enveloped_tx, hardfork)
+            .data_gas(enveloped_tx, hardfork)
             .saturating_add(l1_block_info.l1_fee_overhead.unwrap_or_default());
 
         let l1_block_info = op_alloy_rpc_types::receipt::L1BlockInfo {

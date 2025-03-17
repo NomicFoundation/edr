@@ -24,7 +24,8 @@ impl SyncProviderFactory for GenericChainProviderFactory {
     ) -> napi::Result<Box<dyn provider::Builder>> {
         let logger = Logger::<GenericChainSpec>::new(logger_config)?;
 
-        let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(provider_config);
+        let provider_config =
+            edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
 
         let subscription_callback =
             subscription::Callback::new(env, subscription_config.subscription_callback)?;
