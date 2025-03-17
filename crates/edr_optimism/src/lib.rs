@@ -25,9 +25,9 @@ pub mod transaction;
 use edr_eth::U256;
 pub use op_revm::{OpHaltReason, OpSpecId};
 
-/// Helper type for constructing an [`revm_optimism::L1BlockInfo`].
+/// Helper type for constructing an [`op_revm::L1BlockInfo`].
 ///
-/// This type duplicates [`revm_optimism::L1BlockInfo`] but excludes the private
+/// This type duplicates [`op_revm::L1BlockInfo`] but excludes the private
 /// field to allow manual construction.
 pub struct L1BlockInfo {
     /// The base fee of the L1 origin block.
