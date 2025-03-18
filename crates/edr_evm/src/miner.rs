@@ -150,14 +150,6 @@ where
 
         let caller = *transaction.caller();
 
-        // TODO: Do we still need this?
-        // SAFETY: Due to current limitations in the borrow checker, `for<'context>` of
-        // `Frame` implies the 'static lifetime, preventing us from using it. Instead we
-        // pass in a function-scope 'context. This lifetime is still too long, as it's
-        // guaranteed that the context constructed inside
-        // `BlockBuilder::add_transaction_with_extension` does not outlive the
-        // function call. Thus it's safe to ignore the borrow checker to avoid the error
-        // about mutably borrowing the extension multiple times (in the loop).
         {
             let result = if let Some(inspector) = inspector.as_mut() {
                 block_builder.add_transaction_with_inspector(transaction, inspector)
