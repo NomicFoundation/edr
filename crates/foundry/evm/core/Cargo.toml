@@ -6,12 +6,11 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-edr_defaults.workspace = true
-
-foundry-cheatcodes-spec.workspace = true
 edr_common.workspace = true
-foundry-compilers.workspace = true
+edr_defaults.workspace = true
 edr_macros.workspace = true
+edr_solidity.workspace = true
+foundry-cheatcodes-spec.workspace = true
 
 alloy-chains.workspace = true
 alloy-consensus.workspace = true
@@ -32,6 +31,7 @@ alloy-transport-http = { workspace = true, features = ["reqwest", "reqwest-rustl
 alloy-transport-ws.workspace = true
 alloy-transport-ipc.workspace = true
 foundry-fork-db.workspace = true
+foundry-compilers.workspace = true
 
 revm = { workspace = true, features = [
     "std",

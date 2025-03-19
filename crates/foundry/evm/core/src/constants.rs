@@ -38,6 +38,13 @@ pub const DEFAULT_CREATE2_DEPLOYER: Address = address!("4e59b44847b379578588920c
 /// The initcode of the default CREATE2 deployer.
 pub const DEFAULT_CREATE2_DEPLOYER_CODE: &[u8] = &hex!("604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3");
 
+/// When running tests, we deploy all external libraries present in the project.
+/// To avoid additional libraries affecting nonces of senders used in tests, we
+/// are using separate address to predeploy libraries.
+///
+/// `address(uint160(uint256(keccak256("foundry library deployer"))))`
+pub const LIBRARY_DEPLOYER: Address = address!("1F95D37F27EA0dEA9C252FC09D5A6eaA97647353");
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -10,7 +10,7 @@ use std::{
 
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
-use alloy_primitives::{Address, Log, U256};
+use alloy_primitives::{Address, Bytes, Log, U256};
 use edr_solidity::{
     contract_decoder::{NestedTraceDecoder, SyncNestedTraceDecoder},
     solidity_stack_trace::StackTraceEntry,
@@ -60,6 +60,8 @@ pub struct ContractRunner<'a, NestedTraceDecoderT> {
     pub revert_decoder: &'a RevertDecoder,
     /// Known contracts by artifact id
     pub known_contracts: &'a ContractsByArtifact,
+    /// Libraries to deploy.
+    pub libs_to_deploy: &'a [Bytes],
     /// Provides contract metadata from calldata and traces.
     pub contract_decoder: Arc<NestedTraceDecoderT>,
     /// The initial balance of the test contract
@@ -95,6 +97,7 @@ impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, Nested
         contract: &'a TestContract,
         revert_decoder: &'a RevertDecoder,
         known_contracts: &'a ContractsByArtifact,
+        libs_to_deploy: &'a [Bytes],
         contract_decoder: Arc<NestedTracerDecoderT>,
         options: ContractRunnerOptions,
     ) -> Self {
@@ -110,6 +113,7 @@ impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, Nested
             contract,
             revert_decoder,
             known_contracts,
+            libs_to_deploy,
             contract_decoder,
             initial_balance,
             sender,
@@ -165,7 +169,6 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                 )]
                 .into(),
                 warnings,
-                self.contract.libraries.clone(),
             );
         }
 
@@ -232,7 +235,6 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                 )]
                 .into(),
                 warnings,
-                self.contract.libraries.clone(),
             );
         }
 
@@ -298,12 +300,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             .collect::<BTreeMap<_, _>>();
 
         let duration = start.elapsed();
-        let suite_result = SuiteResult::new(
-            duration,
-            test_results,
-            warnings,
-            self.contract.libraries.clone(),
-        );
+        let suite_result = SuiteResult::new(duration, test_results, warnings);
         info!(
             duration=?suite_result.duration,
             "done. {}/{} successful",
@@ -335,8 +332,8 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         let mut logs = Vec::new();
         // +1 for actual deployment
         let mut traces =
-            Vec::with_capacity(self.contract.libs_to_deploy.len() + 1 + usize::from(needs_setup));
-        for code in self.contract.libs_to_deploy.iter() {
+            Vec::with_capacity(self.libs_to_deploy.len() + 1 + usize::from(needs_setup));
+        for code in self.libs_to_deploy.iter() {
             match executor.deploy(
                 self.sender,
                 code.clone(),

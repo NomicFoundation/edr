@@ -9,7 +9,6 @@ use std::{
 use alloy_primitives::{Address, Log};
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
-    contracts::{get_contract_name, get_file_name},
     coverage::HitMaps,
     executors::{stack_trace::StackTraceResult, EvmError},
     fuzz::{CounterExample, FuzzFixtures},
@@ -177,8 +176,6 @@ pub struct SuiteResult {
     pub test_results: BTreeMap<String, TestResult>,
     /// Generated warnings.
     pub warnings: Vec<String>,
-    /// Libraries used to link test contract.
-    pub libraries: Libraries,
 }
 
 impl SuiteResult {
@@ -186,13 +183,11 @@ impl SuiteResult {
         duration: Duration,
         test_results: BTreeMap<String, TestResult>,
         warnings: Vec<String>,
-        libraries: Libraries,
     ) -> Self {
         Self {
             duration,
             test_results,
             warnings,
-            libraries,
         }
     }
 
@@ -288,23 +283,6 @@ pub struct SuiteTestResult {
     pub signature: String,
     /// The result of the executed test.
     pub result: TestResult,
-}
-
-impl SuiteTestResult {
-    /// Returns the gas used by the test.
-    pub fn gas_used(&self) -> u64 {
-        self.result.kind.report().gas()
-    }
-
-    /// Returns the contract name of the artifact ID.
-    pub fn contract_name(&self) -> &str {
-        get_contract_name(&self.artifact_id)
-    }
-
-    /// Returns the file name of the artifact ID.
-    pub fn file_name(&self) -> &str {
-        get_file_name(&self.artifact_id)
-    }
 }
 
 /// The status of a test.

@@ -4,12 +4,14 @@ use std::{
 };
 
 use edr_solidity::{
-    artifacts::BuildInfoConfigWithBuffers,
+    artifacts::{ArtifactId, BuildInfoConfigWithBuffers, ContractData},
     contract_decoder::{ContractDecoder, ContractDecoderError, NestedTraceDecoder},
+    linker::{LinkOutput, Linker},
     nested_trace::NestedTrace,
 };
 use edr_solidity_tests::{
-    contracts::{ArtifactId, ContractData, ContractsByArtifact},
+    constants::LIBRARY_DEPLOYER,
+    contracts::ContractsByArtifact,
     decode::RevertDecoder,
     multi_runner::{TestContract, TestContracts},
     MultiContractRunner, SolidityTestRunnerConfig,
@@ -29,18 +31,34 @@ pub(super) async fn build_runner(
     config_args: SolidityTestRunnerConfigArgs,
     tracing_config: TracingConfigWithBuffers,
 ) -> napi::Result<MultiContractRunner<LazyContractDecoder>> {
-    let known_contracts: ContractsByArtifact = artifacts
+    let config: SolidityTestRunnerConfig = config_args.try_into()?;
+
+    let artifact_contracts = artifacts
         .into_iter()
-        .map(|item| Ok((item.id.try_into()?, item.contract.try_into()?)))
-        .collect::<Result<BTreeMap<ArtifactId, ContractData>, napi::Error>>()?
-        .into();
+        .map(|artifact| Ok((artifact.id.try_into()?, artifact.contract.try_into()?)))
+        .collect::<napi::Result<Vec<_>>>()?;
+    let linker = Linker::new(config.project_root.clone(), artifact_contracts);
+    let LinkOutput {
+        libraries,
+        libs_to_deploy,
+    } = linker
+        .link_with_nonce_or_address(
+            Default::default(),
+            LIBRARY_DEPLOYER,
+            0,
+            linker.contracts.keys(),
+        )
+        .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+    let linked_contracts = linker
+        .get_linked_artifacts(&libraries)
+        .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+
+    let known_contracts = ContractsByArtifact::new(linked_contracts);
 
     let test_suites = test_suites
         .into_iter()
         .map(TryInto::try_into)
         .collect::<Result<Vec<ArtifactId>, _>>()?;
-
-    let config: SolidityTestRunnerConfig = config_args.try_into()?;
 
     let contract_decoder = LazyContractDecoder::new(tracing_config);
 
@@ -68,7 +86,10 @@ pub(super) async fn build_runner(
                 )
             })?;
 
-            let test_contract = TestContract::new_hardhat(contract_data.abi.clone(), bytecode);
+            let test_contract = TestContract {
+                abi: contract_data.abi.clone(),
+                bytecode,
+            };
 
             Ok((artifact_id.clone(), test_contract))
         })
@@ -78,6 +99,7 @@ pub(super) async fn build_runner(
         config,
         contracts,
         known_contracts,
+        libs_to_deploy,
         contract_decoder,
         revert_decoder,
     )

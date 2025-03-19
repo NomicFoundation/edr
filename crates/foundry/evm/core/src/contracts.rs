@@ -1,64 +1,18 @@
 //! Commonly used contract types and functions.
 
-use std::{collections::BTreeMap, path::PathBuf};
+use std::collections::BTreeMap;
 
 use alloy_json_abi::JsonAbi;
-use alloy_primitives::{Address, Bytes};
+use alloy_primitives::Address;
+use edr_solidity::artifacts::{ArtifactId, ContractData};
 use eyre::Result;
-use foundry_compilers::artifacts::{CompactContractBytecode, ContractBytecodeSome};
-use semver::Version;
+use foundry_compilers::{
+    artifacts::{
+        CompactBytecode, CompactContractBytecode, CompactContractBytecodeCow, ContractBytecodeSome,
+    },
+    Artifact,
+};
 use serde::{Deserialize, Serialize};
-
-// Adapted from <https://github.com/foundry-rs/compilers/blob/ea346377deaf18dc1f972a06fad76df3d9aed8d9/crates/compilers/src/artifact_output/mod.rs#L45>
-/// Represents compilation artifact output
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct ArtifactId {
-    /// The name of the contract
-    pub name: String,
-    /// Original source file path
-    pub source: PathBuf,
-    /// `solc` version that produced this artifact
-    pub version: Version,
-}
-
-impl ArtifactId {
-    // Copied from <https://github.com/foundry-rs/compilers/blob/ea346377deaf18dc1f972a06fad76df3d9aed8d9/crates/compilers/src/artifact_output/mod.rs#L45>
-    /// Returns a `<source path>:<name>` slug that uniquely identifies an
-    /// artifact
-    pub fn identifier(&self) -> String {
-        format!("{}:{}", self.source.to_string_lossy(), self.name)
-    }
-}
-
-impl From<foundry_compilers::ArtifactId> for ArtifactId {
-    fn from(value: foundry_compilers::ArtifactId) -> Self {
-        let foundry_compilers::ArtifactId {
-            path: _,
-            name,
-            source,
-            version,
-            build_id: _,
-            profile: _,
-        } = value;
-
-        Self {
-            name,
-            source,
-            version,
-        }
-    }
-}
-
-/// Container for commonly used contract data.
-#[derive(Debug, Clone)]
-pub struct ContractData {
-    /// Contract ABI.
-    pub abi: JsonAbi,
-    /// Contract creation code.
-    pub bytecode: Option<Bytes>,
-    /// Contract runtime code.
-    pub deployed_bytecode: Option<Bytes>,
-}
 
 type ArtifactWithContractRef<'a> = (&'a ArtifactId, &'a ContractData);
 
@@ -68,42 +22,33 @@ pub struct ContractsByArtifact(BTreeMap<ArtifactId, ContractData>);
 
 impl ContractsByArtifact {
     /// Creates a new instance by collecting all artifacts with present bytecode
-    /// from an iterator.
-    ///
-    /// It is recommended to use this method with an output of
-    /// [`foundry_linking::Linker::get_linked_artifacts`].
-    pub fn new_from_foundry_linker(
-        artifacts: impl IntoIterator<Item = (foundry_compilers::ArtifactId, CompactContractBytecode)>,
+    /// from an iterator. Excludes artifacts without bytecode.
+    pub fn new<'a>(
+        artifacts: impl IntoIterator<Item = (ArtifactId, CompactContractBytecodeCow<'a>)>,
     ) -> Self {
-        Self(
-            artifacts
-                .into_iter()
-                .filter_map(|(id, artifact)| {
-                    let bytecode = artifact
-                        .bytecode
-                        .and_then(foundry_compilers::artifacts::CompactBytecode::into_bytes)?;
-                    let deployed_bytecode = artifact.deployed_bytecode.and_then(
-                        foundry_compilers::artifacts::CompactDeployedBytecode::into_bytes,
-                    )?;
-
-                    // Exclude artifacts with present but empty bytecode. Such artifacts are usually
-                    // interfaces and abstract contracts.
-                    let bytecode = (bytecode.len() > 0).then_some(bytecode);
-                    let deployed_bytecode =
-                        (deployed_bytecode.len() > 0).then_some(deployed_bytecode);
-                    let abi = artifact.abi?;
-
-                    Some((
-                        id.into(),
-                        ContractData {
-                            abi,
-                            bytecode,
-                            deployed_bytecode,
-                        },
-                    ))
-                })
-                .collect(),
-        )
+        let map = artifacts
+            .into_iter()
+            .filter_map(|(id, artifact)| {
+                let CompactContractBytecode {
+                    abi,
+                    bytecode,
+                    deployed_bytecode,
+                } = artifact.into_contract_bytecode();
+                Some((
+                    id,
+                    ContractData {
+                        abi: abi?,
+                        bytecode: bytecode.and_then(CompactBytecode::into_bytes),
+                        deployed_bytecode: deployed_bytecode.and_then(|deployed_bytecode| {
+                            deployed_bytecode
+                                .bytecode
+                                .and_then(CompactBytecode::into_bytes)
+                        }),
+                    },
+                ))
+            })
+            .collect();
+        Self(map)
     }
 
     /// Returns an iterator over all ids and contracts.
@@ -220,40 +165,6 @@ unsafe fn count_different_bytes(a: &[u8], b: &[u8]) -> usize {
         i += 1;
     }
     sum
-}
-
-/// Artifact/Contract identifier can take the following form:
-/// `<artifact file name>:<contract name>`, the `artifact file name` is the name
-/// of the json file of the contract's artifact and the contract name is the
-/// name of the solidity contract, like `SafeTransferLibTest.json:
-/// SafeTransferLibTest`
-///
-/// This returns the `contract name` part
-///
-/// # Example
-///
-/// ```
-/// assert_eq!(
-///     "SafeTransferLibTest",
-///     foundry_evm_core::contracts::get_contract_name("SafeTransferLibTest.json:SafeTransferLibTest")
-/// );
-/// ```
-pub fn get_contract_name(id: &str) -> &str {
-    id.rsplit(':').next().unwrap_or(id)
-}
-
-/// This returns the `file name` part, See [`get_contract_name`]
-///
-/// # Example
-///
-/// ```
-/// assert_eq!(
-///     "SafeTransferLibTest.json",
-///     foundry_evm_core::contracts::get_file_name("SafeTransferLibTest.json:SafeTransferLibTest")
-/// );
-/// ```
-pub fn get_file_name(id: &str) -> &str {
-    id.split(':').next().unwrap_or(id)
 }
 
 /// Helper function to convert `CompactContractBytecode` ~>

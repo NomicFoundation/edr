@@ -4,11 +4,11 @@ use std::{collections::BTreeMap, fmt::Debug, path::PathBuf, sync::Arc, time::Ins
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
-use edr_solidity::contract_decoder::SyncNestedTraceDecoder;
+use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
-    contracts::{get_contract_name, ArtifactId, ContractsByArtifact},
+    contracts::ContractsByArtifact,
     decode::RevertDecoder,
     executors::ExecutorBuilder,
     fork::CreateFork,
@@ -23,25 +23,13 @@ use crate::{
     SolidityTestRunnerConfigError, TestFilter, TestOptions,
 };
 
+/// A deployable test contract
 #[derive(Debug, Clone)]
 pub struct TestContract {
+    /// The test contract abi
     pub abi: JsonAbi,
+    /// The test contract bytecode
     pub bytecode: Bytes,
-    pub libs_to_deploy: Vec<Bytes>,
-    pub libraries: Libraries,
-}
-
-impl TestContract {
-    /// Creates a new test contract with the given ABI and bytecode.
-    /// Library linking isn't supported for Hardhat test suites
-    pub fn new_hardhat(abi: JsonAbi, bytecode: Bytes) -> Self {
-        Self {
-            abi,
-            bytecode,
-            libs_to_deploy: vec![],
-            libraries: Libraries::default(),
-        }
-    }
 }
 
 pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
@@ -56,6 +44,8 @@ pub struct MultiContractRunner<NestedTraceDecoderT> {
     test_contracts: TestContracts,
     /// Known contracts by artifact id
     known_contracts: Arc<ContractsByArtifact>,
+    /// Libraries to deploy.
+    libs_to_deploy: Vec<Bytes>,
     /// Provides contract metadata from calldata and traces.
     contract_decoder: Arc<NestedTraceDecoderT>,
     /// Cheats config.
@@ -86,6 +76,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
         config: SolidityTestRunnerConfig,
         test_contracts: TestContracts,
         known_contracts: ContractsByArtifact,
+        libs_to_deploy: Vec<Bytes>,
         contract_decoder: NestedTraceDecoderT,
         revert_decoder: RevertDecoder,
     ) -> Result<MultiContractRunner<NestedTraceDecoderT>, SolidityTestRunnerConfigError> {
@@ -125,6 +116,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             test_contracts,
             known_contracts: Arc::new(known_contracts),
             contract_decoder: Arc::new(contract_decoder),
+            libs_to_deploy,
             cheats_config_options: Arc::new(cheats_config_options),
             evm_opts,
             env,
@@ -267,7 +259,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             .spec(self.evm_opts.spec);
 
         if !enabled!(tracing::Level::TRACE) {
-            span_name = get_contract_name(&identifier);
+            span_name = &artifact_id.name;
         }
         let _guard = info_span!("run_tests", name = span_name).entered();
 
@@ -279,6 +271,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             contract,
             &self.revert_decoder,
             &self.known_contracts,
+            &self.libs_to_deploy,
             Arc::clone(&self.contract_decoder),
             ContractRunnerOptions {
                 initial_balance: self.evm_opts.initial_balance,

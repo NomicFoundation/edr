@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Address;
-use foundry_evm_core::contracts::{bytecode_diff_score, ArtifactId, ContractsByArtifact};
+use edr_solidity::artifacts::ArtifactId;
+use foundry_evm_core::contracts::{bytecode_diff_score, ContractsByArtifact};
 
 use super::{AddressIdentity, TraceIdentifier};
 

@@ -57,7 +57,7 @@ pub fn run_solidity_tests(
         )?;
 
     let (tx_results, mut rx_results) = tokio::sync::mpsc::unbounded_channel::<(
-        edr_solidity_tests::contracts::ArtifactId,
+        edr_solidity::artifacts::ArtifactId,
         edr_solidity_tests::result::SuiteResult,
     )>();
 
