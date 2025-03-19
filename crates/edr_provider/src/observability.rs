@@ -3,7 +3,8 @@ use edr_evm::{
     blockchain::BlockHash,
     inspector::Inspector,
     interpreter::{
-        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, Interpreter,
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, EthInterpreter,
+        Interpreter,
     },
     journal::{JournalExt, JournalTrait},
     spec::ContextTrait,
@@ -60,6 +61,32 @@ impl<
         inputs: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
         self.trace_collector.create(context, inputs)
+    }
+
+    fn create_end(
+        &mut self,
+        context: &mut ContextT,
+        inputs: &CreateInputs,
+        outcome: &mut CreateOutcome,
+    ) {
+        self.trace_collector.create_end(context, inputs, outcome);
+    }
+
+    fn eofcreate(
+        &mut self,
+        context: &mut ContextT,
+        inputs: &mut EOFCreateInputs,
+    ) -> Option<CreateOutcome> {
+        self.trace_collector.eofcreate(context, inputs)
+    }
+
+    fn eofcreate_end(
+        &mut self,
+        context: &mut ContextT,
+        inputs: &EOFCreateInputs,
+        outcome: &mut CreateOutcome,
+    ) {
+        self.trace_collector.eofcreate_end(context, inputs, outcome);
     }
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {

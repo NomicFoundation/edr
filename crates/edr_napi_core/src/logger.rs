@@ -782,7 +782,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
                 {
                     execution_result
                 } else {
-                    unreachable!("Before messages must have an after message")
+                    unreachable!("Before messages must have an after message: {:?}", trace)
                 };
 
                 // Create

@@ -67,15 +67,21 @@ pub fn l1_genesis_state(hardfork: SpecId) -> Vec<Account> {
 /// Returns an error if the string does not match any known hardfork.
 #[napi]
 pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
-    edr_eth::l1::SpecId::try_from(hardfork.as_str()).map_or_else(
-        |()| {
-            Err(napi::Error::new(
-                napi::Status::InvalidArg,
-                format!("Unknown hardfork: {hardfork}"),
-            ))
-        },
-        |hardfork| Ok(SpecId::from(hardfork)),
-    )
+    const LATEST_TAG: &str = "Latest";
+
+    if hardfork == LATEST_TAG {
+        Ok(SpecId::Latest)
+    } else {
+        edr_eth::l1::SpecId::try_from(hardfork.as_str()).map_or_else(
+            |()| {
+                Err(napi::Error::new(
+                    napi::Status::InvalidArg,
+                    format!("Unknown hardfork: {hardfork}"),
+                ))
+            },
+            |hardfork| Ok(SpecId::from(hardfork)),
+        )
+    }
 }
 
 #[napi]

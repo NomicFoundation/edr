@@ -42,7 +42,7 @@ describe("Multi-chain", () => {
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
     enableRip7212: false,
-    hardfork: "Latest",
+    hardfork: "Isthmus",
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
@@ -88,10 +88,9 @@ describe("Multi-chain", () => {
     const provider = context.createProvider(
       L1_CHAIN_TYPE,
       {
-        genesisState: l1GenesisState(
-          l1HardforkFromString(providerConfig.hardfork)
-        ),
         ...providerConfig,
+        hardfork: "Latest",
+        genesisState: l1GenesisState(l1HardforkFromString("Latest")),
       },
       loggerConfig,
       {

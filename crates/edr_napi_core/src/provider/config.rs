@@ -46,7 +46,7 @@ pub struct Config {
 
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: for<'s> TryFrom<&'s str, Error = ()> + Into<l1::SpecId>,
+    HardforkT: for<'s> TryFrom<&'s str, Error = ()> + Default + Into<l1::SpecId>,
 {
     type Error = napi::Error;
 
