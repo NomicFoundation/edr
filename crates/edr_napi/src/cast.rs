@@ -113,7 +113,16 @@ impl TryCast<u128> for BigInt {
     type Error = napi::Error;
 
     fn try_cast(self) -> std::result::Result<u128, Self::Error> {
-        let (signed, value, lossless) = self.get_u128();
+        // TODO: https://github.com/NomicFoundation/edr/issues/837
+        let (signed, value, lossless) = {
+            let len = self.words.len();
+            if len == 1 {
+                (self.sign_bit, u128::from(self.words[0]), true)
+            } else {
+                let val = u128::from(self.words[0]) + (u128::from(self.words[1]) << 64);
+                (self.sign_bit, val, len == 2)
+            }
+        };
 
         if signed {
             return Err(napi::Error::new(
