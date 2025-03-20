@@ -12,7 +12,6 @@ use foundry_compilers::{
     },
     Artifact,
 };
-use serde::{Deserialize, Serialize};
 
 type ArtifactWithContractRef<'a> = (&'a ArtifactId, &'a ContractData);
 

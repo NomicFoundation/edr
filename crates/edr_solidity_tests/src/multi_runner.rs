@@ -6,7 +6,6 @@ use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
-use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
     contracts::ContractsByArtifact,
     decode::RevertDecoder,
@@ -19,8 +18,10 @@ use foundry_evm::{
 use futures::StreamExt;
 
 use crate::{
-    result::SuiteResult, runner::ContractRunnerOptions, ContractRunner, SolidityTestRunnerConfig,
-    SolidityTestRunnerConfigError, TestFilter, TestOptions,
+    result::SuiteResult,
+    runner::{ContractRunnerArtifacts, ContractRunnerOptions},
+    ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
+    TestOptions,
 };
 
 /// A deployable test contract
@@ -269,10 +270,12 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             &identifier,
             executor_builder,
             contract,
-            &self.revert_decoder,
-            &self.known_contracts,
-            &self.libs_to_deploy,
-            Arc::clone(&self.contract_decoder),
+            ContractRunnerArtifacts {
+                revert_decoder: &self.revert_decoder,
+                known_contracts: &self.known_contracts,
+                libs_to_deploy: &self.libs_to_deploy,
+                contract_decoder: Arc::clone(&self.contract_decoder),
+            },
             ContractRunnerOptions {
                 initial_balance: self.evm_opts.initial_balance,
                 sender: self.evm_opts.sender,

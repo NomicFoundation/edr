@@ -2867,7 +2867,6 @@ dependencies = [
  "revm",
  "revm-inspectors",
  "rustc-hash 1.1.0",
- "semver 1.0.26",
  "serde",
  "serde_json",
  "similar-asserts",

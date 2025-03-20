@@ -7,7 +7,6 @@ use std::{
 };
 
 use alloy_primitives::{Address, Log};
-use foundry_compilers::artifacts::Libraries;
 use foundry_evm::{
     coverage::HitMaps,
     executors::{stack_trace::StackTraceResult, EvmError},

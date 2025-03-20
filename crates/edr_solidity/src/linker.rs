@@ -1,8 +1,5 @@
 //! EVM bytecode linker based on Foundry's linker: <https://github.com/foundry-rs/foundry/blob/5101a32b50a71741741730d351834cb190927b51/crates/linking/src/lib.rs>
 
-#![cfg_attr(not(test), warn(unused_crate_dependencies))]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
@@ -16,32 +13,61 @@ use foundry_compilers::{
 };
 use semver::Version;
 
-use crate::artifacts::{ArtifactId, ContractData};
+use crate::artifacts::ArtifactId;
 
+/// A map of artifact identifiers to their corresponding bytecode.
+///
+/// This type is used throughout the linker to store and manipulate contract
+/// artifacts that may need to be linked with libraries.
 pub type ArtifactContracts<'a> = BTreeMap<ArtifactId, CompactContractBytecodeCow<'a>>;
 
 /// Errors that can occur during linking.
 #[derive(Debug, thiserror::Error)]
 pub enum LinkerError {
-    #[error("wasn't able to find artifact for library {name} at {file}")]
-    MissingLibraryArtifact { file: String, name: String },
+    /// Error that occurs when a library artifact cannot be found at the
+    /// specified file path with the given name.
+    #[error("wasn't able to find artifact for library '{name}' at '{file_path}'")]
+    MissingLibraryArtifact {
+        /// The file path
+        file_path: String,
+        /// The contract name
+        name: String,
+    },
+
+    /// Error that occurs when the target artifact to link is not present in the
+    /// provided artifacts set.
     #[error("target artifact is not present in provided artifacts set")]
     MissingTargetArtifact,
+
+    /// Error that occurs when an invalid Ethereum address is provided for
+    /// linking.
     #[error(transparent)]
     InvalidAddress(<Address as std::str::FromStr>::Err),
+
+    /// Error that occurs when a cyclic dependency is detected, which prevents
+    /// successful CREATE2-based linking.
     #[error("cyclic dependency found, can't link libraries via CREATE2")]
     CyclicDependency,
 }
 
+/// A library for resolving and linking EVM bytecode dependencies.
+///
+/// The `Linker` manages the resolution and linking of contract dependencies,
+/// particularly for Solidity libraries that are referenced in contract
+/// bytecode. It supports both regular CREATE-based deployment and CREATE2-based
+/// deployment strategies.
 pub struct Linker<'a> {
     /// Root of the project, used to determine whether artifact/library path can
     /// be stripped.
     pub root: PathBuf,
-    /// Compilation artifacts.
+    /// Compilation artifacts containing the contracts to be linked.
     pub contracts: ArtifactContracts<'a>,
 }
 
-/// Output of the `link_with_nonce_or_address`
+/// Output produced by the linking process.
+///
+/// Contains the resolved library addresses and the libraries that need to be
+/// deployed.
 pub struct LinkOutput {
     /// Resolved library addresses. Contains both user-provided and newly
     /// deployed libraries. It will always contain library paths with
@@ -54,6 +80,15 @@ pub struct LinkOutput {
 }
 
 impl<'a> Linker<'a> {
+    /// Creates a new Linker instance.
+    ///
+    /// # Parameters
+    /// - `root`: The root path of the project, used to normalize paths
+    /// - `contracts`: An iterator of artifact IDs and their corresponding
+    ///   bytecode
+    ///
+    /// # Returns
+    /// A new `Linker` instance with the specified root path and contracts
     pub fn new(
         root: impl Into<PathBuf>,
         contracts: impl IntoIterator<Item = (ArtifactId, CompactContractBytecodeCow<'a>)>,
@@ -66,8 +101,8 @@ impl<'a> Linker<'a> {
         Linker { root, contracts }
     }
 
-    /// Helper method to convert [ArtifactId] to the format in which libraries
-    /// are stored in [Libraries] object.
+    /// Helper method to convert [`ArtifactId`] to the format in which libraries
+    /// are stored in [`Libraries`] object.
     ///
     /// Strips project root path from source file path.
     fn convert_artifact_id_to_lib_path(&self, id: &ArtifactId) -> (PathBuf, String) {
@@ -81,8 +116,8 @@ impl<'a> Linker<'a> {
         (path.to_path_buf(), name.to_owned())
     }
 
-    /// Finds an [ArtifactId] object in the given [ArtifactContracts] keys which
-    /// corresponds to the library path in the form of
+    /// Finds an [`ArtifactId`] object in the given [`ArtifactContracts`] keys
+    /// which corresponds to the library path in the form of
     /// "./path/to/Lib.sol:Lib"
     ///
     /// Optionally accepts solc version, and if present, only compares artifacts
@@ -131,12 +166,12 @@ impl<'a> Linker<'a> {
             }
         }
 
-        for (file, libs) in &references {
+        for (file_path, libs) in &references {
             for contract in libs.keys() {
                 let id = self
-                    .find_artifact_id_by_library_path(file, contract, Some(&target.version))
+                    .find_artifact_id_by_library_path(file_path, contract, Some(&target.version))
                     .ok_or_else(|| LinkerError::MissingLibraryArtifact {
-                        file: file.to_string(),
+                        file_path: file_path.to_string(),
                         name: contract.to_string(),
                     })?;
                 if deps.insert(id) {
@@ -148,9 +183,29 @@ impl<'a> Linker<'a> {
         Ok(())
     }
 
-    /// Links given artifact with either given library addresses or address
-    /// computed from sender and nonce.
+    /// Links given artifacts with either given library addresses or computes
+    /// addresses from sender and nonce.
     ///
+    /// This method resolves all library dependencies for the specified targets
+    /// and either uses provided library addresses or computes new ones
+    /// based on the sender's address and nonce for CREATE-based
+    /// deployments.
+    ///
+    /// # Parameters
+    /// - `deployed_libraries`: Already deployed libraries with their addresses
+    /// - `sender`: The address that will deploy the libraries
+    /// - `nonce`: The starting nonce to use for computing library addresses
+    /// - `targets`: Artifacts to link libraries for
+    ///
+    /// # Returns
+    /// A `LinkOutput` containing resolved library addresses and libraries that
+    /// need deployment
+    ///
+    /// # Errors
+    /// Returns a `LinkerError` if library artifacts are missing or addresses
+    /// are invalid
+    ///
+    /// # Notes
     /// Each key in `deployed_libraries` should either be a global path or
     /// relative to project root. All remappings should be resolved.
     ///
@@ -198,11 +253,11 @@ impl<'a> Linker<'a> {
         // Link and collect bytecodes for `libs_to_deploy`.
         let libs_to_deploy = libs_to_deploy
             .into_iter()
-            .map(|(id, _)| {
+            .map(|(id, _address)| {
                 Ok(self
                     .link(id, &libraries)?
                     .get_bytecode_bytes()
-                    .unwrap()
+                    .expect("bytecode is now `BytecodeObject::Bytecode`")
                     .into_owned())
             })
             .collect::<Result<Vec<_>, LinkerError>>()?;
@@ -213,6 +268,26 @@ impl<'a> Linker<'a> {
         })
     }
 
+    /// Links libraries using CREATE2 deployment method.
+    ///
+    /// This method resolves all library dependencies for the specified target
+    /// and either uses provided library addresses or computes new ones
+    /// based on CREATE2 deployment with the specified sender and salt.
+    ///
+    /// # Parameters
+    /// - `deployed_libraries`: Already deployed libraries with their addresses
+    /// - `sender`: The address that will deploy the libraries
+    /// - `salt`: The salt to use for CREATE2 deployment
+    /// - `target`: The artifact to link libraries for
+    ///
+    /// # Returns
+    /// A `LinkOutput` containing resolved library addresses and libraries that
+    /// need deployment
+    ///
+    /// # Errors
+    /// Returns a `LinkerError` if library artifacts are missing, addresses are
+    /// invalid, or a cyclic dependency is found (CREATE2 cannot handle
+    /// cyclic dependencies)
     pub fn link_with_create2(
         &'a self,
         deployed_libraries: Libraries,
@@ -284,7 +359,22 @@ impl<'a> Linker<'a> {
         })
     }
 
-    /// Links given artifact with given libraries.
+    /// Links a specific artifact with given libraries.
+    ///
+    /// This method performs the actual linking of a contract's bytecode with
+    /// the specified library addresses.
+    ///
+    /// # Parameters
+    /// - `target`: The artifact to link
+    /// - `libraries`: The libraries with their addresses to link into the
+    ///   bytecode
+    ///
+    /// # Returns
+    /// The contract bytecode with libraries linked
+    ///
+    /// # Errors
+    /// Returns a `LinkerError` if the target artifact is not found or if
+    /// library addresses are invalid
     pub fn link(
         &self,
         target: &ArtifactId,
@@ -299,32 +389,72 @@ impl<'a> Linker<'a> {
             for (name, address) in libs {
                 let address = Address::from_str(address).map_err(LinkerError::InvalidAddress)?;
                 if let Some(bytecode) = contract.bytecode.as_mut() {
-                    bytecode
-                        .to_mut()
-                        .link(&file.to_string_lossy(), name, address);
+                    let bytecode_mut = bytecode.to_mut();
+                    if !bytecode_mut.link(&file.to_string_lossy(), name, address) {
+                        // If we didn't link, there is nothing to link. By calling `resolve()` we
+                        // make sure that the `BytecodeObject::Unlinked` is turned into
+                        // `BytecodeObject:Bytecode`.
+                        bytecode_mut.object.resolve();
+                    }
                 }
                 if let Some(deployed_bytecode) = contract
                     .deployed_bytecode
                     .as_mut()
                     .and_then(|b| b.to_mut().bytecode.as_mut())
                 {
-                    deployed_bytecode.link(&file.to_string_lossy(), name, address);
+                    if !deployed_bytecode.link(&file.to_string_lossy(), name, address) {
+                        // If we didn't link, there is nothing to link. By calling `resolve()` we
+                        // make sure that the `BytecodeObject::Unlinked` is turned into
+                        // `BytecodeObject:Bytecode`.
+                        deployed_bytecode.object.resolve();
+                    }
                 }
             }
         }
         Ok(contract)
     }
 
+    /// Gets all artifacts with libraries linked.
+    ///
+    /// Links all artifacts in the linker's collection with the provided
+    /// libraries.
+    ///
+    /// # Parameters
+    /// - `libraries`: The libraries with their addresses to link into all
+    ///   artifacts
+    ///
+    /// # Returns
+    /// A map of artifact IDs to their linked bytecode
+    ///
+    /// # Errors
+    /// Returns a `LinkerError` if any artifact is not found or if library
+    /// addresses are invalid
     pub fn get_linked_artifacts(
         &self,
         libraries: &Libraries,
-    ) -> Result<ArtifactContracts, LinkerError> {
+    ) -> Result<ArtifactContracts<'_>, LinkerError> {
         self.contracts
             .keys()
             .map(|id| Ok((id.clone(), self.link(id, libraries)?)))
             .collect()
     }
 
+    /// Gets all artifacts with libraries linked, preserving the lifetime of the
+    /// bytecode.
+    ///
+    /// Similar to `get_linked_artifacts`, but preserves the lifetime of the
+    /// original bytecode.
+    ///
+    /// # Parameters
+    /// - `libraries`: The libraries with their addresses to link into all
+    ///   artifacts
+    ///
+    /// # Returns
+    /// A map of artifact IDs to their linked bytecode with preserved lifetime
+    ///
+    /// # Errors
+    /// Returns a `LinkerError` if any artifact is not found or if library
+    /// addresses are invalid
     pub fn get_linked_artifacts_cow(
         &self,
         libraries: &Libraries,
@@ -425,7 +555,7 @@ mod tests {
             let linker = Linker::new(self.project.root(), self.artifact_contracts());
             for (id, identifier) in self.iter_linking_targets(&linker) {
                 let output = linker
-                    .link_with_create2(Default::default(), sender, salt, id)
+                    .link_with_create2(Libraries::default(), sender, salt, id)
                     .expect("Linking failed");
                 self.validate_assertions(identifier, output);
             }

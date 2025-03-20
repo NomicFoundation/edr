@@ -302,7 +302,6 @@ impl ForgeTestData {
             .clone()
             .with_stripped_file_prefixes(root)
             .into_artifacts()
-            .into_iter()
             .map(|(id, contract)| {
                 let id = ArtifactId {
                     name: id.name,
@@ -362,14 +361,14 @@ impl ForgeTestData {
             {
                 let Some(bytecode) = contract
                     .get_bytecode_bytes()
-                    .map(|b| b.into_owned())
+                    .map(Cow::into_owned)
                     .filter(|b| !b.is_empty())
                 else {
                     continue;
                 };
 
                 test_contracts.insert(
-                    id.clone().into(),
+                    id.clone(),
                     TestContract {
                         abi: abi.clone().into_owned(),
                         bytecode,

@@ -18,7 +18,7 @@ use edr_solidity::{
 use eyre::Result;
 use foundry_evm::{
     abi::TestFunctionExt,
-    constants::CALLER,
+    constants::{CALLER, LIBRARY_DEPLOYER},
     contracts::{ContractsByAddress, ContractsByArtifact},
     coverage::HitMaps,
     decode::{decode_console_logs, RevertDecoder},
@@ -90,17 +90,28 @@ pub struct ContractRunnerOptions {
     pub solidity_fuzz_fixtures: bool,
 }
 
+/// Contract artifact related argumetns to the contract runner.
+pub struct ContractRunnerArtifacts<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> {
+    pub revert_decoder: &'a RevertDecoder,
+    pub known_contracts: &'a ContractsByArtifact,
+    pub libs_to_deploy: &'a [Bytes],
+    pub contract_decoder: Arc<NestedTracerDecoderT>,
+}
+
 impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedTracerDecoderT> {
     pub fn new(
         name: &'a str,
         executor_builder: ExecutorBuilder,
         contract: &'a TestContract,
-        revert_decoder: &'a RevertDecoder,
-        known_contracts: &'a ContractsByArtifact,
-        libs_to_deploy: &'a [Bytes],
-        contract_decoder: Arc<NestedTracerDecoderT>,
+        artifacts: ContractRunnerArtifacts<'a, NestedTracerDecoderT>,
         options: ContractRunnerOptions,
     ) -> Self {
+        let ContractRunnerArtifacts {
+            revert_decoder,
+            known_contracts,
+            libs_to_deploy,
+            contract_decoder,
+        } = artifacts;
         let ContractRunnerOptions {
             initial_balance,
             sender,
@@ -335,7 +346,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             Vec::with_capacity(self.libs_to_deploy.len() + 1 + usize::from(needs_setup));
         for code in self.libs_to_deploy.iter() {
             match executor.deploy(
-                self.sender,
+                LIBRARY_DEPLOYER,
                 code.clone(),
                 U256::ZERO,
                 Some(self.revert_decoder),

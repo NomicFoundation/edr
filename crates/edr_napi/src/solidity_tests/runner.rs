@@ -1,10 +1,7 @@
-use std::{
-    collections::BTreeMap,
-    sync::{Mutex, OnceLock},
-};
+use std::sync::{Mutex, OnceLock};
 
 use edr_solidity::{
-    artifacts::{ArtifactId, BuildInfoConfigWithBuffers, ContractData},
+    artifacts::{ArtifactId, BuildInfoConfigWithBuffers},
     contract_decoder::{ContractDecoder, ContractDecoderError, NestedTraceDecoder},
     linker::{LinkOutput, Linker},
     nested_trace::NestedTrace,
@@ -16,6 +13,7 @@ use edr_solidity_tests::{
     multi_runner::{TestContract, TestContracts},
     MultiContractRunner, SolidityTestRunnerConfig,
 };
+use foundry_compilers::artifacts::Libraries;
 
 use crate::{
     provider::TracingConfigWithBuffers,
@@ -43,7 +41,7 @@ pub(super) async fn build_runner(
         libs_to_deploy,
     } = linker
         .link_with_nonce_or_address(
-            Default::default(),
+            Libraries::default(),
             LIBRARY_DEPLOYER,
             0,
             linker.contracts.keys(),

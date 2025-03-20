@@ -20,7 +20,6 @@ pub struct Artifact {
 #[derive(Clone, Debug)]
 #[napi(object)]
 pub struct ArtifactId {
-    pub path: String,
     /// The name of the contract.
     pub name: String,
     /// Original source file path.
@@ -32,7 +31,6 @@ pub struct ArtifactId {
 impl From<edr_solidity::artifacts::ArtifactId> for ArtifactId {
     fn from(value: edr_solidity::artifacts::ArtifactId) -> Self {
         Self {
-            path: todo!(),
             name: value.name,
             source: value.source.to_string_lossy().to_string(),
             solc_version: value.version.to_string(),

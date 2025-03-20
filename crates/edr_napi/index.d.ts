@@ -396,11 +396,19 @@ export interface ContractData {
    * is ABI only.
    */
   bytecode?: string
+  /** The link references of the deployment bytecode. */
+  linkReferences?: Record<string, Record<string, Array<LinkReference>>>
   /**
    * Contract runtime code as hex string. It can be missing if the contract
    * is ABI only.
    */
   deployedBytecode?: string
+  /** The link references of the deployed bytecode. */
+  deployedLinkReferences?: Record<string, Record<string, Array<LinkReference>>>
+}
+export interface LinkReference {
+  start: number
+  length: number
 }
 /**
  * Solidity test runner configuration arguments exposed through the ffi.

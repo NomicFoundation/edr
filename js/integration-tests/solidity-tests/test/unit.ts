@@ -205,4 +205,12 @@ describe("Unit tests", () => {
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);
   });
+
+  it("LinkingTest", async function () {
+    const { totalTests, failedTests } =
+      await testContext.runTestsWithStats("LinkingTest");
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 1);
+  });
 });
