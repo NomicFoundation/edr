@@ -60,26 +60,6 @@ impl<
     }
 }
 
-/// Trait for providing custom precompiles.
-pub trait CustomPrecompilesGetter {
-    /// Returns a map of custom precompiles.
-    fn custom_precompiles(&self) -> HashMap<Address, PrecompileFn>;
-}
-
-/// A context that contains custom precompiles.
-pub struct ContextWithCustomPrecompiles<ContextT> {
-    /// The type of the context.
-    pub context: ContextT,
-    /// The custom precompiles.
-    pub custom_precompiles: HashMap<Address, PrecompileFn>,
-}
-
-impl<ContextT> CustomPrecompilesGetter for ContextWithCustomPrecompiles<ContextT> {
-    fn custom_precompiles(&self) -> HashMap<Address, PrecompileFn> {
-        self.custom_precompiles.clone()
-    }
-}
-
 impl<
         BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
         ContextT: ContextTrait,

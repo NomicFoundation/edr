@@ -1730,13 +1730,6 @@ where
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut raw_tracer);
-            // let context = Eip3155AndRawTracersContextWithPrecompiles::new(
-            //     &mut eip3155_tracer,
-            //     &mut raw_tracer,
-            //     &custom_precompiles,
-            // );
-
-            // TODO: Custom precompile
 
             let result = call::run_call::<_, ChainSpecT, _, _>(
                 blockchain,
@@ -2146,8 +2139,6 @@ where
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
-
-            // TODO: Precompiles
 
             let execution_result = call::run_call::<_, ChainSpecT, _, _>(
                 blockchain,
