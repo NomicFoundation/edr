@@ -26,7 +26,7 @@ log = { version = "0.4.20", default-features = false }
 lru = "0.12.2"
 parking_lot = { version = "0.12.1", default-features = false }
 rand = { version = "0.8.5", default-features = false }
-revm-precompile = { git = "https://github.com/nomicfoundation/revm", rev = "75fd1d7", version = "17.0.0-alpha.1", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
+revm-precompile = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "17.0.0-alpha.1", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
 # revm-precompile = { path = "../../../revm/crates/precompile", version = "17.0.0-alpha.1", default-features = false, features = ["c-kzg", "secp256r1", "std"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { version = "1.0.209", default-features = false, features = ["derive"] }

@@ -22,12 +22,12 @@ edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_utils = { version = "0.3.5", path = "../edr_utils" }
-revm = { git = "https://github.com/nomicfoundation/revm", rev = "75fd1d7", version = "20.0.0-alpha.2", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
-revm-context = { git = "https://github.com/nomicfoundation/revm", rev = "75fd1d7", version = "1.0.0-alpha.2", default-features = false }
-revm-context-interface = { git = "https://github.com/nomicfoundation/revm", rev = "75fd1d7", version = "1.0.0-alpha.2", default-features = false }
-revm-database-interface = { git = "https://github.com/nomicfoundation/revm", rev = "75fd1d7", version = "1.0.0-alpha.2", default-features = false }
-revm-handler = { git = "https://github.com/nomicfoundation/revm", rev = "75fd1d7", version = "1.0.0-alpha.2", default-features = false }
-revm-interpreter = { git = "https://github.com/nomicfoundation/revm", rev = "75fd1d7", version = "16.0.0-alpha.2", default-features = false }
+revm = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "20.0.0-alpha.2", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
+revm-context = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "1.0.0-alpha.2", default-features = false }
+revm-context-interface = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "1.0.0-alpha.2", default-features = false }
+revm-database-interface = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "1.0.0-alpha.2", default-features = false }
+revm-handler = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "1.0.0-alpha.2", default-features = false }
+revm-interpreter = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "16.0.0-alpha.2", default-features = false }
 # revm = { path = "../../../revm/crates/revm", version = "20.0.0-alpha.2", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
 # revm-context = { path = "../../../revm/crates/context", version = "1.0.0-alpha.2", default-features = false }
 # revm-context-interface = { path = "../../../revm/crates/context/interface", version = "1.0.0-alpha.2", default-features = false }

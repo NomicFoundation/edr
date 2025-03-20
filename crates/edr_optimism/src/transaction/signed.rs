@@ -17,7 +17,6 @@ use edr_eth::{
     },
     Address, Bytes, B256, U256,
 };
-use op_revm::transaction::deposit::DepositTransaction;
 
 use super::Signed;
 use crate::transaction::{InvalidTransaction, OpTxTrait};
@@ -199,11 +198,15 @@ impl MaybeSignedTransaction for Signed {
     }
 }
 
-impl DepositTransaction for Signed {
-    fn source_hash(&self) -> B256 {
+impl OpTxTrait for Signed {
+    fn enveloped_tx(&self) -> Option<&Bytes> {
+        Some(self.rlp_encoding())
+    }
+
+    fn source_hash(&self) -> Option<B256> {
         match self {
-            Signed::Deposit(tx) => tx.source_hash,
-            _ => B256::ZERO,
+            Signed::Deposit(tx) => Some(tx.source_hash),
+            _ => None,
         }
     }
 
@@ -214,17 +217,11 @@ impl DepositTransaction for Signed {
         }
     }
 
-    fn is_system_transaction(&self) -> bool {
+    fn is_system_transaction(&self) -> Option<bool> {
         match self {
-            Signed::Deposit(tx) => tx.is_system_tx,
-            _ => false,
+            Signed::Deposit(tx) => Some(tx.is_system_tx),
+            _ => None,
         }
-    }
-}
-
-impl OpTxTrait for Signed {
-    fn enveloped_tx(&self) -> Option<&Bytes> {
-        Some(self.rlp_encoding())
     }
 }
 

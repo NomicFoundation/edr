@@ -44,9 +44,6 @@ pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationEr
         /// The sender's balance
         balance: Box<U256>,
     },
-    /// Precompile errors
-    #[error("{0}")]
-    Precompile(String),
     /// State errors
     #[error(transparent)]
     State(StateErrorT),

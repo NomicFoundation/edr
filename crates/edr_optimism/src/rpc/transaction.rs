@@ -8,10 +8,12 @@ use edr_evm::{
 use edr_rpc_eth::{
     RpcTypeFrom, TransactionConversionError as L1ConversionError, TransactionWithSignature,
 };
-use op_revm::transaction::deposit::DepositTransaction as _;
 
 use super::Transaction;
-use crate::{transaction, OpChainSpec, OpSpecId};
+use crate::{
+    transaction::{self, OpTxTrait as _},
+    OpChainSpec, OpSpecId,
+};
 
 impl EthRpcTransaction for Transaction {
     fn block_hash(&self) -> Option<&B256> {
@@ -150,16 +152,6 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<OpChainSpec>> for Transaction {
 
         let signature = value.transaction.maybe_signature();
 
-        let (source_hash, is_system_tx) =
-            if l1.transaction_type == Some(transaction::Type::Deposit.into()) {
-                (
-                    Some(value.transaction.source_hash()),
-                    Some(value.transaction.is_system_transaction()),
-                )
-            } else {
-                (None, None)
-            };
-
         Self {
             l1,
             v: signature.map(Signature::v),
@@ -167,9 +159,9 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<OpChainSpec>> for Transaction {
             y_parity: None,
             r: signature.map(Signature::r),
             s: signature.map(Signature::s),
-            source_hash,
+            source_hash: value.transaction.source_hash(),
             mint: value.transaction.mint(),
-            is_system_tx,
+            is_system_tx: value.transaction.is_system_transaction(),
         }
     }
 }

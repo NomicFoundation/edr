@@ -1,7 +1,11 @@
 use core::num::NonZeroU64;
-use std::{path::PathBuf, time::SystemTime};
+use std::{path::PathBuf, str::FromStr, time::SystemTime};
 
-use edr_eth::{block::BlobGas, l1, Address, ChainId, HashMap, B256};
+use edr_eth::{
+    block::BlobGas,
+    l1::{self, hardfork::UnknownHardfork},
+    Address, ChainId, HashMap, B256,
+};
 use edr_provider::{
     config,
     hardfork::{Activations, ForkCondition},
@@ -46,7 +50,7 @@ pub struct Config {
 
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: for<'s> TryFrom<&'s str, Error = ()> + Default + Into<l1::SpecId>,
+    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId>,
 {
     type Error = napi::Error;
 
@@ -69,7 +73,7 @@ where
                              hardfork,
                          }| {
                             let condition = ForkCondition::Block(block_number);
-                            let hardfork = HardforkT::try_from(&hardfork).map_err(|()| {
+                            let hardfork = hardfork.parse().map_err(|UnknownHardfork| {
                                 napi::Error::new(
                                     napi::Status::InvalidArg,
                                     format!("Unknown hardfork: {hardfork}"),
@@ -85,7 +89,7 @@ where
             })
             .collect::<napi::Result<_>>()?;
 
-        let hardfork = HardforkT::try_from(&value.hardfork).map_err(|()| {
+        let hardfork = value.hardfork.parse().map_err(|UnknownHardfork| {
             napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("Unknown hardfork: {}", value.hardfork),

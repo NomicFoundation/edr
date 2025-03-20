@@ -105,7 +105,7 @@ impl<
         address: &Address,
         bytes: &edr_eth::Bytes,
         gas_limit: u64,
-    ) -> Result<Option<Self::Output>, PrecompileError> {
+    ) -> Result<Option<Self::Output>, String> {
         let Some(precompile) = self.custom_precompiles.get(address) else {
             return self.base.run(context, address, bytes, gas_limit);
         };
@@ -123,10 +123,8 @@ impl<
                 result.result = InstructionResult::Return;
                 result.output = output.bytes;
             }
+            Err(PrecompileError::Fatal(e)) => return Err(e),
             Err(e) => {
-                if let PrecompileError::Fatal(_) = e {
-                    return Err(e);
-                }
                 result.result = if e.is_oog() {
                     InstructionResult::PrecompileOOG
                 } else {

@@ -2946,7 +2946,7 @@ dependencies = [
 [[package]]
 name = "op-revm"
 version = "1.0.0-alpha.5"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "auto_impl",
  "once_cell",
@@ -3611,7 +3611,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "20.0.0-alpha.6"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "revm-bytecode",
  "revm-context",
@@ -3629,7 +3629,7 @@ dependencies = [
 [[package]]
 name = "revm-bytecode"
 version = "1.0.0-alpha.4"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "bitvec",
  "phf",
@@ -3640,7 +3640,7 @@ dependencies = [
 [[package]]
 name = "revm-context"
 version = "1.0.0-alpha.5"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "cfg-if",
  "derive-where",
@@ -3655,7 +3655,7 @@ dependencies = [
 [[package]]
 name = "revm-context-interface"
 version = "1.0.0-alpha.5"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702 0.5.1",
@@ -3669,7 +3669,7 @@ dependencies = [
 [[package]]
 name = "revm-database"
 version = "1.0.0-alpha.4"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "alloy-eips 0.12.4",
  "auto_impl",
@@ -3683,7 +3683,7 @@ dependencies = [
 [[package]]
 name = "revm-database-interface"
 version = "1.0.0-alpha.4"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "auto_impl",
  "revm-primitives",
@@ -3694,7 +3694,7 @@ dependencies = [
 [[package]]
 name = "revm-handler"
 version = "1.0.0-alpha.6"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "auto_impl",
  "revm-bytecode",
@@ -3711,14 +3711,13 @@ dependencies = [
 [[package]]
 name = "revm-inspector"
 version = "1.0.0-alpha.6"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "auto_impl",
  "revm-context",
  "revm-database-interface",
  "revm-handler",
  "revm-interpreter",
- "revm-precompile",
  "revm-primitives",
  "revm-state",
  "serde",
@@ -3728,7 +3727,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "16.0.0-alpha.6"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "revm-bytecode",
  "revm-context-interface",
@@ -3739,7 +3738,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "17.0.0-alpha.6"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
@@ -3748,7 +3747,6 @@ dependencies = [
  "libsecp256k1",
  "once_cell",
  "p256",
- "revm-context-interface",
  "revm-primitives",
  "ripemd",
  "secp256k1",
@@ -3759,7 +3757,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "16.0.0-alpha.4"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "alloy-primitives 0.8.22",
  "enumn",
@@ -3769,7 +3767,7 @@ dependencies = [
 [[package]]
 name = "revm-state"
 version = "1.0.0-alpha.4"
-source = "git+https://github.com/nomicfoundation/revm?rev=75fd1d7#75fd1d7f15f715256c197fa68dfe6e2fdf9406a5"
+source = "git+https://github.com/nomicfoundation/revm?rev=2bb6645#2bb664523dfee482d1f9e78ee79057a7ba214caf"
 dependencies = [
  "bitflags 2.6.0",
  "revm-bytecode",

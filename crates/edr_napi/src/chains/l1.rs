@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use edr_eth::{
     beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
-    l1::{self, L1ChainSpec},
+    l1::{self, hardfork::UnknownHardfork, L1ChainSpec},
 };
 use edr_napi_core::{
     logger::Logger,
@@ -72,8 +72,8 @@ pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
     if hardfork == LATEST_TAG {
         Ok(SpecId::Latest)
     } else {
-        edr_eth::l1::SpecId::try_from(hardfork.as_str()).map_or_else(
-            |()| {
+        hardfork.parse::<edr_eth::l1::SpecId>().map_or_else(
+            |UnknownHardfork| {
                 Err(napi::Error::new(
                     napi::Status::InvalidArg,
                     format!("Unknown hardfork: {hardfork}"),

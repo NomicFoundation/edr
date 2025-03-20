@@ -54,7 +54,6 @@ where
         EVMError::Header(error) => TransactionError::InvalidHeader(error),
         EVMError::Database(error) => error.into(),
         EVMError::Custom(error) => TransactionError::Custom(error),
-        EVMError::Precompile(error) => TransactionError::Precompile(error),
     })
 }
 
@@ -107,7 +106,6 @@ where
         EVMError::Header(error) => TransactionError::InvalidHeader(error),
         EVMError::Database(error) => error.into(),
         EVMError::Custom(error) => TransactionError::Custom(error),
-        EVMError::Precompile(error) => TransactionError::Precompile(error),
     })
 }
 
