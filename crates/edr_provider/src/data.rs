@@ -121,6 +121,7 @@ pub type SendTransactionResultForChainSpec<ChainSpecT> = SendTransactionResult<
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
 
+#[derive(Debug)]
 pub struct SendTransactionResult<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT> {
     pub transaction_hash: B256,
     pub mining_results: Vec<DebugMineBlockResult<BlockT, HaltReasonT, SignedTransactionT>>,

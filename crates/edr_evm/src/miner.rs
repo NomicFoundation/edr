@@ -24,6 +24,7 @@ use crate::{
 
 /// The result of mining a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.
+#[derive(Debug)]
 pub struct MineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT> {
     /// Mined block
     pub block: LocalBlockT,

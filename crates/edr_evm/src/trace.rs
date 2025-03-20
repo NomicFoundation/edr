@@ -151,6 +151,7 @@ pub struct TraceCollector<HaltReasonT: HaltReasonTrait> {
     traces: Vec<Trace<HaltReasonT>>,
     pending_before: Option<BeforeMessage>,
     is_new_trace: bool,
+    frame_depth: usize,
     verbose: bool,
 }
 
@@ -162,6 +163,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             traces: Vec::new(),
             pending_before: None,
             is_new_trace: true,
+            frame_depth: 0,
             verbose,
         }
     }
@@ -183,6 +185,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     fn validate_before_message(&mut self) {
         if let Some(message) = self.pending_before.take() {
             self.current_trace_mut().add_before(message);
+            self.frame_depth += 1;
+        }
+    }
+
+    fn add_after_message(&mut self, message: AfterMessage<HaltReasonT>) {
+        self.current_trace_mut().add_after(message);
+        self.frame_depth -= 1;
+
+        if self.frame_depth == 0 {
+            self.finish_trace();
         }
     }
 
@@ -302,7 +314,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after(AfterMessage {
+        self.add_after_message(AfterMessage {
             execution_result,
             contract_address: None,
         });
@@ -387,7 +399,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after(AfterMessage {
+        self.add_after_message(AfterMessage {
             execution_result,
             contract_address: outcome.address,
         });
