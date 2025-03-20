@@ -159,8 +159,6 @@ export const CANCUN: string
 export const PRAGUE: string
 export const OSAKA: string
 export const LATEST: string
-export const OPTIMISM_CHAIN_TYPE: string
-export declare function optimismProviderFactory(): ProviderFactory
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
