@@ -380,7 +380,7 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
         #[serde(
             deserialize_with = "crate::requests::serde::deserialize_nonce",
-            serialize_with = "edr_eth::serde::u64::serialize"
+            serialize_with = "alloy_serde::quantity::serialize"
         )]
         u64,
     ),
