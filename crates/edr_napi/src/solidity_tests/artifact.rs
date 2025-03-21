@@ -79,30 +79,37 @@ impl TryFrom<ContractData> for foundry_compilers::artifacts::CompactContractByte
             abi: Some(serde_json::from_str(&contract.abi).map_err(|_err| {
                 napi::Error::new(napi::Status::GenericFailure, "Invalid JSON ABI")
             })?),
-            bytecode: contract.bytecode.map(|bytecode| {
-                foundry_compilers::artifacts::CompactBytecode {
-                    object: foundry_compilers::artifacts::BytecodeObject::Unlinked(bytecode),
-                    source_map: None,
-                    link_references: convert_link_references(
-                        contract.link_references.unwrap_or_default(),
-                    ),
-                }
-            }),
-            deployed_bytecode: contract.deployed_bytecode.map(|deployed_bytecode| {
-                let compact_bytecode = foundry_compilers::artifacts::CompactBytecode {
-                    object: foundry_compilers::artifacts::BytecodeObject::Unlinked(
-                        deployed_bytecode,
-                    ),
-                    source_map: None,
-                    link_references: convert_link_references(
+            bytecode: contract
+                .bytecode
+                .map(|bytecode| {
+                    let link_references =
+                        convert_link_references(contract.link_references.unwrap_or_default());
+                    let object = convert_bytecode(bytecode, !link_references.is_empty())?;
+                    Ok::<_, napi::Error>(foundry_compilers::artifacts::CompactBytecode {
+                        object,
+                        source_map: None,
+                        link_references,
+                    })
+                })
+                .transpose()?,
+            deployed_bytecode: contract
+                .deployed_bytecode
+                .map(|deployed_bytecode| {
+                    let link_references = convert_link_references(
                         contract.deployed_link_references.unwrap_or_default(),
-                    ),
-                };
-                foundry_compilers::artifacts::CompactDeployedBytecode {
-                    bytecode: Some(compact_bytecode),
-                    immutable_references: BTreeMap::default(),
-                }
-            }),
+                    );
+                    let object = convert_bytecode(deployed_bytecode, !link_references.is_empty())?;
+                    let compact_bytecode = foundry_compilers::artifacts::CompactBytecode {
+                        object,
+                        source_map: None,
+                        link_references,
+                    };
+                    Ok::<_, napi::Error>(foundry_compilers::artifacts::CompactDeployedBytecode {
+                        bytecode: Some(compact_bytecode),
+                        immutable_references: BTreeMap::default(),
+                    })
+                })
+                .transpose()?,
         })
     }
 }
@@ -139,6 +146,25 @@ fn convert_link_references(
             (file, lib_map)
         })
         .collect()
+}
+
+fn convert_bytecode(
+    bytecode: String,
+    needs_linking: bool,
+) -> napi::Result<foundry_compilers::artifacts::BytecodeObject> {
+    if needs_linking {
+        Ok(foundry_compilers::artifacts::BytecodeObject::Unlinked(
+            bytecode,
+        ))
+    } else {
+        let bytes = bytecode.parse().map_err(|err| {
+            let message = format!("Hex decoding error while parsing bytecode: '{err}'. Maybe forgot to pass link references for a contract that needs linking?");
+            napi::Error::from_reason(message)
+        })?;
+        Ok(foundry_compilers::artifacts::BytecodeObject::Bytecode(
+            bytes,
+        ))
+    }
 }
 
 #[derive(Clone, Debug)]
