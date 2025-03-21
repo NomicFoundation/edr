@@ -56,6 +56,58 @@ const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
 const BRANCH_NAME = "js-benchmark-config";
 
+// Run Solidity tests in a Hardhat 3 project
+export async function runSolidityTests(repoPath: string, testSuiteName: string | undefined) {
+  const artifactsDir = path.join(repoPath, "artifacts");
+  const hardhatConfig = (await import(
+    path.join(repoPath, "hardhat.config.ts")
+  )).default;
+
+  // Run npx hardhat compile
+  execSync("npx hardhat compile", {
+    cwd: repoPath,
+    // Spawn child sharing only stderr.
+    stdio: ["pipe", "pipe", process.stderr],
+  });
+
+  const { artifacts, testSuiteIds, tracingConfig } = await loadArtifactsV3(
+    artifactsDir,
+    hardhatConfig
+  );
+  console.log(testSuiteIds)
+
+  let ids = testSuiteIds;
+  if (testSuiteName !== undefined) {
+    const name = testSuiteName.toLocaleLowerCase();
+    ids = ids.filter((id) => id.name.toLocaleLowerCase().includes(name));
+  }
+
+  const start = performance.now();
+  const results = await runAllSolidityTests(
+    artifacts,
+    ids,
+    tracingConfig,
+    {projectRoot: repoPath,  ...hardhatConfig.solidityTest}
+  );
+
+  const elapsed = performance.now() - start;
+
+  for (let suiteResult of results) {
+    console.error(`Test suite '${suiteResult.id.name}' ${suiteResult.durationMs} ms`);
+    for (let testResult of suiteResult.testResults) {
+      if (testResult.status === "Success") {
+        console.error(`  test '${testResult.name}' ${testResult.durationMs} ms`);
+      } else if (testResult.status === "Skipped") {
+        console.error(`  test '${testResult.name}' skipped`);
+      } else {
+        console.error(`  test '${testResult.name}' failed with error: '${testResult.reason}' ${testResult.durationMs} ms`);
+      }
+    }
+  }
+
+  console.error(`Total elapsed wall time: ${elapsed} ms`);
+}
+
 export async function setupForgeStdRepo() {
   const repoPath = path.join(__dirname, REPO_DIR);
   // Ensure directory exists
@@ -68,29 +120,30 @@ export async function setupForgeStdRepo() {
   await git.checkout(BRANCH_NAME);
   await git.pull();
 
-  // Run npx hardhat compile
-  execSync("npx hardhat compile", {
-    cwd: repoPath,
-    // Spawn child sharing only stderr.
-    stdio: ["pipe", "pipe", process.stderr],
-  });
-
   return repoPath;
 }
 
-/// Run Forge Standard Library tests and report to stdout
+/// Run Forge Standard Library tests and report to stdout in structed format
 export async function runForgeStdTests(forgeStdRepoPath: string) {
   const artifactsDir = path.join(forgeStdRepoPath, "artifacts");
   const hardhatConfig = require(
     path.join(forgeStdRepoPath, "hardhat.config.js")
   );
 
-  const { artifacts, testSuiteIds, tracingConfig } = await loadArtifacts(
+  // Run npx hardhat compile
+  execSync("npx hardhat compile", {
+    cwd: forgeStdRepoPath,
+    // Spawn child sharing only stderr.
+    stdio: ["pipe", "pipe", process.stderr],
+  });
+
+
+  const { artifacts, testSuiteIds, tracingConfig } = await loadArtifactsV2(
     artifactsDir,
     hardhatConfig
   );
 
-  const config = getConfig(forgeStdRepoPath);
+  const config = getForgeStdConfig(forgeStdRepoPath);
   const allResults = [];
   const runs = new Map<string, number[]>();
   const recordRun = recordTime.bind(null, runs);
@@ -162,7 +215,7 @@ export async function runForgeStdTests(forgeStdRepoPath: string) {
   console.log(JSON.stringify(measurements));
 }
 
-function getConfig(forgeStdRepoPath: string): SolidityTestRunnerConfigArgs {
+function getForgeStdConfig(forgeStdRepoPath: string): SolidityTestRunnerConfigArgs {
   const foundryTomlPath = path.join(forgeStdRepoPath, "foundry.toml");
 
   if (!fs.existsSync(foundryTomlPath)) {
@@ -238,7 +291,57 @@ function displaySec(delta: number) {
 }
 
 // Load contracts built with Hardhat
-async function loadArtifacts(
+async function loadArtifactsV3(
+  artifactsDir: string,
+  hardhatConfig: { solidity: { version: string } }
+) {
+  const artifacts: Artifact[] = [];
+  const testSuiteIds: ArtifactId[] = [];
+
+  for (const artifactPath of listFilesRecursively(artifactsDir)) {
+    // Not a contract artifact file
+    if (
+      !artifactPath.endsWith(".json") ||
+      artifactPath.endsWith(".dbg.json") ||
+      artifactPath.includes("build-info")
+    ) {
+      continue;
+    }
+    const compiledContract = require(artifactPath);
+
+    const id: ArtifactId = {
+      name: compiledContract.contractName,
+      solcVersion: hardhatConfig.solidity.version,
+      source: compiledContract.sourceName,
+    };
+
+    if (isTestSuite(compiledContract)) {
+      testSuiteIds.push(id);
+    }
+
+    const contract: ContractData = {
+      abi: JSON.stringify(compiledContract.abi),
+      bytecode: compiledContract.bytecode,
+      deployedBytecode: compiledContract.deployedBytecode,
+    };
+
+    artifacts.push({ id, contract });
+  }
+
+  const tracingConfig = await makeTracingConfig(
+    new HardhatArtifacts(artifactsDir)
+  );
+
+  return {
+    artifacts,
+    testSuiteIds,
+    tracingConfig,
+  };
+}
+
+
+// Load contracts built with Hardhat
+async function loadArtifactsV2(
   artifactsDir: string,
   hardhatConfig: { solidity: { version: string } }
 ) {
@@ -308,7 +411,7 @@ function isTestSuite(artifact: {
     artifact.abi !== undefined &&
     artifact.abi.some(
       (item: { type: string; name: string }) =>
-        item.type === "function" && item.name.startsWith("test")
+        item.type === "function" && (item.name.startsWith("test") || item.name.startsWith("invariant"))
     )
   );
 }
