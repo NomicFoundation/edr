@@ -69,7 +69,6 @@ pub struct Block {
     /// priority fee). Both fields in 1559-style transactions are maximums
     /// (max fee + max priority fee), the amount that's actually paid by
     /// users can only be determined post-execution
-    // #[serde(with = "alloy_serde::quantity::opt")]
     #[serde(
         skip_serializing_if = "Option::is_none",
         with = "alloy_serde::quantity::opt"
