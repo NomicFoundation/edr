@@ -3,7 +3,6 @@
 mod config;
 pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
-mod linker;
 mod solidity_error_code;
 mod solidity_test_filter;
 pub use solidity_test_filter::SolidityTestFilter;
@@ -11,7 +10,11 @@ mod tracing;
 
 use std::{borrow::Cow, env, fmt, io::Write, path::PathBuf};
 
-use alloy_primitives::U256;
+use alloy_primitives::{Bytes, U256};
+use edr_solidity::{
+    artifacts::ArtifactId,
+    linker::{LinkOutput, Linker},
+};
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
@@ -24,12 +27,12 @@ use edr_test_utils::{
 };
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpoint, RpcEndpoints};
 use foundry_compilers::{
-    artifacts::{CompactContractBytecode, EvmVersion, Libraries},
+    artifacts::{CompactContractBytecode, CompactContractBytecodeCow, EvmVersion, Libraries},
     Artifact, Project, ProjectCompileOutput,
 };
 use foundry_evm::{
     abi::TestFunctionExt,
-    constants::CALLER,
+    constants::{CALLER, LIBRARY_DEPLOYER},
     contracts::ContractsByArtifact,
     decode::RevertDecoder,
     executors::invariant::InvariantConfig,
@@ -37,7 +40,6 @@ use foundry_evm::{
     inspectors::cheatcodes::CheatsConfigOptions,
     opts::{Env, EvmOpts},
 };
-use linker::{LinkOutput, Linker};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
@@ -281,6 +283,7 @@ pub struct ForgeTestData {
     project: Project,
     test_contracts: TestContracts,
     known_contracts: ContractsByArtifact,
+    libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
     runner_config: SolidityTestRunnerConfig,
 }
@@ -289,14 +292,35 @@ impl ForgeTestData {
     /// Builds [`ForgeTestData`] for the given [`ForgeTestProfile`].
     ///
     /// Uses [`get_compiled`] to lazily compile the project.
-    pub fn new(profile: ForgeTestProfile) -> Self {
+    pub fn new(profile: ForgeTestProfile) -> eyre::Result<Self> {
         let project = profile.project();
         let output = get_compiled(&project);
         let runner_config = ForgeTestProfile::runner_config();
 
         let root = project.root();
-        let output = output.clone().with_stripped_file_prefixes(root);
-        let linker = Linker::new(root, output.artifact_ids().collect());
+        let contracts = output
+            .clone()
+            .with_stripped_file_prefixes(root)
+            .into_artifacts()
+            .map(|(id, contract)| {
+                let id = ArtifactId {
+                    name: id.name,
+                    source: id.source,
+                    version: id.version,
+                };
+                let CompactContractBytecode {
+                    abi,
+                    bytecode,
+                    deployed_bytecode,
+                } = contract.into_contract_bytecode();
+                let contract_cow = CompactContractBytecodeCow {
+                    abi: abi.map(Cow::Owned),
+                    bytecode: bytecode.map(Cow::Owned),
+                    deployed_bytecode: deployed_bytecode.map(Cow::Owned),
+                };
+                (id, contract_cow)
+            });
+        let linker = Linker::new(root, contracts);
 
         // Build revert decoder from ABIs of all artifacts.
         let abis = linker
@@ -305,11 +329,23 @@ impl ForgeTestData {
             .filter_map(|(_, contract)| contract.abi.as_ref().map(std::borrow::Borrow::borrow));
         let revert_decoder = RevertDecoder::new().with_abis(abis);
 
+        let LinkOutput {
+            libraries,
+            libs_to_deploy,
+        } = linker.link_with_nonce_or_address(
+            Libraries::default(),
+            LIBRARY_DEPLOYER,
+            0,
+            linker.contracts.keys(),
+        )?;
+
+        let linked_contracts = linker.get_linked_artifacts(&libraries)?;
+
         // Create a mapping of name => (abi, deployment code, Vec<library deployment
         // code>)
         let mut test_contracts = TestContracts::default();
 
-        for (id, contract) in linker.contracts.iter() {
+        for (id, contract) in linked_contracts.iter() {
             let Some(abi) = contract.abi.as_ref() else {
                 continue;
             };
@@ -323,60 +359,34 @@ impl ForgeTestData {
                     .functions()
                     .any(|func| func.name.is_test() || func.name.is_invariant_test())
             {
-                let LinkOutput {
-                    libs_to_deploy,
-                    libraries,
-                } = linker
-                    .link_with_nonce_or_address(
-                        Libraries::default(),
-                        runner_config.evm_opts.sender,
-                        1,
-                        id,
-                    )
-                    .expect("Libraries should be ok");
-
-                let linked_contract = linker.link(id, &libraries).expect("Linking should be ok");
-
-                let Some(bytecode) = linked_contract
+                let Some(bytecode) = contract
                     .get_bytecode_bytes()
-                    .map(std::borrow::Cow::into_owned)
+                    .map(Cow::into_owned)
                     .filter(|b| !b.is_empty())
                 else {
                     continue;
                 };
 
                 test_contracts.insert(
-                    id.clone().into(),
+                    id.clone(),
                     TestContract {
                         abi: abi.clone().into_owned(),
                         bytecode,
-                        libs_to_deploy,
-                        libraries,
                     },
                 );
             }
         }
 
-        let known_contracts = ContractsByArtifact::new_from_foundry_linker(
-            linker.contracts.into_iter().map(|(id, contract)| {
-                (
-                    id,
-                    CompactContractBytecode {
-                        abi: contract.abi.map(Cow::into_owned),
-                        bytecode: contract.bytecode.map(Cow::into_owned),
-                        deployed_bytecode: contract.deployed_bytecode.map(Cow::into_owned),
-                    },
-                )
-            }),
-        );
+        let known_contracts = ContractsByArtifact::new(linked_contracts);
 
-        Self {
+        Ok(Self {
             project,
             test_contracts,
             known_contracts,
+            libs_to_deploy,
             revert_decoder,
             runner_config,
-        }
+        })
     }
 
     /// Builds a base runner config
@@ -474,6 +484,7 @@ impl ForgeTestData {
             config,
             self.test_contracts.clone(),
             self.known_contracts.clone(),
+            self.libs_to_deploy.clone(),
             NoOpContractDecoder::default(),
             self.revert_decoder.clone(),
         )
@@ -509,15 +520,15 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 
 /// Default data for the tests group.
 pub static TEST_DATA_DEFAULT: Lazy<ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Default));
+    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Default).expect("linking ok"));
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_CANCUN: Lazy<ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Cancun));
+    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Cancun).expect("linking ok"));
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_MULTI_VERSION: Lazy<ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion));
+    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion).expect("linking ok"));
 
 fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([

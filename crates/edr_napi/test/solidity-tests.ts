@@ -73,7 +73,7 @@ describe("Solidity Tests", () => {
 
     await assert.isRejected(
       runAllSolidityTests(artifacts, testSuites, config),
-      "Invalid hex bytecode for contract"
+      new RegExp("Hex decoding error")
     );
   });
 });

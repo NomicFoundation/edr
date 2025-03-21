@@ -19,7 +19,7 @@ edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_provider = { version = "0.3.5", path = "../edr_provider" }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
-edr_solidity ={ version = "0.3.5", path = "../edr_solidity" }
+edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
 edr_scenarios = { version = "0.3.5", path = "../edr_scenarios", optional = true }
 serde.workspace = true
 serde_json.workspace = true
@@ -37,6 +37,7 @@ mimalloc = { version = "0.1.39", default-features = false, features = ["local_dy
 alloy-primitives = { workspace = true, features = ["serde"] }
 edr_solidity_tests.workspace = true
 foundry-cheatcodes.workspace = true
+foundry-compilers.workspace = true
 edr_common.workspace = true
 tempfile = "3.10.1"
 

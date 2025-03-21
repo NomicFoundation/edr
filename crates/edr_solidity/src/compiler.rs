@@ -267,7 +267,7 @@ fn process_function_definition_ast_node(
 
             match (selector.as_ref(), function_abi_selector) {
                 (Some(selector), function_abi_selector) if !function_abi_selector.is_empty() => {
-                    selector.as_ref() == function_abi_selector
+                    *selector == function_abi_selector
                 }
                 _ => false,
             }

@@ -36,13 +36,13 @@ pub struct SuiteResult {
 
 impl
     From<(
-        edr_solidity_tests::contracts::ArtifactId,
+        edr_solidity::artifacts::ArtifactId,
         edr_solidity_tests::result::SuiteResult,
     )> for SuiteResult
 {
     fn from(
         (id, suite_result): (
-            edr_solidity_tests::contracts::ArtifactId,
+            edr_solidity::artifacts::ArtifactId,
             edr_solidity_tests::result::SuiteResult,
         ),
     ) -> Self {

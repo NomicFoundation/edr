@@ -728,12 +728,12 @@ async fn test_trace() {
             let execution_traces = result
                 .traces
                 .iter()
-                .filter(|(kind, _)| *kind == TraceKind::Deployment);
+                .filter(|(kind, _)| *kind == TraceKind::Execution);
 
             assert_eq!(
                 deployment_traces.count(),
-                1,
-                "Test {test_name} did not have exactly 1 deployment trace."
+                11, // includes libraries
+                "Test {test_name} did not have exactly 11 deployment trace."
             );
             assert!(
                 setup_traces.count() <= 1,

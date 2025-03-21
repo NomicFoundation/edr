@@ -75,7 +75,9 @@ export async function buildSolidityTestsInput(
     const contract = {
       abi: JSON.stringify(hardhatArtifact.abi),
       bytecode: hardhatArtifact.bytecode,
+      linkReferences: hardhatArtifact.linkReferences,
       deployedBytecode: hardhatArtifact.deployedBytecode,
+      deployedLinkReferences: hardhatArtifact.deployedLinkReferences,
     };
 
     const artifact = { id, contract };

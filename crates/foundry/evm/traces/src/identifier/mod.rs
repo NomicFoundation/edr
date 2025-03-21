@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Address;
-use foundry_evm_core::contracts::{ArtifactId, ContractsByArtifact};
+use edr_solidity::artifacts::ArtifactId;
+use foundry_evm_core::contracts::ContractsByArtifact;
 
 mod local;
 pub use local::LocalTraceIdentifier;
