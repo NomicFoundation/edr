@@ -405,6 +405,235 @@ describe("Provider", () => {
       const rawTraces = traceCallResponse.traces;
       assert.lengthOf(rawTraces, 1);
     });
+
+    it("should have its json format normalised when debug_traceTransaction is used", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        {},
+        (_event: SubscriptionEvent) => { }
+      );
+
+      const sendTxResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      let responseData;
+
+      if (typeof sendTxResponse.data === "string") {
+        responseData = JSON.parse(sendTxResponse.data);
+      } else {
+        responseData = sendTxResponse.data;
+      }
+
+      const txHash = responseData.result;
+
+      const traceTransactionResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceTransaction",
+          params: [txHash],
+        })
+      );
+
+      // Trace generated using Geth version 1.15.5-stable
+      const gethTrace = {
+        "failed": false,
+        "gas": 59546,
+        "returnValue": "0000000000000000000000000000000000000000000000000000000000000042",
+        "structLogs": [
+          {
+            "depth": 1,
+            "gas": 995446,
+            "gasCost": 3,
+            "op": "PUSH1",
+            "pc": 0,
+            "stack": [
+
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995443,
+            "gasCost": 2,
+            "op": "PUSH0",
+            "pc": 2,
+            "stack": [
+              "0x42"
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995441,
+            "gasCost": 6,
+            "op": "MSTORE",
+            "pc": 3,
+            "stack": [
+              "0x42",
+              "0x0"
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995435,
+            "gasCost": 3,
+            "op": "PUSH1",
+            "pc": 4,
+            "stack": [
+
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995432,
+            "gasCost": 2,
+            "op": "PUSH0",
+            "pc": 6,
+            "stack": [
+              "0x20"
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995430,
+            "gasCost": 0,
+            "op": "RETURN",
+            "pc": 7,
+            "stack": [
+              "0x20",
+              "0x0"
+            ]
+          }
+        ]
+      }
+      
+      const edrTrace = JSON.parse(traceTransactionResponse.data).result
+      assert.deepEqual(edrTrace, gethTrace)
+    });
+
+    it("should have its json format normalised when debug_traceCall is used", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        {},
+        (_event: SubscriptionEvent) => { }
+      );
+
+      const traceCallResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceCall",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      // Trace generated using Geth version 1.15.5-stable
+      const gethTrace = {
+        "failed": false,
+        "gas": 59546,
+        "returnValue": "0000000000000000000000000000000000000000000000000000000000000042",
+        "structLogs": [
+          {
+            "depth": 1,
+            "gas": 995446,
+            "gasCost": 3,
+            "op": "PUSH1",
+            "pc": 0,
+            "stack": [
+
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995443,
+            "gasCost": 2,
+            "op": "PUSH0",
+            "pc": 2,
+            "stack": [
+              "0x42"
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995441,
+            "gasCost": 6,
+            "op": "MSTORE",
+            "pc": 3,
+            "stack": [
+              "0x42",
+              "0x0"
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995435,
+            "gasCost": 3,
+            "op": "PUSH1",
+            "pc": 4,
+            "stack": [
+
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995432,
+            "gasCost": 2,
+            "op": "PUSH0",
+            "pc": 6,
+            "stack": [
+              "0x20"
+            ]
+          },
+          {
+            "depth": 1,
+            "gas": 995430,
+            "gasCost": 0,
+            "op": "RETURN",
+            "pc": 7,
+            "stack": [
+              "0x20",
+              "0x0"
+            ]
+          }
+        ]
+      }
+
+      const edrTrace = JSON.parse(traceCallResponse.data).result
+      assert.deepEqual(edrTrace, gethTrace)
+    });
   });
 });
 
