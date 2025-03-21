@@ -520,15 +520,15 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 
 /// Default data for the tests group.
 pub static TEST_DATA_DEFAULT: Lazy<ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Default).unwrap());
+    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Default).expect("linking ok"));
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_CANCUN: Lazy<ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Cancun).unwrap());
+    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Cancun).expect("linking ok"));
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_MULTI_VERSION: Lazy<ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion).unwrap());
+    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion).expect("linking ok"));
 
 fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([

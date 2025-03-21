@@ -289,7 +289,7 @@ test_repro!(6501, false, None, |res| {
         ["a".to_string(), "1".to_string(), "b 2".to_string()]
     );
 
-    let (kind, traces) = test.traces.last().unwrap().clone();
+    let (kind, traces) = test.traces.last().expect("there are traces").clone();
     let nodes = traces.into_nodes();
     assert_eq!(kind, TraceKind::Execution);
 

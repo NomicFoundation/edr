@@ -3,7 +3,6 @@ use std::{
     collections::{BTreeMap, HashMap},
 };
 
-use foundry_compilers::artifacts::CompactContractBytecodeCow;
 use napi_derive::napi;
 
 /// A compilation artifact.
@@ -113,7 +112,7 @@ impl TryFrom<ContractData> for foundry_compilers::artifacts::CompactContractByte
 
     fn try_from(contract: ContractData) -> napi::Result<Self> {
         let c: foundry_compilers::artifacts::CompactContractBytecode = contract.try_into()?;
-        Ok(CompactContractBytecodeCow {
+        Ok(foundry_compilers::artifacts::CompactContractBytecodeCow {
             abi: c.abi.map(Cow::Owned),
             bytecode: c.bytecode.map(Cow::Owned),
             deployed_bytecode: c.deployed_bytecode.map(Cow::Owned),
@@ -121,6 +120,9 @@ impl TryFrom<ContractData> for foundry_compilers::artifacts::CompactContractByte
     }
 }
 
+// The order of link references as supplied through the NAPI interface doesn't
+// matter, but the order can matter downstream for deterministic address
+// generation.
 fn convert_link_references(
     link_references: HashMap<String, HashMap<String, Vec<LinkReference>>>,
 ) -> BTreeMap<String, BTreeMap<String, Vec<foundry_compilers::artifacts::Offsets>>> {
