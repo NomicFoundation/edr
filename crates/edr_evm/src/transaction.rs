@@ -4,43 +4,39 @@ pub mod remote;
 
 use std::fmt::Debug;
 
-use derive_where::derive_where;
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
 use edr_eth::{l1, spec::ChainSpec, U256};
-use revm::interpreter::gas::validate_initial_tx_gas;
+use revm_handler::validation::validate_initial_tx_gas;
+pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
 pub use self::detailed::*;
-use crate::{
-    result::{EVMError, EVMErrorForChain, InvalidHeader},
-    spec::RuntimeSpec,
-    state::DatabaseComponentError,
-};
+use crate::state::DatabaseComponentError;
+
+/// Helper type for a chain-specific [`TransactionError`].
+pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<
+    BlockchainErrorT,
+    StateErrorT,
+    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+>;
 
 /// Invalid transaction error
-#[derive(thiserror::Error)]
-#[derive_where(Debug; <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError, BlockchainErrorT, StateErrorT)]
-pub enum TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT: ChainSpec,
-{
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> {
     /// Blockchain errors
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
     /// Custom errors
     #[error("{0}")]
     Custom(String),
-    /// EIP-1559 is not supported
-    #[error("Cannot run transaction: EIP 1559 is not activated.")]
-    Eip1559Unsupported,
     /// Invalid block header
     #[error(transparent)]
-    InvalidHeader(InvalidHeader),
+    InvalidHeader(l1::InvalidHeader),
     /// Corrupt transaction data
     #[error(transparent)]
-    InvalidTransaction(<ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError),
+    InvalidTransaction(TransactionValidationErrorT),
     /// Transaction account does not have enough amount of ether to cover
-    /// transferred value and gas_limit*gas_price.
+    /// transferred value and `gas_limit * gas_price`.
     #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}.")]
     LackOfFundForMaxFee {
         /// The max upfront cost of the transaction
@@ -48,28 +44,40 @@ where
         /// The sender's balance
         balance: Box<U256>,
     },
-    /// Precompile errors
-    #[error("{0}")]
-    Precompile(String),
     /// State errors
     #[error(transparent)]
     State(StateErrorT),
 }
 
-impl<ChainSpecT, BlockchainErrorT, StateErrorT>
-    From<EVMErrorForChain<ChainSpecT, BlockchainErrorT, StateErrorT>>
-    for TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT: RuntimeSpec,
+impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
+    From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
+    for TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
 {
-    fn from(error: EVMErrorForChain<ChainSpecT, BlockchainErrorT, StateErrorT>) -> Self {
-        match error {
-            EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
-            EVMError::Header(error) => Self::InvalidHeader(error),
-            EVMError::Database(DatabaseComponentError::Blockchain(e)) => Self::Blockchain(e),
-            EVMError::Database(DatabaseComponentError::State(e)) => Self::State(e),
-            EVMError::Custom(error) => Self::Custom(error),
-            EVMError::Precompile(error) => Self::Precompile(error),
+    fn from(value: DatabaseComponentError<BlockchainErrorT, StateErrorT>) -> Self {
+        match value {
+            DatabaseComponentError::Blockchain(e) => Self::Blockchain(e),
+            DatabaseComponentError::State(e) => Self::State(e),
+        }
+    }
+}
+
+impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> From<l1::InvalidHeader>
+    for TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
+{
+    fn from(value: l1::InvalidHeader) -> Self {
+        Self::InvalidHeader(value)
+    }
+}
+
+impl<BlockchainErrorT, StateErrorT> From<l1::InvalidTransaction>
+    for TransactionError<BlockchainErrorT, StateErrorT, l1::InvalidTransaction>
+{
+    fn from(value: l1::InvalidTransaction) -> Self {
+        match value {
+            l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+                Self::LackOfFundForMaxFee { fee, balance }
+            }
+            remainder => Self::InvalidTransaction(remainder),
         }
     }
 }
@@ -80,45 +88,51 @@ pub enum CreationError {
     /// Creating contract without any data.
     #[error("Contract creation without any data provided")]
     ContractMissingData,
+    /// Transaction gas limit is insufficient for gas floor.
+    #[error("Transaction requires gas floor of {gas_floor} but got limit of {gas_limit}")]
+    GasFloorTooHigh {
+        /// The gas floor of the transaction
+        gas_floor: u64,
+        /// The gas limit of the transaction
+        gas_limit: u64,
+    },
     /// Transaction gas limit is insufficient to afford initial gas cost.
     #[error("Transaction requires at least {initial_gas_cost} gas but got {gas_limit}")]
     InsufficientGas {
         /// The initial gas cost of a transaction
-        initial_gas_cost: U256,
+        initial_gas_cost: u64,
         /// The gas limit of the transaction
         gas_limit: u64,
     },
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: Transaction>(
+pub fn validate<TransactionT: revm_context_interface::Transaction>(
     transaction: TransactionT,
     spec_id: l1::SpecId,
 ) -> Result<TransactionT, CreationError> {
-    if transaction.kind() == TxKind::Create && transaction.data().is_empty() {
+    if transaction.kind() == TxKind::Create && transaction.input().is_empty() {
         return Err(CreationError::ContractMissingData);
     }
 
-    let initial_cost = initial_cost(&transaction, spec_id);
-    if transaction.gas_limit() < initial_cost {
-        return Err(CreationError::InsufficientGas {
-            initial_gas_cost: U256::from(initial_cost),
-            gas_limit: transaction.gas_limit(),
-        });
+    match validate_initial_tx_gas(&transaction, spec_id) {
+        Ok(_) => Ok(transaction),
+        Err(l1::InvalidTransaction::CallGasCostMoreThanGasLimit {
+            initial_gas,
+            gas_limit,
+        }) => Err(CreationError::InsufficientGas {
+            initial_gas_cost: initial_gas,
+            gas_limit,
+        }),
+        Err(l1::InvalidTransaction::GasFloorMoreThanGasLimit {
+            gas_floor,
+            gas_limit,
+        }) => Err(CreationError::GasFloorTooHigh {
+            gas_floor,
+            gas_limit,
+        }),
+        Err(e) => unreachable!("Unexpected error: {e}"),
     }
-
-    Ok(transaction)
-}
-
-/// Calculates the initial cost of a transaction.
-pub fn initial_cost(transaction: &impl Transaction, spec_id: l1::SpecId) -> u64 {
-    validate_initial_tx_gas(
-        spec_id,
-        transaction.data().as_ref(),
-        transaction.kind() == TxKind::Create,
-        transaction.access_list(),
-        0,
-    )
 }
 
 #[cfg(test)]
@@ -135,7 +149,7 @@ mod tests {
 
         let request = transaction::request::Eip155 {
             nonce: 0,
-            gas_price: U256::ZERO,
+            gas_price: 0,
             gas_limit: TOO_LOW_GAS_LIMIT,
             kind: TxKind::Call(caller),
             value: U256::ZERO,
@@ -147,7 +161,7 @@ mod tests {
         let transaction = transaction::Signed::from(transaction);
         let result = validate(transaction, l1::SpecId::BERLIN);
 
-        let expected_gas_cost = U256::from(21_000);
+        let expected_gas_cost = 21_000;
         assert!(matches!(
             result,
             Err(CreationError::InsufficientGas {
@@ -170,7 +184,7 @@ mod tests {
 
         let request = transaction::request::Eip155 {
             nonce: 0,
-            gas_price: U256::ZERO,
+            gas_price: 0,
             gas_limit: 30_000,
             kind: TxKind::Create,
             value: U256::ZERO,

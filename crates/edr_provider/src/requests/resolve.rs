@@ -8,21 +8,21 @@ use edr_rpc_eth::{CallRequest, TransactionRequest};
 use super::validation::validate_call_request;
 use crate::{
     data::ProviderData,
+    error::ProviderErrorForChainSpec,
     requests::validation::validate_send_transaction_request,
     spec::{CallContext, FromRpcType, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError,
 };
 
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transaction::Request {
     type Context<'context> = CallContext<'context, L1ChainSpec, TimerT>;
 
-    type Error = ProviderError<L1ChainSpec>;
+    type Error = ProviderErrorForChainSpec<L1ChainSpec>;
 
     fn from_rpc_type(
         value: CallRequest,
         context: Self::Context<'_>,
-    ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
+    ) -> Result<transaction::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
         let CallContext {
             data,
             block_spec,
@@ -31,7 +31,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
             max_fees_fn,
         } = context;
 
-        validate_call_request(data.evm_spec_id(), &value, block_spec)?;
+        validate_call_request::<L1ChainSpec>(data.evm_spec_id(), &value, block_spec)?;
 
         let CallRequest {
             from,
@@ -105,25 +105,25 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
 {
     type Context<'context> = TransactionContext<'context, L1ChainSpec, TimerT>;
 
-    type Error = ProviderError<L1ChainSpec>;
+    type Error = ProviderErrorForChainSpec<L1ChainSpec>;
 
     fn from_rpc_type(
         value: TransactionRequest,
         context: Self::Context<'_>,
-    ) -> Result<transaction::Request, ProviderError<L1ChainSpec>> {
-        const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u64 = 1_000_000_000;
+    ) -> Result<transaction::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
+        const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
 
         /// # Panics
         ///
         /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
         fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
             data: &ProviderData<L1ChainSpec, TimerT>,
-            max_priority_fee_per_gas: U256,
-        ) -> Result<U256, BlockchainErrorForChainSpec<L1ChainSpec>> {
+            max_priority_fee_per_gas: u128,
+        ) -> Result<u128, BlockchainErrorForChainSpec<L1ChainSpec>> {
             let base_fee_per_gas = data
                 .next_block_base_fee_per_gas()?
                 .expect("We already validated that the block is post-London.");
-            Ok(U256::from(2) * base_fee_per_gas + max_priority_fee_per_gas)
+            Ok(2 * base_fee_per_gas + max_priority_fee_per_gas)
         }
 
         let TransactionContext { data } = context;
@@ -173,7 +173,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
                         }
                         (Some(max_fee_per_gas), None) => (
                             max_fee_per_gas,
-                            max_fee_per_gas.min(U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS)),
+                            max_fee_per_gas.min(DEFAULT_MAX_PRIORITY_FEE_PER_GAS),
                         ),
                         (None, Some(max_priority_fee_per_gas)) => {
                             let max_fee_per_gas =
@@ -181,11 +181,9 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
                             (max_fee_per_gas, max_priority_fee_per_gas)
                         }
                         (None, None) => {
-                            let max_priority_fee_per_gas =
-                                U256::from(DEFAULT_MAX_PRIORITY_FEE_PER_GAS);
                             let max_fee_per_gas =
-                                calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
-                            (max_fee_per_gas, max_priority_fee_per_gas)
+                                calculate_max_fee_per_gas(data, DEFAULT_MAX_PRIORITY_FEE_PER_GAS)?;
+                            (max_fee_per_gas, DEFAULT_MAX_PRIORITY_FEE_PER_GAS)
                         }
                     };
 
@@ -269,7 +267,7 @@ mod tests {
         let mut fixture = ProviderTestFixture::new_local()?;
 
         let max_fee_per_gas = pending_base_fee(&mut fixture.provider_data)?;
-        let max_priority_fee_per_gas = Some(max_fee_per_gas / U256::from(2));
+        let max_priority_fee_per_gas = Some(max_fee_per_gas / 2);
 
         let request = CallRequest {
             from: Some(fixture.nth_local_account(0)?),

@@ -13,7 +13,7 @@ use super::{
     signed::{FakeSign, Sign},
     Request, Signed,
 };
-use crate::{signature::SignatureError, Address, U256};
+use crate::{signature::SignatureError, Address};
 
 impl Request {
     /// Retrieves the instance's chain ID.
@@ -28,7 +28,7 @@ impl Request {
     }
 
     /// Retrieves the instance's gas price.
-    pub fn gas_price(&self) -> &U256 {
+    pub fn gas_price(&self) -> &u128 {
         match self {
             Request::Legacy(transaction) => &transaction.gas_price,
             Request::Eip155(transaction) => &transaction.gas_price,
@@ -39,7 +39,7 @@ impl Request {
     }
 
     /// Retrieves the instance's max fee per gas, if it exists.
-    pub fn max_fee_per_gas(&self) -> Option<&U256> {
+    pub fn max_fee_per_gas(&self) -> Option<&u128> {
         match self {
             Request::Legacy(_) | Request::Eip155(_) | Request::Eip2930(_) => None,
             Request::Eip1559(transaction) => Some(&transaction.max_fee_per_gas),
@@ -48,7 +48,7 @@ impl Request {
     }
 
     /// Retrieves the instance's max priority fee per gas, if it exists.
-    pub fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    pub fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         match self {
             Request::Legacy(_) | Request::Eip155(_) | Request::Eip2930(_) => None,
             Request::Eip1559(transaction) => Some(&transaction.max_priority_fee_per_gas),

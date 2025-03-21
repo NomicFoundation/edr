@@ -4,10 +4,9 @@ use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
     block::{miner_reward, BlockOptions},
-    l1::{self, L1ChainSpec},
+    l1,
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
-    result::InvalidTransaction,
     transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,
     Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
@@ -26,7 +25,7 @@ use crate::{
 /// A test fixture for `MemPool`.
 pub struct MemPoolTestFixture {
     /// The mem pool.
-    pub mem_pool: MemPool<L1ChainSpec>,
+    pub mem_pool: MemPool<transaction::Signed>,
     /// The state.
     pub state: TrieState,
 }
@@ -69,14 +68,14 @@ pub fn dummy_eip155_transaction(
     caller: Address,
     nonce: u64,
 ) -> Result<transaction::Signed, transaction::CreationError> {
-    dummy_eip155_transaction_with_price(caller, nonce, U256::ZERO)
+    dummy_eip155_transaction_with_price(caller, nonce, 0)
 }
 
 /// Creates a dummy EIP-155 transaction with the provided gas price.
 pub fn dummy_eip155_transaction_with_price(
     caller: Address,
     nonce: u64,
-    gas_price: U256,
+    gas_price: u128,
 ) -> Result<transaction::Signed, transaction::CreationError> {
     dummy_eip155_transaction_with_price_and_limit(caller, nonce, gas_price, 30_000)
 }
@@ -87,13 +86,13 @@ pub fn dummy_eip155_transaction_with_limit(
     nonce: u64,
     gas_limit: u64,
 ) -> Result<transaction::Signed, transaction::CreationError> {
-    dummy_eip155_transaction_with_price_and_limit(caller, nonce, U256::ZERO, gas_limit)
+    dummy_eip155_transaction_with_price_and_limit(caller, nonce, 0, gas_limit)
 }
 
 fn dummy_eip155_transaction_with_price_and_limit(
     caller: Address,
     nonce: u64,
-    gas_price: U256,
+    gas_price: u128,
     gas_limit: u64,
 ) -> Result<transaction::Signed, transaction::CreationError> {
     dummy_eip155_transaction_with_price_limit_and_value(
@@ -110,7 +109,7 @@ fn dummy_eip155_transaction_with_price_and_limit(
 pub fn dummy_eip155_transaction_with_price_limit_and_value(
     caller: Address,
     nonce: u64,
-    gas_price: U256,
+    gas_price: u128,
     gas_limit: u64,
     value: U256,
 ) -> Result<transaction::Signed, transaction::CreationError> {
@@ -135,8 +134,8 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
 pub fn dummy_eip1559_transaction(
     caller: Address,
     nonce: u64,
-    max_fee_per_gas: U256,
-    max_priority_fee_per_gas: U256,
+    max_fee_per_gas: u128,
+    max_priority_fee_per_gas: u128,
 ) -> Result<transaction::Signed, transaction::CreationError> {
     let from = Address::random();
     let request = transaction::request::Eip1559 {
@@ -161,7 +160,6 @@ pub fn dummy_eip1559_transaction(
 pub async fn run_full_block<
     ChainSpecT: Debug
         + SyncRuntimeSpec<
-            BlockEnv: Default,
             BlockReceipt: AsExecutionReceipt<
                 ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
             >,
@@ -170,9 +168,8 @@ pub async fn run_full_block<
                 Arc<ChainSpecT::BlockReceipt>,
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<InvalidTransaction> + Send + Sync,
+            SignedTransaction: TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + Send + Sync,
             >,
         >,
 >(
@@ -219,17 +216,16 @@ pub async fn run_full_block<
     )
     .await?;
 
-    let mut cfg = CfgEnv::default();
+    let mut cfg = CfgEnv::<ChainSpecT::Hardfork>::new_with_spec(hardfork);
     cfg.chain_id = chain_id;
     cfg.disable_eip3607 = true;
 
     let state =
         blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
 
-    let mut builder = ChainSpecT::BlockBuilder::<'_, _, (), _>::new_block_builder(
+    let mut builder = ChainSpecT::BlockBuilder::new_block_builder(
         &blockchain,
         state,
-        hardfork,
         cfg,
         BlockOptions {
             beneficiary: Some(replay_header.beneficiary),
@@ -243,20 +239,17 @@ pub async fn run_full_block<
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
             ..BlockOptions::default()
         },
-        None,
     )?;
 
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);
 
     for transaction in replay_block.transactions() {
-        builder = builder
-            .add_transaction(transaction.clone())
-            .map_err(|error| error.error)?;
+        builder.add_transaction(transaction.clone())?;
     }
 
     let rewards = vec![(
         replay_header.beneficiary,
-        miner_reward(hardfork.into()).unwrap_or(U256::ZERO),
+        miner_reward(hardfork.into()).unwrap_or(0),
     )];
     let mined_block = builder.finalize(rewards)?;
 

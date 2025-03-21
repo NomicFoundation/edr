@@ -719,10 +719,7 @@ mod tests {
                 tx.gas,
                 U256::from_str_radix("30d40", 16).expect("couldn't parse data")
             );
-            assert_eq!(
-                tx.gas_price,
-                U256::from_str_radix("1e449a99b8", 16).expect("couldn't parse data")
-            );
+            assert_eq!(tx.gas_price, 0x1e449a99b8);
             assert_eq!(
             tx.input,
             Bytes::from(hex::decode("a9059cbb000000000000000000000000e2c1e729e05f34c07d80083982ccd9154045dcc600000000000000000000000000000000000000000000000000000004a817c800").unwrap())
@@ -831,10 +828,7 @@ mod tests {
             assert_eq!(receipt.block_number, 0xa74fde);
             assert_eq!(receipt.contract_address, None);
             assert_eq!(receipt.cumulative_gas_used, 0x56c81b);
-            assert_eq!(
-                receipt.effective_gas_price,
-                Some(U256::from_str_radix("1e449a99b8", 16).expect("couldn't parse data"))
-            );
+            assert_eq!(receipt.effective_gas_price, Some(0x1e449a99b8));
             assert_eq!(
                 receipt.from,
                 Address::from_str("0x7d97fcdb98632a91be79d3122b4eb99c0c4223ee")

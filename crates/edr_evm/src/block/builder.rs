@@ -5,16 +5,17 @@ use std::fmt::Debug;
 use edr_eth::{
     block::{BlockOptions, PartialHeader},
     spec::ChainSpec,
-    Address, U256,
+    transaction::TransactionValidation,
+    Address,
 };
+use revm::Inspector;
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::DebugContextForChainSpec,
-    spec::RuntimeSpec,
-    state::{DatabaseComponentError, SyncState},
+    spec::{ContextForChainSpec, RuntimeSpec},
+    state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
     MineBlockResultAndStateForChainSpec,
 };
@@ -49,12 +50,17 @@ impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
     }
 }
 
+/// Helper type for a chain-specific [`BlockTransactionError`].
+pub type BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
+    BlockTransactionError<
+        BlockchainErrorT,
+        StateErrorT,
+        <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+    >;
+
 /// An error caused during execution of a transaction while building a block.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT: ChainSpec,
-{
+pub enum BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> {
     /// Transaction has higher gas limit than is remaining in block
     #[error("Transaction has a higher gas limit than the remaining gas in the block")]
     ExceedsBlockGasLimit,
@@ -63,55 +69,32 @@ where
     ExceedsBlockBlobGasLimit,
     /// Transaction error
     #[error(transparent)]
-    Transaction(#[from] TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
-}
-
-/// Helper type for a [`BlockBuilderAndError`] with a [`BlockTransactionError`].
-pub type BlockBuilderAndTransactionError<BlockBuilderT, BlockchainErrorT, ChainSpecT, StateErrorT> =
-    BlockBuilderAndError<
-        BlockBuilderT,
-        BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
-    >;
-
-/// A wrapper around a block builder and an error.
-pub struct BlockBuilderAndError<BlockBuilderT, ErrorT> {
-    /// The block builder.
-    pub block_builder: BlockBuilderT,
-    /// The error.
-    pub error: ErrorT,
+    Transaction(
+        #[from] TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+    ),
 }
 
 /// A trait for building blocks.
-pub trait BlockBuilder<'blockchain, ChainSpecT, DebugDataT>: Sized
+pub trait BlockBuilder<'builder, ChainSpecT>: Sized
 where
     ChainSpecT: RuntimeSpec,
 {
     /// The blockchain's error type.
-    type BlockchainError;
+    type BlockchainError: std::error::Error;
 
     /// The state's error type.
-    type StateError: Debug + Send;
+    type StateError: Send + std::error::Error;
 
     /// Creates a new block builder.
     fn new_block_builder(
-        blockchain: &'blockchain dyn SyncBlockchain<
+        blockchain: &'builder dyn SyncBlockchain<
             ChainSpecT,
             Self::BlockchainError,
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
-        hardfork: ChainSpecT::Hardfork,
-        cfg: CfgEnv,
+        cfg: CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
-        debug_context: Option<
-            DebugContextForChainSpec<
-                'blockchain,
-                Self::BlockchainError,
-                ChainSpecT,
-                DebugDataT,
-                Self::StateError,
-            >,
-        >,
     ) -> Result<
         Self,
         BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
@@ -125,16 +108,42 @@ where
 
     /// Adds a transaction to the block.
     fn add_transaction(
-        self,
+        &mut self,
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<
-        Self,
-        BlockBuilderAndTransactionError<Self, Self::BlockchainError, ChainSpecT, Self::StateError>,
+        (),
+        BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
     >;
+
+    /// Adds a transaction to the block.
+    fn add_transaction_with_inspector<InspectorT>(
+        &mut self,
+        transaction: ChainSpecT::SignedTransaction,
+        inspector: &mut InspectorT,
+    ) -> Result<
+        (),
+        BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
+    >
+    where
+        InspectorT: for<'inspector> Inspector<
+            ContextForChainSpec<
+                ChainSpecT,
+                WrapDatabaseRef<
+                    DatabaseComponents<
+                        &'inspector dyn SyncBlockchain<
+                            ChainSpecT,
+                            Self::BlockchainError,
+                            Self::StateError,
+                        >,
+                        &'inspector dyn SyncState<Self::StateError>,
+                    >,
+                >,
+            >,
+        >;
 
     /// Finalizes the block, applying rewards to the state.
     fn finalize(
         self,
-        rewards: Vec<(Address, U256)>,
+        rewards: Vec<(Address, u128)>,
     ) -> Result<MineBlockResultAndStateForChainSpec<ChainSpecT, Self::StateError>, Self::StateError>;
 }

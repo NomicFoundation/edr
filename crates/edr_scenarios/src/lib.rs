@@ -35,15 +35,18 @@ pub struct ScenarioProviderConfig {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
     pub coinbase: Address,
+    #[serde(default)]
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, AccountConfig>,
     pub hardfork: String,
-    pub initial_base_fee_per_gas: Option<U256>,
+    #[serde(with = "alloy_serde::quantity::opt")]
+    pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
-    pub min_gas_price: U256,
+    #[serde(with = "alloy_serde::quantity")]
+    pub min_gas_price: u128,
     pub mining: MiningConfig,
     pub network_id: u64,
 }

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use edr_eth::{result::InvalidTransaction, transaction::TransactionValidation};
+use edr_eth::{l1, transaction::TransactionValidation};
 use tokio::{runtime, sync::Mutex};
 
 use crate::{
-    data::ProviderData, interval::IntervalMiner, requests, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, IntervalConfig, ProviderError,
+    data::ProviderData, error::ProviderErrorForChainSpec, interval::IntervalMiner, requests,
+    spec::SyncProviderSpec, time::TimeSinceEpoch, IntervalConfig,
 };
 
 pub fn handle_set_interval_mining<
@@ -14,7 +14,7 @@ pub fn handle_set_interval_mining<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -23,7 +23,7 @@ pub fn handle_set_interval_mining<
     interval_miner: &mut Option<IntervalMiner<ChainSpecT, TimerT>>,
     runtime: runtime::Handle,
     config: requests::IntervalConfig,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     let config: Option<IntervalConfig> = config.try_into()?;
     *interval_miner = config.map(|config| IntervalMiner::new(runtime, config, data.clone()));
 

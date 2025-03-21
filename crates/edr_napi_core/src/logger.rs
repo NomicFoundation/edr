@@ -8,12 +8,11 @@ use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     precompile::{self, Precompiles},
     trace::{AfterMessage, Trace, TraceMessage},
-    transaction::Transaction as _,
     Block as _,
 };
 use edr_provider::{
     time::CurrentTime, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
-    EstimateGasFailure, ProviderError, ProviderSpec, TransactionFailure,
+    EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
 use edr_solidity::contract_decoder::{ContractAndFunctionName, ContractDecoder};
 use itertools::izip;
@@ -187,7 +186,7 @@ where
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderError<ChainSpecT>>,
+        error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(error) = error {
             self.collector.state = LoggingState::Empty;
@@ -547,7 +546,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
         Ok(())
     }
 
-    fn log_base_fee(&mut self, base_fee: Option<&U256>) {
+    fn log_base_fee(&mut self, base_fee: Option<&u128>) {
         if let Some(base_fee) = base_fee {
             self.log(format!("Base fee: {base_fee}"));
         }
@@ -783,7 +782,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
                 {
                     execution_result
                 } else {
-                    unreachable!("Before messages must have an after message")
+                    unreachable!("Before messages must have an after message: {:?}", trace)
                 };
 
                 // Create

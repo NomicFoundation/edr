@@ -7,7 +7,6 @@ use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     l1,
     log::FilterLog,
-    spec::HardforkTrait,
     Address, BlockSpec, Bytecode, Bytes, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256,
     U256,
 };
@@ -38,7 +37,7 @@ use crate::{
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError<HardforkT: HardforkTrait> {
+pub enum CreationError<HardforkT> {
     /// JSON-RPC error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),

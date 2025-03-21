@@ -11,7 +11,7 @@ use edr_eth::l1;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
 use edr_generic::GenericChainSpec;
 use edr_napi_core::spec::SyncNapiSpec;
-use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
+use edr_provider::{time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -34,9 +34,9 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         }
     }
 
-    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(
+    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::try_from(
         edr_napi_core::provider::Config::from(config.provider_config),
-    );
+    )?;
 
     let logger = Box::<DisabledLogger<GenericChainSpec>>::default();
     let subscription_callback = Box::new(|_| ());
@@ -215,7 +215,7 @@ impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> 
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderError<ChainSpecT>>,
+        _error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }

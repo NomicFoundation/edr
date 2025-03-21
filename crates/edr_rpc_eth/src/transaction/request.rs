@@ -10,14 +10,14 @@ pub struct TransactionRequest {
     #[serde(default)]
     pub to: Option<Address>,
     /// legacy, gas Price
-    #[serde(default)]
-    pub gas_price: Option<U256>,
+    #[serde(default, with = "alloy_serde::quantity::opt")]
+    pub gas_price: Option<u128>,
     /// max base fee per gas sender is willing to pay
-    #[serde(default)]
-    pub max_fee_per_gas: Option<U256>,
+    #[serde(default, with = "alloy_serde::quantity::opt")]
+    pub max_fee_per_gas: Option<u128>,
     /// miner tip
-    #[serde(default)]
-    pub max_priority_fee_per_gas: Option<U256>,
+    #[serde(default, with = "alloy_serde::quantity::opt")]
+    pub max_priority_fee_per_gas: Option<u128>,
     /// gas
     #[serde(default, with = "alloy_serde::quantity::opt")]
     pub gas: Option<u64>,

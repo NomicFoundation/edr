@@ -1,5 +1,4 @@
 use auto_impl::auto_impl;
-use revm_wiring::evm_wiring::HardforkTrait;
 
 use crate::{
     log::FilterLog,
@@ -13,7 +12,6 @@ use crate::{
 pub trait ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
 where
     ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
-    HardforkT: HardforkTrait,
 {
     /// Type of the receipt that the factory constructs.
     type Output: ExecutionReceipt<Log = FilterLog> + ReceiptTrait;

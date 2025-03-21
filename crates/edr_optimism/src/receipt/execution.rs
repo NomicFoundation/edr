@@ -9,11 +9,10 @@ use edr_eth::{
     Bloom,
 };
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
-use revm_optimism::{OptimismHaltReason, OptimismSpecId};
 
 use self::deposit::Eip658OrDeposit;
 use super::Execution;
-use crate::{eip2718::TypedEnvelope, transaction};
+use crate::{eip2718::TypedEnvelope, transaction, OpHaltReason, OpSpecId};
 
 /// Receipt for an Optimism deposit transaction with deposit nonce (since
 /// Regolith) and optionally deposit receipt version (since Canyon).
@@ -108,7 +107,7 @@ pub struct Builder {
     deposit_nonce: u64,
 }
 
-impl ExecutionReceiptBuilder<OptimismHaltReason, OptimismSpecId, transaction::Signed> for Builder {
+impl ExecutionReceiptBuilder<OpHaltReason, OpSpecId, transaction::Signed> for Builder {
     type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
@@ -116,7 +115,7 @@ impl ExecutionReceiptBuilder<OptimismHaltReason, OptimismSpecId, transaction::Si
         transaction: &transaction::Signed,
     ) -> Result<Self, StateT::Error> {
         let deposit_nonce = pre_execution_state
-            .basic(*transaction.caller())?
+            .basic(transaction.caller())?
             .map_or(0, |account| account.nonce);
 
         Ok(Self { deposit_nonce })
@@ -126,8 +125,8 @@ impl ExecutionReceiptBuilder<OptimismHaltReason, OptimismSpecId, transaction::Si
         self,
         header: &edr_eth::block::PartialHeader,
         transaction: &transaction::Signed,
-        result: &ExecutionResult<OptimismHaltReason>,
-        hardfork: OptimismSpecId,
+        result: &ExecutionResult<OpHaltReason>,
+        hardfork: OpSpecId,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = edr_eth::log::logs_to_bloom(&logs);
@@ -139,22 +138,15 @@ impl ExecutionReceiptBuilder<OptimismHaltReason, OptimismSpecId, transaction::Si
                 logs_bloom,
                 logs,
                 deposit_nonce: self.deposit_nonce,
-                deposit_receipt_version: if hardfork >= OptimismSpecId::CANYON {
+                deposit_receipt_version: if hardfork >= OpSpecId::CANYON {
                     Some(1)
                 } else {
                     None
                 },
             })
-        } else if hardfork >= OptimismSpecId::BYZANTIUM {
+        } else {
             Execution::Eip658(Eip658 {
                 status: result.is_success(),
-                cumulative_gas_used: header.gas_used,
-                logs_bloom,
-                logs,
-            })
-        } else {
-            Execution::Legacy(Legacy {
-                root: header.state_root,
                 cumulative_gas_used: header.gas_used,
                 logs_bloom,
                 logs,

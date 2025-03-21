@@ -6,9 +6,7 @@ use edr_eth::{
     block,
     eips::eip2930,
     l1, signature,
-    transaction::{
-        self, ExecutableTransaction, HasAccessList, IsEip4844, IsLegacy, TransactionType, TxKind,
-    },
+    transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
 
@@ -39,7 +37,8 @@ pub struct Transaction {
     /// value transferred in Wei
     pub value: U256,
     /// gas price provided by the sender in Wei
-    pub gas_price: U256,
+    #[serde(with = "alloy_serde::quantity")]
+    pub gas_price: u128,
     /// gas provided by the sender
     pub gas: U256,
     /// the data sent along with the transaction
@@ -64,15 +63,27 @@ pub struct Transaction {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub access_list: Option<Vec<eip2930::AccessListItem>>,
     /// max fee per gas
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_fee_per_gas: Option<U256>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub max_fee_per_gas: Option<u128>,
     /// max priority fee per gas
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_priority_fee_per_gas: Option<U256>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub max_priority_fee_per_gas: Option<u128>,
     /// The maximum total fee per gas the sender is willing to pay for blob gas
     /// in wei (EIP-4844)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_fee_per_blob_gas: Option<U256>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub max_fee_per_blob_gas: Option<u128>,
     /// List of versioned blob hashes associated with the transaction's EIP-4844
     /// data blobs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -81,12 +92,7 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn new(
-        transaction: &(impl ExecutableTransaction
-              + edr_eth::transaction::Transaction
-              + TransactionType
-              + HasAccessList
-              + IsEip4844
-              + IsLegacy),
+        transaction: &(impl ExecutableTransaction + TransactionType + IsEip4844 + IsLegacy),
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
         is_pending: bool,
@@ -129,11 +135,9 @@ impl Transaction {
 
         let transaction_index = if is_pending { None } else { transaction_index };
 
-        let access_list = if transaction.has_access_list() {
-            Some(transaction.access_list().to_vec())
-        } else {
-            None
-        };
+        let access_list = transaction
+            .access_list()
+            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec);
 
         let blob_versioned_hashes = if transaction.is_eip4844() {
             Some(transaction.blob_hashes().to_vec())

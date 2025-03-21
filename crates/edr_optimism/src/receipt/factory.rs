@@ -4,27 +4,23 @@ use edr_eth::{
     B256,
 };
 use edr_evm::EthBlockReceiptFactory;
-use revm_optimism::{L1BlockInfo, OptimismTransaction as _};
+use op_revm::L1BlockInfo;
 
-use crate::{eip2718::TypedEnvelope, receipt, transaction, OptimismSpecId};
+use crate::{eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _, OpSpecId};
 
 /// Block receipt factory for Optimism.
 pub struct BlockReceiptFactory {
     pub(crate) l1_block_info: L1BlockInfo,
 }
 
-impl
-    ReceiptFactory<
-        TypedEnvelope<receipt::Execution<FilterLog>>,
-        OptimismSpecId,
-        transaction::Signed,
-    > for BlockReceiptFactory
+impl ReceiptFactory<TypedEnvelope<receipt::Execution<FilterLog>>, OpSpecId, transaction::Signed>
+    for BlockReceiptFactory
 {
     type Output = receipt::Block;
 
     fn create_receipt(
         &self,
-        hardfork: OptimismSpecId,
+        hardfork: OpSpecId,
         transaction: &transaction::Signed,
         transaction_receipt: TransactionReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
         block_hash: &B256,
@@ -53,7 +49,7 @@ impl
 }
 
 fn to_rpc_l1_block_info(
-    hardfork: OptimismSpecId,
+    hardfork: OpSpecId,
     l1_block_info: &L1BlockInfo,
     transaction: &transaction::Signed,
     transaction_receipt: &TransactionReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
@@ -68,9 +64,10 @@ fn to_rpc_l1_block_info(
             .enveloped_tx()
             .expect("Non-deposit transactions must return an enveloped transaction");
 
-        let l1_fee = l1_block_info.calculate_tx_l1_cost(&enveloped_tx, hardfork);
+        let mut l1_block_info = l1_block_info.clone();
+        let l1_fee = l1_block_info.calculate_tx_l1_cost(enveloped_tx, hardfork);
 
-        let (l1_fee_scalar, l1_base_fee_scalar) = if hardfork < OptimismSpecId::ECOTONE {
+        let (l1_fee_scalar, l1_base_fee_scalar) = if hardfork < OpSpecId::ECOTONE {
             let l1_fee_scalar: f64 = l1_block_info.l1_base_fee_scalar.into();
 
             (Some(l1_fee_scalar / 1_000_000f64), None)
@@ -84,7 +81,7 @@ fn to_rpc_l1_block_info(
         };
 
         let l1_gas_used = l1_block_info
-            .data_gas(&enveloped_tx, hardfork)
+            .data_gas(enveloped_tx, hardfork)
             .saturating_add(l1_block_info.l1_fee_overhead.unwrap_or_default());
 
         let l1_block_info = op_alloy_rpc_types::receipt::L1BlockInfo {

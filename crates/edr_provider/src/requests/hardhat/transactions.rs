@@ -1,6 +1,9 @@
 use edr_eth::B256;
 
-use crate::{data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError};
+use crate::{
+    data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
+    time::TimeSinceEpoch, ProviderError,
+};
 
 pub fn handle_drop_transaction<
     ChainSpecT: SyncProviderSpec<TimerT>,
@@ -8,7 +11,7 @@ pub fn handle_drop_transaction<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     transaction_hash: B256,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     let was_removed = data.remove_pending_transaction(&transaction_hash).is_some();
     if was_removed {
         return Ok(true);

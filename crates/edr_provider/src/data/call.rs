@@ -1,94 +1,55 @@
 use edr_eth::{
-    block::Header,
-    result::{ExecutionResult, InvalidTransaction},
-    transaction::TransactionValidation,
-    Address, HashMap, U256,
+    block::Header, l1, result::ExecutionResult, transaction::TransactionValidation, Address,
+    HashMap,
 };
 use edr_evm::{
-    blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
+    blockchain::{BlockHash, BlockchainErrorForChainSpec},
     config::CfgEnv,
-    guaranteed_dry_run,
-    precompile::Precompile,
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
-    state::{StateError, StateOverrides, StateRefOverrider, SyncState},
-    DebugContext,
+    inspector::Inspector,
+    runtime::guaranteed_dry_run_with_inspector,
+    spec::{BlockEnvConstructor as _, ContextForChainSpec, SyncRuntimeSpec},
+    state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
+use revm_precompile::PrecompileFn;
 
-use crate::ProviderError;
-
-pub(super) struct RunCallArgs<
-    'a,
-    'evm,
-    ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
-    >,
-    DebugDataT,
-> where
-    'a: 'evm,
-{
-    pub blockchain:
-        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
-    pub header: &'a Header,
-    pub state: &'a dyn SyncState<StateError>,
-    pub state_overrides: &'a StateOverrides,
-    pub cfg_env: CfgEnv,
-    pub hardfork: ChainSpecT::Hardfork,
-    pub transaction: ChainSpecT::SignedTransaction,
-    pub precompiles: &'a HashMap<Address, Precompile>,
-    // `DebugContext` cannot be simplified further
-    #[allow(clippy::type_complexity)]
-    pub debug_context: Option<
-        DebugContext<
-            'evm,
-            ChainSpecT,
-            BlockchainErrorForChainSpec<ChainSpecT>,
-            DebugDataT,
-            StateRefOverrider<'a, &'evm dyn SyncState<StateError>>,
-        >,
-    >,
-}
+use crate::{error::ProviderErrorForChainSpec, ProviderError};
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<'a, 'evm, ChainSpecT, DebugDataT>(
-    args: RunCallArgs<'a, 'evm, ChainSpecT, DebugDataT>,
-) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderError<ChainSpecT>>
+pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT>(
+    blockchain: BlockchainT,
+    header: &Header,
+    state: StateT,
+    cfg_env: CfgEnv<ChainSpecT::Hardfork>,
+    transaction: ChainSpecT::SignedTransaction,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
+    inspector: &mut InspectorT,
+) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    'a: 'evm,
+    BlockchainT: BlockHash<Error = BlockchainErrorForChainSpec<ChainSpecT>>,
     ChainSpecT: SyncRuntimeSpec<
         BlockEnv: Default,
         SignedTransaction: Default
-                               + TransactionValidation<ValidationError: From<InvalidTransaction>>,
+                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
+    InspectorT: Inspector<
+        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+    >,
+    StateT: State<Error = StateError>,
 {
-    let RunCallArgs {
-        blockchain,
-        header,
-        state,
-        state_overrides,
-        cfg_env,
-        hardfork,
-        transaction,
-        precompiles,
-        debug_context,
-    } = args;
-
     // `eth_call` uses a base fee of zero to mimick geth's behavior
     let mut header = header.clone();
-    header.base_fee_per_gas = header.base_fee_per_gas.map(|_| U256::ZERO);
+    header.base_fee_per_gas = header.base_fee_per_gas.map(|_| 0);
 
-    let block = ChainSpecT::BlockEnv::new_block_env(&header, hardfork.into());
+    let block = ChainSpecT::BlockEnv::new_block_env(&header, cfg_env.spec.into());
 
-    let state_overrider = StateRefOverrider::new(state_overrides, state);
-
-    guaranteed_dry_run(
+    guaranteed_dry_run_with_inspector::<_, ChainSpecT, _, _>(
         blockchain,
-        state_overrider,
+        state,
         cfg_env,
-        hardfork,
         transaction,
         block,
-        precompiles,
-        debug_context,
+        custom_precompiles,
+        inspector,
     )
     .map_or_else(
         |error| Err(ProviderError::RunTransaction(error)),

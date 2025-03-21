@@ -16,7 +16,7 @@ pub struct Legacy<LogT> {
     /// State root
     pub root: B256,
     /// Cumulative gas used in block after this transaction was executed
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub cumulative_gas_used: u64,
     /// Bloom filter of the logs generated within this transaction
     pub logs_bloom: Bloom,
@@ -32,10 +32,10 @@ pub struct Legacy<LogT> {
 )]
 pub struct Eip658<LogT> {
     /// Status
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::bool"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub status: bool,
     /// Cumulative gas used in block after this transaction was executed
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub cumulative_gas_used: u64,
     /// Bloom filter of the logs generated within this transaction
     pub logs_bloom: Bloom,

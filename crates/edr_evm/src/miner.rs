@@ -2,29 +2,29 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
-    result::{ExecutionResult, InvalidTransaction},
+    l1,
+    result::ExecutionResult,
     signature::SignatureError,
-    spec::ChainSpec,
-    transaction::{ExecutableTransaction as _, Transaction, TransactionValidation},
-    U256,
+    spec::{ChainSpec, HaltReasonTrait},
+    transaction::{ExecutableTransaction, TransactionValidation},
 };
-use revm::wiring::HaltReasonTrait;
+use revm::Inspector;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    debug::DebugContext,
     mempool::OrderedTransaction,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
-    state::{StateDiff, SyncState},
+    spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
+    state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    Block as _, BlockBuilder, BlockBuilderAndError, BlockTransactionError, MemPool,
+    Block as _, BlockBuilder, BlockTransactionError, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.
+#[derive(Debug)]
 pub struct MineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT> {
     /// Mined block
     pub block: LocalBlockT,
@@ -52,20 +52,27 @@ pub enum MineOrdering {
     Priority,
 }
 
+/// Helper type for a chain-specific [`MineBlockError`].
+pub type MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = MineBlockError<
+    BlockchainErrorT,
+    <ChainSpecT as ChainSpec>::Hardfork,
+    StateErrorT,
+    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+>;
+
 /// An error that occurred while mining a block.
 #[derive(Debug, thiserror::Error)]
-pub enum MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT: RuntimeSpec,
-{
+pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionValidationErrorT> {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(
-        #[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>,
+        #[from] BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT>,
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
-    BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
+    BlockTransaction(
+        #[from] BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+    ),
     /// An error that occurred while finalizing a block.
     #[error(transparent)]
     BlockFinalize(StateErrorT),
@@ -83,59 +90,55 @@ where
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, StateErrorT>(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+pub fn mine_block<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
-    mem_pool: &MemPool<ChainSpecT>,
-    cfg: &CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
+    cfg: &CfgEnv<ChainSpecT::Hardfork>,
     options: BlockOptions,
-    min_gas_price: U256,
+    min_gas_price: u128,
     mine_ordering: MineOrdering,
-    reward: U256,
-    debug_context: Option<
-        DebugContext<
-            'evm,
-            ChainSpecT,
-            BlockchainErrorT,
-            DebugDataT,
-            Box<dyn SyncState<StateErrorT>>,
-        >,
-    >,
+    reward: u128,
+    mut inspector: Option<&mut InspectorT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
-    MineBlockError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
 >
 where
-    'blockchain: 'evm,
+    BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateErrorT: Debug + Send,
+    InspectorT: for<'inspector> Inspector<
+        ContextForChainSpec<
+            ChainSpecT,
+            WrapDatabaseRef<
+                DatabaseComponents<
+                    &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    &'inspector dyn SyncState<StateErrorT>,
+                >,
+            >,
+        >,
+    >,
+    StateErrorT: std::error::Error + Send,
 {
-    let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
-        blockchain,
-        state,
-        hardfork,
-        cfg.clone(),
-        options,
-        debug_context,
-    )?;
+    let mut block_builder =
+        ChainSpecT::BlockBuilder::new_block_builder(blockchain, state, cfg.clone(), options)?;
 
     let mut pending_transactions = {
         type MineOrderComparator<ChainSpecT> = dyn Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering
             + Send;
 
         let base_fee = block_builder.header().base_fee;
-        let comparator: Box<MineOrderComparator<ChainSpecT>> = match mine_ordering {
-            MineOrdering::Fifo => Box::new(first_in_first_out_comparator),
-            MineOrdering::Priority => {
-                Box::new(move |lhs, rhs| priority_comparator(lhs, rhs, base_fee))
-            }
-        };
+        let comparator: Box<MineOrderComparator<ChainSpecT::SignedTransaction>> =
+            match mine_ordering {
+                MineOrdering::Fifo => Box::new(first_in_first_out_comparator),
+                MineOrdering::Priority => {
+                    Box::new(move |lhs, rhs| priority_comparator(lhs, rhs, base_fee))
+                }
+            };
 
         mem_pool.iter(comparator)
     };
@@ -148,27 +151,27 @@ where
 
         let caller = *transaction.caller();
 
-        block_builder = block_builder.add_transaction(transaction).map_or_else(
-            |BlockBuilderAndError {
-                 block_builder,
-                 error,
-             }| match error {
-                BlockTransactionError::ExceedsBlockGasLimit => {
-                    pending_transactions.remove_caller(&caller);
+        {
+            let result = if let Some(inspector) = inspector.as_mut() {
+                block_builder.add_transaction_with_inspector(transaction, inspector)
+            } else {
+                block_builder.add_transaction(transaction)
+            };
 
-                    Ok(block_builder)
+            if let Err(error) = result {
+                match error {
+                    BlockTransactionError::ExceedsBlockGasLimit => {
+                        pending_transactions.remove_caller(&caller);
+                    }
+                    BlockTransactionError::Transaction(TransactionError::InvalidTransaction(
+                        error,
+                    )) if error == l1::InvalidTransaction::GasPriceLessThanBasefee.into() => {
+                        pending_transactions.remove_caller(&caller);
+                    }
+                    remainder => return Err(MineBlockError::BlockTransaction(remainder)),
                 }
-                BlockTransactionError::Transaction(TransactionError::InvalidTransaction(error))
-                    if error == InvalidTransaction::GasPriceLessThanBasefee.into() =>
-                {
-                    pending_transactions.remove_caller(&caller);
-
-                    Ok(block_builder)
-                }
-                error => Err(MineBlockError::BlockTransaction(error)),
-            },
-            Ok,
-        )?;
+            }
+        }
     }
 
     let beneficiary = block_builder.header().beneficiary;
@@ -179,20 +182,29 @@ where
         .map_err(MineBlockError::BlockFinalize)
 }
 
+/// Helper type for a chain-specific [`MineTransactionError`].
+pub type MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
+    MineTransactionError<
+        BlockchainErrorT,
+        <ChainSpecT as ChainSpec>::Hardfork,
+        StateErrorT,
+        <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+    >;
+
 /// An error that occurred while mining a block with a single transaction.
 #[derive(Debug, thiserror::Error)]
-pub enum MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>
-where
-    ChainSpecT: RuntimeSpec,
+pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, TransactionValidationErrorT>
 {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(
-        #[from] BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>,
+        #[from] BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT>,
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
-    BlockTransaction(#[from] BlockTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>),
+    BlockTransaction(
+        #[from] BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+    ),
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
@@ -200,27 +212,27 @@ where
     #[error("Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
     GasPriceTooLow {
         /// The minimum gas price.
-        expected: U256,
+        expected: u128,
         /// The actual gas price.
-        actual: U256,
+        actual: u128,
     },
     /// The transaction's max fee per gas is lower than the next block's base
     /// fee.
     #[error("Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
     MaxFeePerGasTooLow {
         /// The minimum max fee per gas.
-        expected: U256,
+        expected: u128,
         /// The actual max fee per gas.
-        actual: U256,
+        actual: u128,
     },
     /// The transaction's max fee per blob gas is lower than the next block's
     /// base fee.
     #[error("Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}")]
     MaxFeePerBlobGasTooLow {
         /// The minimum max fee per blob gas.
-        expected: U256,
+        expected: u128,
         /// The actual max fee per blob gas.
-        actual: U256,
+        actual: u128,
     },
     /// The block is expected to have a prevrandao, as the executor's config is
     /// on a post-merge hardfork.
@@ -246,9 +258,9 @@ where
     #[error("Transaction gas price is {actual}, which is below the minimum of {expected}")]
     PriorityFeeTooLow {
         /// The minimum gas price.
-        expected: U256,
+        expected: u128,
         /// The actual max priority fee per gas.
-        actual: U256,
+        actual: u128,
     },
     /// Signature error
     #[error(transparent)]
@@ -265,44 +277,38 @@ where
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block_with_single_transaction<
-    'blockchain,
-    'evm,
-    ChainSpecT,
-    DebugDataT,
-    BlockchainErrorT,
-    StateErrorT,
->(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+pub fn mine_block_with_single_transaction<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: ChainSpecT::SignedTransaction,
-    cfg: &CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    cfg: &CfgEnv<ChainSpecT::Hardfork>,
     options: BlockOptions,
-    min_gas_price: U256,
-    reward: U256,
-    debug_context: Option<
-        DebugContext<
-            'evm,
-            ChainSpecT,
-            BlockchainErrorT,
-            DebugDataT,
-            Box<dyn SyncState<StateErrorT>>,
-        >,
-    >,
+    min_gas_price: u128,
+    reward: u128,
+    inspector: Option<&mut InspectorT>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
-    MineTransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
 >
 where
-    'blockchain: 'evm,
+    BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateErrorT: Debug + Send,
+    InspectorT: for<'inspector> Inspector<
+        ContextForChainSpec<
+            ChainSpecT,
+            WrapDatabaseRef<
+                DatabaseComponents<
+                    &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    &'inspector dyn SyncState<StateErrorT>,
+                >,
+            >,
+        >,
+    >,
+    StateErrorT: std::error::Error + Send,
 {
     let max_priority_fee_per_gas = transaction
         .max_priority_fee_per_gas()
@@ -339,7 +345,8 @@ where
         .map_err(MineTransactionError::Blockchain)?;
 
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
-        let base_fee_per_blob_gas = calculate_next_base_fee_per_blob_gas(parent_block.header());
+        let base_fee_per_blob_gas =
+            calculate_next_base_fee_per_blob_gas(parent_block.header(), cfg.spec);
         if *max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                 expected: base_fee_per_blob_gas,
@@ -370,31 +377,24 @@ where
         }
     }
 
-    let block_builder = ChainSpecT::BlockBuilder::<
-        '_,
-        BlockchainErrorT,
-        DebugDataT,
-        StateErrorT,
-    >::new_block_builder(
-        blockchain,
-        state,
-        hardfork,
-        cfg.clone(),
-        options,
-        debug_context,
-    )?;
+    let mut block_builder =
+        ChainSpecT::BlockBuilder::new_block_builder(blockchain, state, cfg.clone(), options)?;
 
     let beneficiary = block_builder.header().beneficiary;
     let rewards = vec![(beneficiary, reward)];
 
+    if let Some(inspector) = inspector {
+        block_builder.add_transaction_with_inspector(transaction, inspector)?;
+    } else {
+        block_builder.add_transaction(transaction)?;
+    }
+
     block_builder
-        .add_transaction(transaction)
-        .map_err(|BlockBuilderAndError { error, .. }| error)?
         .finalize(rewards)
         .map_err(MineTransactionError::State)
 }
 
-fn effective_miner_fee(transaction: &impl Transaction, base_fee: Option<U256>) -> U256 {
+fn effective_miner_fee(transaction: &impl ExecutableTransaction, base_fee: Option<u128>) -> u128 {
     let max_fee_per_gas = transaction.gas_price();
     let max_priority_fee_per_gas = *transaction
         .max_priority_fee_per_gas()
@@ -405,21 +405,20 @@ fn effective_miner_fee(transaction: &impl Transaction, base_fee: Option<U256>) -
     })
 }
 
-fn first_in_first_out_comparator<ChainSpecT: RuntimeSpec>(
-    lhs: &OrderedTransaction<ChainSpecT>,
-    rhs: &OrderedTransaction<ChainSpecT>,
+fn first_in_first_out_comparator<SignedTransactionT: ExecutableTransaction>(
+    lhs: &OrderedTransaction<SignedTransactionT>,
+    rhs: &OrderedTransaction<SignedTransactionT>,
 ) -> Ordering {
     lhs.order_id().cmp(&rhs.order_id())
 }
 
-fn priority_comparator<ChainSpecT: RuntimeSpec>(
-    lhs: &OrderedTransaction<ChainSpecT>,
-    rhs: &OrderedTransaction<ChainSpecT>,
-    base_fee: Option<U256>,
+fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
+    lhs: &OrderedTransaction<SignedTransactionT>,
+    rhs: &OrderedTransaction<SignedTransactionT>,
+    base_fee: Option<u128>,
 ) -> Ordering {
-    let effective_miner_fee = move |transaction: &ChainSpecT::SignedTransaction| {
-        effective_miner_fee(transaction, base_fee)
-    };
+    let effective_miner_fee =
+        move |transaction: &SignedTransactionT| effective_miner_fee(transaction, base_fee);
 
     // Invert lhs and rhs to get decreasing order by effective miner fee
     let ordering = effective_miner_fee(rhs.pending()).cmp(&effective_miner_fee(lhs.pending()));
@@ -435,7 +434,7 @@ fn priority_comparator<ChainSpecT: RuntimeSpec>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{account::AccountInfo, Address};
+    use edr_eth::{account::AccountInfo, Address, U256};
 
     use super::*;
     use crate::test_utils::{
@@ -458,24 +457,18 @@ mod tests {
             (sender3, account_with_balance),
         ]);
 
-        let base_fee = Some(U256::from(15));
+        let base_fee = Some(15u128);
 
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, U256::from(111))?;
-        assert_eq!(effective_miner_fee(&transaction1, base_fee), U256::from(96));
+        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 111)?;
+        assert_eq!(effective_miner_fee(&transaction1, base_fee), 96);
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip1559_transaction(sender2, 0, U256::from(120), U256::from(100))?;
-        assert_eq!(
-            effective_miner_fee(&transaction2, base_fee),
-            U256::from(100)
-        );
+        let transaction2 = dummy_eip1559_transaction(sender2, 0, 120, 100)?;
+        assert_eq!(effective_miner_fee(&transaction2, base_fee), 100);
         fixture.add_transaction(transaction2.clone())?;
 
-        let transaction3 = dummy_eip1559_transaction(sender3, 0, U256::from(140), U256::from(110))?;
-        assert_eq!(
-            effective_miner_fee(&transaction3, base_fee),
-            U256::from(110)
-        );
+        let transaction3 = dummy_eip1559_transaction(sender3, 0, 140, 110)?;
+        assert_eq!(effective_miner_fee(&transaction3, base_fee), 110);
         fixture.add_transaction(transaction3.clone())?;
 
         let mut ordered_transactions = fixture.mem_pool.iter(first_in_first_out_comparator);
@@ -505,18 +498,18 @@ mod tests {
             (sender4, account_with_balance),
         ]);
 
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, U256::from(123))?;
+        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 123)?;
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip155_transaction_with_price(sender2, 0, U256::from(1_000))?;
+        let transaction2 = dummy_eip155_transaction_with_price(sender2, 0, 1_000)?;
         fixture.add_transaction(transaction2.clone())?;
 
         // This has the same gasPrice than tx2, but arrived later, so it's placed later
         // in the queue
-        let transaction3 = dummy_eip155_transaction_with_price(sender3, 0, U256::from(1_000))?;
+        let transaction3 = dummy_eip155_transaction_with_price(sender3, 0, 1_000)?;
         fixture.add_transaction(transaction3.clone())?;
 
-        let transaction4 = dummy_eip155_transaction_with_price(sender4, 0, U256::from(2_000))?;
+        let transaction4 = dummy_eip155_transaction_with_price(sender4, 0, 2_000)?;
         fixture.add_transaction(transaction4.clone())?;
 
         let mut ordered_transactions = fixture
@@ -551,38 +544,26 @@ mod tests {
             (sender5, account_with_balance),
         ]);
 
-        let base_fee = Some(U256::from(15));
+        let base_fee = Some(15u128);
 
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, U256::from(111))?;
-        assert_eq!(effective_miner_fee(&transaction1, base_fee), U256::from(96));
+        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 111)?;
+        assert_eq!(effective_miner_fee(&transaction1, base_fee), 96);
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip1559_transaction(sender2, 0, U256::from(120), U256::from(100))?;
-        assert_eq!(
-            effective_miner_fee(&transaction2, base_fee),
-            U256::from(100)
-        );
+        let transaction2 = dummy_eip1559_transaction(sender2, 0, 120, 100)?;
+        assert_eq!(effective_miner_fee(&transaction2, base_fee), 100);
         fixture.add_transaction(transaction2.clone())?;
 
-        let transaction3 = dummy_eip1559_transaction(sender3, 0, U256::from(140), U256::from(110))?;
-        assert_eq!(
-            effective_miner_fee(&transaction3, base_fee),
-            U256::from(110)
-        );
+        let transaction3 = dummy_eip1559_transaction(sender3, 0, 140, 110)?;
+        assert_eq!(effective_miner_fee(&transaction3, base_fee), 110);
         fixture.add_transaction(transaction3.clone())?;
 
-        let transaction4 = dummy_eip1559_transaction(sender4, 0, U256::from(140), U256::from(130))?;
-        assert_eq!(
-            effective_miner_fee(&transaction4, base_fee),
-            U256::from(125)
-        );
+        let transaction4 = dummy_eip1559_transaction(sender4, 0, 140, 130)?;
+        assert_eq!(effective_miner_fee(&transaction4, base_fee), 125);
         fixture.add_transaction(transaction4.clone())?;
 
-        let transaction5 = dummy_eip155_transaction_with_price(sender5, 0, U256::from(170))?;
-        assert_eq!(
-            effective_miner_fee(&transaction5, base_fee),
-            U256::from(155)
-        );
+        let transaction5 = dummy_eip155_transaction_with_price(sender5, 0, 170)?;
+        assert_eq!(effective_miner_fee(&transaction5, base_fee), 155);
         fixture.add_transaction(transaction5.clone())?;
 
         let mut ordered_transactions = fixture
@@ -617,34 +598,34 @@ mod tests {
         ]);
 
         // Insert 9 transactions sequentially (no for loop)
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, U256::from(100))?;
+        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 100)?;
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip155_transaction_with_price(sender1, 1, U256::from(99))?;
+        let transaction2 = dummy_eip155_transaction_with_price(sender1, 1, 99)?;
         fixture.add_transaction(transaction2.clone())?;
 
-        let transaction3 = dummy_eip155_transaction_with_price(sender2, 0, U256::from(98))?;
+        let transaction3 = dummy_eip155_transaction_with_price(sender2, 0, 98)?;
         fixture.add_transaction(transaction3.clone())?;
 
-        let transaction4 = dummy_eip155_transaction_with_price(sender2, 1, U256::from(97))?;
+        let transaction4 = dummy_eip155_transaction_with_price(sender2, 1, 97)?;
         fixture.add_transaction(transaction4.clone())?;
 
-        let transaction5 = dummy_eip155_transaction_with_price(sender3, 0, U256::from(96))?;
+        let transaction5 = dummy_eip155_transaction_with_price(sender3, 0, 96)?;
         fixture.add_transaction(transaction5.clone())?;
 
-        let transaction6 = dummy_eip155_transaction_with_price(sender3, 1, U256::from(95))?;
+        let transaction6 = dummy_eip155_transaction_with_price(sender3, 1, 95)?;
         fixture.add_transaction(transaction6.clone())?;
 
-        let transaction7 = dummy_eip155_transaction_with_price(sender3, 2, U256::from(94))?;
+        let transaction7 = dummy_eip155_transaction_with_price(sender3, 2, 94)?;
         fixture.add_transaction(transaction7.clone())?;
 
-        let transaction8 = dummy_eip155_transaction_with_price(sender3, 3, U256::from(93))?;
+        let transaction8 = dummy_eip155_transaction_with_price(sender3, 3, 93)?;
         fixture.add_transaction(transaction8.clone())?;
 
-        let transaction9 = dummy_eip155_transaction_with_price(sender4, 0, U256::from(92))?;
+        let transaction9 = dummy_eip155_transaction_with_price(sender4, 0, 92)?;
         fixture.add_transaction(transaction9.clone())?;
 
-        let transaction10 = dummy_eip155_transaction_with_price(sender4, 1, U256::from(91))?;
+        let transaction10 = dummy_eip155_transaction_with_price(sender4, 1, 91)?;
         fixture.add_transaction(transaction10.clone())?;
 
         let mut ordered_transactions = fixture

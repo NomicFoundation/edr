@@ -9,7 +9,7 @@ use edr_eth::{Address, Bytes, U256, U64};
 use edr_evm::spec::RuntimeSpec;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::ProviderError;
+use crate::{error::ProviderErrorForChainSpec, ProviderError};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[repr(transparent)]
@@ -104,7 +104,7 @@ impl<'a> InvalidRequestReason<'a> {
     /// Converts the invalid request reason into a provider error.
     pub fn provider_error<ChainSpecT: RuntimeSpec>(
         &self,
-    ) -> Option<(&str, ProviderError<ChainSpecT>)> {
+    ) -> Option<(&str, ProviderErrorForChainSpec<ChainSpecT>)> {
         match self {
             InvalidRequestReason::InvalidJson { .. } => None,
             InvalidRequestReason::InvalidStorageKey {

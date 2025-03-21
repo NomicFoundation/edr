@@ -17,12 +17,12 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    ExecutableTransaction, HasAccessList, InvalidTransaction, IsEip155, IsEip4844, IsLegacy,
-    IsSupported, Signed, SignedTransaction, Transaction, TransactionMut, TransactionType,
-    TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+    ExecutableTransaction, IsEip155, IsEip4844, IsLegacy, IsSupported, Signed, SignedTransaction,
+    TransactionMut, TransactionType, TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
     eips::{self, eip7702},
+    impl_revm_transaction_trait, l1,
     signature::{Fakeable, Signature, SignatureError},
     Address, Bytes, B256, U256,
 };
@@ -132,7 +132,7 @@ impl Default for Signed {
         // This implementation is necessary to be able to use `revm`'s builder pattern.
         Self::PreEip155Legacy(Legacy {
             nonce: 0,
-            gas_price: U256::ZERO,
+            gas_price: 0,
             gas_limit: u64::MAX,
             kind: TxKind::Call(Address::ZERO), // will do nothing
             value: U256::ZERO,
@@ -183,15 +183,6 @@ impl From<PreOrPostEip155> for Signed {
     }
 }
 
-impl HasAccessList for Signed {
-    fn has_access_list(&self) -> bool {
-        match self {
-            Signed::PreEip155Legacy(_) | Signed::PostEip155Legacy(_) => false,
-            Signed::Eip2930(_) | Signed::Eip1559(_) | Signed::Eip4844(_) => true,
-        }
-    }
-}
-
 impl IsEip155 for Signed {
     fn is_eip155(&self) -> bool {
         matches!(self, Signed::PostEip155Legacy(_))
@@ -220,70 +211,6 @@ impl IsLegacy for Signed {
 }
 
 impl ExecutableTransaction for Signed {
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::PostEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
-            Signed::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
-        }
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.max_fee_per_gas(),
-            Signed::PostEip155Legacy(tx) => tx.max_fee_per_gas(),
-            Signed::Eip2930(tx) => tx.max_fee_per_gas(),
-            Signed::Eip1559(tx) => tx.max_fee_per_gas(),
-            Signed::Eip4844(tx) => tx.max_fee_per_gas(),
-        }
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.rlp_encoding(),
-            Signed::PostEip155Legacy(tx) => tx.rlp_encoding(),
-            Signed::Eip2930(tx) => tx.rlp_encoding(),
-            Signed::Eip1559(tx) => tx.rlp_encoding(),
-            Signed::Eip4844(tx) => tx.rlp_encoding(),
-        }
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        match self {
-            Signed::PreEip155Legacy(tx) => tx.total_blob_gas(),
-            Signed::PostEip155Legacy(tx) => tx.total_blob_gas(),
-            Signed::Eip2930(tx) => tx.total_blob_gas(),
-            Signed::Eip1559(tx) => tx.total_blob_gas(),
-            Signed::Eip4844(tx) => tx.total_blob_gas(),
-        }
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        match self {
-            Signed::PreEip155Legacy(t) => t.transaction_hash(),
-            Signed::PostEip155Legacy(t) => t.transaction_hash(),
-            Signed::Eip2930(t) => t.transaction_hash(),
-            Signed::Eip1559(t) => t.transaction_hash(),
-            Signed::Eip4844(t) => t.transaction_hash(),
-        }
-    }
-}
-
-impl SignedTransaction for Signed {
-    fn signature(&self) -> &dyn Signature {
-        match self {
-            Signed::PreEip155Legacy(tx) => &tx.signature,
-            Signed::PostEip155Legacy(tx) => &tx.signature,
-            Signed::Eip2930(tx) => &tx.signature,
-            Signed::Eip1559(tx) => &tx.signature,
-            Signed::Eip4844(tx) => &tx.signature,
-        }
-    }
-}
-
-impl Transaction for Signed {
     fn caller(&self) -> &Address {
         match self {
             Signed::PreEip155Legacy(tx) => tx.caller(),
@@ -304,7 +231,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         match self {
             Signed::PreEip155Legacy(tx) => tx.gas_price(),
             Signed::PostEip155Legacy(tx) => tx.gas_price(),
@@ -364,7 +291,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn access_list(&self) -> &[eips::eip2930::AccessListItem] {
+    fn access_list(&self) -> Option<&[eips::eip2930::AccessListItem]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.access_list(),
             Signed::PostEip155Legacy(tx) => tx.access_list(),
@@ -374,7 +301,27 @@ impl Transaction for Signed {
         }
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::PostEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
+        }
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.max_fee_per_gas(),
+            Signed::PostEip155Legacy(tx) => tx.max_fee_per_gas(),
+            Signed::Eip2930(tx) => tx.max_fee_per_gas(),
+            Signed::Eip1559(tx) => tx.max_fee_per_gas(),
+            Signed::Eip4844(tx) => tx.max_fee_per_gas(),
+        }
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
             Signed::PostEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
@@ -394,7 +341,7 @@ impl Transaction for Signed {
         }
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
             Signed::PostEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
@@ -404,13 +351,55 @@ impl Transaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
+    fn total_blob_gas(&self) -> Option<u64> {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.total_blob_gas(),
+            Signed::PostEip155Legacy(tx) => tx.total_blob_gas(),
+            Signed::Eip2930(tx) => tx.total_blob_gas(),
+            Signed::Eip1559(tx) => tx.total_blob_gas(),
+            Signed::Eip4844(tx) => tx.total_blob_gas(),
+        }
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),
             Signed::Eip2930(tx) => tx.authorization_list(),
             Signed::Eip1559(tx) => tx.authorization_list(),
             Signed::Eip4844(tx) => tx.authorization_list(),
+        }
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        match self {
+            Signed::PreEip155Legacy(tx) => tx.rlp_encoding(),
+            Signed::PostEip155Legacy(tx) => tx.rlp_encoding(),
+            Signed::Eip2930(tx) => tx.rlp_encoding(),
+            Signed::Eip1559(tx) => tx.rlp_encoding(),
+            Signed::Eip4844(tx) => tx.rlp_encoding(),
+        }
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        match self {
+            Signed::PreEip155Legacy(t) => t.transaction_hash(),
+            Signed::PostEip155Legacy(t) => t.transaction_hash(),
+            Signed::Eip2930(t) => t.transaction_hash(),
+            Signed::Eip1559(t) => t.transaction_hash(),
+            Signed::Eip4844(t) => t.transaction_hash(),
+        }
+    }
+}
+
+impl SignedTransaction for Signed {
+    fn signature(&self) -> &dyn Signature {
+        match self {
+            Signed::PreEip155Legacy(tx) => &tx.signature,
+            Signed::PostEip155Legacy(tx) => &tx.signature,
+            Signed::Eip2930(tx) => &tx.signature,
+            Signed::Eip1559(tx) => &tx.signature,
+            Signed::Eip4844(tx) => &tx.signature,
         }
     }
 }
@@ -441,8 +430,10 @@ impl TransactionType for Signed {
 }
 
 impl TransactionValidation for Signed {
-    type ValidationError = InvalidTransaction;
+    type ValidationError = l1::InvalidTransaction;
 }
+
+impl_revm_transaction_trait!(Signed);
 
 #[cfg(test)]
 mod tests {
@@ -468,7 +459,7 @@ mod tests {
         };
 
         assert_eq!(tx.input, Bytes::new());
-        assert_eq!(tx.gas_price, U256::from(0x01u64));
+        assert_eq!(tx.gas_price, 0x01);
         assert_eq!(tx.gas_limit, 0x5208u64);
         assert_eq!(tx.nonce, 0x00u64);
         if let TxKind::Call(ref to) = tx.kind {
@@ -522,7 +513,7 @@ mod tests {
     impl_test_signed_transaction_encoding_round_trip! {
             pre_eip155 => transaction::request::Legacy {
                 nonce: 0,
-                gas_price: U256::from(1),
+                gas_price: 1,
                 gas_limit: 2,
                 kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
@@ -530,7 +521,7 @@ mod tests {
             },
             post_eip155 => transaction::request::Eip155 {
                 nonce: 0,
-                gas_price: U256::from(1),
+                gas_price: 1,
                 gas_limit: 2,
                 kind: TxKind::Create,
                 value: U256::from(3),
@@ -540,7 +531,7 @@ mod tests {
             eip2930 => transaction::request::Eip2930 {
                 chain_id: 1,
                 nonce: 0,
-                gas_price: U256::from(1),
+                gas_price: 1,
                 gas_limit: 2,
                 kind: TxKind::Call(Address::default()),
                 value: U256::from(3),
@@ -550,8 +541,8 @@ mod tests {
             eip1559 => transaction::request::Eip1559 {
                 chain_id: 1,
                 nonce: 0,
-                max_priority_fee_per_gas: U256::from(1),
-                max_fee_per_gas: U256::from(2),
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 2,
                 gas_limit: 3,
                 kind: TxKind::Create,
                 value: U256::from(4),
@@ -561,9 +552,9 @@ mod tests {
             eip4844 => transaction::request::Eip4844 {
                 chain_id: 1,
                 nonce: 0,
-                max_priority_fee_per_gas: U256::from(1),
-                max_fee_per_gas: U256::from(2),
-                max_fee_per_blob_gas: U256::from(7),
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 2,
+                max_fee_per_blob_gas: 7,
                 gas_limit: 3,
                 to: Address::random(),
                 value: U256::from(4),
@@ -580,7 +571,7 @@ mod tests {
         let bytes_first = hex::decode("f86b02843b9aca00830186a094d3e8763675e4c425df46cc3b5c0f6cbdac39604687038d7ea4c68000802ba00eb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5aea03a456401896b1b6055311536bf00a718568c744d8c1f9df59879e8350220ca18").unwrap();
         let expected = Signed::PostEip155Legacy(self::eip155::Eip155 {
             nonce: 2u64,
-            gas_price: U256::from(1000000000u64),
+            gas_price: 1000000000,
             gas_limit: 100000,
             kind: TxKind::Call(Address::from_slice(
                 &hex::decode("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap(),
@@ -615,7 +606,7 @@ mod tests {
         let bytes_second = hex::decode("f86b01843b9aca00830186a094d3e8763675e4c425df46cc3b5c0f6cbdac3960468702769bb01b2a00802ba0e24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0aa05406ad177223213df262cb66ccbb2f46bfdccfdfbbb5ffdda9e2c02d977631da").unwrap();
         let expected = Signed::PostEip155Legacy(self::eip155::Eip155 {
             nonce: 1,
-            gas_price: U256::from(1000000000u64),
+            gas_price: 1000000000,
             gas_limit: 100000,
             kind: TxKind::Call(Address::from_slice(
                 &hex::decode("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap(),
@@ -650,7 +641,7 @@ mod tests {
         let bytes_third = hex::decode("f86b0384773594008398968094d3e8763675e4c425df46cc3b5c0f6cbdac39604687038d7ea4c68000802ba0ce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071a03ca3ae86580e94550d7c071e3a02eadb5a77830947c9225165cf9100901bee88").unwrap();
         let expected = Signed::PostEip155Legacy(self::eip155::Eip155 {
             nonce: 3,
-            gas_price: U256::from(2000000000u64),
+            gas_price: 2000000000,
             gas_limit: 10000000,
             kind: TxKind::Call(Address::from_slice(
                 &hex::decode("d3e8763675e4c425df46cc3b5c0f6cbdac396046").unwrap(),
@@ -686,8 +677,8 @@ mod tests {
         let expected = Signed::Eip1559(self::eip1559::Eip1559 {
             chain_id: 4,
             nonce: 26,
-            max_priority_fee_per_gas: U256::from(1500000000u64),
-            max_fee_per_gas: U256::from(1500000013u64),
+            max_priority_fee_per_gas: 1500000000,
+            max_fee_per_gas: 1500000013,
             gas_limit: 21000,
             kind: TxKind::Call(Address::from_slice(
                 &hex::decode("61815774383099e24810ab832a5b2a5425c154d5").unwrap(),
@@ -723,7 +714,7 @@ mod tests {
         let bytes_fifth = hex::decode("f8650f84832156008287fb94cf7f9e66af820a19257a2108375b180b0ec491678204d2802ca035b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981a0612638fb29427ca33b9a3be2a0a561beecfe0269655be160d35e72d366a6a860").unwrap();
         let expected = Signed::PostEip155Legacy(self::eip155::Eip155 {
             nonce: 15u64,
-            gas_price: U256::from(2200000000u64),
+            gas_price: 2200000000,
             gas_limit: 34811,
             kind: TxKind::Call(Address::from_slice(
                 &hex::decode("cf7f9e66af820a19257a2108375b180b0ec49167").unwrap(),

@@ -1,14 +1,14 @@
 use edr_eth::{
     l1,
-    result::InvalidTransaction,
     transaction::{signed::FakeSign as _, TransactionValidation},
-    BlockSpec, Bytes, U256,
+    BlockSpec, Bytes,
 };
 use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::StateOverrideOptions;
 
 use crate::{
     data::ProviderData,
+    error::ProviderErrorForChainSpec,
     spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure,
@@ -21,7 +21,7 @@ pub fn handle_call_request<
         SignedTransaction: Clone
                                + Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -30,7 +30,7 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace<ChainSpecT::HaltReason>), ProviderError<ChainSpecT>> {
+) -> Result<(Bytes, Trace<ChainSpecT::HaltReason>), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =
@@ -73,7 +73,7 @@ pub(crate) fn resolve_call_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -82,7 +82,7 @@ pub(crate) fn resolve_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: &BlockSpec,
     state_overrides: &StateOverrides,
-) -> Result<ChainSpecT::SignedTransaction, ProviderError<ChainSpecT>> {
+) -> Result<ChainSpecT::SignedTransaction, ProviderErrorForChainSpec<ChainSpecT>> {
     let sender = request
         .maybe_sender()
         .copied()
@@ -92,13 +92,11 @@ pub(crate) fn resolve_call_request<
         data,
         block_spec,
         state_overrides,
-        default_gas_price_fn: |_data| Ok(U256::ZERO),
+        default_gas_price_fn: |_data| Ok(0),
         max_fees_fn: |_data, _block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
-            let max_fee_per_gas = max_fee_per_gas
-                .or(max_priority_fee_per_gas)
-                .unwrap_or(U256::ZERO);
+            let max_fee_per_gas = max_fee_per_gas.or(max_priority_fee_per_gas).unwrap_or(0);
 
-            let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or(U256::ZERO);
+            let max_priority_fee_per_gas = max_priority_fee_per_gas.unwrap_or(0);
 
             Ok((max_fee_per_gas, max_priority_fee_per_gas))
         },

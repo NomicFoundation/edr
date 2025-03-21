@@ -1,8 +1,6 @@
 /// Ethereum L1 hardforks.
 pub mod l1;
 
-use edr_eth::spec::HardforkTrait;
-
 /// Fork condition for a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum ForkCondition {
@@ -14,12 +12,12 @@ pub enum ForkCondition {
 
 /// A struct that stores the hardforks for a chain.
 #[derive(Clone, Debug)]
-pub struct Activations<HardforkT: HardforkTrait> {
+pub struct Activations<HardforkT> {
     /// (Start block number -> hardfork) mapping
     hardforks: Vec<(ForkCondition, HardforkT)>,
 }
 
-impl<HardforkT: HardforkTrait> Activations<HardforkT> {
+impl<HardforkT> Activations<HardforkT> {
     /// Constructs a new instance with the provided hardforks.
     pub fn new(hardforks: Vec<(ForkCondition, HardforkT)>) -> Self {
         Self { hardforks }
@@ -36,7 +34,9 @@ impl<HardforkT: HardforkTrait> Activations<HardforkT> {
     pub fn is_empty(&self) -> bool {
         self.hardforks.is_empty()
     }
+}
 
+impl<HardforkT: Clone> Activations<HardforkT> {
     /// Returns the hardfork's `SpecId` corresponding to the provided block
     /// number.
     pub fn hardfork_at_block(&self, block_number: u64, timestamp: u64) -> Option<HardforkT> {
@@ -47,11 +47,11 @@ impl<HardforkT: HardforkTrait> Activations<HardforkT> {
                 ForkCondition::Block(activation) => block_number >= *activation,
                 ForkCondition::Timestamp(activation) => timestamp >= *activation,
             })
-            .map(|entry| entry.1)
+            .map(|entry| entry.1.clone())
     }
 }
 
-impl<HardforkT: HardforkTrait> From<&[(ForkCondition, HardforkT)]> for Activations<HardforkT> {
+impl<HardforkT: Clone> From<&[(ForkCondition, HardforkT)]> for Activations<HardforkT> {
     fn from(hardforks: &[(ForkCondition, HardforkT)]) -> Self {
         Self {
             hardforks: hardforks.to_vec(),
@@ -61,7 +61,7 @@ impl<HardforkT: HardforkTrait> From<&[(ForkCondition, HardforkT)]> for Activatio
 
 impl<'deserializer, HardforkT> serde::Deserialize<'deserializer> for Activations<HardforkT>
 where
-    HardforkT: HardforkTrait + serde::Deserialize<'deserializer>,
+    HardforkT: serde::Deserialize<'deserializer>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -74,7 +74,7 @@ where
 
 impl<HardforkT> serde::Serialize for Activations<HardforkT>
 where
-    HardforkT: HardforkTrait + serde::Serialize,
+    HardforkT: serde::Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -85,7 +85,7 @@ where
 }
 
 /// Type that stores the configuration for a chain.
-pub struct ChainConfig<HardforkT: HardforkTrait> {
+pub struct ChainConfig<HardforkT> {
     /// Chain name
     pub name: String,
     /// Hardfork activations for the chain

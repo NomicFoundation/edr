@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use edr_eth::{bytecode::opcode::OpCode, result::HaltReason};
+use edr_eth::{bytecode::opcode::OpCode, l1};
 use edr_evm::trace::BeforeMessage;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3},
@@ -168,11 +168,11 @@ pub struct TracingMessageResult {
 #[napi]
 #[derive(Clone)]
 pub struct RawTrace {
-    inner: Arc<edr_evm::trace::Trace<HaltReason>>,
+    inner: Arc<edr_evm::trace::Trace<l1::HaltReason>>,
 }
 
-impl From<Arc<edr_evm::trace::Trace<HaltReason>>> for RawTrace {
-    fn from(value: Arc<edr_evm::trace::Trace<HaltReason>>) -> Self {
+impl From<Arc<edr_evm::trace::Trace<l1::HaltReason>>> for RawTrace {
+    fn from(value: Arc<edr_evm::trace::Trace<l1::HaltReason>>) -> Self {
         Self { inner: value }
     }
 }

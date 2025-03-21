@@ -1,9 +1,6 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
-use edr_eth::{
-    account::AccountInfo, block::BlobGas, spec::HardforkTrait, Address, ChainId, HashMap, B256,
-    U256,
-};
+use edr_eth::{account::AccountInfo, block::BlobGas, Address, ChainId, HashMap, B256, U256};
 use edr_evm::{hardfork, state::EvmStorage, MineOrdering};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -93,7 +90,7 @@ pub struct Mining {
 
 /// Configuration for the provider
 #[derive(Clone, Debug)]
-pub struct Provider<HardforkT: HardforkTrait> {
+pub struct Provider<HardforkT> {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
     pub accounts: Vec<OwnedAccount>,
@@ -110,11 +107,11 @@ pub struct Provider<HardforkT: HardforkTrait> {
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, Account>,
     pub hardfork: HardforkT,
-    pub initial_base_fee_per_gas: Option<U256>,
+    pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
-    pub min_gas_price: U256,
+    pub min_gas_price: u128,
     pub mining: Mining,
     pub network_id: u64,
 }

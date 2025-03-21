@@ -7,7 +7,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-alloy-sol-types = { version = "0.5.1", default-features = false, features = ["std"] }
+alloy-dyn-abi = { version = "0.8.22", default-features = false, features = ["eip712", "std"] }
+alloy-json-abi = { version = "0.8.22", default-features = false }
+alloy-sol-types = { version = "0.8.22", default-features = false, features = ["std"] }
 derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }

@@ -17,11 +17,9 @@ use edr_eth::{
     Address, Bytecode, HashMap, B256, U256,
 };
 use edr_rpc_eth::client::RpcClientError;
-use revm::DatabaseRef;
-pub use revm::{
-    database_interface::{Database, DatabaseCommit as StateCommit, WrapDatabaseRef},
-    state::{EvmState, EvmStorage, EvmStorageSlot},
-};
+pub use revm::state::{EvmState, EvmStorage, EvmStorageSlot};
+use revm::{context_interface::DBErrorMarker, DatabaseRef};
+pub use revm_database_interface::{Database, DatabaseCommit as StateCommit, WrapDatabaseRef};
 
 pub use self::{
     debug::{AccountModifierFn, StateDebug},
@@ -45,16 +43,25 @@ pub struct DatabaseComponents<BlockchainT, StateT> {
 }
 
 /// Wrapper type around a blockchain and state error.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DatabaseComponentError<BlockchainErrorT, StateErrorT> {
     /// Error caused by the blockchain.
+    #[error(transparent)]
     Blockchain(BlockchainErrorT),
     /// Error caused by the state.
+    #[error(transparent)]
     State(StateErrorT),
 }
 
-impl<BlockchainT: BlockHash, StateT: State> DatabaseRef
-    for DatabaseComponents<BlockchainT, StateT>
+impl<BlockchainErrorT, StateErrorT> DBErrorMarker
+    for DatabaseComponentError<BlockchainErrorT, StateErrorT>
+{
+}
+
+impl<BlockchainT, StateT> DatabaseRef for DatabaseComponents<BlockchainT, StateT>
+where
+    BlockchainT: BlockHash<Error: std::error::Error>,
+    StateT: State<Error: std::error::Error>,
 {
     type Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>;
 

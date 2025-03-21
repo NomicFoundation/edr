@@ -6,7 +6,7 @@ use crate::{
     eips::{eip2930, eip7702},
     keccak256,
     signature::{self, Fakeable},
-    transaction::{self, ExecutableTransaction, Transaction, TxKind},
+    transaction::{self, ExecutableTransaction, TxKind},
     Address, Bytes, B256, U256,
 };
 
@@ -14,10 +14,11 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Legacy {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub nonce: u64,
-    pub gas_price: U256,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub gas_price: u128,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -40,41 +41,6 @@ impl Legacy {
 }
 
 impl ExecutableTransaction for Legacy {
-    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
-        None
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        None
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        self.rlp_encoding
-            .get_or_init(|| alloy_rlp::encode(self).into())
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        None
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
-    }
-}
-
-impl PartialEq for Legacy {
-    fn eq(&self, other: &Self) -> bool {
-        self.nonce == other.nonce
-            && self.gas_price == other.gas_price
-            && self.gas_limit == other.gas_limit
-            && self.kind == other.kind
-            && self.value == other.value
-            && self.input == other.input
-            && self.signature == other.signature
-    }
-}
-
-impl Transaction for Legacy {
     fn caller(&self) -> &Address {
         self.signature.caller()
     }
@@ -83,7 +49,7 @@ impl Transaction for Legacy {
         self.gas_limit
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         &self.gas_price
     }
 
@@ -107,11 +73,19 @@ impl Transaction for Legacy {
         None
     }
 
-    fn access_list(&self) -> &[eip2930::AccessListItem] {
-        &[]
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+        None
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn effective_gas_price(&self, _block_base_fee: u128) -> Option<u128> {
+        None
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        None
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         None
     }
 
@@ -119,12 +93,37 @@ impl Transaction for Legacy {
         &[]
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         None
     }
 
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
+    fn total_blob_gas(&self) -> Option<u64> {
         None
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+        None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding
+            .get_or_init(|| alloy_rlp::encode(self).into())
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
+    }
+}
+
+impl PartialEq for Legacy {
+    fn eq(&self, other: &Self) -> bool {
+        self.nonce == other.nonce
+            && self.gas_price == other.gas_price
+            && self.gas_limit == other.gas_limit
+            && self.kind == other.kind
+            && self.value == other.value
+            && self.input == other.input
+            && self.signature == other.signature
     }
 }
 
@@ -142,7 +141,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
         struct Decodable {
             // The order of these fields determines decoding order.
             pub nonce: u64,
-            pub gas_price: U256,
+            pub gas_price: u128,
             pub gas_limit: u64,
             pub kind: TxKind,
             pub value: U256,
@@ -235,7 +234,7 @@ mod tests {
         let input = hex::decode("1234").unwrap();
         transaction::request::Legacy {
             nonce: 1,
-            gas_price: U256::from(2),
+            gas_price: 2,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),

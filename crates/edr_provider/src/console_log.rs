@@ -1,30 +1,10 @@
-use std::sync::Arc;
-
-use edr_eth::{address, result::EVMErrorWiring, Address, Bytes};
+use edr_eth::{address, Address, Bytes};
 use edr_evm::{
-    evm::{handler::register::EvmHandler, FrameOrResult},
-    GetContextData,
+    inspector::Inspector,
+    interpreter::{CallInputs, CallOutcome, EthInterpreter},
 };
 
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
-
-/// Registers the `ConsoleLogCollector`'s handles.
-pub fn register_console_log_handles<EvmWiringT>(handler: &mut EvmHandler<'_, EvmWiringT>)
-where
-    EvmWiringT: edr_evm::spec::EvmWiring<ExternalContext: GetContextData<ConsoleLogCollector>>,
-{
-    let old_handle = handler.execution.call.clone();
-    handler.execution.call = Arc::new(
-        move |ctx, inputs| -> Result<FrameOrResult, EVMErrorWiring<EvmWiringT>> {
-            if inputs.bytecode_address == CONSOLE_ADDRESS {
-                let collector = ctx.external.get_context_data();
-                collector.record_console_log(inputs.input.clone());
-            }
-
-            old_handle(ctx, inputs)
-        },
-    );
-}
 
 #[derive(Default)]
 pub struct ConsoleLogCollector {
@@ -39,6 +19,16 @@ impl ConsoleLogCollector {
 
     fn record_console_log(&mut self, encoded_message: Bytes) {
         self.encoded_messages.push(encoded_message);
+    }
+}
+
+impl<ContextT> Inspector<ContextT, EthInterpreter> for ConsoleLogCollector {
+    fn call(&mut self, _context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
+        if inputs.bytecode_address == CONSOLE_ADDRESS {
+            self.record_console_log(inputs.input.clone());
+        }
+
+        None
     }
 }
 
@@ -83,9 +73,9 @@ pub(crate) mod tests {
             value: U256::ZERO,
             input: byte_code.into(),
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(42_000_000_000_u64),
+            max_priority_fee_per_gas: 42_000_000_000_u128,
             chain_id: provider_data.chain_id(),
-            max_fee_per_gas: U256::from(42_000_000_000_u64),
+            max_fee_per_gas: 42_000_000_000_u128,
             access_list: vec![],
         });
 
@@ -123,9 +113,9 @@ pub(crate) mod tests {
             value: U256::ZERO,
             input: call_data.into(),
             nonce: 1,
-            max_priority_fee_per_gas: U256::from(42_000_000_000_u64),
+            max_priority_fee_per_gas: 42_000_000_000_u128,
             chain_id: provider_data.chain_id(),
-            max_fee_per_gas: U256::from(42_000_000_000_u64),
+            max_fee_per_gas: 42_000_000_000_u128,
             access_list: vec![],
         });
 

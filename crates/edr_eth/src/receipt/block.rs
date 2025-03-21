@@ -3,7 +3,7 @@ use std::ops::Deref;
 use alloy_rlp::BufMut;
 
 use super::{AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus, TransactionReceipt};
-use crate::{log::FilterLog, Address, Bloom, B256, U256};
+use crate::{log::FilterLog, Address, Bloom, B256};
 
 /// Type for a receipt that's included in a block.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -86,7 +86,7 @@ where
         self.inner.contract_address.as_ref()
     }
 
-    fn effective_gas_price(&self) -> Option<&U256> {
+    fn effective_gas_price(&self) -> Option<&u128> {
         self.inner.effective_gas_price.as_ref()
     }
 

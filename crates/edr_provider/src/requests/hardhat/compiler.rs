@@ -3,7 +3,10 @@ use edr_solidity::{
     compiler::create_models_and_decode_bytecodes,
 };
 
-use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, ProviderSpec};
+use crate::{
+    data::ProviderData, time::TimeSinceEpoch, ProviderError, ProviderErrorForChainSpec,
+    ProviderSpec,
+};
 
 pub fn handle_add_compilation_result<
     ChainSpecT: ProviderSpec<TimerT>,
@@ -13,7 +16,7 @@ pub fn handle_add_compilation_result<
     solc_version: String,
     compiler_input: CompilerInput,
     compiler_output: CompilerOutput,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Err(error) = add_compilation_result_inner::<ChainSpecT, TimerT>(
         data,
         solc_version,
@@ -37,7 +40,7 @@ fn add_compilation_result_inner<
     solc_version: String,
     compiler_input: CompilerInput,
     compiler_output: CompilerOutput,
-) -> Result<(), ProviderError<ChainSpecT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let contracts =
         create_models_and_decode_bytecodes(solc_version, &compiler_input, &compiler_output)
             .map_err(|err| ProviderError::SolcDecoding(err.to_string()))?;

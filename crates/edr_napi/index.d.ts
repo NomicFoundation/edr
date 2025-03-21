@@ -93,8 +93,7 @@ export declare function l1GenesisState(hardfork: SpecId): Array<Account>
 /**
  * Creates a new instance by matching the provided string.
  *
- * Defaults to `SpecId::Latest` if the string does not match any known
- * hardfork.
+ * Returns an error if the string does not match any known hardfork.
  */
 export declare function l1HardforkFromString(hardfork: string): SpecId
 export declare function l1ProviderFactory(): ProviderFactory
@@ -158,7 +157,7 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
-export const PRAGUE_EOF: string
+export const OSAKA: string
 export const LATEST: string
 /** Configuration for a chain */
 export interface ChainConfig {
@@ -400,7 +399,7 @@ export enum ExceptionalHalt {
   /** Aud data is smaller then already present data size. */
   EofAuxDataTooSmall = 15,
   /** EOF Subroutine stack overflow */
-  EOFFunctionStackOverflow = 16,
+  SubRoutineStackOverflow = 16,
   /** Check for target address validity is only done inside subcall. */
   InvalidEXTCALLTarget = 17
 }

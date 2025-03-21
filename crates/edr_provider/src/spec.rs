@@ -5,13 +5,12 @@ pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
     eips::eip2930,
     l1::L1ChainSpec,
-    result::HaltReason,
     rlp,
     transaction::{
         signed::{FakeSign, Sign},
-        IsSupported, Transaction,
+        ExecutableTransaction, IsSupported,
     },
-    Address, Blob, BlockSpec, B256, U256,
+    Address, Blob, BlockSpec, B256,
 };
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
@@ -20,7 +19,10 @@ use edr_evm::{
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
-use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderError, TransactionFailureReason};
+use crate::{
+    data::ProviderData, error::ProviderErrorForChainSpec, time::TimeSinceEpoch,
+    TransactionFailureReason,
+};
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RuntimeSpec<
@@ -35,7 +37,7 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     type PooledTransaction: HardforkValidationData
         + Into<Self::SignedTransaction>
         + rlp::Decodable
-        + Transaction;
+        + ExecutableTransaction;
 
     /// Type representing a transaction request.
     type TransactionRequest: FakeSign<Signed = Self::SignedTransaction>
@@ -44,12 +46,12 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
             Self::RpcCallRequest,
             TimerT,
             Context<'context> = CallContext<'context, Self, TimerT>,
-            Error = ProviderError<Self>,
+            Error = ProviderErrorForChainSpec<Self>,
         > + for<'context> FromRpcType<
             Self::RpcTransactionRequest,
             TimerT,
             Context<'context> = TransactionContext<'context, Self, TimerT>,
-            Error = ProviderError<Self>,
+            Error = ProviderErrorForChainSpec<Self>,
         >;
 
     /// Casts a halt reason into a transaction failure reason.
@@ -65,13 +67,13 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
         match reason {
-            HaltReason::CreateContractSizeLimit => {
+            Self::HaltReason::CreateContractSizeLimit => {
                 TransactionFailureReason::CreateContractSizeLimit
             }
-            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
+            Self::HaltReason::OpcodeNotFound | Self::HaltReason::InvalidFEOpcode => {
                 TransactionFailureReason::OpcodeNotFound
             }
-            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+            Self::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
             remainder => TransactionFailureReason::Inner(remainder),
         }
     }
@@ -84,13 +86,13 @@ pub trait HardforkValidationData {
     fn to(&self) -> Option<&Address>;
 
     /// Returns the gas price of the transaction.
-    fn gas_price(&self) -> Option<&U256>;
+    fn gas_price(&self) -> Option<&u128>;
 
     /// Returns the max fee per gas of the transaction.
-    fn max_fee_per_gas(&self) -> Option<&U256>;
+    fn max_fee_per_gas(&self) -> Option<&u128>;
 
     /// Returns the max priority fee per gas of the transaction.
-    fn max_priority_fee_per_gas(&self) -> Option<&U256>;
+    fn max_priority_fee_per_gas(&self) -> Option<&u128>;
 
     /// Returns the access list of the transaction.
     fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>>;
@@ -150,17 +152,18 @@ impl<ProviderSpecT: ProviderSpec<TimerT> + SyncRuntimeSpec, TimerT: Clone + Time
 }
 
 pub type DefaultGasPriceFn<ChainSpecT, TimerT> =
-    fn(&ProviderData<ChainSpecT, TimerT>) -> Result<U256, ProviderError<ChainSpecT>>;
+    fn(&ProviderData<ChainSpecT, TimerT>) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>>;
 
-pub type MaxFeesFn<ChainSpecT, TimerT> = fn(
-    &ProviderData<ChainSpecT, TimerT>,
-    // block_spec
-    &BlockSpec,
-    // max_fee_per_gas
-    Option<U256>,
-    // max_priority_fee_per_gas
-    Option<U256>,
-) -> Result<(U256, U256), ProviderError<ChainSpecT>>;
+pub type MaxFeesFn<ChainSpecT, TimerT> =
+    fn(
+        &ProviderData<ChainSpecT, TimerT>,
+        // block_spec
+        &BlockSpec,
+        // max_fee_per_gas
+        Option<u128>,
+        // max_priority_fee_per_gas
+        Option<u128>,
+    ) -> Result<(u128, u128), ProviderErrorForChainSpec<ChainSpecT>>;
 
 pub struct CallContext<
     'context,

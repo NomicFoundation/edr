@@ -5,10 +5,8 @@ use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
     block::BlobGas,
-    l1::L1ChainSpec,
-    result::InvalidTransaction,
+    l1::{self, L1ChainSpec},
     signature::secret_key_from_str,
-    spec::HardforkTrait,
     transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, KECCAK_EMPTY, U160, U256,
@@ -20,10 +18,11 @@ use tokio::runtime;
 
 use crate::{
     config,
+    error::ProviderErrorForChainSpec,
     requests::hardhat::rpc_types::ForkConfig,
     time::{CurrentTime, TimeSinceEpoch},
-    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderError,
-    ProviderRequest, ProviderSpec, SyncProviderSpec,
+    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderRequest,
+    ProviderSpec, SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =
@@ -36,7 +35,7 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
-pub fn create_test_config<HardforkT: HardforkTrait>() -> ProviderConfig<HardforkT> {
+pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
     create_test_config_with_fork(None)
 }
 
@@ -44,7 +43,7 @@ pub fn one_ether() -> U256 {
     U256::from(10).pow(U256::from(18))
 }
 
-pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
+pub fn create_test_config_with_fork<HardforkT: Default>(
     fork: Option<ForkConfig>,
 ) -> ProviderConfig<HardforkT> {
     // This is test code, it's ok to use `DangerousSecretKeyStr`
@@ -85,14 +84,14 @@ pub fn create_test_config_with_fork<HardforkT: HardforkTrait>(
         fork,
         genesis_state: HashMap::new(),
         hardfork: HardforkT::default(),
-        initial_base_fee_per_gas: Some(U256::from(1000000000)),
+        initial_base_fee_per_gas: Some(1000000000),
         initial_blob_gas: Some(BlobGas {
             gas_used: 0,
             excess_gas: 0,
         }),
         initial_date: Some(SystemTime::now()),
         initial_parent_beacon_block_root: Some(KECCAK_NULL_RLP),
-        min_gas_price: U256::ZERO,
+        min_gas_price: 0,
         mining: config::Mining::default(),
         network_id: 123,
         cache_dir: edr_defaults::CACHE_DIR.into(),
@@ -106,19 +105,16 @@ pub fn pending_base_fee<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<InvalidTransaction> + PartialEq,
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-) -> Result<U256, ProviderError<ChainSpecT>> {
+) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
     let block = data.mine_pending_block()?.block;
 
-    let base_fee = block
-        .header()
-        .base_fee_per_gas
-        .unwrap_or_else(|| U256::from(1));
+    let base_fee = block.header().base_fee_per_gas.unwrap_or(1);
 
     Ok(base_fee)
 }
@@ -163,7 +159,10 @@ pub struct ProviderTestFixture<ChainSpecT: ProviderSpec<CurrentTime>> {
     pub impersonated_account: Address,
 }
 
-impl<ChainSpecT: Debug + SyncProviderSpec<CurrentTime>> ProviderTestFixture<ChainSpecT> {
+impl<ChainSpecT> ProviderTestFixture<ChainSpecT>
+where
+    ChainSpecT: Debug + SyncProviderSpec<CurrentTime, Hardfork: Default>,
+{
     /// Creates a new `ProviderTestFixture` with a local provider.
     pub fn new_local() -> anyhow::Result<Self> {
         Self::with_fork(None)
@@ -261,7 +260,7 @@ impl ProviderTestFixture<L1ChainSpec> {
         let request = transaction::Request::Eip155(transaction::request::Eip155 {
             kind: TxKind::Call(Address::ZERO),
             gas_limit,
-            gas_price: U256::from(42_000_000_000_u64),
+            gas_price: 42_000_000_000_u128,
             value: U256::from(1),
             input: Bytes::default(),
             nonce: nonce.unwrap_or(0),

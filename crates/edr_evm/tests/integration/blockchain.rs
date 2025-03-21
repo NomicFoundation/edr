@@ -81,7 +81,7 @@ async fn create_dummy_blockchains(
 ) -> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>>>
 {
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
-    const DEFAULT_INITIAL_BASE_FEE: u64 = 1000000000;
+    const DEFAULT_INITIAL_BASE_FEE: u128 = 1000000000;
 
     let local_blockchain = LocalBlockchain::new(
         StateDiff::default(),
@@ -90,7 +90,7 @@ async fn create_dummy_blockchains(
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
-            base_fee: Some(U256::from(DEFAULT_INITIAL_BASE_FEE)),
+            base_fee: Some(DEFAULT_INITIAL_BASE_FEE),
             ..GenesisBlockOptions::default()
         },
     )
@@ -233,7 +233,7 @@ fn insert_dummy_block_with_transaction(
         &transaction,
         &execution_result,
         0,
-        U256::ZERO,
+        0,
         blockchain.hardfork(),
     );
 
@@ -376,7 +376,7 @@ async fn block_by_number_some() {
 async fn block_by_number_with_create() -> anyhow::Result<()> {
     use std::str::FromStr;
 
-    use edr_eth::transaction::{Transaction as _, TxKind};
+    use edr_eth::transaction::{ExecutableTransaction as _, TxKind};
 
     const DAI_CREATION_BLOCK_NUMBER: u64 = 4_719_568;
     const DAI_CREATION_TRANSACTION_INDEX: usize = 85;

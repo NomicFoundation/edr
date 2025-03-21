@@ -5,7 +5,7 @@ use edr_eth::{
         execution::{Eip658, Legacy},
         Execution,
     },
-    result::{ExecutionResult, HaltReason},
+    result::ExecutionResult,
     transaction::TransactionType,
 };
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
@@ -14,7 +14,8 @@ use crate::{eip2718::TypedEnvelope, transaction};
 
 pub struct Builder;
 
-impl ExecutionReceiptBuilder<HaltReason, l1::SpecId, transaction::SignedWithFallbackToPostEip155>
+impl
+    ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::SignedWithFallbackToPostEip155>
     for Builder
 {
     type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
@@ -30,7 +31,7 @@ impl ExecutionReceiptBuilder<HaltReason, l1::SpecId, transaction::SignedWithFall
         self,
         header: &edr_eth::block::PartialHeader,
         transaction: &crate::transaction::SignedWithFallbackToPostEip155,
-        result: &ExecutionResult<HaltReason>,
+        result: &ExecutionResult<l1::HaltReason>,
         hardfork: l1::SpecId,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();

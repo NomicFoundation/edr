@@ -17,17 +17,17 @@ pub mod hardfork;
 /// Types for Optimism receipts.
 pub mod receipt;
 mod spec;
-pub use self::spec::OptimismChainSpec;
+pub use self::spec::OpChainSpec;
 
 /// Optimism transaction types
 pub mod transaction;
 
 use edr_eth::U256;
-pub use revm_optimism::OptimismSpecId;
+pub use op_revm::{OpHaltReason, OpSpecId};
 
-/// Helper type for constructing an [`revm_optimism::L1BlockInfo`].
+/// Helper type for constructing an [`op_revm::L1BlockInfo`].
 ///
-/// This type duplicates [`revm_optimism::L1BlockInfo`] but excludes the private
+/// This type duplicates [`op_revm::L1BlockInfo`] but excludes the private
 /// field to allow manual construction.
 pub struct L1BlockInfo {
     /// The base fee of the L1 origin block.
@@ -43,7 +43,7 @@ pub struct L1BlockInfo {
     pub l1_blob_base_fee_scalar: Option<U256>,
 }
 
-impl From<L1BlockInfo> for revm_optimism::L1BlockInfo {
+impl From<L1BlockInfo> for op_revm::L1BlockInfo {
     fn from(value: L1BlockInfo) -> Self {
         // `revm_optimism::L1BlockInfo` contains a private field, so we need to
         // construct it like this
