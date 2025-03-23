@@ -36,3 +36,35 @@ pub struct DebugTraceLogItem {
     /// Map of all stored values with keys and values encoded as hex strings.
     pub storage: Option<HashMap<String, String>>,
 }
+
+#[napi(object)]
+pub struct RpcDebugTraceResult {
+    pub failed: bool,
+    pub gas: BigInt,
+    pub return_value: String,
+    pub struct_logs: Vec<RpcDebugTraceLogItem>,
+}
+
+#[napi(object)]
+pub struct RpcDebugTraceLogItem {
+    /// Program Counter
+    pub pc: BigInt,
+    /// Name of the operation
+    pub op: String,
+    /// Gas left before executing this operation as hex number.
+    pub gas: BigInt,
+    /// Gas cost of this operation as hex number.
+    pub gas_cost: BigInt,
+    /// Array of all values (hex numbers) on the stack
+    pub stack: Option<Vec<String>>,
+    /// Depth of the call stack
+    pub depth: BigInt,
+    /// Size of memory array
+    pub mem_size: BigInt,
+    /// Description of an error as a hex string.
+    pub error: Option<String>,
+    /// Array of all allocated values as hex strings.
+    pub memory: Option<Vec<String>>,
+    /// Map of all stored values with keys and values encoded as hex strings.
+    pub storage: Option<HashMap<String, String>>,
+}

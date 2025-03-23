@@ -141,6 +141,34 @@ export interface DebugTraceLogItem {
   /** Map of all stored values with keys and values encoded as hex strings. */
   storage?: Record<string, string>
 }
+export interface RpcDebugTraceResult {
+  failed: boolean
+  gas: bigint
+  returnValue: string
+  structLogs: Array<RpcDebugTraceLogItem>
+}
+export interface RpcDebugTraceLogItem {
+  /** Program Counter */
+  pc: bigint
+  /** Name of the operation */
+  op: string
+  /** Gas left before executing this operation as hex number. */
+  gas: bigint
+  /** Gas cost of this operation as hex number. */
+  gasCost: bigint
+  /** Array of all values (hex numbers) on the stack */
+  stack?: Array<string>
+  /** Depth of the call stack */
+  depth: bigint
+  /** Size of memory array */
+  memSize: bigint
+  /** Description of an error as a hex string. */
+  error?: string
+  /** Array of all allocated values as hex strings. */
+  memory?: Array<string>
+  /** Map of all stored values with keys and values encoded as hex strings. */
+  storage?: Record<string, string>
+}
 /** Ethereum execution log. */
 export interface ExecutionLog {
   address: Buffer
