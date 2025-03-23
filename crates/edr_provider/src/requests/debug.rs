@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use std::collections::HashMap;
 
 use edr_eth::{BlockSpec, B256};
 use edr_evm::{state::StateOverrides, trace::Trace, DebugTraceResult, DebugTraceResultWithTraces};
@@ -119,4 +120,51 @@ impl From<DebugTraceConfig> for edr_evm::DebugTraceConfig {
             disable_stack: disable_stack.unwrap_or_default(),
         }
     }
+}
+
+/// This is the JSON-RPC Debug trace format
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcDebugTraceResult {
+    pub failed: bool,
+    pub gas: u64,
+    pub return_value: String,
+    pub struct_logs: Vec<RpcDebugTraceLogItem>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcDebugTraceLogItem {
+    /// Program Counter
+    pub pc: u64,
+    /// Name of the operation
+    pub op: String,
+    /// Gas left before executing this operation as hex number.
+    pub gas: u64,
+    /// Gas cost of this operation as hex number.
+    pub gas_cost: u64,
+    /// Array of all values (hex numbers) on the stack
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stack: Option<Vec<String>>,
+    /// Depth of the call stack
+    pub depth: u64,
+    /// Size of memory array
+    pub mem_size: u64,
+    /// Description of an error as a hex string.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Array of all allocated values as hex strings.
+    #[serde(skip_serializing_if = "is_none_or_empty_vec")]
+    pub memory: Option<Vec<String>>,
+    /// Map of all stored values with keys and values encoded as hex strings.
+    #[serde(skip_serializing_if = "is_none_or_empty_map")]
+    pub storage: Option<HashMap<String, String>>,
+}
+
+fn is_none_or_empty_vec<T>(opt: &Option<Vec<T>>) -> bool {
+    opt.as_ref().map_or(true, Vec::is_empty)
+}
+
+fn is_none_or_empty_map<T, U>(opt: &Option<HashMap<T, U>>) -> bool {
+    opt.as_ref().map_or(true, HashMap::is_empty)
 }
