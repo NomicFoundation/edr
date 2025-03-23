@@ -2,7 +2,10 @@ mod config;
 
 use std::sync::Arc;
 
-use edr_provider::{time::CurrentTime, InvalidRequestReason};
+use edr_evm::DebugTraceResult;
+use edr_provider::{
+    time::CurrentTime, InvalidRequestReason, RpcDebugTraceLogItem, RpcDebugTraceResult,
+};
 use edr_rpc_eth::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
@@ -102,6 +105,9 @@ impl Provider {
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
     #[napi]
     pub async fn handle_request(&self, json_request: String) -> napi::Result<Response> {
+        let method_name = serde_json::from_str::<JsonRpcMethodExtractor>(&json_request)
+            .map_or_else(|_| "".to_string(), |m| m.method);
+
         let provider = self.provider.clone();
         let request = match serde_json::from_str(&json_request) {
             Ok(request) => request,
@@ -204,16 +210,49 @@ impl Provider {
                 }
             })
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
-            .map(|data| {
+            .and_then(|data| {
                 let solidity_trace = solidity_trace.map(|trace| SolidityTraceData {
                     trace,
                     contract_decoder: Arc::clone(&self.contract_decoder),
                 });
-                Response {
+
+                // Normalise JSON-RPC format for rpcDebugTrace
+                let data = if method_name == "debug_traceTransaction"
+                    || method_name == "debug_traceCall"
+                {
+                    let parsed_data: Result<DebugTraceResult, _> = match &data {
+                        Either::A(json_string) => {
+                            serde_json::from_str::<JsonRpcResponse<DebugTraceResult>>(json_string)
+                                .map(|r| r.result)
+                        }
+                        Either::B(json_value) => serde_json::from_value::<
+                            JsonRpcResponse<DebugTraceResult>,
+                        >(json_value.clone())
+                        .map(|r| r.result),
+                    };
+
+                    let trace_result = parsed_data.map_err(|e| {
+                        napi::Error::new(
+                            Status::GenericFailure,
+                            format!("Failed to parse DebugTraceResult: {e}"),
+                        )
+                    })?;
+
+                    let transformed = normalise_rpc_debug_trace(trace_result)
+                        .map_err(|e| napi::Error::new(Status::GenericFailure, e))?;
+                    let transformed = JsonRpcResponse {
+                        result: transformed,
+                    };
+                    Either::B(serde_json::to_value(transformed)?)
+                } else {
+                    data
+                };
+
+                Ok(Response {
                     solidity_trace,
                     data,
                     traces: traces.into_iter().map(Arc::new).collect(),
-                }
+                })
             })
     }
 
@@ -314,6 +353,16 @@ struct SolidityTraceData {
     contract_decoder: Arc<ContractDecoder>,
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
+struct JsonRpcResponse<T> {
+    result: T,
+}
+
+#[derive(serde::Deserialize)]
+struct JsonRpcMethodExtractor {
+    method: String,
+}
+
 #[napi]
 pub struct Response {
     // N-API is known to be slow when marshalling `serde_json::Value`s, so we try to return a
@@ -373,4 +422,59 @@ impl Response {
             Ok(None)
         }
     }
+}
+
+// Rust port of https://github.com/NomicFoundation/hardhat/blob/024d72b09c6edefb00c012e9514a0948c255d0ab/v-next/hardhat/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.ts#L176
+fn normalise_rpc_debug_trace(trace: DebugTraceResult) -> Result<serde_json::Value, String> {
+    let mut struct_logs = Vec::new();
+
+    for log in trace.logs {
+        let rpc_log = RpcDebugTraceLogItem {
+            pc: log.pc,
+            op: log.op_name,
+            gas: u64::from_str_radix(log.gas.trim_start_matches("0x"), 16).unwrap_or(0),
+            gas_cost: u64::from_str_radix(log.gas_cost.trim_start_matches("0x"), 16).unwrap_or(0),
+            stack: log.stack.map(|values| {
+                values
+                    .into_iter()
+                    .map(|value| value.trim_start_matches("0x").to_string())
+                    .collect()
+            }),
+            depth: log.depth,
+            mem_size: log.mem_size,
+            error: log.error,
+            memory: log.memory,
+            storage: log.storage.map(|storage| {
+                storage
+                    .into_iter()
+                    .map(|(key, value)| {
+                        let stripped_key = key.strip_prefix("0x").unwrap_or(&key).to_string();
+                        let stripped_value = value.strip_prefix("0x").unwrap_or(&value).to_string();
+                        (stripped_key, stripped_value)
+                    })
+                    .collect()
+            }),
+        };
+
+        struct_logs.push(rpc_log);
+    }
+
+    // REVM trace adds initial STOP that Hardhat doesn't expect
+    if !struct_logs.is_empty() && struct_logs[0].op == "STOP" {
+        struct_logs.remove(0);
+    }
+
+    let return_value = trace
+        .output
+        .map(|b| b.to_string().trim_start_matches("0x").to_string())
+        .unwrap();
+
+    let rpc_debug_trace = RpcDebugTraceResult {
+        failed: !trace.pass,
+        gas: trace.gas_used,
+        return_value,
+        struct_logs,
+    };
+
+    serde_json::to_value(rpc_debug_trace).map_err(|e| e.to_string())
 }
