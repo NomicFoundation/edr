@@ -22,12 +22,12 @@ edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_utils = { version = "0.3.5", path = "../edr_utils" }
-revm = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "20.0.0-alpha.2", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
-revm-context = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "1.0.0-alpha.2", default-features = false }
-revm-context-interface = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "1.0.0-alpha.2", default-features = false }
-revm-database-interface = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "1.0.0-alpha.2", default-features = false }
-revm-handler = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "1.0.0-alpha.2", default-features = false }
-revm-interpreter = { git = "https://github.com/nomicfoundation/revm", rev = "2bb6645", version = "16.0.0-alpha.2", default-features = false }
+revm = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "20.0.0-alpha.2", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
+revm-context = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.2", default-features = false }
+revm-context-interface = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.2", default-features = false }
+revm-database-interface = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.2", default-features = false }
+revm-handler = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.2", default-features = false }
+revm-interpreter = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "16.0.0-alpha.2", default-features = false }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { version = "1.0.209", default-features = false, features = ["std"] }
 serde_json = { version = "1.0.127", default-features = false, features = ["std"] }

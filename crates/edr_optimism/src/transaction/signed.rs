@@ -217,10 +217,10 @@ impl OpTxTrait for Signed {
         }
     }
 
-    fn is_system_transaction(&self) -> Option<bool> {
+    fn is_system_transaction(&self) -> bool {
         match self {
-            Signed::Deposit(tx) => Some(tx.is_system_tx),
-            _ => None,
+            Signed::Deposit(tx) => tx.is_system_tx,
+            _ => false,
         }
     }
 }
