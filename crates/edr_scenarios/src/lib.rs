@@ -35,7 +35,6 @@ pub struct ScenarioProviderConfig {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
     pub coinbase: Address,
-    #[serde(default)]
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, AccountConfig>,
