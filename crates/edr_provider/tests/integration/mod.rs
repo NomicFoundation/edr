@@ -1,3 +1,4 @@
+mod disable_balance_check;
 mod eip4844;
 mod eth_max_priority_fee_per_gas;
 mod eth_request_serialization;
