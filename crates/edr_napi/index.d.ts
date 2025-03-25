@@ -144,6 +144,8 @@ export interface DebugTraceLogItem {
 export interface RpcDebugTraceResult {
   failed: boolean
   gas: bigint
+  pass: boolean
+  gasUsed: bigint
   returnValue: string
   structLogs: Array<RpcDebugTraceLogItem>
 }

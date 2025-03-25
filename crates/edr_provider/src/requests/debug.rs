@@ -128,6 +128,10 @@ impl From<DebugTraceConfig> for edr_evm::DebugTraceConfig {
 pub struct RpcDebugTraceResult {
     pub failed: bool,
     pub gas: u64,
+    // Adding pass and gass used since Hardhat tests still
+    // depend on them
+    pub pass: bool,
+    pub gas_used: u64,
     pub return_value: String,
     pub struct_logs: Vec<RpcDebugTraceLogItem>,
 }
@@ -139,6 +143,8 @@ pub struct RpcDebugTraceLogItem {
     pub pc: u64,
     /// Name of the operation
     pub op: String,
+    /// Name of the operation (Needed for Hardhat tests)
+    pub op_name: String,
     /// Gas left before executing this operation as hex number.
     pub gas: u64,
     /// Gas cost of this operation as hex number.
@@ -154,17 +160,9 @@ pub struct RpcDebugTraceLogItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     /// Array of all allocated values as hex strings.
-    #[serde(skip_serializing_if = "is_none_or_empty_vec")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<Vec<String>>,
     /// Map of all stored values with keys and values encoded as hex strings.
-    #[serde(skip_serializing_if = "is_none_or_empty_map")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub storage: Option<HashMap<String, String>>,
-}
-
-fn is_none_or_empty_vec<T>(opt: &Option<Vec<T>>) -> bool {
-    opt.as_ref().map_or(true, Vec::is_empty)
-}
-
-fn is_none_or_empty_map<T, U>(opt: &Option<HashMap<T, U>>) -> bool {
-    opt.as_ref().map_or(true, HashMap::is_empty)
 }

@@ -41,6 +41,8 @@ pub struct DebugTraceLogItem {
 pub struct RpcDebugTraceResult {
     pub failed: bool,
     pub gas: BigInt,
+    pub pass: bool,
+    pub gas_used: BigInt,
     pub return_value: String,
     pub struct_logs: Vec<RpcDebugTraceLogItem>,
 }
