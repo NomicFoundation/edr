@@ -37,16 +37,33 @@ pub struct DebugTraceLogItem {
     pub storage: Option<HashMap<String, String>>,
 }
 
+/// Result of `debug_traceTransaction` and `debug_traceCall` after
+/// normalisation. `pass` and `gas_used` exist before normalisation. They will
+/// be replaced by `failed` and `gas` respectively. They currently exist
+/// together because Hardhat still depends on them but `pass` and `gas_used`
+/// should likely to be removed after a while.
 #[napi(object)]
 pub struct RpcDebugTraceResult {
+    /// Whether transaction was executed successfully.
     pub failed: bool,
+    /// All gas used by the transaction.
+    /// This field is similar to gas_used but it is what Hardhat expects after
+    /// normalisation
     pub gas: BigInt,
+    /// Whether transaction was executed successfully.
+    /// This field is similar to failed but it is what Hardhat expects after
+    /// normalisation
     pub pass: bool,
+    /// All gas used by the transaction.
     pub gas_used: BigInt,
+    /// Return values of the function.
     pub return_value: String,
+    /// Debug logs after normalisation
     pub struct_logs: Vec<RpcDebugTraceLogItem>,
 }
 
+/// Debug logs after normalising the EIP-3155 debug logs.
+/// This is the format Hardhat expects
 #[napi(object)]
 pub struct RpcDebugTraceLogItem {
     /// Program Counter

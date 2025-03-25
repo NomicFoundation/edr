@@ -141,14 +141,36 @@ export interface DebugTraceLogItem {
   /** Map of all stored values with keys and values encoded as hex strings. */
   storage?: Record<string, string>
 }
+/**
+ * Result of `debug_traceTransaction` and `debug_traceCall` after normalisation.
+ * `pass` and `gas_used` exist before normalisation. They will be replaced by `failed`
+ * and `gas` respectively. They currently exist together because Hardhat still depends
+ * on them but `pass` and `gas_used` should likely to be removed after a while.
+ */
 export interface RpcDebugTraceResult {
+  /** Whether transaction was executed successfully. */
   failed: boolean
+  /**
+   * All gas used by the transaction.
+   * This field is similar to gas_used but it is what Hardhat expects after normalisation
+   */
   gas: bigint
+  /**
+   * Whether transaction was executed successfully.
+   * This field is similar to failed but it is what Hardhat expects after normalisation
+   */
   pass: boolean
+  /** All gas used by the transaction. */
   gasUsed: bigint
+  /** Return values of the function. */
   returnValue: string
+  /** Debug logs after normalisation */
   structLogs: Array<RpcDebugTraceLogItem>
 }
+/**
+ * Debug logs after normalising the EIP-3155 debug logs.
+ * This is the format Hardhat expects
+ */
 export interface RpcDebugTraceLogItem {
   /** Program Counter */
   pc: bigint
