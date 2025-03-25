@@ -473,7 +473,7 @@ describe("Provider", () => {
         providerConfig,
         loggerConfig,
         {},
-        (_event: SubscriptionEvent) => { }
+        (_event: SubscriptionEvent) => {}
       );
 
       const traceCallResponse = await provider.handleRequest(

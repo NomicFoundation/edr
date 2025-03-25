@@ -236,12 +236,12 @@ impl Provider {
                             let transformed = normalise_rpc_debug_trace(trace_result)
                                 .map_err(|e| napi::Error::new(Status::GenericFailure, e))?;
 
-                            let transformed = JsonRpcResponse { result: transformed };
+                            let transformed = JsonRpcResponse {
+                                result: transformed,
+                            };
                             Either::B(serde_json::to_value(transformed)?)
                         }
-                        Err(_) => {
-                            data
-                        }
+                        Err(_) => data,
                     }
                 } else {
                     data
@@ -451,7 +451,8 @@ fn normalise_rpc_debug_trace(trace: DebugTraceResult) -> Result<serde_json::Valu
                     // Removing this trim temporarily as the Hardhat test assumes 0x is there
                     // .map(|(key, value)| {
                     //     let stripped_key = key.strip_prefix("0x").unwrap_or(&key).to_string();
-                    //     let stripped_value = value.strip_prefix("0x").unwrap_or(&value).to_string();
+                    //     let stripped_value =
+                    // value.strip_prefix("0x").unwrap_or(&value).to_string();
                     //     (stripped_key, stripped_value)
                     // })
                     .collect()
