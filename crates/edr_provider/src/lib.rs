@@ -382,10 +382,12 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static, TimerT: Clone + TimeSinceEpoch
             // debug_* methods
             MethodInvocation::DebugTraceTransaction(transaction_hash, config) => {
                 debug::handle_debug_trace_transaction(data, transaction_hash, config)
+                    .and_then(normalise_rpc_debug_trace)
                     .and_then(to_json_with_traces)
             }
             MethodInvocation::DebugTraceCall(call_request, block_spec, config) => {
                 debug::handle_debug_trace_call(data, call_request, block_spec, config)
+                    .and_then(normalise_rpc_debug_trace)
                     .and_then(to_json_with_traces)
             }
 
@@ -515,4 +517,71 @@ fn to_json_with_traces<T: serde::Serialize, LoggerErrorT: Debug>(
         result: response,
         traces: value.1,
     })
+}
+
+// Rust port of https://github.com/NomicFoundation/hardhat/blob/024d72b09c6edefb00c012e9514a0948c255d0ab/v-next/hardhat/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.ts#L176
+/// This normalization is done because this is the format Hardhat expects
+fn normalise_rpc_debug_trace<LoggerErrorT: Debug>(
+    value: (edr_evm::DebugTraceResult, Vec<Trace>),
+) -> Result<(RpcDebugTraceResult, Vec<Trace>), ProviderError<LoggerErrorT>> {
+    let trace = value.0;
+
+    let mut struct_logs = Vec::new();
+
+    for log in trace.logs {
+        let rpc_log = RpcDebugTraceLogItem {
+            pc: log.pc,
+            op: log.op_name.clone(),
+            op_name: log.op_name,
+            gas: u64::from_str_radix(log.gas.trim_start_matches("0x"), 16).unwrap_or(0),
+            gas_cost: u64::from_str_radix(log.gas_cost.trim_start_matches("0x"), 16).unwrap_or(0),
+            stack: log.stack.map(|values| {
+                values
+                    .into_iter()
+                    // Removing this trim temporarily as the Hardhat test assumes 0x is there
+                    // .map(|value| value.trim_start_matches("0x").to_string())
+                    .collect()
+            }),
+            depth: log.depth,
+            mem_size: log.mem_size,
+            error: log.error,
+            memory: log.memory,
+            storage: log.storage.map(|storage| {
+                storage
+                    .into_iter()
+                    // Removing this trim temporarily as the Hardhat test assumes 0x is there
+                    // .map(|(key, value)| {
+                    //     let stripped_key = key.strip_prefix("0x").unwrap_or(&key).to_string();
+                    //     let stripped_value =
+                    // value.strip_prefix("0x").unwrap_or(&value).to_string();
+                    //     (stripped_key, stripped_value)
+                    // })
+                    .collect()
+            }),
+        };
+
+        struct_logs.push(rpc_log);
+    }
+
+    // REVM trace adds initial STOP that Hardhat doesn't expect
+    if !struct_logs.is_empty() && struct_logs[0].op == "STOP" {
+        struct_logs.remove(0);
+    }
+
+    let return_value = trace
+        .output
+        .map(|b| b.to_string().trim_start_matches("0x").to_string())
+        .unwrap_or_default();
+
+    Ok((
+        RpcDebugTraceResult {
+            failed: !trace.pass,
+            gas: trace.gas_used,
+            pass: trace.pass,
+            gas_used: trace.gas_used,
+            return_value,
+            struct_logs,
+        },
+        value.1,
+    ))
 }
