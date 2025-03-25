@@ -6,7 +6,7 @@ use crate::{
     eips::{eip2930, eip7702},
     keccak256,
     signature::{self, Fakeable},
-    transaction::{self, ExecutableTransaction, Transaction, TxKind},
+    transaction::{self, ExecutableTransaction, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
@@ -15,12 +15,13 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip2930 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub nonce: u64,
-    pub gas_price: U256,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub gas_price: u128,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -45,46 +46,6 @@ impl Eip2930 {
 }
 
 impl ExecutableTransaction for Eip2930 {
-    fn effective_gas_price(&self, _block_base_fee: U256) -> Option<U256> {
-        None
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        None
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        self.rlp_encoding.get_or_init(|| {
-            let mut encoded = Vec::with_capacity(1 + self.length());
-            enveloped(Self::TYPE, self, &mut encoded);
-            encoded.into()
-        })
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        None
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
-    }
-}
-
-impl PartialEq for Eip2930 {
-    fn eq(&self, other: &Self) -> bool {
-        self.chain_id == other.chain_id
-            && self.nonce == other.nonce
-            && self.gas_price == other.gas_price
-            && self.gas_limit == other.gas_limit
-            && self.kind == other.kind
-            && self.value == other.value
-            && self.input == other.input
-            && self.access_list == other.access_list
-            && self.signature == other.signature
-    }
-}
-
-impl Transaction for Eip2930 {
     fn caller(&self) -> &Address {
         self.signature.caller()
     }
@@ -93,7 +54,7 @@ impl Transaction for Eip2930 {
         self.gas_limit
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         &self.gas_price
     }
 
@@ -117,11 +78,19 @@ impl Transaction for Eip2930 {
         Some(self.chain_id)
     }
 
-    fn access_list(&self) -> &[eip2930::AccessListItem] {
-        &self.access_list.0
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+        Some(&self.access_list)
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn effective_gas_price(&self, _block_base_fee: u128) -> Option<u128> {
+        None
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        None
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         None
     }
 
@@ -129,12 +98,42 @@ impl Transaction for Eip2930 {
         &[]
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         None
     }
 
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
+    fn total_blob_gas(&self) -> Option<u64> {
         None
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+        None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
+        })
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
+    }
+}
+
+impl PartialEq for Eip2930 {
+    fn eq(&self, other: &Self) -> bool {
+        self.chain_id == other.chain_id
+            && self.nonce == other.nonce
+            && self.gas_price == other.gas_price
+            && self.gas_limit == other.gas_limit
+            && self.kind == other.kind
+            && self.value == other.value
+            && self.input == other.input
+            && self.access_list == other.access_list
+            && self.signature == other.signature
     }
 }
 
@@ -143,7 +142,7 @@ struct Decodable {
     // The order of these fields determines decoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub gas_price: U256,
+    pub gas_price: u128,
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -207,7 +206,7 @@ mod tests {
         transaction::request::Eip2930 {
             chain_id: 1,
             nonce: 1,
-            gas_price: U256::from(2),
+            gas_price: 2,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),

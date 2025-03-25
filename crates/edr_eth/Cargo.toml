@@ -5,10 +5,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.89"
-alloy-eips = { version = "0.3", default-features = false }
-alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
+alloy-eips = { version = "0.12.4", default-features = false }
+alloy-rlp = { version = "0.3.11", default-features = false, features = ["derive"] }
+alloy-serde = { version = "0.12.4", default-features = false, features = ["std"] }
 auto_impl = { version = "1.2", default-features = false }
-c-kzg = { version = "1.0.3", default-features = false }
+c-kzg = { version = "1.0.3", default-features = false, features = ["ethereum_kzg_settings"] }
 derive-where = { version = "1.2.7", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
@@ -18,11 +19,11 @@ itertools = { version = "0.10.5", default-features = false, features = ["use_all
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", ] }
 log = { version = "0.4.17", default-features = false }
 once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "race", "std"] }
-revm-bytecode = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", version = "1.0.0", default-features = false }
-revm-primitives = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", version = "9.0", default-features = false, features = ["hashbrown", "rand"] }
-revm-specification = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", version = "1.0.0", default-features = false }
-revm-state = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", version = "1.0.0", default-features = false }
-revm-wiring = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", version = "1.0.0", default-features = false, features = ["c-kzg", "dev"] }
+revm-bytecode = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.2", default-features = false }
+revm-context = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.2", default-features = false }
+revm-context-interface = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.2", default-features = false }
+revm-primitives = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "16.0.0-alpha.2", default-features = false, features = ["hashbrown", "rand"] }
+revm-state = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.2", default-features = false }
 serde = { version = "1.0.209", default-features = false, features = ["derive"], optional = true }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
@@ -46,8 +47,8 @@ tokio = { version = "1.23.0", features = ["macros"] }
 [features]
 default = ["std"]
 rand = ["revm-primitives/rand"]
-serde = ["dep:serde", "c-kzg/serde", "revm-bytecode/serde", "revm-primitives/serde", "revm-specification/serde", "revm-state/serde", "revm-wiring/serde"]
-std = ["alloy-eips/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-bytecode/std", "revm-primitives/std", "revm-specification/std", "revm-state/serde", "revm-wiring/serde", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
+serde = ["dep:serde", "alloy-eips/serde", "c-kzg/serde", "revm-bytecode/serde", "revm-primitives/serde", "revm-state/serde"]
+std = ["alloy-eips/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-bytecode/std", "revm-primitives/std", "revm-state/serde", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
 test-remote = []
 tracing = ["dep:tracing"]
 

@@ -1,256 +1,215 @@
-use std::fmt::Debug;
-
 use edr_eth::{
     l1,
-    result::{ExecutionResult, InvalidTransaction, ResultAndState},
-    transaction::{ExecutableTransaction as _, TransactionValidation},
+    result::{ExecutionResult, ExecutionResultAndState},
+    transaction::TransactionValidation,
     Address, HashMap,
 };
-use revm::{precompile::Precompile, wiring::HaltReasonTrait, ContextPrecompile, Evm};
+use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
 
 use crate::{
-    blockchain::SyncBlockchain,
-    config::{CfgEnv, Env},
-    debug::DebugContext,
-    precompile::register_precompiles_handles,
-    spec::RuntimeSpec,
-    state::{DatabaseComponents, EvmState, State, StateCommit, WrapDatabaseRef},
-    transaction::TransactionError,
+    blockchain::BlockHash,
+    config::CfgEnv,
+    precompile::OverriddenPrecompileProvider,
+    result::EVMError,
+    spec::{ContextForChainSpec, RuntimeSpec},
+    state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
+    transaction::{TransactionError, TransactionErrorForChainSpec},
 };
 
-/// Asynchronous implementation of the Database super-trait
-pub type SyncDatabase<'blockchain, 'state, ChainSpecT, BlockchainErrorT, StateErrorT> =
-    DatabaseComponents<
-        &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-        &'state dyn State<Error = StateErrorT>,
-    >;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChainResult<ChainContextT, HaltReasonT: HaltReasonTrait> {
-    /// Status of execution
-    pub result: ExecutionResult<HaltReasonT>,
-    /// State that got updated
-    pub state: EvmState,
-    /// Chain context
-    pub chain_context: ChainContextT,
-}
-
 /// Runs a transaction without committing the state.
-// `DebugContext` cannot be simplified further
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn dry_run<'blockchain, 'evm, ChainSpecT, DebugDataT, BlockchainErrorT, StateT>(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
+pub fn dry_run<BlockchainT, ChainSpecT, StateT>(
+    blockchain: BlockchainT,
     state: StateT,
-    cfg: CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, Precompile>,
-    debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
-    ChainResult<ChainSpecT::Context, ChainSpecT::HaltReason>,
-    TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
+    ExecutionResultAndState<ChainSpecT::HaltReason>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
-    'blockchain: 'evm,
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateT: State<Error: Debug + Send>,
+    StateT: State<Error: Send + std::error::Error>,
 {
-    validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(hardfork, &transaction)?;
+    let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
-    let env = Env::boxed(cfg, block, transaction);
-    let result = {
-        if let Some(debug_context) = debug_context {
-            let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
-                .iter()
-                .map(|(address, precompile)| {
-                    (*address, ContextPrecompile::from(precompile.clone()))
-                })
-                .collect();
-
-            let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-                .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
-                .with_external_context(debug_context.data)
-                .with_env(env)
-                .with_spec_id(hardfork)
-                .append_handler_register(debug_context.register_handles_fn)
-                .append_handler_register_box(Box::new(move |handler| {
-                    register_precompiles_handles(handler, precompiles.clone());
-                }))
-                .build();
-
-            evm.transact()
-                .map(|ResultAndState { result, state }| ChainResult {
-                    result,
-                    state,
-                    chain_context: evm.into_context().evm.inner.chain,
-                })
-        } else {
-            let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
-                .iter()
-                .map(|(address, precompile)| {
-                    (*address, ContextPrecompile::from(precompile.clone()))
-                })
-                .collect();
-
-            let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-                .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
-                .with_external_context(())
-                .with_env(env)
-                .with_spec_id(hardfork)
-                .append_handler_register_box(Box::new(move |handler| {
-                    register_precompiles_handles(handler, precompiles.clone());
-                }))
-                .build();
-
-            evm.transact()
-                .map(|ResultAndState { result, state }| ChainResult {
-                    result,
-                    state,
-                    chain_context: evm.into_context().evm.inner.chain,
-                })
-        }
+    let context = revm::Context {
+        block,
+        tx: transaction,
+        journaled_state: Journal::new(cfg.spec.into(), database),
+        cfg,
+        chain: ChainSpecT::Context::default(),
+        error: Ok(()),
     };
 
-    result.map_err(TransactionError::from)
+    let mut evm = ChainSpecT::evm(context);
+    evm.replay().map_err(|error| match error {
+        EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
+        EVMError::Header(error) => TransactionError::InvalidHeader(error),
+        EVMError::Database(error) => error.into(),
+        EVMError::Custom(error) => TransactionError::Custom(error),
+    })
+}
+
+/// Runs a transaction while observing with an inspector, without committing the
+/// state.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
+pub fn dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, StateT>(
+    blockchain: BlockchainT,
+    state: StateT,
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
+    transaction: ChainSpecT::SignedTransaction,
+    block: ChainSpecT::BlockEnv,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
+    inspector: &mut InspectorT,
+) -> Result<
+    ExecutionResultAndState<ChainSpecT::HaltReason>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
+>
+where
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+    >,
+    StateT: State<Error: Send + std::error::Error>,
+    InspectorT: Inspector<
+        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+    >,
+{
+    let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
+
+    let context = revm::Context {
+        block,
+        tx: transaction,
+        journaled_state: Journal::new(cfg.spec.into(), database),
+        cfg,
+        chain: ChainSpecT::Context::default(),
+        error: Ok(()),
+    };
+
+    let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
+        ChainSpecT::PrecompileProvider::default(),
+        custom_precompiles.clone(),
+    );
+
+    let mut evm = ChainSpecT::evm_with_inspector(context, inspector, precompile_provider);
+    evm.inspect_replay().map_err(|error| match error {
+        EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
+        EVMError::Header(error) => TransactionError::InvalidHeader(error),
+        EVMError::Database(error) => error.into(),
+        EVMError::Custom(error) => TransactionError::Custom(error),
+    })
 }
 
 /// Runs a transaction without committing the state, while disabling balance
 /// checks and creating accounts for new addresses.
-// `DebugContext` cannot be simplified further
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn guaranteed_dry_run<
-    'blockchain,
-    'evm,
-    'state,
-    ChainSpecT,
-    DebugDataT,
-    BlockchainErrorT,
-    StateT,
->(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
+pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, StateT>(
+    blockchain: BlockchainT,
     state: StateT,
-    mut cfg: CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+    mut cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, Precompile>,
-    debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
-    ChainResult<ChainSpecT::Context, ChainSpecT::HaltReason>,
-    TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
+    ExecutionResultAndState<ChainSpecT::HaltReason>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
-    'blockchain: 'evm,
-    'state: 'evm,
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateT: State<Error: Debug + Send>,
+    StateT: State<Error: Send + std::error::Error>,
 {
-    cfg.disable_balance_check = true;
-    cfg.disable_block_gas_limit = true;
-    cfg.disable_nonce_check = true;
-    dry_run(
+    set_guarantees(&mut cfg);
+
+    dry_run::<_, ChainSpecT, _>(blockchain, state, cfg, transaction, block)
+}
+
+/// Runs a transaction while observing with an inspector, without committing the
+/// state, while disabling balance checks and creating accounts for new
+/// addresses.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
+pub fn guaranteed_dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, StateT>(
+    blockchain: BlockchainT,
+    state: StateT,
+    mut cfg: CfgEnv<ChainSpecT::Hardfork>,
+    transaction: ChainSpecT::SignedTransaction,
+    block: ChainSpecT::BlockEnv,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
+    inspector: &mut InspectorT,
+) -> Result<
+    ExecutionResultAndState<ChainSpecT::HaltReason>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
+>
+where
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    ChainSpecT: RuntimeSpec<
+        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+    >,
+    InspectorT: Inspector<
+        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+    >,
+    StateT: State<Error: Send + std::error::Error>,
+{
+    set_guarantees(&mut cfg);
+
+    dry_run_with_inspector::<_, ChainSpecT, _, _>(
         blockchain,
         state,
         cfg,
-        hardfork,
         transaction,
         block,
         custom_precompiles,
-        debug_context,
+        inspector,
     )
 }
 
 /// Runs a transaction, committing the state in the process.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-#[allow(clippy::too_many_arguments)]
-pub fn run<'blockchain, 'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>(
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateT::Error>,
-    state: StateT,
-    cfg: CfgEnv,
-    hardfork: ChainSpecT::Hardfork,
+// Cannot meaningfully be simplified further
+#[allow(clippy::type_complexity)]
+pub fn run<BlockchainT, ChainSpecT, StateT>(
+    blockchain: BlockchainT,
+    mut state: StateT,
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
-    custom_precompiles: &HashMap<Address, Precompile>,
-    debug_context: Option<DebugContext<'evm, ChainSpecT, BlockchainErrorT, DebugDataT, StateT>>,
 ) -> Result<
     ExecutionResult<ChainSpecT::HaltReason>,
-    TransactionError<ChainSpecT, BlockchainErrorT, StateT::Error>,
+    TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
 >
 where
-    'blockchain: 'evm,
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
-    BlockchainErrorT: Debug + Send,
-    StateT: State + StateCommit,
-    StateT::Error: Debug + Send,
+    StateT: State<Error: Send + std::error::Error> + StateCommit,
 {
-    validate_configuration::<ChainSpecT, BlockchainErrorT, StateT::Error>(hardfork, &transaction)?;
+    let ExecutionResultAndState {
+        result,
+        state: state_diff,
+    } = dry_run::<_, ChainSpecT, _>(blockchain, &state, cfg, transaction, block)?;
 
-    let env = Env::boxed(cfg, block, transaction);
-
-    let result = if let Some(debug_context) = debug_context {
-        let precompiles: HashMap<Address, ContextPrecompile<ChainSpecT::EvmWiring<_, _>>> =
-            custom_precompiles
-                .iter()
-                .map(|(address, precompile)| {
-                    (*address, ContextPrecompile::from(precompile.clone()))
-                })
-                .collect();
-
-        let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-            .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
-            .with_external_context(debug_context.data)
-            .with_env(env)
-            .with_spec_id(hardfork)
-            .append_handler_register(debug_context.register_handles_fn)
-            .append_handler_register_box(Box::new(move |handler| {
-                register_precompiles_handles(handler, precompiles.clone());
-            }))
-            .build();
-
-        evm.transact_commit()
-    } else {
-        let precompiles: HashMap<Address, ContextPrecompile<ChainSpecT::EvmWiring<_, _>>> =
-            custom_precompiles
-                .iter()
-                .map(|(address, precompile)| {
-                    (*address, ContextPrecompile::from(precompile.clone()))
-                })
-                .collect();
-
-        let mut evm = Evm::<ChainSpecT::EvmWiring<_, _>>::builder()
-            .with_db(WrapDatabaseRef(DatabaseComponents { blockchain, state }))
-            .with_external_context(())
-            .with_env(env)
-            .with_spec_id(hardfork)
-            .append_handler_register_box(Box::new(move |handler| {
-                register_precompiles_handles(handler, precompiles.clone());
-            }))
-            .build();
-
-        evm.transact_commit()
-    }?;
+    state.commit(state_diff);
 
     Ok(result)
 }
 
-fn validate_configuration<ChainSpecT: RuntimeSpec, BlockchainErrorT, StateErrorT>(
-    hardfork: ChainSpecT::Hardfork,
-    transaction: &ChainSpecT::SignedTransaction,
-) -> Result<(), TransactionError<ChainSpecT, BlockchainErrorT, StateErrorT>> {
-    if transaction.max_fee_per_gas().is_some() && Into::into(hardfork) < l1::SpecId::LONDON {
-        return Err(TransactionError::Eip1559Unsupported);
-    }
-
-    Ok(())
+fn set_guarantees<HardforkT: Into<l1::SpecId>>(config: &mut CfgEnv<HardforkT>) {
+    config.disable_balance_check = true;
+    config.disable_block_gas_limit = true;
+    config.disable_nonce_check = true;
 }

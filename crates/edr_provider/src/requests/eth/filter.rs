@@ -8,6 +8,7 @@ use edr_evm::Block as _;
 
 use crate::{
     data::ProviderData,
+    error::ProviderErrorForChainSpec,
     filter::LogFilter,
     requests::validation::validate_post_merge_block_tags,
     spec::{ProviderSpec, SyncProviderSpec},
@@ -21,7 +22,7 @@ pub fn handle_get_filter_changes_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_id: U256,
-) -> Result<Option<FilteredEvents>, ProviderError<ChainSpecT>> {
+) -> Result<Option<FilteredEvents>, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(data.get_filter_changes(&filter_id))
 }
 
@@ -31,7 +32,7 @@ pub fn handle_get_filter_logs_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_id: U256,
-) -> Result<Option<Vec<LogOutput>>, ProviderError<ChainSpecT>> {
+) -> Result<Option<Vec<LogOutput>>, ProviderErrorForChainSpec<ChainSpecT>> {
     data.get_filter_logs(&filter_id)
 }
 
@@ -41,14 +42,14 @@ pub fn handle_get_logs_request<
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
     filter_options: LogFilterOptions,
-) -> Result<Vec<LogOutput>, ProviderError<ChainSpecT>> {
+) -> Result<Vec<LogOutput>, ProviderErrorForChainSpec<ChainSpecT>> {
     let hardfork = data.hardfork();
     // Hardhat integration tests expect validation in this order.
     if let Some(from_block) = &filter_options.from_block {
-        validate_post_merge_block_tags(hardfork, from_block)?;
+        validate_post_merge_block_tags::<ChainSpecT>(hardfork, from_block)?;
     }
     if let Some(to_block) = &filter_options.to_block {
-        validate_post_merge_block_tags(hardfork, to_block)?;
+        validate_post_merge_block_tags::<ChainSpecT>(hardfork, to_block)?;
     }
 
     let filter = validate_filter_criteria::<true, ChainSpecT, TimerT>(data, filter_options)?;
@@ -61,7 +62,7 @@ pub fn handle_new_block_filter_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-) -> Result<U256, ProviderError<ChainSpecT>> {
+) -> Result<U256, ProviderErrorForChainSpec<ChainSpecT>> {
     data.add_block_filter::<false>()
 }
 
@@ -71,7 +72,7 @@ pub fn handle_new_log_filter_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_criteria: LogFilterOptions,
-) -> Result<U256, ProviderError<ChainSpecT>> {
+) -> Result<U256, ProviderErrorForChainSpec<ChainSpecT>> {
     let filter_criteria =
         validate_filter_criteria::<false, ChainSpecT, TimerT>(data, filter_criteria)?;
     data.add_log_filter::<false>(filter_criteria)
@@ -82,7 +83,7 @@ pub fn handle_new_pending_transaction_filter_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-) -> Result<U256, ProviderError<ChainSpecT>> {
+) -> Result<U256, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(data.add_pending_transaction_filter::<false>())
 }
 
@@ -93,7 +94,7 @@ pub fn handle_subscribe_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     subscription_type: SubscriptionType,
     filter_criteria: Option<LogFilterOptions>,
-) -> Result<U256, ProviderError<ChainSpecT>> {
+) -> Result<U256, ProviderErrorForChainSpec<ChainSpecT>> {
     match subscription_type {
         SubscriptionType::Logs => {
             let filter_criteria = filter_criteria.ok_or_else(|| {
@@ -116,7 +117,7 @@ pub fn handle_uninstall_filter_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_id: U256,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(data.remove_filter(&filter_id))
 }
 
@@ -126,7 +127,7 @@ pub fn handle_unsubscribe_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     filter_id: U256,
-) -> Result<bool, ProviderError<ChainSpecT>> {
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(data.remove_subscription(&filter_id))
 }
 
@@ -137,16 +138,16 @@ fn validate_filter_criteria<
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
     filter: LogFilterOptions,
-) -> Result<LogFilter, ProviderError<ChainSpecT>> {
+) -> Result<LogFilter, ProviderErrorForChainSpec<ChainSpecT>> {
     fn normalize_block_spec<
         ChainSpecT: SyncProviderSpec<TimerT>,
         TimerT: Clone + TimeSinceEpoch,
     >(
         data: &ProviderData<ChainSpecT, TimerT>,
         block_spec: Option<BlockSpec>,
-    ) -> Result<Option<u64>, ProviderError<ChainSpecT>> {
+    ) -> Result<Option<u64>, ProviderErrorForChainSpec<ChainSpecT>> {
         if let Some(block_spec) = &block_spec {
-            validate_post_merge_block_tags(data.hardfork(), block_spec)?;
+            validate_post_merge_block_tags::<ChainSpecT>(data.hardfork(), block_spec)?;
         }
 
         let block_number = match block_spec {

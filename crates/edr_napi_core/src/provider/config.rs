@@ -1,7 +1,11 @@
 use core::num::NonZeroU64;
-use std::{path::PathBuf, time::SystemTime};
+use std::{path::PathBuf, str::FromStr, time::SystemTime};
 
-use edr_eth::{block::BlobGas, spec::HardforkTrait, Address, ChainId, HashMap, B256, U256};
+use edr_eth::{
+    block::BlobGas,
+    l1::{self, hardfork::UnknownHardfork},
+    Address, ChainId, HashMap, B256,
+};
 use edr_provider::{
     config,
     hardfork::{Activations, ForkCondition},
@@ -35,20 +39,22 @@ pub struct Config {
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, config::Account>,
     pub hardfork: String,
-    pub initial_base_fee_per_gas: Option<U256>,
+    pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
-    pub min_gas_price: U256,
+    pub min_gas_price: u128,
     pub mining: config::Mining,
     pub network_id: u64,
 }
 
-impl<HardforkT> From<Config> for edr_provider::ProviderConfig<HardforkT>
+impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: for<'s> From<&'s str> + HardforkTrait,
+    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId>,
 {
-    fn from(value: Config) -> Self {
+    type Error = napi::Error;
+
+    fn try_from(value: Config) -> Result<Self, Self::Error> {
         let cache_dir = PathBuf::from(
             value
                 .cache_dir
@@ -67,20 +73,30 @@ where
                              hardfork,
                          }| {
                             let condition = ForkCondition::Block(block_number);
-                            let hardfork = HardforkT::from(&hardfork);
+                            let hardfork = hardfork.parse().map_err(|UnknownHardfork| {
+                                napi::Error::new(
+                                    napi::Status::InvalidArg,
+                                    format!("Unknown hardfork: {hardfork}"),
+                                )
+                            })?;
 
-                            (condition, hardfork)
+                            Ok((condition, hardfork))
                         },
                     )
-                    .collect();
+                    .collect::<napi::Result<_>>()?;
 
-                (chain_id, Activations::new(activations))
+                Ok((chain_id, Activations::new(activations)))
             })
-            .collect();
+            .collect::<napi::Result<_>>()?;
 
-        let hardfork = HardforkT::from(&value.hardfork);
+        let hardfork = value.hardfork.parse().map_err(|UnknownHardfork| {
+            napi::Error::new(
+                napi::Status::InvalidArg,
+                format!("Unknown hardfork: {}", value.hardfork),
+            )
+        })?;
 
-        Self {
+        Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             accounts: value.accounts,
@@ -102,6 +118,6 @@ where
             min_gas_price: value.min_gas_price,
             mining: value.mining,
             network_id: value.network_id,
-        }
+        })
     }
 }

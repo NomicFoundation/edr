@@ -1,4 +1,4 @@
-use edr_eth::result::HaltReason;
+use edr_eth::l1;
 use edr_napi_core::spec::SolidityTraceData;
 use napi::Either;
 use napi_derive::napi;
@@ -10,11 +10,11 @@ use crate::{
 
 #[napi]
 pub struct Response {
-    inner: edr_napi_core::spec::Response<HaltReason>,
+    inner: edr_napi_core::spec::Response<l1::HaltReason>,
 }
 
-impl From<edr_napi_core::spec::Response<HaltReason>> for Response {
-    fn from(value: edr_napi_core::spec::Response<HaltReason>) -> Self {
+impl From<edr_napi_core::spec::Response<l1::HaltReason>> for Response {
+    fn from(value: edr_napi_core::spec::Response<l1::HaltReason>) -> Self {
         Self { inner: value }
     }
 }

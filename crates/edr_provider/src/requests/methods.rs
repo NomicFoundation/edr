@@ -3,7 +3,7 @@ use derive_where::derive_where;
 use edr_eth::{
     filter::{LogFilterOptions, SubscriptionType},
     serde::{optional_single_to_sequence, sequence_to_optional_single},
-    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256, U64,
+    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
 };
 use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
 use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
@@ -327,13 +327,13 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     #[serde(rename = "hardhat_mine")]
     Mine(
         /// block count:
-        #[serde(default, with = "edr_eth::serde::optional_u64")]
+        #[serde(default, with = "alloy_serde::quantity::opt")]
         Option<u64>,
         /// interval:
         #[serde(
             default,
             skip_serializing_if = "Option::is_none",
-            with = "edr_eth::serde::optional_u64"
+            with = "alloy_serde::quantity::opt"
         )]
         Option<u64>,
     ),
@@ -367,20 +367,20 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     SetLoggingEnabled(bool),
     /// `hardhat_setMinGasPrice`
     #[serde(rename = "hardhat_setMinGasPrice", with = "edr_eth::serde::sequence")]
-    SetMinGasPrice(U256),
+    SetMinGasPrice(U128),
     /// `hardhat_setNextBlockBaseFeePerGas`
     #[serde(
         rename = "hardhat_setNextBlockBaseFeePerGas",
         with = "edr_eth::serde::sequence"
     )]
-    SetNextBlockBaseFeePerGas(U256),
+    SetNextBlockBaseFeePerGas(U128),
     /// `hardhat_setNonce`
     #[serde(rename = "hardhat_setNonce")]
     SetNonce(
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
         #[serde(
             deserialize_with = "crate::requests::serde::deserialize_nonce",
-            serialize_with = "edr_eth::serde::u64::serialize"
+            serialize_with = "alloy_serde::quantity::serialize"
         )]
         u64,
     ),

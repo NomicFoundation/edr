@@ -109,6 +109,39 @@ impl TryCast<u64> for BigInt {
     }
 }
 
+impl TryCast<u128> for BigInt {
+    type Error = napi::Error;
+
+    fn try_cast(self) -> std::result::Result<u128, Self::Error> {
+        // TODO: https://github.com/NomicFoundation/edr/issues/837
+        let (signed, value, lossless) = {
+            let len = self.words.len();
+            if len == 1 {
+                (self.sign_bit, u128::from(self.words[0]), true)
+            } else {
+                let val = u128::from(self.words[0]) + (u128::from(self.words[1]) << 64);
+                (self.sign_bit, val, len == 2)
+            }
+        };
+
+        if signed {
+            return Err(napi::Error::new(
+                Status::InvalidArg,
+                "BigInt was expected to be unsigned.".to_string(),
+            ));
+        }
+
+        if !lossless {
+            return Err(napi::Error::new(
+                Status::InvalidArg,
+                "BigInt was expected to fit within 128 bits.".to_string(),
+            ));
+        }
+
+        Ok(value)
+    }
+}
+
 impl TryCast<usize> for BigInt {
     type Error = napi::Error;
 

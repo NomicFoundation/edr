@@ -1,6 +1,3 @@
-pub use revm::{
-    handler, interpreter,
-    wiring::{evm_wiring::EvmWiring as PrimitiveEvmWiring, result},
-    Context, ContextPrecompile, EvmContext, EvmWiring, FrameOrResult, FrameResult, InnerEvmContext,
-    JournalEntry,
-};
+pub use revm::{Context, MainBuilder, MainnetEvm};
+pub use revm_context::{Evm, EvmData};
+pub use revm_handler::{EvmTr as EvmTrait, Frame, FrameResult};

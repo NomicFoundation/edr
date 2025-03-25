@@ -2,18 +2,21 @@ use std::sync::Arc;
 
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
-    l1::{self, L1ChainSpec},
+    l1::{self, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
-    result::{HaltReason, InvalidTransaction},
     spec::{ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
 };
 use edr_evm::{
+    evm::{Evm, EvmData},
     hardfork::Activations,
-    spec::{ExecutionReceiptTypeConstructorForChainSpec, L1Wiring, RuntimeSpec},
-    state::Database,
-    transaction::TransactionError,
+    inspector::{Inspector, NoOpInspector},
+    interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
+    precompile::{EthPrecompiles, PrecompileProvider},
+    spec::{ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
+    state::{Database, DatabaseComponentError},
+    transaction::{TransactionError, TransactionErrorForChainSpec},
     BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
@@ -23,7 +26,7 @@ use crate::GenericChainSpec;
 impl ChainSpec for GenericChainSpec {
     type BlockEnv = l1::BlockEnv;
     type Context = ();
-    type HaltReason = HaltReason;
+    type HaltReason = l1::HaltReason;
     type Hardfork = l1::SpecId;
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
@@ -43,17 +46,26 @@ impl RuntimeSpec for GenericChainSpec {
 
     type BlockBuilder<
         'blockchain,
-        BlockchainErrorT: 'blockchain,
-        DebugDataT,
-        StateErrorT: 'blockchain + std::fmt::Debug + Send,
-    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, DebugDataT, StateErrorT>;
+        BlockchainErrorT: 'blockchain + std::error::Error + Send,
+        StateErrorT: 'blockchain + std::error::Error + Send,
+    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, StateErrorT>;
 
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
 
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
-    type EvmWiring<DatabaseT: Database, ExternalContexT> =
-        L1Wiring<Self, DatabaseT, ExternalContexT>;
+    type Evm<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
+        StateErrorT,
+    > = Evm<
+        ContextForChainSpec<Self, DatabaseT>,
+        InspectorT,
+        EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT,
+    >;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
@@ -63,6 +75,12 @@ impl RuntimeSpec for GenericChainSpec {
         Self::RpcReceiptConversionError,
         Self::SignedTransaction,
     >;
+
+    type PrecompileProvider<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    > = EthPrecompiles;
 
     type ReceiptBuilder = crate::receipt::execution::Builder;
     type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
@@ -79,7 +97,7 @@ impl RuntimeSpec for GenericChainSpec {
 
     fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionError<Self, BlockchainErrorT, StateErrorT> {
+    ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT> {
         // Can't use L1ChainSpec impl here as the TransactionError is generic
         // over the specific chain spec rather than just the validation error.
         // Instead, we copy the impl here.
@@ -97,6 +115,47 @@ impl RuntimeSpec for GenericChainSpec {
 
     fn chain_name(chain_id: u64) -> Option<&'static str> {
         L1ChainSpec::chain_name(chain_id)
+    }
+
+    fn evm<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    >(
+        context: ContextForChainSpec<Self, DatabaseT>,
+    ) -> Self::Evm<
+        BlockchainErrorT,
+        DatabaseT,
+        NoOpInspector,
+        Self::PrecompileProvider<BlockchainErrorT, DatabaseT, StateErrorT>,
+        StateErrorT,
+    > {
+        Self::evm_with_inspector(
+            context,
+            NoOpInspector {},
+            Self::PrecompileProvider::<BlockchainErrorT, DatabaseT, StateErrorT>::default(),
+        )
+    }
+
+    fn evm_with_inspector<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
+        StateErrorT,
+    >(
+        context: ContextForChainSpec<Self, DatabaseT>,
+        inspector: InspectorT,
+        precompile_provider: PrecompileProviderT,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
+        Evm {
+            data: EvmData {
+                ctx: context,
+                inspector,
+            },
+            instruction: EthInstructions::default(),
+            precompiles: precompile_provider,
+        }
     }
 }
 

@@ -4,7 +4,7 @@ mod factory;
 
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::result::HaltReason;
+use edr_eth::l1;
 use edr_provider::{InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -24,7 +24,7 @@ pub trait SyncProvider: Send + Sync {
         &self,
         request: String,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<HaltReason>>;
+    ) -> napi::Result<Response<l1::HaltReason>>;
 
     /// Set to `true` to make the traces returned with `eth_call`,
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
@@ -41,7 +41,7 @@ impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpec
         &self,
         request: String,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<HaltReason>> {
+    ) -> napi::Result<Response<l1::HaltReason>> {
         let request = match serde_json::from_str(&request) {
             Ok(request) => request,
             Err(error) => {
@@ -57,7 +57,7 @@ impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpec
 
                 // HACK: We need to log failed deserialization attempts when they concern input
                 // validation.
-                if let Some((method_name, provider_error)) = reason.provider_error() {
+                if let Some((method_name, provider_error)) = reason.provider_error::<ChainSpecT>() {
                     // Ignore potential failure of logging, as returning the original error is more
                     // important
                     let _result = self.log_failed_deserialization(method_name, &provider_error);

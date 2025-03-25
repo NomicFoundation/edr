@@ -17,7 +17,7 @@ pub struct Eip2930 {
     // The order of these fields determines encoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub gas_price: U256,
+    pub gas_price: u128,
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -109,7 +109,7 @@ mod tests {
         Eip2930 {
             chain_id: 1,
             nonce: 1,
-            gas_price: U256::from(2),
+            gas_price: 2,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),
@@ -155,7 +155,7 @@ mod tests {
         let transaction = Eip2930 {
             chain_id: 123,
             nonce: 0,
-            gas_price: U256::from(1),
+            gas_price: 1,
             gas_limit: 30_000,
             kind: TxKind::Call("0xb5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?),
             value: U256::from(1),

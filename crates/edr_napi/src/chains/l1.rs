@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use edr_eth::{
     beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
-    l1::{self, L1ChainSpec},
+    l1::{self, hardfork::UnknownHardfork, L1ChainSpec},
 };
 use edr_napi_core::{
     logger::Logger,
@@ -29,7 +29,8 @@ impl SyncProviderFactory for L1ProviderFactory {
     ) -> napi::Result<Box<dyn provider::Builder>> {
         let logger = Logger::<L1ChainSpec>::new(logger_config, Arc::clone(&contract_decoder))?;
 
-        let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::from(provider_config);
+        let provider_config =
+            edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
 
         let subscription_callback =
             subscription::Callback::new(env, subscription_config.subscription_callback)?;
@@ -63,12 +64,24 @@ pub fn l1_genesis_state(hardfork: SpecId) -> Vec<Account> {
 
 /// Creates a new instance by matching the provided string.
 ///
-/// Defaults to `SpecId::Latest` if the string does not match any known
-/// hardfork.
+/// Returns an error if the string does not match any known hardfork.
 #[napi]
-pub fn l1_hardfork_from_string(hardfork: String) -> SpecId {
-    let hardfork = edr_eth::l1::SpecId::from(hardfork.as_str());
-    hardfork.into()
+pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
+    const LATEST_TAG: &str = "Latest";
+
+    if hardfork == LATEST_TAG {
+        Ok(SpecId::Latest)
+    } else {
+        hardfork.parse::<edr_eth::l1::SpecId>().map_or_else(
+            |UnknownHardfork| {
+                Err(napi::Error::new(
+                    napi::Status::InvalidArg,
+                    format!("Unknown hardfork: {hardfork}"),
+                ))
+            },
+            |hardfork| Ok(SpecId::from(hardfork)),
+        )
+    }
 }
 
 #[napi]
@@ -142,9 +155,9 @@ impl From<edr_eth::l1::SpecId> for SpecId {
             edr_eth::l1::SpecId::MERGE => SpecId::Merge,
             edr_eth::l1::SpecId::SHANGHAI => SpecId::Shanghai,
             edr_eth::l1::SpecId::CANCUN => SpecId::Cancun,
-            // TODO: Add Prague and Prague EOF
+            // TODO: Add Prague and Osaka
             edr_eth::l1::SpecId::PRAGUE
-            | edr_eth::l1::SpecId::PRAGUE_EOF
+            | edr_eth::l1::SpecId::OSAKA
             | edr_eth::l1::SpecId::LATEST => SpecId::Latest,
         }
     }
@@ -180,7 +193,7 @@ macro_rules! export_spec_id {
     ($($variant:ident),*) => {
         $(
             #[napi]
-            pub const $variant: &str = edr_eth::l1::hardfork::id::$variant;
+            pub const $variant: &str = edr_eth::l1::hardfork::name::$variant;
         )*
     };
 }
@@ -205,6 +218,6 @@ export_spec_id!(
     SHANGHAI,
     CANCUN,
     PRAGUE,
-    PRAGUE_EOF,
+    OSAKA,
     LATEST
 );

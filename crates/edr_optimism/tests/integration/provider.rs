@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::{address, bytes, Address, BlockSpec, U64};
-use edr_optimism::{OptimismChainSpec, OptimismSpecId};
+use edr_optimism::{OpChainSpec, OpSpecId};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig,
     test_utils::{create_test_config_with_fork, ProviderTestFixture},
@@ -26,14 +26,14 @@ fn sepolia_hardfork_activations() -> anyhow::Result<()> {
     const CANYON_BLOCK_NUMBER: u64 = 4_089_330;
 
     let url = sepolia_url();
-    let fixture = ProviderTestFixture::<OptimismChainSpec>::new_forked(Some(url))?;
+    let fixture = ProviderTestFixture::<OpChainSpec>::new_forked(Some(url))?;
 
     let block_spec = BlockSpec::Number(CANYON_BLOCK_NUMBER);
-    let (_, hardfork) = fixture
+    let config = fixture
         .provider_data
         .create_evm_config_at_block_spec(&block_spec)?;
 
-    assert_eq!(hardfork, OptimismSpecId::CANYON);
+    assert_eq!(config.spec, OpSpecId::CANYON);
 
     let chain_id = fixture.provider_data.chain_id_at_block_spec(&block_spec)?;
     assert_eq!(chain_id, SEPOLIA_CHAIN_ID);
@@ -46,7 +46,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     const GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS: Address =
         address!("420000000000000000000000000000000000000F");
 
-    let logger = Box::new(NoopLogger::<OptimismChainSpec>::default());
+    let logger = Box::new(NoopLogger::<OpChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {

@@ -1,147 +1,24 @@
-use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
+use std::fmt::Debug;
 
 use derive_where::derive_where;
 use edr_eth::{
     bytecode::opcode,
-    result::{EVMErrorWiring, ExecutionResult, Output},
+    result::{ExecutionResult, Output},
     spec::HaltReasonTrait,
     Address, Bytecode, Bytes, U256,
 };
+use revm::Inspector;
 
 use crate::{
-    debug::GetContextData,
-    evm::{
-        handler::register::EvmHandler,
-        interpreter::{
-            return_revert, table::DynInstruction, CallInputs, CallOutcome, CallValue, CreateInputs,
-            CreateOutcome, Interpreter, SuccessOrHalt,
-        },
-        Context, FrameOrResult, FrameResult, InnerEvmContext,
+    blockchain::BlockHash,
+    interpreter::{
+        return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
+        EthInterpreter, Interpreter, Jumps as _, MemoryGetter as _, SuccessOrHalt,
     },
-    spec::EvmWiring,
-    state::Database,
+    journal::{JournalExt, JournalTrait},
+    spec::ContextTrait,
+    state::{DatabaseComponents, State, WrapDatabaseRef},
 };
-
-/// Registers trace collector handles to the EVM handler.
-pub fn register_trace_collector_handles<
-    EvmWiringT: revm::EvmWiring<
-        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>,
-        Database: Database<Error: Debug>,
-    >,
->(
-    handler: &mut EvmHandler<'_, EvmWiringT>,
-) {
-    let table = &mut handler.instruction_table;
-
-    // Update all instructions to call the instruction handler.
-    table.update_all(instruction_handler);
-
-    // call and create input stack shared between handlers. They are used to share
-    // inputs in *_end Inspector calls.
-    let call_input_stack = Rc::<RefCell<Vec<_>>>::new(RefCell::new(Vec::new()));
-    let create_input_stack = Rc::<RefCell<Vec<_>>>::new(RefCell::new(Vec::new()));
-
-    // Create handler
-    let create_input_stack_inner = create_input_stack.clone();
-    let old_handle = handler.execution.create.clone();
-    handler.execution.create = Arc::new(
-        move |ctx, inputs| -> Result<FrameOrResult, EVMErrorWiring<EvmWiringT>> {
-            let tracer = ctx.external.get_context_data();
-            tracer.create(&ctx.evm, &inputs);
-
-            create_input_stack_inner.borrow_mut().push(inputs.clone());
-
-            old_handle(ctx, inputs)
-        },
-    );
-
-    // Call handler
-    let call_input_stack_inner = call_input_stack.clone();
-    let old_handle = handler.execution.call.clone();
-    handler.execution.call = Arc::new(
-        move |ctx, inputs| -> Result<FrameOrResult, EVMErrorWiring<EvmWiringT>> {
-            let tracer = ctx.external.get_context_data();
-            tracer.call(&mut ctx.evm, &inputs);
-
-            call_input_stack_inner.borrow_mut().push(inputs.clone());
-
-            old_handle(ctx, inputs)
-        },
-    );
-
-    // call outcome
-    let call_input_stack_inner = call_input_stack.clone();
-    let old_handle = handler.execution.insert_call_outcome.clone();
-    handler.execution.insert_call_outcome = Arc::new(
-        move |ctx: &mut revm::Context<EvmWiringT>, frame, shared_memory, outcome| {
-            let call_inputs = call_input_stack_inner.borrow_mut().pop().unwrap();
-
-            let tracer = ctx.external.get_context_data();
-            tracer.call_end(&ctx.evm, &call_inputs, &outcome);
-
-            old_handle(ctx, frame, shared_memory, outcome)
-        },
-    );
-
-    // create outcome
-    let create_input_stack_inner = create_input_stack.clone();
-    let old_handle = handler.execution.insert_create_outcome.clone();
-    handler.execution.insert_create_outcome = Arc::new(move |ctx, frame, outcome| {
-        let create_inputs = create_input_stack_inner.borrow_mut().pop().unwrap();
-
-        let tracer = ctx.external.get_context_data();
-        tracer.create_end(&ctx.evm, &create_inputs, &outcome);
-
-        old_handle(ctx, frame, outcome)
-    });
-
-    // last frame outcome
-    let old_handle = handler.execution.last_frame_return.clone();
-    handler.execution.last_frame_return = Arc::new(move |ctx, frame_result| {
-        let tracer = ctx.external.get_context_data();
-        match frame_result {
-            FrameResult::Call(outcome) => {
-                let call_inputs = call_input_stack.borrow_mut().pop().unwrap();
-                tracer.call_transaction_end(&ctx.evm, &call_inputs, outcome);
-            }
-            FrameResult::Create(outcome) => {
-                let create_inputs = create_input_stack.borrow_mut().pop().unwrap();
-                tracer.create_transaction_end(&ctx.evm, &create_inputs, outcome);
-            }
-            // TODO: https://github.com/NomicFoundation/edr/issues/427
-            FrameResult::EOFCreate(_) => {
-                unreachable!("EDR doesn't support EOF yet.")
-            }
-        }
-        old_handle(ctx, frame_result)
-    });
-}
-
-/// Outer closure that calls tracer for every instruction.
-fn instruction_handler<EvmWiringT>(
-    prev: &DynInstruction<'_, Context<EvmWiringT>>,
-    interpreter: &mut Interpreter,
-    host: &mut Context<EvmWiringT>,
-) where
-    EvmWiringT: revm::EvmWiring<
-        Database: Database<Error: Debug>,
-        ExternalContext: GetContextData<TraceCollector<EvmWiringT::HaltReason>>,
-    >,
-{
-    // SAFETY: as the PC was already incremented we need to subtract 1 to preserve
-    // the old Inspector behavior.
-    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.sub(1) };
-
-    host.external
-        .get_context_data()
-        .step(interpreter, &host.evm);
-
-    // Reset PC to previous value.
-    interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.add(1) };
-
-    // Execute instruction.
-    prev(interpreter, host);
-}
 
 /// Stack tracing message
 #[derive(Clone, Debug)]
@@ -274,6 +151,7 @@ pub struct TraceCollector<HaltReasonT: HaltReasonTrait> {
     traces: Vec<Trace<HaltReasonT>>,
     pending_before: Option<BeforeMessage>,
     is_new_trace: bool,
+    frame_depth: usize,
     verbose: bool,
 }
 
@@ -285,6 +163,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             traces: Vec::new(),
             pending_before: None,
             is_new_trace: true,
+            frame_depth: 0,
             verbose,
         }
     }
@@ -306,12 +185,28 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     fn validate_before_message(&mut self) {
         if let Some(message) = self.pending_before.take() {
             self.current_trace_mut().add_before(message);
+            self.frame_depth += 1;
         }
     }
 
-    fn call<EvmWiringT: EvmWiring<HaltReason = HaltReasonT, Database: Database<Error: Debug>>>(
+    fn add_after_message(&mut self, message: AfterMessage<HaltReasonT>) {
+        self.current_trace_mut().add_after(message);
+        self.frame_depth -= 1;
+
+        if self.frame_depth == 0 {
+            self.finish_trace();
+        }
+    }
+
+    /// Notifies the trace collector that a call is starting.
+    pub fn notify_call_start<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        JournalT: JournalExt
+            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        StateT: State<Error: std::error::Error>,
+    >(
         &mut self,
-        data: &mut InnerEvmContext<EvmWiringT>,
+        journal: &JournalT,
         inputs: &CallInputs,
     ) {
         if self.is_new_trace {
@@ -321,34 +216,35 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
         self.validate_before_message();
 
+        let WrapDatabaseRef(DatabaseComponents { state, .. }) = journal.db_ref();
+
         // This needs to be split into two functions to avoid borrow checker issues
         #[allow(clippy::map_unwrap_or)]
-        let code = data
-            .journaled_state
-            .state
+        let code = journal
+            .state()
             .get(&inputs.bytecode_address)
             .map(|account| account.info.clone())
             .map(|mut account_info| {
                 if let Some(code) = account_info.code.take() {
                     code
                 } else {
-                    data.db.code_by_hash(account_info.code_hash).unwrap()
+                    state.code_by_hash(account_info.code_hash).unwrap()
                 }
             })
             .unwrap_or_else(|| {
-                data.db.basic(inputs.bytecode_address).unwrap().map_or(
+                state.basic(inputs.bytecode_address).unwrap().map_or(
                     // If an invalid contract address was provided, return empty code
                     Bytecode::new(),
                     |account_info| {
-                        account_info.code.unwrap_or_else(|| {
-                            data.db.code_by_hash(account_info.code_hash).unwrap()
-                        })
+                        account_info
+                            .code
+                            .unwrap_or_else(|| state.code_by_hash(account_info.code_hash).unwrap())
                     },
                 )
             });
 
         self.pending_before = Some(BeforeMessage {
-            depth: data.journaled_state.depth,
+            depth: journal.depth(),
             caller: inputs.caller,
             to: Some(inputs.target_address),
             is_static_call: inputs.is_static,
@@ -362,14 +258,19 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn call_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    /// Notifies the trace collector that a call has ended.
+    pub fn notify_call_end<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        JournalT: JournalExt
+            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        StateT: State<Error: std::error::Error>,
+    >(
         &mut self,
-        data: &InnerEvmContext<EvmWiringT>,
-        _inputs: &CallInputs,
+        journal: &JournalT,
         outcome: &CallOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
-        use crate::evm::interpreter::InstructionResult;
+        use crate::interpreter::InstructionResult;
 
         match outcome.instruction_result() {
             return_revert!() if self.pending_before.is_some() => {
@@ -396,7 +297,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 reason,
                 gas_used: outcome.gas().spent(),
                 gas_refunded: outcome.gas().refunded() as u64,
-                logs: data.journaled_state.logs.clone(),
+                logs: journal.logs().to_vec(),
                 output: Output::Call(outcome.output().clone()),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
@@ -413,15 +314,23 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after(AfterMessage {
+        self.add_after_message(AfterMessage {
             execution_result,
             contract_address: None,
         });
     }
 
-    fn create<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    /// Notifies the trace collector that a create is starting.
+    pub fn notify_create_start<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        StateT: State<Error: std::error::Error>,
+        FinalOutputT,
+    >(
         &mut self,
-        data: &InnerEvmContext<EvmWiringT>,
+        journal: &impl JournalTrait<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            FinalOutput = FinalOutputT,
+        >,
         inputs: &CreateInputs,
     ) {
         if self.is_new_trace {
@@ -432,7 +341,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         self.validate_before_message();
 
         self.pending_before = Some(BeforeMessage {
-            depth: data.journaled_state.depth,
+            depth: journal.depth(),
             caller: inputs.caller,
             to: None,
             gas_limit: inputs.gas_limit,
@@ -444,14 +353,19 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         });
     }
 
-    fn create_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    /// Notifies the trace collector that a create has ended.
+    pub fn notify_create_end<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        JournalT: JournalExt
+            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        StateT: State<Error: std::error::Error>,
+    >(
         &mut self,
-        data: &InnerEvmContext<EvmWiringT>,
-        _inputs: &CreateInputs,
+        journal: &JournalT,
         outcome: &CreateOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
-        use crate::evm::interpreter::InstructionResult;
+        use crate::interpreter::InstructionResult;
 
         self.validate_before_message();
 
@@ -468,7 +382,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 reason,
                 gas_used: outcome.gas().spent(),
                 gas_refunded: outcome.gas().refunded() as u64,
-                logs: data.journaled_state.logs.clone(),
+                logs: journal.logs().to_vec(),
                 output: Output::Create(outcome.output().clone(), outcome.address),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
@@ -485,73 +399,135 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
         };
 
-        self.current_trace_mut().add_after(AfterMessage {
+        self.add_after_message(AfterMessage {
             execution_result,
             contract_address: outcome.address,
         });
     }
 
-    fn step<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
+    /// Finishes the current trace.
+    pub fn finish_trace(&mut self) {
+        self.is_new_trace = true;
+    }
+
+    /// Notifies the trace collector that a step has started.
+    pub fn notify_step_start<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        StateT: State<Error: std::error::Error>,
+        FinalOutputT,
+    >(
         &mut self,
-        interp: &Interpreter,
-        data: &InnerEvmContext<EvmWiringT>,
+        interpreter: &Interpreter<EthInterpreter>,
+        journal: &impl JournalTrait<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            FinalOutput = FinalOutputT,
+        >,
     ) {
         // Skip the step
         let skip_step = self.pending_before.as_ref().map_or(false, |message| {
-            message.code.is_some() && interp.current_opcode() == opcode::STOP
+            message.code.is_some() && interpreter.bytecode.opcode() == opcode::STOP
         });
 
         self.validate_before_message();
 
         if !skip_step {
             let stack = if self.verbose {
-                Stack::Full(interp.stack.data().clone())
+                Stack::Full(interpreter.stack.data().clone())
             } else {
-                Stack::Top(interp.stack.data().last().cloned())
+                Stack::Top(interpreter.stack.data().last().cloned())
             };
             let memory = if self.verbose {
-                Some(interp.shared_memory.context_memory().to_vec())
+                Some(
+                    interpreter
+                        .memory
+                        .borrow()
+                        .memory()
+                        .context_memory()
+                        .to_vec(),
+                )
             } else {
                 None
             };
+
+            let pc = interpreter
+                .bytecode
+                .pc()
+                .try_into()
+                .expect("Program Counter should fit inside u32");
+
             self.current_trace_mut().add_step(Step {
-                pc: interp
-                    .program_counter()
-                    .try_into()
-                    .expect("program counter fits into u32"),
-                depth: data.journaled_state.depth(),
-                opcode: interp.current_opcode(),
+                pc,
+                depth: journal.depth() as u64,
+                opcode: interpreter.bytecode.opcode(),
                 stack,
                 memory,
             });
         }
     }
-
-    fn call_transaction_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
-        &mut self,
-        data: &InnerEvmContext<EvmWiringT>,
-        inputs: &CallInputs,
-        outcome: &CallOutcome,
-    ) {
-        self.is_new_trace = true;
-        self.call_end(data, inputs, outcome);
-    }
-
-    fn create_transaction_end<EvmWiringT: EvmWiring<HaltReason = HaltReasonT>>(
-        &mut self,
-        data: &InnerEvmContext<EvmWiringT>,
-        inputs: &CreateInputs,
-        outcome: &CreateOutcome,
-    ) {
-        self.is_new_trace = true;
-        self.create_end(data, inputs, outcome);
-    }
 }
 
-impl<HaltReasonT: HaltReasonTrait> GetContextData<TraceCollector<HaltReasonT>>
-    for TraceCollector<HaltReasonT>
+impl<
+        BlockchainT: BlockHash<Error: std::error::Error>,
+        ContextT: ContextTrait<
+            Journal: JournalExt
+                         + JournalTrait<
+                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
+        >,
+        HaltReasonT: HaltReasonTrait,
+        StateT: State<Error: std::error::Error>,
+    > Inspector<ContextT, EthInterpreter> for TraceCollector<HaltReasonT>
 {
-    fn get_context_data(&mut self) -> &mut TraceCollector<HaltReasonT> {
-        self
+    fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
+        self.notify_call_start(context.journal(), inputs);
+        None
+    }
+
+    fn call_end(
+        &mut self,
+        context: &mut ContextT,
+        _inputs: &CallInputs,
+        outcome: &mut CallOutcome,
+    ) {
+        self.notify_call_end(context.journal(), outcome);
+    }
+
+    fn create(
+        &mut self,
+        context: &mut ContextT,
+        inputs: &mut CreateInputs,
+    ) -> Option<CreateOutcome> {
+        self.notify_create_start(context.journal(), inputs);
+        None
+    }
+
+    fn create_end(
+        &mut self,
+        context: &mut ContextT,
+        _inputs: &CreateInputs,
+        outcome: &mut CreateOutcome,
+    ) {
+        self.notify_create_end(context.journal(), outcome);
+    }
+
+    fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
+        self.notify_step_start(interpreter, context.journal());
+    }
+
+    fn eofcreate(
+        &mut self,
+        _context: &mut ContextT,
+        _inputs: &mut revm_interpreter::EOFCreateInputs,
+    ) -> Option<CreateOutcome> {
+        unreachable!("EOF create not supported in trace collector")
+    }
+
+    fn eofcreate_end(
+        &mut self,
+        _context: &mut ContextT,
+        _inputs: &revm_interpreter::EOFCreateInputs,
+        _outcome: &mut CreateOutcome,
+    ) {
+        unreachable!("EOF create not supported in trace collector");
     }
 }

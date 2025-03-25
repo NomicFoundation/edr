@@ -39,7 +39,7 @@ pub(super) mod tests {
 
             #[test]
             fn recovers_fake_sender() {
-                use $crate::transaction::Transaction as _;
+                use $crate::transaction::ExecutableTransaction as _;
 
                 let transaction_request = dummy_request();
 

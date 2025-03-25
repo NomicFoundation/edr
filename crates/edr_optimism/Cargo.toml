@@ -4,8 +4,8 @@ version = "0.3.5"
 edition = "2021"
 
 [dependencies]
-alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
-alloy-serde = { version = "0.3.5", default-features = false, features = ["std"] }
+alloy-rlp = { version = "0.3.11", default-features = false, features = ["derive"] }
+alloy-serde = { version = "0.12.4", default-features = false, features = ["std"] }
 edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
 edr_generic = { path = "../edr_generic" }
@@ -15,7 +15,8 @@ edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_solidity = { path = "../edr_solidity" }
 log = { version = "0.4.17", default-features = false }
 op-alloy-rpc-types = { version = "0.2.11", default-features = false }
-revm-optimism = { git = "https://github.com/nomicfoundation/revm", rev = "4722477", version = "1.0", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
+op-revm = { git = "https://github.com/nomicfoundation/revm", rev = "885b273a", version = "1.0.0-alpha.1", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
+# op-revm = { path = "../../../revm/crates/optimism", version = "1.0.0-alpha.1", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
 serde = { version = "1.0.209", default-features = false, features = ["derive", "std"] }
 thiserror = { version = "1.0.37", default-features = false }
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }

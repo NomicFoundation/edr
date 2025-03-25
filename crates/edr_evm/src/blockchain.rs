@@ -8,11 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    l1,
-    log::FilterLog,
-    receipt::ReceiptTrait,
-    spec::{ChainSpec, HardforkTrait},
-    Address, HashSet, B256, U256,
+    l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec, Address, HashSet, B256, U256,
 };
 
 use self::storage::ReservableSparseBlockchainStorage;
@@ -36,10 +32,7 @@ pub type BlockchainErrorForChainSpec<ChainSpecT> = BlockchainError<
 
 /// Combinatorial error for the blockchain API.
 #[derive(Debug, thiserror::Error)]
-pub enum BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>
-where
-    HardforkT: HardforkTrait,
-{
+pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConversionErrorT> {
     /// Forked blockchain error
     #[error(transparent)]
     Forked(#[from] ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT>),
@@ -247,7 +240,7 @@ where
 fn compute_state_at_block<
     BlockReceiptT: Clone + ReceiptTrait,
     BlockT: Block<SignedTransactionT> + Clone,
-    HardforkT: HardforkTrait,
+    HardforkT,
     SignedTransactionT,
 >(
     state: &mut dyn StateCommit,

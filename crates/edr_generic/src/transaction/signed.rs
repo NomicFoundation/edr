@@ -1,8 +1,9 @@
 use edr_eth::{
     eips::{eip2930, eip7702},
+    impl_revm_transaction_trait,
     signature::Signature,
     transaction::{
-        self, ExecutableTransaction, IsSupported, SignedTransaction, Transaction, TransactionMut,
+        self, ExecutableTransaction, IsSupported, SignedTransaction, TransactionMut,
         TransactionType, TransactionValidation, TxKind,
     },
     Address, Bytes, B256, U256,
@@ -126,7 +127,7 @@ impl TransactionValidation for SignedWithFallbackToPostEip155 {
     type ValidationError = <transaction::Signed as TransactionValidation>::ValidationError;
 }
 
-impl Transaction for SignedWithFallbackToPostEip155 {
+impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
     fn caller(&self) -> &Address {
         self.inner.caller()
     }
@@ -135,7 +136,7 @@ impl Transaction for SignedWithFallbackToPostEip155 {
         self.inner.gas_limit()
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         self.inner.gas_price()
     }
 
@@ -159,11 +160,19 @@ impl Transaction for SignedWithFallbackToPostEip155 {
         self.inner.chain_id()
     }
 
-    fn access_list(&self) -> &[eip2930::AccessListItem] {
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
         self.inner.access_list()
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
+        self.inner.effective_gas_price(block_base_fee)
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        self.inner.max_fee_per_gas()
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         self.inner.max_priority_fee_per_gas()
     }
 
@@ -171,40 +180,30 @@ impl Transaction for SignedWithFallbackToPostEip155 {
         self.inner.blob_hashes()
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         self.inner.max_fee_per_blob_gas()
-    }
-
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
-        self.inner.authorization_list()
-    }
-}
-
-impl TransactionMut for SignedWithFallbackToPostEip155 {
-    fn set_gas_limit(&mut self, gas_limit: u64) {
-        self.inner.set_gas_limit(gas_limit);
-    }
-}
-
-impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
-        self.inner.effective_gas_price(block_base_fee)
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        self.inner.max_fee_per_gas()
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        self.inner.rlp_encoding()
     }
 
     fn total_blob_gas(&self) -> Option<u64> {
         self.inner.total_blob_gas()
     }
 
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+        self.inner.authorization_list()
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.inner.rlp_encoding()
+    }
+
     fn transaction_hash(&self) -> &B256 {
         self.inner.transaction_hash()
+    }
+}
+
+impl TransactionMut for SignedWithFallbackToPostEip155 {
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.inner.set_gas_limit(gas_limit);
     }
 }
 
@@ -219,12 +218,6 @@ impl TransactionType for SignedWithFallbackToPostEip155 {
 
     fn transaction_type(&self) -> Self::Type {
         self.r#type
-    }
-}
-
-impl transaction::HasAccessList for SignedWithFallbackToPostEip155 {
-    fn has_access_list(&self) -> bool {
-        self.inner.has_access_list()
     }
 }
 
@@ -245,3 +238,5 @@ impl transaction::IsLegacy for SignedWithFallbackToPostEip155 {
         self.inner.is_legacy()
     }
 }
+
+impl_revm_transaction_trait!(SignedWithFallbackToPostEip155);

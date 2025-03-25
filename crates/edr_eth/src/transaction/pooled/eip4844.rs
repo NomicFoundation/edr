@@ -1,12 +1,15 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::Encodable as _;
-use revm_primitives::VERSIONED_HASH_VERSION_KZG;
 use sha2::Digest;
 
 use crate::{
-    eips::{eip2930, eip4844::EnvKzgSettings, eip7702},
-    transaction::{self, ExecutableTransaction, Transaction, TxKind},
+    eips::{
+        eip2930,
+        eip4844::{KzgSettings, VERSIONED_HASH_VERSION_KZG},
+        eip7702,
+    },
+    transaction::{self, ExecutableTransaction, TxKind},
     utils::enveloped,
     Address, Blob, Bytes, Bytes48, B256, U256,
 };
@@ -52,7 +55,7 @@ impl Eip4844 {
         blobs: Vec<Blob>,
         commitments: Vec<Bytes48>,
         proofs: Vec<Bytes48>,
-        settings: &c_kzg::KzgSettings,
+        settings: &KzgSettings,
     ) -> Result<Self, CreationError> {
         if payload.blob_hashes.len() != blobs.len() {
             return Err(CreationError::BlobCount {
@@ -189,32 +192,6 @@ impl Eip4844 {
 }
 
 impl ExecutableTransaction for Eip4844 {
-    fn effective_gas_price(&self, block_base_fee: U256) -> Option<U256> {
-        self.payload.effective_gas_price(block_base_fee)
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&U256> {
-        self.payload.max_fee_per_gas()
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        self.rlp_encoding.get_or_init(|| {
-            let mut encoded = Vec::with_capacity(1 + self.length());
-            enveloped(Self::TYPE, self, &mut encoded);
-            encoded.into()
-        })
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        self.payload.total_blob_gas()
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        self.payload.transaction_hash()
-    }
-}
-
-impl Transaction for Eip4844 {
     fn caller(&self) -> &Address {
         self.payload.caller()
     }
@@ -223,7 +200,7 @@ impl Transaction for Eip4844 {
         self.payload.gas_limit()
     }
 
-    fn gas_price(&self) -> &U256 {
+    fn gas_price(&self) -> &u128 {
         self.payload.gas_price()
     }
 
@@ -247,11 +224,19 @@ impl Transaction for Eip4844 {
         self.payload.chain_id()
     }
 
-    fn access_list(&self) -> &[eip2930::AccessListItem] {
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
         self.payload.access_list()
     }
 
-    fn max_priority_fee_per_gas(&self) -> Option<&U256> {
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
+        self.payload.effective_gas_price(block_base_fee)
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        self.payload.max_fee_per_gas()
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
         self.payload.max_priority_fee_per_gas()
     }
 
@@ -259,12 +244,28 @@ impl Transaction for Eip4844 {
         self.payload.blob_hashes()
     }
 
-    fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
         self.payload.max_fee_per_blob_gas()
     }
 
-    fn authorization_list(&self) -> Option<&eip7702::AuthorizationList> {
+    fn total_blob_gas(&self) -> Option<u64> {
+        self.payload.total_blob_gas()
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
         self.payload.authorization_list()
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
+        })
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.payload.transaction_hash()
     }
 }
 
@@ -344,8 +345,14 @@ impl alloy_rlp::Decodable for Eip4844 {
             });
         }
 
-        let settings = EnvKzgSettings::Default;
-        Self::new(payload, blobs, commitments, proofs, settings.get()).map_err(|_error| {
+        Self::new(
+            payload,
+            blobs,
+            commitments,
+            proofs,
+            c_kzg::ethereum_kzg_settings(),
+        )
+        .map_err(|_error| {
             alloy_rlp::Error::Custom("Failed to RLP decode Eip4844PooledTransaction.")
         })
     }

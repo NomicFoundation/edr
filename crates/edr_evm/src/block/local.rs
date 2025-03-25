@@ -8,7 +8,7 @@ use edr_eth::{
     keccak256, l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     receipt::{MapReceiptLogs, ReceiptTrait, TransactionReceipt},
-    spec::{ChainSpec, HardforkTrait},
+    spec::ChainSpec,
     transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
@@ -46,7 +46,7 @@ pub struct EthLocalBlock<
     BlockConversionErrorT,
     BlockReceiptT: ReceiptTrait,
     ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-    HardforkT: HardforkTrait,
+    HardforkT,
     ReceiptConversionErrorT,
     SignedTransactionT,
 > {
@@ -68,7 +68,7 @@ pub struct EthLocalBlock<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
-        HardforkT: HardforkTrait,
+        HardforkT: Clone,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction,
@@ -127,7 +127,7 @@ impl<
             .zip(transactions.iter())
             .map(|(transaction_receipt, transaction)| {
                 Arc::new(receipt_factory.create_receipt(
-                    hardfork,
+                    hardfork.clone(),
                     transaction,
                     transaction_receipt,
                     &hash,
@@ -165,7 +165,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: HardforkTrait,
+        HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
     >
@@ -193,7 +193,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: HardforkTrait,
+        HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
     > Block<SignedTransactionT>
@@ -238,7 +238,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait + Debug + alloy_rlp::Encodable,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: HardforkTrait,
+        HardforkT: Debug,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
     > BlockReceipts<Arc<BlockReceiptT>>
@@ -267,7 +267,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: HardforkTrait,
+        HardforkT: Into<l1::SpecId>,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
     > EmptyBlock<HardforkT>
@@ -308,7 +308,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: HardforkTrait,
+        HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
     > LocalBlock<Arc<BlockReceiptT>>
@@ -330,7 +330,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: HardforkTrait,
+        HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
     > alloy_rlp::Encodable

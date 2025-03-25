@@ -81,7 +81,7 @@ describe("Provider", () => {
     printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
-  it("initialize local", async function () {
+  it("initialize local generic provider", async function () {
     const provider = context.createProvider(
       GENERIC_CHAIN_TYPE,
       {

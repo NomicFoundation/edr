@@ -6,7 +6,7 @@ use edr_eth::{
     block::PartialHeader,
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait},
-    spec::{ChainSpec, HardforkTrait},
+    spec::ChainSpec,
     transaction::ExecutableTransaction,
     Address, HashMap, HashSet, B256, U256,
 };
@@ -17,12 +17,12 @@ use crate::{spec::RuntimeSpec, state::StateDiff, Block, BlockReceipts, EmptyBloc
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
-#[derive(Debug)]
-struct Reservation<HardforkT: HardforkTrait> {
+#[derive(Clone, Debug)]
+struct Reservation<HardforkT> {
     first_number: u64,
     last_number: u64,
     interval: u64,
-    previous_base_fee_per_gas: Option<U256>,
+    previous_base_fee_per_gas: Option<u128>,
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
@@ -44,7 +44,7 @@ pub type ReservableSparseBlockchainStorageForChainSpec<ChainSpecT> =
 pub struct ReservableSparseBlockchainStorage<
     BlockReceiptT: ReceiptTrait,
     BlockT,
-    HardforkT: HardforkTrait,
+    HardforkT,
     SignedTransactionT,
 > {
     reservations: RwLock<Vec<Reservation<HardforkT>>>,
@@ -57,7 +57,7 @@ pub struct ReservableSparseBlockchainStorage<
     last_block_number: u64,
 }
 
-impl<BlockReceiptT: ReceiptTrait, BlockT, HardforkT: HardforkTrait, SignedTransactionT>
+impl<BlockReceiptT: ReceiptTrait, BlockT, HardforkT, SignedTransactionT>
     ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Constructs a new instance with no blocks.
@@ -76,7 +76,7 @@ impl<BlockReceiptT: ReceiptTrait, BlockT, HardforkT: HardforkTrait, SignedTransa
 impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone,
-        HardforkT: HardforkTrait,
+        HardforkT,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
@@ -153,7 +153,7 @@ impl<
 impl<
         BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
         BlockT: BlockReceipts<BlockReceiptT>,
-        HardforkT: HardforkTrait,
+        HardforkT,
         SignedTransactionT,
     > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
@@ -170,12 +170,8 @@ impl<
     }
 }
 
-impl<
-        BlockReceiptT: Clone + ReceiptTrait,
-        BlockT: Clone,
-        HardforkT: HardforkTrait,
-        SignedTransactionT,
-    > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransactionT>
+    ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the block by hash, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -238,7 +234,7 @@ impl<
         &mut self,
         additional: NonZeroU64,
         interval: u64,
-        previous_base_fee: Option<U256>,
+        previous_base_fee: Option<u128>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
         hardfork: HardforkT,
@@ -268,7 +264,7 @@ impl<
 impl<
         BlockReceiptT: Clone + ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
-        HardforkT: HardforkTrait,
+        HardforkT: Clone,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
@@ -324,14 +320,14 @@ impl<
                 if block_number != reservation.first_number {
                     reservations.push(Reservation {
                         last_number: block_number - 1,
-                        ..reservation
+                        ..reservation.clone()
                     });
                 }
 
                 if block_number != reservation.last_number {
                     reservations.push(Reservation {
                         first_number: block_number + 1,
-                        ..reservation
+                        ..reservation.clone()
                     });
                 }
 
@@ -371,7 +367,7 @@ impl<
 fn calculate_timestamp_for_reserved_block<
     BlockReceiptT: ReceiptTrait,
     BlockT: Block<SignedTransactionT>,
-    HardforkT: HardforkTrait,
+    HardforkT,
     SignedTransactionT,
 >(
     storage: &SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>,
@@ -399,7 +395,7 @@ fn calculate_timestamp_for_reserved_block<
     previous_timestamp + reservation.interval * (block_number - reservation.first_number + 1)
 }
 
-fn find_reservation<HardforkT: HardforkTrait>(
+fn find_reservation<HardforkT>(
     reservations: &[Reservation<HardforkT>],
     number: u64,
 ) -> Option<&Reservation<HardforkT>> {
