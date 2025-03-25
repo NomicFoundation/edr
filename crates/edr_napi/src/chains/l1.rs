@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use edr_eth::{
-    beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
-    l1::{self, hardfork::UnknownHardfork, L1ChainSpec},
+use edr_eth::l1::{self, hardfork::UnknownHardfork, L1ChainSpec};
+use edr_evm::eips::{
+    eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE},
+    eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
 };
 use edr_napi_core::{
     logger::Logger,
@@ -49,17 +50,33 @@ pub const L1_CHAIN_TYPE: &str = L1ChainSpec::CHAIN_TYPE;
 
 #[napi]
 pub fn l1_genesis_state(hardfork: SpecId) -> Vec<Account> {
-    if hardfork < SpecId::Cancun {
-        return Vec::new();
-    }
-
-    vec![Account {
+    // Use closures for lazy execution
+    let beacon_roots_account_constructor = || Account {
         address: Uint8Array::from(BEACON_ROOTS_ADDRESS.as_slice()),
         balance: BigInt::from(0u64),
         nonce: BigInt::from(0u64),
         code: Some(Uint8Array::from(BEACON_ROOTS_BYTECODE)),
         storage: Vec::new(),
-    }]
+    };
+
+    let history_storage_account_constructor = || Account {
+        address: Uint8Array::from(HISTORY_STORAGE_ADDRESS.as_slice()),
+        balance: BigInt::from(0u64),
+        nonce: BigInt::from(0u64),
+        code: Some(Uint8Array::from(HISTORY_STORAGE_UNSUPPORTED_BYTECODE)),
+        storage: Vec::new(),
+    };
+
+    if hardfork < SpecId::Cancun {
+        Vec::new()
+    } else if hardfork < SpecId::Prague {
+        vec![beacon_roots_account_constructor()]
+    } else {
+        vec![
+            beacon_roots_account_constructor(),
+            history_storage_account_constructor(),
+        ]
+    }
 }
 
 /// Creates a new instance by matching the provided string.
@@ -130,6 +147,8 @@ pub enum SpecId {
     Shanghai = 16,
     /// Cancun
     Cancun = 17,
+    /// Prague
+    Prague = 18,
     /// Latest
     Latest = 2_147_483_647, // Maximum value of i32
 }
@@ -156,9 +175,8 @@ impl From<edr_eth::l1::SpecId> for SpecId {
             edr_eth::l1::SpecId::SHANGHAI => SpecId::Shanghai,
             edr_eth::l1::SpecId::CANCUN => SpecId::Cancun,
             // TODO: Add Prague and Osaka
-            edr_eth::l1::SpecId::PRAGUE
-            | edr_eth::l1::SpecId::OSAKA
-            | edr_eth::l1::SpecId::LATEST => SpecId::Latest,
+            edr_eth::l1::SpecId::PRAGUE => SpecId::Prague,
+            edr_eth::l1::SpecId::OSAKA | edr_eth::l1::SpecId::LATEST => SpecId::Latest,
         }
     }
 }
@@ -184,6 +202,7 @@ impl From<SpecId> for edr_eth::l1::SpecId {
             SpecId::Merge => edr_eth::l1::SpecId::MERGE,
             SpecId::Shanghai => edr_eth::l1::SpecId::SHANGHAI,
             SpecId::Cancun => edr_eth::l1::SpecId::CANCUN,
+            SpecId::Prague => edr_eth::l1::SpecId::PRAGUE,
             SpecId::Latest => edr_eth::l1::SpecId::LATEST,
         }
     }
@@ -218,6 +237,5 @@ export_spec_id!(
     SHANGHAI,
     CANCUN,
     PRAGUE,
-    OSAKA,
     LATEST
 );

@@ -8,3 +8,5 @@ pub mod eip2930;
 pub mod eip4844;
 /// Types related to EIP-7702.
 pub mod eip7702;
+
+pub use alloy_eips::eip7691;

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
-    eips::eip2930,
+    eips::{eip2930, eip7702},
     l1::L1ChainSpec,
     rlp,
     transaction::{
@@ -102,6 +102,9 @@ pub trait HardforkValidationData {
 
     /// Returns the blob hashes of the transaction.
     fn blob_hashes(&self) -> Option<&Vec<B256>>;
+
+    /// Returns the authorization list of the transaction.
+    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>>;
 }
 
 /// Trait for retrieving the sender of a request, if any.

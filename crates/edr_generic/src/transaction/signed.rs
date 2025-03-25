@@ -22,41 +22,46 @@ pub enum Type {
     Eip1559 = transaction::signed::Eip1559::TYPE,
     /// EIP-4844 transaction
     Eip4844 = transaction::signed::Eip4844::TYPE,
+    /// EIP-7702 transaction
+    Eip7702 = transaction::signed::Eip7702::TYPE,
     /// Unrecognized transaction type.
     Unrecognized(u8),
 }
 
 impl From<Type> for u8 {
-    fn from(t: Type) -> u8 {
-        match t {
+    fn from(value: Type) -> u8 {
+        match value {
             Type::Legacy => transaction::signed::Legacy::TYPE,
             Type::Eip2930 => transaction::signed::Eip2930::TYPE,
             Type::Eip1559 => transaction::signed::Eip1559::TYPE,
             Type::Eip4844 => transaction::signed::Eip4844::TYPE,
+            Type::Eip7702 => transaction::signed::Eip7702::TYPE,
             Type::Unrecognized(t) => t,
         }
     }
 }
 
 impl From<u8> for Type {
-    fn from(t: u8) -> Self {
-        match t {
+    fn from(value: u8) -> Self {
+        match value {
             transaction::signed::Legacy::TYPE => Self::Legacy,
             transaction::signed::Eip2930::TYPE => Self::Eip2930,
             transaction::signed::Eip1559::TYPE => Self::Eip1559,
             transaction::signed::Eip4844::TYPE => Self::Eip4844,
+            transaction::signed::Eip7702::TYPE => Self::Eip7702,
             t => Self::Unrecognized(t),
         }
     }
 }
 
 impl From<edr_eth::transaction::Type> for Type {
-    fn from(t: edr_eth::transaction::Type) -> Self {
-        match t {
+    fn from(value: edr_eth::transaction::Type) -> Self {
+        match value {
             edr_eth::transaction::Type::Legacy => Self::Legacy,
             edr_eth::transaction::Type::Eip2930 => Self::Eip2930,
             edr_eth::transaction::Type::Eip1559 => Self::Eip1559,
             edr_eth::transaction::Type::Eip4844 => Self::Eip4844,
+            edr_eth::transaction::Type::Eip7702 => Self::Eip7702,
         }
     }
 }

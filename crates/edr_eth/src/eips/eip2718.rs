@@ -17,6 +17,8 @@ pub enum TypedEnvelope<DataT> {
     Eip1559(DataT),
     /// EIP-4844 transaction.
     Eip4844(DataT),
+    /// EIP-7702 transaction.
+    Eip7702(DataT),
 }
 
 impl<DataT> TypedEnvelope<DataT> {
@@ -27,6 +29,7 @@ impl<DataT> TypedEnvelope<DataT> {
             transaction::Type::Eip2930 => Self::Eip2930(data),
             transaction::Type::Eip1559 => Self::Eip1559(data),
             transaction::Type::Eip4844 => Self::Eip4844(data),
+            transaction::Type::Eip7702 => Self::Eip7702(data),
         }
     }
 
@@ -36,7 +39,8 @@ impl<DataT> TypedEnvelope<DataT> {
             TypedEnvelope::Legacy(data)
             | TypedEnvelope::Eip2930(data)
             | TypedEnvelope::Eip1559(data)
-            | TypedEnvelope::Eip4844(data) => data,
+            | TypedEnvelope::Eip4844(data)
+            | TypedEnvelope::Eip7702(data) => data,
         }
     }
 
@@ -50,6 +54,7 @@ impl<DataT> TypedEnvelope<DataT> {
             TypedEnvelope::Eip2930(data) => TypedEnvelope::Eip2930(f(data)),
             TypedEnvelope::Eip1559(data) => TypedEnvelope::Eip1559(f(data)),
             TypedEnvelope::Eip4844(data) => TypedEnvelope::Eip4844(f(data)),
+            TypedEnvelope::Eip7702(data) => TypedEnvelope::Eip7702(f(data)),
         }
     }
 }
@@ -63,6 +68,7 @@ impl<DataT> TransactionType for TypedEnvelope<DataT> {
             TypedEnvelope::Eip2930(_) => transaction::Type::Eip2930,
             TypedEnvelope::Eip1559(_) => transaction::Type::Eip1559,
             TypedEnvelope::Eip4844(_) => transaction::Type::Eip4844,
+            TypedEnvelope::Eip7702(_) => transaction::Type::Eip7702,
         }
     }
 }

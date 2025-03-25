@@ -1,4 +1,7 @@
-use edr_eth::{eips::eip2930, Address, Blob, Bytes, B256, U256};
+use edr_eth::{
+    eips::{eip2930, eip7702},
+    Address, Blob, Bytes, B256, U256,
+};
 
 /// Represents _all_ transaction requests received from RPC
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -42,4 +45,9 @@ pub struct TransactionRequest {
     pub blobs: Option<Vec<Blob>>,
     /// Blob versioned hashes (EIP-4844)
     pub blob_hashes: Option<Vec<B256>>,
+    /// Authorizations are used to temporarily set the code of its signer to
+    /// the code referenced by `address`. These also include a `chain_id` (which
+    /// can be set to zero and not evaluated) as well as an optional `nonce`.
+    #[serde(default)]
+    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }

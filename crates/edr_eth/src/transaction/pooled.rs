@@ -15,6 +15,7 @@ pub type Legacy = super::signed::Legacy;
 pub type Eip155 = super::signed::Eip155;
 pub type Eip2930 = super::signed::Eip2930;
 pub type Eip1559 = super::signed::Eip1559;
+pub type Eip7702 = super::signed::Eip7702;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PooledTransaction {
@@ -28,6 +29,8 @@ pub enum PooledTransaction {
     Eip1559(Eip1559),
     /// EIP-4844 transaction
     Eip4844(Eip4844),
+    /// EIP-7702 transaction
+    Eip7702(Eip7702),
 }
 
 impl PooledTransaction {
@@ -55,6 +58,7 @@ impl PooledTransaction {
             PooledTransaction::Eip2930(tx) => Signed::Eip2930(tx),
             PooledTransaction::Eip1559(tx) => Signed::Eip1559(tx),
             PooledTransaction::Eip4844(tx) => Signed::Eip4844(tx.into_payload()),
+            PooledTransaction::Eip7702(tx) => Signed::Eip7702(tx),
         }
     }
 
@@ -93,6 +97,11 @@ impl alloy_rlp::Decodable for PooledTransaction {
 
                 Ok(PooledTransaction::Eip4844(Eip4844::decode(buf)?))
             }
+            0x04 => {
+                buf.advance(1);
+
+                Ok(PooledTransaction::Eip7702(Eip7702::decode(buf)?))
+            }
             byte if is_list(byte) => {
                 let transaction = PreOrPostEip155::decode(buf)?;
                 Ok(transaction.into())
@@ -110,6 +119,7 @@ impl alloy_rlp::Encodable for PooledTransaction {
             PooledTransaction::Eip2930(tx) => enveloped(1, tx, out),
             PooledTransaction::Eip1559(tx) => enveloped(2, tx, out),
             PooledTransaction::Eip4844(tx) => enveloped(3, tx, out),
+            PooledTransaction::Eip7702(tx) => enveloped(4, tx, out),
         }
     }
 
@@ -120,6 +130,7 @@ impl alloy_rlp::Encodable for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.length() + 1,
             PooledTransaction::Eip1559(tx) => tx.length() + 1,
             PooledTransaction::Eip4844(tx) => tx.length() + 1,
+            PooledTransaction::Eip7702(tx) => tx.length() + 1,
         }
     }
 }
@@ -132,6 +143,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.caller(),
             PooledTransaction::Eip1559(tx) => tx.caller(),
             PooledTransaction::Eip4844(tx) => tx.caller(),
+            PooledTransaction::Eip7702(tx) => tx.caller(),
         }
     }
 
@@ -142,6 +154,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.gas_limit(),
             PooledTransaction::Eip1559(tx) => tx.gas_limit(),
             PooledTransaction::Eip4844(tx) => tx.gas_limit(),
+            PooledTransaction::Eip7702(tx) => tx.gas_limit(),
         }
     }
 
@@ -152,6 +165,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.gas_price(),
             PooledTransaction::Eip1559(tx) => tx.gas_price(),
             PooledTransaction::Eip4844(tx) => tx.gas_price(),
+            PooledTransaction::Eip7702(tx) => tx.gas_price(),
         }
     }
 
@@ -162,6 +176,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.kind(),
             PooledTransaction::Eip1559(tx) => tx.kind(),
             PooledTransaction::Eip4844(tx) => tx.kind(),
+            PooledTransaction::Eip7702(tx) => tx.kind(),
         }
     }
 
@@ -172,6 +187,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.value(),
             PooledTransaction::Eip1559(tx) => tx.value(),
             PooledTransaction::Eip4844(tx) => tx.value(),
+            PooledTransaction::Eip7702(tx) => tx.value(),
         }
     }
 
@@ -182,6 +198,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.data(),
             PooledTransaction::Eip1559(tx) => tx.data(),
             PooledTransaction::Eip4844(tx) => tx.data(),
+            PooledTransaction::Eip7702(tx) => tx.data(),
         }
     }
 
@@ -192,6 +209,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.nonce(),
             PooledTransaction::Eip1559(tx) => tx.nonce(),
             PooledTransaction::Eip4844(tx) => tx.nonce(),
+            PooledTransaction::Eip7702(tx) => tx.nonce(),
         }
     }
 
@@ -202,6 +220,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.chain_id(),
             PooledTransaction::Eip1559(tx) => tx.chain_id(),
             PooledTransaction::Eip4844(tx) => tx.chain_id(),
+            PooledTransaction::Eip7702(tx) => tx.chain_id(),
         }
     }
 
@@ -212,6 +231,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.access_list(),
             PooledTransaction::Eip1559(tx) => tx.access_list(),
             PooledTransaction::Eip4844(tx) => tx.access_list(),
+            PooledTransaction::Eip7702(tx) => tx.access_list(),
         }
     }
 
@@ -222,6 +242,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
             PooledTransaction::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
             PooledTransaction::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
+            PooledTransaction::Eip7702(tx) => tx.effective_gas_price(block_base_fee),
         }
     }
 
@@ -232,6 +253,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.max_fee_per_gas(),
             PooledTransaction::Eip1559(tx) => tx.max_fee_per_gas(),
             PooledTransaction::Eip4844(tx) => tx.max_fee_per_gas(),
+            PooledTransaction::Eip7702(tx) => tx.max_fee_per_gas(),
         }
     }
 
@@ -242,6 +264,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.max_priority_fee_per_gas(),
             PooledTransaction::Eip1559(tx) => tx.max_priority_fee_per_gas(),
             PooledTransaction::Eip4844(tx) => tx.max_priority_fee_per_gas(),
+            PooledTransaction::Eip7702(tx) => tx.max_priority_fee_per_gas(),
         }
     }
 
@@ -252,6 +275,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.blob_hashes(),
             PooledTransaction::Eip1559(tx) => tx.blob_hashes(),
             PooledTransaction::Eip4844(tx) => tx.blob_hashes(),
+            PooledTransaction::Eip7702(tx) => tx.blob_hashes(),
         }
     }
 
@@ -262,6 +286,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.max_fee_per_blob_gas(),
             PooledTransaction::Eip1559(tx) => tx.max_fee_per_blob_gas(),
             PooledTransaction::Eip4844(tx) => tx.max_fee_per_blob_gas(),
+            PooledTransaction::Eip7702(tx) => tx.max_fee_per_blob_gas(),
         }
     }
 
@@ -272,6 +297,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.total_blob_gas(),
             PooledTransaction::Eip1559(tx) => tx.total_blob_gas(),
             PooledTransaction::Eip4844(tx) => tx.total_blob_gas(),
+            PooledTransaction::Eip7702(tx) => tx.total_blob_gas(),
         }
     }
 
@@ -282,6 +308,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.authorization_list(),
             PooledTransaction::Eip1559(tx) => tx.authorization_list(),
             PooledTransaction::Eip4844(tx) => tx.authorization_list(),
+            PooledTransaction::Eip7702(tx) => tx.authorization_list(),
         }
     }
 
@@ -292,6 +319,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.rlp_encoding(),
             PooledTransaction::Eip1559(tx) => tx.rlp_encoding(),
             PooledTransaction::Eip4844(tx) => tx.rlp_encoding(),
+            PooledTransaction::Eip7702(tx) => tx.rlp_encoding(),
         }
     }
 
@@ -302,6 +330,7 @@ impl ExecutableTransaction for PooledTransaction {
             PooledTransaction::Eip2930(tx) => tx.transaction_hash(),
             PooledTransaction::Eip1559(tx) => tx.transaction_hash(),
             PooledTransaction::Eip4844(tx) => tx.transaction_hash(),
+            PooledTransaction::Eip7702(tx) => tx.transaction_hash(),
         }
     }
 }
@@ -336,6 +365,12 @@ impl From<Eip4844> for PooledTransaction {
     }
 }
 
+impl From<Eip7702> for PooledTransaction {
+    fn from(value: Eip7702) -> Self {
+        PooledTransaction::Eip7702(value)
+    }
+}
+
 impl From<PreOrPostEip155> for PooledTransaction {
     fn from(value: PreOrPostEip155) -> Self {
         match value {
@@ -366,7 +401,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        signature,
+        address,
+        eips::eip7702,
+        signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
         transaction::{self, TxKind},
         Address, Bytes, B256, U256,
     };
@@ -460,11 +497,13 @@ mod tests {
             // SAFETY: Signature and caller address have been precomputed based on
             // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
             signature: unsafe { signature::Fakeable::with_address_unchecked(
-                signature::SignatureWithYParity {
-                    r: U256::from_str("0xa8d41ec812e66a7d80a1478f053cb8b627abb36191f53c2f7a153b4e4f90564d")?,
-                    s: U256::from_str("0x5a04b306c280730f872be5cd1970a3b493bdb4855fdbc2725dd9452f1a3e9412")?,
-                    y_parity: true,
-                },
+                SignatureWithYParity::new(
+                    SignatureWithYParityArgs {
+                        r: U256::from_str("0xa8d41ec812e66a7d80a1478f053cb8b627abb36191f53c2f7a153b4e4f90564d")?,
+                        s: U256::from_str("0x5a04b306c280730f872be5cd1970a3b493bdb4855fdbc2725dd9452f1a3e9412")?,
+                        y_parity: true,
+                    }
+                ),
                 Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
             )},
             hash: OnceLock::new(),
@@ -483,11 +522,13 @@ mod tests {
             // SAFETY: Signature and caller address have been precomputed based on
             // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
             signature: unsafe { signature::Fakeable::with_address_unchecked(
-                signature::SignatureWithYParity {
-                    r: U256::from_str("0x263b71578125bf86e9e842a920af2d941cd023893c4a452d158c87eabdf06bb9")?,
-                    s: U256::from_str("0x097ff1980e38856c8e0310823e6cfc83032314f50ddd38568d3c9cf93e47d517")?,
-                    y_parity: true,
-                },
+                SignatureWithYParity::new(
+                    SignatureWithYParityArgs {
+                        r: U256::from_str("0x263b71578125bf86e9e842a920af2d941cd023893c4a452d158c87eabdf06bb9")?,
+                        s: U256::from_str("0x097ff1980e38856c8e0310823e6cfc83032314f50ddd38568d3c9cf93e47d517")?,
+                        y_parity: true,
+                    }
+                ),
                 Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
             )},
             hash: OnceLock::new(),
@@ -508,11 +549,13 @@ mod tests {
                 blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
                 // SAFETY: Signature and caller address have been precomputed
                 signature: unsafe { signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithYParity {
-                        r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
-                        s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
-                        y_parity: true,
-                    },
+                    SignatureWithYParity::new(
+                        SignatureWithYParityArgs {
+                            r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
+                            s: U256::from_str("0x390a4c98aaecf0cfc2b27e68bdcec511dd4136356197e5937ce186af5608690b")?,
+                            y_parity: true,
+                        }
+                    ),
                     Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
                 )},
                 hash: OnceLock::new(),
@@ -526,5 +569,48 @@ mod tests {
                 "86ffb073648261475af77cc902c5189bf3d33d0f63e025f23c69ac1e4cc0a7646e1a59ff8e5600f0fcc35f78fe1a4df2"
             ).expect("Invalid proof")], c_kzg::ethereum_kzg_settings())?
         ),
+        eip7702 => PooledTransaction::Eip7702(Eip7702 {
+            chain_id: 31337,
+            nonce: 0,
+            max_priority_fee_per_gas: 1_000_000_000,
+            max_fee_per_gas: 2_200_000_000,
+            gas_limit: 63_000,
+            to: address!("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
+            value: U256::ZERO,
+            input: Bytes::new(),
+            access_list: Vec::new().into(),
+            authorization_list: vec![
+                eip7702::SignedAuthorization::new_unchecked(
+                    eip7702::Authorization {
+                        chain_id: U256::from(31337),
+                        address: address!("0x1234567890123456789012345678901234567890"),
+                        nonce: 0,
+                    },
+                    0,
+                    U256::from_str(
+                        "0xb776080626e62615e2a51a6bde9b4b4612af2627e386734f9af466ecfce19b8d",
+                    )
+                    .expect("R value is valid"),
+                    U256::from_str(
+                        "0x0d5c886f5874383826ac237ea99bfbbf601fad0fd344458296677930d51ff444",
+                    )
+                    .expect("S value is valid"),
+                )
+            ],
+            // SAFETY: Signature and caller address have been precomputed from the test data in
+            // `src/transaction/signed/eip7702.rs`.
+            signature: unsafe { signature::Fakeable::with_address_unchecked(
+                SignatureWithYParity::new(
+                    SignatureWithYParityArgs {
+                        r: U256::from_str("0xc6b497dd8d2b10eae25059ebc11b6228d15892c998856b04a1645cc932aad4c1")?,
+                        s: U256::from_str("0x7dc710bb53d4783dbbe2ae959e4954cf8d3c9612b6ddcfd5a528a2c2250114a6")?,
+                        y_parity: true,
+                    }
+                ),
+                Address::from_str("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266")?,
+            )},
+            hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
+        }),
     }
 }

@@ -1,4 +1,7 @@
-use edr_eth::{eips::eip2930, Address, Blob, Bytes, B256, U256};
+use edr_eth::{
+    eips::{eip2930, eip7702},
+    Address, Blob, Bytes, B256, U256,
+};
 
 /// For specifying input to methods requiring a transaction object, like
 /// `eth_call` and `eth_estimateGas`
@@ -35,6 +38,8 @@ pub struct CallRequest {
     pub blobs: Option<Vec<Blob>>,
     /// Blob versioned hashes (EIP-4844)
     pub blob_hashes: Option<Vec<B256>>,
+    /// Authorization list (EIP-7702)
+    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }
 
 #[cfg(test)]

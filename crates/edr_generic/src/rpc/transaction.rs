@@ -105,6 +105,7 @@ impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPost
             transaction::Type::Eip2930 => Signed::Eip2930(value.try_into()?),
             transaction::Type::Eip1559 => Signed::Eip1559(value.try_into()?),
             transaction::Type::Eip4844 => Signed::Eip4844(value.try_into()?),
+            transaction::Type::Eip7702 => Signed::Eip7702(value.try_into()?),
         };
 
         Ok(Self::with_type(transaction, tx_type))

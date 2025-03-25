@@ -144,6 +144,25 @@ dependencies = [
 
 [[package]]
 name = "alloy-eips"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5591581ca2ab0b3e7226a4047f9a1bfcf431da1d0cce3752fda609fea3c27e37"
+dependencies = [
+ "alloy-eip2124",
+ "alloy-eip2930",
+ "alloy-eip7702 0.5.1",
+ "alloy-primitives 0.8.22",
+ "alloy-rlp",
+ "alloy-serde 0.11.1",
+ "auto_impl",
+ "c-kzg",
+ "derive_more 1.0.0",
+ "once_cell",
+ "serde",
+]
+
+[[package]]
+name = "alloy-eips"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d13734f722326c846e7690ce732c9864f5ae82f52c7fb60c871f56654f348d4c"
@@ -320,6 +339,17 @@ name = "alloy-serde"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "731f75ec5d383107fd745d781619bd9cedf145836c51ecb991623d41278e71fa"
+dependencies = [
+ "alloy-primitives 0.8.22",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "alloy-serde"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8732058f5ca28c1d53d241e8504620b997ef670315d7c8afab856b3e3b80d945"
 dependencies = [
  "alloy-primitives 0.8.22",
  "serde",
@@ -864,9 +894,9 @@ dependencies = [
 
 [[package]]
 name = "blst"
-version = "0.3.11"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c94087b935a822949d3291a9989ad2b2051ea141eda0fd4e478a75f6aa3e604b"
+checksum = "47c79a94619fade3c0b887670333513a67ac28a6a7e653eb260bf0d4103db38d"
 dependencies = [
  "cc",
  "glob",
@@ -1443,9 +1473,9 @@ dependencies = [
 name = "edr_eth"
 version = "0.3.5"
 dependencies = [
- "alloy-eips 0.12.4",
+ "alloy-eips 0.11.1",
  "alloy-rlp",
- "alloy-serde 0.12.4",
+ "alloy-serde 0.11.1",
  "anyhow",
  "assert-json-diff",
  "auto_impl",
@@ -1495,6 +1525,7 @@ dependencies = [
  "dyn-clone",
  "edr_defaults",
  "edr_eth",
+ "edr_generic",
  "edr_rpc_eth",
  "edr_test_utils",
  "edr_utils",
@@ -3741,6 +3772,7 @@ version = "17.0.0"
 source = "git+https://github.com/nomicfoundation/revm?rev=885b273a#885b273a309807691e47ad64b9670ef0cd014d7a"
 dependencies = [
  "aurora-engine-modexp",
+ "blst",
  "c-kzg",
  "cfg-if",
  "k256",

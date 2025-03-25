@@ -5,8 +5,9 @@ use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
     block::BlobGas,
+    eips::eip7702,
     l1::{self, L1ChainSpec},
-    signature::secret_key_from_str,
+    signature::{secret_key_from_str, SignatureWithYParity},
     transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, KECCAK_EMPTY, U160, U256,
@@ -14,6 +15,7 @@ use edr_eth::{
 use edr_evm::Block as _;
 use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
+use k256::SecretKey;
 use tokio::runtime;
 
 use crate::{
@@ -286,4 +288,14 @@ impl ProviderTestFixture<L1ChainSpec> {
         let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
         Ok(self.provider_data.sign_transaction_request(transaction)?)
     }
+}
+
+/// Signs an authorization with the provided secret key.
+pub fn sign_authorization(
+    authorization: eip7702::Authorization,
+    secret_key: &SecretKey,
+) -> anyhow::Result<eip7702::SignedAuthorization> {
+    let signature = SignatureWithYParity::with_message(authorization.signature_hash(), secret_key)?;
+
+    Ok(authorization.into_signed(signature.into_inner()))
 }

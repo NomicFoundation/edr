@@ -5,7 +5,7 @@ mod deposit;
 use std::sync::OnceLock;
 
 use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
-pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Legacy};
+pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
     eips::{eip2930, eip7702},
     impl_revm_transaction_trait,
@@ -94,6 +94,7 @@ impl alloy_rlp::Encodable for Signed {
             Signed::Eip2930(tx) => tx.length() + 1,
             Signed::Eip1559(tx) => tx.length() + 1,
             Signed::Eip4844(tx) => tx.length() + 1,
+            Signed::Eip7702(tx) => tx.length() + 1,
             Signed::Deposit(tx) => tx.length() + 1,
         }
     }
@@ -124,6 +125,7 @@ impl From<edr_eth::transaction::Signed> for Signed {
             edr_eth::transaction::Signed::Eip2930(tx) => Self::Eip2930(tx),
             edr_eth::transaction::Signed::Eip1559(tx) => Self::Eip1559(tx),
             edr_eth::transaction::Signed::Eip4844(tx) => Self::Eip4844(tx),
+            edr_eth::transaction::Signed::Eip7702(tx) => Self::Eip7702(tx),
         }
     }
 }
@@ -155,6 +157,12 @@ impl From<Eip1559> for Signed {
 impl From<Eip4844> for Signed {
     fn from(transaction: Eip4844) -> Self {
         Self::Eip4844(transaction)
+    }
+}
+
+impl From<Eip7702> for Signed {
+    fn from(transaction: Eip7702) -> Self {
+        Self::Eip7702(transaction)
     }
 }
 
@@ -193,6 +201,7 @@ impl MaybeSignedTransaction for Signed {
             Signed::Eip2930(tx) => Some(&tx.signature),
             Signed::Eip1559(tx) => Some(&tx.signature),
             Signed::Eip4844(tx) => Some(&tx.signature),
+            Signed::Eip7702(tx) => Some(&tx.signature),
             Signed::Deposit(_) => None,
         }
     }
@@ -233,6 +242,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.caller(),
             Signed::Eip1559(tx) => tx.caller(),
             Signed::Eip4844(tx) => tx.caller(),
+            Signed::Eip7702(tx) => tx.caller(),
             Signed::Deposit(tx) => tx.caller(),
         }
     }
@@ -244,6 +254,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.gas_limit(),
             Signed::Eip1559(tx) => tx.gas_limit(),
             Signed::Eip4844(tx) => tx.gas_limit(),
+            Signed::Eip7702(tx) => tx.gas_limit(),
             Signed::Deposit(tx) => tx.gas_limit(),
         }
     }
@@ -255,6 +266,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.gas_price(),
             Signed::Eip1559(tx) => tx.gas_price(),
             Signed::Eip4844(tx) => tx.gas_price(),
+            Signed::Eip7702(tx) => tx.gas_price(),
             Signed::Deposit(tx) => tx.gas_price(),
         }
     }
@@ -266,6 +278,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.kind(),
             Signed::Eip1559(tx) => tx.kind(),
             Signed::Eip4844(tx) => tx.kind(),
+            Signed::Eip7702(tx) => tx.kind(),
             Signed::Deposit(tx) => tx.kind(),
         }
     }
@@ -277,6 +290,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.value(),
             Signed::Eip1559(tx) => tx.value(),
             Signed::Eip4844(tx) => tx.value(),
+            Signed::Eip7702(tx) => tx.value(),
             Signed::Deposit(tx) => tx.value(),
         }
     }
@@ -288,6 +302,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.data(),
             Signed::Eip1559(tx) => tx.data(),
             Signed::Eip4844(tx) => tx.data(),
+            Signed::Eip7702(tx) => tx.data(),
             Signed::Deposit(tx) => tx.data(),
         }
     }
@@ -299,6 +314,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.nonce(),
             Signed::Eip1559(tx) => tx.nonce(),
             Signed::Eip4844(tx) => tx.nonce(),
+            Signed::Eip7702(tx) => tx.nonce(),
             Signed::Deposit(tx) => tx.nonce(),
         }
     }
@@ -310,6 +326,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.chain_id(),
             Signed::Eip1559(tx) => tx.chain_id(),
             Signed::Eip4844(tx) => tx.chain_id(),
+            Signed::Eip7702(tx) => tx.chain_id(),
             Signed::Deposit(tx) => tx.chain_id(),
         }
     }
@@ -321,6 +338,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.access_list(),
             Signed::Eip1559(tx) => tx.access_list(),
             Signed::Eip4844(tx) => tx.access_list(),
+            Signed::Eip7702(tx) => tx.access_list(),
             Signed::Deposit(tx) => tx.access_list(),
         }
     }
@@ -332,6 +350,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
             Signed::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
             Signed::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
+            Signed::Eip7702(tx) => tx.effective_gas_price(block_base_fee),
             Signed::Deposit(tx) => tx.effective_gas_price(block_base_fee),
         }
     }
@@ -343,6 +362,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.max_fee_per_gas(),
             Signed::Eip1559(tx) => tx.max_fee_per_gas(),
             Signed::Eip4844(tx) => tx.max_fee_per_gas(),
+            Signed::Eip7702(tx) => tx.max_fee_per_gas(),
             Signed::Deposit(tx) => tx.max_fee_per_gas(),
         }
     }
@@ -354,6 +374,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.max_priority_fee_per_gas(),
             Signed::Eip1559(tx) => tx.max_priority_fee_per_gas(),
             Signed::Eip4844(tx) => tx.max_priority_fee_per_gas(),
+            Signed::Eip7702(tx) => tx.max_priority_fee_per_gas(),
             Signed::Deposit(tx) => tx.max_priority_fee_per_gas(),
         }
     }
@@ -365,6 +386,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.blob_hashes(),
             Signed::Eip1559(tx) => tx.blob_hashes(),
             Signed::Eip4844(tx) => tx.blob_hashes(),
+            Signed::Eip7702(tx) => tx.blob_hashes(),
             Signed::Deposit(tx) => tx.blob_hashes(),
         }
     }
@@ -376,6 +398,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.max_fee_per_blob_gas(),
             Signed::Eip1559(tx) => tx.max_fee_per_blob_gas(),
             Signed::Eip4844(tx) => tx.max_fee_per_blob_gas(),
+            Signed::Eip7702(tx) => tx.max_fee_per_blob_gas(),
             Signed::Deposit(tx) => tx.max_fee_per_blob_gas(),
         }
     }
@@ -387,6 +410,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.total_blob_gas(),
             Signed::Eip1559(tx) => tx.total_blob_gas(),
             Signed::Eip4844(tx) => tx.total_blob_gas(),
+            Signed::Eip7702(tx) => tx.total_blob_gas(),
             Signed::Deposit(tx) => tx.total_blob_gas(),
         }
     }
@@ -398,6 +422,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.authorization_list(),
             Signed::Eip1559(tx) => tx.authorization_list(),
             Signed::Eip4844(tx) => tx.authorization_list(),
+            Signed::Eip7702(tx) => tx.authorization_list(),
             Signed::Deposit(tx) => tx.authorization_list(),
         }
     }
@@ -409,6 +434,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.rlp_encoding(),
             Signed::Eip1559(tx) => tx.rlp_encoding(),
             Signed::Eip4844(tx) => tx.rlp_encoding(),
+            Signed::Eip7702(tx) => tx.rlp_encoding(),
             Signed::Deposit(tx) => tx.rlp_encoding(),
         }
     }
@@ -420,6 +446,7 @@ impl ExecutableTransaction for Signed {
             Signed::Eip2930(tx) => tx.transaction_hash(),
             Signed::Eip1559(tx) => tx.transaction_hash(),
             Signed::Eip4844(tx) => tx.transaction_hash(),
+            Signed::Eip7702(tx) => tx.transaction_hash(),
             Signed::Deposit(tx) => tx.transaction_hash(),
         }
     }
@@ -433,6 +460,7 @@ impl TransactionMut for Signed {
             Signed::Eip2930(tx) => tx.gas_limit = gas_limit,
             Signed::Eip1559(tx) => tx.gas_limit = gas_limit,
             Signed::Eip4844(tx) => tx.gas_limit = gas_limit,
+            Signed::Eip7702(tx) => tx.gas_limit = gas_limit,
             Signed::Deposit(tx) => tx.gas_limit = gas_limit,
         }
     }
@@ -447,6 +475,7 @@ impl TransactionType for Signed {
             Signed::Eip2930(_) => super::Type::Eip2930,
             Signed::Eip1559(_) => super::Type::Eip1559,
             Signed::Eip4844(_) => super::Type::Eip4844,
+            Signed::Eip7702(_) => super::Type::Eip7702,
             Signed::Deposit(_) => super::Type::Deposit,
         }
     }

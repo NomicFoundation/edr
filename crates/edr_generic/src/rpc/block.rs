@@ -95,6 +95,11 @@ pub struct Block<TransactionT> {
     /// Root of the parent beacon block
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_beacon_block_root: Option<B256>,
+    /// The commitment hash calculated for a list of [EIP-7685] data requests.
+    ///
+    /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requests_hash: Option<B256>,
 }
 
 impl<T> GetBlockNumber for Block<T> {
@@ -172,6 +177,7 @@ where
                 })
             }),
             parent_beacon_block_root: value.parent_beacon_block_root,
+            requests_hash: value.requests_hash,
         };
 
         let transactions = value
@@ -236,6 +242,7 @@ impl<BlockT: edr_evm::Block<SignedTransactionT>, SignedTransactionT: ExecutableT
             blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
             excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
             parent_beacon_block_root: header.parent_beacon_block_root,
+            requests_hash: header.requests_hash,
         }
     }
 }

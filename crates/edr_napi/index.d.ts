@@ -65,6 +65,12 @@ export interface BlockOptions {
    * block (EIP-4788).
    */
   parentBeaconBlockRoot?: Buffer
+  /**
+   * The commitment hash calculated for a list of [EIP-7685] data requests.
+   *
+   * [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
+   */
+  requestsHash?: Buffer
 }
 /** Information about the blob gas used in a block. */
 export interface BlobGas {
@@ -135,6 +141,8 @@ export enum SpecId {
   Shanghai = 16,
   /** Cancun */
   Cancun = 17,
+  /** Prague */
+  Prague = 18,
   /** Latest */
   Latest = 2147483647
 }
@@ -157,7 +165,6 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
-export const OSAKA: string
 export const LATEST: string
 /** Configuration for a chain */
 export interface ChainConfig {

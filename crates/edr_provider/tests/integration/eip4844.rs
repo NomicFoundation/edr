@@ -5,13 +5,10 @@ use std::{str::FromStr, sync::Arc};
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     account::AccountInfo,
-    eips::eip4844::ethereum_kzg_settings,
+    eips::eip4844::{self, GAS_PER_BLOB},
     l1::{self, L1ChainSpec},
-    rlp::{self, Decodable},
-    transaction::{
-        self, pooled::PooledTransaction, ExecutableTransaction as _, TransactionType as _,
-    },
-    Address, Blob, Bytes, Bytes48, PreEip1898BlockSpec, B256, BYTES_PER_BLOB, KECCAK_EMPTY, U256,
+    transaction::{self, ExecutableTransaction as _, TransactionType as _},
+    Address, Blob, Bytes, PreEip1898BlockSpec, B256, KECCAK_EMPTY, U256,
 };
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
@@ -20,125 +17,12 @@ use edr_provider::{
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_address};
+use edr_test_utils::secret_key::secret_key_to_address;
 use tokio::runtime;
 
-/// Helper struct to modify the pooled transaction from the value in
-/// `fixtures/eip4844.txt`. It reuses the secret key from `SECRET_KEYS[0]`.
-struct BlobTransactionBuilder {
-    request: transaction::request::Eip4844,
-    blobs: Vec<Blob>,
-    commitments: Vec<Bytes48>,
-    proofs: Vec<Bytes48>,
-}
-
-impl BlobTransactionBuilder {
-    pub fn blob_hashes(&self) -> Vec<B256> {
-        self.request.blob_hashes.clone()
-    }
-
-    pub fn build(self) -> PooledTransaction {
-        let secret_key = secret_key_from_str(SECRET_KEYS[0]).expect("Invalid secret key");
-        let signed_transaction = self
-            .request
-            .sign(&secret_key)
-            .expect("Failed to sign transaction");
-
-        let pooled_transaction = transaction::pooled::Eip4844::new(
-            signed_transaction,
-            self.blobs,
-            self.commitments,
-            self.proofs,
-            ethereum_kzg_settings(),
-        )
-        .expect("Invalid blob transaction");
-
-        PooledTransaction::Eip4844(pooled_transaction)
-    }
-
-    pub fn build_raw(self) -> Bytes {
-        rlp::encode(self.build()).into()
-    }
-
-    /// Duplicates the blobs, commitments, and proofs such that they exist
-    /// `count` times.
-    pub fn duplicate_blobs(mut self, count: usize) -> Self {
-        self.request.blob_hashes = self
-            .request
-            .blob_hashes
-            .into_iter()
-            .cycle()
-            .take(count)
-            .collect();
-
-        self.blobs = self.blobs.into_iter().cycle().take(count).collect();
-        self.commitments = self.commitments.into_iter().cycle().take(count).collect();
-        self.proofs = self.proofs.into_iter().cycle().take(count).collect();
-
-        self
-    }
-
-    pub fn input(mut self, input: Bytes) -> Self {
-        self.request.input = input;
-        self
-    }
-
-    pub fn nonce(mut self, nonce: u64) -> Self {
-        self.request.nonce = nonce;
-        self
-    }
-
-    pub fn to(mut self, to: Address) -> Self {
-        self.request.to = to;
-        self
-    }
-}
-
-impl Default for BlobTransactionBuilder {
-    fn default() -> Self {
-        let PooledTransaction::Eip4844(pooled_transaction) = fake_pooled_transaction() else {
-            unreachable!("Must be an EIP-4844 transaction")
-        };
-
-        let (transaction, blobs, commitments, proofs) = pooled_transaction.into_inner();
-        let request = transaction::request::Eip4844 {
-            chain_id: transaction.chain_id,
-            nonce: transaction.nonce,
-            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
-            max_fee_per_gas: transaction.max_fee_per_gas,
-            gas_limit: transaction.gas_limit,
-            to: transaction.to,
-            value: transaction.value,
-            input: transaction.input,
-            access_list: transaction.access_list.into(),
-            max_fee_per_blob_gas: transaction.max_fee_per_blob_gas,
-            blob_hashes: transaction.blob_hashes,
-        };
-
-        Self {
-            request,
-            blobs,
-            commitments,
-            proofs,
-        }
-    }
-}
-
-fn fake_raw_transaction() -> Bytes {
-    Bytes::from_str(include_str!("../fixtures/eip4844.txt"))
-        .expect("failed to parse raw transaction")
-}
-
-fn fake_pooled_transaction() -> PooledTransaction {
-    let raw_transaction = fake_raw_transaction();
-
-    PooledTransaction::decode(&mut raw_transaction.as_ref())
-        .expect("failed to decode raw transaction")
-}
-
-fn fake_transaction() -> transaction::Signed {
-    fake_pooled_transaction().into_payload()
-}
+use crate::common::blob::{
+    fake_pooled_transaction, fake_raw_transaction, fake_transaction, BlobTransactionBuilder,
+};
 
 fn fake_call_request() -> CallRequest {
     let transaction = fake_pooled_transaction();
@@ -432,11 +316,11 @@ async fn block_header() -> anyhow::Result<()> {
     ))?;
 
     let first_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(first_block.blob_gas_used, Some(BYTES_PER_BLOB as u64));
+    assert_eq!(first_block.blob_gas_used, Some(eip4844::GAS_PER_BLOB));
 
     assert_eq!(
         first_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * eip4844::GAS_PER_BLOB)
     );
 
     // The first block does not affect the number of excess blobs, as it has less
@@ -456,11 +340,11 @@ async fn block_header() -> anyhow::Result<()> {
     ))?;
 
     let second_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(second_block.blob_gas_used, Some(4 * BYTES_PER_BLOB as u64));
+    assert_eq!(second_block.blob_gas_used, Some(4 * GAS_PER_BLOB));
 
     assert_eq!(
         second_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     // The second block increases the excess by 1 blob (4 - 3)
@@ -480,11 +364,11 @@ async fn block_header() -> anyhow::Result<()> {
     ))?;
 
     let third_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(third_block.blob_gas_used, Some(5 * BYTES_PER_BLOB as u64));
+    assert_eq!(third_block.blob_gas_used, Some(5 * GAS_PER_BLOB));
 
     assert_eq!(
         third_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     // The third block increases the excess by 2 blob (5 - 3)
@@ -502,7 +386,7 @@ async fn block_header() -> anyhow::Result<()> {
 
     assert_eq!(
         fourth_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     // The fourth block decreases the excess by 3 blob (0 - 3), but should not go
@@ -521,7 +405,7 @@ async fn block_header() -> anyhow::Result<()> {
 
     assert_eq!(
         fifth_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     Ok(())

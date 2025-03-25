@@ -11,6 +11,7 @@ use edr_eth::{
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
+    blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
     transaction, Block,
 };
@@ -224,6 +225,70 @@ pub fn handle_send_raw_transaction_request<
         .map_err(ProviderError::TransactionCreationError)?;
 
     send_raw_transaction_and_log(data, signed_transaction)
+}
+
+pub fn calculate_eip1559_fee_parameters<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionType<Type: IsEip4844>
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+        >,
+    >,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    data: &mut ProviderData<ChainSpecT, TimerT>,
+    max_fee_per_gas: Option<u128>,
+    max_priority_fee_per_gas: Option<u128>,
+) -> Result<(u128, u128), BlockchainErrorForChainSpec<ChainSpecT>> {
+    const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
+
+    /// # Panics
+    ///
+    /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
+    fn calculate_max_fee_per_gas<
+        ChainSpecT: SyncProviderSpec<
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
+        >,
+        TimerT: Clone + TimeSinceEpoch,
+    >(
+        data: &ProviderData<ChainSpecT, TimerT>,
+        max_priority_fee_per_gas: u128,
+    ) -> Result<u128, BlockchainErrorForChainSpec<ChainSpecT>> {
+        let base_fee_per_gas = data
+            .next_block_base_fee_per_gas()?
+            .expect("We already validated that the block is post-London.");
+        Ok(2 * base_fee_per_gas + max_priority_fee_per_gas)
+    }
+
+    let parameters = match (max_fee_per_gas, max_priority_fee_per_gas) {
+        (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) => {
+            (max_fee_per_gas, max_priority_fee_per_gas)
+        }
+        (Some(max_fee_per_gas), None) => (
+            max_fee_per_gas,
+            max_fee_per_gas.min(DEFAULT_MAX_PRIORITY_FEE_PER_GAS),
+        ),
+        (None, Some(max_priority_fee_per_gas)) => {
+            let max_fee_per_gas = calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
+            (max_fee_per_gas, max_priority_fee_per_gas)
+        }
+        (None, None) => {
+            let max_priority_fee_per_gas = DEFAULT_MAX_PRIORITY_FEE_PER_GAS;
+            let max_fee_per_gas = calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
+            (max_fee_per_gas, max_priority_fee_per_gas)
+        }
+    };
+
+    Ok(parameters)
 }
 
 fn send_raw_transaction_and_log<

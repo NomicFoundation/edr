@@ -49,8 +49,9 @@ pub use self::{
     mock::{CallOverrideResult, SyncCallOverride},
     provider::Provider,
     requests::{
-        hardhat::rpc_types as hardhat_rpc_types, IntervalConfig as IntervalConfigRequest,
-        InvalidRequestReason, MethodInvocation, ProviderRequest, Timestamp,
+        eth::calculate_eip1559_fee_parameters, hardhat::rpc_types as hardhat_rpc_types,
+        IntervalConfig as IntervalConfigRequest, InvalidRequestReason, MethodInvocation,
+        ProviderRequest, Timestamp,
     },
     spec::{ProviderSpec, SyncProviderSpec},
     subscribe::*,

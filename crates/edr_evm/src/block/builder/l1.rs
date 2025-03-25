@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, BlockOptions, PartialHeader},
-    eips::eip4844,
+    eips::{eip4844, eip7691},
     l1,
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
@@ -97,7 +97,13 @@ where
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            if block_blob_gas_used + blob_gas_used > eip4844::MAX_BLOB_GAS_PER_BLOCK_CANCUN {
+            let max_blob_gas_per_block = if self.config().spec.into() >= l1::SpecId::PRAGUE {
+                eip7691::MAX_BLOBS_PER_BLOCK_ELECTRA * eip4844::GAS_PER_BLOB
+            } else {
+                eip4844::MAX_BLOB_GAS_PER_BLOCK_CANCUN
+            };
+
+            if block_blob_gas_used + blob_gas_used > max_blob_gas_per_block {
                 return Err(BlockTransactionError::ExceedsBlockBlobGasLimit);
             }
         }

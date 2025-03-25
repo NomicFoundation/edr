@@ -1,5 +1,22 @@
 # @nomicfoundation/edr
 
+## 0.10.0
+
+### Minor Changes
+
+- 1d377bb: Add Prague hardfork to the list of supported `SpecId`s
+
+## 0.9.0
+
+### Minor Changes
+
+- 9353777: Adds the EIP-7685 requestsHash field to Block RPC response type and BlockOptions
+- 314790c: Adds EIP-7702 transactions to eth_call, eth_estimateGas, eth_sendTransaction, eth_sendRawTransaction, and debug_traceCall
+
+### Patch Changes
+
+- 90e3b15: Added the InvalidEXTCALLTarget variant to the ExceptionalHalt enum
+
 ## 0.8.0
 
 ### Minor Changes

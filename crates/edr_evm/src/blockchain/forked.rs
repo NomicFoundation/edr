@@ -2,13 +2,11 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    account::{Account, AccountInfo, AccountStatus},
-    beacon::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
+    account::{Account, AccountStatus},
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     l1,
     log::FilterLog,
-    Address, BlockSpec, Bytecode, Bytes, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256,
-    U256,
+    Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -28,6 +26,15 @@ use super::{
 };
 use crate::{
     block::EthRpcBlock,
+    eips::{
+        eip2935::{
+            add_history_storage_contract_to_state_diff, history_storage_contract,
+            HISTORY_STORAGE_ADDRESS,
+        },
+        eip4788::{
+            add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
+        },
+    },
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
@@ -198,34 +205,58 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                 });
             }
 
-            if remote_hardfork.into() < l1::SpecId::CANCUN && hardfork.into() >= l1::SpecId::CANCUN
+            if remote_hardfork.into() < l1::SpecId::PRAGUE && hardfork.into() >= l1::SpecId::PRAGUE
             {
-                let beacon_roots_contract =
-                    Bytecode::new_raw(Bytes::from_static(&BEACON_ROOTS_BYTECODE));
-
                 let state_root = state_root_generator.lock().next_value();
 
                 irregular_state
                     .state_override_at_block_number(fork_block_number)
                     .and_modify(|state_override| {
-                        state_override.diff.apply_account_change(
-                            BEACON_ROOTS_ADDRESS,
-                            AccountInfo {
-                                code_hash: beacon_roots_contract.hash_slow(),
-                                code: Some(beacon_roots_contract.clone()),
-                                ..AccountInfo::default()
-                            },
-                        );
+                        add_beacon_roots_contract_to_state_diff(&mut state_override.diff);
+                        add_history_storage_contract_to_state_diff(&mut state_override.diff);
+                    })
+                    .or_insert_with(|| {
+                        let accounts: HashMap<Address, Account> = [
+                            (
+                                BEACON_ROOTS_ADDRESS,
+                                Account {
+                                    info: beacon_roots_contract(),
+                                    status: AccountStatus::Created | AccountStatus::Touched,
+                                    storage: HashMap::new(),
+                                },
+                            ),
+                            (
+                                HISTORY_STORAGE_ADDRESS,
+                                Account {
+                                    info: history_storage_contract(),
+                                    status: AccountStatus::Created | AccountStatus::Touched,
+                                    storage: HashMap::new(),
+                                },
+                            ),
+                        ]
+                        .into_iter()
+                        .collect();
+
+                        StateOverride {
+                            diff: StateDiff::from(accounts),
+                            state_root,
+                        }
+                    });
+            } else if remote_hardfork.into() < l1::SpecId::CANCUN
+                && hardfork.into() >= l1::SpecId::CANCUN
+            {
+                let state_root = state_root_generator.lock().next_value();
+
+                irregular_state
+                    .state_override_at_block_number(fork_block_number)
+                    .and_modify(|state_override| {
+                        add_beacon_roots_contract_to_state_diff(&mut state_override.diff);
                     })
                     .or_insert_with(|| {
                         let accounts: HashMap<Address, Account> = [(
                             BEACON_ROOTS_ADDRESS,
                             Account {
-                                info: AccountInfo {
-                                    code_hash: beacon_roots_contract.hash_slow(),
-                                    code: Some(beacon_roots_contract),
-                                    ..AccountInfo::default()
-                                },
+                                info: beacon_roots_contract(),
                                 status: AccountStatus::Created | AccountStatus::Touched,
                                 storage: HashMap::new(),
                             },

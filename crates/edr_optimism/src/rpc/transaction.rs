@@ -115,6 +115,9 @@ impl TryFrom<Transaction> for transaction::Signed {
                     transaction::Type::Eip4844 => {
                         Self::Eip4844(transaction_with_signature.try_into()?)
                     }
+                    transaction::Type::Eip7702 => {
+                        Self::Eip7702(transaction_with_signature.try_into()?)
+                    }
                     transaction::Type::Deposit => unreachable!("already handled"),
                 }
             }

@@ -1,17 +1,19 @@
 use edr_eth::{
     l1::{self, L1ChainSpec},
+    transaction::TxKind,
     Bytes, U256,
 };
-use edr_evm::{blockchain::BlockchainErrorForChainSpec, transaction};
+use edr_evm::transaction;
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use super::validation::validate_call_request;
 use crate::{
-    data::ProviderData,
+    calculate_eip1559_fee_parameters,
     error::ProviderErrorForChainSpec,
     requests::validation::validate_send_transaction_request,
     spec::{CallContext, FromRpcType, TransactionContext},
     time::TimeSinceEpoch,
+    ProviderError,
 };
 
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transaction::Request {
@@ -43,7 +45,11 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
             value,
             data: input,
             access_list,
-            ..
+            // We ignore the transaction type
+            transaction_type: _transaction_type,
+            blobs: _blobs,
+            blob_hashes: _blob_hashes,
+            authorization_list,
         } = value;
 
         let chain_id = data.chain_id_at_block_spec(block_spec)?;
@@ -83,17 +89,32 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 max_fees_fn(data, block_spec, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            transaction::Request::Eip1559(transaction::request::Eip1559 {
-                chain_id,
-                nonce,
-                max_fee_per_gas,
-                max_priority_fee_per_gas,
-                gas_limit,
-                kind: to.into(),
-                value,
-                input,
-                access_list: access_list.unwrap_or_default(),
-            })
+            if let Some(authorization_list) = authorization_list {
+                transaction::Request::Eip7702(transaction::request::Eip7702 {
+                    chain_id,
+                    nonce,
+                    max_fee_per_gas,
+                    max_priority_fee_per_gas,
+                    gas_limit,
+                    to: to.ok_or(ProviderError::Eip7702TransactionMissingReceiver)?,
+                    value,
+                    input,
+                    access_list: access_list.unwrap_or_default(),
+                    authorization_list,
+                })
+            } else {
+                transaction::Request::Eip1559(transaction::request::Eip1559 {
+                    chain_id,
+                    nonce,
+                    max_fee_per_gas,
+                    max_priority_fee_per_gas,
+                    gas_limit,
+                    kind: to.into(),
+                    value,
+                    input,
+                    access_list: access_list.unwrap_or_default(),
+                })
+            }
         };
 
         Ok(request)
@@ -111,21 +132,6 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
         value: TransactionRequest,
         context: Self::Context<'_>,
     ) -> Result<transaction::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
-        const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
-
-        /// # Panics
-        ///
-        /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
-        fn calculate_max_fee_per_gas<TimerT: Clone + TimeSinceEpoch>(
-            data: &ProviderData<L1ChainSpec, TimerT>,
-            max_priority_fee_per_gas: u128,
-        ) -> Result<u128, BlockchainErrorForChainSpec<L1ChainSpec>> {
-            let base_fee_per_gas = data
-                .next_block_base_fee_per_gas()?
-                .expect("We already validated that the block is post-London.");
-            Ok(2 * base_fee_per_gas + max_priority_fee_per_gas)
-        }
-
         let TransactionContext { data } = context;
 
         validate_send_transaction_request(data, &value)?;
@@ -146,6 +152,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
             transaction_type: _transaction_type,
             blobs: _blobs,
             blob_hashes: _blob_hashes,
+            authorization_list,
         } = value;
 
         let chain_id = chain_id.unwrap_or_else(|| data.chain_id());
@@ -154,72 +161,72 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
         let nonce = nonce.map_or_else(|| data.account_next_nonce(&from), Ok)?;
         let value = value.unwrap_or(U256::ZERO);
 
-        let request = match (
-            gas_price,
-            max_fee_per_gas,
-            max_priority_fee_per_gas,
-            access_list,
-        ) {
-            (gas_price, max_fee_per_gas, max_priority_fee_per_gas, access_list)
-                if data.evm_spec_id() >= l1::SpecId::LONDON
-                    && (gas_price.is_none()
-                        || max_fee_per_gas.is_some()
-                        || max_priority_fee_per_gas.is_some()) =>
-            {
-                let (max_fee_per_gas, max_priority_fee_per_gas) =
-                    match (max_fee_per_gas, max_priority_fee_per_gas) {
-                        (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) => {
-                            (max_fee_per_gas, max_priority_fee_per_gas)
-                        }
-                        (Some(max_fee_per_gas), None) => (
-                            max_fee_per_gas,
-                            max_fee_per_gas.min(DEFAULT_MAX_PRIORITY_FEE_PER_GAS),
-                        ),
-                        (None, Some(max_priority_fee_per_gas)) => {
-                            let max_fee_per_gas =
-                                calculate_max_fee_per_gas(data, max_priority_fee_per_gas)?;
-                            (max_fee_per_gas, max_priority_fee_per_gas)
-                        }
-                        (None, None) => {
-                            let max_fee_per_gas =
-                                calculate_max_fee_per_gas(data, DEFAULT_MAX_PRIORITY_FEE_PER_GAS)?;
-                            (max_fee_per_gas, DEFAULT_MAX_PRIORITY_FEE_PER_GAS)
-                        }
-                    };
+        let current_hardfork = data.evm_spec_id();
+        let request = if let Some(authorization_list) = authorization_list {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-                transaction::Request::Eip1559(transaction::request::Eip1559 {
-                    nonce,
-                    max_priority_fee_per_gas,
-                    max_fee_per_gas,
-                    gas_limit,
-                    value,
-                    input,
-                    kind: to.into(),
-                    chain_id,
-                    access_list: access_list.unwrap_or_default(),
-                })
-            }
-            (gas_price, _, _, Some(access_list)) => {
-                transaction::Request::Eip2930(transaction::request::Eip2930 {
-                    nonce,
-                    gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
-                    gas_limit,
-                    value,
-                    input,
-                    kind: to.into(),
-                    chain_id,
-                    access_list,
-                })
-            }
-            (gas_price, _, _, _) => transaction::Request::Eip155(transaction::request::Eip155 {
+            transaction::Request::Eip7702(transaction::request::Eip7702 {
+                nonce,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+                gas_limit,
+                value,
+                input,
+                to: to.ok_or(ProviderError::Eip7702TransactionMissingReceiver)?,
+                chain_id,
+                access_list: access_list.unwrap_or_default(),
+                authorization_list,
+            })
+        } else if current_hardfork >= l1::SpecId::LONDON
+            && (gas_price.is_none()
+                || max_fee_per_gas.is_some()
+                || max_priority_fee_per_gas.is_some())
+        {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
+
+            transaction::Request::Eip1559(transaction::request::Eip1559 {
+                nonce,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+                gas_limit,
+                value,
+                input,
+                kind: match to {
+                    Some(to) => TxKind::Call(to),
+                    None => TxKind::Create,
+                },
+                chain_id,
+                access_list: access_list.unwrap_or_default(),
+            })
+        } else if let Some(access_list) = access_list {
+            transaction::Request::Eip2930(transaction::request::Eip2930 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
                 value,
                 input,
-                kind: to.into(),
+                kind: match to {
+                    Some(to) => TxKind::Call(to),
+                    None => TxKind::Create,
+                },
                 chain_id,
-            }),
+                access_list,
+            })
+        } else {
+            transaction::Request::Eip155(transaction::request::Eip155 {
+                nonce,
+                gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
+                gas_limit,
+                value,
+                input,
+                kind: match to {
+                    Some(to) => TxKind::Call(to),
+                    None => TxKind::Create,
+                },
+                chain_id,
+            })
         };
 
         Ok(request)
@@ -228,7 +235,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::BlockSpec;
+    use edr_eth::{eips::eip7702, Address, BlockSpec};
     use edr_evm::state::StateOverrides;
     use edr_rpc_eth::CallRequest;
 
@@ -296,6 +303,61 @@ mod tests {
         assert_eq!(
             resolved.max_priority_fee_per_gas().cloned(),
             max_priority_fee_per_gas
+        );
+
+        Ok(())
+    }
+    #[test]
+    fn resolve_call_request_inner_with_authorization_list() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::new_local()?;
+
+        let max_fee_per_gas = pending_base_fee(&mut fixture.provider_data)?;
+        let max_priority_fee_per_gas = Some(max_fee_per_gas / 2);
+        let authorization_list = Some(vec![eip7702::SignedAuthorization::new_unchecked(
+            eip7702::Authorization {
+                chain_id: U256::from(1),
+                address: Address::random(),
+                nonce: 0,
+            },
+            1,
+            U256::from(0x1234),
+            U256::from(0x5678),
+        )]);
+
+        let request = CallRequest {
+            from: Some(fixture.nth_local_account(0)?),
+            to: Some(fixture.nth_local_account(1)?),
+            max_fee_per_gas: Some(max_fee_per_gas),
+            max_priority_fee_per_gas,
+            authorization_list: authorization_list.clone(),
+            ..CallRequest::default()
+        };
+
+        let context = CallContext {
+            data: &mut fixture.provider_data,
+            block_spec: &BlockSpec::pending(),
+            state_overrides: &StateOverrides::default(),
+            default_gas_price_fn: |_data| unreachable!("max fees are set"),
+            max_fees_fn: |_data, _block_spec, max_fee_per_gas, max_priority_fee_per_gas| {
+                Ok((
+                    max_fee_per_gas.expect("max fee is set"),
+                    max_priority_fee_per_gas.expect("max priority fee is set"),
+                ))
+            },
+        };
+
+        let resolved = transaction::Request::from_rpc_type(request, context)?;
+
+        assert_eq!(*resolved.gas_price(), max_fee_per_gas);
+        assert_eq!(
+            resolved.max_priority_fee_per_gas().cloned(),
+            max_priority_fee_per_gas
+        );
+        assert_eq!(
+            resolved
+                .authorization_list()
+                .map(<[edr_eth::eips::eip7702::SignedAuthorization]>::to_vec),
+            authorization_list
         );
 
         Ok(())

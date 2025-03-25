@@ -1,5 +1,5 @@
 use edr_eth::{
-    eips::eip2930,
+    eips::{eip2930, eip7702},
     l1,
     transaction::{pooled::PooledTransaction, ExecutableTransaction},
     Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
@@ -40,6 +40,10 @@ impl HardforkValidationData for TransactionRequest {
     fn blob_hashes(&self) -> Option<&Vec<B256>> {
         self.blob_hashes.as_ref()
     }
+
+    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+        self.authorization_list.as_ref()
+    }
 }
 
 impl HardforkValidationData for CallRequest {
@@ -70,6 +74,10 @@ impl HardforkValidationData for CallRequest {
     fn blob_hashes(&self) -> Option<&Vec<B256>> {
         self.blob_hashes.as_ref()
     }
+
+    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+        self.authorization_list.as_ref()
+    }
 }
 
 impl HardforkValidationData for PooledTransaction {
@@ -82,7 +90,9 @@ impl HardforkValidationData for PooledTransaction {
             PooledTransaction::PreEip155Legacy(tx) => Some(&tx.gas_price),
             PooledTransaction::PostEip155Legacy(tx) => Some(&tx.gas_price),
             PooledTransaction::Eip2930(tx) => Some(&tx.gas_price),
-            PooledTransaction::Eip1559(_) | PooledTransaction::Eip4844(_) => None,
+            PooledTransaction::Eip1559(_)
+            | PooledTransaction::Eip4844(_)
+            | PooledTransaction::Eip7702(_) => None,
         }
     }
 
@@ -100,6 +110,7 @@ impl HardforkValidationData for PooledTransaction {
             PooledTransaction::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
             PooledTransaction::Eip1559(tx) => Some(tx.access_list.0.as_ref()),
             PooledTransaction::Eip4844(tx) => Some(&tx.payload().access_list),
+            PooledTransaction::Eip7702(tx) => Some(tx.access_list.0.as_ref()),
         }
     }
 
@@ -113,6 +124,13 @@ impl HardforkValidationData for PooledTransaction {
     fn blob_hashes(&self) -> Option<&Vec<B256>> {
         match self {
             PooledTransaction::Eip4844(tx) => Some(&tx.payload().blob_hashes),
+            _ => None,
+        }
+    }
+
+    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+        match self {
+            PooledTransaction::Eip7702(tx) => Some(tx.authorization_list.as_ref()),
             _ => None,
         }
     }
@@ -194,6 +212,12 @@ fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
         });
     }
 
+    if spec_id < l1::SpecId::PRAGUE && value.authorization_list().is_some() {
+        return Err(ProviderError::UnsupportedEip7702Parameters {
+            current_hardfork: spec_id,
+        });
+    }
+
     if value.gas_price().is_some() {
         if value.max_fee_per_gas().is_some() {
             return Err(ProviderError::InvalidTransactionInput(
@@ -218,6 +242,12 @@ fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
                 "Cannot send both gasPrice and blobHashes".to_string(),
             ));
         }
+
+        if value.authorization_list().is_some() {
+            return Err(ProviderError::InvalidTransactionInput(
+                "Cannot send both gasPrice and authorizationList".to_string(),
+            ));
+        }
     }
 
     if let Some(max_fee_per_gas) = value.max_fee_per_gas() {
@@ -232,6 +262,16 @@ fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
 
     if (value.blobs().is_some() || value.blob_hashes().is_some()) && value.to().is_none() {
         return Err(ProviderError::Eip4844TransactionMissingReceiver);
+    }
+
+    if let Some(authorization_list) = value.authorization_list() {
+        if value.to().is_none() {
+            return Err(ProviderError::Eip7702TransactionMissingReceiver);
+        }
+
+        if authorization_list.is_empty() {
+            return Err(ProviderError::Eip7702TransactionWithoutAuthorizations);
+        }
     }
 
     Ok(())
@@ -362,7 +402,7 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::l1::L1ChainSpec;
+    use edr_eth::{l1::L1ChainSpec, U256};
 
     use super::*;
 
@@ -452,6 +492,19 @@ mod tests {
         ));
     }
 
+    fn assert_unsuporrted_eip_7702_parameters(spec: l1::SpecId) {
+        let eip_7702_request = TransactionRequest {
+            from: Address::ZERO,
+            authorization_list: Some(Vec::new()),
+            ..TransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<L1ChainSpec>(spec, &eip_7702_request),
+            Err(ProviderError::UnsupportedEip7702Parameters { .. })
+        ));
+    }
+
     #[test]
     fn validate_transaction_spec_eip_155_invalid_inputs() {
         let eip155_spec = l1::SpecId::MUIR_GLACIER;
@@ -476,6 +529,7 @@ mod tests {
 
         assert_unsupported_eip_1559_parameters(eip155_spec);
         assert_unsupported_eip_4844_parameters(eip155_spec);
+        assert_unsuporrted_eip_7702_parameters(eip155_spec);
     }
 
     #[test]
@@ -492,6 +546,7 @@ mod tests {
 
         assert_unsupported_eip_1559_parameters(eip2930_spec);
         assert_unsupported_eip_4844_parameters(eip2930_spec);
+        assert_unsuporrted_eip_7702_parameters(eip2930_spec);
     }
 
     #[test]
@@ -508,6 +563,7 @@ mod tests {
         assert!(validate_transaction_spec::<L1ChainSpec>(eip1559_spec, &valid_request).is_ok());
 
         assert_unsupported_eip_4844_parameters(eip1559_spec);
+        assert_unsuporrted_eip_7702_parameters(eip1559_spec);
         assert_mixed_eip_1559_parameters(eip1559_spec);
     }
 
@@ -572,6 +628,72 @@ mod tests {
         assert!(matches!(
             validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &missing_receiver_request),
             Err(ProviderError::Eip4844TransactionMissingReceiver)
+        ));
+
+        assert_unsuporrted_eip_7702_parameters(eip4844_spec);
+    }
+
+    #[test]
+    fn validate_transaction_spec_eip_7702_invalid_inputs() {
+        let eip7702_spec = l1::SpecId::PRAGUE;
+        let valid_request = TransactionRequest {
+            from: Address::ZERO,
+            to: Some(Address::ZERO),
+            max_fee_per_gas: Some(0),
+            max_priority_fee_per_gas: Some(0),
+            access_list: Some(Vec::new()),
+            authorization_list: Some(vec![eip7702::SignedAuthorization::new_unchecked(
+                eip7702::Authorization {
+                    chain_id: U256::ZERO,
+                    address: Address::ZERO,
+                    nonce: 1,
+                },
+                0,
+                U256::ZERO,
+                U256::ZERO,
+            )]),
+            ..TransactionRequest::default()
+        };
+
+        assert!(validate_transaction_spec::<L1ChainSpec>(eip7702_spec, &valid_request).is_ok());
+        assert_mixed_eip_1559_parameters(eip7702_spec);
+
+        let mixed_request = TransactionRequest {
+            from: Address::ZERO,
+            gas_price: Some(0),
+            authorization_list: Some(Vec::new()),
+            ..TransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<L1ChainSpec>(eip7702_spec, &mixed_request),
+            Err(ProviderError::InvalidTransactionInput(_))
+        ));
+
+        let missing_receiver_request = TransactionRequest {
+            from: Address::ZERO,
+            authorization_list: Some(Vec::new()),
+            ..TransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<L1ChainSpec>(eip7702_spec, &missing_receiver_request),
+            Err(ProviderError::Eip7702TransactionMissingReceiver)
+        ));
+
+        let empty_authorization_list_request = TransactionRequest {
+            from: Address::ZERO,
+            to: Some(Address::ZERO),
+            authorization_list: Some(Vec::new()),
+            ..TransactionRequest::default()
+        };
+
+        assert!(matches!(
+            validate_transaction_spec::<L1ChainSpec>(
+                eip7702_spec,
+                &empty_authorization_list_request
+            ),
+            Err(ProviderError::Eip7702TransactionWithoutAuthorizations)
         ));
     }
 }

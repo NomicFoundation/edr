@@ -1,11 +1,10 @@
-pub use edr_eth::transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Legacy};
+pub use edr_eth::transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
     eips::{eip2930, eip7702},
     transaction::{
         signed::PreOrPostEip155, ExecutableTransaction, IsEip155, TxKind,
         INVALID_TX_TYPE_ERROR_MESSAGE,
     },
-    utils::enveloped,
     Address, Blob, Bytes, B256, U256,
 };
 use edr_provider::spec::HardforkValidationData;
@@ -24,6 +23,7 @@ impl Pooled {
             Pooled::Eip2930(tx) => Signed::Eip2930(tx),
             Pooled::Eip1559(tx) => Signed::Eip1559(tx),
             Pooled::Eip4844(tx) => Signed::Eip4844(tx.into_payload()),
+            Pooled::Eip7702(tx) => Signed::Eip7702(tx),
             Pooled::Deposit(tx) => Signed::Deposit(tx),
         }
     }
@@ -71,14 +71,8 @@ impl alloy_rlp::Decodable for Pooled {
 
 impl alloy_rlp::Encodable for Pooled {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
-        match self {
-            Pooled::PreEip155Legacy(tx) => tx.encode(out),
-            Pooled::PostEip155Legacy(tx) => tx.encode(out),
-            Pooled::Eip2930(tx) => enveloped(1, tx, out),
-            Pooled::Eip1559(tx) => enveloped(2, tx, out),
-            Pooled::Eip4844(tx) => enveloped(3, tx, out),
-            Pooled::Deposit(tx) => enveloped(4, tx, out),
-        }
+        let encoded = self.rlp_encoding();
+        out.put_slice(encoded);
     }
 
     fn length(&self) -> usize {
@@ -88,6 +82,7 @@ impl alloy_rlp::Encodable for Pooled {
             Pooled::Eip2930(tx) => tx.length() + 1,
             Pooled::Eip1559(tx) => tx.length() + 1,
             Pooled::Eip4844(tx) => tx.length() + 1,
+            Pooled::Eip7702(tx) => tx.length() + 1,
             Pooled::Deposit(tx) => tx.length() + 1,
         }
     }
@@ -118,7 +113,9 @@ impl HardforkValidationData for Pooled {
             Pooled::PreEip155Legacy(tx) => Some(&tx.gas_price),
             Pooled::PostEip155Legacy(tx) => Some(&tx.gas_price),
             Pooled::Eip2930(tx) => Some(&tx.gas_price),
-            Pooled::Eip1559(_) | Pooled::Eip4844(_) | Pooled::Deposit(_) => None,
+            Pooled::Eip1559(_) | Pooled::Eip4844(_) | Pooled::Eip7702(_) | Pooled::Deposit(_) => {
+                None
+            }
         }
     }
 
@@ -136,6 +133,7 @@ impl HardforkValidationData for Pooled {
             Pooled::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
             Pooled::Eip1559(tx) => Some(tx.access_list.0.as_ref()),
             Pooled::Eip4844(tx) => Some(&tx.payload().access_list),
+            Pooled::Eip7702(tx) => Some(tx.access_list.0.as_ref()),
         }
     }
 
@@ -149,6 +147,13 @@ impl HardforkValidationData for Pooled {
     fn blob_hashes(&self) -> Option<&Vec<B256>> {
         match self {
             Pooled::Eip4844(tx) => Some(&tx.payload().blob_hashes),
+            _ => None,
+        }
+    }
+
+    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+        match self {
+            Pooled::Eip7702(tx) => Some(&tx.authorization_list),
             _ => None,
         }
     }
@@ -168,6 +173,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.caller(),
             Pooled::Eip1559(tx) => tx.caller(),
             Pooled::Eip4844(tx) => tx.caller(),
+            Pooled::Eip7702(tx) => tx.caller(),
             Pooled::Deposit(tx) => tx.caller(),
         }
     }
@@ -179,6 +185,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.gas_limit(),
             Pooled::Eip1559(tx) => tx.gas_limit(),
             Pooled::Eip4844(tx) => tx.gas_limit(),
+            Pooled::Eip7702(tx) => tx.gas_limit(),
             Pooled::Deposit(tx) => tx.gas_limit(),
         }
     }
@@ -190,6 +197,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.gas_price(),
             Pooled::Eip1559(tx) => tx.gas_price(),
             Pooled::Eip4844(tx) => tx.gas_price(),
+            Pooled::Eip7702(tx) => tx.gas_price(),
             Pooled::Deposit(tx) => tx.gas_price(),
         }
     }
@@ -201,6 +209,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.kind(),
             Pooled::Eip1559(tx) => tx.kind(),
             Pooled::Eip4844(tx) => tx.kind(),
+            Pooled::Eip7702(tx) => tx.kind(),
             Pooled::Deposit(tx) => tx.kind(),
         }
     }
@@ -212,6 +221,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.value(),
             Pooled::Eip1559(tx) => tx.value(),
             Pooled::Eip4844(tx) => tx.value(),
+            Pooled::Eip7702(tx) => tx.value(),
             Pooled::Deposit(tx) => tx.value(),
         }
     }
@@ -223,6 +233,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.data(),
             Pooled::Eip1559(tx) => tx.data(),
             Pooled::Eip4844(tx) => tx.data(),
+            Pooled::Eip7702(tx) => tx.data(),
             Pooled::Deposit(tx) => tx.data(),
         }
     }
@@ -234,6 +245,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.nonce(),
             Pooled::Eip1559(tx) => tx.nonce(),
             Pooled::Eip4844(tx) => tx.nonce(),
+            Pooled::Eip7702(tx) => tx.nonce(),
             Pooled::Deposit(tx) => tx.nonce(),
         }
     }
@@ -245,6 +257,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.chain_id(),
             Pooled::Eip1559(tx) => tx.chain_id(),
             Pooled::Eip4844(tx) => tx.chain_id(),
+            Pooled::Eip7702(tx) => tx.chain_id(),
             Pooled::Deposit(tx) => tx.chain_id(),
         }
     }
@@ -256,6 +269,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.access_list(),
             Pooled::Eip1559(tx) => tx.access_list(),
             Pooled::Eip4844(tx) => tx.access_list(),
+            Pooled::Eip7702(tx) => tx.access_list(),
             Pooled::Deposit(tx) => tx.access_list(),
         }
     }
@@ -267,6 +281,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
             Pooled::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
             Pooled::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
+            Pooled::Eip7702(tx) => tx.effective_gas_price(block_base_fee),
             Pooled::Deposit(tx) => tx.effective_gas_price(block_base_fee),
         }
     }
@@ -278,6 +293,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.max_fee_per_gas(),
             Pooled::Eip1559(tx) => tx.max_fee_per_gas(),
             Pooled::Eip4844(tx) => tx.max_fee_per_gas(),
+            Pooled::Eip7702(tx) => tx.max_fee_per_gas(),
             Pooled::Deposit(tx) => tx.max_fee_per_gas(),
         }
     }
@@ -289,6 +305,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.max_priority_fee_per_gas(),
             Pooled::Eip1559(tx) => tx.max_priority_fee_per_gas(),
             Pooled::Eip4844(tx) => tx.max_priority_fee_per_gas(),
+            Pooled::Eip7702(tx) => tx.max_priority_fee_per_gas(),
             Pooled::Deposit(tx) => tx.max_priority_fee_per_gas(),
         }
     }
@@ -300,6 +317,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.blob_hashes(),
             Pooled::Eip1559(tx) => tx.blob_hashes(),
             Pooled::Eip4844(tx) => tx.blob_hashes(),
+            Pooled::Eip7702(tx) => tx.blob_hashes(),
             Pooled::Deposit(tx) => tx.blob_hashes(),
         }
     }
@@ -311,6 +329,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.max_fee_per_blob_gas(),
             Pooled::Eip1559(tx) => tx.max_fee_per_blob_gas(),
             Pooled::Eip4844(tx) => tx.max_fee_per_blob_gas(),
+            Pooled::Eip7702(tx) => tx.max_fee_per_blob_gas(),
             Pooled::Deposit(tx) => tx.max_fee_per_blob_gas(),
         }
     }
@@ -322,6 +341,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.total_blob_gas(),
             Pooled::Eip1559(tx) => tx.total_blob_gas(),
             Pooled::Eip4844(tx) => tx.total_blob_gas(),
+            Pooled::Eip7702(tx) => tx.total_blob_gas(),
             Pooled::Deposit(tx) => tx.total_blob_gas(),
         }
     }
@@ -333,6 +353,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.authorization_list(),
             Pooled::Eip1559(tx) => tx.authorization_list(),
             Pooled::Eip4844(tx) => tx.authorization_list(),
+            Pooled::Eip7702(tx) => tx.authorization_list(),
             Pooled::Deposit(tx) => tx.authorization_list(),
         }
     }
@@ -344,6 +365,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.rlp_encoding(),
             Pooled::Eip1559(tx) => tx.rlp_encoding(),
             Pooled::Eip4844(tx) => tx.rlp_encoding(),
+            Pooled::Eip7702(tx) => tx.rlp_encoding(),
             Pooled::Deposit(tx) => tx.rlp_encoding(),
         }
     }
@@ -355,6 +377,7 @@ impl ExecutableTransaction for Pooled {
             Pooled::Eip2930(tx) => tx.transaction_hash(),
             Pooled::Eip1559(tx) => tx.transaction_hash(),
             Pooled::Eip4844(tx) => tx.transaction_hash(),
+            Pooled::Eip7702(tx) => tx.transaction_hash(),
             Pooled::Deposit(tx) => tx.transaction_hash(),
         }
     }

@@ -128,6 +128,10 @@ pub enum ProviderError<
     Eip4844TransactionMissingReceiver,
     #[error(transparent)]
     Eip712Error(#[from] alloy_dyn_abi::Error),
+    #[error("Invalid EIP-7702 transaction: to (receiver) parameter is missing.")]
+    Eip7702TransactionMissingReceiver,
+    #[error("Invalid EIP-7702 transaction: authorization list is empty.")]
+    Eip7702TransactionWithoutAuthorizations,
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
     EstimateGasTransactionFailure(#[from] EstimateGasFailure<HaltReasonT>),
@@ -302,6 +306,8 @@ pub enum ProviderError<
         current_hardfork: l1::SpecId,
         minimum_hardfork: l1::SpecId,
     },
+    #[error("The transaction contains EIP-7702 parameters, but they are not supported by the current hardfork: {current_hardfork:?}. Use the Prague hardfork (or later).")]
+    UnsupportedEip7702Parameters { current_hardfork: l1::SpecId },
     #[error("Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'")]
     UnsupportedTransactionTypeInDebugTrace {
         requested_transaction_hash: B256,
@@ -363,6 +369,8 @@ impl<
             ProviderError::Eip4844CallRequestUnsupported => INVALID_INPUT,
             ProviderError::Eip4844TransactionMissingReceiver => INVALID_INPUT,
             ProviderError::Eip4844TransactionUnsupported => INVALID_INPUT,
+            ProviderError::Eip7702TransactionMissingReceiver => INVALID_INPUT,
+            ProviderError::Eip7702TransactionWithoutAuthorizations => INVALID_INPUT,
             ProviderError::Eip712Error(_) => INVALID_INPUT,
             ProviderError::EstimateGasTransactionFailure(_) => INVALID_INPUT,
             ProviderError::InvalidArgument(_) => INVALID_PARAMS,
@@ -407,6 +415,7 @@ impl<
             ProviderError::UnsupportedAccessListParameter { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedEIP1559Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedEIP4844Parameters { .. } => INVALID_PARAMS,
+            ProviderError::UnsupportedEip7702Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedMethod { .. } => -32004,
             ProviderError::UnsupportedTransactionTypeInDebugTrace { .. } => INVALID_INPUT,
             ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT,

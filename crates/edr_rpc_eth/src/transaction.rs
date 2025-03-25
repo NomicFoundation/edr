@@ -4,8 +4,9 @@ use std::{ops::Deref, sync::OnceLock};
 
 use edr_eth::{
     block,
-    eips::eip2930,
-    l1, signature,
+    eips::{eip2930, eip7702},
+    l1,
+    signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
     transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -88,6 +89,11 @@ pub struct Transaction {
     /// data blobs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blob_versioned_hashes: Option<Vec<B256>>,
+    /// Authorizations are used to temporarily set the code of its signer to
+    /// the code referenced by `address`. These also include a `chain_id` (which
+    /// can be set to zero and not evaluated) as well as an optional `nonce`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }
 
 impl Transaction {
@@ -164,6 +170,9 @@ impl Transaction {
             max_priority_fee_per_gas: transaction.max_priority_fee_per_gas().cloned(),
             max_fee_per_blob_gas: transaction.max_fee_per_blob_gas().cloned(),
             blob_versioned_hashes,
+            authorization_list: transaction
+                .authorization_list()
+                .map(<[eip7702::SignedAuthorization]>::to_vec),
         }
     }
 }
@@ -302,11 +311,11 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
             // transaction.
             signature: unsafe {
                 signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithYParity {
-                        y_parity: value.odd_y_parity(),
+                    SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
-                    },
+                        y_parity: value.odd_y_parity(),
+                    }),
                     value.from,
                 )
             },
@@ -343,11 +352,11 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
             // transaction.
             signature: unsafe {
                 signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithYParity {
-                        y_parity: value.odd_y_parity(),
+                    SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
-                    },
+                        y_parity: value.odd_y_parity(),
+                    }),
                     value.from,
                 )
             },
@@ -387,11 +396,11 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
             // transaction.
             signature: unsafe {
                 signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithYParity {
+                    SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
                         y_parity: value.odd_y_parity(),
-                    },
+                    }),
                     value.from,
                 )
             },
@@ -417,6 +426,50 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
                 .transaction
                 .blob_versioned_hashes
                 .ok_or(ConversionError::BlobHashes)?,
+            hash: OnceLock::from(value.transaction.hash),
+            rlp_encoding: OnceLock::new(),
+        };
+
+        Ok(transaction)
+    }
+}
+
+impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
+    type Error = ConversionError;
+
+    fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
+        let transaction = Self {
+            // SAFETY: The `from` field represents the caller address of the signed
+            // transaction.
+            signature: unsafe {
+                signature::Fakeable::with_address_unchecked(
+                    SignatureWithYParity::new(SignatureWithYParityArgs {
+                        r: value.r,
+                        s: value.s,
+                        y_parity: value.odd_y_parity(),
+                    }),
+                    value.from,
+                )
+            },
+            chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+            nonce: value.nonce,
+            max_priority_fee_per_gas: value
+                .max_priority_fee_per_gas
+                .ok_or(ConversionError::MaxPriorityFeePerGas)?,
+            max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+            gas_limit: value.gas.to(),
+            to: value.to.ok_or(ConversionError::ReceiverAddress)?,
+            value: value.value,
+            input: value.transaction.input,
+            access_list: value
+                .transaction
+                .access_list
+                .ok_or(ConversionError::AccessList)?
+                .into(),
+            authorization_list: value
+                .transaction
+                .authorization_list
+                .ok_or(ConversionError::AuthorizationList)?,
             hash: OnceLock::from(value.transaction.hash),
             rlp_encoding: OnceLock::new(),
         };
@@ -454,6 +507,7 @@ impl TryFrom<TransactionWithSignature> for transaction::Signed {
             transaction::Type::Eip2930 => Self::Eip2930(value.try_into()?),
             transaction::Type::Eip1559 => Self::Eip1559(value.try_into()?),
             transaction::Type::Eip4844 => Self::Eip4844(value.try_into()?),
+            transaction::Type::Eip7702 => Self::Eip7702(value.try_into()?),
         };
 
         Ok(transaction)
@@ -466,6 +520,9 @@ pub enum ConversionError {
     /// Missing access list
     #[error("Missing access list")]
     AccessList,
+    /// Missing authorization list
+    #[error("Missing authorization list")]
+    AuthorizationList,
     /// EIP-4844 transaction is missing blob (versioned) hashes
     #[error("Missing blob hashes")]
     BlobHashes,
@@ -481,7 +538,7 @@ pub enum ConversionError {
     /// EIP-4844 transaction is missing the max fee per blob gas
     #[error("Missing max fee per blob gas")]
     MaxFeePerBlobGas,
-    /// EIP-4844 transaction is missing the receiver (to) address
+    /// EIP-4844 or EIP-7702 transaction is missing the receiver (to) address
     #[error("Missing receiver (to) address")]
     ReceiverAddress,
 }

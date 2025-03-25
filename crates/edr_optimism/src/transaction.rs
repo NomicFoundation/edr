@@ -21,6 +21,8 @@ pub enum Pooled {
     Eip1559(pooled::Eip1559),
     /// EIP-4844 transaction
     Eip4844(pooled::Eip4844),
+    /// EIP-7702 transaction
+    Eip7702(pooled::Eip7702),
     /// Optimism deposit transaction
     Deposit(pooled::Deposit),
 }
@@ -38,6 +40,8 @@ pub enum Request {
     Eip1559(request::Eip1559),
     /// An EIP-4844 transaction request
     Eip4844(request::Eip4844),
+    /// An EIP-7702 transaction request
+    Eip7702(request::Eip7702),
 }
 
 /// An optimism signed transaction, used in blocks.
@@ -53,6 +57,8 @@ pub enum Signed {
     Eip1559(signed::Eip1559),
     /// EIP-4844 transaction
     Eip4844(signed::Eip4844),
+    /// EIP-7702 transaction
+    Eip7702(signed::Eip7702),
     /// Optimism deposit transaction
     Deposit(signed::Deposit),
 }
@@ -69,6 +75,8 @@ pub enum Type {
     Eip1559 = signed::Eip1559::TYPE,
     /// Optimism EIP-4844 transaction
     Eip4844 = signed::Eip4844::TYPE,
+    /// Optimism EIP-7702 transaction
+    Eip7702 = signed::Eip7702::TYPE,
     /// Optimism deposit transaction
     Deposit = signed::Deposit::TYPE,
 }
