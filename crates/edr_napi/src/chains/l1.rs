@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
-use edr_eth::l1::{self, hardfork::UnknownHardfork, L1ChainSpec};
+use edr_eth::l1::{self, L1ChainSpec};
 use edr_evm::eips::{
     eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE},
     eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
@@ -79,28 +79,6 @@ pub fn l1_genesis_state(hardfork: SpecId) -> Vec<Account> {
     }
 }
 
-/// Creates a new instance by matching the provided string.
-///
-/// Returns an error if the string does not match any known hardfork.
-#[napi]
-pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
-    const LATEST_TAG: &str = "Latest";
-
-    if hardfork == LATEST_TAG {
-        Ok(SpecId::Latest)
-    } else {
-        hardfork.parse::<edr_eth::l1::SpecId>().map_or_else(
-            |UnknownHardfork| {
-                Err(napi::Error::new(
-                    napi::Status::InvalidArg,
-                    format!("Unknown hardfork: {hardfork}"),
-                ))
-            },
-            |hardfork| Ok(SpecId::from(hardfork)),
-        )
-    }
-}
-
 #[napi]
 pub fn l1_provider_factory() -> ProviderFactory {
     let factory: Arc<dyn SyncProviderFactory> = Arc::new(L1ProviderFactory);
@@ -149,34 +127,36 @@ pub enum SpecId {
     Cancun = 17,
     /// Prague
     Prague = 18,
-    /// Latest
-    Latest = 2_147_483_647, // Maximum value of i32
 }
 
-impl From<edr_eth::l1::SpecId> for SpecId {
-    fn from(value: edr_eth::l1::SpecId) -> Self {
-        match value {
-            edr_eth::l1::SpecId::FRONTIER => SpecId::Frontier,
-            edr_eth::l1::SpecId::FRONTIER_THAWING => SpecId::FrontierThawing,
-            edr_eth::l1::SpecId::HOMESTEAD => SpecId::Homestead,
-            edr_eth::l1::SpecId::DAO_FORK => SpecId::DaoFork,
-            edr_eth::l1::SpecId::TANGERINE => SpecId::Tangerine,
-            edr_eth::l1::SpecId::SPURIOUS_DRAGON => SpecId::SpuriousDragon,
-            edr_eth::l1::SpecId::BYZANTIUM => SpecId::Byzantium,
-            edr_eth::l1::SpecId::CONSTANTINOPLE => SpecId::Constantinople,
-            edr_eth::l1::SpecId::PETERSBURG => SpecId::Petersburg,
-            edr_eth::l1::SpecId::ISTANBUL => SpecId::Istanbul,
-            edr_eth::l1::SpecId::MUIR_GLACIER => SpecId::MuirGlacier,
-            edr_eth::l1::SpecId::BERLIN => SpecId::Berlin,
-            edr_eth::l1::SpecId::LONDON => SpecId::London,
-            edr_eth::l1::SpecId::ARROW_GLACIER => SpecId::ArrowGlacier,
-            edr_eth::l1::SpecId::GRAY_GLACIER => SpecId::GrayGlacier,
-            edr_eth::l1::SpecId::MERGE => SpecId::Merge,
-            edr_eth::l1::SpecId::SHANGHAI => SpecId::Shanghai,
-            edr_eth::l1::SpecId::CANCUN => SpecId::Cancun,
-            // TODO: Add Prague and Osaka
-            edr_eth::l1::SpecId::PRAGUE => SpecId::Prague,
-            edr_eth::l1::SpecId::OSAKA | edr_eth::l1::SpecId::LATEST => SpecId::Latest,
+impl FromStr for SpecId {
+    type Err = napi::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            edr_eth::l1::hardfork::name::FRONTIER => Ok(SpecId::Frontier),
+            edr_eth::l1::hardfork::name::FRONTIER_THAWING => Ok(SpecId::FrontierThawing),
+            edr_eth::l1::hardfork::name::HOMESTEAD => Ok(SpecId::Homestead),
+            edr_eth::l1::hardfork::name::DAO_FORK => Ok(SpecId::DaoFork),
+            edr_eth::l1::hardfork::name::TANGERINE => Ok(SpecId::Tangerine),
+            edr_eth::l1::hardfork::name::SPURIOUS_DRAGON => Ok(SpecId::SpuriousDragon),
+            edr_eth::l1::hardfork::name::BYZANTIUM => Ok(SpecId::Byzantium),
+            edr_eth::l1::hardfork::name::CONSTANTINOPLE => Ok(SpecId::Constantinople),
+            edr_eth::l1::hardfork::name::PETERSBURG => Ok(SpecId::Petersburg),
+            edr_eth::l1::hardfork::name::ISTANBUL => Ok(SpecId::Istanbul),
+            edr_eth::l1::hardfork::name::MUIR_GLACIER => Ok(SpecId::MuirGlacier),
+            edr_eth::l1::hardfork::name::BERLIN => Ok(SpecId::Berlin),
+            edr_eth::l1::hardfork::name::LONDON => Ok(SpecId::London),
+            edr_eth::l1::hardfork::name::ARROW_GLACIER => Ok(SpecId::ArrowGlacier),
+            edr_eth::l1::hardfork::name::GRAY_GLACIER => Ok(SpecId::GrayGlacier),
+            edr_eth::l1::hardfork::name::MERGE => Ok(SpecId::Merge),
+            edr_eth::l1::hardfork::name::SHANGHAI => Ok(SpecId::Shanghai),
+            edr_eth::l1::hardfork::name::CANCUN => Ok(SpecId::Cancun),
+            edr_eth::l1::hardfork::name::PRAGUE => Ok(SpecId::Prague),
+            _ => Err(napi::Error::new(
+                napi::Status::InvalidArg,
+                format!("The provided hardfork `{s}` is not supported."),
+            )),
         }
     }
 }
@@ -203,9 +183,49 @@ impl From<SpecId> for edr_eth::l1::SpecId {
             SpecId::Shanghai => edr_eth::l1::SpecId::SHANGHAI,
             SpecId::Cancun => edr_eth::l1::SpecId::CANCUN,
             SpecId::Prague => edr_eth::l1::SpecId::PRAGUE,
-            SpecId::Latest => edr_eth::l1::SpecId::LATEST,
         }
     }
+}
+
+/// Tries to parse the provided string to create a [`SpecId`] instance.
+///
+/// Returns an error if the string does not match any known hardfork.
+#[napi]
+pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
+    hardfork.parse()
+}
+
+#[napi]
+pub fn l1_hardfork_to_string(harfork: SpecId) -> &'static str {
+    match harfork {
+        SpecId::Frontier => edr_eth::l1::hardfork::name::FRONTIER,
+        SpecId::FrontierThawing => edr_eth::l1::hardfork::name::FRONTIER_THAWING,
+        SpecId::Homestead => edr_eth::l1::hardfork::name::HOMESTEAD,
+        SpecId::DaoFork => edr_eth::l1::hardfork::name::DAO_FORK,
+        SpecId::Tangerine => edr_eth::l1::hardfork::name::TANGERINE,
+        SpecId::SpuriousDragon => edr_eth::l1::hardfork::name::SPURIOUS_DRAGON,
+        SpecId::Byzantium => edr_eth::l1::hardfork::name::BYZANTIUM,
+        SpecId::Constantinople => edr_eth::l1::hardfork::name::CONSTANTINOPLE,
+        SpecId::Petersburg => edr_eth::l1::hardfork::name::PETERSBURG,
+        SpecId::Istanbul => edr_eth::l1::hardfork::name::ISTANBUL,
+        SpecId::MuirGlacier => edr_eth::l1::hardfork::name::MUIR_GLACIER,
+        SpecId::Berlin => edr_eth::l1::hardfork::name::BERLIN,
+        SpecId::London => edr_eth::l1::hardfork::name::LONDON,
+        SpecId::ArrowGlacier => edr_eth::l1::hardfork::name::ARROW_GLACIER,
+        SpecId::GrayGlacier => edr_eth::l1::hardfork::name::GRAY_GLACIER,
+        SpecId::Merge => edr_eth::l1::hardfork::name::MERGE,
+        SpecId::Shanghai => edr_eth::l1::hardfork::name::SHANGHAI,
+        SpecId::Cancun => edr_eth::l1::hardfork::name::CANCUN,
+        SpecId::Prague => edr_eth::l1::hardfork::name::PRAGUE,
+    }
+}
+
+/// Returns the latest supported OP hardfork.
+///
+/// The returned value will be updated after each network upgrade.
+#[napi]
+pub fn l1_hardfork_latest() -> SpecId {
+    SpecId::Prague
 }
 
 macro_rules! export_spec_id {
@@ -236,6 +256,5 @@ export_spec_id!(
     MERGE,
     SHANGHAI,
     CANCUN,
-    PRAGUE,
-    LATEST
+    PRAGUE
 );

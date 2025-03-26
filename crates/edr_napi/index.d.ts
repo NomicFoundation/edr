@@ -96,12 +96,6 @@ export const GENERIC_CHAIN_TYPE: string
 export declare function genericChainProviderFactory(): ProviderFactory
 export const L1_CHAIN_TYPE: string
 export declare function l1GenesisState(hardfork: SpecId): Array<Account>
-/**
- * Creates a new instance by matching the provided string.
- *
- * Returns an error if the string does not match any known hardfork.
- */
-export declare function l1HardforkFromString(hardfork: string): SpecId
 export declare function l1ProviderFactory(): ProviderFactory
 /** Identifier for the Ethereum spec. */
 export enum SpecId {
@@ -142,10 +136,21 @@ export enum SpecId {
   /** Cancun */
   Cancun = 17,
   /** Prague */
-  Prague = 18,
-  /** Latest */
-  Latest = 2147483647
+  Prague = 18
 }
+/**
+ * Tries to parse the provided string to create a [`SpecId`] instance.
+ *
+ * Returns an error if the string does not match any known hardfork.
+ */
+export declare function l1HardforkFromString(hardfork: string): SpecId
+export declare function l1HardforkToString(harfork: SpecId): string
+/**
+ * Returns the latest supported OP hardfork.
+ *
+ * The returned value will be updated after each network upgrade.
+ */
+export declare function l1HardforkLatest(): SpecId
 export const FRONTIER: string
 export const FRONTIER_THAWING: string
 export const HOMESTEAD: string
@@ -165,7 +170,6 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
-export const LATEST: string
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */

@@ -15,7 +15,12 @@ import {
   OPTIMISM_CHAIN_TYPE,
   // @ts-ignore
   optimismProviderFactory,
-  l1HardforkFromString,
+  optimismGenesisState,
+  optimismHardforkFromString,
+  l1HardforkToString,
+  l1HardforkLatest,
+  optimismHardforkToString,
+  optimismLatestHardfork,
 } from "..";
 import { ALCHEMY_URL, toBuffer } from "./helpers";
 
@@ -42,7 +47,7 @@ describe("Multi-chain", () => {
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
     enableRip7212: false,
-    hardfork: "Isthmus",
+    hardfork: optimismHardforkToString(optimismLatestHardfork()),
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
@@ -89,8 +94,8 @@ describe("Multi-chain", () => {
       L1_CHAIN_TYPE,
       {
         ...providerConfig,
-        hardfork: "Latest",
-        genesisState: l1GenesisState(l1HardforkFromString("Latest")),
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        genesisState: l1GenesisState(l1HardforkLatest()),
       },
       loggerConfig,
       {
@@ -106,9 +111,10 @@ describe("Multi-chain", () => {
     const provider = context.createProvider(
       OPTIMISM_CHAIN_TYPE,
       {
-        // TODO: Add genesis state for Optimism
-        genesisState: [],
         ...providerConfig,
+        genesisState: optimismGenesisState(
+          optimismHardforkFromString(providerConfig.hardfork)
+        ),
       },
       loggerConfig,
       {
@@ -128,11 +134,12 @@ describe("Multi-chain", () => {
     const provider = context.createProvider(
       OPTIMISM_CHAIN_TYPE,
       {
+        ...providerConfig,
         fork: {
           jsonRpcUrl: ALCHEMY_URL.replace("eth-", "opt-"),
         },
+        // TODO: Add support for overriding remote fork state when the local fork is different
         genesisState: [],
-        ...providerConfig,
       },
       loggerConfig,
       {
@@ -152,8 +159,10 @@ describe("Multi-chain", () => {
       const provider = await context.createProvider(
         OPTIMISM_CHAIN_TYPE,
         {
-          genesisState: [],
           ...providerConfig,
+          genesisState: optimismGenesisState(
+            optimismHardforkFromString(providerConfig.hardfork)
+          ),
         },
         loggerConfig,
         {

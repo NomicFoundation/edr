@@ -4,6 +4,8 @@ import {
   ContractAndFunctionName,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
+  l1HardforkLatest,
+  l1HardforkToString,
   MineOrdering,
   SubscriptionEvent,
 } from "..";
@@ -29,7 +31,7 @@ describe("Provider", () => {
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
     enableRip7212: false,
-    hardfork: "Latest",
+    hardfork: l1HardforkToString(l1HardforkLatest()),
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
