@@ -1094,7 +1094,7 @@ export declare class TestResult {
   /** See [edr_solidity_tests::result::TestResult::status] */
   readonly status: TestStatus
   /** See [edr_solidity_tests::result::TestResult::reason] */
-  readonly reason?: string
+  readonly reason?: string | undefined
   /** See [edr_solidity_tests::result::TestResult::counterexample] */
   readonly counterexample?: BaseCounterExample | Array<BaseCounterExample>
   /** See [edr_solidity_tests::result::TestResult::decoded_logs] */

@@ -71,7 +71,7 @@ pub struct TestResult {
     pub status: TestStatus,
     /// See [edr_solidity_tests::result::TestResult::reason]
     #[napi(readonly)]
-    pub reason: Option<String>,
+    pub reason: Option<Either<String, ()>>,
     /// See [edr_solidity_tests::result::TestResult::counterexample]
     #[napi(readonly)]
     pub counterexample: Option<Either<BaseCounterExample, Vec<BaseCounterExample>>>,
@@ -191,7 +191,9 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
         Self {
             name,
             status: test_result.status.into(),
-            reason: test_result.reason,
+            reason: test_result
+                .reason
+                .map_or(Some(Either::B(())), |reason| Some(Either::A(reason))),
             counterexample: test_result
                 .counterexample
                 .map(|counterexample| match counterexample {
