@@ -11,7 +11,7 @@ use op_revm::{L1BlockInfo, OpHaltReason};
 
 use crate::{block::LocalBlock, receipt::BlockReceiptFactory, transaction, OpChainSpec, OpSpecId};
 
-/// Block builder for Optimism.
+/// Block builder for OP.
 pub struct Builder<'blockchain, BlockchainErrorT, StateErrorT> {
     eth: EthBlockBuilder<'blockchain, BlockchainErrorT, OpChainSpec, StateErrorT>,
     l1_block_info: L1BlockInfo,

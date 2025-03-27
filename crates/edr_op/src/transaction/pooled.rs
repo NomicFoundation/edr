@@ -11,7 +11,7 @@ use edr_provider::spec::HardforkValidationData;
 
 use super::{Pooled, Signed};
 
-/// An Optimism deposit pooled transaction.
+/// An OP deposit pooled transaction.
 pub type Deposit = super::signed::Deposit;
 
 impl Pooled {

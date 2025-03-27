@@ -6,25 +6,25 @@ import {
   EdrContext,
   L1_CHAIN_TYPE,
   l1GenesisState,
+  l1HardforkLatest,
+  l1HardforkToString,
   l1ProviderFactory,
   MineOrdering,
   SubscriptionEvent,
   // HACK: There is no way to exclude tsc type checking for a file from the
   // CLI, so we ignore the error here to allow `pnpm testNoBuild` to pass.
   // @ts-ignore
-  OPTIMISM_CHAIN_TYPE,
+  OP_CHAIN_TYPE,
   // @ts-ignore
-  optimismProviderFactory,
+  opGenesisState,
   // @ts-ignore
-  optimismGenesisState,
+  opHardforkFromString,
   // @ts-ignore
-  optimismHardforkFromString,
-  l1HardforkToString,
-  l1HardforkLatest,
+  opHardforkToString,
   // @ts-ignore
-  optimismHardforkToString,
+  opLatestHardfork,
   // @ts-ignore
-  optimismLatestHardfork,
+  opProviderFactory,
 } from "..";
 import { ALCHEMY_URL, toBuffer } from "./helpers";
 
@@ -35,10 +35,7 @@ describe("Multi-chain", () => {
 
   before(async () => {
     await context.registerProviderFactory(L1_CHAIN_TYPE, l1ProviderFactory());
-    await context.registerProviderFactory(
-      OPTIMISM_CHAIN_TYPE,
-      optimismProviderFactory()
-    );
+    await context.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
   });
 
   const providerConfig = {
@@ -51,7 +48,7 @@ describe("Multi-chain", () => {
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
     enableRip7212: false,
-    hardfork: optimismHardforkToString(optimismLatestHardfork()),
+    hardfork: opHardforkToString(opLatestHardfork()),
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
@@ -111,13 +108,13 @@ describe("Multi-chain", () => {
     await assert.isFulfilled(provider);
   });
 
-  it("initialize local Optimism provider", async function () {
+  it("initialize local OP provider", async function () {
     const provider = context.createProvider(
-      OPTIMISM_CHAIN_TYPE,
+      OP_CHAIN_TYPE,
       {
         ...providerConfig,
-        genesisState: optimismGenesisState(
-          optimismHardforkFromString(providerConfig.hardfork)
+        genesisState: opGenesisState(
+          opHardforkFromString(providerConfig.hardfork)
         ),
       },
       loggerConfig,
@@ -130,13 +127,13 @@ describe("Multi-chain", () => {
     await assert.isFulfilled(provider);
   });
 
-  it("initialize remote Optimism provider", async function () {
+  it("initialize remote OP provider", async function () {
     if (ALCHEMY_URL === undefined) {
       this.skip();
     }
 
     const provider = context.createProvider(
-      OPTIMISM_CHAIN_TYPE,
+      OP_CHAIN_TYPE,
       {
         ...providerConfig,
         fork: {
@@ -155,17 +152,17 @@ describe("Multi-chain", () => {
     await assert.isFulfilled(provider);
   });
 
-  describe("Optimism", () => {
+  describe("OP", () => {
     it("eth_getBlockByNumber", async function () {
-      // Block with Optimism-specific transaction type
+      // Block with OP-specific transaction type
       const BLOCK_NUMBER = 117_156_000;
 
       const provider = await context.createProvider(
-        OPTIMISM_CHAIN_TYPE,
+        OP_CHAIN_TYPE,
         {
           ...providerConfig,
-          genesisState: optimismGenesisState(
-            optimismHardforkFromString(providerConfig.hardfork)
+          genesisState: opGenesisState(
+            opHardforkFromString(providerConfig.hardfork)
           ),
         },
         loggerConfig,
@@ -190,10 +187,10 @@ describe("Multi-chain", () => {
     describe("Predeploys", () => {
       it("should have the GasPriceOracle predeploy", async function () {
         const provider = await context.createProvider(
-          OPTIMISM_CHAIN_TYPE,
+          OP_CHAIN_TYPE,
           {
-            genesisState: optimismGenesisState(
-              optimismHardforkFromString(providerConfig.hardfork)
+            genesisState: opGenesisState(
+              opHardforkFromString(providerConfig.hardfork)
             ),
             ...providerConfig,
           },
@@ -227,10 +224,10 @@ describe("Multi-chain", () => {
 
       it("should have the L1Block predeploy", async function () {
         const provider = await context.createProvider(
-          OPTIMISM_CHAIN_TYPE,
+          OP_CHAIN_TYPE,
           {
-            genesisState: optimismGenesisState(
-              optimismHardforkFromString(providerConfig.hardfork)
+            genesisState: opGenesisState(
+              opHardforkFromString(providerConfig.hardfork)
             ),
             ...providerConfig,
           },
@@ -264,10 +261,10 @@ describe("Multi-chain", () => {
 
       it("should stub unimplemented predeploys", async function () {
         const provider = await context.createProvider(
-          OPTIMISM_CHAIN_TYPE,
+          OP_CHAIN_TYPE,
           {
-            genesisState: optimismGenesisState(
-              optimismHardforkFromString(providerConfig.hardfork)
+            genesisState: opGenesisState(
+              opHardforkFromString(providerConfig.hardfork)
             ),
             ...providerConfig,
           },

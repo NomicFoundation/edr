@@ -31,8 +31,8 @@ use crate::{
     eip2718::TypedEnvelope,
     hardfork,
     receipt::{self, BlockReceiptFactory},
-    rpc, transaction,
-    transaction::InvalidTransaction,
+    rpc,
+    transaction::{self, InvalidTransaction},
     OpHaltReason, OpSpecId,
 };
 
@@ -165,7 +165,7 @@ impl EthHeaderConstants for OpChainSpec {
 }
 
 impl SyncNapiSpec for OpChainSpec {
-    const CHAIN_TYPE: &'static str = "Optimism";
+    const CHAIN_TYPE: &'static str = crate::CHAIN_TYPE;
 
     fn cast_response(
         response: Result<
@@ -178,7 +178,7 @@ impl SyncNapiSpec for OpChainSpec {
 
         marshal_response_data(response).map(|data| Response {
             data,
-            // TODO: Add support for Solidity stack traces in Optimism
+            // TODO: Add support for Solidity stack traces in OP
             solidity_trace: None,
             traces: Vec::new(),
         })

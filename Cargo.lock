@@ -1592,7 +1592,7 @@ dependencies = [
  "edr_evm",
  "edr_generic",
  "edr_napi_core",
- "edr_optimism",
+ "edr_op",
  "edr_provider",
  "edr_rpc_client",
  "edr_scenarios",
@@ -1634,7 +1634,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "edr_optimism"
+name = "edr_op"
 version = "0.3.5"
 dependencies = [
  "alloy-rlp",
@@ -4651,7 +4651,7 @@ dependencies = [
  "edr_evm",
  "edr_generic",
  "edr_napi_core",
- "edr_optimism",
+ "edr_op",
  "edr_provider",
  "edr_rpc_eth",
  "edr_scenarios",

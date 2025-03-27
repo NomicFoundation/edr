@@ -21,7 +21,7 @@ Most of these traits have a `Sync*` equivalent (e.g. `SyncRuntimeSpec`) which is
 Currently, EDR supports the following chain types out-of-the-box.
 
 - L1 Ethereum
-- Optimism
+- OP
 
 ## Adding your own Chain Type
 

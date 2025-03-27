@@ -2,6 +2,6 @@
 pub mod generic;
 /// Types for L1 Ethereum implementation.
 pub mod l1;
-/// Types for Optimism implementation.
-#[cfg(feature = "optimism")]
-pub mod optimism;
+/// Types for OP implementation.
+#[cfg(feature = "op")]
+pub mod op;

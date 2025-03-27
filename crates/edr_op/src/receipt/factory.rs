@@ -8,7 +8,7 @@ use op_revm::L1BlockInfo;
 
 use crate::{eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _, OpSpecId};
 
-/// Block receipt factory for Optimism.
+/// Block receipt factory for OP.
 pub struct BlockReceiptFactory {
     pub(crate) l1_block_info: L1BlockInfo,
 }

@@ -4,10 +4,9 @@ use edr_eth::hex;
 use edr_napi_core::{
     logger::{self, Logger},
     provider::{self, ProviderBuilder, SyncProviderFactory},
-    spec::SyncNapiSpec as _,
     subscription,
 };
-use edr_optimism::{OpChainSpec, OpSpecId};
+use edr_op::{OpChainSpec, OpSpecId};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::bindgen_prelude::BigInt;
 use napi_derive::napi;
@@ -17,9 +16,9 @@ use crate::{
     provider::ProviderFactory,
 };
 
-pub struct OptimismProviderFactory;
+pub struct OpProviderFactory;
 
-impl SyncProviderFactory for OptimismProviderFactory {
+impl SyncProviderFactory for OpProviderFactory {
     fn create_provider_builder(
         &self,
         env: &napi::Env,
@@ -44,9 +43,9 @@ impl SyncProviderFactory for OptimismProviderFactory {
     }
 }
 
-/// Enumeration of supported Optimism hardforks.
+/// Enumeration of supported OP hardforks.
 #[napi]
-pub enum OptimismHardfork {
+pub enum OpHardfork {
     Bedrock = 100,
     Regolith = 101,
     Canyon = 102,
@@ -55,57 +54,57 @@ pub enum OptimismHardfork {
     Granite = 105,
 }
 
-impl From<OptimismHardfork> for OpSpecId {
-    fn from(hardfork: OptimismHardfork) -> Self {
+impl From<OpHardfork> for OpSpecId {
+    fn from(hardfork: OpHardfork) -> Self {
         match hardfork {
-            OptimismHardfork::Bedrock => OpSpecId::BEDROCK,
-            OptimismHardfork::Regolith => OpSpecId::REGOLITH,
-            OptimismHardfork::Canyon => OpSpecId::CANYON,
-            OptimismHardfork::Ecotone => OpSpecId::ECOTONE,
-            OptimismHardfork::Fjord => OpSpecId::FJORD,
-            OptimismHardfork::Granite => OpSpecId::GRANITE,
+            OpHardfork::Bedrock => OpSpecId::BEDROCK,
+            OpHardfork::Regolith => OpSpecId::REGOLITH,
+            OpHardfork::Canyon => OpSpecId::CANYON,
+            OpHardfork::Ecotone => OpSpecId::ECOTONE,
+            OpHardfork::Fjord => OpSpecId::FJORD,
+            OpHardfork::Granite => OpSpecId::GRANITE,
         }
     }
 }
 
-impl FromStr for OptimismHardfork {
+impl FromStr for OpHardfork {
     type Err = napi::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            edr_optimism::hardfork::name::BEDROCK => Ok(OptimismHardfork::Bedrock),
-            edr_optimism::hardfork::name::REGOLITH => Ok(OptimismHardfork::Regolith),
-            edr_optimism::hardfork::name::CANYON => Ok(OptimismHardfork::Canyon),
-            edr_optimism::hardfork::name::ECOTONE => Ok(OptimismHardfork::Ecotone),
-            edr_optimism::hardfork::name::FJORD => Ok(OptimismHardfork::Fjord),
-            edr_optimism::hardfork::name::GRANITE => Ok(OptimismHardfork::Granite),
+            edr_op::hardfork::name::BEDROCK => Ok(OpHardfork::Bedrock),
+            edr_op::hardfork::name::REGOLITH => Ok(OpHardfork::Regolith),
+            edr_op::hardfork::name::CANYON => Ok(OpHardfork::Canyon),
+            edr_op::hardfork::name::ECOTONE => Ok(OpHardfork::Ecotone),
+            edr_op::hardfork::name::FJORD => Ok(OpHardfork::Fjord),
+            edr_op::hardfork::name::GRANITE => Ok(OpHardfork::Granite),
             _ => Err(napi::Error::new(
                 napi::Status::InvalidArg,
-                format!("The provided Optimism hardfork `{s}` is not supported."),
+                format!("The provided OP hardfork `{s}` is not supported."),
             )),
         }
     }
 }
 
-/// Tries to parse the provided string to create an [`OptimismHardfork`]
+/// Tries to parse the provided string to create an [`OpHardfork`]
 /// instance.
 ///
 /// Returns an error if the string does not match any known hardfork.
 #[napi]
-pub fn optimism_hardfork_from_string(hardfork: String) -> napi::Result<OptimismHardfork> {
+pub fn op_hardfork_from_string(hardfork: String) -> napi::Result<OpHardfork> {
     hardfork.parse()
 }
 
-/// Returns the string representation of the provided Optimism hardfork.
+/// Returns the string representation of the provided OP hardfork.
 #[napi]
-pub fn optimism_hardfork_to_string(hardfork: OptimismHardfork) -> &'static str {
+pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
     match hardfork {
-        OptimismHardfork::Bedrock => edr_optimism::hardfork::name::BEDROCK,
-        OptimismHardfork::Regolith => edr_optimism::hardfork::name::REGOLITH,
-        OptimismHardfork::Canyon => edr_optimism::hardfork::name::CANYON,
-        OptimismHardfork::Ecotone => edr_optimism::hardfork::name::ECOTONE,
-        OptimismHardfork::Fjord => edr_optimism::hardfork::name::FJORD,
-        OptimismHardfork::Granite => edr_optimism::hardfork::name::GRANITE,
+        OpHardfork::Bedrock => edr_op::hardfork::name::BEDROCK,
+        OpHardfork::Regolith => edr_op::hardfork::name::REGOLITH,
+        OpHardfork::Canyon => edr_op::hardfork::name::CANYON,
+        OpHardfork::Ecotone => edr_op::hardfork::name::ECOTONE,
+        OpHardfork::Fjord => edr_op::hardfork::name::FJORD,
+        OpHardfork::Granite => edr_op::hardfork::name::GRANITE,
     }
 }
 
@@ -113,17 +112,17 @@ pub fn optimism_hardfork_to_string(hardfork: OptimismHardfork) -> &'static str {
 ///
 /// The returned value will be updated after each network upgrade.
 #[napi]
-pub fn optimism_latest_hardfork() -> OptimismHardfork {
-    OptimismHardfork::Granite
+pub fn op_latest_hardfork() -> OpHardfork {
+    OpHardfork::Granite
 }
 
 #[napi]
-pub const OPTIMISM_CHAIN_TYPE: &str = OpChainSpec::CHAIN_TYPE;
+pub const OP_CHAIN_TYPE: &str = edr_op::CHAIN_TYPE;
 
 #[napi]
-pub fn optimism_genesis_state(_hardfork: OptimismHardfork) -> Vec<Account> {
+pub fn op_genesis_state(_hardfork: OpHardfork) -> Vec<Account> {
     let gas_price_oracle_code = hex::decode(include_str!(
-        "../../data/optimism/predeploys/gas_price_oracle.txt"
+        "../../data/op/predeploys/gas_price_oracle.txt"
     ))
     .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
     let gas_price_oracle = Account {
@@ -141,7 +140,7 @@ pub fn optimism_genesis_state(_hardfork: OptimismHardfork) -> Vec<Account> {
         }],
     };
 
-    let l1_block_code = hex::decode(include_str!("../../data/optimism/predeploys/l1_block.txt"))
+    let l1_block_code = hex::decode(include_str!("../../data/op/predeploys/l1_block.txt"))
         .expect("The bytecode for the L1Block predeploy should be a valid hex string");
     let l1_block = Account {
         address: hex!("4200000000000000000000000000000000000015").into(),
@@ -263,8 +262,8 @@ pub fn optimism_genesis_state(_hardfork: OptimismHardfork) -> Vec<Account> {
 }
 
 #[napi]
-pub fn optimism_provider_factory() -> ProviderFactory {
-    let factory: Arc<dyn SyncProviderFactory> = Arc::new(OptimismProviderFactory);
+pub fn op_provider_factory() -> ProviderFactory {
+    let factory: Arc<dyn SyncProviderFactory> = Arc::new(OpProviderFactory);
     factory.into()
 }
 
@@ -272,7 +271,7 @@ macro_rules! export_spec_id {
     ($($variant:ident),*) => {
         $(
             #[napi]
-            pub const $variant: &str = edr_optimism::hardfork::name::$variant;
+            pub const $variant: &str = edr_op::hardfork::name::$variant;
         )*
     };
 }

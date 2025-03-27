@@ -1,29 +1,32 @@
 #![warn(missing_docs)]
 
-//! Optimism types
+//! OP types
 //!
-//! Optimism types as needed by EDR. They are based on the same primitive types
+//! OP types as needed by EDR. They are based on the same primitive types
 //! as `revm`.
 
-/// Optimism RPC types
+/// OP RPC types
 pub mod rpc;
 
-/// Types for Optimism blocks.
+/// Types for OP blocks.
 pub mod block;
-/// Types for Optimism's EIP-2718 envelope.
+/// Types for OP's EIP-2718 envelope.
 pub mod eip2718;
-/// Optimism harforks.
+/// OP harforks.
 pub mod hardfork;
-/// Types for Optimism receipts.
+/// Types for OP receipts.
 pub mod receipt;
 mod spec;
 pub use self::spec::OpChainSpec;
 
-/// Optimism transaction types
+/// OP transaction types
 pub mod transaction;
 
 use edr_eth::U256;
 pub use op_revm::{OpHaltReason, OpSpecId};
+
+/// OP chain type
+pub const CHAIN_TYPE: &str = "op";
 
 /// Helper type for constructing an [`op_revm::L1BlockInfo`].
 ///
@@ -45,8 +48,8 @@ pub struct L1BlockInfo {
 
 impl From<L1BlockInfo> for op_revm::L1BlockInfo {
     fn from(value: L1BlockInfo) -> Self {
-        // `revm_optimism::L1BlockInfo` contains a private field, so we need to
-        // construct it like this
+        // [`op_revm::L1BlockInfo`] contains a private field, so we need to construct it
+        // like this
         let mut l1_block_info = Self::default();
         l1_block_info.l1_base_fee = value.l1_base_fee;
         l1_block_info.l1_fee_overhead = value.l1_fee_overhead;

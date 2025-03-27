@@ -1,7 +1,7 @@
 #![cfg(feature = "test-remote")]
 
 use edr_evm::impl_full_block_tests;
-use edr_optimism::OpChainSpec;
+use edr_op::OpChainSpec;
 use edr_test_utils::env::get_alchemy_url;
 
 impl_full_block_tests! {

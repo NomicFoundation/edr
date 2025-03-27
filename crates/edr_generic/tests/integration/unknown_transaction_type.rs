@@ -20,7 +20,7 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
     const BLOCK_NUMBER_WITH_TRANSACTIONS: u64 = 117_156_000;
 
     // Make sure that we do not error out when encountering unknown Ethereum
-    // transaction types (e.g. found in Optimism), as we want to fallback to
+    // transaction types (e.g. found in OP), as we want to fallback to
     // legacy transactions for the for the generic (aka fallback) chain spec.
     let url = get_alchemy_url().replace("eth-", "opt-");
     let rpc_client = EthRpcClient::<GenericChainSpec>::new(&url, CACHE_DIR.into(), None)?;

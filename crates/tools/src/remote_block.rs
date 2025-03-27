@@ -9,14 +9,14 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};
-use edr_optimism::OpChainSpec;
+use edr_op::OpChainSpec;
 use edr_provider::spec::SyncRuntimeSpec;
 use edr_rpc_eth::client::EthRpcClient;
 
 #[derive(Clone, ValueEnum)]
 pub enum SupportedChainTypes {
     L1,
-    Optimism,
+    Op,
 }
 
 pub async fn replay(
@@ -28,9 +28,9 @@ pub async fn replay(
         SupportedChainTypes::L1 => {
             replay_chain_specific_block::<L1ChainSpec>("L1", url, block_number).await
         }
-        SupportedChainTypes::Optimism => {
+        SupportedChainTypes::Op => {
             replay_chain_specific_block::<OpChainSpec>(
-                "optimism",
+                edr_op::CHAIN_TYPE,
                 url.replace("eth-", "opt-"),
                 block_number,
             )

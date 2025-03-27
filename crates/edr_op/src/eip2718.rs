@@ -20,7 +20,7 @@ pub enum TypedEnvelope<DataT> {
     Eip4844(DataT),
     /// EIP-7702 transaction.
     Eip7702(DataT),
-    /// Optimism deposit transaction
+    /// OP deposit transaction
     Deposit(DataT),
 }
 

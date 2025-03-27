@@ -8,7 +8,7 @@ use edr_eth::{b256, transaction::TransactionType as _, HashMap, PreEip1898BlockS
 use edr_evm::{
     blockchain::ForkedBlockchain, state::IrregularState, Block, RandomHashGenerator, RemoteBlock,
 };
-use edr_optimism::{hardfork, transaction, OpChainSpec};
+use edr_op::{hardfork, transaction, OpChainSpec};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;
 use op_alloy_rpc_types::receipt::L1BlockInfo;

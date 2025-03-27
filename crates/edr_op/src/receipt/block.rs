@@ -7,7 +7,7 @@ use op_alloy_rpc_types::receipt::L1BlockInfo;
 
 use crate::{eip2718::TypedEnvelope, receipt};
 
-/// An Optimism block receipt.
+/// An OP block receipt.
 ///
 /// Includes the L1 block info for non-deposit transactions.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -1,6 +1,6 @@
-/// Types for Optimism RPC receipt.
+/// Types for OP RPC receipt.
 pub mod receipt;
-/// Types for Optimism RPC transaction.
+/// Types for OP RPC transaction.
 pub mod transaction;
 
 use edr_eth::{eips::eip7702, log::FilterLog, Address, Bloom, B256, U256};
@@ -70,14 +70,14 @@ pub struct BlockReceipt {
         with = "alloy_serde::quantity::opt"
     )]
     pub effective_gas_price: Option<u128>,
-    /// Deposit nonce for Optimism deposit transactions.
+    /// Deposit nonce for OP deposit transactions.
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "alloy_serde::quantity::opt"
     )]
     pub deposit_nonce: Option<u64>,
-    /// Deposit receipt version for Optimism deposit transactions
+    /// Deposit receipt version for OP deposit transactions
     ///
     /// The deposit receipt version was introduced in Canyon to indicate an
     /// update to how receipt hashes should be computed when set. The state
@@ -89,7 +89,7 @@ pub struct BlockReceipt {
         with = "alloy_serde::quantity::opt"
     )]
     pub deposit_receipt_version: Option<u8>,
-    /// L1 block info, for non-deposit Optimism transactions.
+    /// L1 block info, for non-deposit OP transactions.
     #[serde(flatten)]
     pub l1_block_info: L1BlockInfo,
     /// The authorization list is a list of tuples that store the address to
@@ -99,7 +99,7 @@ pub struct BlockReceipt {
     pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }
 
-/// Optimism RPC transaction.
+/// OP RPC transaction.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {

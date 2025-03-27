@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::{address, bytes, Address, BlockSpec, U64};
-use edr_optimism::{OpChainSpec, OpSpecId};
+use edr_op::{OpChainSpec, OpSpecId};
 use edr_provider::{
     hardhat_rpc_types::ForkConfig,
     test_utils::{create_test_config_with_fork, ProviderTestFixture},

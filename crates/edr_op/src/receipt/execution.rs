@@ -14,7 +14,7 @@ use self::deposit::Eip658OrDeposit;
 use super::Execution;
 use crate::{eip2718::TypedEnvelope, transaction, OpHaltReason, OpSpecId};
 
-/// Receipt for an Optimism deposit transaction with deposit nonce (since
+/// Receipt for an OP deposit transaction with deposit nonce (since
 /// Regolith) and optionally deposit receipt version (since Canyon).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Deposit<LogT> {
@@ -102,7 +102,7 @@ where
     }
 }
 
-/// Optimism execution receipt builder.
+/// OP execution receipt builder.
 pub struct Builder {
     deposit_nonce: u64,
 }
