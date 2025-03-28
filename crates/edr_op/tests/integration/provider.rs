@@ -1,16 +1,20 @@
+#![cfg(feature = "test-remote")]
+
 use std::sync::Arc;
 
 use edr_eth::{address, bytes, Address, BlockSpec, U64};
 use edr_op::OpChainSpec;
 use edr_provider::{
-    hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
+    hardhat_rpc_types::ForkConfig,
+    test_utils::{create_test_config_with_fork, ProviderTestFixture},
+    time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
-use crate::integration::sepolia_url;
+use crate::integration::{mainnet_url, sepolia_url};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
@@ -58,4 +62,29 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     )))?;
 
     Ok(())
+}
+
+macro_rules! impl_test_chain_id {
+    ($($name:ident: $url:expr => $result:expr,)+) => {
+        $(
+            paste::item! {
+                #[test]
+                fn [<chain_id_for_ $name>]() -> anyhow::Result<()> {
+                    let url = $url;
+                    let fixture = ProviderTestFixture::<OpChainSpec>::new_forked(Some(url))?;
+
+                    let block_spec = BlockSpec::Number(0);
+                    let chain_id = fixture.provider_data.chain_id_at_block_spec(&block_spec)?;
+                    assert_eq!(chain_id, $result);
+
+                    Ok(())
+                }
+            }
+        )+
+    };
+}
+
+impl_test_chain_id! {
+    mainnet: mainnet_url() => edr_op::MAINNET_CHAIN_ID,
+    sepolia: sepolia_url() => edr_op::SEPOLIA_CHAIN_ID,
 }
