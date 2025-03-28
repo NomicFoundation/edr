@@ -1,20 +1,16 @@
-import { assert } from "chai";
-import { assertStackTraces, TestContext } from "./testContext";
+import assert from "node:assert/strict";
+import { before, describe, it } from "node:test";
+import {
+  assertImpureCheatcode,
+  assertStackTraces,
+  TestContext,
+} from "./testContext.js";
 
 describe("Unit tests", () => {
   let testContext: TestContext;
 
   before(async () => {
     testContext = await TestContext.setup();
-  });
-
-  // Empty test suite should still return a result.
-  it("Empty", async function () {
-    const { totalTests, failedTests } =
-      await testContext.runTestsWithStats("EmptyTest");
-
-    assert.equal(failedTests, 0);
-    assert.equal(totalTests, 0);
   });
 
   it("SuccessAndFailure", async function () {
@@ -31,9 +27,9 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 2);
   });
 
-  it("Latest global fork stack trace", async function () {
+  it("Latest global fork stack trace", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      this.skip();
+      t.skip();
     }
 
     const { totalTests, failedTests, stackTraces } =
@@ -44,7 +40,16 @@ describe("Unit tests", () => {
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);
     // When using forking from latest block, no stack trace should be generated as re-execution is unsafe.
-    assert.equal(stackTraces.get("testThatFails()")?.globalForkLatest, true);
+    const stackTrace = stackTraces.get("testThatFails()");
+    if (
+      stackTrace === undefined ||
+      stackTrace.stackTrace?.kind !== "UnsafeToReplay"
+    ) {
+      throw new Error(
+        `Expected unsafe to replay stack trace, instead it is: {stackTrace}`
+      );
+    }
+    assert.equal(stackTrace.stackTrace.globalForkLatest, true);
   });
 
   it("ContractEnvironment", async function () {
@@ -119,9 +124,9 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
   });
 
-  it("GlobalFork", async function () {
+  it("GlobalFork", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      this.skip();
+      t.skip();
     }
 
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
@@ -136,16 +141,16 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
   });
 
-  it("ForkCheatcode", async function () {
+  it("ForkCheatcode", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      this.skip();
+      t.skip();
     }
 
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
       "ForkCheatcodeTest",
       {
         rpcEndpoints: {
-          alchemyMainnet: testContext.rpcUrl,
+          alchemyMainnet: testContext.rpcUrl!,
         },
       }
     );
@@ -154,30 +159,23 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
   });
 
-  it("Latest fork cheatcode", async function () {
+  it("Latest fork cheatcode", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      this.skip();
+      t.skip();
     }
 
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("LatestForkCheatcodeTest", {
         rpcEndpoints: {
-          alchemyMainnet: testContext.rpcUrl,
+          alchemyMainnet: testContext.rpcUrl!,
         },
       });
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);
 
-    // When using forking from latest block, no stack trace should be generated as re-execution is unsafe.
-    const impureCheatcodes =
-      stackTraces.get("testThatFails()")?.impureCheatcodes ?? [];
-    assert.equal(
-      impureCheatcodes.filter((cheatcode) =>
-        cheatcode.includes("createSelectFork")
-      ).length,
-      1
-    );
+    let stackTrace = stackTraces.get("testThatFails()");
+    assertImpureCheatcode(stackTrace, "createSelectFork");
   });
 
   it("FailingSetup", async function () {

@@ -1,5 +1,5 @@
-import type { Artifacts as HardhatArtifacts } from "hardhat/types";
-import fsExtra from "fs-extra";
+import { fileURLToPath } from "node:url";
+import { getAllFilesMatching } from "@nomicfoundation/hardhat-utils/fs";
 
 import {
   ArtifactId,
@@ -8,7 +8,17 @@ import {
   Artifact,
   SolidityTestRunnerConfigArgs,
   TestResult,
+  TracingConfigWithBuffers,
 } from "@ignored/edr";
+import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
+import { BuildOptions } from "hardhat/types/solidity";
+import {
+  getArtifacts,
+  getBuildInfos,
+  throwIfSolidityBuildFailed,
+} from "./build-results.js";
+import { Abi } from "hardhat/types/artifacts";
+import * as path from "node:path";
 
 /**
  * Run all the given solidity tests and returns the whole results after finishing.
@@ -16,7 +26,7 @@ import {
 export async function runAllSolidityTests(
   artifacts: Artifact[],
   testSuites: ArtifactId[],
-  tracingConfig: TracingConfigWithBuffer,
+  tracingConfig: TracingConfigWithBuffers,
   configArgs: SolidityTestRunnerConfigArgs,
   testResultCallback: (
     suiteResult: SuiteResult,
@@ -46,73 +56,68 @@ export async function runAllSolidityTests(
   });
 }
 
+/*
+ Build Solidity tests in a Hardhat v3 project.
+ Based on https://github.com/NomicFoundation/hardhat/blob/6acdfa0a7e332e26a3f0fbda61edb4a4971a542e/v-next/hardhat/src/internal/builtin-plugins/solidity-test/task-action.ts
+ */
 export async function buildSolidityTestsInput(
-  hardhatArtifacts: HardhatArtifacts,
-  isTestArtifact: (artifact: Artifact) => boolean = () => true
+  hre: HardhatRuntimeEnvironment
 ): Promise<{
   artifacts: Artifact[];
   testSuiteIds: ArtifactId[];
-  tracingConfig: TracingConfigWithBuffer;
+  tracingConfig: TracingConfigWithBuffers;
 }> {
-  const fqns = await hardhatArtifacts.getAllFullyQualifiedNames();
-  const artifacts: Artifact[] = [];
-  const testSuiteIds: ArtifactId[] = [];
+  let rootFilePaths = (
+    await Promise.all([
+      getAllFilesMatching(hre.config.paths.tests.solidity, (f) =>
+        f.endsWith(".sol")
+      ),
+      ...hre.config.paths.sources.solidity.map(async (dir) => {
+        // This is changed from Hardhat: it currently filters for ".t.sol" which is probably a mistake.
+        return getAllFilesMatching(dir, (f) => f.endsWith(".sol"));
+      }),
+    ])
+  ).flat(1);
+  // NOTE: We remove duplicates in case there is an intersection between
+  // the tests.solidity paths and the sources paths
+  rootFilePaths = Array.from(new Set(rootFilePaths));
+  const buildOptions: BuildOptions = {
+    force: false,
+    buildProfile: hre.globalOptions.buildProfile,
+    quiet: true,
+  };
 
-  for (const fqn of fqns) {
-    const hardhatArtifact = hardhatArtifacts.readArtifactSync(fqn);
-    const buildInfo = hardhatArtifacts.getBuildInfoSync(fqn);
+  const results = await hre.solidity.build(rootFilePaths, buildOptions);
 
-    if (buildInfo === undefined) {
-      throw new Error(`Build info not found for contract ${fqn}`);
-    }
+  throwIfSolidityBuildFailed(results);
 
-    const id = {
-      name: hardhatArtifact.contractName,
-      solcVersion: buildInfo.solcVersion,
-      source: hardhatArtifact.sourceName,
-    };
+  const buildInfos = await getBuildInfos(results, hre.artifacts);
+  const artifacts = await getArtifacts(results);
+  const testSuiteIds = artifacts
+    .filter(isTestSuiteArtifact)
+    .map((artifact) => artifact.id);
 
-    const contract = {
-      abi: JSON.stringify(hardhatArtifact.abi),
-      bytecode: hardhatArtifact.bytecode,
-      linkReferences: hardhatArtifact.linkReferences,
-      deployedBytecode: hardhatArtifact.deployedBytecode,
-      deployedLinkReferences: hardhatArtifact.deployedLinkReferences,
-    };
-
-    const artifact = { id, contract };
-    artifacts.push(artifact);
-    if (isTestArtifact(artifact)) {
-      testSuiteIds.push(artifact.id);
-    }
-  }
-
-  const tracingConfig = await makeTracingConfig(hardhatArtifacts);
+  const tracingConfig: TracingConfigWithBuffers = {
+    buildInfos,
+    ignoreContracts: false,
+  };
 
   return { artifacts, testSuiteIds, tracingConfig };
 }
 
-// This is a copy of an internal Hardhat function that loads artifacts
-// https://github.com/NomicFoundation/hardhat/blob/dd19b668e3a68085eea87f96dc05e65ae52f0ce3/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L506
-export async function makeTracingConfig(
-  artifacts: HardhatArtifacts
-): Promise<TracingConfigWithBuffer> {
-  const buildInfos = [];
-
-  const buildInfoFiles = await artifacts.getBuildInfoPaths();
-
-  for (const buildInfoFile of buildInfoFiles) {
-    const buildInfo = await fsExtra.readFile(buildInfoFile);
-    buildInfos.push(buildInfo);
-  }
-
-  return {
-    buildInfos,
-    ignoreContracts: undefined,
-  };
+/* Get the directory name of the current file based on the `import.meta.url`*/
+export function dirName(importUrl: string) {
+  const fileName = fileURLToPath(importUrl);
+  return path.dirname(fileName);
 }
 
-export interface TracingConfigWithBuffer {
-  buildInfos: Uint8Array[];
-  ignoreContracts: boolean | undefined;
+// Copied from <https://github.com/NomicFoundation/hardhat/blob/58463c16270ae154b6671d2d2eea2ba95d024d2e/v-next/hardhat/src/internal/builtin-plugins/solidity-test/helpers.ts>
+function isTestSuiteArtifact(artifact: Artifact): boolean {
+  const abi: Abi = JSON.parse(artifact.contract.abi);
+  return abi.some(({ type, name }) => {
+    if (type === "function" && typeof name === "string") {
+      return name.startsWith("test") || name.startsWith("invariant");
+    }
+    return false;
+  });
 }

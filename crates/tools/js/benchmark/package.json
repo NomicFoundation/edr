@@ -3,6 +3,7 @@
   "description": "",
   "version": "1.0.0",
   "author": "",
+  "type": "module",
   "devDependencies": {
     "@ignored/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
@@ -19,14 +20,14 @@
     "eslint-plugin-import": "2.27.5",
     "eslint-plugin-mocha": "10.4.1",
     "eslint-plugin-prettier": "5.2.1",
-    "hardhat": "2.22.18",
+    "hardhat": "3.0.0-next.3",
     "lodash": "^4.17.11",
     "mocha": "^10.0.0",
     "prettier": "^3.2.5",
     "simple-git": "^3.25.0",
     "smol-toml": "^1.3.0",
-    "tsx": "^4.7.1",
-    "typescript": "~5.5.3"
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
   },
   "keywords": [],
   "license": "ISC",
@@ -46,5 +47,8 @@
     "soltests": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts solidity-tests",
     "test": "mocha --recursive --require tsx/cjs \"test/**/*.ts\"",
     "verify": "tsx src/index.ts verify"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-utils": "3.0.0-next.0"
   }
 }

@@ -3,25 +3,27 @@
 import { ArgumentParser } from "argparse";
 import child_process, { SpawnSyncReturns } from "child_process";
 import fs from "fs";
-import { HttpProvider } from "hardhat/internal/core/providers/http";
-import { createHardhatNetworkProvider } from "hardhat/internal/hardhat-network/provider/provider";
 import _ from "lodash";
 import path from "path";
 import readline from "readline";
 import zlib from "zlib";
-import { runForgeStdTests, setupForgeStdRepo } from "./solidity-tests";
+import { createHardhatRuntimeEnvironment } from "hardhat/hre";
+import {
+  FORGE_STD_SAMPLES,
+  runSolidityTests,
+  setupForgeStdRepo,
+} from "./solidity-tests.js";
+import { dirName } from "@nomicfoundation/edr-helpers";
 
 const SCENARIOS_DIR = "../../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
 const NEPTUNE_MAX_MIN_FAILURES = 1.05;
-const ANVIL_HOST = "http://127.0.0.1:8545";
 
 interface ParsedArguments {
   command: "benchmark" | "verify" | "report" | "solidity-tests";
   grep?: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   benchmark_output: string;
-  anvil: boolean;
 }
 
 interface BenchmarkScenarioResult {
@@ -87,11 +89,11 @@ async function main() {
         if (scenarioFileName.includes(args.grep)) {
           // We store the results to avoid GC
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          results = await benchmarkScenario(scenarioFileName, args.anvil);
+          results = await benchmarkScenario(scenarioFileName);
         }
       }
     } else {
-      await benchmarkAllScenarios(benchmarkOutputPath, args.anvil);
+      await benchmarkAllScenarios(benchmarkOutputPath);
     }
     await flushStdout();
   } else if (args.command === "verify") {
@@ -102,7 +104,7 @@ async function main() {
     await flushStdout();
   } else if (args.command === "solidity-tests") {
     const repoPath = await setupForgeStdRepo();
-    await runForgeStdTests(repoPath);
+    await runSolidityTests(repoPath, FORGE_STD_SAMPLES);
   } else {
     const _exhaustiveCheck: never = args.command;
   }
@@ -203,7 +205,7 @@ function setDifference<T>(a: Set<T>, b: Set<T>): Set<T> {
   return new Set(Array.from(a).filter((item) => !b.has(item)));
 }
 
-async function benchmarkAllScenarios(outPath: string, useAnvil: boolean) {
+async function benchmarkAllScenarios(outPath: string) {
   const result: any = {};
   let totalTime = 0;
   let totalFailures = 0;
@@ -219,9 +221,6 @@ async function benchmarkAllScenarios(outPath: string, useAnvil: boolean) {
       "-g",
       scenarioFileName,
     ];
-    if (useAnvil) {
-      args.push("--anvil");
-    }
 
     let processResult: SpawnSyncReturns<string> | undefined;
     try {
@@ -297,23 +296,24 @@ function medianOfResults(results: BenchmarkScenarioResult[]) {
 }
 
 async function benchmarkScenario(
-  scenarioFileName: string,
-  useAnvil: boolean
+  scenarioFileName: string
 ): Promise<BenchmarkScenarioRpcCalls> {
   const { config, requests } = await loadScenario(scenarioFileName);
   const name = path.basename(scenarioFileName).split(".")[0];
   console.error(`Running ${name} scenario`);
 
-  const start = performance.now();
+  const hre = await createHardhatRuntimeEnvironment({
+    networks: {
+      defaultNetwork: {
+        type: "edr",
+        ...config,
+      },
+    },
+  });
 
-  let provider;
-  if (useAnvil) {
-    provider = new HttpProvider(ANVIL_HOST, "anvil");
-  } else {
-    provider = await createHardhatNetworkProvider(config.providerConfig, {
-      enabled: config.loggerEnabled,
-    });
-  }
+  const { provider } = await hre.network.connect("defaultNetwork", "generic");
+
+  const start = performance.now();
 
   const failures = [];
   const rpcCallResults = [];
@@ -471,11 +471,11 @@ function readFile(pathToRead: string) {
 }
 
 function getScenariosDir() {
-  return path.join(__dirname, SCENARIOS_DIR);
+  return path.join(dirName(import.meta.url), SCENARIOS_DIR);
 }
 
 function getScenarioFileNames(): string[] {
-  const scenariosDir = path.join(__dirname, SCENARIOS_DIR);
+  const scenariosDir = path.join(dirName(import.meta.url), SCENARIOS_DIR);
   const scenarioFiles = fs.readdirSync(scenariosDir);
   scenarioFiles.sort();
   return scenarioFiles.filter((fileName) => fileName.endsWith(".jsonl.gz"));

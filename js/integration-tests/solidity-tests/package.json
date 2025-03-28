@@ -3,19 +3,17 @@
   "description": "",
   "version": "1.0.0",
   "author": "",
+  "type": "module",
   "devDependencies": {
     "@ignored/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
     "@tsconfig/node20": "^20.1.4",
-    "@types/chai": "^4.2.0",
-    "@types/mocha": ">=9.1.0",
     "@types/node": "^20.0.0",
-    "chai": "^4.3.6",
     "forge-std": "github:foundry-rs/forge-std#v1.9.5",
-    "hardhat": "2.22.18",
+    "hardhat": "3.0.0-next.3",
     "prettier": "^3.2.5",
-    "ts-node": "^10.8.0",
-    "typescript": "~5.5.3"
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
   },
   "keywords": [],
   "license": "MIT",
@@ -25,6 +23,8 @@
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build --incremental .",
     "pretest": "cd ../../.. && pnpm build:dev",
-    "test": "hardhat test"
+    "prespecificTest": "cd ../../.. && pnpm build:dev",
+    "test": "node --import tsx/esm --test \"test/*.ts\"",
+    "specificTest": "node --import tsx/esm --test-name-pattern=\"Latest fork cheatcode\" test/unit.ts"
   }
 }

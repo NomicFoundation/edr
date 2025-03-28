@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/src/Test.sol";
-import "./MyLibrary.sol";
+import "../contracts/MyLibrary.sol";
 
 contract LibraryConsumer {
     function consume(uint256 a) public pure returns (uint256) {

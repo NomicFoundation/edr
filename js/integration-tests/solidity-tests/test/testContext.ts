@@ -1,16 +1,27 @@
 import {
   Artifact,
   ArtifactId,
+  HeuristicFailed,
   type SolidityTestRunnerConfigArgs,
+  StackTrace,
+  TracingConfigWithBuffers,
+  UnexpectedError,
+  UnsafeToReplay,
 } from "@ignored/edr";
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
-  TracingConfigWithBuffer,
 } from "@nomicfoundation/edr-helpers";
 import hre from "hardhat";
-import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
-import { assert } from "chai";
+import assert from "node:assert/strict";
+
+type StackTraceResult =
+  | StackTrace
+  | UnexpectedError
+  | HeuristicFailed
+  | UnsafeToReplay
+  | null
+  | undefined;
 
 export class TestContext {
   readonly rpcUrl = process.env.ALCHEMY_URL;
@@ -19,12 +30,12 @@ export class TestContext {
   readonly invariantFailuresPersistDir: string = "./edr-cache/invariant";
   readonly artifacts: Artifact[];
   readonly testSuiteIds: ArtifactId[];
-  readonly tracingConfig: TracingConfigWithBuffer;
+  readonly tracingConfig: TracingConfigWithBuffers;
 
   private constructor(
     artifacts: Artifact[],
     testSuiteIds: ArtifactId[],
-    tracingConfig: TracingConfigWithBuffer
+    tracingConfig: TracingConfigWithBuffers
   ) {
     this.artifacts = artifacts;
     this.testSuiteIds = testSuiteIds;
@@ -32,7 +43,7 @@ export class TestContext {
   }
 
   static async setup(): Promise<TestContext> {
-    const results = await buildSolidityTestsInput(hre.artifacts);
+    const results = await buildSolidityTestsInput(hre);
     return new TestContext(
       results.artifacts,
       results.testSuiteIds,
@@ -77,22 +88,10 @@ export class TestContext {
         if (failed) {
           failedTests++;
           const stackTrace = testResult.stackTrace();
-          if (stackTrace?.kind === "UnexpectedError") {
-            throw new Error(stackTrace.errorMessage);
-          } else if (stackTrace?.kind === "HeuristicFailed") {
-            throw new Error("Stack trace heuristic failed");
-          } else if (stackTrace?.kind === "StackTrace") {
-            stackTraces.set(testResult.name, {
-              stackTrace: stackTrace.entries,
-              reason: testResult.reason,
-            });
-          } else if (stackTrace?.kind === "UnsafeToReplay") {
-            stackTraces.set(testResult.name, {
-              reason: testResult.reason,
-              globalForkLatest: stackTrace.globalForkLatest,
-              impureCheatcodes: stackTrace.impureCheatcodes,
-            });
-          }
+          stackTraces.set(testResult.name, {
+            stackTrace,
+            reason: testResult.reason,
+          });
         }
       }
     }
@@ -116,36 +115,56 @@ interface SolidityTestsRunResult {
   stackTraces: Map<
     string,
     {
-      stackTrace: SolidityStackTrace | undefined;
+      stackTrace: StackTraceResult | undefined;
       reason: string | undefined;
-      globalForkLatest: boolean | undefined;
-      impureCheatcodes: string[] | undefined;
     }
   >;
 }
 
+type ActualStackTraceResult =
+  | { stackTrace: StackTraceResult | undefined; reason: string | undefined }
+  | undefined
+  | null;
+
 export function assertStackTraces(
-  actual:
-    | { stackTrace: SolidityStackTrace | undefined; reason: string | undefined }
-    | undefined,
+  actual: ActualStackTraceResult,
   expectedReason: string,
   expectedEntries: {
     function: string;
     contract: string;
   }[]
 ) {
-  if (actual === undefined) {
-    throw new Error("stack trace is undefined");
+  if (
+    actual === undefined ||
+    actual == null ||
+    actual.stackTrace === undefined ||
+    actual.stackTrace === null
+  ) {
+    throw new Error("Stack trace is undefined");
   }
-  assert.include(actual.reason, expectedReason);
+  if (actual.stackTrace.kind === "HeuristicFailed") {
+    throw new Error("Stack trace result is 'HeuristicFailed'");
+  }
+  if (actual.stackTrace.kind === "UnsafeToReplay") {
+    throw new Error(
+      `Stack trace is unsafe to replay. Global forking with latest block: '${actual.stackTrace.impureCheatcodes}' to impure cheatcodes: '${actual.stackTrace.impureCheatcodes}'`
+    );
+  }
+  if (actual.stackTrace.kind === "UnexpectedError") {
+    throw new Error(
+      `Unexpected stack trace error: '${actual.stackTrace.errorMessage}'`
+    );
+  }
+
+  assert.ok(actual.reason?.includes(expectedReason));
   const stackTrace = actual.stackTrace;
   if (stackTrace === undefined) {
     throw new Error("Stack trace is missing");
   }
-  assert.equal(stackTrace.length, expectedEntries.length);
-  for (let i = 0; i < stackTrace.length; i += 1) {
+  assert.equal(stackTrace.entries.length, expectedEntries.length);
+  for (let i = 0; i < stackTrace.entries.length; i += 1) {
     const expected = expectedEntries[i];
-    const sourceReference = stackTrace[i].sourceReference;
+    const sourceReference = stackTrace.entries[i].sourceReference;
     if (sourceReference === undefined) {
       throw new Error(
         `source reference is undefined for contract '${expected.contract}' function '${expected.function}'`
@@ -155,4 +174,26 @@ export function assertStackTraces(
     assert.equal(sourceReference.function, expected.function);
     assert(sourceReference.sourceContent.includes(expected.function));
   }
+}
+
+export function assertImpureCheatcode(
+  actual: ActualStackTraceResult,
+  expectedCheatcode: string
+) {
+  if (
+    actual === undefined ||
+    actual === null ||
+    actual.stackTrace?.kind !== "UnsafeToReplay"
+  ) {
+    throw new Error(
+      `Expected unsafe to replay stack trace, instead it is: ${actual}`
+    );
+  }
+  // When using forking from latest block, no stack trace should be generated as re-execution is unsafe.
+  assert.equal(
+    actual.stackTrace.impureCheatcodes.filter((cheatcode) =>
+      cheatcode.includes(expectedCheatcode)
+    ).length,
+    1
+  );
 }

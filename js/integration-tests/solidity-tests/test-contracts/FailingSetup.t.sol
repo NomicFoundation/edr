@@ -7,4 +7,9 @@ contract FailingSetupTest is Test {
     function setUp() public {
         vm.createSelectFork("nonExistentForkAlias", 20_000_000);
     }
+
+    // This is only here to treat this as a test suite
+    function testOk() public pure {
+        assert(true);
+    }
 }
