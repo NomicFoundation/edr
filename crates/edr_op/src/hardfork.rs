@@ -4,14 +4,18 @@ use edr_eth::HashMap;
 use edr_evm::hardfork::{Activations, ChainConfig, ForkCondition};
 pub use op_revm::name;
 
-use crate::OpSpecId;
+use crate::{OpSpecId, MAINNET_CHAIN_ID, SEPOLIA_CHAIN_ID};
 
+// To update the hardforks, refer to the following link:
+// <https://github.com/paradigmxyz/reth/blob/faedf98db3b1c965052b12b1663038a078807780/crates/optimism/hardforks/src/lib.rs>
 const MAINNET_HARDFORKS: &[(ForkCondition, OpSpecId)] = &[
     (ForkCondition::Block(105_235_063), OpSpecId::BEDROCK),
     (ForkCondition::Block(105_235_063), OpSpecId::REGOLITH),
     (ForkCondition::Timestamp(1_704_992_401), OpSpecId::CANYON),
     (ForkCondition::Timestamp(1_710_374_401), OpSpecId::ECOTONE),
     (ForkCondition::Timestamp(1_720_627_201), OpSpecId::FJORD),
+    (ForkCondition::Timestamp(1_726_070_401), OpSpecId::GRANITE),
+    (ForkCondition::Timestamp(1_736_445_601), OpSpecId::HOLOCENE),
 ];
 
 fn mainnet_config() -> &'static ChainConfig<OpSpecId> {
@@ -33,6 +37,8 @@ const SEPOLIA_HARDFORKS: &[(ForkCondition, OpSpecId)] = &[
     (ForkCondition::Timestamp(1_699_981_200), OpSpecId::CANYON),
     (ForkCondition::Timestamp(1_708_534_800), OpSpecId::ECOTONE),
     (ForkCondition::Timestamp(1_716_998_400), OpSpecId::FJORD),
+    (ForkCondition::Timestamp(1_723_478_400), OpSpecId::GRANITE),
+    (ForkCondition::Timestamp(1_732_633_200), OpSpecId::HOLOCENE),
 ];
 
 fn sepolia_config() -> &'static ChainConfig<OpSpecId> {
@@ -55,8 +61,8 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<OpSpecId>> {
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
-        hardforks.insert(10, mainnet_config());
-        hardforks.insert(11_155_420, sepolia_config());
+        hardforks.insert(MAINNET_CHAIN_ID, mainnet_config());
+        hardforks.insert(SEPOLIA_CHAIN_ID, sepolia_config());
 
         hardforks
     })

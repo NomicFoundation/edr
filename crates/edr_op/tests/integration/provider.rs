@@ -1,7 +1,9 @@
+#![cfg(feature = "test-remote")]
+
 use std::sync::Arc;
 
 use edr_eth::{address, bytes, Address, BlockSpec, U64};
-use edr_op::{OpChainSpec, OpSpecId};
+use edr_op::OpChainSpec;
 use edr_provider::{
     hardhat_rpc_types::ForkConfig,
     test_utils::{create_test_config_with_fork, ProviderTestFixture},
@@ -10,36 +12,9 @@ use edr_provider::{
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::env::get_alchemy_url;
 use tokio::runtime;
 
-const SEPOLIA_CHAIN_ID: u64 = 11_155_420;
-
-fn sepolia_url() -> String {
-    get_alchemy_url()
-        .replace("eth-", "opt-")
-        .replace("mainnet", "sepolia")
-}
-
-#[test]
-fn sepolia_hardfork_activations() -> anyhow::Result<()> {
-    const CANYON_BLOCK_NUMBER: u64 = 4_089_330;
-
-    let url = sepolia_url();
-    let fixture = ProviderTestFixture::<OpChainSpec>::new_forked(Some(url))?;
-
-    let block_spec = BlockSpec::Number(CANYON_BLOCK_NUMBER);
-    let config = fixture
-        .provider_data
-        .create_evm_config_at_block_spec(&block_spec)?;
-
-    assert_eq!(config.spec, OpSpecId::CANYON);
-
-    let chain_id = fixture.provider_data.chain_id_at_block_spec(&block_spec)?;
-    assert_eq!(chain_id, SEPOLIA_CHAIN_ID);
-
-    Ok(())
-}
+use crate::integration::{mainnet_url, sepolia_url};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
@@ -87,4 +62,29 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     )))?;
 
     Ok(())
+}
+
+macro_rules! impl_test_chain_id {
+    ($($name:ident: $url:expr => $result:expr,)+) => {
+        $(
+            paste::item! {
+                #[test]
+                fn [<chain_id_for_ $name>]() -> anyhow::Result<()> {
+                    let url = $url;
+                    let fixture = ProviderTestFixture::<OpChainSpec>::new_forked(Some(url))?;
+
+                    let block_spec = BlockSpec::Number(0);
+                    let chain_id = fixture.provider_data.chain_id_at_block_spec(&block_spec)?;
+                    assert_eq!(chain_id, $result);
+
+                    Ok(())
+                }
+            }
+        )+
+    };
+}
+
+impl_test_chain_id! {
+    mainnet: mainnet_url() => edr_op::MAINNET_CHAIN_ID,
+    sepolia: sepolia_url() => edr_op::SEPOLIA_CHAIN_ID,
 }

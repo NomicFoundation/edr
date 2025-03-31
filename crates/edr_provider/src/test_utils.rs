@@ -179,13 +179,10 @@ where
     }
 
     fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
-        let fork = fork.map(|json_rpc_url| {
-            ForkConfig {
-                json_rpc_url,
-                // Random recent block for better cache consistency
-                block_number: Some(FORK_BLOCK_NUMBER),
-                http_headers: None,
-            }
+        let fork = fork.map(|json_rpc_url| ForkConfig {
+            json_rpc_url,
+            block_number: None,
+            http_headers: None,
         });
 
         let config = create_test_config_with_fork(fork);
