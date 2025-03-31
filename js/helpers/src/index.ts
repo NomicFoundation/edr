@@ -19,6 +19,9 @@ import {
 } from "./build-results.js";
 import { Abi } from "hardhat/types/artifacts";
 import * as path from "node:path";
+import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
+
+let BUILD_MUTEX: MultiProcessMutex | undefined;
 
 /**
  * Run all the given solidity tests and returns the whole results after finishing.
@@ -87,7 +90,10 @@ export async function buildSolidityTestsInput(
     quiet: true,
   };
 
-  const results = await hre.solidity.build(rootFilePaths, buildOptions);
+  // Cache assumes one build process at a time.
+  const results = await buildMutex().use(() =>
+    hre.solidity.build(rootFilePaths, buildOptions)
+  );
 
   throwIfSolidityBuildFailed(results);
 
@@ -120,4 +126,11 @@ function isTestSuiteArtifact(artifact: Artifact): boolean {
     }
     return false;
   });
+}
+
+function buildMutex() {
+  if (BUILD_MUTEX === undefined) {
+    BUILD_MUTEX = new MultiProcessMutex("edr-helpers-build-mutex");
+  }
+  return BUILD_MUTEX;
 }
