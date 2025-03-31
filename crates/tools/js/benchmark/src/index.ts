@@ -105,15 +105,15 @@ async function main() {
     await flushStdout();
   } else if (args.command === "solidity-tests") {
     const repoPath = await setupForgeStdRepo();
-    await runSolidityTests(repoPath, FORGE_STD_SAMPLES);
+    await runSolidityTests(repoPath, FORGE_STD_SAMPLES, benchmarkOutputPath);
   } else {
     const _exhaustiveCheck: never = args.command;
   }
 }
 
 async function report(benchmarkResultPath: string) {
-  const benchmarkResult: Record<string, BenchmarkResult> = require(
-    benchmarkResultPath
+  const benchmarkResult: Record<string, BenchmarkResult> = JSON.parse(
+    fs.readFileSync(benchmarkResultPath, "utf-8")
   );
 
   let totalTime = 0;
@@ -139,9 +139,14 @@ async function report(benchmarkResultPath: string) {
 
 async function verify(benchmarkResultPath: string) {
   let success = true;
-  const benchmarkResult = require(benchmarkResultPath);
-  const snapshotResult = require(
-    path.join(getScenariosDir(), SCENARIO_SNAPSHOT_NAME)
+  const benchmarkResult = JSON.parse(
+    fs.readFileSync(benchmarkResultPath, "utf-8")
+  );
+  const snapshotResult = JSON.parse(
+    fs.readFileSync(
+      path.join(getScenariosDir(), SCENARIO_SNAPSHOT_NAME),
+      "utf-8"
+    )
   );
 
   for (const scenarioName of Object.keys(snapshotResult)) {

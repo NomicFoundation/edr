@@ -77,7 +77,8 @@ export async function setupForgeStdRepo() {
 /// Run Solidity tests in a Hardhat v3 repo
 export async function runSolidityTests(
   repoPath: string,
-  samplesPerSuite: Record<string, number>
+  samplesPerSuite: Record<string, number>,
+  resultsPath: string
 ) {
   const configPath = path.join(repoPath, "hardhat.config.js");
   const userConfig = (await import(configPath)).default;
@@ -175,8 +176,9 @@ export async function runSolidityTests(
 
   // Log info to stderr so that it doesn't pollute stdout where we write the results
   console.error("median total elapsed (s)", displaySec(measurements[0].value));
+  console.error("saving results to", resultsPath);
 
-  console.log(JSON.stringify(measurements));
+  fs.writeFileSync(resultsPath, JSON.stringify(measurements) + "\n");
 }
 
 function getMeasurements(runs: Map<string, number[]>) {
