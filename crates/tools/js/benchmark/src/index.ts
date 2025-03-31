@@ -8,12 +8,13 @@ import path from "path";
 import readline from "readline";
 import zlib from "zlib";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
+import { dirName } from "@nomicfoundation/edr-helpers";
+
 import {
   FORGE_STD_SAMPLES,
   runSolidityTests,
   setupForgeStdRepo,
 } from "./solidity-tests.js";
-import { dirName } from "@nomicfoundation/edr-helpers";
 
 const SCENARIOS_DIR = "../../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";

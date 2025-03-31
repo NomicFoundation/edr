@@ -12,8 +12,22 @@ const config = {
     },
     {
       packages: ["**"],
-      dependencies: ["@ignored/edr", "@nomicfoundation/edr-helpers", "hardhat-solidity-tests"],
-      dependencyTypes: ["local"]
+      dependencies: [
+        "@ignored/edr",
+        "@nomicfoundation/edr-helpers",
+        "hardhat-solidity-tests",
+      ],
+      dependencyTypes: ["local"],
+    },
+    // These packages use HH v2
+    {
+      packages: ["@ignored/edr", "hardhat-edr-tests", "hardhat-edr-smock-test"],
+      dependencies: ["hardhat"],
+    },
+    // These packages use HH v3
+    {
+      packages: ["@nomicfoundation/edr-helpers", "solidity-tests", "benchmark"],
+      dependencies: ["hardhat"],
     },
   ],
   semverGroups: [

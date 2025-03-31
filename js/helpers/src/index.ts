@@ -1,6 +1,7 @@
+import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getAllFilesMatching } from "@nomicfoundation/hardhat-utils/fs";
-
+import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
 import {
   ArtifactId,
   SuiteResult,
@@ -12,14 +13,13 @@ import {
 } from "@ignored/edr";
 import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import { BuildOptions } from "hardhat/types/solidity";
+import { Abi } from "hardhat/types/artifacts";
+
 import {
   getArtifacts,
   getBuildInfos,
   throwIfSolidityBuildFailed,
 } from "./build-results.js";
-import { Abi } from "hardhat/types/artifacts";
-import * as path from "node:path";
-import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
 
 let BUILD_MUTEX: MultiProcessMutex | undefined;
 

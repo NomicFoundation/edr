@@ -86,7 +86,7 @@ export async function runSolidityTests(
   }
   const hre = await createHardhatRuntimeEnvironment(
     userConfig,
-    /* global options */ {},
+    {}, // global options
     repoPath
   );
 

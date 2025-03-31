@@ -3,7 +3,6 @@
   "description": "",
   "version": "1.0.0",
   "author": "",
-  "type": "module",
   "dependencies": {
     "@ignored/edr": "workspace:*",
     "@nomicfoundation/hardhat-errors": "3.0.0-next.0",
@@ -25,7 +24,7 @@
     "eslint-plugin-mocha": "10.4.1",
     "eslint-plugin-prettier": "5.2.1",
     "prettier": "^3.2.5",
-    "typescript": "~5.5.3"
+    "typescript": "~5.8.2"
   },
   "keywords": [],
   "license": "MIT",
@@ -38,5 +37,6 @@
     "lint": "pnpm prettier && pnpm eslint",
     "prettier": "prettier --check \"**/*.{js,ts,md,json}\""
   },
+  "type": "module",
   "types": "dist/index.d.ts"
 }
