@@ -52,6 +52,8 @@ pub enum OpHardfork {
     Ecotone = 103,
     Fjord = 104,
     Granite = 105,
+    Holocene = 106,
+    Isthmus = 107,
 }
 
 impl From<OpHardfork> for OpSpecId {
@@ -63,6 +65,8 @@ impl From<OpHardfork> for OpSpecId {
             OpHardfork::Ecotone => OpSpecId::ECOTONE,
             OpHardfork::Fjord => OpSpecId::FJORD,
             OpHardfork::Granite => OpSpecId::GRANITE,
+            OpHardfork::Holocene => OpSpecId::HOLOCENE,
+            OpHardfork::Isthmus => OpSpecId::ISTHMUS,
         }
     }
 }
@@ -78,6 +82,8 @@ impl FromStr for OpHardfork {
             edr_op::hardfork::name::ECOTONE => Ok(OpHardfork::Ecotone),
             edr_op::hardfork::name::FJORD => Ok(OpHardfork::Fjord),
             edr_op::hardfork::name::GRANITE => Ok(OpHardfork::Granite),
+            edr_op::hardfork::name::HOLOCENE => Ok(OpHardfork::Holocene),
+            edr_op::hardfork::name::ISTHMUS => Ok(OpHardfork::Isthmus),
             _ => Err(napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("The provided OP hardfork `{s}` is not supported."),
@@ -105,6 +111,8 @@ pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
         OpHardfork::Ecotone => edr_op::hardfork::name::ECOTONE,
         OpHardfork::Fjord => edr_op::hardfork::name::FJORD,
         OpHardfork::Granite => edr_op::hardfork::name::GRANITE,
+        OpHardfork::Holocene => edr_op::hardfork::name::HOLOCENE,
+        OpHardfork::Isthmus => edr_op::hardfork::name::ISTHMUS,
     }
 }
 
@@ -113,7 +121,7 @@ pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
 /// The returned value will be updated after each network upgrade.
 #[napi]
 pub fn op_latest_hardfork() -> OpHardfork {
-    OpHardfork::Granite
+    OpHardfork::Holocene
 }
 
 #[napi]
@@ -268,7 +276,7 @@ pub fn op_provider_factory() -> ProviderFactory {
 }
 
 macro_rules! export_spec_id {
-    ($($variant:ident),*) => {
+    ($($variant:ident,)*) => {
         $(
             #[napi]
             pub const $variant: &str = edr_op::hardfork::name::$variant;
@@ -282,5 +290,7 @@ export_spec_id! {
     CANYON,
     ECOTONE,
     FJORD,
-    GRANITE
+    GRANITE,
+    HOLOCENE,
+    ISTHMUS,
 }
