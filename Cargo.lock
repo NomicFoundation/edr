@@ -2663,7 +2663,8 @@ dependencies = [
  "edr_common",
  "edr_defaults",
  "eyre",
- "foundry-cheatcodes-spec",
+ "foundry-cheatcodes-spec 0.3.8",
+ "foundry-cheatcodes-spec 1.0.0",
  "foundry-compilers",
  "foundry-evm-core",
  "itertools 0.12.1",
@@ -2690,6 +2691,16 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "foundry-cheatcodes-spec"
+version = "1.0.0"
+source = "git+https://github.com/foundry-rs/foundry?rev=539fd96#539fd9611e213c0e72e5524b6030d00bf21c9587"
+dependencies = [
+ "alloy-sol-types 0.8.22",
+ "foundry-macros",
+ "serde",
 ]
 
 [[package]]
@@ -2856,7 +2867,7 @@ dependencies = [
  "edr_solidity",
  "edr_test_utils",
  "eyre",
- "foundry-cheatcodes-spec",
+ "foundry-cheatcodes-spec 0.3.8",
  "foundry-compilers",
  "foundry-fork-db",
  "futures",
@@ -2961,6 +2972,17 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "foundry-macros"
+version = "1.0.0"
+source = "git+https://github.com/foundry-rs/foundry?rev=539fd96#539fd9611e213c0e72e5524b6030d00bf21c9587"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.99",
 ]
 
 [[package]]

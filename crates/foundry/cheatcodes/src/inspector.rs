@@ -2,6 +2,7 @@
 
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
+    fmt::Debug,
     fs::File,
     io::BufReader,
     ops::Range,
@@ -29,6 +30,7 @@ use revm::{
 };
 use rustc_hash::FxHashMap;
 use serde_json::Value;
+use upstream_foundry_cheatcodes_spec::Vm as UpstreamVM;
 
 use crate::{
     evm::{
@@ -229,12 +231,14 @@ impl Cheatcodes {
         // decode the cheatcode call
         let decoded = Vm::VmCalls::abi_decode(&call.input, false).map_err(|e| {
             if let alloy_sol_types::Error::UnknownSelector { name: _, selector } = e {
-                let msg = format!(
-                    "unknown cheatcode with selector {selector}; \
-                     you may have a mismatch between the `Vm` interface (likely in `forge-std`) \
-                     and the `edr_solidity_tests` version"
-                );
-                return alloy_sol_types::Error::Other(std::borrow::Cow::Owned(msg));
+                let message = if let Some(unsupported_cheatcode) =
+                    find_upstream_cheatcode_signature(selector)
+                {
+                    format!("cheatcode '{unsupported_cheatcode}' is not supported",)
+                } else {
+                    format!("unknown cheatcode with selector '{selector}'")
+                };
+                return alloy_sol_types::Error::Other(std::borrow::Cow::Owned(message));
             }
             e
         })?;
@@ -1532,4 +1536,15 @@ fn append_storage_access(
             }
         }
     }
+}
+
+fn find_upstream_cheatcode_signature(selector: alloy_primitives::FixedBytes<4>) -> Option<String> {
+    for (_function_name, variants) in UpstreamVM::abi::functions() {
+        for abi_function in variants {
+            if abi_function.selector() == selector {
+                return Some(abi_function.signature());
+            }
+        }
+    }
+    None
 }

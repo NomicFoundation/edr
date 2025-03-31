@@ -211,4 +211,22 @@ describe("Unit tests", () => {
     assert.equal(failedTests, 0);
     assert.equal(totalTests, 1);
   });
+
+  it("UnsupportedCheatcode", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("UnsupportedCheatcodeTest");
+
+    assertStackTraces(
+      stackTraces.get("testUnsupportedCheatcode()"),
+      "cheatcode 'broadcast()' is not supported",
+      [
+        {
+          contract: "UnsupportedCheatcodeTest",
+          function: "testUnsupportedCheatcode",
+        },
+      ]
+    );
+    assert.equal(failedTests, 1);
+    assert.equal(totalTests, 1);
+  });
 });

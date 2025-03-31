@@ -9,6 +9,8 @@ edition.workspace = true
 edr_defaults.workspace = true
 
 foundry-cheatcodes-spec.workspace = true
+# Version 2025-03-26
+upstream-foundry-cheatcodes-spec = { git = "https://github.com/foundry-rs/foundry", rev = "539fd96", package = "foundry-cheatcodes-spec" }
 edr_common.workspace = true
 foundry-compilers.workspace = true
 foundry-evm-core.workspace = true
