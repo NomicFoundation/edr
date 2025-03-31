@@ -308,11 +308,16 @@ async function benchmarkScenario(
   const name = path.basename(scenarioFileName).split(".")[0];
   console.error(`Running ${name} scenario`);
 
+  fs.writeFileSync(
+    "provider-config.json",
+    JSON.stringify(config.providerConfig)
+  );
+
   const hre = await createHardhatRuntimeEnvironment({
     networks: {
       defaultNetwork: {
         type: "edr",
-        ...config,
+        ...config.providerConfig,
       },
     },
   });
@@ -445,6 +450,16 @@ function preprocessConfig(config: any) {
   }
 
   config.providerConfig.minGasPrice = BigInt(config.providerConfig.minGasPrice);
+  if (config.providerConfig.minGasPrice === 0n) {
+    delete config.providerConfig.minGasPrice;
+  }
+
+  if (config.providerConfig.initialBaseFeePerGas !== undefined) {
+    config.providerConfig.initialBaseFeePerGas = BigInt(
+      config.providerConfig.initialBaseFeePerGas
+    );
+  }
+
   config.providerConfig.enableRip7212 = false;
 
   return config;
