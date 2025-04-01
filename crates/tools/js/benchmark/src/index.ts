@@ -1,4 +1,6 @@
-// Trigger change
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
 
 import { ArgumentParser } from "argparse";
 import child_process, { SpawnSyncReturns } from "child_process";
@@ -7,7 +9,6 @@ import _ from "lodash";
 import path from "path";
 import readline from "readline";
 import zlib from "zlib";
-import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import { dirName } from "@nomicfoundation/edr-helpers";
 
 import {
@@ -15,6 +16,10 @@ import {
   runSolidityTests,
   setupForgeStdRepo,
 } from "./solidity-tests.js";
+
+const {
+  createHardhatNetworkProvider,
+} = require("hardhat2/internal/hardhat-network/provider/provider.js");
 
 const SCENARIOS_DIR = "../../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
@@ -308,23 +313,11 @@ async function benchmarkScenario(
   const name = path.basename(scenarioFileName).split(".")[0];
   console.error(`Running ${name} scenario`);
 
-  fs.writeFileSync(
-    "provider-config.json",
-    JSON.stringify(config.providerConfig)
-  );
-
-  const hre = await createHardhatRuntimeEnvironment({
-    networks: {
-      defaultNetwork: {
-        type: "edr",
-        ...config.providerConfig,
-      },
-    },
-  });
-
-  const { provider } = await hre.network.connect("defaultNetwork", "generic");
-
   const start = performance.now();
+
+  const provider = await createHardhatNetworkProvider(config.providerConfig, {
+    enabled: config.loggerEnabled,
+  });
 
   const failures = [];
   const rpcCallResults = [];
@@ -450,16 +443,6 @@ function preprocessConfig(config: any) {
   }
 
   config.providerConfig.minGasPrice = BigInt(config.providerConfig.minGasPrice);
-  if (config.providerConfig.minGasPrice === 0n) {
-    delete config.providerConfig.minGasPrice;
-  }
-
-  if (config.providerConfig.initialBaseFeePerGas !== undefined) {
-    config.providerConfig.initialBaseFeePerGas = BigInt(
-      config.providerConfig.initialBaseFeePerGas
-    );
-  }
-
   config.providerConfig.enableRip7212 = false;
 
   return config;
