@@ -75,10 +75,6 @@ async function main() {
     default: "./benchmark-output.json",
     help: "Where to save the benchmark output file",
   });
-  parser.add_argument("--anvil", {
-    action: "store_true",
-    help: "Run benchmarks on Anvil node",
-  });
   const args: ParsedArguments = parser.parse_args();
 
   // if --benchmark-output is relative, resolve it relatively to cwd
