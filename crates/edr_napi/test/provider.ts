@@ -5,7 +5,6 @@ import {
   ContractAndFunctionName,
   MineOrdering,
   Provider,
-  RpcDebugTraceResult,
   SpecId,
   SubscriptionEvent,
 } from "..";
@@ -456,7 +455,7 @@ describe("Provider", () => {
         })
       );
 
-      let edrTrace: RpcDebugTraceResult;
+      let edrTrace;
       if (typeof traceTransactionResponse.data === "string") {
         edrTrace = JSON.parse(traceTransactionResponse.data).result;
       } else {
@@ -496,7 +495,7 @@ describe("Provider", () => {
         })
       );
 
-      let edrTrace: RpcDebugTraceResult;
+      let edrTrace;
       if (typeof traceCallResponse.data === "string") {
         edrTrace = JSON.parse(traceCallResponse.data).result;
       } else {
