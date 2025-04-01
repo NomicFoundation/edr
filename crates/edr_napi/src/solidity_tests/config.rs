@@ -14,12 +14,18 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::cast::TryCast;
+use crate::{
+    cast::TryCast,
+    serde::{
+        serialize_buffer_as_hex, serialize_optional_bigint_as_struct,
+        serialize_optional_buffer_as_hex,
+    },
+};
 
 /// Solidity test runner configuration arguments exposed through the ffi.
 /// Docs based on https://book.getfoundry.sh/reference/config/testing
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize)]
 pub struct SolidityTestRunnerConfigArgs {
     /// The absolute path to the project root directory.
     /// Relative paths in cheat codes are resolved against this path.
@@ -43,50 +49,64 @@ pub struct SolidityTestRunnerConfigArgs {
     pub ffi: Option<bool>,
     /// The value of `msg.sender` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
+    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
     pub sender: Option<Buffer>,
     /// The value of `tx.origin` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
+    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
     pub tx_origin: Option<Buffer>,
     /// The initial balance of the sender in tests.
     /// Defaults to `0xffffffffffffffffffffffff`.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub initial_balance: Option<BigInt>,
     /// The value of `block.number` in tests.
     /// Defaults to `1`.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_number: Option<BigInt>,
     /// The value of the `chainid` opcode in tests.
     /// Defaults to `31337`.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub chain_id: Option<BigInt>,
     /// The gas limit for each test case.
     /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub gas_limit: Option<BigInt>,
     /// The price of gas (in wei) in tests.
     /// Defaults to `0`.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub gas_price: Option<BigInt>,
     /// The base fee per gas (in wei) in tests.
     /// Defaults to `0`.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_base_fee_per_gas: Option<BigInt>,
     /// The value of `block.coinbase` in tests.
     /// Defaults to `0x0000000000000000000000000000000000000000`.
+    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
     pub block_coinbase: Option<Buffer>,
     /// The value of `block.timestamp` in tests.
     /// Defaults to 1.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_timestamp: Option<BigInt>,
     /// The value of `block.difficulty` in tests.
     /// Defaults to 0.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_difficulty: Option<BigInt>,
     /// The `block.gaslimit` value during EVM execution.
     /// Defaults to none.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_gas_limit: Option<BigInt>,
     /// Whether to disable the block gas limit.
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
     /// The memory limit of the EVM in bytes.
     /// Defaults to 33_554_432 (2^25 = 32MiB).
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub memory_limit: Option<BigInt>,
     /// If set, all tests are run in fork mode using this url or remote name.
     /// Defaults to none.
     pub eth_rpc_url: Option<String>,
     /// Pins the block number for the global state fork.
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub fork_block_number: Option<BigInt>,
     /// Map of RPC endpoints from chain name to RPC urls for fork cheat codes,
     /// e.g. `{ "optimism": "https://optimism.alchemyapi.io/v2/..." }`
@@ -301,7 +321,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
 
 /// Fuzz testing configuration
 #[napi(object)]
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, serde::Serialize)]
 pub struct FuzzConfigArgs {
     /// Path where fuzz failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
@@ -395,7 +415,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
 
 /// Invariant testing configuration.
 #[napi(object)]
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, serde::Serialize)]
 pub struct InvariantConfigArgs {
     /// Path where invariant failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
@@ -530,7 +550,7 @@ impl From<InvariantConfigArgs> for InvariantConfig {
 
 /// Settings to configure caching of remote
 #[napi(object)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct StorageCachingConfig {
     /// Chains to cache. Either all or none or a list of chain names, e.g.
     /// ["optimism", "mainnet"].
@@ -580,7 +600,7 @@ impl TryFrom<StorageCachingConfig> for foundry_cheatcodes::StorageCachingConfig 
 
 /// What chains to cache
 #[napi]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, serde::Serialize)]
 pub enum CachedChains {
     /// Cache all chains
     #[default]
@@ -600,7 +620,7 @@ impl From<CachedChains> for foundry_cheatcodes::CachedChains {
 
 /// What endpoints to enable caching for
 #[napi]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, serde::Serialize)]
 pub enum CachedEndpoints {
     /// Cache all endpoints
     #[default]
@@ -620,7 +640,7 @@ impl From<CachedEndpoints> for foundry_cheatcodes::CachedEndpoints {
 
 /// Represents an access permission to a single path
 #[napi(object)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct PathPermission {
     /// Permission level to access the `path`
     pub access: FsAccessPermission,
@@ -640,7 +660,7 @@ impl From<PathPermission> for foundry_cheatcodes::PathPermission {
 
 /// Determines the status of file system access
 #[napi]
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub enum FsAccessPermission {
     /// FS access is allowed with `read` + `write` permission
     ReadWrite,
@@ -661,9 +681,10 @@ impl From<FsAccessPermission> for foundry_cheatcodes::FsAccessPermission {
 }
 
 #[napi(object)]
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize)]
 pub struct AddressLabel {
     /// The address to label
+    #[serde(serialize_with = "serialize_buffer_as_hex")]
     pub address: Buffer,
     /// The label to assign to the address
     pub label: String,
