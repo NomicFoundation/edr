@@ -39,7 +39,7 @@ pub struct Deposit<LogT> {
 
 impl<LogT> From<Legacy<LogT>> for Execution<LogT> {
     fn from(value: Legacy<LogT>) -> Self {
-        Execution::Legacy(value)
+        Execution::Eip658(value.into())
     }
 }
 
@@ -76,7 +76,7 @@ where
             Ok(receipt.into())
         } else {
             let receipt = Legacy::<LogT>::decode(buf)?;
-            Ok(Self::Legacy(receipt))
+            Ok(receipt.into())
         }
     }
 }
@@ -87,7 +87,6 @@ where
 {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         match self {
-            Execution::Legacy(receipt) => receipt.encode(out),
             Execution::Eip658(receipt) => receipt.encode(out),
             Execution::Deposit(receipt) => receipt.encode(out),
         }
@@ -95,7 +94,6 @@ where
 
     fn length(&self) -> usize {
         match self {
-            Execution::Legacy(receipt) => receipt.length(),
             Execution::Eip658(receipt) => receipt.length(),
             Execution::Deposit(receipt) => receipt.length(),
         }
@@ -160,7 +158,6 @@ impl ExecutionReceiptBuilder<OpHaltReason, OpSpecId, transaction::Signed> for Bu
 impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Execution<NewLogT>> for Execution<LogT> {
     fn map_logs(self, map_fn: impl FnMut(LogT) -> NewLogT) -> Execution<NewLogT> {
         match self {
-            Execution::Legacy(receipt) => Execution::Legacy(receipt.map_logs(map_fn)),
             Execution::Eip658(receipt) => Execution::Eip658(receipt.map_logs(map_fn)),
             Execution::Deposit(receipt) => Execution::Deposit(receipt.map_logs(map_fn)),
         }
@@ -172,7 +169,6 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
 
     fn cumulative_gas_used(&self) -> u64 {
         match self {
-            Execution::Legacy(receipt) => receipt.cumulative_gas_used,
             Execution::Eip658(receipt) => receipt.cumulative_gas_used,
             Execution::Deposit(receipt) => receipt.cumulative_gas_used,
         }
@@ -180,7 +176,6 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
 
     fn logs_bloom(&self) -> &Bloom {
         match self {
-            Execution::Legacy(receipt) => &receipt.logs_bloom,
             Execution::Eip658(receipt) => &receipt.logs_bloom,
             Execution::Deposit(receipt) => &receipt.logs_bloom,
         }
@@ -188,7 +183,6 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
 
     fn transaction_logs(&self) -> &[LogT] {
         match self {
-            Execution::Legacy(receipt) => &receipt.logs,
             Execution::Eip658(receipt) => &receipt.logs,
             Execution::Deposit(receipt) => &receipt.logs,
         }
@@ -196,7 +190,6 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
 
     fn root_or_status(&self) -> edr_eth::receipt::RootOrStatus<'_> {
         match self {
-            Execution::Legacy(receipt) => RootOrStatus::Root(&receipt.root),
             Execution::Eip658(receipt) => RootOrStatus::Status(receipt.status),
             Execution::Deposit(receipt) => RootOrStatus::Status(receipt.status),
         }
@@ -232,8 +225,8 @@ mod tests {
     }
 
     impl_execution_receipt_tests! {
-        legacy => TypedEnvelope::Legacy(Execution::Legacy(Legacy {
-            root: B256::random(),
+        eip658_legacy => TypedEnvelope::Legacy(Execution::Eip658(Eip658 {
+            status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
             logs: vec![

@@ -181,7 +181,8 @@ fn create_dummy_block_with_header(
 struct DummyBlockAndTransaction {
     block: Arc<<L1ChainSpec as RuntimeSpec>::Block>,
     transaction_hash: B256,
-    transaction_receipt: TransactionReceipt<TypedEnvelope<receipt::Execution<ExecutionLog>>>,
+    transaction_receipt:
+        TransactionReceipt<TypedEnvelope<receipt::execution::Eip658<ExecutionLog>>>,
 }
 
 /// Returns the transaction's hash.
@@ -241,7 +242,7 @@ fn insert_dummy_block_with_transaction(
 
     let block = EthLocalBlock::<
         RemoteBlockConversionError<TransactionConversionError>,
-        BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
+        BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>,
         ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
         l1::SpecId,
         edr_rpc_eth::receipt::ConversionError,

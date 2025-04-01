@@ -43,6 +43,18 @@ pub struct Eip658<LogT> {
     pub logs: Vec<LogT>,
 }
 
+impl<LogT> From<Legacy<LogT>> for Eip658<LogT> {
+    fn from(value: Legacy<LogT>) -> Self {
+        Self {
+            // Execution would never revert before EIP-658, so was always considered successful
+            status: true,
+            cumulative_gas_used: value.cumulative_gas_used,
+            logs_bloom: value.logs_bloom,
+            logs: value.logs,
+        }
+    }
+}
+
 impl<LogT> From<Legacy<LogT>> for Execution<LogT> {
     fn from(value: Legacy<LogT>) -> Self {
         Execution::Legacy(value)
@@ -150,7 +162,7 @@ mod tests {
 
     macro_rules! impl_execution_receipt_tests {
         ($(
-            $name:ident => $receipt:expr,
+            $name:ident: $execution_log_ty:ty => $receipt:expr,
         )+) => {
             $(
                 paste::item! {
@@ -159,7 +171,7 @@ mod tests {
                         let receipt = $receipt;
 
                         let encoded = alloy_rlp::encode(&receipt);
-                        let decoded = TypedEnvelope::<Execution::<ExecutionLog>>::decode(&mut encoded.as_slice())?;
+                        let decoded = TypedEnvelope::<$execution_log_ty>::decode(&mut encoded.as_slice())?;
                         assert_eq!(decoded, receipt);
 
                         Ok(())
@@ -170,7 +182,7 @@ mod tests {
     }
 
     impl_execution_receipt_tests! {
-        legacy => TypedEnvelope::Legacy(Execution::Legacy(Legacy {
+        legacy_legacy: Execution<ExecutionLog> => TypedEnvelope::Legacy(Execution::Legacy(Legacy {
             root: B256::random(),
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -179,7 +191,7 @@ mod tests {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip2930 => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
+        eip658_legacy: Execution<ExecutionLog> => TypedEnvelope::Legacy(Execution::Eip658(Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -188,7 +200,7 @@ mod tests {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip1559 => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
+        eip658_eip2930: Execution<ExecutionLog> => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -197,7 +209,7 @@ mod tests {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip4844 => TypedEnvelope::Eip4844(Execution::Eip658(Eip658 {
+        eip658_eip1559: Execution<ExecutionLog> => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -206,5 +218,68 @@ mod tests {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
+        eip658_eip4844: Execution<ExecutionLog> => TypedEnvelope::Eip4844(Execution::Eip658(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        })),
+        eip658_eip7702: Execution<ExecutionLog> => TypedEnvelope::Eip7702(Execution::Eip658(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        })),
+        legacy: Eip658<ExecutionLog> => TypedEnvelope::Legacy(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        }),
+        eip2930: Eip658<ExecutionLog> => TypedEnvelope::Eip2930(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        }),
+        eip1559: Eip658<ExecutionLog> => TypedEnvelope::Eip2930(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        }),
+        eip4844: Eip658<ExecutionLog> => TypedEnvelope::Eip4844(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        }),
+        eip7702: Eip658<ExecutionLog> => TypedEnvelope::Eip7702(Eip658 {
+            status: true,
+            cumulative_gas_used: 0xffff,
+            logs_bloom: Bloom::random(),
+            logs: vec![
+                ExecutionLog::new_unchecked(Address::random(), vec![B256::random(), B256::random()], Bytes::new()),
+                ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
+            ],
+        }),
     }
 }
