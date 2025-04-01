@@ -6,20 +6,23 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{Blockchain, GenesisBlockOptions, LocalBlockchain, LocalCreationError},
-    eips::eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE},
+    eips::eip2935::{
+        add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
+        HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
+    },
     state::StateDiff,
     RandomHashGenerator,
 };
 
 fn local_blockchain(
-    hardfork: l1::SpecId,
+    state_diff: StateDiff,
 ) -> Result<LocalBlockchain<L1ChainSpec>, LocalCreationError> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
     LocalBlockchain::new(
-        StateDiff::default(),
+        state_diff,
         0x7a69,
-        hardfork,
+        l1::SpecId::PRAGUE,
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()
@@ -28,8 +31,8 @@ fn local_blockchain(
 }
 
 #[test]
-fn local_blockchain_pre_prague() -> anyhow::Result<()> {
-    let pre_prague = local_blockchain(l1::SpecId::CANCUN)?;
+fn local_blockchain_without_history() -> anyhow::Result<()> {
+    let pre_prague = local_blockchain(StateDiff::default())?;
 
     let state = pre_prague.state_at_block_number(0, &BTreeMap::default())?;
 
@@ -40,8 +43,12 @@ fn local_blockchain_pre_prague() -> anyhow::Result<()> {
 }
 
 #[test]
-fn local_blockchain_post_prague() -> anyhow::Result<()> {
-    let post_prague = local_blockchain(l1::SpecId::PRAGUE)?;
+fn local_blockchain_with_history() -> anyhow::Result<()> {
+    // Add the history storage contract to the state diff.
+    let mut state_diff = StateDiff::default();
+    add_history_storage_contract_to_state_diff(&mut state_diff);
+
+    let post_prague = local_blockchain(state_diff)?;
 
     let state = post_prague.state_at_block_number(0, &BTreeMap::default())?;
 
