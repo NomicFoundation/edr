@@ -5,7 +5,6 @@ import {
   ContractAndFunctionName,
   MineOrdering,
   Provider,
-  RpcDebugTraceLogItem,
   RpcDebugTraceResult,
   SpecId,
   SubscriptionEvent,
@@ -516,13 +515,13 @@ function assertEqualMemory(stepMemory: Buffer | undefined, expected: Buffer) {
   assert.isTrue(stepMemory.equals(expected));
 }
 
-function assertJsonRpcFormatNormalised(trace: RpcDebugTraceResult) {
+function assertJsonRpcFormatNormalised(trace: any) {
   assert.isBoolean(trace.failed);
   assert.typeOf(trace.gas, "number");
   assert.isString(trace.returnValue);
   assert.isArray(trace.structLogs);
 
-  trace.structLogs.forEach((log: RpcDebugTraceLogItem) => {
+  trace.structLogs.forEach((log: any) => {
     assert.typeOf(log.pc, "number");
     assert.typeOf(log.op, "string");
     assert.typeOf(log.gas, "number");
@@ -532,7 +531,7 @@ function assertJsonRpcFormatNormalised(trace: RpcDebugTraceResult) {
 
     if ("stack" in log) {
       assert.isArray(log.stack);
-      log.stack?.forEach((item) => {
+      log.stack?.forEach((item: any) => {
         assert.isString(item);
         // assert.isFalse(item.startsWith("0x"));
       });
@@ -540,7 +539,7 @@ function assertJsonRpcFormatNormalised(trace: RpcDebugTraceResult) {
 
     if ("memory" in log) {
       assert.isArray(log.memory);
-      log.memory?.forEach((item) => {
+      log.memory?.forEach((item: any) => {
         assert.isString(item);
       });
     }

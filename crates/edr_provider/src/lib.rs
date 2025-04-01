@@ -39,7 +39,6 @@ pub use self::{
     logger::{Logger, NoopLogger},
     mock::CallOverrideResult,
     requests::{
-        debug::{RpcDebugTraceLogItem, RpcDebugTraceResult},
         hardhat::rpc_types as hardhat_rpc_types,
         IntervalConfig as IntervalConfigRequest, InvalidRequestReason, MethodInvocation,
         ProviderRequest, Timestamp,
