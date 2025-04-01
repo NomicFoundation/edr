@@ -41,8 +41,8 @@ where
     state.end()
 }
 
-/// Serialize an Option<BigInt> as a struct with `sign_bit` and `words` fields or
-/// None
+/// Serialize an Option<BigInt> as a struct with `sign_bit` and `words` fields
+/// or None
 pub fn serialize_optional_bigint_as_struct<S>(
     value: &Option<BigInt>,
     serializer: S,
