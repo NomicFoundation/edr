@@ -110,7 +110,7 @@ impl ExecutableTransaction for Eip7702 {
     }
 
     fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
-        None
+        Some(&self.authorization_list)
     }
 
     fn rlp_encoding(&self) -> &Bytes {

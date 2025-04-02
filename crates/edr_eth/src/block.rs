@@ -22,8 +22,12 @@ pub use self::{
     reward::miner_reward,
 };
 use crate::{
-    b256, eips::eip4844, keccak256, l1, spec::EthHeaderConstants, trie::KECCAK_NULL_RLP, Address,
-    Bloom, Bytes, B256, B64, U256,
+    b256,
+    eips::{eip4844, eip7691},
+    keccak256, l1,
+    spec::EthHeaderConstants,
+    trie::KECCAK_NULL_RLP,
+    Address, Bloom, Bytes, B256, B64, U256,
 };
 
 /// ethereum block header
@@ -282,10 +286,20 @@ impl PartialHeader {
                              gas_used,
                              excess_gas,
                          }| {
+                            let target_blob_number_per_blob =
+                                if hardfork.into() >= l1::SpecId::PRAGUE {
+                                    eip7691::TARGET_BLOBS_PER_BLOCK_ELECTRA
+                                } else {
+                                    eip4844::TARGET_BLOBS_PER_BLOCK
+                                };
+
+                            let target_blob_gas_per_block =
+                                eip4844::GAS_PER_BLOB * target_blob_number_per_blob;
+
                             eip4844::calc_excess_blob_gas(
                                 *excess_gas,
                                 *gas_used,
-                                eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN,
+                                target_blob_gas_per_block,
                             )
                         },
                     );

@@ -152,6 +152,7 @@ impl TryFrom<u8> for Type {
             signed::Eip2930::TYPE => Ok(Self::Eip2930),
             signed::Eip1559::TYPE => Ok(Self::Eip1559),
             signed::Eip4844::TYPE => Ok(Self::Eip4844),
+            signed::Eip7702::TYPE => Ok(Self::Eip7702),
             value => Err(value),
         }
     }

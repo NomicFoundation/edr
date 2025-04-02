@@ -21,6 +21,7 @@ pub(crate) fn history_storage_contract() -> AccountInfo {
     }
 }
 
-pub(crate) fn add_history_storage_contract_to_state_diff(state_diff: &mut StateDiff) {
+/// Adds the history storage contract to the provided [`StateDiff`].
+pub fn add_history_storage_contract_to_state_diff(state_diff: &mut StateDiff) {
     state_diff.apply_account_change(HISTORY_STORAGE_ADDRESS, history_storage_contract());
 }
