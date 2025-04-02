@@ -1,23 +1,20 @@
 use edr_eth::{
-    l1,
+    Address, Bytes, U256, l1,
     signature::{SecretKey, SignatureError},
     transaction::{
-        self,
+        self, TxKind,
         signed::{FakeSign, Sign},
-        TxKind,
     },
-    Address, Bytes, U256,
 };
 use edr_provider::{
-    calculate_eip1559_fee_parameters,
+    ProviderError, ProviderErrorForChainSpec, calculate_eip1559_fee_parameters,
     requests::validation::{validate_call_request, validate_send_transaction_request},
     spec::{CallContext, FromRpcType, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, ProviderErrorForChainSpec,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
-use crate::{transaction::SignedWithFallbackToPostEip155, GenericChainSpec};
+use crate::{GenericChainSpec, transaction::SignedWithFallbackToPostEip155};
 
 /// Container type for various Ethereum transaction requests.
 // NOTE: This is a newtype only because the default FromRpcType implementation
@@ -49,9 +46,12 @@ impl Sign for Request {
         secret_key: &SecretKey,
         caller: Address,
     ) -> Result<SignedWithFallbackToPostEip155, SignatureError> {
-        <edr_eth::transaction::Request as Sign>::sign_for_sender_unchecked(
-            self.0, secret_key, caller,
-        )
+        // SAFETY: The safety concern is propagated in the function signature.
+        unsafe {
+            <edr_eth::transaction::Request as Sign>::sign_for_sender_unchecked(
+                self.0, secret_key, caller,
+            )
+        }
         .map(Into::into)
     }
 }

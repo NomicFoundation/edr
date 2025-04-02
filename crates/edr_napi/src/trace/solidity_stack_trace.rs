@@ -1,7 +1,7 @@
 //! Naive rewrite of `hardhat-network/stack-traces/solidity-stack-traces.ts`
 //! from Hardhat.
 
-use edr_eth::{hex, U256};
+use edr_eth::{U256, hex};
 use napi::bindgen_prelude::{BigInt, Either24, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
 use napi_derive::napi;
 use serde::{Serialize, Serializer};
@@ -106,7 +106,8 @@ impl<const ENTRY_TYPE: u8> FromNapiValue for StackTraceEntryTypeConst<ENTRY_TYPE
         env: napi::sys::napi_env,
         napi_val: napi::sys::napi_value,
     ) -> napi::Result<Self> {
-        let inner: u8 = FromNapiValue::from_napi_value(env, napi_val)?;
+        // SAFETY: The safety concern is propagated in the function signature.
+        let inner: u8 = unsafe { FromNapiValue::from_napi_value(env, napi_val) }?;
 
         if inner != ENTRY_TYPE {
             return Err(napi::Error::new(
@@ -123,7 +124,8 @@ impl<const ENTRY_TYPE: u8> ToNapiValue for StackTraceEntryTypeConst<ENTRY_TYPE> 
         env: napi::sys::napi_env,
         _val: Self,
     ) -> napi::Result<napi::sys::napi_value> {
-        u8::to_napi_value(env, ENTRY_TYPE)
+        // SAFETY: The safety concern is propagated in the function signature.
+        unsafe { u8::to_napi_value(env, ENTRY_TYPE) }
     }
 }
 

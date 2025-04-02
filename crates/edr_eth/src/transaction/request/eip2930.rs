@@ -4,12 +4,12 @@ use alloy_rlp::RlpEncodable;
 use k256::SecretKey;
 
 use crate::{
+    Address, B256, Bytes, U256,
     eips::eip2930,
     keccak256,
-    signature::{self, public_key_to_address, Fakeable, SignatureError},
+    signature::{self, Fakeable, SignatureError, public_key_to_address},
     transaction::{self, TxKind},
     utils::envelop_bytes,
-    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
@@ -70,7 +70,8 @@ impl Eip2930 {
             value: self.value,
             input: self.input,
             access_list: self.access_list.into(),
-            signature: Fakeable::with_address_unchecked(signature, caller),
+            // SAFETY: The safety concern is propagated in the function signature.
+            signature: unsafe { Fakeable::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })

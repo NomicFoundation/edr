@@ -9,7 +9,7 @@ pub use self::{
     filter::FilterLog,
     receipt::ReceiptLog,
 };
-use crate::{Address, Bloom, BloomInput, HashSet, B256};
+use crate::{Address, B256, Bloom, BloomInput, HashSet};
 
 /// Constructs a bloom filter from the provided logs.
 pub fn logs_to_bloom(logs: &[ExecutionLog]) -> Bloom {

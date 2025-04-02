@@ -9,7 +9,7 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_eth::{receipt::ReceiptTrait, transaction::ExecutableTransaction, B256, U256};
+use edr_eth::{B256, U256, receipt::ReceiptTrait, transaction::ExecutableTransaction};
 use revm::primitives::HashMap;
 
 use super::InsertError;
@@ -117,11 +117,11 @@ impl<BlockReceiptT, BlockT: Block<SignedTransactionT>, HardforkT, SignedTransact
 }
 
 impl<
-        BlockReceiptT: Clone + ReceiptTrait,
-        BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT> + Clone,
-        HardforkT,
-        SignedTransactionT: ExecutableTransaction,
-    > ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    BlockReceiptT: Clone + ReceiptTrait,
+    BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT> + Clone,
+    HardforkT,
+    SignedTransactionT: ExecutableTransaction,
+> ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     pub fn with_block(block: BlockT, total_difficulty: U256) -> Self {
@@ -209,8 +209,12 @@ impl<
 
         self.blocks.push(block.clone());
         self.total_difficulties.push(total_difficulty);
-        self.hash_to_block
-            .insert_unique_unchecked(*block.block_hash(), block)
-            .1
+
+        // SAFETY: The safety concern is propagated in the function signature.
+        unsafe {
+            self.hash_to_block
+                .insert_unique_unchecked(*block.block_hash(), block)
+        }
+        .1
     }
 }
