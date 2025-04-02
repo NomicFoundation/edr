@@ -43,10 +43,10 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
     for (i, compressed_mapping) in compressed_mappings.enumerate() {
         let parts: Vec<&str> = compressed_mapping.split(':').collect();
 
-        let has_parts0 = parts.first().map_or(false, |part| !part.is_empty());
-        let has_parts1 = parts.get(1).map_or(false, |part| !part.is_empty());
-        let has_parts2 = parts.get(2).map_or(false, |part| !part.is_empty());
-        let has_parts3 = parts.get(3).map_or(false, |part| !part.is_empty());
+        let has_parts0 = parts.first().is_some_and(|part| !part.is_empty());
+        let has_parts1 = parts.get(1).is_some_and(|part| !part.is_empty());
+        let has_parts2 = parts.get(2).is_some_and(|part| !part.is_empty());
+        let has_parts3 = parts.get(3).is_some_and(|part| !part.is_empty());
 
         let has_every_part = has_parts0 && has_parts1 && has_parts2 && has_parts3;
 

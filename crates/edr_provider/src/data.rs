@@ -1791,9 +1791,10 @@ where
             }
         });
 
-        let range_includes_remote_blocks = self.fork_metadata.as_ref().map_or(false, |metadata| {
-            oldest_block_number <= metadata.fork_block_number
-        });
+        let range_includes_remote_blocks = self
+            .fork_metadata
+            .as_ref()
+            .is_some_and(|metadata| oldest_block_number <= metadata.fork_block_number);
 
         if range_includes_remote_blocks {
             let last_remote_block = cmp::min(
