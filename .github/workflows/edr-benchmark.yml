@@ -129,7 +129,7 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Run benchmark and generate report for github-action-benchmark
-        run: pnpm run --silent soltests | tee soltest-report.json
+        run: pnpm run --silent soltests --benchmark-output soltest-report.json
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
