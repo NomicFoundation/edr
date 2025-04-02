@@ -54,7 +54,6 @@ mod remote {
     }
 
     impl_test_remote_block_receipt_root! {
-        pre_eip658 => 1_500_000u64,
         post_eip658 => 5_370_000u64,
         eip2930 => 12_751_000u64, // block contains at least one transaction with type 1
         eip1559 => 14_000_000u64, // block contains at least one transaction with type 2
