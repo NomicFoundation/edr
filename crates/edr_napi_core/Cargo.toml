@@ -1,7 +1,7 @@
 [package]
 name = "edr_napi_core"
 version = "0.3.5"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 ansi_term = { version = "0.12.1", default-features = false }
