@@ -1,7 +1,7 @@
 use edr_eth::Address;
 
 use crate::{
-    data::ProviderData, spec::ProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,
+    ProviderErrorForChainSpec, data::ProviderData, spec::ProviderSpec, time::TimeSinceEpoch,
 };
 
 pub fn handle_impersonate_account_request<

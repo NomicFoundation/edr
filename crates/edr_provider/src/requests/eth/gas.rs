@@ -1,31 +1,31 @@
 use edr_eth::{
+    BlockSpec, U64, U256,
     fee_history::FeeHistoryResult,
     l1,
     reward_percentile::RewardPercentile,
-    transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
-    BlockSpec, U256, U64,
+    transaction::{TransactionMut, TransactionValidation, signed::FakeSign as _},
 };
-use edr_evm::{state::StateOverrides, transaction, Block as _};
+use edr_evm::{Block as _, state::StateOverrides, transaction};
 
 use crate::{
+    ProviderError, ProviderResultWithTraces,
     data::ProviderData,
     error::ProviderErrorForChainSpec,
     requests::validation::validate_post_merge_block_tags,
     spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces,
 };
 
 pub fn handle_estimate_gas<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionMut
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -58,13 +58,13 @@ pub fn handle_estimate_gas<
 
 pub fn handle_fee_history<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -121,13 +121,13 @@ The reward percentiles should be in non-decreasing order, but the percentile num
 
 fn resolve_estimate_gas_request<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -187,12 +187,12 @@ fn resolve_estimate_gas_request<
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction::ExecutableTransaction as _, BlockTag};
+    use edr_eth::{BlockTag, transaction::ExecutableTransaction as _};
     use edr_rpc_eth::CallRequest;
     use l1::L1ChainSpec;
 
     use super::*;
-    use crate::test_utils::{pending_base_fee, ProviderTestFixture};
+    use crate::test_utils::{ProviderTestFixture, pending_base_fee};
 
     #[test]
     fn resolve_estimate_gas_request_with_default_max_priority_fee() -> anyhow::Result<()> {

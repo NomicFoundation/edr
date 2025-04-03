@@ -5,11 +5,11 @@ use std::{
 };
 
 use alloy_dyn_abi::TypedData;
-use edr_eth::{Address, Bytes, U256, U64};
+use edr_eth::{Address, Bytes, U64, U256};
 use edr_evm::spec::RuntimeSpec;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{error::ProviderErrorForChainSpec, ProviderError};
+use crate::{ProviderError, error::ProviderErrorForChainSpec};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[repr(transparent)]
@@ -388,8 +388,8 @@ pub(crate) mod storage_value {
     use serde::Serializer;
 
     use super::{
-        extract_value_from_serde_json_error, Deserialize, Deserializer, FromStr,
-        STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE, U256,
+        Deserialize, Deserializer, FromStr, STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE, U256,
+        extract_value_from_serde_json_error,
     };
 
     /// Helper function for deserializing the JSON-RPC data type, specialized
@@ -424,8 +424,8 @@ pub(crate) mod storage_value {
         let length = (value.len() - 2) / 2;
         if length != 32 {
             return Err(serde::de::Error::custom(format!(
-            "{STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE} Received {value}, which is {length} bytes long."
-        )));
+                "{STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE} Received {value}, which is {length} bytes long."
+            )));
         }
 
         U256::from_str(&value).map_err(|_error| error_message())
@@ -529,7 +529,9 @@ mod tests {
         let test = Test { n };
 
         let json = serde_json::to_string(&test).unwrap();
-        assert!(json.contains("0x000000000000000000000000313f922be1649cec058ec0f076664500c78bdc0b"));
+        assert!(
+            json.contains("0x000000000000000000000000313f922be1649cec058ec0f076664500c78bdc0b")
+        );
 
         let parsed = serde_json::from_str::<Test>(&json).unwrap();
 

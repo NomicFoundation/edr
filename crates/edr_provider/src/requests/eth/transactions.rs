@@ -1,23 +1,24 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    l1,
+    B256, Bytes, PreEip1898BlockSpec, U256, l1,
     rlp::Decodable,
     transaction::{
-        request::TransactionRequestAndSender, ExecutableTransaction as _, IsEip155, IsEip4844,
-        TransactionType, TransactionValidation, INVALID_TX_TYPE_ERROR_MESSAGE,
+        ExecutableTransaction as _, INVALID_TX_TYPE_ERROR_MESSAGE, IsEip155, IsEip4844,
+        TransactionType, TransactionValidation, request::TransactionRequestAndSender,
     },
-    Bytes, PreEip1898BlockSpec, B256, U256,
 };
 use edr_evm::{
+    Block,
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
-    transaction, Block,
+    transaction,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
 
 use crate::{
+    ProviderError, ProviderResultWithTraces, TransactionFailure,
     data::ProviderData,
     error::{ProviderErrorForChainSpec, TransactionFailureWithTraces},
     requests::validation::{
@@ -26,7 +27,6 @@ use crate::{
     },
     spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces, TransactionFailure,
 };
 
 pub fn handle_get_transaction_by_block_hash_and_index<
@@ -51,13 +51,13 @@ pub fn handle_get_transaction_by_block_hash_and_index<
 
 pub fn handle_get_transaction_by_block_spec_and_index<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -168,14 +168,14 @@ fn transaction_from_block<BlockT: Block<SignedTransactionT> + Clone, SignedTrans
 
 pub fn handle_send_transaction_request<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -194,15 +194,15 @@ pub fn handle_send_transaction_request<
 
 pub fn handle_send_raw_transaction_request<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
+            PooledTransaction: IsEip155,
         >,
-        PooledTransaction: IsEip155,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -229,14 +229,14 @@ pub fn handle_send_raw_transaction_request<
 
 pub fn calculate_eip1559_fee_parameters<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -250,14 +250,14 @@ pub fn calculate_eip1559_fee_parameters<
     /// Panics if `data.evm_spec_id()` is less than `SpecId::LONDON`.
     fn calculate_max_fee_per_gas<
         ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionType<Type: IsEip4844>
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+                TimerT,
+                BlockEnv: Default,
+                SignedTransaction: Default
+                                       + TransactionType<Type: IsEip4844>
+                                       + TransactionValidation<
+                    ValidationError: From<l1::InvalidTransaction> + PartialEq,
+                >,
             >,
-        >,
         TimerT: Clone + TimeSinceEpoch,
     >(
         data: &ProviderData<ChainSpecT, TimerT>,
@@ -293,14 +293,14 @@ pub fn calculate_eip1559_fee_parameters<
 
 fn send_raw_transaction_and_log<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -349,7 +349,9 @@ fn validate_send_raw_transaction_request<
             let error = if transaction.is_eip155() {
                 ProviderError::InvalidEip155TransactionChainId
             } else {
-                ProviderError::InvalidArgument(format!("Trying to send a raw transaction with an invalid chainId. The expected chainId is {expected}"))
+                ProviderError::InvalidArgument(format!(
+                    "Trying to send a raw transaction with an invalid chainId. The expected chainId is {expected}"
+                ))
             };
             return Err(error);
         }
@@ -380,11 +382,11 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{l1::L1ChainSpec, Address, Bytes, U256};
-    use transaction::{signed::FakeSign as _, TxKind};
+    use edr_eth::{Address, Bytes, U256, l1::L1ChainSpec};
+    use transaction::{TxKind, signed::FakeSign as _};
 
     use super::*;
-    use crate::test_utils::{one_ether, ProviderTestFixture};
+    use crate::test_utils::{ProviderTestFixture, one_ether};
 
     #[test]
     fn transaction_by_hash_for_impersonated_account() -> anyhow::Result<()> {

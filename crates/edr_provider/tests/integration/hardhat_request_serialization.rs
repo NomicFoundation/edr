@@ -1,7 +1,7 @@
-use edr_eth::{l1::L1ChainSpec, Address, Bytes, B256, U128, U160, U256};
+use edr_eth::{Address, B256, Bytes, U128, U160, U256, l1::L1ChainSpec};
 use edr_provider::{
-    hardhat_rpc_types::{ForkConfig, ResetProviderConfig},
     MethodInvocation,
+    hardhat_rpc_types::{ForkConfig, ResetProviderConfig},
 };
 use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
 

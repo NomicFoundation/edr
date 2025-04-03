@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use derive_where::derive_where;
 use edr_eth::{
+    Address, B256, Bloom, HashMap, U256,
     block::{BlobGas, BlockOptions, PartialHeader},
     eips::{eip4844, eip7691},
     l1,
@@ -10,14 +11,14 @@ use edr_eth::{
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
     result::{ExecutionResult, ExecutionResultAndState},
     transaction::ExecutableTransaction as _,
-    trie::{ordered_trie_root, KECCAK_NULL_RLP},
+    trie::{KECCAK_NULL_RLP, ordered_trie_root},
     withdrawal::Withdrawal,
-    Address, Bloom, HashMap, B256, U256,
 };
 use revm::Inspector;
 
 use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};
 use crate::{
+    Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
     blockchain::SyncBlockchain,
     config::CfgEnv,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
@@ -25,7 +26,6 @@ use crate::{
     spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
 };
 
 /// A builder for constructing Ethereum L1 blocks.
@@ -377,10 +377,10 @@ impl<'builder, BlockchainErrorT, ChainSpecT, StateErrorT> BlockBuilder<'builder,
 where
     BlockchainErrorT: Send + std::error::Error,
     ChainSpecT: SyncRuntimeSpec<
-        BlockReceiptFactory: Default,
-        Hardfork: Debug,
-        LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>,
-    >,
+            BlockReceiptFactory: Default,
+            Hardfork: Debug,
+            LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>,
+        >,
     StateErrorT: Send + std::error::Error,
 {
     type BlockchainError = BlockchainErrorT;
@@ -388,11 +388,7 @@ where
     type StateError = StateErrorT;
 
     fn new_block_builder(
-        blockchain: &'builder dyn SyncBlockchain<
-            ChainSpecT,
-            Self::BlockchainError,
-            Self::StateError,
-        >,
+        blockchain: &'builder dyn SyncBlockchain<ChainSpecT, Self::BlockchainError, Self::StateError>,
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
@@ -482,10 +478,10 @@ pub struct EthBlockReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = Filt
 }
 
 impl<
-        ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
-        HardforkT: Into<l1::SpecId>,
-        SignedTransactionT,
-    > ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
+    ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
+    HardforkT: Into<l1::SpecId>,
+    SignedTransactionT,
+> ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
     for EthBlockReceiptFactory<ExecutionReceiptT>
 {
     type Output = BlockReceipt<ExecutionReceiptT>;

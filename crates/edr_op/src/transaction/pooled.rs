@@ -1,11 +1,11 @@
 pub use edr_eth::transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
+    Address, B256, Blob, Bytes, U256,
     eips::{eip2930, eip7702},
     transaction::{
-        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
+        ExecutableTransaction, INVALID_TX_TYPE_ERROR_MESSAGE, IsEip155, TxKind,
+        signed::PreOrPostEip155,
     },
-    Address, Blob, Bytes, B256, U256,
 };
 use edr_provider::spec::HardforkValidationData;
 

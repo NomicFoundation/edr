@@ -1,7 +1,7 @@
 use edr_eth::{Address, Bytes, U256};
 
 use crate::{
-    data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,
+    ProviderErrorForChainSpec, data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch,
 };
 
 pub fn handle_set_balance<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(

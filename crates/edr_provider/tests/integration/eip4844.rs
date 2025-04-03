@@ -4,16 +4,16 @@ use std::{str::FromStr, sync::Arc};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
+    Address, B256, Blob, Bytes, KECCAK_EMPTY, PreEip1898BlockSpec, U256,
     account::AccountInfo,
     eips::eip4844::{self, GAS_PER_BLOB},
     l1::{self, L1ChainSpec},
     transaction::{self, ExecutableTransaction as _, TransactionType as _},
-    Address, Blob, Bytes, PreEip1898BlockSpec, B256, KECCAK_EMPTY, U256,
 };
 use edr_provider::{
+    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -21,7 +21,7 @@ use edr_test_utils::secret_key::secret_key_to_address;
 use tokio::runtime;
 
 use crate::common::blob::{
-    fake_pooled_transaction, fake_raw_transaction, fake_transaction, BlobTransactionBuilder,
+    BlobTransactionBuilder, fake_pooled_transaction, fake_raw_transaction, fake_transaction,
 };
 
 fn fake_call_request() -> CallRequest {

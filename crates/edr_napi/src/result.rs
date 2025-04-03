@@ -1,7 +1,7 @@
 use edr_evm::trace::AfterMessage;
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3},
     Either, Env, JsBuffer, JsBufferValue,
+    bindgen_prelude::{BigInt, Buffer, Either3},
 };
 use napi_derive::napi;
 

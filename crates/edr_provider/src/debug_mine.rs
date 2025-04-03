@@ -2,16 +2,16 @@ use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 
 use edr_eth::{
+    B256, Bytes,
     result::ExecutionResult,
     spec::{ChainSpec, HaltReasonTrait},
     transaction::ExecutableTransaction,
-    Bytes, B256,
 };
 use edr_evm::{
+    Block, MineBlockResultAndState,
     spec::RuntimeSpec,
     state::{StateDiff, SyncState},
     trace::Trace,
-    Block, MineBlockResultAndState,
 };
 
 /// The result of mining a block, including the state, in debug mode. This
@@ -95,10 +95,10 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
 }
 
 impl<
-        BlockT: Block<SignedTransactionT>,
-        HaltReasonT: HaltReasonTrait,
-        SignedTransactionT: ExecutableTransaction,
-    > DebugMineBlockResult<BlockT, HaltReasonT, SignedTransactionT>
+    BlockT: Block<SignedTransactionT>,
+    HaltReasonT: HaltReasonTrait,
+    SignedTransactionT: ExecutableTransaction,
+> DebugMineBlockResult<BlockT, HaltReasonT, SignedTransactionT>
 {
     /// Whether the block contains a transaction with the given hash.
     pub fn has_transaction(&self, transaction_hash: &B256) -> bool {

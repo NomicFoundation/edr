@@ -1,4 +1,4 @@
-use edr_eth::{Address, Bytes, HashMap, B256, U256};
+use edr_eth::{Address, B256, Bytes, HashMap, U256};
 
 /// Type representing a set of overrides for storage information.
 pub type StorageOverride = HashMap<B256, U256>;

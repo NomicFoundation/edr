@@ -1,7 +1,7 @@
-use edr_eth::{Address, Bytecode, Bytes, B256, B64, U256};
+use edr_eth::{Address, B64, B256, Bytecode, Bytes, U256};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Uint8Array},
     Status,
+    bindgen_prelude::{BigInt, Buffer, Uint8Array},
 };
 
 /// An attempted conversion that consumes `self`, which may or may not be

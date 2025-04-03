@@ -26,8 +26,8 @@ pub mod time;
 use core::fmt::Debug;
 
 use edr_eth::{
-    spec::{ChainSpec, HaltReasonTrait},
     HashSet,
+    spec::{ChainSpec, HaltReasonTrait},
 };
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
@@ -49,9 +49,9 @@ pub use self::{
     mock::{CallOverrideResult, SyncCallOverride},
     provider::Provider,
     requests::{
-        eth::calculate_eip1559_fee_parameters, hardhat::rpc_types as hardhat_rpc_types,
         IntervalConfig as IntervalConfigRequest, InvalidRequestReason, MethodInvocation,
-        ProviderRequest, Timestamp,
+        ProviderRequest, Timestamp, eth::calculate_eip1559_fee_parameters,
+        hardhat::rpc_types as hardhat_rpc_types,
     },
     spec::{ProviderSpec, SyncProviderSpec},
     subscribe::*,

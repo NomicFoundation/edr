@@ -1,8 +1,8 @@
 use edr_eth::B256;
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, ProviderError,
+    ProviderError, data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
+    time::TimeSinceEpoch,
 };
 
 pub fn handle_drop_transaction<

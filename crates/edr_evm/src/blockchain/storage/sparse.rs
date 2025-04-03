@@ -2,12 +2,12 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use edr_eth::{
-    log::{matches_address_filter, matches_topics_filter, FilterLog},
+    Address, B256, U256,
+    log::{FilterLog, matches_address_filter, matches_topics_filter},
     receipt::{ExecutionReceipt, ReceiptTrait},
     transaction::ExecutableTransaction,
-    Address, B256, U256,
 };
-use revm::primitives::{hash_map::OccupiedError, HashMap, HashSet};
+use revm::primitives::{HashMap, HashSet, hash_map::OccupiedError};
 
 use super::InsertError;
 use crate::{Block, BlockReceipts};
@@ -25,10 +25,10 @@ pub struct SparseBlockchainStorage<BlockReceiptT: ReceiptTrait, BlockT, SignedTr
 }
 
 impl<
-        BlockReceiptT: ReceiptTrait,
-        BlockT: Block<SignedTransactionT> + Clone,
-        SignedTransactionT: ExecutableTransaction,
-    > SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>
+    BlockReceiptT: ReceiptTrait,
+    BlockT: Block<SignedTransactionT> + Clone,
+    SignedTransactionT: ExecutableTransaction,
+> SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]

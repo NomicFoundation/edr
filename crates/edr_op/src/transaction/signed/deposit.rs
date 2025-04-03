@@ -1,10 +1,10 @@
 use alloy_rlp::Encodable;
 use edr_eth::{
+    Address, B256, Bytes, U256,
     eips::{eip2930, eip7702},
     keccak256,
     transaction::{ExecutableTransaction, TxKind},
     utils::enveloped,
-    Address, Bytes, B256, U256,
 };
 
 use super::Deposit;
@@ -118,9 +118,8 @@ mod tests {
     use std::{str::FromStr as _, sync::OnceLock};
 
     use edr_eth::{
-        address, b256,
+        Bytes, U256, address, b256,
         transaction::{ExecutableTransaction as _, TxKind},
-        Bytes, U256,
     };
 
     use super::*;
@@ -141,7 +140,9 @@ mod tests {
             value: U256::ZERO,
             gas_limit: 1000000,
             is_system_tx: false,
-            data: Bytes::from_str("440a5e2000000558000c5fc5000000000000000500000000667b267b000000000133c922000000000000000000000000000000000000000000000000000000017a2aaed000000000000000000000000000000000000000000000000000000000000000015b91c0cfdec539cc0ad4dadc77c6dd693f5116721d5cc39b73b85aefe7501b480000000000000000000000006887246668a3b87f54deb3b94ba47a6f63f32985")?,
+            data: Bytes::from_str(
+                "440a5e2000000558000c5fc5000000000000000500000000667b267b000000000133c922000000000000000000000000000000000000000000000000000000017a2aaed000000000000000000000000000000000000000000000000000000000000000015b91c0cfdec539cc0ad4dadc77c6dd693f5116721d5cc39b73b85aefe7501b480000000000000000000000006887246668a3b87f54deb3b94ba47a6f63f32985",
+            )?,
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         });

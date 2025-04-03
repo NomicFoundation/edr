@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use edr_eth::{
+    Address, B256, Bytes, U256,
     block::Block as _,
     bytecode::opcode::{self, OpCode},
     hex, l1,
@@ -8,14 +9,13 @@ use edr_eth::{
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{ExecutableTransaction as _, TransactionValidation},
     utils::u256_to_padded_hex,
-    Address, Bytes, B256, U256,
 };
 use revm::Inspector;
 use revm_context_interface::JournalTr as JournalTrait;
 use revm_interpreter::{
+    CallInputs, CallOutcome, CreateInputs, CreateOutcome,
     interpreter::EthInterpreter,
     interpreter_types::{InputsTr as _, Jumps, LoopControl as _},
-    CallInputs, CallOutcome, CreateInputs, CreateOutcome,
 };
 
 use crate::{
@@ -50,10 +50,12 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
 >
 where
     ChainSpecT: RuntimeSpec<
-        BlockEnv: Clone,
-        SignedTransaction: Default
-                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
-    >,
+            BlockEnv: Clone,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction>,
+            >,
+        >,
     BlockchainErrorT: Send + std::error::Error,
     StateErrorT: Send + std::error::Error,
 {
@@ -160,7 +162,9 @@ pub type DebugTraceErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> 
 #[derive(Debug, thiserror::Error)]
 pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> {
     /// Invalid hardfork spec argument.
-    #[error("Invalid spec id: {spec_id:?}. `debug_traceTransaction` is not supported prior to Spurious Dragon")]
+    #[error(
+        "Invalid spec id: {spec_id:?}. `debug_traceTransaction` is not supported prior to Spurious Dragon"
+    )]
     InvalidSpecId {
         /// The hardfork.
         spec_id: l1::SpecId,

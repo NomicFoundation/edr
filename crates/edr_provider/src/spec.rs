@@ -3,36 +3,39 @@ use std::sync::Arc;
 
 pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
+    Address, B256, Blob, BlockSpec,
     eips::{eip2930, eip7702},
     l1::L1ChainSpec,
     rlp,
     transaction::{
-        signed::{FakeSign, Sign},
         ExecutableTransaction, IsSupported,
+        signed::{FakeSign, Sign},
     },
-    Address, Blob, BlockSpec, B256,
 };
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
-    blockchain::BlockchainErrorForChainSpec, state::StateOverrides, transaction,
-    BlockAndTotalDifficulty, BlockReceipts,
+    BlockAndTotalDifficulty, BlockReceipts, blockchain::BlockchainErrorForChainSpec,
+    state::StateOverrides, transaction,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, time::TimeSinceEpoch,
-    TransactionFailureReason,
+    TransactionFailureReason, data::ProviderData, error::ProviderErrorForChainSpec,
+    time::TimeSinceEpoch,
 };
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RuntimeSpec<
-    Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
-    LocalBlock: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
-    RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
-    RpcCallRequest: MaybeSender,
-    RpcTransactionRequest: Sender,
-    SignedTransaction: IsSupported,
->
+        Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+        LocalBlock: BlockReceipts<
+            Arc<Self::BlockReceipt>,
+            Error = BlockchainErrorForChainSpec<Self>,
+        >,
+        RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
+        RpcCallRequest: MaybeSender,
+        RpcTransactionRequest: Sender,
+        SignedTransaction: IsSupported,
+    >
 {
     type PooledTransaction: HardforkValidationData
         + Into<Self::SignedTransaction>

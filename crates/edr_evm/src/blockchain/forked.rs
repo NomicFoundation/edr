@@ -2,11 +2,11 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
+    Address, B256, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, U256,
     account::{Account, AccountStatus},
-    block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
+    block::{LargestSafeBlockNumberArgs, largest_safe_block_number, safe_block_depth},
     l1,
     log::FilterLog,
-    Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -16,30 +16,30 @@ use parking_lot::Mutex;
 use tokio::runtime;
 
 use super::{
+    BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec, BlockchainMut,
     compute_state_at_block,
     remote::RemoteBlockchain,
     storage::{
         self, ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec,
     },
-    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
-    BlockchainMut,
+    validate_next_block,
 };
 use crate::{
+    Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
+    RandomHashGenerator, RemoteBlock,
     block::EthRpcBlock,
     eips::{
         eip2935::{
-            add_history_storage_contract_to_state_diff, history_storage_contract,
-            HISTORY_STORAGE_ADDRESS,
+            HISTORY_STORAGE_ADDRESS, add_history_storage_contract_to_state_diff,
+            history_storage_contract,
         },
         eip4788::{
-            add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
+            BEACON_ROOTS_ADDRESS, add_beacon_roots_contract_to_state_diff, beacon_roots_contract,
         },
     },
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
-    Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
-    RandomHashGenerator, RemoteBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -49,7 +49,9 @@ pub enum CreationError<HardforkT> {
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
     /// The requested block number does not exist
-    #[error("Trying to initialize a provider with block {fork_block_number} but the current block is {latest_block_number}")]
+    #[error(
+        "Trying to initialize a provider with block {fork_block_number} but the current block is {latest_block_number}"
+    )]
     InvalidBlockNumber {
         /// Requested fork block number
         fork_block_number: u64,
@@ -57,7 +59,9 @@ pub enum CreationError<HardforkT> {
         latest_block_number: u64,
     },
     /// The detected hardfork is not supported
-    #[error("Cannot fork {chain_name} from block {fork_block_number}. The hardfork must be at least Spurious Dragon, but {hardfork:?} was detected.")]
+    #[error(
+        "Cannot fork {chain_name} from block {fork_block_number}. The hardfork must be at least Spurious Dragon, but {hardfork:?} was detected."
+    )]
     InvalidHardfork {
         /// Requested fork block number
         fork_block_number: u64,
@@ -160,7 +164,9 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                 let required_confirmations = safe_block_depth(remote_chain_id) + 1;
                 let missing_confirmations = required_confirmations - num_confirmations;
 
-                log::warn!("You are forking from block {fork_block_number} which has less than {required_confirmations} confirmations, and will affect Hardhat Network's performance. Please use block number {recommended_block_number} or wait for the block to get {missing_confirmations} more confirmations.");
+                log::warn!(
+                    "You are forking from block {fork_block_number} which has less than {required_confirmations} confirmations, and will affect Hardhat Network's performance. Please use block number {recommended_block_number} or wait for the block to get {missing_confirmations} more confirmations."
+                );
             }
 
             fork_block_number

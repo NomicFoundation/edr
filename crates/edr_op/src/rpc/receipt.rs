@@ -4,7 +4,7 @@ use edr_eth::{
 };
 use edr_rpc_eth::RpcTypeFrom;
 
-use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, OpSpecId};
+use crate::{OpSpecId, eip2718::TypedEnvelope, receipt, rpc, transaction};
 
 impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
     type Hardfork = OpSpecId;
@@ -158,7 +158,7 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{log::ExecutionLog, Bloom, Bytes, U256};
+    use edr_eth::{Bloom, Bytes, U256, log::ExecutionLog};
     use edr_rpc_eth::impl_execution_receipt_tests;
     use receipt::BlockReceiptFactory;
 

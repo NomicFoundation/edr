@@ -1,4 +1,5 @@
 use edr_eth::{
+    Address, B256, Bloom,
     eips::{eip2718::TypedEnvelope, eip7702},
     l1,
     log::FilterLog,
@@ -6,7 +7,6 @@ use edr_eth::{
         self, AsExecutionReceipt as _, Execution, ExecutionReceipt as _, TransactionReceipt,
     },
     transaction::{self, TransactionType as _},
-    Address, Bloom, B256,
 };
 use serde::{Deserialize, Serialize};
 
@@ -284,10 +284,10 @@ impl TryFrom<Block>
 mod test {
     use assert_json_diff::assert_json_eq;
     use edr_eth::{
+        Bloom, Bytes,
         eips::eip2718::TypedEnvelope,
         l1::{self, L1ChainSpec},
         log::ExecutionLog,
-        Bloom, Bytes,
     };
     use edr_evm::block::EthBlockReceiptFactory;
     use serde_json::json;

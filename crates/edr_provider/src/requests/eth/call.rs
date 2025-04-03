@@ -1,29 +1,28 @@
 use edr_eth::{
-    l1,
-    transaction::{signed::FakeSign as _, TransactionValidation},
-    BlockSpec, Bytes,
+    BlockSpec, Bytes, l1,
+    transaction::{TransactionValidation, signed::FakeSign as _},
 };
 use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_rpc_eth::StateOverrideOptions;
 
 use crate::{
+    ProviderError, TransactionFailure,
     data::ProviderData,
     error::ProviderErrorForChainSpec,
     spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, TransactionFailure,
 };
 
 pub fn handle_call_request<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Clone
-                               + Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Clone
+                                   + Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -69,13 +68,13 @@ pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>)
 
 pub(crate) fn resolve_call_request<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,

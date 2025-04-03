@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use edr_eth::{block::BlobGas, withdrawal::Withdrawal, Address, Bloom, Bytes, B256, B64, U256};
+use edr_eth::{Address, B64, B256, Bloom, Bytes, U256, block::BlobGas, withdrawal::Withdrawal};
 use serde::{Deserialize, Serialize};
 
 use crate::spec::GetBlockNumber;

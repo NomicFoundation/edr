@@ -1,12 +1,12 @@
-use std::sync::{mpsc::channel, Arc};
+use std::sync::{Arc, mpsc::channel};
 
 use edr_eth::Bytes;
 use edr_napi_core::logger::LoggerError;
 use napi::{
+    JsFunction, Status,
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
-    JsFunction, Status,
 };
 use napi_derive::napi;
 

@@ -1,19 +1,19 @@
 use core::iter;
 
 use edr_eth::{
-    filter::{FilteredEvents, LogFilterOptions, LogOutput, OneOrMore, SubscriptionType},
     BlockSpec, BlockTag, Eip1898BlockSpec, HashSet, U256,
+    filter::{FilteredEvents, LogFilterOptions, LogOutput, OneOrMore, SubscriptionType},
 };
 use edr_evm::Block as _;
 
 use crate::{
+    ProviderError,
     data::ProviderData,
     error::ProviderErrorForChainSpec,
     filter::LogFilter,
     requests::validation::validate_post_merge_block_tags,
     spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError,
 };
 
 pub fn handle_get_filter_changes_request<

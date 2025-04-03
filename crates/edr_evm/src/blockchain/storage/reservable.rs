@@ -3,17 +3,17 @@ use std::{num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
+    Address, B256, HashMap, HashSet, U256,
     block::PartialHeader,
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait},
     spec::ChainSpec,
     transaction::ExecutableTransaction,
-    Address, HashMap, HashSet, B256, U256,
 };
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
-use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{spec::RuntimeSpec, state::StateDiff, Block, BlockReceipts, EmptyBlock, LocalBlock};
+use super::{InsertError, SparseBlockchainStorage, sparse};
+use crate::{Block, BlockReceipts, EmptyBlock, LocalBlock, spec::RuntimeSpec, state::StateDiff};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
@@ -74,11 +74,11 @@ impl<BlockReceiptT: ReceiptTrait, BlockT, HardforkT, SignedTransactionT>
 }
 
 impl<
-        BlockReceiptT: ReceiptTrait,
-        BlockT: Block<SignedTransactionT> + Clone,
-        HardforkT,
-        SignedTransactionT: ExecutableTransaction,
-    > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    BlockReceiptT: ReceiptTrait,
+    BlockT: Block<SignedTransactionT> + Clone,
+    HardforkT,
+    SignedTransactionT: ExecutableTransaction,
+> ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block as genesis block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -151,11 +151,11 @@ impl<
 }
 
 impl<
-        BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
-        BlockT: BlockReceipts<BlockReceiptT>,
-        HardforkT,
-        SignedTransactionT,
-    > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
+    BlockT: BlockReceipts<BlockReceiptT>,
+    HardforkT,
+    SignedTransactionT,
+> ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the logs that match the provided filter.
     pub fn logs(
@@ -262,11 +262,11 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
 }
 
 impl<
-        BlockReceiptT: Clone + ReceiptTrait,
-        BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
-        HardforkT: Clone,
-        SignedTransactionT: ExecutableTransaction,
-    > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    BlockReceiptT: Clone + ReceiptTrait,
+    BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
+    HardforkT: Clone,
+    SignedTransactionT: ExecutableTransaction,
+> ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the block by number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]

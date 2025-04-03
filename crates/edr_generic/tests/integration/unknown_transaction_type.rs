@@ -3,11 +3,11 @@
 use std::sync::Arc;
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{l1, HashMap};
+use edr_eth::{HashMap, l1};
 use edr_evm::{
+    RandomHashGenerator,
     blockchain::{Blockchain, ForkedBlockchain},
     state::IrregularState,
-    RandomHashGenerator,
 };
 use edr_generic::GenericChainSpec;
 use edr_rpc_eth::client::EthRpcClient;

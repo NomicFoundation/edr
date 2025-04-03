@@ -8,30 +8,30 @@ use std::{
 };
 
 use edr_eth::{
-    block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs},
     U64,
+    block::{IsSafeBlockNumberArgs, block_time, is_safe_block_number},
 };
-use futures::{future, TryFutureExt};
+use futures::{TryFutureExt, future};
 use hyper::header::HeaderValue;
-pub use hyper::{header, HeaderMap};
+pub use hyper::{HeaderMap, header};
 use reqwest::Client as HttpClient;
 use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddleware};
-use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
+use reqwest_retry::{RetryTransientMiddleware, policies::ExponentialBackoff};
 #[cfg(feature = "tracing")]
 use reqwest_tracing::TracingMiddleware;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::sync::{OnceCell, RwLock};
 use uuid::Uuid;
 
 use crate::{
     cache::{
-        self,
+        self, CacheableMethod, CachedBlockNumber,
         chain_id::chain_id_from_url,
         key::{
             CacheKeyForUncheckedBlockNumber, CacheKeyForUnresolvedBlockTag, ReadCacheKey,
             ResolvedSymbolicTag, WriteCacheKey,
         },
-        remove_from_cache, CacheableMethod, CachedBlockNumber,
+        remove_from_cache,
     },
     error::{MiddlewareError, ReqwestError},
     jsonrpc,
@@ -65,7 +65,9 @@ pub enum RpcClientError {
     InvalidJsonRequest(serde_json::Error),
 
     /// The server returned an invalid JSON-RPC response.
-    #[error("Response '{response}' failed to parse with expected type '{expected_type}', due to error: '{error}'")]
+    #[error(
+        "Response '{response}' failed to parse with expected type '{expected_type}', due to error: '{error}'"
+    )]
     InvalidResponse {
         /// The response text
         response: String,
@@ -556,7 +558,8 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
                         error,
                     } => {
                         log::error!(
-                            "Failed to deserialize item from RPC response cache. error: '{error}' expected type: '{expected_type}'. item: '{response}'");
+                            "Failed to deserialize item from RPC response cache. error: '{error}' expected type: '{expected_type}'. item: '{response}'"
+                        );
                     }
                     // For other errors, return early.
                     _ => return Err(error),
@@ -673,11 +676,11 @@ mod tests {
     use tempfile::TempDir;
 
     use self::cache::{
+        KeyHasher,
         block_spec::{
             CacheableBlockSpec, PreEip1898BlockSpecNotCacheableError, UnresolvedBlockTagError,
         },
         key::CacheKeyVariant,
-        KeyHasher,
     };
     use super::*;
 
@@ -988,10 +991,12 @@ mod tests {
             }
 
             // Latest block number is never cacheable
-            assert!(!client
-                .is_cacheable_block_number(latest_block_number)
-                .await
-                .unwrap());
+            assert!(
+                !client
+                    .is_cacheable_block_number(latest_block_number)
+                    .await
+                    .unwrap()
+            );
 
             assert!(client.is_cacheable_block_number(16220843).await.unwrap());
         }

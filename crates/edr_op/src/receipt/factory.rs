@@ -1,12 +1,12 @@
 use edr_eth::{
+    B256,
     log::FilterLog,
     receipt::{ReceiptFactory, TransactionReceipt},
-    B256,
 };
 use edr_evm::EthBlockReceiptFactory;
 use op_revm::L1BlockInfo;
 
-use crate::{eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _, OpSpecId};
+use crate::{OpSpecId, eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _};
 
 /// Block receipt factory for OP.
 pub struct BlockReceiptFactory {

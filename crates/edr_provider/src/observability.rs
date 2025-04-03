@@ -34,16 +34,16 @@ impl<HaltReasonT: HaltReasonTrait> RuntimeObserver<HaltReasonT> {
 }
 
 impl<
-        BlockchainT: BlockHash<Error: std::error::Error>,
-        ContextT: ContextTrait<
-            Journal: JournalExt
-                         + JournalTrait<
-                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            >,
+    BlockchainT: BlockHash<Error: std::error::Error>,
+    ContextT: ContextTrait<
+        Journal: JournalExt
+                     + JournalTrait<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
         >,
-        HaltReasonT: HaltReasonTrait,
-        StateT: State<Error: std::error::Error>,
-    > Inspector<ContextT, EthInterpreter> for RuntimeObserver<HaltReasonT>
+    >,
+    HaltReasonT: HaltReasonTrait,
+    StateT: State<Error: std::error::Error>,
+> Inspector<ContextT, EthInterpreter> for RuntimeObserver<HaltReasonT>
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
         self.console_logger.call(context, inputs);

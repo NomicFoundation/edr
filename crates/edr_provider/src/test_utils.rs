@@ -3,14 +3,14 @@ use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
 use edr_eth::{
+    Address, B256, Bytes, HashMap, KECCAK_EMPTY, U160, U256,
     account::AccountInfo,
     block::BlobGas,
     eips::eip7702,
     l1::{self, L1ChainSpec},
-    signature::{secret_key_from_str, SignatureWithYParity},
-    transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
+    signature::{SignatureWithYParity, secret_key_from_str},
+    transaction::{self, TransactionValidation, TxKind, request::TransactionRequestAndSender},
     trie::KECCAK_NULL_RLP,
-    Address, Bytes, HashMap, B256, KECCAK_EMPTY, U160, U256,
 };
 use edr_evm::Block as _;
 use edr_rpc_eth::TransactionRequest;
@@ -19,12 +19,11 @@ use k256::SecretKey;
 use tokio::runtime;
 
 use crate::{
-    config,
+    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderRequest,
+    ProviderSpec, SyncProviderSpec, config,
     error::ProviderErrorForChainSpec,
     requests::hardhat::rpc_types::ForkConfig,
     time::{CurrentTime, TimeSinceEpoch},
-    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderRequest,
-    ProviderSpec, SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =
@@ -103,13 +102,13 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
 /// Retrieves the pending base fee per gas from the provider data.
 pub fn pending_base_fee<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,

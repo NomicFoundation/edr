@@ -5,7 +5,7 @@ use std::sync::Arc;
 pub use cached::CachedRemoteState;
 use derive_where::derive_where;
 use edr_eth::{
-    account::AccountInfo, Address, BlockSpec, Bytecode, PreEip1898BlockSpec, B256, U256,
+    Address, B256, BlockSpec, Bytecode, PreEip1898BlockSpec, U256, account::AccountInfo,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -14,7 +14,7 @@ use edr_rpc_eth::{
 use tokio::runtime;
 
 use super::{State, StateError};
-use crate::{spec::RuntimeSpec, EthRpcBlock as _};
+use crate::{EthRpcBlock as _, spec::RuntimeSpec};
 
 /// A state backed by a remote Ethereum node
 #[derive_where(Debug)]

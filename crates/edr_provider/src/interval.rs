@@ -4,14 +4,14 @@ use edr_eth::{l1, transaction::TransactionValidation};
 use edr_evm::spec::RuntimeSpec;
 use tokio::{
     runtime,
-    sync::{oneshot, Mutex},
+    sync::{Mutex, oneshot},
     task::JoinHandle,
     time::Instant,
 };
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, IntervalConfig,
+    IntervalConfig, data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
+    time::TimeSinceEpoch,
 };
 
 /// Type for interval mining on a separate thread.
@@ -29,7 +29,7 @@ struct Inner<ChainSpecT: RuntimeSpec> {
 }
 
 impl<
-        ChainSpecT: SyncProviderSpec<
+    ChainSpecT: SyncProviderSpec<
             TimerT,
             BlockEnv: Default,
             SignedTransaction: Default
@@ -37,8 +37,8 @@ impl<
                 ValidationError: From<l1::InvalidTransaction> + PartialEq,
             >,
         >,
-        TimerT: Clone + TimeSinceEpoch,
-    > IntervalMiner<ChainSpecT, TimerT>
+    TimerT: Clone + TimeSinceEpoch,
+> IntervalMiner<ChainSpecT, TimerT>
 {
     pub fn new(
         runtime: runtime::Handle,
@@ -63,13 +63,13 @@ impl<
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 async fn interval_mining_loop<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     config: IntervalConfig,
@@ -115,7 +115,9 @@ impl<ChainSpecT: RuntimeSpec, TimerT> Drop for IntervalMiner<ChainSpecT, TimerT>
                 let _result = tokio::task::block_in_place(move || self.runtime.block_on(task))
                     .expect("Failed to join interval mininig task");
             } else {
-                log::debug!("Failed to send cancellation signal to interval mining task. The runtime must have already terminated.");
+                log::debug!(
+                    "Failed to send cancellation signal to interval mining task. The runtime must have already terminated."
+                );
             }
         }
     }

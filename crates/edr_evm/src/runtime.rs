@@ -1,10 +1,9 @@
 use edr_eth::{
-    l1,
+    Address, HashMap, l1,
     result::{ExecutionResult, ExecutionResultAndState},
     transaction::TransactionValidation,
-    Address, HashMap,
 };
-use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
+use revm::{ExecuteEvm, InspectEvm, Inspector, Journal, precompile::PrecompileFn};
 
 use crate::{
     blockchain::BlockHash,

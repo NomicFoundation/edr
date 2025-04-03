@@ -13,12 +13,12 @@ use std::fmt::Debug;
 use auto_impl::auto_impl;
 use dyn_clone::DynClone;
 use edr_eth::{
+    Address, B256, Bytecode, HashMap, U256,
     account::{Account, AccountInfo},
-    Address, Bytecode, HashMap, B256, U256,
 };
 use edr_rpc_eth::client::RpcClientError;
 pub use revm::state::{EvmState, EvmStorage, EvmStorageSlot};
-use revm::{context_interface::DBErrorMarker, DatabaseRef};
+use revm::{DatabaseRef, context_interface::DBErrorMarker};
 pub use revm_database_interface::{Database, DatabaseCommit as StateCommit, WrapDatabaseRef};
 
 pub use self::{
@@ -26,8 +26,8 @@ pub use self::{
     diff::StateDiff,
     fork::ForkState,
     irregular::IrregularState,
-    overrides::*,
     r#override::StateOverride,
+    overrides::*,
     remote::RemoteState,
     trie::{AccountTrie, TrieState},
 };

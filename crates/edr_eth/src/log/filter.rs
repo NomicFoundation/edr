@@ -46,8 +46,8 @@ mod tests {
 
     use super::*;
     use crate::{
+        Address, B256, Bytes,
         log::{ExecutionLog, FullBlockLog, ReceiptLog},
-        Address, Bytes, B256,
     };
 
     #[test]

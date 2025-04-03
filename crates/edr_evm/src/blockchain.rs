@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec, Address, HashSet, B256, U256,
+    Address, B256, HashSet, U256, l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec,
 };
 
 use self::storage::ReservableSparseBlockchainStorage;
@@ -17,10 +17,10 @@ pub use self::{
     local::{CreationError as LocalCreationError, GenesisBlockOptions, LocalBlockchain},
 };
 use crate::{
+    Block, BlockAndTotalDifficultyForChainSpec,
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateCommit, StateDiff, StateOverride, SyncState},
-    Block, BlockAndTotalDifficultyForChainSpec,
 };
 
 /// Helper type for a chain-specific [`BlockchainError`].
@@ -56,7 +56,9 @@ pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConvers
         expected: B256,
     },
     /// Missing hardfork activation history
-    #[error("No known hardfork for execution on historical block {block_number} (relative to fork block number {fork_block_number}) in chain with id {chain_id}. The node was not configured with a hardfork activation history.")]
+    #[error(
+        "No known hardfork for execution on historical block {block_number} (relative to fork block number {fork_block_number}) in chain with id {chain_id}. The node was not configured with a hardfork activation history."
+    )]
     MissingHardforkActivations {
         /// Block number
         block_number: u64,
@@ -72,7 +74,9 @@ pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConvers
     #[error("Unknown block number")]
     UnknownBlockNumber,
     /// No hardfork found for block
-    #[error("Could not find a hardfork to run for block {block_number}, after having looked for one in the hardfork activation history, which was: {hardfork_activations:?}.")]
+    #[error(
+        "Could not find a hardfork to run for block {block_number}, after having looked for one in the hardfork activation history, which was: {hardfork_activations:?}."
+    )]
     UnknownBlockSpec {
         /// Block number
         block_number: u64,

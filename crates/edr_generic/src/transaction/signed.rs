@@ -1,4 +1,5 @@
 use edr_eth::{
+    Address, B256, Bytes, U256,
     eips::{eip2930, eip7702},
     impl_revm_transaction_trait,
     signature::Signature,
@@ -6,7 +7,6 @@ use edr_eth::{
         self, ExecutableTransaction, IsSupported, SignedTransaction, TransactionMut,
         TransactionType, TransactionValidation, TxKind,
     },
-    Address, Bytes, B256, U256,
 };
 
 /// The type of transaction.

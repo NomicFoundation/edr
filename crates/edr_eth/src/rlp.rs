@@ -1,1 +1,1 @@
-pub use alloy_rlp::{encode, Decodable, Encodable, Error};
+pub use alloy_rlp::{Decodable, Encodable, Error, encode};

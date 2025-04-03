@@ -2,21 +2,21 @@ use core::cmp;
 use std::sync::Arc;
 
 use edr_eth::{
+    Address, HashMap, U256,
     block::Header,
     l1,
     receipt::ReceiptTrait as _,
     result::ExecutionResult,
     reward_percentile::RewardPercentile,
     transaction::{ExecutableTransaction as _, TransactionMut, TransactionValidation},
-    Address, HashMap, U256,
 };
 use edr_evm::{
+    Block as _, BlockReceipts,
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     spec::SyncRuntimeSpec,
     state::{StateError, SyncState},
     trace::TraceCollector,
-    Block as _, BlockReceipts,
 };
 use itertools::Itertools;
 use revm_precompile::PrecompileFn;
@@ -24,8 +24,7 @@ use revm_precompile::PrecompileFn;
 use crate::{data::call, error::ProviderErrorForChainSpec};
 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain:
-        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
@@ -43,11 +42,13 @@ pub(super) fn check_gas_limit<ChainSpecT>(
 ) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
-    >,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionMut
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction>,
+            >,
+        >,
 {
     let CheckGasLimitArgs {
         blockchain,
@@ -76,8 +77,7 @@ where
 }
 
 pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain:
-        &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+    pub blockchain: &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
     pub header: &'a Header,
     pub state: &'a dyn SyncState<StateError>,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
@@ -96,11 +96,13 @@ pub(super) fn binary_search_estimation<ChainSpecT>(
 ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>>
 where
     ChainSpecT: SyncRuntimeSpec<
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
-    >,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionMut
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction>,
+            >,
+        >,
 {
     const MAX_ITERATIONS: usize = 20;
 

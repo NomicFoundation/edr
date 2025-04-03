@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use alloy_rlp::BufMut;
 
-use crate::{log::ExecutionLog, B256};
+use crate::{B256, log::ExecutionLog};
 
 /// A log that's part of a transaction receipt.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,7 +39,7 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::{log::ExecutionLog, Address, Bytes};
+    use crate::{Address, Bytes, log::ExecutionLog};
 
     #[test]
     fn test_receipt_log_serde() -> anyhow::Result<()> {

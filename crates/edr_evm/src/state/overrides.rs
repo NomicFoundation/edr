@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
 use edr_eth::{
+    Address, B256, Bytecode, HashMap, U256,
     account::{AccountInfo, KECCAK_EMPTY},
-    Address, Bytecode, HashMap, B256, U256,
 };
 use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
 
@@ -102,7 +102,9 @@ impl AccountOverride {
 #[derive(Debug, thiserror::Error)]
 pub enum AccountOverrideConversionError {
     /// Storage override options are mutually exclusive.
-    #[error("The properties 'state' and 'stateDiff' cannot be used simultaneously when configuring the state override set passed to the eth_call method.")]
+    #[error(
+        "The properties 'state' and 'stateDiff' cannot be used simultaneously when configuring the state override set passed to the eth_call method."
+    )]
     StorageOverrideConflict,
 }
 

@@ -2,21 +2,20 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
-    l1,
+    B256, BlockSpec, PreEip1898BlockSpec, U64, U256, l1,
     transaction::{ExecutableTransaction as _, TransactionValidation},
-    BlockSpec, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_evm::{
+    Block as _,
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     spec::RuntimeSpec,
-    Block as _,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec,
+    ProviderError, data::ProviderData, error::ProviderErrorForChainSpec,
     requests::validation::validate_post_merge_block_tags, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, ProviderError,
+    time::TimeSinceEpoch,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -54,13 +53,13 @@ pub fn handle_get_block_by_hash_request<
 
 pub fn handle_get_block_by_number_request<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -103,13 +102,13 @@ pub fn handle_get_block_transaction_count_by_hash_request<
 
 pub fn handle_get_block_transaction_count_by_block_number<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -136,13 +135,13 @@ struct BlockByNumberResult<BlockT> {
 
 fn block_by_number<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,

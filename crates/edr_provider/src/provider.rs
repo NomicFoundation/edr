@@ -10,21 +10,20 @@ use parking_lot::Mutex;
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 use crate::{
+    PRIVATE_RPC_METHODS, ProviderConfig, ResponseWithTraces, SyncSubscriberCallback,
     data::ProviderData,
     error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
     interval::IntervalMiner,
     logger::SyncLogger,
     mock::SyncCallOverride,
     requests::{
-        debug,
+        MethodInvocation, ProviderRequest, debug,
         eth::{self, handle_set_interval_mining},
         hardhat::{self, rpc_types::ResetProviderConfig},
-        MethodInvocation, ProviderRequest,
     },
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
-    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig, ResponseWithTraces,
-    SyncSubscriberCallback, PRIVATE_RPC_METHODS,
+    to_json, to_json_with_trace, to_json_with_traces,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -84,7 +83,7 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 }
 
 impl<
-        ChainSpecT: SyncProviderSpec<
+    ChainSpecT: SyncProviderSpec<
             TimerT,
             BlockEnv: Default,
             SignedTransaction: Default
@@ -92,8 +91,8 @@ impl<
                 ValidationError: From<l1::InvalidTransaction> + PartialEq,
             >,
         >,
-        TimerT: Clone + TimeSinceEpoch,
-    > Provider<ChainSpecT, TimerT>
+    TimerT: Clone + TimeSinceEpoch,
+> Provider<ChainSpecT, TimerT>
 {
     /// Constructs a new instance.
     pub fn new(
@@ -151,7 +150,7 @@ impl<
 }
 
 impl<
-        ChainSpecT: SyncProviderSpec<
+    ChainSpecT: SyncProviderSpec<
             TimerT,
             BlockEnv: Clone + Default,
             PooledTransaction: IsEip155,
@@ -162,8 +161,8 @@ impl<
                 ValidationError: From<l1::InvalidTransaction> + PartialEq,
             >,
         >,
-        TimerT: Clone + TimeSinceEpoch,
-    > Provider<ChainSpecT, TimerT>
+    TimerT: Clone + TimeSinceEpoch,
+> Provider<ChainSpecT, TimerT>
 {
     /// Blocking method to handle a request.
     pub fn handle_request(
