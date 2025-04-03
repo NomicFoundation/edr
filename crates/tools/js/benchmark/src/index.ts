@@ -11,11 +11,7 @@ import readline from "readline";
 import zlib from "zlib";
 import { dirName } from "@nomicfoundation/edr-helpers";
 
-import {
-  FORGE_STD_SAMPLES,
-  runSolidityTests,
-  setupForgeStdRepo,
-} from "./solidity-tests.js";
+import { runForgeStdTests, runSolidityTests } from "./solidity-tests.js";
 
 const {
   createHardhatNetworkProvider,
@@ -28,6 +24,7 @@ const NEPTUNE_MAX_MIN_FAILURES = 1.05;
 interface ParsedArguments {
   command: "benchmark" | "verify" | "report" | "solidity-tests";
   grep?: string;
+  repo?: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   benchmark_output: string;
 }
@@ -68,12 +65,16 @@ async function main() {
   });
   parser.add_argument("-g", "--grep", {
     type: "str",
-    help: "Only execute the scenarios that contain the given string",
+    help: "Only execute the scenarios or Solidity tests that contain the given string",
   });
   parser.add_argument("-o", "--benchmark-output", {
     type: "str",
     default: "./benchmark-output.json",
     help: "Where to save the benchmark output file",
+  });
+  parser.add_argument("-r", "--repo", {
+    type: "str",
+    help: "Path to a repo to execute for Solidity tests. Defaults to `forge-std` that is checked out automatically.",
   });
   const args: ParsedArguments = parser.parse_args();
 
@@ -105,8 +106,11 @@ async function main() {
     await report(benchmarkOutputPath);
     await flushStdout();
   } else if (args.command === "solidity-tests") {
-    const repoPath = await setupForgeStdRepo();
-    await runSolidityTests(repoPath, FORGE_STD_SAMPLES, benchmarkOutputPath);
+    if (args.repo !== undefined) {
+      await runSolidityTests(args.repo);
+    } else {
+      await runForgeStdTests(benchmarkOutputPath);
+    }
   } else {
     const _exhaustiveCheck: never = args.command;
   }

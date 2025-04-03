@@ -31,6 +31,7 @@ import {
   type StorageCachingConfig,
   type CachedChains,
   type CachedEndpoints,
+  SuiteResult,
 } from "@ignored/edr";
 import { hexStringToBytes } from "@nomicfoundation/hardhat-utils/hex";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
@@ -59,62 +60,40 @@ const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
 const BRANCH_NAME = "js-benchmark-config-hh-v3";
 
-export async function setupForgeStdRepo() {
-  const repoPath = path.join(dirName(import.meta.url), "..", REPO_DIR);
-  // Ensure directory exists
-  if (!fs.existsSync(repoPath)) {
-    await simpleGit().clone(REPO_URL, repoPath);
+/// Run Solidity test benchmarks in the `forge-std` at v3 repo
+export async function runSolidityTests(repoPath: string) {
+  const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
+    await createSolidityTestsInput(repoPath);
+
+  const start = performance.now();
+  const results = await runAllSolidityTests(
+    artifacts,
+    testSuiteIds,
+    tracingConfig,
+    solidityTestsConfig
+  );
+  const elapsed = performance.now() - start;
+
+  if (results.length === 0) {
+    throw new Error(`Didn't run any tests for ${repoPath}`);
   }
 
-  const git = simpleGit(repoPath);
-  await git.fetch();
-  await git.checkout(BRANCH_NAME);
-  await git.pull();
+  console.log(`Ran ${results.length} tests for ${repoPath} in ${elapsed}ms`);
 
-  return repoPath;
+  assertNoFailures(results);
 }
 
-/// Run Solidity tests in a Hardhat v3 repo
-export async function runSolidityTests(
-  repoPath: string,
-  samplesPerSuite: Record<string, number>,
-  resultsPath: string
-) {
-  const configPath = path.join(repoPath, "hardhat.config.js");
-  const userConfig = (await import(configPath)).default;
-  if (userConfig.solidityTest === undefined) {
-    throw new Error(`Missing Solidity test config in ${configPath}`);
-  }
-  const hre = await createHardhatRuntimeEnvironment(
-    userConfig,
-    {}, // global options
-    repoPath
-  );
-
-  const { artifacts, testSuiteIds, tracingConfig } =
-    await buildSolidityTestsInput(hre);
-
-  const soltestConfig = solidityTestConfigToSolidityTestRunnerConfigArgs(
-    repoPath,
-    userConfig.solidityTest
-  );
-  soltestConfig.projectRoot = repoPath;
-  soltestConfig.rpcCachePath = RPC_CACHE_PATH;
-  const rootPermission = {
-    path: repoPath,
-    access: FsAccessPermission.ReadWrite,
-  };
-  if (soltestConfig.fsPermissions !== undefined) {
-    soltestConfig.fsPermissions.push(rootPermission);
-  } else {
-    soltestConfig.fsPermissions = [rootPermission];
-  }
+/// Run Solidity test benchmarks in the `forge-std` at v3 repo
+export async function runForgeStdTests(resultsPath: string) {
+  const repoPath = await setupForgeStdRepo();
+  const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
+    await createSolidityTestsInput(repoPath);
 
   const allResults = [];
   const runs = new Map<string, number[]>();
   const recordRun = recordTime.bind(null, runs);
 
-  for (const [name, samples] of Object.entries(samplesPerSuite)) {
+  for (const [name, samples] of Object.entries(FORGE_STD_SAMPLES)) {
     for (let i = 0; i < samples; i++) {
       let ids = testSuiteIds;
       if (name !== TOTAL_NAME) {
@@ -125,7 +104,7 @@ export async function runSolidityTests(
         artifacts,
         ids,
         tracingConfig,
-        soltestConfig
+        solidityTestsConfig
       );
       const elapsed = performance.now() - start;
 
@@ -136,20 +115,7 @@ export async function runSolidityTests(
         );
       }
 
-      const failed = new Set();
-      for (const res of results) {
-        for (const r of res.testResults) {
-          if (r.status !== "Success") {
-            failed.add(
-              `${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`
-            );
-          }
-        }
-      }
-      if (failed.size !== 0) {
-        console.error(failed);
-        throw new Error(`Some tests failed`);
-      }
+      assertNoFailures(results);
 
       // Log to stderr so that it doesn't pollute stdout where we write the results
       console.error(
@@ -308,4 +274,73 @@ function solidityTestConfigToSolidityTestRunnerConfigArgs(
 
 function hexStringToBuffer(hexString: string): Buffer {
   return Buffer.from(hexStringToBytes(hexString));
+}
+
+async function setupForgeStdRepo() {
+  const repoPath = path.join(dirName(import.meta.url), "..", REPO_DIR);
+  // Ensure directory exists
+  if (!fs.existsSync(repoPath)) {
+    await simpleGit().clone(REPO_URL, repoPath);
+  }
+
+  const git = simpleGit(repoPath);
+  await git.fetch();
+  await git.checkout(BRANCH_NAME);
+  await git.pull();
+
+  return repoPath;
+}
+
+async function createSolidityTestsInput(repoPath: string) {
+  const configPath = path.join(repoPath, "hardhat.config.js");
+  const userConfig = (await import(configPath)).default;
+  if (userConfig.solidityTest === undefined) {
+    throw new Error(`Missing Solidity test config in ${configPath}`);
+  }
+  const hre = await createHardhatRuntimeEnvironment(
+    userConfig,
+    {}, // global options
+    repoPath
+  );
+
+  const { artifacts, testSuiteIds, tracingConfig } =
+    await buildSolidityTestsInput(hre);
+
+  const solidityTestsConfig = solidityTestConfigToSolidityTestRunnerConfigArgs(
+    repoPath,
+    userConfig.solidityTest
+  );
+  solidityTestsConfig.projectRoot = repoPath;
+  solidityTestsConfig.rpcCachePath = RPC_CACHE_PATH;
+  const rootPermission = {
+    path: repoPath,
+    access: FsAccessPermission.ReadWrite,
+  };
+  if (solidityTestsConfig.fsPermissions !== undefined) {
+    solidityTestsConfig.fsPermissions.push(rootPermission);
+  } else {
+    solidityTestsConfig.fsPermissions = [rootPermission];
+  }
+
+  return {
+    artifacts,
+    testSuiteIds,
+    solidityTestsConfig,
+    tracingConfig,
+  };
+}
+
+function assertNoFailures(results: SuiteResult[]) {
+  const failed = new Set();
+  for (const res of results) {
+    for (const r of res.testResults) {
+      if (r.status !== "Success") {
+        failed.add(`${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`);
+      }
+    }
+  }
+  if (failed.size !== 0) {
+    console.error(failed);
+    throw new Error(`Some tests failed`);
+  }
 }
