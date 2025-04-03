@@ -10,8 +10,6 @@ pub use self::{block::Block, factory::BlockReceiptFactory};
 /// OP execution receipt.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Execution<LogT> {
-    /// Legacy receipt.
-    Legacy(edr_eth::receipt::execution::Legacy<LogT>),
     /// EIP-658 receipt.
     Eip658(edr_eth::receipt::execution::Eip658<LogT>),
     /// OP deposit receipt (post-Regolith).

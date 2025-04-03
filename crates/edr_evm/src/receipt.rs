@@ -42,7 +42,7 @@ where
 pub struct Builder;
 
 impl ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::Signed> for Builder {
-    type Receipt = TypedEnvelope<receipt::Execution<ExecutionLog>>;
+    type Receipt = TypedEnvelope<receipt::execution::Eip658<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
         _pre_execution_state: StateT,
@@ -56,25 +56,16 @@ impl ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::Signed> fo
         header: &block::PartialHeader,
         transaction: &transaction::Signed,
         result: &ExecutionResult<l1::HaltReason>,
-        hardfork: l1::SpecId,
+        _hardfork: l1::SpecId,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = log::logs_to_bloom(&logs);
 
-        let receipt = if hardfork >= l1::SpecId::BYZANTIUM {
-            receipt::Execution::Eip658(receipt::execution::Eip658 {
-                status: result.is_success(),
-                cumulative_gas_used: header.gas_used,
-                logs_bloom,
-                logs,
-            })
-        } else {
-            receipt::Execution::Legacy(receipt::execution::Legacy {
-                root: header.state_root,
-                cumulative_gas_used: header.gas_used,
-                logs_bloom,
-                logs,
-            })
+        let receipt = receipt::execution::Eip658 {
+            status: result.is_success(),
+            cumulative_gas_used: header.gas_used,
+            logs_bloom,
+            logs,
         };
 
         TypedEnvelope::new(receipt, transaction.transaction_type())

@@ -1,5 +1,8 @@
 use super::Eip658;
-use crate::receipt::MapReceiptLogs;
+use crate::{
+    receipt::{ExecutionReceipt, MapReceiptLogs, RootOrStatus},
+    Bloom,
+};
 
 impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Eip658<NewLogT>> for Eip658<LogT> {
     fn map_logs(self, map_fn: impl FnMut(LogT) -> NewLogT) -> Eip658<NewLogT> {
@@ -9,5 +12,25 @@ impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Eip658<NewLogT>> for Eip658<Lo
             logs_bloom: self.logs_bloom,
             logs: self.logs.into_iter().map(map_fn).collect(),
         }
+    }
+}
+
+impl<LogT> ExecutionReceipt for Eip658<LogT> {
+    type Log = LogT;
+
+    fn cumulative_gas_used(&self) -> u64 {
+        self.cumulative_gas_used
+    }
+
+    fn logs_bloom(&self) -> &Bloom {
+        &self.logs_bloom
+    }
+
+    fn transaction_logs(&self) -> &[Self::Log] {
+        &self.logs
+    }
+
+    fn root_or_status(&self) -> RootOrStatus<'_> {
+        RootOrStatus::Status(self.status)
     }
 }

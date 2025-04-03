@@ -31,7 +31,7 @@ pub trait GetBlockNumber {
 }
 
 impl RpcSpec for L1ChainSpec {
-    type ExecutionReceipt<LogT> = TypedEnvelope<edr_eth::receipt::Execution<LogT>>;
+    type ExecutionReceipt<LogT> = TypedEnvelope<edr_eth::receipt::execution::Eip658<LogT>>;
     type RpcBlock<DataT>
         = crate::block::Block<DataT>
     where

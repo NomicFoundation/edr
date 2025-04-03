@@ -25,22 +25,18 @@ impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
             contract_address: value.eth.inner.contract_address,
             logs: value.eth.inner.transaction_logs().to_vec(),
             logs_bloom: *value.eth.inner.logs_bloom(),
-            state_root: match value.as_execution_receipt().data() {
-                receipt::Execution::Legacy(receipt) => Some(receipt.root),
-                receipt::Execution::Eip658(_) | receipt::Execution::Deposit(_) => None,
-            },
+            state_root: None,
             status: match value.as_execution_receipt().data() {
-                receipt::Execution::Legacy(_) => None,
                 receipt::Execution::Eip658(receipt) => Some(receipt.status),
                 receipt::Execution::Deposit(receipt) => Some(receipt.status),
             },
             effective_gas_price: value.eth.inner.effective_gas_price,
             deposit_nonce: match value.as_execution_receipt().data() {
-                receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
+                receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => Some(receipt.deposit_nonce),
             },
             deposit_receipt_version: match value.as_execution_receipt().data() {
-                receipt::Execution::Legacy(_) | receipt::Execution::Eip658(_) => None,
+                receipt::Execution::Eip658(_) => None,
                 receipt::Execution::Deposit(receipt) => receipt.deposit_receipt_version,
             },
             l1_block_info: value.l1_block_info.unwrap_or_default(),
@@ -89,24 +85,39 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
         let (execution, l1_block_info) = match transaction_type {
             transaction::Type::Legacy => {
                 let execution = if let Some(status) = value.status {
-                    receipt::Execution::Eip658(receipt::execution::Eip658 {
+                    receipt::execution::Eip658 {
                         status,
                         cumulative_gas_used: value.cumulative_gas_used,
                         logs_bloom: value.logs_bloom,
                         logs: value.logs,
-                    })
+                    }
+                    .into()
                 } else if let Some(state_root) = value.state_root {
-                    receipt::Execution::Legacy(receipt::execution::Legacy {
+                    receipt::execution::Legacy {
                         root: state_root,
                         cumulative_gas_used: value.cumulative_gas_used,
                         logs_bloom: value.logs_bloom,
                         logs: value.logs,
-                    })
+                    }
+                    .into()
                 } else {
                     return Err(ConversionError::MissingStateRootOrStatus);
                 };
 
                 (execution, None)
+            }
+            transaction::Type::Eip1559
+            | transaction::Type::Eip2930
+            | transaction::Type::Eip4844
+            | transaction::Type::Eip7702 => {
+                let execution = receipt::Execution::Eip658(receipt::execution::Eip658 {
+                    status: value.status.ok_or(ConversionError::MissingStatus)?,
+                    cumulative_gas_used: value.cumulative_gas_used,
+                    logs_bloom: value.logs_bloom,
+                    logs: value.logs,
+                });
+
+                (execution, Some(value.l1_block_info))
             }
             transaction::Type::Deposit => {
                 let execution = receipt::Execution::Deposit(receipt::execution::Deposit {
@@ -121,16 +132,6 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
                 });
 
                 (execution, None)
-            }
-            _ => {
-                let execution = receipt::Execution::Eip658(receipt::execution::Eip658 {
-                    status: value.status.ok_or(ConversionError::MissingStatus)?,
-                    cumulative_gas_used: value.cumulative_gas_used,
-                    logs_bloom: value.logs_bloom,
-                    logs: value.logs,
-                });
-
-                (execution, Some(value.l1_block_info))
             }
         };
 
@@ -174,8 +175,8 @@ mod tests {
                 l1_blob_base_fee_scalar: None,
             }.into(),
         } => {
-            legacy, OpSpecId::FJORD => TypedEnvelope::Legacy(receipt::Execution::Legacy(receipt::execution::Legacy {
-                root: B256::random(),
+            eip658_legacy, OpSpecId::FJORD => TypedEnvelope::Legacy(receipt::Execution::Eip658(receipt::execution::Eip658 {
+                status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
                 logs: vec![

@@ -8,7 +8,7 @@ pub mod receipt;
 pub mod transaction;
 
 impl RpcSpec for GenericChainSpec {
-    type ExecutionReceipt<Log> = TypedEnvelope<edr_eth::receipt::Execution<Log>>;
+    type ExecutionReceipt<Log> = TypedEnvelope<edr_eth::receipt::execution::Eip658<Log>>;
     type RpcBlock<Data>
         = self::block::Block<Data>
     where

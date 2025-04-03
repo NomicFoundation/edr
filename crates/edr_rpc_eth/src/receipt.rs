@@ -121,6 +121,42 @@ impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLo
     }
 }
 
+impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>>
+    for Block
+{
+    type Hardfork = l1::SpecId;
+
+    fn rpc_type_from(
+        value: &receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>,
+        hardfork: Self::Hardfork,
+    ) -> Self {
+        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
+            Some(u8::from(value.inner.transaction_type()))
+        } else {
+            None
+        };
+
+        Self {
+            block_hash: value.block_hash,
+            block_number: value.block_number,
+            transaction_hash: value.inner.transaction_hash,
+            transaction_index: value.inner.transaction_index,
+            transaction_type,
+            from: value.inner.from,
+            to: value.inner.to,
+            cumulative_gas_used: value.inner.cumulative_gas_used(),
+            gas_used: value.inner.gas_used,
+            contract_address: value.inner.contract_address,
+            logs: value.inner.transaction_logs().to_vec(),
+            logs_bloom: *value.inner.logs_bloom(),
+            state_root: None,
+            status: Some(value.as_execution_receipt().data().status),
+            effective_gas_price: value.inner.effective_gas_price,
+            authorization_list: None,
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
     #[error("Legacy transaction is missing state root or status")]
@@ -165,6 +201,64 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
                 logs_bloom: value.logs_bloom,
                 logs: value.logs,
             })
+        };
+
+        let enveloped = TypedEnvelope::new(execution, transaction_type);
+
+        Ok(Self {
+            block_hash: value.block_hash,
+            block_number: value.block_number,
+            inner: TransactionReceipt {
+                inner: enveloped,
+                transaction_hash: value.transaction_hash,
+                transaction_index: value.transaction_index,
+                from: value.from,
+                to: value.to,
+                contract_address: value.contract_address,
+                gas_used: value.gas_used,
+                effective_gas_price: value.effective_gas_price,
+            },
+        })
+    }
+}
+
+impl TryFrom<Block>
+    for receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>
+{
+    type Error = ConversionError;
+
+    fn try_from(value: Block) -> Result<Self, Self::Error> {
+        let transaction_type = value
+            .transaction_type
+            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
+            .map_err(ConversionError::UnknownType)?;
+
+        let execution = if transaction_type == transaction::Type::Legacy {
+            if let Some(status) = value.status {
+                receipt::execution::Eip658 {
+                    status,
+                    cumulative_gas_used: value.cumulative_gas_used,
+                    logs_bloom: value.logs_bloom,
+                    logs: value.logs,
+                }
+            } else if let Some(root) = value.state_root {
+                receipt::execution::Legacy {
+                    root,
+                    cumulative_gas_used: value.cumulative_gas_used,
+                    logs_bloom: value.logs_bloom,
+                    logs: value.logs,
+                }
+                .into()
+            } else {
+                return Err(ConversionError::MissingStateRootOrStatus);
+            }
+        } else {
+            receipt::execution::Eip658 {
+                status: value.status.ok_or(ConversionError::MissingStatus)?,
+                cumulative_gas_used: value.cumulative_gas_used,
+                logs_bloom: value.logs_bloom,
+                logs: value.logs,
+            }
         };
 
         let enveloped = TypedEnvelope::new(execution, transaction_type);
