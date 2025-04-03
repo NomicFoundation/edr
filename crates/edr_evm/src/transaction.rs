@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{l1, spec::ChainSpec, U256};
+use edr_eth::{U256, l1, spec::ChainSpec};
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
@@ -37,7 +37,9 @@ pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationEr
     InvalidTransaction(TransactionValidationErrorT),
     /// Transaction account does not have enough amount of ether to cover
     /// transferred value and `gas_limit * gas_price`.
-    #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}.")]
+    #[error(
+        "Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}."
+    )]
     LackOfFundForMaxFee {
         /// The max upfront cost of the transaction
         fee: Box<U256>,
@@ -137,7 +139,7 @@ pub fn validate<TransactionT: revm_context_interface::Transaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction, Address, Bytes};
+    use edr_eth::{Address, Bytes, transaction};
 
     use super::*;
 

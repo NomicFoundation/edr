@@ -1,11 +1,11 @@
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::{l1, B256};
+use edr_eth::{B256, l1};
 use edr_evm::hardfork;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
@@ -77,9 +77,16 @@ async fn issue_570_error_message() -> anyhow::Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_570_env_var() -> anyhow::Result<()> {
-    std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true");
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
+    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };
+
     let provider = get_provider();
-    std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES");
+
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
+    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    unsafe { std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES") };
+
     let provider = provider?;
 
     let transaction_hash =
@@ -99,9 +106,16 @@ async fn issue_570_env_var() -> anyhow::Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_570_unsupported_requested() -> anyhow::Result<()> {
-    std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true");
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
+    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };
+
     let provider = get_provider();
-    std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES");
+
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
+    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    unsafe { std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES") };
+
     let provider = provider?;
 
     let transaction_hash =

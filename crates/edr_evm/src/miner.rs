@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
-    block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
+    block::{BlockOptions, calculate_next_base_fee_per_blob_gas},
     l1,
     result::ExecutionResult,
     signature::SignatureError,
@@ -12,6 +12,7 @@ use revm::Inspector;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    Block as _, BlockBuilder, BlockTransactionError, MemPool,
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -19,7 +20,6 @@ use crate::{
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    Block as _, BlockBuilder, BlockTransactionError, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
@@ -209,7 +209,9 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
     /// The transaction's gas price is lower than the block's minimum gas price.
-    #[error("Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
+    #[error(
+        "Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}"
+    )]
     GasPriceTooLow {
         /// The minimum gas price.
         expected: u128,
@@ -218,7 +220,9 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
     },
     /// The transaction's max fee per gas is lower than the next block's base
     /// fee.
-    #[error("Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
+    #[error(
+        "Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}"
+    )]
     MaxFeePerGasTooLow {
         /// The minimum max fee per gas.
         expected: u128,
@@ -227,7 +231,9 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
     },
     /// The transaction's max fee per blob gas is lower than the next block's
     /// base fee.
-    #[error("Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}")]
+    #[error(
+        "Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}"
+    )]
     MaxFeePerBlobGasTooLow {
         /// The minimum max fee per blob gas.
         expected: u128,
@@ -239,7 +245,9 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
     #[error("Post-merge transaction is missing prevrandao")]
     MissingPrevrandao,
     /// The transaction nonce is too high.
-    #[error("Nonce too high. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
+    #[error(
+        "Nonce too high. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining."
+    )]
     NonceTooHigh {
         /// The expected nonce.
         expected: u64,
@@ -247,7 +255,9 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
         actual: u64,
     },
     /// The transaction nonce is too high.
-    #[error("Nonce too low. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
+    #[error(
+        "Nonce too low. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining."
+    )]
     NonceTooLow {
         /// The expected nonce.
         expected: u64,
@@ -366,14 +376,14 @@ where
             return Err(MineTransactionError::NonceTooLow {
                 expected: sender.nonce,
                 actual: transaction.nonce(),
-            })
+            });
         }
         Ordering::Equal => (),
         Ordering::Greater => {
             return Err(MineTransactionError::NonceTooHigh {
                 expected: sender.nonce,
                 actual: transaction.nonce(),
-            })
+            });
         }
     }
 
@@ -434,11 +444,11 @@ fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{account::AccountInfo, Address, U256};
+    use edr_eth::{Address, U256, account::AccountInfo};
 
     use super::*;
     use crate::test_utils::{
-        dummy_eip1559_transaction, dummy_eip155_transaction_with_price, MemPoolTestFixture,
+        MemPoolTestFixture, dummy_eip155_transaction_with_price, dummy_eip1559_transaction,
     };
 
     #[test]

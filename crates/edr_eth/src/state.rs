@@ -1,4 +1,4 @@
-use crate::{account::BasicAccount, trie::sec_trie_root, Address, HashMap, B256, U256};
+use crate::{Address, B256, HashMap, U256, account::BasicAccount, trie::sec_trie_root};
 
 /// Account storage mapping of indices to values.
 pub type AccountStorage = HashMap<U256, U256>;

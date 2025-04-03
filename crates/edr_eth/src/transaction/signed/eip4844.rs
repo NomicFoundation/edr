@@ -4,11 +4,11 @@ use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 use revm_primitives::keccak256;
 
 use crate::{
+    Address, B256, Bytes, U256,
     eips::{eip2930, eip4844::GAS_PER_BLOB, eip7702},
     signature::{self, Fakeable},
     transaction::{self, ExecutableTransaction, TxKind},
     utils::enveloped,
-    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -245,10 +245,12 @@ mod tests {
             input: Bytes::default(),
             access_list: Vec::new(),
             max_fee_per_blob_gas: 0xb2d05e00,
-            blob_hashes: vec![B256::from_str(
-                "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",
-            )
-            .unwrap()],
+            blob_hashes: vec![
+                B256::from_str(
+                    "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",
+                )
+                .unwrap(),
+            ],
         };
 
         let signature =

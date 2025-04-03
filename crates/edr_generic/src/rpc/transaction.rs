@@ -6,7 +6,7 @@ use edr_evm::{
 use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
-use crate::{transaction, GenericChainSpec};
+use crate::{GenericChainSpec, transaction};
 
 // We need to use a newtype here as `RpcTypeFrom` cannot be implemented here,
 // in an external crate, even though `TransactionAndBlock` is generic over
@@ -84,7 +84,9 @@ impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPost
             None => transaction::Type::Legacy,
             Some(Ok(r#type)) => r#type.into(),
             Some(Err(r#type)) => {
-                log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction");
+                log::warn!(
+                    "Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction"
+                );
 
                 transaction::Type::Unrecognized(r#type)
             }

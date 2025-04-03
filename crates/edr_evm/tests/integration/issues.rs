@@ -4,14 +4,14 @@ use std::{str::FromStr, sync::Arc};
 
 use edr_defaults::CACHE_DIR;
 use edr_eth::{
-    l1::{self, L1ChainSpec},
     Address, HashMap, U256,
+    l1::{self, L1ChainSpec},
 };
 use edr_evm::{
+    RandomHashGenerator,
     blockchain::ForkedBlockchain,
     precompile::{self, Precompiles},
     state::{AccountModifierFn, ForkState, IrregularState, StateDebug},
-    RandomHashGenerator,
 };
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;

@@ -4,19 +4,19 @@ use edr_eth::{l1, transaction::TransactionValidation};
 use tokio::{runtime, sync::Mutex};
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, interval::IntervalMiner, requests,
-    spec::SyncProviderSpec, time::TimeSinceEpoch, IntervalConfig,
+    IntervalConfig, data::ProviderData, error::ProviderErrorForChainSpec, interval::IntervalMiner,
+    requests, spec::SyncProviderSpec, time::TimeSinceEpoch,
 };
 
 pub fn handle_set_interval_mining<
     ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
         >,
-    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: Arc<Mutex<ProviderData<ChainSpecT, TimerT>>>,

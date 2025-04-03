@@ -4,10 +4,9 @@ use alloy_rlp::{BufMut, Encodable};
 use k256::SecretKey;
 
 use crate::{
-    keccak256,
-    signature::{self, public_key_to_address, Fakeable, SignatureError},
+    Address, B256, Bytes, U256, keccak256,
+    signature::{self, Fakeable, SignatureError, public_key_to_address},
     transaction::{self, TxKind},
-    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -65,7 +64,8 @@ impl Eip155 {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature: Fakeable::with_address_unchecked(signature, caller),
+            // SAFETY: The safety concern is propagated in the function signature.
+            signature: unsafe { Fakeable::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })

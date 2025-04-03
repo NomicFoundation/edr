@@ -1,19 +1,17 @@
 pub use edr_eth::transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
-    l1,
+    Address, Bytes, U256, l1,
     signature::{SecretKey, SignatureError},
     transaction::{
-        signed::{FakeSign, Sign},
         TxKind,
+        signed::{FakeSign, Sign},
     },
-    Address, Bytes, U256,
 };
 use edr_provider::{
-    calculate_eip1559_fee_parameters,
+    ProviderError, ProviderErrorForChainSpec, calculate_eip1559_fee_parameters,
     requests::validation::{validate_call_request, validate_send_transaction_request},
     spec::{CallContext, FromRpcType, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, ProviderErrorForChainSpec,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
@@ -44,24 +42,30 @@ impl Sign for Request {
         caller: Address,
     ) -> Result<Signed, SignatureError> {
         Ok(match self {
-            Request::Legacy(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip155(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip2930(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip1559(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip4844(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip7702(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
+            Request::Legacy(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip155(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip2930(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip1559(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip4844(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip7702(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
         })
     }
 }

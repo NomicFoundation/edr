@@ -10,8 +10,8 @@ use std::sync::Arc;
 use edr_eth::{bytecode::opcode::OpCode, l1};
 use edr_evm::trace::BeforeMessage;
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3},
     Env, JsBuffer, JsBufferValue,
+    bindgen_prelude::{BigInt, Buffer, Either3},
 };
 use napi_derive::napi;
 

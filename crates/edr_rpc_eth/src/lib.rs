@@ -17,7 +17,7 @@ pub mod spec;
 mod test_utils;
 mod transaction;
 
-pub use edr_rpc_client::{error, header, jsonrpc, HeaderMap};
+pub use edr_rpc_client::{HeaderMap, error, header, jsonrpc};
 
 pub use self::{
     block::Block,

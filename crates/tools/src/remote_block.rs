@@ -8,7 +8,7 @@ use edr_eth::{
     receipt::AsExecutionReceipt,
     transaction::TransactionValidation,
 };
-use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};
+use edr_evm::{BlockReceipts, blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block};
 use edr_op::OpChainSpec;
 use edr_provider::spec::SyncRuntimeSpec;
 use edr_rpc_eth::client::EthRpcClient;

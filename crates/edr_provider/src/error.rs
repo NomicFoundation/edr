@@ -7,27 +7,27 @@ use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
+    Address, B256, BlockSpec, BlockTag, Bytes, U256,
     filter::SubscriptionType,
     hex, l1,
     result::ExecutionResult,
     spec::{ChainSpec, HaltReasonTrait},
     transaction::TransactionValidation,
-    Address, BlockSpec, BlockTag, Bytes, B256, U256,
 };
 use edr_evm::{
+    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
     blockchain::{BlockchainError, ForkedCreationError, LocalCreationError},
     debug_trace::DebugTraceError,
     spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
-    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
-use crate::{config::IntervalConfigConversionError, time::TimeSinceEpoch, ProviderSpec};
+use crate::{ProviderSpec, config::IntervalConfigConversionError, time::TimeSinceEpoch};
 
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
@@ -52,7 +52,9 @@ pub enum CreationError<BlockConversionError, HardforkT: Debug, ReceiptConversion
     /// Invalid initial date
     #[error("The initial date configuration value {0:?} is before the UNIX epoch")]
     InvalidInitialDate(SystemTime),
-    #[error("Invalid max cached states environment variable value: '{0:?}'. Please provide a non-zero integer!")]
+    #[error(
+        "Invalid max cached states environment variable value: '{0:?}'. Please provide a non-zero integer!"
+    )]
     InvalidMaxCachedStates(OsString),
     /// An error that occurred while constructing a local blockchain.
     #[error(transparent)]
@@ -84,27 +86,39 @@ pub enum ProviderError<
     AccountOverrideConversionError(#[from] AccountOverrideConversionError),
     /// The transaction's gas price is lower than the next block's base fee,
     /// while automatically mining.
-    #[error("Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
+    #[error(
+        "Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}"
+    )]
     AutoMineGasPriceTooLow { expected: u128, actual: u128 },
     /// The transaction's max fee per gas is lower than the next block's base
     /// fee, while automatically mining.
-    #[error("Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
+    #[error(
+        "Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}"
+    )]
     AutoMineMaxFeePerGasTooLow { expected: u128, actual: u128 },
     /// The transaction's max fee per blob gas is lower than the next block's
     /// base fee, while automatically mining.
-    #[error("Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}")]
+    #[error(
+        "Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}"
+    )]
     AutoMineMaxFeePerBlobGasTooLow { expected: u128, actual: u128 },
     /// The transaction's priority fee is lower than the minimum gas price,
     /// while automatically mining.
     #[error("Transaction gas price is {actual}, which is below the minimum of {expected}")]
     AutoMinePriorityFeeTooLow { expected: u128, actual: u128 },
     /// The transaction nonce is too high, while automatically mining.
-    #[error("Nonce too high. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
+    #[error(
+        "Nonce too high. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining."
+    )]
     AutoMineNonceTooHigh { expected: u64, actual: u64 },
     /// The transaction nonce is too high, while automatically mining.
-    #[error("Nonce too low. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
+    #[error(
+        "Nonce too low. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining."
+    )]
     AutoMineNonceTooLow { expected: u64, actual: u64 },
-    #[error("An EIP-4844 (shard blob) transaction was received while auto-mine was disabled or the mempool contained transactions, but Hardhat doesn't have support for them yet. See https://github.com/NomicFoundation/hardhat/issues/5024")]
+    #[error(
+        "An EIP-4844 (shard blob) transaction was received while auto-mine was disabled or the mempool contained transactions, but Hardhat doesn't have support for them yet. See https://github.com/NomicFoundation/hardhat/issues/5024"
+    )]
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
@@ -120,9 +134,13 @@ pub enum ProviderError<
             TransactionValidationErrorT,
         >,
     ),
-    #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
+    #[error(
+        "An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182"
+    )]
     Eip4844CallRequestUnsupported,
-    #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
+    #[error(
+        "An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023"
+    )]
     Eip4844TransactionUnsupported,
     #[error("An EIP-4844 (shard blob) transaction is missing the to (receiver) parameter.")]
     Eip4844TransactionMissingReceiver,
@@ -147,7 +165,9 @@ pub enum ProviderError<
     },
     /// The block tag is not allowed in pre-merge hardforks.
     /// <https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1820>
-    #[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{hardfork:?}' hardfork.")]
+    #[error(
+        "The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{hardfork:?}' hardfork."
+    )]
     InvalidBlockTag {
         block_tag: BlockTag,
         hardfork: HardforkT,
@@ -162,7 +182,9 @@ pub enum ProviderError<
     #[error("Trying to send an incompatible EIP-155 transaction, signed for another chain.")]
     InvalidEip155TransactionChainId,
     /// Invalid filter subscription type
-    #[error("Subscription {filter_id} is not a {expected:?} subscription, but a {actual:?} subscription")]
+    #[error(
+        "Subscription {filter_id} is not a {expected:?} subscription, but a {actual:?} subscription"
+    )]
     InvalidFilterSubscriptionType {
         filter_id: U256,
         expected: SubscriptionType,
@@ -252,7 +274,9 @@ pub enum ProviderError<
     SetNextBlockBaseFeePerGasUnsupported { hardfork: HardforkT },
     /// The `hardhat_setPrevRandao` method is not supported due to an older
     /// hardfork.
-    #[error("hardhat_setPrevRandao is only available in post-merge hardforks, the current hardfork is {hardfork:?}")]
+    #[error(
+        "hardhat_setPrevRandao is only available in post-merge hardforks, the current hardfork is {hardfork:?}"
+    )]
     SetNextPrevRandaoUnsupported { hardfork: HardforkT },
     /// An error occurred while recovering a signature.
     #[error(transparent)]
@@ -267,7 +291,9 @@ pub enum ProviderError<
     #[error("Timestamp {proposed} is lower than the previous block's timestamp {previous}")]
     TimestampLowerThanPrevious { proposed: u64, previous: u64 },
     /// Timestamp equals previous timestamp
-    #[error("Timestamp {proposed} is equal to the previous block's timestamp. Enable the 'allowBlocksWithSameTimestamp' option to allow this")]
+    #[error(
+        "Timestamp {proposed} is equal to the previous block's timestamp. Enable the 'allowBlocksWithSameTimestamp' option to allow this"
+    )]
     TimestampEqualsPrevious { proposed: u64 },
     /// An error occurred while creating a pending transaction.
     #[error(transparent)]
@@ -286,35 +312,49 @@ pub enum ProviderError<
     #[error("Unknown account {address}")]
     UnknownAddress { address: Address },
     /// Minimum required hardfork not met
-    #[error("Feature is only available in post-{minimum:?} hardforks, the current hardfork is {actual:?}")]
+    #[error(
+        "Feature is only available in post-{minimum:?} hardforks, the current hardfork is {actual:?}"
+    )]
     UnmetHardfork {
         actual: l1::SpecId,
         minimum: l1::SpecId,
     },
-    #[error("The transaction contains an access list parameter, but this is not supported by the current hardfork: {current_hardfork:?}")]
+    #[error(
+        "The transaction contains an access list parameter, but this is not supported by the current hardfork: {current_hardfork:?}"
+    )]
     UnsupportedAccessListParameter {
         current_hardfork: l1::SpecId,
         minimum_hardfork: l1::SpecId,
     },
-    #[error("The transaction contains EIP-1559 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
+    #[error(
+        "The transaction contains EIP-1559 parameters, but they are not supported by the current hardfork: {current_hardfork:?}"
+    )]
     UnsupportedEIP1559Parameters {
         current_hardfork: l1::SpecId,
         minimum_hardfork: l1::SpecId,
     },
-    #[error("The transaction contains EIP-4844 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
+    #[error(
+        "The transaction contains EIP-4844 parameters, but they are not supported by the current hardfork: {current_hardfork:?}"
+    )]
     UnsupportedEIP4844Parameters {
         current_hardfork: l1::SpecId,
         minimum_hardfork: l1::SpecId,
     },
-    #[error("The transaction contains EIP-7702 parameters, but they are not supported by the current hardfork: {current_hardfork:?}. Use the Prague hardfork (or later).")]
+    #[error(
+        "The transaction contains EIP-7702 parameters, but they are not supported by the current hardfork: {current_hardfork:?}. Use the Prague hardfork (or later)."
+    )]
     UnsupportedEip7702Parameters { current_hardfork: l1::SpecId },
-    #[error("Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'")]
+    #[error(
+        "Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'"
+    )]
     UnsupportedTransactionTypeInDebugTrace {
         requested_transaction_hash: B256,
         unsupported_transaction_hash: B256,
         unsupported_transaction_type: u8,
     },
-    #[error("Cannot perform debug tracing on transaction '{transaction_hash:?}', because it has unsupported transaction type '{unsupported_transaction_type}'")]
+    #[error(
+        "Cannot perform debug tracing on transaction '{transaction_hash:?}', because it has unsupported transaction type '{unsupported_transaction_type}'"
+    )]
     UnsupportedTransactionTypeForDebugTrace {
         transaction_hash: B256,
         unsupported_transaction_type: u8,
@@ -324,12 +364,12 @@ pub enum ProviderError<
 }
 
 impl<
-        BlockConversionErrorT: std::error::Error,
-        HaltReasonT: HaltReasonTrait + Serialize,
-        HardforkT: Debug,
-        ReceiptConversionErrorT: std::error::Error,
-        TransactionValidationErrorT: std::error::Error,
-    >
+    BlockConversionErrorT: std::error::Error,
+    HaltReasonT: HaltReasonTrait + Serialize,
+    HardforkT: Debug,
+    ReceiptConversionErrorT: std::error::Error,
+    TransactionValidationErrorT: std::error::Error,
+>
     From<
         ProviderError<
             BlockConversionErrorT,
@@ -587,27 +627,34 @@ fn revert_error(output: &Bytes) -> String {
         output.as_ref(),
         /* validate */ false,
     ) {
-        Ok(contract_error) => {
-            match contract_error {
-                ContractError::CustomError(custom_error) => {
-                    format!("VM Exception while processing transaction: reverted with an unrecognized custom error (return data: {custom_error})")
-                }
-                ContractError::Revert(revert) => {
-                    format!("reverted with reason string '{}'", revert.reason())
-                }
-                ContractError::Panic(panic) => {
-                    format!(
-                        "VM Exception while processing transaction: reverted with panic code {} ({})",
-                        serde_json::to_string(&panic.code).unwrap().replace('\"', ""),
-                        panic_code_to_error_reason(panic.code.try_into().expect("panic code fits into u64"))
-                    )
-                }
+        Ok(contract_error) => match contract_error {
+            ContractError::CustomError(custom_error) => {
+                format!(
+                    "VM Exception while processing transaction: reverted with an unrecognized custom error (return data: {custom_error})"
+                )
             }
-        }
+            ContractError::Revert(revert) => {
+                format!("reverted with reason string '{}'", revert.reason())
+            }
+            ContractError::Panic(panic) => {
+                format!(
+                    "VM Exception while processing transaction: reverted with panic code {} ({})",
+                    serde_json::to_string(&panic.code)
+                        .unwrap()
+                        .replace('\"', ""),
+                    panic_code_to_error_reason(
+                        panic.code.try_into().expect("panic code fits into u64")
+                    )
+                )
+            }
+        },
         Err(decode_error) => match decode_error {
             alloy_sol_types::Error::TypeCheckFail { .. }
             | alloy_sol_types::Error::UnknownSelector { .. } => {
-                format!("VM Exception while processing transaction: reverted with an unrecognized custom error (return data: 0x{})", hex::encode(output))
+                format!(
+                    "VM Exception while processing transaction: reverted with an unrecognized custom error (return data: 0x{})",
+                    hex::encode(output)
+                )
             }
             _ => format!(
                 "Internal: Since we are not validating, this error should not occur: {decode_error:?}"

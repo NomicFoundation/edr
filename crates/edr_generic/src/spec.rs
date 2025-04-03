@@ -9,6 +9,7 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use edr_evm::{
+    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
     evm::{Evm, EvmData},
     hardfork::Activations,
     inspector::{Inspector, NoOpInspector},
@@ -17,9 +18,8 @@ use edr_evm::{
     spec::{ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
     state::{Database, DatabaseComponentError},
     transaction::{TransactionError, TransactionErrorForChainSpec},
-    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
 };
-use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
+use edr_provider::{ProviderSpec, TransactionFailureReason, time::TimeSinceEpoch};
 
 use crate::GenericChainSpec;
 
@@ -39,10 +39,10 @@ impl EthHeaderConstants for GenericChainSpec {
 
 impl RuntimeSpec for GenericChainSpec {
     type Block = dyn SyncBlock<
-        Arc<Self::BlockReceipt>,
-        Self::SignedTransaction,
-        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
-    >;
+            Arc<Self::BlockReceipt>,
+            Self::SignedTransaction,
+            Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
+        >;
 
     type BlockBuilder<
         'blockchain,

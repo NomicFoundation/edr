@@ -2,13 +2,13 @@ mod eip4844;
 
 pub use self::eip4844::Eip4844;
 use crate::{
+    Address, B256, Bytes, U256,
     eips::{eip2930, eip7702},
     transaction::{
-        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, Signed, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
+        ExecutableTransaction, INVALID_TX_TYPE_ERROR_MESSAGE, IsEip155, Signed, TxKind,
+        signed::PreOrPostEip155,
     },
     utils::enveloped,
-    Address, Bytes, B256, U256,
 };
 
 pub type Legacy = super::signed::Legacy;
@@ -401,11 +401,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        address,
+        Address, B256, Bytes, U256, address,
         eips::eip7702,
         signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
         transaction::{self, TxKind},
-        Address, Bytes, B256, U256,
     };
 
     fn fake_eip4844_blob() -> c_kzg::Blob {

@@ -5,8 +5,8 @@ use dyn_clone::DynClone;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
 
 use crate::{
-    data::CallResult, debug_mine::DebugMineBlockResultForChainSpec, error::EstimateGasFailure,
-    ProviderErrorForChainSpec,
+    ProviderErrorForChainSpec, data::CallResult, debug_mine::DebugMineBlockResultForChainSpec,
+    error::EstimateGasFailure,
 };
 
 pub trait Logger<ChainSpecT: RuntimeSpec> {

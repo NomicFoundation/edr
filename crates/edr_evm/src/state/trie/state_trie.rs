@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use alloy_rlp::Decodable;
 use edr_eth::{
-    account::{AccountInfo, BasicAccount},
     Address, B256,
+    account::{AccountInfo, BasicAccount},
 };
 
 use crate::state::trie::{persistent_memory_db::PersistentMemoryDB, trie_query::TrieQuery};

@@ -4,6 +4,7 @@ use std::{marker::PhantomData, sync::Arc};
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_eth::{
+    B256, KECCAK_EMPTY,
     block::{self, Header, PartialHeader},
     keccak256, l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
@@ -12,12 +13,12 @@ use edr_eth::{
     transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
-    B256, KECCAK_EMPTY,
 };
 use edr_utils::types::TypeConstructor;
 use itertools::izip;
 
 use crate::{
+    Block,
     block::{BlockReceipts, EmptyBlock, LocalBlock},
     blockchain::BlockchainError,
     receipt::ReceiptFactory,
@@ -26,7 +27,6 @@ use crate::{
         RuntimeSpec,
     },
     transaction::DetailedTransaction,
-    Block,
 };
 
 /// Helper type for a local Ethereum block for a given chain spec.
@@ -66,13 +66,13 @@ pub struct EthLocalBlock<
 }
 
 impl<
-        BlockConversionErrorT,
-        BlockReceiptT: ReceiptTrait,
-        HardforkT: Clone,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        ReceiptConversionErrorT,
-        SignedTransactionT: Debug + ExecutableTransaction,
-    >
+    BlockConversionErrorT,
+    BlockReceiptT: ReceiptTrait,
+    HardforkT: Clone,
+    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    ReceiptConversionErrorT,
+    SignedTransactionT: Debug + ExecutableTransaction,
+>
     EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
@@ -162,13 +162,13 @@ impl<
 }
 
 impl<
-        BlockConversionErrorT,
-        BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT,
-        ReceiptConversionErrorT,
-        SignedTransactionT: Debug + alloy_rlp::Encodable,
-    >
+    BlockConversionErrorT,
+    BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
+    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    HardforkT,
+    ReceiptConversionErrorT,
+    SignedTransactionT: Debug + alloy_rlp::Encodable,
+>
     EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
@@ -190,13 +190,13 @@ impl<
 }
 
 impl<
-        BlockConversionErrorT,
-        BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT,
-        ReceiptConversionErrorT,
-        SignedTransactionT: Debug + alloy_rlp::Encodable,
-    > Block<SignedTransactionT>
+    BlockConversionErrorT,
+    BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
+    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    HardforkT,
+    ReceiptConversionErrorT,
+    SignedTransactionT: Debug + alloy_rlp::Encodable,
+> Block<SignedTransactionT>
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
@@ -235,13 +235,13 @@ impl<
 }
 
 impl<
-        BlockConversionErrorT,
-        BlockReceiptT: ReceiptTrait + Debug + alloy_rlp::Encodable,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: Debug,
-        ReceiptConversionErrorT,
-        SignedTransactionT: Debug + alloy_rlp::Encodable,
-    > BlockReceipts<Arc<BlockReceiptT>>
+    BlockConversionErrorT,
+    BlockReceiptT: ReceiptTrait + Debug + alloy_rlp::Encodable,
+    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    HardforkT: Debug,
+    ReceiptConversionErrorT,
+    SignedTransactionT: Debug + alloy_rlp::Encodable,
+> BlockReceipts<Arc<BlockReceiptT>>
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
@@ -264,13 +264,13 @@ impl<
 }
 
 impl<
-        BlockConversionErrorT,
-        BlockReceiptT: ReceiptTrait,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: Into<l1::SpecId>,
-        ReceiptConversionErrorT,
-        SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
-    > EmptyBlock<HardforkT>
+    BlockConversionErrorT,
+    BlockReceiptT: ReceiptTrait,
+    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    HardforkT: Into<l1::SpecId>,
+    ReceiptConversionErrorT,
+    SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
+> EmptyBlock<HardforkT>
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
@@ -305,13 +305,13 @@ impl<
 }
 
 impl<
-        BlockConversionErrorT,
-        BlockReceiptT: ReceiptTrait,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT,
-        ReceiptConversionErrorT,
-        SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
-    > LocalBlock<Arc<BlockReceiptT>>
+    BlockConversionErrorT,
+    BlockReceiptT: ReceiptTrait,
+    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    HardforkT,
+    ReceiptConversionErrorT,
+    SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
+> LocalBlock<Arc<BlockReceiptT>>
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
@@ -327,13 +327,13 @@ impl<
 }
 
 impl<
-        BlockConversionErrorT,
-        BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT,
-        ReceiptConversionErrorT,
-        SignedTransactionT: Debug + alloy_rlp::Encodable,
-    > alloy_rlp::Encodable
+    BlockConversionErrorT,
+    BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
+    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    HardforkT,
+    ReceiptConversionErrorT,
+    SignedTransactionT: Debug + alloy_rlp::Encodable,
+> alloy_rlp::Encodable
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,

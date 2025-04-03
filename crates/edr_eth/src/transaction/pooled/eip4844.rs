@@ -4,6 +4,7 @@ use alloy_rlp::Encodable as _;
 use sha2::Digest;
 
 use crate::{
+    Address, B256, Blob, Bytes, Bytes48, U256,
     eips::{
         eip2930,
         eip4844::{KzgSettings, VERSIONED_HASH_VERSION_KZG},
@@ -11,7 +12,6 @@ use crate::{
     },
     transaction::{self, ExecutableTransaction, TxKind},
     utils::enveloped,
-    Address, Blob, Bytes, Bytes48, B256, U256,
 };
 
 /// An EIP-4844 pooled transaction.
@@ -26,19 +26,27 @@ pub struct Eip4844 {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreationError {
-    #[error("Number of blobs ({actual}) does not match the payload's number of blob hashes ({expected}).")]
+    #[error(
+        "Number of blobs ({actual}) does not match the payload's number of blob hashes ({expected})."
+    )]
     BlobCount { expected: usize, actual: usize },
-    #[error("The versioned hash of the commitment at index {idx} does not match the payload's blob hash. Expected: {expected}, actual: {actual}.")]
+    #[error(
+        "The versioned hash of the commitment at index {idx} does not match the payload's blob hash. Expected: {expected}, actual: {actual}."
+    )]
     InvalidCommitment {
         idx: usize,
         expected: B256,
         actual: B256,
     },
-    #[error("Number of commitments ({actual}) does not match the payload's number of blob hashes ({expected}).")]
+    #[error(
+        "Number of commitments ({actual}) does not match the payload's number of blob hashes ({expected})."
+    )]
     CommitmentCount { expected: usize, actual: usize },
     #[error("An error occurred while verifying the blob KZG proof: {0}")]
     KzgProof(c_kzg::Error),
-    #[error("Number of proofs ({actual}) does not match the payload's number of blob hashes ({expected}).")]
+    #[error(
+        "Number of proofs ({actual}) does not match the payload's number of blob hashes ({expected})."
+    )]
     ProofCount { expected: usize, actual: usize },
     #[error("The verification of the KZG proof failed.")]
     Unverified,

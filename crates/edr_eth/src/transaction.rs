@@ -17,12 +17,12 @@ use std::str::FromStr;
 
 pub use revm_context_interface::Transaction;
 pub use revm_primitives::alloy_primitives::TxKind;
-use revm_primitives::{ruint, B256};
+use revm_primitives::{B256, ruint};
 
 use crate::{
+    Address, Bytes, U8, U256,
     eips::{eip2930, eip7702},
     signature::Signature,
-    Address, Bytes, U256, U8,
 };
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";

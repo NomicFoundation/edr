@@ -1,11 +1,11 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use edr_eth::{
+    Address, B256, HashMap, U256,
     account::AccountInfo,
-    transaction::{upfront_cost, ExecutableTransaction},
-    Address, HashMap, B256, U256,
+    transaction::{ExecutableTransaction, upfront_cost},
 };
-use indexmap::{map::Entry, IndexMap};
+use indexmap::{IndexMap, map::Entry};
 
 use crate::state::State;
 
@@ -100,7 +100,9 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum MemPoolAddTransactionError<SE> {
     /// Transaction gas limit exceeds block gas limit.
-    #[error("Transaction gas limit is {transaction_gas_limit} and exceeds block gas limit of {block_gas_limit}")]
+    #[error(
+        "Transaction gas limit is {transaction_gas_limit} and exceeds block gas limit of {block_gas_limit}"
+    )]
     ExceedsBlockGasLimit {
         /// The block gas limit
         block_gas_limit: NonZeroU64,
@@ -108,7 +110,9 @@ pub enum MemPoolAddTransactionError<SE> {
         transaction_gas_limit: u64,
     },
     /// Sender does not have enough funds to send transaction.
-    #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {max_upfront_cost} and the sender's balance is: {sender_balance}.")]
+    #[error(
+        "Sender doesn't have enough funds to send tx. The max upfront cost is: {max_upfront_cost} and the sender's balance is: {sender_balance}."
+    )]
     InsufficientFunds {
         /// The maximum upfront cost of the transaction
         max_upfront_cost: U256,
@@ -116,7 +120,9 @@ pub enum MemPoolAddTransactionError<SE> {
         sender_balance: U256,
     },
     /// Transaction nonce is too low.
-    #[error("Transaction nonce too low. Expected nonce to be at least {sender_nonce} but got {transaction_nonce}.")]
+    #[error(
+        "Transaction nonce too low. Expected nonce to be at least {sender_nonce} but got {transaction_nonce}."
+    )]
     NonceTooLow {
         /// Transaction's nonce.
         transaction_nonce: u64,
@@ -133,7 +139,9 @@ pub enum MemPoolAddTransactionError<SE> {
     #[error(transparent)]
     State(#[from] SE),
     /// Replacement transaction has underpriced max fee per gas.
-    #[error("Replacement transaction underpriced. A gasPrice/maxFeePerGas of at least {min_new_max_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}.")]
+    #[error(
+        "Replacement transaction underpriced. A gasPrice/maxFeePerGas of at least {min_new_max_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}."
+    )]
     ReplacementMaxFeePerGasTooLow {
         /// The minimum new max fee per gas
         min_new_max_fee_per_gas: u128,
@@ -141,7 +149,9 @@ pub enum MemPoolAddTransactionError<SE> {
         transaction_nonce: u64,
     },
     /// Replacement transaction has underpriced max priority fee per gas.
-    #[error("Replacement transaction underpriced. A gasPrice/maxPriorityFeePerGas of at least {min_new_max_priority_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}.")]
+    #[error(
+        "Replacement transaction underpriced. A gasPrice/maxPriorityFeePerGas of at least {min_new_max_priority_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}."
+    )]
     ReplacementMaxPriorityFeePerGasTooLow {
         /// The minimum new max priority fee per gas
         min_new_max_priority_fee_per_gas: u128,

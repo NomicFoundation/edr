@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use edr_scenarios::ScenarioConfig;
 use napi::tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{Rng, distributions::Alphanumeric};
 
 const SCENARIO_FILE_PREFIX: &str = "EDR_SCENARIO_PREFIX";
 

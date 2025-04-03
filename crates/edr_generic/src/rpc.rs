@@ -1,7 +1,7 @@
 use edr_rpc_eth::RpcSpec;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
-use crate::{eip2718::TypedEnvelope, GenericChainSpec};
+use crate::{GenericChainSpec, eip2718::TypedEnvelope};
 
 pub mod block;
 pub mod receipt;

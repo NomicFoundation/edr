@@ -1,8 +1,8 @@
 use alloy_rlp::Buf as _;
 use edr_eth::{
+    Bloom,
     receipt::{ExecutionReceipt, MapReceiptLogs, RootOrStatus},
     transaction::TransactionType,
-    Bloom,
 };
 
 use crate::transaction;

@@ -2,15 +2,15 @@ use std::{fmt::Debug, path::PathBuf};
 
 use derive_where::derive_where;
 use edr_eth::{
+    Address, B256, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, U64, U256,
     account::{AccountInfo, KECCAK_EMPTY},
     fee_history::FeeHistoryResult,
     filter::{LogFilterOptions, OneOrMore},
     log::FilterLog,
     reward_percentile::RewardPercentile,
-    Address, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_rpc_client::RpcClient;
-pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
+pub use edr_rpc_client::{HeaderMap, RpcClientError, header};
 use futures::StreamExt;
 
 use crate::{
@@ -393,7 +393,7 @@ mod tests {
     mod alchemy {
         use std::{fs::File, path::PathBuf};
 
-        use edr_eth::{filter::OneOrMore, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256};
+        use edr_eth::{Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256, filter::OneOrMore};
         use edr_test_utils::env::get_alchemy_url;
         use walkdir::WalkDir;
 
@@ -653,7 +653,10 @@ mod tests {
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
                 assert_eq!(error.code, -32000);
-                assert_eq!(error.message, "One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found.");
+                assert_eq!(
+                    error.message,
+                    "One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found."
+                );
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");

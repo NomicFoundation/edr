@@ -12,10 +12,10 @@ pub use self::{
     legacy::Legacy,
 };
 use super::{
-    signed::{FakeSign, Sign},
     Request, Signed,
+    signed::{FakeSign, Sign},
 };
-use crate::{eips, signature::SignatureError, Address};
+use crate::{Address, eips, signature::SignatureError};
 
 impl Request {
     /// Retrieves the instance's authorization list (EIP-7702).
@@ -122,24 +122,30 @@ impl Sign for Request {
         caller: Address,
     ) -> Result<Signed, SignatureError> {
         Ok(match self {
-            Request::Legacy(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip155(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip2930(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip1559(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip4844(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
-            Request::Eip7702(transaction) => transaction
-                .sign_for_sender_unchecked(secret_key, caller)?
-                .into(),
+            Request::Legacy(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip155(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip2930(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip1559(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip4844(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
+            Request::Eip7702(transaction) => {
+                // SAFETY: The safety concern is propagated in the function signature.
+                unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
+            }
         })
     }
 }

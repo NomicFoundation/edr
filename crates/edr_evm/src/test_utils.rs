@@ -2,24 +2,25 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use anyhow::anyhow;
 use edr_eth::{
+    Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
     account::AccountInfo,
-    block::{miner_reward, BlockOptions},
+    block::{BlockOptions, miner_reward},
     l1,
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
     transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,
-    Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
 };
 use edr_rpc_eth::client::EthRpcClient;
 
 use crate::{
+    Block, BlockBuilder, BlockReceipts, LocalBlock as _, MemPool, MemPoolAddTransactionError,
+    RandomHashGenerator, RemoteBlock,
     blockchain::{Blockchain as _, BlockchainErrorForChainSpec, ForkedBlockchain},
     config::CfgEnv,
     spec::SyncRuntimeSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
-    transaction, Block, BlockBuilder, BlockReceipts, LocalBlock as _, MemPool,
-    MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
+    transaction,
 };
 
 /// A test fixture for `MemPool`.

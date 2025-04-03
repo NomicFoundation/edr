@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use derive_where::derive_where;
 use edr_eth::{
-    filter::OneOrMore, log::FilterLog, Address, BlockSpec, PreEip1898BlockSpec, B256, U256,
+    Address, B256, BlockSpec, PreEip1898BlockSpec, U256, filter::OneOrMore, log::FilterLog,
 };
 use edr_rpc_eth::client::EthRpcClient;
 use revm::primitives::HashSet;
@@ -11,8 +11,8 @@ use tokio::runtime;
 
 use super::{forked::ForkedBlockchainErrorForChainSpec, storage::SparseBlockchainStorage};
 use crate::{
-    blockchain::ForkedBlockchainError, spec::RuntimeSpec,
-    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, RemoteBlock,
+    Block, EthRpcBlock as _, RemoteBlock, blockchain::ForkedBlockchainError, spec::RuntimeSpec,
+    transaction::remote::EthRpcTransaction as _,
 };
 
 #[derive_where(Debug; BlockT)]
@@ -314,11 +314,13 @@ mod tests {
         );
 
         let _ = remote.block_by_number(block_number).await.unwrap();
-        assert!(remote
-            .cache
-            .read()
-            .await
-            .block_by_number(block_number)
-            .is_none());
+        assert!(
+            remote
+                .cache
+                .read()
+                .await
+                .block_by_number(block_number)
+                .is_none()
+        );
     }
 }

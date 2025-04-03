@@ -2,12 +2,12 @@ use std::{str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use edr_eth::{
-    l1::{self, L1ChainSpec},
     Address, Bytes,
+    l1::{self, L1ChainSpec},
 };
 use edr_provider::{
-    hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest, hardhat_rpc_types::ForkConfig,
+    test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;

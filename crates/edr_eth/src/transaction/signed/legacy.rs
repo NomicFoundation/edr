@@ -3,11 +3,11 @@ use std::sync::OnceLock;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 use crate::{
+    Address, B256, Bytes, U256,
     eips::{eip2930, eip7702},
     keccak256,
     signature::{self, Fakeable},
     transaction::{self, ExecutableTransaction, TxKind},
-    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]

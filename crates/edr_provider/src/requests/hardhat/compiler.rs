@@ -4,8 +4,8 @@ use edr_solidity::{
 };
 
 use crate::{
-    data::ProviderData, time::TimeSinceEpoch, ProviderError, ProviderErrorForChainSpec,
-    ProviderSpec,
+    ProviderError, ProviderErrorForChainSpec, ProviderSpec, data::ProviderData,
+    time::TimeSinceEpoch,
 };
 
 pub fn handle_add_compilation_result<

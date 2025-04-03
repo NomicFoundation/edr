@@ -4,7 +4,7 @@ use edr_eth::HashMap;
 use edr_evm::hardfork::{Activations, ChainConfig, ForkCondition};
 pub use op_revm::name;
 
-use crate::{OpSpecId, MAINNET_CHAIN_ID, SEPOLIA_CHAIN_ID};
+use crate::{MAINNET_CHAIN_ID, OpSpecId, SEPOLIA_CHAIN_ID};
 
 // To update the hardforks, refer to the following link:
 // <https://github.com/paradigmxyz/reth/blob/faedf98db3b1c965052b12b1663038a078807780/crates/optimism/hardforks/src/lib.rs>

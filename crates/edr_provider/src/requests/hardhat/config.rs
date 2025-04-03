@@ -2,11 +2,11 @@ use edr_eth::{Address, B256};
 use edr_evm::Block as _;
 
 use crate::{
+    ProviderErrorForChainSpec,
     data::ProviderData,
     requests::{eth::client_version, hardhat::rpc_types::Metadata},
     spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderErrorForChainSpec,
 };
 
 pub fn handle_get_automine_request<

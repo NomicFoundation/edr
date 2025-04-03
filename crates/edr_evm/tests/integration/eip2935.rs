@@ -1,17 +1,17 @@
 use std::collections::BTreeMap;
 
 use edr_eth::{
-    l1::{self, L1ChainSpec},
     Bytecode,
+    l1::{self, L1ChainSpec},
 };
 use edr_evm::{
+    RandomHashGenerator,
     blockchain::{Blockchain, GenesisBlockOptions, LocalBlockchain, LocalCreationError},
     eips::eip2935::{
-        add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
-        HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
+        HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
+        add_history_storage_contract_to_state_diff,
     },
     state::StateDiff,
-    RandomHashGenerator,
 };
 
 fn local_blockchain(
@@ -72,7 +72,7 @@ fn local_blockchain_with_history() -> anyhow::Result<()> {
 mod remote {
     use std::sync::Arc;
 
-    use edr_eth::{bytes, Bytes, HashMap};
+    use edr_eth::{Bytes, HashMap, bytes};
     use edr_evm::{
         blockchain::{ForkedBlockchain, ForkedCreationError},
         state::IrregularState,
@@ -83,7 +83,9 @@ mod remote {
 
     use super::*;
 
-    const HISTORY_STORAGE_BYTECODE: Bytes = bytes!("0x3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500");
+    const HISTORY_STORAGE_BYTECODE: Bytes = bytes!(
+        "0x3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500"
+    );
 
     async fn forked_blockchain(
         irregular_state: &mut IrregularState,

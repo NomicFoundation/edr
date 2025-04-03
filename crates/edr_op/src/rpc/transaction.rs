@@ -1,9 +1,9 @@
 use std::sync::OnceLock;
 
-use edr_eth::{signature::Signature, transaction::MaybeSignedTransaction, B256};
+use edr_eth::{B256, signature::Signature, transaction::MaybeSignedTransaction};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
-    transaction::{remote::EthRpcTransaction, TxKind},
+    transaction::{TxKind, remote::EthRpcTransaction},
 };
 use edr_rpc_eth::{
     RpcTypeFrom, TransactionConversionError as L1ConversionError, TransactionWithSignature,
@@ -11,8 +11,8 @@ use edr_rpc_eth::{
 
 use super::Transaction;
 use crate::{
-    transaction::{self, OpTxTrait as _},
     OpChainSpec, OpSpecId,
+    transaction::{self, OpTxTrait as _},
 };
 
 impl EthRpcTransaction for Transaction {
@@ -80,7 +80,9 @@ impl TryFrom<Transaction> for transaction::Signed {
         {
             Ok(r#type) => r#type,
             Err(r#type) => {
-                log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction");
+                log::warn!(
+                    "Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction"
+                );
 
                 // As the transaction type is not 0 or `None`, this will always result in a
                 // post-EIP 155 legacy transaction.

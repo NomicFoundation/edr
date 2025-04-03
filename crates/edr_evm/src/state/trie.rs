@@ -5,8 +5,8 @@ mod storage_trie;
 mod trie_query;
 
 use edr_eth::{
+    Address, B256, Bytecode, HashMap, U256,
     account::{Account, AccountInfo, KECCAK_EMPTY},
-    Address, Bytecode, HashMap, B256, U256,
 };
 
 pub use self::account::AccountTrie;

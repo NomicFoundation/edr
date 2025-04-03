@@ -1,19 +1,18 @@
 use edr_eth::{
-    address, bytes,
+    Address, Bytes, U256, address, bytes,
     eips::eip7702,
     l1::{self, L1ChainSpec},
     signature::public_key_to_address,
-    Address, Bytes, U256,
 };
 use edr_provider::{
+    MethodInvocation, Provider, ProviderRequest,
     config::OwnedAccount,
     test_utils::{create_test_config, one_ether},
-    MethodInvocation, Provider, ProviderRequest,
 };
 use edr_rpc_eth::TransactionRequest;
-use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
+use edr_test_utils::secret_key::{SecretKey, secret_key_from_str};
 
-use super::{assert_code_at, sign_authorization, CHAIN_ID};
+use super::{CHAIN_ID, assert_code_at, sign_authorization};
 
 static EXPECTED_CODE: Bytes = bytes!("ef01001234567890123456789012345678901234567890");
 
@@ -46,8 +45,12 @@ fn signed_authorization(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_raw_transaction() -> anyhow::Result<()> {
-    static RAW_TRANSACTION1: Bytes = bytes!("0x04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8");
-    static RAW_TRANSACTION2: Bytes = bytes!("0x04f8cc827a6902843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699400000000000000000000000000000000000000000380a06983300e20c4dadecfd39d5648fbd76e30ef9d3ebeee5f559b837a3fb95e339fa02b143d4c80182f623360f97a395f043ba715cc8f4b9780bb9055d903e410813b01a0d5d0729d6c57a9ca983131482c9c629859dedaaeba23ea0eedaa2da1376a71bba001f7456b3a4259421d4fa20ec4611d72549a57f65c83ba7251ee5c153c59a639");
+    static RAW_TRANSACTION1: Bytes = bytes!(
+        "0x04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8"
+    );
+    static RAW_TRANSACTION2: Bytes = bytes!(
+        "0x04f8cc827a6902843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699400000000000000000000000000000000000000000380a06983300e20c4dadecfd39d5648fbd76e30ef9d3ebeee5f559b837a3fb95e339fa02b143d4c80182f623360f97a395f043ba715cc8f4b9780bb9055d903e410813b01a0d5d0729d6c57a9ca983131482c9c629859dedaaeba23ea0eedaa2da1376a71bba001f7456b3a4259421d4fa20ec4611d72549a57f65c83ba7251ee5c153c59a639"
+    );
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let authorized_address = public_key_to_address(secret_key.public_key());

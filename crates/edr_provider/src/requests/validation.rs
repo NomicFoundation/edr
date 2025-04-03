@@ -1,15 +1,15 @@
 use edr_eth::{
+    Address, B256, Blob, BlockSpec, BlockTag, Bytes, MAX_INITCODE_SIZE, PreEip1898BlockSpec,
     eips::{eip2930, eip7702},
     l1,
-    transaction::{pooled::PooledTransaction, ExecutableTransaction},
-    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
+    transaction::{ExecutableTransaction, pooled::PooledTransaction},
 };
 use edr_evm::{spec::RuntimeSpec, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
-    time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
+    ProviderError, SyncProviderSpec, data::ProviderData, error::ProviderErrorForChainSpec,
+    spec::HardforkValidationData, time::TimeSinceEpoch,
 };
 
 impl HardforkValidationData for TransactionRequest {
@@ -254,8 +254,8 @@ fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
         if let Some(max_priority_fee_per_gas) = value.max_priority_fee_per_gas() {
             if max_priority_fee_per_gas > max_fee_per_gas {
                 return Err(ProviderError::InvalidTransactionInput(format!(
-                    "maxPriorityFeePerGas ({max_priority_fee_per_gas}) is bigger than maxFeePerGas ({max_fee_per_gas})"),
-                ));
+                    "maxPriorityFeePerGas ({max_priority_fee_per_gas}) is bigger than maxFeePerGas ({max_fee_per_gas})"
+                )));
             }
         }
     }
@@ -402,7 +402,7 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{l1::L1ChainSpec, U256};
+    use edr_eth::{U256, l1::L1ChainSpec};
 
     use super::*;
 

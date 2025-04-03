@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashSet, mem};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
-use edr_eth::{bytecode::opcode::OpCode, hex, spec::HaltReasonTrait, U256};
+use edr_eth::{U256, bytecode::opcode::OpCode, hex, spec::HaltReasonTrait};
 use semver::{Version, VersionReq};
 
 use crate::{
@@ -14,8 +14,8 @@ use crate::{
     },
     return_data::ReturnData,
     solidity_stack_trace::{
-        SourceReference, StackTraceEntry, CONSTRUCTOR_FUNCTION_NAME, FALLBACK_FUNCTION_NAME,
-        RECEIVE_FUNCTION_NAME,
+        CONSTRUCTOR_FUNCTION_NAME, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, SourceReference,
+        StackTraceEntry,
     },
 };
 
@@ -1082,7 +1082,7 @@ fn get_entry_before_initial_modifier_callstack_entry<HaltReasonT: HaltReasonTrai
             return Ok(StackTraceEntry::CallstackEntry {
                 source_reference: get_constructor_start_source_reference(create)?,
                 function_type: ContractFunctionType::Constructor,
-            })
+            });
         }
         CreateOrCallMessageRef::Call(call) => call,
     };
@@ -1135,7 +1135,7 @@ fn get_entry_before_failure_in_modifier<HaltReasonT: HaltReasonTrait>(
     // call traces, so there should always be at least a function jumpdest.
     let trace = match trace {
         CreateOrCallMessageRef::Call(call) => {
-            return Err(InferrerError::MissingFunctionJumpDest(call.clone()))
+            return Err(InferrerError::MissingFunctionJumpDest(call.clone()));
         }
         CreateOrCallMessageRef::Create(create) => create,
     };
@@ -1158,7 +1158,9 @@ fn get_fallback_start_source_reference<HaltReasonT: HaltReasonTrait>(
 
     let func = match &contract.fallback {
         Some(func) => func,
-        None => panic!("This shouldn't happen: trying to get fallback source reference from a contract without fallback"),
+        None => panic!(
+            "This shouldn't happen: trying to get fallback source reference from a contract without fallback"
+        ),
     };
 
     let location = &func.location;
@@ -1798,13 +1800,11 @@ fn is_subtrace_error_propagated<HaltReasonT: HaltReasonTrait>(
 
     let (call_return_data, call_exit) = match steps.get(call_subtrace_step_index as usize) {
         None | Some(NestedTraceStep::Evm(_)) => panic!("Expected call to be a message trace"),
-        Some(NestedTraceStep::Precompile(ref precompile)) => {
+        Some(NestedTraceStep::Precompile(precompile)) => {
             (precompile.return_data.clone(), precompile.exit.clone())
         }
-        Some(NestedTraceStep::Call(ref call)) => (call.return_data.clone(), call.exit.clone()),
-        Some(NestedTraceStep::Create(ref create)) => {
-            (create.return_data.clone(), create.exit.clone())
-        }
+        Some(NestedTraceStep::Call(call)) => (call.return_data.clone(), call.exit.clone()),
+        Some(NestedTraceStep::Create(create)) => (create.return_data.clone(), create.exit.clone()),
     };
 
     if return_data.as_ref() != call_return_data.as_ref() {

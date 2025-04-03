@@ -631,9 +631,10 @@ fn correct_selectors(
 
             if !fixed_selector {
                 return Err(anyhow::anyhow!(
-                "Failed to fix up the selector for one or more implementations of {}#{}. Hardhat Network can automatically fix this problem if you don't use function overloading.",
-                contract.name, function_name
-              ));
+                    "Failed to fix up the selector for one or more implementations of {}#{}. Hardhat Network can automatically fix this problem if you don't use function overloading.",
+                    contract.name,
+                    function_name
+                ));
             }
         }
     }

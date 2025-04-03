@@ -1,5 +1,5 @@
-use edr_eth::{reward_percentile::RewardPercentile, Address, B256, U256};
-use sha3::{digest::FixedOutput, Digest, Sha3_256};
+use edr_eth::{Address, B256, U256, reward_percentile::RewardPercentile};
+use sha3::{Digest, Sha3_256, digest::FixedOutput};
 
 use super::{
     block_spec::{CacheableBlockSpec, UnresolvedBlockTagError},

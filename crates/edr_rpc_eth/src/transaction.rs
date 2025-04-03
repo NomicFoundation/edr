@@ -3,12 +3,11 @@ mod request;
 use std::{ops::Deref, sync::OnceLock};
 
 use edr_eth::{
-    block,
+    Address, B256, Bytes, U256, block,
     eips::{eip2930, eip7702},
     l1,
     signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
     transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
-    Address, Bytes, B256, U256,
 };
 
 pub use self::request::TransactionRequest;
@@ -488,7 +487,9 @@ impl TryFrom<TransactionWithSignature> for transaction::Signed {
         {
             Ok(r#type) => r#type,
             Err(r#type) => {
-                log::warn!("Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction");
+                log::warn!(
+                    "Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction"
+                );
 
                 // As the transaction type is not 0 or `None`, this will always result in a
                 // post-EIP 155 legacy transaction.

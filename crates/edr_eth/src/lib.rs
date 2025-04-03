@@ -48,10 +48,9 @@ pub mod withdrawal;
 pub use c_kzg::{Blob, Bytes48};
 pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
-    address,
-    alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
-    b256, bytes, hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet,
-    B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
+    Address, B256, Bytes, HashMap, HashSet, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256, address,
+    alloy_primitives::{B64, B512, Bloom, BloomInput, ChainId, U8, U64, U128, U160},
+    b256, bytes, hash_map, hash_set, hex, hex_literal, keccak256,
 };
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};

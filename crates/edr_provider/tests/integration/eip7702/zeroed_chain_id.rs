@@ -1,19 +1,18 @@
 use edr_eth::{
-    address, bytes,
+    Bytes, U256, address, bytes,
     eips::eip7702,
     l1::{self, L1ChainSpec},
     signature::public_key_to_address,
-    Bytes, U256,
 };
 use edr_provider::{
+    MethodInvocation, Provider, ProviderRequest,
     config::OwnedAccount,
     test_utils::{create_test_config, one_ether},
-    MethodInvocation, Provider, ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
-use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
+use edr_test_utils::secret_key::{SecretKey, secret_key_from_str};
 
-use super::{assert_code_at, sign_authorization, CHAIN_ID};
+use super::{CHAIN_ID, assert_code_at, sign_authorization};
 
 static EXPECTED_CODE: Bytes = bytes!("ef01001234567890123456789012345678901234567890");
 
@@ -67,7 +66,9 @@ async fn call() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_raw_transaction() -> anyhow::Result<()> {
-    static RAW_TRANSACTION: Bytes = bytes!("0x04f8ca827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85cf85a809412345678901234567890123456789012345678900101a02f97df52318e2bf310d3f9b823b0ca3b2e55b3bae9d82f025e68f04687810cb6a02d1a680365ebc7252024c7c5b43c2057e32bbef670398bb135f86e0dce225d6f01a066e35eed72225cd5d274b4a6ae5072bc245bd1c9664005e33a85ba217e6715dda014b070f113e9f887246981784ffd79865edcb30856551e5f385a39c7ea3170e3");
+    static RAW_TRANSACTION: Bytes = bytes!(
+        "0x04f8ca827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85cf85a809412345678901234567890123456789012345678900101a02f97df52318e2bf310d3f9b823b0ca3b2e55b3bae9d82f025e68f04687810cb6a02d1a680365ebc7252024c7c5b43c2057e32bbef670398bb135f86e0dce225d6f01a066e35eed72225cd5d274b4a6ae5072bc245bd1c9664005e33a85ba217e6715dda014b070f113e9f887246981784ffd79865edcb30856551e5f385a39c7ea3170e3"
+    );
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let authorized_address = public_key_to_address(secret_key.public_key());

@@ -12,7 +12,7 @@
 
 use alloy_rlp::{BufMut, Encodable};
 
-use crate::{keccak256, B256, U256, U64};
+use crate::{B256, U64, U256, keccak256};
 
 /// RLP-encodes the provided value and prepends it with the provided ID.
 pub fn enveloped<T: Encodable>(id: u8, v: &T, out: &mut dyn BufMut) {

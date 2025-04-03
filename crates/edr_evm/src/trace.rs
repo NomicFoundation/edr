@@ -2,18 +2,18 @@ use std::fmt::Debug;
 
 use derive_where::derive_where;
 use edr_eth::{
+    Address, Bytecode, Bytes, U256,
     bytecode::opcode,
     result::{ExecutionResult, Output},
     spec::HaltReasonTrait,
-    Address, Bytecode, Bytes, U256,
 };
 use revm::Inspector;
 
 use crate::{
     blockchain::BlockHash,
     interpreter::{
-        return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-        EthInterpreter, Interpreter, Jumps as _, MemoryGetter as _, SuccessOrHalt,
+        CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome, EthInterpreter,
+        Interpreter, Jumps as _, MemoryGetter as _, SuccessOrHalt, return_revert,
     },
     journal::{JournalExt, JournalTrait},
     spec::ContextTrait,
@@ -467,16 +467,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 }
 
 impl<
-        BlockchainT: BlockHash<Error: std::error::Error>,
-        ContextT: ContextTrait<
-            Journal: JournalExt
-                         + JournalTrait<
-                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            >,
+    BlockchainT: BlockHash<Error: std::error::Error>,
+    ContextT: ContextTrait<
+        Journal: JournalExt
+                     + JournalTrait<
+            Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
         >,
-        HaltReasonT: HaltReasonTrait,
-        StateT: State<Error: std::error::Error>,
-    > Inspector<ContextT, EthInterpreter> for TraceCollector<HaltReasonT>
+    >,
+    HaltReasonT: HaltReasonTrait,
+    StateT: State<Error: std::error::Error>,
+> Inspector<ContextT, EthInterpreter> for TraceCollector<HaltReasonT>
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
         self.notify_call_start(context.journal(), inputs);

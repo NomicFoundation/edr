@@ -72,7 +72,9 @@ pub fn adjust_stack_trace<HaltReasonT: HaltReasonTrait>(
         source_reference, ..
     }) = stacktrace.last()
     else {
-        unreachable!("This should be only used immediately after we check with `stack_trace_may_require_adjustments` that the last frame is a revert frame");
+        unreachable!(
+            "This should be only used immediately after we check with `stack_trace_may_require_adjustments` that the last frame is a revert frame"
+        );
     };
 
     // Replace the last revert frame with an adjusted frame if needed

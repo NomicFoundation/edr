@@ -1,15 +1,15 @@
-use edr_eth::{block::PartialHeader, Address};
+use edr_eth::{Address, block::PartialHeader};
 use edr_evm::{
+    BlockBuilder, BlockTransactionErrorForChainSpec, EthBlockBuilder, MineBlockResultAndState,
     blockchain::SyncBlockchain,
     config::CfgEnv,
     inspector::Inspector,
     spec::ContextForChainSpec,
     state::{DatabaseComponents, SyncState, WrapDatabaseRef},
-    BlockBuilder, BlockTransactionErrorForChainSpec, EthBlockBuilder, MineBlockResultAndState,
 };
 use op_revm::{L1BlockInfo, OpHaltReason};
 
-use crate::{block::LocalBlock, receipt::BlockReceiptFactory, transaction, OpChainSpec, OpSpecId};
+use crate::{OpChainSpec, OpSpecId, block::LocalBlock, receipt::BlockReceiptFactory, transaction};
 
 /// Block builder for OP.
 pub struct Builder<'blockchain, BlockchainErrorT, StateErrorT> {

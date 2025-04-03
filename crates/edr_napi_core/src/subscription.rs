@@ -1,11 +1,11 @@
 use derive_where::derive_where;
 use edr_eth::B256;
-use edr_provider::{time::CurrentTime, ProviderSpec, SubscriptionEvent};
+use edr_provider::{ProviderSpec, SubscriptionEvent, time::CurrentTime};
 use napi::{
+    JsFunction,
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
-    JsFunction,
 };
 
 #[derive_where(Clone)]
