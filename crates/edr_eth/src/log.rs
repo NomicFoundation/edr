@@ -44,12 +44,10 @@ pub fn matches_topics_filter(log_topics: &[B256], topics_filter: &[Option<Vec<B2
         .iter()
         .zip(log_topics.iter())
         .all(|(normalized_topics, log_topic)| {
-            normalized_topics
-                .as_ref()
-                .map_or(true, |normalized_topics| {
-                    normalized_topics
-                        .iter()
-                        .any(|normalized_topic| *normalized_topic == *log_topic)
-                })
+            normalized_topics.as_ref().is_none_or(|normalized_topics| {
+                normalized_topics
+                    .iter()
+                    .any(|normalized_topic| *normalized_topic == *log_topic)
+            })
         })
 }

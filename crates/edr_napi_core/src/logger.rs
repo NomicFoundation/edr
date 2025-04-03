@@ -740,7 +740,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
                     let is_code_empty = before_message
                         .code
                         .as_ref()
-                        .map_or(true, edr_eth::Bytecode::is_empty);
+                        .is_none_or(edr_eth::Bytecode::is_empty);
 
                     if is_code_empty {
                         if PRINT_INVALID_CONTRACT_WARNING {

@@ -515,7 +515,7 @@ fn is_contract_type(param: &serde_json::Value) -> bool {
         && param
             .pointer("/typeDescriptions/typeString")
             .and_then(serde_json::Value::as_str)
-            .map_or(false, |s| s.starts_with("contract "))
+            .is_some_and(|s| s.starts_with("contract "))
 }
 
 fn is_enum_type(param: &serde_json::Value) -> bool {
@@ -527,7 +527,7 @@ fn is_enum_type(param: &serde_json::Value) -> bool {
         && param
             .pointer("/typeDescriptions/typeString")
             .and_then(serde_json::Value::as_str)
-            .map_or(false, |s| s.starts_with("enum "))
+            .is_some_and(|s| s.starts_with("enum "))
 }
 
 fn is_elementary_type(param: &serde_json::Value) -> bool {
@@ -667,13 +667,7 @@ fn decode_evm_bytecode(
     let immutable_references = compiler_bytecode
         .immutable_references
         .as_ref()
-        .map(|refs| {
-            refs.values()
-                .flatten()
-                .copied()
-                .map(Into::into)
-                .collect::<Vec<_>>()
-        })
+        .map(|refs| refs.values().flatten().copied().collect::<Vec<_>>())
         .unwrap_or_default();
 
     let normalized_code = normalize_compiler_output_bytecode(

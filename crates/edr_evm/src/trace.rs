@@ -424,7 +424,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         >,
     ) {
         // Skip the step
-        let skip_step = self.pending_before.as_ref().map_or(false, |message| {
+        let skip_step = self.pending_before.as_ref().is_some_and(|message| {
             message.code.is_some() && interpreter.bytecode.opcode() == opcode::STOP
         });
 
