@@ -566,7 +566,7 @@ mod tests {
             ).expect("Invalid commitment")],
             vec![c_kzg::Bytes48::from_hex(
                 "86ffb073648261475af77cc902c5189bf3d33d0f63e025f23c69ac1e4cc0a7646e1a59ff8e5600f0fcc35f78fe1a4df2"
-            ).expect("Invalid proof")], c_kzg::ethereum_kzg_settings())?
+            ).expect("Invalid proof")], c_kzg::ethereum_kzg_settings(0))?
         ),
         eip7702 => PooledTransaction::Eip7702(Eip7702 {
             chain_id: 31337,

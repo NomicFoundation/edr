@@ -181,7 +181,8 @@ fn resolve_estimate_gas_request<
     let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
     let transaction = request.fake_sign(sender);
 
-    transaction::validate(transaction, l1::SpecId::LATEST)
+    let hardfork = data.hardfork_at_block_spec(block_spec)?;
+    transaction::validate(transaction, hardfork.into())
         .map_err(ProviderError::TransactionCreationError)
 }
 

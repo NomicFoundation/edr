@@ -1279,6 +1279,20 @@ where
         Ok(cfg)
     }
 
+    /// Retrieves the hardfork at the provided block spec, if it exists.
+    pub fn hardfork_at_block_spec(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<ChainSpecT::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
+        let block_number = self.block_number_by_block_spec(block_spec)?;
+
+        if let Some(block_number) = block_number {
+            self.spec_at_block_number(block_number, block_spec)
+        } else {
+            Ok(self.blockchain.hardfork())
+        }
+    }
+
     fn current_state(
         &mut self,
     ) -> Result<Arc<Box<dyn SyncState<StateError>>>, ProviderErrorForChainSpec<ChainSpecT>> {

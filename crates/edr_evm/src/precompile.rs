@@ -7,7 +7,7 @@ pub use revm::precompile::{
 };
 pub use revm_handler::{EthPrecompiles, PrecompileProvider};
 
-use crate::{config::Cfg, spec::ContextTrait};
+use crate::{config::Cfg, interpreter::InputsImpl, spec::ContextTrait};
 
 /// A precompile provider that allows adding custom or overwriting existing
 /// precompiles.
@@ -67,7 +67,7 @@ impl<
 {
     type Output = InterpreterResult;
 
-    fn set_spec(&mut self, spec: <ContextT::Cfg as Cfg>::Spec) {
+    fn set_spec(&mut self, spec: <ContextT::Cfg as Cfg>::Spec) -> bool {
         self.base.set_spec(spec);
 
         // Update unique addresses
@@ -77,17 +77,22 @@ impl<
             .cloned()
             .chain(self.base.warm_addresses())
             .collect();
+
+        true
     }
 
     fn run(
         &mut self,
         context: &mut ContextT,
         address: &Address,
-        bytes: &edr_eth::Bytes,
+        inputs: &InputsImpl,
+        is_static: bool,
         gas_limit: u64,
     ) -> Result<Option<Self::Output>, String> {
         let Some(precompile) = self.custom_precompiles.get(address) else {
-            return self.base.run(context, address, bytes, gas_limit);
+            return self
+                .base
+                .run(context, address, inputs, is_static, gas_limit);
         };
 
         let mut result = InterpreterResult {
@@ -96,7 +101,7 @@ impl<
             output: Bytes::new(),
         };
 
-        match (*precompile)(bytes, gas_limit) {
+        match (*precompile)(&inputs.input, gas_limit) {
             Ok(output) => {
                 let underflow = result.gas.record_cost(output.gas_used);
                 assert!(underflow, "Gas underflow is not possible");

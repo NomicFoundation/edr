@@ -4,6 +4,7 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use revm::{ExecuteEvm, InspectEvm, Inspector, Journal, precompile::PrecompileFn};
+use revm_context::JournalTr as _;
 
 use crate::{
     blockchain::BlockHash,
@@ -41,7 +42,7 @@ where
     let context = revm::Context {
         block,
         tx: transaction,
-        journaled_state: Journal::new(cfg.spec.into(), database),
+        journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
         error: Ok(()),
@@ -88,7 +89,7 @@ where
     let context = revm::Context {
         block,
         tx: transaction,
-        journaled_state: Journal::new(cfg.spec.into(), database),
+        journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
         error: Ok(()),

@@ -3,7 +3,7 @@ use edr_eth::{
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus},
 };
-use op_alloy_rpc_types::receipt::L1BlockInfo;
+use op_alloy_rpc_types::L1BlockInfo;
 
 use crate::{eip2718::TypedEnvelope, receipt};
 
