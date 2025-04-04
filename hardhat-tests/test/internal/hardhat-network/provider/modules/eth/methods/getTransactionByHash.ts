@@ -13,7 +13,6 @@ import {
   rpcQuantityToBigInt,
   rpcQuantityToNumber,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
-import { TransactionParams } from "hardhat/internal/hardhat-network/provider/node-types";
 import {
   AccessListEIP2930RpcTransactionOutput,
   EIP1559RpcTransactionOutput,
@@ -38,6 +37,7 @@ import {
 import {
   getSignedTxHash,
   sendTransactionFromTxParams,
+  TransactionParams,
 } from "../../../../helpers/transactions";
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
