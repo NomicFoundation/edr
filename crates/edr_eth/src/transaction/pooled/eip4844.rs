@@ -86,13 +86,13 @@ impl Eip4844 {
             });
         }
 
-        let verified = c_kzg::KzgProof::verify_blob_kzg_proof_batch(
-            blobs.as_slice(),
-            commitments.as_slice(),
-            proofs.as_slice(),
-            settings,
-        )
-        .map_err(CreationError::KzgProof)?;
+        let verified = settings
+            .verify_blob_kzg_proof_batch(
+                blobs.as_slice(),
+                commitments.as_slice(),
+                proofs.as_slice(),
+            )
+            .map_err(CreationError::KzgProof)?;
 
         if !verified {
             return Err(CreationError::Unverified);
@@ -358,7 +358,7 @@ impl alloy_rlp::Decodable for Eip4844 {
             blobs,
             commitments,
             proofs,
-            c_kzg::ethereum_kzg_settings(),
+            c_kzg::ethereum_kzg_settings(0),
         )
         .map_err(|_error| {
             alloy_rlp::Error::Custom("Failed to RLP decode Eip4844PooledTransaction.")

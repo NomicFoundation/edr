@@ -62,7 +62,7 @@ async fn create_forked_dummy_blockchain(
         ForkedBlockchain::new(
             tokio::runtime::Handle::current().clone(),
             None,
-            l1::SpecId::LATEST,
+            l1::SpecId::default(),
             Arc::new(rpc_client),
             fork_block_number,
             &mut irregular_state,
@@ -86,7 +86,7 @@ async fn create_dummy_blockchains()
     let local_blockchain = LocalBlockchain::new(
         StateDiff::default(),
         1,
-        l1::SpecId::LATEST,
+        l1::SpecId::default(),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),

@@ -53,7 +53,7 @@ fn to_rpc_l1_block_info(
     l1_block_info: &L1BlockInfo,
     transaction: &transaction::Signed,
     transaction_receipt: &TransactionReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
-) -> Option<op_alloy_rpc_types::receipt::L1BlockInfo> {
+) -> Option<op_alloy_rpc_types::L1BlockInfo> {
     if matches!(
         transaction_receipt.inner,
         TypedEnvelope::Legacy(_) | TypedEnvelope::Deposit(_)
@@ -84,7 +84,7 @@ fn to_rpc_l1_block_info(
             .data_gas(enveloped_tx, hardfork)
             .saturating_add(l1_block_info.l1_fee_overhead.unwrap_or_default());
 
-        let l1_block_info = op_alloy_rpc_types::receipt::L1BlockInfo {
+        let l1_block_info = op_alloy_rpc_types::L1BlockInfo {
             l1_gas_price: Some(
                 l1_block_info
                     .l1_base_fee
@@ -112,6 +112,16 @@ fn to_rpc_l1_block_info(
                 scalar
                     .try_into()
                     .expect("L1 blob base fee scalar cannot be larger than u128::max")
+            }),
+            operator_fee_scalar: l1_block_info.operator_fee_scalar.map(|scalar| {
+                scalar
+                    .try_into()
+                    .expect("Operator fee scalar cannot be larger than u128::max")
+            }),
+            operator_fee_constant: l1_block_info.operator_fee_constant.map(|scalar| {
+                scalar
+                    .try_into()
+                    .expect("Operator fee constant cannot be larger than u128::max")
             }),
         };
 

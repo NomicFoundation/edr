@@ -11,7 +11,7 @@ use edr_evm::{
 use edr_op::{OpChainSpec, hardfork, transaction};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;
-use op_alloy_rpc_types::receipt::L1BlockInfo;
+use op_alloy_rpc_types::L1BlockInfo;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]

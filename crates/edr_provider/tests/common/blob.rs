@@ -35,7 +35,7 @@ impl BlobTransactionBuilder {
             self.blobs,
             self.commitments,
             self.proofs,
-            ethereum_kzg_settings(),
+            ethereum_kzg_settings(0),
         )
         .expect("Invalid blob transaction");
 

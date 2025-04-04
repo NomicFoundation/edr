@@ -4,8 +4,8 @@ version = "0.3.5"
 edition.workspace = true
 
 [dependencies]
-alloy-eips = { version = "0.12.4", default-features = false }
-alloy-serde = { version = "0.12.4", default-features = false, features = ["std"] }
+alloy-eips.workspace = true
+alloy-serde = { workspace = true, features = ["std"] }
 derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_rpc_client = { version = "0.3.5", path = "../edr_rpc_client" }
