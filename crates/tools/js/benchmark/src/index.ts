@@ -65,7 +65,7 @@ async function main() {
   });
   parser.add_argument("-g", "--grep", {
     type: "str",
-    help: "Only execute the scenarios or Solidity tests that contain the given string",
+    help: "Only execute the scenarios or Solidity test paths that contain the given string",
   });
   parser.add_argument("-o", "--benchmark-output", {
     type: "str",
@@ -107,7 +107,7 @@ async function main() {
     await flushStdout();
   } else if (args.command === "solidity-tests") {
     if (args.repo !== undefined) {
-      await runSolidityTests(args.repo);
+      await runSolidityTests(args.repo, args.grep);
     } else {
       await runForgeStdTests(benchmarkOutputPath);
     }

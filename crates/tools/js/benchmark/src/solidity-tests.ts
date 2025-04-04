@@ -60,15 +60,23 @@ const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
 const BRANCH_NAME = "js-benchmark-config-hh-v3";
 
-/// Run Solidity test benchmarks in the `forge-std` at v3 repo
-export async function runSolidityTests(repoPath: string) {
+/// Run Solidity tests in a Hardhat v3 project. Optinally filter paths with grep
+export async function runSolidityTests(repoPath: string, grep?: string) {
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath);
+
+  let ids = testSuiteIds;
+  if (grep !== undefined) {
+    ids = ids.filter((id) => {
+      const fqn = `${id.source}:${id.name}`;
+      return fqn.includes(grep);
+    });
+  }
 
   const start = performance.now();
   const results = await runAllSolidityTests(
     artifacts,
-    testSuiteIds,
+    ids,
     tracingConfig,
     solidityTestsConfig
   );
@@ -76,6 +84,15 @@ export async function runSolidityTests(repoPath: string) {
 
   if (results.length === 0) {
     throw new Error(`Didn't run any tests for ${repoPath}`);
+  }
+
+  results.sort((a, b) => Number(a.durationMs - b.durationMs));
+  for (const result of results) {
+    console.log(result.id.name, result.durationMs, result.id.source);
+    for (const test of result.testResults) {
+      // @ts-ignore
+      console.log("  ", test.name, test.durationMs, test.kind.runs);
+    }
   }
 
   console.log(`Ran ${results.length} tests for ${repoPath} in ${elapsed}ms`);
