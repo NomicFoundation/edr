@@ -7,3 +7,5 @@ To get started, install all dependencies in the root directory:
 ```bash
 pnpm install
 ```
+
+The Rust build may require installing OpenSSL development and build dependencies.
