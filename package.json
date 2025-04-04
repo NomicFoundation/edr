@@ -17,7 +17,7 @@
     },
     "patchedDependencies": {
       "@defi-wonderland/smock@2.4.0": "patches/@defi-wonderland__smock@2.4.0.patch",
-      "hardhat@2.22.18": "patches/hardhat@2.22.18.patch"
+      "hardhat@2.22.19": "patches/hardhat@2.22.19.patch"
     }
   },
   "private": true,

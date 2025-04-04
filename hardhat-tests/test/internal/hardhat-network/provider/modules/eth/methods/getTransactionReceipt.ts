@@ -8,7 +8,6 @@ import {
   numberToRpcQuantity,
   rpcQuantityToNumber,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
-import { TransactionParams } from "hardhat/internal/hardhat-network/provider/node-types";
 import {
   RpcBlockOutput,
   RpcReceiptOutput,
@@ -28,6 +27,7 @@ import {
 import {
   deployContract,
   getSignedTxHash,
+  TransactionParams,
 } from "../../../../helpers/transactions";
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
