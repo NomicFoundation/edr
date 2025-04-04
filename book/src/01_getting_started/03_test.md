@@ -9,7 +9,7 @@ As EDR matures, we will gradually be moving over Hardhat E2E tests to granular u
 
 ## EDR
 
-Part of EDR's test suite requires a working internet connection. Those tests are marked with the `test-remote` feature flag. EDR uses both Alchemy and Infura as Ethereum mainnet providers for its remote tests. This requires their API URLs (including token) to be set in the `ALCHEMY_URL` and `INFURA_URL` environment variables.
+Part of EDR's test suite requires a working internet connection. Those tests are marked with the `test-remote` feature flag. EDR uses both Alchemy and Infura as Ethereum mainnet providers for its remote tests. This requires their API URLs (including token) to be set in the `ALCHEMY_URL` and `INFURA_URL` environment variables (a free tier token should suffice for local development).
 
 To run all tests, including remote tests, execute:
 
