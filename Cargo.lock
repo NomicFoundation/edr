@@ -53,7 +53,7 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.25",
  "alloy-rlp",
- "alloy-serde 0.13.0",
+ "alloy-serde",
  "alloy-trie",
  "auto_impl",
  "c-kzg",
@@ -76,7 +76,7 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.25",
  "alloy-rlp",
- "alloy-serde 0.13.0",
+ "alloy-serde",
  "serde",
 ]
 
@@ -146,7 +146,7 @@ dependencies = [
  "alloy-eip7702",
  "alloy-primitives 0.8.25",
  "alloy-rlp",
- "alloy-serde 0.13.0",
+ "alloy-serde",
  "auto_impl",
  "c-kzg",
  "derive_more 2.0.1",
@@ -176,7 +176,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-primitives 0.8.25",
- "alloy-serde 0.13.0",
+ "alloy-serde",
  "serde",
 ]
 
@@ -264,34 +264,12 @@ dependencies = [
  "alloy-network-primitives",
  "alloy-primitives 0.8.25",
  "alloy-rlp",
- "alloy-serde 0.13.0",
+ "alloy-serde",
  "alloy-sol-types 0.8.22",
  "itertools 0.13.0",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
-]
-
-[[package]]
-name = "alloy-serde"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8732058f5ca28c1d53d241e8504620b997ef670315d7c8afab856b3e3b80d945"
-dependencies = [
- "alloy-primitives 0.8.25",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "alloy-serde"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3aebca035ca670bd7de8165a9494c0d502625e26129dd95d17fdfd70d5521c02"
-dependencies = [
- "alloy-primitives 0.8.25",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -1608,7 +1586,7 @@ version = "0.3.5"
 dependencies = [
  "alloy-eips",
  "alloy-rlp",
- "alloy-serde 0.11.1",
+ "alloy-serde",
  "anyhow",
  "assert-json-diff",
  "auto_impl",
@@ -1692,7 +1670,7 @@ name = "edr_generic"
 version = "0.3.5"
 dependencies = [
  "alloy-rlp",
- "alloy-serde 0.12.4",
+ "alloy-serde",
  "anyhow",
  "derive-where",
  "edr_defaults",
@@ -1771,7 +1749,7 @@ name = "edr_op"
 version = "0.3.5"
 dependencies = [
  "alloy-rlp",
- "alloy-serde 0.12.4",
+ "alloy-serde",
  "anyhow",
  "edr_defaults",
  "edr_eth",
@@ -1799,7 +1777,7 @@ name = "edr_provider"
 version = "0.3.5"
 dependencies = [
  "alloy-dyn-abi",
- "alloy-serde 0.12.4",
+ "alloy-serde",
  "alloy-sol-types 0.8.22",
  "anyhow",
  "auto_impl",
@@ -1869,7 +1847,7 @@ name = "edr_rpc_eth"
 version = "0.3.5"
 dependencies = [
  "alloy-eips",
- "alloy-serde 0.12.4",
+ "alloy-serde",
  "anyhow",
  "assert-json-diff",
  "derive-where",
@@ -1896,7 +1874,7 @@ dependencies = [
 name = "edr_scenarios"
 version = "0.3.5"
 dependencies = [
- "alloy-serde 0.12.4",
+ "alloy-serde",
  "edr_eth",
  "edr_evm",
  "edr_napi_core",
@@ -3121,7 +3099,7 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.25",
  "alloy-rlp",
- "alloy-serde 0.13.0",
+ "alloy-serde",
  "derive_more 2.0.1",
  "serde",
  "thiserror 2.0.12",
@@ -3138,7 +3116,7 @@ dependencies = [
  "alloy-network-primitives",
  "alloy-primitives 0.8.25",
  "alloy-rpc-types-eth",
- "alloy-serde 0.13.0",
+ "alloy-serde",
  "derive_more 2.0.1",
  "op-alloy-consensus",
  "serde",

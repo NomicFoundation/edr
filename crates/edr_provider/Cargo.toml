@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 alloy-dyn-abi = { version = "0.8.22", features = ["eip712"] }
 alloy-sol-types = { version = "0.8.22", default-features = false, features = ["std"] }
-alloy-serde = { version = "0.12.4", default-features = false, features = ["std"] }
+alloy-serde = { workspace = true, features = ["std"] }
 anyhow = { version = "1.0.89", optional = true }
 auto_impl = { version = "1.2", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
