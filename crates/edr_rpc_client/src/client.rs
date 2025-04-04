@@ -845,9 +845,9 @@ mod tests {
         use edr_eth::U64;
         use edr_test_utils::env::get_alchemy_url;
         use futures::future::join_all;
-        use walkdir::WalkDir;
         use hyper::StatusCode;
         use tempfile::TempDir;
+        use walkdir::WalkDir;
 
         use super::*;
 
