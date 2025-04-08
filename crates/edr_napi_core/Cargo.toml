@@ -1,6 +1,6 @@
 [package]
 name = "edr_napi_core"
-version = "0.3.5"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
