@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
     "crates/edr_evm",

@@ -1,0 +1,11 @@
+[package]
+name = "edr_coverage"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_eth = { path = "../edr_eth" }
+edr_evm = { path = "../edr_evm" }
+
+[lints]
+workspace = true
