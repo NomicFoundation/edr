@@ -1574,6 +1574,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_coverage"
+version = "0.3.5"
+dependencies = [
+ "anyhow",
+ "edr_defaults",
+ "edr_eth",
+ "edr_evm",
+ "edr_test_utils",
+]
+
+[[package]]
 name = "edr_defaults"
 version = "0.3.5"
 dependencies = [
@@ -1784,6 +1795,7 @@ dependencies = [
  "cargo_toml",
  "derive-where",
  "dyn-clone",
+ "edr_coverage",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
@@ -4797,7 +4809,7 @@ dependencies = [
 
 [[package]]
 name = "tools"
-version = "0.1.0"
+version = "0.3.5"
 dependencies = [
  "anyhow",
  "cfg-if",

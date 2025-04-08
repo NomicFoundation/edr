@@ -47,10 +47,6 @@ use edr_evm::{
         ForkedCreationError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain,
     },
     config::CfgEnv,
-    debug_trace::{
-        DebugTraceConfig, DebugTraceResultWithTraces, TracerEip3155, debug_trace_transaction,
-        execution_result_to_debug_result,
-    },
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
@@ -58,7 +54,7 @@ use edr_evm::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
         StateOverrides, StateRefOverrider, SyncState,
     },
-    trace::{Trace, TraceCollector},
+    trace::Trace,
     transaction,
 };
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
@@ -79,14 +75,18 @@ use crate::{
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
     },
+    debug_trace::{
+        DebugTraceConfig, DebugTraceResultWithTraces, TracerEip3155, debug_trace_transaction,
+        execution_result_to_debug_result,
+    },
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
         TransactionFailure, TransactionFailureWithTraces,
     },
     filter::{Filter, FilterData, LogFilter, bloom_contains_log_filter, filter_logs},
     logger::SyncLogger,
-    mock::{Mocker, SyncCallOverride},
-    observability::RuntimeObserver,
+    mock::SyncCallOverride,
+    observability::{self, RuntimeObserver},
     pending::BlockchainWithPending,
     requests::hardhat::rpc_types::{ForkConfig, ForkMetadata},
     snapshot::Snapshot,
@@ -188,6 +188,7 @@ pub struct ProviderData<
         Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
+    observability: observability::Config,
     beneficiary: Address,
     custom_precompiles: HashMap<Address, PrecompileFn>,
     min_gas_price: u128,
@@ -206,7 +207,6 @@ pub struct ProviderData<
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT::SignedTransaction>>,
     allow_blocks_with_same_timestamp: bool,
     allow_unlimited_contract_size: bool,
-    verbose_tracing: bool,
     // Skip unsupported transaction types in `debugTraceTransaction` instead of throwing an error
     skip_unsupported_transaction_types: bool,
     // IndexMap to preserve account order for logging.
@@ -218,7 +218,6 @@ pub struct ProviderData<
     impersonated_accounts: HashSet<Address>,
     subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
     timer: TimerT,
-    call_override: Option<Arc<dyn SyncCallOverride>>,
     // We need the Arc to let us avoid returning references to the cache entries which need &mut
     // self to get.
     block_state_cache: LruCache<StateId, Arc<Box<dyn SyncState<StateError>>>>,
@@ -359,7 +358,7 @@ where
     }
 
     pub fn set_call_override_callback(&mut self, call_override: Option<Arc<dyn SyncCallOverride>>) {
-        self.call_override = call_override;
+        self.observability.call_override = call_override;
     }
 
     /// Sets the coinbase.
@@ -368,7 +367,7 @@ where
     }
 
     pub fn set_verbose_tracing(&mut self, verbose_tracing: bool) {
-        self.verbose_tracing = verbose_tracing;
+        self.observability.verbose_raw_tracing = verbose_tracing;
     }
 
     pub fn stop_impersonating_account(&mut self, address: Address) -> bool {
@@ -586,7 +585,6 @@ where
             dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
         >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
-        call_override: Option<Arc<dyn SyncCallOverride>>,
         config: ProviderConfig<ChainSpecT::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
@@ -622,6 +620,8 @@ where
         let is_auto_mining = config.mining.auto_mine;
         let min_gas_price = config.min_gas_price;
 
+        let observability = config.observability.clone();
+
         let skip_unsupported_transaction_types = get_skip_unsupported_transaction_types_from_env();
 
         let parent_beacon_block_root_generator = if let Some(initial_parent_beacon_block_root) =
@@ -649,6 +649,7 @@ where
             blockchain,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
+            observability,
             beneficiary,
             custom_precompiles,
             min_gas_price,
@@ -666,7 +667,6 @@ where
             snapshots: BTreeMap::new(),
             allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size,
-            verbose_tracing: false,
             skip_unsupported_transaction_types,
             local_accounts,
             filters: HashMap::default(),
@@ -675,7 +675,6 @@ where
             impersonated_accounts: HashSet::new(),
             subscriber_callback,
             timer,
-            call_override,
             block_state_cache,
             current_state_id,
             block_number_to_state_id,
@@ -860,7 +859,6 @@ where
             self.runtime_handle.clone(),
             self.logger.clone(),
             self.subscriber_callback.clone(),
-            self.call_override.clone(),
             config,
             // `hardhat_reset` doesn't discard contract metadata added with
             // `hardhat_addCompilationResult`
@@ -1416,18 +1414,20 @@ where
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut debugger = RuntimeObserver::with_mocker(
-            Mocker::new(self.call_override.clone()),
-            self.verbose_tracing,
-        );
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
-        let result = mine_fn(self, &evm_config, options, &mut debugger)?;
+        let result = mine_fn(self, &evm_config, options, &mut runtime_observer)?;
 
         let RuntimeObserver {
+            code_coverage,
             console_logger,
+            mocker: _mocker,
             trace_collector,
-            ..
-        } = debugger;
+        } = runtime_observer;
+
+        if let Some(code_coverage) = code_coverage {
+            code_coverage.report();
+        }
 
         let traces = trace_collector.into_traces();
 
@@ -1736,12 +1736,16 @@ where
     > {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
+        let mut runtime_observer = RuntimeObserver::new(observability::Config {
+            call_override: None,
+            ..self.observability.clone()
+        });
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
-        let mut raw_tracer = TraceCollector::new(self.verbose_tracing);
+
         let custom_precompiles = self.custom_precompiles.clone();
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
-            let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut raw_tracer);
+            let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut runtime_observer);
 
             let result = call::run_call::<_, ChainSpecT, _, _>(
                 blockchain,
@@ -1753,7 +1757,19 @@ where
                 &mut inspector,
             )?;
 
-            let debug_result = execution_result_to_debug_result(result, raw_tracer, eip3155_tracer);
+            let RuntimeObserver {
+                code_coverage,
+                console_logger: _console_logger,
+                mocker: _mocker,
+                trace_collector,
+            } = runtime_observer;
+
+            if let Some(code_coverage) = code_coverage {
+                code_coverage.report();
+            }
+
+            let debug_result =
+                execution_result_to_debug_result(result, trace_collector, eip3155_tracer);
 
             Ok(debug_result)
         })?
@@ -2145,10 +2161,7 @@ where
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let custom_precompiles = self.custom_precompiles.clone();
-        let mut observer = RuntimeObserver::with_mocker(
-            Mocker::new(self.call_override.clone()),
-            self.verbose_tracing,
-        );
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2160,14 +2173,19 @@ where
                 cfg_env,
                 transaction,
                 &custom_precompiles,
-                &mut observer,
+                &mut runtime_observer,
             )?;
 
             let RuntimeObserver {
+                code_coverage,
                 console_logger,
+                mocker: _mocker,
                 trace_collector,
-                ..
-            } = observer;
+            } = runtime_observer;
+
+            if let Some(code_coverage) = code_coverage {
+                code_coverage.report();
+            }
 
             let mut traces = trace_collector.into_traces();
             // Should only have a single raw trace
@@ -2222,7 +2240,7 @@ where
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
-        observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
+        runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2239,7 +2257,7 @@ where
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
             reward,
-            Some(observer),
+            Some(runtime_observer),
         )?;
 
         Ok(result)
@@ -2251,7 +2269,7 @@ where
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
         transaction: ChainSpecT::SignedTransaction,
-        observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
+        runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2267,7 +2285,7 @@ where
             options,
             self.min_gas_price,
             reward,
-            Some(observer),
+            Some(runtime_observer),
         )?;
 
         Ok(result)
@@ -2304,12 +2322,12 @@ where
             self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
             let result = self.mine_and_commit_block_impl(
-                move |provider, config, options, debugger| {
+                move |provider, config, options, runtime_observer| {
                     provider.mine_block_with_single_transaction(
                         config,
                         options,
                         transaction,
-                        debugger,
+                        runtime_observer,
                     )
                 },
                 BlockOptions::default(),
@@ -2416,7 +2434,10 @@ where
 
         let prev_block_number = block.header().number - 1;
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
-        let verbose_tracing = self.verbose_tracing;
+        let observability = observability::Config {
+            call_override: None,
+            ..self.observability.clone()
+        };
 
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
@@ -2431,7 +2452,7 @@ where
                     block_env,
                     transactions,
                     transaction_hash,
-                    verbose_tracing,
+                    observability,
                 )
                 .map_err(ProviderError::DebugTrace)
             },
@@ -2500,10 +2521,7 @@ where
                 .initial_gas;
 
         let custom_precompiles = self.custom_precompiles.clone();
-        let mut observer = RuntimeObserver::with_mocker(
-            Mocker::new(self.call_override.clone()),
-            self.verbose_tracing,
-        );
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -2518,14 +2536,19 @@ where
                 cfg_env.clone(),
                 transaction.clone(),
                 &custom_precompiles,
-                &mut observer,
+                &mut runtime_observer,
             )?;
 
             let RuntimeObserver {
+                code_coverage,
                 console_logger,
+                mocker: _mocker,
                 mut trace_collector,
-                ..
-            } = observer;
+            } = runtime_observer;
+
+            if let Some(code_coverage) = code_coverage {
+                code_coverage.report();
+            }
 
             let mut initial_estimation = match result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),

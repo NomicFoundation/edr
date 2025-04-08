@@ -59,8 +59,7 @@ impl EdrContext {
             };
         }
 
-        let provider_config =
-            try_or_reject_promise!(edr_napi_core::provider::Config::try_from(provider_config));
+        let provider_config = try_or_reject_promise!(provider_config.resolve(&env));
 
         let logger_config = try_or_reject_promise!(logger_config.resolve(&env));
 
