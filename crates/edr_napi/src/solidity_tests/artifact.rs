@@ -71,10 +71,13 @@ pub struct ContractData {
     pub deployed_link_references: Option<HashMap<String, HashMap<String, Vec<LinkReference>>>>,
 }
 
-impl TryFrom<ContractData> for foundry_compilers::artifacts::CompactContractBytecode {
+impl TryFrom<Artifact> for foundry_compilers::artifacts::CompactContractBytecode {
     type Error = napi::Error;
 
-    fn try_from(contract: ContractData) -> napi::Result<Self> {
+    fn try_from(artifact: Artifact) -> napi::Result<Self> {
+        let contract = artifact.contract;
+        let name = &artifact.id.name;
+        let source = &artifact.id.source;
         Ok(foundry_compilers::artifacts::CompactContractBytecode {
             abi: Some(serde_json::from_str(&contract.abi).map_err(|_err| {
                 napi::Error::new(napi::Status::GenericFailure, "Invalid JSON ABI")
@@ -84,7 +87,7 @@ impl TryFrom<ContractData> for foundry_compilers::artifacts::CompactContractByte
                 .map(|bytecode| {
                     let link_references =
                         convert_link_references(contract.link_references.unwrap_or_default());
-                    let object = convert_bytecode(bytecode, !link_references.is_empty())?;
+                    let object = convert_bytecode(name, source, bytecode, !link_references.is_empty())?;
                     Ok::<_, napi::Error>(foundry_compilers::artifacts::CompactBytecode {
                         object,
                         source_map: None,
@@ -98,7 +101,7 @@ impl TryFrom<ContractData> for foundry_compilers::artifacts::CompactContractByte
                     let link_references = convert_link_references(
                         contract.deployed_link_references.unwrap_or_default(),
                     );
-                    let object = convert_bytecode(deployed_bytecode, !link_references.is_empty())?;
+                    let object = convert_bytecode(name, source, deployed_bytecode, !link_references.is_empty())?;
                     let compact_bytecode = foundry_compilers::artifacts::CompactBytecode {
                         object,
                         source_map: None,
@@ -114,11 +117,11 @@ impl TryFrom<ContractData> for foundry_compilers::artifacts::CompactContractByte
     }
 }
 
-impl TryFrom<ContractData> for foundry_compilers::artifacts::CompactContractBytecodeCow<'static> {
+impl TryFrom<Artifact> for foundry_compilers::artifacts::CompactContractBytecodeCow<'static> {
     type Error = napi::Error;
 
-    fn try_from(contract: ContractData) -> napi::Result<Self> {
-        let c: foundry_compilers::artifacts::CompactContractBytecode = contract.try_into()?;
+    fn try_from(artifact: Artifact) -> napi::Result<Self> {
+        let c: foundry_compilers::artifacts::CompactContractBytecode = artifact.try_into()?;
         Ok(foundry_compilers::artifacts::CompactContractBytecodeCow {
             abi: c.abi.map(Cow::Owned),
             bytecode: c.bytecode.map(Cow::Owned),
@@ -149,6 +152,8 @@ fn convert_link_references(
 }
 
 fn convert_bytecode(
+    name: &String,
+    source: &String,
     bytecode: String,
     needs_linking: bool,
 ) -> napi::Result<foundry_compilers::artifacts::BytecodeObject> {
@@ -158,7 +163,7 @@ fn convert_bytecode(
         ))
     } else {
         let bytes = bytecode.parse().map_err(|err| {
-            let message = format!("Hex decoding error while parsing bytecode: '{err}'. Maybe forgot to pass link references for a contract that needs linking?");
+            let message = format!("Hex decoding error while parsing the bytecode of {name} contract from {source}: '{err}'. Maybe forgot to pass link references for a contract that needs linking?");
             napi::Error::from_reason(message)
         })?;
         Ok(foundry_compilers::artifacts::BytecodeObject::Bytecode(

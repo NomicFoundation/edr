@@ -33,7 +33,7 @@ pub(super) async fn build_runner(
 
     let artifact_contracts = artifacts
         .into_iter()
-        .map(|artifact| Ok((artifact.id.try_into()?, artifact.contract.try_into()?)))
+        .map(|artifact| Ok((artifact.id.clone().try_into()?, artifact.try_into()?)))
         .collect::<napi::Result<Vec<_>>>()?;
     let linker = Linker::new(config.project_root.clone(), artifact_contracts);
     let LinkOutput {
