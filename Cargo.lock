@@ -1574,6 +1574,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_coverage"
+version = "0.3.5"
+dependencies = [
+ "edr_eth",
+ "edr_evm",
+]
+
+[[package]]
 name = "edr_defaults"
 version = "0.3.5"
 dependencies = [
