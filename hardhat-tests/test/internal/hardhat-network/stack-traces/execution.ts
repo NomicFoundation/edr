@@ -10,7 +10,7 @@ import { MempoolOrder } from "hardhat/internal/hardhat-network/provider/node-typ
 import { EdrProviderWrapper } from "hardhat/internal/hardhat-network/provider/provider";
 import { LoggerConfig } from "hardhat/internal/hardhat-network/provider/modules/logger";
 import { SolidityStackTrace } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
-import { Response, TracingConfigWithBuffers } from "@nomicfoundation/edr";
+import { Response, TracingConfigWithBuffers } from "@ignored/edr-optimism";
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));
