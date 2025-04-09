@@ -1,16 +1,15 @@
-use edr_eth::{reward_percentile::RewardPercentile, Address, B256, U256};
+use edr_eth::{Address, B256, U256, reward_percentile::RewardPercentile};
 use edr_rpc_client::{
+    RpcMethod,
     cache::{
-        self,
+        self, CacheableMethod,
         block_spec::{
             BlockSpecNotCacheableError, CacheableBlockSpec, PreEip1898BlockSpecNotCacheableError,
             UnresolvedBlockTagError,
         },
         filter::{CacheableLogFilterOptions, LogFilterOptionsNotCacheableError},
         key::{CacheKeyVariant, ReadCacheKey, WriteCacheKey},
-        CacheableMethod,
     },
-    RpcMethod,
 };
 
 use crate::request_methods::RequestMethod;

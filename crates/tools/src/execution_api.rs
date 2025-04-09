@@ -8,7 +8,7 @@ use std::{
 use anyhow::{anyhow, bail};
 use cfg_if::cfg_if;
 
-use crate::update::{project_root, Mode};
+use crate::update::{Mode, project_root};
 
 const EXECUTION_API_DIR: &str = "crates/eth_execution_api";
 const EXECUTION_API_RAW_REPO: &str = "https://raw.githubusercontent.com/ethereum/execution-apis";

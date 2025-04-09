@@ -8,27 +8,29 @@ mod reset;
 mod same_sender_and_authorizer;
 mod zeroed_chain_id;
 
-use std::{convert::Infallible, sync::Arc};
+use std::sync::Arc;
 
 use edr_eth::{
-    address,
+    Address, B256, Bytes, U256, address,
     eips::eip7702,
-    signature::{public_key_to_address, SecretKey, SignatureWithYParity},
-    transaction::{self, EthTransactionRequest},
-    Address, Bytes, SpecId, B256, U256,
+    l1::{self, L1ChainSpec},
+    signature::public_key_to_address,
+    transaction::{self, ExecutableTransaction as _},
 };
 use edr_provider::{
-    test_utils::{create_test_config, one_ether},
+    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
+    config::OwnedAccount,
+    test_utils::{create_test_config, one_ether, sign_authorization},
     time::CurrentTime,
-    AccountConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
 };
+use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
 use tokio::runtime;
 
 const CHAIN_ID: u64 = 0x7a69;
 
-fn assert_code_at(provider: &Provider<Infallible>, address: Address, expected: &Bytes) {
+fn assert_code_at(provider: &Provider<L1ChainSpec>, address: Address, expected: &Bytes) {
     let code: Bytes = {
         let response = provider
             .handle_request(ProviderRequest::Single(MethodInvocation::GetCode(
@@ -42,8 +44,8 @@ fn assert_code_at(provider: &Provider<Infallible>, address: Address, expected: &
     assert_eq!(code, *expected);
 }
 
-fn new_provider(config: ProviderConfig) -> anyhow::Result<Provider<Infallible>> {
-    let logger = Box::new(NoopLogger);
+fn new_provider(config: ProviderConfig<l1::SpecId>) -> anyhow::Result<Provider<L1ChainSpec>> {
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let provider = Provider::new(
@@ -58,21 +60,12 @@ fn new_provider(config: ProviderConfig) -> anyhow::Result<Provider<Infallible>> 
     Ok(provider)
 }
 
-fn sign_authorization(
-    authorization: eip7702::Authorization,
-    secret_key: &SecretKey,
-) -> anyhow::Result<eip7702::SignedAuthorization> {
-    let signature = SignatureWithYParity::with_message(authorization.signature_hash(), secret_key)?;
-
-    Ok(authorization.into_signed(signature.into_inner()))
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn trace_transaction() -> anyhow::Result<()> {
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let sender = public_key_to_address(secret_key.public_key());
 
-    let transaction_request = EthTransactionRequest {
+    let transaction_request = TransactionRequest {
         chain_id: Some(CHAIN_ID),
         nonce: Some(0),
         from: sender,
@@ -85,16 +78,16 @@ async fn trace_transaction() -> anyhow::Result<()> {
             },
             &secret_key,
         )?]),
-        ..EthTransactionRequest::default()
+        ..TransactionRequest::default()
     };
 
     let mut config = create_test_config();
-    config.accounts = vec![AccountConfig {
+    config.accounts = vec![OwnedAccount {
         secret_key,
         balance: one_ether(),
     }];
     config.chain_id = CHAIN_ID;
-    config.hardfork = SpecId::PRAGUE;
+    config.hardfork = l1::SpecId::PRAGUE;
 
     let provider = new_provider(config)?;
 
@@ -120,7 +113,7 @@ async fn get_transaction() -> anyhow::Result<()> {
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let sender = public_key_to_address(secret_key.public_key());
 
-    let transaction_request = EthTransactionRequest {
+    let transaction_request = TransactionRequest {
         chain_id: Some(CHAIN_ID),
         nonce: Some(0),
         from: sender,
@@ -133,16 +126,16 @@ async fn get_transaction() -> anyhow::Result<()> {
             },
             &secret_key,
         )?]),
-        ..EthTransactionRequest::default()
+        ..TransactionRequest::default()
     };
 
     let mut config = create_test_config();
-    config.accounts = vec![AccountConfig {
+    config.accounts = vec![OwnedAccount {
         secret_key,
         balance: one_ether(),
     }];
     config.chain_id = CHAIN_ID;
-    config.hardfork = SpecId::PRAGUE;
+    config.hardfork = l1::SpecId::PRAGUE;
 
     let provider = new_provider(config)?;
 
@@ -158,7 +151,8 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: edr_rpc_eth::Transaction = serde_json::from_value(response.result)?;
+    let transaction: edr_rpc_eth::TransactionWithSignature =
+        serde_json::from_value(response.result)?;
     let transaction = transaction::Signed::try_from(transaction)?;
 
     if let transaction::Signed::Eip7702(transaction) = transaction {

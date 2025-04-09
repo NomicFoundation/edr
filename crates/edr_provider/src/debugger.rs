@@ -1,39 +1,15 @@
-use core::fmt::Debug;
+use edr_eth::spec::HaltReasonTrait;
+use edr_evm::trace::TraceCollector;
 
-use edr_evm::{
-    db::Database,
-    evm::EvmHandler,
-    trace::{register_trace_collector_handles, TraceCollector},
-    GetContextData,
-};
+use crate::{console_log::ConsoleLogCollector, mock::Mocker};
 
-use crate::{
-    console_log::{register_console_log_handles, ConsoleLogCollector},
-    mock::{register_mocking_handles, Mocker},
-};
-
-/// Registers debugger handles.
-pub fn register_debugger_handles<DatabaseT, ContextT>(
-    handler: &mut EvmHandler<'_, ContextT, DatabaseT>,
-) where
-    DatabaseT: Database,
-    DatabaseT::Error: Debug,
-    ContextT: GetContextData<ConsoleLogCollector>
-        + GetContextData<Mocker>
-        + GetContextData<TraceCollector>,
-{
-    register_console_log_handles(handler);
-    register_mocking_handles(handler);
-    register_trace_collector_handles(handler);
-}
-
-pub struct Debugger {
+pub struct Debugger<HaltReasonT: HaltReasonTrait> {
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
-    pub trace_collector: TraceCollector,
+    pub trace_collector: TraceCollector<HaltReasonT>,
 }
 
-impl Debugger {
+impl<HaltReasonT: HaltReasonTrait> Debugger<HaltReasonT> {
     /// Creates a new instance with the provided mocker.
     /// If verbose is true, full stack and memory will be recorded for each
     /// step.
@@ -43,23 +19,5 @@ impl Debugger {
             mocker,
             trace_collector: TraceCollector::new(verbose),
         }
-    }
-}
-
-impl GetContextData<ConsoleLogCollector> for Debugger {
-    fn get_context_data(&mut self) -> &mut ConsoleLogCollector {
-        &mut self.console_logger
-    }
-}
-
-impl GetContextData<Mocker> for Debugger {
-    fn get_context_data(&mut self) -> &mut Mocker {
-        &mut self.mocker
-    }
-}
-
-impl GetContextData<TraceCollector> for Debugger {
-    fn get_context_data(&mut self) -> &mut TraceCollector {
-        &mut self.trace_collector
     }
 }

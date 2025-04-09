@@ -1,6 +1,6 @@
 use edr_eth::{
-    filter::LogFilterOptions, reward_percentile::RewardPercentile, Address, BlockSpec,
-    PreEip1898BlockSpec, B256, U256,
+    Address, B256, BlockSpec, PreEip1898BlockSpec, U256, filter::LogFilterOptions,
+    reward_percentile::RewardPercentile,
 };
 
 /// Methods for requests to a remote Ethereum node. Only contains methods

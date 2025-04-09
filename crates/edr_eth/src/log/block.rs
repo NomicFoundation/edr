@@ -28,13 +28,13 @@ pub struct FullBlockLog {
     // https://github.com/NomicFoundation/hardhat/blob/7d25b1b5a7bfbd7e7fabbf540b0f32186cba2b11/packages/hardhat-core/src/internal/hardhat-network/provider/output.ts#L120
     pub block_hash: B256,
     /// block number
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub block_number: u64,
     /// Index of the log within the block
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub log_index: u64,
     /// Index of the transaction within the block
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub transaction_index: u64,
 }
 
@@ -77,13 +77,13 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::{log::Log, Address, Bytes};
+    use crate::{Address, Bytes, log::ExecutionLog};
 
     #[test]
     fn test_block_log_full_serde() -> anyhow::Result<()> {
         let log = BlockLog::Full(FullBlockLog {
             inner: ReceiptLog {
-                inner: Log::new_unchecked(
+                inner: ExecutionLog::new_unchecked(
                     Address::from_str("0000000000000000000000000000000000000011")?,
                     vec![
                         B256::from_str(
@@ -118,7 +118,7 @@ mod tests {
     #[test]
     fn test_block_log_partial_serde() -> anyhow::Result<()> {
         let log = BlockLog::Partial(ReceiptLog {
-            inner: Log::new_unchecked(
+            inner: ExecutionLog::new_unchecked(
                 Address::from_str("0000000000000000000000000000000000000011").unwrap(),
                 vec![
                     B256::from_str(

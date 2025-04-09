@@ -1,17 +1,20 @@
-use core::{convert::Infallible, str::FromStr as _};
+use core::str::FromStr as _;
 use std::sync::Arc;
 
-use edr_eth::{address, Bytes, SpecId};
+use edr_eth::{
+    Bytes, address,
+    l1::{self, L1ChainSpec},
+};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest, test_utils::create_test_config,
+    time::CurrentTime,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
-fn new_provider(hardfork: SpecId) -> anyhow::Result<Provider<Infallible>> {
-    let logger = Box::new(NoopLogger);
+fn new_provider(hardfork: l1::SpecId) -> anyhow::Result<Provider<L1ChainSpec>> {
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config();
@@ -30,7 +33,7 @@ fn new_provider(hardfork: SpecId) -> anyhow::Result<Provider<Infallible>> {
     Ok(provider)
 }
 
-fn send_call(provider: &Provider<Infallible>, call_request: CallRequest) -> anyhow::Result<Bytes> {
+fn send_call(provider: &Provider<L1ChainSpec>, call_request: CallRequest) -> anyhow::Result<Bytes> {
     let response = provider
         .handle_request(ProviderRequest::Single(MethodInvocation::Call(
             call_request,
@@ -52,7 +55,7 @@ macro_rules! impl_precompile_activated_in_prague_test {
             paste::item! {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<$name _inactive_before_prague>]() -> anyhow::Result<()> {
-                    let provider = new_provider(SpecId::CANCUN)?;
+                    let provider = new_provider(l1::SpecId::CANCUN)?;
 
                     let output = send_call(&provider, $call_request)?;
                     assert_eq!(output, Bytes::new());
@@ -62,7 +65,7 @@ macro_rules! impl_precompile_activated_in_prague_test {
 
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<$name _active_after_prague>]() -> anyhow::Result<()> {
-                    let provider = new_provider(SpecId::PRAGUE)?;
+                    let provider = new_provider(l1::SpecId::PRAGUE)?;
 
                     let output = send_call(&provider, $call_request)?;
                     assert_eq!(output, $expected_output);

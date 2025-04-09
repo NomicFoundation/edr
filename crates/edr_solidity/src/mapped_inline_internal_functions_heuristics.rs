@@ -16,7 +16,7 @@
 //! occur, we now start from complete stack traces and adjust them if we can
 //! provide more meaningful errors.
 
-use edr_evm::interpreter::OpCode;
+use edr_eth::{bytecode::opcode::OpCode, spec::HaltReasonTrait};
 use semver::Version;
 
 use crate::{
@@ -35,9 +35,9 @@ pub enum HeuristicsError {
     MissingContract,
 }
 
-pub fn stack_trace_may_require_adjustments(
+pub fn stack_trace_may_require_adjustments<HaltReasonT: HaltReasonTrait>(
     stacktrace: &[StackTraceEntry],
-    decoded_trace: CreateOrCallMessageRef<'_>,
+    decoded_trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<bool, HeuristicsError> {
     let contract_meta = decoded_trace
         .contract_meta()
@@ -64,15 +64,17 @@ pub fn stack_trace_may_require_adjustments(
     Ok(false)
 }
 
-pub fn adjust_stack_trace(
+pub fn adjust_stack_trace<HaltReasonT: HaltReasonTrait>(
     mut stacktrace: Vec<StackTraceEntry>,
-    decoded_trace: CreateOrCallMessageRef<'_>,
+    decoded_trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<Vec<StackTraceEntry>, HeuristicsError> {
     let Some(StackTraceEntry::RevertError {
         source_reference, ..
     }) = stacktrace.last()
     else {
-        unreachable!("This should be only used immediately after we check with `stack_trace_may_require_adjustments` that the last frame is a revert frame");
+        unreachable!(
+            "This should be only used immediately after we check with `stack_trace_may_require_adjustments` that the last frame is a revert frame"
+        );
     };
 
     // Replace the last revert frame with an adjusted frame if needed
@@ -107,8 +109,8 @@ pub fn adjust_stack_trace(
     Ok(stacktrace)
 }
 
-fn is_non_contract_account_called_error(
-    decoded_trace: CreateOrCallMessageRef<'_>,
+fn is_non_contract_account_called_error<HaltReasonT: HaltReasonTrait>(
+    decoded_trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<bool, HeuristicsError> {
     match_opcodes(
         decoded_trace,
@@ -122,23 +124,23 @@ fn is_non_contract_account_called_error(
     )
 }
 
-fn is_constructor_invalid_params_error(
-    decoded_trace: CreateOrCallMessageRef<'_>,
+fn is_constructor_invalid_params_error<HaltReasonT: HaltReasonTrait>(
+    decoded_trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<bool, HeuristicsError> {
     Ok(match_opcodes(decoded_trace, -20, &[OpCode::CODESIZE])?
         && match_opcodes(decoded_trace, -15, &[OpCode::CODECOPY])?
         && match_opcodes(decoded_trace, -7, &[OpCode::LT, OpCode::ISZERO])?)
 }
 
-fn is_call_invalid_params_error(
-    decoded_trace: CreateOrCallMessageRef<'_>,
+fn is_call_invalid_params_error<HaltReasonT: HaltReasonTrait>(
+    decoded_trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<bool, HeuristicsError> {
     Ok(match_opcodes(decoded_trace, -11, &[OpCode::CALLDATASIZE])?
         && match_opcodes(decoded_trace, -7, &[OpCode::LT, OpCode::ISZERO])?)
 }
 
-fn match_opcodes(
-    decoded_trace: CreateOrCallMessageRef<'_>,
+fn match_opcodes<HaltReasonT: HaltReasonTrait>(
+    decoded_trace: CreateOrCallMessageRef<'_, HaltReasonT>,
     first_step_index: i32,
     opcodes: &[OpCode],
 ) -> Result<bool, HeuristicsError> {
