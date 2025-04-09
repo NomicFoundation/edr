@@ -405,6 +405,104 @@ describe("Provider", () => {
       const rawTraces = traceCallResponse.traces;
       assert.lengthOf(rawTraces, 1);
     });
+
+    it("should have its JSON-RPC format normalised when debug_traceTransaction is used", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        {},
+        (_event: SubscriptionEvent) => {}
+      );
+
+      const sendTxResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      let responseData;
+
+      if (typeof sendTxResponse.data === "string") {
+        responseData = JSON.parse(sendTxResponse.data);
+      } else {
+        responseData = sendTxResponse.data;
+      }
+
+      const txHash = responseData.result;
+
+      const traceTransactionResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceTransaction",
+          params: [txHash],
+        })
+      );
+
+      let edrTrace;
+      if (typeof traceTransactionResponse.data === "string") {
+        edrTrace = JSON.parse(traceTransactionResponse.data).result;
+      } else {
+        edrTrace = traceTransactionResponse.data.result;
+      }
+
+      assertJsonRpcFormatNormalised(edrTrace);
+    });
+
+    it("should have its JSON-RPC format normalised when debug_traceCall is used", async function () {
+      const provider = await Provider.withConfig(
+        context,
+        providerConfig,
+        loggerConfig,
+        {},
+        (_event: SubscriptionEvent) => {}
+      );
+
+      const traceCallResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "debug_traceCall",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0x42
+              // PUSH0
+              // MSTORE
+              // PUSH1 0x20
+              // PUSH0
+              // RETURN
+              data: "0x60425f5260205ff3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      let edrTrace;
+      if (typeof traceCallResponse.data === "string") {
+        edrTrace = JSON.parse(traceCallResponse.data).result;
+      } else {
+        edrTrace = traceCallResponse.data.result;
+      }
+      assertJsonRpcFormatNormalised(edrTrace);
+    });
   });
 });
 
@@ -414,4 +512,49 @@ function assertEqualMemory(stepMemory: Buffer | undefined, expected: Buffer) {
   }
 
   assert.isTrue(stepMemory.equals(expected));
+}
+
+function assertJsonRpcFormatNormalised(trace: any) {
+  assert.isBoolean(trace.failed);
+  assert.typeOf(trace.gas, "number");
+  assert.isString(trace.returnValue);
+  assert.isArray(trace.structLogs);
+
+  trace.structLogs.forEach((log: any) => {
+    assert.typeOf(log.pc, "number");
+    assert.typeOf(log.op, "string");
+    assert.typeOf(log.gas, "number");
+    assert.typeOf(log.gasCost, "number");
+    assert.typeOf(log.depth, "number");
+    assert.typeOf(log.memSize, "number");
+
+    if ("stack" in log) {
+      assert.isArray(log.stack);
+      log.stack?.forEach((item: any) => {
+        assert.isString(item);
+        // assert.isFalse(item.startsWith("0x"));
+      });
+    }
+
+    if ("memory" in log) {
+      assert.isArray(log.memory);
+      log.memory?.forEach((item: any) => {
+        assert.isString(item);
+      });
+    }
+
+    if ("storage" in log) {
+      assert.isObject(log.storage);
+      Object.entries(log.storage!).forEach(([key, value]) => {
+        assert.isString(key);
+        assert.isString(value);
+        // assert.isFalse(key.startsWith("0x"));
+        // assert.isFalse(value.startsWith("0x"));
+      });
+    }
+
+    if ("error" in log) {
+      assert.isString(log.error);
+    }
+  });
 }
