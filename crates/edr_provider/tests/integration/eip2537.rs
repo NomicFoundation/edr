@@ -1,3 +1,5 @@
+#![cfg(feature = "test-utils")]
+
 use core::str::FromStr as _;
 use std::sync::Arc;
 

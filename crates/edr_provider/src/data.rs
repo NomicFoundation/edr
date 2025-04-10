@@ -1419,10 +1419,15 @@ where
         let result = mine_fn(self, &evm_config, options, &mut runtime_observer)?;
 
         let RuntimeObserver {
+            code_coverage,
             console_logger,
             trace_collector,
             ..
         } = runtime_observer;
+
+        if let Some(code_coverage) = code_coverage {
+            code_coverage.report();
+        }
 
         let traces = trace_collector.into_traces();
 
@@ -2155,7 +2160,7 @@ where
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let custom_precompiles = self.custom_precompiles.clone();
-        let mut observer = RuntimeObserver::new(self.observability.clone());
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2167,7 +2172,7 @@ where
                 cfg_env,
                 transaction,
                 &custom_precompiles,
-                &mut observer,
+                &mut runtime_observer,
             )?;
 
             let RuntimeObserver {
@@ -2175,7 +2180,7 @@ where
                 console_logger,
                 trace_collector,
                 ..
-            } = observer;
+            } = runtime_observer;
 
             if let Some(code_coverage) = code_coverage {
                 code_coverage.report();
@@ -2234,7 +2239,7 @@ where
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
-        observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
+        runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2251,7 +2256,7 @@ where
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
             reward,
-            Some(observer),
+            Some(runtime_observer),
         )?;
 
         Ok(result)
@@ -2263,7 +2268,7 @@ where
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
         transaction: ChainSpecT::SignedTransaction,
-        observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
+        runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2279,7 +2284,7 @@ where
             options,
             self.min_gas_price,
             reward,
-            Some(observer),
+            Some(runtime_observer),
         )?;
 
         Ok(result)
@@ -2316,12 +2321,12 @@ where
             self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
             let result = self.mine_and_commit_block_impl(
-                move |provider, config, options, debugger| {
+                move |provider, config, options, runtime_observer| {
                     provider.mine_block_with_single_transaction(
                         config,
                         options,
                         transaction,
-                        debugger,
+                        runtime_observer,
                     )
                 },
                 BlockOptions::default(),
@@ -2515,7 +2520,7 @@ where
                 .initial_gas;
 
         let custom_precompiles = self.custom_precompiles.clone();
-        let mut observer = RuntimeObserver::new(self.observability.clone());
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -2530,14 +2535,19 @@ where
                 cfg_env.clone(),
                 transaction.clone(),
                 &custom_precompiles,
-                &mut observer,
+                &mut runtime_observer,
             )?;
 
             let RuntimeObserver {
+                code_coverage,
                 console_logger,
                 mut trace_collector,
                 ..
-            } = observer;
+            } = runtime_observer;
+
+            if let Some(code_coverage) = code_coverage {
+                code_coverage.report();
+            }
 
             let mut initial_estimation = match result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),

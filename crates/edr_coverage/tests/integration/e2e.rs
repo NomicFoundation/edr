@@ -18,7 +18,8 @@ use edr_test_utils::secret_key::secret_key_from_str;
 
 const CHAIN_ID: u64 = 31337;
 
-const INCREMENT_DEPLOYED_BYTECODE: &str = include_str!("../data/deployed_bytecode/increment.in");
+const INCREMENT_DEPLOYED_BYTECODE: &str =
+    include_str!("../../../../data/deployed_bytecode/increment.in");
 
 fn deploy_contract(
     blockchain: &LocalBlockchain<L1ChainSpec>,

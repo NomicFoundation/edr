@@ -1,3 +1,5 @@
+#![cfg(feature = "test-utils")]
+
 use std::sync::Arc;
 
 use edr_eth::{
