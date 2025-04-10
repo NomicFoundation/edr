@@ -72,6 +72,7 @@ describe("Multi-chain", () => {
         balance: 1000n * 10n ** 18n,
       },
     ],
+    observability: {},
   };
 
   const loggerConfig = {
