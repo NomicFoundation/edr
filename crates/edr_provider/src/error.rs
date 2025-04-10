@@ -17,7 +17,6 @@ use edr_eth::{
 use edr_evm::{
     MemPoolAddTransactionError, MineBlockError, MineTransactionError,
     blockchain::{BlockchainError, ForkedCreationError, LocalCreationError},
-    debug_trace::DebugTraceError,
     spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
@@ -27,7 +26,10 @@ use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
-use crate::{ProviderSpec, config::IntervalConfigConversionError, time::TimeSinceEpoch};
+use crate::{
+    ProviderSpec, config::IntervalConfigConversionError, debug_trace::DebugTraceError,
+    time::TimeSinceEpoch,
+};
 
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<

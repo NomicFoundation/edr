@@ -5,7 +5,10 @@ use edr_evm::{MineOrdering, hardfork, state::EvmStorage};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::requests::{IntervalConfig as IntervalConfigRequest, hardhat::rpc_types::ForkConfig};
+use crate::{
+    observability,
+    requests::{IntervalConfig as IntervalConfigRequest, hardhat::rpc_types::ForkConfig},
+};
 
 /// Configuration of an account and its storage.
 ///
@@ -114,6 +117,7 @@ pub struct Provider<HardforkT> {
     pub min_gas_price: u128,
     pub mining: Mining,
     pub network_id: u64,
+    pub observability: observability::Config,
 }
 
 /// Configuration input for a single account

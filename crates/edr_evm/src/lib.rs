@@ -19,8 +19,6 @@ pub mod blockchain;
 pub(crate) mod collections;
 /// Types for configuring the runtime.
 pub mod config;
-/// Types for generating a EIP-3155 trace.
-pub mod debug_trace;
 /// Types and constants for Ethereum improvements proposals (EIPs)
 pub mod eips;
 /// Types for interfacing with the evm.
