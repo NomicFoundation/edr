@@ -4,7 +4,7 @@ use edr_eth::BlockSpec;
 use edr_op::{OpChainSpec, OpSpecId};
 use edr_provider::test_utils::ProviderTestFixture;
 
-use crate::integration::{mainnet_url, sepolia_url};
+use crate::integration::{op, base};
 
 macro_rules! impl_test_hardfork_activation {
     ($($net:ident: $url:expr => {
@@ -35,7 +35,7 @@ macro_rules! impl_test_hardfork_activation {
 
 // Block numbers were determined using `cast find-block <timestamp>`
 impl_test_hardfork_activation! {
-    mainnet: mainnet_url() => {
+    op_mainnet: op::mainnet_url() => {
         regolith: 105_235_063 => OpSpecId::REGOLITH,
         canyon: 114_696_812 => OpSpecId::CANYON,
         ecotone: 117_387_812 => OpSpecId::ECOTONE,
@@ -43,7 +43,24 @@ impl_test_hardfork_activation! {
         granite: 125_235_812 => OpSpecId::GRANITE,
         holocene: 130_423_412 => OpSpecId::HOLOCENE,
     },
-    sepolia: sepolia_url() => {
+    op_sepolia: op::sepolia_url() => {
+        regolith: 0 => OpSpecId::REGOLITH,
+        canyon: 4_089_330 => OpSpecId::CANYON,
+        ecotone: 8_366_130 => OpSpecId::ECOTONE,
+        fjord: 12_597_930 => OpSpecId::FJORD,
+        granite: 15_837_930 => OpSpecId::GRANITE,
+        holocene: 20_415_330 => OpSpecId::HOLOCENE,
+    },
+
+    base_mainnet: base::mainnet_url() => {
+        regolith: 105_235_063 => OpSpecId::REGOLITH,
+        canyon: 114_696_812 => OpSpecId::CANYON,
+        ecotone: 117_387_812 => OpSpecId::ECOTONE,
+        fjord: 122_514_212 => OpSpecId::FJORD,
+        granite: 125_235_812 => OpSpecId::GRANITE,
+        holocene: 130_423_412 => OpSpecId::HOLOCENE,
+    },
+    base_sepolia: base::sepolia_url() => {
         regolith: 0 => OpSpecId::REGOLITH,
         canyon: 4_089_330 => OpSpecId::CANYON,
         ecotone: 8_366_130 => OpSpecId::ECOTONE,
