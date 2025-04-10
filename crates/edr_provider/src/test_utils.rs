@@ -22,6 +22,7 @@ use crate::{
     MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderRequest,
     ProviderSpec, SyncProviderSpec, config,
     error::ProviderErrorForChainSpec,
+    observability,
     requests::hardhat::rpc_types::ForkConfig,
     time::{CurrentTime, TimeSinceEpoch},
 };
@@ -78,6 +79,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         bail_on_transaction_failure: false,
         // SAFETY: literal is non-zero
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
+        cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_id: 123,
         chains: HashMap::new(),
         coinbase: Address::from(U160::from(1)),
@@ -95,7 +97,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         min_gas_price: 0,
         mining: config::Mining::default(),
         network_id: 123,
-        cache_dir: edr_defaults::CACHE_DIR.into(),
+        observability: observability::Config::default(),
     }
 }
 
@@ -218,7 +220,6 @@ where
             runtime.handle().clone(),
             logger,
             subscription_callback_noop,
-            None,
             config.clone(),
             Arc::<ContractDecoder>::default(),
             CurrentTime,

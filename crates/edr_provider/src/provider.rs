@@ -109,7 +109,6 @@ impl<
             runtime.clone(),
             logger,
             subscriber_callback,
-            None,
             config.clone(),
             contract_decoder,
             timer,

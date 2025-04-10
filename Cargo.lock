@@ -1795,6 +1795,7 @@ dependencies = [
  "cargo_toml",
  "derive-where",
  "dyn-clone",
+ "edr_coverage",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
