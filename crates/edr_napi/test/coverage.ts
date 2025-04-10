@@ -106,7 +106,7 @@ describe("Code coverage", () => {
   };
 
   describe("eth_sendTransaction", function () {
-    it.only("should report code coverage hits", async function () {
+    it("should report code coverage hits", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
