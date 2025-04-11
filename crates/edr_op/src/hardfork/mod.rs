@@ -4,7 +4,12 @@ use edr_eth::HashMap;
 use edr_evm::hardfork::{Activations, ChainConfig};
 pub use op_revm::name;
 
-use crate::{chains, OpSpecId};
+use crate::OpSpecId;
+
+/// OP chain configs
+pub mod op;
+/// Base chain configs
+pub mod base;
 
 // Source:
 // <https://docs.optimism.io/builders/node-operators/network-upgrades>
@@ -14,11 +19,11 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<OpSpecId>> {
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
 
-        hardforks.insert(chains::OP_MAINNET_CHAIN_ID, &*chains::OP_MAINNET_CONFIG);
-        hardforks.insert(chains::OP_SEPOLIA_CHAIN_ID, &*chains::OP_SEPOLIA_CONFIG);
+        hardforks.insert(op::MAINNET_CHAIN_ID, &*op::MAINNET_CONFIG);
+        hardforks.insert(op::SEPOLIA_CHAIN_ID, &*op::SEPOLIA_CONFIG);
 
-        hardforks.insert(chains::BASE_MAINNET_CHAIN_ID, &*chains::BASE_MAINNET_CONFIG);
-        hardforks.insert(chains::BASE_SEPOLIA_CHAIN_ID, &*chains::BASE_SEPOLIA_CONFIG);
+        hardforks.insert(base::MAINNET_CHAIN_ID, &*base::MAINNET_CONFIG);
+        hardforks.insert(base::SEPOLIA_CHAIN_ID, &*base::SEPOLIA_CONFIG);
 
         hardforks
     })

@@ -22,9 +22,6 @@ pub use self::spec::OpChainSpec;
 /// OP transaction types
 pub mod transaction;
 
-/// OP Stack chains
-pub mod chains;
-
 use edr_eth::U256;
 pub use op_revm::{OpHaltReason, OpSpecId};
 
@@ -32,10 +29,10 @@ pub use op_revm::{OpHaltReason, OpSpecId};
 pub const CHAIN_TYPE: &str = "op";
 
 /// OP Mainnet chain ID
-pub const MAINNET_CHAIN_ID: u64 = chains::OP_MAINNET_CHAIN_ID;
+pub const MAINNET_CHAIN_ID: u64 = hardfork::op::MAINNET_CHAIN_ID;
 
 /// OP Sepolia chain ID
-pub const SEPOLIA_CHAIN_ID: u64 = chains::OP_SEPOLIA_CHAIN_ID;
+pub const SEPOLIA_CHAIN_ID: u64 = hardfork::op::SEPOLIA_CHAIN_ID;
 
 /// Helper type for constructing an [`op_revm::L1BlockInfo`].
 ///
