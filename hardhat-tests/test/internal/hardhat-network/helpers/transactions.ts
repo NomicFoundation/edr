@@ -7,7 +7,7 @@ import {
 
 import { numberToRpcQuantity } from "hardhat/internal/core/jsonrpc/types/base-types";
 import { RpcTransactionRequestInput } from "hardhat/internal/core/jsonrpc/types/input/transactionRequest";
-import { EIP1193Provider, EthereumProvider } from "hardhat/types";
+import { EthereumProvider } from "hardhat/types";
 
 import {
   DEFAULT_ACCOUNTS,
@@ -15,7 +15,7 @@ import {
   DEFAULT_BLOCK_GAS_LIMIT,
 } from "./providers";
 import { getPendingBaseFeePerGas } from "./getPendingBaseFeePerGas";
-import { retrieveCommon } from "./retrieveCommon";
+import { makeCommon } from "./makeCommon";
 
 export type AccessListBufferItem = [Uint8Array, Uint8Array[]];
 
@@ -133,12 +133,14 @@ export async function sendTransactionFromTxParams(
 }
 
 export async function getSignedTxHash(
-  hardhatNetworkProvider: EIP1193Provider,
+  provider: EthereumProvider,
   txParams: TransactionParams,
   signerAccountIndex: number
 ) {
+  const common = await makeCommon(provider);
+
   const txToSign = new LegacyTransaction(txParams, {
-    common: await retrieveCommon(hardhatNetworkProvider),
+    common,
   });
 
   const signedTx = txToSign.sign(
