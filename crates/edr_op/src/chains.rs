@@ -1,6 +1,3 @@
-// To update the hardforks, refer to the following link:
-// <https://github.com/paradigmxyz/reth/blob/faedf98db3b1c965052b12b1663038a078807780/crates/optimism/hardforks/src/lib.rs>
-
 use std::sync::LazyLock;
 
 use edr_evm::hardfork::{Activations, ChainConfig, ForkCondition};
@@ -10,6 +7,8 @@ use op_revm::OpSpecId;
 pub const OP_MAINNET_CHAIN_ID: u64 = 0xa;
 
 /// OP Mainnet chain config
+///
+/// https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/mainnet/op.toml
 pub static OP_MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "op-mainnet".into(),
     hardfork_activations: Activations::new(vec![
@@ -27,6 +26,8 @@ pub static OP_MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(||
 pub const OP_SEPOLIA_CHAIN_ID: u64 = 0xaa37dc;
 
 /// OP Sepolia chain config
+///
+/// https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/sepolia/op.toml
 pub static OP_SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "op-sepolia".into(),
     hardfork_activations: Activations::new(vec![
