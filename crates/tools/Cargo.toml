@@ -1,10 +1,10 @@
 [package]
 name = "tools"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = { version = "1.0.89" }
+anyhow.workspace = true
 cfg-if = "1.0.0"
 clap = { version = "3.2.20", features = ["derive"] }
 derive-where = { version = "1.2.7", default-features = false }

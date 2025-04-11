@@ -79,6 +79,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             min_gas_price: value.min_gas_price,
             mining: value.mining,
             network_id: value.network_id,
+            observability: edr_provider::observability::Config::default(),
         }
     }
 }

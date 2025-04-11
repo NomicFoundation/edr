@@ -45,7 +45,7 @@ impl EdrContext {
         subscription_config: SubscriptionConfig,
         tracing_config: TracingConfigWithBuffers,
     ) -> napi::Result<JsObject> {
-        let provider_config = edr_napi_core::provider::Config::try_from(provider_config)?;
+        let provider_config = provider_config.resolve(&env)?;
         let logger_config = logger_config.resolve(&env)?;
 
         // TODO: https://github.com/NomicFoundation/edr/issues/760
