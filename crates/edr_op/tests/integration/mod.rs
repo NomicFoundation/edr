@@ -1,10 +1,9 @@
-#![cfg(feature = "test-remote")]
-
 mod full_block;
 mod hardfork_activation;
 mod provider;
 mod rpc;
 
+#[cfg(feature = "test-remote")]
 mod op {
     pub fn mainnet_url() -> String {
         use edr_test_utils::env::get_alchemy_url;
@@ -17,6 +16,7 @@ mod op {
     }
 }
 
+#[cfg(feature = "test-remote")]
 mod base {
     pub fn mainnet_url() -> String {
         use edr_test_utils::env::get_alchemy_url;
