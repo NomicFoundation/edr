@@ -14,7 +14,7 @@ use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
-use crate::integration::op::{mainnet_url, sepolia_url};
+use crate::integration::{op, base};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
@@ -25,7 +25,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: sepolia_url(),
+        json_rpc_url: op::sepolia_url(),
         block_number: None,
         http_headers: None,
     }));
@@ -87,6 +87,8 @@ macro_rules! impl_test_chain_id {
 }
 
 impl_test_chain_id! {
-    mainnet: mainnet_url() => edr_op::MAINNET_CHAIN_ID,
-    sepolia: sepolia_url() => edr_op::SEPOLIA_CHAIN_ID,
+    op_mainnet: op::mainnet_url() => edr_op::chains::OP_MAINNET_CHAIN_ID,
+    op_sepolia: op::sepolia_url() => edr_op::chains::OP_SEPOLIA_CHAIN_ID,
+    base_mainnet: base::mainnet_url() => edr_op::chains::BASE_MAINNET_CHAIN_ID,
+    base_sepolia: base::sepolia_url() => edr_op::chains::BASE_SEPOLIA_CHAIN_ID,
 }
