@@ -17,6 +17,9 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<OpSpecId>> {
         hardforks.insert(chains::OP_MAINNET_CHAIN_ID, &*chains::OP_MAINNET_CONFIG);
         hardforks.insert(chains::OP_SEPOLIA_CHAIN_ID, &*chains::OP_SEPOLIA_CONFIG);
 
+        hardforks.insert(chains::BASE_MAINNET_CHAIN_ID, &*chains::BASE_MAINNET_CONFIG);
+        hardforks.insert(chains::BASE_SEPOLIA_CHAIN_ID, &*chains::BASE_SEPOLIA_CONFIG);
+
         hardforks
     })
 }
