@@ -8,7 +8,7 @@ pub const OP_MAINNET_CHAIN_ID: u64 = 0xa;
 
 /// OP Mainnet chain config
 ///
-/// https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/mainnet/op.toml
+/// <https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/mainnet/op.toml>
 pub static OP_MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "op-mainnet".into(),
     hardfork_activations: Activations::new(vec![
