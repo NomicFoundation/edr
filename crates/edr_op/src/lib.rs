@@ -28,12 +28,6 @@ pub use op_revm::{OpHaltReason, OpSpecId};
 /// OP Stack chain type
 pub const CHAIN_TYPE: &str = "op";
 
-/// OP Mainnet chain ID
-pub const MAINNET_CHAIN_ID: u64 = hardfork::op::MAINNET_CHAIN_ID;
-
-/// OP Sepolia chain ID
-pub const SEPOLIA_CHAIN_ID: u64 = hardfork::op::SEPOLIA_CHAIN_ID;
-
 /// Helper type for constructing an [`op_revm::L1BlockInfo`].
 ///
 /// This type duplicates [`op_revm::L1BlockInfo`] but excludes the private
