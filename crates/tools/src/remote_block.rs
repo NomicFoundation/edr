@@ -31,7 +31,6 @@ pub async fn replay(
         SupportedChainTypes::Op => {
             replay_chain_specific_block::<OpChainSpec>(
                 edr_op::CHAIN_TYPE,
-                url.replace("eth-", "opt-"),
                 block_number,
             )
             .await
