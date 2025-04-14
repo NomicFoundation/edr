@@ -14,6 +14,7 @@ derive-where = { version = "1.2.7", default-features = false }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 edr_generic = { path = "../edr_generic" }
+edr_instrument = { path = "../edr_instrument" }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_op = { path = "../edr_op", optional = true }
 edr_provider = { path = "../edr_provider" }
@@ -26,8 +27,8 @@ mimalloc = { version = "0.1.39", default-features = false, features = ["local_dy
 napi = { version = "2.16.17", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
 napi-derive = "2.16.13"
 rand = { version = "0.8.4", optional = true }
-serde = { version = "1.0.209", features = ["derive"] }
-serde_json = { version = "1.0.127" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 static_assertions = "1.1.0"
 strum = { version = "0.26.0", features = ["derive"] }
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
