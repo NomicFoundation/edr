@@ -87,8 +87,8 @@ macro_rules! impl_test_chain_id {
 }
 
 impl_test_chain_id! {
-    op_mainnet: op::mainnet_url() => edr_op::chains::OP_MAINNET_CHAIN_ID,
-    op_sepolia: op::sepolia_url() => edr_op::chains::OP_SEPOLIA_CHAIN_ID,
-    base_mainnet: base::mainnet_url() => edr_op::chains::BASE_MAINNET_CHAIN_ID,
-    base_sepolia: base::sepolia_url() => edr_op::chains::BASE_SEPOLIA_CHAIN_ID,
+    op_mainnet: op::mainnet_url() => edr_op::hardfork::op::MAINNET_CHAIN_ID,
+    op_sepolia: op::sepolia_url() => edr_op::hardfork::op::SEPOLIA_CHAIN_ID,
+    base_mainnet: base::mainnet_url() => edr_op::hardfork::base::MAINNET_CHAIN_ID,
+    base_sepolia: base::sepolia_url() => edr_op::hardfork::base::SEPOLIA_CHAIN_ID,
 }
