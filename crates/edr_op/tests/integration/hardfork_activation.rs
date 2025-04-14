@@ -4,7 +4,7 @@ use edr_eth::BlockSpec;
 use edr_op::{OpChainSpec, OpSpecId};
 use edr_provider::test_utils::ProviderTestFixture;
 
-use crate::integration::{op, base};
+use crate::integration::{base, op};
 
 macro_rules! impl_test_hardfork_activation {
     ($($net:ident: $url:expr => {

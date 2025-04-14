@@ -14,7 +14,7 @@ use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
-use crate::integration::{op, base};
+use crate::integration::{base, op};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {

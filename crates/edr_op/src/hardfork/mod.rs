@@ -6,10 +6,10 @@ pub use op_revm::name;
 
 use crate::OpSpecId;
 
-/// OP chain configs
-pub mod op;
 /// Base chain configs
 pub mod base;
+/// OP chain configs
+pub mod op;
 
 // Source:
 // <https://docs.optimism.io/builders/node-operators/network-upgrades>
