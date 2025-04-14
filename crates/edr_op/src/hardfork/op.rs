@@ -10,7 +10,7 @@ pub const MAINNET_CHAIN_ID: u64 = 0xa;
 ///
 /// <https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/mainnet/op.toml>
 pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
-    name: "op-mainnet".into(),
+    name: "OP Mainnet".into(),
     hardfork_activations: Activations::new(vec![
         (ForkCondition::Block(105_235_063), OpSpecId::BEDROCK),
         (ForkCondition::Block(105_235_063), OpSpecId::REGOLITH),
@@ -29,7 +29,7 @@ pub const SEPOLIA_CHAIN_ID: u64 = 0xaa37dc;
 ///
 /// <https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/sepolia/op.toml>
 pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
-    name: "op-sepolia".into(),
+    name: "OP Sepolia".into(),
     hardfork_activations: Activations::new(vec![
         (ForkCondition::Block(0), OpSpecId::BEDROCK),
         (ForkCondition::Block(0), OpSpecId::REGOLITH),
