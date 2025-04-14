@@ -25,6 +25,15 @@ macro_rules! impl_test_hardfork_activation {
 
                         assert_eq!(config.spec, $result);
 
+                        if $result > OpSpecId::REGOLITH && $block_number > 0 {
+                            let parent_block_spec = BlockSpec::Number($block_number - 1);
+                            let config = fixture
+                                .provider_data
+                                .create_evm_config_at_block_spec(&parent_block_spec)?;
+
+                            assert_ne!(config.spec, $result);
+                        }
+
                         Ok(())
                     }
                 }
