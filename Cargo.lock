@@ -1703,6 +1703,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_instrument"
+version = "0.3.5"
+dependencies = [
+ "anyhow",
+ "edr_eth",
+ "semver 1.0.23",
+ "serde",
+ "serde_json",
+ "sha3",
+ "slang_solidity",
+]
+
+[[package]]
 name = "edr_napi"
 version = "0.3.5"
 dependencies = [
@@ -2826,6 +2839,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c8640c5d730cb13ebd907d8d04b52f55ac9a2eec55b440c8892f40d56c76c1d"
 
 [[package]]
+name = "metaslang_cst"
+version = "0.18.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77f39368da9228d99987bd8885b74c98eb93bfa94e9d348b351e646447781f94"
+dependencies = [
+ "nom",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "mimalloc"
 version = "0.1.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2849,6 +2873,12 @@ dependencies = [
  "mime",
  "unicase",
 ]
+
+[[package]]
+name = "minimal-lexical"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
@@ -2965,6 +2995,16 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "tempfile",
+]
+
+[[package]]
+name = "nom"
+version = "7.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
+dependencies = [
+ "memchr",
+ "minimal-lexical",
 ]
 
 [[package]]
@@ -4234,6 +4274,9 @@ name = "semver"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "semver-parser"
@@ -4421,6 +4464,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "slang_solidity"
+version = "0.18.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8aedd5543605d5a69ac186cf0afe69e3472b1e3898bdd864b40aa87356298cb"
+dependencies = [
+ "metaslang_cst",
+ "semver 1.0.23",
+ "serde",
+ "strum",
+ "strum_macros",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
