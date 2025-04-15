@@ -18,6 +18,7 @@ import {
   DEFAULT_ACCOUNTS_ADDRESSES,
 } from "../../../../helpers/providers";
 import { deployContract } from "../../../../helpers/transactions";
+import { makeCommon } from "../../../../helpers/makeCommon";
 
 describe("Eth module", function () {
   PROVIDERS.forEach(({ name, useProvider, isFork, isJsonRpc }) => {
@@ -230,11 +231,7 @@ describe("Eth module", function () {
               keepAliveMaxTimeout: 10,
             });
 
-            // TODO: Find out a better way to obtain the common here
-            const provider: any = this.hardhatNetworkProvider;
-
-            // eslint-disable-next-line dot-notation,@typescript-eslint/dot-notation
-            common = provider["_common"];
+            common = await makeCommon(this.provider);
           });
 
           const pk = Buffer.from(
