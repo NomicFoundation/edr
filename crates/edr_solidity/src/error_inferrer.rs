@@ -55,6 +55,9 @@ pub enum InferrerError<HaltReasonT: HaltReasonTrait> {
     /// Invalid input or logic error: Expected an EVM step.
     #[error("Expected EVM step")]
     ExpectedEvmStep,
+    /// Serde JSON error while parsing [`ContractFunction`].
+    #[error("Failed to parse function: {0}")]
+    InvalidFunction(serde_json::Error),
     /// Invalid input or logic error: Missing contract metadata.
     #[error("Missing contract")]
     MissingContract,
@@ -65,9 +68,6 @@ pub enum InferrerError<HaltReasonT: HaltReasonTrait> {
     /// Invalid input or logic error: Missing source reference.
     #[error("Missing source reference")]
     MissingSourceReference,
-    /// Serde JSON error.
-    #[error(transparent)]
-    SerdeJson(#[from] serde_json::Error),
     /// Solidity types error.
     #[error(transparent)]
     SolidityTypes(#[from] alloy_sol_types::Error),
@@ -547,7 +547,8 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
     let called_function = contract.get_function_from_selector(selector);
 
     if let Some(called_function) = called_function {
-        let abi = alloy_json_abi::Function::try_from(&**called_function)?;
+        let abi = alloy_json_abi::Function::try_from(&**called_function)
+            .map_err(InferrerError::InvalidFunction)?;
 
         let is_valid_calldata = match &called_function.param_types {
             Some(_) => abi.abi_decode_input(calldata, true).is_ok(),
