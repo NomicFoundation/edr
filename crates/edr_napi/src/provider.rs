@@ -209,6 +209,7 @@ impl Provider {
                     trace,
                     contract_decoder: Arc::clone(&self.contract_decoder),
                 });
+
                 Response {
                     solidity_trace,
                     data,
