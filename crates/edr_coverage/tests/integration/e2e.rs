@@ -162,6 +162,7 @@ fn record_hits() -> anyhow::Result<()> {
         .collect()
     );
 
+    // Successfully execute the `incBy` function, resulting in two hits.
     let hits = call_inc_by(&blockchain, &state, increment, U256::from(1))?;
     assert_eq!(hits.len(), 2);
     assert_eq!(

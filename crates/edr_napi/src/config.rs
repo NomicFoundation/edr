@@ -251,7 +251,10 @@ impl ObservabilityConfig {
                                             ctx.env
                                                 .create_buffer_with_data(hit.to_vec())
                                                 .and_then(|hit| {
-                                                    hits.set_element(idx as u32, hit.into_raw())
+                                                    let idx = u32::try_from(idx).unwrap_or_else(|_| panic!("Number of hits should not exceed '{}'",
+                                                        u32::MAX));
+
+                                                    hits.set_element(idx, hit.into_raw())
                                                 })?;
                                         }
                                         Ok(hits)
