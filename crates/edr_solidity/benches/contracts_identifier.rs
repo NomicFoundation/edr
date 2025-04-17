@@ -15,7 +15,7 @@
 //!    3.2. `cargo bench contracts_identifier`
 use std::{fs, path::PathBuf, time::Duration};
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use edr_solidity::{
     artifacts::{BuildInfoConfig, BuildInfoWithOutput},
     contract_decoder::ContractDecoder,
@@ -25,7 +25,9 @@ const FORGE_STD_ARTIFACTS_DIR: &str = "EDR_FORGE_STD_ARTIFACTS_DIR";
 
 fn load_build_info_config() -> anyhow::Result<Option<BuildInfoConfig>> {
     let Ok(artifacts_dir) = std::env::var(FORGE_STD_ARTIFACTS_DIR) else {
-        println!("Skipping contracts identifier benchmark as {FORGE_STD_ARTIFACTS_DIR} environment variable is not set");
+        println!(
+            "Skipping contracts identifier benchmark as {FORGE_STD_ARTIFACTS_DIR} environment variable is not set"
+        );
         return Ok(None);
     };
     let build_info_dir = PathBuf::from(&artifacts_dir).join("build-info");

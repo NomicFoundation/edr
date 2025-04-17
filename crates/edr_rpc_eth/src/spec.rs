@@ -1,28 +1,43 @@
-use serde::{de::DeserializeOwned, Serialize};
+use edr_eth::{eips::eip2718::TypedEnvelope, l1::L1ChainSpec, receipt::ExecutionReceipt};
+use serde::{Serialize, de::DeserializeOwned};
+
+use crate::{CallRequest, receipt::Block};
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
-pub trait RpcSpec: Sized {
+pub trait RpcSpec {
+    /// Type representing an RPC execution receipt.
+    type ExecutionReceipt<LogT>: ExecutionReceipt<Log = LogT>;
+
     /// Type representing an RPC block
-    type RpcBlock<Data>: GetBlockNumber + DeserializeOwned + Serialize
+    type RpcBlock<DataT>: GetBlockNumber + DeserializeOwned + Serialize
     where
-        Data: Default + DeserializeOwned + Serialize;
+        DataT: Default + DeserializeOwned + Serialize;
+
+    /// Type representing an RPC `eth_call` request.
+    type RpcCallRequest: DeserializeOwned + Serialize;
+
+    /// Type representing an RPC receipt.
+    type RpcReceipt: DeserializeOwned + Serialize;
 
     /// Type representing an RPC transaction.
     type RpcTransaction: Default + DeserializeOwned + Serialize;
+
+    /// Type representing an RPC `eth_sendTransaction` request.
+    type RpcTransactionRequest: DeserializeOwned + Serialize;
 }
 
 pub trait GetBlockNumber {
     fn number(&self) -> Option<u64>;
 }
 
-/// Chain specification for the Ethereum JSON-RPC API.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct EthRpcSpec;
-
-impl RpcSpec for EthRpcSpec {
-    type RpcBlock<Data>
-        = crate::block::Block<Data>
+impl RpcSpec for L1ChainSpec {
+    type ExecutionReceipt<LogT> = TypedEnvelope<edr_eth::receipt::execution::Eip658<LogT>>;
+    type RpcBlock<DataT>
+        = crate::block::Block<DataT>
     where
-        Data: Default + DeserializeOwned + Serialize;
-    type RpcTransaction = crate::transaction::Transaction;
+        DataT: Default + DeserializeOwned + Serialize;
+    type RpcCallRequest = CallRequest;
+    type RpcReceipt = Block;
+    type RpcTransaction = crate::transaction::TransactionWithSignature;
+    type RpcTransactionRequest = crate::transaction::TransactionRequest;
 }

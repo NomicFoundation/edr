@@ -2,8 +2,8 @@ pub use edr_eth::signature::{SecretKey, SignatureError};
 #[allow(deprecated)]
 // This is test code, it's ok to use `DangerousSecretKeyStr`
 use edr_eth::{
-    signature::{public_key_to_address, DangerousSecretKeyStr},
     Address,
+    signature::{DangerousSecretKeyStr, public_key_to_address},
 };
 
 /// Converts a hex string to a secret key.

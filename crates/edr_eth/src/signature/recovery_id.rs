@@ -4,15 +4,15 @@ use std::str::FromStr;
 
 use alloy_rlp::BufMut;
 use k256::{
-    ecdsa::{
-        signature::hazmat::PrehashSigner, RecoveryId, Signature as ECDSASignature, SigningKey,
-        VerifyingKey,
-    },
     FieldBytes, SecretKey,
+    ecdsa::{
+        RecoveryId, Signature as ECDSASignature, SigningKey, VerifyingKey,
+        signature::hazmat::PrehashSigner,
+    },
 };
 
-use super::{public_key_to_address, Recoverable, RecoveryMessage, Signature, SignatureError};
-use crate::{utils::hash_message, Address, Bytes, B256, U256};
+use super::{Recoverable, RecoveryMessage, Signature, SignatureError, public_key_to_address};
+use crate::{Address, B256, Bytes, U256, utils::hash_message};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

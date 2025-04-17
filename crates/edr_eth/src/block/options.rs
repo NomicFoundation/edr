@@ -1,5 +1,5 @@
 use super::BlobGas;
-use crate::{withdrawal::Withdrawal, Address, Bytes, B256, B64, U256};
+use crate::{Address, B64, B256, Bytes, U256, withdrawal::Withdrawal};
 
 /// Data of a block header
 #[derive(Debug, Default)]
@@ -25,7 +25,7 @@ pub struct BlockOptions {
     /// The block's nonce
     pub nonce: Option<B64>,
     /// The block's base gas fee
-    pub base_fee: Option<U256>,
+    pub base_fee: Option<u128>,
     /// The block's withdrawals
     pub withdrawals: Option<Vec<Withdrawal>>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.

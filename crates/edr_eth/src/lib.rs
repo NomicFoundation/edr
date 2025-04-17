@@ -17,10 +17,14 @@ pub mod eips;
 pub mod fee_history;
 /// Ethereum types for filter-based RPC methods
 pub mod filter;
+/// L1 chain specification.
+pub mod l1;
 /// Ethereum log types
 pub mod log;
 /// Ethereum receipt types
 pub mod receipt;
+/// Ethereum result types
+pub mod result;
 /// Ethereum gas related types
 pub mod reward_percentile;
 /// RLP traits and functions
@@ -29,7 +33,7 @@ pub mod rlp;
 pub mod serde;
 /// Ethereum signature types
 pub mod signature;
-/// Specification of hardforks
+/// Ethereum L1 chain spec
 pub mod spec;
 /// Ethereum state types and functions
 pub mod state;
@@ -42,11 +46,11 @@ pub mod utils;
 pub mod withdrawal;
 
 pub use c_kzg::{Blob, Bytes48};
+pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
-    address,
-    alloy_primitives::{Bloom, BloomInput, B512, B64, U64},
-    b256, bytes, hex_literal, AccessList, AccessListItem, AccountInfo, Address, Bytecode, Bytes,
-    HashMap, HashSet, SpecId, B256, U256,
+    Address, B256, Bytes, HashMap, HashSet, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256, address,
+    alloy_primitives::{B64, B512, Bloom, BloomInput, ChainId, U8, U64, U128, U160},
+    b256, bytes, hash_map, hash_set, hex, hex_literal, keccak256,
 };
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};

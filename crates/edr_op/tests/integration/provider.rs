@@ -1,0 +1,92 @@
+#![cfg(feature = "test-remote")]
+
+use std::sync::Arc;
+
+use edr_eth::{Address, BlockSpec, U64, address, bytes};
+use edr_op::OpChainSpec;
+use edr_provider::{
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    hardhat_rpc_types::ForkConfig,
+    test_utils::{ProviderTestFixture, create_test_config_with_fork},
+    time::CurrentTime,
+};
+use edr_rpc_eth::CallRequest;
+use edr_solidity::contract_decoder::ContractDecoder;
+use tokio::runtime;
+
+use crate::integration::{mainnet_url, sepolia_url};
+
+#[tokio::test(flavor = "multi_thread")]
+async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
+    const GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS: Address =
+        address!("420000000000000000000000000000000000000F");
+
+    let logger = Box::new(NoopLogger::<OpChainSpec>::default());
+    let subscriber = Box::new(|_event| {});
+
+    let mut config = create_test_config_with_fork(Some(ForkConfig {
+        json_rpc_url: sepolia_url(),
+        block_number: None,
+        http_headers: None,
+    }));
+
+    // Set a different chain ID than the forked chain ID
+    config.chain_id = 31337;
+
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        Arc::<ContractDecoder>::default(),
+        CurrentTime,
+    )?;
+
+    let last_block_number = {
+        let response =
+            provider.handle_request(ProviderRequest::Single(MethodInvocation::BlockNumber(())))?;
+
+        serde_json::from_value::<U64>(response.result)?.to::<u64>()
+    };
+
+    let data = bytes!(
+        "de26c4a10000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002c02ea827a6981c4843b9aca00843b9c24e382520994f39fd6e51aad88f6f4ce6ab8827279cfffb922660180c00000000000000000000000000000000000000000"
+    );
+    let _response = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
+        CallRequest {
+            from: Some(address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266")),
+            to: Some(GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS),
+            data: Some(data),
+            ..CallRequest::default()
+        },
+        Some(BlockSpec::Number(last_block_number)),
+        None,
+    )))?;
+
+    Ok(())
+}
+
+macro_rules! impl_test_chain_id {
+    ($($name:ident: $url:expr => $result:expr,)+) => {
+        $(
+            paste::item! {
+                #[test]
+                fn [<chain_id_for_ $name>]() -> anyhow::Result<()> {
+                    let url = $url;
+                    let fixture = ProviderTestFixture::<OpChainSpec>::new_forked(Some(url))?;
+
+                    let block_spec = BlockSpec::Number(0);
+                    let chain_id = fixture.provider_data.chain_id_at_block_spec(&block_spec)?;
+                    assert_eq!(chain_id, $result);
+
+                    Ok(())
+                }
+            }
+        )+
+    };
+}
+
+impl_test_chain_id! {
+    mainnet: mainnet_url() => edr_op::MAINNET_CHAIN_ID,
+    sepolia: sepolia_url() => edr_op::SEPOLIA_CHAIN_ID,
+}

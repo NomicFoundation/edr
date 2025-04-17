@@ -1,32 +1,36 @@
 use std::sync::OnceLock;
 
-use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, TransactTo, TxEnv, GAS_PER_BLOB};
+use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
+use revm_primitives::keccak256;
 
 use crate::{
+    Address, B256, Bytes, U256,
+    eips::{eip2930, eip4844::GAS_PER_BLOB, eip7702},
     signature::{self, Fakeable},
-    transaction,
-    utils::envelop_bytes,
-    AccessList, Address, Bytes, B256, U256,
+    transaction::{self, ExecutableTransaction, TxKind},
+    utils::enveloped,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Eip4844 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub max_priority_fee_per_gas: u128,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub max_fee_per_gas: u128,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: AccessList,
-    pub max_fee_per_blob_gas: U256,
+    pub access_list: eip2930::AccessList,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithYParity>,
@@ -35,50 +39,95 @@ pub struct Eip4844 {
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
+    /// Cached RLP-encoding
+    #[rlp(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub rlp_encoding: OnceLock<Bytes>,
 }
 
 impl Eip4844 {
-    /// Returns the caller/signer of the transaction.
-    pub fn caller(&self) -> &Address {
+    /// The type identifier for an EIP-4844 transaction.
+    pub const TYPE: u8 = transaction::request::Eip4844::TYPE;
+}
+
+impl ExecutableTransaction for Eip4844 {
+    fn caller(&self) -> &Address {
         self.signature.caller()
     }
 
-    pub fn nonce(&self) -> &u64 {
-        &self.nonce
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
 
-    pub fn hash(&self) -> &B256 {
-        self.hash.get_or_init(|| {
-            let encoded = alloy_rlp::encode(self);
-            let enveloped = envelop_bytes(3, &encoded);
+    fn gas_price(&self) -> &u128 {
+        &self.max_fee_per_gas
+    }
 
-            keccak256(enveloped)
+    fn kind(&self) -> TxKind {
+        TxKind::Call(self.to)
+    }
+
+    fn value(&self) -> &U256 {
+        &self.value
+    }
+
+    fn data(&self) -> &Bytes {
+        &self.input
+    }
+
+    fn nonce(&self) -> u64 {
+        self.nonce
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        Some(self.chain_id)
+    }
+
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+        Some(&self.access_list)
+    }
+
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
+        Some(
+            self.max_fee_per_gas
+                .min(block_base_fee + self.max_priority_fee_per_gas),
+        )
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        Some(&self.max_fee_per_gas)
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
+        Some(&self.max_priority_fee_per_gas)
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        &self.blob_hashes
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
+        Some(&self.max_fee_per_blob_gas)
+    }
+
+    fn total_blob_gas(&self) -> Option<u64> {
+        Some(total_blob_gas(self))
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+        None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
         })
     }
 
-    /// Total blob gas used by the transaction.
-    pub fn total_blob_gas(&self) -> u64 {
-        GAS_PER_BLOB * self.blob_hashes.len() as u64
-    }
-}
-
-impl From<Eip4844> for TxEnv {
-    fn from(value: Eip4844) -> Self {
-        Self {
-            caller: *value.caller(),
-            gas_limit: value.gas_limit,
-            gas_price: value.max_fee_per_gas,
-            transact_to: TransactTo::Call(value.to),
-            value: value.value,
-            data: value.input,
-            nonce: Some(value.nonce),
-            chain_id: Some(value.chain_id),
-            access_list: value.access_list.into(),
-            gas_priority_fee: Some(value.max_priority_fee_per_gas),
-            blob_hashes: value.blob_hashes,
-            max_fee_per_blob_gas: Some(value.max_fee_per_blob_gas),
-            authorization_list: None,
-        }
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
     }
 }
 
@@ -104,14 +153,14 @@ struct Decodable {
     // The order of these fields determines decoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
+    pub max_priority_fee_per_gas: u128,
+    pub max_fee_per_gas: u128,
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: AccessList,
-    pub max_fee_per_blob_gas: U256,
+    pub access_list: eip2930::AccessList,
+    pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
     pub signature: signature::SignatureWithYParity,
 }
@@ -138,6 +187,7 @@ impl alloy_rlp::Decodable for Eip4844 {
             blob_hashes: transaction.blob_hashes,
             signature,
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         })
     }
 }
@@ -158,6 +208,11 @@ impl From<&Decodable> for transaction::request::Eip4844 {
             blob_hashes: value.blob_hashes.clone(),
         }
     }
+}
+
+/// Total blob gas used by the transaction.
+pub fn total_blob_gas(transaction: &Eip4844) -> u64 {
+    GAS_PER_BLOB * (transaction.blob_hashes.len() as u64)
 }
 
 #[cfg(test)]
@@ -182,18 +237,20 @@ mod tests {
         let request = transaction::request::Eip4844 {
             chain_id: 0x28757b3,
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(0x12a05f200u64),
-            max_fee_per_gas: U256::from(0x12a05f200u64),
+            max_priority_fee_per_gas: 0x12a05f200,
+            max_fee_per_gas: 0x12a05f200,
             gas_limit: 0x33450,
             to: Address::from_str("0xffb38a7a99e3e2335be83fc74b7faa19d5531243").unwrap(),
             value: U256::from(0xbc614eu64),
             input: Bytes::default(),
             access_list: Vec::new(),
-            max_fee_per_blob_gas: U256::from(0xb2d05e00u64),
-            blob_hashes: vec![B256::from_str(
-                "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",
-            )
-            .unwrap()],
+            max_fee_per_blob_gas: 0xb2d05e00,
+            blob_hashes: vec![
+                B256::from_str(
+                    "0x01b0a4cdd5f55589f5c5b4d46c76704bb6ce95c0a8c09f77f197a57808dded28",
+                )
+                .unwrap(),
+            ],
         };
 
         let signature =
@@ -213,6 +270,7 @@ mod tests {
             blob_hashes: request.blob_hashes,
             signature,
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         }
     }
 
@@ -236,7 +294,7 @@ mod tests {
                 .unwrap();
 
         let signed = dummy_transaction();
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]
@@ -247,14 +305,14 @@ mod tests {
         let request = transaction::request::Eip4844 {
             chain_id: 1337,
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(0x3b9aca00),
-            max_fee_per_gas: U256::from(0x3b9aca00u64),
+            max_priority_fee_per_gas: 0x3b9aca00,
+            max_fee_per_gas: 0x3b9aca00,
             gas_limit: 1000000,
             to: Address::ZERO,
             value: U256::ZERO,
             input: Bytes::from_str("0x2069b0c7")?,
             access_list: Vec::new(),
-            max_fee_per_blob_gas: U256::from(1),
+            max_fee_per_blob_gas: 1,
             blob_hashes: vec![b256!(
                 "01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e"
             )],
@@ -288,6 +346,7 @@ mod tests {
             blob_hashes: request.blob_hashes,
             signature,
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         };
 
         assert_eq!(*transaction.caller(), CALLER);
