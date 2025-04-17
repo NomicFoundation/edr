@@ -83,8 +83,9 @@ where
 
             let RuntimeObserver {
                 code_coverage,
+                console_logger: _console_logger,
+                mocker: _mocker,
                 trace_collector,
-                ..
             } = runtime_observer;
 
             if let Some(code_coverage) = code_coverage {
