@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use alloy_primitives::{Address, B256};
 use foundry_evm::{
-    executors::{fuzz::FuzzConfig, invariant::InvariantConfig},
+    fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
 };
 

@@ -58,7 +58,7 @@ contract ImpureInvariantTest is Test {
     }
 
     function invariant() external {
+        assert(vm.unixTime() > 0);
         assertEq(wrongContract.a() + wrongContract.b(), wrongContract.both());
-        assertEq(vm.unixTime(), 43);
     }
 }

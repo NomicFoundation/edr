@@ -134,6 +134,11 @@ pub fn format_tokens(tokens: &[DynSolValue]) -> impl Iterator<Item = String> + '
     tokens.iter().map(format_token)
 }
 
+/// Pretty-prints a slice of tokens using [`format_token_raw`].
+pub fn format_tokens_raw(tokens: &[DynSolValue]) -> impl Iterator<Item = String> + '_ {
+    tokens.iter().map(format_token_raw)
+}
+
 /// Pretty-prints the given value into a string suitable for user output.
 pub fn format_token(value: &DynSolValue) -> String {
     DynValueDisplay::new(value, false).to_string()

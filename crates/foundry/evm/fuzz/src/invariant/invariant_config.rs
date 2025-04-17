@@ -17,7 +17,7 @@ pub struct InvariantConfig {
     /// The fuzz dictionary configuration
     pub dictionary: FuzzDictionaryConfig,
     /// The maximum number of attempts to shrink the sequence
-    pub shrink_run_limit: usize,
+    pub shrink_run_limit: u32,
     /// The maximum number of rejects via `vm.assume` which can be encountered
     /// during a single invariant run.
     pub max_assume_rejects: u32,
@@ -25,6 +25,12 @@ pub struct InvariantConfig {
     pub gas_report_samples: u32,
     /// Path where invariant failures are recorded and replayed.
     pub failure_persist_dir: Option<PathBuf>,
+    /// Whether to collect and display fuzzed selectors metrics.
+    pub show_metrics: bool,
+    /// Optional timeout (in seconds) for each invariant test.
+    pub timeout: Option<u32>,
+    /// Display counterexample as solidity calls.
+    pub show_solidity: bool,
 }
 
 impl Default for InvariantConfig {
@@ -38,10 +44,13 @@ impl Default for InvariantConfig {
                 dictionary_weight: 80,
                 ..Default::default()
             },
-            shrink_run_limit: 2usize.pow(18_u32),
+            shrink_run_limit: 5000,
             max_assume_rejects: 65536,
             gas_report_samples: 256,
             failure_persist_dir: None,
+            show_metrics: false,
+            timeout: None,
+            show_solidity: false,
         }
     }
 }
@@ -51,18 +60,8 @@ impl InvariantConfig {
     /// `{PROJECT_ROOT}/cache/fuzz` dir.
     pub fn new(cache_dir: PathBuf) -> Self {
         InvariantConfig {
-            runs: 256,
-            depth: 500,
-            fail_on_revert: false,
-            call_override: false,
-            dictionary: FuzzDictionaryConfig {
-                dictionary_weight: 80,
-                ..Default::default()
-            },
-            shrink_run_limit: 2usize.pow(18_u32),
-            max_assume_rejects: 65536,
-            gas_report_samples: 256,
             failure_persist_dir: Some(cache_dir),
+            ..InvariantConfig::default()
         }
     }
 

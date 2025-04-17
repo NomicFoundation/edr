@@ -1,12 +1,12 @@
 //! Test outcomes.
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     fmt::{self, Write},
     time::Duration,
 };
 
-use alloy_primitives::{Address, Log};
+use alloy_primitives::{map::AddressHashMap, Address, Log};
 use foundry_evm::{
     coverage::HitMaps,
     executors::{stack_trace::StackTraceResult, EvmError},
@@ -355,7 +355,7 @@ pub struct TestResult {
     pub coverage: Option<HitMaps>,
 
     /// Labeled addresses
-    pub labeled_addresses: HashMap<Address, String>,
+    pub labeled_addresses: AddressHashMap<String>,
 
     /// Wall clock execution time.
     pub duration: Duration,
@@ -384,10 +384,16 @@ impl fmt::Display for TestResult {
                         CounterExample::Single(ex) => {
                             write!(s, "; counterexample: {ex}]").unwrap();
                         }
-                        CounterExample::Sequence(sequence) => {
-                            s.push_str("]\n\t[Sequence]\n");
+                        CounterExample::Sequence(original, sequence) => {
+                            s.push_str(
+                                format!(
+                                    "]\n\t[Sequence] (original: {original}, shrunk: {})\n",
+                                    sequence.len()
+                                )
+                                .as_str(),
+                            );
                             for ex in sequence {
-                                writeln!(s, "\t\t{ex}").unwrap();
+                                writeln!(s, "{ex}").unwrap();
                             }
                         }
                     }
@@ -540,11 +546,13 @@ pub struct TestSetup {
     /// Call traces of the setup
     pub traces: Traces,
     /// Addresses labeled during setup
-    pub labeled_addresses: HashMap<Address, String>,
+    pub labeled_addresses: AddressHashMap<String>,
     /// The reason the setup failed, if it did
     pub reason: Option<String>,
     /// Coverage info during setup
     pub coverage: Option<HitMaps>,
+    /// Addresses of external libraries deployed during setup.
+    pub deployed_libs: Vec<Address>,
     /// Defined fuzz test fixtures
     pub fuzz_fixtures: FuzzFixtures,
     /// Whether the test had a setup method.
@@ -556,7 +564,8 @@ impl TestSetup {
         error: EvmError,
         mut logs: Vec<Log>,
         mut traces: Traces,
-        mut labeled_addresses: HashMap<Address, String>,
+        mut labeled_addresses: AddressHashMap<String>,
+        deployed_libs: Vec<Address>,
         has_setup_method: bool,
     ) -> Self {
         match error {
@@ -569,6 +578,7 @@ impl TestSetup {
                     logs,
                     traces,
                     labeled_addresses,
+                    deployed_libs,
                     err.reason,
                     has_setup_method,
                 )
@@ -577,18 +587,21 @@ impl TestSetup {
                 logs,
                 traces,
                 labeled_addresses,
+                deployed_libs,
                 format!("failed to deploy contract: {e}"),
                 has_setup_method,
             ),
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn success(
         address: Address,
         logs: Vec<Log>,
         traces: Traces,
-        labeled_addresses: HashMap<Address, String>,
+        labeled_addresses: AddressHashMap<String>,
         coverage: Option<HitMaps>,
+        deployed_libs: Vec<Address>,
         fuzz_fixtures: FuzzFixtures,
         has_setup_method: bool,
     ) -> Self {
@@ -599,6 +612,7 @@ impl TestSetup {
             labeled_addresses,
             reason: None,
             coverage,
+            deployed_libs,
             fuzz_fixtures,
             has_setup_method,
         }
@@ -607,7 +621,8 @@ impl TestSetup {
     pub fn failed_with(
         logs: Vec<Log>,
         traces: Traces,
-        labeled_addresses: HashMap<Address, String>,
+        labeled_addresses: AddressHashMap<String>,
+        deployed_libs: Vec<Address>,
         reason: String,
         has_setup_method: bool,
     ) -> Self {
@@ -618,6 +633,7 @@ impl TestSetup {
             labeled_addresses,
             reason: Some(reason),
             coverage: None,
+            deployed_libs,
             fuzz_fixtures: FuzzFixtures::default(),
             has_setup_method,
         }

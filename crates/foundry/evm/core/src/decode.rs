@@ -1,6 +1,6 @@
 //! Various utilities to decode test results.
 
-use std::sync::OnceLock;
+use std::{fmt, sync::OnceLock};
 
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::{Error, JsonAbi};
@@ -11,6 +11,48 @@ use revm::interpreter::InstructionResult;
 use rustc_hash::FxHashMap;
 
 use crate::abi::{Console, Vm};
+
+/// A skip reason.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SkipReason(pub Option<String>);
+
+impl SkipReason {
+    /// Decodes a skip reason, if any.
+    pub fn decode(raw_result: &[u8]) -> Option<Self> {
+        raw_result
+            .strip_prefix(crate::constants::MAGIC_SKIP)
+            .map(|reason| {
+                let reason = String::from_utf8_lossy(reason).into_owned();
+                Self((!reason.is_empty()).then_some(reason))
+            })
+    }
+
+    /// Decodes a skip reason from a string that was obtained by formatting
+    /// `Self`.
+    ///
+    /// This is a hack to support re-decoding a skip reason in proptest.
+    pub fn decode_self(s: &str) -> Option<Self> {
+        s.strip_prefix("skipped")
+            .map(|rest| Self(rest.strip_prefix(": ").map(ToString::to_string)))
+    }
+}
+
+impl fmt::Display for SkipReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("skipped")?;
+        if let Some(reason) = &self.0 {
+            f.write_str(": ")?;
+            f.write_str(reason)?;
+        }
+        Ok(())
+    }
+}
+
+impl From<SkipReason> for Option<String> {
+    fn from(value: SkipReason) -> Self {
+        value.0
+    }
+}
 
 /// Decode a set of logs, only returning logs from `DSTest` logging events and
 /// Hardhat's `console.log`

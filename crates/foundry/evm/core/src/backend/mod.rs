@@ -8,7 +8,7 @@ use std::{
 
 use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
-use alloy_primitives::{address, b256, keccak256, Address, B256, U256};
+use alloy_primitives::{address, b256, keccak256, map::Entry, Address, B256, U256};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction};
 use eyre::Context;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
@@ -592,11 +592,11 @@ impl Backend {
     /// This will also grant cheatcode access to the test account
     pub fn set_test_contract(&mut self, acc: Address) -> &mut Self {
         trace!(?acc, "setting test account");
-        // toggle the previous sender
-        if let Some(current) = self.inner.test_contract_address.take() {
-            self.remove_persistent_account(&current);
-            self.revoke_cheatcode_access(&acc);
-        }
+        // // toggle the previous sender
+        // if let Some(current) = self.inner.test_contract_address.take() {
+        //     self.remove_persistent_account(&current);
+        //     self.revoke_cheatcode_access(&acc);
+        // }
 
         self.add_persistent_account(acc);
         self.allow_cheatcode_access(acc);
@@ -878,7 +878,13 @@ impl Backend {
 
         let test_contract = match env.tx.transact_to {
             TxKind::Call(to) => to,
-            TxKind::Create => env.tx.caller.create(env.tx.nonce.unwrap_or_default()),
+            TxKind::Create => {
+                let nonce = self
+                    .basic_ref(env.tx.caller)
+                    .map(|b| b.unwrap_or_default().nonce)
+                    .unwrap_or_default();
+                env.tx.caller.create(nonce)
+            }
         };
         self.set_test_contract(test_contract);
     }
@@ -1011,6 +1017,7 @@ impl Backend {
     ) -> eyre::Result<Option<Transaction<AnyTxEnvelope>>> {
         trace!(?id, ?tx_hash, "replay until transaction");
 
+        let persistent_accounts = self.inner.persistent_accounts.clone();
         let fork_id = self.ensure_fork_id(id)?.clone();
 
         let env = self.env_with_handler_cfg(env);
@@ -1039,6 +1046,7 @@ impl Backend {
                 journaled_state,
                 fork,
                 &fork_id,
+                &persistent_accounts,
                 &mut NoOpInspector,
             )?;
         }
@@ -1309,17 +1317,24 @@ impl DatabaseExt for Backend {
                     merge_journaled_state_data(addr, journaled_state, &mut active.journaled_state);
                 }
 
-                // ensure all previously loaded accounts are present in the journaled state to
+                // Ensure all previously loaded accounts are present in the journaled state to
                 // prevent issues in the new journalstate, e.g. assumptions that accounts are
                 // loaded if the account is not touched, we reload it, if it's
-                // touched we clone it
+                // touched we clone it.
+                //
+                // Special case for accounts that are not created: we don't merge their state
+                // but load it in order to reflect their state at the new block
+                // (they should explicitly be marked as persistent if it is
+                // desired to keep state between fork rolls).
                 for (addr, acc) in journaled_state.state.iter() {
-                    if acc.is_touched() {
-                        merge_journaled_state_data(
-                            *addr,
-                            journaled_state,
-                            &mut active.journaled_state,
-                        );
+                    if acc.is_created() {
+                        if acc.is_touched() {
+                            merge_journaled_state_data(
+                                *addr,
+                                journaled_state,
+                                &mut active.journaled_state,
+                            );
+                        }
                     } else {
                         let _ = active.journaled_state.load_account(*addr, &mut active.db);
                     }
@@ -1366,6 +1381,7 @@ impl DatabaseExt for Backend {
         inspector: &mut I,
     ) -> eyre::Result<()> {
         trace!(?maybe_id, ?transaction, "execute transaction");
+        let persistent_accounts = self.inner.persistent_accounts.clone();
         let id = self.ensure_fork(maybe_id)?;
         let fork_id = self.ensure_fork_id(id).cloned()?;
 
@@ -1383,7 +1399,15 @@ impl DatabaseExt for Backend {
 
         let env = self.env_with_handler_cfg(env);
         let fork = self.inner.get_fork_by_id_mut(id)?;
-        commit_transaction(&tx, env, journaled_state, fork, &fork_id, inspector)
+        commit_transaction(
+            &tx,
+            env,
+            journaled_state,
+            fork,
+            &fork_id,
+            &persistent_accounts,
+            inspector,
+        )
     }
 
     fn active_fork_id(&self) -> Option<LocalForkId> {
@@ -2012,28 +2036,32 @@ fn merge_db_account_data<ExtDB: DatabaseRef>(
 ) {
     trace!(?addr, "merging database data");
 
-    let mut acc = if let Some(acc) = active.accounts.get(&addr).cloned() {
-        acc
-    } else {
-        // Account does not exist
+    let Some(acc) = active.accounts.get(&addr) else {
         return;
     };
 
-    if let Some(code) = active.contracts.get(&acc.info.code_hash).cloned() {
-        fork_db.contracts.insert(acc.info.code_hash, code);
+    // port contract cache over
+    if let Some(code) = active.contracts.get(&acc.info.code_hash) {
+        trace!("merging contract cache");
+        fork_db.contracts.insert(acc.info.code_hash, code.clone());
     }
 
-    if let Some(fork_account) = fork_db.accounts.get_mut(&addr) {
-        // This will merge the fork's tracked storage with active storage and update
-        // values
-        fork_account
-            .storage
-            .extend(std::mem::take(&mut acc.storage));
-        // swap them so we can insert the account as whole in the next step
-        std::mem::swap(&mut fork_account.storage, &mut acc.storage);
+    // port account storage over
+    match fork_db.accounts.entry(addr) {
+        Entry::Vacant(vacant) => {
+            trace!("target account not present - inserting from active");
+            // if the fork_db doesn't have the target account
+            // insert the entire thing
+            vacant.insert(acc.clone());
+        }
+        Entry::Occupied(mut occupied) => {
+            trace!("target account present - merging storage slots");
+            // if the fork_db does have the system,
+            // extend the existing storage (overriding)
+            let fork_account = occupied.get_mut();
+            fork_account.storage.extend(&acc.storage);
+        }
     }
-
-    fork_db.accounts.insert(addr, acc);
 }
 
 /// Returns true of the address is a contract
@@ -2068,6 +2096,7 @@ fn commit_transaction<I: InspectorExt<Backend>>(
     journaled_state: &mut JournaledState,
     fork: &mut Fork,
     fork_id: &ForkId,
+    persistent_accounts: &HashSet<Address>,
     inspector: I,
 ) -> eyre::Result<()> {
     configure_tx_env(&mut env.env, tx);
@@ -2083,17 +2112,25 @@ fn commit_transaction<I: InspectorExt<Backend>>(
     };
     trace!(elapsed = ?now.elapsed(), "transacted transaction");
 
-    apply_state_changeset(res.state, journaled_state, fork)?;
+    apply_state_changeset(res.state, journaled_state, fork, persistent_accounts)?;
     Ok(())
 }
 
 /// Helper method which updates data in the state with the data from the
 /// database.
-pub fn update_state<DB: Database>(state: &mut EvmState, db: &mut DB) -> Result<(), DB::Error> {
+/// Does not change state for persistent accounts (for roll fork to transaction
+/// and transact).
+pub fn update_state<DB: Database>(
+    state: &mut EvmState,
+    db: &mut DB,
+    persistent_accounts: Option<&HashSet<Address>>,
+) -> Result<(), DB::Error> {
     for (addr, acc) in state.iter_mut() {
-        acc.info = db.basic(*addr)?.unwrap_or_default();
-        for (key, val) in acc.storage.iter_mut() {
-            val.present_value = db.storage(*addr, *key)?;
+        if !persistent_accounts.map_or(false, |accounts| accounts.contains(addr)) {
+            acc.info = db.basic(*addr)?.unwrap_or_default();
+            for (key, val) in acc.storage.iter_mut() {
+                val.present_value = db.storage(*addr, *key)?;
+            }
         }
     }
 
@@ -2106,12 +2143,21 @@ fn apply_state_changeset(
     state: Map<revm::primitives::Address, Account>,
     journaled_state: &mut JournaledState,
     fork: &mut Fork,
+    persistent_accounts: &HashSet<Address>,
 ) -> Result<(), DatabaseError> {
     // commit the state and update the loaded accounts
     fork.db.commit(state);
 
-    update_state(&mut journaled_state.state, &mut fork.db)?;
-    update_state(&mut fork.journaled_state.state, &mut fork.db)?;
+    update_state(
+        &mut journaled_state.state,
+        &mut fork.db,
+        Some(persistent_accounts),
+    )?;
+    update_state(
+        &mut fork.journaled_state.state,
+        &mut fork.db,
+        Some(persistent_accounts),
+    )?;
 
     Ok(())
 }

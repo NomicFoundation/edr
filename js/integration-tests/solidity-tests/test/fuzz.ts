@@ -139,14 +139,18 @@ describe("Fuzz and invariant testing", function () {
           ...invariantConfig,
           failurePersistDir: failureDir,
         },
+        fuzz: {
+          seed: "100",
+        },
       }
     );
     assert.equal(results2.length, 1);
     assert.equal(results2[0].testResults.length, 1);
     assert.equal(results2[0].testResults[0].status, "Failure");
-    const fuzzTestResult2 = results2[0].testResults[0].kind as FuzzTestKind;
-    // More than one run should be needed on a fresh invariant test.
-    assert.ok(fuzzTestResult2.runs > 1n);
+    const invariantTestResult = results2[0].testResults[0]
+      .kind as InvariantTestKind;
+    // More than one call should be needed on a fresh invariant test.
+    assert.ok(invariantTestResult.calls > 1n);
     const stackTrace2 = results2[0].testResults[0].stackTrace();
     assertStackTraces(
       {
@@ -179,6 +183,7 @@ describe("Fuzz and invariant testing", function () {
     assert.equal(results3[0].testResults.length, 1);
     assert.equal(results3[0].testResults[0].status, "Failure");
     const fuzzTestResult3 = results3[0].testResults[0].kind as FuzzTestKind;
+    console.log(fuzzTestResult3);
     // The second time only one run should be needed, because the persisted failure is used.
     assert.equal(fuzzTestResult3.runs, 1n);
     const stackTrace3 = results3[0].testResults[0].stackTrace();
@@ -187,7 +192,7 @@ describe("Fuzz and invariant testing", function () {
         stackTrace: stackTrace3,
         reason: results3[0].testResults[0].reason,
       },
-      expectedReason,
+      "invariant replay failure",
       expectedStackTraces
     );
   });
@@ -217,6 +222,7 @@ describe("Fuzz and invariant testing", function () {
     });
     assert.equal(result.failedTests, 1);
     assert.equal(result.totalTests, 1);
+    console.log(result.stackTraces.get("invariant()"));
     assertStackTraces(
       result.stackTraces.get("invariant()"),
       expectedReason,

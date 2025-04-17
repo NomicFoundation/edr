@@ -116,7 +116,7 @@ impl GasReport {
         } else if let Some(DecodedCallData { signature, .. }) = decoded().await.call_data {
             let name = signature.split('(').next().unwrap();
             // ignore any test/setup functions
-            let should_include = !(name.is_test() || name.is_invariant_test() || name.is_setup());
+            let should_include = !name.test_function_kind().is_known();
             if should_include {
                 trace!(contract_name, signature, "adding gas info");
                 let gas_info = contract_info

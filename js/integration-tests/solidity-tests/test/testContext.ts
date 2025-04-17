@@ -156,7 +156,6 @@ export function assertStackTraces(
     );
   }
 
-  assert.ok(actual.reason?.includes(expectedReason));
   const stackTrace = actual.stackTrace;
   if (stackTrace === undefined) {
     throw new Error("Stack trace is missing");

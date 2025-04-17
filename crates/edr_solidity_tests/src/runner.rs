@@ -1,16 +1,9 @@
 //! The Forge test runner.
-use std::{
-    borrow::Cow,
-    cmp::min,
-    collections::{BTreeMap, HashMap},
-    path::Path,
-    sync::Arc,
-    time::Instant,
-};
+use std::{borrow::Cow, cmp::min, collections::BTreeMap, path::Path, sync::Arc, time::Instant};
 
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
-use alloy_primitives::{Address, Bytes, Log, U256};
+use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
 use edr_solidity::{
     contract_decoder::{NestedTraceDecoder, SyncNestedTraceDecoder},
     solidity_stack_trace::StackTraceEntry,
@@ -39,8 +32,9 @@ use foundry_evm::{
     },
     traces::{load_contracts, TraceKind},
 };
-use proptest::test_runner::TestRunner;
+use proptest::test_runner::{TestError, TestRunner};
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
@@ -183,6 +177,36 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             );
         }
 
+        // Check if `afterInvariant` function with valid signature declared.
+        let after_invariant_fns: Vec<_> = self
+            .contract
+            .abi
+            .functions()
+            .filter(|func| func.name.is_after_invariant())
+            .collect();
+        if after_invariant_fns.len() > 1 {
+            // Return a single test result failure if multiple functions declared.
+            return SuiteResult::new(
+                start.elapsed(),
+                [(
+                    "afterInvariant()".to_string(),
+                    TestResult::fail("multiple afterInvariant functions".to_string()),
+                )]
+                .into(),
+                warnings,
+            );
+        }
+        let call_after_invariant = after_invariant_fns.first().is_some_and(|after_invariant_fn| {
+            let match_sig = after_invariant_fn.name == "afterInvariant";
+            if !match_sig {
+                warnings.push(format!(
+                    "Found invalid afterInvariant function \"{}\" did you mean \"afterInvariant()\"?",
+                    after_invariant_fn.signature()
+                ));
+            }
+            match_sig
+        });
+
         let has_invariants = self
             .contract
             .abi
@@ -266,8 +290,12 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             find_time,
         );
 
-        let identified_contracts = has_invariants
-            .then(|| load_contracts(setup.traces.iter().map(|(_, t)| t), self.known_contracts));
+        let identified_contracts = has_invariants.then(|| {
+            load_contracts(
+                setup.traces.iter().map(|(_, t)| &t.arena),
+                self.known_contracts,
+            )
+        });
         let test_results = functions
             .par_iter()
             .map(|&func| {
@@ -276,21 +304,24 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                 let sig = func.signature();
 
                 let setup = setup.clone();
-                let should_fail = self.test_fail && func.is_test_fail();
+                let should_fail = self.test_fail && func.is_any_test_fail();
                 let res = if func.is_invariant_test() {
                     let runner = test_options.invariant_runner();
                     let invariant_config = test_options.invariant_config();
-                    self.run_invariant_test(
-                        executor.clone(),
+                    self.run_invariant_test(RunInvariantTestsArgs {
+                        executor: executor.clone(),
+                        test_bytecode: &self.contract.bytecode,
                         runner,
                         setup,
-                        invariant_config.clone(),
+                        invariant_config: invariant_config.clone(),
                         func,
-                        self.known_contracts,
-                        identified_contracts.as_ref().unwrap(),
-                    )
+                        call_after_invariant,
+                        known_contracts: self.known_contracts,
+                        identified_contracts: identified_contracts
+                            .as_ref()
+                            .expect("invariant tests have identified contracts"),
+                    })
                 } else if func.is_fuzz_test() {
-                    debug_assert!(func.is_test());
                     let runner = test_options.fuzz_runner();
                     let fuzz_config = test_options.fuzz_config();
                     self.run_fuzz_test(
@@ -302,7 +333,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                         fuzz_config.clone(),
                     )
                 } else {
-                    debug_assert!(func.is_test());
+                    debug_assert!(func.is_unit_test());
                     self.run_test(executor.clone(), func, should_fail, setup)
                 };
 
@@ -340,10 +371,11 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         executor.set_nonce(self.sender, 1)?;
 
         // Deploy libraries
-        let mut logs = Vec::new();
-        // +1 for actual deployment
-        let mut traces =
-            Vec::with_capacity(self.libs_to_deploy.len() + 1 + usize::from(needs_setup));
+        // +1 for contract deployment
+        let capacity = self.libs_to_deploy.len() + 1 + usize::from(needs_setup);
+        let mut logs = Vec::with_capacity(capacity);
+        let mut traces = Vec::with_capacity(capacity);
+        let mut deployed_libs = Vec::with_capacity(capacity);
         for code in self.libs_to_deploy.iter() {
             match executor.deploy(
                 LIBRARY_DEPLOYER,
@@ -354,13 +386,15 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                 Ok(d) => {
                     logs.extend(d.raw.logs);
                     traces.extend(d.raw.traces.map(|traces| (TraceKind::Deployment, traces)));
+                    deployed_libs.push(d.address);
                 }
                 Err(e) => {
                     return Ok(TestSetup::from_evm_error_with(
                         e,
                         logs,
                         traces,
-                        HashMap::default(),
+                        AddressHashMap::default(),
+                        deployed_libs,
                         needs_setup,
                     ))
                 }
@@ -390,7 +424,8 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                     e,
                     logs,
                     traces,
-                    HashMap::default(),
+                    AddressHashMap::default(),
+                    deployed_libs,
                     needs_setup,
                 ))
             }
@@ -399,6 +434,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         // Reset `self.sender`s and `CALLER`s balance to the initial balance we want
         executor.set_balance(self.sender, self.initial_balance)?;
         executor.set_balance(CALLER, self.initial_balance)?;
+        executor.set_balance(LIBRARY_DEPLOYER, self.initial_balance)?;
 
         executor.deploy_create2_deployer()?;
 
@@ -434,7 +470,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                 Err(err) => (
                     Vec::new(),
                     None,
-                    HashMap::new(),
+                    AddressHashMap::default(),
                     Some(err.to_string()),
                     None,
                 ),
@@ -449,6 +485,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                 labeled_addresses,
                 reason,
                 coverage,
+                deployed_libs,
                 fuzz_fixtures: self.fuzz_fixtures(executor, address),
                 has_setup_method: needs_setup,
             }
@@ -457,8 +494,9 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                 address,
                 logs,
                 traces,
-                HashMap::default(),
+                AddressHashMap::default(),
                 None,
+                deployed_libs,
                 self.fuzz_fixtures(executor, address),
                 needs_setup,
             )
@@ -499,7 +537,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             return FuzzFixtures::default();
         };
 
-        let mut fixtures = HashMap::new();
+        let mut fixtures = alloy_primitives::map::HashMap::new();
         fixture_funcs.for_each(|func| {
             if func.inputs.is_empty() {
                 // Read fixtures declared as functions.
@@ -587,10 +625,10 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         ) {
             Ok(res) => (res.raw, None),
             Err(EvmError::Execution(err)) => (err.raw, Some(err.reason)),
-            Err(EvmError::SkipError) => {
+            Err(EvmError::Skip(reason)) => {
                 return TestResult {
                     status: TestStatus::Skipped,
-                    reason: None,
+                    reason: reason.into(),
                     decoded_logs: decode_console_logs(&logs),
                     traces,
                     labeled_addresses,
@@ -628,13 +666,13 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         let success = executor.is_success(
             setup.address,
             reverted,
-            Cow::Owned(state_changeset.unwrap()),
+            Cow::Owned(state_changeset),
             should_fail,
         );
 
         labeled_addresses.extend(new_labels);
         logs.extend(execution_logs);
-        coverage = merge_coverages(coverage, execution_coverage);
+        HitMaps::merge_opt(&mut coverage, execution_coverage);
         traces.extend(execution_trace.map(|traces| (TraceKind::Execution, traces)));
 
         // Record test execution time
@@ -720,32 +758,37 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
     }
 
     // It's one argument over, but follows the pattern in the file.
-    #[allow(clippy::too_many_arguments)]
     #[instrument(name = "invariant_test", skip_all)]
-    fn run_invariant_test(
-        &self,
-        executor: Executor,
-        runner: TestRunner,
-        setup: TestSetup,
-        invariant_config: InvariantConfig,
-        func: &Function,
-        known_contracts: &ContractsByArtifact,
-        identified_contracts: &ContractsByAddress,
-    ) -> TestResult {
+    fn run_invariant_test(&self, args: RunInvariantTestsArgs<'_>) -> TestResult {
+        let RunInvariantTestsArgs {
+            executor,
+            test_bytecode,
+            runner,
+            setup,
+            invariant_config,
+            func,
+            call_after_invariant,
+            known_contracts,
+            identified_contracts,
+        } = args;
+
         trace!(target: "edr_solidity_tests::test::fuzz", "executing invariant test for {:?}", func.name);
         let TestSetup {
             address,
-            logs,
-            traces,
+            mut logs,
+            mut traces,
             labeled_addresses,
-            coverage,
+            reason,
+            mut coverage,
+            deployed_libs,
             fuzz_fixtures,
-            ..
+            has_setup_method: _,
         } = setup;
+        debug_assert!(reason.is_none());
 
         // First, run the test normally to see if it needs to be skipped.
         let start = Instant::now();
-        if let Err(EvmError::SkipError) = executor.clone().execute_test(
+        if let Err(EvmError::Skip(reason)) = executor.call(
             self.sender,
             address,
             func,
@@ -755,7 +798,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         ) {
             return TestResult {
                 status: TestStatus::Skipped,
-                reason: None,
+                reason: reason.into(),
                 decoded_logs: decode_console_logs(&logs),
                 labeled_addresses,
                 kind: TestKind::Invariant {
@@ -779,12 +822,9 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         let invariant_contract = InvariantContract {
             address,
             invariant_function: func,
+            call_after_invariant,
             abi: &self.contract.abi,
         };
-
-        let mut logs = logs.clone();
-        let mut traces = traces.clone();
-        let mut coverage = coverage.clone();
 
         let failure_dir = invariant_config.clone().failure_dir(self.name);
         let failure_file = failure_dir
@@ -794,6 +834,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         if let Some(failure_file) = failure_file.as_ref() {
             if let Some(result) = try_to_replay_recorded_failures(ReplayRecordedFailureArgs {
                 executor: executor.clone(),
+                test_bytecode,
                 contract_decoder: &*self.contract_decoder,
                 revert_decoder: self.revert_decoder,
                 failure_file,
@@ -816,9 +857,19 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             reverts,
             last_run_inputs,
             gas_report_traces,
-        } = match evm.invariant_fuzz(invariant_contract.clone(), &fuzz_fixtures) {
+            coverage: invariant_coverage,
+            metrics: _metrics,
+        } = match evm.invariant_fuzz(invariant_contract.clone(), &fuzz_fixtures, &deployed_libs) {
             Ok(x) => x,
             Err(e) => {
+                let duration = start.elapsed();
+                let stack_trace_result: StackTraceResult =
+                    if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                        indeterminism_reasons.into()
+                    } else {
+                        self.re_run_test_for_stack_traces(func, setup.has_setup_method)
+                            .into()
+                    };
                 return TestResult {
                     status: TestStatus::Failure,
                     reason: Some(format!(
@@ -832,18 +883,19 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                         calls: 0,
                         reverts: 0,
                     },
-                    duration: start.elapsed(),
+                    duration,
+                    stack_trace_result: Some(stack_trace_result),
                     ..Default::default()
                 };
             }
         };
 
+        HitMaps::merge_opt(&mut coverage, invariant_coverage);
+
         let mut counterexample = None;
         let mut stack_trace = None;
         let success = error.is_none();
-        let mut reason = error
-            .as_ref()
-            .and_then(foundry_evm::executors::invariant::InvariantFuzzError::revert_reason);
+        let mut reason = error.as_ref().and_then(InvariantFuzzError::revert_reason);
 
         match error {
             // If invariants were broken, replay the error to collect logs and traces
@@ -864,6 +916,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                         generate_stack_trace: true,
                         contract_decoder: Some(&*self.contract_decoder),
                         revert_decoder: self.revert_decoder,
+                        show_solidity: invariant_config.show_solidity,
                     }) {
                         Ok(ReplayResult {
                             counterexample_sequence,
@@ -879,13 +932,25 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                                         error!(%err, "Failed to create invariant failure dir");
                                     } else if let Err(err) = edr_common::fs::write_json_file(
                                         failure_file.as_path(),
-                                        &counterexample_sequence,
+                                        &InvariantPersistedFailure {
+                                            call_sequence: counterexample_sequence.clone(),
+                                            driver_bytecode: Some(test_bytecode.clone()),
+                                        },
                                     ) {
                                         error!(%err, "Failed to record call sequence");
                                     }
                                 }
-                                counterexample =
-                                    Some(CounterExample::Sequence(counterexample_sequence));
+                                let original_seq_len =
+                                    if let TestError::Fail(_, calls) = &case_data.test_error {
+                                        calls.len()
+                                    } else {
+                                        counterexample_sequence.len()
+                                    };
+
+                                counterexample = Some(CounterExample::Sequence(
+                                    original_seq_len,
+                                    counterexample_sequence,
+                                ));
                             }
 
                             // If we can't get a revert reason for the second time, we couldn't
@@ -922,6 +987,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                     contract_decoder: None,
                     revert_decoder: self.revert_decoder,
                     fail_on_revert: invariant_config.fail_on_revert,
+                    show_solidity: invariant_config.show_solidity,
                 }) {
                     error!(%err, "Failed to replay last invariant run");
                 }
@@ -977,10 +1043,11 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             mut logs,
             mut traces,
             mut labeled_addresses,
+            reason: _,
             mut coverage,
+            deployed_libs,
             fuzz_fixtures,
             has_setup_method,
-            ..
         } = setup;
 
         // Run fuzz test
@@ -990,6 +1057,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         let result = fuzzed_executor.fuzz(
             func,
             &fuzz_fixtures,
+            &deployed_libs,
             address,
             should_fail,
             self.revert_decoder,
@@ -1021,7 +1089,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
         logs.extend(result.logs);
         labeled_addresses.extend(result.labeled_addresses);
         traces.extend(result.traces.map(|traces| (TraceKind::Execution, traces)));
-        coverage = merge_coverages(coverage, result.coverage);
+        HitMaps::merge_opt(&mut coverage, result.coverage);
 
         // Record test execution time
         let duration = start.elapsed();
@@ -1111,8 +1179,52 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
     }
 }
 
+struct RunInvariantTestsArgs<'a> {
+    executor: Executor,
+    test_bytecode: &'a Bytes,
+    runner: TestRunner,
+    setup: TestSetup,
+    invariant_config: InvariantConfig,
+    func: &'a Function,
+    call_after_invariant: bool,
+    known_contracts: &'a ContractsByArtifact,
+    identified_contracts: &'a ContractsByAddress,
+}
+
+/// Holds data about a persisted invariant failure.
+#[derive(Serialize, Deserialize)]
+struct InvariantPersistedFailure {
+    /// Recorded counterexample.
+    call_sequence: Vec<BaseCounterExample>,
+    /// Bytecode of the test contract that generated the counterexample.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    driver_bytecode: Option<Bytes>,
+}
+
+/// Helper function to load failed call sequence from file.
+/// Ignores failure if generated with different test contract than the current
+/// one.
+fn persisted_call_sequence(path: &Path, bytecode: &Bytes) -> Option<Vec<BaseCounterExample>> {
+    edr_common::fs::read_json_file::<InvariantPersistedFailure>(path).ok().and_then(
+        |persisted_failure| {
+            if let Some(persisted_bytecode) = &persisted_failure.driver_bytecode {
+                // Ignore persisted sequence if test bytecode doesn't match.
+                if !bytecode.eq(persisted_bytecode) {
+                    tracing::warn!("\
+                            Failure from {:?} file was ignored because test contract bytecode has changed.",
+                        path
+                    );
+                    return None;
+                }
+            };
+            Some(persisted_failure.call_sequence)
+        },
+    )
+}
+
 struct ReplayRecordedFailureArgs<'a, NestedTraceDecoderT: NestedTraceDecoder> {
     executor: Executor,
+    test_bytecode: &'a Bytes,
     contract_decoder: &'a NestedTraceDecoderT,
     revert_decoder: &'a RevertDecoder,
     failure_file: &'a Path,
@@ -1131,6 +1243,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
 ) -> Option<TestResult> {
     let ReplayRecordedFailureArgs {
         executor,
+        test_bytecode,
         contract_decoder,
         revert_decoder,
         failure_file,
@@ -1144,9 +1257,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
         start,
     } = args;
 
-    if let Ok(call_sequence) =
-        edr_common::fs::read_json_file::<Vec<BaseCounterExample>>(failure_file)
-    {
+    if let Some(call_sequence) = persisted_call_sequence(failure_file, test_bytecode) {
         // Create calls from failed sequence and check if invariant still broken.
         let txes = call_sequence
             .clone()
@@ -1170,11 +1281,12 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                 .to_vec()
                 .into(),
             invariant_config.fail_on_revert,
+            invariant_contract.call_after_invariant,
         ) {
             if !success {
                 // If sequence still fails then replay error to collect traces and
                 // exit without executing new runs.
-                let (reason, stack_trace_result) = replay_run(ReplayRunArgs {
+                let stack_trace_result = replay_run(ReplayRunArgs {
                     invariant_contract,
                     executor,
                     known_contracts,
@@ -1187,29 +1299,22 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                     contract_decoder: Some(contract_decoder),
                     revert_decoder,
                     fail_on_revert: invariant_config.fail_on_revert,
+                    show_solidity: invariant_config.show_solidity,
                 })
-                .map_or_else(
-                    |_err| (None, None),
-                    |result| {
-                        (
-                            result.revert_reason,
-                            result.stack_trace_result.map(StackTraceResult::from),
-                        )
-                    },
-                );
-                let reason = reason.or_else(|| {
-                    if replayed_entirely {
-                        Some(format!(
-                            "{} replay failure",
-                            invariant_contract.invariant_function.name
-                        ))
-                    } else {
-                        Some(format!(
-                            "{} persisted failure revert",
-                            invariant_contract.invariant_function.name
-                        ))
-                    }
+                .map_or(None, |result| {
+                    result.stack_trace_result.map(StackTraceResult::from)
                 });
+                let reason = if replayed_entirely {
+                    Some(format!(
+                        "{} replay failure",
+                        invariant_contract.invariant_function.name
+                    ))
+                } else {
+                    Some(format!(
+                        "{} persisted failure revert",
+                        invariant_contract.invariant_function.name
+                    ))
+                };
 
                 return Some(TestResult {
                     status: TestStatus::Failure,
@@ -1218,7 +1323,10 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                     traces: traces.clone(),
                     gas_report_traces: vec![],
                     coverage: coverage.clone(),
-                    counterexample: Some(CounterExample::Sequence(call_sequence)),
+                    counterexample: Some(CounterExample::Sequence(
+                        call_sequence.len(),
+                        call_sequence,
+                    )),
                     kind: TestKind::Invariant {
                         runs: 1,
                         calls: 1,
@@ -1226,7 +1334,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                     },
                     duration: start.elapsed(),
                     logs: vec![],
-                    labeled_addresses: HashMap::default(),
+                    labeled_addresses: AddressHashMap::<String>::default(),
                     stack_trace_result,
                 });
             }
@@ -1235,19 +1343,8 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
     None
 }
 
-/// Utility function to merge coverage options
-fn merge_coverages(mut coverage: Option<HitMaps>, other: Option<HitMaps>) -> Option<HitMaps> {
-    let old_coverage = std::mem::take(&mut coverage);
-    match (old_coverage, other) {
-        (Some(old_coverage), Some(other)) => Some(old_coverage.merge(other)),
-        (None, Some(other)) => Some(other),
-        (Some(old_coverage), None) => Some(old_coverage),
-        (None, None) => None,
-    }
-}
-
 /// Returns `true` if the function is a test function that matches the given
 /// filter.
 fn is_matching_test(func: &Function, filter: &dyn TestFilter) -> bool {
-    (func.is_test() || func.is_invariant_test()) && filter.matches_test(&func.signature())
+    func.is_any_test() && filter.matches_test(&func.signature())
 }

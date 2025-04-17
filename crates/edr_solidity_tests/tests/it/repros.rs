@@ -216,6 +216,14 @@ test_repro!(4640);
 // https://github.com/foundry-rs/foundry/issues/5038
 test_repro!(5038);
 
+// https://github.com/foundry-rs/foundry/issues/5529
+test_repro!(5529; |config| {
+  config.evm_opts.always_use_create_2_factory = true;
+});
+
+// https://github.com/foundry-rs/foundry/issues/5739
+test_repro!(5739);
+
 // https://github.com/foundry-rs/foundry/issues/5808
 test_repro!(5808);
 
@@ -290,7 +298,7 @@ test_repro!(6501, false, None, |res| {
     );
 
     let (kind, traces) = test.traces.last().expect("there are traces").clone();
-    let nodes = traces.into_nodes();
+    let nodes = traces.arena.into_nodes();
     assert_eq!(kind, TraceKind::Execution);
 
     let test_call = nodes.first().unwrap();
@@ -341,9 +349,14 @@ test_repro!(6966);
 // https://github.com/foundry-rs/foundry/issues/6616
 test_repro!(6616);
 
-// https://github.com/foundry-rs/foundry/issues/5529
-test_repro!(5529; |config| {
-  config.evm_opts.always_use_create_2_factory = true;
-});
-
+// https://github.com/foundry-rs/foundry/issues/7481
 test_repro!(7481);
+
+// https://github.com/foundry-rs/foundry/issues/8006
+test_repro!(8006);
+
+// https://github.com/foundry-rs/foundry/issues/8639
+test_repro!(8639; |config| {
+    config.fuzz.runs = 1000;
+    config.fuzz.seed = Some(U256::from(100));
+});
