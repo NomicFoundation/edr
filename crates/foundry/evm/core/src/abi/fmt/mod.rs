@@ -8,7 +8,7 @@ mod console;
 pub use console::{console_format, ConsoleFmt, FormatSpec};
 
 mod dynamic;
-pub use dynamic::{format_token, format_token_raw, format_tokens, parse_tokens};
+pub use dynamic::{format_token, format_token_raw, format_tokens, format_tokens_raw, parse_tokens};
 
 mod transactions;
 mod ui;

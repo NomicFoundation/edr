@@ -19,7 +19,7 @@
     "eslint-config-prettier": "9.1.0",
     "eslint-plugin-import": "2.27.5",
     "eslint-plugin-prettier": "5.2.1",
-    "hardhat": "3.0.0-next.3",
+    "hardhat": "3.0.0-next.4",
     "hardhat2": "npm:hardhat@2.22.18",
     "lodash": "^4.17.11",
     "prettier": "^3.2.5",

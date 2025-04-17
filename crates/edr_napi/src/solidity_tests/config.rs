@@ -541,7 +541,7 @@ impl From<InvariantConfigArgs> for InvariantConfig {
         }
 
         if let Some(shrink_run_limit) = shrink_run_limit {
-            invariant.shrink_run_limit = shrink_run_limit.try_into().expect("u32 fits into usize");
+            invariant.shrink_run_limit = shrink_run_limit;
         }
 
         invariant

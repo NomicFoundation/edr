@@ -7,6 +7,11 @@
 #[macro_use]
 extern crate tracing;
 
+// These crates are used by foundry-evm
+use hex as _;
+use serde_json as _;
+use tokio as _;
+
 pub mod executors;
 pub mod inspectors;
 

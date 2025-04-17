@@ -21,6 +21,7 @@ pub mod decode;
 pub mod fork;
 pub mod opcodes;
 pub mod opts;
+pub mod precompiles;
 pub mod snapshot;
 pub mod utils;
 

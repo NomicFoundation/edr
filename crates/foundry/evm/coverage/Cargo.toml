@@ -7,11 +7,16 @@ edition.workspace = true
 
 [dependencies]
 foundry-compilers.workspace = true
+foundry-evm-core.workspace = true
 
 alloy-primitives.workspace = true
 eyre = "0.6"
+rayon = "1"
 revm.workspace = true
 semver = "1"
+tracing.workspace = true
+# Needed by alloy-primitives with hashbrown feature
+hashbrown = { version = "0.15.2", features = ["rayon"] }
 
 [lints]
 workspace = true

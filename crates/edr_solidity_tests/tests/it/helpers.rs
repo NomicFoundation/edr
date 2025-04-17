@@ -184,6 +184,8 @@ impl From<TestFuzzConfig> for FuzzConfig {
             gas_report_samples: value.gas_report_samples,
             failure_persist_dir: value.failure_persist_dir,
             failure_persist_file: value.failure_persist_file,
+            show_logs: false,
+            timeout: None,
         }
     }
 }
@@ -198,7 +200,7 @@ pub struct TestInvariantConfig {
     pub fail_on_revert: bool,
     pub call_override: bool,
     pub dictionary: FuzzDictionaryConfig,
-    pub shrink_run_limit: usize,
+    pub shrink_run_limit: u32,
     pub max_assume_rejects: u32,
     pub gas_report_samples: u32,
     pub failure_persist_dir: Option<PathBuf>,
@@ -218,7 +220,7 @@ impl Default for TestInvariantConfig {
                 max_fuzz_dictionary_addresses: 10_000,
                 max_fuzz_dictionary_values: 10_000,
             },
-            shrink_run_limit: 2usize.pow(18u32),
+            shrink_run_limit: 2_u32.pow(18u32),
             max_assume_rejects: 65536,
             gas_report_samples: 256,
             failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
@@ -238,6 +240,9 @@ impl From<TestInvariantConfig> for InvariantConfig {
             max_assume_rejects: value.max_assume_rejects,
             gas_report_samples: value.gas_report_samples,
             failure_persist_dir: value.failure_persist_dir,
+            show_metrics: false,
+            timeout: None,
+            show_solidity: false,
         }
     }
 }
@@ -355,9 +360,7 @@ impl ForgeTestData {
                 .constructor
                 .as_ref()
                 .map_or(true, |c| c.inputs.is_empty())
-                && abi
-                    .functions()
-                    .any(|func| func.name.is_test() || func.name.is_invariant_test())
+                && abi.functions().any(|func| func.name.is_any_test())
             {
                 let Some(bytecode) = contract
                     .get_bytecode_bytes()

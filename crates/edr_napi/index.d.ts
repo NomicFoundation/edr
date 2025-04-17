@@ -774,6 +774,16 @@ export interface InvariantTestKind {
   /** See [edr_solidity_tests::result::TestKind::Invariant] */
   readonly reverts: bigint
 }
+/**
+ * Original sequence size and sequence of calls used as a counter example
+ * for invariant tests.
+ */
+export interface CounterExampleSequence {
+  /** The original sequence size before shrinking. */
+  originalSequenceSize: bigint
+  /** The shrunk counterexample sequence. */
+  sequence: Array<BaseCounterExample>
+}
 /** See [edr_solidity_tests::fuzz::BaseCounterExample] */
 export interface BaseCounterExample {
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::sender] */
@@ -1096,7 +1106,7 @@ export declare class TestResult {
   /** See [edr_solidity_tests::result::TestResult::reason] */
   readonly reason?: string
   /** See [edr_solidity_tests::result::TestResult::counterexample] */
-  readonly counterexample?: BaseCounterExample | Array<BaseCounterExample>
+  readonly counterexample?: BaseCounterExample | CounterExampleSequence
   /** See [edr_solidity_tests::result::TestResult::decoded_logs] */
   readonly decodedLogs: Array<string>
   /** See [edr_solidity_tests::result::TestResult::kind] */

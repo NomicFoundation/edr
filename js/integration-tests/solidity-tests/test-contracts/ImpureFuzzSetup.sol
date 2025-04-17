@@ -35,9 +35,9 @@ contract ImpureFuzzTest is Test {
     }
 
     function testFuzzAddWithOverflow(uint256 a, uint256 b) public {
+        // Impure cheatcode
+        assert(vm.unixTime() > 0);
         uint256 result = myContract.addWithOverflow(a, b);
         assertEq(result, a + b);
-        // Impure cheatcode + error
-        assertEq(vm.unixTime(), 42);
     }
 }

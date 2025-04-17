@@ -1,10 +1,10 @@
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
 use alloy_primitives::Bytes;
-use proptest::prelude::{BoxedStrategy, Strategy};
+use proptest::prelude::Strategy;
 
 use crate::{
-    strategies::{fuzz_param, fuzz_param_from_state, EvmFuzzState},
+    strategies::{fuzz_param_from_state, fuzz_param_with_fixtures, EvmFuzzState},
     FuzzFixtures,
 };
 
@@ -17,15 +17,16 @@ pub fn fuzz_calldata(func: Function, fuzz_fixtures: &FuzzFixtures) -> impl Strat
         .inputs
         .iter()
         .map(|input| {
-            fuzz_param(
+            fuzz_param_with_fixtures(
                 &input.selector_type().parse().unwrap(),
                 fuzz_fixtures.param_fixtures(&input.name),
+                &input.name,
             )
         })
         .collect::<Vec<_>>();
     strats.prop_map(move |values| {
         func.abi_encode_input(&values)
-            .unwrap_or_else(|_err| {
+            .unwrap_or_else(|_| {
                 panic!(
                     "Fuzzer generated invalid arguments for function `{}` with inputs {:?}: {:?}",
                     func.name, func.inputs, values
@@ -38,7 +39,10 @@ pub fn fuzz_calldata(func: Function, fuzz_fixtures: &FuzzFixtures) -> impl Strat
 /// Given a function and some state, it returns a strategy which generated valid
 /// calldata for the given function's input types, based on state taken from the
 /// EVM.
-pub fn fuzz_calldata_from_state(func: Function, state: &EvmFuzzState) -> BoxedStrategy<Bytes> {
+pub fn fuzz_calldata_from_state(
+    func: Function,
+    state: &EvmFuzzState,
+) -> impl Strategy<Value = Bytes> {
     let strats = func
         .inputs
         .iter()
@@ -47,7 +51,7 @@ pub fn fuzz_calldata_from_state(func: Function, state: &EvmFuzzState) -> BoxedSt
     strats
         .prop_map(move |values| {
             func.abi_encode_input(&values)
-                .unwrap_or_else(|_err| {
+                .unwrap_or_else(|_| {
                     panic!(
                         "Fuzzer generated invalid arguments for function `{}` with inputs {:?}: {:?}",
                         func.name, func.inputs, values
@@ -56,16 +60,13 @@ pub fn fuzz_calldata_from_state(func: Function, state: &EvmFuzzState) -> BoxedSt
                 .into()
         })
         .no_shrink()
-        .boxed()
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
     use alloy_json_abi::Function;
-    use alloy_primitives::Address;
+    use alloy_primitives::{map::HashMap, Address};
     use proptest::prelude::Strategy;
 
     use crate::{strategies::fuzz_calldata, FuzzFixtures};
@@ -75,7 +76,7 @@ mod tests {
         let function = Function::parse("test_fuzzed_address(address addressFixture)").unwrap();
 
         let address_fixture = DynSolValue::Address(Address::random());
-        let mut fixtures = HashMap::new();
+        let mut fixtures = HashMap::default();
         fixtures.insert(
             "addressFixture".to_string(),
             DynSolValue::Array(vec![address_fixture.clone()]),

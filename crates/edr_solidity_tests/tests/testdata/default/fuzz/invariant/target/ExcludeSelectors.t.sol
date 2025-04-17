@@ -9,7 +9,7 @@ struct FuzzSelector {
 }
 
 contract Hello {
-    bool public world = true;
+    bool public world = false;
 
     function change() public {
         world = true;
@@ -20,14 +20,14 @@ contract Hello {
     }
 }
 
-contract TargetSelectors is DSTest {
+contract ExcludeSelectors is DSTest {
     Hello hello;
 
     function setUp() public {
         hello = new Hello();
     }
 
-    function targetSelectors() public returns (FuzzSelector[] memory) {
+    function excludeSelectors() public returns (FuzzSelector[] memory) {
         FuzzSelector[] memory targets = new FuzzSelector[](1);
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = Hello.change.selector;
@@ -35,7 +35,7 @@ contract TargetSelectors is DSTest {
         return targets;
     }
 
-    function invariantTrueWorld() public {
-        require(hello.world() == true, "false world");
+    function invariantFalseWorld() public {
+        require(hello.world() == false, "true world");
     }
 }

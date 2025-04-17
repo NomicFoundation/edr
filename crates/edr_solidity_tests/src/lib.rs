@@ -11,8 +11,6 @@ use proptest::test_runner::{
     FailurePersistence, FileFailurePersistence, RngAlgorithm, TestRng, TestRunner,
 };
 
-pub mod coverage;
-
 pub mod gas_report;
 
 pub mod multi_runner;
@@ -30,8 +28,8 @@ pub use foundry_evm::executors::stack_trace::StackTraceError;
 
 mod test_filter;
 
+use foundry_evm::fuzz::{invariant::InvariantConfig, FuzzConfig};
 pub use foundry_evm::*;
-use foundry_evm::{executors::fuzz::FuzzConfig, fuzz::invariant::InvariantConfig};
 pub use test_filter::TestFilter;
 
 static FAILURE_PATHS: OnceLock<RwLock<HashSet<&'static str>>> = OnceLock::new();
@@ -116,6 +114,9 @@ impl TestOptions {
             failure_persistence: file_failure_persistence,
             cases,
             max_global_rejects: self.fuzz.max_test_rejects,
+            // Disable proptest shrink: for fuzz tests we provide single counterexample,
+            // for invariant tests we shrink outside proptest.
+            max_shrink_iters: 0,
             ..Default::default()
         };
 

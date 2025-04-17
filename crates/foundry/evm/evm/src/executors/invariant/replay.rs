@@ -5,7 +5,6 @@ use alloy_primitives::Log;
 use edr_solidity::contract_decoder::NestedTraceDecoder;
 use eyre::Result;
 use foundry_evm_core::{
-    constants::CALLER,
     contracts::{ContractsByAddress, ContractsByArtifact},
     decode::RevertDecoder,
 };
@@ -19,7 +18,10 @@ use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::primitives::U256;
 
-use super::{error::FailedInvariantCaseData, shrink_sequence};
+use super::{
+    call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
+    shrink_sequence,
+};
 use crate::executors::{
     stack_trace::{get_stack_trace, StackTraceResult},
     Executor,
@@ -40,6 +42,7 @@ pub struct ReplayRunArgs<'a, NestedTraceDecoderT> {
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
     pub fail_on_revert: bool,
+    pub show_solidity: bool,
 }
 
 /// Results of a replay
@@ -69,6 +72,7 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
         contract_decoder,
         revert_decoder,
         fail_on_revert,
+        show_solidity,
     } = args;
 
     // We want traces for a failed case.
@@ -93,18 +97,11 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
             TraceKind::Execution,
             call_result.traces.clone().expect("enabled tracing"),
         ));
-
-        if let Some(new_coverage) = call_result.coverage {
-            if let Some(old_coverage) = coverage {
-                *coverage = Some(std::mem::take(old_coverage).merge(new_coverage));
-            } else {
-                *coverage = Some(new_coverage);
-            }
-        }
+        HitMaps::merge_opt(coverage, call_result.coverage);
 
         // Identify newly generated contracts, if they exist.
         ided_contracts.extend(load_contracts(
-            call_result.traces.as_slice(),
+            call_result.traces.iter().map(|a| &a.arena),
             known_contracts,
         ));
 
@@ -115,6 +112,7 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
             &tx.call_details.calldata,
             &ided_contracts,
             call_result.traces,
+            show_solidity,
             /* indeterminism_reason */ None,
         ));
 
@@ -144,21 +142,31 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     // Checking after each call doesn't add valuable info for passing scenario
     // (invariant call result is always success) nor for failed scenarios
     // (invariant call result is always success until the last call that breaks it).
-    let (invariant_result, cow_backend) = executor.call_raw(
-        CALLER,
+    let (invariant_result, invariant_success, cow_backend) = call_invariant_function(
+        &executor,
         invariant_contract.address,
         invariant_contract
             .invariant_function
-            .abi_encode_input(&[])
-            .expect("invariant should have no inputs")
+            .abi_encode_input(&[])?
             .into(),
-        U256::ZERO,
     )?;
+
     traces.push((
         TraceKind::Execution,
         invariant_result.traces.expect("tracing is on"),
     ));
     logs.extend(invariant_result.logs);
+
+    // Collect after invariant logs and traces.
+    if invariant_contract.call_after_invariant && invariant_success {
+        let (after_invariant_result, _) =
+            call_after_invariant_function(&executor, invariant_contract.address)?;
+        traces.push((
+            TraceKind::Execution,
+            after_invariant_result.traces.clone().unwrap(),
+        ));
+        logs.extend(after_invariant_result.logs);
+    }
 
     let stack_trace_result: Option<StackTraceResult> =
         if let Some(indeterminism_reasons) = cow_backend.backend.indeterminism_reasons() {
@@ -195,6 +203,7 @@ pub struct ReplayErrorArgs<'a, NestedTraceDecoderT> {
     /// Must be provided if `generate_stack_trace` is true
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
+    pub show_solidity: bool,
 }
 
 /// Replays the error case, shrinks the failing sequence and collects all
@@ -214,6 +223,7 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
         generate_stack_trace,
         contract_decoder,
         revert_decoder,
+        show_solidity,
     } = args;
 
     match failed_case.test_error {
@@ -221,7 +231,12 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
         TestError::Abort(_) => Ok(ReplayResult::default()),
         TestError::Fail(_, ref calls) => {
             // Shrink sequence of failed calls.
-            let calls = shrink_sequence(failed_case, calls, &executor)?;
+            let calls = shrink_sequence(
+                failed_case,
+                calls,
+                &executor,
+                invariant_contract.call_after_invariant,
+            )?;
 
             set_up_inner_replay(&mut executor, &failed_case.inner_sequence);
 
@@ -238,8 +253,9 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
                 inputs: calls,
                 generate_stack_trace,
                 contract_decoder,
-                revert_decoder,
                 fail_on_revert: failed_case.fail_on_revert,
+                revert_decoder,
+                show_solidity,
             })
         }
     }
