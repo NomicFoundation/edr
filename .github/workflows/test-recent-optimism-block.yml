@@ -7,8 +7,12 @@ on:
 
 jobs:
   test-recent-op-block:
-    name: Test recent OP block
+    name: Test recent OP block (${{ matrix.network }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        network: [opt-mainnet, base-mainnet]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,9 +25,12 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: test-recent-op-block-rpc-cache-v1
+          key: test-recent-${{ matrix.network }}-block-rpc-cache-v1
 
-      - run: cargo replay-block -u ${{ secrets.ALCHEMY_URL }} -c op
+      - run: |
+          BASE_ALCHEMY_URL="${{ secrets.ALCHEMY_URL }}"
+          ALCHEMY_URL="${BASE_ALCHEMY_URL//eth-mainnet/${{ matrix.network }}}"
+          cargo replay-block -u "$ALCHEMY_URL" -c op
 
       - name: Notify failures
         if: failure()
@@ -31,7 +38,7 @@ jobs:
         with:
           payload: |
             {
-              "workflow_name": "${{ github.workflow }}",
+              "workflow_name": "${{ github.workflow }} (${{ matrix.network }})",
               "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
         env:
