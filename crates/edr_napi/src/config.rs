@@ -261,8 +261,8 @@ impl ObservabilityConfig {
                             },
                         )?;
 
-                    // Maintain a weak reference to the function to avoid the event loop from
-                    // exiting.
+                    // Maintain a weak reference to the function to avoid blocking the event loop
+                    // from exiting.
                     on_collected_coverage_callback.unref(env)?;
 
                     let on_collected_coverage_fn: Box<dyn SyncOnCollectedCoverageCallback> =

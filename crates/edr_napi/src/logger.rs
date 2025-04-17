@@ -60,8 +60,8 @@ impl LoggerConfig {
                     Ok(vec![inputs])
                 })?;
 
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
+        // Maintain a weak reference to the function to avoid blocking the event loop
+        // from exiting.
         decode_console_log_inputs_callback.unref(env)?;
 
         let decode_console_log_inputs_fn = Arc::new(move |console_log_inputs| {
@@ -96,8 +96,8 @@ impl LoggerConfig {
                 Ok(vec![message.into_unknown(), replace.into_unknown()])
             })?;
 
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
+        // Maintain a weak reference to the function to avoid blocking the event loop
+        // from exiting.
         print_line_callback.unref(env)?;
 
         let print_line_fn = Arc::new(move |message, replace| {
