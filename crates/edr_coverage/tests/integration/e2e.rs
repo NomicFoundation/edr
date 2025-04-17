@@ -150,6 +150,7 @@ fn record_hits() -> anyhow::Result<()> {
     )
     .expect("Failed to deploy");
 
+    // Trigger a revert after we've collected the first hit
     let hits = call_inc_by(&blockchain, &state, increment, U256::ZERO)?;
     assert_eq!(hits.len(), 1);
     assert_eq!(
