@@ -26,12 +26,16 @@ pub type ArtifactContracts<'a> = BTreeMap<ArtifactId, CompactContractBytecodeCow
 pub enum LinkerError {
     /// Error that occurs when a library artifact cannot be found at the
     /// specified file path with the given name.
-    #[error("wasn't able to find artifact for library '{name}' at '{file_path}'")]
+    #[error("wasn't able to find artifact for library '{library_name}' at '{library_file_path}' when linking '{contract_name}' at '{contract_file_path}'")]
     MissingLibraryArtifact {
-        /// The file path
-        file_path: String,
-        /// The contract name
-        name: String,
+        /// The file path of the contract being linked
+        contract_file_path: String,
+        /// The name of the contract being linked
+        contract_name: String,
+        /// The file path of the library being linked
+        library_file_path: String,
+        /// The name of the library being linked
+        library_name: String,
     },
 
     /// Error that occurs when the target artifact to link is not present in the
@@ -171,8 +175,10 @@ impl<'a> Linker<'a> {
                 let id = self
                     .find_artifact_id_by_library_path(file_path, contract, Some(&target.version))
                     .ok_or_else(|| LinkerError::MissingLibraryArtifact {
-                        file_path: file_path.to_string(),
-                        name: contract.to_string(),
+                        contract_file_path: target.source.to_string_lossy().to_string(),
+                        contract_name: target.name.clone(),
+                        library_file_path: file_path.to_string(),
+                        library_name: contract.to_string(),
                     })?;
                 if deps.insert(id) {
                     self.collect_dependencies(id, deps)?;
