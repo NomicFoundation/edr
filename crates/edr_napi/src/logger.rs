@@ -101,8 +101,22 @@ impl LoggerConfig {
         print_line_callback.unref(env)?;
 
         let print_line_fn = Arc::new(move |message, replace| {
-            let status =
-                print_line_callback.call((message, replace), ThreadsafeFunctionCallMode::Blocking);
+            let (sender, receiver) = channel();
+
+            let status = print_line_callback.call_with_return_value(
+                (message, replace),
+                ThreadsafeFunctionCallMode::Blocking,
+                move |()| {
+                    sender.send(()).map_err(|_error| {
+                        napi::Error::new(
+                            Status::GenericFailure,
+                            "Failed to send result from decode_console_log_inputs",
+                        )
+                    })
+                },
+            );
+
+            let () = receiver.recv().unwrap();
 
             if status == napi::Status::Ok {
                 Ok(())
