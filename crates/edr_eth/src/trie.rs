@@ -8,8 +8,8 @@
 
 use hash256_std_hasher::Hash256StdHasher;
 use sha3::{
-    digest::generic_array::{typenum::consts::U32, GenericArray},
     Digest, Keccak256,
+    digest::generic_array::{GenericArray, typenum::consts::U32},
 };
 
 use crate::B256;

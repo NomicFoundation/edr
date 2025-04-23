@@ -39,6 +39,7 @@ import {
   EXAMPLE_DIFFICULTY_CONTRACT,
   EXAMPLE_READ_CONTRACT,
 } from "../../../helpers/contracts";
+import { makeCommon } from "../../../helpers/makeCommon";
 
 describe("Eth module - hardfork dependant tests", function () {
   function useProviderAndCommon(
@@ -47,11 +48,7 @@ describe("Eth module - hardfork dependant tests", function () {
   ) {
     importedUseProvider({ hardfork, allowUnlimitedContractSize });
     beforeEach(async function () {
-      // TODO: Find out a better way to obtain the common here
-      const provider: any = this.hardhatNetworkProvider;
-
-      // eslint-disable-next-line dot-notation,@typescript-eslint/dot-notation
-      this.common = provider["_common"];
+      this.common = await makeCommon(this.provider);
     });
   }
 

@@ -3,19 +3,20 @@
 /// serialize secret keys for scenario collecting, but we don't want to include
 /// this in the production code to prevent secrets from accidentally leaking
 /// into logs.
-use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
+use std::{num::NonZeroU64, time::SystemTime};
 
-use edr_eth::{
-    block::BlobGas, spec::HardforkActivations, AccountInfo, Address, HashMap, SpecId, B256, U256,
+use edr_eth::{Address, B256, ChainId, HashMap, U256, block::BlobGas};
+use edr_napi_core::provider::{Config as ProviderConfig, HardforkActivation};
+use edr_provider::{
+    AccountConfig, MiningConfig, config::OwnedAccount, hardhat_rpc_types::ForkConfig,
 };
-use edr_evm::alloy_primitives::ChainId;
-use edr_provider::{hardhat_rpc_types::ForkConfig, MiningConfig};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ScenarioConfig {
-    pub provider_config: ScenarioProviderConfig,
+    pub chain_type: Option<String>,
     pub logger_enabled: bool,
+    pub provider_config: ScenarioProviderConfig,
 }
 
 /// Custom configuration for the provider that supports serde as we don't want a
@@ -24,31 +25,33 @@ pub struct ScenarioConfig {
 pub struct ScenarioProviderConfig {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
-    pub accounts: Vec<ScenarioAccountConfig>,
+    pub accounts: Vec<ScenarioOwnedAccount>,
     /// Whether to return an `Err` when `eth_call` fails
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
-    pub cache_dir: PathBuf,
+    pub cache_dir: Option<String>,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, HardforkActivations>,
+    pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
     pub coinbase: Address,
+    #[serde(default)]
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
-    // Genesis accounts in addition to accounts. Useful for adding impersonated accounts for tests.
-    pub genesis_accounts: HashMap<Address, AccountInfo>,
-    pub hardfork: SpecId,
-    pub initial_base_fee_per_gas: Option<U256>,
+    pub genesis_state: HashMap<Address, AccountConfig>,
+    pub hardfork: String,
+    #[serde(with = "alloy_serde::quantity::opt")]
+    pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
-    pub min_gas_price: U256,
+    #[serde(with = "alloy_serde::quantity")]
+    pub min_gas_price: u128,
     pub mining: MiningConfig,
     pub network_id: u64,
 }
 
-impl From<ScenarioProviderConfig> for edr_provider::ProviderConfig {
+impl From<ScenarioProviderConfig> for ProviderConfig {
     fn from(value: ScenarioProviderConfig) -> Self {
         Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
@@ -56,7 +59,7 @@ impl From<ScenarioProviderConfig> for edr_provider::ProviderConfig {
             accounts: value
                 .accounts
                 .into_iter()
-                .map(edr_provider::AccountConfig::from)
+                .map(OwnedAccount::from)
                 .collect::<Vec<_>>(),
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
@@ -67,7 +70,7 @@ impl From<ScenarioProviderConfig> for edr_provider::ProviderConfig {
             coinbase: value.coinbase,
             enable_rip_7212: value.enable_rip_7212,
             fork: value.fork,
-            genesis_accounts: value.genesis_accounts,
+            genesis_state: value.genesis_state,
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
             initial_blob_gas: value.initial_blob_gas,
@@ -80,15 +83,15 @@ impl From<ScenarioProviderConfig> for edr_provider::ProviderConfig {
     }
 }
 
-impl From<edr_provider::ProviderConfig> for ScenarioProviderConfig {
-    fn from(value: edr_provider::ProviderConfig) -> Self {
+impl From<ProviderConfig> for ScenarioProviderConfig {
+    fn from(value: ProviderConfig) -> Self {
         Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             accounts: value
                 .accounts
                 .into_iter()
-                .map(ScenarioAccountConfig::from)
+                .map(ScenarioOwnedAccount::from)
                 .collect::<Vec<_>>(),
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
@@ -99,7 +102,7 @@ impl From<edr_provider::ProviderConfig> for ScenarioProviderConfig {
             coinbase: value.coinbase,
             enable_rip_7212: value.enable_rip_7212,
             fork: value.fork,
-            genesis_accounts: value.genesis_accounts,
+            genesis_state: value.genesis_state,
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
             initial_blob_gas: value.initial_blob_gas,
@@ -114,7 +117,7 @@ impl From<edr_provider::ProviderConfig> for ScenarioProviderConfig {
 
 /// Configuration input for a single account
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScenarioAccountConfig {
+pub struct ScenarioOwnedAccount {
     /// the secret key of the account
     #[serde(with = "secret_key_serde")]
     pub secret_key: k256::SecretKey,
@@ -122,8 +125,8 @@ pub struct ScenarioAccountConfig {
     pub balance: U256,
 }
 
-impl From<ScenarioAccountConfig> for edr_provider::AccountConfig {
-    fn from(value: ScenarioAccountConfig) -> Self {
+impl From<ScenarioOwnedAccount> for OwnedAccount {
+    fn from(value: ScenarioOwnedAccount) -> Self {
         Self {
             secret_key: value.secret_key,
             balance: value.balance,
@@ -131,8 +134,8 @@ impl From<ScenarioAccountConfig> for edr_provider::AccountConfig {
     }
 }
 
-impl From<edr_provider::AccountConfig> for ScenarioAccountConfig {
-    fn from(value: edr_provider::AccountConfig) -> Self {
+impl From<OwnedAccount> for ScenarioOwnedAccount {
+    fn from(value: OwnedAccount) -> Self {
         Self {
             secret_key: value.secret_key,
             balance: value.balance,

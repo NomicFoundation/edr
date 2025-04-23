@@ -1,9 +1,8 @@
 use edr_eth::{
+    Address, B256, Bloom, BloomInput, HashSet,
     filter::LogOutput,
-    log::{matches_address_filter, matches_topics_filter, FilterLog},
-    Address, Bloom, BloomInput, B256,
+    log::{FilterLog, matches_address_filter, matches_topics_filter},
 };
-use edr_evm::HashSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LogFilter {
@@ -24,7 +23,7 @@ pub fn bloom_contains_log_filter(bloom: &Bloom, filter: &LogFilter) -> bool {
     }
 
     filter.normalized_topics.iter().all(|topics| {
-        topics.as_ref().map_or(true, |topics| {
+        topics.as_ref().is_none_or(|topics| {
             topics
                 .iter()
                 .any(|topic| bloom.contains_input(BloomInput::Raw(topic.as_slice())))
@@ -40,7 +39,7 @@ pub fn filter_logs<'i>(
         filter.from_block <= log.block_number
             && filter
                 .to_block
-                .map_or(true, |to_block| log.block_number <= to_block)
+                .is_none_or(|to_block| log.block_number <= to_block)
             && matches_address_filter(&log.address, &filter.addresses)
             && matches_topics_filter(log.topics(), &filter.normalized_topics)
     })

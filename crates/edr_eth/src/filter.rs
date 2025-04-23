@@ -1,6 +1,6 @@
 use std::mem::take;
 
-use crate::{block_spec::BlockSpec, log::FilterLog, Address, Bytes, B256};
+use crate::{Address, B256, Bytes, block_spec::BlockSpec, log::FilterLog};
 
 /// A type that can be used to pass either one or many objects to a JSON-RPC
 /// request
@@ -47,11 +47,11 @@ pub struct LogOutput {
     pub removed: bool,
     /// integer of the log index position in the block. None when its pending
     /// log.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::optional_u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity::opt"))]
     pub log_index: Option<u64>,
     /// integer of the transactions index position log was created from. None
     /// when its pending log.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::optional_u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity::opt"))]
     pub transaction_index: Option<u64>,
     /// hash of the transactions this log was created from. None when its
     /// pending log.
@@ -61,7 +61,7 @@ pub struct LogOutput {
     pub block_hash: Option<B256>,
     /// the block number where this log was in. null when its pending. None when
     /// its pending log.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::optional_u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity::opt"))]
     pub block_number: Option<u64>,
     /// address from which this log originated.
     pub address: Address,

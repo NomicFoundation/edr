@@ -1,26 +1,31 @@
 use std::sync::Arc;
 
-use edr_eth::{eips::eip4844::BYTES_PER_BLOB, PreEip1898BlockSpec, SpecId, B256};
+use edr_eth::{
+    B256, PreEip1898BlockSpec,
+    eips::eip4844::GAS_PER_BLOB,
+    l1::{self, L1ChainSpec},
+    transaction::ExecutableTransaction as _,
+};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest, test_utils::create_test_config,
+    time::CurrentTime,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
-use crate::common::blob::{fake_raw_transaction, fake_transaction, BlobTransactionBuilder};
+use crate::common::blob::{BlobTransactionBuilder, fake_raw_transaction, fake_transaction};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header() -> anyhow::Result<()> {
     let raw_eip4844_transaction = fake_raw_transaction();
 
-    let logger = Box::new(NoopLogger);
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
-    config.hardfork = SpecId::PRAGUE;
+    config.hardfork = l1::SpecId::PRAGUE;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -43,11 +48,11 @@ async fn block_header() -> anyhow::Result<()> {
     ))?;
 
     let first_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(first_block.blob_gas_used, Some(BYTES_PER_BLOB as u64));
+    assert_eq!(first_block.blob_gas_used, Some(GAS_PER_BLOB));
 
     assert_eq!(
         first_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     // The first block does not affect the number of excess blobs, as it has less
@@ -66,11 +71,11 @@ async fn block_header() -> anyhow::Result<()> {
     ))?;
 
     let second_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(second_block.blob_gas_used, Some(7 * BYTES_PER_BLOB as u64));
+    assert_eq!(second_block.blob_gas_used, Some(7 * GAS_PER_BLOB));
 
     assert_eq!(
         second_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     // The second block increases the excess by 1 blob (7 - 6)
@@ -90,11 +95,11 @@ async fn block_header() -> anyhow::Result<()> {
     ))?;
 
     let third_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(third_block.blob_gas_used, Some(8 * BYTES_PER_BLOB as u64));
+    assert_eq!(third_block.blob_gas_used, Some(8 * GAS_PER_BLOB));
 
     assert_eq!(
         third_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     // The third block increases the excess by 2 blob (8 - 6)
@@ -112,7 +117,7 @@ async fn block_header() -> anyhow::Result<()> {
 
     assert_eq!(
         fourth_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     // The fourth block decreases the excess by 6 blob (0 - 6), but should not go
@@ -131,7 +136,7 @@ async fn block_header() -> anyhow::Result<()> {
 
     assert_eq!(
         fifth_block.excess_blob_gas,
-        Some(excess_blobs * BYTES_PER_BLOB as u64)
+        Some(excess_blobs * GAS_PER_BLOB)
     );
 
     Ok(())

@@ -1,8 +1,10 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use edr_eth::{account::BasicAccount, Address, B256, U256};
+use edr_eth::{
+    Address, B256, HashMap, U256,
+    account::{Account, AccountInfo, BasicAccount},
+};
 use hasher::{Hasher, HasherKeccak};
-use revm::primitives::{Account, AccountInfo, HashMap};
 use rpds::HashTrieMapSync;
 
 use crate::state::trie::{

@@ -2,7 +2,7 @@
 
 use std::{fmt::Debug, sync::Arc};
 
-use edr_eth::Bytes;
+use edr_eth::{Bytes, spec::HaltReasonTrait};
 use parking_lot::RwLock;
 
 use super::{
@@ -129,10 +129,10 @@ impl ContractDecoder {
 }
 
 impl NestedTraceDecoder for ContractDecoder {
-    fn try_to_decode_nested_trace(
+    fn try_to_decode_nested_trace<HaltReasonT: HaltReasonTrait>(
         &self,
-        nested_trace: NestedTrace,
-    ) -> Result<NestedTrace, ContractDecoderError> {
+        nested_trace: NestedTrace<HaltReasonT>,
+    ) -> Result<NestedTrace<HaltReasonT>, ContractDecoderError> {
         match nested_trace {
             precompile @ NestedTrace::Precompile(..) => Ok(precompile),
             // NOTE: The branches below are the same with the difference of `is_create`

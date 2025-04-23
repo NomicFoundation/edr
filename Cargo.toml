@@ -37,6 +37,7 @@ rpath = true
 # Uncomment this section if you're using a debugger.
 debug = 1
 
+[profile.release]
 # Optimized profile for released packages.
 [profile.napi-publish]
 inherits = "release"
@@ -242,6 +243,7 @@ hex = { package = "const-hex", version = "1.6", features = ["hex"] }
 itertools = "0.12"
 jsonpath_lib = "0.3"
 k256 = "0.13"
+paste = { version = "1.0.14", default-features = false }
 similar-asserts = "1.5"
 rand = "0.8"
 rustc-hash = "1.1"
@@ -263,3 +265,4 @@ hyper = "1.0"
 reqwest = { version = "0.12", default-features = false }
 tower = "0.4"
 tower-http = "0.5"
+

@@ -2,17 +2,26 @@ mod block;
 mod filter;
 mod receipt;
 
-pub use revm_primitives::Log;
+pub use revm_primitives::Log as ExecutionLog;
 
 pub use self::{
     block::{BlockLog, FullBlockLog},
     filter::FilterLog,
     receipt::ReceiptLog,
 };
-use crate::{Address, Bloom, BloomInput, HashSet, B256};
+use crate::{Address, B256, Bloom, BloomInput, HashSet};
+
+/// Constructs a bloom filter from the provided logs.
+pub fn logs_to_bloom(logs: &[ExecutionLog]) -> Bloom {
+    let mut bloom = Bloom::ZERO;
+    for log in logs {
+        add_log_to_bloom(log, &mut bloom);
+    }
+    bloom
+}
 
 /// Adds the log to a bloom hash.
-pub fn add_log_to_bloom(log: &Log, bloom: &mut Bloom) {
+fn add_log_to_bloom(log: &ExecutionLog, bloom: &mut Bloom) {
     bloom.accrue(BloomInput::Raw(log.address.as_slice()));
 
     log.topics()
@@ -35,12 +44,10 @@ pub fn matches_topics_filter(log_topics: &[B256], topics_filter: &[Option<Vec<B2
         .iter()
         .zip(log_topics.iter())
         .all(|(normalized_topics, log_topic)| {
-            normalized_topics
-                .as_ref()
-                .map_or(true, |normalized_topics| {
-                    normalized_topics
-                        .iter()
-                        .any(|normalized_topic| *normalized_topic == *log_topic)
-                })
+            normalized_topics.as_ref().is_none_or(|normalized_topics| {
+                normalized_topics
+                    .iter()
+                    .any(|normalized_topic| *normalized_topic == *log_topic)
+            })
         })
 }

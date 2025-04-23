@@ -20,10 +20,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, thiserror::Error)]
 pub enum BuildInfoConfigError {
     /// JSON deserialization error
-    #[error(transparent)]
+    #[error("Failed to parse build info: {0}")]
     Json(#[from] serde_json::Error),
     /// Invalid semver in the build info
-    #[error(transparent)]
+    #[error("Invalid solc version: {0}")]
     Semver(#[from] semver::Error),
     /// Input output file mismatch
     #[error("Input output mismatch. Input id: '{input_id}'. Output id: '{output_id}'")]

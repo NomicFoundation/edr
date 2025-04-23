@@ -1,60 +1,146 @@
+// TODO: Remove this once we no longer need `HardforkT: Debug` to implement
+// `thiserror::Error` for `ProviderError`.
+#![allow(clippy::trait_duplication_in_bounds)]
+
 use core::fmt::Debug;
-use std::num::TryFromIntError;
+use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
-use edr_eth::{filter::SubscriptionType, Address, BlockSpec, BlockTag, Bytes, SpecId, B256, U256};
+use edr_eth::{
+    Address, B256, BlockSpec, BlockTag, Bytes, U256,
+    filter::SubscriptionType,
+    hex, l1,
+    result::ExecutionResult,
+    spec::{ChainSpec, HaltReasonTrait},
+    transaction::TransactionValidation,
+};
 use edr_evm::{
-    blockchain::BlockchainError,
-    hex,
+    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
+    blockchain::{BlockchainError, ForkedCreationError, LocalCreationError},
+    debug_trace::DebugTraceError,
+    spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
-    DebugTraceError, ExecutionResult, HaltReason, MemPoolAddTransactionError, MineBlockError,
-    MineTransactionError, OutOfGasError,
 };
-use edr_rpc_eth::{client::RpcClientError, jsonrpc};
+use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
+use edr_solidity::contract_decoder::ContractDecoderError;
+use serde::Serialize;
 
-use crate::{data::CreationError, IntervalConfigConversionError};
+use crate::{ProviderSpec, config::IntervalConfigConversionError, time::TimeSinceEpoch};
+
+/// Helper type for a chain-specific [`CreationError`].
+pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
+    <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
+    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
+>;
 
 #[derive(Debug, thiserror::Error)]
-pub enum ProviderError<LoggerErrorT> {
+pub enum CreationError<BlockConversionError, HardforkT: Debug, ReceiptConversionError> {
+    /// A blockchain error
+    #[error(transparent)]
+    Blockchain(BlockchainError<BlockConversionError, HardforkT, ReceiptConversionError>),
+    /// A contract decoder error
+    #[error(transparent)]
+    ContractDecoder(#[from] ContractDecoderError),
+    /// An error that occurred while constructing a forked blockchain.
+    #[error(transparent)]
+    ForkedBlockchainCreation(#[from] ForkedCreationError<HardforkT>),
+    #[error("Invalid HTTP header name: {0}")]
+    InvalidHttpHeaders(HttpError),
+    /// Invalid initial date
+    #[error("The initial date configuration value {0:?} is before the UNIX epoch")]
+    InvalidInitialDate(SystemTime),
+    #[error(
+        "Invalid max cached states environment variable value: '{0:?}'. Please provide a non-zero integer!"
+    )]
+    InvalidMaxCachedStates(OsString),
+    /// An error that occurred while constructing a local blockchain.
+    #[error(transparent)]
+    LocalBlockchainCreation(#[from] LocalCreationError),
+    /// An error that occured while querying the remote state.
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
+}
+
+/// Helper type for a chain-specific [`ProviderError`].
+pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
+    <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
+    <ChainSpecT as ChainSpec>::HaltReason,
+    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
+    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum ProviderError<
+    BlockConversionErrorT,
+    HaltReasonT: HaltReasonTrait,
+    HardforkT: Debug,
+    ReceiptConversionErrorT,
+    TransactionValidationErrorT,
+> {
     /// Account override conversion error.
     #[error(transparent)]
     AccountOverrideConversionError(#[from] AccountOverrideConversionError),
     /// The transaction's gas price is lower than the next block's base fee,
     /// while automatically mining.
-    #[error("Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
-    AutoMineGasPriceTooLow { expected: U256, actual: U256 },
+    #[error(
+        "Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}"
+    )]
+    AutoMineGasPriceTooLow { expected: u128, actual: u128 },
     /// The transaction's max fee per gas is lower than the next block's base
     /// fee, while automatically mining.
-    #[error("Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}")]
-    AutoMineMaxFeePerGasTooLow { expected: U256, actual: U256 },
+    #[error(
+        "Transaction maxFeePerGas ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}"
+    )]
+    AutoMineMaxFeePerGasTooLow { expected: u128, actual: u128 },
     /// The transaction's max fee per blob gas is lower than the next block's
     /// base fee, while automatically mining.
-    #[error("Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}")]
-    AutoMineMaxFeePerBlobGasTooLow { expected: U256, actual: U256 },
+    #[error(
+        "Transaction maxFeePerBlobGas ({actual}) is too low for the next block, which has a baseFeePerBlobGas of {expected}"
+    )]
+    AutoMineMaxFeePerBlobGasTooLow { expected: u128, actual: u128 },
     /// The transaction's priority fee is lower than the minimum gas price,
     /// while automatically mining.
     #[error("Transaction gas price is {actual}, which is below the minimum of {expected}")]
-    AutoMinePriorityFeeTooLow { expected: U256, actual: U256 },
+    AutoMinePriorityFeeTooLow { expected: u128, actual: u128 },
     /// The transaction nonce is too high, while automatically mining.
-    #[error("Nonce too high. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
+    #[error(
+        "Nonce too high. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining."
+    )]
     AutoMineNonceTooHigh { expected: u64, actual: u64 },
     /// The transaction nonce is too high, while automatically mining.
-    #[error("Nonce too low. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining.")]
+    #[error(
+        "Nonce too low. Expected nonce to be {expected} but got {actual}. Note that transactions can't be queued when automining."
+    )]
     AutoMineNonceTooLow { expected: u64, actual: u64 },
-    #[error("An EIP-4844 (shard blob) transaction was received while auto-mine was disabled or the mempool contained transactions, but Hardhat doesn't have support for them yet. See https://github.com/NomicFoundation/hardhat/issues/5024")]
+    #[error(
+        "An EIP-4844 (shard blob) transaction was received while auto-mine was disabled or the mempool contained transactions, but Hardhat doesn't have support for them yet. See https://github.com/NomicFoundation/hardhat/issues/5024"
+    )]
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(#[from] BlockchainError),
+    Blockchain(#[from] BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>),
     #[error(transparent)]
-    Creation(#[from] CreationError),
+    Creation(#[from] CreationError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>),
     #[error(transparent)]
-    DebugTrace(#[from] DebugTraceError<BlockchainError, StateError>),
-    #[error("An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182")]
+    DebugTrace(
+        #[from]
+        DebugTraceError<
+            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+            StateError,
+            TransactionValidationErrorT,
+        >,
+    ),
+    #[error(
+        "An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182"
+    )]
     Eip4844CallRequestUnsupported,
-    #[error("An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023")]
+    #[error(
+        "An EIP-4844 (shard blob) transaction was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5023"
+    )]
     Eip4844TransactionUnsupported,
     #[error("An EIP-4844 (shard blob) transaction is missing the to (receiver) parameter.")]
     Eip4844TransactionMissingReceiver,
@@ -66,7 +152,7 @@ pub enum ProviderError<LoggerErrorT> {
     Eip7702TransactionWithoutAuthorizations,
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
-    EstimateGasTransactionFailure(#[from] EstimateGasFailure),
+    EstimateGasTransactionFailure(#[from] EstimateGasFailure<HaltReasonT>),
     #[error("{0}")]
     InvalidArgument(String),
     /// Block number or hash doesn't exist in blockchain
@@ -79,8 +165,13 @@ pub enum ProviderError<LoggerErrorT> {
     },
     /// The block tag is not allowed in pre-merge hardforks.
     /// <https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1820>
-    #[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{spec:?}' hardfork.")]
-    InvalidBlockTag { block_tag: BlockTag, spec: SpecId },
+    #[error(
+        "The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{hardfork:?}' hardfork."
+    )]
+    InvalidBlockTag {
+        block_tag: BlockTag,
+        hardfork: HardforkT,
+    },
     /// Invalid chain ID
     #[error("Invalid chainId {actual} provided, expected {expected} instead.")]
     InvalidChainId { expected: u64, actual: u64 },
@@ -91,7 +182,9 @@ pub enum ProviderError<LoggerErrorT> {
     #[error("Trying to send an incompatible EIP-155 transaction, signed for another chain.")]
     InvalidEip155TransactionChainId,
     /// Invalid filter subscription type
-    #[error("Subscription {filter_id} is not a {expected:?} subscription, but a {actual:?} subscription")]
+    #[error(
+        "Subscription {filter_id} is not a {expected:?} subscription, but a {actual:?} subscription"
+    )]
     InvalidFilterSubscriptionType {
         filter_id: U256,
         expected: SubscriptionType,
@@ -111,8 +204,8 @@ pub enum ProviderError<LoggerErrorT> {
     #[error("Invalid transaction type {0}.")]
     InvalidTransactionType(u8),
     /// An error occurred while logging.
-    #[error("Failed to log: {0:?}")]
-    Logger(LoggerErrorT),
+    #[error("Failed to log: {0}")]
+    Logger(Box<dyn std::error::Error + Send + Sync>),
     /// An error occurred while adding a pending transaction to the mem pool.
     #[error(transparent)]
     MemPoolAddTransaction(#[from] MemPoolAddTransactionError<StateError>),
@@ -121,10 +214,26 @@ pub enum ProviderError<LoggerErrorT> {
     MemPoolUpdate(StateError),
     /// An error occurred while mining a block.
     #[error(transparent)]
-    MineBlock(#[from] MineBlockError<BlockchainError, StateError>),
+    MineBlock(
+        #[from]
+        MineBlockError<
+            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+            HardforkT,
+            StateError,
+            TransactionValidationErrorT,
+        >,
+    ),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
-    MineTransaction(#[from] MineTransactionError<BlockchainError, StateError>),
+    MineTransaction(
+        #[from]
+        MineTransactionError<
+            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+            HardforkT,
+            StateError,
+            TransactionValidationErrorT,
+        >,
+    ),
     /// Rpc client error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -133,7 +242,14 @@ pub enum ProviderError<LoggerErrorT> {
     RpcVersion(jsonrpc::Version),
     /// Error while running a transaction
     #[error(transparent)]
-    RunTransaction(#[from] TransactionError<BlockchainError, StateError>),
+    RunTransaction(
+        #[from]
+        TransactionError<
+            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
+            StateError,
+            TransactionValidationErrorT,
+        >,
+    ),
     /// The `hardhat_setMinGasPrice` method is not supported when EIP-1559 is
     /// active.
     #[error("hardhat_setMinGasPrice is not supported when EIP-1559 is active")]
@@ -155,11 +271,13 @@ pub enum ProviderError<LoggerErrorT> {
     /// The `hardhat_setNextBlockBaseFeePerGas` method is not supported due to
     /// an older hardfork.
     #[error("hardhat_setNextBlockBaseFeePerGas is disabled because EIP-1559 is not active")]
-    SetNextBlockBaseFeePerGasUnsupported { spec_id: SpecId },
+    SetNextBlockBaseFeePerGasUnsupported { hardfork: HardforkT },
     /// The `hardhat_setPrevRandao` method is not supported due to an older
     /// hardfork.
-    #[error("hardhat_setPrevRandao is only available in post-merge hardforks, the current hardfork is {spec_id:?}")]
-    SetNextPrevRandaoUnsupported { spec_id: SpecId },
+    #[error(
+        "hardhat_setPrevRandao is only available in post-merge hardforks, the current hardfork is {hardfork:?}"
+    )]
+    SetNextPrevRandaoUnsupported { hardfork: HardforkT },
     /// An error occurred while recovering a signature.
     #[error(transparent)]
     Signature(#[from] edr_eth::signature::SignatureError),
@@ -173,15 +291,17 @@ pub enum ProviderError<LoggerErrorT> {
     #[error("Timestamp {proposed} is lower than the previous block's timestamp {previous}")]
     TimestampLowerThanPrevious { proposed: u64, previous: u64 },
     /// Timestamp equals previous timestamp
-    #[error("Timestamp {proposed} is equal to the previous block's timestamp. Enable the 'allowBlocksWithSameTimestamp' option to allow this")]
+    #[error(
+        "Timestamp {proposed} is equal to the previous block's timestamp. Enable the 'allowBlocksWithSameTimestamp' option to allow this"
+    )]
     TimestampEqualsPrevious { proposed: u64 },
     /// An error occurred while creating a pending transaction.
     #[error(transparent)]
     TransactionCreationError(#[from] transaction::CreationError),
     /// `eth_sendTransaction` failed and
-    /// [`crate::config::ProviderConfig::bail_on_call_failure`] was enabled
+    /// [`crate::config::Provider::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(#[from] TransactionFailureWithTraces),
+    TransactionFailed(#[from] TransactionFailureWithTraces<HaltReasonT>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -192,42 +312,83 @@ pub enum ProviderError<LoggerErrorT> {
     #[error("Unknown account {address}")]
     UnknownAddress { address: Address },
     /// Minimum required hardfork not met
-    #[error("Feature is only available in post-{minimum:?} hardforks, the current hardfork is {actual:?}")]
-    UnmetHardfork { actual: SpecId, minimum: SpecId },
-    #[error("The transaction contains an access list parameter, but this is not supported by the current hardfork: {current_hardfork:?}")]
+    #[error(
+        "Feature is only available in post-{minimum:?} hardforks, the current hardfork is {actual:?}"
+    )]
+    UnmetHardfork {
+        actual: l1::SpecId,
+        minimum: l1::SpecId,
+    },
+    #[error(
+        "The transaction contains an access list parameter, but this is not supported by the current hardfork: {current_hardfork:?}"
+    )]
     UnsupportedAccessListParameter {
-        current_hardfork: SpecId,
-        minimum_hardfork: SpecId,
+        current_hardfork: l1::SpecId,
+        minimum_hardfork: l1::SpecId,
     },
-    #[error("The transaction contains EIP-1559 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
+    #[error(
+        "The transaction contains EIP-1559 parameters, but they are not supported by the current hardfork: {current_hardfork:?}"
+    )]
     UnsupportedEIP1559Parameters {
-        current_hardfork: SpecId,
-        minimum_hardfork: SpecId,
+        current_hardfork: l1::SpecId,
+        minimum_hardfork: l1::SpecId,
     },
-    #[error("The transaction contains EIP-4844 parameters, but they are not supported by the current hardfork: {current_hardfork:?}")]
+    #[error(
+        "The transaction contains EIP-4844 parameters, but they are not supported by the current hardfork: {current_hardfork:?}"
+    )]
     UnsupportedEIP4844Parameters {
-        current_hardfork: SpecId,
-        minimum_hardfork: SpecId,
+        current_hardfork: l1::SpecId,
+        minimum_hardfork: l1::SpecId,
     },
-    #[error("The transaction contains EIP-7702 parameters, but they are not supported by the current hardfork: {current_hardfork:?}. Use the Prague hardfork (or later).")]
-    UnsupportedEip7702Parameters { current_hardfork: SpecId },
-    #[error("Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'")]
+    #[error(
+        "The transaction contains EIP-7702 parameters, but they are not supported by the current hardfork: {current_hardfork:?}. Use the Prague hardfork (or later)."
+    )]
+    UnsupportedEip7702Parameters { current_hardfork: l1::SpecId },
+    #[error(
+        "Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'"
+    )]
     UnsupportedTransactionTypeInDebugTrace {
         requested_transaction_hash: B256,
         unsupported_transaction_hash: B256,
-        unsupported_transaction_type: u64,
+        unsupported_transaction_type: u8,
     },
-    #[error("Cannot perform debug tracing on transaction '{transaction_hash:?}', because it has unsupported transaction type '{unsupported_transaction_type}'")]
+    #[error(
+        "Cannot perform debug tracing on transaction '{transaction_hash:?}', because it has unsupported transaction type '{unsupported_transaction_type}'"
+    )]
     UnsupportedTransactionTypeForDebugTrace {
         transaction_hash: B256,
-        unsupported_transaction_type: u64,
+        unsupported_transaction_type: u8,
     },
     #[error("{method_name} - Method not supported")]
     UnsupportedMethod { method_name: String },
 }
 
-impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
-    fn from(value: ProviderError<LoggerErrorT>) -> Self {
+impl<
+    BlockConversionErrorT: std::error::Error,
+    HaltReasonT: HaltReasonTrait + Serialize,
+    HardforkT: Debug,
+    ReceiptConversionErrorT: std::error::Error,
+    TransactionValidationErrorT: std::error::Error,
+>
+    From<
+        ProviderError<
+            BlockConversionErrorT,
+            HaltReasonT,
+            HardforkT,
+            ReceiptConversionErrorT,
+            TransactionValidationErrorT,
+        >,
+    > for jsonrpc::Error
+{
+    fn from(
+        value: ProviderError<
+            BlockConversionErrorT,
+            HaltReasonT,
+            HardforkT,
+            ReceiptConversionErrorT,
+            TransactionValidationErrorT,
+        >,
+    ) -> Self {
         const INVALID_INPUT: i16 = -32000;
         const INTERNAL_ERROR: i16 = -32603;
         const INVALID_PARAMS: i16 = -32602;
@@ -312,17 +473,7 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
             _ => None,
         };
 
-        let message = match &value {
-            ProviderError::TransactionFailed(inner)
-                if matches!(
-                    inner.failure.reason,
-                    TransactionFailureReason::Inner(HaltReason::CreateContractSizeLimit)
-                ) =>
-            {
-                "Transaction reverted: trying to deploy a contract whose code is too large".into()
-            }
-            _ => value.to_string(),
-        };
+        let message = value.to_string();
 
         Self {
             code,
@@ -334,63 +485,83 @@ impl<LoggerErrorT: Debug> From<ProviderError<LoggerErrorT>> for jsonrpc::Error {
 
 /// Failure that occurred while estimating gas.
 #[derive(Debug, thiserror::Error)]
-pub struct EstimateGasFailure {
+pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
     pub console_log_inputs: Vec<Bytes>,
-    pub transaction_failure: TransactionFailureWithTraces,
+    pub transaction_failure: TransactionFailureWithTraces<HaltReasonT>,
 }
 
-impl std::fmt::Display for EstimateGasFailure {
+impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<HaltReasonT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.transaction_failure)
     }
 }
 
 #[derive(Clone, Debug, thiserror::Error)]
-pub struct TransactionFailureWithTraces {
-    pub failure: TransactionFailure,
-    pub traces: Vec<Trace>,
+pub struct TransactionFailureWithTraces<HaltReasonT: HaltReasonTrait> {
+    pub failure: TransactionFailure<HaltReasonT>,
+    pub traces: Vec<Trace<HaltReasonT>>,
 }
 
-impl std::fmt::Display for TransactionFailureWithTraces {
+impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailureWithTraces<HaltReasonT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
     }
 }
 
-/// Wrapper around [`edr_evm::HaltReason`] to convert error messages to match
-/// Hardhat.
-#[derive(Clone, Debug, thiserror::Error, serde::Serialize)]
+/// Wrapper around [`edr_eth::l1::HaltReason`] to convert error messages to
+/// match Hardhat.
+#[derive(Clone, Debug, thiserror::Error, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TransactionFailure {
-    pub reason: TransactionFailureReason,
+pub struct TransactionFailure<HaltReasonT: HaltReasonTrait> {
+    pub reason: TransactionFailureReason<HaltReasonT>,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: Trace,
+    pub solidity_trace: Trace<HaltReasonT>,
     pub transaction_hash: Option<B256>,
 }
 
-impl TransactionFailure {
-    pub fn from_execution_result(
-        execution_result: &ExecutionResult,
+impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
+    pub fn from_execution_result<
+        NewChainSpecT: ProviderSpec<TimerT, HaltReason = HaltReasonT>,
+        TimerT: Clone + TimeSinceEpoch,
+    >(
+        execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &Trace,
-    ) -> Option<Self> {
+        solidity_trace: &Trace<HaltReasonT>,
+    ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
-            ExecutionResult::Revert { output, .. } => Some(Self::revert(
+            ExecutionResult::Revert { output, .. } => Some(TransactionFailure::revert(
                 output.clone(),
                 transaction_hash.copied(),
                 solidity_trace.clone(),
             )),
-            ExecutionResult::Halt { reason, .. } => Some(Self::halt(
-                *reason,
+            ExecutionResult::Halt { reason, .. } => Some(TransactionFailure::halt(
+                NewChainSpecT::cast_halt_reason(reason.clone()),
                 transaction_hash.copied(),
                 solidity_trace.clone(),
             )),
         }
     }
 
-    pub fn revert(output: Bytes, transaction_hash: Option<B256>, solidity_trace: Trace) -> Self {
+    pub fn halt(
+        reason: TransactionFailureReason<HaltReasonT>,
+        tx_hash: Option<B256>,
+        solidity_trace: Trace<HaltReasonT>,
+    ) -> Self {
+        Self {
+            reason,
+            data: "0x".to_string(),
+            solidity_trace,
+            transaction_hash: tx_hash,
+        }
+    }
+
+    pub fn revert(
+        output: Bytes,
+        transaction_hash: Option<B256>,
+        solidity_trace: Trace<HaltReasonT>,
+    ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         Self {
             reason: TransactionFailureReason::Revert(output),
@@ -399,28 +570,17 @@ impl TransactionFailure {
             transaction_hash,
         }
     }
-
-    pub fn halt(halt: HaltReason, tx_hash: Option<B256>, solidity_trace: Trace) -> Self {
-        let reason = match halt {
-            HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode => {
-                TransactionFailureReason::OpcodeNotFound
-            }
-            HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
-            halt => TransactionFailureReason::Inner(halt),
-        };
-
-        Self {
-            reason,
-            data: "0x".to_string(),
-            solidity_trace,
-            transaction_hash: tx_hash,
-        }
-    }
 }
 
-impl std::fmt::Display for TransactionFailure {
+impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailure<HaltReasonT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.reason {
+            TransactionFailureReason::CreateContractSizeLimit => {
+                write!(
+                    f,
+                    "Transaction reverted: trying to deploy a contract whose code is too large"
+                )
+            }
             TransactionFailureReason::Inner(halt) => write!(f, "{halt:?}"),
             TransactionFailureReason::OpcodeNotFound => {
                 write!(
@@ -434,12 +594,28 @@ impl std::fmt::Display for TransactionFailure {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize)]
-pub enum TransactionFailureReason {
-    Inner(HaltReason),
+#[derive(Clone, Debug, Serialize)]
+pub enum TransactionFailureReason<HaltReasonT: HaltReasonTrait> {
+    CreateContractSizeLimit,
+    Inner(HaltReasonT),
     OpcodeNotFound,
-    OutOfGas(OutOfGasError),
+    OutOfGas(l1::OutOfGasError),
     Revert(Bytes),
+}
+
+impl From<l1::HaltReason> for TransactionFailureReason<l1::HaltReason> {
+    fn from(value: l1::HaltReason) -> Self {
+        match value {
+            l1::HaltReason::CreateContractSizeLimit => {
+                TransactionFailureReason::CreateContractSizeLimit
+            }
+            l1::HaltReason::OpcodeNotFound | l1::HaltReason::InvalidFEOpcode => {
+                TransactionFailureReason::OpcodeNotFound
+            }
+            l1::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+            halt => TransactionFailureReason::Inner(halt),
+        }
+    }
 }
 
 fn revert_error(output: &Bytes) -> String {
@@ -451,27 +627,34 @@ fn revert_error(output: &Bytes) -> String {
         output.as_ref(),
         /* validate */ false,
     ) {
-        Ok(contract_error) => {
-            match contract_error {
-                ContractError::CustomError(custom_error) => {
-                    format!("VM Exception while processing transaction: reverted with an unrecognized custom error (return data: {custom_error})")
-                }
-                ContractError::Revert(revert) => {
-                    format!("reverted with reason string '{}'", revert.reason())
-                }
-                ContractError::Panic(panic) => {
-                    format!(
-                        "VM Exception while processing transaction: reverted with panic code {} ({})",
-                        serde_json::to_string(&panic.code).unwrap().replace('\"', ""),
-                        panic_code_to_error_reason(panic.code.try_into().expect("panic code fits into u64"))
-                    )
-                }
+        Ok(contract_error) => match contract_error {
+            ContractError::CustomError(custom_error) => {
+                format!(
+                    "VM Exception while processing transaction: reverted with an unrecognized custom error (return data: {custom_error})"
+                )
             }
-        }
+            ContractError::Revert(revert) => {
+                format!("reverted with reason string '{}'", revert.reason())
+            }
+            ContractError::Panic(panic) => {
+                format!(
+                    "VM Exception while processing transaction: reverted with panic code {} ({})",
+                    serde_json::to_string(&panic.code)
+                        .unwrap()
+                        .replace('\"', ""),
+                    panic_code_to_error_reason(
+                        panic.code.try_into().expect("panic code fits into u64")
+                    )
+                )
+            }
+        },
         Err(decode_error) => match decode_error {
             alloy_sol_types::Error::TypeCheckFail { .. }
             | alloy_sol_types::Error::UnknownSelector { .. } => {
-                format!("VM Exception while processing transaction: reverted with an unrecognized custom error (return data: 0x{})", hex::encode(output))
+                format!(
+                    "VM Exception while processing transaction: reverted with an unrecognized custom error (return data: 0x{})",
+                    hex::encode(output)
+                )
             }
             _ => format!(
                 "Internal: Since we are not validating, this error should not occur: {decode_error:?}"

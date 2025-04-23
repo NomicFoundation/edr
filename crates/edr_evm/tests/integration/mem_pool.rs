@@ -2,15 +2,15 @@
 
 use std::num::NonZeroU64;
 
-use edr_eth::{transaction::Transaction, AccountInfo, Address, U256};
+use edr_eth::{Address, U256, account::AccountInfo, transaction::ExecutableTransaction};
 use edr_evm::{
+    MemPoolAddTransactionError, OrderedTransaction,
     state::{AccountModifierFn, StateDebug},
     test_utils::{
-        dummy_eip1559_transaction, dummy_eip155_transaction, dummy_eip155_transaction_with_limit,
+        MemPoolTestFixture, dummy_eip155_transaction, dummy_eip155_transaction_with_limit,
         dummy_eip155_transaction_with_price, dummy_eip155_transaction_with_price_limit_and_value,
-        MemPoolTestFixture,
+        dummy_eip1559_transaction,
     },
-    MemPoolAddTransactionError, OrderedTransaction,
 };
 
 #[test]
@@ -137,10 +137,10 @@ fn replace_pending_transaction() -> anyhow::Result<()> {
         },
     )]);
 
-    let transaction1 = dummy_eip155_transaction_with_price(sender, 0, U256::from(5))?;
+    let transaction1 = dummy_eip155_transaction_with_price(sender, 0, 5)?;
     fixture.add_transaction(transaction1.clone())?;
 
-    let transaction2 = dummy_eip155_transaction_with_price(sender, 0, U256::from(10))?;
+    let transaction2 = dummy_eip155_transaction_with_price(sender, 0, 10)?;
     fixture.add_transaction(transaction2.clone())?;
 
     let pending_transactions = fixture.mem_pool.pending_transactions().collect::<Vec<_>>();
@@ -162,10 +162,10 @@ fn replace_future_transaction() -> anyhow::Result<()> {
         },
     )]);
 
-    let transaction1 = dummy_eip155_transaction_with_price(sender, 1, U256::from(5))?;
+    let transaction1 = dummy_eip155_transaction_with_price(sender, 1, 5)?;
     fixture.add_transaction(transaction1.clone())?;
 
-    let transaction2 = dummy_eip155_transaction_with_price(sender, 1, U256::from(10))?;
+    let transaction2 = dummy_eip155_transaction_with_price(sender, 1, 10)?;
     fixture.add_transaction(transaction2.clone())?;
 
     let future_transactions = fixture.mem_pool.future_transactions().collect::<Vec<_>>();
@@ -190,10 +190,10 @@ macro_rules! impl_test_replace_transaction_gas_price_too_low {
                         },
                     )]);
 
-                    let transaction1 = dummy_eip155_transaction_with_price(sender, $nonce, U256::from(20))?;
+                    let transaction1 = dummy_eip155_transaction_with_price(sender, $nonce, 20)?;
                     fixture.add_transaction(transaction1.clone())?;
 
-                    let transaction2 = dummy_eip155_transaction_with_price(sender, $nonce, U256::from(21))?;
+                    let transaction2 = dummy_eip155_transaction_with_price(sender, $nonce, 21)?;
                     let result = fixture.add_transaction(transaction2);
 
                     assert!(matches!(
@@ -201,7 +201,7 @@ macro_rules! impl_test_replace_transaction_gas_price_too_low {
                         Err(MemPoolAddTransactionError::ReplacementMaxFeePerGasTooLow {
                             min_new_max_fee_per_gas,
                             transaction_nonce: $nonce,
-                        }) if min_new_max_fee_per_gas == U256::from(22)
+                        }) if min_new_max_fee_per_gas == 22
                     ));
 
                     assert_eq!(
@@ -212,7 +212,7 @@ macro_rules! impl_test_replace_transaction_gas_price_too_low {
                         )
                     );
 
-                    let transaction3 = dummy_eip1559_transaction(sender, $nonce, U256::from(21), U256::from(21))?;
+                    let transaction3 = dummy_eip1559_transaction(sender, $nonce, 21, 21)?;
                     let result = fixture.add_transaction(transaction3);
 
                     assert!(matches!(
@@ -220,12 +220,12 @@ macro_rules! impl_test_replace_transaction_gas_price_too_low {
                         Err(MemPoolAddTransactionError::ReplacementMaxFeePerGasTooLow {
                             min_new_max_fee_per_gas,
                             transaction_nonce: $nonce,
-                        }) if min_new_max_fee_per_gas == U256::from(22)
+                        }) if min_new_max_fee_per_gas == 22
                     ));
 
                     assert_eq!(result.unwrap_err().to_string(), format!("Replacement transaction underpriced. A gasPrice/maxFeePerGas of at least 22 is necessary to replace the existing transaction with nonce {}.", $nonce));
 
-                    let transaction4 = dummy_eip1559_transaction(sender, $nonce, U256::from(22), U256::from(21))?;
+                    let transaction4 = dummy_eip1559_transaction(sender, $nonce, 22, 21)?;
                     let result = fixture.add_transaction(transaction4);
 
                     assert!(matches!(
@@ -233,7 +233,7 @@ macro_rules! impl_test_replace_transaction_gas_price_too_low {
                         Err(MemPoolAddTransactionError::ReplacementMaxPriorityFeePerGasTooLow {
                             min_new_max_priority_fee_per_gas,
                             transaction_nonce: $nonce,
-                        }) if min_new_max_priority_fee_per_gas == U256::from(22)
+                        }) if min_new_max_priority_fee_per_gas == 22
                     ));
 
                     assert_eq!(result.unwrap_err().to_string(), format!("Replacement transaction underpriced. A gasPrice/maxPriorityFeePerGas of at least 22 is necessary to replace the existing transaction with nonce {}.", $nonce));
@@ -405,7 +405,7 @@ fn add_transaction_insufficient_funds() -> anyhow::Result<()> {
     let transaction = dummy_eip155_transaction_with_price_limit_and_value(
         sender,
         0,
-        U256::from(GAS_PRICE),
+        GAS_PRICE.into(),
         GAS_LIMIT,
         U256::from(VALUE),
     )?;
@@ -417,10 +417,12 @@ fn add_transaction_insufficient_funds() -> anyhow::Result<()> {
         Err(MemPoolAddTransactionError::InsufficientFunds { max_upfront_cost, sender_balance }) if max_upfront_cost == U256::from(INITIAL_COST) && sender_balance == balance
     ));
 
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("Sender doesn't have enough funds to send tx"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("Sender doesn't have enough funds to send tx")
+    );
 
     Ok(())
 }
@@ -791,10 +793,10 @@ fn update_removes_transactions_with_insufficient_balance() -> anyhow::Result<()>
         },
     )]);
 
-    let transaction1 = dummy_eip155_transaction_with_price(sender, 0, U256::from(900))?;
+    let transaction1 = dummy_eip155_transaction_with_price(sender, 0, 900)?;
     fixture.add_transaction(transaction1.clone())?;
 
-    let transaction2 = dummy_eip155_transaction_with_price(sender, 2, U256::from(900))?;
+    let transaction2 = dummy_eip155_transaction_with_price(sender, 2, 900)?;
     fixture.add_transaction(transaction2.clone())?;
 
     let pending_transactions = fixture.mem_pool.pending_transactions().collect::<Vec<_>>();
