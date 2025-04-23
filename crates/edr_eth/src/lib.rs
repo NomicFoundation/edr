@@ -33,7 +33,7 @@ pub mod rlp;
 pub mod serde;
 /// Ethereum signature types
 pub mod signature;
-/// Ethereum L1 chain spec
+/// Ethereum chain spec traits
 pub mod spec;
 /// Ethereum state types and functions
 pub mod state;
