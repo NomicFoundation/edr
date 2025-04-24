@@ -4,7 +4,7 @@
     "url": "https://github.com/NomicFoundation/edr.git",
     "type": "git"
   },
-  "version": "0.10.0-alpha.2",
+  "version": "0.10.0-alpha.3",
   "main": "edr.linux-x64-gnu.node",
   "files": [
     "edr.linux-x64-gnu.node"
