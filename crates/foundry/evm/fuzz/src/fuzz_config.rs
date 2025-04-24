@@ -23,6 +23,10 @@ pub struct FuzzConfig {
     pub failure_persist_dir: Option<PathBuf>,
     /// Name of the file to record fuzz failures, defaults to `failures`.
     pub failure_persist_file: String,
+    /// show `console.log` in fuzz test, defaults to `false`
+    pub show_logs: bool,
+    /// Optional timeout (in seconds) for each property test
+    pub timeout: Option<u32>,
 }
 
 impl Default for FuzzConfig {
@@ -35,6 +39,8 @@ impl Default for FuzzConfig {
             gas_report_samples: 0,
             failure_persist_dir: None,
             failure_persist_file: "failures".into(),
+            show_logs: false,
+            timeout: None,
         }
     }
 }

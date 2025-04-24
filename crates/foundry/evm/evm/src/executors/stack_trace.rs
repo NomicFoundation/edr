@@ -14,7 +14,7 @@ use foundry_evm_core::{
     backend::IndeterminismReasons,
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
 };
-use foundry_evm_traces::TraceKind;
+use foundry_evm_traces::{SparsedTraceArena, TraceKind};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
 use crate::executors::EvmError;
@@ -47,7 +47,7 @@ impl From<EvmError> for StackTraceError {
 /// empty.
 pub fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
     contract_decoder: &NestedTraceDecoderT,
-    traces: &[(TraceKind, CallTraceArena)],
+    traces: &[(TraceKind, SparsedTraceArena)],
 ) -> Result<Option<Vec<StackTraceEntry>>, StackTraceError> {
     let mut address_to_creation_code = HashMap::new();
     let mut address_to_runtime_code = HashMap::new();

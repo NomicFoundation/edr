@@ -2,23 +2,38 @@
 //!
 //! EVM bytecode coverage analysis.
 
-#![warn(unreachable_pub, unused_crate_dependencies, rust_2018_idioms)]
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+#[macro_use]
+extern crate tracing;
+
+// Used by alloy-primitives with hashbrown feature
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     fmt::Display,
-    ops::{AddAssign, Deref, DerefMut},
-    path::PathBuf,
+    num::NonZeroU32,
+    ops::{Deref, DerefMut, Range},
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
-use alloy_primitives::{Bytes, B256};
-use eyre::{Context, Result};
+use alloy_primitives::{
+    map::{B256HashMap, HashMap},
+    Bytes,
+};
+use eyre::Result;
 use foundry_compilers::artifacts::sourcemap::SourceMap;
+use hashbrown as _;
 use semver::Version;
+
+pub mod analysis;
+pub mod anchors;
 
 mod inspector;
 pub use inspector::CoverageCollector;
+
+use crate::analysis::SourceAnalysis;
 
 /// A coverage report.
 ///
@@ -27,17 +42,17 @@ pub use inspector::CoverageCollector;
 /// multiple anchors.
 #[derive(Clone, Debug, Default)]
 pub struct CoverageReport {
-    /// A map of source IDs to the source path
+    /// A map of source IDs to the source path.
     pub source_paths: HashMap<(Version, usize), PathBuf>,
-    /// A map of source paths to source IDs
+    /// A map of source paths to source IDs.
     pub source_paths_to_ids: HashMap<(Version, PathBuf), usize>,
     /// All coverage items for the codebase, keyed by the compiler version.
-    pub items: HashMap<Version, Vec<CoverageItem>>,
+    pub analyses: HashMap<Version, SourceAnalysis>,
     /// All item anchors for the codebase, keyed by their contract ID.
     pub anchors: HashMap<ContractId, (Vec<ItemAnchor>, Vec<ItemAnchor>)>,
-    /// All the bytecode hits for the codebase
+    /// All the bytecode hits for the codebase.
     pub bytecode_hits: HashMap<ContractId, HitMap>,
-    /// The bytecode -> source mappings
+    /// The bytecode -> source mappings.
     pub source_maps: HashMap<ContractId, (SourceMap, SourceMap)>,
 }
 
@@ -54,7 +69,7 @@ impl CoverageReport {
         self.source_paths_to_ids.get(&(version, path)).copied()
     }
 
-    /// Add the source maps
+    /// Add the source maps.
     pub fn add_source_maps(
         &mut self,
         source_maps: impl IntoIterator<Item = (ContractId, (SourceMap, SourceMap))>,
@@ -62,12 +77,12 @@ impl CoverageReport {
         self.source_maps.extend(source_maps);
     }
 
-    /// Add coverage items to this report
-    pub fn add_items(&mut self, version: Version, items: impl IntoIterator<Item = CoverageItem>) {
-        self.items.entry(version).or_default().extend(items);
+    /// Add a [`SourceAnalysis`] to this report.
+    pub fn add_analysis(&mut self, version: Version, analysis: SourceAnalysis) {
+        self.analyses.insert(version, analysis);
     }
 
-    /// Add anchors to this report
+    /// Add anchors to this report.
     pub fn add_anchors(
         &mut self,
         anchors: impl IntoIterator<Item = (ContractId, (Vec<ItemAnchor>, Vec<ItemAnchor>))>,
@@ -75,67 +90,52 @@ impl CoverageReport {
         self.anchors.extend(anchors);
     }
 
-    /// Get coverage summaries by source file path
-    pub fn summary_by_file(&self) -> impl Iterator<Item = (PathBuf, CoverageSummary)> {
-        let mut summaries = BTreeMap::new();
-
-        for (version, items) in self.items.iter() {
-            for item in items {
-                let Some(path) = self
-                    .source_paths
-                    .get(&(version.clone(), item.loc.source_id))
-                    .cloned()
-                else {
-                    continue;
-                };
-                let mut summary = summaries.entry(path).or_default();
-                summary += item;
-            }
-        }
-
-        summaries.into_iter()
+    /// Returns an iterator over coverage summaries by source file path.
+    pub fn summary_by_file(&self) -> impl Iterator<Item = (&Path, CoverageSummary)> {
+        self.by_file(|summary: &mut CoverageSummary, item| summary.add_item(item))
     }
 
-    /// Get coverage items by source file path
-    pub fn items_by_source(&self) -> impl Iterator<Item = (PathBuf, Vec<CoverageItem>)> {
-        let mut items_by_source: BTreeMap<_, Vec<_>> = BTreeMap::new();
+    /// Returns an iterator over coverage items by source file path.
+    pub fn items_by_file(&self) -> impl Iterator<Item = (&Path, Vec<&CoverageItem>)> {
+        self.by_file(|list: &mut Vec<_>, item| list.push(item))
+    }
 
-        for (version, items) in self.items.iter() {
-            for item in items {
-                let Some(path) = self
-                    .source_paths
-                    .get(&(version.clone(), item.loc.source_id))
-                    .cloned()
-                else {
+    fn by_file<'a, T: Default>(
+        &'a self,
+        mut f: impl FnMut(&mut T, &'a CoverageItem),
+    ) -> impl Iterator<Item = (&'a Path, T)> {
+        let mut by_file: BTreeMap<&Path, T> = BTreeMap::new();
+        for (version, items) in &self.analyses {
+            for item in items.all_items() {
+                let key = (version.clone(), item.loc.source_id);
+                let Some(path) = self.source_paths.get(&key) else {
                     continue;
                 };
-                items_by_source.entry(path).or_default().push(item.clone());
+                f(by_file.entry(path).or_default(), item);
             }
         }
-
-        items_by_source.into_iter()
+        by_file.into_iter()
     }
 
     /// Processes data from a [`HitMap`] and sets hit counts for coverage items
     /// in this coverage map.
     ///
     /// This function should only be called *after* all the relevant sources
-    /// have been processed and added to the map (see [`add_source`]).
+    /// have been processed and added to the map (see
+    /// [`add_source`](Self::add_source)).
     pub fn add_hit_map(
         &mut self,
         contract_id: &ContractId,
         hit_map: &HitMap,
         is_deployed_code: bool,
     ) -> Result<()> {
-        // Add bytecode level hits
-        let e = self
-            .bytecode_hits
+        // Add bytecode level hits.
+        self.bytecode_hits
             .entry(contract_id.clone())
-            .or_insert_with(|| HitMap::new(hit_map.bytecode.clone()));
-        e.merge(hit_map)
-            .wrap_err_with(|| format!("{contract_id:?}"))?;
+            .and_modify(|m| m.merge(hit_map))
+            .or_insert_with(|| hit_map.clone());
 
-        // Add source level hits
+        // Add source level hits.
         if let Some(anchors) = self.anchors.get(contract_id) {
             let anchors = if is_deployed_code {
                 &anchors.1
@@ -143,42 +143,69 @@ impl CoverageReport {
                 &anchors.0
             };
             for anchor in anchors {
-                if let Some(&hits) = hit_map.hits.get(&anchor.instruction) {
-                    self.items
+                if let Some(hits) = hit_map.get(anchor.instruction) {
+                    self.analyses
                         .get_mut(&contract_id.version)
-                        .and_then(|items| items.get_mut(anchor.item_id))
+                        .and_then(|items| items.all_items_mut().get_mut(anchor.item_id as usize))
                         .expect("Anchor refers to non-existent coverage item")
-                        .hits += hits;
+                        .hits += hits.get();
                 }
             }
         }
+
         Ok(())
+    }
+
+    /// Retains all the coverage items specified by `predicate`.
+    ///
+    /// This function should only be called after all the sources were used,
+    /// otherwise, the output will be missing the ones that are dependent on
+    /// them.
+    pub fn retain_sources(&mut self, mut predicate: impl FnMut(&Path) -> bool) {
+        self.analyses.retain(|version, analysis| {
+            analysis.all_items_mut().retain(|item| {
+                self.source_paths
+                    .get(&(version.clone(), item.loc.source_id))
+                    .is_some_and(|path| predicate(path))
+            });
+            !analysis.all_items().is_empty()
+        });
     }
 }
 
-/// A collection of [`HitMap`]s
+/// A collection of [`HitMap`]s.
 #[derive(Clone, Debug, Default)]
-pub struct HitMaps(pub HashMap<B256, HitMap>);
+pub struct HitMaps(pub B256HashMap<HitMap>);
 
 impl HitMaps {
-    pub fn merge(mut self, other: HitMaps) -> Self {
-        for (code_hash, hit_map) in other.0 {
-            if let Some(HitMap {
-                hits: extra_hits, ..
-            }) = self.insert(code_hash, hit_map)
-            {
-                for (pc, hits) in extra_hits {
-                    self.entry(code_hash)
-                        .and_modify(|map| *map.hits.entry(pc).or_default() += hits);
-                }
-            }
+    /// Merges two `Option<HitMaps>`.
+    pub fn merge_opt(a: &mut Option<Self>, b: Option<Self>) {
+        match (a, b) {
+            (_, None) => {}
+            (a @ None, Some(b)) => *a = Some(b),
+            (Some(a), Some(b)) => a.merge(b),
         }
+    }
+
+    /// Merges two `HitMaps`.
+    pub fn merge(&mut self, other: Self) {
+        self.reserve(other.len());
+        for (code_hash, other) in other.0 {
+            self.entry(code_hash)
+                .and_modify(|e| e.merge(&other))
+                .or_insert(other);
+        }
+    }
+
+    /// Merges two `HitMaps`.
+    pub fn merged(mut self, other: Self) -> Self {
+        self.merge(other);
         self
     }
 }
 
 impl Deref for HitMaps {
-    type Target = HashMap<B256, HitMap>;
+    type Target = B256HashMap<HitMap>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -197,46 +224,68 @@ impl DerefMut for HitMaps {
 /// bytecode of a contract.
 #[derive(Clone, Debug)]
 pub struct HitMap {
-    pub bytecode: Bytes,
-    pub hits: BTreeMap<usize, u64>,
+    bytecode: Bytes,
+    hits: HashMap<u32, u32>,
 }
 
 impl HitMap {
+    /// Create a new hitmap with the given bytecode.
+    #[inline]
     pub fn new(bytecode: Bytes) -> Self {
         Self {
             bytecode,
-            hits: BTreeMap::new(),
+            hits: HashMap::with_capacity(1024),
         }
     }
 
-    /// Increase the hit counter for the given program counter.
-    pub fn hit(&mut self, pc: usize) {
-        *self.hits.entry(pc).or_default() += 1;
+    /// Returns the bytecode.
+    #[inline]
+    pub fn bytecode(&self) -> &Bytes {
+        &self.bytecode
+    }
+
+    /// Returns the number of hits for the given program counter.
+    #[inline]
+    pub fn get(&self, pc: u32) -> Option<NonZeroU32> {
+        NonZeroU32::new(self.hits.get(&pc).copied().unwrap_or(0))
+    }
+
+    /// Increase the hit counter by 1 for the given program counter.
+    #[inline]
+    pub fn hit(&mut self, pc: u32) {
+        self.hits(pc, 1);
+    }
+
+    /// Increase the hit counter by `hits` for the given program counter.
+    #[inline]
+    pub fn hits(&mut self, pc: u32, hits: u32) {
+        *self.hits.entry(pc).or_default() += hits;
     }
 
     /// Merge another hitmap into this, assuming the bytecode is consistent
-    pub fn merge(&mut self, other: &HitMap) -> Result<(), eyre::Report> {
-        for (pc, hits) in &other.hits {
-            *self.hits.entry(*pc).or_default() += hits;
+    pub fn merge(&mut self, other: &Self) {
+        self.hits.reserve(other.len());
+        for (pc, hits) in other.iter() {
+            self.hits(pc, hits);
         }
-        Ok(())
     }
 
-    pub fn consistent_bytecode(&self, hm1: &HitMap, hm2: &HitMap) -> bool {
-        // Consider the bytecodes consistent if they are the same out as far as the
-        // recorded hits
-        let len1 = hm1.hits.last_key_value();
-        let len2 = hm2.hits.last_key_value();
-        if let (Some(len1), Some(len2)) = (len1, len2) {
-            let len = std::cmp::max(len1.0, len2.0);
-            let ok = hm1.bytecode.0[..*len] == hm2.bytecode.0[..*len];
-            println!(
-                "consistent_bytecode: {}, {}, {}, {}",
-                ok, len1.0, len2.0, len
-            );
-            return ok;
-        }
-        true
+    /// Returns an iterator over all the program counters and their hit counts.
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
+        self.hits.iter().map(|(&pc, &hits)| (pc, hits))
+    }
+
+    /// Returns the number of program counters hit in the hitmap.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.hits.len()
+    }
+
+    /// Returns `true` if the hitmap is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.hits.is_empty()
     }
 }
 
@@ -262,10 +311,10 @@ impl Display for ContractId {
 /// covered.
 #[derive(Clone, Debug)]
 pub struct ItemAnchor {
-    /// The program counter for the opcode of this anchor
-    pub instruction: usize,
-    /// The item ID this anchor points to
-    pub item_id: usize,
+    /// The program counter for the opcode of this anchor.
+    pub instruction: u32,
+    /// The item ID this anchor points to.
+    pub item_id: u32,
 }
 
 impl Display for ItemAnchor {
@@ -286,11 +335,14 @@ pub enum CoverageItemKind {
         ///
         /// There may be multiple items with the same branch ID - they belong to
         /// the same branch, but represent different paths.
-        branch_id: usize,
+        branch_id: u32,
         /// The path ID for this branch.
         ///
         /// The first path has ID 0, the next ID 1, and so on.
-        path_id: usize,
+        path_id: u32,
+        /// If true, then the branch anchor is the first opcode within the
+        /// branch source range.
+        is_first_opcode: bool,
     },
     /// A function in the code.
     Function {
@@ -306,7 +358,7 @@ pub struct CoverageItem {
     /// The location of the item in the source code.
     pub loc: SourceLocation,
     /// The number of times this item was hit.
-    pub hits: u64,
+    pub hits: u32,
 }
 
 impl Display for CoverageItem {
@@ -318,7 +370,9 @@ impl Display for CoverageItem {
             CoverageItemKind::Statement => {
                 write!(f, "Statement")?;
             }
-            CoverageItemKind::Branch { branch_id, path_id } => {
+            CoverageItemKind::Branch {
+                branch_id, path_id, ..
+            } => {
                 write!(f, "Branch (branch: {branch_id}, path: {path_id})")?;
             }
             CoverageItemKind::Function { name } => {
@@ -329,30 +383,38 @@ impl Display for CoverageItem {
     }
 }
 
+/// A source location.
 #[derive(Clone, Debug)]
 pub struct SourceLocation {
     /// The source ID.
     pub source_id: usize,
     /// The contract this source range is in.
     pub contract_name: Arc<str>,
-    /// Start byte in the source code.
-    pub start: usize,
-    /// Number of bytes in the source code.
-    pub length: Option<usize>,
-    /// The line in the source code.
-    pub line: usize,
+    /// Byte range.
+    pub bytes: Range<u32>,
+    /// Line range. Indices are 1-based.
+    pub lines: Range<u32>,
 }
 
 impl Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "source ID {}, line {}, chars {}-{}",
-            self.source_id,
-            self.line,
-            self.start,
-            self.length.map_or(self.start, |length| self.start + length)
+            "source ID {}, lines {:?}, bytes {:?}",
+            self.source_id, self.lines, self.bytes
         )
+    }
+}
+
+impl SourceLocation {
+    /// Returns the length of the byte range.
+    pub fn len(&self) -> u32 {
+        self.bytes.len() as u32
+    }
+
+    /// Returns true if the byte range is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -377,21 +439,43 @@ pub struct CoverageSummary {
     pub function_hits: usize,
 }
 
-impl AddAssign<&Self> for CoverageSummary {
-    fn add_assign(&mut self, other: &Self) {
-        self.line_count += other.line_count;
-        self.line_hits += other.line_hits;
-        self.statement_count += other.statement_count;
-        self.statement_hits += other.statement_hits;
-        self.branch_count += other.branch_count;
-        self.branch_hits += other.branch_hits;
-        self.function_count += other.function_count;
-        self.function_hits += other.function_hits;
+impl CoverageSummary {
+    /// Creates a new, empty coverage summary.
+    pub fn new() -> Self {
+        Self::default()
     }
-}
 
-impl AddAssign<&CoverageItem> for CoverageSummary {
-    fn add_assign(&mut self, item: &CoverageItem) {
+    /// Creates a coverage summary from a collection of coverage items.
+    pub fn from_items<'a>(items: impl IntoIterator<Item = &'a CoverageItem>) -> Self {
+        let mut summary = Self::default();
+        summary.add_items(items);
+        summary
+    }
+
+    /// Adds another coverage summary to this one.
+    pub fn merge(&mut self, other: &Self) {
+        let Self {
+            line_count,
+            line_hits,
+            statement_count,
+            statement_hits,
+            branch_count,
+            branch_hits,
+            function_count,
+            function_hits,
+        } = self;
+        *line_count += other.line_count;
+        *line_hits += other.line_hits;
+        *statement_count += other.statement_count;
+        *statement_hits += other.statement_hits;
+        *branch_count += other.branch_count;
+        *branch_hits += other.branch_hits;
+        *function_count += other.function_count;
+        *function_hits += other.function_hits;
+    }
+
+    /// Adds a coverage item to this summary.
+    pub fn add_item(&mut self, item: &CoverageItem) {
         match item.kind {
             CoverageItemKind::Line => {
                 self.line_count += 1;
@@ -419,35 +503,11 @@ impl AddAssign<&CoverageItem> for CoverageSummary {
             }
         }
     }
-}
 
-impl AddAssign<&CoverageItem> for &mut CoverageSummary {
-    fn add_assign(&mut self, item: &CoverageItem) {
-        match item.kind {
-            CoverageItemKind::Line => {
-                self.line_count += 1;
-                if item.hits > 0 {
-                    self.line_hits += 1;
-                }
-            }
-            CoverageItemKind::Statement => {
-                self.statement_count += 1;
-                if item.hits > 0 {
-                    self.statement_hits += 1;
-                }
-            }
-            CoverageItemKind::Branch { .. } => {
-                self.branch_count += 1;
-                if item.hits > 0 {
-                    self.branch_hits += 1;
-                }
-            }
-            CoverageItemKind::Function { .. } => {
-                self.function_count += 1;
-                if item.hits > 0 {
-                    self.function_hits += 1;
-                }
-            }
+    /// Adds multiple coverage items to this summary.
+    pub fn add_items<'a>(&mut self, items: impl IntoIterator<Item = &'a CoverageItem>) {
+        for item in items {
+            self.add_item(item);
         }
     }
 }

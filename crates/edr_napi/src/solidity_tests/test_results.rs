@@ -74,7 +74,7 @@ pub struct TestResult {
     pub reason: Option<String>,
     /// See [edr_solidity_tests::result::TestResult::counterexample]
     #[napi(readonly)]
-    pub counterexample: Option<Either<BaseCounterExample, Vec<BaseCounterExample>>>,
+    pub counterexample: Option<Either<BaseCounterExample, CounterExampleSequence>>,
     /// See [edr_solidity_tests::result::TestResult::decoded_logs]
     #[napi(readonly)]
     pub decoded_logs: Vec<String>,
@@ -198,14 +198,18 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
                     edr_solidity_tests::fuzz::CounterExample::Single(counterexample) => {
                         Either::A(BaseCounterExample::from(counterexample))
                     }
-                    edr_solidity_tests::fuzz::CounterExample::Sequence(counterexamples) => {
-                        Either::B(
-                            counterexamples
-                                .into_iter()
-                                .map(BaseCounterExample::from)
-                                .collect(),
-                        )
-                    }
+                    edr_solidity_tests::fuzz::CounterExample::Sequence(
+                        original_size,
+                        counterexamples,
+                    ) => Either::B(CounterExampleSequence {
+                        original_sequence_size: u64::try_from(original_size)
+                            .expect("usize fits into u64")
+                            .into(),
+                        sequence: counterexamples
+                            .into_iter()
+                            .map(BaseCounterExample::from)
+                            .collect(),
+                    }),
                 }),
             decoded_logs: test_result.decoded_logs,
             kind: match test_result.kind {
@@ -324,6 +328,17 @@ pub struct InvariantTestKind {
     /// See [edr_solidity_tests::result::TestKind::Invariant]
     #[napi(readonly)]
     pub reverts: BigInt,
+}
+
+/// Original sequence size and sequence of calls used as a counter example
+/// for invariant tests.
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct CounterExampleSequence {
+    /// The original sequence size before shrinking.
+    pub original_sequence_size: BigInt,
+    /// The shrunk counterexample sequence.
+    pub sequence: Vec<BaseCounterExample>,
 }
 
 /// See [edr_solidity_tests::fuzz::BaseCounterExample]

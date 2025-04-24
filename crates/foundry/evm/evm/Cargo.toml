@@ -33,8 +33,11 @@ eyre = "0.6"
 hex.workspace = true
 parking_lot = "0.12"
 proptest = "1"
+serde.workspace = true
+serde_json.workspace = true
 thiserror = "1"
 tracing = "0.1"
+tokio = "1.43.0"
 
 [lints]
 workspace = true

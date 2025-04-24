@@ -1,11 +1,16 @@
-use std::borrow::Cow;
+// Removed unused import
 
 use alloy_primitives::{Address, Bytes, U256};
-use foundry_evm_core::constants::CALLER;
+use foundry_evm_core::constants::MAGIC_ASSUME;
 use foundry_evm_fuzz::invariant::BasicTxDetails;
 use proptest::bits::{BitSetLike, VarBitSet};
 
-use crate::executors::{invariant::error::FailedInvariantCaseData, Executor};
+use crate::executors::{
+    invariant::{
+        call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
+    },
+    Executor,
+};
 
 #[derive(Clone, Copy, Debug)]
 struct Shrink {
@@ -19,13 +24,13 @@ struct Shrink {
 /// moves to next one.
 #[derive(Debug)]
 struct CallSequenceShrinker {
-    /// Length of call sequence to be shrinked.
+    /// Length of call sequence to be shrunk.
     call_sequence_len: usize,
-    /// Call ids contained in current shrinked sequence.
+    /// Call ids contained in current shrunk sequence.
     included_calls: VarBitSet,
-    /// Current shrinked call id.
+    /// Current shrunk call id.
     shrink: Shrink,
-    /// Previous shrinked call id.
+    /// Previous shrunk call id.
     prev_shrink: Option<Shrink>,
 }
 
@@ -83,24 +88,21 @@ impl CallSequenceShrinker {
 /// Maximal shrinkage is guaranteed if the `shrink_run_limit` is not set to a
 /// value lower than the length of failed call sequence.
 ///
-/// The shrinked call sequence always respect the order failure is reproduced as
+/// The shrunk call sequence always respect the order failure is reproduced as
 /// it is tested top-down.
 pub(crate) fn shrink_sequence(
     failed_case: &FailedInvariantCaseData,
     calls: &[BasicTxDetails],
     executor: &Executor,
+    call_after_invariant: bool,
 ) -> eyre::Result<Vec<BasicTxDetails>> {
-    trace!(target: "edr_solidity_tests::test", "Shrinking sequence of {} calls.", calls.len());
+    trace!(target: "forge::test", "Shrinking sequence of {} calls.", calls.len());
 
     // Special case test: the invariant is *unsatisfiable* - it took 0 calls to
     // break the invariant -- consider emitting a warning.
-    let (error_call_result, _cow_backend) = executor.call_raw(
-        CALLER,
-        failed_case.addr,
-        failed_case.func.clone(),
-        U256::ZERO,
-    )?;
-    if error_call_result.reverted {
+    let (_call, success, _cow_backend) =
+        call_invariant_function(executor, failed_case.addr, failed_case.calldata.clone())?;
+    if !success {
         return Ok(vec![]);
     }
 
@@ -112,8 +114,9 @@ pub(crate) fn shrink_sequence(
             calls,
             shrinker.current().collect(),
             failed_case.addr,
-            failed_case.func.clone(),
+            failed_case.calldata.clone(),
             failed_case.fail_on_revert,
+            call_after_invariant,
         ) {
             // If candidate sequence still fails then shrink more if possible.
             Ok((false, _)) if !shrinker.simplify() => break,
@@ -128,16 +131,19 @@ pub(crate) fn shrink_sequence(
 }
 
 /// Checks if the given call sequence breaks the invariant.
+///
 /// Used in shrinking phase for checking candidate sequences and in replay
 /// failures phase to test persisted failures.
-/// Returns the result of invariant check and if sequence was entirely applied.
+/// Returns the result of invariant check (and afterInvariant call if needed)
+/// and if sequence was entirely applied.
 pub fn check_sequence(
     mut executor: Executor,
     calls: &[BasicTxDetails],
     sequence: Vec<usize>,
     test_address: Address,
-    test_function: Bytes,
+    calldata: Bytes,
     fail_on_revert: bool,
+    call_after_invariant: bool,
 ) -> eyre::Result<(bool, bool)> {
     // Apply the call sequence.
     for call_index in sequence {
@@ -148,7 +154,10 @@ pub fn check_sequence(
             tx.call_details.calldata.clone(),
             U256::ZERO,
         )?;
-        if call_result.reverted && fail_on_revert {
+        // Ignore calls reverted with `MAGIC_ASSUME`. This is needed to handle failed
+        // scenarios that are replayed with a modified version of test driver
+        // (that use new `vm.assume` cheatcodes).
+        if call_result.reverted && fail_on_revert && call_result.result.as_ref() != MAGIC_ASSUME {
             // Candidate sequence fails test.
             // We don't have to apply remaining calls to check sequence.
             return Ok((false, false));
@@ -156,15 +165,13 @@ pub fn check_sequence(
     }
 
     // Check the invariant for call sequence.
-    let (mut call_result, _cow_backend) =
-        executor.call_raw(CALLER, test_address, test_function, U256::ZERO)?;
-    Ok((
-        executor.is_raw_call_success(
-            test_address,
-            Cow::Owned(call_result.state_changeset.take().unwrap()),
-            &call_result,
-            false,
-        ),
-        true,
-    ))
+    let (_call, mut success, _cow_backend) =
+        call_invariant_function(&executor, test_address, calldata)?;
+    // Check after invariant result if invariant is success and `afterInvariant`
+    // function is declared.
+    if success && call_after_invariant {
+        (_, success) = call_after_invariant_function(&executor, test_address)?;
+    }
+
+    Ok((success, true))
 }

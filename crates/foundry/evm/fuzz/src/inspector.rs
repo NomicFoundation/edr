@@ -1,4 +1,3 @@
-use alloy_primitives::U256;
 use revm::{
     interpreter::{CallInputs, CallOutcome, CallScheme, Interpreter},
     Database, EvmContext, Inspector,
@@ -65,7 +64,7 @@ impl Fuzzer {
     /// Collects `stack` and `memory` values into the fuzz dictionary.
     fn collect_data(&mut self, interpreter: &Interpreter) {
         self.fuzz_state
-            .collect_values(interpreter.stack().data().iter().map(U256::to_be_bytes));
+            .collect_values(interpreter.stack().data().iter().copied().map(Into::into));
 
         // TODO: disabled for now since it's flooding the dictionary
         // for index in 0..interpreter.shared_memory.len() / 32 {

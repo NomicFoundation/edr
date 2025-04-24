@@ -7,11 +7,17 @@
 // respective crates, and the `Executor` struct should be accessed using a trait
 // defined in `foundry-evm-core` instead of the concrete `Executor` type.
 
-use std::{borrow::Cow, collections::HashMap};
+use std::{
+    borrow::Cow,
+    time::{Duration, Instant},
+};
 
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
-use alloy_primitives::{Address, Bytes, Log, U256};
+use alloy_primitives::{
+    map::{AddressHashMap, HashMap},
+    Address, Bytes, Log, U256,
+};
 use alloy_sol_types::{sol, SolCall};
 use foundry_evm_core::{
     backend::{Backend, BackendError, BackendResult, CowBackend, DatabaseExt},
@@ -22,7 +28,7 @@ use foundry_evm_core::{
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
-use foundry_evm_traces::CallTraceArena;
+use foundry_evm_traces::SparsedTraceArena;
 use revm::{
     db::{DatabaseCommit, DatabaseRef},
     interpreter::{return_ok, InstructionResult},
@@ -36,7 +42,8 @@ use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
 
 mod builder;
 pub use builder::ExecutorBuilder;
-use foundry_evm_core::backend::IndeterminismReasons;
+// Leaving this intentionally removed as it was flagged as unused
+use foundry_evm_core::{backend::IndeterminismReasons, decode::SkipReason};
 
 pub mod fuzz;
 pub use fuzz::FuzzedExecutor;
@@ -237,15 +244,12 @@ impl Executor {
         // and also the chainid, which can be set manually
         self.env.cfg.chain_id = res.env.cfg.chain_id;
 
-        if let Some(changeset) = res.state_changeset.as_ref() {
-            let success = self
-                .ensure_success(to, res.reverted, Cow::Borrowed(changeset), false)
-                .map_err(|err| EvmError::Eyre(eyre::eyre!(err)))?;
-            if !success {
-                return Err(res
-                    .into_execution_error("execution error".to_string())
-                    .into());
-            }
+        let success =
+            self.is_raw_call_success(to, Cow::Borrowed(&res.state_changeset), &res, false);
+        if !success {
+            return Err(res
+                .into_execution_error("execution error".to_string())
+                .into());
         }
 
         Ok(res)
@@ -388,9 +392,7 @@ impl Executor {
     /// values according to the executed call result
     fn commit(&mut self, result: &mut RawCallResult) {
         // Persist changes to db.
-        if let Some(changes) = &result.state_changeset {
-            self.backend.commit(changes.clone());
-        }
+        self.backend.commit(result.state_changeset.clone());
 
         // Persist cheatcode state.
         let cheatcodes = result.cheatcodes.take();
@@ -479,6 +481,24 @@ impl Executor {
     ) -> bool {
         self.ensure_success(address, reverted, state_changeset, should_fail)
             .unwrap_or_default()
+    }
+
+    /// Returns `true` if a test can be considered successful.
+    ///
+    /// This is the same as [`Self::is_success`], but will consume the
+    /// `state_changeset` map to use internally when calling `failed()`.
+    pub fn is_raw_call_mut_success(
+        &self,
+        address: Address,
+        call_result: &mut RawCallResult,
+        should_fail: bool,
+    ) -> bool {
+        self.is_raw_call_success(
+            address,
+            Cow::Owned(std::mem::take(&mut call_result.state_changeset)),
+            call_result,
+            should_fail,
+        )
     }
 
     /// This is the same as [`Self::is_success`] but intended for outcomes of
@@ -604,6 +624,16 @@ impl Executor {
         EnvWithHandlerCfg::new_with_spec_id(Box::new(env), self.env.handler_cfg.spec_id)
     }
 
+    pub fn call_sol_default<C: SolCall>(&self, to: Address, args: &C) -> C::Return
+    where
+        C::Return: Default,
+    {
+        self.call_sol(CALLER, to, args, U256::ZERO, None)
+            .map(|c| c.decoded_result)
+            .inspect_err(|e| warn!(target: "forge::test", "failed calling {:?}: {e}", C::SIGNATURE))
+            .unwrap_or_default()
+    }
+
     /// Whether when re-executing the calls the same results are guaranteed.
     pub fn safe_to_re_execute(&self) -> bool {
         self.backend.safe_to_re_execute()
@@ -648,9 +678,9 @@ pub enum EvmError {
     /// Error which occurred during ABI encoding/decoding
     #[error(transparent)]
     AbiError(#[from] alloy_dyn_abi::Error),
-    /// Error caused which occurred due to calling the `skip()` cheatcode.
-    #[error("Skipped")]
-    SkipError,
+    /// Error caused which occurred due to calling the `skip` cheatcode.
+    #[error("{0}")]
+    Skip(SkipReason),
     /// Any other error.
     #[error(transparent)]
     Eyre(#[from] eyre::Error),
@@ -693,6 +723,12 @@ impl std::ops::DerefMut for DeployResult {
     }
 }
 
+impl From<DeployResult> for RawCallResult {
+    fn from(d: DeployResult) -> Self {
+        d.raw
+    }
+}
+
 /// The result of a raw call.
 #[derive(Debug)]
 pub struct RawCallResult {
@@ -717,17 +753,13 @@ pub struct RawCallResult {
     /// The logs emitted during the call
     pub logs: Vec<Log>,
     /// The labels assigned to addresses during the call
-    pub labels: HashMap<Address, String>,
+    pub labels: AddressHashMap<String>,
     /// The traces of the call
-    pub traces: Option<CallTraceArena>,
+    pub traces: Option<SparsedTraceArena>,
     /// The coverage info collected during the call
     pub coverage: Option<HitMaps>,
     /// The changeset of the state.
-    ///
-    /// This is only present if the changed state was not committed to the
-    /// database (i.e. if you used `call` and `call_raw` not
-    /// `call_committing` or `call_raw_committing`).
-    pub state_changeset: Option<StateChangeset>,
+    pub state_changeset: StateChangeset,
     /// The `revm::Env` after the call
     pub env: EnvWithHandlerCfg,
     /// The cheatcode states after execution
@@ -749,10 +781,10 @@ impl Default for RawCallResult {
             gas_refunded: 0,
             stipend: 0,
             logs: Vec::new(),
-            labels: HashMap::new(),
+            labels: AddressHashMap::default(),
             traces: None,
             coverage: None,
-            state_changeset: None,
+            state_changeset: HashMap::default(),
             env: EnvWithHandlerCfg::new_with_spec_id(Box::default(), SpecId::LATEST),
             cheatcodes: Option::default(),
             out: None,
@@ -762,10 +794,27 @@ impl Default for RawCallResult {
 }
 
 impl RawCallResult {
+    /// Unpacks an EVM result.
+    pub fn from_evm_result(r: Result<Self, EvmError>) -> eyre::Result<(Self, Option<String>)> {
+        match r {
+            Ok(r) => Ok((r, None)),
+            Err(EvmError::Execution(e)) => Ok((e.raw, Some(e.reason))),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Unpacks an execution result.
+    pub fn from_execution_result(r: Result<Self, ExecutionErr>) -> (Self, Option<String>) {
+        match r {
+            Ok(r) => (r, None),
+            Err(e) => (e.raw, Some(e.reason)),
+        }
+    }
+
     /// Converts the result of the call into an `EvmError`.
     pub fn into_evm_error(self, rd: Option<&RevertDecoder>) -> EvmError {
-        if self.result[..] == crate::constants::MAGIC_SKIP[..] {
-            return EvmError::SkipError;
+        if let Some(reason) = SkipReason::decode(&self.result) {
+            return EvmError::Skip(reason);
         }
         let reason = rd
             .unwrap_or_default()
@@ -898,10 +947,30 @@ fn convert_executed_result(
         labels,
         traces,
         coverage,
-        state_changeset: Some(state_changeset),
+        state_changeset,
         env,
         cheatcodes,
         out,
         chisel_state,
     })
+}
+
+/// Timer for a fuzz test.
+pub struct FuzzTestTimer {
+    /// Inner fuzz test timer - (test start time, test duration).
+    inner: Option<(Instant, Duration)>,
+}
+
+impl FuzzTestTimer {
+    pub fn new(timeout: Option<u32>) -> Self {
+        Self {
+            inner: timeout.map(|timeout| (Instant::now(), Duration::from_secs(timeout.into()))),
+        }
+    }
+
+    /// Whether the current fuzz test timed out and should be stopped.
+    pub fn is_timed_out(&self) -> bool {
+        self.inner
+            .is_some_and(|(start, duration)| start.elapsed() > duration)
+    }
 }
