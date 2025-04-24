@@ -29,12 +29,7 @@ pub async fn replay(
             replay_chain_specific_block::<L1ChainSpec>("L1", url, block_number).await
         }
         SupportedChainTypes::Op => {
-            replay_chain_specific_block::<OpChainSpec>(
-                edr_op::CHAIN_TYPE,
-                url.replace("eth-", "opt-"),
-                block_number,
-            )
-            .await
+            replay_chain_specific_block::<OpChainSpec>(edr_op::CHAIN_TYPE, url, block_number).await
         }
     }
 }

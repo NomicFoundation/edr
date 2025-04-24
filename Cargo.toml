@@ -7,6 +7,7 @@ members = [
     "crates/edr_evm",
     "crates/edr_macros",
     "crates/edr_napi",
+    "crates/edr_op",
     "crates/edr_provider",
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",

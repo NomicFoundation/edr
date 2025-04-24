@@ -4,8 +4,8 @@ EDR uses a concept called _chain specification_ to define all necessary types an
 
 This is achieved through the usage of multiple traits, some of which are supertraits of each other, providing increasing scope of functionality in the EDR ecosystem:
 
-- Header builder: `edr_eth::EthHeaderConstants`
 - Primitives: `edr_eth::ChainSpec`
+- Header builder: `edr_eth::EthHeaderConstants`
 - RPC client: `edr_rpc_eth::RpcSpec`
 - EVM runtime: `edr_evm::RuntimeSpec`
 - EVM provider: `edr_provider::ProviderSpec`

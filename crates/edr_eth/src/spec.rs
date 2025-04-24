@@ -15,7 +15,7 @@ pub trait ChainSpec {
     type BlockEnv: Block;
     /// The chain's type for contextual information.
     type Context: Debug + Default;
-    /// The chian's halt reason type.
+    /// The chain's halt reason type.
     type HaltReason: HaltReasonTrait + 'static;
     /// The chain's hardfork type.
     type Hardfork: Copy + Into<l1::SpecId>;

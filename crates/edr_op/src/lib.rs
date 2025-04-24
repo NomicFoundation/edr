@@ -25,14 +25,8 @@ pub mod transaction;
 use edr_eth::U256;
 pub use op_revm::{OpHaltReason, OpSpecId};
 
-/// OP chain type
+/// OP Stack chain type
 pub const CHAIN_TYPE: &str = "op";
-
-/// OP Mainnet chain ID
-pub const MAINNET_CHAIN_ID: u64 = 0xa;
-
-/// OP Sepolia chain ID
-pub const SEPOLIA_CHAIN_ID: u64 = 0xaa37dc;
 
 /// Helper type for constructing an [`op_revm::L1BlockInfo`].
 ///

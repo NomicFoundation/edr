@@ -4,13 +4,27 @@ mod provider;
 mod rpc;
 
 #[cfg(feature = "test-remote")]
-fn mainnet_url() -> String {
-    use edr_test_utils::env::get_alchemy_url;
+mod op {
+    pub fn mainnet_url() -> String {
+        use edr_test_utils::env::get_alchemy_url;
 
-    get_alchemy_url().replace("eth-", "opt-")
+        get_alchemy_url().replace("eth-", "opt-")
+    }
+
+    pub fn sepolia_url() -> String {
+        mainnet_url().replace("mainnet", "sepolia")
+    }
 }
 
 #[cfg(feature = "test-remote")]
-fn sepolia_url() -> String {
-    mainnet_url().replace("mainnet", "sepolia")
+mod base {
+    pub fn mainnet_url() -> String {
+        use edr_test_utils::env::get_alchemy_url;
+
+        get_alchemy_url().replace("eth-", "base-")
+    }
+
+    pub fn sepolia_url() -> String {
+        mainnet_url().replace("mainnet", "sepolia")
+    }
 }
