@@ -15,8 +15,6 @@ jobs:
         network: [opt-mainnet, base-mainnet]
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: feat/multichain
 
       - uses: ./.github/actions/setup-rust
 
