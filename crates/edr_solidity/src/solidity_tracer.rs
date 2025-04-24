@@ -7,7 +7,7 @@ use crate::{
     error_inferrer,
     error_inferrer::{InferrerError, SubmessageData},
     mapped_inline_internal_functions_heuristics::{
-        HeuristicsError, adjust_stack_trace, stack_trace_may_require_adjustments,
+        adjust_stack_trace, stack_trace_may_require_adjustments, HeuristicsError,
     },
     nested_trace::{
         CallMessage, CreateMessage, CreateOrCallMessage, CreateOrCallMessageRef, EvmStep,
@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// Errors that can occur during the generation of the stack trace.
-#[derive(Clone, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum SolidityTracerError<HaltReasonT: HaltReasonTrait> {
     /// Errors that can occur when decoding the contract metadata.
     #[error(transparent)]

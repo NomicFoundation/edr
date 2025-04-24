@@ -179,41 +179,61 @@ foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 
 # solc & compilation utilities
 foundry-block-explorers = { version = "=0.11.0", default-features = false }
-foundry-compilers = { version = "0.13.3", features = ["full"] }
-foundry-fork-db = "=0.11.1"
+foundry-compilers = { version = "=0.14.1", features = ["full"] }
 
 ## revm
-# no default features to avoid c-kzg
-revm = { version = "=19.5.0", default-features = false }
-revm-primitives = { version = "=15.2.0", default-features = false, features = ["c-kzg", "hashbrown"] }
-revm-inspectors = { version = "0.16.0", features = ["serde"] }
+revm = { version = "21.0.0", default-features = false, features = [
+    "arbitrary",
+    "blst",
+    "c-kzg",
+    "dev",
+    "memory_limit",
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
+    "serde",
+    "std",
+] }
+revm-bytecode = { version = "2.0.0", default-features = false }
+revm-context = { version = "2.0.0", default-features = false }
+revm-context-interface = { version = "2.0.0", default-features = false }
+revm-database-interface = { version = "2.0.0", default-features = false }
+revm-handler = { version = "2.0.0", default-features = false }
+revm-interpreter = { version = "17.0.0", default-features = false }
+revm-precompile = { version = "18.0.0", default-features = false, features = ["blst", "c-kzg", "secp256r1", "std"] }
+revm-primitives = { version = "17.0.0", default-features = false, features = ["hashbrown", "rand"] }
+revm-state = { version = "2.0.0", default-features = false }
+c-kzg = { version = "2.1.0", default-features = false, features = ["ethereum_kzg_settings"] }
+
+revm-inspectors = { version = "0.18.1", features = ["serde"] }
+foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", rev = "6144088" }
 
 ## ethers
 ethers-contract-abigen = { version = "2.0.14", default-features = false }
 
 ## alloy
-alloy-consensus = { version = "0.11.1", default-features = false }
-alloy-contract = { version = "0.11.1", default-features = false }
-alloy-eips = { version = "0.11.1", default-features = false }
-alloy-genesis = { version = "0.11.1", default-features = false }
-alloy-json-rpc = { version = "0.11.1", default-features = false }
-alloy-network = { version = "0.11.1", default-features = false }
-alloy-node-bindings = { version = "0.11.1", default-features = false }
-alloy-provider = { version = "0.11.1", default-features = false }
-alloy-pubsub = { version = "0.11.1", default-features = false }
-alloy-rpc-client = { version = "0.11.1", default-features = false }
-alloy-rpc-types = { version = "0.11.1", default-features = false }
-alloy-serde = { version = "0.11.1", default-features = false }
-alloy-signer = { version = "0.11.1", default-features = false }
-alloy-signer-aws = { version = "0.11.1", default-features = false }
-alloy-signer-gcp = { version = "0.11.1", default-features = false }
-alloy-signer-ledger = { version = "0.11.1", default-features = false }
-alloy-signer-local = { version = "0.11.1", default-features = false }
-alloy-signer-trezor = { version = "0.11.1", default-features = false }
-alloy-transport = { version = "0.11.1", default-features = false }
-alloy-transport-http = { version = "0.11.1", default-features = false }
-alloy-transport-ipc = { version = "0.11.1", default-features = false }
-alloy-transport-ws = { version = "0.11.1", default-features = false }
+alloy-consensus = { version = "0.13.0", default-features = false }
+alloy-contract = { version = "0.13.0", default-features = false }
+alloy-eips = { version = "0.13.0", default-features = false }
+alloy-genesis = { version = "0.13.0", default-features = false }
+alloy-json-rpc = { version = "0.13.0", default-features = false }
+alloy-network = { version = "0.13.0", default-features = false }
+alloy-node-bindings = { version = "0.13.0", default-features = false }
+alloy-provider = { version = "0.13.0", default-features = false }
+alloy-pubsub = { version = "0.13.0", default-features = false }
+alloy-rpc-client = { version = "0.13.0", default-features = false }
+alloy-rpc-types = { version = "0.13.0", default-features = false }
+alloy-serde = { version = "0.13.0", default-features = false }
+alloy-signer = { version = "0.13.0", default-features = false }
+alloy-signer-aws = { version = "0.13.0", default-features = false }
+alloy-signer-gcp = { version = "0.13.0", default-features = false }
+alloy-signer-ledger = { version = "0.13.0", default-features = false }
+alloy-signer-local = { version = "0.13.0", default-features = false }
+alloy-signer-trezor = { version = "0.13.0", default-features = false }
+alloy-transport = { version = "0.13.0", default-features = false }
+alloy-transport-http = { version = "0.13.0", default-features = false }
+alloy-transport-ipc = { version = "0.13.0", default-features = false }
+alloy-transport-ws = { version = "0.13.0", default-features = false }
 
 alloy-dyn-abi = { version = "=0.8.25", features = ["eip712"] }
 alloy-json-abi = "=0.8.25"

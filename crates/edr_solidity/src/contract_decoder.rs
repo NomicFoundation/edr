@@ -2,7 +2,7 @@
 
 use std::{fmt::Debug, sync::Arc};
 
-use edr_eth::{Bytes, spec::HaltReasonTrait};
+use edr_eth::{spec::HaltReasonTrait, Bytes};
 use parking_lot::RwLock;
 
 use super::{
@@ -29,18 +29,26 @@ pub enum ContractDecoderError {
 }
 
 /// Provides trace decoding
-pub trait NestedTraceDecoder {
+pub trait NestedTraceDecoder<HaltReasonT: HaltReasonTrait> {
     /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
     fn try_to_decode_nested_trace(
         &self,
-        nested_trace: NestedTrace,
-    ) -> Result<NestedTrace, ContractDecoderError>;
+        nested_trace: NestedTrace<HaltReasonT>,
+    ) -> Result<NestedTrace<HaltReasonT>, ContractDecoderError>;
 }
 
 /// `NestedTraceDecoder` with additional `Debug + Send + Sync` bounds.
-pub trait SyncNestedTraceDecoder: 'static + NestedTraceDecoder + Debug + Send + Sync {}
+pub trait SyncNestedTraceDecoder<HaltReasonT: HaltReasonTrait>:
+    'static + NestedTraceDecoder<HaltReasonT> + Debug + Send + Sync
+{
+}
 
-impl<T> SyncNestedTraceDecoder for T where T: 'static + NestedTraceDecoder + Debug + Send + Sync {}
+impl<HaltReasonT, T> SyncNestedTraceDecoder<HaltReasonT> for T
+where
+    HaltReasonT: HaltReasonTrait,
+    T: 'static + NestedTraceDecoder<HaltReasonT> + Debug + Send + Sync,
+{
+}
 
 /// Get contract metadata from calldata and traces.
 #[derive(Debug, Default)]
@@ -128,8 +136,8 @@ impl ContractDecoder {
     }
 }
 
-impl NestedTraceDecoder for ContractDecoder {
-    fn try_to_decode_nested_trace<HaltReasonT: HaltReasonTrait>(
+impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for ContractDecoder {
+    fn try_to_decode_nested_trace(
         &self,
         nested_trace: NestedTrace<HaltReasonT>,
     ) -> Result<NestedTrace<HaltReasonT>, ContractDecoderError> {

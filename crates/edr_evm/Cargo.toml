@@ -22,12 +22,12 @@ edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_utils = { version = "0.3.5", path = "../edr_utils" }
-revm = { version = "21.0.0", default-features = false, features = ["blst", "c-kzg", "dev", "serde", "std"] }
-revm-context = { version = "2.0.0", default-features = false }
-revm-context-interface = { version = "2.0.0", default-features = false }
-revm-database-interface = { version = "2.0.0", default-features = false }
-revm-handler = { version = "2.0.0", default-features = false }
-revm-interpreter = { version = "17.0.0", default-features = false }
+revm.workspace = true
+revm-context.workspace = true
+revm-context-interface.workspace = true
+revm-database-interface.workspace = true
+revm-handler.workspace = true
+revm-interpreter.workspace = true
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
