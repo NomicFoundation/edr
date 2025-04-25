@@ -45,44 +45,62 @@ impl EdrContext {
         subscription_config: SubscriptionConfig,
         tracing_config: TracingConfigWithBuffers,
     ) -> napi::Result<JsObject> {
-        let provider_config = edr_napi_core::provider::Config::try_from(provider_config)?;
-        let logger_config = logger_config.resolve(&env)?;
+        let (deferred, promise) = env.create_deferred()?;
+
+        macro_rules! try_or_reject_promise {
+            ($expr:expr) => {
+                match $expr {
+                    Ok(value) => value,
+                    Err(error) => {
+                        deferred.reject(error);
+                        return Ok(promise);
+                    }
+                }
+            };
+        }
+
+        let provider_config =
+            try_or_reject_promise!(edr_napi_core::provider::Config::try_from(provider_config));
+
+        let logger_config = try_or_reject_promise!(logger_config.resolve(&env));
 
         // TODO: https://github.com/NomicFoundation/edr/issues/760
-        let build_info_config =
+        let build_info_config = try_or_reject_promise!(
             edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers((&tracing_config).into())
-                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+                .map_err(|error| napi::Error::from_reason(error.to_string()))
+        );
 
-        let contract_decoder = ContractDecoder::new(&build_info_config).map_or_else(
-            |error| Err(napi::Error::from_reason(error.to_string())),
-            |contract_decoder| Ok(Arc::new(contract_decoder)),
-        )?;
+        let contract_decoder =
+            try_or_reject_promise!(ContractDecoder::new(&build_info_config).map_or_else(
+                |error| Err(napi::Error::from_reason(error.to_string())),
+                |contract_decoder| Ok(Arc::new(contract_decoder))
+            ));
+
+        let runtime = runtime::Handle::current();
 
         #[cfg(feature = "scenarios")]
         let scenario_file =
-            runtime::Handle::current().block_on(crate::scenarios::scenario_file(
+            try_or_reject_promise!(runtime.clone().block_on(crate::scenarios::scenario_file(
                 chain_type.clone(),
                 provider_config.clone(),
                 logger_config.enable,
-            ))?;
+            )));
 
-        let runtime = runtime::Handle::current();
         let builder = {
             // TODO: https://github.com/NomicFoundation/edr/issues/760
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
 
-            context.create_provider_builder(
+            try_or_reject_promise!(context.create_provider_builder(
                 &env,
                 &chain_type,
                 provider_config,
                 logger_config,
                 subscription_config.into(),
                 &contract_decoder,
-            )?
+            ))
         };
 
-        let (deferred, promise) = env.create_deferred()?;
         runtime.clone().spawn_blocking(move || {
             let result = builder.build(runtime.clone()).map(|provider| {
                 Provider::new(
