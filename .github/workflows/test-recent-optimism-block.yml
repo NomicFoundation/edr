@@ -28,6 +28,7 @@ jobs:
       - run: |
           BASE_ALCHEMY_URL="${{ secrets.ALCHEMY_URL }}"
           ALCHEMY_URL="${BASE_ALCHEMY_URL//eth-mainnet/${{ matrix.network }}}"
+          echo "::add-mask::$ALCHEMY_URL"
           cargo replay-block -u "$ALCHEMY_URL" -c op
 
       - name: Notify failures
