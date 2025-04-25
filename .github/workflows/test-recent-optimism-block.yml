@@ -12,7 +12,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network: [opt-mainnet, base-mainnet]
+        network:
+          - opt-mainnet
+          # TODO: Reenable after fixing https://github.com/NomicFoundation/edr/issues/887
+          # - base-mainnet
     steps:
       - uses: actions/checkout@v4
 
