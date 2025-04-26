@@ -11,7 +11,7 @@ edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { version = "0.3.5", path = "../edr_provider", features = ["test-utils"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
-serde = { version = "1.0.197", features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
 
 [lints]
 workspace = true

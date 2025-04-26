@@ -336,6 +336,17 @@ export interface DebugTraceLogItem {
   /** Map of all stored values with keys and values encoded as hex strings. */
   storage?: Record<string, string>
 }
+export interface InstrumentationResult {
+  readonly source: string
+  readonly metadata: Array<InstrumentationMetadata>
+}
+export interface InstrumentationMetadata {
+  readonly tag: Buffer
+  readonly kind: string
+  readonly startUtf16: number
+  readonly endUtf16: number
+}
+export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 /** Ethereum execution log. */
 export interface ExecutionLog {
   address: Buffer
