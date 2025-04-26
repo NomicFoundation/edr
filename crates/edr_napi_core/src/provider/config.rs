@@ -46,6 +46,7 @@ pub struct Config {
     pub min_gas_price: u128,
     pub mining: config::Mining,
     pub network_id: u64,
+    pub observability: edr_provider::observability::Config,
 }
 
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
@@ -118,6 +119,7 @@ where
             min_gas_price: value.min_gas_price,
             mining: value.mining,
             network_id: value.network_id,
+            observability: value.observability,
         })
     }
 }

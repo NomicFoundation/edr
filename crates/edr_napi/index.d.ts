@@ -177,6 +177,11 @@ export interface ChainConfig {
   /** The chain's supported hardforks */
   hardforks: Array<HardforkActivation>
 }
+/** Configuration for a code coverage reporter. */
+export interface CodeCoverageConfig {
+  /** The callback to be called when coverage has been collected. */
+  onCollectedCoverageCallback: (coverageHits: Buffer[]) => void
+}
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
   /** The URL of the JSON-RPC endpoint to fork from */
@@ -220,6 +225,10 @@ export interface MiningConfig {
   autoMine: boolean
   interval?: bigint | IntervalRange
   memPool: MemPoolConfig
+}
+/** Configuration for the provider's runtime observability. */
+export interface ObservabilityConfig {
+  codeCoverage?: CodeCoverageConfig
 }
 /** Configuration for a provider */
 export interface ProviderConfig {
@@ -272,6 +281,8 @@ export interface ProviderConfig {
   mining: MiningConfig
   /** The network ID of the blockchain */
   networkId: bigint
+  /** The configuration for the provider's observability */
+  observability: ObservabilityConfig
   /** Owned accounts, for which the secret key is known */
   ownedAccounts: Array<OwnedAccount>
 }

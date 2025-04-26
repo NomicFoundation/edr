@@ -68,8 +68,8 @@ impl CallOverrideCallback {
             },
         )?;
 
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
+        // Maintain a weak reference to the function to avoid blocking the event loop
+        // from exiting.
         call_override_callback_fn.unref(env)?;
 
         Ok(Self {
