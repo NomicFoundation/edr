@@ -179,7 +179,16 @@ export interface ChainConfig {
 }
 /** Configuration for a code coverage reporter. */
 export interface CodeCoverageConfig {
-  /** The callback to be called when coverage has been collected. */
+  /**
+   * The callback to be called when coverage has been collected.
+   *
+   * The callback receives an array of unique coverage hit markers (i.e. no
+   * repetition) per transaction.
+   *
+   * # Safety
+   *
+   * Errors should not be thrown inside the callback.
+   */
   onCollectedCoverageCallback: (coverageHits: Buffer[]) => void
 }
 /** Configuration for forking a blockchain */
@@ -226,8 +235,9 @@ export interface MiningConfig {
   interval?: bigint | IntervalRange
   memPool: MemPoolConfig
 }
-/** Configuration for the provider's runtime observability. */
+/** Configuration for runtime observability. */
 export interface ObservabilityConfig {
+  /** If present, configures runtime observability to collect code coverage. */
   codeCoverage?: CodeCoverageConfig
 }
 /** Configuration for a provider */
@@ -337,15 +347,38 @@ export interface DebugTraceLogItem {
   storage?: Record<string, string>
 }
 export interface InstrumentationResult {
+  /** The generated source code with coverage instrumentation. */
   readonly source: string
+  /** The metadata for each instrumented code segment. */
   readonly metadata: Array<InstrumentationMetadata>
 }
 export interface InstrumentationMetadata {
+  /**
+   * The tag that identifies the instrumented code. Tags are
+   * deterministically generated from the source code, source id, and
+   * Solidity version.
+   */
   readonly tag: Buffer
+  /**
+   * The kind of instrumented code. Currently, the only supported kind
+   * is "statement".
+   */
   readonly kind: string
+  /**
+   * The starting position of the instrumented code - including trivia such
+   * as whitespace - in the source code, in UTF-16 code units.
+   */
   readonly startUtf16: number
+  /**
+   * The ending position of the instrumented code - including trivia such as
+   * whitespace - in the source code, in UTF-16 code units.
+   */
   readonly endUtf16: number
 }
+/**
+ * Adds per-statement coverage instrumentation to the given Solidity source
+ * code.
+ */
 export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 /** Ethereum execution log. */
 export interface ExecutionLog {
