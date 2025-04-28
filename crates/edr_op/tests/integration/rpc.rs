@@ -105,7 +105,8 @@ async fn transaction_and_receipt_pre_bedrock() -> anyhow::Result<()> {
         .expect("Failed to retrieve receipt")
         .expect("Receipt must exist");
 
-    assert_eq!(receipt.transaction_type, None);
+    // Archive providers return both None and Some(0) for legacy receipts
+    assert!(matches!(receipt.transaction_type, None | Some(0)));
 
     Ok(())
 }
