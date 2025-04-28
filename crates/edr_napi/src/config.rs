@@ -3,10 +3,14 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use edr_eth::KECCAK_EMPTY;
+use edr_eth::{Bytes, HashSet, KECCAK_EMPTY};
+use edr_provider::coverage::SyncOnCollectedCoverageCallback;
 use napi::{
-    Either,
+    Either, JsFunction,
     bindgen_prelude::{BigInt, Buffer, Uint8Array},
+    threadsafe_function::{
+        ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
+    },
 };
 use napi_derive::napi;
 
@@ -23,6 +27,21 @@ pub struct ChainConfig {
     pub chain_id: BigInt,
     /// The chain's supported hardforks
     pub hardforks: Vec<HardforkActivation>,
+}
+
+/// Configuration for a code coverage reporter.
+#[napi(object)]
+pub struct CodeCoverageConfig {
+    /// The callback to be called when coverage has been collected.
+    ///
+    /// The callback receives an array of unique coverage hit markers (i.e. no
+    /// repetition) per transaction.
+    ///
+    /// # Safety
+    ///
+    /// Errors should not be thrown inside the callback.
+    #[napi(ts_type = "(coverageHits: Buffer[]) => void")]
+    pub on_collected_coverage_callback: JsFunction,
 }
 
 /// Configuration for forking a blockchain
@@ -81,6 +100,13 @@ pub struct MiningConfig {
     pub mem_pool: MemPoolConfig,
 }
 
+/// Configuration for runtime observability.
+#[napi(object)]
+pub struct ObservabilityConfig {
+    /// If present, configures runtime observability to collect code coverage.
+    pub code_coverage: Option<CodeCoverageConfig>,
+}
+
 /// Configuration for a provider
 #[napi(object)]
 pub struct ProviderConfig {
@@ -127,6 +153,8 @@ pub struct ProviderConfig {
     pub mining: MiningConfig,
     /// The network ID of the blockchain
     pub network_id: BigInt,
+    /// The configuration for the provider's observability
+    pub observability: ObservabilityConfig,
     /// Owned accounts, for which the secret key is known
     pub owned_accounts: Vec<OwnedAccount>,
 }
@@ -207,25 +235,96 @@ impl TryFrom<MiningConfig> for edr_provider::MiningConfig {
     }
 }
 
-impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
-    type Error = napi::Error;
+impl ObservabilityConfig {
+    /// Resolves the instance, converting it to a
+    /// [`edr_provider::observability::Config`].
+    pub fn resolve(self, env: &napi::Env) -> napi::Result<edr_provider::observability::Config> {
+        let on_collected_coverage_fn = self
+            .code_coverage
+            .map(
+                |code_coverage| -> napi::Result<Box<dyn SyncOnCollectedCoverageCallback>> {
+                    let mut on_collected_coverage_callback: ThreadsafeFunction<
+                        _,
+                        ErrorStrategy::Fatal,
+                    > = code_coverage
+                        .on_collected_coverage_callback
+                        .create_threadsafe_function(
+                            0,
+                            |ctx: ThreadSafeCallContext<HashSet<Bytes>>| {
+                                let hits = ctx
+                                    .env
+                                    .create_array_with_length(ctx.value.len())
+                                    .and_then(|mut hits| {
+                                        for (idx, hit) in ctx.value.into_iter().enumerate() {
+                                            ctx.env
+                                                .create_buffer_with_data(hit.to_vec())
+                                                .and_then(|hit| {
+                                                    let idx = u32::try_from(idx).unwrap_or_else(|_| panic!("Number of hits should not exceed '{}'",
+                                                        u32::MAX));
 
-    fn try_from(value: ProviderConfig) -> Result<Self, Self::Error> {
-        let accounts = value
+                                                    hits.set_element(idx, hit.into_raw())
+                                                })?;
+                                        }
+                                        Ok(hits)
+                                    })?;
+
+                                Ok(vec![hits])
+                            },
+                        )?;
+
+                    // Maintain a weak reference to the function to avoid blocking the event loop
+                    // from exiting.
+                    on_collected_coverage_callback.unref(env)?;
+
+                    let on_collected_coverage_fn: Box<dyn SyncOnCollectedCoverageCallback> =
+                        Box::new(move |hits| {
+                            let (sender, receiver) = std::sync::mpsc::channel();
+
+                            let status = on_collected_coverage_callback
+                                .call_with_return_value(hits, ThreadsafeFunctionCallMode::Blocking, move |()| {
+                                    sender.send(()).map_err(|_error| {
+                                        napi::Error::new(
+                                            napi::Status::GenericFailure,
+                                            "Failed to send result from on_collected_coverage_callback",
+                                        )
+                                    })
+                                });
+
+                            let () = receiver.recv().expect("Receive can only fail if the channel is closed");
+
+                            assert_eq!(status, napi::Status::Ok);
+                        });
+
+                    Ok(on_collected_coverage_fn)
+                },
+            )
+            .transpose()?;
+
+        Ok(edr_provider::observability::Config {
+            on_collected_coverage_fn,
+            ..edr_provider::observability::Config::default()
+        })
+    }
+}
+
+impl ProviderConfig {
+    /// Resolves the instance to a [`edr_napi_core::provider::Config`].
+    pub fn resolve(self, env: &napi::Env) -> napi::Result<edr_napi_core::provider::Config> {
+        let accounts = self
             .owned_accounts
             .into_iter()
             .map(edr_provider::config::OwnedAccount::try_from)
             .collect::<napi::Result<Vec<_>>>()?;
 
         let block_gas_limit =
-            NonZeroU64::new(value.block_gas_limit.try_cast()?).ok_or_else(|| {
+            NonZeroU64::new(self.block_gas_limit.try_cast()?).ok_or_else(|| {
                 napi::Error::new(
                     napi::Status::GenericFailure,
                     "Block gas limit must be greater than 0",
                 )
             })?;
 
-        let chains = value
+        let chains = self
             .chains
             .into_iter()
             .map(
@@ -256,7 +355,7 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
             )
             .collect::<napi::Result<_>>()?;
 
-        let genesis_state = value
+        let genesis_state = self
             .genesis_state
             .into_iter()
             .map(
@@ -300,40 +399,41 @@ impl TryFrom<ProviderConfig> for edr_napi_core::provider::Config {
             )
             .collect::<napi::Result<_>>()?;
 
-        Ok(Self {
+        Ok(edr_napi_core::provider::Config {
             accounts,
-            allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
-            allow_unlimited_contract_size: value.allow_unlimited_contract_size,
-            bail_on_call_failure: value.bail_on_call_failure,
-            bail_on_transaction_failure: value.bail_on_transaction_failure,
+            allow_blocks_with_same_timestamp: self.allow_blocks_with_same_timestamp,
+            allow_unlimited_contract_size: self.allow_unlimited_contract_size,
+            bail_on_call_failure: self.bail_on_call_failure,
+            bail_on_transaction_failure: self.bail_on_transaction_failure,
             block_gas_limit,
-            cache_dir: value.cache_dir,
-            chain_id: value.chain_id.try_cast()?,
+            cache_dir: self.cache_dir,
+            chain_id: self.chain_id.try_cast()?,
             chains,
-            coinbase: value.coinbase.try_cast()?,
-            enable_rip_7212: value.enable_rip_7212,
-            fork: value.fork.map(TryInto::try_into).transpose()?,
+            coinbase: self.coinbase.try_cast()?,
+            enable_rip_7212: self.enable_rip_7212,
+            fork: self.fork.map(TryInto::try_into).transpose()?,
             genesis_state,
-            hardfork: value.hardfork,
-            initial_base_fee_per_gas: value
+            hardfork: self.hardfork,
+            initial_base_fee_per_gas: self
                 .initial_base_fee_per_gas
                 .map(TryCast::try_cast)
                 .transpose()?,
-            initial_blob_gas: value.initial_blob_gas.map(TryInto::try_into).transpose()?,
-            initial_date: value
+            initial_blob_gas: self.initial_blob_gas.map(TryInto::try_into).transpose()?,
+            initial_date: self
                 .initial_date
                 .map(|date| {
                     let elapsed_since_epoch = Duration::from_secs(date.try_cast()?);
                     napi::Result::Ok(SystemTime::UNIX_EPOCH + elapsed_since_epoch)
                 })
                 .transpose()?,
-            initial_parent_beacon_block_root: value
+            initial_parent_beacon_block_root: self
                 .initial_parent_beacon_block_root
                 .map(TryCast::try_cast)
                 .transpose()?,
-            mining: value.mining.try_into()?,
-            min_gas_price: value.min_gas_price.try_cast()?,
-            network_id: value.network_id.try_cast()?,
+            mining: self.mining.try_into()?,
+            min_gas_price: self.min_gas_price.try_cast()?,
+            network_id: self.network_id.try_cast()?,
+            observability: self.observability.resolve(env)?,
         })
     }
 }

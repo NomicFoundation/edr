@@ -1,6 +1,6 @@
 [package]
 name = "edr_eth"
-version = "0.3.5"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
@@ -24,10 +24,10 @@ revm-context = { version = "2.0.0", default-features = false }
 revm-context-interface = { version = "2.0.0", default-features = false }
 revm-primitives = { version = "17.0.0", default-features = false, features = ["hashbrown", "rand"] }
 revm-state = { version = "2.0.0", default-features = false }
-serde = { version = "1.0.209", default-features = false, features = ["derive"], optional = true }
-sha2 = { version = "0.10.8", default-features = false }
-sha3 = { version = "0.10.8", default-features = false }
-thiserror = { version = "1.0.37", default-features = false }
+serde = { workspace = true, features = ["derive"], optional = true }
+sha2.workspace = true
+sha3.workspace = true
+thiserror.workspace = true
 tracing = { version = "0.1.37", features = ["attributes", "std"], optional = true }
 triehash = { version = "0.8.4", default-features = false }
 
@@ -39,7 +39,7 @@ edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 lazy_static = "1.4.0"
 paste.workspace = true
-serde_json = { version = "1.0.127" }
+serde_json.workspace = true
 serial_test = "2.0.0"
 tempfile = { version = "3.7.1", default-features = false }
 tokio = { version = "1.23.0", features = ["macros"] }

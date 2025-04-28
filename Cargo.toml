@@ -1,8 +1,10 @@
 [workspace]
 members = [
+    "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
     "crates/edr_evm",
+    "crates/edr_instrument",
     "crates/edr_napi",
     "crates/edr_op",
     "crates/edr_provider",
@@ -17,6 +19,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
+version = "0.3.5"
 edition = "2024"
 
 [profile.dev]
@@ -28,7 +31,14 @@ rpath = true
 [workspace.dependencies]
 alloy-eips = { version = "0.13.0", default-features = false }
 alloy-serde = { version = "0.13.0", default-features = false }
+anyhow = { version = "1.0.89", default-features = false }
 paste = { version = "1.0.14", default-features = false }
+serde = { version = "1.0.209", default-features = false }
+serde_json = { version = "1.0.127", default-features = false }
+sha2 = { version = "0.10.8", default-features = false }
+sha3 = { version = "0.10.8", default-features = false }
+semver = { version = "1.0.23", default-features = false }
+thiserror = { version = "1.0.58", default-features = false }
 
 [workspace.lints.rust]
 future_incompatible = "warn"

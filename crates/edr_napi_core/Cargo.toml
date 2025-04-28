@@ -1,6 +1,6 @@
 [package]
 name = "edr_napi_core"
-version = "0.3.5"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
@@ -15,9 +15,9 @@ edr_solidity = { path = "../edr_solidity" }
 edr_rpc_client = { path = "../edr_rpc_client" }
 itertools = { version = "0.12.0", default-features = false }
 napi = { version = "2.16.10", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
-serde = { version = "1.0.209", features = ["derive"] }
-serde_json = { version = "1.0.127" }
-thiserror = { version = "1.0.37", default-features = false }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
 
 [features]
 tracing = ["edr_provider/tracing"]

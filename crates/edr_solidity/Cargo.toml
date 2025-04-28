@@ -1,10 +1,10 @@
 [package]
 name = "edr_solidity"
-version = "0.3.5"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = { version = "1.0.75", default-features = false }
+anyhow = { workspace = true }
 alloy-dyn-abi = { version = "0.8.22", default-features = false, features = ["eip712"] }
 alloy-json-abi = { version = "0.8.22", default-features = false }
 alloy-sol-types = { version = "0.7.4", default-features = false, features = ["std"] }
@@ -14,11 +14,11 @@ edr_evm = { version = "0.3.5", path = "../edr_evm" }
 indexmap = { version = "2", features = ["serde"] }
 log = { version = "0.4.17", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
-serde = { version = "1.0.158", default-features = false, features = ["std"] }
-serde_json = { version = "1.0.89", features = ["preserve_order"] }
+serde = { workspace = true, features = ["std"] }
+serde_json = { workspace = true, features = ["preserve_order"] }
 strum = { version = "0.26.0", features = ["derive"] }
-semver = "1.0.23"
-thiserror = "1.0.58"
+semver = { workspace = true, features = ["std"] }
+thiserror.workspace = true
 itertools = "0.10.5"
 
 [dev-dependencies]

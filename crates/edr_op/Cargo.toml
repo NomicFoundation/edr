@@ -1,6 +1,6 @@
 [package]
 name = "edr_op"
-version = "0.3.5"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
@@ -16,8 +16,8 @@ edr_solidity = { path = "../edr_solidity" }
 log = { version = "0.4.17", default-features = false }
 op-alloy-rpc-types = { version = "0.12.0", default-features = false }
 op-revm = { version = "2.0.0", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
-serde = { version = "1.0.209", default-features = false, features = ["derive", "std"] }
-thiserror = { version = "1.0.37", default-features = false }
+serde = { workspace = true, features = ["derive", "std"] }
+thiserror.workspace = true
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 
 [dev-dependencies]
@@ -29,7 +29,7 @@ edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }
 edr_test_utils = { path = "../edr_test_utils" }
 parking_lot = { version = "0.12.1", default-features = false }
 paste.workspace = true
-serde_json = { version = "1.0.127" }
+serde_json.workspace = true
 serial_test = "2.0.0"
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 
