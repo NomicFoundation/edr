@@ -33,6 +33,13 @@ pub struct ChainConfig {
 #[napi(object)]
 pub struct CodeCoverageConfig {
     /// The callback to be called when coverage has been collected.
+    ///
+    /// The callback receives an array of unique coverage hit markers (i.e. no
+    /// repetition) per transaction.
+    ///
+    /// # Safety
+    ///
+    /// Errors should not be thrown inside the callback.
     #[napi(ts_type = "(coverageHits: Buffer[]) => void")]
     pub on_collected_coverage_callback: JsFunction,
 }
@@ -93,9 +100,10 @@ pub struct MiningConfig {
     pub mem_pool: MemPoolConfig,
 }
 
-/// Configuration for the provider's runtime observability.
+/// Configuration for runtime observability.
 #[napi(object)]
 pub struct ObservabilityConfig {
+    /// If present, configures runtime observability to collect code coverage.
     pub code_coverage: Option<CodeCoverageConfig>,
 }
 

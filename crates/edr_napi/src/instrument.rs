@@ -4,8 +4,10 @@ use napi_derive::napi;
 
 #[napi(object)]
 pub struct InstrumentationResult {
+    /// The generated source code with coverage instrumentation.
     #[napi(readonly)]
     pub source: String,
+    /// The metadata for each instrumented code segment.
     #[napi(readonly)]
     pub metadata: Vec<InstrumentationMetadata>,
 }
@@ -31,12 +33,21 @@ impl TryFrom<edr_instrument::coverage::InstrumentationResult> for Instrumentatio
 
 #[napi(object)]
 pub struct InstrumentationMetadata {
+    /// The tag that identifies the instrumented code. Tags are
+    /// deterministically generated from the source code, source id, and
+    /// Solidity version.
     #[napi(readonly)]
     pub tag: Buffer,
+    /// The kind of instrumented code. Currently, the only supported kind
+    /// is "statement".
     #[napi(readonly)]
     pub kind: String,
+    /// The starting position of the instrumented code - including trivia such
+    /// as whitespace - in the source code, in UTF-16 code units.
     #[napi(readonly)]
     pub start_utf16: i64,
+    /// The ending position of the instrumented code - including trivia such as
+    /// whitespace - in the source code, in UTF-16 code units.
     #[napi(readonly)]
     pub end_utf16: i64,
 }
@@ -65,6 +76,8 @@ impl TryFrom<edr_instrument::coverage::InstrumentationMetadata> for Instrumentat
     }
 }
 
+/// Adds per-statement coverage instrumentation to the given Solidity source
+/// code.
 #[napi]
 pub fn add_statement_coverage_instrumentation(
     source_code: String,
