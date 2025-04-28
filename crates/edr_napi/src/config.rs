@@ -270,8 +270,19 @@ impl ObservabilityConfig {
 
                     let on_collected_coverage_fn: Box<dyn SyncOnCollectedCoverageCallback> =
                         Box::new(move |hits| {
+                            let (sender, receiver) = std::sync::mpsc::channel();
+
                             let status = on_collected_coverage_callback
-                                .call(hits, ThreadsafeFunctionCallMode::Blocking);
+                                .call_with_return_value(hits, ThreadsafeFunctionCallMode::Blocking, move |()| {
+                                    sender.send(()).map_err(|_error| {
+                                        napi::Error::new(
+                                            napi::Status::GenericFailure,
+                                            "Failed to send result from on_collected_coverage_callback",
+                                        )
+                                    })
+                                });
+
+                            let () = receiver.recv().expect("Receive can only fail if the channel is closed");
 
                             assert_eq!(status, napi::Status::Ok);
                         });
