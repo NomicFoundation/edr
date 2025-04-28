@@ -12,7 +12,7 @@ const config = {
     },
     {
       packages: ["**"],
-      dependencies: ["@nomicfoundation/edr"],
+      dependencies: ["@ignored/edr-optimism"],
       dependencyTypes: ["local"],
     },
   ],
