@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
-use edr_eth::HashMap;
-use edr_evm::hardfork::{Activations, ChainConfig};
+use edr_eth::{eips::eip1559::BaseFeeParams, HashMap};
+use edr_evm::hardfork::Activations;
 pub use op_revm::name;
 
 use crate::OpSpecId;
@@ -11,10 +11,20 @@ pub mod base;
 /// OP chain configs
 pub mod op;
 
+/// Type that stores the configuration for a chain.
+pub struct OpChainConfig<HardforkT: 'static> {
+    /// Chain name
+    pub name: String,
+    /// Hardfork activations for the chain
+    pub hardfork_activations: Activations<HardforkT>,
+    /// Base fee parameters for the chain
+    pub base_fee_params: BaseFeeParams<HardforkT>,
+}
+
 // Source:
 // <https://docs.optimism.io/builders/node-operators/network-upgrades>
-fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<OpSpecId>> {
-    static CONFIGS: OnceLock<HashMap<u64, &'static ChainConfig<OpSpecId>>> = OnceLock::new();
+fn chain_configs() -> &'static HashMap<u64, &'static OpChainConfig<OpSpecId>> {
+    static CONFIGS: OnceLock<HashMap<u64, &'static OpChainConfig<OpSpecId>>> = OnceLock::new();
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
