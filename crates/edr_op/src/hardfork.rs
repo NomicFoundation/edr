@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 
 use edr_eth::{eips::eip1559::BaseFeeParams, HashMap};
 use edr_evm::hardfork::Activations;
@@ -23,17 +23,17 @@ pub struct OpChainConfig<HardforkT: 'static> {
 
 // Source:
 // <https://docs.optimism.io/builders/node-operators/network-upgrades>
-fn chain_configs() -> &'static HashMap<u64, &'static OpChainConfig<OpSpecId>> {
-    static CONFIGS: OnceLock<HashMap<u64, &'static OpChainConfig<OpSpecId>>> = OnceLock::new();
+fn chain_configs() -> &'static HashMap<u64, &'static LazyLock<OpChainConfig<OpSpecId>>> {
+    static CONFIGS: OnceLock<HashMap<u64, &'static LazyLock<OpChainConfig<OpSpecId>>>> = OnceLock::new();
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
 
-        hardforks.insert(op::MAINNET_CHAIN_ID, &*op::MAINNET_CONFIG);
-        hardforks.insert(op::SEPOLIA_CHAIN_ID, &*op::SEPOLIA_CONFIG);
+        hardforks.insert(op::MAINNET_CHAIN_ID, &op::MAINNET_CONFIG);
+        hardforks.insert(op::SEPOLIA_CHAIN_ID, &op::SEPOLIA_CONFIG);
 
-        hardforks.insert(base::MAINNET_CHAIN_ID, &*base::MAINNET_CONFIG);
-        hardforks.insert(base::SEPOLIA_CHAIN_ID, &*base::SEPOLIA_CONFIG);
+        hardforks.insert(base::MAINNET_CHAIN_ID, &base::MAINNET_CONFIG);
+        hardforks.insert(base::SEPOLIA_CHAIN_ID, &base::SEPOLIA_CONFIG);
 
         hardforks
     })
