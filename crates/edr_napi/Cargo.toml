@@ -55,8 +55,5 @@ op = ["dep:edr_op"]
 scenarios = ["dep:edr_scenarios", "dep:rand"]
 tracing = ["edr_evm/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
 
-[profile.release]
-lto = true
-
 [lints]
 workspace = true

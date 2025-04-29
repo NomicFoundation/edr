@@ -26,6 +26,7 @@ edition = "2024"
 rpath = true
 
 [profile.release]
+lto = true
 rpath = true
 
 [workspace.dependencies]
