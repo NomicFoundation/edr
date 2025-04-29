@@ -39,7 +39,7 @@ fn chain_configs() -> &'static HashMap<u64, &'static LazyLock<OpChainConfig<OpSp
     })
 }
 
-/// Returns the name corresponding to the provided chain ID, if it is supported.
+/// Returns the name corresponding to the provided chain ID, if it is supported and known.
 pub fn chain_name(chain_id: u64) -> Option<&'static str> {
     chain_configs()
         .get(&chain_id)
@@ -47,7 +47,7 @@ pub fn chain_name(chain_id: u64) -> Option<&'static str> {
 }
 
 /// Returns the hardfork activations corresponding to the provided chain ID, if
-/// it is supported.
+/// it is supported and known.
 pub fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<OpSpecId>> {
     chain_configs()
         .get(&chain_id)
