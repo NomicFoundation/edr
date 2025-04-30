@@ -2,7 +2,7 @@ pub use alloy_eips::eip1559::BaseFeeParams as ConstantBaseFeeParams;
 
 /// A mapping of hardfork to [`ConstantBaseFeeParams`]. This is used to specify
 /// dynamic EIP-1559 parameters for chains like OP.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForkBaseFeeParams<HardforkT: 'static> {
     activations: &'static [(HardforkT, ConstantBaseFeeParams)],
 }
@@ -16,6 +16,7 @@ impl<HardforkT> ForkBaseFeeParams<HardforkT> {
 
 /// Type that allows specifying constant or dynamic EIP-1559 parameters based on
 /// the active hardfork.
+#[derive(Clone, Copy)]
 pub enum BaseFeeParams<HardforkT: 'static> {
     /// Constant [`ConstantBaseFeeParams`]; used for chains that don't have
     /// dynamic EIP-1559 parameters

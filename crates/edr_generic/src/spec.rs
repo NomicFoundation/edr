@@ -35,6 +35,10 @@ impl EthHeaderConstants for GenericChainSpec {
     const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork> = L1ChainSpec::BASE_FEE_PARAMS;
 
     const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
+
+    fn chain_base_fee_params(chain_id: u64) -> BaseFeeParams<Self::Hardfork> {
+        L1ChainSpec::chain_base_fee_params(chain_id)
+    }
 }
 
 impl RuntimeSpec for GenericChainSpec {

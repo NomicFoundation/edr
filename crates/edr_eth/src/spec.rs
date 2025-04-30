@@ -32,4 +32,7 @@ pub trait EthHeaderConstants: ChainSpec<Hardfork: 'static + PartialOrd> {
 
     /// The minimum difficulty for the Ethash proof-of-work algorithm.
     const MIN_ETHASH_DIFFICULTY: u64;
+
+    /// Parameters for the EIP-1559 base fee calculation.
+    fn chain_base_fee_params(chain_id: u64) -> BaseFeeParams<Self::Hardfork>;
 }
