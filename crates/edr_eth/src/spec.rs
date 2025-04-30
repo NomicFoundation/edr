@@ -27,9 +27,6 @@ pub trait ChainSpec {
 
 /// Constants for constructing Ethereum headers.
 pub trait EthHeaderConstants: ChainSpec<Hardfork: 'static + PartialOrd> {
-    /// Parameters for the EIP-1559 base fee calculation.
-    const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork>;
-
     /// The minimum difficulty for the Ethash proof-of-work algorithm.
     const MIN_ETHASH_DIFFICULTY: u64;
 

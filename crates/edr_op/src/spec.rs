@@ -155,12 +155,6 @@ impl RuntimeSpec for OpChainSpec {
 }
 
 impl EthHeaderConstants for OpChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<OpSpecId> =
-        BaseFeeParams::Variable(ForkBaseFeeParams::new(&[
-            (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
-            (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
-        ]));
-
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 
     fn chain_base_fee_params(chain_id: u64) -> BaseFeeParams<Self::Hardfork> {
