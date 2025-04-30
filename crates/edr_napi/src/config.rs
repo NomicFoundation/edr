@@ -25,6 +25,8 @@ use crate::{
 pub struct ChainConfig {
     /// The chain ID
     pub chain_id: BigInt,
+    /// The chain's name
+    pub name: String,
     /// The chain's supported hardforks
     pub hardforks: Vec<HardforkActivation>,
 }
@@ -65,10 +67,22 @@ pub struct HttpHeader {
 /// Configuration for a hardfork activation
 #[napi(object)]
 pub struct HardforkActivation {
+    /// The condition for the hardfork activation
+    pub condition: Either<HardforkActivationByBlockNumber, HardforkActivationByTimestamp>,
+    /// The activated hardfork
+    pub hardfork: String,
+}
+
+#[napi(object)]
+pub struct HardforkActivationByBlockNumber {
     /// The block number at which the hardfork is activated
     pub block_number: BigInt,
-    /// The activated hardfork
-    pub spec_id: String,
+}
+
+#[napi(object)]
+pub struct HardforkActivationByTimestamp {
+    /// The timestamp at which the hardfork is activated
+    pub timestamp: BigInt,
 }
 
 #[napi(string_enum)]
@@ -330,27 +344,46 @@ impl ProviderConfig {
             .map(
                 |ChainConfig {
                      chain_id,
+                     name,
                      hardforks,
                  }| {
-                    let hardforks = hardforks
+                    let hardfork_activations = hardforks
                         .into_iter()
                         .map(
                             |HardforkActivation {
-                                 block_number,
-                                 spec_id: hardfork,
+                                 condition,
+                                 hardfork,
                              }| {
-                                let block_number = block_number.try_cast()?;
+                                let condition = match condition {
+                                    Either::A(HardforkActivationByBlockNumber { block_number }) => {
+                                        edr_evm::hardfork::ForkCondition::Block(
+                                            block_number.try_cast()?,
+                                        )
+                                    }
+                                    Either::B(HardforkActivationByTimestamp { timestamp }) => {
+                                        edr_evm::hardfork::ForkCondition::Timestamp(
+                                            timestamp.try_cast()?,
+                                        )
+                                    }
+                                };
 
-                                Ok(edr_napi_core::provider::HardforkActivation {
-                                    block_number,
+                                Ok(edr_evm::hardfork::Activation {
+                                    condition,
                                     hardfork,
                                 })
                             },
                         )
                         .collect::<napi::Result<Vec<_>>>()?;
 
+                    let chain_config = edr_evm::hardfork::ChainConfig {
+                        name,
+                        hardfork_activations: edr_evm::hardfork::Activations::new(
+                            hardfork_activations,
+                        ),
+                    };
+
                     let chain_id = chain_id.try_cast()?;
-                    Ok((chain_id, hardforks))
+                    Ok((chain_id, chain_config))
                 },
             )
             .collect::<napi::Result<_>>()?;

@@ -3,6 +3,7 @@ pub mod l1;
 
 /// Fork condition for a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum ForkCondition {
     /// Activation based on block number.
     Block(u64),
@@ -10,23 +11,41 @@ pub enum ForkCondition {
     Timestamp(u64),
 }
 
+/// A type representing the activation of a hardfork.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct Activation<HardforkT> {
+    /// The condition for the hardfork activation.
+    pub condition: ForkCondition,
+    /// The hardfork to be activated.
+    pub hardfork: HardforkT,
+}
+
 /// A struct that stores the hardforks for a chain.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(transparent)]
 pub struct Activations<HardforkT> {
     /// (Start block number -> hardfork) mapping
-    hardforks: Vec<(ForkCondition, HardforkT)>,
+    hardforks: Vec<Activation<HardforkT>>,
 }
 
 impl<HardforkT> Activations<HardforkT> {
     /// Constructs a new instance with the provided hardforks.
-    pub fn new(hardforks: Vec<(ForkCondition, HardforkT)>) -> Self {
+    pub fn new(hardforks: Vec<Activation<HardforkT>>) -> Self {
         Self { hardforks }
+    }
+
+    /// Returns the inner hardforks.
+    pub fn into_inner(self) -> Vec<Activation<HardforkT>> {
+        self.hardforks
     }
 
     /// Creates a new instance for a new chain with the provided hardfork.
     pub fn with_spec_id(hardfork: HardforkT) -> Self {
         Self {
-            hardforks: vec![(ForkCondition::Block(0), hardfork)],
+            hardforks: vec![Activation {
+                condition: ForkCondition::Block(0),
+                hardfork,
+            }],
         }
     }
 
@@ -43,48 +62,24 @@ impl<HardforkT: Clone> Activations<HardforkT> {
         self.hardforks
             .iter()
             .rev()
-            .find(|(criteria, _)| match criteria {
+            .find(|Activation { condition, .. }| match condition {
                 ForkCondition::Block(activation) => block_number >= *activation,
                 ForkCondition::Timestamp(activation) => timestamp >= *activation,
             })
-            .map(|entry| entry.1.clone())
+            .map(|activation| activation.hardfork.clone())
     }
 }
 
-impl<HardforkT: Clone> From<&[(ForkCondition, HardforkT)]> for Activations<HardforkT> {
-    fn from(hardforks: &[(ForkCondition, HardforkT)]) -> Self {
+impl<HardforkT: Clone> From<&[Activation<HardforkT>]> for Activations<HardforkT> {
+    fn from(hardforks: &[Activation<HardforkT>]) -> Self {
         Self {
             hardforks: hardforks.to_vec(),
         }
     }
 }
 
-impl<'deserializer, HardforkT> serde::Deserialize<'deserializer> for Activations<HardforkT>
-where
-    HardforkT: serde::Deserialize<'deserializer>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'deserializer>,
-    {
-        let hardforks = Vec::<(ForkCondition, HardforkT)>::deserialize(deserializer)?;
-        Ok(Self { hardforks })
-    }
-}
-
-impl<HardforkT> serde::Serialize for Activations<HardforkT>
-where
-    HardforkT: serde::Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.hardforks.serialize(serializer)
-    }
-}
-
 /// Type that stores the configuration for a chain.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct ChainConfig<HardforkT> {
     /// Chain name
     pub name: String,
