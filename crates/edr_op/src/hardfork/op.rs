@@ -13,7 +13,7 @@ pub const MAINNET_CHAIN_ID: u64 = 0xa;
 ///
 /// <https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/mainnet/op.toml>
 pub static MAINNET_CONFIG: LazyLock<OpChainConfig<OpSpecId>> = LazyLock::new(|| {
-    static FORK_BASE_FEE_PARAMS: &[(OpSpecId, ConstantBaseFeeParams)] = &[
+    const FORK_BASE_FEE_PARAMS: &[(OpSpecId, ConstantBaseFeeParams)] = &[
         (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
         (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
     ];
@@ -29,7 +29,7 @@ pub static MAINNET_CONFIG: LazyLock<OpChainConfig<OpSpecId>> = LazyLock::new(|| 
             (ForkCondition::Timestamp(1_726_070_401), OpSpecId::GRANITE),
             (ForkCondition::Timestamp(1_736_445_601), OpSpecId::HOLOCENE),
         ]),
-        base_fee_params: BaseFeeParams::Variable(ForkBaseFeeParams::new(&FORK_BASE_FEE_PARAMS)),
+        base_fee_params: BaseFeeParams::Variable(ForkBaseFeeParams::new(FORK_BASE_FEE_PARAMS)),
     }
 });
 
@@ -40,7 +40,7 @@ pub const SEPOLIA_CHAIN_ID: u64 = 0xaa37dc;
 ///
 /// <https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/sepolia/op.toml>
 pub static SEPOLIA_CONFIG: LazyLock<OpChainConfig<OpSpecId>> = LazyLock::new(|| {
-    static FORK_BASE_FEE_PARAMS: &[(OpSpecId, ConstantBaseFeeParams)] = &[
+    const FORK_BASE_FEE_PARAMS: &[(OpSpecId, ConstantBaseFeeParams)] = &[
         (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
         (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
     ];
@@ -56,6 +56,6 @@ pub static SEPOLIA_CONFIG: LazyLock<OpChainConfig<OpSpecId>> = LazyLock::new(|| 
             (ForkCondition::Timestamp(1_723_478_400), OpSpecId::GRANITE),
             (ForkCondition::Timestamp(1_732_633_200), OpSpecId::HOLOCENE),
         ]),
-        base_fee_params: BaseFeeParams::Variable(ForkBaseFeeParams::new(&FORK_BASE_FEE_PARAMS)),
+        base_fee_params: BaseFeeParams::Variable(ForkBaseFeeParams::new(FORK_BASE_FEE_PARAMS)),
     }
 });
