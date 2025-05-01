@@ -1,4 +1,4 @@
-use crate::{U256, block::Header, l1, spec::EthHeaderConstants, trie::KECCAK_RLP_EMPTY_ARRAY};
+use crate::{U256, block::Header, l1, spec::EthHeaderParams, trie::KECCAK_RLP_EMPTY_ARRAY};
 
 fn bomb_delay(spec_id: l1::SpecId) -> u64 {
     match spec_id {
@@ -21,7 +21,7 @@ fn bomb_delay(spec_id: l1::SpecId) -> u64 {
 }
 
 /// Calculates the mining difficulty of a block.
-pub fn calculate_ethash_canonical_difficulty<ChainSpecT: EthHeaderConstants>(
+pub fn calculate_ethash_canonical_difficulty<ChainSpecT: EthHeaderParams>(
     spec_id: l1::SpecId,
     parent: &Header,
     block_number: u64,

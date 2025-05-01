@@ -8,7 +8,7 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ResultAndState,
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainSpec, EthHeaderParams},
 };
 use edr_rpc_eth::{RpcTypeFrom, TransactionConversionError, spec::RpcSpec};
 use edr_utils::types::TypeConstructor;
@@ -95,7 +95,7 @@ impl<TypeConstructorT> ExecutionReceiptTypeConstructorBounds for TypeConstructor
 pub trait RuntimeSpec:
     alloy_rlp::Encodable
     // Defines the chain's internal types like blocks/headers or transactions
-    + EthHeaderConstants
+    + EthHeaderParams
     + ChainSpec<
         BlockEnv: BlockEnvConstructor<block::Header> + BlockEnvConstructor<PartialHeader> + Default,
         Hardfork: Debug,

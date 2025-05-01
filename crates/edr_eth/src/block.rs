@@ -25,7 +25,7 @@ use crate::{
     Address, B64, B256, Bloom, Bytes, U256, b256,
     eips::{eip1559::ConstantBaseFeeParams, eip4844, eip7691},
     keccak256, l1,
-    spec::EthHeaderConstants,
+    spec::EthHeaderParams,
     trie::KECCAK_NULL_RLP,
 };
 
@@ -209,7 +209,7 @@ pub struct PartialHeader {
 impl PartialHeader {
     /// Constructs a new instance based on the provided [`BlockOptions`] and
     /// parent [`Header`] for the given [`l1::SpecId`].
-    pub fn new<ChainSpecT: EthHeaderConstants>(
+    pub fn new<ChainSpecT: EthHeaderParams>(
         hardfork: ChainSpecT::Hardfork,
         base_fee_params: ConstantBaseFeeParams,
         options: BlockOptions,

@@ -5,7 +5,7 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     l1,
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainSpec, EthHeaderParams},
 };
 use edr_evm::{
     BlockReceipts, RemoteBlock, RemoteBlockConversionError, SyncBlock,
@@ -154,7 +154,7 @@ impl RuntimeSpec for OpChainSpec {
     }
 }
 
-impl EthHeaderConstants for OpChainSpec {
+impl EthHeaderParams for OpChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 
     fn chain_base_fee_params(chain_id: u64) -> BaseFeeParams<Self::Hardfork> {

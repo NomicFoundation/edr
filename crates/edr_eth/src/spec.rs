@@ -26,7 +26,7 @@ pub trait ChainSpec {
 }
 
 /// Constants for constructing Ethereum headers.
-pub trait EthHeaderConstants: ChainSpec<Hardfork: 'static + PartialOrd> {
+pub trait EthHeaderParams: ChainSpec<Hardfork: 'static + PartialOrd> {
     /// The minimum difficulty for the Ethash proof-of-work algorithm.
     const MIN_ETHASH_DIFFICULTY: u64;
 
