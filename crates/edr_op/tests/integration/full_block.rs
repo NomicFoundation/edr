@@ -3,7 +3,7 @@
 use edr_evm::impl_full_block_tests;
 use edr_op::OpChainSpec;
 
-use super::{op, base};
+use super::{base, op};
 
 impl_full_block_tests! {
     op_mainnet_regolith => OpChainSpec {

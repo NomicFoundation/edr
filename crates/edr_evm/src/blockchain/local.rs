@@ -138,7 +138,8 @@ where
 
         options.extra_data = Some(Bytes::from(EXTRA_DATA));
 
-        let partial_header = PartialHeader::new::<ChainSpecT>(hardfork, base_fee_params, options, None);
+        let partial_header =
+            PartialHeader::new::<ChainSpecT>(hardfork, base_fee_params, options, None);
         Ok(unsafe {
             Self::with_genesis_block_unchecked(
                 ChainSpecT::LocalBlock::empty(hardfork, partial_header),
@@ -174,7 +175,13 @@ where
         }
 
         Ok(unsafe {
-            Self::with_genesis_block_unchecked(genesis_block, genesis_diff, chain_id, hardfork, base_fee_params)
+            Self::with_genesis_block_unchecked(
+                genesis_block,
+                genesis_diff,
+                chain_id,
+                hardfork,
+                base_fee_params,
+            )
         })
     }
 

@@ -8,7 +8,8 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    eips::eip1559::ConstantBaseFeeParams, l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec, Address, HashSet, B256, U256
+    Address, B256, HashSet, U256, eips::eip1559::ConstantBaseFeeParams, l1, log::FilterLog,
+    receipt::ReceiptTrait, spec::ChainSpec,
 };
 
 use self::storage::ReservableSparseBlockchainStorage;

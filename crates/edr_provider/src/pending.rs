@@ -2,7 +2,8 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    eips::eip1559::ConstantBaseFeeParams, receipt::ReceiptTrait as _, transaction::ExecutableTransaction as _, HashSet, B256, U256
+    B256, HashSet, U256, eips::eip1559::ConstantBaseFeeParams, receipt::ReceiptTrait as _,
+    transaction::ExecutableTransaction as _,
 };
 use edr_evm::{
     Block as _, BlockAndTotalDifficulty, BlockReceipts,

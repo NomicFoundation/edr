@@ -153,7 +153,12 @@ where
         });
 
         options.parent_hash = Some(*parent_block.block_hash());
-        let header = PartialHeader::new::<ChainSpecT>(cfg.spec, blockchain.base_fee_params(), options, Some(parent_header));
+        let header = PartialHeader::new::<ChainSpecT>(
+            cfg.spec,
+            blockchain.base_fee_params(),
+            options,
+            Some(parent_header),
+        );
 
         Ok(Self {
             blockchain,

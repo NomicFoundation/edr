@@ -583,7 +583,8 @@ where
     }
 
     fn base_fee_params(&self) -> ConstantBaseFeeParams {
-        *self.base_fee_params
+        *self
+            .base_fee_params
             .at_hardfork(self.hardfork())
             .expect("Chain spec must have base fee params for post-London hardforks")
     }

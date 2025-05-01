@@ -164,7 +164,9 @@ impl EthHeaderParams for OpChainSpec {
                 (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
             ]));
 
-        hardfork::chain_base_fee_params(chain_id).copied().unwrap_or(DEFAULT_BASE_FEE_PARAMS)
+        hardfork::chain_base_fee_params(chain_id)
+            .copied()
+            .unwrap_or(DEFAULT_BASE_FEE_PARAMS)
     }
 }
 

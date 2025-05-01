@@ -1,6 +1,6 @@
 use std::sync::{LazyLock, OnceLock};
 
-use edr_eth::{eips::eip1559::BaseFeeParams, HashMap};
+use edr_eth::{HashMap, eips::eip1559::BaseFeeParams};
 use edr_evm::hardfork::Activations;
 pub use op_revm::name;
 
@@ -24,7 +24,8 @@ pub struct OpChainConfig<HardforkT: 'static> {
 // Source:
 // <https://docs.optimism.io/builders/node-operators/network-upgrades>
 fn chain_configs() -> &'static HashMap<u64, &'static LazyLock<OpChainConfig<OpSpecId>>> {
-    static CONFIGS: OnceLock<HashMap<u64, &'static LazyLock<OpChainConfig<OpSpecId>>>> = OnceLock::new();
+    static CONFIGS: OnceLock<HashMap<u64, &'static LazyLock<OpChainConfig<OpSpecId>>>> =
+        OnceLock::new();
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
@@ -39,7 +40,8 @@ fn chain_configs() -> &'static HashMap<u64, &'static LazyLock<OpChainConfig<OpSp
     })
 }
 
-/// Returns the name corresponding to the provided chain ID, if it is supported and known.
+/// Returns the name corresponding to the provided chain ID, if it is supported
+/// and known.
 pub fn chain_name(chain_id: u64) -> Option<&'static str> {
     chain_configs()
         .get(&chain_id)

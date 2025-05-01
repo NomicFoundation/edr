@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
-use edr_evm::hardfork::{Activations, ForkCondition};
 use edr_eth::eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams};
+use edr_evm::hardfork::{Activations, ForkCondition};
 use op_revm::OpSpecId;
 
 use super::OpChainConfig;
