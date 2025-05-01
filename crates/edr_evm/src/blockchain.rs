@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    Address, B256, HashSet, U256, l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec,
+    eips::eip1559::ConstantBaseFeeParams, l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec, Address, HashSet, B256, U256
 };
 
 use self::storage::ReservableSparseBlockchainStorage;
@@ -189,6 +189,9 @@ where
 
     /// Retrieves the total difficulty at the block with the provided hash.
     fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError>;
+
+    /// Retrieves the EIP-1559 base fee parameters used for new blocks.
+    fn base_fee_params(&self) -> ConstantBaseFeeParams;
 }
 
 /// Trait for implementations of a mutable Ethereum blockchain

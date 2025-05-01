@@ -10,6 +10,7 @@ use derive_where::derive_where;
 use edr_eth::{
     Address, B256, Bytes, HashSet, U256,
     block::{BlobGas, BlockOptions, PartialHeader},
+    eips::eip1559::ConstantBaseFeeParams,
     l1,
     log::FilterLog,
 };
@@ -83,6 +84,7 @@ where
     storage: ReservableSparseBlockchainStorageForChainSpec<ChainSpecT>,
     chain_id: u64,
     hardfork: ChainSpecT::Hardfork,
+    base_fee_params: ConstantBaseFeeParams,
 }
 
 impl<ChainSpecT> LocalBlockchain<ChainSpecT>
@@ -114,6 +116,10 @@ where
             return Err(CreationError::MissingPrevrandao);
         }
 
+        let base_fee_params = *ChainSpecT::chain_base_fee_params(chain_id)
+            .at_hardfork(hardfork)
+            .expect("Chain spec must have base fee params for post-London hardforks");
+
         let mut options = BlockOptions::from(options);
         options.state_root = Some(
             genesis_state
@@ -132,13 +138,14 @@ where
 
         options.extra_data = Some(Bytes::from(EXTRA_DATA));
 
-        let partial_header = PartialHeader::new::<ChainSpecT>(hardfork, options, None);
+        let partial_header = PartialHeader::new::<ChainSpecT>(hardfork, base_fee_params, options, None);
         Ok(unsafe {
             Self::with_genesis_block_unchecked(
                 ChainSpecT::LocalBlock::empty(hardfork, partial_header),
                 genesis_diff,
                 chain_id,
                 hardfork,
+                base_fee_params,
             )
         })
     }
@@ -151,6 +158,7 @@ where
         genesis_diff: StateDiff,
         chain_id: u64,
         hardfork: ChainSpecT::Hardfork,
+        base_fee_params: ConstantBaseFeeParams,
     ) -> Result<Self, InsertBlockError> {
         let genesis_header = genesis_block.header();
 
@@ -166,7 +174,7 @@ where
         }
 
         Ok(unsafe {
-            Self::with_genesis_block_unchecked(genesis_block, genesis_diff, chain_id, hardfork)
+            Self::with_genesis_block_unchecked(genesis_block, genesis_diff, chain_id, hardfork, base_fee_params)
         })
     }
 
@@ -182,6 +190,7 @@ where
         genesis_diff: StateDiff,
         chain_id: u64,
         hardfork: ChainSpecT::Hardfork,
+        base_fee_params: ConstantBaseFeeParams,
     ) -> Self {
         let total_difficulty = genesis_block.header().difficulty;
         let storage = ReservableSparseBlockchainStorage::with_genesis_block(
@@ -194,6 +203,7 @@ where
             storage,
             chain_id,
             hardfork,
+            base_fee_params,
         }
     }
 }
@@ -318,6 +328,10 @@ where
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError> {
         Ok(self.storage.total_difficulty_by_hash(hash))
+    }
+
+    fn base_fee_params(&self) -> ConstantBaseFeeParams {
+        self.base_fee_params
     }
 }
 

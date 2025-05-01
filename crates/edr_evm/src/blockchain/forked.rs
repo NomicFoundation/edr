@@ -5,6 +5,7 @@ use edr_eth::{
     Address, B256, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, U256,
     account::{Account, AccountStatus},
     block::{LargestSafeBlockNumberArgs, largest_safe_block_number, safe_block_depth},
+    eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
     l1,
     log::FilterLog,
 };
@@ -123,6 +124,7 @@ where
     network_id: u64,
     hardfork: ChainSpecT::Hardfork,
     hardfork_activations: Option<Activations<ChainSpecT::Hardfork>>,
+    base_fee_params: BaseFeeParams<ChainSpecT::Hardfork>,
 }
 
 impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
@@ -278,6 +280,8 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
             }
         }
 
+        let base_fee_params = ChainSpecT::chain_base_fee_params(remote_chain_id);
+
         Ok(Self {
             local_storage: ReservableSparseBlockchainStorage::empty(fork_block_number),
             remote: RemoteBlockchain::new(rpc_client, runtime),
@@ -288,6 +292,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
             network_id,
             hardfork,
             hardfork_activations,
+            base_fee_params,
         })
     }
 
@@ -575,6 +580,12 @@ where
                     .block_on(self.remote.total_difficulty_by_hash(hash))
             })?)
         }
+    }
+
+    fn base_fee_params(&self) -> ConstantBaseFeeParams {
+        *self.base_fee_params
+            .at_hardfork(self.hardfork())
+            .expect("Chain spec must have base fee params for post-London hardforks")
     }
 }
 
