@@ -16,7 +16,7 @@ impl<HardforkT> ForkBaseFeeParams<HardforkT> {
 
 /// Type that allows specifying constant or dynamic EIP-1559 parameters based on
 /// the active hardfork.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum BaseFeeParams<HardforkT: 'static> {
     /// Constant [`ConstantBaseFeeParams`]; used for chains that don't have
     /// dynamic EIP-1559 parameters

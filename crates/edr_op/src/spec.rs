@@ -165,7 +165,7 @@ impl EthHeaderParams for OpChainSpec {
             ]));
 
         hardfork::chain_base_fee_params(chain_id)
-            .copied()
+            .cloned()
             .unwrap_or(DEFAULT_BASE_FEE_PARAMS)
     }
 }
