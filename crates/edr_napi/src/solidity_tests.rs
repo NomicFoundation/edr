@@ -3,10 +3,10 @@ mod config;
 mod runner;
 mod test_results;
 
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use artifact::Artifact;
-use edr_solidity_tests::TestFilter;
+use edr_solidity_tests::TestFilterConfig;
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -61,6 +61,8 @@ pub fn run_solidity_tests(
         edr_solidity_tests::result::SuiteResult,
     )>();
 
+    let test_filter: Arc<TestFilterConfig> = Arc::new(config_args.try_get_test_filter()?);
+
     let runtime = runtime::Handle::current();
     runtime.spawn(async move {
         let runner = match build_runner(artifacts, test_suites, config_args, tracing_config).await {
@@ -79,7 +81,7 @@ pub fn run_solidity_tests(
         };
 
         // Returns immediately after test suite execution is started
-        runner.test(Arc::new(EverythingFilter), tx_results);
+        runner.test(test_filter.clone(), tx_results);
 
         while let Some(name_and_suite_result) = rx_results.recv().await {
             let callback_arg = name_and_suite_result.into();
@@ -97,20 +99,4 @@ pub fn run_solidity_tests(
     });
 
     Ok(())
-}
-
-struct EverythingFilter;
-
-impl TestFilter for EverythingFilter {
-    fn matches_test(&self, _test_name: &str) -> bool {
-        true
-    }
-
-    fn matches_contract(&self, _contract_name: &str) -> bool {
-        true
-    }
-
-    fn matches_path(&self, _path: &Path) -> bool {
-        true
-    }
 }
