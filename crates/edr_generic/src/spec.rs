@@ -5,7 +5,7 @@ use edr_eth::{
     l1::{self, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainSpec, EthHeaderParams},
     transaction::TransactionValidation,
 };
 use edr_evm::{
@@ -31,10 +31,12 @@ impl ChainSpec for GenericChainSpec {
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 
-impl EthHeaderConstants for GenericChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork> = L1ChainSpec::BASE_FEE_PARAMS;
-
+impl EthHeaderParams for GenericChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
+
+    fn chain_base_fee_params(chain_id: u64) -> BaseFeeParams<Self::Hardfork> {
+        L1ChainSpec::chain_base_fee_params(chain_id)
+    }
 }
 
 impl RuntimeSpec for GenericChainSpec {

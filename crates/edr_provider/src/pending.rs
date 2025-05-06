@@ -2,7 +2,8 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    B256, HashSet, U256, receipt::ReceiptTrait as _, transaction::ExecutableTransaction as _,
+    B256, HashSet, U256, eips::eip1559::ConstantBaseFeeParams, receipt::ReceiptTrait as _,
+    transaction::ExecutableTransaction as _,
 };
 use edr_evm::{
     Block as _, BlockAndTotalDifficulty, BlockReceipts,
@@ -204,6 +205,10 @@ where
         } else {
             self.blockchain.total_difficulty_by_hash(hash)
         }
+    }
+
+    fn base_fee_params(&self) -> ConstantBaseFeeParams {
+        self.blockchain.base_fee_params()
     }
 }
 

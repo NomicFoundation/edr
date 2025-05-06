@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-pub use edr_eth::spec::EthHeaderConstants;
+pub use edr_eth::spec::EthHeaderParams;
 use edr_eth::{
     Address, B256, Blob, BlockSpec,
     eips::{eip2930, eip7702},

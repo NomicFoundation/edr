@@ -20,6 +20,7 @@ use edr_eth::{
         BlockOptions, calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas,
         miner_reward,
     },
+    eips::eip1559::ConstantBaseFeeParams,
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
@@ -1593,6 +1594,10 @@ where
         self.blockchain.hardfork()
     }
 
+    pub fn base_fee_params(&self) -> ConstantBaseFeeParams {
+        self.blockchain.base_fee_params()
+    }
+
     /// Returns the last block in the blockchain.
     pub fn last_block(
         &self,
@@ -1641,8 +1646,8 @@ where
                 || {
                     let last_block = self.last_block()?;
 
-                    Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        self.blockchain.hardfork(),
+                    Ok(calculate_next_base_fee_per_gas(
+                        self.base_fee_params(),
                         last_block.header(),
                     ))
                 },
@@ -1920,8 +1925,8 @@ where
                 let block = pending_block.as_ref().expect("We mined the pending block");
                 result
                     .base_fee_per_gas
-                    .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        self.blockchain.hardfork(),
+                    .push(calculate_next_base_fee_per_gas(
+                        self.base_fee_params(),
                         block.header(),
                     ));
             }

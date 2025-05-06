@@ -5,7 +5,7 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     l1,
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainSpec, EthHeaderParams},
 };
 use edr_evm::{
     BlockReceipts, RemoteBlock, RemoteBlockConversionError, SyncBlock,
@@ -154,14 +154,20 @@ impl RuntimeSpec for OpChainSpec {
     }
 }
 
-impl EthHeaderConstants for OpChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<OpSpecId> =
-        BaseFeeParams::Variable(ForkBaseFeeParams::new(&[
-            (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
-            (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
-        ]));
-
+impl EthHeaderParams for OpChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
+
+    fn chain_base_fee_params(chain_id: u64) -> BaseFeeParams<Self::Hardfork> {
+        const DEFAULT_BASE_FEE_PARAMS: BaseFeeParams<OpSpecId> =
+            BaseFeeParams::Variable(ForkBaseFeeParams::new(&[
+                (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
+                (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
+            ]));
+
+        hardfork::chain_base_fee_params(chain_id)
+            .cloned()
+            .unwrap_or(DEFAULT_BASE_FEE_PARAMS)
+    }
 }
 
 impl SyncNapiSpec for OpChainSpec {
