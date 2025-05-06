@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use revm::primitives::Env;
-
 use super::opts::EvmOpts;
 
 mod init;
@@ -15,10 +13,12 @@ pub mod provider;
 
 pub use multi::{ForkId, MultiFork, MultiForkHandler};
 
+use crate::evm_env::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
+
 /// Represents a _fork_ of a remote chain whose data is available only via the
 /// `url` endpoint.
 #[derive(Clone, Debug)]
-pub struct CreateFork {
+pub struct CreateFork<BlockT, TxT, HardforkT> {
     /// Optional RPC cache path. If this is none, then no rpc calls will be
     /// cached, otherwise data is cached to `<rpc_cache_path>/<chain id>/<block
     /// number>`.
@@ -27,12 +27,14 @@ pub struct CreateFork {
     pub url: String,
     /// The env to create this fork, main purpose is to provide some metadata
     /// for the fork
-    pub env: Env,
+    pub env: EvmEnv<BlockT, TxT, HardforkT>,
     /// All env settings as configured by the user
-    pub evm_opts: EvmOpts,
+    pub evm_opts: EvmOpts<BlockT, TxT, HardforkT>,
 }
 
-impl CreateFork {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    CreateFork<BlockT, TxT, HardforkT>
+{
     /// Returns the path to the cache dir of the `block` on the `chain`
     /// based on the configured rpc cache path.
     pub fn block_cache_dir(&self, chain_id: impl Into<Chain>, block: u64) -> Option<PathBuf> {

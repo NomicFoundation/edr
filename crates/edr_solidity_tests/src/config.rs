@@ -76,7 +76,6 @@ impl SolidityTestRunnerConfig {
             sender: edr_defaults::SOLIDITY_TESTS_SENDER,
             initial_balance: U256::from(0xffffffffffffffffffffffffu128),
             ffi: false,
-            always_use_create_2_factory: false,
             memory_limit: 1 << 25, // 2**25 = 32MiB
             isolate: false,
             disable_block_gas_limit: false,

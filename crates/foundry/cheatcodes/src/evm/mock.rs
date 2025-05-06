@@ -4,7 +4,7 @@ use alloy_primitives::{Address, Bytes, U256};
 use revm::{interpreter::InstructionResult, primitives::Bytecode};
 
 use crate::{
-    impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Result,
+    impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,
     Vm::{
         clearMockedCallsCall, mockCallRevert_0Call, mockCallRevert_1Call, mockCall_0Call,
         mockCall_1Call,
@@ -60,7 +60,7 @@ impl Cheatcode for clearMockedCallsCall {
 
 impl_is_pure_true!(mockCall_0Call);
 impl Cheatcode for mockCall_0Call {
-    fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
             callee,
             data,
@@ -94,7 +94,7 @@ impl Cheatcode for mockCall_0Call {
 
 impl_is_pure_true!(mockCall_1Call);
 impl Cheatcode for mockCall_1Call {
-    fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self {
             callee,
             msgValue,

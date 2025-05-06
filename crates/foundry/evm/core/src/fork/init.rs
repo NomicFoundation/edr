@@ -1,12 +1,16 @@
 use alloy_consensus::BlockHeader;
 use alloy_network::BlockResponse;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::Address;
 use alloy_provider::{Network, Provider};
-use alloy_rpc_types::{BlockNumberOrTag, BlockTransactionsKind};
+use alloy_rpc_types::BlockNumberOrTag;
 use eyre::WrapErr;
-use revm::primitives::{BlockEnv, CfgEnv, Env, TxEnv};
+use revm::context::CfgEnv;
 
-use crate::utils::apply_chain_and_block_specific_env_changes;
+use crate::{
+    evm_env::EvmEnv,
+    opts::{BlockEnvOpts, TxEnvOpts},
+    utils::apply_chain_and_block_specific_env_changes,
+};
 
 /// Logged when an error is indicative that the user is trying to fork from a
 /// non-archive node.
@@ -16,15 +20,25 @@ supported. Please try to change your RPC url to an archive node if the issue per
 
 /// Initializes a REVM block environment based on a forked
 /// ethereum provider.
-pub async fn environment<N: Network, P: Provider<N>>(
-    provider: &P,
+pub async fn environment<NetworkT, ProviderT, BlockT, TxT, HardforkT>(
+    provider: &ProviderT,
     memory_limit: u64,
     gas_price: Option<u128>,
     override_chain_id: Option<u64>,
     pin_block: Option<u64>,
     origin: Address,
     disable_block_gas_limit: bool,
-) -> eyre::Result<(Env, <N as Network>::BlockResponse)> {
+) -> eyre::Result<(
+    EvmEnv<BlockT, TxT, HardforkT>,
+    <NetworkT as Network>::BlockResponse,
+)>
+where
+    NetworkT: Network,
+    ProviderT: Provider<NetworkT>,
+    BlockT: From<BlockEnvOpts>,
+    TxT: From<TxEnvOpts>,
+    HardforkT: Default,
+{
     let block_number = if let Some(pin_block) = pin_block {
         pin_block
     } else {
@@ -36,10 +50,7 @@ pub async fn environment<N: Network, P: Provider<N>>(
     let (fork_gas_price, rpc_chain_id, block) = tokio::try_join!(
         provider.get_gas_price(),
         provider.get_chain_id(),
-        provider.get_block_by_number(
-            BlockNumberOrTag::Number(block_number),
-            BlockTransactionsKind::Hashes
-        )
+        provider.get_block_by_number(BlockNumberOrTag::Number(block_number),)
     )?;
     let block = if let Some(block) = block {
         block
@@ -60,7 +71,8 @@ pub async fn environment<N: Network, P: Provider<N>>(
         eyre::bail!("Failed to get block for block number: {}", block_number)
     };
 
-    let mut cfg = CfgEnv::default();
+    // Non-exhaustive
+    let mut cfg = CfgEnv::<HardforkT>::default();
     cfg.chain_id = override_chain_id.unwrap_or(rpc_chain_id);
     cfg.memory_limit = memory_limit;
     cfg.limit_contract_code_size = Some(usize::MAX);
@@ -70,28 +82,34 @@ pub async fn environment<N: Network, P: Provider<N>>(
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
 
-    let mut env = Env {
-        cfg,
-        block: BlockEnv {
-            number: U256::from(block.header().number()),
-            timestamp: U256::from(block.header().timestamp()),
-            coinbase: block.header().beneficiary(),
-            difficulty: block.header().difficulty(),
-            prevrandao: block.header().mix_hash(),
-            basefee: U256::from(block.header().base_fee_per_gas().unwrap_or_default()),
-            gas_limit: U256::from(block.header().gas_limit()),
-            ..Default::default()
-        },
-        tx: TxEnv {
-            caller: origin,
-            gas_price: U256::from(gas_price.unwrap_or(fork_gas_price)),
-            chain_id: Some(override_chain_id.unwrap_or(rpc_chain_id)),
-            gas_limit: block.header().gas_limit(),
-            ..Default::default()
-        },
+    let mut block_env_opts = BlockEnvOpts {
+        number: block.header().number(),
+        timestamp: block.header().timestamp(),
+        beneficiary: block.header().beneficiary(),
+        difficulty: block.header().difficulty(),
+        prevrandao: block.header().mix_hash(),
+        basefee: block.header().base_fee_per_gas().unwrap_or_default(),
+        gas_limit: block.header().gas_limit(),
     };
 
-    apply_chain_and_block_specific_env_changes::<N>(&mut env, &block);
+    let tx_env_opts = TxEnvOpts {
+        caller: origin,
+        gas_price: gas_price.unwrap_or(fork_gas_price),
+        chain_id: Some(override_chain_id.unwrap_or(rpc_chain_id)),
+        gas_limit: block.header().gas_limit(),
+    };
 
-    Ok((env, block))
+    apply_chain_and_block_specific_env_changes::<NetworkT>(
+        cfg.chain_id,
+        &block,
+        &mut block_env_opts,
+    );
+
+    let evm_env = EvmEnv {
+        block: block_env_opts.into(),
+        tx: tx_env_opts.into(),
+        cfg,
+    };
+
+    Ok((evm_env, block))
 }

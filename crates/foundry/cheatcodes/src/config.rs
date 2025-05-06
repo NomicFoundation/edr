@@ -25,9 +25,6 @@ pub struct CheatsConfig {
     pub execution_context: ExecutionContextConfig,
     /// Whether the FFI cheatcode is enabled.
     pub ffi: bool,
-    /// Use the create 2 factory in all cases including tests and
-    /// non-broadcasting scripts.
-    pub always_use_create_2_factory: bool,
     /// Sets a timeout for vm.prompt cheatcodes
     pub prompt_timeout: Duration,
     /// Optional RPC cache path. If this is none, then no RPC calls will be
@@ -117,7 +114,6 @@ impl CheatsConfig {
         Self {
             execution_context,
             ffi: evm_opts.ffi,
-            always_use_create_2_factory: evm_opts.always_use_create_2_factory,
             prompt_timeout: Duration::from_secs(prompt_timeout),
             rpc_cache_path,
             rpc_storage_caching,
@@ -262,7 +258,6 @@ impl Default for CheatsConfig {
         Self {
             execution_context: ExecutionContextConfig::default(),
             ffi: false,
-            always_use_create_2_factory: false,
             prompt_timeout: Duration::from_secs(120),
             rpc_cache_path: None,
             rpc_storage_caching: StorageCachingConfig::default(),

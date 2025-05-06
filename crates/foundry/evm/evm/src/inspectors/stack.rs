@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
 use foundry_evm_core::{
-    backend::{update_state, DatabaseExt},
+    backend::{update_state, CheatcodeBackend},
     InspectorExt,
 };
 use foundry_evm_coverage::HitMaps;
@@ -436,11 +436,11 @@ impl InspectorStack {
         }
     }
 
-    fn do_call_end<DB: DatabaseExt>(
+    fn do_call_end<DB: CheatcodeBackend>(
         &mut self,
         ecx: &mut EvmContext<&mut DB>,
         inputs: &CallInputs,
-        outcome: CallOutcome,
+        outcome: &mut CallOutcome,
     ) -> CallOutcome {
         let result = outcome.result.result;
         call_inspectors_adjust_depth!(
@@ -467,7 +467,7 @@ impl InspectorStack {
         outcome
     }
 
-    fn transact_inner<DB: DatabaseExt + DatabaseCommit>(
+    fn transact_inner<DB: CheatcodeBackend + DatabaseCommit>(
         &mut self,
         ecx: &mut EvmContext<&mut DB>,
         transact_to: TxKind,
@@ -614,7 +614,7 @@ impl InspectorStack {
     /// `self.in_inner_context`) Decreases sender nonce for CALLs to keep
     /// backwards compatibility Updates tx.origin to the value before
     /// entering inner context
-    fn adjust_evm_data_for_inner_context<DB: DatabaseExt>(
+    fn adjust_evm_data_for_inner_context<DB: CheatcodeBackend>(
         &mut self,
         ecx: &mut EvmContext<&mut DB>,
     ) {
@@ -640,7 +640,7 @@ impl InspectorStack {
 // works because internally we only use `&mut DB` anyways, but if
 // this ever needs to be changed, this can be reverted back to using just `DB`,
 // and instead using dynamic dispatch (`&mut dyn ...`) in `transact_inner`.
-impl<DB: DatabaseExt + DatabaseCommit> Inspector<&mut DB> for InspectorStack {
+impl<DB: CheatcodeBackend + DatabaseCommit> Inspector<&mut DB> for InspectorStack {
     fn initialize_interp(&mut self, interpreter: &mut Interpreter, ecx: &mut EvmContext<&mut DB>) {
         call_inspectors_adjust_depth!(
             #[no_ret]
@@ -759,7 +759,7 @@ impl<DB: DatabaseExt + DatabaseCommit> Inspector<&mut DB> for InspectorStack {
         &mut self,
         ecx: &mut EvmContext<&mut DB>,
         inputs: &CallInputs,
-        outcome: CallOutcome,
+        outcome: &mut CallOutcome,
     ) -> CallOutcome {
         // Inner context calls with depth 0 are being dispatched as top-level calls with
         // depth 1. Avoid processing twice.
@@ -816,7 +816,7 @@ impl<DB: DatabaseExt + DatabaseCommit> Inspector<&mut DB> for InspectorStack {
         &mut self,
         ecx: &mut EvmContext<&mut DB>,
         call: &CreateInputs,
-        outcome: CreateOutcome,
+        outcome: &mut CreateOutcome,
     ) -> CreateOutcome {
         // Inner context calls with depth 0 are being dispatched as top-level calls with
         // depth 1. Avoid processing twice.
@@ -852,7 +852,7 @@ impl<DB: DatabaseExt + DatabaseCommit> Inspector<&mut DB> for InspectorStack {
     }
 }
 
-impl<DB: DatabaseExt + DatabaseCommit> InspectorExt<&mut DB> for InspectorStack {
+impl<DB: CheatcodeBackend + DatabaseCommit> InspectorExt<&mut DB> for InspectorStack {
     fn should_use_create2_factory(
         &mut self,
         ecx: &mut EvmContext<&mut DB>,

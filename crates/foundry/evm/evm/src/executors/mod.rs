@@ -20,7 +20,7 @@ use alloy_primitives::{
 };
 use alloy_sol_types::{sol, SolCall};
 use foundry_evm_core::{
-    backend::{Backend, BackendError, BackendResult, CowBackend, DatabaseExt},
+    backend::{Backend, BackendError, BackendResult, CheatcodeBackend, CowBackend},
     constants::{
         CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, DEFAULT_CREATE2_DEPLOYER_CODE,
     },

@@ -4,7 +4,7 @@ use alloy_sol_types::SolValue;
 use foundry_evm_core::constants::{MAGIC_ASSUME, MAGIC_SKIP};
 
 use crate::{
-    Cheatcode, Cheatcodes, CheatsCtxt, DatabaseExt, Error, Result,
+    Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Error, Result,
     Vm::{assumeCall, rpcUrlCall, rpcUrlStructsCall, rpcUrlsCall, skipCall, sleepCall},
 };
 
@@ -61,7 +61,7 @@ impl Cheatcode for sleepCall {
 
 impl_is_pure_true!(skipCall);
 impl Cheatcode for skipCall {
-    fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         let Self { skipTest } = *self;
         if skipTest {
             // Skip should not work if called deeper than at test level.

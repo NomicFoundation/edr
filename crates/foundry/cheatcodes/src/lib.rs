@@ -19,10 +19,9 @@ use alloy_primitives::Address;
 pub use config::{CheatsConfig, CheatsConfigOptions, ExecutionContextConfig};
 pub use endpoints::{RpcEndpoint, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
-use foundry_evm_core::backend::DatabaseExt;
+use foundry_evm_core::backend::CheatcodeBackend;
 pub use fs_permissions::{FsAccessKind, FsAccessPermission, FsPermissions, PathPermission};
 pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatcodes, Context};
-use revm::{ContextPrecompiles, InnerEvmContext};
 pub use spec::{CheatcodeDef, Vm};
 
 mod ens;
@@ -62,12 +61,12 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     ///
     /// Implement this function if you need access to the EVM data.
     #[inline(always)]
-    fn apply_full<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         self.apply(ccx.state)
     }
 
     #[inline]
-    fn apply_traced<DB: DatabaseExt>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_traced<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
         // Separate and non-generic functions to avoid inline and monomorphization
         // bloat.
         #[inline(never)]
@@ -154,7 +153,7 @@ macro_rules! impl_is_pure_false {
 }
 
 /// The cheatcode context, used in [`Cheatcode`].
-pub(crate) struct CheatsCtxt<'cheats, 'evm, DB: DatabaseExt> {
+pub(crate) struct CheatsCtxt<'cheats, 'evm, DB: CheatcodeBackend> {
     /// The cheatcodes inspector state.
     pub(crate) state: &'cheats mut Cheatcodes,
     /// The EVM data.
@@ -165,7 +164,7 @@ pub(crate) struct CheatsCtxt<'cheats, 'evm, DB: DatabaseExt> {
     pub(crate) caller: Address,
 }
 
-impl<DB: DatabaseExt> std::ops::Deref for CheatsCtxt<'_, '_, DB> {
+impl<DB: CheatcodeBackend> std::ops::Deref for CheatsCtxt<'_, '_, DB> {
     type Target = InnerEvmContext<DB>;
 
     #[inline(always)]
@@ -174,14 +173,14 @@ impl<DB: DatabaseExt> std::ops::Deref for CheatsCtxt<'_, '_, DB> {
     }
 }
 
-impl<DB: DatabaseExt> std::ops::DerefMut for CheatsCtxt<'_, '_, DB> {
+impl<DB: CheatcodeBackend> std::ops::DerefMut for CheatsCtxt<'_, '_, DB> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.ecx
     }
 }
 
-impl<DB: DatabaseExt> CheatsCtxt<'_, '_, DB> {
+impl<DB: CheatcodeBackend> CheatsCtxt<'_, '_, DB> {
     #[inline]
     pub(crate) fn is_precompile(&self, address: &Address) -> bool {
         self.precompiles.contains(address)
