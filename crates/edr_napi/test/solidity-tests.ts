@@ -76,6 +76,31 @@ describe("Solidity Tests", () => {
       new RegExp("Hex decoding error")
     );
   });
+
+  it("filters tests according to pattern", async function () {
+    const artifacts = [
+      loadContract("./artifacts/SetupConsistencyCheck.json"),
+    ];
+    // All artifacts are test suites.
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const results = await runAllSolidityTests(artifacts, testSuites, {
+      projectRoot: __dirname,
+      testPattern: 'Multiply',
+    });
+
+    assert.equal(results.length, artifacts.length);
+
+    for (const res of results) {
+      if (res.id.name.includes("SetupConsistencyCheck")) {
+        assert.equal(res.testResults.length, 1);
+        assert.equal(res.testResults[0].name, "testMultiply()");
+      } else {
+        assert.fail("Unexpected test suite name: " + res.id.name);
+      }
+    }
+  });
+
 });
 
 // Load a contract built with Hardhat into a test suite
