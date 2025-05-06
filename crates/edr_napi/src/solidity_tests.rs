@@ -81,7 +81,7 @@ pub fn run_solidity_tests(
         };
 
         // Returns immediately after test suite execution is started
-        runner.test(test_filter.clone(), tx_results);
+        runner.test(test_filter, tx_results);
 
         while let Some(name_and_suite_result) = rx_results.recv().await {
             let callback_arg = name_and_suite_result.into();
