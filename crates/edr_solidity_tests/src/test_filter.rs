@@ -33,3 +33,26 @@ impl TestFilter for TestFilterConfig {
         true
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pattern_none() {
+        let config = TestFilterConfig { test_pattern: None };
+
+        assert!(config.matches_test("test_foo"));
+        assert!(config.matches_test("test_bar"));
+    }
+
+    #[test]
+    fn test_pattern_some() {
+        let config = TestFilterConfig {
+            test_pattern: Some("f?o+".parse().unwrap()),
+        };
+
+        assert!(config.matches_test("test_foo"));
+        assert!(!config.matches_test("test_bar"));
+    }
+}
