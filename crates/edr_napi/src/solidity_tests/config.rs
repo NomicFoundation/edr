@@ -127,7 +127,8 @@ pub struct SolidityTestRunnerConfigArgs {
     /// If an invariant config setting is not set, but a corresponding fuzz
     /// config value is set, then the fuzz config value will be used.
     pub invariant: Option<InvariantConfigArgs>,
-    /// A regex pattern to filter tests.
+    /// A regex pattern to filter tests. If provided, only test methods that match
+    /// the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
 }
 
