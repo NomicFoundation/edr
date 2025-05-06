@@ -14,8 +14,9 @@ pub const MAINNET_CHAIN_ID: u64 = 8453;
 /// <https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/mainnet/base.toml>
 pub static MAINNET_CONFIG: LazyLock<OpChainConfig<OpSpecId>> = LazyLock::new(|| {
     const FORK_BASE_FEE_PARAMS: &[(OpSpecId, ConstantBaseFeeParams)] = &[
-        (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 2)),
-        (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 2)),
+        (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
+        (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
+        (OpSpecId::HOLOCENE, ConstantBaseFeeParams::new(250, 2)),
     ];
 
     OpChainConfig {
@@ -41,8 +42,8 @@ pub const SEPOLIA_CHAIN_ID: u64 = 84532;
 /// <https://github.com/ethereum-optimism/superchain-registry/blob/51804a33655ddb4feeb0ad88960d9a81acdf6e62/superchain/configs/sepolia/base.toml>
 pub static SEPOLIA_CONFIG: LazyLock<OpChainConfig<OpSpecId>> = LazyLock::new(|| {
     const FORK_BASE_FEE_PARAMS: &[(OpSpecId, ConstantBaseFeeParams)] = &[
-        (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 2)),
-        (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 2)),
+        (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
+        (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
     ];
 
     OpChainConfig {
