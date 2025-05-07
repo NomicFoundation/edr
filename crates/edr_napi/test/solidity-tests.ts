@@ -78,15 +78,13 @@ describe("Solidity Tests", () => {
   });
 
   it("filters tests according to pattern", async function () {
-    const artifacts = [
-      loadContract("./artifacts/SetupConsistencyCheck.json"),
-    ];
+    const artifacts = [loadContract("./artifacts/SetupConsistencyCheck.json")];
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
 
     const results = await runAllSolidityTests(artifacts, testSuites, {
       projectRoot: __dirname,
-      testPattern: 'Multiply',
+      testPattern: "Multiply",
     });
 
     assert.equal(results.length, artifacts.length);
@@ -100,7 +98,6 @@ describe("Solidity Tests", () => {
       }
     }
   });
-
 });
 
 // Load a contract built with Hardhat into a test suite
