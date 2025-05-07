@@ -1,7 +1,7 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{Address, B256, ChainId, HashMap, U256, account::AccountInfo, block::BlobGas};
-use edr_evm::{MineOrdering, hardfork, state::EvmStorage};
+use edr_evm::{MineOrdering, hardfork::ChainConfig, state::EvmStorage};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -104,7 +104,7 @@ pub struct Provider<HardforkT> {
     pub block_gas_limit: NonZeroU64,
     pub cache_dir: PathBuf,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, hardfork::Activations<HardforkT>>,
+    pub chains: HashMap<ChainId, ChainConfig<HardforkT>>,
     pub coinbase: Address,
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,

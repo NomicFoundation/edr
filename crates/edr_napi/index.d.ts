@@ -174,6 +174,8 @@ export const PRAGUE: string
 export interface ChainConfig {
   /** The chain ID */
   chainId: bigint
+  /** The chain's name */
+  name: string
   /** The chain's supported hardforks */
   hardforks: Array<HardforkActivation>
 }
@@ -209,10 +211,18 @@ export interface HttpHeader {
 }
 /** Configuration for a hardfork activation */
 export interface HardforkActivation {
+  /** The condition for the hardfork activation */
+  condition: HardforkActivationByBlockNumber | HardforkActivationByTimestamp
+  /** The activated hardfork */
+  hardfork: string
+}
+export interface HardforkActivationByBlockNumber {
   /** The block number at which the hardfork is activated */
   blockNumber: bigint
-  /** The activated hardfork */
-  specId: string
+}
+export interface HardforkActivationByTimestamp {
+  /** The timestamp at which the hardfork is activated */
+  timestamp: bigint
 }
 /**The type of ordering to use when selecting blocks to mine. */
 export enum MineOrdering {

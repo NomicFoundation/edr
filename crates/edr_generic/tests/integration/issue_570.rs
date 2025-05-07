@@ -1,7 +1,7 @@
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::{B256, l1};
-use edr_evm::hardfork;
+use edr_evm::hardfork::{self, ChainConfig};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
@@ -29,7 +29,10 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
 
     config.chains.insert(
         CHAIN_ID,
-        hardfork::Activations::with_spec_id(l1::SpecId::CANCUN),
+        ChainConfig {
+            name: "Base Sepolia".to_owned(),
+            hardfork_activations: hardfork::Activations::with_spec_id(l1::SpecId::CANCUN),
+        },
     );
 
     config.chain_id = CHAIN_ID;
