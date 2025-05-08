@@ -37,7 +37,7 @@ serde = { version = "1.0.209", default-features = false }
 serde_json = { version = "1.0.127", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
-semver = { version = "1.0.23", default-features = false }
+semver = { version = "1.0.26", default-features = false }
 thiserror = { version = "1.0.58", default-features = false }
 
 [workspace.lints.rust]

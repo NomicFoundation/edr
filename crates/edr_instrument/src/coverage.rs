@@ -7,7 +7,7 @@ use slang_solidity::{
     parser::{ParseError, Parser as SolidityParser, ParserInitializationError},
 };
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct InstrumentationMetadata {
     pub tag: B256,
     pub kind: &'static str,
@@ -15,6 +15,7 @@ pub struct InstrumentationMetadata {
     pub end_utf16: usize,
 }
 
+#[derive(Debug)]
 pub struct InstrumentationResult {
     pub source: String,
     pub metadata: Vec<InstrumentationMetadata>,
@@ -44,20 +45,37 @@ fn compute_deterministic_hash_for_statement(
 pub enum InstrumentationError {
     #[error(transparent)]
     Initialization(#[from] ParserInitializationError),
+    #[error("Invalid library path.")]
+    InvalidLibraryPath {
+        errors: Vec<ParseError>,
+        import: String,
+    },
     #[error("Failed to parse Solidity file.")]
-    ParseError { errors: Vec<ParseError> },
+    InvalidSourceCode { errors: Vec<ParseError> },
 }
 
 pub fn instrument_code(
     source_code: &str,
     source_id: &str,
     solidity_version: Version,
+    coverage_library_path: &str,
 ) -> Result<InstrumentationResult, InstrumentationError> {
     let parser = SolidityParser::create(solidity_version)?;
-    let parse_result = parser.parse(SolidityParser::ROOT_KIND, source_code);
-    if !parse_result.is_valid() {
-        return Err(InstrumentationError::ParseError {
-            errors: parse_result.errors().clone(),
+    let parsed_file = parser.parse_file_contents(source_code);
+    if !parsed_file.is_valid() {
+        return Err(InstrumentationError::InvalidSourceCode {
+            errors: parsed_file.errors().clone(),
+        });
+    }
+
+    let coverage_library_import = format!("\nimport \"{coverage_library_path}\";");
+    let parsed_library_import =
+        parser.parse_nonterminal(NonterminalKind::ImportDirective, &coverage_library_import);
+
+    if !parsed_library_import.is_valid() {
+        return Err(InstrumentationError::InvalidLibraryPath {
+            errors: parsed_library_import.errors().clone(),
+            import: coverage_library_import,
         });
     }
 
@@ -68,7 +86,7 @@ pub fn instrument_code(
     let mut metadata = Vec::new();
 
     let mut statement_counter: u64 = 0;
-    let mut cursor = parse_result.create_tree_cursor();
+    let mut cursor = parsed_file.create_tree_cursor();
     while cursor.go_to_next() {
         match cursor.node() {
             Node::Nonterminal(node) if node.kind == NonterminalKind::Statement => {
@@ -97,7 +115,7 @@ pub fn instrument_code(
         }
     }
 
-    instrumented_source.push_str("\nimport \"hardhat/coverage.sol\";");
+    instrumented_source.push_str(&coverage_library_import);
 
     Ok(InstrumentationResult {
         source: instrumented_source,
@@ -112,6 +130,7 @@ mod tests {
     use super::*;
 
     const FIXTURE: &str = include_str!("../../../data/contracts/instrumentation.sol");
+    const LIBRARY_PATH: &str = "__hardhat_coverage.sol";
 
     fn assert_metadata(
         metadata: &InstrumentationMetadata,
@@ -141,8 +160,8 @@ mod tests {
     #[test]
     fn determinism() {
         let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result =
-            instrument_code(FIXTURE, "instrumentation.sol", version).expect("Failed to instrument");
+        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
+            .expect("Failed to instrument");
 
         let tags = result
             .metadata
@@ -164,17 +183,38 @@ mod tests {
     #[test]
     fn import() {
         let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result =
-            instrument_code(FIXTURE, "instrumentation.sol", version).expect("Failed to instrument");
+        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
+            .expect("Failed to instrument");
 
-        assert!(result.source.contains("import \"hardhat/coverage.sol\";"));
+        assert!(
+            result
+                .source
+                .contains(&format!("import \"{LIBRARY_PATH}\";"))
+        );
+    }
+
+    #[test]
+    fn invalid_import() {
+        let version = Version::parse("0.8.0").expect("Failed to parse version");
+        let result = instrument_code(
+            FIXTURE,
+            "instrumentation.sol",
+            version,
+            "\"path/with/quotes.sol\"",
+        )
+        .expect_err("Expected an error for invalid import path");
+
+        assert!(matches!(
+            result,
+            InstrumentationError::InvalidLibraryPath { .. }
+        ));
     }
 
     #[test]
     fn instrumentation() {
         let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result =
-            instrument_code(FIXTURE, "instrumentation.sol", version).expect("Failed to instrument");
+        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
+            .expect("Failed to instrument");
 
         assert!(result.source.contains("__HardhatCoverage.sendHit("));
         assert!(result.source.contains(");"));
@@ -183,8 +223,8 @@ mod tests {
     #[test]
     fn mapping() {
         let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result =
-            instrument_code(FIXTURE, "instrumentation.sol", version).expect("Failed to instrument");
+        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
+            .expect("Failed to instrument");
 
         assert_eq!(result.metadata.len(), 3);
 

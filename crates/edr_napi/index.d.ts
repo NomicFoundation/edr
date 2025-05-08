@@ -389,7 +389,7 @@ export interface InstrumentationMetadata {
  * Adds per-statement coverage instrumentation to the given Solidity source
  * code.
  */
-export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
+export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string, coverageLibraryPath: string): InstrumentationResult
 /** Ethereum execution log. */
 export interface ExecutionLog {
   address: Buffer
