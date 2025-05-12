@@ -1,18 +1,17 @@
-pub mod old;
-
 /// Types for benchmark scenario collection.
 /// We are replicating the provider config here, as we need to be able to
 /// serialize secret keys for scenario collecting, but we don't want to include
 /// this in the production code to prevent secrets from accidentally leaking
 /// into logs.
+pub mod old;
+
 use std::{num::NonZeroU64, time::SystemTime};
 
-use edr_eth::{Address, B256, ChainId, HashMap, U256, block::BlobGas};
+use edr_eth::{Address, B256, ChainId, HashMap, block::BlobGas};
 use edr_evm::hardfork::ChainConfig;
 use edr_napi_core::provider::Config as ProviderConfig;
-use edr_provider::{
-    AccountConfig, MiningConfig, config::OwnedAccount, hardhat_rpc_types::ForkConfig,
-};
+use edr_provider::{AccountConfig, MiningConfig, hardhat_rpc_types::ForkConfig};
+use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_str};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,11 +23,10 @@ pub struct ScenarioConfig {
 
 /// Custom configuration for the provider that supports serde as we don't want a
 /// serde implementation for secret keys.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ScenarioProviderConfig {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
-    pub accounts: Vec<ScenarioOwnedAccount>,
     /// Whether to return an `Err` when `eth_call` fails
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
@@ -38,8 +36,6 @@ pub struct ScenarioProviderConfig {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, ChainConfig<String>>,
     pub coinbase: Address,
-    #[serde(default)]
-    pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, AccountConfig>,
     pub hardfork: String,
@@ -52,6 +48,7 @@ pub struct ScenarioProviderConfig {
     pub min_gas_price: u128,
     pub mining: MiningConfig,
     pub network_id: u64,
+    pub owned_accounts: Vec<SerializableSecretKey>,
 }
 
 impl From<ScenarioProviderConfig> for ProviderConfig {
@@ -59,11 +56,6 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
         Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
-            accounts: value
-                .accounts
-                .into_iter()
-                .map(OwnedAccount::from)
-                .collect::<Vec<_>>(),
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
@@ -71,7 +63,6 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             chain_id: value.chain_id,
             chains: value.chains,
             coinbase: value.coinbase,
-            enable_rip_7212: value.enable_rip_7212,
             fork: value.fork,
             genesis_state: value.genesis_state,
             hardfork: value.hardfork,
@@ -83,20 +74,30 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             mining: value.mining,
             network_id: value.network_id,
             observability: edr_provider::observability::Config::default(),
+            owned_accounts: value
+                .owned_accounts
+                .into_iter()
+                .map(SerializableSecretKey::into_inner)
+                .collect::<Vec<_>>(),
+            // Overriding precompiles is not supported in scenarios
+            precompile_overrides: HashMap::new(),
         }
     }
 }
 
-impl From<ProviderConfig> for ScenarioProviderConfig {
-    fn from(value: ProviderConfig) -> Self {
-        Self {
+impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ProviderConfig) -> Result<Self, Self::Error> {
+        if !value.precompile_overrides.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Precompile overrides are not supported in scenarios"
+            ));
+        }
+
+        Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
-            accounts: value
-                .accounts
-                .into_iter()
-                .map(ScenarioOwnedAccount::from)
-                .collect::<Vec<_>>(),
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
@@ -104,7 +105,6 @@ impl From<ProviderConfig> for ScenarioProviderConfig {
             chain_id: value.chain_id,
             chains: value.chains,
             coinbase: value.coinbase,
-            enable_rip_7212: value.enable_rip_7212,
             fork: value.fork,
             genesis_state: value.genesis_state,
             hardfork: value.hardfork,
@@ -115,57 +115,48 @@ impl From<ProviderConfig> for ScenarioProviderConfig {
             min_gas_price: value.min_gas_price,
             mining: value.mining,
             network_id: value.network_id,
-        }
+            owned_accounts: value
+                .owned_accounts
+                .into_iter()
+                .map(SerializableSecretKey::from)
+                .collect(),
+        })
     }
 }
 
-/// Configuration input for a single account
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScenarioOwnedAccount {
-    /// the secret key of the account
-    #[serde(with = "secret_key_serde")]
-    pub secret_key: k256::SecretKey,
-    /// the balance of the account
-    pub balance: U256,
-}
+#[repr(transparent)]
+#[derive(Clone, Debug)]
+pub struct SerializableSecretKey(k256::SecretKey);
 
-impl From<ScenarioOwnedAccount> for OwnedAccount {
-    fn from(value: ScenarioOwnedAccount) -> Self {
-        Self {
-            secret_key: value.secret_key,
-            balance: value.balance,
-        }
+impl SerializableSecretKey {
+    fn into_inner(self) -> k256::SecretKey {
+        self.0
     }
 }
 
-impl From<OwnedAccount> for ScenarioOwnedAccount {
-    fn from(value: OwnedAccount) -> Self {
-        Self {
-            secret_key: value.secret_key,
-            balance: value.balance,
-        }
+impl From<k256::SecretKey> for SerializableSecretKey {
+    fn from(value: k256::SecretKey) -> Self {
+        Self(value)
     }
 }
 
-mod secret_key_serde {
-    use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_str};
-    use serde::Deserialize;
-
-    pub(super) fn serialize<S>(
-        secret_key: &k256::SecretKey,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&secret_key_to_str(secret_key))
-    }
-
-    pub(super) fn deserialize<'de, D>(deserializer: D) -> Result<k256::SecretKey, D::Error>
+impl<'de> serde::Deserialize<'de> for SerializableSecretKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let s = <&str as Deserialize>::deserialize(deserializer)?;
-        secret_key_from_str(s).map_err(serde::de::Error::custom)
+        let secret_key = <&str as Deserialize>::deserialize(deserializer)?;
+        let secret_key = secret_key_from_str(secret_key).map_err(serde::de::Error::custom)?;
+
+        Ok(Self(secret_key))
+    }
+}
+
+impl serde::Serialize for SerializableSecretKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&secret_key_to_str(&self.0))
     }
 }

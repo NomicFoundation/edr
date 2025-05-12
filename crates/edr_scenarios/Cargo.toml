@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 alloy-serde = { workspace = true, features = ["std"] }
+anyhow = { workspace = true, features = ["std"] }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }

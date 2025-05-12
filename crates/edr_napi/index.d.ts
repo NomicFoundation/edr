@@ -23,55 +23,6 @@ export interface StorageSlot {
   /** The storage slot's value */
   value: bigint
 }
-/**
- * An owned account, for which the secret key is known, and its desired genesis
- * balance.
- */
-export interface OwnedAccount {
-  /** Account secret key */
-  secretKey: string
-  /** Account balance */
-  balance: bigint
-}
-export interface BlockOptions {
-  /** The parent block's hash */
-  parentHash?: Buffer
-  /** The block's beneficiary */
-  beneficiary?: Buffer
-  /** The state's root hash */
-  stateRoot?: Buffer
-  /** The block's difficulty */
-  difficulty?: bigint
-  /** The block's number */
-  number?: bigint
-  /** The block's gas limit */
-  gasLimit?: bigint
-  /** The block's timestamp */
-  timestamp?: bigint
-  /** The block's extra data */
-  extraData?: Buffer
-  /** The block's mix hash (or prevrandao) */
-  mixHash?: Buffer
-  /** The block's nonce */
-  nonce?: Buffer
-  /** The block's base gas fee */
-  baseFee?: bigint
-  /** The block's withdrawals */
-  withdrawals?: Array<Withdrawal>
-  /** Blob gas was added by EIP-4844 and is ignored in older headers. */
-  blobGas?: BlobGas
-  /**
-   * The hash tree root of the parent beacon block for the given execution
-   * block (EIP-4788).
-   */
-  parentBeaconBlockRoot?: Buffer
-  /**
-   * The commitment hash calculated for a list of [EIP-7685] data requests.
-   *
-   * [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
-   */
-  requestsHash?: Buffer
-}
 /** Information about the blob gas used in a block. */
 export interface BlobGas {
   /**
@@ -89,7 +40,7 @@ export interface BlobGas {
 }
 /** The result of executing a call override. */
 export interface CallOverrideResult {
-  result: Buffer
+  result: Uint8Array
   shouldRevert: boolean
 }
 export const GENERIC_CHAIN_TYPE: string
@@ -191,7 +142,7 @@ export interface CodeCoverageConfig {
    *
    * Errors should not be thrown inside the callback.
    */
-  onCollectedCoverageCallback: (coverageHits: Buffer[]) => void
+  onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => void
 }
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
@@ -266,12 +217,10 @@ export interface ProviderConfig {
   cacheDir?: string
   /** The chain ID of the blockchain */
   chainId: bigint
-  /** The configuration for chains */
-  chains: Array<ChainConfig>
+  /** Overrides for the configuration of chains. */
+  chainOverrides: Array<ChainConfig>
   /** The address of the coinbase */
-  coinbase: Buffer
-  /** Enables RIP-7212 */
-  enableRip7212: boolean
+  coinbase: Uint8Array
   /**
    * The configuration for forking a blockchain. If not provided, a local
    * blockchain will be created
@@ -294,7 +243,7 @@ export interface ProviderConfig {
    * The initial parent beacon block root of the blockchain. Required for
    * EIP-4788
    */
-  initialParentBeaconBlockRoot?: Buffer
+  initialParentBeaconBlockRoot?: Uint8Array
   /** The minimum gas price of the next block. */
   minGasPrice: bigint
   /** The configuration for the miner */
@@ -303,8 +252,10 @@ export interface ProviderConfig {
   networkId: bigint
   /** The configuration for the provider's observability */
   observability: ObservabilityConfig
-  /** Owned accounts, for which the secret key is known */
-  ownedAccounts: Array<OwnedAccount>
+  /** Secret keys of owned accounts */
+  ownedAccounts: Array<string>
+  /** Overrides for precompiles */
+  precompileOverrides: Array<Precompile>
 }
 /** Tracing config for Solidity stack trace generation. */
 export interface TracingConfigWithBuffers {
@@ -330,7 +281,7 @@ export interface BuildInfoAndOutput {
 export interface DebugTraceResult {
   pass: boolean
   gasUsed: bigint
-  output?: Buffer
+  output?: Uint8Array
   structLogs: Array<DebugTraceLogItem>
 }
 export interface DebugTraceLogItem {
@@ -368,7 +319,7 @@ export interface InstrumentationMetadata {
    * deterministically generated from the source code, source id, and
    * Solidity version.
    */
-  readonly tag: Buffer
+  readonly tag: Uint8Array
   /**
    * The kind of instrumented code. Currently, the only supported kind
    * is "statement".
@@ -392,9 +343,9 @@ export interface InstrumentationMetadata {
 export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string, coverageLibraryPath: string): InstrumentationResult
 /** Ethereum execution log. */
 export interface ExecutionLog {
-  address: Buffer
-  topics: Array<Buffer>
-  data: Buffer
+  address: Uint8Array
+  topics: Array<Uint8Array>
+  data: Uint8Array
 }
 export interface ContractAndFunctionName {
   /** The contract name. */
@@ -405,7 +356,7 @@ export interface ContractAndFunctionName {
 export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
-  decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
+  decodeConsoleLogInputsCallback: (inputs: Uint8Array[]) => string[]
   printLineCallback: (message: string, replace: boolean) => void
 }
 /** The possible reasons for successful termination of the EVM. */
@@ -420,13 +371,13 @@ export enum SuccessReason {
 }
 export interface CallOutput {
   /** Return value */
-  returnValue: Buffer
+  returnValue: Uint8Array
 }
 export interface CreateOutput {
   /** Return value */
-  returnValue: Buffer
+  returnValue: Uint8Array
   /** Optionally, a 160-bit address */
-  address?: Buffer
+  address?: Uint8Array
 }
 /** The result when the EVM terminates successfully. */
 export interface SuccessResult {
@@ -446,7 +397,7 @@ export interface RevertResult {
   /** The amount of gas used */
   gasUsed: bigint
   /** The transaction output */
-  output: Buffer
+  output: Uint8Array
 }
 /**
  * Indicates that the EVM has experienced an exceptional halt. This causes
@@ -494,7 +445,7 @@ export interface ExecutionResult {
   /** The transaction result */
   result: SuccessResult | RevertResult | HaltResult
   /** Optional contract address if the transaction created a new contract. */
-  contractAddress?: Buffer
+  contractAddress?: Uint8Array
 }
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
@@ -693,9 +644,9 @@ export interface ContractCallRunOutOfGasError {
 }
 export interface TracingMessage {
   /** Sender address */
-  readonly caller: Buffer
+  readonly caller: Uint8Array
   /** Recipient address. None if it is a Create message. */
-  readonly to?: Buffer
+  readonly to?: Uint8Array
   /** Whether it's a static call */
   readonly isStaticCall: boolean
   /** Transaction gas limit */
@@ -703,16 +654,16 @@ export interface TracingMessage {
   /** Depth of the message */
   readonly depth: number
   /** Input data of the message */
-  readonly data: Buffer
+  readonly data: Uint8Array
   /** Value sent in the message */
   readonly value: bigint
   /**
    * Address of the code that is being executed. Can be different from `to`
    * if a delegate call is being done.
    */
-  readonly codeAddress?: Buffer
+  readonly codeAddress?: Uint8Array
   /** Code of the contract that is being executed. */
-  readonly code?: Buffer
+  readonly code?: Uint8Array
 }
 export interface TracingStep {
   /** Call depth */
@@ -728,7 +679,7 @@ export interface TracingStep {
    */
   readonly stack: Array<bigint>
   /** The memory at the step. None if verbose tracing is disabled. */
-  readonly memory?: Buffer
+  readonly memory?: Uint8Array
 }
 export interface TracingMessageResult {
   /** Execution result */
@@ -745,7 +696,7 @@ export interface Withdrawal {
   /** The index of the validator that generated the withdrawal */
   validatorIndex: bigint
   /** The recipient address for withdrawal value */
-  address: Buffer
+  address: Uint8Array
   /** The value contained in withdrawal */
   amount: bigint
 }
@@ -756,6 +707,10 @@ export declare class EdrContext {
   createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
+}
+export declare class Precompile {
+  /** Returns the address of the precompile. */
+  get address(): Uint8Array
 }
 export declare class ProviderFactory { }
 export declare class Response {
@@ -770,7 +725,7 @@ export declare class Response {
 export declare class Provider {
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
-  setCallOverrideCallback(callOverrideCallback: (contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>): Promise<void>
+  setCallOverrideCallback(callOverrideCallback: (contract_address: Uint8Array, data: Uint8Array) => Promise<CallOverrideResult | undefined>): Promise<void>
   /**
    * Set to `true` to make the traces returned with `eth_call`,
    * `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
@@ -799,5 +754,5 @@ export declare class ReturnData {
   decodePanic(): bigint
 }
 export declare class RawTrace {
-  trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
+  get trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
 }

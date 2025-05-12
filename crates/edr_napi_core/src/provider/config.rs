@@ -5,8 +5,12 @@ use edr_eth::{
     Address, B256, ChainId, HashMap,
     block::BlobGas,
     l1::{self, hardfork::UnknownHardfork},
+    signature::SecretKey,
 };
-use edr_evm::hardfork::{self, ChainConfig};
+use edr_evm::{
+    hardfork::{self, ChainConfig},
+    precompile::PrecompileFn,
+};
 use edr_provider::{self, config, hardhat_rpc_types::ForkConfig};
 
 /// Chain-agnostic configuration for a provider.
@@ -14,7 +18,6 @@ use edr_provider::{self, config, hardhat_rpc_types::ForkConfig};
 pub struct Config {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
-    pub accounts: Vec<config::OwnedAccount>,
     /// Whether to return an `Err` when `eth_call` fails
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
@@ -24,7 +27,6 @@ pub struct Config {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, ChainConfig<String>>,
     pub coinbase: Address,
-    pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, config::Account>,
     pub hardfork: String,
@@ -36,6 +38,9 @@ pub struct Config {
     pub mining: config::Mining,
     pub network_id: u64,
     pub observability: edr_provider::observability::Config,
+    /// Secret keys of owned accounts.
+    pub owned_accounts: Vec<SecretKey>,
+    pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }
 
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
@@ -99,7 +104,6 @@ where
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
-            accounts: value.accounts,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
@@ -107,7 +111,6 @@ where
             chain_id: value.chain_id,
             chains,
             coinbase: value.coinbase,
-            enable_rip_7212: value.enable_rip_7212,
             fork: value.fork,
             genesis_state: value.genesis_state,
             hardfork,
@@ -119,6 +122,8 @@ where
             mining: value.mining,
             network_id: value.network_id,
             observability: value.observability,
+            owned_accounts: value.owned_accounts,
+            precompile_overrides: value.precompile_overrides,
         })
     }
 }

@@ -1734,7 +1734,6 @@ dependencies = [
  "edr_rpc_client",
  "edr_scenarios",
  "edr_solidity",
- "k256",
  "mimalloc",
  "napi",
  "napi-build",
@@ -1902,6 +1901,7 @@ name = "edr_scenarios"
 version = "0.3.5"
 dependencies = [
  "alloy-serde",
+ "anyhow",
  "edr_eth",
  "edr_evm",
  "edr_napi_core",

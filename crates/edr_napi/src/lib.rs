@@ -24,6 +24,8 @@ pub mod instrument;
 pub mod log;
 /// Types for an RPC request logger.
 pub mod logger;
+/// Types for precompiles.
+pub mod precompile;
 /// Types for Ethereum RPC providers.
 pub mod provider;
 /// Types for EVM execution results.

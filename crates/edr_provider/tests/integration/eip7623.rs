@@ -11,8 +11,7 @@ use edr_eth::{
 };
 use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
-    config::OwnedAccount,
-    test_utils::{create_test_config, one_ether},
+    test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
     time::CurrentTime,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
@@ -67,10 +66,7 @@ fn new_provider(hardfork: l1::SpecId) -> anyhow::Result<Provider<L1ChainSpec>> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config();
-    config.accounts = vec![OwnedAccount {
-        secret_key,
-        balance: one_ether(),
-    }];
+    set_genesis_state_with_owned_accounts(&mut config, vec![secret_key], one_ether());
     config.chain_id = CHAIN_ID;
     config.hardfork = hardfork;
 

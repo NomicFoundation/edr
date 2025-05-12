@@ -18,7 +18,7 @@ import { getContext } from "./helpers";
 chai.use(chaiAsPromised);
 
 class CoverageReporter {
-  public hits: Buffer[] = [];
+  public hits: Uint8Array[] = [];
 }
 
 function readDeployedBytecode(): string {

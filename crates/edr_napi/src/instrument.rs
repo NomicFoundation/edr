@@ -1,5 +1,5 @@
 use edr_instrument::coverage::{self, Version};
-use napi::bindgen_prelude::Buffer;
+use napi::bindgen_prelude::Uint8Array;
 use napi_derive::napi;
 
 #[napi(object)]
@@ -37,7 +37,7 @@ pub struct InstrumentationMetadata {
     /// deterministically generated from the source code, source id, and
     /// Solidity version.
     #[napi(readonly)]
-    pub tag: Buffer,
+    pub tag: Uint8Array,
     /// The kind of instrumented code. Currently, the only supported kind
     /// is "statement".
     #[napi(readonly)]
@@ -68,7 +68,7 @@ impl TryFrom<edr_instrument::coverage::InstrumentationMetadata> for Instrumentat
             .map_err(|_error| value.end_utf16)?;
 
         Ok(InstrumentationMetadata {
-            tag: Buffer::from(value.tag.as_slice()),
+            tag: Uint8Array::with_data_copied(value.tag),
             kind: value.kind.to_owned(),
             start_utf16,
             end_utf16,

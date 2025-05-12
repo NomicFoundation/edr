@@ -1,8 +1,9 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
-use edr_eth::{Address, B256, ChainId, HashMap, U256, account::AccountInfo, block::BlobGas};
+use edr_eth::{Address, B256, ChainId, HashMap, account::AccountInfo, block::BlobGas};
 use edr_evm::{MineOrdering, hardfork::ChainConfig, state::EvmStorage};
 use rand::Rng;
+use revm_precompile::PrecompileFn;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -96,7 +97,6 @@ pub struct Mining {
 pub struct Provider<HardforkT> {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
-    pub accounts: Vec<OwnedAccount>,
     /// Whether to return an `Err` when `eth_call` fails
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
@@ -106,7 +106,6 @@ pub struct Provider<HardforkT> {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, ChainConfig<HardforkT>>,
     pub coinbase: Address,
-    pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
     pub genesis_state: HashMap<Address, Account>,
     pub hardfork: HardforkT,
@@ -118,15 +117,8 @@ pub struct Provider<HardforkT> {
     pub mining: Mining,
     pub network_id: u64,
     pub observability: observability::Config,
-}
-
-/// Configuration input for a single account
-#[derive(Clone, Debug)]
-pub struct OwnedAccount {
-    /// the secret key of the account
-    pub secret_key: k256::SecretKey,
-    /// the balance of the account
-    pub balance: U256,
+    pub owned_accounts: Vec<k256::SecretKey>,
+    pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }
 
 impl Default for MemPool {

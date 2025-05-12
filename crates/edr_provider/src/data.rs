@@ -1,4 +1,3 @@
-mod account;
 mod call;
 mod gas;
 
@@ -15,7 +14,7 @@ use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
     Address, B256, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet,
     KECCAK_EMPTY, U256,
-    account::{Account, AccountInfo},
+    account::{Account, AccountInfo, AccountStatus},
     block::{
         BlockOptions, calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas,
         miner_reward,
@@ -63,14 +62,12 @@ use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
-use revm_precompile::{PrecompileFn, secp256r1};
 use rpds::HashTrieMapSync;
 use tokio::runtime;
 
-use self::account::{InitialAccounts, create_accounts};
 use crate::{
     MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
-    SyncSubscriberCallback,
+    SyncSubscriberCallback, config,
     data::gas::{BinarySearchEstimationArgs, CheckGasLimitArgs, compute_rewards},
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
@@ -190,7 +187,6 @@ pub struct ProviderData<
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     observability: observability::Config,
     beneficiary: Address,
-    custom_precompiles: HashMap<Address, PrecompileFn>,
     min_gas_price: u128,
     parent_beacon_block_root_generator: RandomHashGenerator,
     prev_randao_generator: RandomHashGenerator,
@@ -589,11 +585,6 @@ where
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
-        let InitialAccounts {
-            local_accounts,
-            genesis_state,
-        } = create_accounts(&config);
-
         let BlockchainAndState {
             blockchain,
             fork_metadata,
@@ -603,7 +594,7 @@ where
             prev_randao_generator,
             block_time_offset_seconds,
             next_block_base_fee_per_gas,
-        } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer, genesis_state)?;
+        } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer)?;
 
         let max_cached_states = get_max_cached_states_from_env::<ChainSpecT>()?;
         let mut block_state_cache = LruCache::new(max_cached_states);
@@ -620,6 +611,16 @@ where
         let is_auto_mining = config.mining.auto_mine;
         let min_gas_price = config.min_gas_price;
 
+        let local_accounts = config
+            .owned_accounts
+            .iter()
+            .map(|secret_key| {
+                let address = edr_eth::signature::public_key_to_address(secret_key.public_key());
+
+                (address, secret_key.clone())
+            })
+            .collect();
+
         let observability = config.observability.clone();
 
         let skip_unsupported_transaction_types = get_skip_unsupported_transaction_types_from_env();
@@ -632,17 +633,6 @@ where
             RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
         };
 
-        let custom_precompiles = {
-            let mut precompiles = HashMap::new();
-
-            if config.enable_rip_7212 {
-                // EIP-7212: secp256r1 P256verify
-                precompiles.insert(secp256r1::P256VERIFY.0, secp256r1::P256VERIFY.1);
-            }
-
-            precompiles
-        };
-
         Ok(Self {
             runtime_handle,
             initial_config: config,
@@ -651,7 +641,6 @@ where
             mem_pool: MemPool::new(block_gas_limit),
             observability,
             beneficiary,
-            custom_precompiles,
             min_gas_price,
             parent_beacon_block_root_generator,
             prev_randao_generator,
@@ -1742,7 +1731,7 @@ where
         });
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
-        let custom_precompiles = self.custom_precompiles.clone();
+        let custom_precompiles = self.initial_config.precompile_overrides.clone();
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut runtime_observer);
@@ -2160,7 +2149,7 @@ where
     ) -> Result<CallResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let custom_precompiles = self.custom_precompiles.clone();
+        let custom_precompiles = self.initial_config.precompile_overrides.clone();
         let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
@@ -2520,7 +2509,7 @@ where
             transaction::calculate_initial_tx_gas_for_tx(&transaction, self.evm_spec_id())
                 .initial_gas;
 
-        let custom_precompiles = self.custom_precompiles.clone();
+        let custom_precompiles = self.initial_config.precompile_overrides.clone();
         let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
@@ -2676,9 +2665,22 @@ fn create_blockchain_and_state<
     runtime: runtime::Handle,
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &impl TimeSinceEpoch,
-    mut genesis_state: HashMap<Address, Account>,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
+
+    let mut genesis_state: HashMap<Address, Account> = config
+        .genesis_state
+        .iter()
+        .map(|(address, config::Account { info, storage })| {
+            let account = Account {
+                info: info.clone(),
+                storage: storage.clone(),
+                status: AccountStatus::Created | AccountStatus::Touched,
+            };
+
+            (*address, account)
+        })
+        .collect();
 
     if let Some(fork_config) = &config.fork {
         let state_root_generator = Arc::new(parking_lot::Mutex::new(

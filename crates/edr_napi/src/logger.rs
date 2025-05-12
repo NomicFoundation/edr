@@ -32,7 +32,7 @@ impl TryCast<(String, Option<String>)> for ContractAndFunctionName {
 pub struct LoggerConfig {
     /// Whether to enable the logger.
     pub enable: bool,
-    #[napi(ts_type = "(inputs: Buffer[]) => string[]")]
+    #[napi(ts_type = "(inputs: Uint8Array[]) => string[]")]
     pub decode_console_log_inputs_callback: JsFunction,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
     pub print_line_callback: JsFunction,
@@ -48,9 +48,11 @@ impl LoggerConfig {
                     let inputs = ctx.env.create_array_with_length(ctx.value.len()).and_then(
                         |mut inputs| {
                             for (idx, input) in ctx.value.into_iter().enumerate() {
-                                ctx.env.create_buffer_with_data(input.to_vec()).and_then(
-                                    |input| inputs.set_element(idx as u32, input.into_raw()),
-                                )?;
+                                ctx.env
+                                    .create_arraybuffer_with_data(input.to_vec())
+                                    .and_then(|input| {
+                                        inputs.set_element(idx as u32, input.into_raw())
+                                    })?;
                             }
 
                             Ok(inputs)
