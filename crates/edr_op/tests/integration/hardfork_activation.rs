@@ -51,6 +51,7 @@ impl_test_hardfork_activation! {
         fjord: 122_514_212 => OpSpecId::FJORD,
         granite: 125_235_812 => OpSpecId::GRANITE,
         holocene: 130_423_412 => OpSpecId::HOLOCENE,
+        isthmus: 135_603_812 => OpSpecId::ISTHMUS,
     },
     op_sepolia: op::sepolia_url() => {
         regolith: 0 => OpSpecId::REGOLITH,
@@ -59,6 +60,7 @@ impl_test_hardfork_activation! {
         fjord: 12_597_930 => OpSpecId::FJORD,
         granite: 15_837_930 => OpSpecId::GRANITE,
         holocene: 20_415_330 => OpSpecId::HOLOCENE,
+        isthmus: 26_551_530 => OpSpecId::ISTHMUS,
     },
     base_mainnet: base::mainnet_url() => {
         regolith: 0 => OpSpecId::REGOLITH,
@@ -67,6 +69,7 @@ impl_test_hardfork_activation! {
         fjord: 16_918_927 => OpSpecId::FJORD,
         granite: 19_640_527 => OpSpecId::GRANITE,
         holocene: 24_828_127 => OpSpecId::HOLOCENE,
+        isthmus: 30_008_527 => OpSpecId::ISTHMUS,
     },
     base_sepolia: base::sepolia_url() => {
         regolith: 0 => OpSpecId::REGOLITH,
@@ -75,5 +78,6 @@ impl_test_hardfork_activation! {
         fjord: 10_615_056 => OpSpecId::FJORD,
         granite: 13_855_056 => OpSpecId::GRANITE,
         holocene: 18_432_456 => OpSpecId::HOLOCENE,
+        isthmus: 24_568_656 => OpSpecId::ISTHMUS,
     },
 }
