@@ -77,6 +77,10 @@ const MAINNET_HARDFORKS: &[Activation<l1::SpecId>] = &[
         condition: ForkCondition::Block(19_426_589),
         hardfork: l1::SpecId::CANCUN,
     },
+    Activation {
+        condition: ForkCondition::Timestamp(1_746_612_311),
+        hardfork: l1::SpecId::PRAGUE,
+    },
 ];
 
 fn mainnet_config() -> &'static ChainConfig<l1::SpecId> {
@@ -86,7 +90,7 @@ fn mainnet_config() -> &'static ChainConfig<l1::SpecId> {
         let hardfork_activations = MAINNET_HARDFORKS.into();
 
         ChainConfig {
-            name: "mainnet".to_string(),
+            name: "Mainnet".to_owned(),
             hardfork_activations,
         }
     })
@@ -105,6 +109,10 @@ const HOLESKY_HARDFORKS: &[Activation<l1::SpecId>] = &[
         condition: ForkCondition::Block(894_733),
         hardfork: l1::SpecId::CANCUN,
     },
+    Activation {
+        condition: ForkCondition::Timestamp(1_740_434_112),
+        hardfork: l1::SpecId::PRAGUE,
+    },
 ];
 
 fn holesky_config() -> &'static ChainConfig<l1::SpecId> {
@@ -114,7 +122,31 @@ fn holesky_config() -> &'static ChainConfig<l1::SpecId> {
         let hardfork_activations = HOLESKY_HARDFORKS.into();
 
         ChainConfig {
-            name: "holesky".to_string(),
+            name: "Holesky".to_owned(),
+            hardfork_activations,
+        }
+    })
+}
+
+const HOODI_HARDFORKS: &[Activation<l1::SpecId>] = &[
+    Activation {
+        condition: ForkCondition::Block(0),
+        hardfork: l1::SpecId::CANCUN,
+    },
+    Activation {
+        condition: ForkCondition::Timestamp(1_742_999_832),
+        hardfork: l1::SpecId::PRAGUE,
+    },
+];
+
+fn hoodi_config() -> &'static ChainConfig<l1::SpecId> {
+    static CONFIG: OnceLock<ChainConfig<l1::SpecId>> = OnceLock::new();
+
+    CONFIG.get_or_init(|| {
+        let hardfork_activations = HOODI_HARDFORKS.into();
+
+        ChainConfig {
+            name: "Hoodi".to_owned(),
             hardfork_activations,
         }
     })
@@ -137,6 +169,10 @@ const SEPOLIA_HARDFORKS: &[Activation<l1::SpecId>] = &[
         condition: ForkCondition::Block(5_187_023),
         hardfork: l1::SpecId::CANCUN,
     },
+    Activation {
+        condition: ForkCondition::Timestamp(1_741_159_776),
+        hardfork: l1::SpecId::PRAGUE,
+    },
 ];
 
 fn sepolia_config() -> &'static ChainConfig<l1::SpecId> {
@@ -146,7 +182,7 @@ fn sepolia_config() -> &'static ChainConfig<l1::SpecId> {
         let hardfork_activations = SEPOLIA_HARDFORKS.into();
 
         ChainConfig {
-            name: "sepolia".to_string(),
+            name: "Sepolia".to_owned(),
             hardfork_activations,
         }
     })
@@ -157,9 +193,10 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<l1::SpecId>> {
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
-        hardforks.insert(1, mainnet_config());
-        hardforks.insert(17_000, holesky_config());
-        hardforks.insert(11_155_111, sepolia_config());
+        hardforks.insert(0x1, mainnet_config());
+        hardforks.insert(0x4268, holesky_config());
+        hardforks.insert(0x88bb0, hoodi_config());
+        hardforks.insert(0xaa36a7, sepolia_config());
 
         hardforks
     })

@@ -40,6 +40,10 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             condition: ForkCondition::Timestamp(1_736_445_601),
             hardfork: OpSpecId::HOLOCENE,
         },
+        hardfork::Activation {
+            condition: ForkCondition::Timestamp(1_746_806_401),
+            hardfork: OpSpecId::ISTHMUS,
+        },
     ]),
 });
 
@@ -79,6 +83,10 @@ pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
         hardfork::Activation {
             condition: ForkCondition::Timestamp(1_732_633_200),
             hardfork: OpSpecId::HOLOCENE,
+        },
+        hardfork::Activation {
+            condition: ForkCondition::Timestamp(1_744_905_600),
+            hardfork: OpSpecId::ISTHMUS,
         },
     ]),
 });
