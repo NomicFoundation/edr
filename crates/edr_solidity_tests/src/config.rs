@@ -30,8 +30,9 @@ pub enum SolidityTestRunnerConfigError {
 pub struct SolidityTestRunnerConfig {
     /// Project root directory.
     pub project_root: PathBuf,
-    /// Whether to enable trace mode.
-    pub trace: bool,
+    /// Whether to enable trace mode and which traces to include in test
+    /// results.
+    pub traces: ShowTraces,
     /// Whether to collect coverage info
     pub coverage: bool,
     /// Whether to support the `testFail` prefix
@@ -121,4 +122,11 @@ impl SolidityTestRunnerConfig {
             None
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ShowTraces {
+    None,
+    Failing,
+    All,
 }
