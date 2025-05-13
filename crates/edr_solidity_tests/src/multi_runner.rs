@@ -14,6 +14,7 @@ use foundry_evm::{
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
     opts::EvmOpts,
     revm,
+    traces::{decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder},
 };
 use futures::StreamExt;
 
@@ -193,12 +194,13 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             find_time,
         );
 
+        let handle = tokio::runtime::Handle::current();
+
         let this = Arc::new(self);
         let args = contracts
             .into_iter()
             .zip(std::iter::repeat((this, fork, filter, tx)));
 
-        let handle = tokio::runtime::Handle::current();
         handle.spawn(async {
             futures::stream::iter(args)
                 .for_each_concurrent(
@@ -284,7 +286,23 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
                 solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
             },
         );
-        let r = runner.run_tests(filter, &self.test_options, handle);
+        let mut r = runner.run_tests(filter, &self.test_options, handle);
+
+        if self.traces != ShowTraces::None {
+            // TODO: with_signature_identifier?
+            let mut decoder = CallTraceDecoderBuilder::new().build();
+
+            for (_, result) in &mut r.test_results {
+                for (_, arena) in &mut result.traces {
+                    let mut trace_identifier =
+                        TraceIdentifiers::new().with_local(&self.known_contracts);
+                    decoder.identify(&arena, &mut trace_identifier);
+                    tokio::task::block_in_place(|| {
+                        handle.block_on(decode_trace_arena(arena, &mut decoder))
+                    });
+                }
+            }
+        }
 
         debug!(duration=?r.duration, "executed all tests in contract");
 
