@@ -356,9 +356,14 @@ export interface ContractAndFunctionName {
 export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
-  decodeConsoleLogInputsCallback: (inputs: Uint8Array[]) => string[]
+  decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]) => string[]
   printLineCallback: (message: string, replace: boolean) => void
 }
+/**
+ * [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
+ * secp256r1 precompile.
+ */
+export declare function precompileP256Verify(): Precompile
 /** The possible reasons for successful termination of the EVM. */
 export enum SuccessReason {
   /** The opcode `STOP` was called */
@@ -725,7 +730,7 @@ export declare class Response {
 export declare class Provider {
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
-  setCallOverrideCallback(callOverrideCallback: (contract_address: Uint8Array, data: Uint8Array) => Promise<CallOverrideResult | undefined>): Promise<void>
+  setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>
   /**
    * Set to `true` to make the traces returned with `eth_call`,
    * `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,

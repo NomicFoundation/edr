@@ -1,9 +1,8 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{Address, B256, ChainId, HashMap, account::AccountInfo, block::BlobGas};
-use edr_evm::{MineOrdering, hardfork::ChainConfig, state::EvmStorage};
+use edr_evm::{MineOrdering, hardfork::ChainConfig, precompile::PrecompileFn, state::EvmStorage};
 use rand::Rng;
-use revm_precompile::PrecompileFn;
 use serde::{Deserialize, Serialize};
 
 use crate::{
