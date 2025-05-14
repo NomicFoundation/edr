@@ -4,6 +4,9 @@ use edr_eth::{HashMap, l1};
 
 use super::{Activation, Activations, ChainConfig, ForkCondition};
 
+/// Mainnet chain ID
+pub const MAINNET_CHAIN_ID: u64 = 0x1;
+
 const MAINNET_HARDFORKS: &[Activation<l1::SpecId>] = &[
     Activation {
         condition: ForkCondition::Block(0),
@@ -96,6 +99,9 @@ fn mainnet_config() -> &'static ChainConfig<l1::SpecId> {
     })
 }
 
+/// Holesky chain ID
+pub const HOLESKY_CHAIN_ID: u64 = 0x4268;
+
 const HOLESKY_HARDFORKS: &[Activation<l1::SpecId>] = &[
     Activation {
         condition: ForkCondition::Block(0),
@@ -128,6 +134,9 @@ fn holesky_config() -> &'static ChainConfig<l1::SpecId> {
     })
 }
 
+/// Hoodi chain ID
+pub const HOODI_CHAIN_ID: u64 = 0x88bb0;
+
 const HOODI_HARDFORKS: &[Activation<l1::SpecId>] = &[
     Activation {
         condition: ForkCondition::Block(0),
@@ -151,6 +160,9 @@ fn hoodi_config() -> &'static ChainConfig<l1::SpecId> {
         }
     })
 }
+
+/// Sepolia chain ID
+pub const SEPOLIA_CHAIN_ID: u64 = 0xaa36a7;
 
 const SEPOLIA_HARDFORKS: &[Activation<l1::SpecId>] = &[
     Activation {
@@ -193,10 +205,10 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<l1::SpecId>> {
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
-        hardforks.insert(0x1, mainnet_config());
-        hardforks.insert(0x4268, holesky_config());
-        hardforks.insert(0x88bb0, hoodi_config());
-        hardforks.insert(0xaa36a7, sepolia_config());
+        hardforks.insert(MAINNET_CHAIN_ID, mainnet_config());
+        hardforks.insert(HOLESKY_CHAIN_ID, holesky_config());
+        hardforks.insert(HOODI_CHAIN_ID, hoodi_config());
+        hardforks.insert(SEPOLIA_CHAIN_ID, sepolia_config());
 
         hardforks
     })
